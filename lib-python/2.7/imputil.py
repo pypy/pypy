@@ -422,7 +422,8 @@ def _compile(pathname, timestamp):
     saved back to the filesystem for future imports. The source file's
     modification timestamp must be provided as a Long value.
     """
-    codestring = open(pathname, 'rU').read()
+    with open(pathname, 'rU') as fp:
+        codestring = fp.read()
     if codestring and codestring[-1] != '\n':
         codestring = codestring + '\n'
     code = __builtin__.compile(codestring, pathname, 'exec')
@@ -603,8 +604,8 @@ class DynLoadSuffixImporter:
         self.desc = desc
 
     def import_file(self, filename, finfo, fqname):
-        fp = open(filename, self.desc[1])
-        module = imp.load_module(fqname, fp, filename, self.desc)
+        with open(filename, self.desc[1]) as fp:
+            module = imp.load_module(fqname, fp, filename, self.desc)
         module.__file__ = filename
         return 0, module, { }
 

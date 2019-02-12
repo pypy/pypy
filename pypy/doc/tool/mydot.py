@@ -68,7 +68,7 @@ if __name__ == '__main__':
                       help="output format")
     options, args = parser.parse_args()
     if len(args) != 1:
-        raise ValueError, "need exactly one argument"
+        raise ValueError("need exactly one argument")
     epsfile = process_dot(py.path.local(args[0]))
     if options.format == "ps" or options.format == "eps":
         print epsfile.read()

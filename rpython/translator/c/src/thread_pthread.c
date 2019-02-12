@@ -37,7 +37,7 @@
 #  define THREAD_STACK_SIZE   0   /* use default stack size */
 # endif
 
-# if (defined(__APPLE__) || defined(__FreeBSD__)) && defined(THREAD_STACK_SIZE) && THREAD_STACK_SIZE == 0
+# if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)) && defined(THREAD_STACK_SIZE) && THREAD_STACK_SIZE == 0
    /* The default stack size for new threads on OSX is small enough that
     * we'll get hard crashes instead of 'maximum recursion depth exceeded'
     * exceptions.
@@ -56,39 +56,16 @@
 # endif
 #endif
 
-/* XXX This implementation is considered (to quote Tim Peters) "inherently
-   hosed" because:
-     - It does not guarantee the promise that a non-zero integer is returned.
-     - The cast to long is inherently unsafe.
-     - It is not clear that the 'volatile' (for AIX?) and ugly casting in the
-       latter return statement (for Alpha OSF/1) are any longer necessary.
-*/
-long RPyThreadGetIdent(void)
-{
-	volatile pthread_t threadid;
-	/* Jump through some hoops for Alpha OSF/1 */
-	threadid = pthread_self();
-
-#ifdef __CYGWIN__
-	/* typedef __uint32_t pthread_t; */
-	return (long) threadid;
-#else
-	if (sizeof(pthread_t) <= sizeof(long))
-		return (long) threadid;
-	else
-		return (long) *(long *) &threadid;
-#endif
-}
-
 static long _pypythread_stacksize = 0;
 
-static void *bootstrap_pthread(void *func)
+long RPyThreadStart(void (*func)(void))
 {
-  ((void(*)(void))func)();
-  return NULL;
+    /* a kind-of-invalid cast, but the 'func' passed here doesn't expect
+       any argument, so it's unlikely to cause problems */
+    return RPyThreadStartEx((void(*)(void *))func, NULL);
 }
 
-long RPyThreadStart(void (*func)(void))
+long RPyThreadStartEx(void (*func)(void *), void *arg)
 {
 	pthread_t th;
 	int status;
@@ -108,7 +85,7 @@ long RPyThreadStart(void (*func)(void))
 	if (tss != 0)
 		pthread_attr_setstacksize(&attrs, tss);
 #endif
-#if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED) && !defined(__FreeBSD__)
+#if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED) && !(defined(__FreeBSD__) || defined(__FreeBSD_kernel__))
         pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
 #endif
 
@@ -118,8 +95,12 @@ long RPyThreadStart(void (*func)(void))
 #else
 				 (pthread_attr_t*)NULL,
 #endif
-				 bootstrap_pthread,
-				 (void *)func
+    /* the next line does an invalid cast: pthread_create() will see a
+       function that returns random garbage.  The code is the same as
+       CPython: this random garbage will be stored for pthread_join() 
+       to return, but in this case pthread_join() is never called. */
+				 (void* (*)(void *))func,
+				 (void *)arg
 				 );
 
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
@@ -298,13 +279,23 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 	return success;
 }
 
-void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
-	sem_t *thelock = &lock->sem;
-	int status, error = 0;
+    sem_t *thelock = &lock->sem;
+    int status, error = 0;
+    int current_value;
 
-	status = sem_post(thelock);
-	CHECK_STATUS("sem_post");
+    /* If the current value is > 0, then the lock is not acquired so far.
+       Oops. */
+    sem_getvalue(thelock, &current_value);
+    if (current_value > 0) {
+        return -1;
+    }
+
+    status = sem_post(thelock);
+    CHECK_STATUS("sem_post");
+
+    return 0;
 }
 
 /************************************************************/
@@ -332,6 +323,9 @@ void RPyThreadAfterFork(void)
 		p->locked = was_locked;
 		p = next;
 	}
+    /* Also reinitialize the 'mutex_gil' mutexes, and resets the
+       number of other waiting threads to zero. */
+    RPyGilAllocate();
 }
 
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
@@ -446,12 +440,17 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 	return success;
 }
 
-void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
+        long result;
 
 	status = pthread_mutex_lock( &lock->mut );
 	CHECK_STATUS("pthread_mutex_lock[3]");
+
+        /* If the lock was non-locked, then oops, we return -1 for failure.
+           Otherwise, we return 0 for success. */
+        result = (lock->locked == 0) ? -1 : 0;
 
 	lock->locked = 0;
 
@@ -461,6 +460,8 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 	/* wake up someone (anyone, if any) waiting on the lock */
 	status = pthread_cond_signal( &lock->lock_released );
 	CHECK_STATUS("pthread_cond_signal");
+
+        return result;
 }
 
 /************************************************************/
@@ -472,118 +473,93 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /* GIL code                                                 */
 /************************************************************/
 
-#ifdef __llvm__
-#  define HAS_ATOMIC_ADD
-#endif
-
-#ifdef __GNUC__
-#  if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
-#    define HAS_ATOMIC_ADD
-#  endif
-#endif
-
-#ifdef HAS_ATOMIC_ADD
-#  define atomic_add __sync_fetch_and_add
-#else
-#  if defined(__amd64__)
-#    define atomic_add(ptr, value)  asm volatile ("lock addq %0, %1"        \
-                                 : : "ri"(value), "m"(*(ptr)) : "memory")
-#  elif defined(__i386__)
-#    define atomic_add(ptr, value)  asm volatile ("lock addl %0, %1"        \
-                                 : : "ri"(value), "m"(*(ptr)) : "memory")
-#  else
-#    error "Please use gcc >= 4.1 or write a custom 'asm' for your CPU."
-#  endif
-#endif
+#include <time.h>
 
 #define ASSERT_STATUS(call)                             \
     if (call != 0) {                                    \
-        fprintf(stderr, "Fatal error: " #call "\n");    \
+        perror("Fatal error: " #call);                  \
         abort();                                        \
     }
 
-static void _debug_print(const char *msg)
+static inline void timespec_delay(struct timespec *t, double incr)
 {
-#if 0
-    int col = (int)pthread_self();
-    col = 31 + ((col / 8) % 8);
-    fprintf(stderr, "\033[%dm%s\033[0m", col, msg);
+#ifdef CLOCK_REALTIME
+    clock_gettime(CLOCK_REALTIME, t);
+#else
+    struct timeval tv;
+    RPY_GETTIMEOFDAY(&tv);
+    t->tv_sec = tv.tv_sec;
+    t->tv_nsec = tv.tv_usec * 1000 + 999;
 #endif
-}
-
-static volatile long pending_acquires = -1;
-static pthread_mutex_t mutex_gil;
-static pthread_cond_t cond_gil;
-
-static void assert_has_the_gil(void)
-{
-#ifdef RPY_ASSERT
-    assert(pthread_mutex_trylock(&mutex_gil) != 0);
-    assert(pending_acquires >= 0);
-#endif
-}
-
-long RPyGilAllocate(void)
-{
-    int status, error = 0;
-    _debug_print("RPyGilAllocate\n");
-    pending_acquires = -1;
-
-    status = pthread_mutex_init(&mutex_gil,
-                                pthread_mutexattr_default);
-    CHECK_STATUS("pthread_mutex_init[GIL]");
-
-    status = pthread_cond_init(&cond_gil,
-                               pthread_condattr_default);
-    CHECK_STATUS("pthread_cond_init[GIL]");
-
-    if (error == 0) {
-        pending_acquires = 0;
-        RPyGilAcquire();
+    /* assumes that "incr" is not too large, less than 1 second */
+    long nsec = t->tv_nsec + (long)(incr * 1000000000.0);
+    if (nsec >= 1000000000) {
+        t->tv_sec += 1;
+        nsec -= 1000000000;
+        assert(nsec < 1000000000);
     }
-    return (error == 0);
+    t->tv_nsec = nsec;
 }
 
-long RPyGilYieldThread(void)
-{
-    /* can be called even before RPyGilAllocate(), but in this case,
-       pending_acquires will be -1 */
-#ifdef RPY_ASSERT
-    if (pending_acquires >= 0)
-        assert_has_the_gil();
-#endif
-    if (pending_acquires <= 0)
-        return 0;
-    atomic_add(&pending_acquires, 1L);
-    _debug_print("{");
-    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
-    ASSERT_STATUS(pthread_cond_wait(&cond_gil, &mutex_gil));
-    _debug_print("}");
-    atomic_add(&pending_acquires, -1L);
-    assert_has_the_gil();
-    return 1;
+typedef pthread_mutex_t mutex1_t;
+
+static inline void mutex1_init(mutex1_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_init(mutex, pthread_mutexattr_default));
+}
+static inline void mutex1_lock(mutex1_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_lock(mutex));
+}
+static inline void mutex1_unlock(mutex1_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_unlock(mutex));
 }
 
-void RPyGilRelease(void)
-{
-    _debug_print("RPyGilRelease\n");
-#ifdef RPY_ASSERT
-    assert(pending_acquires >= 0);
-#endif
-    assert_has_the_gil();
-    ASSERT_STATUS(pthread_mutex_unlock(&mutex_gil));
-    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
+typedef struct {
+    char locked;
+    pthread_mutex_t mut;
+    pthread_cond_t cond;
+} mutex2_t;
+
+static inline void mutex2_init_locked(mutex2_t *mutex) {
+    mutex->locked = 1;
+    ASSERT_STATUS(pthread_mutex_init(&mutex->mut, pthread_mutexattr_default));
+    ASSERT_STATUS(pthread_cond_init(&mutex->cond, pthread_condattr_default));
+}
+static inline void mutex2_unlock(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_lock(&mutex->mut));
+    mutex->locked = 0;
+    ASSERT_STATUS(pthread_mutex_unlock(&mutex->mut));
+    ASSERT_STATUS(pthread_cond_signal(&mutex->cond));
+}
+static inline void mutex2_loop_start(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_lock(&mutex->mut));
+}
+static inline void mutex2_loop_stop(mutex2_t *mutex) {
+    ASSERT_STATUS(pthread_mutex_unlock(&mutex->mut));
+}
+static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
+    if (mutex->locked) {
+        struct timespec t;
+        timespec_delay(&t, delay);
+        int error_from_timedwait = pthread_cond_timedwait(
+                                       &mutex->cond, &mutex->mut, &t);
+        if (error_from_timedwait != ETIMEDOUT) {
+            ASSERT_STATUS(error_from_timedwait);
+        }
+    }
+    int result = !mutex->locked;
+    mutex->locked = 1;
+    return result;
 }
 
-void RPyGilAcquire(void)
-{
-    _debug_print("about to RPyGilAcquire...\n");
-#ifdef RPY_ASSERT
-    assert(pending_acquires >= 0);
+//#define pypy_lock_test_and_set(ptr, value)  see thread_pthread.h
+#define atomic_increment(ptr)          __sync_add_and_fetch(ptr, 1)
+#define atomic_decrement(ptr)          __sync_sub_and_fetch(ptr, 1)
+#define RPy_CompilerMemoryBarrier()    asm("":::"memory")
+#define HAVE_PTHREAD_ATFORK            1
+
+#include "src/asm.h"   /* for RPy_YieldProcessor() */
+#ifndef RPy_YieldProcessor
+#  define RPy_YieldProcessor()   /* nothing */
 #endif
-    atomic_add(&pending_acquires, 1L);
-    ASSERT_STATUS(pthread_mutex_lock(&mutex_gil));
-    atomic_add(&pending_acquires, -1L);
-    assert_has_the_gil();
-    _debug_print("RPyGilAcquire\n");
-}
+
+#include "src/thread_gil.c"

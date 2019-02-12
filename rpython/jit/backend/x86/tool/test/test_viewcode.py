@@ -62,7 +62,7 @@ aa12: eight
 def test_find_objdump():
     old = os.environ['PATH']
     os.environ['PATH'] = ''
-    py.test.raises(find_objdump)
+    py.test.raises(Exception, find_objdump)
 
     #
     path = udir.join('objdump')

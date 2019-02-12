@@ -9,11 +9,11 @@ extern "C" {
 
 #define PyExceptionClass_Check(x)                                       \
     (PyClass_Check((x)) || (PyType_Check((x)) &&                        \
-      PyObject_IsSubclass((x), PyExc_BaseException)))
+      PyType_FastSubclass((PyTypeObject*)(x), Py_TPFLAGS_BASE_EXC_SUBCLASS)))
 
-PyObject *PyErr_NewException(const char *name, PyObject *base, PyObject *dict);
-PyObject *PyErr_NewExceptionWithDoc(const char *name, const char *doc, PyObject *base, PyObject *dict);
-PyObject *PyErr_Format(PyObject *exception, const char *format, ...);
+PyAPI_FUNC(PyObject *) PyErr_NewException(const char *name, PyObject *base, PyObject *dict);
+PyAPI_FUNC(PyObject *) PyErr_NewExceptionWithDoc(const char *name, const char *doc, PyObject *base, PyObject *dict);
+PyAPI_FUNC(PyObject *) PyErr_Format(PyObject *exception, const char *format, ...);
 
 /* These APIs aren't really part of the error implementation, but
    often needed to format error messages; the native C lib APIs are

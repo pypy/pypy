@@ -7,8 +7,8 @@ import sys
 
 from __pypy__ import lookup_special
 
-def _caller_locals(): 
-    return sys._getframe(0).f_locals 
+def _caller_locals():
+    return sys._getframe(0).f_locals
 
 def vars(*obj):
     """Return a dictionary of all the attributes currently bound in obj.  If
@@ -17,12 +17,11 @@ def vars(*obj):
     if len(obj) == 0:
         return _caller_locals()
     elif len(obj) != 1:
-        raise TypeError, "vars() takes at most 1 argument."
-    else:
-        try:
-            return obj[0].__dict__
-        except AttributeError:
-            raise TypeError, "vars() argument must have __dict__ attribute"
+        raise TypeError("vars() takes at most 1 argument.")
+    try:
+        return obj[0].__dict__
+    except AttributeError:
+        raise TypeError("vars() argument must have __dict__ attribute")
 
 def dir(*args):
     """dir([object]) -> list of strings
@@ -38,8 +37,7 @@ def dir(*args):
         attributes of its class's base classes.
     """
     if len(args) > 1:
-        raise TypeError("dir expected at most 1 arguments, got %d"
-                        % len(args))
+        raise TypeError("dir expected at most 1 arguments, got %d" % len(args))
     if len(args) == 0:
         local_names = _caller_locals().keys() # 2 stackframes away
         if not isinstance(local_names, list):
@@ -48,92 +46,61 @@ def dir(*args):
         return local_names
 
     import types
-
     obj = args[0]
-
-    dir_meth = None
     if isinstance(obj, types.InstanceType):
-        try:
-            dir_meth = getattr(obj, "__dir__")
-        except AttributeError:
-            pass
+        dir_meth = getattr(obj, '__dir__', None)
     else:
-        dir_meth = lookup_special(obj, "__dir__")
+        dir_meth = lookup_special(obj, '__dir__')
     if dir_meth is not None:
-        result = dir_meth()
-        if not isinstance(result, list):
+        names = dir_meth()
+        if not isinstance(names, list):
             raise TypeError("__dir__() must return a list, not %r" % (
-                type(result),))
-        result.sort()
-        return result
+                type(names),))
+        names.sort()
+        return names
     elif isinstance(obj, types.ModuleType):
         try:
-            result = list(obj.__dict__)
-            result.sort()
-            return result
+            return sorted(obj.__dict__)
         except AttributeError:
             return []
-
     elif isinstance(obj, (types.TypeType, types.ClassType)):
-        #Don't look at __class__, as metaclass methods would be confusing.
-        result = _classdir(obj).keys()
-        result.sort()
-        return result
-
-    else: #(regular item)
-        Dict = {}
-        try:
-            if isinstance(obj.__dict__, dict):
-                Dict.update(obj.__dict__)
-        except AttributeError:
-            pass
-        try:
-            Dict.update(_classdir(obj.__class__))
-        except AttributeError:
-            pass
+        # Don't look at __class__, as metaclass methods would be confusing.
+        return sorted(_classdir(obj))
+    else:
+        names = set()
+        ns = getattr(obj, '__dict__', None)
+        if isinstance(ns, dict):
+            names.update(ns)
+        klass = getattr(obj, '__class__', None)
+        if klass is not None:
+            names.update(_classdir(klass))
 
         ## Comment from object.c:
         ## /* Merge in __members__ and __methods__ (if any).
         ## XXX Would like this to go away someday; for now, it's
         ## XXX needed to get at im_self etc of method objects. */
-        for attr in ['__members__','__methods__']:
-            try:
-                l = getattr(obj, attr)
-                if not isinstance(l, list):
-                    continue
-                for item in l:
-                    if isinstance(item, types.StringTypes):
-                        Dict[item] = None
-            except (AttributeError, TypeError):
-                pass
+        for attr in '__members__', '__methods__':
+            l = getattr(obj, attr, None)
+            if not isinstance(l, list):
+                continue
+            names.extend(item for item in l if isinstance(item, str))
 
-        result = Dict.keys()
-        result.sort()
-        return result
+        return sorted(names)
 
 def _classdir(klass):
-    """Return a dict of the accessible attributes of class/type klass.
+    """Return a set of the accessible attributes of class/type klass.
 
-    This includes all attributes of klass and all of the
-    base classes recursively.
-
-    The values of this dict have no meaning - only the keys have
-    meaning.  
+    This includes all attributes of klass and all of the base classes
+    recursively.
     """
-    Dict = {}
-    try:
-        Dict.update(klass.__dict__)
-    except AttributeError: pass 
-    try:
-        # XXX - Use of .__mro__ would be suggested, if the existance
-        #   of that attribute could be guarranted.
-        bases = klass.__bases__
-    except AttributeError: pass
-    else:
-        try:
-            #Note that since we are only interested in the keys,
-            #  the order we merge classes is unimportant
-            for base in bases:
-                Dict.update(_classdir(base))
-        except TypeError: pass
-    return Dict
+    names = set()
+    ns = getattr(klass, '__dict__', None)
+    if ns is not None:
+        names.update(ns)
+    bases = getattr(klass, '__bases__', None)
+    if bases is not None:
+        # Note that since we are only interested in the keys, the order
+        # we merge classes is unimportant
+        for base in bases:
+            names.update(_classdir(base))
+    return names

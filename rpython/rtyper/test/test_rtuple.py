@@ -1,8 +1,10 @@
+import py
 from rpython.rtyper.rtuple import TUPLE_TYPE, TupleRepr
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool
 from rpython.rtyper.rbool import bool_repr
 from rpython.rtyper.rint import signed_repr
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rtyper.error import TyperError
 from rpython.rlib.objectmodel import compute_hash
 from rpython.translator.translator import TranslationContext
 
@@ -227,6 +229,15 @@ class TestRtuple(BaseRtypingTest):
             return total
         res = self.interpret(f, [93813])
         assert res == 93813
+
+    def test_tuple_iterator_reversed_unsupported(self):
+        def f(i):
+            total = 0
+            t = (i,)
+            for x in reversed(t):
+                total += x
+            return total
+        py.test.raises(TyperError, self.interpret, f, [93813])
 
     def test_inst_tuple_iter(self):
         class A:

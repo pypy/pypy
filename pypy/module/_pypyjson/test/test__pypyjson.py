@@ -10,7 +10,18 @@ def test_skip_whitespace():
     assert dec.skip_whitespace(8) == len(s)
     dec.close()
 
-    
+def test_decode_key():
+    s1 = "123" * 100
+    s = ' "%s"   "%s" ' % (s1, s1)
+    dec = JSONDecoder('fake space', s)
+    assert dec.pos == 0
+    x = dec.decode_key(0)
+    assert x == s1
+    # check caching
+    y = dec.decode_key(dec.pos)
+    assert y == s1
+    assert y is x
+    dec.close()
 
 class AppTest(object):
     spaceconfig = {"objspace.usemodules._pypyjson": True}
@@ -184,8 +195,56 @@ class AppTest(object):
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
 
+    def test_surrogate_pair(self):
+        import _pypyjson
+        json = '{"a":"\\uD83D"}'
+        res = _pypyjson.loads(json)
+        assert res == {u'a': u'\ud83d'}
+
+    def test_cache_keys(self):
+        import _pypyjson
+        json = '[{"a": 1}, {"a": 2}]'
+        res = _pypyjson.loads(json)
+        assert res == [{u'a': 1}, {u'a': 2}]
+
     def test_tab_in_string_should_fail(self):
         import _pypyjson
         # http://json.org/JSON_checker/test/fail25.json
         s = '["\ttab\tcharacter\tin\tstring\t"]'
         raises(ValueError, "_pypyjson.loads(s)")
+
+    def test_raw_encode_basestring_ascii(self):
+        import _pypyjson
+        def check(s):
+            s = _pypyjson.raw_encode_basestring_ascii(s)
+            assert type(s) is str
+            return s
+        assert check("") == ""
+        assert check(u"") == ""
+        assert check("abc ") == "abc "
+        assert check(u"abc ") == "abc "
+        raises(UnicodeDecodeError, check, "\xc0")
+        assert check("\xc2\x84") == "\\u0084"
+        assert check("\xf0\x92\x8d\x85") == "\\ud808\\udf45"
+        assert check(u"\ud808\udf45") == "\\ud808\\udf45"
+        assert check(u"\U00012345") == "\\ud808\\udf45"
+        assert check("a\"c") == "a\\\"c"
+        assert check("\\\"\b\f\n\r\t") == '\\\\\\"\\b\\f\\n\\r\\t'
+        assert check("\x07") == "\\u0007"
+
+    def test_error_position(self):
+        import _pypyjson
+        test_cases = [
+            ('[,', "No JSON object could be decoded: unexpected ',' at char 1"),
+            ('{"spam":[}', "No JSON object could be decoded: unexpected '}' at char 9"),
+            ('[42:', "Unexpected ':' when decoding array (char 3)"),
+            ('[42 "spam"', "Unexpected '\"' when decoding array (char 4)"),
+            ('[42,]', "No JSON object could be decoded: unexpected ']' at char 4"),
+            ('{"spam":[42}', "Unexpected '}' when decoding array (char 11)"),
+            ('["]', 'Unterminated string starting at char 1'),
+            ('["spam":', "Unexpected ':' when decoding array (char 7)"),
+            ('[{]', "Key name must be string at char 2"),
+        ]
+        for inputtext, errmsg in test_cases:
+            exc = raises(ValueError, _pypyjson.loads, inputtext)
+            assert str(exc.value) == errmsg

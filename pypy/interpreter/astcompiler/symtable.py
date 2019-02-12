@@ -36,7 +36,7 @@ class Scope(object):
         self.roles = {}
         self.varnames = []
         self.children = []
-        self.free_vars = []
+        self.free_vars = []    # a bag of names: the order doesn't matter here
         self.temp_name_counter = 1
         self.has_exec = False
         self.has_free = False
@@ -325,7 +325,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         try:
             module.walkabout(self)
             top.finalize(None, {}, {})
-        except SyntaxError, e:
+        except SyntaxError as e:
             e.filename = compile_info.filename
             raise
         self.pop_scope()

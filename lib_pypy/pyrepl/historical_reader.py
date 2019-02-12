@@ -17,7 +17,7 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from pyrepl import reader, commands
+from pyrepl import reader, commands, input
 from pyrepl.reader import Reader as R
 
 isearch_keymap = tuple(
@@ -214,7 +214,6 @@ class HistoricalReader(R):
                   isearch_forwards, isearch_backwards, operate_and_get_next]:
             self.commands[c.__name__] = c
             self.commands[c.__name__.replace('_', '-')] = c
-        from pyrepl import input
         self.isearch_trans = input.KeymapTranslator(
             isearch_keymap, invalid_cls=isearch_end,
             character_cls=isearch_add_character)

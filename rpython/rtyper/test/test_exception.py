@@ -36,14 +36,53 @@ def test_simple():
 class TestException(BaseRtypingTest):
     def test_exception_with_arg(self):
         def g(n):
-            raise OSError(n, "?")
+            raise IOError("test")
+        def h(n):
+            raise OSError(n, "?", None)
+        def i(n):
+            raise EnvironmentError(n, "?", "test")
+        def j(n):
+            raise IOError(0, "test")
+        def k(n):
+            raise OSError
         def f(n):
             try:
                 g(n)
-            except OSError, e:
-                return e.errno
-        res = self.interpret(f, [42])
-        assert res == 42
+            except IOError as e:
+                assert e.errno == 0
+                assert e.strerror == "test"
+                assert e.filename is None
+            else:
+                assert False
+            try:
+                h(n)
+            except OSError as e:
+                assert e.errno == 42
+                assert e.strerror == "?"
+                assert e.filename is None
+            else:
+                assert False
+            try:
+                i(n)
+            except EnvironmentError as e:
+                assert e.errno == 42
+                assert e.strerror == "?"
+                assert e.filename == "test"
+            else:
+                assert False
+            try:
+                j(n)
+            except (IOError, OSError) as e:
+                assert e.errno == 0
+                assert e.strerror == "test"
+                assert e.filename is None
+            try:
+                k(n)
+            except EnvironmentError as e:
+                assert e.errno == 0
+                assert e.strerror is None
+                assert e.filename is None
+        self.interpret(f, [42])
 
     def test_catch_incompatible_class(self):
         class MyError(Exception):
@@ -53,7 +92,7 @@ class TestException(BaseRtypingTest):
         def f(n):
             try:
                 assert n < 10
-            except MyError, operr:
+            except MyError as operr:
                 h(operr)
         res = self.interpret(f, [7])
         assert res is None
@@ -69,7 +108,7 @@ class TestException(BaseRtypingTest):
                 raise OperationError(next_instr)
             try:
                 raise BytecodeCorruption()
-            except OperationError, operr:
+            except OperationError as operr:
                 next_instr -= operr.a
         py.test.raises(LLException, self.interpret, f, [10])
 
@@ -85,7 +124,7 @@ class TestException(BaseRtypingTest):
                 raise OperationError(next_instr)
             try:
                 raise bcerr
-            except OperationError, operr:
+            except OperationError as operr:
                 next_instr -= operr.a
         py.test.raises(LLException, self.interpret, f, [10])
 

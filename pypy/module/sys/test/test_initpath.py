@@ -1,8 +1,10 @@
 import py
 import os.path
-from pypy.module.sys.initpath import (compute_stdlib_path, find_executable, find_stdlib,
-                                      resolvedirof)
+from pypy.module.sys.initpath import (compute_stdlib_path, find_executable,
+                                      find_stdlib, resolvedirof,
+                                      pypy_init_home, pypy_init_free)
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
+from rpython.rtyper.lltypesystem import rffi
 
 def build_hierarchy(prefix):
     dirname = '%d.%d' % CPYTHON_VERSION[:2]
@@ -10,7 +12,7 @@ def build_hierarchy(prefix):
     b = prefix.join('lib-python', dirname).ensure(dir=1)
     return a, b
 
-def test_find_stdlib(tmpdir, monkeypatch):
+def test_find_stdlib(tmpdir):
     bin_dir = tmpdir.join('bin').ensure(dir=True)
     pypy = bin_dir.join('pypy').ensure(file=True)
     build_hierarchy(tmpdir)
@@ -32,6 +34,14 @@ def test_find_stdlib_follow_symlink(tmpdir):
     os.symlink(str(pypy), str(pypy_sym))
     path, prefix = find_stdlib(None, str(pypy_sym))
     assert prefix == pypydir
+
+def test_pypy_init_home():
+    p = pypy_init_home()
+    assert p
+    s = rffi.charp2str(p)
+    pypy_init_free(p)
+    print s
+    assert os.path.exists(s)
 
 def test_compute_stdlib_path(tmpdir):
     dirs = build_hierarchy(tmpdir)
@@ -57,6 +67,7 @@ def test_find_executable(tmpdir, monkeypatch):
     a.join('pypy').ensure(file=True)
     b.join('pypy').ensure(file=True)
     #
+    monkeypatch.setattr(os, 'access', lambda x, y: True)
     # if there is already a slash, don't do anything
     monkeypatch.chdir(tmpdir)
     assert find_executable('a/pypy') == a.join('pypy')
@@ -82,7 +93,11 @@ def test_find_executable(tmpdir, monkeypatch):
     # if pypy is found but it's not a file, ignore it
     c.join('pypy').ensure(dir=True)
     assert find_executable('pypy') == a.join('pypy')
+    # if pypy is found but it's not executable, ignore it
+    monkeypatch.setattr(os, 'access', lambda x, y: False)
+    assert find_executable('pypy') == ''
     #
+    monkeypatch.setattr(os, 'access', lambda x, y: True)
     monkeypatch.setattr(initpath, 'we_are_translated', lambda: True)
     monkeypatch.setattr(initpath, '_WIN32', True)
     monkeypatch.setenv('PATH', str(a))

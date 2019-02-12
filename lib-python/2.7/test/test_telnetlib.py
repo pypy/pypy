@@ -177,7 +177,6 @@ class ReadTests(TestCase):
         self.dataq.join()
         data = telnet.read_all()
         self.assertEqual(data, ''.join(want[:-1]))
-        return
 
     def _test_blocking(self, func):
         self.dataq.put([self.block_long, EOF_sigil])
@@ -249,8 +248,8 @@ class ReadTests(TestCase):
         func = getattr(telnet, func_name)
         self.assertRaises(EOFError, func)
 
-    # read_eager and read_very_eager make the same gaurantees
-    # (they behave differently but we only test the gaurantees)
+    # read_eager and read_very_eager make the same guarantees
+    # (they behave differently but we only test the guarantees)
     def test_read_very_eager_A(self):
         self._test_read_any_eager_A('read_very_eager')
     def test_read_very_eager_B(self):

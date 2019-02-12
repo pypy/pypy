@@ -161,24 +161,24 @@ Examples are
 - map is a stateful implementation of iterating over a sequence
   of operations. It can be made non-recursive if the map operation
   creates its own frame to keep state.
-  
+
 - __init__ looks trivial, but the semantics is that the return value
   of __init__ is supposed to be None, and CPy has a special check for this
   after the call. This might simply be ignored, but it is a simple example
   for a case that cannot be handled automatically.
-  
+
 - things like operator.__add__ can theoretically generate a wild pattern
   of recursive calls while CPy tries to figure out if it is a numeric
   add or a sequence add, and other callbacks may occur when methods
   like __coerce__ get involved. This will never be solved for SLP, but
   might get a solution by the strategy outlined below.
-  
+
 The second implementation took a radically different approach. Context
 switches were done by hijacking parts of the C stack, storing them
 away and replacing them by the stack fragment that the target needs.
 This is very powerful and allows to switch even in the context of
 foreign code. With a little risk, I was even able to add concurrency
-to foreign Fortran code. 
+to foreign Fortran code.
 
 The above concept is called Hard (switching), the collaborative Soft (switching).
 Note that an improved version of Hard is still the building block
@@ -244,11 +244,11 @@ we really need to restore before we can do the function call?
 - the argument decoding is done, already, and the fact that we could have done
   the function call shows, that no exception occurred. We can ignore the rest
   of this activation record and do the housekeeping.
-  
+
 - the frame is prepared, and arguments are stored in it. The operation
   succeeded, and we have the frame. We can ignore exception handling
   and just do housekeeping by getting rid of references.
-  
+
 - for executing the frame, we need a special function that executes frames. It
   is possible that we need different flavors due to contexts. SLP does this
   by using different registered functions which operate on a frame, depending
@@ -327,7 +327,7 @@ track references which are known to be held by other objects.
 Optimizing that would do two things: The refcounting would become
 very efficient, since we would save some 80 % of it.
 The second part, which is relevant to the pickling problem is this:
-By doing a proper analysis, we already would have lost references to 
+By doing a proper analysis, we already would have lost references to
 all the variables which we don't need to save any longer, because
 we know that they are held in, for instance, frames.
 

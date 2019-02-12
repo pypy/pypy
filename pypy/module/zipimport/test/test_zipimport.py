@@ -16,7 +16,7 @@ class AppTestZipimport:
     """
     compression = ZIP_STORED
     spaceconfig = {
-        "usemodules": ['zipimport', 'rctime', 'struct', 'itertools', 'binascii'],
+        "usemodules": ['zipimport', 'time', 'struct', 'itertools', 'binascii'],
     }
     pathsep = os.path.sep
 
@@ -194,18 +194,19 @@ class AppTestZipimport:
         m0 = ord(self.test_pyc[0])
         m0 ^= 0x04
         test_pyc = chr(m0) + self.test_pyc[1:]
-        self.writefile("uu.pyc", test_pyc)
-        raises(ImportError, "__import__('uu', globals(), locals(), [])")
-        assert 'uu' not in sys.modules
+        self.writefile("xxbad_pyc.pyc", test_pyc)
+        raises(zipimport.ZipImportError,
+               "__import__('xxbad_pyc', globals(), locals(), [])")
+        assert 'xxbad_pyc' not in sys.modules
 
     def test_force_py(self):
         import sys
         m0 = ord(self.test_pyc[0])
         m0 ^= 0x04
         test_pyc = chr(m0) + self.test_pyc[1:]
-        self.writefile("uu.pyc", test_pyc)
-        self.writefile("uu.py", "def f(x): return x")
-        mod = __import__("uu", globals(), locals(), [])
+        self.writefile("xxforce_py.pyc", test_pyc)
+        self.writefile("xxforce_py.py", "def f(x): return x")
+        mod = __import__("xxforce_py", globals(), locals(), [])
         assert mod.f(3) == 3
 
     def test_sys_modules(self):
@@ -359,6 +360,11 @@ def get_co_filename():
         code = z.get_code('mymodule')
         co_filename = code.co_filename
         assert co_filename == expected
+
+    def test_import_exception(self):
+        self.writefile('x1test.py', '1/0')
+        self.writefile('x1test/__init__.py', 'raise ValueError')
+        raises(ValueError, __import__, 'x1test', None, None, [])
 
 
 if os.sep != '/':

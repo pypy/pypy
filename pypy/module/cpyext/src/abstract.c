@@ -23,6 +23,23 @@ null_error(void)
 /* Operations on any object */
 
 int
+PyObject_DelItemString(PyObject *o, char *key)
+{
+    PyObject *okey;
+    int ret;
+
+    if (o == NULL || key == NULL) {
+        null_error();
+        return -1;
+    }
+    okey = PyString_FromString(key);
+    if (okey == NULL)
+        return -1;
+    ret = PyObject_DelItem(o, okey);
+    Py_DECREF(okey);
+    return ret;
+}
+int
 PyObject_CheckReadBuffer(PyObject *obj)
 {
     PyBufferProcs *pb = obj->ob_type->tp_as_buffer;
@@ -99,6 +116,189 @@ int PyObject_AsWriteBuffer(PyObject *obj,
     *buffer = pp;
     *buffer_len = len;
     return 0;
+}
+
+/* Buffer C-API for Python 3.0 */
+
+int
+PyObject_GetBuffer(PyObject *obj, Py_buffer *view, int flags)
+{
+    if (!PyObject_CheckBuffer(obj)) {
+        PyErr_Format(PyExc_TypeError,
+                     "'%100s' does not have the buffer interface",
+                     Py_TYPE(obj)->tp_name);
+        return -1;
+    }
+    return (*(obj->ob_type->tp_as_buffer->bf_getbuffer))(obj, view, flags);
+}
+
+void*
+PyBuffer_GetPointer(Py_buffer *view, Py_ssize_t *indices)
+{
+    char* pointer;
+    int i;
+    pointer = (char *)view->buf;
+    for (i = 0; i < view->ndim; i++) {
+        pointer += view->strides[i]*indices[i];
+        if ((view->suboffsets != NULL) && (view->suboffsets[i] >= 0)) {
+            pointer = *((char**)pointer) + view->suboffsets[i];
+        }
+    }
+    return (void*)pointer;
+}
+
+
+void
+_Py_add_one_to_index_F(int nd, Py_ssize_t *index, const Py_ssize_t *shape)
+{
+    int k;
+
+    for (k=0; k<nd; k++) {
+        if (index[k] < shape[k]-1) {
+            index[k]++;
+            break;
+        }
+        else {
+            index[k] = 0;
+        }
+    }
+}
+
+void
+_Py_add_one_to_index_C(int nd, Py_ssize_t *index, const Py_ssize_t *shape)
+{
+    int k;
+
+    for (k=nd-1; k>=0; k--) {
+        if (index[k] < shape[k]-1) {
+            index[k]++;
+            break;
+        }
+        else {
+            index[k] = 0;
+        }
+    }
+}
+
+  /* view is not checked for consistency in either of these.  It is
+     assumed that the size of the buffer is view->len in
+     view->len / view->itemsize elements.
+  */
+
+int
+PyBuffer_ToContiguous(void *buf, Py_buffer *view, Py_ssize_t len, char fort)
+{
+    int k;
+    void (*addone)(int, Py_ssize_t *, const Py_ssize_t *);
+    Py_ssize_t *indices, elements;
+    char *dest, *ptr;
+
+    if (len > view->len) {
+        len = view->len;
+    }
+
+    if (PyBuffer_IsContiguous(view, fort)) {
+        /* simplest copy is all that is needed */
+        memcpy(buf, view->buf, len);
+        return 0;
+    }
+
+    /* Otherwise a more elaborate scheme is needed */
+
+    /* view->ndim <= 64 */
+    indices = (Py_ssize_t *)PyMem_Malloc(sizeof(Py_ssize_t)*(view->ndim));
+    if (indices == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    for (k=0; k<view->ndim;k++) {
+        indices[k] = 0;
+    }
+
+    if (fort == 'F') {
+        addone = _Py_add_one_to_index_F;
+    }
+    else {
+        addone = _Py_add_one_to_index_C;
+    }
+    dest = buf;
+    /* XXX : This is not going to be the fastest code in the world
+             several optimizations are possible.
+     */
+    elements = len / view->itemsize;
+    while (elements--) {
+        ptr = PyBuffer_GetPointer(view, indices);
+        memcpy(dest, ptr, view->itemsize);
+        dest += view->itemsize;
+        addone(view->ndim, indices, view->shape);
+    }
+    PyMem_Free(indices);
+    return 0;
+}
+
+int
+PyBuffer_FromContiguous(Py_buffer *view, void *buf, Py_ssize_t len, char fort)
+{
+    int k;
+    void (*addone)(int, Py_ssize_t *, const Py_ssize_t *);
+    Py_ssize_t *indices, elements;
+    char *src, *ptr;
+
+    if (len > view->len) {
+        len = view->len;
+    }
+
+    if (PyBuffer_IsContiguous(view, fort)) {
+        /* simplest copy is all that is needed */
+        memcpy(view->buf, buf, len);
+        return 0;
+    }
+
+    /* Otherwise a more elaborate scheme is needed */
+
+    /* view->ndim <= 64 */
+    indices = (Py_ssize_t *)PyMem_Malloc(sizeof(Py_ssize_t)*(view->ndim));
+    if (indices == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    for (k=0; k<view->ndim;k++) {
+        indices[k] = 0;
+    }
+
+    if (fort == 'F') {
+        addone = _Py_add_one_to_index_F;
+    }
+    else {
+        addone = _Py_add_one_to_index_C;
+    }
+    src = buf;
+    /* XXX : This is not going to be the fastest code in the world
+             several optimizations are possible.
+     */
+    elements = len / view->itemsize;
+    while (elements--) {
+        ptr = PyBuffer_GetPointer(view, indices);
+        memcpy(ptr, src, view->itemsize);
+        src += view->itemsize;
+        addone(view->ndim, indices, view->shape);
+    }
+
+    PyMem_Free(indices);
+    return 0;
+}
+
+
+
+
+void
+PyBuffer_Release(Py_buffer *view)
+{
+    PyObject *obj = view->obj;
+    if (obj && Py_TYPE(obj)->tp_as_buffer && Py_TYPE(obj)->tp_as_buffer->bf_releasebuffer)
+        Py_TYPE(obj)->tp_as_buffer->bf_releasebuffer(obj, view);
+    Py_XDECREF(obj);
+    view->obj = NULL;
 }
 
 /* Operations on callable objects */
@@ -247,6 +447,7 @@ _PyObject_CallMethod_SizeT(PyObject *o, const char *name, const char *format, ..
     return retval;
 }
 
+
 static PyObject *
 objargs_mktuple(va_list va)
 {
@@ -326,3 +527,9 @@ PyObject_CallFunctionObjArgs(PyObject *callable, ...)
     return tmp;
 }
 
+/* for binary compatibility with 5.1 */
+PyAPI_FUNC(void) PyPyObject_Del(PyObject *);
+void PyPyObject_Del(PyObject *op)
+{
+    PyObject_FREE(op);
+}

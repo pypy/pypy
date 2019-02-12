@@ -21,5 +21,5 @@ class Module(MixedModule):
         # been used...  otherwise, some code is not happy about seeing
         # this code object twice
         space = self.space
-        space.getattr(self, space.wrap('defaultdict'))  # force importing
-        space.delattr(self, space.wrap('__missing__'))
+        space.getattr(self, space.newtext('defaultdict'))  # force importing
+        space.delattr(self, space.newtext('__missing__'))

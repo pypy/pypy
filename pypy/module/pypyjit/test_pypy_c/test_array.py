@@ -42,7 +42,7 @@ class TestArray(BaseTestPyPyC):
             guard_not_invalidated?
             i13 = int_lt(i7, i9)
             guard_true(i13, descr=...)
-            i15 = getarrayitem_raw(i10, i7, descr=<ArrayS .>)
+            i15 = getarrayitem_raw_i(i10, i7, descr=<ArrayS .>)
             i16 = int_add_ovf(i8, i15)
             guard_no_overflow(descr=...)
             i18 = int_add(i7, 1)
@@ -74,12 +74,12 @@ class TestArray(BaseTestPyPyC):
                 guard_true(i13, descr=...)
                 guard_not_invalidated(descr=...)
             # the bound check guard on img has been killed (thanks to the asserts)
-                i14 = getarrayitem_raw(i10, i8, descr=<ArrayS .>)
+                i14 = getarrayitem_raw_i(i10, i8, descr=<ArrayS .>)
                 i15 = int_add_ovf(i9, i14)
                 guard_no_overflow(descr=...)
                 i17 = int_sub(i8, 640)
             # the bound check guard on intimg has been killed (thanks to the asserts)
-                i18 = getarrayitem_raw(i11, i17, descr=<ArrayS .>)
+                i18 = getarrayitem_raw_i(i11, i17, descr=<ArrayS .>)
                 i19 = int_add_ovf(i18, i15)
                 guard_no_overflow(descr=...)
                 setarrayitem_raw(i11, i8, _, descr=<ArrayS .>)
@@ -93,14 +93,26 @@ class TestArray(BaseTestPyPyC):
                 guard_true(i13, descr=...)
                 guard_not_invalidated(descr=...)
             # the bound check guard on img has been killed (thanks to the asserts)
-                i14 = getarrayitem_raw(i10, i8, descr=<ArrayS .>)
+                i14 = getarrayitem_raw_i(i10, i8, descr=<ArrayS .>)
+            # advanced: the following int_add cannot overflow, because:
+            # - i14 fits inside 32 bits
+            # - i9 fits inside 33 bits, because:
+            #     - it comes from the previous iteration's i15
+            #     - prev i19 = prev i18 + prev i15
+            #         - prev i18 fits inside 32 bits
+            #         - prev i19 is guarded to fit inside 32 bits
+            #         - so as a consequence, prev i15 fits inside 33 bits
+            # the new i15 thus fits inside "33.5" bits, which is enough to
+            # guarantee that the next int_add(i18, i15) cannot overflow either...
                 i15 = int_add(i9, i14)
                 i17 = int_sub(i8, 640)
             # the bound check guard on intimg has been killed (thanks to the asserts)
-                i18 = getarrayitem_raw(i11, i17, descr=<ArrayS .>)
+                i18 = getarrayitem_raw_i(i11, i17, descr=<ArrayS .>)
                 i19 = int_add(i18, i15)
-            # on 64bit, there is a guard checking that i19 actually fits into 32bit
-                ...
+            # guard checking that i19 actually fits into 32bit
+                i20 = int_signext(i19, 4)
+                i65 = int_ne(i20, i19)
+                guard_false(i65, descr=...)
                 setarrayitem_raw(i11, i8, _, descr=<ArrayS .>)
                 i28 = int_add(i8, 1)
                 --TICK--
@@ -127,10 +139,10 @@ class TestArray(BaseTestPyPyC):
             guard_true(i10, descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
-            f13 = getarrayitem_raw(i8, i6, descr=<ArrayF 8>)
+            f13 = getarrayitem_raw_f(i8, i6, descr=<ArrayF 8>)
             f15 = float_add(f13, 20.500000)
             setarrayitem_raw(i8, i6, f15, descr=<ArrayF 8>)
-            f16 = getarrayitem_raw(i8, i6, descr=<ArrayF 8>)
+            f16 = getarrayitem_raw_f(i8, i6, descr=<ArrayF 8>)
             i18 = float_eq(f16, 42.000000)
             guard_true(i18, descr=...)
             i20 = int_add(i6, 1)
@@ -163,12 +175,12 @@ class TestArray(BaseTestPyPyC):
             guard_true(i10, descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
-            i13 = getarrayitem_raw(i8, i6, descr=<Array. 4>)
+            i13 = getarrayitem_raw_i(i8, i6, descr=<Array. 4>)
             f14 = cast_singlefloat_to_float(i13)
             f16 = float_add(f14, 20.500000)
             i17 = cast_float_to_singlefloat(f16)
             setarrayitem_raw(i8, i6,i17, descr=<Array. 4>)
-            i18 = getarrayitem_raw(i8, i6, descr=<Array. 4>)
+            i18 = getarrayitem_raw_i(i8, i6, descr=<Array. 4>)
             f19 = cast_singlefloat_to_float(i18)
             i21 = float_eq(f19, 42.000000)
             guard_true(i21, descr=...)
@@ -213,23 +225,23 @@ class TestArray(BaseTestPyPyC):
             ...
             i20 = int_ge(i18, i8)
             guard_false(i20, descr=...)
-            f21 = getarrayitem_raw(i13, i18, descr=...)
+            f21 = getarrayitem_raw_f(i13, i18, descr=...)
             i14 = int_sub(i6, 1)
             i15 = int_ge(i14, i8)
             guard_false(i15, descr=...)
-            f23 = getarrayitem_raw(i13, i14, descr=...)
+            f23 = getarrayitem_raw_f(i13, i14, descr=...)
             f24 = float_add(f21, f23)
-            f26 = getarrayitem_raw(i13, i6, descr=...)
+            f26 = getarrayitem_raw_f(i13, i6, descr=...)
             f27 = float_add(f24, f26)
             i29 = int_add(i6, 1)
             i31 = int_ge(i29, i8)
             guard_false(i31, descr=...)
-            f33 = getarrayitem_raw(i13, i29, descr=...)
+            f33 = getarrayitem_raw_f(i13, i29, descr=...)
             f34 = float_add(f27, f33)
             i36 = int_add(i6, 2)
             i38 = int_ge(i36, i8)
             guard_false(i38, descr=...)
-            f39 = getarrayitem_raw(i13, i36, descr=...)
+            f39 = getarrayitem_raw_f(i13, i36, descr=...)
             ...
         """)
 
@@ -264,20 +276,20 @@ class TestArray(BaseTestPyPyC):
                           expected_src="""
             ...
             i17 = int_and(i14, 255)
-            f18 = getarrayitem_raw(i8, i17, descr=...)
+            f18 = getarrayitem_raw_f(i8, i17, descr=...)
             i19s = int_sub_ovf(i6, 1)
             guard_no_overflow(descr=...)
             i22s = int_and(i19s, 255)
-            f20 = getarrayitem_raw(i8, i22s, descr=...)
+            f20 = getarrayitem_raw_f(i8, i22s, descr=...)
             f21 = float_add(f18, f20)
-            f23 = getarrayitem_raw(i8, i10, descr=...)
+            f23 = getarrayitem_raw_f(i8, i10, descr=...)
             f24 = float_add(f21, f23)
             i26 = int_add(i6, 1)
             i29 = int_and(i26, 255)
-            f30 = getarrayitem_raw(i8, i29, descr=...)
+            f30 = getarrayitem_raw_f(i8, i29, descr=...)
             f31 = float_add(f24, f30)
             i33 = int_add(i6, 2)
             i36 = int_and(i33, 255)
-            f37 = getarrayitem_raw(i8, i36, descr=...)
+            f37 = getarrayitem_raw_f(i8, i36, descr=...)
             ...
         """)

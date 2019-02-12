@@ -3,6 +3,7 @@
 import py, os, sys
 
 from rpython.translator.platform import Platform, log, _run_subprocess
+from rpython.config.support import detect_pax
 
 import rpython
 rpydir = str(py.path.local(rpython.__file__).join('..'))
@@ -10,10 +11,12 @@ rpydir = str(py.path.local(rpython.__file__).join('..'))
 class BasePosix(Platform):
     exe_ext = ''
     make_cmd = 'make'
+    so_prefixes = ('lib', '')
 
     relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 
     DEFAULT_CC = 'gcc'
+    rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'']
 
     def __init__(self, cc=None):
         self.cc = cc or os.environ.get('CC', self.DEFAULT_CC)
@@ -22,9 +25,11 @@ class BasePosix(Platform):
         return ['-l%s' % lib for lib in libraries]
 
     def _libdirs(self, library_dirs):
+        assert '' not in library_dirs
         return ['-L%s' % ldir for ldir in library_dirs]
 
     def _includedirs(self, include_dirs):
+        assert '' not in include_dirs
         return ['-I%s' % idir for idir in include_dirs]
 
     def _linkfiles(self, link_files):
@@ -40,51 +45,66 @@ class BasePosix(Platform):
     def _link_args_from_eci(self, eci, standalone):
         return Platform._link_args_from_eci(self, eci, standalone)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
-        if not eci.export_symbols:
-            return []
-
-        if sys.platform.startswith('freebsd'):
-            eci.export_symbols += ('__progname', 'environ')
-
-        response_file = self._make_response_file("dynamic-symbols-")
-        f = response_file.open("w")
-        f.write("{\n\tglobal:\n")
-        for sym in eci.export_symbols:
-            f.write("\t\t%s;\n" % (sym,))
-        f.write("\tlocal:\n\t\t*;\n};")
-        f.close()
-
-        if relto:
-            response_file = relto.bestrelpath(response_file)
+    def _exportsymbols_link_flags(self):
         if (self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt')
                 or sys.platform == 'cygwin'):
-            return ["-Wl,--export-all-symbols,--version-script=%s" % \
-                    (response_file,)]
-        return ["-Wl,--export-dynamic,--version-script=%s" % (response_file,)]
+            return ["-Wl,--export-all-symbols"]
+        return ["-Wl,--export-dynamic"]
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
         args = [str(ofile) for ofile in ofiles] + link_args
         args += ['-o', str(exe_name)]
         if not standalone:
-            args = self._args_for_shared(args)
+            args = self._args_for_shared(args, exe_name=exe_name)
         self._execute_c_compiler(cc, args, exe_name,
                                  cwd=str(exe_name.dirpath()))
         return exe_name
 
-    def _pkg_config(self, lib, opt, default):
+    def _pkg_config(self, lib, opt, default, check_result_dir=False):
         try:
             ret, out, err = _run_subprocess("pkg-config", [lib, opt])
-        except OSError:
+        except OSError as e:
+            err = str(e)
             ret = 1
         if ret:
-            return default
-        # strip compiler flags
-        return [entry[2:] for entry in out.split()]
+            result = default
+        else:
+            # strip compiler flags
+            result = [entry[2:] for entry in out.split()]
+        #
+        if not result:
+            pass # if pkg-config explicitly returned nothing, then
+                 # we assume it means no options are needed
+        elif check_result_dir:
+            # check that at least one of the results is a valid dir
+            for check in result:
+                if os.path.isdir(check):
+                    break
+            else:
+                if ret:
+                    msg = ("running 'pkg-config %s %s' failed:\n%s\n"
+                           "and the default %r is not a valid directory" % (
+                        lib, opt, err.rstrip(), default))
+                else:
+                    msg = ("'pkg-config %s %s' returned no valid directory:\n"
+                           "%s\n%s" % (lib, opt, out.rstrip(), err.rstrip()))
+                raise ValueError(msg)
+        return result
+
+    def get_rpath_flags(self, rel_libdirs):
+        # needed for cross-compilation i.e. ARM
+        return self.rpath_flags + ['-Wl,-rpath-link=\'%s\'' % ldir
+                                    for ldir in rel_libdirs]
+
+    def get_shared_only_compile_flags(self):
+        return tuple(self.shared_only) + ('-fvisibility=hidden',)
+
+    def makefile_link_flags(self):
+        return list(self.link_flags)
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], profopt=False, config=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -97,11 +117,11 @@ class BasePosix(Platform):
         else:
             exe_name = exe_name.new(ext=self.exe_ext)
 
-        linkflags = list(self.link_flags)
+        linkflags = self.makefile_link_flags()
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
-        linkflags += self._exportsymbols_link_flags(eci, relto=path)
+        linkflags += self._exportsymbols_link_flags()
 
         if shared:
             libname = exe_name.new(ext='').basename
@@ -110,9 +130,13 @@ class BasePosix(Platform):
             target_name = exe_name.basename
 
         if shared:
-            cflags = self.cflags + self.shared_only
+            cflags = tuple(self.cflags) + self.get_shared_only_compile_flags()
         else:
-            cflags = self.cflags + self.standalone_only
+            cflags = tuple(self.cflags) + tuple(self.standalone_only)
+
+        # xxx check which compilers accept this option or not
+        if config and config.translation.lto:
+            cflags = ('-flto',) + cflags
 
         m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)
@@ -123,6 +147,13 @@ class BasePosix(Platform):
             rel = lpath.relto(rpypath)
             if rel:
                 return os.path.join('$(RPYDIR)', rel)
+            # Hack: also relativize from the path '$RPYDIR/..'.
+            # Otherwise, when translating pypy, we get the paths in
+            # pypy/module/* that are kept as absolute, which makes the
+            # whole purpose of $RPYDIR rather pointless.
+            rel = lpath.relto(rpypath.join('..'))
+            if rel:
+                return os.path.join('$(RPYDIR)', '..', rel)
             m_dir = m.makefile_dir
             if m_dir == lpath:
                 return '.'
@@ -157,19 +188,35 @@ class BasePosix(Platform):
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
+            ('RPATH_FLAGS', self.get_rpath_flags(rel_libdirs)),
             ]
+
+        if profopt==True and shared==True:
+            definitions.append(('PROFOPT_TARGET', exe_name.basename))
+
         for args in definitions:
             m.definition(*args)
 
+        # Post compile rule to be executed after a TARGET is ran
+        #
+        # Some processing might be necessary on the resulting binary,
+        # which is received in $(BIN) parameter
+        postcompile_rule = ('postcompile', '', ['true'])
+        if detect_pax():
+            postcompile_rule[2].append('attr -q -s pax.flags -V m $(BIN)')
+
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)'),
+            ('$(TARGET)', '$(OBJECTS)', ['$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)', '$(MAKE) postcompile BIN=$(TARGET)']),
             ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
+            ('%.o', '%.s', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 
         for rule in rules:
             m.rule(*rule)
+
+        m.rule(*postcompile_rule)
 
         if shared:
             m.definition('SHARED_IMPORT_LIB', libname),
@@ -180,7 +227,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@')
+                   ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS)', '$(MAKE) postcompile BIN=$(DEFAULT_TARGET)'])
 
         return m
 

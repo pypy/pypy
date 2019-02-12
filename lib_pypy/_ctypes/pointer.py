@@ -21,9 +21,9 @@ class PointerType(_CDataMeta):
             size       = _rawffi.sizeof('P'),
             align      = _rawffi.alignment('P'),
             length     = 1,
-            _ffiargshape = 'P',
-            _ffishape  = 'P',
-            _fficompositesize = None,
+            _ffiargshape_ = 'P',
+            _ffishape_  = 'P',
+            _fficompositesize_ = None,
         )
         # XXX check if typedict['_type_'] is any sane
         # XXX remember about paramfunc
@@ -67,10 +67,18 @@ class PointerType(_CDataMeta):
                 self._buffer = ffiarray(1, autofree=True)
             if value is not None:
                 self.contents = value
+        def _init_no_arg_(self):
+            self._buffer = ffiarray(1, autofree=True)
         self._ffiarray = ffiarray
         self.__init__ = __init__
+        self._init_no_arg_ = _init_no_arg_
         self._type_ = TP
-        self._ffiargtype = _ffi.types.Pointer(TP.get_ffi_argtype())
+
+    def _build_ffiargtype(self):
+        return _ffi.types.Pointer(self._type_.get_ffi_argtype())
+
+    def _deref_ffiargtype(self):
+        return self._type_.get_ffi_argtype()
 
     from_address = cdata_from_address
 
@@ -114,7 +122,9 @@ class _Pointer(_CData):
         cobj = self._type_.from_param(value)
         if ensure_objects(cobj) is not None:
             store_reference(self, index, cobj._objects)
-        self._subarray(index)[0] = cobj._get_buffer_value()
+        address = self._buffer[0]
+        address += index * sizeof(self._type_)
+        cobj._copy_to(address)
 
     def __nonzero__(self):
         return self._buffer[0] != 0
@@ -130,23 +140,21 @@ def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
         raise TypeError("cast() argument 2 must be a pointer type, not %s"
                         % (tp,))
+    result = tp._newowninstance_()
     if isinstance(obj, (int, long)):
-        result = tp()
         result._buffer[0] = obj
         return result
     elif obj is None:
-        result = tp()
         return result
     elif isinstance(obj, Array):
-        ptr = tp.__new__(tp)
-        ptr._buffer = tp._ffiarray(1, autofree=True)
-        ptr._buffer[0] = obj._buffer
-        result = ptr
+        result._buffer[0] = obj._buffer
+    elif isinstance(obj, bytes):
+        result._buffer[0] = buffer(obj)._pypy_raw_address()
+        return result
     elif not (isinstance(obj, _CData) and type(obj)._is_pointer_like()):
         raise TypeError("cast() argument 1 must be a pointer, not %s"
                         % (type(obj),))
     else:
-        result = tp()
         result._buffer[0] = obj._buffer[0]
 
     # The casted objects '_objects' member:

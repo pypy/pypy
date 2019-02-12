@@ -2,28 +2,22 @@
 Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
-from rpython.translator.platform import platform
+from rpython.rlib import compilerinfo
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (2, 7, 6, "final", 42)
+CPYTHON_VERSION            = (2, 7, 13, "final", 42)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (2, 4, 0, "alpha", 0)    #XXX # sync patchlevel.h
-
-if platform.name == 'msvc':
-    COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
-elif platform.cc is not None and \
-        os.path.basename(platform.cc).startswith(('gcc', 'clang')):
-    from rpython.rtyper.tool import rffi_platform
-    COMPILER_INFO = 'GCC ' + rffi_platform.getdefinedstring('__VERSION__', '')
-else:
-    COMPILER_INFO = ""
+# make sure to keep PYPY_VERSION in sync with:
+#    module/cpyext/include/patchlevel.h
+#    doc/conf.py
+PYPY_VERSION               = (7, 1, 0, "alpha", 0)
 
 
 import pypy
-pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
+pypydir = pypy.pypydir
 pypyroot = os.path.dirname(pypydir)
 del pypy
 from rpython.tool.version import get_repo_version_info
@@ -51,49 +45,57 @@ class version_info:
 ''')
 
 def get_api_version(space):
-    return space.wrap(CPYTHON_API_VERSION)
+    return space.newint(CPYTHON_API_VERSION)
 
 def get_version_info(space):
     w_version_info = app.wget(space, "version_info")
+    # run at translation time
     return space.call_function(w_version_info, space.wrap(CPYTHON_VERSION))
 
-def get_version(space):
+def _make_version_template(PYPY_VERSION=PYPY_VERSION):
     ver = "%d.%d.%d" % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2])
     if PYPY_VERSION[3] != "final":
         ver = ver + "-%s%d" %(PYPY_VERSION[3], PYPY_VERSION[4])
-    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy %s%s]" % (
+    template = "%d.%d.%d (%s, %s, %s)\n[PyPy %s with %%s]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
         get_repo_version_info(root=pypyroot)[1],
         date,
         time,
-        ver,
-        compiler_version()))
+        ver)
+    assert template.count('%') == 1     # only for the "%s" near the end
+    return template
+_VERSION_TEMPLATE = _make_version_template()
+
+def get_version(space):
+    return space.newtext(_VERSION_TEMPLATE % compilerinfo.get_compiler_info())
 
 def get_winver(space):
-    return space.wrap("%d.%d" % (
+    return space.newtext("%d.%d" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1]))
 
 def get_hexversion(space):
-    return space.wrap(tuple2hex(CPYTHON_VERSION))
+    return space.newint(tuple2hex(CPYTHON_VERSION))
 
 def get_pypy_version_info(space):
     ver = PYPY_VERSION
     w_version_info = app.wget(space, "version_info")
+    # run at translation time
     return space.call_function(w_version_info, space.wrap(ver))
 
 def get_subversion_info(space):
+    # run at translation time
     return space.wrap(('PyPy', '', ''))
 
 def get_repo_info(space):
     info = get_repo_version_info(root=pypyroot)
     if info:
         repo_tag, repo_version = info
-        return space.newtuple([space.wrap('PyPy'),
-                               space.wrap(repo_tag),
-                               space.wrap(repo_version)])
+        return space.newtuple([space.newtext('PyPy'),
+                               space.newtext(repo_tag),
+                               space.newtext(repo_version)])
     else:
         return space.w_None
 
@@ -111,8 +113,3 @@ def tuple2hex(ver):
             ver[2] << 8    |
             d[ver[3]] << 4 |
             subver)
-
-def compiler_version():
-    if not COMPILER_INFO:
-        return ""
-    return " with %s" % (COMPILER_INFO,)

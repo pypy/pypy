@@ -6,7 +6,7 @@ class TestParsetring:
         space = self.space
         w_ret = parsestring.parsestr(space, encoding, literal)
         if isinstance(value, str):
-            assert space.type(w_ret) == space.w_str
+            assert space.type(w_ret) == space.w_bytes
             assert space.str_w(w_ret) == value
         elif isinstance(value, unicode):
             assert space.type(w_ret) == space.w_unicode
@@ -58,7 +58,7 @@ class TestParsetring:
         w_ret = parsestring.parsestr(space, None, repr("hello"), True)
         assert space.isinstance_w(w_ret, space.w_unicode)
         w_ret = parsestring.parsestr(space, None, "b'hi'", True)
-        assert space.isinstance_w(w_ret, space.w_str)
+        assert space.isinstance_w(w_ret, space.w_bytes)
         w_ret = parsestring.parsestr(space, None, "r'hi'", True)
         assert space.isinstance_w(w_ret, space.w_unicode)
 
@@ -73,11 +73,11 @@ class TestParsetring:
 
     def test_simple_enc_roundtrip(self):
         space = self.space
-        s = "'\x81'"
+        s = "'\x81\\t'"
         s = s.decode("koi8-u").encode("utf8")
         w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
         ret = space.unwrap(w_ret)
-        assert ret == eval("# -*- coding: koi8-u -*-\n'\x81'") 
+        assert ret == eval("# -*- coding: koi8-u -*-\n'\x81\\t'") 
 
     def test_multiline_unicode_strings_with_backslash(self):
         space = self.space

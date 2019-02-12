@@ -4,11 +4,11 @@
 
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem.rstr import mallocstr, mallocunicode
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import hlstr, llstr
 from rpython.rtyper.annlowlevel import hlunicode, llunicode
 from rpython.rtyper import annlowlevel
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import OBJECTPTR
 
 
 class TestLLType(BaseRtypingTest):
@@ -33,6 +33,14 @@ class TestLLType(BaseRtypingTest):
 
         res = self.interpret(f, [self.string_to_ll("abc")])
         assert res == 3
+
+    def test_llstr_const_char(self):
+        def f(arg):
+            s = llstr(hlstr(arg)[0])
+            return len(s.chars)
+
+        res = self.interpret(f, [self.string_to_ll("abc")])
+        assert res == 1
 
     def test_hlunicode(self):
         s = mallocunicode(3)
@@ -64,3 +72,22 @@ class TestLLType(BaseRtypingTest):
         assert lltype.typeOf(ptr) == OBJECTPTR
         y = annlowlevel.cast_base_ptr_to_instance(X, ptr)
         assert y is x
+
+    def test_cast_instance_to_gcref(self):
+        class X(object):
+            pass
+        x = X()
+        ptr = annlowlevel.cast_instance_to_gcref(x)
+        assert lltype.typeOf(ptr) == llmemory.GCREF
+        y = annlowlevel.cast_gcref_to_instance(X, ptr)
+        assert y is x
+
+    def test_delayedptr(self):
+        FUNCTYPE = lltype.FuncType([], lltype.Signed)
+        name = "delayed!myfunc"
+        delayedptr1 = lltype._ptr(lltype.Ptr(FUNCTYPE), name, solid=True)
+        delayedptr2 = lltype._ptr(lltype.Ptr(FUNCTYPE), name, solid=True)
+        assert delayedptr1 == delayedptr1
+        assert delayedptr1 != delayedptr2
+        assert bool(delayedptr1)
+        assert delayedptr1 != lltype.nullptr(FUNCTYPE)

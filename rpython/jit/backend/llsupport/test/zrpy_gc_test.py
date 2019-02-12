@@ -10,6 +10,7 @@ from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.jit import elidable, unroll_safe
+from rpython.rlib.jit import promote
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
@@ -21,6 +22,12 @@ class X(object):
         self.x = x
 
     next = None
+
+class Y(object):
+    # for pinning tests we need an object without references to other
+    # objects
+    def __init__(self, x=0):
+        self.x = x
 
 class CheckError(Exception):
     pass
@@ -107,7 +114,9 @@ def compile(f, gc, **kwds):
 def run(cbuilder, args=''):
     #
     pypylog = udir.join('test_zrpy_gc.log')
-    data = cbuilder.cmdexec(args, env={'PYPYLOG': ':%s' % pypylog})
+    env = os.environ.copy()
+    env['PYPYLOG'] = ':%s' % pypylog
+    data = cbuilder.cmdexec(args, env=env)
     return data.strip()
 
 # ______________________________________________________________________
@@ -158,7 +167,7 @@ class BaseFrameworkTests(object):
             funcs[num][2](n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s)
         myjitdriver = JitDriver(greens = ['num'],
                                 reds = ['n', 'x', 'x0', 'x1', 'x2', 'x3', 'x4',
-                                        'x5', 'x6', 'x7', 'l', 's'])
+                                        'x5', 'x6', 'x7', 'l', 's'], is_recursive=True)
         cls.main_allfuncs = staticmethod(main_allfuncs)
         cls.name_to_func = name_to_func
         OLD_DEBUG = GcLLDescr_framework.DEBUG
@@ -167,7 +176,7 @@ class BaseFrameworkTests(object):
             cls.cbuilder = compile(get_entry(allfuncs), cls.gc,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
                                    thread=True)
-        except ConfigError, e:        
+        except ConfigError as e:        
             assert str(e).startswith('invalid value asmgcc')
             py.test.skip('asmgcc not supported')
         finally:
@@ -179,8 +188,9 @@ class BaseFrameworkTests(object):
 
     def run(self, name, n=2000):
         pypylog = udir.join('TestCompileFramework.log')
-        env = {'PYPYLOG': ':%s' % pypylog,
-               'PYPY_NO_INLINE_MALLOC': '1'}
+        env = os.environ.copy()
+        env['PYPYLOG'] = ':%s' % pypylog
+        env['PYPY_NO_INLINE_MALLOC'] = '1'
         self._run(name, n, env)
         env['PYPY_NO_INLINE_MALLOC'] = ''
         self._run(name, n, env)
@@ -220,7 +230,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
 ##        return None, f, None
 
     def define_compile_framework_1(cls):
-        # a moving GC.  Supports malloc_varsize_nonmovable.  Simple test, works
+        # a moving GC.  Simple test, works
         # without write_barriers and root stack enumeration.
         def f(n, x, *args):
             y = X()
@@ -630,9 +640,9 @@ class CompileFrameworkTests(BaseFrameworkTests):
             return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
 
         def after(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
-            check(x.x == 1800 * 2 + 1850 * 2 + 200 - 150)
+            check(x.x == 1800 * 2 + 150 * 2 + 200 - 1850)
 
-        return before, f, None
+        return before, f, after
 
     def test_compile_framework_external_exception_handling(self):
         self.run('compile_framework_external_exception_handling')
@@ -758,7 +768,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def define_compile_framework_call_assembler(self):
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S', ('s', lltype.Ptr(S))))
-        driver = JitDriver(greens = [], reds = 'auto')
+        driver = JitDriver(greens = [], reds = 'auto', is_recursive=True)
 
         def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0):
             driver.jit_merge_point()
@@ -775,3 +785,121 @@ class CompileFrameworkTests(BaseFrameworkTests):
 
     def test_compile_framework_call_assembler(self):
         self.run('compile_framework_call_assembler')
+
+    def define_pinned_simple(cls):
+        class H:
+            inst = None
+        helper = H()
+
+        @dont_look_inside
+        def get_y():
+            if not helper.inst:
+                helper.inst = Y()
+                helper.inst.x = 101
+                check(rgc.pin(helper.inst))
+            else:
+                check(rgc._is_pinned(helper.inst))
+            return helper.inst
+
+        def fn(n, x, *args):
+            t = get_y()
+            promote(t)
+            t.x += 11
+            n -= 1
+            return (n, x) + args
+
+        return None, fn, None
+
+    def test_pinned_simple(self):
+        self.run('pinned_simple')
+
+    def define_pinned_unpin(cls):
+        class H:
+            inst = None
+            pinned = False
+            count_pinned = 0
+            count_unpinned = 0
+        helper = H()
+
+        @dont_look_inside
+        def get_y(n):
+            if not helper.inst:
+                helper.inst = Y()
+                helper.inst.x = 101
+                helper.pinned = True
+                check(rgc.pin(helper.inst))
+            elif n < 100 and helper.pinned:
+                rgc.unpin(helper.inst)
+                helper.pinned = False
+            #
+            if helper.pinned:
+                check(rgc._is_pinned(helper.inst))
+                helper.count_pinned += 1
+            else:
+                check(not rgc._is_pinned(helper.inst))
+                helper.count_unpinned += 1
+            return helper.inst
+
+        def fn(n, x, *args):
+            t = get_y(n)
+            promote(t)
+            check(t.x == 101)
+            n -= 1
+            return (n, x) + args
+
+        def after(n, x, *args):
+            check(helper.count_pinned > 0)
+            check(helper.count_unpinned > 0)
+            check(not helper.pinned)
+
+        return None, fn, after
+
+    def test_pinned_unpin(self):
+        self.run('pinned_unpin')
+
+    def define_multiple_pinned(cls):
+        class H:
+            inst1 = None
+            inst2 = None
+            inst3 = None
+            initialised = False
+        helper = H()
+
+        @dont_look_inside
+        def get_instances():
+            if not helper.initialised:
+                helper.inst1 = Y()
+                helper.inst1.x = 101
+                check(rgc.pin(helper.inst1))
+                #
+                helper.inst2 = Y()
+                helper.inst2.x = 102
+                #
+                helper.inst3 = Y()
+                helper.inst3.x = 103
+                check(rgc.pin(helper.inst3))
+                #
+                helper.initialised = True
+            #
+            check(rgc._is_pinned(helper.inst1))
+            check(not rgc._is_pinned(helper.inst2))
+            check(rgc._is_pinned(helper.inst3))
+            return (helper.inst1, helper.inst2, helper.inst3)
+
+        def fn(n, x, *args):
+            inst1, inst2, inst3 = get_instances()
+            promote(inst1)
+            promote(inst2)
+            promote(inst3)
+            #
+            check(inst1.x == 101)
+            check(inst2.x == 102)
+            check(inst3.x == 103)
+            #
+            n -= 1
+            return (n, x) + args
+        
+        return None, fn, None
+
+    def test_multiple_pinned(self):
+        self.run('multiple_pinned')

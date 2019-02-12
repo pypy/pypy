@@ -52,7 +52,7 @@
         : "0"(x), "g"(y)     /* inputs  */      \
         : "cc", "memory")    /* clobber */
 
-extern void op_int_overflowed(void)
+RPY_EXTERN void op_int_overflowed(void)
      asm ("_op_int_overflowed")
      __attribute__((used));
 
@@ -70,6 +70,7 @@ extern void op_int_overflowed(void)
 // lfence
 // I don't know how important it is, comment talks about time warps
 
+#define READ_TIMESTAMP_UNIT TIMESTAMP_UNIT_TSC
 
 #ifndef PYPY_CPU_HAS_STANDARD_PRECISION
 /* On x86-32, we have to use the following hacks to set and restore
@@ -104,5 +105,8 @@ static void _PyPy_set_387controlword(unsigned short cw) {
 
 #ifdef PYPY_X86_CHECK_SSE2
 #define PYPY_X86_CHECK_SSE2_DEFINED
-extern void pypy_x86_check_sse2(void);
+RPY_EXTERN void pypy_x86_check_sse2(void);
 #endif
+
+
+#define RPy_YieldProcessor()  asm("pause")

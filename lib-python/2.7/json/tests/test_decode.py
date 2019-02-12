@@ -43,7 +43,7 @@ class TestDecode(object):
         self.assertEqual(self.loads(s, object_pairs_hook=OrderedDict,
                                     object_hook=lambda x: None),
                          OrderedDict(p))
-        # check that empty objects literals work (see #17368)
+        # check that empty object literals work (see #17368)
         self.assertEqual(self.loads('{}', object_pairs_hook=OrderedDict),
                          OrderedDict())
         self.assertEqual(self.loads('{"empty": {}}',
@@ -60,6 +60,11 @@ class TestDecode(object):
         s = '["abc\\y"]'
         msg = 'escape'
         self.assertRaisesRegexp(ValueError, msg, self.loads, s)
+
+    def test_negative_index(self):
+        d = self.json.JSONDecoder()
+        self.assertRaises(ValueError, d.raw_decode, 'a'*42, -50000)
+        self.assertRaises(ValueError, d.raw_decode, u'a'*42, -50000)
 
 class TestPyDecode(TestDecode, PyTest): pass
 class TestCDecode(TestDecode, CTest): pass

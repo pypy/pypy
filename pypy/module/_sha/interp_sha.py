@@ -1,13 +1,15 @@
 from rpython.rlib import rsha
+from rpython.rlib.objectmodel import import_from_mixin
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 
-class W_SHA(W_Root, rsha.RSHA):
+class W_SHA(W_Root):
     """
     A subclass of RSHA that can be exposed to app-level.
     """
+    import_from_mixin(rsha.RSHA)
 
     def __init__(self, space):
         self.space = space
@@ -18,15 +20,15 @@ class W_SHA(W_Root, rsha.RSHA):
         self.update(string)
 
     def digest_w(self):
-        return self.space.wrap(self.digest())
+        return self.space.newbytes(self.digest())
 
     def hexdigest_w(self):
-        return self.space.wrap(self.hexdigest())
+        return self.space.newtext(self.hexdigest())
 
     def copy_w(self):
         clone = W_SHA(self.space)
         clone._copyfrom(self)
-        return self.space.wrap(clone)
+        return clone
 
 
 @unwrap_spec(initialdata='bufferstr')

@@ -2,12 +2,13 @@
 /************************************************************/
  /***  C header subsection: support functions              ***/
 
+#ifndef _SRC_SUPPORT_H
+#define _SRC_SUPPORT_H
+
 #define RUNNING_ON_LLINTERP	0
-#define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
+#define OP_JIT_RECORD_EXACT_CLASS(i, c, r)  /* nothing */
 
 #define FAIL_OVF(msg) _RPyRaiseSimpleException(RPyExc_OverflowError)
-#define FAIL_VAL(msg) _RPyRaiseSimpleException(RPyExc_ValueError)
-#define FAIL_ZER(msg) _RPyRaiseSimpleException(RPyExc_ZeroDivisionError)
 
 /* Extra checks can be enabled with the RPY_ASSERT or RPY_LL_ASSERT
  * macros.  They differ in the level at which the tests are made.
@@ -27,13 +28,18 @@
 #  define RPyAssert(x, msg)                                             \
      if (!(x)) RPyAssertFailed(__FILE__, __LINE__, __FUNCTION__, msg)
 
+RPY_EXTERN
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg);
 #else
 #  define RPyAssert(x, msg)   /* nothing */
 #endif
 
+RPY_EXTERN
 void RPyAbort(void);
+
+RPY_EXTERN
+double _PyPy_dg_stdnan(int sign);
 
 #if defined(RPY_LL_ASSERT) || defined(RPY_SANDBOXED)
 /* obscure macros that can be used as expressions and lvalues to refer
@@ -49,12 +55,12 @@ void RPyAbort(void);
      ((RPyCHECK((index) >= 0 && (index) < (array)->length),                 \
       (array))->items[index])
 #  define RPyFxItem(ptr, index, fixedsize)                                  \
-     ((RPyCHECK((ptr) && (index) >= 0 && (index) < (fixedsize)),            \
+     ((RPyCHECK((ptr) != NULL && (index) >= 0 && (index) < (fixedsize)),    \
       (ptr))[index])
 #  define RPyNLenItem(array, index)                                         \
-     ((RPyCHECK((array) && (index) >= 0), (array))->items[index])
+     ((RPyCHECK((array) != NULL && (index) >= 0), (array))->items[index])
 #  define RPyBareItem(array, index)                                         \
-     ((RPyCHECK((array) && (index) >= 0), (array))[index])
+     ((RPyCHECK((array) != NULL && (index) >= 0), (array))[index])
 
 #else
 #  define RPyField(ptr, name)                ((ptr)->name)
@@ -63,3 +69,5 @@ void RPyAbort(void);
 #  define RPyNLenItem(array, index)          ((array)->items[index])
 #  define RPyBareItem(array, index)          ((array)[index])
 #endif
+
+#endif  /* _SRC_SUPPORT_H */

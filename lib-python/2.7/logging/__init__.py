@@ -1,4 +1,4 @@
-# Copyright 2001-2012 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2014 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -18,12 +18,12 @@
 Logging package for Python. Based on PEP 282 and comments thereto in
 comp.lang.python.
 
-Copyright (C) 2001-2012 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2014 Vinay Sajip. All Rights Reserved.
 
 To use, simply 'import logging' and log away!
 """
 
-import sys, os, time, cStringIO, traceback, warnings, weakref
+import sys, os, time, cStringIO, traceback, warnings, weakref, collections
 
 __all__ = ['BASIC_FORMAT', 'BufferingFormatter', 'CRITICAL', 'DEBUG', 'ERROR',
            'FATAL', 'FileHandler', 'Filter', 'Formatter', 'Handler', 'INFO',
@@ -46,6 +46,7 @@ except ImportError:
 
 __author__  = "Vinay Sajip <vinay_sajip@red-dove.com>"
 __status__  = "production"
+# Note: the attributes below are no longer maintained.
 __version__ = "0.5.1.2"
 __date__    = "07 February 2010"
 
@@ -58,18 +59,6 @@ try:
 except NameError:
     _unicode = False
 
-#
-# _srcfile is used when walking the stack to check when we've got the first
-# caller stack frame.
-#
-if hasattr(sys, 'frozen'): #support for py2exe
-    _srcfile = "logging%s__init__%s" % (os.sep, __file__[-4:])
-elif __file__[-4:].lower() in ['.pyc', '.pyo']:
-    _srcfile = __file__[:-4] + '.py'
-else:
-    _srcfile = __file__
-_srcfile = os.path.normcase(_srcfile)
-
 # next bit filched from 1.5.2's inspect.py
 def currentframe():
     """Return the frame object for the caller's stack frame."""
@@ -80,6 +69,12 @@ def currentframe():
 
 if hasattr(sys, '_getframe'): currentframe = lambda: sys._getframe(3)
 # done filching
+
+#
+# _srcfile is used when walking the stack to check when we've got the first
+# caller stack frame.
+#
+_srcfile = os.path.normcase(currentframe.__code__.co_filename)
 
 # _srcfile is only used in conjunction with sys._getframe().
 # To provide compatibility with older versions of Python, set _srcfile
@@ -273,7 +268,13 @@ class LogRecord(object):
         # 'Value is %d' instead of 'Value is 0'.
         # For the use case of passing a dictionary, this should not be a
         # problem.
-        if args and len(args) == 1 and isinstance(args[0], dict) and args[0]:
+        # Issue #21172: a request was made to relax the isinstance check
+        # to hasattr(args[0], '__getitem__'). However, the docs on string
+        # formatting still seem to suggest a mapping object is required.
+        # Thus, while not removing the isinstance check, it does now look
+        # for collections.Mapping rather than, as before, dict.
+        if (args and len(args) == 1 and isinstance(args[0], collections.Mapping)
+            and args[0]):
             args = args[0]
         self.args = args
         self.levelname = getLevelName(level)
@@ -477,7 +478,15 @@ class Formatter(object):
         record.message = record.getMessage()
         if self.usesTime():
             record.asctime = self.formatTime(record, self.datefmt)
-        s = self._fmt % record.__dict__
+        try:
+            s = self._fmt % record.__dict__
+        except UnicodeDecodeError as e:
+            # Issue 25664. The logger name may be Unicode. Try again ...
+            try:
+                record.name = record.name.decode('utf-8')
+                s = self._fmt % record.__dict__
+            except UnicodeDecodeError:
+                raise e
         if record.exc_info:
             # Cache the traceback text to avoid converting it multiple times
             # (it's constant anyway)
@@ -635,16 +644,17 @@ def _removeHandlerRef(wr):
     Remove a handler reference from the internal cleanup list.
     """
     # This function can be called during module teardown, when globals are
-    # set to None. If _acquireLock is None, assume this is the case and do
-    # nothing.
-    if (_acquireLock is not None and _handlerList is not None and
-        _releaseLock is not None):
-        _acquireLock()
+    # set to None. It can also be called from another thread. So we need to
+    # pre-emptively grab the necessary globals and check if they're None,
+    # to prevent race conditions and failures during interpreter shutdown.
+    acquire, release, handlers = _acquireLock, _releaseLock, _handlerList
+    if acquire and release and handlers:
+        acquire()
         try:
-            if wr in _handlerList:
-                _handlerList.remove(wr)
+            if wr in handlers:
+                handlers.remove(wr)
         finally:
-            _releaseLock()
+            release()
 
 def _addHandlerRef(handler):
     """
@@ -921,12 +931,19 @@ class FileHandler(StreamHandler):
         """
         self.acquire()
         try:
-            if self.stream:
-                self.flush()
-                if hasattr(self.stream, "close"):
-                    self.stream.close()
+            try:
+                if self.stream:
+                    try:
+                        self.flush()
+                    finally:
+                        stream = self.stream
+                        self.stream = None
+                        if hasattr(stream, "close"):
+                            stream.close()
+            finally:
+                # Issue #19523: call unconditionally to
+                # prevent a handler leak when delay is set
                 StreamHandler.close(self)
-                self.stream = None
         finally:
             self.release()
 

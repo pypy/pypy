@@ -657,6 +657,23 @@ class BaseTestTextCRLFFilter(BaseRtypingTest):
             assert line == ''
         self.interpret(f, [])
 
+    def test_read1(self):
+        s_input = "abc\r\nabc\nd\r\nef\r\ngha\rbc\rdef\n\r\n\r"
+        s_output = "abc\nabc\nd\nef\ngha\rbc\rdef\n\n\r"
+        assert s_output == s_input.replace('\r\n', '\n')
+        packets = list(s_input)
+        expected = list(s_output)
+        crlf = streamio.TextCRLFFilter(TSource(packets))
+        def f():
+            blocks = []
+            while True:
+                block = crlf.read(1)
+                if not block:
+                    break
+                blocks.append(block)
+            assert blocks == expected
+        self.interpret(f, [])
+
 class TestTextCRLFFilterLLInterp(BaseTestTextCRLFFilter):
     pass
 
@@ -675,7 +692,7 @@ class TestMMapFile(BaseTestBufferingInputStreamTests):
             self.tfn = None
             try:
                 os.remove(tfn)
-            except os.error, msg:
+            except os.error as msg:
                 print "can't remove %s: %s" % (tfn, msg)
 
     def makeStream(self, tell=None, seek=None, bufsize=-1, mode="r"):
@@ -698,8 +715,8 @@ class TestMMapFile(BaseTestBufferingInputStreamTests):
         return streamio.MMapFile(self.fd, mmapmode)
 
     def test_write(self):
-        if os.name == "posix":
-            return # write() does't work on Unix :-(
+        if os.name == "posix" or os.name == 'nt':
+            return # write() does't work on Unix nor on win32:-(
         file = self.makeStream(mode="w")
         file.write("BooHoo\n")
         file.write("Barf\n")
@@ -1077,6 +1094,7 @@ class TestDiskFile:
             alarm(1)
             assert file.read(10) == "hello"
         finally:
+            alarm(0)
             signal(SIGALRM, SIG_DFL)
 
     def test_write_interrupted(self):
@@ -1102,6 +1120,7 @@ class TestDiskFile:
             # can succeed.
             file.write("hello")
         finally:
+            alarm(0)
             signal(SIGALRM, SIG_DFL)
 
     def test_append_mode(self):
@@ -1117,6 +1136,41 @@ class TestDiskFile:
         x.close()
         x = fo(tfn, 'r')
         assert x.read() == 'abc123456'
+        x.close()
+
+    def test_seek_changed_underlying_position(self):
+        tfn = str(udir.join('seek_changed_underlying_position'))
+        fo = streamio.open_file_as_stream # shorthand
+        x = fo(tfn, 'w')
+        x.write('abc123')
+        x.close()
+
+        x = fo(tfn, 'r')
+        fd = x.try_to_find_file_descriptor()
+        assert fd >= 0
+        got = x.read(1)
+        assert got == 'a'
+        assert x.tell() == 1
+        os.lseek(fd, 0, 0)
+        assert x.tell() == 0    # detected in this case.  not always.
+        # the point of the test is that we don't crash in an assert.
+
+    def test_ignore_ioerror_in_readall_if_nonempty_result(self):
+        # this is the behavior of regular files in CPython 2.7, as
+        # well as of _io.FileIO at least in CPython 3.3.  This is
+        # *not* the behavior of _io.FileIO in CPython 3.4 or 3.5;
+        # see CPython's issue #21090.
+        try:
+            from os import openpty
+        except ImportError:
+            pytest.skip('no openpty on this platform')
+        read_fd, write_fd = openpty()
+        os.write(write_fd, 'Abc\n')
+        os.close(write_fd)
+        x = streamio.DiskFile(read_fd)
+        s = x.readall()
+        assert s == 'Abc\r\n'
+        pytest.raises(OSError, x.readall)
         x.close()
 
 

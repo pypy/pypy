@@ -1,11 +1,29 @@
 #include <Python.h>
+#ifndef _WIN32
+# include <pthread.h>
+#endif
 #include "pythread.h"
 #include "src/thread.h"
 
 long
 PyThread_get_thread_ident(void)
 {
-    return RPyThreadGetIdent();
+#ifdef _WIN32
+    return (long)GetCurrentThreadId();
+#else
+    return (long)pthread_self();
+#endif
+}
+
+static int initialized;
+
+void
+PyThread_init_thread(void)
+{
+    if (initialized)
+        return;
+    initialized = 1;
+    /*PyThread__init_thread(); a NOP on modern platforms */
 }
 
 PyThread_type_lock
@@ -44,6 +62,13 @@ void
 PyThread_release_lock(PyThread_type_lock lock)
 {
     RPyThreadReleaseLock((struct RPyOpaque_ThreadLock*)lock);
+}
+
+long
+PyThread_start_new_thread(void (*func)(void *), void *arg)
+{
+    PyThread_init_thread();
+    return RPyThreadStartEx(func, arg);
 }
 
 

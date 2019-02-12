@@ -1,6 +1,6 @@
 class AppTestRandom:
     spaceconfig = {
-        "usemodules": ['_random', 'rctime'],
+        "usemodules": ['_random', 'time'],
     }
 
     def test_dict(self):
@@ -40,6 +40,17 @@ class AppTestRandom:
         rnd1 = _random.Random()
         # does not crash
         rnd1.setstate((-1, ) * 624 + (0, ))
+
+    def test_state_repr(self):
+        # since app-level jumpahead salts with repr(state),
+        # it is important the repr is consistent with cpython
+        import _random
+        rnd = _random.Random()
+        rnd.seed(1234)
+        state = rnd.getstate()
+        s = repr(state)
+        assert len(s) == 7956
+        assert s.count('L') == 625
 
     def test_seed(self):
         import _random, sys
@@ -102,3 +113,10 @@ class AppTestRandom:
                 self.x = x
         r = R(x=15)
         assert r.x == 15
+
+    def test_exact_result(self):
+        # this passes on CPython 2.7.9 on Linux 32 and Linux 64
+        import _random
+        rnd = _random.Random(-3**31)
+        x = rnd.random()
+        assert x == 0.8181851342382107

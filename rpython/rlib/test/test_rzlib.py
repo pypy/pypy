@@ -3,9 +3,10 @@
 Tests for the rzlib module.
 """
 
-import py
+import py, sys
 from rpython.rlib import rzlib
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib import clibffi # for side effect of testing lib_c_name on win32
 import zlib
 
 expanded = 'some bytes which will be compressed'
@@ -80,6 +81,39 @@ def test_deflate_init_end():
     """
     stream = rzlib.deflateInit()
     rzlib.deflateEnd(stream)
+
+
+def test_deflate_set_dictionary():
+    text = 'abcabc'
+    zdict = 'abc'
+    stream = rzlib.deflateInit()
+    rzlib.deflateSetDictionary(stream, zdict)
+    bytes = rzlib.compress(stream, text, rzlib.Z_FINISH)
+    rzlib.deflateEnd(stream)
+    
+    stream2 = rzlib.inflateInit()
+
+    from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rlib.rstring import StringBuilder
+    with lltype.scoped_alloc(rffi.CCHARP.TO, len(bytes)) as inbuf:
+        rstr.copy_string_to_raw(llstr(bytes), inbuf, 0, len(bytes))
+        stream2.c_next_in = rffi.cast(rzlib.Bytefp, inbuf)
+        rffi.setintfield(stream2, 'c_avail_in', len(bytes))
+        with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as outbuf:
+            stream2.c_next_out = rffi.cast(rzlib.Bytefp, outbuf)
+            bufsize = 100
+            rffi.setintfield(stream2, 'c_avail_out', bufsize)
+            err = rzlib._inflate(stream2, rzlib.Z_SYNC_FLUSH)
+            assert err == rzlib.Z_NEED_DICT
+            rzlib.inflateSetDictionary(stream2, zdict)
+            rzlib._inflate(stream2, rzlib.Z_SYNC_FLUSH)
+            avail_out = rffi.cast(lltype.Signed, stream2.c_avail_out)
+            result = StringBuilder()
+            result.append_charpsize(outbuf, bufsize - avail_out)
+
+    rzlib.inflateEnd(stream2)
+    assert result.build() == text
 
 
 def test_compression():
@@ -212,6 +246,108 @@ def test_decompress_max_length():
     rzlib.deflateEnd(stream)
 
 
+def test_compress_copy():
+    """
+    inflateCopy produces an independent copy of a stream.
+    """
+
+    stream = rzlib.deflateInit()
+
+    bytes1 = rzlib.compress(stream, expanded[:10])
+    assert bytes1
+
+    copied = rzlib.deflateCopy(stream)
+
+    bytes_stream = rzlib.compress(
+        stream,
+        expanded[10:],
+        rzlib.Z_FINISH,
+    )
+    assert bytes1 + bytes_stream == compressed
+    rzlib.deflateEnd(stream)
+
+    bytes_copy = rzlib.compress(
+        copied,
+        expanded[10:],
+        rzlib.Z_FINISH,
+    )
+    rzlib.deflateEnd(copied)
+    assert bytes1 + bytes_copy == compressed
+
+@py.test.mark.skipif(rzlib.ZLIB_VERSION == '1.2.8', reason='does not error check')
+def test_unsuccessful_compress_copy():
+    """
+    Errors during unsuccesful deflateCopy operations raise RZlibErrors.
+    """
+    stream = rzlib.deflateInit()
+
+    # From zlib.h:
+    #
+    # "deflateCopy returns [...] Z_STREAM_ERROR if the source stream
+    #  state was inconsistent (such as zalloc being Z_NULL)"
+    from rpython.rtyper.lltypesystem import rffi, lltype
+    stream.c_zalloc = rffi.cast(lltype.typeOf(stream.c_zalloc), rzlib.Z_NULL)
+
+    exc = py.test.raises(rzlib.RZlibError, rzlib.deflateCopy, stream)
+    msg = "Error -2 while copying compression object: inconsistent stream state"
+    assert str(exc.value) == msg
+    rzlib.deflateEnd(stream)
+
+
+def test_decompress_copy():
+    """
+    inflateCopy produces an independent copy of a stream.
+    """
+
+    stream = rzlib.inflateInit()
+
+    bytes1, finished1, unused1 = rzlib.decompress(stream, compressed[:10])
+    assert bytes1
+    assert finished1 is False
+
+    copied = rzlib.inflateCopy(stream)
+
+    bytes_stream, finished_stream, unused_stream = rzlib.decompress(
+        stream,
+        compressed[10:],
+        rzlib.Z_FINISH,
+    )
+    assert bytes1 + bytes_stream == expanded
+    assert finished_stream is True
+    assert unused1 == 0
+    assert unused_stream == 0
+    rzlib.inflateEnd(stream)
+
+    bytes_copy, finished_copy, unused_copy = rzlib.decompress(
+        copied,
+        compressed[10:],
+        rzlib.Z_FINISH,
+    )
+    rzlib.inflateEnd(copied)
+    assert bytes1 + bytes_copy == expanded
+    assert finished_copy is True
+    assert unused_copy == 0
+
+
+def test_unsuccessful_decompress_copy():
+    """
+    Errors during unsuccesful inflateCopy operations raise RZlibErrors.
+    """
+    stream = rzlib.inflateInit()
+
+    # From zlib.h:
+    #
+    # "inflateCopy returns [...] Z_STREAM_ERROR if the source stream
+    #  state was inconsistent (such as zalloc being Z_NULL)"
+    from rpython.rtyper.lltypesystem import rffi, lltype
+    stream.c_zalloc = rffi.cast(lltype.typeOf(stream.c_zalloc), rzlib.Z_NULL)
+
+    exc = py.test.raises(rzlib.RZlibError, rzlib.inflateCopy, stream)
+    msg = "Error -2 while copying decompression object: inconsistent stream state"
+    assert str(exc.value) == msg
+    rzlib.inflateEnd(stream)
+
+
 def test_cornercases():
     """
     Test degenerate arguments.
@@ -236,3 +372,62 @@ def test_cornercases():
         assert unused > 0
         buf = buf[-unused:]
     rzlib.deflateEnd(stream)
+
+def test_zlibVersion():
+    runtime_version = rzlib.zlibVersion()
+    assert runtime_version[0] == rzlib.ZLIB_VERSION[0]
+
+def test_translate_and_large_input():
+    from rpython.translator.c.test.test_genc import compile
+
+    def f(i, check):
+        bytes = "s" * i
+        if check == 1:
+            for j in range(3):
+                stream = rzlib.deflateInit()
+                bytes = rzlib.compress(stream, bytes, rzlib.Z_FINISH)
+                rzlib.deflateEnd(stream)
+            return bytes
+        if check == 2:
+            return str(rzlib.adler32(bytes))
+        if check == 3:
+            return str(rzlib.crc32(bytes))
+        return '?'
+
+    fc = compile(f, [int, int])
+
+    test_list = [1, 2, 3, 5, 8, 87, 876, 8765, 87654, 876543, 8765432,
+                 127329129]       # up to ~128MB
+    if sys.maxint > 2**32:
+        test_list.append(4305704715)    # 4.01GB
+        # XXX should we have a way to say "I don't have enough RAM,
+        # don't run this"?
+
+    for a in test_list:
+        print 'Testing compression of "s" * %d' % a
+        z = zlib.compressobj()
+        count = a
+        pieces = []
+        while count > 1024*1024:
+            pieces.append(z.compress("s" * (1024*1024)))
+            count -= 1024*1024
+        pieces.append(z.compress("s" * count))
+        pieces.append(z.flush(zlib.Z_FINISH))
+        expected = ''.join(pieces)
+        del pieces
+        expected = zlib.compress(expected)
+        expected = zlib.compress(expected)
+        assert fc(a, 1) == expected
+
+        print 'Testing adler32 and crc32 of "s" * %d' % a
+        def compute(function, start):
+            count = a
+            while count > 0:
+                count1 = min(count, 1024*1024)
+                start = function("s" * count1, start)
+                count -= count1
+            return start
+        expected_adler32 = compute(zlib.adler32, 1) & (2**32-1)
+        expected_crc32 = compute(zlib.crc32, 0) & (2**32-1)
+        assert fc(a, 2) == str(expected_adler32)
+        assert fc(a, 3) == str(expected_crc32)

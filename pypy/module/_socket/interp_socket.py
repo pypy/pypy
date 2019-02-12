@@ -1,37 +1,42 @@
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
-     interp_attrproperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+import sys
+from rpython.rlib import rsocket, rweaklist
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rsocket import (
+    RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
+    RSocketError
+)
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import rsocket
-from rpython.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
-from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno, RSocketError
-from pypy.interpreter.error import OperationError, oefmt
+
 from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.typedef import (
+    GetSetProperty, TypeDef, make_weakref_descr
+)
 
 
-# XXX Hack to seperate rpython and pypy
+# XXX Hack to separate rpython and pypy
 def addr_as_object(addr, fd, space):
     if isinstance(addr, rsocket.INETAddress):
-        return space.newtuple([space.wrap(addr.get_host()),
-                               space.wrap(addr.get_port())])
+        return space.newtuple([space.newtext(addr.get_host()),
+                               space.newint(addr.get_port())])
     elif isinstance(addr, rsocket.INET6Address):
-        return space.newtuple([space.wrap(addr.get_host()),
-                               space.wrap(addr.get_port()),
-                               space.wrap(addr.get_flowinfo()),
-                               space.wrap(addr.get_scope_id())])
+        return space.newtuple([space.newtext(addr.get_host()),
+                               space.newint(addr.get_port()),
+                               space.newint(addr.get_flowinfo()),
+                               space.newint(addr.get_scope_id())])
     elif rsocket.HAS_AF_PACKET and isinstance(addr, rsocket.PacketAddress):
-        return space.newtuple([space.wrap(addr.get_ifname(fd)),
-                               space.wrap(addr.get_protocol()),
-                               space.wrap(addr.get_pkttype()),
-                               space.wrap(addr.get_hatype()),
-                               space.wrap(addr.get_addr())])
+        return space.newtuple([space.newtext(addr.get_ifname(fd)),
+                               space.newint(addr.get_protocol()),
+                               space.newint(addr.get_pkttype()),
+                               space.newint(addr.get_hatype()),
+                               space.newtext(addr.get_haddr())])
     elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
-        return space.wrap(addr.get_path())
+        return space.newtext(addr.get_path())
     elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
-        return space.newtuple([space.wrap(addr.get_pid()),
-                               space.wrap(addr.get_groups())])
+        return space.newtuple([space.newint(addr.get_pid()),
+                               space.newint(addr.get_groups())])
     # If we don't know the address family, don't raise an
     # exception -- return it as a tuple.
     from rpython.rlib import _rsocket_rffi as _c
@@ -40,8 +45,8 @@ def addr_as_object(addr, fd, space):
     datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
     rawdata = ''.join([a.c_sa_data[i] for i in range(datalen)])
     addr.unlock()
-    return space.newtuple([space.wrap(family),
-                          space.wrap(rawdata)])
+    return space.newtuple([space.newint(family),
+                           space.newtext(rawdata)])
 
 # XXX Hack to seperate rpython and pypy
 # XXX a bit of code duplication
@@ -75,19 +80,20 @@ def fill_from_object(addr, space, w_address):
         raise NotImplementedError
 
 # XXX Hack to seperate rpython and pypy
-def addr_from_object(family, space, w_address):
+def addr_from_object(family, fd, space, w_address):
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
-        host = space.str_w(w_host)
+        host = space.text_w(w_host)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
         return rsocket.INETAddress(host, port)
     if family == rsocket.AF_INET6:
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
-            raise TypeError("AF_INET6 address must be a tuple of length 2 "
-                               "to 4, not %d" % len(pieces_w))
-        host = space.str_w(pieces_w[0])
+            raise oefmt(space.w_TypeError,
+                        "AF_INET6 address must be a tuple of length 2 "
+                        "to 4, not %d", len(pieces_w))
+        host = space.text_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
         port = make_ushort_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
@@ -97,37 +103,87 @@ def addr_from_object(family, space, w_address):
         flowinfo = make_unsigned_flowinfo(space, flowinfo)
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
-        return rsocket.UNIXAddress(space.str_w(w_address))
+        return rsocket.UNIXAddress(space.text_w(w_address))
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
         return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
+    if rsocket.HAS_AF_PACKET and family == rsocket.AF_PACKET:
+        pieces_w = space.unpackiterable(w_address)
+        if not (2 <= len(pieces_w) <= 5):
+            raise oefmt(space.w_TypeError,
+                        "AF_PACKET address must be a tuple of length 2 "
+                        "to 5, not %d", len(pieces_w))
+        ifname = space.text_w(pieces_w[0])
+        ifindex = rsocket.PacketAddress.get_ifindex_from_ifname(fd, ifname)
+        protocol = space.int_w(pieces_w[1])
+        if len(pieces_w) > 2: pkttype = space.int_w(pieces_w[2])
+        else:                 pkttype = 0
+        if len(pieces_w) > 3: hatype = space.int_w(pieces_w[3])
+        else:                 hatype = 0
+        if len(pieces_w) > 4: haddr = space.text_w(pieces_w[4])
+        else:                 haddr = ""
+        if len(haddr) > 8:
+            raise oefmt(space.w_ValueError,
+                        "Hardware address must be 8 bytes or less")
+        if protocol < 0 or protocol > 0xfffff:
+            raise oefmt(space.w_OverflowError, "protoNumber must be 0-65535.")
+        return rsocket.PacketAddress(ifindex, protocol, pkttype, hatype, haddr)
     raise RSocketError("unknown address family")
 
 # XXX Hack to seperate rpython and pypy
 def make_ushort_port(space, port):
+    assert isinstance(port, int)
     if port < 0 or port > 0xffff:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "port must be 0-65535."))
-    return rffi.cast(rffi.USHORT, port)
+        raise oefmt(space.w_OverflowError, "port must be 0-65535.")
+    return port
 
 def make_unsigned_flowinfo(space, flowinfo):
     if flowinfo < 0 or flowinfo > 0xfffff:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "flowinfo must be 0-1048575."))
+        raise oefmt(space.w_OverflowError, "flowinfo must be 0-1048575.")
     return rffi.cast(lltype.Unsigned, flowinfo)
 
 # XXX Hack to seperate rpython and pypy
 def ipaddr_from_object(space, w_sockaddr):
-    host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
+    host = space.text_w(space.getitem(w_sockaddr, space.newint(0)))
     addr = rsocket.makeipaddr(host)
     fill_from_object(addr, space, w_sockaddr)
     return addr
 
 
-class W_RSocket(W_Root, RSocket):
-    def __del__(self):
-        self.clear_all_weakrefs()
-        RSocket.__del__(self)
+class W_Socket(W_Root):
+    w_tb = None  # String representation of the traceback at creation time
+
+    def __init__(self, space, sock):
+        self.space = space
+        self.sock = sock
+        register_socket(space, sock)
+        if self.space.sys.track_resources:
+            self.w_tb = self.space.format_traceback()
+            self.register_finalizer(space)
+
+    def _finalize_(self):
+        is_open = self.sock.fd >= 0
+        if is_open and self.space.sys.track_resources:
+            w_repr = self.space.repr(self)
+            str_repr = self.space.text_w(w_repr)
+            w_msg = self.space.newtext("WARNING: unclosed " + str_repr)
+            self.space.resource_warning(w_msg, self.w_tb)
+
+    def get_type_w(self, space):
+        return space.newint(self.sock.type)
+
+    def get_proto_w(self, space):
+        return space.newint(self.sock.proto)
+
+    def get_family_w(self, space):
+        return space.newint(self.sock.family)
+
+    def descr_repr(self, space):
+        fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        return space.newtext("<socket object, fd=%d, family=%d,"
+                          " type=%d, protocol=%d>" %
+                          (fd, self.sock.family,
+                           self.sock.type, self.sock.proto))
 
     def accept_w(self, space):
         """accept() -> (socket object, address info)
@@ -137,22 +193,23 @@ class W_RSocket(W_Root, RSocket):
         info is a pair (hostaddr, port).
         """
         try:
-            fd, addr = self.accept()
+            fd, addr = self.sock.accept()
             sock = rsocket.make_socket(
-                fd, self.family, self.type, self.proto, W_RSocket)
-            return space.newtuple([space.wrap(sock),
+                fd, self.sock.family, self.sock.type, self.sock.proto)
+            return space.newtuple([W_Socket(space, sock),
                                    addr_as_object(addr, sock.fd, space)])
-        except SocketError, e:
+        except SocketError as e:
             raise converted_error(space, e)
 
     # convert an Address into an app-level object
     def addr_as_object(self, space, address):
-        return addr_as_object(address, self.fd, space)
+        return addr_as_object(address, self.sock.fd, space)
 
     # convert an app-level object into an Address
     # based on the current socket's family
     def addr_from_object(self, space, w_address):
-        return addr_from_object(self.family, space, w_address)
+        fd = intmask(self.sock.fd)
+        return addr_from_object(self.sock.family, fd, space, w_address)
 
     def bind_w(self, space, w_addr):
         """bind(address)
@@ -162,8 +219,8 @@ class W_RSocket(W_Root, RSocket):
         sockets the address is a tuple (ifname, proto [,pkttype [,hatype]])
         """
         try:
-            self.bind(self.addr_from_object(space, w_addr))
-        except SocketError, e:
+            self.sock.bind(self.addr_from_object(space, w_addr))
+        except SocketError as e:
             raise converted_error(space, e)
 
     def close_w(self, space):
@@ -172,10 +229,11 @@ class W_RSocket(W_Root, RSocket):
         Close the socket.  It cannot be used after this call.
         """
         try:
-            self.close()
+            self.sock.close()
         except SocketError:
             # cpython doesn't return any errors on close
             pass
+        self.may_unregister_rpython_finalizer(space)
 
     def connect_w(self, space, w_addr):
         """connect(address)
@@ -184,8 +242,8 @@ class W_RSocket(W_Root, RSocket):
         is a pair (host, port).
         """
         try:
-            self.connect(self.addr_from_object(space, w_addr))
-        except SocketError, e:
+            self.sock.connect(self.addr_from_object(space, w_addr))
+        except SocketError as e:
             raise converted_error(space, e)
 
     def connect_ex_w(self, space, w_addr):
@@ -196,15 +254,16 @@ class W_RSocket(W_Root, RSocket):
         """
         try:
             addr = self.addr_from_object(space, w_addr)
-        except SocketError, e:
+        except SocketError as e:
             raise converted_error(space, e)
-        error = self.connect_ex(addr)
-        return space.wrap(error)
+        error = self.sock.connect_ex(addr)
+        return space.newint(error)
 
     def dup_w(self, space):
         try:
-            return self.dup(W_RSocket)
-        except SocketError, e:
+            sock = self.sock.dup()
+            return W_Socket(space, sock)
+        except SocketError as e:
             raise converted_error(space, e)
 
     def fileno_w(self, space):
@@ -212,7 +271,7 @@ class W_RSocket(W_Root, RSocket):
 
         Return the integer file descriptor of the socket.
         """
-        return space.wrap(intmask(self.fd))
+        return space.newint(intmask(self.sock.fd))
 
     def getpeername_w(self, space):
         """getpeername() -> address info
@@ -221,9 +280,9 @@ class W_RSocket(W_Root, RSocket):
         info is a pair (hostaddr, port).
         """
         try:
-            addr = self.getpeername()
-            return addr_as_object(addr, self.fd, space)
-        except SocketError, e:
+            addr = self.sock.getpeername()
+            return addr_as_object(addr, self.sock.fd, space)
+        except SocketError as e:
             raise converted_error(space, e)
 
     def getsockname_w(self, space):
@@ -233,26 +292,27 @@ class W_RSocket(W_Root, RSocket):
         info is a pair (hostaddr, port).
         """
         try:
-            addr = self.getsockname()
-            return addr_as_object(addr, self.fd, space)
-        except SocketError, e:
+            addr = self.sock.getsockname()
+            return addr_as_object(addr, self.sock.fd, space)
+        except SocketError as e:
             raise converted_error(space, e)
 
-    @unwrap_spec(level=int, optname=int)
-    def getsockopt_w(self, space, level, optname, w_buflen=None):
+    @unwrap_spec(level=int, optname=int, buflen=int)
+    def getsockopt_w(self, space, level, optname, buflen=0):
         """getsockopt(level, option[, buffersize]) -> value
 
         Get a socket option.  See the Unix manual for level and option.
         If a nonzero buffersize argument is given, the return value is a
         string of that length; otherwise it is an integer.
         """
-        if w_buflen is None:
+        if buflen == 0:
             try:
-                return space.wrap(self.getsockopt_int(level, optname))
-            except SocketError, e:
+                return space.newint(self.sock.getsockopt_int(level, optname))
+            except SocketError as e:
                 raise converted_error(space, e)
-        buflen = space.int_w(w_buflen)
-        return space.wrap(self.getsockopt(level, optname, buflen))
+        if buflen < 0 or buflen > 1024:
+            raise explicit_socket_error(space, "getsockopt buflen out of range")
+        return space.newbytes(self.sock.getsockopt(level, optname, buflen))
 
     def gettimeout_w(self, space):
         """gettimeout() -> timeout
@@ -260,10 +320,10 @@ class W_RSocket(W_Root, RSocket):
         Returns the timeout in floating seconds associated with socket
         operations. A timeout of None indicates that timeouts on socket
         """
-        timeout = self.gettimeout()
+        timeout = self.sock.gettimeout()
         if timeout < 0.0:
             return space.w_None
-        return space.wrap(timeout)
+        return space.newfloat(timeout)
 
     @unwrap_spec(backlog="c_int")
     def listen_w(self, space, backlog):
@@ -274,8 +334,8 @@ class W_RSocket(W_Root, RSocket):
         will allow before refusing new connections.
         """
         try:
-            self.listen(backlog)
-        except SocketError, e:
+            self.sock.listen(backlog)
+        except SocketError as e:
             raise converted_error(space, e)
 
     @unwrap_spec(w_mode = WrappedDefault("r"),
@@ -298,10 +358,10 @@ class W_RSocket(W_Root, RSocket):
         the remote end is closed and all data is read, return the empty string.
         """
         try:
-            data = self.recv(buffersize, flags)
-        except SocketError, e:
+            data = self.sock.recv(buffersize, flags)
+        except SocketError as e:
             raise converted_error(space, e)
-        return space.wrap(data)
+        return space.newbytes(data)
 
     @unwrap_spec(buffersize='nonnegint', flags=int)
     def recvfrom_w(self, space, buffersize, flags=0):
@@ -310,13 +370,13 @@ class W_RSocket(W_Root, RSocket):
         Like recv(buffersize, flags) but also return the sender's address info.
         """
         try:
-            data, addr = self.recvfrom(buffersize, flags)
+            data, addr = self.sock.recvfrom(buffersize, flags)
             if addr:
-                w_addr = addr_as_object(addr, self.fd, space)
+                w_addr = addr_as_object(addr, self.sock.fd, space)
             else:
                 w_addr = space.w_None
-            return space.newtuple([space.wrap(data), w_addr])
-        except SocketError, e:
+            return space.newtuple([space.newbytes(data), w_addr])
+        except SocketError as e:
             raise converted_error(space, e)
 
     @unwrap_spec(data='bufferstr', flags=int)
@@ -328,10 +388,10 @@ class W_RSocket(W_Root, RSocket):
         sent; this may be less than len(data) if the network is busy.
         """
         try:
-            count = self.send(data, flags)
-        except SocketError, e:
+            count = self.sock.send(data, flags)
+        except SocketError as e:
             raise converted_error(space, e)
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(data='bufferstr', flags=int)
     def sendall_w(self, space, data, flags=0):
@@ -343,8 +403,9 @@ class W_RSocket(W_Root, RSocket):
         to tell how much data has been sent.
         """
         try:
-            self.sendall(data, flags, space.getexecutioncontext().checksignals)
-        except SocketError, e:
+            self.sock.sendall(
+                data, flags, space.getexecutioncontext().checksignals)
+        except SocketError as e:
             raise converted_error(space, e)
 
     @unwrap_spec(data='bufferstr')
@@ -364,10 +425,10 @@ class W_RSocket(W_Root, RSocket):
             w_addr = w_param3
         try:
             addr = self.addr_from_object(space, w_addr)
-            count = self.sendto(data, flags, addr)
-        except SocketError, e:
+            count = self.sock.sendto(data, len(data), flags, addr)
+        except SocketError as e:
             raise converted_error(space, e)
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(flag=bool)
     def setblocking_w(self, flag):
@@ -377,7 +438,7 @@ class W_RSocket(W_Root, RSocket):
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        self.setblocking(flag)
+        self.sock.setblocking(flag)
 
     @unwrap_spec(level=int, optname=int)
     def setsockopt_w(self, space, level, optname, w_optval):
@@ -387,17 +448,19 @@ class W_RSocket(W_Root, RSocket):
         The value argument can either be an integer or a string.
         """
         try:
-            optval = space.int_w(w_optval)
-        except:
-            optval = space.str_w(w_optval)
+            optval = space.c_int_w(w_optval)
+        except OperationError as e:
+            if e.async(space):
+                raise
+            optval = space.bytes_w(w_optval)
             try:
-                self.setsockopt(level, optname, optval)
-            except SocketError, e:
+                self.sock.setsockopt(level, optname, optval)
+            except SocketError as e:
                 raise converted_error(space, e)
             return
         try:
-            self.setsockopt_int(level, optname, optval)
-        except SocketError, e:
+            self.sock.setsockopt_int(level, optname, optval)
+        except SocketError as e:
             raise converted_error(space, e)
 
     def settimeout_w(self, space, w_timeout):
@@ -413,35 +476,49 @@ class W_RSocket(W_Root, RSocket):
         else:
             timeout = space.float_w(w_timeout)
             if timeout < 0.0:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap('Timeout value out of range'))
-        self.settimeout(timeout)
+                raise oefmt(space.w_ValueError, "Timeout value out of range")
+        self.sock.settimeout(timeout)
 
     @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
+        """recv_into(buffer, [nbytes[, flags]]) -> nbytes_read
+
+        A version of recv() that stores its data into a buffer rather than creating
+        a new string.  Receive up to buffersize bytes from the socket.  If buffersize
+        is not specified (or 0), receive up to the size available in the given buffer.
+
+        See recv() for documentation about the flags.
+        """
         rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0 or nbytes > lgt:
             nbytes = lgt
         try:
-            return space.wrap(self.recvinto(rwbuffer, nbytes, flags))
-        except SocketError, e:
+            return space.newint(self.sock.recvinto(rwbuffer, nbytes, flags))
+        except SocketError as e:
             raise converted_error(space, e)
 
     @unwrap_spec(nbytes=int, flags=int)
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
+        """recvfrom_into(buffer[, nbytes[, flags]]) -> (nbytes, address info)
+
+        Like recv_into(buffer[, nbytes[, flags]]) but also return the sender's address info.
+        """
         rwbuffer = space.getarg_w('w*', w_buffer)
         lgt = rwbuffer.getlength()
-        if nbytes == 0 or nbytes > lgt:
+        if nbytes == 0:
             nbytes = lgt
+        elif nbytes > lgt:
+            raise oefmt(space.w_ValueError,
+                        "nbytes is greater than the length of the buffer")
         try:
-            readlgt, addr = self.recvfrom_into(rwbuffer, nbytes, flags)
+            readlgt, addr = self.sock.recvfrom_into(rwbuffer, nbytes, flags)
             if addr:
-                w_addr = addr_as_object(addr, self.fd, space)
+                w_addr = addr_as_object(addr, self.sock.fd, space)
             else:
                 w_addr = space.w_None
-            return space.newtuple([space.wrap(readlgt), w_addr])
-        except SocketError, e:
+            return space.newtuple([space.newint(readlgt), w_addr])
+        except SocketError as e:
             raise converted_error(space, e)
 
     @unwrap_spec(cmd=int)
@@ -473,7 +550,7 @@ class W_RSocket(W_Root, RSocket):
                     option_ptr.c_keepaliveinterval = space.uint_w(w_interval)
 
                 res = _c.WSAIoctl(
-                    self.fd, cmd, value_ptr, value_size,
+                    self.sock.fd, cmd, value_ptr, value_size,
                     rffi.NULL, 0, recv_ptr, rffi.NULL, rffi.NULL)
                 if res < 0:
                     raise converted_error(space, rsocket.last_error())
@@ -481,7 +558,7 @@ class W_RSocket(W_Root, RSocket):
                 if value_ptr:
                     lltype.free(value_ptr, flavor='raw')
 
-            return space.wrap(recv_ptr[0])
+            return space.newint(recv_ptr[0])
         finally:
             lltype.free(recv_ptr, flavor='raw')
 
@@ -494,8 +571,8 @@ class W_RSocket(W_Root, RSocket):
         (flag == SHUT_RDWR).
         """
         try:
-            self.shutdown(how)
-        except SocketError, e:
+            self.sock.shutdown(how)
+        except SocketError as e:
             raise converted_error(space, e)
 
     #------------------------------------------------------------
@@ -536,13 +613,54 @@ def makefile(self, mode="r", buffersize=-1):
 @unwrap_spec(family=int, type=int, proto=int)
 def newsocket(space, w_subtype, family=AF_INET,
               type=SOCK_STREAM, proto=0):
-    sock = space.allocate_instance(W_RSocket, w_subtype)
+    self = space.allocate_instance(W_Socket, w_subtype)
     try:
-        W_RSocket.__init__(sock, family, type, proto)
-    except SocketError, e:
+        sock = RSocket(family, type, proto)
+    except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(sock)
+    W_Socket.__init__(self, space, sock)
+    return self
 descr_socket_new = interp2app(newsocket)
+
+
+# ____________________________________________________________
+# Automatic shutdown()/close()
+
+# On some systems, the C library does not guarantee that when the program
+# finishes, all data sent so far is really sent even if the socket is not
+# explicitly closed.  This behavior has been observed on Windows but not
+# on Linux, so far.
+NEED_EXPLICIT_CLOSE = (sys.platform == 'win32')
+
+class OpenRSockets(rweaklist.RWeakListMixin):
+    pass
+class OpenRSocketsState:
+    def __init__(self, space):
+        self.openrsockets = OpenRSockets()
+        self.openrsockets.initialize()
+
+def getopenrsockets(space):
+    if NEED_EXPLICIT_CLOSE and space.config.translation.rweakref:
+        return space.fromcache(OpenRSocketsState).openrsockets
+    else:
+        return None
+
+def register_socket(space, socket):
+    openrsockets = getopenrsockets(space)
+    if openrsockets is not None:
+        openrsockets.add_handle(socket)
+
+def close_all_sockets(space):
+    openrsockets = getopenrsockets(space)
+    if openrsockets is not None:
+        for sock_wref in openrsockets.get_all_handles():
+            sock = sock_wref()
+            if sock is not None:
+                try:
+                    sock.close()
+                except SocketError:
+                    pass
+
 
 # ____________________________________________________________
 # Error handling
@@ -574,11 +692,17 @@ def converted_error(space, e):
     message = e.get_msg()
     w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
-        w_exception = space.call_function(w_exception_class, space.wrap(e.errno),
-                                      space.wrap(message))
+        w_exception = space.call_function(w_exception_class, space.newint(e.errno),
+                                      space.newtext(message))
     else:
-        w_exception = space.call_function(w_exception_class, space.wrap(message))
+        w_exception = space.call_function(w_exception_class, space.newtext(message))
     return OperationError(w_exception_class, w_exception)
+
+def explicit_socket_error(space, msg):
+    w_exception_class = space.fromcache(SocketAPI).w_error
+    w_exception = space.call_function(w_exception_class, space.newtext(msg))
+    return OperationError(w_exception_class, w_exception)
+
 
 # ____________________________________________________________
 
@@ -597,10 +721,10 @@ if hasattr(rsocket._c, 'WSAIoctl'):
 
 socketmethods = {}
 for methodname in socketmethodnames:
-    method = getattr(W_RSocket, methodname + '_w')
+    method = getattr(W_Socket, methodname + '_w')
     socketmethods[methodname] = interp2app(method)
 
-W_RSocket.typedef = TypeDef("_socket.socket",
+W_Socket.typedef = TypeDef("_socket.socket",
     __doc__ = """\
 socket([family[, type[, proto]]]) -> socket object
 
@@ -639,9 +763,10 @@ shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
-    __weakref__ = make_weakref_descr(W_RSocket),
-    type = interp_attrproperty('type', W_RSocket),
-    proto = interp_attrproperty('proto', W_RSocket),
-    family = interp_attrproperty('family', W_RSocket),
+    __weakref__ = make_weakref_descr(W_Socket),
+    __repr__ = interp2app(W_Socket.descr_repr),
+    type = GetSetProperty(W_Socket.get_type_w),
+    proto = GetSetProperty(W_Socket.get_proto_w),
+    family = GetSetProperty(W_Socket.get_family_w),
     ** socketmethods
     )

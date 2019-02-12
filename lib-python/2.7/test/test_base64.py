@@ -79,8 +79,10 @@ class BaseXYTestCase(unittest.TestCase):
         eq(base64.b64encode('\xd3V\xbeo\xf7\x1d', altchars='*$'), '01a*b$cd')
         # Non-bytes
         eq(base64.b64encode(bytearray('abcd')), 'YWJjZA==')
-        self.assertRaises(TypeError, base64.b64encode,
-                          '\xd3V\xbeo\xf7\x1d', altchars=bytearray('*$'))
+        if test_support.check_impl_detail():
+            # only raises in CPython's optional strop.maketrans
+            self.assertRaises(TypeError, base64.b64encode,
+                              '\xd3V\xbeo\xf7\x1d', altchars=bytearray('*$'))
         # Test standard alphabet
         eq(base64.standard_b64encode("www.python.org"), "d3d3LnB5dGhvbi5vcmc=")
         eq(base64.standard_b64encode("a"), "YQ==")
@@ -137,8 +139,29 @@ class BaseXYTestCase(unittest.TestCase):
         # Non-bytes
         eq(base64.urlsafe_b64decode(bytearray('01a-b_cd')), '\xd3V\xbeo\xf7\x1d')
 
-    def test_b64decode_error(self):
+    def test_b64decode_padding_error(self):
         self.assertRaises(TypeError, base64.b64decode, 'abc')
+
+    def test_b64decode_invalid_chars(self):
+        # issue 1466065: Test some invalid characters.
+        tests = ((b'%3d==', b'\xdd'),
+                 (b'$3d==', b'\xdd'),
+                 (b'[==', b''),
+                 (b'YW]3=', b'am'),
+                 (b'3{d==', b'\xdd'),
+                 (b'3d}==', b'\xdd'),
+                 (b'@@', b''),
+                 (b'!', b''),
+                 (b'YWJj\nYWI=', b'abcab'))
+        for bstr, res in tests:
+            self.assertEqual(base64.b64decode(bstr), res)
+            self.assertEqual(base64.standard_b64decode(bstr), res)
+            self.assertEqual(base64.urlsafe_b64decode(bstr), res)
+
+        # Normal alphabet characters not discarded when alternative given
+        res = b'\xFB\xEF\xBE\xFF\xFF\xFF'
+        self.assertEqual(base64.b64decode(b'++[[//]]', b'[]'), res)
+        self.assertEqual(base64.urlsafe_b64decode(b'++--//__'), res)
 
     def test_b32encode(self):
         eq = self.assertEqual
@@ -206,6 +229,10 @@ class BaseXYTestCase(unittest.TestCase):
         eq(base64.b16decode('0102abcdef', True), '\x01\x02\xab\xcd\xef')
         # Non-bytes
         eq(base64.b16decode(bytearray("0102ABCDEF")), '\x01\x02\xab\xcd\xef')
+        # Non-alphabet characters
+        self.assertRaises(TypeError, base64.b16decode, '0102AG')
+        # Incorrect "padding"
+        self.assertRaises(TypeError, base64.b16decode, '010')
 
 
 

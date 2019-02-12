@@ -5,7 +5,7 @@ from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import LONG_BIT
 
 # For testing, a simple implementation of ArenaCollection.
-# This version could be used together with obmalloc.c, but
+# This version could be used together with malloc, but
 # it requires an extra word per object in the 'all_objects'
 # list.
 
@@ -20,6 +20,7 @@ class SimpleArenaCollection(object):
         self.small_request_threshold = small_request_threshold
         self.all_objects = []
         self.total_memory_used = 0
+        self.arenas_count = 0
 
     def malloc(self, size):
         nsize = raw_malloc_usage(size)

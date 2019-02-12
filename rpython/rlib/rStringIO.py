@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.objectmodel import we_are_translated
 
 AT_END = -1
 
@@ -8,8 +9,6 @@ class RStringIO(object):
     The fastest path through this code is for the case of a bunch of write()
     followed by getvalue().
     """
-    _mixin_ = True        # for interp_stringio.py
-
     def __init__(self):
         self.init()
 
@@ -73,6 +72,7 @@ class RStringIO(object):
         self.__strings.append(buffer)
 
     def __slow_write(self, buffer):
+        assert buffer is not None # help annotator
         p = self.__pos
         assert p >= 0
         endp = p + len(buffer)
@@ -126,19 +126,19 @@ class RStringIO(object):
         assert result >= 0
         return result
 
-    def read(self, n=-1):
+    def read(self, size=-1):
         p = self.__pos
-        if p == 0 and n < 0:
+        if p == 0 and size < 0:
             self.__pos = AT_END
             return self.getvalue()     # reading everything
-        if p == AT_END or n == 0:
+        if p == AT_END or size == 0:
             return ''
         assert p >= 0
         self.__copy_into_bigbuffer()
         mysize = len(self.__bigbuffer)
         count = mysize - p
-        if n >= 0:
-            count = min(n, count)
+        if size >= 0:
+            count = min(size, count)
         if count <= 0:
             return ''
         if p == 0 and count == mysize:
@@ -155,8 +155,11 @@ class RStringIO(object):
         assert p >= 0
         self.__copy_into_bigbuffer()
         end = len(self.__bigbuffer)
-        if size >= 0 and size < end - p:
+        count = end - p
+        if size >= 0 and size < count:
             end = p + size
+        if count <= 0:
+            return ''
         i = p
         while i < end:
             finished = self.__bigbuffer[i] == '\n'
@@ -164,6 +167,11 @@ class RStringIO(object):
             if finished:
                 break
         self.__pos = i
+        if not we_are_translated():
+            # assert that we read within the bounds!
+            bl = len(self.__bigbuffer)
+            assert p <= bl
+            assert i <= bl
         return ''.join(self.__bigbuffer[p:i])
 
     def truncate(self, size):

@@ -5,6 +5,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 
+
 class BaseTestCompiler:
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
@@ -76,7 +77,7 @@ class BaseTestCompiler:
         """)
         assert self.space.unwrap(w_args) == (
             'unindent does not match any outer indentation level',
-            (None, 3, 0, ' y\n'))
+            ('<string>', 3, 2, ' y\n'))
 
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',
@@ -654,6 +655,18 @@ def test():
         assert ex.match(space, space.w_SyntaxError)
         assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
 
+    def test_del_None(self):
+        snippet = '''if 1:
+            try:
+                del None
+            except NameError:
+                pass
+        '''
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+
 
 class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
     def setup_method(self, method):
@@ -683,7 +696,7 @@ with somtehing as stuff:
         """)
         try:
             self.compiler.compile(str(source), '<filename>', 'exec', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -693,7 +706,7 @@ with somtehing as stuff:
         code = 'def f(): (yield bar) += y'
         try:
             self.compiler.compile(code, '', 'single', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -703,11 +716,12 @@ with somtehing as stuff:
         code = 'dict(a = i for i in xrange(10))'
         try:
             self.compiler.compile(code, '', 'single', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
             py.test.fail("Did not raise")
+
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
@@ -715,6 +729,9 @@ class TestECCompiler(BaseTestCompiler):
 
 
 class AppTestCompiler:
+    def setup_class(cls):
+        cls.w_host_is_pypy = cls.space.wrap(
+            '__pypy__' in sys.builtin_module_names)
 
     def test_bom_with_future(self):
         s = '\xef\xbb\xbffrom __future__ import division\nx = 1/2'
@@ -758,6 +775,44 @@ class AppTestCompiler:
         assert math.copysign(1., c[0]) == -1.0
         assert math.copysign(1., c[1]) == -1.0
 
+    def test_dict_and_set_literal_order(self):
+        x = 1
+        l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
+        l2 = list({1, 3, 2, 4})
+        l3 = list({x:'a', 3:'b', 2:'c', 4:'d'})
+        l4 = list({x, 3, 2, 4})
+        if not self.host_is_pypy:
+            # the full test relies on the host Python providing ordered dicts
+            assert set(l1) == set(l2) == set(l3) == set(l4) == {1, 3, 2, 4}
+        else:
+            assert l1 == l2 == l3 == l4 == [1, 3, 2, 4]
+
+    def test_freevars_order(self):
+        # co_cellvars and co_freevars are guaranteed to appear in
+        # alphabetical order.  See CPython Issue #15368 (which does
+        # not come with tests).
+        source = """if 1:
+        def f1(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15):
+            def g1():
+                return (x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15)
+            return g1
+        def f2(x15,x14,x13,x12,x11,x10,x9,x8,x7,x6,x5,x4,x3,x2,x1):
+            def g2():
+                return (x15,x14,x13,x12,x11,x10,x9,x8,x7,x6,x5,x4,x3,x2,x1)
+            return g2
+        c1 = f1(*range(15)).__code__.co_freevars
+        c2 = f2(*range(15)).__code__.co_freevars
+        r1 = f1.__code__.co_cellvars
+        r2 = f2.__code__.co_cellvars
+        """
+        d = {}
+        exec(source, d)
+        assert d['c1'] == d['c2']
+        # the test above is important for a few bytecode hacks,
+        # but actually we get them in alphabetical order, so check that:
+        assert d['c1'] == tuple(sorted(d['c1']))
+        assert d['r1'] == d['r2'] == d['c1']
+
 
 ##class TestPythonAstCompiler(BaseTestCompiler):
 ##    def setup_method(self, method):
@@ -766,8 +821,8 @@ class AppTestCompiler:
 ##    def test_try_except_finally(self):
 ##        py.test.skip("unsupported")
 
-class AppTestOptimizer:
 
+class AppTestOptimizer:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
@@ -920,14 +975,14 @@ class AppTestOptimizer:
             sys.stdout = save_stdout
         output = s.getvalue()
         assert "STOP_CODE" not in output
-    
+
     def test_optimize_list_comp(self):
         source = """def _f(a):
             return [x for x in a if None]
         """
         exec source
         code = _f.func_code
-        
+
         import StringIO, sys, dis
         s = StringIO.StringIO()
         out = sys.stdout
@@ -959,7 +1014,7 @@ class AppTestOptimizer:
         """
         exec source
         code = _f.func_code
-        
+
         import StringIO, sys, dis
         s = StringIO.StringIO()
         out = sys.stdout
@@ -970,7 +1025,12 @@ class AppTestOptimizer:
             sys.stdout = out
         output = s.getvalue()
         assert "CALL_METHOD" in output
-            
+
+    def test_interned_strings(self):
+        source = """x = ('foo_bar42', 5); y = 'foo_bar42'; z = x[0]"""
+        exec source
+        assert y is z
+
 
 class AppTestExceptions:
     def test_indentation_error(self):
@@ -985,8 +1045,6 @@ class AppTestExceptions:
         else:
             raise Exception("DID NOT RAISE")
 
-
-
     def test_bad_oudent(self):
         source = """if 1:
           x
@@ -995,24 +1053,35 @@ class AppTestExceptions:
         """
         try:
             exec source
-        except IndentationError, e:
+        except IndentationError as e:
             assert e.msg == 'unindent does not match any outer indentation level'
         else:
             raise Exception("DID NOT RAISE")
 
+    def test_outdentation_error_filename(self):
+        source = """if 1:
+         x
+        y
+        """
+        try:
+            exec(source)
+        except IndentationError as e:
+            assert e.filename == '<string>'
+        else:
+            raise Exception("DID NOT RAISE")
 
     def test_repr_vs_str(self):
         source1 = "x = (\n"
         source2 = "x = (\n\n"
         try:
             exec source1
-        except SyntaxError, err1:
+        except SyntaxError as err1:
             pass
         else:
             raise Exception("DID NOT RAISE")
         try:
             exec source2
-        except SyntaxError, err2:
+        except SyntaxError as err2:
             pass
         else:
             raise Exception("DID NOT RAISE")
@@ -1021,3 +1090,24 @@ class AppTestExceptions:
         err3 = eval(repr(err1))
         assert str(err3) == str(err1)
         assert repr(err3) == repr(err1)
+
+    def test_encoding(self):
+        code = b'# -*- coding: badencoding -*-\npass\n'
+        raises(SyntaxError, compile, code, 'tmp', 'exec')
+        code = u"# -*- coding: utf-8 -*-\npass\n"
+        raises(SyntaxError, compile, code, 'tmp', 'exec')
+        code = 'u"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = u'u"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = '# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = '# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xa4'
+        code = '# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\u20ac'
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip()
+        code = 'u"""\\\n# -*- coding: utf-8 -*-\n\xc2\xa4"""\n'
+        assert eval(code) == u'# -*- coding: utf-8 -*-\n\xc2\xa4'

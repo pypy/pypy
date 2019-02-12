@@ -1,8 +1,12 @@
 # -*- coding: iso-8859-1 -*-
 import unittest, test.test_support
-import sys, os, cStringIO
-import struct
+from test.script_helper import assert_python_ok, assert_python_failure
+import cStringIO
+import gc
 import operator
+import os
+import struct
+import sys
 
 class SysModuleTest(unittest.TestCase):
 
@@ -114,90 +118,69 @@ class SysModuleTest(unittest.TestCase):
         clear_check(exc)
 
     def test_exit(self):
+        # call with two arguments
         self.assertRaises(TypeError, sys.exit, 42, 42)
 
         # call without argument
-        try:
-            sys.exit(0)
-        except SystemExit, exc:
-            self.assertEqual(exc.code, 0)
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
+        with self.assertRaises(SystemExit) as cm:
+            sys.exit()
+        self.assertIsNone(cm.exception.code)
+
+        rc, out, err = assert_python_ok('-c', 'import sys; sys.exit()')
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, b'')
+        self.assertEqual(err, b'')
+
+        # call with integer argument
+        with self.assertRaises(SystemExit) as cm:
+            sys.exit(42)
+        self.assertEqual(cm.exception.code, 42)
 
         # call with tuple argument with one entry
         # entry will be unpacked
-        try:
-            sys.exit(42)
-        except SystemExit, exc:
-            self.assertEqual(exc.code, 42)
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
-
-        # call with integer argument
-        try:
+        with self.assertRaises(SystemExit) as cm:
             sys.exit((42,))
-        except SystemExit, exc:
-            self.assertEqual(exc.code, 42)
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
+        self.assertEqual(cm.exception.code, 42)
 
         # call with string argument
-        try:
+        with self.assertRaises(SystemExit) as cm:
             sys.exit("exit")
-        except SystemExit, exc:
-            self.assertEqual(exc.code, "exit")
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
+        self.assertEqual(cm.exception.code, "exit")
 
         # call with tuple argument with two entries
-        try:
+        with self.assertRaises(SystemExit) as cm:
             sys.exit((17, 23))
-        except SystemExit, exc:
-            self.assertEqual(exc.code, (17, 23))
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
+        self.assertEqual(cm.exception.code, (17, 23))
 
         # test that the exit machinery handles SystemExits properly
-        import subprocess
         # both unnormalized...
-        rc = subprocess.call([sys.executable, "-c",
-                              "raise SystemExit, 46"])
+        rc, out, err = assert_python_failure('-c', 'raise SystemExit, 46')
         self.assertEqual(rc, 46)
+        self.assertEqual(out, b'')
+        self.assertEqual(err, b'')
         # ... and normalized
-        rc = subprocess.call([sys.executable, "-c",
-                              "raise SystemExit(47)"])
+        rc, out, err = assert_python_failure('-c', 'raise SystemExit(47)')
         self.assertEqual(rc, 47)
+        self.assertEqual(out, b'')
+        self.assertEqual(err, b'')
 
-        def check_exit_message(code, expected, env=None):
-            process = subprocess.Popen([sys.executable, "-c", code],
-                                       stderr=subprocess.PIPE, env=env)
-            stdout, stderr = process.communicate()
-            self.assertEqual(process.returncode, 1)
-            self.assertTrue(stderr.startswith(expected),
-                "%s doesn't start with %s" % (repr(stderr), repr(expected)))
+        def check_exit_message(code, expected, **env_vars):
+            rc, out, err = assert_python_failure('-c', code, **env_vars)
+            self.assertEqual(rc, 1)
+            self.assertEqual(out, b'')
+            self.assertTrue(err.startswith(expected),
+                "%s doesn't start with %s" % (repr(err), repr(expected)))
 
-        # test that stderr buffer if flushed before the exit message is written
+        # test that stderr buffer is flushed before the exit message is written
         # into stderr
         check_exit_message(
             r'import sys; sys.stderr.write("unflushed,"); sys.exit("message")',
             b"unflushed,message")
 
         # test that the unicode message is encoded to the stderr encoding
-        env = os.environ.copy()
-        env['PYTHONIOENCODING'] = 'latin-1'
         check_exit_message(
             r'import sys; sys.exit(u"h\xe9")',
-            b"h\xe9", env=env)
+            b"h\xe9", PYTHONIOENCODING='latin-1')
 
     def test_getdefaultencoding(self):
         if test.test_support.have_unicode:
@@ -266,15 +249,16 @@ class SysModuleTest(unittest.TestCase):
         #  still has 5 elements
         maj, min, buildno, plat, csd = sys.getwindowsversion()
 
+    @unittest.skipUnless(hasattr(sys, "setdlopenflags"),
+                         'test needs sys.setdlopenflags()')
     def test_dlopenflags(self):
-        if hasattr(sys, "setdlopenflags"):
-            self.assertTrue(hasattr(sys, "getdlopenflags"))
-            self.assertRaises(TypeError, sys.getdlopenflags, 42)
-            oldflags = sys.getdlopenflags()
-            self.assertRaises(TypeError, sys.setdlopenflags)
-            sys.setdlopenflags(oldflags+1)
-            self.assertEqual(sys.getdlopenflags(), oldflags+1)
-            sys.setdlopenflags(oldflags)
+        self.assertTrue(hasattr(sys, "getdlopenflags"))
+        self.assertRaises(TypeError, sys.getdlopenflags, 42)
+        oldflags = sys.getdlopenflags()
+        self.assertRaises(TypeError, sys.setdlopenflags)
+        sys.setdlopenflags(oldflags+1)
+        self.assertEqual(sys.getdlopenflags(), oldflags+1)
+        sys.setdlopenflags(oldflags)
 
     @test.test_support.impl_detail("reference counting")
     def test_refcount(self):
@@ -435,7 +419,10 @@ class SysModuleTest(unittest.TestCase):
     def test_43581(self):
         # Can't use sys.stdout, as this is a cStringIO object when
         # the test runs under regrtest.
-        self.assertTrue(sys.__stdout__.encoding == sys.__stderr__.encoding)
+        if not (os.environ.get('PYTHONIOENCODING') or
+                (sys.__stdout__.isatty() and sys.__stderr__.isatty())):
+            self.skipTest('stdout/stderr encoding is not set')
+        self.assertEqual(sys.__stdout__.encoding, sys.__stderr__.encoding)
 
     def test_sys_flags(self):
         self.assertTrue(sys.flags)
@@ -448,7 +435,7 @@ class SysModuleTest(unittest.TestCase):
             self.assertEqual(type(getattr(sys.flags, attr)), int, attr)
         self.assertTrue(repr(sys.flags))
 
-    @test.test_support.impl_detail("sys._clear_type_cache")
+    @test.test_support.cpython_only
     def test_clear_type_cache(self):
         sys._clear_type_cache()
 
@@ -480,7 +467,7 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(os.path.abspath(sys.executable), sys.executable)
 
         # Issue #7774: Ensure that sys.executable is an empty string if argv[0]
-        # has been set to an non existent program name and Python is unable to
+        # has been set to a non existent program name and Python is unable to
         # retrieve the real program name
         import subprocess
         # For a normal installation, it should work without 'cwd'
@@ -493,7 +480,7 @@ class SysModuleTest(unittest.TestCase):
         p.wait()
         self.assertIn(executable, ["''", repr(sys.executable)])
 
-@unittest.skipUnless(test.test_support.check_impl_detail(), "sys.getsizeof()")
+@test.test_support.cpython_only
 class SizeofTest(unittest.TestCase):
 
     def setUp(self):
@@ -501,11 +488,6 @@ class SizeofTest(unittest.TestCase):
         self.longdigit = sys.long_info.sizeof_digit
         import _testcapi
         self.gc_headsize = _testcapi.SIZEOF_PYGC_HEAD
-        self.file = open(test.test_support.TESTFN, 'wb')
-
-    def tearDown(self):
-        self.file.close()
-        test.test_support.unlink(test.test_support.TESTFN)
 
     check_sizeof = test.test_support.check_sizeof
 
@@ -518,12 +500,38 @@ class SizeofTest(unittest.TestCase):
         # but lists are
         self.assertEqual(sys.getsizeof([]), size('P PP') + gc_header_size)
 
+    def test_errors(self):
+        class BadSizeof(object):
+            def __sizeof__(self):
+                raise ValueError
+        self.assertRaises(ValueError, sys.getsizeof, BadSizeof())
+
+        class InvalidSizeof(object):
+            def __sizeof__(self):
+                return None
+        self.assertRaises(TypeError, sys.getsizeof, InvalidSizeof())
+        sentinel = ["sentinel"]
+        self.assertIs(sys.getsizeof(InvalidSizeof(), sentinel), sentinel)
+
+        class OverflowSizeof(long):
+            def __sizeof__(self):
+                return int(self)
+        self.assertEqual(sys.getsizeof(OverflowSizeof(sys.maxsize)),
+                         sys.maxsize + self.gc_headsize)
+        with self.assertRaises(OverflowError):
+            sys.getsizeof(OverflowSizeof(sys.maxsize + 1))
+        with self.assertRaises(ValueError):
+            sys.getsizeof(OverflowSizeof(-1))
+        with self.assertRaises((ValueError, OverflowError)):
+            sys.getsizeof(OverflowSizeof(-sys.maxsize - 1))
+
     def test_default(self):
         size = test.test_support.calcobjsize
         self.assertEqual(sys.getsizeof(True, -1), size('l'))
 
     def test_objecttypes(self):
         # check all types defined in Objects/
+        calcsize = struct.calcsize
         size = test.test_support.calcobjsize
         vsize = test.test_support.calcvobjsize
         check = self.check_sizeof
@@ -587,9 +595,17 @@ class SizeofTest(unittest.TestCase):
         # method-wrapper (descriptor object)
         check({}.__iter__, size('2P'))
         # dict
-        check({}, size('3P2P' + 8*'P2P'))
+        check({}, size('3P2P') + 8*calcsize('P2P'))
         x = {1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8}
-        check(x, size('3P2P' + 8*'P2P') + 16*struct.calcsize('P2P'))
+        check(x, size('3P2P') + 8*calcsize('P2P') + 16*calcsize('P2P'))
+        # dictionary-keyview
+        check({}.viewkeys(), size('P'))
+        # dictionary-valueview
+        check({}.viewvalues(), size('P'))
+        # dictionary-itemview
+        check({}.viewitems(), size('P'))
+        # dictionary iterator
+        check(iter({}), size('P2PPP'))
         # dictionary-keyiterator
         check({}.iterkeys(), size('P2PPP'))
         # dictionary-valueiterator
@@ -605,7 +621,12 @@ class SizeofTest(unittest.TestCase):
         # enumerate
         check(enumerate([]), size('l3P'))
         # file
-        check(self.file, size('4P2i4P3i3P3i'))
+        f = file(test.test_support.TESTFN, 'wb')
+        try:
+            check(f, size('4P2i4P3i3P3i'))
+        finally:
+            f.close()
+            test.test_support.unlink(test.test_support.TESTFN)
         # float
         check(float(0), size('d'))
         # sys.floatinfo
@@ -702,16 +723,16 @@ class SizeofTest(unittest.TestCase):
                 check(set(sample), s)
                 check(frozenset(sample), s)
             else:
-                check(set(sample), s + newsize*struct.calcsize('lP'))
-                check(frozenset(sample), s + newsize*struct.calcsize('lP'))
+                check(set(sample), s + newsize*calcsize('lP'))
+                check(frozenset(sample), s + newsize*calcsize('lP'))
         # setiterator
         check(iter(set()), size('P3P'))
         # slice
         check(slice(1), size('3P'))
         # str
         vh = test.test_support._vheader
-        check('', struct.calcsize(vh + 'lic'))
-        check('abc', struct.calcsize(vh + 'lic') + 3)
+        check('', calcsize(vh + 'lic'))
+        check('abc', calcsize(vh + 'lic') + 3)
         # super
         check(super(int), size('3P'))
         # tuple
@@ -720,9 +741,12 @@ class SizeofTest(unittest.TestCase):
         # tupleiterator
         check(iter(()), size('lP'))
         # type
-        # (PyTypeObject + PyNumberMethods +  PyMappingMethods +
-        #  PySequenceMethods + PyBufferProcs)
-        s = vsize('P2P15Pl4PP9PP11PI') + struct.calcsize('41P 10P 3P 6P')
+        s = vsize('P2P15Pl4PP9PP11PI'   # PyTypeObject
+                  '39P'                 # PyNumberMethods
+                  '3P'                  # PyMappingMethods
+                  '10P'                 # PySequenceMethods
+                  '6P'                  # PyBufferProcs
+                  '2P')
         class newstyleclass(object):
             pass
         check(newstyleclass, s)
@@ -749,6 +773,32 @@ class SizeofTest(unittest.TestCase):
         check(xrange(1), size('3l'))
         check(xrange(66000), size('3l'))
 
+    def check_slots(self, obj, base, extra):
+        expected = sys.getsizeof(base) + struct.calcsize(extra)
+        if gc.is_tracked(obj) and not gc.is_tracked(base):
+            expected += self.gc_headsize
+        self.assertEqual(sys.getsizeof(obj), expected)
+
+    def test_slots(self):
+        # check all subclassable types defined in Objects/ that allow
+        # non-empty __slots__
+        check = self.check_slots
+        class BA(bytearray):
+            __slots__ = 'a', 'b', 'c'
+        check(BA(), bytearray(), '3P')
+        class D(dict):
+            __slots__ = 'a', 'b', 'c'
+        check(D(x=[]), {'x': []}, '3P')
+        class L(list):
+            __slots__ = 'a', 'b', 'c'
+        check(L(), [], '3P')
+        class S(set):
+            __slots__ = 'a', 'b', 'c'
+        check(S(), set(), '3P')
+        class FS(frozenset):
+            __slots__ = 'a', 'b', 'c'
+        check(FS(), frozenset(), '3P')
+
     def test_pythontypes(self):
         # check all types defined in Python/
         size = test.test_support.calcobjsize
@@ -759,7 +809,12 @@ class SizeofTest(unittest.TestCase):
         check(_ast.AST(), size(''))
         # imp.NullImporter
         import imp
-        check(imp.NullImporter(self.file.name), size(''))
+        f = open(test.test_support.TESTFN, 'wb')
+        try:
+            check(imp.NullImporter(f.name), size(''))
+        finally:
+            f.close()
+            test.test_support.unlink(test.test_support.TESTFN)
         try:
             raise TypeError
         except TypeError:

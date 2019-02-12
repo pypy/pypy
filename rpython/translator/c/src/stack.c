@@ -1,47 +1,44 @@
 /* Stack operation */
+#include "common_header.h"
+#include "structdef.h"       /* for struct pypy_threadlocal_s */
 #include <src/stack.h>
-#include <src/thread.h>
+#include <src/threadlocal.h>
 #include <stdio.h>
 
 
 /* the current stack is in the interval [end-length:end].  We assume a
    stack that grows downward here. */
-char *_LLstacktoobig_stack_end = NULL;
-long _LLstacktoobig_stack_length = MAX_STACK_SIZE;
-char _LLstacktoobig_report_error = 1;
-static RPyThreadStaticTLS end_tls_key;
+
+/* (stored in a struct to ensure that stack_end and stack_length are
+   close together; used e.g. by the ppc jit backend) */
+rpy_stacktoobig_t rpy_stacktoobig = {
+    NULL,             /* stack_end */
+    MAX_STACK_SIZE,   /* stack_length */
+    1                 /* report_error */
+};
 
 void LL_stack_set_length_fraction(double fraction)
 {
-	_LLstacktoobig_stack_length = (long)(MAX_STACK_SIZE * fraction);
+	rpy_stacktoobig.stack_length = (long)(MAX_STACK_SIZE * fraction);
 }
 
 char LL_stack_too_big_slowpath(long current)
 {
 	long diff, max_stack_size;
 	char *baseptr, *curptr = (char*)current;
+	char *tl;
+	struct pypy_threadlocal_s *tl1;
 
 	/* The stack_end variable is updated to match the current value
 	   if it is still 0 or if we later find a 'curptr' position
 	   that is above it.  The real stack_end pointer is stored in
 	   thread-local storage, but we try to minimize its overhead by
-	   keeping a local copy in _LLstacktoobig_stack_end. */
+	   keeping a local copy in rpy_stacktoobig.stack_end. */
 
-	if (_LLstacktoobig_stack_end == NULL) {
-		/* not initialized */
-		/* XXX We assume that initialization is performed early,
-		   when there is still only one thread running.  This
-		   allows us to ignore race conditions here */
-		char *errmsg = RPyThreadStaticTLS_Create(&end_tls_key);
-		if (errmsg) {
-			/* XXX should we exit the process? */
-			fprintf(stderr, "Internal PyPy error: %s\n", errmsg);
-			return 1;
-		}
-	}
-
-	baseptr = (char *) RPyThreadStaticTLS_Get(end_tls_key);
-	max_stack_size = _LLstacktoobig_stack_length;
+	OP_THREADLOCALREF_ADDR(tl);
+	tl1 = (struct pypy_threadlocal_s *)tl;
+	baseptr = tl1->stack_end;
+	max_stack_size = rpy_stacktoobig.stack_length;
 	if (baseptr == NULL) {
 		/* first time we see this thread */
 	}
@@ -49,7 +46,7 @@ char LL_stack_too_big_slowpath(long current)
 		diff = baseptr - curptr;
 		if (((unsigned long)diff) <= (unsigned long)max_stack_size) {
 			/* within bounds, probably just had a thread switch */
-			_LLstacktoobig_stack_end = baseptr;
+			rpy_stacktoobig.stack_end = baseptr;
 			return 0;
 		}
 		if (((unsigned long)-diff) <= (unsigned long)max_stack_size) {
@@ -57,13 +54,13 @@ char LL_stack_too_big_slowpath(long current)
 			   the stack base must be revised */
 		}
 		else {	/* stack overflow (probably) */
-			return _LLstacktoobig_report_error;
+			return rpy_stacktoobig.report_error;
 		}
 	}
 
 	/* update the stack base pointer to the current value */
 	baseptr = curptr;
-	RPyThreadStaticTLS_Set(end_tls_key, baseptr);
-	_LLstacktoobig_stack_end = baseptr;
+	tl1->stack_end = baseptr;
+	rpy_stacktoobig.stack_end = baseptr;
 	return 0;
 }

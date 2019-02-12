@@ -99,12 +99,12 @@ def dupfile(f, mode=None, buffering=0, raising=False, encoding=None):
     """
     try:
         fd = f.fileno()
+        mode = mode or f.mode
     except AttributeError:
         if raising:
             raise
         return f
     newfd = os.dup(fd)
-    mode = mode and mode or f.mode
     if sys.version_info >= (3,0):
         if encoding is not None:
             mode = mode.replace("b", "")
@@ -176,14 +176,21 @@ class Capture(object):
 
 
 class StdCaptureFD(Capture):
-    """ This class allows capturing writes to FD1 and FD2
+    """ This class allows to capture writes to FD1 and FD2
         and may connect a NULL file to FD0 (and prevent
         reads from sys.stdin).  If any of the 0,1,2 file descriptors
         is invalid it will not be captured.
     """
     def __init__(self, out=True, err=True, mixed=False,
         in_=True, patchsys=True, now=True):
-        self._options = locals()
+        self._options = {
+            "out": out,
+            "err": err,
+            "mixed": mixed,
+            "in_": in_,
+            "patchsys": patchsys,
+            "now": now,
+        }
         self._save()
         if now:
             self.startall()
@@ -251,24 +258,30 @@ class StdCaptureFD(Capture):
 
     def readouterr(self):
         """ return snapshot value of stdout/stderr capturings. """
-        l = []
-        for name in ('out', 'err'):
-            res = ""
-            if hasattr(self, name):
-                f = getattr(self, name).tmpfile
-                f.seek(0)
-                res = f.read()
-                enc = getattr(f, 'encoding', None)
-                if enc:
-                    res = py.builtin._totext(res, enc, 'replace')
-                f.truncate(0)
-                f.seek(0)
-            l.append(res)
-        return l
+        if hasattr(self, "out"):
+            out = self._readsnapshot(self.out.tmpfile)
+        else:
+            out = ""
+        if hasattr(self, "err"):
+            err = self._readsnapshot(self.err.tmpfile)
+        else:
+            err = ""
+        return [out, err]
+
+    def _readsnapshot(self, f):
+        f.seek(0)
+        res = f.read()
+        enc = getattr(f, "encoding", None)
+        if enc:
+            res = py.builtin._totext(res, enc, "replace")
+        f.truncate(0)
+        f.seek(0)
+        return res
+
 
 class StdCapture(Capture):
-    """ This class allows capturing writes to sys.stdout|stderr "in-memory"
-        and will raise errors on read attempts from sys.stdin. It only
+    """ This class allows to capture writes to sys.stdout|stderr "in-memory"
+        and will raise errors on tries to read from sys.stdin. It only
         modifies sys.stdout|stderr|stdin attributes and does not
         touch underlying File Descriptors (use StdCaptureFD for that).
     """

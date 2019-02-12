@@ -1,9 +1,9 @@
 from __future__ import with_statement
 from rpython.rlib import rfloat
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import jit
+from rpython.rlib import jit, objectmodel
 from rpython.rlib.rstring import StringBuilder
 import py, sys
 
@@ -32,10 +32,6 @@ eci = ExternalCompilationInfo(
     includes = ['src/dtoa.h'],
     libraries = [],
     separate_module_sources = [source_file],
-    export_symbols = ['_PyPy_dg_strtod',
-                      '_PyPy_dg_dtoa',
-                      '_PyPy_dg_freedtoa',
-                      ],
     )
 
 # dtoa.c is limited to 'int', so we refuse to pass it
@@ -58,23 +54,27 @@ dg_freedtoa = rffi.llexternal(
 def strtod(input):
     if len(input) > _INT_LIMIT:
         raise MemoryError
+    if objectmodel.revdb_flag_io_disabled():
+        return _revdb_strtod(input)
     end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
     try:
-        ll_input = rffi.str2charp(input)
+        # note: don't use the class scoped_view_charp here, it
+        # break some tests because this function is used by the GC
+        ll_input, flag = rffi.get_nonmovingbuffer_final_null(input)
         try:
             result = dg_strtod(ll_input, end_ptr)
 
             endpos = (rffi.cast(lltype.Signed, end_ptr[0]) -
                       rffi.cast(lltype.Signed, ll_input))
-
-            if endpos == 0 or endpos < len(input):
-                raise ValueError("invalid input at position %d" % (endpos,))
-
-            return result
         finally:
-            rffi.free_charp(ll_input)
+            rffi.free_nonmovingbuffer(input, ll_input, flag)
     finally:
         lltype.free(end_ptr, flavor='raw')
+
+    if endpos == 0 or endpos < len(input):
+        raise ValueError("invalid input at position %d" % (endpos,))
+
+    return result
 
 lower_special_strings = ['inf', '+inf', '-inf', 'nan']
 upper_special_strings = ['INF', '+INF', '-INF', 'NAN']
@@ -240,6 +240,8 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
     if precision > _INT_LIMIT:
         raise MemoryError
+    if objectmodel.revdb_flag_io_disabled():
+        return _revdb_dtoa(value)
     decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     try:
         sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
@@ -303,3 +305,13 @@ def dtoa_formatd(value, code, precision, flags):
 
     return dtoa(value, code, mode=mode, precision=precision, flags=flags,
                 special_strings=special_strings, upper=upper)
+
+def _revdb_strtod(input):
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.emulate_strtod(input)
+
+def _revdb_dtoa(value):
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.emulate_dtoa(value)

@@ -1,5 +1,7 @@
 import unittest
+import os.path
 import sys
+from test import test_support
 from ctypes import *
 from ctypes.util import find_library
 from ctypes.test import is_resource_enabled
@@ -31,52 +33,43 @@ class Test_OpenGL_libs(unittest.TestCase):
     def setUp(self):
         self.gl = self.glu = self.gle = None
         if lib_gl:
-            self.gl = CDLL(lib_gl, mode=RTLD_GLOBAL)
+            try:
+                self.gl = CDLL(lib_gl, mode=RTLD_GLOBAL)
+            except OSError:
+                pass
         if lib_glu:
-            self.glu = CDLL(lib_glu, RTLD_GLOBAL)
+            try:
+                self.glu = CDLL(lib_glu, RTLD_GLOBAL)
+            except OSError:
+                pass
         if lib_gle:
             try:
                 self.gle = CDLL(lib_gle)
             except OSError:
                 pass
 
-    if lib_gl:
-        def test_gl(self):
-            if self.gl:
-                self.gl.glClearIndex
+    def tearDown(self):
+        self.gl = self.glu = self.gle = None
 
-    if lib_glu:
-        def test_glu(self):
-            if self.glu:
-                self.glu.gluBeginCurve
+    @unittest.skipUnless(lib_gl, 'lib_gl not available')
+    def test_gl(self):
+        if self.gl:
+            self.gl.glClearIndex
 
-    if lib_gle:
-        def test_gle(self):
-            if self.gle:
-                self.gle.gleGetJoinStyle
+    @unittest.skipUnless(lib_glu, 'lib_glu not available')
+    def test_glu(self):
+        if self.glu:
+            self.glu.gluBeginCurve
 
-##if os.name == "posix" and sys.platform != "darwin":
+    @unittest.skipUnless(lib_gle, 'lib_gle not available')
+    def test_gle(self):
+        if self.gle:
+            self.gle.gleGetJoinStyle
 
-##    # On platforms where the default shared library suffix is '.so',
-##    # at least some libraries can be loaded as attributes of the cdll
-##    # object, since ctypes now tries loading the lib again
-##    # with '.so' appended of the first try fails.
-##    #
-##    # Won't work for libc, unfortunately.  OTOH, it isn't
-##    # needed for libc since this is already mapped into the current
-##    # process (?)
-##    #
-##    # On MAC OSX, it won't work either, because dlopen() needs a full path,
-##    # and the default suffix is either none or '.dylib'.
-
-##    class LoadLibs(unittest.TestCase):
-##        def test_libm(self):
-##            import math
-##            libm = cdll.libm
-##            sqrt = libm.sqrt
-##            sqrt.argtypes = (c_double,)
-##            sqrt.restype = c_double
-##            self.assertEqual(sqrt(2), math.sqrt(2))
+    def test_shell_injection(self):
+        result = find_library('; echo Hello shell > ' + test_support.TESTFN)
+        self.assertFalse(os.path.lexists(test_support.TESTFN))
+        self.assertIsNone(result)
 
 if __name__ == "__main__":
     unittest.main()

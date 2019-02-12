@@ -87,6 +87,14 @@ class AppTestSrePattern:
         assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
         assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
 
+    def test_findall_unicode(self):
+        import re
+        assert [u"\u1234"] == re.findall(u"\u1234", u"\u1000\u1234\u2000")
+        assert ["a", "u"] == re.findall("b(.)", "abalbus")
+        assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
+        assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
+        assert [u"xyz"] == re.findall(u".*yz", u"xyz")
+
     def test_finditer(self):
         import re
         it = re.finditer("b(.)", "brabbel")
@@ -190,6 +198,15 @@ class AppTestSreMatch:
         assert ("1", None) == m.group(1, "second")
         raises(IndexError, m.group, 'foobarbaz')
         raises(IndexError, m.group, 'first', 'foobarbaz')
+
+    def test_group_takes_long(self):
+        import re
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip()
+        assert re.match("(foo)", "foo").group(1L) == "foo"
+        exc = raises(IndexError, re.match("", "").group, sys.maxint + 1)
+        assert str(exc.value) == "no such group"
 
     def test_expand(self):
         import re
@@ -311,6 +328,18 @@ class AppTestSreMatch:
         KEYCRE = re.compile(r"%\(([^)]*)\)s|.")
         raises(TypeError, KEYCRE.sub, "hello", {"%(": 1})
 
+    def test_sub_matches_stay_valid(self):
+        import re
+        matches = []
+        def callback(match):
+            matches.append(match)
+            return "x"
+        result = re.compile(r"[ab]").sub(callback, "acb")
+        assert result == "xcx"
+        assert len(matches) == 2
+        assert matches[0].group() == "a"
+        assert matches[1].group() == "b"
+
 
 class AppTestSreScanner:
     def test_scanner_attributes(self):
@@ -403,6 +432,8 @@ class AppTestGetlower:
 
 
 class AppTestSimpleSearches:
+    spaceconfig = {"usemodules": ['array']}
+
     def test_search_simple_literal(self):
         import re
         assert re.search("bla", "bla")
@@ -988,3 +1019,15 @@ class AppTestOptimizations:
         import re
         assert re.search(".+ab", "wowowowawoabwowo")
         assert None == re.search(".+ab", "wowowaowowo")
+
+
+class AppTestUnicodeExtra:
+    def test_string_attribute(self):
+        import re
+        match = re.search(u"\u1234", u"\u1233\u1234\u1235")
+        assert match.string == u"\u1233\u1234\u1235"
+
+    def test_match_start(self):
+        import re
+        match = re.search(u"\u1234", u"\u1233\u1234\u1235")
+        assert match.start() == 1

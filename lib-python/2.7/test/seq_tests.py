@@ -4,6 +4,7 @@ Tests common to tuple, list and UserList.UserList
 
 import unittest
 import sys
+from test import test_support as support
 
 # Various iterables
 # This is used for checking the constructor (here and in test_deque.py)
@@ -84,6 +85,14 @@ def itermulti(seqn):
     'Test multiple tiers of iterators'
     return chain(imap(lambda x:x, iterfunc(IterGen(Sequence(seqn)))))
 
+class LyingTuple(tuple):
+    def __iter__(self):
+        yield 1
+
+class LyingList(list):
+    def __iter__(self):
+        yield 1
+
 class CommonTest(unittest.TestCase):
     # The type to be tested
     type2test = None
@@ -129,6 +138,10 @@ class CommonTest(unittest.TestCase):
             self.assertRaises(TypeError, self.type2test, IterNextOnly(s))
             self.assertRaises(TypeError, self.type2test, IterNoNext(s))
             self.assertRaises(ZeroDivisionError, self.type2test, IterGenExc(s))
+
+        # Issue #23757
+        self.assertEqual(self.type2test(LyingTuple((2,))), self.type2test((1,)))
+        self.assertEqual(self.type2test(LyingList([2])), self.type2test([1]))
 
     def test_truth(self):
         self.assertFalse(self.type2test())
@@ -396,3 +409,7 @@ class CommonTest(unittest.TestCase):
         self.assertEqual(a.index(0, -4*sys.maxint, 4*sys.maxint), 2)
         self.assertRaises(ValueError, a.index, 0, 4*sys.maxint,-4*sys.maxint)
         self.assertRaises(ValueError, a.index, 2, 0, -10)
+
+    def test_free_after_iterating(self):
+        support.check_free_after_iterating(self, iter, self.type2test)
+        support.check_free_after_iterating(self, reversed, self.type2test)

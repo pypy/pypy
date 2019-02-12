@@ -1,5 +1,8 @@
 import time
 from pypy.module.thread import gil
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib import rgil
 from rpython.rlib.test import test_rthread
 from rpython.rlib import rthread as thread
 from rpython.rlib.objectmodel import we_are_translated
@@ -55,22 +58,23 @@ class GILTests(test_rthread.AbstractGCTestClass):
                 assert state.datalen3 == len(state.data)
                 assert state.datalen4 == len(state.data)
                 debug_print(main, i, state.datalen4)
-                gil.do_yield_thread()
+                rgil.yield_thread()
                 assert i == j
                 j += 1
         def bootstrap():
             try:
                 runme()
-            except Exception, e:
+            except Exception as e:
                 assert 0
             thread.gc_thread_die()
+        my_gil_threadlocals = gil.GILThreadLocals(space)
         def f():
             state.data = []
             state.datalen1 = 0
             state.datalen2 = 0
             state.datalen3 = 0
             state.datalen4 = 0
-            state.threadlocals = gil.GILThreadLocals()
+            state.threadlocals = my_gil_threadlocals
             state.threadlocals.setup_threads(space)
             subident = thread.start_new_thread(bootstrap, ())
             mainident = thread.get_ident()
@@ -79,11 +83,14 @@ class GILTests(test_rthread.AbstractGCTestClass):
             while len(state.data) < 2*N:
                 debug_print(len(state.data))
                 if not still_waiting:
+                    llop.debug_print(lltype.Void, "timeout. progress: "
+                                     "%d of 2*N (= %f%%)" % \
+                                     (len(state.data), 2*N, 100*len(state.data)/(2.0*N)))
                     raise ValueError("time out")
                 still_waiting -= 1
-                if not we_are_translated(): gil.before_external_call()
-                time.sleep(0.01)
-                if not we_are_translated(): gil.after_external_call()
+                if not we_are_translated(): rgil.release()
+                time.sleep(0.1)
+                if not we_are_translated(): rgil.acquire()
             debug_print("leaving!")
             i1 = i2 = 0
             for tid, i in state.data:

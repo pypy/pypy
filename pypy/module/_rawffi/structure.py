@@ -3,7 +3,7 @@ to app-level with apropriate interface
 """
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import interp_attrproperty
+from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
@@ -18,6 +18,10 @@ from rpython.rlib import clibffi, rgc
 from rpython.rlib.rarithmetic import intmask, signedtype, r_uint, \
     r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import specialize
+import sys
+
+IS_BIG_ENDIAN = sys.byteorder == 'big'
 
 
 
@@ -29,11 +33,11 @@ def unpack_fields(space, w_fields):
         len_l = len(l_w)
 
         if len_l < 2 or len_l > 3:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Expected list of 2- or 3-size tuples"))
+            raise oefmt(space.w_ValueError,
+                        "Expected list of 2- or 3-size tuples")
 
         try:
-            name = space.str_w(l_w[0])
+            name = space.text_w(l_w[0])
         except OperationError:
             raise oefmt(space.w_TypeError,
                         "structure field name must be string not %T", l_w[0])
@@ -44,12 +48,12 @@ def unpack_fields(space, w_fields):
                 if c == tp.itemcode:
                     break
             else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "bit fields not allowed for type"))
+                raise oefmt(space.w_TypeError,
+                            "bit fields not allowed for type")
             bitsize = space.int_w(l_w[2])
             if bitsize <= 0 or bitsize > tp.size * 8:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "number of bits invalid for bit field"))
+                raise oefmt(space.w_ValueError,
+                            "number of bits invalid for bit field")
         else:
             bitsize = 0
 
@@ -114,20 +118,32 @@ def size_alignment_pos(fields, is_union=False, pack=0):
                 size += intmask(fieldsize)
                 bitsizes.append(fieldsize)
             elif field_type == NEW_BITFIELD:
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset = bitsize
                 size = round_up(size, fieldalignment)
                 pos.append(size)
                 size += fieldsize
             elif field_type == CONT_BITFIELD:
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset += bitsize
                 # offset is already updated for the NEXT field
                 pos.append(size - fieldsize)
             elif field_type == EXPAND_BITFIELD:
                 size += fieldsize - last_size / 8
                 last_size = fieldsize * 8
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset += bitsize
                 # offset is already updated for the NEXT field
                 pos.append(size - fieldsize)
@@ -176,30 +192,30 @@ class W_Structure(W_DataShape):
 
     @unwrap_spec(autofree=bool)
     def descr_call(self, space, autofree=False):
-        return space.wrap(self.allocate(space, 1, autofree))
+        return self.allocate(space, 1, autofree)
 
     def descr_repr(self, space):
         fieldnames = ' '.join(["'%s'" % name for name, _, _ in self.fields])
-        return space.wrap("<_rawffi.Structure %s (%d, %d)>" % (fieldnames,
-                                                               self.size,
-                                                               self.alignment))
+        return space.newtext("<_rawffi.Structure %s (%d, %d)>" % (fieldnames,
+                                                                  self.size,
+                                                                  self.alignment))
 
     @unwrap_spec(address=r_uint)
     def fromaddress(self, space, address):
-        return space.wrap(W_StructureInstance(space, self, address))
+        return W_StructureInstance(space, self, address)
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def descr_fieldoffset(self, space, attr):
         index = self.getindex(space, attr)
-        return space.wrap(self.ll_positions[index])
+        return space.newint(self.ll_positions[index])
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def descr_fieldsize(self, space, attr):
         index = self.getindex(space, attr)
         if self.ll_bitsizes and index < len(self.ll_bitsizes):
-            return space.wrap(self.ll_bitsizes[index])
+            return space.newint(self.ll_bitsizes[index])
         else:
-            return space.wrap(self.fields[index][1].size)
+            return space.newint(self.fields[index][1].size)
 
     # get the corresponding ffi_type
     ffi_struct = lltype.nullptr(clibffi.FFI_STRUCT_P.TO)
@@ -236,8 +252,8 @@ class W_Structure(W_DataShape):
 @unwrap_spec(union=bool, pack=int)
 def descr_new_structure(space, w_type, w_shapeinfo, union=False, pack=0):
     if pack < 0:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "_pack_ must be a non-negative integer"))
+        raise oefmt(space.w_ValueError,
+                    "_pack_ must be a non-negative integer")
 
     if space.isinstance_w(w_shapeinfo, space.w_tuple):
         w_size, w_alignment = space.fixedview(w_shapeinfo, expected_length=2)
@@ -246,7 +262,7 @@ def descr_new_structure(space, w_type, w_shapeinfo, union=False, pack=0):
     else:
         fields = unpack_fields(space, w_shapeinfo)
         S = W_Structure(space, fields, 0, 0, union, pack)
-    return space.wrap(S)
+    return S
 
 W_Structure.typedef = TypeDef(
     'Structure',
@@ -254,8 +270,10 @@ W_Structure.typedef = TypeDef(
     __call__    = interp2app(W_Structure.descr_call),
     __repr__    = interp2app(W_Structure.descr_repr),
     fromaddress = interp2app(W_Structure.fromaddress),
-    size        = interp_attrproperty('size', W_Structure),
-    alignment   = interp_attrproperty('alignment', W_Structure),
+    size        = interp_attrproperty('size', W_Structure,
+        wrapfn="newint"),
+    alignment   = interp_attrproperty('alignment', W_Structure,
+        wrapfn="newint"),
     fieldoffset = interp2app(W_Structure.descr_fieldoffset),
     fieldsize   = interp2app(W_Structure.descr_fieldsize),
     size_alignment = interp2app(W_Structure.descr_size_alignment),
@@ -269,6 +287,7 @@ def LOW_BIT(x):
 def NUM_BITS(x):
     return x >> 16
 
+@specialize.arg(1)
 def BIT_MASK(x, ll_t):
     if ll_t is lltype.SignedLongLong or ll_t is lltype.UnsignedLongLong:
         one = r_ulonglong(1)
@@ -276,8 +295,8 @@ def BIT_MASK(x, ll_t):
         one = r_uint(1)
     # to avoid left shift by x == sizeof(ll_t)
     return (((one << (x - 1)) - 1) << 1) + 1
-BIT_MASK._annspecialcase_ = 'specialize:arg(1)'
 
+@specialize.argtype(2)
 def push_field(self, num, value):
     ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[num])
     TP = lltype.typeOf(value)
@@ -298,8 +317,8 @@ def push_field(self, num, value):
                 value = rffi.cast(TP, current)
             break
     write_ptr(ptr, 0, value)
-push_field._annspecialcase_ = 'specialize:argtype(2)'
 
+@specialize.arg(2)
 def cast_pos(self, i, ll_t):
     pos = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
     value = read_ptr(pos, 0, ll_t)
@@ -322,7 +341,6 @@ def cast_pos(self, i, ll_t):
                 value = rffi.cast(ll_t, value)
             break
     return value
-cast_pos._annspecialcase_ = 'specialize:arg(2)'
 
 class W_StructureInstance(W_DataInstance):
     def __init__(self, space, shape, address):
@@ -331,9 +349,9 @@ class W_StructureInstance(W_DataInstance):
 
     def descr_repr(self, space):
         addr = rffi.cast(lltype.Unsigned, self.ll_buffer)
-        return space.wrap("<_rawffi struct %x>" % (addr,))
+        return space.newtext("<_rawffi struct %x>" % (addr,))
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def getattr(self, space, attr):
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing NULL pointer")
@@ -341,7 +359,7 @@ class W_StructureInstance(W_DataInstance):
         _, tp, _ = self.shape.fields[i]
         return wrap_value(space, cast_pos, self, i, tp.itemcode)
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def setattr(self, space, attr, w_value):
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing NULL pointer")
@@ -349,11 +367,11 @@ class W_StructureInstance(W_DataInstance):
         _, tp, _ = self.shape.fields[i]
         unwrap_value(space, push_field, self, i, tp.itemcode, w_value)
 
-    @unwrap_spec(attr=str)
+    @unwrap_spec(attr='text')
     def descr_fieldaddress(self, space, attr):
         i = self.shape.getindex(space, attr)
         ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
-        return space.wrap(rffi.cast(lltype.Unsigned, ptr))
+        return space.newint(rffi.cast(lltype.Unsigned, ptr))
 
     def getrawsize(self):
         return self.shape.size
@@ -366,7 +384,7 @@ W_StructureInstance.typedef = TypeDef(
     __setattr__ = interp2app(W_StructureInstance.setattr),
     buffer      = GetSetProperty(W_StructureInstance.getbuffer),
     free        = interp2app(W_StructureInstance.free),
-    shape       = interp_attrproperty('shape', W_StructureInstance),
+    shape       = interp_attrproperty_w('shape', W_StructureInstance),
     byptr       = interp2app(W_StructureInstance.byptr),
     fieldaddress= interp2app(W_StructureInstance.descr_fieldaddress),
 )
@@ -387,7 +405,7 @@ W_StructureInstanceAutoFree.typedef = TypeDef(
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
     buffer      = GetSetProperty(W_StructureInstance.getbuffer),
-    shape       = interp_attrproperty('shape', W_StructureInstance),
+    shape       = interp_attrproperty_w('shape', W_StructureInstance),
     byptr       = interp2app(W_StructureInstance.byptr),
     fieldaddress= interp2app(W_StructureInstance.descr_fieldaddress),
 )

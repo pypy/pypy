@@ -10,9 +10,8 @@ def maywarn(err, repo_type='Mercurial'):
     if not err:
         return
 
-    from rpython.tool.ansi_print import ansi_log
-    log = py.log.Producer("version")
-    py.log.setconsumer("version", ansi_log)
+    from rpython.tool.ansi_print import AnsiLogger
+    log = AnsiLogger("version")
     log.WARNING('Errors getting %s information: %s' % (repo_type, err))
 
 def get_repo_version_info(hgexe=None, root=rpythonroot):
@@ -49,7 +48,7 @@ def _get_hg_version(hgexe, root):
     try:
         p = Popen([str(hgexe), 'version', '-q'],
                   stdout=PIPE, stderr=PIPE, env=env)
-    except OSError, e:
+    except OSError as e:
         maywarn(e)
         return default_retval
 
@@ -60,15 +59,15 @@ def _get_hg_version(hgexe, root):
     p = Popen([str(hgexe), 'id', '-i', root],
               stdout=PIPE, stderr=PIPE, env=env)
     hgid = p.stdout.read().strip()
-    maywarn(p.stderr.read())
     if p.wait() != 0:
+        maywarn(p.stderr.read())
         hgid = '?'
 
     p = Popen([str(hgexe), 'id', '-t', root],
               stdout=PIPE, stderr=PIPE, env=env)
     hgtags = [t for t in p.stdout.read().strip().split() if t != 'tip']
-    maywarn(p.stderr.read())
     if p.wait() != 0:
+        maywarn(p.stderr.read())
         hgtags = ['?']
 
     if hgtags:
@@ -78,7 +77,8 @@ def _get_hg_version(hgexe, root):
         p = Popen([str(hgexe), 'id', '-b', root],
                   stdout=PIPE, stderr=PIPE, env=env)
         hgbranch = p.stdout.read().strip()
-        maywarn(p.stderr.read())
+        if p.wait() != 0:
+            maywarn(p.stderr.read())
 
         return hgbranch, hgid
 
@@ -107,7 +107,7 @@ def _get_git_version(root):
             [str(gitexe), 'rev-parse', 'HEAD'],
             stdout=PIPE, stderr=PIPE, cwd=root
             )
-    except OSError, e:
+    except OSError as e:
         maywarn(e, 'Git')
         return default_retval
     if p.wait() != 0:

@@ -8,7 +8,7 @@ class AppTestErrno:
         cls.w_errorcode = cls.space.wrap(errno.errorcode)
 
     def test_posix(self):
-        assert self.errno.__file__
+        assert not hasattr(self.errno, '__file__')
 
     def test_constants(self):
         for code, name in self.errorcode.iteritems():

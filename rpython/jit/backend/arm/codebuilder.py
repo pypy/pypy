@@ -1,7 +1,6 @@
 from rpython.jit.backend.arm import conditions as cond
 from rpython.jit.backend.arm import registers as reg
-from rpython.jit.backend.arm import support
-from rpython.jit.backend.arm.arch import (WORD, FUNC_ALIGN, PC_OFFSET)
+from rpython.jit.backend.arm.arch import WORD, PC_OFFSET
 from rpython.jit.backend.arm.instruction_builder import define_instructions
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.rlib.objectmodel import we_are_translated
@@ -17,25 +16,9 @@ clear_cache = rffi.llexternal(
     sandboxsafe=True)
 
 
-def binary_helper_call(name):
-    function = getattr(support, 'arm_%s' % name)
-
-    def f(self, c=cond.AL):
-        """Generates a call to a helper function, takes its
-        arguments in r0 and r1, result is placed in r0"""
-        addr = rffi.cast(lltype.Signed, function)
-        self.BL(addr, c)
-    return f
-
-
 class AbstractARMBuilder(object):
-
     def __init__(self, arch_version=7):
         self.arch_version = arch_version
-
-    def align(self):
-        while(self.currpos() % FUNC_ALIGN != 0):
-            self.writechar(chr(0))
 
     def NOP(self):
         self.MOV_rr(0, 0)
@@ -318,9 +301,43 @@ class AbstractARMBuilder(object):
                     | (rd & 0xF) << 12
                     | imm16 & 0xFFF)
 
-    DIV = binary_helper_call('int_div')
-    MOD = binary_helper_call('int_mod')
-    UDIV = binary_helper_call('uint_div')
+    def SXTB_rr(self, rd, rm, c=cond.AL):
+        self.write32(c << 28
+                    | 0x06AF0070
+                    | (rd & 0xF) << 12
+                    | (rm & 0xF))
+
+    def SXTH_rr(self, rd, rm, c=cond.AL):
+        self.write32(c << 28
+                    | 0x06BF0070
+                    | (rd & 0xF) << 12
+                    | (rm & 0xF))
+
+    def LDREX(self, rt, rn, c=cond.AL):
+        self.write32(c << 28
+                    | 0x01900f9f
+                    | (rt & 0xF) << 12
+                    | (rn & 0xF) << 16)
+
+    def STREX(self, rd, rt, rn, c=cond.AL):
+        """rd must not be the same register as rt or rn"""
+        self.write32(c << 28
+                    | 0x01800f90
+                    | (rt & 0xF)
+                    | (rd & 0xF) << 12
+                    | (rn & 0xF) << 16)
+
+    def DMB(self):
+        # ARMv7 only.  I guess ARMv6 CPUs cannot be used in symmetric
+        # multi-processing at all? That would make this instruction unneeded.
+        # note: 'cond' is only permitted on Thumb here, but don't
+        # write literally 0xf57ff05f, because it's larger than 31 bits
+        c = cond.AL
+        self.write32(c << 28
+                    | 0x157ff05f)
+
+    FMDRR = VMOV_cr     # uh, there are synonyms?
+    FMRRD = VMOV_rc
 
     def _encode_reg_list(self, instr, regs):
         for reg in regs:
@@ -428,21 +445,6 @@ class InstrBuilder(BlockBuilderMixin, AbstractARMBuilder):
             for i in range(self.currpos()):
                 f.write(data[i])
             f.close()
-
-    # XXX remove and setup aligning in llsupport
-    def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
-        size = self.get_relative_pos() + WORD
-        malloced = asmmemmgr.malloc(size, size + 7)
-        allblocks.append(malloced)
-        rawstart = malloced[0]
-        while(rawstart % FUNC_ALIGN != 0):
-            rawstart += 1
-        self.copy_to_raw_memory(rawstart)
-        if self.gcroot_markers is not None:
-            assert gcrootmap is not None
-            for pos, mark in self.gcroot_markers:
-                gcrootmap.put(rawstart + pos, mark)
-        return rawstart
 
     def clear_cache(self, addr):
         if we_are_translated():

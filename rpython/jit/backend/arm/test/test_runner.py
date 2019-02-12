@@ -2,11 +2,12 @@ import py
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest,\
      boxfloat, constfloat
-from rpython.jit.metainterp.history import (BasicFailDescr, BasicFinalDescr,
-                                            BoxInt)
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr
+from rpython.jit.metainterp.resoperation import (ResOperation, rop,
+                                                 InputArgInt)
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
@@ -25,24 +26,21 @@ class TestARM(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['ldr', 'adds', 'cmp', 'beq', 'b']
-    bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
-                                'push', 'mov', 'mov', 'push', 'mov', 'mov',
-                                'blx', 'mov', 'mov', 'bx']
+    add_loop_instructions = 'ldr; adds; cmp; beq; b;'
     arch_version = detect_arch_version()
     if arch_version == 7:
-        bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
-                                    'push', 'mov', 'mov', 'push', 'mov', 'mov',
-                                    'blx', 'mov', 'mov', 'bx']
+        bridge_loop_instructions = ('ldr; movw; nop; cmp; bge; '
+                                    'push; movw; movt; push; movw; movt; '
+                                    'blx; movw; movt; bx;')
     else:
-        bridge_loop_instructions = ['ldr', 'mov', 'nop', 'nop', 'nop', 'cmp', 'bge',
-                              'push', 'ldr', 'mov',
-                              '*', # inline constant
-                              'push', 'ldr', 'mov',
-                              '*', # inline constant
-                              'blx', 'ldr', 'mov',
-                              '*', # inline constant
-                              'bx']
+        bridge_loop_instructions = ('ldr; mov; nop; nop; nop; cmp; bge; '
+                                    'push; ldr; mov; '
+                                    '[^;]+; ' # inline constant
+                                    'push; ldr; mov; '
+                                    '[^;]+; ' # inline constant
+                                    'blx; ldr; mov; '
+                                    '[^;]+; ' # inline constant
+                                    'bx;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
@@ -51,30 +49,29 @@ class TestARM(LLtypeBackendTest):
 
     def test_result_is_spilled(self):
         cpu = self.cpu
-        inp = [BoxInt(i) for i in range(1, 15)]
-        out = [BoxInt(i) for i in range(1, 15)]
+        inp = [InputArgInt(i) for i in range(1, 15)]
         looptoken = JitCellToken()
         targettoken = TargetToken()
         operations = [
-            ResOperation(rop.LABEL, inp, None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [inp[0], inp[1]], out[0]),
-            ResOperation(rop.INT_ADD, [inp[2], inp[3]], out[1]),
-            ResOperation(rop.INT_ADD, [inp[4], inp[5]], out[2]),
-            ResOperation(rop.INT_ADD, [inp[6], inp[7]], out[3]),
-            ResOperation(rop.INT_ADD, [inp[8], inp[9]], out[4]),
-            ResOperation(rop.INT_ADD, [inp[10], inp[11]], out[5]),
-            ResOperation(rop.INT_ADD, [inp[12], inp[13]], out[6]),
-            ResOperation(rop.INT_ADD, [inp[0], inp[1]], out[7]),
-            ResOperation(rop.INT_ADD, [inp[2], inp[3]], out[8]),
-            ResOperation(rop.INT_ADD, [inp[4], inp[5]], out[9]),
-            ResOperation(rop.INT_ADD, [inp[6], inp[7]], out[10]),
-            ResOperation(rop.INT_ADD, [inp[8], inp[9]], out[11]),
-            ResOperation(rop.INT_ADD, [inp[10], inp[11]], out[12]),
-            ResOperation(rop.INT_ADD, [inp[12], inp[13]], out[13]),
-            ResOperation(rop.GUARD_FALSE, [inp[1]], None, descr=BasicFailDescr(1)),
-            ResOperation(rop.FINISH, [inp[1]], None, descr=BasicFinalDescr(1)),
+            ResOperation(rop.LABEL, inp, descr=targettoken),
+            ResOperation(rop.INT_ADD, [inp[0], inp[1]]),
+            ResOperation(rop.INT_ADD, [inp[2], inp[3]]),
+            ResOperation(rop.INT_ADD, [inp[4], inp[5]]),
+            ResOperation(rop.INT_ADD, [inp[6], inp[7]]),
+            ResOperation(rop.INT_ADD, [inp[8], inp[9]]),
+            ResOperation(rop.INT_ADD, [inp[10], inp[11]]),
+            ResOperation(rop.INT_ADD, [inp[12], inp[13]]),
+            ResOperation(rop.INT_ADD, [inp[0], inp[1]]),
+            ResOperation(rop.INT_ADD, [inp[2], inp[3]]),
+            ResOperation(rop.INT_ADD, [inp[4], inp[5]]),
+            ResOperation(rop.INT_ADD, [inp[6], inp[7]]),
+            ResOperation(rop.INT_ADD, [inp[8], inp[9]]),
+            ResOperation(rop.INT_ADD, [inp[10], inp[11]]),
+            ResOperation(rop.INT_ADD, [inp[12], inp[13]]),
+            ResOperation(rop.GUARD_FALSE, [inp[1]], descr=BasicFailDescr(1)),
+            ResOperation(rop.FINISH, [inp[1]], descr=BasicFinalDescr(1)),
             ]
-        operations[-2].setfailargs(out)
+        operations[-2].setfailargs(operations[1:15])
         cpu.compile_loop(inp, operations, looptoken)
         args = [i for i in range(1, 15)]
         deadframe = self.cpu.execute_token(looptoken, *args)
@@ -103,7 +100,7 @@ class TestARM(LLtypeBackendTest):
         lt2.outermost_jitdriver_sd = FakeJitDriverSD()
         loop1 = parse('''
         [i0]
-        i1 = call_assembler(i0, descr=lt2)
+        i1 = call_assembler_i(i0, descr=lt2)
         guard_not_forced()[]
         finish(i1)
         ''', namespace=locals())
@@ -180,19 +177,19 @@ class TestARM(LLtypeBackendTest):
     def test_float_field(self):
         if not self.cpu.supports_floats:
             py.test.skip('requires floats')
+        t_box, T_box, _ = self.alloc_instance(self.TFloat)
         floatdescr = self.cpu.fielddescrof(self.SFloat, 'float')
-        t_box, T_box = self.alloc_instance(self.TFloat)
         self.execute_operation(rop.SETFIELD_GC, [t_box, boxfloat(3.4)],
                                'void', descr=floatdescr)
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+        res = self.execute_operation(rop.GETFIELD_GC_F, [t_box],
                                      'float', descr=floatdescr)
-        assert res.getfloat() == 3.4
+        assert longlong.getrealfloat(res) == 3.4
         #
         self.execute_operation(rop.SETFIELD_GC, [t_box, constfloat(-3.6)],
                                'void', descr=floatdescr)
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+        res = self.execute_operation(rop.GETFIELD_GC_F, [t_box],
                                      'float', descr=floatdescr)
-        assert res.getfloat() == -3.6
+        assert longlong.getrealfloat(res) == -3.6
 
     def test_compile_loop_many_int_args(self):
         for numargs in range(2, 30):
@@ -268,13 +265,13 @@ class TestARM(LLtypeBackendTest):
         targettoken = TargetToken()
         ops = """
         [i0, f3]
-        i2 = same_as(i0)    # but forced to be in a register
+        i2 = same_as_i(i0)    # but forced to be in a register
         force_spill(i2)
         force_spill(f3)
         f4 = float_add(f3, 5.0)
         label(f3, f4, descr=targettoken)
         force_spill(f3)
-        f5 = same_as(f3)    # but forced to be in a register
+        f5 = same_as_f(f3)    # but forced to be in a register
         finish(f5)
         """
         faildescr = BasicFailDescr(2)
@@ -283,8 +280,8 @@ class TestARM(LLtypeBackendTest):
         info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ops2 = """
         [i0, f1]
-        i1 = same_as(i0)
-        f2 = same_as(f1)
+        i1 = same_as_i(i0)
+        f2 = same_as_f(f1)
         f3 = float_add(f1, 10.0)
         force_spill(f3)
         force_spill(i1)

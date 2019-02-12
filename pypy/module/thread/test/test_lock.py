@@ -3,6 +3,7 @@ import py
 import sys, os
 from pypy.module.thread.test.support import GenericTestThread
 from rpython.translator.c.test.test_genc import compile
+from platform import machine
 
 
 class AppTestLock(GenericTestThread):
@@ -51,14 +52,64 @@ class AppTestLock(GenericTestThread):
             assert feedback == [42]
         assert lock.locked() is False
 
+    def test_weakrefable(self):
+        import thread, weakref
+        weakref.ref(thread.allocate_lock())
+
     def test_timeout(self):
         import thread
         lock = thread.allocate_lock()
         assert lock.acquire() is True
         assert lock.acquire(False) is False
         raises(TypeError, lock.acquire, True, timeout=.1)
-        lock._py3k_acquire(True, timeout=.01)
-        lock._py3k_acquire(True, .01)
+        if hasattr(lock, '_py3k_acquire'):
+            lock._py3k_acquire(True, timeout=.01)
+            lock._py3k_acquire(True, .01)
+        else:
+            assert self.runappdirect, "missing lock._py3k_acquire()"
+
+    def test_py3k_acquire_timeout_overflow(self):
+        import thread
+        lock = thread.allocate_lock()
+        if not hasattr(lock, '_py3k_acquire'):
+            skip("missing lock._py3k_acquire()")
+        maxint = 2**63 - 1
+        boundary = int(maxint * 1e-6)
+        for i in [-100000, -10000, -1000, -100, -10, -1, 0,
+                  1, 10, 100, 1000, 10000, 100000]:
+            timeout = (maxint + i) * 1e-6
+            try:
+                lock._py3k_acquire(True, timeout=timeout)
+            except OverflowError:
+                got_ovf = True
+            else:
+                got_ovf = False
+                lock.release()
+            assert (i, got_ovf) == (i, int(timeout * 1e6) > maxint)
+
+    @py.test.mark.xfail(machine()=='s390x', reason='may fail under heavy load')
+    def test_ping_pong(self):
+        # The purpose of this test is that doing a large number of ping-pongs
+        # between two threads, using locks, should complete in a reasonable
+        # time on a translated pypy with -A.  If the GIL logic causes too
+        # much sleeping, then it will fail.
+        import thread, time
+        COUNT = 100000 if self.runappdirect else 50
+        lock1 = thread.allocate_lock()
+        lock2 = thread.allocate_lock()
+        def fn():
+            for i in range(COUNT):
+                lock1.acquire()
+                lock2.release()
+        lock2.acquire()
+        print "STARTING"
+        start = time.time()
+        thread.start_new_thread(fn, ())
+        for i in range(COUNT):
+            lock2.acquire()
+            lock1.release()
+        stop = time.time()
+        assert stop - start < 30.0    # ~0.6 sec on pypy-c-jit
 
 
 def test_compile_lock():
@@ -87,11 +138,64 @@ class AppTestLockAgain(GenericTestThread):
     test_lock_again = AppTestLock.test_lock.im_func
 
 
+class AppTestRLock(GenericTestThread):
+    """
+    Tests for recursive locks.
+    """
+    def test_reacquire(self):
+        import thread
+        lock = thread.RLock()
+        lock.acquire()
+        lock.acquire()
+        lock.release()
+        lock.acquire()
+        lock.release()
+        lock.release()
+
+    def test_release_unacquired(self):
+        # Cannot release an unacquired lock
+        import thread
+        lock = thread.RLock()
+        raises(RuntimeError, lock.release)
+        lock.acquire()
+        lock.acquire()
+        lock.release()
+        lock.acquire()
+        lock.release()
+        lock.release()
+        raises(RuntimeError, lock.release)
+
+    def test_release_save(self):
+        import thread
+        lock = thread.RLock()
+        raises(RuntimeError, lock._release_save)
+        lock.acquire()
+        state = lock._release_save()
+        lock._acquire_restore(state)
+        lock.release()
+
+    def test__is_owned(self):
+        import thread
+        lock = thread.RLock()
+        assert lock._is_owned() is False
+        lock.acquire()
+        assert lock._is_owned() is True
+        lock.acquire()
+        assert lock._is_owned() is True
+        lock.release()
+        assert lock._is_owned() is True
+        lock.release()
+        assert lock._is_owned() is False
+
+    def test_context_manager(self):
+        import thread
+        lock = thread.RLock()
+        with lock:
+            assert lock._is_owned() is True
+
+
 class AppTestLockSignals(GenericTestThread):
     pytestmark = py.test.mark.skipif("os.name != 'posix'")
-
-    def setup_class(cls):
-        cls.w_using_pthread_cond = cls.space.wrap(sys.platform == 'freebsd6')
 
     def w_acquire_retries_on_intr(self, lock):
         import thread, os, signal, time
@@ -100,23 +204,26 @@ class AppTestLockSignals(GenericTestThread):
             self.sig_recvd = True
         old_handler = signal.signal(signal.SIGUSR1, my_handler)
         try:
+            ready = thread.allocate_lock()
+            ready.acquire()
             def other_thread():
                 # Acquire the lock in a non-main thread, so this test works for
                 # RLocks.
                 lock.acquire()
-                # Wait until the main thread is blocked in the lock acquire, and
-                # then wake it up with this.
-                time.sleep(0.5)
+                # Notify the main thread that we're ready
+                ready.release()
+                # Wait for 5 seconds here
+                for n in range(50):
+                    time.sleep(0.1)
+                # Send the signal
                 os.kill(os.getpid(), signal.SIGUSR1)
                 # Let the main thread take the interrupt, handle it, and retry
                 # the lock acquisition.  Then we'll let it run.
-                time.sleep(0.5)
+                for n in range(50):
+                    time.sleep(0.1)
                 lock.release()
             thread.start_new_thread(other_thread, ())
-            # Wait until we can't acquire it without blocking...
-            while lock.acquire(blocking=False):
-                lock.release()
-                time.sleep(0.01)
+            ready.acquire()
             result = lock.acquire()  # Block while we receive a signal.
             assert self.sig_recvd
             assert result
@@ -127,12 +234,14 @@ class AppTestLockSignals(GenericTestThread):
         import thread
         self.acquire_retries_on_intr(thread.allocate_lock())
 
+    def test_rlock_acquire_retries_on_intr(self):
+        import thread
+        self.acquire_retries_on_intr(thread.RLock())
+
     def w_alarm_interrupt(self, sig, frame):
         raise KeyboardInterrupt
 
     def test_lock_acquire_interruption(self):
-        if self.using_pthread_cond:
-            skip('POSIX condition variables cannot be interrupted')
         import thread, signal, time
         # Mimic receiving a SIGINT (KeyboardInterrupt) with SIGALRM while stuck
         # in a deadlock.
@@ -160,3 +269,20 @@ class AppTestLockSignals(GenericTestThread):
             assert dt < 8.0
         finally:
             signal.signal(signal.SIGALRM, oldalrm)
+
+
+class AppTestLockRepr(GenericTestThread):
+
+    def test_rlock_repr(self):
+        import thread
+        class MyThread:
+            name = "foobar"
+        actives = {thread.get_ident(): MyThread()}
+        rlock = thread.RLock(actives)
+        assert repr(rlock) == "<thread.RLock owner=None count=0>"
+        rlock.acquire()
+        rlock.acquire()
+        assert repr(rlock) == "<thread.RLock owner='foobar' count=2>"
+        actives.clear()
+        assert repr(rlock) == "<thread.RLock owner=%d count=2>" % (
+            thread.get_ident(),)

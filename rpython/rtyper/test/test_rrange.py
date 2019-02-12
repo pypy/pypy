@@ -184,3 +184,11 @@ class TestRrange(BaseRtypingTest):
             return 5
         res = self.interpret(fn, [1])
         assert res == 20
+
+    def test_extend_range(self):
+        def fn(n):
+            lst = [n, n, n]
+            lst.extend(range(n))
+            return len(lst)
+        res = self.interpret(fn, [5])
+        assert res == 8

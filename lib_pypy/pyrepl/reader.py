@@ -93,7 +93,7 @@ def make_default_syntax_table():
     st = {}
     for c in map(unichr, range(256)):
         st[c] = SYNTAX_SYMBOL
-    for c in [a for a in map(unichr, range(256)) if a.isalpha()]:
+    for c in [a for a in map(unichr, range(256)) if a.isalnum()]:
         st[c] = SYNTAX_WORD
     st[u'\n'] = st[u' '] = SYNTAX_WHITESPACE
     return st

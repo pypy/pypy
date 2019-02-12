@@ -224,23 +224,9 @@ lbh qvq abg nccebnpu clcl sebz gur rnfl raq: fgz, gura wvg. vg'f n ovg gur Abegu
 va ClCl orvat bayl zbqrengryl zntvp vf n tbbq guvat <psobym>
 """
 
-from string import ascii_uppercase, ascii_lowercase
-
 def rot13(data):
-    """ A simple rot-13 encoder since `str.encode('rot13')` was removed from
-        Python as of version 3.0.  It rotates both uppercase and lowercase letters individually.
-    """
-    total = []
-    for char in data:
-        if char in ascii_uppercase:
-            index = (ascii_uppercase.find(char) + 13) % 26
-            total.append(ascii_uppercase[index])
-        elif char in ascii_lowercase:
-            index = (ascii_lowercase.find(char) + 13) % 26
-            total.append(ascii_lowercase[index])
-        else:
-            total.append(char)
-    return "".join(total)
+    return ''.join(chr(ord(c)+(13 if 'A'<=c.upper()<='M' else
+                              -13 if 'N'<=c.upper()<='Z' else 0)) for c in data)
 
 def some_topic():
     import time

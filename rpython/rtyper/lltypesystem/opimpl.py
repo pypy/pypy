@@ -1,3 +1,4 @@
+import random, sys
 from rpython.flowspace.operation import op
 from rpython.rlib import debug
 from rpython.rlib.rarithmetic import is_valid_int
@@ -16,7 +17,7 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong, r_longlonglong
+from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong, r_longlonglong, r_ulonglonglong
 from rpython.rtyper.lltypesystem.llmemory import AddressAsInt
 
 if r_longlong is r_int:
@@ -37,6 +38,7 @@ argtype_by_name = {
     'llong': r_longlong_arg,
     'ullong': r_ulonglong,
     'lllong': r_longlonglong,
+    'ulllong': r_ulonglonglong,
     }
 
 def no_op(x):
@@ -82,13 +84,11 @@ def get_primitive_op_src(fullopname):
         else:
             def op_function(x, y):
                 if not isinstance(x, argtype):
-                    if not (isinstance(x, AddressAsInt) and argtype is int):
-                        raise TypeError("%r arg 1 must be %s, got %r instead"% (
-                            fullopname, typname, type(x).__name__))
+                    raise TypeError("%r arg 1 must be %s, got %r instead"% (
+                        fullopname, typname, type(x).__name__))
                 if not isinstance(y, argtype):
-                    if not (isinstance(y, AddressAsInt) and argtype is int):
-                        raise TypeError("%r arg 2 must be %s, got %r instead"% (
-                            fullopname, typname, type(y).__name__))
+                    raise TypeError("%r arg 2 must be %s, got %r instead"% (
+                        fullopname, typname, type(y).__name__))
                 return adjust_result(func(x, y))
 
     return func_with_new_name(op_function, 'op_' + fullopname)
@@ -103,6 +103,19 @@ def checkadr(adr):
         raise TypeError("arg must be an address, got %r instead" % (
             lltype.typeOf(adr),))
 
+
+def op_int_eq(x, y):
+    if not isinstance(x, (int, long)):
+        from rpython.rtyper.lltypesystem import llgroup
+        assert isinstance(x, llgroup.CombinedSymbolic), (
+            "'int_eq' arg 1 must be int-like, got %r instead" % (
+                type(x).__name__,))
+    if not isinstance(y, (int, long)):
+        from rpython.rtyper.lltypesystem import llgroup
+        assert isinstance(y, llgroup.CombinedSymbolic), (
+            "'int_eq' arg 2 must be int-like, got %r instead" % (
+                type(y).__name__,))
+    return x == y
 
 def op_ptr_eq(ptr1, ptr2):
     checkptr(ptr1)
@@ -179,6 +192,12 @@ def op_direct_arrayitems(obj):
 def op_direct_ptradd(obj, index):
     checkptr(obj)
     assert is_valid_int(index)
+    if not obj:
+        raise AssertionError("direct_ptradd on null pointer")
+        ## assert isinstance(index, int)
+        ## assert not (0 <= index < 4096)
+        ## from rpython.rtyper.lltypesystem import rffi
+        ## return rffi.cast(lltype.typeOf(obj), index)
     return lltype.direct_ptradd(obj, index)
 
 
@@ -218,6 +237,12 @@ def op_int_between(a, b, c):
     assert lltype.typeOf(b) is lltype.Signed
     assert lltype.typeOf(c) is lltype.Signed
     return a <= b < c
+
+def op_int_force_ge_zero(a):
+    assert lltype.typeOf(a) is lltype.Signed
+    if a < 0:
+        return 0
+    return a
 
 def op_int_and(x, y):
     if not is_valid_int(x):
@@ -341,6 +366,16 @@ def op_ullong_rshift(x, y):
     assert isinstance(x, r_ulonglong)
     assert is_valid_int(y)
     return r_ulonglong(x >> y)
+
+def op_ulllong_lshift(x, y):
+    assert isinstance(x, r_ulonglonglong)
+    assert isinstance(y, int)
+    return r_ulonglonglong(x << y)
+
+def op_ulllong_rshift(x, y):
+    assert isinstance(x, r_ulonglonglong)
+    assert is_valid_int(y)
+    return r_ulonglonglong(x >> y)
 
 def op_same_as(x):
     return x
@@ -556,14 +591,17 @@ def _normalize(x):
             return hlstr(x)
     return x
 
+def op_debug_flush_log():
+    debug.debug_flush_log()
+
 def op_debug_print(*args):
     debug.debug_print(*map(_normalize, args))
 
-def op_debug_start(category):
-    debug.debug_start(_normalize(category))
+def op_debug_start(category, timestamp):
+    return debug.debug_start(_normalize(category), timestamp)
 
-def op_debug_stop(category):
-    debug.debug_stop(_normalize(category))
+def op_debug_stop(category, timestamp):
+    return debug.debug_stop(_normalize(category), timestamp)
 
 def op_debug_offset():
     return debug.debug_offset()
@@ -573,6 +611,9 @@ def op_debug_flush():
 
 def op_have_debug_prints():
     return debug.have_debug_prints()
+
+def op_have_debug_prints_for(prefix):
+    return True
 
 def op_debug_nonnull_pointer(x):
     assert x
@@ -592,10 +633,16 @@ def op_jit_is_virtual(x):
 def op_jit_force_quasi_immutable(*args):
     pass
 
-def op_jit_record_known_class(x, y):
+def op_jit_record_exact_class(x, y):
     pass
 
 def op_jit_ffi_save_result(*args):
+    pass
+
+def op_jit_enter_portal_frame(x):
+    pass
+
+def op_jit_leave_portal_frame():
     pass
 
 def op_get_group_member(TYPE, grpptr, memberoffset):
@@ -648,12 +695,21 @@ def op_get_member_index(memberoffset):
 def op_gc_writebarrier(addr):
     pass
 
+def op_gc_bit(hdr, bitmask):
+    if hdr.tid & bitmask:
+        return random.randrange(1, sys.maxint)
+    return 0
+
 def op_shrink_array(array, smallersize):
     return False
 
 def op_ll_read_timestamp():
     from rpython.rlib.rtimer import read_timestamp
     return read_timestamp()
+
+def op_ll_get_timestamp_unit():
+    from rpython.rlib.rtimer import get_timestamp_unit
+    return get_timestamp_unit()
 
 def op_debug_fatalerror(ll_msg):
     from rpython.rtyper.lltypesystem import lltype, rstr
@@ -669,12 +725,59 @@ def op_raw_store(p, ofs, newvalue):
     p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
     p[0] = newvalue
 
+def op_gc_store(p, ofs, newvalue):
+    from rpython.rtyper.lltypesystem import rffi
+    if lltype.typeOf(p) is not llmemory.Address:
+        p = llmemory.cast_ptr_to_adr(p)
+    TVAL = lltype.typeOf(newvalue)
+    p = llmemory.cast_adr_to_ptr(p + ofs, lltype.Ptr(lltype.FixedSizeArray(TVAL, 1)))
+    p[0] = newvalue
+
 def op_raw_load(TVAL, p, ofs):
     from rpython.rtyper.lltypesystem import rffi
     p = rffi.cast(llmemory.Address, p)
     p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
     return p[0]
 op_raw_load.need_result_type = True
+
+def op_gc_load_indexed(TVAL, p, index, scale, base_ofs):
+    # 'base_ofs' should be a CompositeOffset(..., ArrayItemsOffset).
+    # 'scale' should be a llmemory.sizeof().
+    from rpython.rtyper.lltypesystem import rffi
+    ofs = base_ofs + scale * index
+    if isinstance(ofs, int):
+        return op_raw_load(TVAL, p, ofs)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), llmemory.cast_ptr_to_adr(p) + ofs)
+    return p[0]
+op_gc_load_indexed.need_result_type = True
+
+def op_gc_store_indexed(p, index, newvalue, scale, base_ofs):
+    # 'base_ofs' should be a CompositeOffset(..., ArrayItemsOffset).
+    # 'scale' should be a llmemory.sizeof().
+    from rpython.rtyper.lltypesystem import rffi
+    TVAL = lltype.typeOf(newvalue)
+    ofs = base_ofs + scale * index
+    if isinstance(ofs, int):
+        return op_raw_store(p, ofs, newvalue)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), llmemory.cast_ptr_to_adr(p) + ofs)
+    p[0] = newvalue
+
+def op_likely(x):
+    assert isinstance(x, bool)
+    return x
+
+def op_unlikely(x):
+    assert isinstance(x, bool)
+    return x
+
+def op_gc_ignore_finalizer(obj):
+    pass
+
+def op_gc_move_out_of_nursery(obj):
+    return obj
+
+def op_revdb_do_next_call():
+    pass
 
 # ____________________________________________________________
 

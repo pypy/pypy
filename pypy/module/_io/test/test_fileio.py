@@ -1,3 +1,4 @@
+from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
 import os
 
@@ -5,14 +6,18 @@ import os
 class AppTestFileIO:
     spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
 
-    def setup_class(cls):
+    def setup_method(self, meth):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
-        cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        cls.w_tmpdir = cls.space.wrap(str(udir))
-        cls.w_posix = cls.space.appexec([], """():
+        self.w_tmpfile = self.space.wrap(str(tmpfile))
+        self.w_tmpdir = self.space.wrap(str(udir))
+        self.w_posix = self.space.appexec([], """():
             import %s as m;
             return m""" % os.name)
+        if meth == self.test_readinto_optimized:
+            bigfile = udir.join('bigfile')
+            bigfile.write('a' * 1000, mode='wb')
+            self.w_bigfile = self.space.wrap(self.space.wrap(str(bigfile)))
 
     def test_constructor(self):
         import _io
@@ -135,7 +140,7 @@ class AppTestFileIO:
         import _io
         a = bytearray('x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
-        assert f.readinto(a) == 10
+        assert f.readinto(a) == 5
         exc = raises(TypeError, f.readinto, u"hello")
         assert str(exc.value) == "cannot use unicode as modifiable buffer"
         exc = raises(TypeError, f.readinto, buffer(b"hello"))
@@ -145,7 +150,7 @@ class AppTestFileIO:
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
         assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
-        assert a == 'a\nb\nc\0\0\0\0\0'
+        assert a == 'a\nb\ncxxxxx'
         #
         a = bytearray('x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
@@ -153,6 +158,13 @@ class AppTestFileIO:
         assert f.readinto(a) == 3
         f.close()
         assert a == 'a\nbxxxxxxx'
+
+    def test_readinto_optimized(self):
+        import _io
+        a = bytearray('x' * 1024)
+        f = _io.FileIO(self.bigfile, 'r+')
+        assert f.readinto(a) == 1000
+        assert a == 'a' * 1000 + 'x' * 24
 
     def test_nonblocking_read(self):
         try:
@@ -169,6 +181,8 @@ class AppTestFileIO:
         assert f.read(10) is None
         a = bytearray('x' * 10)
         assert f.readinto(a) is None
+        a2 = bytearray('x' * 1024)
+        assert f.readinto(a2) is None
 
     def test_repr(self):
         import _io
@@ -197,18 +211,30 @@ class AppTestFileIO:
     def test_mode_strings(self):
         import _io
         import os
-        try:
-            for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
-                          ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
-                          ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
-                          ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
-                # read modes are last so that TESTFN will exist first
-                with _io.FileIO(self.tmpfile, modes[0]) as f:
-                    assert f.mode == modes[1]
-        finally:
-            if os.path.exists(self.tmpfile):
-                os.unlink(self.tmpfile)
+        for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
+                      ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
+                      ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
+                      ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
+            # read modes are last so that TESTFN will exist first
+            with _io.FileIO(self.tmpfile, modes[0]) as f:
+                assert f.mode == modes[1]
 
+    def test_flush_error_on_close(self):
+        # Test that the file is closed despite failed flush
+        # and that flush() is called before file closed.
+        import _io, os
+        fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
+        f = _io.FileIO(fd, 'r', closefd=False)
+        closed = []
+        def bad_flush():
+            closed[:] = [f.closed]
+            raise IOError()
+        f.flush = bad_flush
+        raises(IOError, f.close) # exception not swallowed
+        assert f.closed
+        assert closed         # flush() called
+        assert not closed[0]  # flush() called before file closed
+        os.close(fd)
 
 def test_flush_at_exit():
     from pypy import conftest

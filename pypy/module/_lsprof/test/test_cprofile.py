@@ -1,6 +1,6 @@
 class AppTestCProfile(object):
     spaceconfig = {
-        "usemodules": ['_lsprof', 'rctime'],
+        "usemodules": ['_lsprof', 'time'],
     }
 
     def setup_class(cls):

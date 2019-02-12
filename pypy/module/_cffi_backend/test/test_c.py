@@ -22,6 +22,8 @@ if sys.version_info < (2, 6):
 from rpython.tool.udir import udir
 from pypy.interpreter import gateway
 from pypy.module._cffi_backend import Module
+from pypy.module._cffi_backend.newtype import _clean_cache, UniqueCache
+from rpython.translator import cdir
 from rpython.translator.platform import host
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -29,11 +31,12 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 class AppTestC(object):
     """Populated below, hack hack hack."""
 
-    spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))
+    spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO', 'array'))
 
     def setup_class(cls):
         testfuncs_w = []
         keepalive_funcs = []
+        UniqueCache.for_testing = True
 
         def find_and_load_library_for_test(space, w_name, w_is_global=None):
             if w_is_global is None:
@@ -51,7 +54,7 @@ class AppTestC(object):
         test_lib_c = tmpdir.join('_test_lib.c')
         src_test_lib_c = py.path.local(__file__).dirpath().join('_test_lib.c')
         src_test_lib_c.copy(test_lib_c)
-        eci = ExternalCompilationInfo()
+        eci = ExternalCompilationInfo(include_dirs=[cdir])
         test_lib = host.compile([test_lib_c], eci, standalone=False)
 
         cdll = ctypes.CDLL(str(test_lib))
@@ -84,6 +87,12 @@ class AppTestC(object):
             _all_test_c.find_and_load_library = func
             _all_test_c._testfunc = testfunc
         """)
+
+    def teardown_method(self, method):
+        _clean_cache(self.space)
+
+    def teardown_class(cls):
+        UniqueCache.for_testing = False
 
 
 all_names = ', '.join(Module.interpleveldefs.keys())

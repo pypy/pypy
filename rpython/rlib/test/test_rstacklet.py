@@ -4,11 +4,14 @@ import platform
 from rpython.rtyper.tool.rffi_platform import CompilationError
 try:
     from rpython.rlib import rstacklet
-except CompilationError, e:
+except CompilationError as e:
     py.test.skip("cannot import rstacklet: %s" % e)
 
+from rpython.config.translationoption import DEFL_ROOTFINDER_WITHJIT
 from rpython.rlib import rrandom, rgc
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import rvmprof
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
@@ -16,10 +19,9 @@ from rpython.translator.c.test.test_standalone import StandaloneTests
 
 class Runner:
     STATUSMAX = 5000
-    config = None
 
     def init(self, seed):
-        self.sthread = rstacklet.StackletThread(self.config)
+        self.sthread = rstacklet.StackletThread()
         self.random = rrandom.Random(seed)
 
     def done(self):
@@ -273,7 +275,23 @@ def call_qsort_rec(r):
         llmemory.raw_free(raw)
 
 
+# <vmprof-hack>
+# bah, we need to make sure that vmprof_execute_code is annotated, else
+# rvmprof.c does not compile correctly
+class FakeVMProfCode(object):
+    pass
+rvmprof.register_code_object_class(FakeVMProfCode, lambda code: 'name')
+@rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
+def fake_vmprof_main(code, num):
+    return 42
+# </vmprof-hack>
+
 def entry_point(argv):
+    # <vmprof-hack>
+    if NonConstant(False):
+        fake_vmprof_main(FakeVMProfCode(), 42)
+    # </vmprof-hack>
+    #
     seed = 0
     if len(argv) > 1:
         seed = int(argv[1])
@@ -289,6 +307,9 @@ def entry_point(argv):
 class BaseTestStacklet(StandaloneTests):
 
     def setup_class(cls):
+        if cls.gcrootfinder == "asmgcc" and DEFL_ROOTFINDER_WITHJIT != "asmgcc":
+            py.test.skip("asmgcc is disabled on the current platform")
+
         from rpython.config.translationoption import get_combined_translation_config
         config = get_combined_translation_config(translating=True)
         config.translation.gc = cls.gc
@@ -297,14 +318,11 @@ class BaseTestStacklet(StandaloneTests):
             config.translation.gcrootfinder = cls.gcrootfinder
             GCROOTFINDER = cls.gcrootfinder
         cls.config = config
-        cls.old_values = Runner.config, Runner.STATUSMAX
-        Runner.config = config
+        cls.old_status_max = Runner.STATUSMAX
         Runner.STATUSMAX = 25000
-        if cls.gcrootfinder == "asmgcc" and sys.platform == "win32":
-            py.test.skip("fails with asmgcc on win32")
 
     def teardown_class(cls):
-        Runner.config, Runner.STATUSMAX = cls.old_values
+        Runner.STATUSMAX = cls.old_status_max
 
     def test_demo1(self):
         t, cbuilder = self.compile(entry_point)

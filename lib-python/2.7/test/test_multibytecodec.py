@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # test_multibytecodec.py
 #   Unit test for multibytecodec itself
 #
@@ -45,6 +43,13 @@ class Test_MultibyteCodec(unittest.TestCase):
         self.assertRaises((IndexError, OverflowError), dec,
                           'apple\x92ham\x93spam', 'test.cjktest')
 
+    def test_errorcallback_custom_ignore(self):
+        # Issue #23215: MemoryError with custom error handlers and multibyte codecs
+        data = 100 * unichr(0xdc00)
+        codecs.register_error("test.ignore", codecs.ignore_errors)
+        for enc in ALL_CJKENCODINGS:
+            self.assertEqual(data.encode(enc, "test.ignore"), b'')
+
     def test_codingspec(self):
         for enc in ALL_CJKENCODINGS:
             code = '# coding: {}\n'.format(enc)
@@ -74,7 +79,7 @@ class Test_IncrementalEncoder(unittest.TestCase):
         self.assertEqual(encoder.reset(), None)
 
     def test_stateful(self):
-        # jisx0213 encoder is stateful for a few codepoints. eg)
+        # jisx0213 encoder is stateful for a few code points. eg)
         #   U+00E6 => A9DC
         #   U+00E6 U+0300 => ABC4
         #   U+0300 => ABDC
@@ -158,57 +163,55 @@ class Test_StreamReader(unittest.TestCase):
             os.unlink(TESTFN)
 
 class Test_StreamWriter(unittest.TestCase):
-    if len(u'\U00012345') == 2: # UCS2
-        def test_gb18030(self):
-            s = StringIO.StringIO()
-            c = codecs.getwriter('gb18030')(s)
-            c.write(u'123')
-            self.assertEqual(s.getvalue(), '123')
-            c.write(u'\U00012345')
-            self.assertEqual(s.getvalue(), '123\x907\x959')
+    @unittest.skipUnless(len(u'\U00012345') == 2, 'need a narrow build')
+    def test_gb18030(self):
+        s = StringIO.StringIO()
+        c = codecs.getwriter('gb18030')(s)
+        c.write(u'123')
+        self.assertEqual(s.getvalue(), '123')
+        c.write(u'\U00012345')
+        self.assertEqual(s.getvalue(), '123\x907\x959')
+        c.write(u'\U00012345'[0])
+        self.assertEqual(s.getvalue(), '123\x907\x959')
+        c.write(u'\U00012345'[1] + u'\U00012345' + u'\uac00\u00ac')
+        self.assertEqual(s.getvalue(),
+                '123\x907\x959\x907\x959\x907\x959\x827\xcf5\x810\x851')
+        c.write(u'\U00012345'[0])
+        self.assertEqual(s.getvalue(),
+                '123\x907\x959\x907\x959\x907\x959\x827\xcf5\x810\x851')
+        self.assertRaises(UnicodeError, c.reset)
+        self.assertEqual(s.getvalue(),
+                '123\x907\x959\x907\x959\x907\x959\x827\xcf5\x810\x851')
+
+    @unittest.skipUnless(len(u'\U00012345') == 2, 'need a narrow build')
+    def test_utf_8(self):
+        s= StringIO.StringIO()
+        c = codecs.getwriter('utf-8')(s)
+        c.write(u'123')
+        self.assertEqual(s.getvalue(), '123')
+        c.write(u'\U00012345')
+        self.assertEqual(s.getvalue(), '123\xf0\x92\x8d\x85')
+
+        # Python utf-8 codec can't buffer surrogate pairs yet.
+        if 0:
             c.write(u'\U00012345'[0])
-            self.assertEqual(s.getvalue(), '123\x907\x959')
+            self.assertEqual(s.getvalue(), '123\xf0\x92\x8d\x85')
             c.write(u'\U00012345'[1] + u'\U00012345' + u'\uac00\u00ac')
             self.assertEqual(s.getvalue(),
-                    '123\x907\x959\x907\x959\x907\x959\x827\xcf5\x810\x851')
+                '123\xf0\x92\x8d\x85\xf0\x92\x8d\x85\xf0\x92\x8d\x85'
+                '\xea\xb0\x80\xc2\xac')
             c.write(u'\U00012345'[0])
             self.assertEqual(s.getvalue(),
-                    '123\x907\x959\x907\x959\x907\x959\x827\xcf5\x810\x851')
-            self.assertRaises(UnicodeError, c.reset)
+                '123\xf0\x92\x8d\x85\xf0\x92\x8d\x85\xf0\x92\x8d\x85'
+                '\xea\xb0\x80\xc2\xac')
+            c.reset()
             self.assertEqual(s.getvalue(),
-                    '123\x907\x959\x907\x959\x907\x959\x827\xcf5\x810\x851')
-
-        def test_utf_8(self):
-            s= StringIO.StringIO()
-            c = codecs.getwriter('utf-8')(s)
-            c.write(u'123')
-            self.assertEqual(s.getvalue(), '123')
-            c.write(u'\U00012345')
-            self.assertEqual(s.getvalue(), '123\xf0\x92\x8d\x85')
-
-            # Python utf-8 codec can't buffer surrogate pairs yet.
-            if 0:
-                c.write(u'\U00012345'[0])
-                self.assertEqual(s.getvalue(), '123\xf0\x92\x8d\x85')
-                c.write(u'\U00012345'[1] + u'\U00012345' + u'\uac00\u00ac')
-                self.assertEqual(s.getvalue(),
-                    '123\xf0\x92\x8d\x85\xf0\x92\x8d\x85\xf0\x92\x8d\x85'
-                    '\xea\xb0\x80\xc2\xac')
-                c.write(u'\U00012345'[0])
-                self.assertEqual(s.getvalue(),
-                    '123\xf0\x92\x8d\x85\xf0\x92\x8d\x85\xf0\x92\x8d\x85'
-                    '\xea\xb0\x80\xc2\xac')
-                c.reset()
-                self.assertEqual(s.getvalue(),
-                    '123\xf0\x92\x8d\x85\xf0\x92\x8d\x85\xf0\x92\x8d\x85'
-                    '\xea\xb0\x80\xc2\xac\xed\xa0\x88')
-                c.write(u'\U00012345'[1])
-                self.assertEqual(s.getvalue(),
-                    '123\xf0\x92\x8d\x85\xf0\x92\x8d\x85\xf0\x92\x8d\x85'
-                    '\xea\xb0\x80\xc2\xac\xed\xa0\x88\xed\xbd\x85')
-
-    else: # UCS4
-        pass
+                '123\xf0\x92\x8d\x85\xf0\x92\x8d\x85\xf0\x92\x8d\x85'
+                '\xea\xb0\x80\xc2\xac\xed\xa0\x88')
+            c.write(u'\U00012345'[1])
+            self.assertEqual(s.getvalue(),
+                '123\xf0\x92\x8d\x85\xf0\x92\x8d\x85\xf0\x92\x8d\x85'
+                '\xea\xb0\x80\xc2\xac\xed\xa0\x88\xed\xbd\x85')
 
     def test_streamwriter_strwrite(self):
         s = StringIO.StringIO()

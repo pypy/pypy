@@ -1,9 +1,9 @@
-#! /usr/bin/env python
 """Test script for the dumbdbm module
    Original by Roger E. Masse
 """
 
 import os
+import stat
 import unittest
 import dumbdbm
 from test import test_support
@@ -38,11 +38,9 @@ class DumbDBMTestCase(unittest.TestCase):
         self.read_helper(f)
         f.close()
 
+    @unittest.skipUnless(hasattr(os, 'chmod'), 'os.chmod not available')
+    @unittest.skipUnless(hasattr(os, 'umask'), 'os.umask not available')
     def test_dumbdbm_creation_mode(self):
-        # On platforms without chmod, don't do anything.
-        if not (hasattr(os, 'chmod') and hasattr(os, 'umask')):
-            return
-
         try:
             old_umask = os.umask(0002)
             f = dumbdbm.open(_fname, 'c', 0637)
@@ -164,6 +162,34 @@ class DumbDBMTestCase(unittest.TestCase):
             got.sort()
             self.assertEqual(expected, got)
             f.close()
+
+    def test_eval(self):
+        with open(_fname + '.dir', 'w') as stream:
+            stream.write("str(__import__('sys').stdout.write('Hacked!')), 0\n")
+        with test_support.captured_stdout() as stdout:
+            with self.assertRaises(ValueError):
+                dumbdbm.open(_fname).close()
+            self.assertEqual(stdout.getvalue(), '')
+
+    @unittest.skipUnless(hasattr(os, 'chmod'), 'test needs os.chmod()')
+    def test_readonly_files(self):
+        dir = _fname
+        os.mkdir(dir)
+        try:
+            fname = os.path.join(dir, 'db')
+            f = dumbdbm.open(fname, 'n')
+            self.assertEqual(list(f.keys()), [])
+            for key in self._dict:
+                f[key] = self._dict[key]
+            f.close()
+            os.chmod(fname + ".dir", stat.S_IRUSR)
+            os.chmod(fname + ".dat", stat.S_IRUSR)
+            os.chmod(dir, stat.S_IRUSR|stat.S_IXUSR)
+            f = dumbdbm.open(fname, 'r')
+            self.assertEqual(sorted(f.keys()), sorted(self._dict))
+            f.close()  # don't write
+        finally:
+            test_support.rmtree(dir)
 
     def tearDown(self):
         _delete_files()

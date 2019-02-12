@@ -4,12 +4,13 @@ import errno
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, exception_from_errno, oefmt
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib._rsocket_rffi import socketclose, FD_SETSIZE
-from rpython.rlib.rposix import get_errno
+from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rarithmetic import intmask
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -52,26 +53,35 @@ EPOLL_CTL_ADD = cconfig["EPOLL_CTL_ADD"]
 EPOLL_CTL_MOD = cconfig["EPOLL_CTL_MOD"]
 EPOLL_CTL_DEL = cconfig["EPOLL_CTL_DEL"]
 
+DEF_REGISTER_EVENTMASK = (public_symbols["EPOLLIN"] |
+                          public_symbols["EPOLLOUT"] |
+                          public_symbols["EPOLLPRI"])
+
 epoll_create = rffi.llexternal(
-    "epoll_create", [rffi.INT], rffi.INT, compilation_info=eci
+    "epoll_create", [rffi.INT], rffi.INT, compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_ERRNO
 )
 epoll_ctl = rffi.llexternal(
     "epoll_ctl",
     [rffi.INT, rffi.INT, rffi.INT, lltype.Ptr(epoll_event)],
     rffi.INT,
-    compilation_info=eci
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_ERRNO
 )
 epoll_wait = rffi.llexternal(
     "epoll_wait",
     [rffi.INT, rffi.CArrayPtr(epoll_event), rffi.INT, rffi.INT],
     rffi.INT,
     compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_ERRNO
 )
 
 
 class W_Epoll(W_Root):
     def __init__(self, space, epfd):
+        self.space = space
         self.epfd = epfd
+        self.register_finalizer(space)
 
     @unwrap_spec(sizehint=int)
     def descr__new__(space, w_subtype, sizehint=-1):
@@ -82,22 +92,20 @@ class W_Epoll(W_Root):
                         "sizehint must be greater than zero, got %d", sizehint)
         epfd = epoll_create(sizehint)
         if epfd < 0:
-            raise exception_from_errno(space, space.w_IOError)
+            raise exception_from_saved_errno(space, space.w_IOError)
 
-        return space.wrap(W_Epoll(space, epfd))
+        return W_Epoll(space, epfd)
 
     @unwrap_spec(fd=int)
     def descr_fromfd(space, w_cls, fd):
-        return space.wrap(W_Epoll(space, fd))
+        return W_Epoll(space, fd)
 
-    def __del__(self):
+    def _finalize_(self):
         self.close()
 
     def check_closed(self, space):
         if self.get_closed():
-            raise OperationError(space.w_ValueError,
-                space.wrap("I/O operation on closed epoll fd")
-            )
+            raise oefmt(space.w_ValueError, "I/O operation on closed epoll fd")
 
     def get_closed(self):
         return self.epfd < 0
@@ -106,6 +114,7 @@ class W_Epoll(W_Root):
         if not self.get_closed():
             socketclose(self.epfd)
             self.epfd = -1
+            self.may_unregister_rpython_finalizer(self.space)
 
     def epoll_ctl(self, space, ctl, w_fd, eventmask, ignore_ebadf=False):
         fd = space.c_filedescriptor_w(w_fd)
@@ -114,23 +123,23 @@ class W_Epoll(W_Root):
             rffi.setintfield(ev.c_data, 'c_fd', fd)
 
             result = epoll_ctl(self.epfd, ctl, fd, ev)
-            if ignore_ebadf and get_errno() == errno.EBADF:
+            if ignore_ebadf and get_saved_errno() == errno.EBADF:
                 result = 0
             if result < 0:
-                raise exception_from_errno(space, space.w_IOError)
+                raise exception_from_saved_errno(space, space.w_IOError)
 
     def descr_get_closed(self, space):
-        return space.wrap(self.get_closed())
+        return space.newbool(self.get_closed())
 
     def descr_fileno(self, space):
         self.check_closed(space)
-        return space.wrap(self.epfd)
+        return space.newint(self.epfd)
 
     def descr_close(self, space):
         self.close()
 
     @unwrap_spec(eventmask=int)
-    def descr_register(self, space, w_fd, eventmask=-1):
+    def descr_register(self, space, w_fd, eventmask=DEF_REGISTER_EVENTMASK):
         self.check_closed(space)
         self.epoll_ctl(space, EPOLL_CTL_ADD, w_fd, eventmask)
 
@@ -139,7 +148,7 @@ class W_Epoll(W_Root):
         self.epoll_ctl(space, EPOLL_CTL_DEL, w_fd, 0, ignore_ebadf=True)
 
     @unwrap_spec(eventmask=int)
-    def descr_modify(self, space, w_fd, eventmask=-1):
+    def descr_modify(self, space, w_fd, eventmask):
         self.check_closed(space)
         self.epoll_ctl(space, EPOLL_CTL_MOD, w_fd, eventmask)
 
@@ -160,13 +169,13 @@ class W_Epoll(W_Root):
         with lltype.scoped_alloc(rffi.CArray(epoll_event), maxevents) as evs:
             nfds = epoll_wait(self.epfd, evs, maxevents, int(timeout))
             if nfds < 0:
-                raise exception_from_errno(space, space.w_IOError)
+                raise exception_from_saved_errno(space, space.w_IOError)
 
             elist_w = [None] * nfds
             for i in xrange(nfds):
                 event = evs[i]
                 elist_w[i] = space.newtuple(
-                    [space.wrap(event.c_data.c_fd), space.wrap(event.c_events)]
+                    [space.newint(event.c_data.c_fd), space.newint(event.c_events)]
                 )
             return space.newlist(elist_w)
 

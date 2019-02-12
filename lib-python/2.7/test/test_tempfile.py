@@ -287,7 +287,42 @@ def _mock_candidate_names(*names):
                              lambda: iter(names))
 
 
-class test__mkstemp_inner(TC):
+class TestBadTempdir:
+
+    def test_read_only_directory(self):
+        with _inside_empty_temp_dir():
+            oldmode = mode = os.stat(tempfile.tempdir).st_mode
+            mode &= ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH)
+            os.chmod(tempfile.tempdir, mode)
+            try:
+                if os.access(tempfile.tempdir, os.W_OK):
+                    self.skipTest("can't set the directory read-only")
+                with self.assertRaises(OSError) as cm:
+                    self.make_temp()
+                self.assertIn(cm.exception.errno, (errno.EPERM, errno.EACCES))
+                self.assertEqual(os.listdir(tempfile.tempdir), [])
+            finally:
+                os.chmod(tempfile.tempdir, oldmode)
+
+    def test_nonexisting_directory(self):
+        with _inside_empty_temp_dir():
+            tempdir = os.path.join(tempfile.tempdir, 'nonexistent')
+            with support.swap_attr(tempfile, 'tempdir', tempdir):
+                with self.assertRaises(OSError) as cm:
+                    self.make_temp()
+                self.assertEqual(cm.exception.errno, errno.ENOENT)
+
+    def test_non_directory(self):
+        with _inside_empty_temp_dir():
+            tempdir = os.path.join(tempfile.tempdir, 'file')
+            open(tempdir, 'wb').close()
+            with support.swap_attr(tempfile, 'tempdir', tempdir):
+                with self.assertRaises(OSError) as cm:
+                    self.make_temp()
+                self.assertIn(cm.exception.errno, (errno.ENOTDIR, errno.ENOENT))
+
+
+class test__mkstemp_inner(TestBadTempdir, TC):
     """Test the internal function _mkstemp_inner."""
 
     class mkstemped:
@@ -343,10 +378,9 @@ class test__mkstemp_inner(TC):
         finally:
             os.rmdir(dir)
 
+    @unittest.skipUnless(has_stat, 'os.stat not available')
     def test_file_mode(self):
         # _mkstemp_inner creates files with the proper mode
-        if not has_stat:
-            return            # ugh, can't use SkipTest.
 
         file = self.do_create()
         mode = stat.S_IMODE(os.stat(file.name).st_mode)
@@ -358,10 +392,9 @@ class test__mkstemp_inner(TC):
             expected = user * (1 + 8 + 64)
         self.assertEqual(mode, expected)
 
+    @unittest.skipUnless(has_spawnl, 'os.spawnl not available')
     def test_noinherit(self):
         # _mkstemp_inner file handles are not inherited by child processes
-        if not has_spawnl:
-            return            # ugh, can't use SkipTest.
 
         if support.verbose:
             v="v"
@@ -396,15 +429,14 @@ class test__mkstemp_inner(TC):
                     "child process caught fatal signal %d" % -retval)
         self.assertFalse(retval > 0, "child process reports failure %d"%retval)
 
+    @unittest.skipUnless(has_textmode, "text mode not available")
     def test_textmode(self):
         # _mkstemp_inner can create files in text mode
-        if not has_textmode:
-            return            # ugh, can't use SkipTest.
 
         self.do_create(bin=0).write("blat\n")
         # XXX should test that the file really is a text file
 
-    def default_mkstemp_inner(self):
+    def make_temp(self):
         return tempfile._mkstemp_inner(tempfile.gettempdir(),
                                        tempfile.template,
                                        '',
@@ -415,11 +447,11 @@ class test__mkstemp_inner(TC):
         # the chosen name already exists
         with _inside_empty_temp_dir(), \
              _mock_candidate_names('aaa', 'aaa', 'bbb'):
-            (fd1, name1) = self.default_mkstemp_inner()
+            (fd1, name1) = self.make_temp()
             os.close(fd1)
             self.assertTrue(name1.endswith('aaa'))
 
-            (fd2, name2) = self.default_mkstemp_inner()
+            (fd2, name2) = self.make_temp()
             os.close(fd2)
             self.assertTrue(name2.endswith('bbb'))
 
@@ -431,7 +463,7 @@ class test__mkstemp_inner(TC):
             dir = tempfile.mkdtemp()
             self.assertTrue(dir.endswith('aaa'))
 
-            (fd, name) = self.default_mkstemp_inner()
+            (fd, name) = self.make_temp()
             os.close(fd)
             self.assertTrue(name.endswith('bbb'))
 
@@ -546,8 +578,11 @@ class test_mkstemp(TC):
 test_classes.append(test_mkstemp)
 
 
-class test_mkdtemp(TC):
+class test_mkdtemp(TestBadTempdir, TC):
     """Test mkdtemp()."""
+
+    def make_temp(self):
+        return tempfile.mkdtemp()
 
     def do_create(self, dir=None, pre="", suf=""):
         if dir is None:
@@ -591,10 +626,9 @@ class test_mkdtemp(TC):
         finally:
             os.rmdir(dir)
 
+    @unittest.skipUnless(has_stat, 'os.stat not available')
     def test_mode(self):
         # mkdtemp creates directories with the proper mode
-        if not has_stat:
-            return            # ugh, can't use SkipTest.
 
         dir = self.do_create()
         try:
@@ -778,6 +812,31 @@ class test_NamedTemporaryFile(TC):
             with f:
                 pass
         self.assertRaises(ValueError, use_closed)
+
+    def test_no_leak_fd(self):
+        # Issue #21058: don't leak file descriptor when fdopen() fails
+        old_close = os.close
+        old_fdopen = os.fdopen
+        closed = []
+        def close(fd):
+            closed.append(fd)
+        def fdopen(*args):
+            raise ValueError()
+        os.close = close
+        os.fdopen = fdopen
+        try:
+            self.assertRaises(ValueError, tempfile.NamedTemporaryFile)
+            self.assertEqual(len(closed), 1)
+        finally:
+            os.close = old_close
+            os.fdopen = old_fdopen
+
+    def test_bad_mode(self):
+        dir = tempfile.mkdtemp()
+        self.addCleanup(support.rmtree, dir)
+        with self.assertRaises(TypeError):
+            tempfile.NamedTemporaryFile(mode=(), dir=dir)
+        self.assertEqual(os.listdir(dir), [])
 
     # How to test the mode and bufsize parameters?
 

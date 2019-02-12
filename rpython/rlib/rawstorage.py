@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.rgc import lltype_is_gc
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 
 RAW_STORAGE = rffi.CCHARP.TO
 RAW_STORAGE_PTR = rffi.CCHARP
@@ -16,23 +16,23 @@ def alloc_raw_storage(size, track_allocation=True, zero=False):
                          track_allocation=track_allocation,
                          zero=zero)
 
+@not_rpython
 def raw_storage_getitem(TP, storage, index):
-    "NOT_RPYTHON"
     _check_alignment(TP, index)
-    return raw_storage_getitem_unchecked(TP, storage, index)
+    return _raw_storage_getitem_unchecked(TP, storage, index)
 
-def raw_storage_getitem_unchecked(TP, storage, index):
-    "NOT_RPYTHON"
+@not_rpython
+def _raw_storage_getitem_unchecked(TP, storage, index):
     return rffi.cast(rffi.CArrayPtr(TP), rffi.ptradd(storage, index))[0]
 
+@not_rpython
 def raw_storage_setitem(storage, index, item):
-    "NOT_RPYTHON"
     TP = lltype.typeOf(item)
     _check_alignment(TP, index)
-    raw_storage_setitem_unchecked(storage, index, item)
+    _raw_storage_setitem_unchecked(storage, index, item)
 
-def raw_storage_setitem_unchecked(storage, index, item):
-    "NOT_RPYTHON"
+@not_rpython
+def _raw_storage_setitem_unchecked(storage, index, item):
     TP = lltype.typeOf(item)
     rffi.cast(rffi.CArrayPtr(TP), rffi.ptradd(storage, index))[0] = item
 
@@ -46,7 +46,11 @@ def free_raw_storage(storage, track_allocation=True):
 
 from rpython.jit.backend import detect_cpu
 try:
-    misaligned_is_fine = detect_cpu.autodetect().startswith('x86')
+    cpuname = detect_cpu.autodetect()
+    misaligned_is_fine = cpuname.startswith('x86') or \
+                         cpuname.startswith('s390x') or \
+                         cpuname.startswith('ppc')
+    del cpuname
 except detect_cpu.ProcessorAutodetectError:
     misaligned_is_fine = False
 
@@ -80,13 +84,13 @@ def raw_storage_getitem_unaligned(TP, storage, index):
         if we_are_translated():
             return raw_storage_getitem(TP, storage, index)
         else:
-            return raw_storage_getitem_unchecked(TP, storage, index)
+            return _raw_storage_getitem_unchecked(TP, storage, index)
     mask = _get_alignment_mask(TP)
     if (index & mask) == 0:
         if we_are_translated():
             return raw_storage_getitem(TP, storage, index)
         else:
-            return raw_storage_getitem_unchecked(TP, storage, index)
+            return _raw_storage_getitem_unchecked(TP, storage, index)
     ptr = rffi.ptradd(storage, index)
     with lltype.scoped_alloc(rffi.CArray(TP), 1) as s_array:
         rffi.c_memcpy(rffi.cast(rffi.VOIDP, s_array),
@@ -100,7 +104,7 @@ def raw_storage_setitem_unaligned(storage, index, item):
         if we_are_translated():
             raw_storage_setitem(storage, index, item)
         else:
-            raw_storage_setitem_unchecked(storage, index, item)
+            _raw_storage_setitem_unchecked(storage, index, item)
         return
     TP = lltype.typeOf(item)
     mask = _get_alignment_mask(TP)
@@ -108,7 +112,7 @@ def raw_storage_setitem_unaligned(storage, index, item):
         if we_are_translated():
             raw_storage_setitem(storage, index, item)
         else:
-            raw_storage_setitem_unchecked(storage, index, item)
+            _raw_storage_setitem_unchecked(storage, index, item)
         return
     ptr = rffi.ptradd(storage, index)
     with lltype.scoped_alloc(rffi.CArray(TP), 1) as s_array:

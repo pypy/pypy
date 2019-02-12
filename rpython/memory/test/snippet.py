@@ -1,5 +1,6 @@
 import os, py
 from rpython.tool.udir import udir
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -47,22 +48,42 @@ class SemiSpaceGCTestDefines:
         class State:
             pass
         state = State()
+        def age_of(c):
+            return state.age[ord(c) - ord('a')]
+        def set_age_of(c, newvalue):
+            # NB. this used to be a dictionary, but setting into a dict
+            # consumes memory.  This has the effect that this test's
+            # finalizer_trigger method can consume more memory and potentially
+            # cause another collection.  This would result in objects
+            # being unexpectedly destroyed at the same 'state.time'.
+            state.age[ord(c) - ord('a')] = newvalue
+
         class A:
             def __init__(self, key):
                 self.key = key
                 self.refs = []
-            def __del__(self):
-                assert state.age[self.key] == -1
-                state.age[self.key] = state.time
-                state.progress = True
+                fq.register_finalizer(self)
+
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                from rpython.rlib.debug import debug_print
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    debug_print("DEL:", a.key)
+                    assert age_of(a.key) == -1
+                    set_age_of(a.key, state.time)
+                    state.progress = True
+        fq = FQ()
 
         def build_example(input):
             state.time = 0
-            state.age = {}
+            state.age = [-1] * len(letters)
             vertices = {}
             for c in letters:
                 vertices[c] = A(c)
-                state.age[c] = -1
             for c, d in input:
                 vertices[c].refs.append(vertices[d])
 
@@ -72,6 +93,8 @@ class SemiSpaceGCTestDefines:
                 input, components, strict = examples[i]
                 build_example(input)
                 while state.time < len(letters):
+                    from rpython.rlib.debug import debug_print
+                    debug_print("STATE.TIME:", state.time)
                     state.progress = False
                     llop.gc__collect(lltype.Void)
                     if not state.progress:
@@ -80,16 +103,16 @@ class SemiSpaceGCTestDefines:
                 # summarize the finalization order
                 lst = []
                 for c in letters:
-                    lst.append('%s:%d' % (c, state.age[c]))
+                    lst.append('%s:%d' % (c, age_of(c)))
                 summary = ', '.join(lst)
 
                 # check that all instances have been finalized
-                if -1 in state.age.values():
+                if -1 in state.age:
                     return error(i, summary, "not all instances finalized")
                 # check that if a -> b and a and b are not in the same
                 # strong component, then a is finalized strictly before b
                 for c, d in strict:
-                    if state.age[c] >= state.age[d]:
+                    if age_of(c) >= age_of(d):
                         return error(i, summary,
                                      "%s should be finalized before %s"
                                      % (c, d))
@@ -98,7 +121,7 @@ class SemiSpaceGCTestDefines:
                 for component in components:
                     seen = {}
                     for c in component:
-                        age = state.age[c]
+                        age = age_of(c)
                         if age in seen:
                             d = seen[age]
                             return error(i, summary,
@@ -137,11 +160,22 @@ class SemiSpaceGCTestDefines:
         class B:
             count = 0
         class A:
-            def __del__(self):
-                self.b.count += 1
+            pass
+
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    a.b.count += 1
+        fq = FQ()
+
         def g():
             b = B()
             a = A()
+            fq.register_finalizer(a)
             a.b = b
             i = 0
             lst = [None]

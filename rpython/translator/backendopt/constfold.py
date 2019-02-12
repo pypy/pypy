@@ -1,5 +1,5 @@
 from rpython.flowspace.model import (Constant, Variable, SpaceOperation,
-    c_last_exception, mkentrymap)
+    mkentrymap)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.unsimplify import insert_empty_block, split_block
@@ -66,7 +66,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
 def constant_fold_block(block):
     constants = {}
     block.operations = fold_op_list(block.operations, constants,
-                           exc_catch=block.exitswitch == c_last_exception)
+                                    exc_catch=block.canraise)
     if constants:
         if block.exitswitch in constants:
             switch = constants[block.exitswitch].value
@@ -155,7 +155,7 @@ def prepare_constant_fold_link(link, constants, splitblocks):
     folded_count = fold_op_list(block.operations, constants, exit_early=True)
 
     n = len(block.operations)
-    if block.exitswitch == c_last_exception:
+    if block.canraise:
         n -= 1
     # is the next, non-folded operation an indirect_call?
     if folded_count < n:
@@ -171,7 +171,7 @@ def prepare_constant_fold_link(link, constants, splitblocks):
             v_result.concretetype = nextop.result.concretetype
             constants[nextop.result] = v_result
             callop = SpaceOperation('direct_call', callargs, v_result)
-            newblock = insert_empty_block(None, link, [callop])
+            newblock = insert_empty_block(link, [callop])
             [link] = newblock.exits
             assert link.target is block
             folded_count += 1
@@ -197,7 +197,7 @@ def rewire_links(splitblocks, graph):
                 splitlink = block.exits[0]
             else:
                 # split the block at the given position
-                splitlink = split_block(None, block, position)
+                splitlink = split_block(block, position)
                 assert list(block.exits) == [splitlink]
             assert link.target is block
             assert splitlink.prevblock is block
@@ -276,3 +276,25 @@ def constant_fold_graph(graph):
             rewire_links(splitblocks, graph)
         if not diffused and not splitblocks:
             break # finished
+
+def replace_symbolic(graph, symbolic, value):
+    result = False
+    for block in graph.iterblocks():
+        for op in block.operations:
+            for i, arg in enumerate(op.args):
+                if isinstance(arg, Constant) and arg.value is symbolic:
+                    op.args[i] = value
+                    result = True
+        if block.exitswitch is symbolic:
+            block.exitswitch = value
+            result = True
+    return result
+
+def replace_we_are_jitted(graph):
+    from rpython.rlib import jit
+    replacement = Constant(0)
+    replacement.concretetype = lltype.Signed
+    did_replacement = replace_symbolic(graph, jit._we_are_jitted, replacement)
+    if did_replacement:
+        constant_fold_graph(graph)
+    return did_replacement

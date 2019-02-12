@@ -7,28 +7,6 @@
 extern "C" {
 #endif
 
-typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
-typedef PyObject *(*PyCFunctionWithKeywords)(PyObject *, PyObject *,
-                                             PyObject *);
-typedef PyObject *(*PyNoArgsFunction)(PyObject *);
-
-struct PyMethodDef {
-    const char  *ml_name;   /* The name of the built-in function/method */
-    PyCFunction  ml_meth;   /* The C function that implements it */
-    int          ml_flags;  /* Combination of METH_xxx flags, which mostly
-                               describe the args expected by the C func */
-    const char  *ml_doc;    /* The __doc__ attribute, or NULL */
-};
-typedef struct PyMethodDef PyMethodDef;
-
-typedef struct
-{
-    PyObject_HEAD
-    PyMethodDef *m_ml; /* Description of the C function to call */
-    PyObject    *m_self; /* Passed as 'self' arg to the C func, can be NULL */
-    PyObject    *m_module; /* The __module__ attribute, can be anything */
-} PyCFunctionObject;
-
 /* Flag passed to newmethodobject */
 #define METH_OLDARGS  0x0000
 #define METH_VARARGS  0x0001

@@ -5,6 +5,7 @@ globals().update(R.__dict__)
 class CodeBuilderMixin(object):
     def __init__(self):
         self.buffer = []
+        super(CodeBuilderMixin, self).__init__()
 
     def writechar(self, c):
         assert isinstance(c, str) and len(c) == 1
@@ -12,6 +13,12 @@ class CodeBuilderMixin(object):
 
     def getvalue(self):
         return ''.join(self.buffer)
+
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
 
 def assert_encodes_as(code_builder_cls, insn_name, args, expected_encoding):
     s = code_builder_cls()
@@ -229,3 +236,9 @@ def test_movsd_xj_64():
     s = CodeBuilder64()
     s.MOVSD_xj(xmm2, 0x01234567)
     assert s.getvalue() == '\xF2\x0F\x10\x14\x25\x67\x45\x23\x01'
+
+def test_multibyte_nops():
+    for cls in [X86_64_CodeBuilder, X86_32_CodeBuilder]:
+        assert len(cls.MULTIBYTE_NOPs) == 16
+        for i in range(16):
+            assert len(cls.MULTIBYTE_NOPs[i]) == i

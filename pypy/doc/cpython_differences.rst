@@ -1,4 +1,3 @@
-====================================
 Differences between PyPy and CPython
 ====================================
 
@@ -11,113 +10,30 @@ Differences that are not listed here should be considered bugs of
 PyPy.
 
 
-Extension modules
------------------
-
-List of extension modules that we support:
-
-* Supported as built-in modules (in `pypy/module/`_):
-
-    __builtin__
-    `__pypy__`_
-    _ast
-    _codecs
-    _collections
-    `_continuation`_
-    `_ffi`_
-    _hashlib
-    _io
-    _locale
-    _lsprof
-    _md5
-    `_minimal_curses`_
-    _multiprocessing
-    _random
-    `_rawffi`_
-    _sha
-    _socket
-    _sre
-    _ssl
-    _warnings
-    _weakref
-    _winreg
-    array
-    binascii
-    bz2
-    cStringIO
-    cmath
-    `cpyext`_
-    crypt
-    errno
-    exceptions
-    fcntl
-    gc
-    imp
-    itertools
-    marshal
-    math
-    mmap
-    operator
-    parser
-    posix
-    pyexpat
-    select
-    signal
-    struct
-    symbol
-    sys
-    termios
-    thread
-    time
-    token
-    unicodedata
-    zipimport
-    zlib
-
-  When translated to Java or .NET, the list is smaller; see
-  `pypy/config/pypyoption.py`_ for details.
-
-  When translated on Windows, a few Unix-only modules are skipped,
-  and the following module is built instead:
-
-    _winreg
-
-* Supported by being rewritten in pure Python (possibly using ``cffi``):
-  see the `lib_pypy/`_ directory.  Examples of modules that we
-  support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
-  Note that some modules are both in there and in the list above;
-  by default, the built-in module is used (but can be disabled
-  at translation time).
-
-The extension modules (i.e. modules written in C, in the standard CPython)
-that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
-(You may have a chance to use them anyway with `cpyext`_.)
-
-.. the nonstandard modules are listed below...
-.. _`__pypy__`: __pypy__-module.html
-.. _`_continuation`: stackless.html
-.. _`_ffi`: ctypes-implementation.html
-.. _`_rawffi`: ctypes-implementation.html
-.. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
-.. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
-
 
 Differences related to garbage collection strategies
 ----------------------------------------------------
 
 The garbage collectors used or implemented by PyPy are not based on
 reference counting, so the objects are not freed instantly when they are no
-longer reachable.  The most obvious effect of this is that files are not
+longer reachable.  The most obvious effect of this is that files (and sockets, etc) are not
 promptly closed when they go out of scope.  For files that are opened for
 writing, data can be left sitting in their output buffers for a while, making
 the on-disk file appear empty or truncated.  Moreover, you might reach your
 OS's limit on the number of concurrently opened files.
 
-Fixing this is essentially impossible without forcing a
+If you are debugging a case where a file in your program is not closed
+properly, you can use the ``-X track-resources`` command line option. If it is
+given, a ``ResourceWarning`` is produced for every file and socket that the
+garbage collector closes. The warning will contain the stack trace of the
+position where the file or socket was created, to make it easier to see which
+parts of the program don't close files explicitly.
+
+Fixing this difference to CPython is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
 get in CPython has clearly been described as a side-effect of the
 implementation and not a language design decision: programs relying on
-this are basically bogus.  It would anyway be insane to try to enforce
+this are basically bogus.  It would be a too strong restriction to try to enforce
 CPython's behavior in a language spec, given that it has no chance to be
 adopted by Jython or IronPython (or any other port of Python to Java or
 .NET).
@@ -142,14 +58,32 @@ of Python.
 
 Here are some more technical details.  This issue affects the precise
 time at which ``__del__`` methods are called, which
-is not reliable in PyPy (nor Jython nor IronPython).  It also means that
-weak references may stay alive for a bit longer than expected.  This
+is not reliable or timely in PyPy (nor Jython nor IronPython).  It also means that
+**weak references** may stay alive for a bit longer than expected.  This
 makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
 suddenly they will really be dead, raising a ``ReferenceError`` on the
 next access.  Any code that uses weak proxies must carefully catch such
 ``ReferenceError`` at any place that uses them.  (Or, better yet, don't use
 ``weakref.proxy()`` at all; use ``weakref.ref()``.)
+
+Note a detail in the `documentation for weakref callbacks`__:
+
+    If callback is provided and not None, *and the returned weakref
+    object is still alive,* the callback will be called when the object
+    is about to be finalized.
+
+There are cases where, due to CPython's refcount semantics, a weakref
+dies immediately before or after the objects it points to (typically
+with some circular reference).  If it happens to die just after, then
+the callback will be invoked.  In a similar case in PyPy, both the
+object and the weakref will be considered as dead at the same time,
+and the callback will not be invoked.  (Issue `#2030`__)
+
+.. __: https://docs.python.org/2/library/weakref.html
+.. __: https://bitbucket.org/pypy/pypy/issue/2030/
+
+---------------------------------
 
 There are a few extra implications from the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
@@ -198,6 +132,11 @@ new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
 just make sure there is a ``__del__`` method in the class to start with
 (even containing only ``pass``; replacing or overriding it later works fine).
 
+Last note: CPython tries to do a ``gc.collect()`` automatically when the
+program finishes; not PyPy.  (It is possible in both CPython and PyPy to
+design a case where several ``gc.collect()`` are needed before all objects
+die.  This makes CPython's approach only work "most of the time" anyway.)
+
 
 Subclasses of built-in types
 ----------------------------
@@ -213,23 +152,29 @@ method.
 The above is true both in CPython and in PyPy.  Differences
 can occur about whether a built-in function or method will
 call an overridden method of *another* object than ``self``.
-In PyPy, they are generally always called, whereas not in
-CPython.  For example, in PyPy, ``dict1.update(dict2)``
-considers that ``dict2`` is just a general mapping object, and
-will thus call overridden ``keys()``  and ``__getitem__()``
-methods on it.  So the following code prints ``42`` on PyPy
-but ``foo`` on CPython::
+In PyPy, they are often called in cases where CPython would not.
+Two examples::
 
-    >>>> class D(dict):
-    ....     def __getitem__(self, key):
-    ....         return 42
-    ....
-    >>>>
-    >>>> d1 = {}
-    >>>> d2 = D(a='foo')
-    >>>> d1.update(d2)
-    >>>> print d1['a']
-    42
+    class D(dict):
+        def __getitem__(self, key):
+            return "%r from D" % (key,)
+
+    class A(object):
+        pass
+
+    a = A()
+    a.__dict__ = D()
+    a.foo = "a's own foo"
+    print a.foo
+    # CPython => a's own foo
+    # PyPy => 'foo' from D
+
+    glob = D(foo="base item")
+    loc = {}
+    exec "print foo" in glob, loc
+    # CPython => base item
+    # PyPy => 'foo' from D
+
 
 Mutating classes of objects which are already used as dictionary keys
 ---------------------------------------------------------------------
@@ -244,7 +189,7 @@ Consider the following snippet of code::
         return False
 
     def evil(y):
-        d = {x(): 1}
+        d = {X(): 1}
         X.__eq__ = __evil_eq__
         d[y] # might trigger a call to __eq__?
 
@@ -278,6 +223,7 @@ Unless this behavior is clearly present by design and
 documented as such (as e.g. for hasattr()), in most cases PyPy
 lets the exception propagate instead.
 
+
 Object Identity of Primitive Values, ``is`` and ``id``
 -------------------------------------------------------
 
@@ -293,18 +239,99 @@ integers ``x``. The rule applies for the following types:
 
  - ``complex``
 
+ - ``str`` (empty or single-character strings only)
+
+ - ``unicode`` (empty or single-character strings only)
+
+ - ``tuple`` (empty tuples only)
+
+ - ``frozenset`` (empty frozenset only)
+
+ - unbound method objects (for Python 2 only)
+
 This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
 thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 
+Note that strings of length 2 or greater can be equal without being
+identical.  Similarly, ``x is (2,)`` is not necessarily true even if
+``x`` contains a tuple and ``x == (2,)``.  The uniqueness rules apply
+only to the particular cases described above.  The ``str``, ``unicode``,
+``tuple`` and ``frozenset`` rules were added in PyPy 5.4; before that, a
+test like ``if x is "?"`` or ``if x is ()`` could fail even if ``x`` was
+equal to ``"?"`` or ``()``.  The new behavior added in PyPy 5.4 is
+closer to CPython's, which caches precisely the empty tuple/frozenset,
+and (generally but not always) the strings and unicodes of length <= 1.
+
+Note that for floats there "``is``" only one object per "bit pattern"
+of the float.  So ``float('nan') is float('nan')`` is true on PyPy,
+but not on CPython because they are two objects; but ``0.0 is -0.0``
+is always False, as the bit patterns are different.  As usual,
+``float('nan') == float('nan')`` is always False.  When used in
+containers (as list items or in sets for example), the exact rule of
+equality used is "``if x is y or x == y``" (on both CPython and PyPy);
+as a consequence, because all ``nans`` are identical in PyPy, you
+cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__).
+Another consequence is that ``cmp(float('nan'), float('nan')) == 0``, because
+``cmp`` checks with ``is`` first whether the arguments are identical (there is
+no good value to return from this call to ``cmp``, because ``cmp`` pretends
+that there is a total order on floats, but that is wrong for NaNs).
+
+.. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
+
+C-API Differences
+-----------------
+
+The external C-API has been reimplemented in PyPy as an internal cpyext module.
+We support most of the documented C-API, but sometimes internal C-abstractions
+leak out on CPython and are abused, perhaps even unknowingly. For instance,
+assignment to a ``PyTupleObject`` is not supported after the tuple is
+used internally, even by another C-API function call. On CPython this will
+succeed as long as the refcount is 1.  On PyPy this will always raise a
+``SystemError('PyTuple_SetItem called on tuple after  use of tuple")``
+exception (explicitly listed here for search engines).
+
+Another similar problem is assignment of a new function pointer to any of the
+``tp_as_*`` structures after calling ``PyType_Ready``. For instance, overriding
+``tp_as_number.nb_int`` with a different function after calling ``PyType_Ready``
+on CPython will result in the old function being called for ``x.__int__()``
+(via class ``__dict__`` lookup) and the new function being called for ``int(x)``
+(via slot lookup). On PyPy we will always call the __new__ function, not the
+old, this quirky behaviour is unfortunately necessary to fully support NumPy.
+
+Performance Differences
+-------------------------
+
+CPython has an optimization that can make repeated string concatenation not
+quadratic. For example, this kind of code runs in O(n) time::
+
+    s = ''
+    for string in mylist:
+        s += string
+
+In PyPy, this code will always have quadratic complexity. Note also, that the
+CPython optimization is brittle and can break by having slight variations in
+your code anyway. So you should anyway replace the code with::
+
+    parts = []
+    for string in mylist:
+        parts.append(string)
+    s = "".join(parts)
 
 Miscellaneous
 -------------
 
-* Hash randomization (``-R``) is ignored in PyPy.  As documented in
-  http://bugs.python.org/issue14621, some of us believe it has no
-  purpose in CPython either.
+* Hash randomization (``-R``) `is ignored in PyPy`_.  In CPython
+  before 3.4 it has `little point`_.  Both CPython >= 3.4 and PyPy3
+  implement the randomized SipHash algorithm and ignore ``-R``.
+
+* You can't store non-string keys in type objects.  For example::
+
+    class A(object):
+        locals()[42] = 3
+
+  won't work.
 
 * ``sys.setrecursionlimit(n)`` sets the limit only approximately,
   by setting the usable stack space to ``n * 768`` bytes.  On Linux,
@@ -312,7 +339,8 @@ Miscellaneous
   for about 1400 calls.
 
 * since the implementation of dictionary is different, the exact number
-  which ``__hash__`` and ``__eq__`` are called is different. Since CPython
+  of times that ``__hash__`` and ``__eq__`` are called is different. 
+  Since CPython
   does not give any specific guarantees either, don't rely on it.
 
 * assignment to ``__class__`` is limited to the cases where it
@@ -323,12 +351,13 @@ Miscellaneous
 
 * the ``__builtins__`` name is always referencing the ``__builtin__`` module,
   never a dictionary as it sometimes is in CPython. Assigning to
-  ``__builtins__`` has no effect.
+  ``__builtins__`` has no effect.  (For usages of tools like
+  RestrictedPython, see `issue #2653`_.)
 
 * directly calling the internal magic methods of a few built-in types
   with invalid arguments may have a slightly different result.  For
   example, ``[].__add__(None)`` and ``(2).__add__(None)`` both return
-  ``NotImplemented`` on PyPy; on CPython, only the later does, and the
+  ``NotImplemented`` on PyPy; on CPython, only the latter does, and the
   former raises ``TypeError``.  (Of course, ``[]+None`` and ``2+None``
   both raise ``TypeError`` everywhere.)  This difference is an
   implementation detail that shows up because of internal C-level slots
@@ -343,14 +372,203 @@ Miscellaneous
   wrappers.  On PyPy we can't tell the difference, so
   ``ismethod([].__add__) == ismethod(list.__add__) == True``.
 
-* the ``__dict__`` attribute of new-style classes returns a normal dict, as
-  opposed to a dict proxy like in CPython. Mutating the dict will change the
-  type and vice versa. For builtin types, a dictionary will be returned that
-  cannot be changed (but still looks and behaves like a normal dictionary).
+* in CPython, the built-in types have attributes that can be
+  implemented in various ways.  Depending on the way, if you try to
+  write to (or delete) a read-only (or undeletable) attribute, you get
+  either a ``TypeError`` or an ``AttributeError``.  PyPy tries to
+  strike some middle ground between full consistency and full
+  compatibility here.  This means that a few corner cases don't raise
+  the same exception, like ``del (lambda:None).__closure__``.
+
+* in pure Python, if you write ``class A(object): def f(self): pass``
+  and have a subclass ``B`` which doesn't override ``f()``, then
+  ``B.f(x)`` still checks that ``x`` is an instance of ``B``.  In
+  CPython, types written in C use a different rule.  If ``A`` is
+  written in C, any instance of ``A`` will be accepted by ``B.f(x)``
+  (and actually, ``B.f is A.f`` in this case).  Some code that could
+  work on CPython but not on PyPy includes:
+  ``datetime.datetime.strftime(datetime.date.today(), ...)`` (here,
+  ``datetime.date`` is the superclass of ``datetime.datetime``).
+  Anyway, the proper fix is arguably to use a regular method call in
+  the first place: ``datetime.date.today().strftime(...)``
+  
+* some functions and attributes of the ``gc`` module behave in a
+  slightly different way: for example, ``gc.enable`` and
+  ``gc.disable`` are supported, but "enabling and disabling the GC" has
+  a different meaning in PyPy than in CPython.  These functions
+  actually enable and disable the major collections and the
+  execution of finalizers.
 
 * PyPy prints a random line from past #pypy IRC topics at startup in
-  interactive mode. In a released version, this behaviour is supressed, but
+  interactive mode. In a released version, this behaviour is suppressed, but
   setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
   downstream package providers have been known to totally disable this feature.
 
-.. include:: _ref.txt
+* PyPy's readline module was rewritten from scratch: it is not GNU's
+  readline.  It should be mostly compatible, and it adds multiline
+  support (see ``multiline_input()``).  On the other hand,
+  ``parse_and_bind()`` calls are ignored (issue `#2072`_).
+
+* ``sys.getsizeof()`` always raises ``TypeError``.  This is because a
+  memory profiler using this function is most likely to give results
+  inconsistent with reality on PyPy.  It would be possible to have
+  ``sys.getsizeof()`` return a number (with enough work), but that may
+  or may not represent how much memory the object uses.  It doesn't even
+  make really sense to ask how much *one* object uses, in isolation with
+  the rest of the system.  For example, instances have maps, which are
+  often shared across many instances; in this case the maps would
+  probably be ignored by an implementation of ``sys.getsizeof()``, but
+  their overhead is important in some cases if they are many instances
+  with unique maps.  Conversely, equal strings may share their internal
+  string data even if they are different objects---or empty containers
+  may share parts of their internals as long as they are empty.  Even
+  stranger, some lists create objects as you read them; if you try to
+  estimate the size in memory of ``range(10**6)`` as the sum of all
+  items' size, that operation will by itself create one million integer
+  objects that never existed in the first place.  Note that some of
+  these concerns also exist on CPython, just less so.  For this reason
+  we explicitly don't implement ``sys.getsizeof()``.
+
+* The ``timeit`` module behaves differently under PyPy: it prints the average
+  time and the standard deviation, instead of the minimum, since the minimum is
+  often misleading.
+
+* The ``get_config_vars`` method of ``sysconfig`` and ``distutils.sysconfig``
+  are not complete. On POSIX platforms, CPython fishes configuration variables
+  from the Makefile used to build the interpreter. PyPy should bake the values
+  in during compilation, but does not do that yet.
+
+* ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
+  an instance of a subclass of ``long`` that overrides the special
+  methods ``__str__`` or ``__hex__`` or ``__oct__``: PyPy doesn't call
+  the special methods; CPython does---but only if it is a subclass of
+  ``long``, not ``int``.  CPython's behavior is really messy: e.g. for
+  ``%x`` it calls ``__hex__()``, which is supposed to return a string
+  like ``-0x123L``; then the ``0x`` and the final ``L`` are removed, and
+  the rest is kept.  If you return an unexpected string from
+  ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
+
+* In PyPy, dictionaries passed as ``**kwargs`` can contain only string keys,
+  even for ``dict()`` and ``dict.update()``.  CPython 2.7 allows non-string
+  keys in these two cases (and only there, as far as we know).  E.g. this
+  code produces a ``TypeError``, on CPython 3.x as well as on any PyPy:
+  ``dict(**{1: 2})``.  (Note that ``dict(**d1)`` is equivalent to
+  ``dict(d1)``.)
+
+* PyPy3: ``__class__`` attribute assignment between heaptypes and non heaptypes.
+  CPython allows that for module subtypes, but not for e.g. ``int``
+  or ``float`` subtypes. Currently PyPy does not support the
+  ``__class__`` attribute assignment for any non heaptype subtype.
+
+* In PyPy, module and class dictionaries are optimized under the assumption
+  that deleting attributes from them are rare. Because of this, e.g.
+  ``del foo.bar`` where ``foo`` is a module (or class) that contains the
+  function ``bar``, is significantly slower than CPython.
+
+* Various built-in functions in CPython accept only positional arguments
+  and not keyword arguments.  That can be considered a long-running
+  historical detail: newer functions tend to accept keyword arguments
+  and older function are occasionally fixed to do so as well.  In PyPy,
+  most built-in functions accept keyword arguments (``help()`` shows the
+  argument names).  But don't rely on it too much because future
+  versions of PyPy may have to rename the arguments if CPython starts
+  accepting them too.
+
+* PyPy3: ``distutils`` has been enhanced to allow finding ``VsDevCmd.bat`` in the
+  directory pointed to by the ``VS%0.f0COMNTOOLS`` (typically ``VS140COMNTOOLS``)
+  environment variable. CPython searches for ``vcvarsall.bat`` somewhere **above**
+  that value.
+
+* SyntaxError_ s try harder to give details about the cause of the failure, so
+  the error messages are not the same as in CPython
+
+
+.. _extension-modules:
+
+Extension modules
+-----------------
+
+List of extension modules that we support:
+
+* Supported as built-in modules (in :source:`pypy/module/`):
+
+    __builtin__
+    :doc:`__pypy__ <__pypy__-module>`
+    _ast
+    _codecs
+    _collections
+    :doc:`_continuation <stackless>`
+    :doc:`_ffi <discussion/ctypes-implementation>`
+    _hashlib
+    _io
+    _locale
+    _lsprof
+    _md5
+    :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
+    _multiprocessing
+    _random
+    :doc:`_rawffi <discussion/ctypes-implementation>`
+    _sha
+    _socket
+    _sre
+    _ssl
+    _warnings
+    _weakref
+    _winreg
+    array
+    binascii
+    bz2
+    cStringIO
+    cmath
+    `cpyext`_
+    crypt
+    errno
+    exceptions
+    fcntl
+    gc
+    imp
+    itertools
+    marshal
+    math
+    mmap
+    operator
+    parser
+    posix
+    pyexpat
+    select
+    signal
+    struct
+    symbol
+    sys
+    termios
+    thread
+    time
+    token
+    unicodedata
+    zipimport
+    zlib
+
+  When translated on Windows, a few Unix-only modules are skipped,
+  and the following module is built instead:
+
+    _winreg
+
+* Supported by being rewritten in pure Python (possibly using ``cffi``):
+  see the :source:`lib_pypy/` directory.  Examples of modules that we
+  support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
+  Note that some modules are both in there and in the list above;
+  by default, the built-in module is used (but can be disabled
+  at translation time).
+
+The extension modules (i.e. modules written in C, in the standard CPython)
+that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
+(You may have a chance to use them anyway with `cpyext`_.)
+
+.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
+
+
+.. _`is ignored in PyPy`: http://bugs.python.org/issue14621
+.. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
+.. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
+.. _`issue #2653`: https://bitbucket.org/pypy/pypy/issues/2653/
+.. _SyntaxError: https://morepypy.blogspot.co.il/2018/04/improving-syntaxerror-in-pypy.html

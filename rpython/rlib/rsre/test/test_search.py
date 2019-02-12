@@ -1,3 +1,4 @@
+import re, py
 from rpython.rlib.rsre import rsre_core
 from rpython.rlib.rsre.test.test_match import get_code, get_code_and_re
 
@@ -149,8 +150,11 @@ class TestSearch:
     def test_empty_maxuntil(self):
         r_code, r = get_code_and_re(r'(a?)+y')
         assert r.match('y')
+        assert r.match('aaayaaay').span() == (0, 4)
         res = rsre_core.match(r_code, 'y')
         assert res
+        res = rsre_core.match(r_code, 'aaayaaay')
+        assert res and res.span() == (0, 4)
         #
         r_code, r = get_code_and_re(r'(a?){4,6}y')
         assert r.match('y')
@@ -161,6 +165,17 @@ class TestSearch:
         assert r.match('y')
         res = rsre_core.match(r_code, 'y')
         assert res
+
+    def test_empty_maxuntil_2(self):
+        try:
+            r_code, r = get_code_and_re(r'X(.*?)+X')
+        except re.error as e:
+            py.test.skip("older version of the stdlib: %s" % (e,))
+        assert r.match('XfooXbarX').span() == (0, 5)
+        assert r.match('XfooXbarX').span(1) == (4, 4)
+        res = rsre_core.match(r_code, 'XfooXbarX')
+        assert res.span() == (0, 5)
+        assert res.span(1) == (4, 4)
 
     def test_empty_minuntil(self):
         r_code, r = get_code_and_re(r'(a?)+?y')

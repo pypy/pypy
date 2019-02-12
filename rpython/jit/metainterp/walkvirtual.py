@@ -5,7 +5,7 @@ class VirtualVisitor(object):
     def visit_not_virtual(self, value):
         raise NotImplementedError("abstract base class")
 
-    def visit_virtual(self, known_class, fielddescrs):
+    def visit_virtual(self, descr, fielddescrs):
         raise NotImplementedError("abstract base class")
 
     def visit_vstruct(self, typedescr, fielddescrs):
@@ -17,7 +17,7 @@ class VirtualVisitor(object):
     def visit_varraystruct(self, arraydescr, fielddescrs):
         raise NotImplementedError("abstract base class")
 
-    def visit_vrawbuffer(self, size, offsets, descrs):
+    def visit_vrawbuffer(self, func, size, offsets, descrs):
         raise NotImplementedError("abstract base class")
 
     def visit_vrawslice(self, offset):

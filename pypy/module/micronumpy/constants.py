@@ -65,6 +65,9 @@ UNSIGNEDLTR = 'u'
 FLOATINGLTR = 'f'
 COMPLEXLTR = 'c'
 
+SEARCHLEFT = 0
+SEARCHRIGHT = 1
+
 ANYORDER = -1
 CORDER = 0
 FORTRANORDER = 1
@@ -73,6 +76,38 @@ KEEPORDER = 2
 CLIP = 0
 WRAP = 1
 RAISE = 2
+
+MAXARGS = 32
+
+# These can be requested in constructor functions and tested for
+ARRAY_C_CONTIGUOUS = 0x0001
+ARRAY_F_CONTIGUOUS = 0x0002
+ARRAY_ALIGNED      = 0x0100
+ARRAY_WRITEABLE    = 0x0400
+ARRAY_UPDATEIFCOPY = 0x1000 # base contains a ref to an array, update it too
+# These can be tested for
+ARRAY_OWNDATA     = 0x004
+# These can be requested in constructor functions
+ARRAY_FORECAST    = 0x0010 # causes a cast to occur even if not safe to do so
+ARRAY_ENSURECOPY  = 0x0020 # returned array will be CONTIGUOUS, ALIGNED, WRITEABLE
+ARRAY_ENSUREARRAY = 0x0040 # return only ndarray, not subtype
+ARRAY_ELEMENTSTRIDES = 0x0080 # strides  are units of the dtype element size
+ARRAY_NOTSWAPPED  = 0x0200 #native byte order
+
+#dtype flags
+ITEM_REFCOUNT   = 0x01
+ITEM_HASOBJECT  = 0x01
+LIST_PICKLE     = 0x02
+ITEM_IS_POINTER = 0x04
+NEEDS_INIT      = 0x08
+NEEDS_PYAPI     = 0x10
+USE_GETITEM     = 0x20
+USE_SETITEM     = 0x40
+ALIGNED_STRUCT  = 0x80
+FROM_FIELDS     = NEEDS_INIT | LIST_PICKLE | ITEM_REFCOUNT | NEEDS_PYAPI
+OBJECT_DTYPE_FLAGS = (LIST_PICKLE | USE_GETITEM | ITEM_IS_POINTER |
+                        ITEM_REFCOUNT | NEEDS_INIT | NEEDS_PYAPI)
+
 
 LITTLE = '<'
 BIG = '>'

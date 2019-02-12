@@ -1,15 +1,15 @@
+import math
 import sys
 
 from rpython.rlib.objectmodel import Symbolic, ComputedIntSymbolic, CDefinedIntSymbolic
 from rpython.rlib.rarithmetic import r_longlong, is_emulated_long
-from rpython.rlib.rfloat import isinf, isnan
 from rpython.rtyper.lltypesystem import rffi, llgroup
 from rpython.rtyper.lltypesystem.llmemory import (Address, AddressOffset,
     ItemOffset, ArrayItemsOffset, FieldOffset, CompositeOffset,
     ArrayLengthOffset, GCHeaderOffset, GCREF, AddressAsInt)
 from rpython.rtyper.lltypesystem.lltype import (Signed, SignedLongLong, Unsigned,
     UnsignedLongLong, Float, SingleFloat, LongFloat, Char, UniChar, Bool, Void,
-    FixedSizeArray, Ptr, cast_opaque_ptr, typeOf)
+    FixedSizeArray, Ptr, cast_opaque_ptr, typeOf, _uninitialized)
 from rpython.rtyper.lltypesystem.llarena import RoundedUpForAllocation
 from rpython.rtyper.tool.rffi_platform import memory_alignment
 from rpython.translator.c.support import cdecl, barebonearray
@@ -89,7 +89,7 @@ def name_signed(value, db):
             return '((Signed)%s)' % name_address(value.adr, db)
         else:
             raise Exception("unimplemented symbolic %r" % value)
-    if value is None:
+    if value is None or isinstance(value, _uninitialized):
         assert not db.completed
         return None
     if value == -sys.maxint-1:   # blame C
@@ -113,22 +113,19 @@ def name_signedlonglong(value, db):
         return '%dLL' % value
 
 def is_positive_nan(value):
-    # bah.  we don't have math.copysign() if we're running Python 2.5
-    import struct
-    c = struct.pack("!d", value)[0]
-    return {'\x7f': True, '\xff': False}[c]
+    return math.copysign(1, value) > 0
 
 def name_float(value, db):
-    if isinf(value):
+    if math.isinf(value):
         if value > 0:
             return '(Py_HUGE_VAL)'
         else:
             return '(-Py_HUGE_VAL)'
-    elif isnan(value):
+    elif math.isnan(value):
         if is_positive_nan(value):
-            return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+            return '(_PyPy_dg_stdnan(0))'
         else:
-            return '(-(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '(_PyPy_dg_stdnan(1))'
     else:
         x = repr(value)
         assert not x.startswith('n')
@@ -137,17 +134,17 @@ name_longfloat = name_float
 
 def name_singlefloat(value, db):
     value = float(value)
-    if isinf(value):
+    if math.isinf(value):
         if value > 0:
             return '((float)Py_HUGE_VAL)'
         else:
             return '((float)-Py_HUGE_VAL)'
-    elif isnan(value):
+    elif math.isnan(value):
         # XXX are these expressions ok?
         if is_positive_nan(value):
-            return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '((float)(_PyPy_dg_stdnan(0)))'
         else:
-            return '(-(float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+            return '((float)(_PyPy_dg_stdnan(1)))'
     else:
         return repr(value) + 'f'
 
@@ -250,6 +247,22 @@ def define_c_primitive(ll_type, c_name, suffix=''):
         PrimitiveName[ll_type] = lambda value, db: name_str % value
     PrimitiveType[ll_type] = '%s @' % c_name
 
+def define_shifted_primitive(ll_type, signed):
+    suffix = "LL" if signed else "ULL"
+    c_name = "__int128_t" if signed else "__uint128_t"
+    def convert(value, db):
+        left_part = value >> 64
+        right_part = value - (left_part << 64)
+        if signed:
+            assert -2**63 <= left_part < 2**63
+        else:
+            assert 0 <= left_part < 2**64
+        assert 0 <= right_part < 2**64
+        name_str = '((((%s) %d%s) << 64) | ((%s) %dULL))' % (c_name, left_part, suffix, c_name, right_part)
+        return name_str
+    PrimitiveName[ll_type] = convert
+    PrimitiveType[ll_type] = '%s @' % c_name
+
 define_c_primitive(rffi.SIGNEDCHAR, 'signed char')
 define_c_primitive(rffi.UCHAR, 'unsigned char')
 define_c_primitive(rffi.SHORT, 'short')
@@ -262,4 +275,5 @@ define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')
 if SUPPORT_INT128:
-    define_c_primitive(rffi.__INT128_T, '__int128_t', 'LL') # Unless it's a 128bit platform, LL is the biggest
+    define_shifted_primitive(rffi.__INT128_T, signed=True)
+    define_shifted_primitive(rffi.__UINT128_T, signed=False)

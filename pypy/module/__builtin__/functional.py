@@ -5,10 +5,10 @@ Interp-level definition of frequently used functionals.
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
-from rpython.rlib import jit
+from rpython.rlib import jit, rarithmetic
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rbigint import rbigint
@@ -32,8 +32,7 @@ def get_len_of_range(space, lo, hi, step):
     # hi-lo-1 = M-(-M-1)-1 = 2*M.  Therefore unsigned long has enough
     # precision to compute the RHS exactly.
     if step == 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("step argument must not be zero"))
+        raise oefmt(space.w_ValueError, "step argument must not be zero")
     elif step < 0:
         lo, hi, step = hi, lo, -step
     if lo < hi:
@@ -42,8 +41,7 @@ def get_len_of_range(space, lo, hi, step):
         diff = uhi - ulo - 1
         n = intmask(diff // r_uint(step) + 1)
         if n < 0:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("result has too many items"))
+            raise oefmt(space.w_OverflowError, "result has too many items")
     else:
         n = 0
     return n
@@ -56,21 +54,21 @@ to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
 
     if w_y is None:
-        w_start = space.wrap(0)
+        w_start = space.newint(0)
         w_stop = w_x
     else:
         w_start = w_x
         w_stop = w_y
 
     if space.isinstance_w(w_stop, space.w_float):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer end argument expected, got float."))
+        raise oefmt(space.w_TypeError,
+                    "range() integer end argument expected, got float.")
     if space.isinstance_w(w_start, space.w_float):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer start argument expected, got float."))
+        raise oefmt(space.w_TypeError,
+                    "range() integer start argument expected, got float.")
     if space.isinstance_w(w_step, space.w_float):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer step argument expected, got float."))
+        raise oefmt(space.w_TypeError,
+                    "range() integer step argument expected, got float.")
 
     w_start = space.int(w_start)
     w_stop = space.int(w_stop)
@@ -80,26 +78,26 @@ get a list in decending order."""
         start = space.int_w(w_start)
         stop = space.int_w(w_stop)
         step = space.int_w(w_step)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
         return range_with_longs(space, w_start, w_stop, w_step)
 
     howmany = get_len_of_range(space, start, stop, step)
 
-    if space.config.objspace.std.withrangelist:
+    if space.config.objspace.std.withliststrategies:
         return range_withspecialized_implementation(space, start,
                                                     step, howmany)
     res_w = [None] * howmany
     v = start
     for idx in range(howmany):
-        res_w[idx] = space.wrap(v)
+        res_w[idx] = space.newint(v)
         v += step
     return space.newlist(res_w)
 
 
 def range_withspecialized_implementation(space, start, step, length):
-    assert space.config.objspace.std.withrangelist
+    assert space.config.objspace.std.withliststrategies
     from pypy.objspace.std.listobject import make_range_list
     return make_range_list(space, start, step, length)
 
@@ -112,8 +110,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
     step = st = space.bigint_w(w_step)
 
     if not step.tobool():
-        raise OperationError(space.w_ValueError,
-                             space.wrap("step argument must not be zero"))
+        raise oefmt(space.w_ValueError, "step argument must not be zero")
     elif step.sign < 0:
         lo, hi, st = hi, lo, st.neg()
 
@@ -123,8 +120,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
         try:
             howmany = n.toint()
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("result has too many items"))
+            raise oefmt(space.w_OverflowError, "result has too many items")
     else:
         howmany = 0
 
@@ -140,75 +136,89 @@ min_jitdriver = jit.JitDriver(name='min',
 max_jitdriver = jit.JitDriver(name='max',
         greens=['has_key', 'has_item', 'w_type'], reds='auto')
 
-def make_min_max(unroll):
-    @specialize.arg(2)
-    def min_max_impl(space, args, implementation_of):
-        if implementation_of == "max":
-            compare = space.gt
-            jitdriver = max_jitdriver
+@specialize.arg(3)
+def min_max_sequence(space, w_sequence, w_key, implementation_of):
+    if implementation_of == "max":
+        compare = space.gt
+        jitdriver = max_jitdriver
+    else:
+        compare = space.lt
+        jitdriver = min_jitdriver
+    w_iter = space.iter(w_sequence)
+    w_type = space.type(w_iter)
+    has_key = w_key is not None
+    has_item = False
+    w_max_item = None
+    w_max_val = None
+    while True:
+        jitdriver.jit_merge_point(has_key=has_key, has_item=has_item,
+                                  w_type=w_type)
+        try:
+            w_item = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if has_key:
+            w_compare_with = space.call_function(w_key, w_item)
         else:
-            compare = space.lt
-            jitdriver = min_jitdriver
-        args_w = args.arguments_w
-        if len(args_w) > 1:
-            w_sequence = space.newtuple(args_w)
-        elif len(args_w):
-            w_sequence = args_w[0]
+            w_compare_with = w_item
+        if (not has_item or
+                space.is_true(compare(w_compare_with, w_max_val))):
+            has_item = True
+            w_max_item = w_item
+            w_max_val = w_compare_with
+    if w_max_item is None:
+        raise oefmt(space.w_ValueError, "arg is an empty sequence")
+    return w_max_item
+
+@specialize.arg(3)
+@jit.look_inside_iff(lambda space, args_w, w_key, implementation_of:
+        jit.loop_unrolling_heuristic(args_w, len(args_w), 3))
+def min_max_multiple_args(space, args_w, w_key, implementation_of):
+    # case of multiple arguments (at least two).  We unroll it if there
+    # are 2 or 3 arguments.
+    if implementation_of == "max":
+        compare = space.gt
+    else:
+        compare = space.lt
+    w_max_item = args_w[0]
+    if w_key is not None:
+        w_max_val = space.call_function(w_key, w_max_item)
+    else:
+        w_max_val = w_max_item
+    for i in range(1, len(args_w)):
+        w_item = args_w[i]
+        if w_key is not None:
+            w_compare_with = space.call_function(w_key, w_item)
         else:
-            msg = "%s() expects at least one argument" % (implementation_of,)
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        w_key = None
-        kwds = args.keywords
-        if kwds:
-            if kwds[0] == "key" and len(kwds) == 1:
-                w_key = args.keywords_w[0]
-            else:
-                msg = "%s() got unexpected keyword argument" % (implementation_of,)
-                raise OperationError(space.w_TypeError, space.wrap(msg))
-
-        w_iter = space.iter(w_sequence)
-        w_type = space.type(w_iter)
-        has_key = w_key is not None
-        has_item = False
-        w_max_item = None
-        w_max_val = None
-        while True:
-            if not unroll:
-                jitdriver.jit_merge_point(has_key=has_key, has_item=has_item, w_type=w_type)
-            try:
-                w_item = space.next(w_iter)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break
-            if has_key:
-                w_compare_with = space.call_function(w_key, w_item)
-            else:
-                w_compare_with = w_item
-            if not has_item or \
-                    space.is_true(compare(w_compare_with, w_max_val)):
-                has_item = True
-                w_max_item = w_item
-                w_max_val = w_compare_with
-        if w_max_item is None:
-            msg = "arg is an empty sequence"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
-        return w_max_item
-    if unroll:
-        min_max_impl = jit.unroll_safe(min_max_impl)
-    return min_max_impl
-
-min_max_unroll = make_min_max(True)
-min_max_normal = make_min_max(False)
+            w_compare_with = w_item
+        if space.is_true(compare(w_compare_with, w_max_val)):
+            w_max_item = w_item
+            w_max_val = w_compare_with
+    return w_max_item
 
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
-    if not jit.we_are_jitted() or len(args.arguments_w) != 1 and \
-            jit.loop_unrolling_heuristic(args.arguments_w, len(args.arguments_w)):
-        return min_max_unroll(space, args, implementation_of)
+    w_key = None
+    if bool(args.keywords):
+        kwds = args.keywords
+        if kwds[0] == "key" and len(kwds) == 1:
+            w_key = args.keywords_w[0]
+        else:
+            raise oefmt(space.w_TypeError,
+                        "%s() got unexpected keyword argument",
+                        implementation_of)
+    #
+    args_w = args.arguments_w
+    if len(args_w) > 1:
+        return min_max_multiple_args(space, args_w, w_key, implementation_of)
+    elif len(args_w):
+        return min_max_sequence(space, args_w[0], w_key, implementation_of)
     else:
-        return min_max_normal(space, args, implementation_of)
-min_max._always_inline = True
+        raise oefmt(space.w_TypeError,
+                    "%s() expects at least one argument",
+                    implementation_of)
 
 def max(space, __args__):
     """max(iterable[, key=func]) -> value
@@ -229,27 +239,70 @@ def min(space, __args__):
     return min_max(space, __args__, "min")
 
 
+
 class W_Enumerate(W_Root):
-    def __init__(self, w_iter, w_start):
-        self.w_iter = w_iter
+    def __init__(self, w_iter_or_list, start, w_start):
+        # 'w_index' should never be a wrapped int here; if it would be,
+        # then it is actually None and the unwrapped int is in 'index'.
+        self.w_iter_or_list = w_iter_or_list
+        self.index = start
         self.w_index = w_start
 
     def descr___new__(space, w_subtype, w_iterable, w_start=None):
-        self = space.allocate_instance(W_Enumerate, w_subtype)
+        from pypy.objspace.std.listobject import W_ListObject
+
         if w_start is None:
-            w_start = space.wrap(0)
+            start = 0
         else:
             w_start = space.index(w_start)
-        self.__init__(space.iter(w_iterable), w_start)
-        return space.wrap(self)
+            if space.is_w(space.type(w_start), space.w_int):
+                start = space.int_w(w_start)
+                w_start = None
+            else:
+                start = -1
+
+        if start == 0 and type(w_iterable) is W_ListObject:
+            w_iter = w_iterable
+        else:
+            w_iter = space.iter(w_iterable)
+
+        self = space.allocate_instance(W_Enumerate, w_subtype)
+        self.__init__(w_iter, start, w_start)
+        return self
 
     def descr___iter__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr_next(self, space):
-        w_item = space.next(self.w_iter)
+        from pypy.objspace.std.listobject import W_ListObject
         w_index = self.w_index
-        self.w_index = space.add(w_index, space.wrap(1))
+        w_iter_or_list = self.w_iter_or_list
+        w_item = None
+        if w_index is None:
+            index = self.index
+            if type(w_iter_or_list) is W_ListObject:
+                try:
+                    w_item = w_iter_or_list.getitem(index)
+                except IndexError:
+                    self.w_iter_or_list = None
+                    raise OperationError(space.w_StopIteration, space.w_None)
+                self.index = index + 1
+            elif w_iter_or_list is None:
+                raise OperationError(space.w_StopIteration, space.w_None)
+            else:
+                try:
+                    newval = rarithmetic.ovfcheck(index + 1)
+                except OverflowError:
+                    w_index = space.newint(index)
+                    self.w_index = space.add(w_index, space.newint(1))
+                    self.index = -1
+                else:
+                    self.index = newval
+            w_index = space.newint(index)
+        else:
+            self.w_index = space.add(w_index, space.newint(1))
+        if w_item is None:
+            w_item = space.next(self.w_iter_or_list)
         return space.newtuple([w_index, w_item])
 
     def descr___reduce__(self, space):
@@ -257,12 +310,20 @@ class W_Enumerate(W_Root):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         w_new_inst = mod.get('enumerate_new')
-        w_info = space.newtuple([self.w_iter, self.w_index])
+        w_index = self.w_index
+        if w_index is None:
+            w_index = space.newint(self.index)
+        w_info = space.newtuple([self.w_iter_or_list, w_index])
         return space.newtuple([w_new_inst, w_info])
 
 # exported through _pickle_support
-def _make_enumerate(space, w_iter, w_index):
-    return space.wrap(W_Enumerate(w_iter, w_index))
+def _make_enumerate(space, w_iter_or_list, w_index):
+    if space.is_w(space.type(w_index), space.w_int):
+        index = space.int_w(w_index)
+        w_index = None
+    else:
+        index = -1
+    return W_Enumerate(w_iter_or_list, index, w_index)
 
 W_Enumerate.typedef = TypeDef("enumerate",
     __new__=interp2app(W_Enumerate.descr___new__.im_func),
@@ -276,44 +337,50 @@ def reversed(space, w_sequence):
     """Return a iterator that yields items of sequence in reverse."""
     w_reversed = None
     if space.is_oldstyle_instance(w_sequence):
-        w_reversed = space.findattr(w_sequence, space.wrap("__reversed__"))
+        w_reversed = space.findattr(w_sequence, space.newtext("__reversed__"))
     else:
         w_reversed_descr = space.lookup(w_sequence, "__reversed__")
         if w_reversed_descr is not None:
             w_reversed = space.get(w_reversed_descr, w_sequence)
     if w_reversed is not None:
         return space.call_function(w_reversed)
-    return space.wrap(W_ReversedIterator(space, w_sequence))
+    return W_ReversedIterator(space, w_sequence)
 
 
 class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
-        if space.lookup(w_sequence, "__getitem__") is None:
-            msg = "reversed() argument must be a sequence"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+        if not space.issequence_w(w_sequence):
+            raise oefmt(space.w_TypeError,
+                        "argument to reversed() must be a sequence")
         self.w_sequence = w_sequence
 
     def descr___iter__(self, space):
-        return space.wrap(self)
+        return self
 
     def descr_length(self, space):
-        return space.wrap(0 if self.remaining == -1 else self.remaining + 1)
+        return space.newint(0 if self.remaining == -1 else self.remaining + 1)
 
     def descr_next(self, space):
         if self.remaining >= 0:
-            w_index = space.wrap(self.remaining)
+            w_index = space.newint(self.remaining)
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
+            except OperationError as e:
+                # Done
+                self.remaining = -1
+                self.w_sequence = None
+                if not (e.match(space, space.w_IndexError) or
+                        e.match(space, space.w_StopIteration)):
                     raise
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 self.remaining -= 1
                 return w_item
 
         # Done
         self.remaining = -1
+        self.w_sequence = None
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr___reduce__(self, space):
@@ -321,7 +388,8 @@ class W_ReversedIterator(W_Root):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         w_new_inst = mod.get('reversed_new')
-        info_w = [self.w_sequence, space.wrap(self.remaining)]
+        w_seq = space.w_None if self.w_sequence is None else self.w_sequence
+        info_w = [w_seq, space.newint(self.remaining)]
         w_info = space.newtuple(info_w)
         return space.newtuple([w_new_inst, w_info])
 
@@ -337,9 +405,13 @@ W_ReversedIterator.typedef.acceptable_as_base_class = False
 def _make_reversed(space, w_seq, w_remaining):
     w_type = space.gettypeobject(W_ReversedIterator.typedef)
     iterator = space.allocate_instance(W_ReversedIterator, w_type)
-    iterator.w_sequence = w_seq
-    iterator.remaining = space.int_w(w_remaining)
-    return space.wrap(iterator)
+    if space.is_w(w_seq, space.w_None):
+        iterator.w_sequence = None
+        iterator.remaining = -1
+    else:
+        iterator.w_sequence = w_seq
+        iterator.remaining = space.int_w(w_remaining)
+    return iterator
 
 
 class W_XRange(W_Root):
@@ -363,9 +435,9 @@ class W_XRange(W_Root):
         else:
             stop = space.int_w(w_stop)
         howmany = get_len_of_range(space, start, stop, step)
-        obj = space.allocate_instance(W_XRange, w_subtype)
-        W_XRange.__init__(obj, space, start, howmany, step, promote_step)
-        return space.wrap(obj)
+        w_obj = space.allocate_instance(W_XRange, w_subtype)
+        W_XRange.__init__(w_obj, space, start, howmany, step, promote_step)
+        return w_obj
 
     def descr_repr(self):
         if self.start == 0 and self.step == 1:
@@ -374,10 +446,10 @@ class W_XRange(W_Root):
             s = "xrange(%d, %d)" % (self.start, self._get_stop())
         else:
             s = "xrange(%d, %d, %d)" %(self.start, self._get_stop(), self.step)
-        return self.space.wrap(s)
+        return self.space.newtext(s)
 
     def descr_len(self):
-        return self.space.wrap(self.len)
+        return self.space.newint(self.len)
 
     @unwrap_spec(i='index')
     def descr_getitem(self, i):
@@ -387,32 +459,31 @@ class W_XRange(W_Root):
         if i < 0:
             i += len
         if 0 <= i < len:
-            return space.wrap(self.start + i * self.step)
-        raise OperationError(space.w_IndexError,
-                             space.wrap("xrange object index out of range"))
+            return space.newint(self.start + i * self.step)
+        raise oefmt(space.w_IndexError, "xrange object index out of range")
 
     def descr_iter(self):
         if self.promote_step and self.step == 1:
             stop = self.start + self.len
-            return self.space.wrap(W_XRangeStepOneIterator(self.space,
-                                                           self.start,
-                                                           stop))
+            return W_XRangeStepOneIterator(self.space,
+                                           self.start,
+                                           stop)
         else:
-            return self.space.wrap(W_XRangeIterator(self.space, self.start,
-                                                    self.len, self.step))
+            return W_XRangeIterator(self.space, self.start,
+                                    self.len, self.step)
 
     def descr_reversed(self):
         last = self.start + (self.len - 1) * self.step
-        return self.space.wrap(W_XRangeIterator(self.space, last, self.len,
-                                                -self.step))
+        return W_XRangeIterator(self.space, last, self.len,
+                                -self.step)
 
     def descr_reduce(self):
         space = self.space
         return space.newtuple(
             [space.type(self),
-             space.newtuple([space.wrap(self.start),
-                             space.wrap(self._get_stop()),
-                             space.wrap(self.step)])
+             space.newtuple([space.newint(self.start),
+                             space.newint(self._get_stop()),
+                             space.newint(self.step)])
              ])
 
     def _get_stop(self):
@@ -445,7 +516,7 @@ class W_XRangeIterator(W_Root):
         self.step = step
 
     def descr_iter(self):
-        return self.space.wrap(self)
+        return self
 
     def descr_next(self):
         return self.next()
@@ -455,11 +526,11 @@ class W_XRangeIterator(W_Root):
             item = self.current
             self.current = item + self.step
             self.remaining -= 1
-            return self.space.wrap(item)
+            return self.space.newint(item)
         raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
     def descr_len(self):
-        return self.space.wrap(self.get_remaining())
+        return self.space.newint(self.get_remaining())
 
     def descr_reduce(self):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -467,10 +538,9 @@ class W_XRangeIterator(W_Root):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('xrangeiter_new')
-        w        = space.wrap
         nt = space.newtuple
 
-        tup = [w(self.current), w(self.get_remaining()), w(self.step)]
+        tup = [space.newint(self.current), space.newint(self.get_remaining()), space.newint(self.step)]
         return nt([new_inst, nt(tup)])
 
     def get_remaining(self):
@@ -498,7 +568,7 @@ class W_XRangeStepOneIterator(W_XRangeIterator):
         if self.current < self.stop:
             item = self.current
             self.current = item + 1
-            return self.space.wrap(item)
+            return self.space.newint(item)
         raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
     def get_remaining(self):

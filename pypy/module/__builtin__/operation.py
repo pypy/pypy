@@ -2,11 +2,13 @@
 Interp-level implementation of the basic space operations.
 """
 
+import math
+
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.runicode import UNICHR
-from rpython.rlib.rfloat import isnan, isinf, round_double
+from rpython.rlib.rfloat import isfinite, round_double, round_away
 from rpython.rlib import rfloat
 import __builtin__
 
@@ -19,20 +21,16 @@ def chr(space, w_ascii):
     try:
         char = __builtin__.chr(space.int_w(w_ascii))
     except ValueError:  # chr(out-of-range)
-        raise OperationError(space.w_ValueError,
-                             space.wrap("character code not in range(256)"))
-    return space.wrap(char)
+        raise oefmt(space.w_ValueError, "character code not in range(256)")
+    return space.newtext(char)
 
 @unwrap_spec(code=int)
 def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
-    # XXX range checking!
-    try:
-        c = UNICHR(code)
-    except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("unichr() arg out of range"))
-    return space.wrap(c)
+    if code < 0 or code > 0x10FFFF:
+        raise oefmt(space.w_ValueError, "unichr() arg out of range")
+    c = UNICHR(code)
+    return space.newunicode(c)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
@@ -46,9 +44,9 @@ def checkattrname(space, w_name):
     # space.{get,set,del}attr()...
     # Note that if w_name is already an exact string it must be returned
     # unmodified (and not e.g. unwrapped-rewrapped).
-    if not space.is_w(space.type(w_name), space.w_str):
-        name = space.str_w(w_name)    # typecheck
-        w_name = space.wrap(name)     # rewrap as a real string
+    if not space.is_w(space.type(w_name), space.w_text):
+        name = space.text_w(w_name)    # typecheck
+        w_name = space.newtext(name)     # rewrap as a real string
     return w_name
 
 def delattr(space, w_object, w_name):
@@ -64,7 +62,7 @@ getattr(x, 'y') is equivalent to ``x.y''."""
     w_name = checkattrname(space, w_name)
     try:
         return space.getattr(w_object, w_name)
-    except OperationError, e:
+    except OperationError as e:
         if w_defvalue is not None:
             if e.match(space, space.w_AttributeError):
                 return w_defvalue
@@ -136,24 +134,27 @@ This always returns a floating point number.  Precision may be negative."""
     ndigits = space.getindex_w(w_ndigits, None)
 
     # nans, infinities and zeros round to themselves
-    if number == 0 or isinf(number) or isnan(number):
-        return space.wrap(number)
-
-    # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
-    # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
-    # rounds to +-0.0.
-    if ndigits > NDIGITS_MAX:
-        return space.wrap(number)
-    elif ndigits < NDIGITS_MIN:
-        # return 0.0, but with sign of x
-        return space.wrap(0.0 * number)
-
-    # finite x, and ndigits is not unreasonably large
-    z = round_double(number, ndigits)
-    if isinf(z):
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("rounded value too large to represent"))
-    return space.wrap(z)
+    if not isfinite(number):
+        z = number
+    elif ndigits == 0:    # common case
+        z = round_away(number)
+        # no need to check for an infinite 'z' here
+    else:
+        # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
+        # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
+        # rounds to +-0.0.
+        if ndigits > NDIGITS_MAX:
+            z = number
+        elif ndigits < NDIGITS_MIN:
+            # return 0.0, but with sign of x
+            z = 0.0 * number
+        else:
+            # finite x, and ndigits is not unreasonably large
+            z = round_double(number, ndigits)
+            if math.isinf(z):
+                raise oefmt(space.w_OverflowError,
+                            "rounded value too large to represent")
+    return space.newfloat(z)
 
 # ____________________________________________________________
 
@@ -179,7 +180,7 @@ def iter(space, w_collection_or_callable, w_sentinel=None):
     """iter(collection) -> iterator over the elements of the collection.
 
 iter(callable, sentinel) -> iterator calling callable() until it returns
-                            the sentinal.
+                            the sentinel.
 """
     if w_sentinel is None:
         return space.iter(w_collection_or_callable)
@@ -192,7 +193,7 @@ Return the next item from the iterator. If default is given and the iterator
 is exhausted, it is returned instead of raising StopIteration."""
     try:
         return space.next(w_iterator)
-    except OperationError, e:
+    except OperationError as e:
         if w_default is not None and e.match(space, space.w_StopIteration):
             return w_default
         raise
@@ -225,9 +226,9 @@ def intern(space, w_str):
 table of interned strings whose purpose is to speed up dictionary lookups.
 Return the string itself or the previously interned string object with the
 same value."""
-    if space.is_w(space.type(w_str), space.w_str):
+    if space.is_w(space.type(w_str), space.w_bytes):
         return space.new_interned_w_str(w_str)
-    raise OperationError(space.w_TypeError, space.wrap("intern() argument must be string."))
+    raise oefmt(space.w_TypeError, "intern() argument must be string.")
 
 def callable(space, w_object):
     """Check whether the object appears to be callable (i.e., some kind of

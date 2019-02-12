@@ -1,7 +1,6 @@
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
 
-
 class AssemblerLocation(object):
     _immutable_ = True
     type = INT
@@ -46,7 +45,7 @@ class RegisterLocation(AssemblerLocation):
     def is_core_reg(self):
         return True
 
-    def as_key(self):
+    def as_key(self):       # 0 <= as_key <= 15
         return self.value
 
 
@@ -64,7 +63,7 @@ class VFPRegisterLocation(RegisterLocation):
     def is_vfp_reg(self):
         return True
 
-    def as_key(self):
+    def as_key(self):            # 20 <= as_key <= 35
         return self.value + 20
 
     def is_float(self):
@@ -115,8 +114,8 @@ class ConstFloatLoc(AssemblerLocation):
     def is_imm_float(self):
         return True
 
-    def as_key(self):
-        return self.value
+    def as_key(self):          # a real address + 1
+        return self.value | 1
 
     def is_float(self):
         return True
@@ -148,7 +147,7 @@ class StackLocation(AssemblerLocation):
     def is_stack(self):
         return True
 
-    def as_key(self):
+    def as_key(self):                # an aligned word + 10000
         return self.position + 10000
 
     def is_float(self):
@@ -173,6 +172,9 @@ class RawSPStackLocation(AssemblerLocation):
 
     def is_float(self):
         return self.type == FLOAT
+
+    def as_key(self):            # a word >= 1000, and < 1000 + size of SP frame
+        return self.value + 1000
 
 
 def imm(i):

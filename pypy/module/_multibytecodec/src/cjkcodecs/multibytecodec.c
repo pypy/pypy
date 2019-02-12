@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "src/cjkcodecs/multibytecodec.h"
+#include "src/cjkcodecs/fixnames.h"
 
 
 struct pypy_cjk_dec_s *pypy_cjk_dec_new(const MultibyteCodec *codec)

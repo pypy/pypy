@@ -5,25 +5,14 @@
 extern "C" {
 #endif
 
+#include "cpyext_unicodeobject.h"
 
-typedef unsigned int Py_UCS4;
-#ifdef HAVE_USABLE_WCHAR_T
-#define PY_UNICODE_TYPE wchar_t
-#elif Py_UNICODE_SIZE == 4
-#define PY_UNICODE_TYPE Py_UCS4
-#else
-#define PY_UNICODE_TYPE unsigned short
-#endif
-typedef PY_UNICODE_TYPE Py_UNICODE;
+PyAPI_FUNC(PyObject *) PyUnicode_FromFormatV(const char *format, va_list vargs);
+PyAPI_FUNC(PyObject *) PyUnicode_FromFormat(const char *format, ...);
 
-#define Py_UNICODE_REPLACEMENT_CHARACTER ((Py_UNICODE) 0xFFFD)
-
-typedef struct {
-    PyObject_HEAD
-    Py_UNICODE *buffer;
-    Py_ssize_t size;
-} PyUnicodeObject;
-
+#define PyUnicode_Check(op) \
+		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_UNICODE_SUBCLASS)
+#define PyUnicode_CheckExact(op) ((op)->ob_type == &PyUnicode_Type)
 
 #ifdef __cplusplus
 }

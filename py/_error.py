@@ -25,6 +25,7 @@ _winerrnomap = {
     17: errno.EEXIST,
     13: errno.EBUSY, # empty cd drive, but ENOMEDIUM seems unavailiable
     22: errno.ENOTDIR,
+    20: errno.ENOTDIR,
     267: errno.ENOTDIR,
     5: errno.EACCES,  # anything better?
 }
@@ -63,7 +64,7 @@ class ErrorMaker(object):
             return func(*args, **kwargs)
         except self.Error:
             raise
-        except EnvironmentError:
+        except (OSError, EnvironmentError):
             cls, value, tb = sys.exc_info()
             if not hasattr(value, 'errno'):
                 raise
@@ -82,5 +83,6 @@ class ErrorMaker(object):
                     raise value
             raise cls("%s%r" % (func.__name__, args))
             __tracebackhide__ = True
+            
 
 error = ErrorMaker()

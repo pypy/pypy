@@ -1,45 +1,15 @@
 """
 Code for annotating low-level thingies.
 """
-from types import MethodType
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeSingleFloat, SomeFloat, SomeLongFloat, SomeChar,
-    SomeUnicodeCodePoint, SomeInteger, SomeString, SomeImpossibleValue,
-    s_None, s_Bool, UnionError, AnnotatorError, SomeBool)
+    SomeUnicodeCodePoint, SomeInteger, SomeImpossibleValue,
+    s_None, s_Bool, UnionError, AnnotatorError)
 from rpython.rtyper.lltypesystem import lltype, llmemory
-
-class SomeAddress(SomeObject):
-    immutable = True
-
-    def can_be_none(self):
-        return False
-
-    def is_null_address(self):
-        return self.is_immutable_constant() and not self.const
-
-    def getattr(self, s_attr):
-        assert s_attr.is_constant()
-        assert isinstance(s_attr, SomeString)
-        assert s_attr.const in llmemory.supported_access_types
-        return SomeTypedAddressAccess(
-            llmemory.supported_access_types[s_attr.const])
-    getattr.can_only_throw = []
-
-    def bool(self):
-        return s_Bool
-
-class SomeTypedAddressAccess(SomeObject):
-    """This class is used to annotate the intermediate value that
-    appears in expressions of the form:
-    addr.signed[offset] and addr.signed[offset] = value
-    """
-
-    def __init__(self, type):
-        self.type = type
-
-    def can_be_none(self):
-        return False
+from rpython.rtyper.lltypesystem.lltype import SomePtr
+from rpython.rtyper.lltypesystem.llmemory import (
+    SomeAddress, SomeTypedAddressAccess)
 
 
 class __extend__(pairtype(SomeAddress, SomeAddress)):
@@ -96,69 +66,6 @@ class __extend__(pairtype(SomeAddress, SomeObject)):
 class __extend__(pairtype(SomeObject, SomeAddress)):
     def union((s_obj, s_addr)):
         raise UnionError(s_obj, s_addr)
-
-
-class SomePtr(SomeObject):
-    knowntype = lltype._ptr
-    immutable = True
-
-    def __init__(self, ll_ptrtype):
-        assert isinstance(ll_ptrtype, lltype.Ptr)
-        self.ll_ptrtype = ll_ptrtype
-
-    def can_be_none(self):
-        return False
-
-    def getattr(self, s_attr):
-        from rpython.annotator.bookkeeper import getbookkeeper
-        if not s_attr.is_constant():
-            raise AnnotatorError("getattr on ptr %r with non-constant "
-                                 "field-name" % self.ll_ptrtype)
-        example = self.ll_ptrtype._example()
-        try:
-            v = example._lookup_adtmeth(s_attr.const)
-        except AttributeError:
-            v = getattr(example, s_attr.const)
-            return ll_to_annotation(v)
-        else:
-            if isinstance(v, MethodType):
-                ll_ptrtype = lltype.typeOf(v.im_self)
-                assert isinstance(ll_ptrtype, (lltype.Ptr, lltype.InteriorPtr))
-                return SomeLLADTMeth(ll_ptrtype, v.im_func)
-            return getbookkeeper().immutablevalue(v)
-    getattr.can_only_throw = []
-
-    def len(self):
-        from rpython.annotator.bookkeeper import getbookkeeper
-        length = self.ll_ptrtype._example()._fixedlength()
-        if length is None:
-            return SomeObject.len(self)
-        else:
-            return getbookkeeper().immutablevalue(length)
-
-    def setattr(self, s_attr, s_value): # just doing checking
-        if not s_attr.is_constant():
-            raise AnnotatorError("setattr on ptr %r with non-constant "
-                                 "field-name" % self.ll_ptrtype)
-        example = self.ll_ptrtype._example()
-        if getattr(example, s_attr.const) is not None:  # ignore Void s_value
-            v_lltype = annotation_to_lltype(s_value)
-            setattr(example, s_attr.const, v_lltype._defl())
-
-    def call(self, args):
-        args_s, kwds_s = args.unpack()
-        if kwds_s:
-            raise Exception("keyword arguments to call to a low-level fn ptr")
-        info = 'argument to ll function pointer call'
-        llargs = [annotation_to_lltype(s_arg, info)._defl() for s_arg in args_s]
-        v = self.ll_ptrtype._example()(*llargs)
-        return ll_to_annotation(v)
-
-    def bool(self):
-        result = SomeBool()
-        if self.is_constant():
-            result.const = bool(self.const)
-        return result
 
 
 class SomeInteriorPtr(SomePtr):

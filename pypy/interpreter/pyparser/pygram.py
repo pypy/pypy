@@ -23,6 +23,17 @@ python_grammar_no_print = python_grammar.shared_copy()
 python_grammar_no_print.keyword_ids = python_grammar_no_print.keyword_ids.copy()
 del python_grammar_no_print.keyword_ids["print"]
 
+python_grammar_revdb = python_grammar.shared_copy()
+python_grammar_no_print_revdb = python_grammar_no_print.shared_copy()
+copied_token_ids = python_grammar.token_ids.copy()
+python_grammar_revdb.token_ids = copied_token_ids
+python_grammar_no_print_revdb.token_ids = copied_token_ids
+
+metavar_token_id = pytoken.python_tokens['REVDBMETAVAR']
+# the following line affects python_grammar_no_print too, since they share the
+# dict
+del python_grammar.token_ids[metavar_token_id]
+
 class _Tokens(object):
     pass
 for tok_name, idx in pytoken.python_tokens.iteritems():
@@ -31,8 +42,24 @@ tokens = _Tokens()
 
 class _Symbols(object):
     pass
+rev_lookup = {}
 for sym_name, idx in python_grammar.symbol_ids.iteritems():
     setattr(_Symbols, sym_name, idx)
+    rev_lookup[idx] = sym_name
 syms = _Symbols()
+syms._rev_lookup = rev_lookup # for debugging
 
 del _get_python_grammar, _Tokens, tok_name, sym_name, idx
+
+def choose_grammar(print_function, revdb):
+    if print_function:
+        if revdb:
+            return python_grammar_no_print_revdb
+        else:
+            return python_grammar_no_print
+    else:
+        if revdb:
+            return python_grammar_revdb
+        else:
+            return python_grammar
+

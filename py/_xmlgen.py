@@ -4,13 +4,12 @@ by using simple python objects.
 
 (c) holger krekel, holger at merlinux eu. 2009
 """
-import py
 import sys, re
 
 if sys.version_info >= (3,0):
     def u(s):
         return s
-    def unicode(x):
+    def unicode(x, errors=None):
         if hasattr(x, '__unicode__'):
             return x.__unicode__()
         return str(x)
@@ -245,7 +244,10 @@ class _escape:
 
     def __call__(self, ustring):
         """ xml-escape the given unicode string. """
-        ustring = unicode(ustring)
+        try:
+            ustring = unicode(ustring)
+        except UnicodeDecodeError:
+            ustring = unicode(ustring, 'utf-8', errors='replace')
         return self.charef_rex.sub(self._replacer, ustring)
 
 escape = _escape()

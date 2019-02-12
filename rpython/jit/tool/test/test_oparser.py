@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 
 from rpython.jit.tool.oparser import parse, OpParser
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import AbstractDescr, BoxInt, JitCellToken,\
+from rpython.jit.metainterp.history import AbstractDescr, JitCellToken,\
      TargetToken
 
 class BaseTestOparser(object):
@@ -48,7 +48,7 @@ class BaseTestOparser(object):
 
         x = """
         [p0]
-        i1 = getfield_gc(p0, descr=stuff)
+        i1 = getfield_gc_i(p0, descr=stuff)
         """
         stuff = Xyz()
         loop = self.parse(x, None, locals())
@@ -75,39 +75,10 @@ class BaseTestOparser(object):
         loop = self.parse(x, None, locals())
         assert loop.operations[0].getdescr() is stuff
 
-    def test_boxname(self):
-        x = """
-        [i42]
-        i50 = int_add(i42, 1)
-        """
-        loop = self.parse(x, None, {})
-        assert str(loop.inputargs[0]) == 'i42'
-        assert str(loop.operations[0].result) == 'i50'
-
-    def test_getboxes(self):
-        x = """
-        [i0]
-        i1 = int_add(i0, 10)
-        """
-        loop = self.parse(x, None, {})
-        boxes = loop.getboxes()
-        assert boxes.i0 is loop.inputargs[0]
-        assert boxes.i1 is loop.operations[0].result
-
-    def test_setvalues(self):
-        x = """
-        [i0]
-        i1 = int_add(i0, 10)
-        """
-        loop = self.parse(x, None, {})
-        loop.setvalues(i0=32, i1=42)
-        assert loop.inputargs[0].value == 32
-        assert loop.operations[0].result.value == 42
-
     def test_getvar_const_ptr(self):
         x = '''
         []
-        call(ConstPtr(func_ptr))
+        call_n(ConstPtr(func_ptr))
         '''
         TP = lltype.GcArray(lltype.Signed)
         NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
@@ -141,7 +112,7 @@ class BaseTestOparser(object):
         box = loop.operations[0].getarg(0)
         # we cannot use isinstance, because in case of mock the class will be
         # constructed on the fly
-        assert box.__class__.__name__ == 'BoxFloat'
+        assert box.__class__.__name__ == 'InputArgFloat'
 
     def test_debug_merge_point(self):
         x = '''
@@ -203,14 +174,6 @@ class BaseTestOparser(object):
         loop = self.parse(x, nonstrict=True)
         assert loop.operations[0].getfailargs() == []
 
-    def test_no_inputargs(self):
-        x = '''
-        i2 = int_add(i0, i1)
-        '''
-        loop = self.parse(x, nonstrict=True)
-        assert loop.inputargs == []
-        assert loop.operations[0].getopname() == 'int_add'
-
     def test_offsets(self):
         x = """
         [i0, i1]
@@ -237,14 +200,6 @@ class BaseTestOparser(object):
 class TestOpParser(BaseTestOparser):
 
     OpParser = OpParser
-
-    def test_boxkind(self):
-        x = """
-        [sum0]
-        """
-        loop = self.parse(x, None, {}, boxkinds={'sum': BoxInt})
-        b = loop.getboxes()
-        assert isinstance(b.sum0, BoxInt)
 
     def test_label(self):
         x = """

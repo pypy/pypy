@@ -1,9 +1,11 @@
-import py
+import py, pytest
 
 from rpython.conftest import option
 from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
-    JitHintError, oopspec, isconstant, conditional_call)
+    JitHintError, oopspec, isconstant, conditional_call,
+    elidable, unroll_safe, dont_look_inside, conditional_call_elidable,
+    enter_portal_frame, leave_portal_frame)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -90,6 +92,28 @@ def test_merge_enter_different():
 
     myjitdriver = JitDriver(greens=['n'], reds=[])
     py.test.raises(JitHintError, fn, 100)
+
+def test_invalid_hint_combinations_error():
+    with pytest.raises(TypeError):
+        @unroll_safe
+        @elidable
+        def f():
+            pass
+    with pytest.raises(TypeError):
+        @unroll_safe
+        @elidable
+        def f():
+            pass
+    with pytest.raises(TypeError):
+        @unroll_safe
+        @dont_look_inside
+        def f():
+            pass
+    with pytest.raises(TypeError):
+        @unroll_safe
+        @dont_look_inside
+        def f():
+            pass
 
 class TestJIT(BaseRtypingTest):
     def test_hint(self):
@@ -201,8 +225,10 @@ class TestJIT(BaseRtypingTest):
     def test_green_field(self):
         def get_printable_location(xfoo):
             return str(ord(xfoo))   # xfoo must be annotated as a character
-        myjitdriver = JitDriver(greens=['x.foo'], reds=['n', 'x'],
+        # green fields are disabled!
+        pytest.raises(ValueError, JitDriver, greens=['x.foo'], reds=['n', 'x'],
                                 get_printable_location=get_printable_location)
+        return
         class A(object):
             _immutable_fields_ = ['foo']
         def fn(n):
@@ -277,3 +303,41 @@ class TestJIT(BaseRtypingTest):
         mix = MixLevelHelperAnnotator(t.rtyper)
         mix.getgraph(later, [annmodel.s_Bool], annmodel.s_None)
         mix.finish()
+
+    def test_conditional_call_elidable(self):
+        def g(x, y):
+            return x - y + 5
+        def f(n, x, y):
+            return conditional_call_elidable(n, g, x, y)
+        assert f(0, 1000, 100) == 905
+        res = self.interpret(f, [0, 1000, 100])
+        assert res == 905
+        assert f(-42, 1000, 100) == -42
+        res = self.interpret(f, [-42, 1000, 100])
+        assert res == -42
+
+    def test_conditional_call_elidable_annotates_nonnull(self):
+        class X:
+            pass
+        def g(n):
+            return X()   # non-null
+        def f(x, n):
+            y = conditional_call_elidable(x, g, n)
+            return y     # now, y is known to be non-null, even if x can be
+        def main(n):
+            if n > 100:
+                x = X()
+            else:
+                x = None
+            return f(x, n)
+        t = TranslationContext()
+        s = t.buildannotator().build_types(main, [int])
+        assert s.can_be_None is False
+
+    def test_enter_leave_portal_frame(self):
+        from rpython.translator.interactive import Translation
+        def g():
+            enter_portal_frame(1)
+            leave_portal_frame()
+        t = Translation(g, [])
+        t.compile_c() # does not crash

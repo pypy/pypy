@@ -36,7 +36,7 @@ class TestCheckSignals:
 
 class AppTestSignal:
     spaceconfig = {
-        "usemodules": ['signal', 'rctime'] + (['fcntl'] if os.name != 'nt' else []),
+        "usemodules": ['signal', 'time'] + (['fcntl'] if os.name != 'nt' else []),
     }
 
     def setup_class(cls):
@@ -197,7 +197,7 @@ class AppTestSignal:
             except OSError:
                 pass
             else:
-                raise AssertionError, "os.read(fd_read, 1) succeeded?"
+                raise AssertionError("os.read(fd_read, 1) succeeded?")
         #
         fd_read, fd_write = posix.pipe()
         flags = fcntl.fcntl(fd_write, fcntl.F_GETFL, 0)
@@ -259,6 +259,17 @@ class AppTestSignal:
             readpipe_is_not_interrupted()
         finally:
             signal.signal(signum, oldhandler)
+
+    def test_default_int_handler(self):
+        import signal
+        for args in [(), (1, 2)]:
+            try:
+                signal.default_int_handler(*args)
+            except KeyboardInterrupt:
+                pass
+            else:
+                raise AssertionError("did not raise!")
+
 
 class AppTestSignalSocket:
     spaceconfig = dict(usemodules=['signal', '_socket'])

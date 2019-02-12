@@ -12,7 +12,7 @@ def teardown_module(mod):
 
 class AppTestFcntl:
     spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios',
-                                   'select', 'rctime'))
+                                   'select', 'time'))
 
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
@@ -138,7 +138,7 @@ class AppTestFcntl:
             rval = 2
             try:
                 fcntl.flock(open(f.name, f.mode), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except IOError, e:
+            except IOError as e:
                 if e.errno not in (errno.EACCES, errno.EAGAIN):
                     raise
                 rval = 0
@@ -175,7 +175,7 @@ class AppTestFcntl:
             rval = 2
             try:
                 fcntl.lockf(open(f.name, f.mode), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except IOError, e:
+            except IOError as e:
                 if e.errno not in (errno.EACCES, errno.EAGAIN):
                     raise
                 rval = 0

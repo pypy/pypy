@@ -3,16 +3,16 @@
 """
 
 import py
-from rpython.jit.metainterp.history import BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, BasicFailDescr, JitCellToken, TargetToken
-from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.backend.llsupport.descr import GcCache
+from rpython.jit.metainterp.history import BasicFailDescr, JitCellToken,\
+     TargetToken
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.rtyper.lltypesystem import rstr
+from rpython.rtyper import rclass
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -71,26 +71,46 @@ class BaseTestRegalloc(object):
         assert len(args) == 10
         return sum(args)
 
+    def fgcref(x):
+        return 17
+
+    def fppii(x, y, i, j):
+        return 19
+
+    def ff(x, y):
+        return x + y + 0.1
+
     F1PTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
     F2PTR = lltype.Ptr(lltype.FuncType([lltype.Signed]*2, lltype.Signed))
     F10PTR = lltype.Ptr(lltype.FuncType([lltype.Signed]*10, lltype.Signed))
+    FGCREFPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF], lltype.Signed))
+    FPPIIPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.GCREF, lltype.Signed, lltype.Signed], lltype.Signed))
+    FFPTR = lltype.Ptr(lltype.FuncType([lltype.Float]*2, lltype.Float))
+
     f1ptr = llhelper(F1PTR, f1)
     f2ptr = llhelper(F2PTR, f2)
     f10ptr = llhelper(F10PTR, f10)
+    fgcrefptr = llhelper(FGCREFPTR, fgcref)
+    fppiiptr = llhelper(FPPIIPTR, fppii)
+    ffptr = llhelper(FFPTR, ff)
 
     f1_calldescr = cpu.calldescrof(F1PTR.TO, F1PTR.TO.ARGS, F1PTR.TO.RESULT,
                                    EffectInfo.MOST_GENERAL)
     f2_calldescr = cpu.calldescrof(F2PTR.TO, F2PTR.TO.ARGS, F2PTR.TO.RESULT,
                                    EffectInfo.MOST_GENERAL)
-    f10_calldescr= cpu.calldescrof(F10PTR.TO, F10PTR.TO.ARGS, F10PTR.TO.RESULT,
+    f10_calldescr = cpu.calldescrof(F10PTR.TO, F10PTR.TO.ARGS, F10PTR.TO.RESULT,
+                                    EffectInfo.MOST_GENERAL)
+    fgcref_calldescr = cpu.calldescrof(FGCREFPTR.TO, FGCREFPTR.TO.ARGS, FGCREFPTR.TO.RESULT,
+                                       EffectInfo.MOST_GENERAL)
+    fppii_calldescr = cpu.calldescrof(FPPIIPTR.TO, FPPIIPTR.TO.ARGS, FPPIIPTR.TO.RESULT,
+                                      EffectInfo.MOST_GENERAL)
+    ff_calldescr = cpu.calldescrof(FFPTR.TO, FFPTR.TO.ARGS, FFPTR.TO.RESULT,
                                    EffectInfo.MOST_GENERAL)
 
     namespace = locals().copy()
-    type_system = 'lltype'
 
     def parse(self, s, boxkinds=None, namespace=None):
         return parse(s, self.cpu, namespace or self.namespace,
-                     type_system=self.type_system,
                      boxkinds=boxkinds)
 
     def interpret(self, ops, args, run=True, namespace=None):
@@ -116,6 +136,7 @@ class BaseTestRegalloc(object):
 
     def prepare_loop(self, ops):
         loop = self.parse(ops)
+        self.loop = loop
         regalloc = self.cpu.build_regalloc()
         regalloc.prepare_loop(loop.inputargs, loop.operations,
                               loop.original_jitcell_token, [])
@@ -218,14 +239,14 @@ class TestRegallocSimple(BaseTestRegalloc):
     def test_exception_bridge_no_exception(self):
         ops = '''
         [i0]
-        i1 = same_as(1)
-        call(ConstClass(raising_fptr), i0, descr=raising_calldescr)
+        i1 = same_as_i(1)
+        call_n(ConstClass(raising_fptr), i0, descr=raising_calldescr)
         guard_exception(ConstClass(zero_division_error)) [i1]
         finish(0)
         '''
         bridge_ops = '''
         [i3]
-        i2 = same_as(2)
+        i2 = same_as_i(2)
         guard_no_exception() [i2]
         finish(1)
         '''
@@ -381,7 +402,7 @@ class TestRegallocSimple(BaseTestRegalloc):
     def test_bug_wrong_stack_adj(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
-        i9 = same_as(0)
+        i9 = same_as_i(0)
         guard_true(i0) [i9, i0, i1, i2, i3, i4, i5, i6, i7, i8]
         finish(1)
         '''
@@ -389,7 +410,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         assert self.getint(0) == 0
         bridge_ops = '''
         [i9, i0, i1, i2, i3, i4, i5, i6, i7, i8]
-        call(ConstClass(raising_fptr), 0, descr=raising_calldescr)
+        call_n(ConstClass(raising_fptr), 0, descr=raising_calldescr)
         guard_true(i9) [i0, i1, i2, i3, i4, i5, i6, i7, i8]
         finish()
         '''
@@ -408,13 +429,44 @@ class TestRegallocSimple(BaseTestRegalloc):
         assert len(regalloc.rm.reg_bindings) == 0
         assert len(regalloc.fm.bindings) == 4
 
+    def test_longevity(self):
+        ops = """
+        [i0, i1, i2, i3, i4, i10]
+        i5 = int_add(i0, i1)     # 0
+        i8 = int_add(i0, i1)     # 1 unused result, so not in real_usages
+        i6 = int_is_true(i5)     # 2
+        i11 = int_add(i5, i10)   # 3
+        guard_true(i6) [i0, i4]  # 4
+        jump(i5, i1, i2, i3, i5, i11) # 5
+        """
+        regalloc = self.prepare_loop(ops)
+        i0, i1, i2, i3, i4, i10 = self.loop.inputargs
+        i5 = self.loop.operations[0]
+        i6 = self.loop.operations[2]
+        longevity = regalloc.longevity
+        assert longevity[i0].last_usage == 4
+        assert longevity[i0].real_usages == [0]
+        assert longevity[i1].last_usage == 5
+        assert longevity[i1].real_usages == [0]
+        assert longevity[i2].last_usage == 5
+        assert longevity[i2].real_usages is None
+        assert longevity[i3].last_usage == 5
+        assert longevity[i3].real_usages is None
+        assert longevity[i4].last_usage == 4
+        assert longevity[i4].real_usages is None
+        assert longevity[i5].last_usage == 5
+        assert longevity[i5].real_usages == [2, 3]
+        assert longevity[i6].last_usage == 4
+        assert longevity[i6].real_usages == [4]
+        assert longevity[i10].last_usage == 3
+        assert longevity[i10].real_usages == [3]
 
 class TestRegallocCompOps(BaseTestRegalloc):
 
     def test_cmp_op_0(self):
         ops = '''
         [i0, i3]
-        i1 = same_as(1)
+        i1 = same_as_i(1)
         i2 = int_lt(i0, 100)
         guard_true(i3) [i1, i2]
         i4 = int_neg(i2)
@@ -498,22 +550,6 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         self.interpret(ops, [s, ord('a')])
         assert s[1] == 'a'
 
-    def test_division_optimized(self):
-        ops = '''
-        [i7, i6]
-        label(i7, i6, descr=targettoken)
-        i18 = int_floordiv(i7, i6)
-        i19 = int_xor(i7, i6)
-        i21 = int_lt(i19, 0)
-        i22 = int_mod(i7, i6)
-        i23 = int_is_true(i22)
-        i24 = int_eq(i6, 4)
-        guard_false(i24) [i18]
-        jump(i18, i6, descr=targettoken)
-        '''
-        self.interpret(ops, [10, 4])
-        assert self.getint(0) == 2
-        # FIXME: Verify that i19 - i23 are removed
 
 class TestRegallocFloats(BaseTestRegalloc):
     def setup_class(cls):
@@ -524,7 +560,7 @@ class TestRegallocFloats(BaseTestRegalloc):
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
-        i0 = same_as(0)
+        i0 = same_as_i(0)
         guard_true(i0) [f2, f0, f1]
         finish()
         '''
@@ -536,7 +572,7 @@ class TestRegallocFloats(BaseTestRegalloc):
         [f0, f1, f2, f3, f4, f5, f6, f7, f8]
         f9 = float_add(f0, f1)
         f10 = float_add(f8, 3.5)
-        i0 = same_as(0)
+        i0 = same_as_i(0)
         guard_true(i0) [f9, f10, f2, f3, f4, f5, f6, f7, f8]
         finish()
         '''

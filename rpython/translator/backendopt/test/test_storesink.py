@@ -7,8 +7,6 @@ from rpython.flowspace.model import checkgraph
 from rpython.conftest import option
 
 class TestStoreSink(object):
-    type_system = 'lltype'
-
     def translate(self, func, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(func, argtypes)
@@ -42,7 +40,7 @@ class TestStoreSink(object):
             a.x = i
             return a.x
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
 
     def test_simple(self):
         class A(object):
@@ -53,7 +51,7 @@ class TestStoreSink(object):
             a.x = i
             return a.x + a.x
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
 
     def test_irrelevant_setfield(self):
         class A(object):
@@ -67,7 +65,7 @@ class TestStoreSink(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
 
     def test_relevant_setfield(self):
         class A(object):
@@ -101,7 +99,7 @@ class TestStoreSink(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
 
     def test_subclass(self):
         class A(object):
@@ -119,7 +117,7 @@ class TestStoreSink(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 2)
+        self.check(f, [int], 1)
 
     def test_bug_1(self):
         class A(object):
@@ -133,4 +131,37 @@ class TestStoreSink(object):
                 return True
             return n
 
-        self.check(f, [int], 1)
+        self.check(f, [int], 0)
+
+
+    def test_cfg_splits(self):
+        class A(object):
+            pass
+
+        def f(i):
+            a = A()
+            j = i
+            for i in range(i):
+                a.x = i
+                if i:
+                    j = a.x + a.x
+                else:
+                    j = a.x * 5
+            return j
+
+        self.check(f, [int], 0)
+
+    def test_malloc_does_not_invalidate(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        def f(i):
+            a = A()
+            a.x = i
+            b = B()
+            return a.x
+
+        self.check(f, [int], 0)
+

@@ -328,8 +328,8 @@ class TraceTestCase(unittest.TestCase):
 
     def test_13_genexp(self):
         if self.using_gc:
-            test_support.gc_collect()
             gc.enable()
+            test_support.gc_collect()
         try:
             self.run_test(generator_example)
             # issue1265: if the trace function contains a generator,
@@ -396,6 +396,15 @@ class TraceTestCase(unittest.TestCase):
             [(0, 'call'),
              (257, 'line'),
              (257, 'return')])
+
+    def test_17_none_f_trace(self):
+        # Issue 20041: fix TypeError when f_trace is set to None.
+        def func():
+            sys._getframe().f_trace = None
+            lineno = 2
+        self.run_and_compare(func,
+            [(0, 'call'),
+             (1, 'line')])
 
 
 class RaisingTraceFuncTestCase(unittest.TestCase):
@@ -561,6 +570,15 @@ def jump_in_nested_finally(output):
 
 jump_in_nested_finally.jump = (4, 9)
 jump_in_nested_finally.output = [2, 9]
+
+def jump_infinite_while_loop(output):
+    output.append(1)
+    while 1:
+        output.append(2)
+    output.append(3)
+
+jump_infinite_while_loop.jump = (3, 4)
+jump_infinite_while_loop.output = [1, 3]
 
 # The second set of 'jump' tests are for things that are not allowed:
 
@@ -734,6 +752,8 @@ class JumpTestCase(unittest.TestCase):
         self.run_test(jump_to_same_line)
     def test_07_jump_in_nested_finally(self):
         self.run_test(jump_in_nested_finally)
+    def test_jump_infinite_while_loop(self):
+        self.run_test(jump_infinite_while_loop)
     def test_08_no_jump_too_far_forwards(self):
         self.run_test(no_jump_too_far_forwards)
     def test_09_no_jump_too_far_backwards(self):

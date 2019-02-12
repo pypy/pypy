@@ -11,18 +11,21 @@ class AppTestFork(GenericTestThread):
 
         if not hasattr(os, 'fork'):
             skip("No fork on this platform")
+        if not self.runappdirect:
+            skip("Not reliable before translation")
 
         def busy_thread():
+            print 'sleep'
             while run:
                 time.sleep(0)
             done.append(None)
 
-        for i in range(1):
+        for i in range(150):
             run = True
             done = []
             try:
-                thread.start_new(busy_thread, ())
                 print 'sleep'
+                thread.start_new(busy_thread, ())
 
                 pid = os.fork()
                 if pid == 0:

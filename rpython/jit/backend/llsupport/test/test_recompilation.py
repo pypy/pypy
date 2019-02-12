@@ -87,8 +87,8 @@ class TestRecompilation(BaseTestRegalloc):
         loop = self.interpret('''
         [i0, i1, i2, i31, i32, i33]
         label(i0, i1, i2, i31, i32, i33, descr=targettoken)
-        i98 = same_as(0)
-        i99 = same_as(1)
+        i98 = same_as_i(0)
+        i99 = same_as_i(1)
         i30 = int_add(i1, i2)
         i3 = int_add(i0, 1)
         i4 = int_and(i3, 1)
@@ -137,8 +137,8 @@ class TestRecompilation(BaseTestRegalloc):
         loop = self.interpret('''
         [i0, i1, i2]
         label(i0, i1, i2, descr=targettoken)
-        i98 = same_as(0)
-        i99 = same_as(1)
+        i98 = same_as_i(0)
+        i99 = same_as_i(1)
         i3 = int_add(i0, 1)
         i4 = int_and(i3, 1)
         guard_false(i4) [i98, i3]

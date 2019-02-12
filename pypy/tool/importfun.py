@@ -163,7 +163,7 @@ class _Op(object):
         if name in opcode.opmap:
             return opcode.opmap[name]
         else:
-            raise AttributeError, name
+            raise AttributeError(name)
 
 _op_ = _Op()
 
@@ -334,7 +334,7 @@ def process_module(dottedname, system):
     try:
         code = compile(open(path, "U").read(), path, 'exec')
         process(r, code, r.toplevelscope, True)
-    except (ImportError, SyntaxError), e:
+    except (ImportError, SyntaxError) as e:
         print "failed!", e
         #raise
     else:

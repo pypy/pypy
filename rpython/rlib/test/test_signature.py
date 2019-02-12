@@ -19,7 +19,7 @@ def annotate_at(f, policy=None):
 def sigof(a, f):
     # returns [param1, param2, ..., ret]
     g = graphof(a.translator, f)
-    return [a.bindings[v] for v in g.startblock.inputargs] + [a.bindings[g.getreturnvar()]]
+    return [a.binding(v) for v in g.startblock.inputargs] + [a.binding(g.getreturnvar())]
 
 def getsig(f, policy=None):
     a = annotate_at(f, policy=policy)
@@ -221,6 +221,36 @@ def test_instance():
     @check_annotator_fails
     def bad_for_body():
         f(C1())
+    @check_annotator_fails
+    def ok_for_body():
+        f(None)
+
+def test_instance_or_none():
+    class C1(object):
+        pass
+    class C2(C1):
+        pass
+    class C3(C2):
+        pass
+    @signature(types.instance(C3, can_be_None=True), returns=types.instance(C2, can_be_None=True))
+    def f(x):
+        assert isinstance(x, C2) or x is None
+        return x
+    argtype, rettype = getsig(f)
+    assert isinstance(argtype, model.SomeInstance)
+    assert argtype.classdef.classdesc.pyobj == C3
+    assert argtype.can_be_None
+    assert isinstance(rettype, model.SomeInstance)
+    assert rettype.classdef.classdesc.pyobj == C2
+    assert rettype.can_be_None
+
+    @check_annotator_fails
+    def ok_for_body():
+        f(C2())
+    @check_annotator_fails
+    def bad_for_body():
+        f(C1())
+
 
 def test_self():
     @finishsigs

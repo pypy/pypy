@@ -1,9 +1,10 @@
 from rpython.rlib import rgc, jit, types
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.signature import signature
+from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.lltypesystem.lltype import (GcForwardReference, Ptr, GcArray,
-     GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod)
+     GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod, Char)
 from rpython.rtyper.rlist import (AbstractBaseListRepr, AbstractListRepr,
     AbstractFixedSizeListRepr, AbstractListIteratorRepr, ll_setitem_nonneg,
     ADTIList, ADTIFixedList, dum_nocheck)
@@ -28,6 +29,25 @@ from rpython.tool.pairtype import pairtype, pair
 #
 #    item_t list_items[]
 #
+
+def LIST_OF(ITEMTYPE, cache={}):
+    """
+    Return the low-level type for a resizable list of ITEMTYPE
+    """
+    try:
+        return cache[ITEMTYPE]
+    except KeyError:
+        pass
+    
+    from rpython.rtyper.lltypesystem.rstr import CharRepr
+    assert ITEMTYPE is Char, 'only Char is supported for now'
+    # XXX: maybe we should think of a better way to build the type?
+    list_of_char_repr = ListRepr(None, CharRepr())
+    list_of_char_repr._setup_repr()
+    LIST = list_of_char_repr.LIST
+    cache[ITEMTYPE] = LIST
+    return LIST
+
 
 class BaseListRepr(AbstractBaseListRepr):
     rstr_ll = rstr.LLHelpers
@@ -57,7 +77,7 @@ class BaseListRepr(AbstractBaseListRepr):
         elif variant == ("reversed",):
             return ReversedListIteratorRepr(self)
         else:
-            raise NotImplementedError(variant)
+            raise TyperError("unsupported %r iterator over a list" % (variant,))
 
     def get_itemarray_lowleveltype(self):
         ITEM = self.item_repr.lowleveltype

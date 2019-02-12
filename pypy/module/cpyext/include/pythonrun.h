@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-void Py_FatalError(const char *msg);
+PyAPI_FUNC(void) Py_FatalError(const char *msg);
 
 /* taken from Python-2.7.3/Include/pydebug.h */
 PyAPI_DATA(int) Py_DebugFlag;
@@ -46,6 +46,11 @@ typedef struct {
 #define PyCF_ONLY_AST 0x0400
 
 #define Py_CompileString(str, filename, start) Py_CompileStringFlags(str, filename, start, NULL)
+
+/* Stuff with no proper home (yet) */
+PyAPI_DATA(int) (*PyOS_InputHook)(void);
+typedef int (*_pypy_pyos_inputhook)(void);
+PyAPI_FUNC(_pypy_pyos_inputhook) _PyPy_get_PyOS_InputHook(void);
 
 #ifdef __cplusplus
 }

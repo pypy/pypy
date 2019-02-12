@@ -128,10 +128,12 @@ def test_unmarshaller():
 
 def test_llinterp_marshal():
     from rpython.rtyper.test.test_llinterp import interpret
-    marshaller = get_marshaller([(int, str, float)])
+    marshaller1 = get_marshaller([(int, str, float)])
+    marshaller2 = get_marshaller([(int, str, int)])
     def f():
         buf = []
-        marshaller(buf, [(5, "hello", -0.5), (7, "world", 1E100)])
+        marshaller1(buf, [(5, "hello", -0.5), (7, "world", 1E100)])
+        marshaller2(buf, [(5, "hello", 1)])
         return ''.join(buf)
     res = interpret(f, [])
     res = ''.join(res.chars)
@@ -139,14 +141,20 @@ def test_llinterp_marshal():
         assert res == ('[\x02\x00\x00\x00(\x03\x00\x00\x00i\x05\x00\x00\x00'
                        's\x05\x00\x00\x00hellof\x04-0.5(\x03\x00\x00\x00'
                        'i\x07\x00\x00\x00s\x05\x00\x00\x00world'
-                       'f\x061e+100')
+                       'f\x061e+100'
+                       '[\x01\x00\x00\x00(\x03\x00\x00\x00i\x05\x00\x00\x00'
+                       's\x05\x00\x00\x00helloi\x01\x00\x00\x00')
     else:
         assert res == ('[\x02\x00\x00\x00(\x03\x00\x00\x00'
                        'I\x05\x00\x00\x00\x00\x00\x00\x00'
                        's\x05\x00\x00\x00hellof\x04-0.5(\x03\x00\x00\x00'
                        'I\x07\x00\x00\x00\x00\x00\x00\x00'
                        's\x05\x00\x00\x00world'
-                       'f\x061e+100')
+                       'f\x061e+100'
+                       '[\x01\x00\x00\x00(\x03\x00\x00\x00'
+                       'I\x05\x00\x00\x00\x00\x00\x00\x00'
+                       's\x05\x00\x00\x00hello'
+                       'I\x01\x00\x00\x00\x00\x00\x00\x00')
 
 def test_llinterp_unmarshal():
     from rpython.rtyper.test.test_llinterp import interpret
@@ -167,7 +175,7 @@ def test_llinterp_unmarshal():
 def test_stat_result():
     import os
     from rpython.translator.c.test.test_genc import compile
-    from rpython.rtyper.module.ll_os_stat import s_StatResult
+    from rpython.rlib.rposix_stat import s_StatResult
     marshal_stat_result = get_marshaller(s_StatResult)
     unmarshal_stat_result = get_unmarshaller(s_StatResult)
     def f(path):
@@ -190,3 +198,13 @@ def test_stat_result():
     assert sttuple[4] == st[4]
     assert sttuple[5] == st[5]
     assert len(sttuple) == 10
+
+def test_longlong():
+    # get_loader for (r_longolong, nonneg=True) used to return
+    # load_int_nonneg on 32-bit, instead of load_longlong.
+    for nonneg in [True, False]:
+        s_longlong = annmodel.SomeInteger(knowntype=r_longlong, nonneg=nonneg)
+        load = get_loader(s_longlong)
+        loader = Loader("I\x01\x23\x45\x67\x89\xab\xcd\x0e")
+        res = load(loader)
+        assert res == 0x0ecdab8967452301
