@@ -453,7 +453,12 @@ class _SSLSocket(object):
                     raise OverflowError("maximum length can't fit in a C 'int'")
                 if len(buffer_into) == 0:
                     return 0
-            mem = ffi.from_buffer(buffer_into)
+            try:
+                mem = ffi.from_buffer(buffer_into)
+                zero_copy = True
+            except TypeError:
+                mem = ffi.new("char[]", length)
+                zero_copy = False
 
         if sock:
             timeout = _socket_timeout(sock)
@@ -500,8 +505,10 @@ class _SSLSocket(object):
 
         if not buffer_into:
             return _bytes_with_len(mem, count)
-
-        return count
+        else:
+            if not zero_copy:
+                buffer_into[0:count] = ffi.buffer(mem)[0:count]
+            return count
 
     if HAS_ALPN:
         def selected_alpn_protocol(self):
