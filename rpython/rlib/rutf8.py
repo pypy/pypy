@@ -518,7 +518,7 @@ def create_utf8_index_storage(utf8, utf8len):
         break
     return storage
 
-@jit.dont_look_inside
+@jit.elidable
 def codepoint_position_at_index(utf8, storage, index):
     """ Return byte index of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE.  The index must be smaller than
@@ -546,7 +546,7 @@ def _pos_at_index(utf8, index):
         pos = next_codepoint_pos(utf8, pos)
     return pos
 
-@jit.dont_look_inside
+@jit.elidable
 def codepoint_at_index(utf8, storage, index):
     """ Return codepoint of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE
@@ -564,7 +564,7 @@ def codepoint_at_index(utf8, storage, index):
         bytepos = next_codepoint_pos(utf8, bytepos)
     return codepoint_at_pos(utf8, bytepos)
 
-@jit.dont_look_inside
+@jit.elidable
 def codepoint_index_at_byte_position(utf8, storage, bytepos):
     """ Return the character index for which
     codepoint_position_at_index(index) == bytepos.
