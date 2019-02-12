@@ -33,3 +33,8 @@ Improve register allocation in the JIT.
 .. branch: promote-unicode
 
 Implement rlib.jit.promote_unicode to complement promote_string
+
+.. branch: speed-up-stringsearch
+
+Speed up string.find, string.search and string.count when the second
+argument is a constant.
