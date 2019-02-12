@@ -177,6 +177,17 @@ class TestSetHypothesis:
         s.remove(w_i)
         assert not s.has_key(w_i)
 
+    @given(intlists)
+    def test_pop(self, content):
+        s = self.intset(content)
+        control = set(content)
+        for i in range(s.length()):
+            w_x = s.popitem()
+            x = self.space.int_w(w_x)
+            assert x in control
+            control.remove(x)
+            assert not s.has_key(w_x)
+
     @given(intlists, ints)
     def test_length(self, content, i):
         s = self.intset(content)

@@ -1351,6 +1351,25 @@ class IntegerSetStrategy(SetStrategy):
     def wrap(self, item):
         return self.space.newint(item)
 
+    def popitem(self, w_set):
+        storage = self.unerase(w_set.sstorage)
+        for key, value in storage.iteritems():
+            break
+        else:
+            # strategy may still be the same even if dict is empty
+            raise oefmt(self.space.w_KeyError, "pop from an empty set")
+        assert value
+        bit = 1
+        i = 0
+        while 1:
+            if value & bit:
+                break
+            bit <<= 1
+            i += 1
+        result = key | i
+        self._remove_key(storage, result)
+        return self.space.newint(result)
+
     def iter(self, w_set):
         return IntegerIteratorImplementation(self.space, self, w_set)
 
