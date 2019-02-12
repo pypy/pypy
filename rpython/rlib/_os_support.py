@@ -64,8 +64,6 @@ class UnicodeTraits(object):
         assert path is not None
         if isinstance(path, unicode):
             return path
-        elif isinstance(path, str):
-            raise RuntimeError('str given where unicode expected')
         else:
             return path.as_unicode()
 

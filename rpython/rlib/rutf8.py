@@ -418,7 +418,6 @@ def _check_utf8(s, allow_surrogates, start, stop):
 
 def has_surrogates(utf8):
     # XXX write a faster version maybe
-    # XXX does not check for trailing lone surrogates, needs tests
     for ch in Utf8StringIterator(utf8):
         if 0xD800 <= ch <= 0xDBFF:
             return True
