@@ -729,7 +729,9 @@ def int_force_ge_zero(n):
     """ The JIT special-cases this too. """
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
-    return llop.int_force_ge_zero(lltype.Signed, n)
+    n = llop.int_force_ge_zero(lltype.Signed, n)
+    assert n >= 0
+    return n
 
 def int_c_div(x, y):
     """Return the result of the C-style 'x / y'.  This differs from the
