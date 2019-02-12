@@ -1029,7 +1029,7 @@ def wcharpsize2utf8(w, size):
 
     s = StringBuilder(size)
     for i in range(size):
-        rutf8.unichr_as_utf8_append(s, ord(w[i]))
+        rutf8.unichr_as_utf8_append(s, ord(w[i]), True)
     return s.build()
 
 def wcharp2utf8(w):
