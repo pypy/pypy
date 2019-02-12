@@ -48,7 +48,7 @@ class IBoundDesc(object):
     def __call__(self, *args, **kw):
         fieldvalues, sparefields = self.calc_fields(args, kw)
         if sparefields:
-            raise FormException, 'fields %s left'%sparefields
+            raise FormException('fields %s left'%sparefields)
         self.assembler.insts.append(Instruction(fieldvalues))
 
 
@@ -72,7 +72,7 @@ class IDesc(object):
             self.boundtype = boundtype
         for field in specializations:
             if field not in fields:
-                raise FormException, field
+                raise FormException(field)
 
     def __get__(self, ob, cls=None):
         if ob is None: return self
@@ -91,14 +91,14 @@ class IDesc(object):
         for fname, v in more_specializatons.iteritems():
             field = self.fieldmap[fname]
             if field not in self.fields:
-                raise FormException, "don't know about '%s' here" % field
+                raise FormException("don't know about '%s' here" % field)
             if isinstance(v, str):
                 ds[field] = self.fieldmap[v]
             else:
                 ms[field] = v
         s.update(ms)
         if len(s) != len(self.specializations) + len(ms):
-            raise FormException, "respecialization not currently allowed"
+            raise FormException("respecialization not currently allowed")
         if ds:
             fields = list(self.fields)
             for field in ds:
@@ -175,8 +175,8 @@ class Form(object):
                 overlap = True
             for b in range(field.left, field.right+1):
                 if not overlap and b in bits:
-                    raise FormException, "'%s' and '%s' clash at bit '%s'"%(
-                        bits[b], fname, b)
+                    raise FormException("'%s' and '%s' clash at bit '%s'"%(
+                        bits[b], fname, b))
                 else:
                     bits[b] = fname
             self.fields.append(field)
@@ -186,7 +186,7 @@ class Form(object):
         for fname in specializations:
             field = self.fieldmap[fname]
             if field not in self.fields:
-                raise FormException, "no nothin bout '%s'"%fname
+                raise FormException("no nothin bout '%s'"%fname)
             s[field] = specializations[fname]
         return IDesc(self.fieldmap, self.fields, s)
 

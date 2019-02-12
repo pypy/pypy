@@ -58,7 +58,7 @@ def callparse(rtyper, graph, hop, r_self=None):
             defs_h.append(ConstHolder(x))
     try:
         holders = arguments.match_signature(signature, defs_h)
-    except ArgErr, e:
+    except ArgErr as e:
         raise TyperError("signature mismatch: %s: %s" % (
             graph.name, e.getmsg()))
 

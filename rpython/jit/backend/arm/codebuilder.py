@@ -1,6 +1,5 @@
 from rpython.jit.backend.arm import conditions as cond
 from rpython.jit.backend.arm import registers as reg
-from rpython.jit.backend.arm import support
 from rpython.jit.backend.arm.arch import WORD, PC_OFFSET
 from rpython.jit.backend.arm.instruction_builder import define_instructions
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
@@ -15,17 +14,6 @@ clear_cache = rffi.llexternal(
     lltype.Void,
     _nowrapper=True,
     sandboxsafe=True)
-
-
-def binary_helper_call(name):
-    function = getattr(support, 'arm_%s' % name)
-
-    def f(self, c=cond.AL):
-        """Generates a call to a helper function, takes its
-        arguments in r0 and r1, result is placed in r0"""
-        addr = rffi.cast(lltype.Signed, function)
-        self.BL(addr, c)
-    return f
 
 
 class AbstractARMBuilder(object):
@@ -347,10 +335,6 @@ class AbstractARMBuilder(object):
         c = cond.AL
         self.write32(c << 28
                     | 0x157ff05f)
-
-    DIV = binary_helper_call('int_div')
-    MOD = binary_helper_call('int_mod')
-    UDIV = binary_helper_call('uint_div')
 
     FMDRR = VMOV_cr     # uh, there are synonyms?
     FMRRD = VMOV_rc

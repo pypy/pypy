@@ -12,6 +12,10 @@ import warnings
 import textwrap
 from cStringIO import StringIO
 from random import choice
+try:
+    from threading import Thread
+except ImportError:
+    from dummy_threading import Thread
 
 import email
 
@@ -33,7 +37,7 @@ from email import Iterators
 from email import base64MIME
 from email import quopriMIME
 
-from test.test_support import findfile, run_unittest
+from test.test_support import findfile, run_unittest, start_threads
 from email.test import __file__ as landmark
 
 
@@ -557,12 +561,12 @@ class TestMessageAPI(TestEmailBase):
 
     # Issue 5871: reject an attempt to embed a header inside a header value
     # (header injection attack).
-    def test_embeded_header_via_Header_rejected(self):
+    def test_embedded_header_via_Header_rejected(self):
         msg = Message()
         msg['Dummy'] = Header('dummy\nX-Injected-Header: test')
         self.assertRaises(Errors.HeaderParseError, msg.as_string)
 
-    def test_embeded_header_via_string_rejected(self):
+    def test_embedded_header_via_string_rejected(self):
         msg = Message()
         msg['Dummy'] = 'dummy\nX-Injected-Header: test'
         self.assertRaises(Errors.HeaderParseError, msg.as_string)
@@ -1669,9 +1673,9 @@ class TestRFC2047(unittest.TestCase):
 
     def test_rfc2047_Q_invalid_digits(self):
         # issue 10004.
-        s = '=?iso-8659-1?Q?andr=e9=zz?='
+        s = '=?iso-8859-1?Q?andr=e9=zz?='
         self.assertEqual(decode_header(s),
-                        [(b'andr\xe9=zz', 'iso-8659-1')])
+                        [(b'andr\xe9=zz', 'iso-8859-1')])
 
 
 # Test the MIMEMessage class
@@ -2411,6 +2415,25 @@ Foo
         eq = self.assertEqual
         addrs = Utils.getaddresses(['User ((nested comment)) <foo@bar.com>'])
         eq(addrs[0][1], 'foo@bar.com')
+
+    def test_make_msgid_collisions(self):
+        # Test make_msgid uniqueness, even with multiple threads
+        class MsgidsThread(Thread):
+            def run(self):
+                # generate msgids for 3 seconds
+                self.msgids = []
+                append = self.msgids.append
+                make_msgid = Utils.make_msgid
+                clock = time.time
+                tfin = clock() + 3.0
+                while clock() < tfin:
+                    append(make_msgid())
+
+        threads = [MsgidsThread() for i in range(5)]
+        with start_threads(threads):
+            pass
+        all_ids = sum([t.msgids for t in threads], [])
+        self.assertEqual(len(set(all_ids)), len(all_ids))
 
     def test_utils_quote_unquote(self):
         eq = self.assertEqual

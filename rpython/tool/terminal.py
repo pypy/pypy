@@ -77,7 +77,7 @@ def render(text):
 try:
     import curses
     setup()
-except Exception, e:
+except Exception as e:
     # There is a failure; set all attributes to default
     print 'Warning: %s' % e
     default()

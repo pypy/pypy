@@ -84,7 +84,7 @@ class TestGenerator(BaseRtypingTest):
         def g(c):
             try:
                 h(c)
-            except Exception, e:
+            except Exception as e:
                 if isinstance(e, ValueError):
                     raise
                 raise StopIteration
@@ -113,3 +113,21 @@ class TestGenerator(BaseRtypingTest):
             return s
         res = self.interpret(g, [])
         assert res == 6
+
+    def test_generator_with_unreachable_yields(self):
+        def f(n):
+            if n < 0:
+                yield 42
+            yield n
+            if n < 0:
+                yield 43
+            yield n
+            if n < 0:
+                yield 44
+        def main(n):
+            y = 0
+            for x in f(abs(n)):
+                y += x
+            return y
+        res = self.interpret(main, [-100])
+        assert res == 200

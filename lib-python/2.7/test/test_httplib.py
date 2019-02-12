@@ -5,6 +5,7 @@ import StringIO
 import socket
 import errno
 import os
+import tempfile
 
 import unittest
 TestCase = unittest.TestCase
@@ -212,8 +213,8 @@ class HeaderTests(TestCase):
         self.assertIn(b'\xa0NonbreakSpace: value', conn._buffer)
 
     def test_ipv6host_header(self):
-        # Default host header on IPv6 transaction should wrapped by [] if
-        # its actual IPv6 address
+        # Default host header on IPv6 transaction should be wrapped by [] if
+        # it is an IPv6 address
         expected = 'GET /foo HTTP/1.1\r\nHost: [2001::]:81\r\n' \
                    'Accept-Encoding: identity\r\n\r\n'
         conn = httplib.HTTPConnection('[2001::]:81')
@@ -239,6 +240,120 @@ class HeaderTests(TestCase):
 
         self.assertEqual(resp.getheader('First'), 'val')
         self.assertEqual(resp.getheader('Second'), 'val')
+
+    def test_malformed_truncation(self):
+        # Other malformed header lines, especially without colons, used to
+        # cause the rest of the header section to be truncated
+        resp = (
+            b'HTTP/1.1 200 OK\r\n'
+            b'Public-Key-Pins: \n'
+            b'pin-sha256="xxx=";\n'
+            b'report-uri="https://..."\r\n'
+            b'Transfer-Encoding: chunked\r\n'
+            b'\r\n'
+            b'4\r\nbody\r\n0\r\n\r\n'
+        )
+        resp = httplib.HTTPResponse(FakeSocket(resp))
+        resp.begin()
+        self.assertIsNotNone(resp.getheader('Public-Key-Pins'))
+        self.assertEqual(resp.getheader('Transfer-Encoding'), 'chunked')
+        self.assertEqual(resp.read(), b'body')
+
+    def test_blank_line_forms(self):
+        # Test that both CRLF and LF blank lines can terminate the header
+        # section and start the body
+        for blank in (b'\r\n', b'\n'):
+            resp = b'HTTP/1.1 200 OK\r\n' b'Transfer-Encoding: chunked\r\n'
+            resp += blank
+            resp += b'4\r\nbody\r\n0\r\n\r\n'
+            resp = httplib.HTTPResponse(FakeSocket(resp))
+            resp.begin()
+            self.assertEqual(resp.getheader('Transfer-Encoding'), 'chunked')
+            self.assertEqual(resp.read(), b'body')
+
+            resp = b'HTTP/1.0 200 OK\r\n' + blank + b'body'
+            resp = httplib.HTTPResponse(FakeSocket(resp))
+            resp.begin()
+            self.assertEqual(resp.read(), b'body')
+
+        # A blank line ending in CR is not treated as the end of the HTTP
+        # header section, therefore header fields following it should be
+        # parsed if possible
+        resp = (
+            b'HTTP/1.1 200 OK\r\n'
+            b'\r'
+            b'Name: value\r\n'
+            b'Transfer-Encoding: chunked\r\n'
+            b'\r\n'
+            b'4\r\nbody\r\n0\r\n\r\n'
+        )
+        resp = httplib.HTTPResponse(FakeSocket(resp))
+        resp.begin()
+        self.assertEqual(resp.getheader('Transfer-Encoding'), 'chunked')
+        self.assertEqual(resp.read(), b'body')
+
+        # No header fields nor blank line
+        resp = b'HTTP/1.0 200 OK\r\n'
+        resp = httplib.HTTPResponse(FakeSocket(resp))
+        resp.begin()
+        self.assertEqual(resp.read(), b'')
+
+    def test_from_line(self):
+        # The parser handles "From" lines specially, so test this does not
+        # affect parsing the rest of the header section
+        resp = (
+            b'HTTP/1.1 200 OK\r\n'
+            b'From start\r\n'
+            b' continued\r\n'
+            b'Name: value\r\n'
+            b'From middle\r\n'
+            b' continued\r\n'
+            b'Transfer-Encoding: chunked\r\n'
+            b'From end\r\n'
+            b'\r\n'
+            b'4\r\nbody\r\n0\r\n\r\n'
+        )
+        resp = httplib.HTTPResponse(FakeSocket(resp))
+        resp.begin()
+        self.assertIsNotNone(resp.getheader('Name'))
+        self.assertEqual(resp.getheader('Transfer-Encoding'), 'chunked')
+        self.assertEqual(resp.read(), b'body')
+
+        resp = (
+            b'HTTP/1.0 200 OK\r\n'
+            b'From alone\r\n'
+            b'\r\n'
+            b'body'
+        )
+        resp = httplib.HTTPResponse(FakeSocket(resp))
+        resp.begin()
+        self.assertEqual(resp.read(), b'body')
+
+    def test_parse_all_octets(self):
+        # Ensure no valid header field octet breaks the parser
+        body = (
+            b'HTTP/1.1 200 OK\r\n'
+            b"!#$%&'*+-.^_`|~: value\r\n"  # Special token characters
+            b'VCHAR: ' + bytearray(range(0x21, 0x7E + 1)) + b'\r\n'
+            b'obs-text: ' + bytearray(range(0x80, 0xFF + 1)) + b'\r\n'
+            b'obs-fold: text\r\n'
+            b' folded with space\r\n'
+            b'\tfolded with tab\r\n'
+            b'Content-Length: 0\r\n'
+            b'\r\n'
+        )
+        sock = FakeSocket(body)
+        resp = httplib.HTTPResponse(sock)
+        resp.begin()
+        self.assertEqual(resp.getheader('Content-Length'), '0')
+        self.assertEqual(resp.getheader("!#$%&'*+-.^_`|~"), 'value')
+        vchar = ''.join(map(chr, range(0x21, 0x7E + 1)))
+        self.assertEqual(resp.getheader('VCHAR'), vchar)
+        self.assertIsNotNone(resp.getheader('obs-text'))
+        folded = resp.getheader('obs-fold')
+        self.assertTrue(folded.startswith('text'))
+        self.assertIn(' folded with space', folded)
+        self.assertTrue(folded.endswith('folded with tab'))
 
     def test_invalid_headers(self):
         conn = httplib.HTTPConnection('example.com')
@@ -399,6 +514,22 @@ class BasicTest(TestCase):
         conn.sock = sock
         conn.request('GET', '/foo', body)
         self.assertTrue(sock.data.startswith(expected))
+        self.assertIn('def test_send_file', sock.data)
+
+    def test_send_tempfile(self):
+        expected = ('GET /foo HTTP/1.1\r\nHost: example.com\r\n'
+                    'Accept-Encoding: identity\r\nContent-Length: 9\r\n\r\n'
+                    'fake\ndata')
+
+        with tempfile.TemporaryFile() as body:
+            body.write('fake\ndata')
+            body.seek(0)
+
+            conn = httplib.HTTPConnection('example.com')
+            sock = FakeSocket(body)
+            conn.sock = sock
+            conn.request('GET', '/foo', body)
+        self.assertEqual(sock.data, expected)
 
     def test_send(self):
         expected = 'this is a test this is only a test'
@@ -508,7 +639,7 @@ class BasicTest(TestCase):
         self.assertTrue(hasattr(resp,'fileno'),
                 'HTTPResponse should expose a fileno attribute')
 
-    # Test lines overflowing the max line size (_MAXLINE in http.client)
+    # Test lines overflowing the max line size (_MAXLINE in httplib)
 
     def test_overflowing_status_line(self):
         self.skipTest("disabled for HTTP 0.9 support")
@@ -561,6 +692,16 @@ class BasicTest(TestCase):
         #self.assertTrue(response[0].closed)
         self.assertTrue(conn.sock.file_closed)
 
+    def test_proxy_tunnel_without_status_line(self):
+        # Issue 17849: If a proxy tunnel is created that does not return
+        # a status code, fail.
+        body = 'hello world'
+        conn = httplib.HTTPConnection('example.com', strict=False)
+        conn.set_tunnel('foo')
+        conn.sock = FakeSocket(body)
+        with self.assertRaisesRegexp(socket.error, "Invalid response"):
+            conn._tunnel()
+
 class OfflineTest(TestCase):
     def test_responses(self):
         self.assertEqual(httplib.responses[httplib.NOT_FOUND], "Not Found")
@@ -597,7 +738,7 @@ class SourceAddressTest(TestServerMixin, TestCase):
     def testHTTPSConnectionSourceAddress(self):
         self.conn = httplib.HTTPSConnection(HOST, self.port,
                 source_address=('', self.source_port))
-        # We don't test anything here other the constructor not barfing as
+        # We don't test anything here other than the constructor not barfing as
         # this code doesn't deal with setting up an active running SSL server
         # for an ssl_wrapped connect() to actually return from.
 
@@ -825,10 +966,12 @@ class TunnelTests(TestCase):
 
         self.assertEqual(conn.sock.host, 'proxy.com')
         self.assertEqual(conn.sock.port, 80)
-        self.assertTrue('CONNECT destination.com' in conn.sock.data)
-        self.assertTrue('Host: destination.com' in conn.sock.data)
+        self.assertIn('CONNECT destination.com', conn.sock.data)
+        # issue22095
+        self.assertNotIn('Host: destination.com:None', conn.sock.data)
+        self.assertIn('Host: destination.com', conn.sock.data)
 
-        self.assertTrue('Host: proxy.com' not in conn.sock.data)
+        self.assertNotIn('Host: proxy.com', conn.sock.data)
 
         conn.close()
 

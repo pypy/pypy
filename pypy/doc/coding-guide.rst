@@ -266,7 +266,13 @@ errors reported by the object space operations
 
 To raise an application-level exception::
 
-    raise OperationError(space.w_XxxError, space.wrap("message"))
+    from pypy.interpreter.error import oefmt
+
+    raise oefmt(space.w_XxxError, "message")
+
+    raise oefmt(space.w_XxxError, "file '%s' not found in '%s'", filename, dir)
+
+    raise oefmt(space.w_XxxError, "file descriptor '%d' not open", fd)
 
 To catch a specific application-level exception::
 
@@ -533,7 +539,7 @@ Committing & Branching to the repository
 
     hg help branch
 
-.. _official wiki: http://mercurial.selenic.com/wiki/Branch
+.. _official wiki: https://www.mercurial-scm.org/wiki/
 
 
 .. _using-development-tracker:
@@ -541,15 +547,7 @@ Committing & Branching to the repository
 Using the development bug/feature tracker
 -----------------------------------------
 
-We have a `development tracker`_, based on Richard Jones'
-`roundup`_ application.  You can file bugs,
-feature requests or see what's going on
-for the next milestone, both from an E-Mail and from a
-web interface.
-
-.. _development tracker: https://bugs.pypy.org/
-.. _roundup: http://roundup.sourceforge.net/
-
+We use bitbucket for :source:`issues` tracking and :source:`pull-requests`.
 
 .. _testing:
 

@@ -80,6 +80,9 @@ found while trying to translate an RPython program, the translation process
 stops and reports this as an error. You can therefore mark functions as
 "NOT_RPYTHON" to make sure that they are never analyzed.
 
+This method of marking a function as not RPython is outdated. For new code,
+please use the ``@objectmodel.not_rpython`` decorator instead.
+
 
 Couldn't we simply take a Python syntax tree and turn it into Lisp?
 -------------------------------------------------------------------
@@ -143,7 +146,7 @@ example.  These are much more supported, much more documented languages
   attempt to point newcomers at existing alternatives, which are more
   mainstream and where they will get help from many people.*
 
-  *If anybody seriously wants to promote RPython anyway, he is welcome
+  *If anybody seriously wants to promote RPython anyway, they are welcome
   to: we won't actively resist such a plan.  There are a lot of things
   that could be done to make RPython a better Java-ish language for
   example, starting with supporting non-GIL-based multithreading, but we
@@ -179,11 +182,15 @@ which can translate PyPy with or without the JIT on Linux.)
 
 On the other hand, using LLVM as our JIT backend looks interesting as
 well --- but again we made an attempt, and it failed: LLVM has no way to
-patch the generated machine code.
+patch the generated machine code, and is not suited at all to tracing
+JITs.  Even one big method JIT trying to use LLVM `has given up`__ for
+similar reasons; read that blog post for more details.
+
+.. __: https://webkit.org/blog/5852/introducing-the-b3-jit-compiler/
 
 So the position of the core PyPy developers is that if anyone wants to
-make an N+1'th attempt with LLVM, he is welcome, and he will receive a
-bit of help on the IRC channel, but he is left with the burden of proof
+make an N+1'th attempt with LLVM, they are welcome, and they will receive a
+bit of help on the IRC channel, but they are left with the burden of proof
 that it works.
 
 

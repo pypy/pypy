@@ -15,7 +15,7 @@ void pypysig_setflag(int signum); /* signal will set a flag which can be
 RPY_EXTERN
 void pypysig_reinstall(int signum);
 RPY_EXTERN
-int pypysig_set_wakeup_fd(int fd);
+int pypysig_set_wakeup_fd(int fd, int with_nul_byte);
 
 /* utility to poll for signals that arrived */
 RPY_EXTERN
@@ -36,5 +36,13 @@ RPY_EXTERN struct pypysig_long_struct pypysig_counter;
 RPY_EXTERN
 void *pypysig_getaddr_occurred(void);
 #define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
+
+inline static char pypysig_check_and_reset(void) {
+    /* used by reverse_debugging */
+    char result = --pypysig_counter.value < 0;
+    if (result)
+        pypysig_counter.value = 100;
+    return result;
+}
 
 #endif

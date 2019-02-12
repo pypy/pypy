@@ -44,6 +44,7 @@ Typical usage:
     UUID('00010203-0405-0607-0809-0a0b0c0d0e0f')
 """
 
+import os
 import struct
 
 __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
@@ -457,27 +458,27 @@ def _netbios_getnode():
 # Thanks to Thomas Heller for ctypes and for his help with its use here.
 
 # If ctypes is available, use it to find system routines for UUID generation.
-_uuid_generate_random = _uuid_generate_time = _UuidCreate = None
+_uuid_generate_time = _UuidCreate = None
 try:
     import ctypes, ctypes.util
+    import sys
 
     # The uuid_generate_* routines are provided by libuuid on at least
     # Linux and FreeBSD, and provided by libc on Mac OS X.
-    for libname in ['uuid', 'c']:
+    _libnames = ['uuid']
+    if not sys.platform.startswith('win'):
+        _libnames.append('c')
+    for libname in _libnames:
         try:
             lib = ctypes.CDLL(ctypes.util.find_library(libname))
         except:
             continue
-        if hasattr(lib, 'uuid_generate_random'):
-            _uuid_generate_random = lib.uuid_generate_random
-            _uuid_generate_random.argtypes = [ctypes.c_char * 16]
-            _uuid_generate_random.restype = None
         if hasattr(lib, 'uuid_generate_time'):
             _uuid_generate_time = lib.uuid_generate_time
             _uuid_generate_time.argtypes = [ctypes.c_char * 16]
             _uuid_generate_time.restype = None
-            if _uuid_generate_random is not None:
-                break  # found everything we were looking for
+            break
+    del _libnames
 
     # The uuid_generate_* functions are broken on MacOS X 10.5, as noted
     # in issue #8621 the function generates the same sequence of values
@@ -486,11 +487,10 @@ try:
     #
     # Assume that the uuid_generate functions are broken from 10.5 onward,
     # the test can be adjusted when a later version is fixed.
-    import sys
     if sys.platform == 'darwin':
         import os
         if int(os.uname()[2].split('.')[0]) >= 9:
-            _uuid_generate_random = _uuid_generate_time = None
+            _uuid_generate_time = None
 
     # On Windows prior to 2000, UuidCreate gives a UUID containing the
     # hardware address.  On Windows 2000 and later, UuidCreate makes a
@@ -604,7 +604,6 @@ def uuid3(namespace, name):
 
 def uuid4():
     """Generate a random UUID."""
-    import os
     return UUID(bytes=os.urandom(16), version=4)
 
 def uuid5(namespace, name):

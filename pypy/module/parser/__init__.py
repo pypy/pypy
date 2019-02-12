@@ -10,8 +10,8 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        '__name__'     : '(space.wrap("parser"))',
-        '__doc__'      : '(space.wrap("parser module"))',
+        '__name__'     : '(space.newtext("parser"))',
+        '__doc__'      : '(space.newtext("parser module"))',
         'suite'        : 'pyparser.suite',
         'expr'         : 'pyparser.expr',
         'issuite'      : 'pyparser.issuite',
@@ -24,5 +24,7 @@ class Module(MixedModule):
         'ASTType'      : 'pyparser.W_STType',
         'compilest'    : 'pyparser.compilest',
         'compileast'   : 'pyparser.compilest',
-        'ParserError'  : 'space.new_exception_class("parser.ParserError")',
+        'tuple2st'     : 'pyparser.tuple2st',
+        'sequence2st'  : 'pyparser.tuple2st',
+        'ParserError'  : 'pyparser.get_error(space)',
     }

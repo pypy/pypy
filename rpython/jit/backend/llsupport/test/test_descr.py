@@ -435,8 +435,10 @@ def test_field_arraylen_descr():
 def test_bytearray_descr():
     c0 = GcCache(False)
     descr = get_array_descr(c0, rstr.STR)   # for bytearray
+    # note that we get a basesize that has 1 extra byte for the final null char
+    # (only for STR)
     assert descr.flag == FLAG_UNSIGNED
-    assert descr.basesize == struct.calcsize("PP")         # hash, length
+    assert descr.basesize == struct.calcsize("PP") + 1     # hash, length, extra
     assert descr.lendescr.offset == struct.calcsize("P")   # hash
     assert not descr.is_array_of_pointers()
 

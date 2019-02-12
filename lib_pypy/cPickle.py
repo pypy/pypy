@@ -116,10 +116,20 @@ class Pickler(PythonPickler):
 
 @builtinify
 def dump(obj, file, protocol=None):
+    if protocol > HIGHEST_PROTOCOL:
+        # use cPickle error message, not pickle.py one
+        raise ValueError("pickle protocol %d asked for; "
+                     "the highest available protocol is %d" % (
+                     protocol, HIGHEST_PROTOCOL))
     Pickler(file, protocol).dump(obj)
 
 @builtinify
 def dumps(obj, protocol=None):
+    if protocol > HIGHEST_PROTOCOL:
+        # use cPickle error message, not pickle.py one
+        raise ValueError("pickle protocol %d asked for; "
+                     "the highest available protocol is %d" % (
+                     protocol, HIGHEST_PROTOCOL))
     file = StringIO()
     Pickler(file, protocol).dump(obj)
     return file.getvalue()
@@ -431,7 +441,14 @@ class Unpickler(object):
         self.append(obj)
 
     def find_class(self, module, name):
-        # Subclasses may override this
+        if self.find_global is None:
+            raise UnpicklingError(
+                "Global and instance pickles are not supported.")
+        return self.find_global(module, name)
+
+    def find_global(self, module, name):
+        # This can officially be patched directly in the Unpickler
+        # instance, according to the docs
         __import__(module)
         mod = sys.modules[module]
         klass = getattr(mod, name)

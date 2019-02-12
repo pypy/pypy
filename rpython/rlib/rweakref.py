@@ -7,7 +7,14 @@ a form of WeakKeyDictionary, and a limited version of WeakValueDictionary.
 import weakref
 from rpython.annotator.model import UnionError
 
-ref = weakref.ref    # basic regular weakrefs are supported in RPython
+
+# Basic regular weakrefs are supported in RPython.
+# Note that if 'translation.rweakref' is False, they will
+# still work, but be implemented as a strong reference.
+# This case is useful for developing new GCs, for example.
+
+ref = weakref.ref
+
 
 def has_weakref_support():
     return True      # returns False if --no-translation-rweakref
@@ -135,7 +142,7 @@ class Entry(extregistry.ExtRegistryEntry):
 
     def compute_result_annotation(self, s_keyclass, s_valueclass):
         assert s_keyclass.is_constant()
-        s_key = self.bookkeeper.immutablevalue(s_keyclass.const())
+        s_key = self.bookkeeper.valueoftype(s_keyclass.const)
         return SomeWeakValueDict(
             s_key,
             _getclassdef(s_valueclass))
@@ -151,7 +158,7 @@ class Entry(extregistry.ExtRegistryEntry):
         bk = self.bookkeeper
         x = self.instance
         return SomeWeakValueDict(
-            bk.immutablevalue(x._keyclass()),
+            bk.valueoftype(x._keyclass),
             bk.getuniqueclassdef(x._valueclass))
 
 def _getclassdef(s_instance):

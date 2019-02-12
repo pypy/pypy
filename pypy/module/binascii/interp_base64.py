@@ -71,7 +71,7 @@ def a2b_base64(space, ascii):
         if leftbits != 0:
             raise_Error(space, "Incorrect padding")
 
-    return space.wrap(res.build())
+    return space.newbytes(res.build())
 
 # ____________________________________________________________
 
@@ -110,4 +110,4 @@ def b2a_base64(space, bin):
         res.append(table_b2a_base64[(leftchar & 0xf) << 2])
         res.append(PAD)
     res.append('\n')
-    return space.wrap(res.build())
+    return space.newbytes(res.build())

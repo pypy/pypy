@@ -30,6 +30,7 @@ generic element in some specific subset of the set of all objects.
 from __future__ import absolute_import
 
 import inspect
+import math
 import weakref
 from types import BuiltinFunctionType, MethodType
 from collections import OrderedDict, defaultdict
@@ -44,6 +45,7 @@ class State(object):
     # A global attribute :-(  Patch it with 'True' to enable checking of
     # the no_nul attribute...
     check_str_without_nul = False
+    allow_int_to_float = True
 TLS = State()
 
 class SomeObject(object):
@@ -93,16 +95,9 @@ class SomeObject(object):
         if self == other:
             return True
         try:
-            TLS.no_side_effects_in_union += 1
-        except AttributeError:
-            TLS.no_side_effects_in_union = 1
-        try:
-            try:
-                return pair(self, other).union() == self
-            except UnionError:
-                return False
-        finally:
-            TLS.no_side_effects_in_union -= 1
+            return union(self, other) == self
+        except UnionError:
+            return False
 
     def is_constant(self):
         d = self.__dict__
@@ -175,13 +170,12 @@ class SomeFloat(SomeObject):
     def __eq__(self, other):
         if (type(self) is SomeFloat and type(other) is SomeFloat and
             self.is_constant() and other.is_constant()):
-            from rpython.rlib.rfloat import isnan, copysign
             # NaN unpleasantness.
-            if isnan(self.const) and isnan(other.const):
+            if math.isnan(self.const) and math.isnan(other.const):
                 return True
             # 0.0 vs -0.0 unpleasantness.
             if not self.const and not other.const:
-                return copysign(1., self.const) == copysign(1., other.const)
+                return math.copysign(1., self.const) == math.copysign(1., other.const)
             #
         return super(SomeFloat, self).__eq__(other)
 
@@ -490,6 +484,9 @@ class SomeException(SomeObject):
     def __init__(self, classdefs):
         self.classdefs = classdefs
 
+    def can_be_none(self):
+        return False
+
     def as_SomeInstance(self):
         return unionof(*[SomeInstance(cdef) for cdef in self.classdefs])
 
@@ -679,6 +676,10 @@ class SomeProperty(SomeObject):
 
 s_None = SomeNone()
 s_Bool = SomeBool()
+s_True = SomeBool()
+s_True.const = True
+s_False = SomeBool()
+s_False.const = False
 s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
 s_Str0 = SomeString(no_nul=True)
@@ -738,6 +739,27 @@ class UnionError(AnnotatorError):
     def __repr__(self):
         return str(self)
 
+def union(s1, s2):
+    """The join operation in the lattice of annotations.
+
+    It is the most precise SomeObject instance that contains both arguments.
+
+    union() is (supposed to be) idempotent, commutative, associative and has
+    no side-effects.
+    """
+    try:
+        TLS.no_side_effects_in_union += 1
+    except AttributeError:
+        TLS.no_side_effects_in_union = 1
+    try:
+        if s1 == s2:
+            # Most pair(...).union() methods deal incorrectly with that case
+            # when constants are involved.
+            return s1
+        return pair(s1, s2).union()
+    finally:
+        TLS.no_side_effects_in_union -= 1
+
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."
     try:
@@ -748,7 +770,7 @@ def unionof(*somevalues):
             if s1 != s2:
                 s1 = pair(s1, s2).union()
     else:
-        # this is just a performance shortcut
+        # See comment in union() above
         if s1 != s2:
             s1 = pair(s1, s2).union()
     return s1

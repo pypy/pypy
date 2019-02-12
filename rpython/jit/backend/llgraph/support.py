@@ -156,3 +156,11 @@ def cast_call_args_in_order(ARGS, args):
         call_args.append(n)
     assert i == len(args)
     return call_args
+
+def addr_add_bytes(addr, ofs):
+    if (isinstance(ofs, int) and
+            getattr(addr.adr.ptr._TYPE.TO, 'OF', None) == lltype.Char):
+        return addr + ofs
+    ptr = rffi.cast(rffi.CCHARP, addr.adr)
+    ptr = lltype.direct_ptradd(ptr, ofs)
+    return cast_to_int(ptr)

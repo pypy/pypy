@@ -94,7 +94,7 @@ def test_run_translation():
         interp, graph = get_interpreter(entry_point, [], backendopt=False,
                                         config=config,
                                         policy=PyPyAnnotatorPolicy(space))
-    except Exception, e:
+    except Exception as e:
         print '%s: %s' % (e.__class__, e)
         pdb.post_mortem(sys.exc_info()[2])
         raise

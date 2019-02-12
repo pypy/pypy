@@ -1,4 +1,5 @@
 import py
+from rpython.rlib.objectmodel import not_rpython
 
 class Node(object):
     def view(self):
@@ -38,8 +39,8 @@ class Symbol(Node):
             id(self), symbol,
             repr(addinfo).replace('"', '').replace("\\", "\\\\")))
 
+    @not_rpython
     def visit(self, visitor):
-        "NOT_RPYTHON"
         if isinstance(visitor, RPythonVisitor):
             return visitor.dispatch(self)
         method = getattr(visitor, "visit_" + self.symbol, None)
@@ -76,8 +77,8 @@ class Nonterminal(Node):
                     id(child),
                     repr(child).replace('"', '').replace("\\", "\\\\"))
 
+    @not_rpython
     def visit(self, visitor):
-        "NOT_RPYTHON"
         if isinstance(visitor, RPythonVisitor):
             return visitor.dispatch(self)
         general = getattr(visitor, "visit", None)

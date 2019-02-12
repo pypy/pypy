@@ -11,7 +11,21 @@ class GCHeaderBuilder(object):
     def __init__(self, HDR):
         """NOT_RPYTHON"""
         self.HDR = HDR
-        self.obj2header = weakref.WeakKeyDictionary()
+        #
+        # The following used to be a weakref.WeakKeyDictionary(), but
+        # the problem is that if you have a gcobj which has already a
+        # weakref cached on it and the hash already cached in that
+        # weakref, and later the hash of the gcobj changes (because it
+        # is ll2ctypes-ified), then that gcobj cannot be used as a key
+        # in a WeakKeyDictionary any more: from this point on,
+        # 'ref(gcobj)' and 'ref(gcobj, callback)' return two objects
+        # with different hashes... and so e.g. the sequence of
+        # operations 'obj2header[x]=y; assert x in obj2header' fails.
+        #
+        # Instead, just use a regular dictionary and hope that not too
+        # many objects would be reclaimed in a given GCHeaderBuilder
+        # instance.
+        self.obj2header = {}
         self.size_gc_header = llmemory.GCHeaderOffset(self)
 
     def header_of_object(self, gcptr):

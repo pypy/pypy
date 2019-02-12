@@ -39,9 +39,9 @@ type_cache = TypeCache()
 def setup(space):
     """Add proxy functions to the __pypy__ module."""
     w___pypy__ = space.getbuiltinmodule("__pypy__")
-    space.setattr(w___pypy__, space.wrap('tproxy'), space.wrap(app_proxy))
-    space.setattr(w___pypy__, space.wrap('get_tproxy_controller'),
-                  space.wrap(app_proxy_controller))
+    space.setattr(w___pypy__, space.newtext('tproxy'), app_proxy.spacebind(space))
+    space.setattr(w___pypy__, space.newtext('get_tproxy_controller'),
+                  app_proxy_controller.spacebind(space))
 
 
 def proxy(space, w_type, w_controller):
@@ -49,23 +49,23 @@ def proxy(space, w_type, w_controller):
 Return something that looks like it is of type typ. Its behaviour is
 completely controlled by the controller."""
     if not space.is_true(space.callable(w_controller)):
-        raise OperationError(space.w_TypeError, space.wrap("controller should be function"))
+        raise oefmt(space.w_TypeError, "controller should be function")
 
     if isinstance(w_type, W_TypeObject):
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(Function.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(Function.typedef)):
             return W_TransparentFunction(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(PyTraceback.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(PyTraceback.typedef)):
             return W_TransparentTraceback(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(PyFrame.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(PyFrame.typedef)):
             return W_TransparentFrame(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(GeneratorIterator.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(GeneratorIterator.typedef)):
             return W_TransparentGenerator(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(PyCode.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(PyCode.typedef)):
             return W_TransparentCode(space, w_type, w_controller)
         if w_type.layout.typedef is space.w_object.layout.typedef:
             return W_Transparent(space, w_type, w_controller)
     else:
-        raise OperationError(space.w_TypeError, space.wrap("type expected as first argument"))
+        raise oefmt(space.w_TypeError, "type expected as first argument")
     w_lookup = w_type
     for k, v in type_cache.cache:
         if w_lookup == k:

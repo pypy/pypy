@@ -54,8 +54,24 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert (where(False, 1, [1, 2, 3]) == [1, 2, 3]).all()
         assert (where([1, 2, 3], True, False) == [True, True, True]).all()
 
-    #def test_where_1_arg(self):
-    #    xxx
+    def test_where_1_arg(self):
+        from numpy import where, array
+
+        result = where([1,0,1])
+
+        assert isinstance(result, tuple)
+        assert len(result) == 1
+        assert (result[0] == array([0, 2])).all()
+
+    def test_where_1_arg_2d(self):
+        from numpy import where, array
+
+        result = where([[1,0,1],[2,-1,-1]])
+
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert (result[0] == array([0, 0, 1, 1, 1])).all()
+        assert (result[1] == array([0, 2, 0, 1, 2])).all()
 
     def test_where_invalidates(self):
         from numpy import where, ones, zeros, array

@@ -20,6 +20,23 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         hop.genop('debug_assert', vlist)
 
+def ll_assert_not_none(x):
+    """assert x is not None"""
+    assert x is not None, "ll_assert_not_none(%r)" % (x,)
+    return x
+
+class Entry(ExtRegistryEntry):
+    _about_ = ll_assert_not_none
+
+    def compute_result_annotation(self, s_x):
+        return s_x.nonnoneify()
+
+    def specialize_call(self, hop):
+        [v0] = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
+        hop.genop('debug_assert_not_none', [v0])
+        return v0
+
 class FatalError(Exception):
     pass
 
@@ -45,3 +62,12 @@ def fatalerror_notb(msg):
 fatalerror_notb._dont_inline_ = True
 fatalerror_notb._jit_look_inside_ = False
 fatalerror_notb._annenforceargs_ = [str]
+
+def debug_print_traceback():
+    # print to stderr the RPython traceback of the last caught exception,
+    # but without interrupting the program
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.debug_print_traceback(lltype.Void)
+debug_print_traceback._dont_inline_ = True
+debug_print_traceback._jit_look_inside_ = False

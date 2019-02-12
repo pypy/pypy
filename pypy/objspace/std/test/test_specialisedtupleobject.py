@@ -23,20 +23,24 @@ class TestW_SpecialisedTupleObject():
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
         assert w_tuple.__class__.__name__ == 'W_SpecialisedTupleObject_ii'
 
+    def hash_test(self, values, must_be_specialized):
+        N_values_w = [self.space.wrap(value) for value in values]
+        S_values_w = [self.space.wrap(value) for value in values]
+        N_w_tuple = W_TupleObject(N_values_w)
+        S_w_tuple = self.space.newtuple(S_values_w)
+
+        if must_be_specialized:
+            assert 'W_SpecialisedTupleObject' in type(S_w_tuple).__name__
+        assert self.space.is_true(self.space.eq(N_w_tuple, S_w_tuple))
+        assert self.space.is_true(
+                self.space.eq(self.space.hash(N_w_tuple),
+                              self.space.hash(S_w_tuple)))
+
     def test_hash_against_normal_tuple(self):
         def hash_test(values, must_be_specialized=True):
-            N_values_w = [self.space.wrap(value) for value in values]
-            S_values_w = [self.space.wrap(value) for value in values]
-            N_w_tuple = W_TupleObject(N_values_w)
-            S_w_tuple = self.space.newtuple(S_values_w)
-
-            if must_be_specialized:
-                assert 'W_SpecialisedTupleObject' in type(S_w_tuple).__name__
-            assert self.space.is_true(self.space.eq(N_w_tuple, S_w_tuple))
-            assert self.space.is_true(
-                    self.space.eq(self.space.hash(N_w_tuple),
-                                  self.space.hash(S_w_tuple)))
-
+            self.hash_test(values, must_be_specialized=must_be_specialized)
+        hash_test([-1, -1])
+        hash_test([-1.0, -1.0])
         hash_test([1, 2])
         hash_test([1.5, 2.8])
         hash_test([1.0, 2.0])
@@ -46,6 +50,20 @@ class TestW_SpecialisedTupleObject():
         hash_test([1, ('a', 2)])
         hash_test([1, ()])
         hash_test([1, 2, 3], must_be_specialized=False)
+        hash_test([1 << 62, 0])
+
+    try:
+        from hypothesis import given, strategies
+    except ImportError:
+        pass
+    else:
+        _int_float_text = strategies.one_of(
+                            strategies.integers(),
+                            strategies.floats(),
+                            strategies.text())
+        @given(_int_float_text, _int_float_text)
+        def test_hash_with_hypothesis(self, x, y):
+            self.hash_test([x, y], must_be_specialized=False)
 
 
 class AppTestW_SpecialisedTupleObject:
@@ -176,6 +194,10 @@ class AppTestW_SpecialisedTupleObject:
         assert hash(a) != hash(c)
 
         assert hash(a) == hash((1L, 2L)) == hash((1.0, 2.0)) == hash((1.0, 2L))
+
+        x = (-1, -1)
+        y = tuple([-1, -1])
+        assert hash(x) == hash(y)
 
     def test_getitem(self):
         t = (5, 3)

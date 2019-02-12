@@ -351,7 +351,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert np.dtype(xyz).name == 'xyz'
         # another obscure API, used in numpy record.py
         a = np.dtype((xyz, [('x', 'int32'), ('y', 'float32')]))
-        assert "[('x', '<i4'), ('y', '<f4')]" in repr(a)
+        if sys.byteorder == 'big':
+            assert "[('x', '>i4'), ('y', '>f4')]" in repr(a)
+        else:
+            assert "[('x', '<i4'), ('y', '<f4')]" in repr(a)
         assert 'xyz' in repr(a)
         data = [(1, 'a'), (2, 'bbb')]
         b = np.dtype((xyz, [('a', int), ('b', object)]))
@@ -361,13 +364,16 @@ class AppTestDtypes(BaseAppTestDtypes):
             arr = np.array(data, dtype=b)
             assert arr[0][0] == 1
             assert arr[0][1] == 'a'
-        b = np.dtype((xyz, [("col1", "<i4"), ("col2", "<i4"), ("col3", "<i4")]))
+        # NOTE if micronumpy is completed, we might extend this test to check both
+        # "<i4" and ">i4"
+        E = '<' if sys.byteorder == 'little' else '>'
+        b = np.dtype((xyz, [("col1", E+"i4"), ("col2", E+"i4"), ("col3", E+"i4")]))
         data = [(1, 2,3), (4, 5, 6)]
         a = np.array(data, dtype=b)
         x = pickle.loads(pickle.dumps(a))
         assert (x == a).all()
-        assert x.dtype == a.dtype 
-        
+        assert x.dtype == a.dtype
+
     def test_index(self):
         import numpy as np
         for dtype in [np.int8, np.int16, np.int32, np.int64]:
@@ -423,18 +429,20 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert hash(t5) != hash(t6)
 
     def test_pickle(self):
+        import sys
         import numpy as np
         from numpy import array, dtype
         from cPickle import loads, dumps
         a = array([1,2,3])
+        E = '<' if sys.byteorder == 'little' else '>'
         if self.ptr_size == 8:
-            assert a.dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
+            assert a.dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, E, None, None, None, -1, -1, 0))
         else:
-            assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, '<', None, None, None, -1, -1, 0))
+            assert a.dtype.__reduce__() == (dtype, ('i4', 0, 1), (3, E, None, None, None, -1, -1, 0))
         assert loads(dumps(a.dtype)) == a.dtype
         assert np.dtype('bool').__reduce__() == (dtype, ('b1', 0, 1), (3, '|', None, None, None, -1, -1, 0))
         assert np.dtype('|V16').__reduce__() == (dtype, ('V16', 0, 1), (3, '|', None, None, None, 16, 1, 0))
-        assert np.dtype(('<f8', 2)).__reduce__() == (dtype, ('V16', 0, 1), (3, '|', (dtype('float64'), (2,)), None, None, 16, 8, 0))
+        assert np.dtype((E+'f8', 2)).__reduce__() == (dtype, ('V16', 0, 1), (3, '|', (dtype('float64'), (2,)), None, None, 16, 8, 0))
 
     def test_newbyteorder(self):
         import numpy as np
@@ -916,6 +924,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_dtype_str(self):
         from numpy import dtype
+        import sys
         byteorder = self.native_prefix
         assert dtype('i8').str == byteorder + 'i8'
         assert dtype('<i8').str == '<i8'
@@ -937,7 +946,8 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('unicode').str == byteorder + 'U0'
         assert dtype(('string', 7)).str == '|S7'
         assert dtype('=S5').str == '|S5'
-        assert dtype(('unicode', 7)).str == '<U7'
+        assert dtype(('unicode', 7)).str == \
+               ('<' if sys.byteorder == 'little' else '>')+'U7'
         assert dtype([('', 'f8')]).str == "|V8"
         assert dtype(('f8', 2)).str == "|V16"
 
@@ -968,8 +978,12 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_isnative(self):
         from numpy import dtype
+        import sys
         assert dtype('i4').isnative == True
-        assert dtype('>i8').isnative == False
+        if sys.byteorder == 'big':
+            assert dtype('<i8').isnative == False
+        else:
+            assert dtype('>i8').isnative == False
 
     def test_any_all_nonzero(self):
         import numpy
@@ -1185,6 +1199,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_setstate(self):
         import numpy as np
         import sys
+        E = '<' if sys.byteorder == 'little' else '>'
         d = np.dtype('f8')
         d.__setstate__((3, '|', (np.dtype('float64'), (2,)), None, None, 20, 1, 0))
         assert d.str == ('<' if sys.byteorder == 'little' else '>') + 'f8'
@@ -1201,7 +1216,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.shape == (2,)
         assert d.itemsize == 8
         assert d.subdtype is not None
-        assert repr(d) == "dtype(('<f8', (2,)))"
+        assert repr(d) == "dtype(('{E}f8', (2,)))".format(E=E)
 
         d = np.dtype(('<f8', 2))
         assert d.fields is None
@@ -1216,7 +1231,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.shape == (2,)
         assert d.itemsize == 20
         assert d.subdtype is not None
-        assert repr(d) == "dtype(('<f8', (2,)))"
+        assert repr(d) == "dtype(('{E}f8', (2,)))".format(E=E)
 
         d = np.dtype(('<f8', 2))
         d.__setstate__((3, '|', (np.dtype('float64'), 2), None, None, 20, 1, 0))
@@ -1224,7 +1239,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.shape == (2,)
         assert d.itemsize == 20
         assert d.subdtype is not None
-        assert repr(d) == "dtype(('<f8', (2,)))"
+        assert repr(d) == "dtype(('{E}f8', (2,)))".format(E=E)
 
         d = np.dtype(('<f8', 2))
         exc = raises(ValueError, "d.__setstate__((3, '|', None, ('f0', 'f1'), None, 16, 1, 0))")
@@ -1256,14 +1271,14 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.fields is not None
         assert d.shape == (2,)
         assert d.subdtype is not None
-        assert repr(d) == "dtype([('f0', '<f8'), ('f1', '<f8')])"
+        assert repr(d) == "dtype([('f0', '{E}f8'), ('f1', '{E}f8')])".format(E=E)
 
         d = np.dtype(('<f8', 2))
         d.__setstate__((3, '|', None, ('f0', 'f1'), {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))
         assert d.fields is not None
         assert d.shape == ()
         assert d.subdtype is None
-        assert repr(d) == "dtype([('f0', '<f8'), ('f1', '<f8')])"
+        assert repr(d) == "dtype([('f0', '{E}f8'), ('f1', '{E}f8')])".format(E=E)
 
         d = np.dtype(('<f8', 2))
         d.__setstate__((3, '|', None, ('f0', 'f1'), {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))
@@ -1271,7 +1286,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.fields is not None
         assert d.shape == (2,)
         assert d.subdtype is not None
-        assert repr(d) == "dtype([('f0', '<f8'), ('f1', '<f8')])"
+        assert repr(d) == "dtype([('f0', '{E}f8'), ('f1', '{E}f8')])".format(E=E)
 
     def test_pickle_record(self):
         from numpy import array, dtype
@@ -1317,6 +1332,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         raises(ValueError, np.dtype, [('a', 'f4', (-1, -1))])
 
     def test_aligned_size(self):
+        import sys
         import numpy as np
         if self.test_for_core_internal:
             try:
@@ -1335,9 +1351,10 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         dt = np.dtype({'f0': ('i4', 0), 'f1':('u1', 4)}, align=True)
         assert dt.itemsize == 8
         assert dt.alignment == 4
-        assert str(dt) == "{'names':['f0','f1'], 'formats':['<i4','u1'], 'offsets':[0,4], 'itemsize':8, 'aligned':True}"
+        E = '<' if sys.byteorder == 'little' else '>'
+        assert str(dt) == "{'names':['f0','f1'], 'formats':['%si4','u1'], 'offsets':[0,4], 'itemsize':8, 'aligned':True}" % E
         dt = np.dtype([('f1', 'u1'), ('f0', 'i4')], align=True)
-        assert str(dt) == "{'names':['f1','f0'], 'formats':['u1','<i4'], 'offsets':[0,4], 'itemsize':8, 'aligned':True}"
+        assert str(dt) == "{'names':['f1','f0'], 'formats':['u1','%si4'], 'offsets':[0,4], 'itemsize':8, 'aligned':True}" % E
         # Nesting should preserve that alignment
         dt1 = np.dtype([('f0', 'i4'),
                        ('f1', [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')]),
@@ -1357,12 +1374,12 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert dt3.itemsize == 20
         assert dt1 == dt2
         answer = "{'names':['f0','f1','f2'], " + \
-                    "'formats':['<i4',{'names':['f1','f2','f3'], " + \
-                                      "'formats':['i1','<i4','i1'], " + \
+                    "'formats':['%si4',{'names':['f1','f2','f3'], " + \
+                                      "'formats':['i1','%si4','i1'], " + \
                                       "'offsets':[0,4,8], 'itemsize':12}," + \
                                  "'i1'], " + \
                     "'offsets':[0,4,16], 'itemsize':20, 'aligned':True}"
-        assert str(dt3) == answer
+        assert str(dt3) == answer % (E,E)
         assert dt2 == dt3
         # Nesting should preserve packing
         dt1 = np.dtype([('f0', 'i4'),
@@ -1442,7 +1459,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                      "'offsets':[0,76800], "
                      "'itemsize':80000, "
                      "'aligned':True}")
-        
+
         assert dt == np.dtype(eval(str(dt)))
 
         dt = np.dtype({'names': ['r', 'g', 'b'], 'formats': ['u1', 'u1', 'u1'],

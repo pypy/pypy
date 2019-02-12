@@ -1,16 +1,27 @@
+import sys
+import os
+import pytest
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
+from pypy.module.cpyext.object import PyObject_Size, PyObject_GetItem
+from pypy.module.cpyext.pythonrun import Py_AtExit
 from pypy.module.cpyext.eval import (
-    Py_single_input, Py_file_input, Py_eval_input, PyCompilerFlags)
-from pypy.module.cpyext.api import fopen, fclose, fileno, Py_ssize_tP
+    Py_single_input, Py_file_input, Py_eval_input, PyCompilerFlags,
+    PyEval_CallObjectWithKeywords, PyObject_CallObject, PyEval_EvalCode,
+    PyRun_SimpleString, PyRun_String, PyRun_StringFlags, PyRun_File,
+    PyEval_GetBuiltins, PyEval_GetLocals, PyEval_GetGlobals,
+    _PyEval_SliceIndex)
+from pypy.module.cpyext.api import (
+    c_fopen, c_fclose, c_fileno, Py_ssize_tP)
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts
 from rpython.tool.udir import udir
-import sys, os
 
 class TestEval(BaseApiTest):
-    def test_eval(self, space, api):
+    def test_eval(self, space):
         w_l, w_f = space.fixedview(space.appexec([], """():
         l = []
         def f(arg1, arg2):
@@ -21,7 +32,7 @@ class TestEval(BaseApiTest):
         """))
 
         w_t = space.newtuple([space.wrap(1), space.wrap(2)])
-        w_res = api.PyEval_CallObjectWithKeywords(w_f, w_t, None)
+        w_res = PyEval_CallObjectWithKeywords(space, w_f, w_t, None)
         assert space.int_w(w_res) == 2
         assert space.len_w(w_l) == 2
         w_f = space.appexec([], """():
@@ -34,10 +45,10 @@ class TestEval(BaseApiTest):
         w_t = space.newtuple([space.w_None, space.w_None])
         w_d = space.newdict()
         space.setitem(w_d, space.wrap("xyz"), space.wrap(3))
-        w_res = api.PyEval_CallObjectWithKeywords(w_f, w_t, w_d)
+        w_res = PyEval_CallObjectWithKeywords(space, w_f, w_t, w_d)
         assert space.int_w(w_res) == 21
 
-    def test_call_object(self, space, api):
+    def test_call_object(self, space):
         w_l, w_f = space.fixedview(space.appexec([], """():
         l = []
         def f(arg1, arg2):
@@ -48,7 +59,7 @@ class TestEval(BaseApiTest):
         """))
 
         w_t = space.newtuple([space.wrap(1), space.wrap(2)])
-        w_res = api.PyObject_CallObject(w_f, w_t)
+        w_res = PyObject_CallObject(space, w_f, w_t)
         assert space.int_w(w_res) == 2
         assert space.len_w(w_l) == 2
 
@@ -60,11 +71,11 @@ class TestEval(BaseApiTest):
             """)
 
         w_t = space.newtuple([space.wrap(1), space.wrap(2)])
-        w_res = api.PyObject_CallObject(w_f, w_t)
+        w_res = PyObject_CallObject(space, w_f, w_t)
 
         assert space.int_w(w_res) == 10
 
-    def test_evalcode(self, space, api):
+    def test_evalcode(self, space):
         w_f = space.appexec([], """():
             def f(*args):
                 assert isinstance(args, tuple)
@@ -76,83 +87,77 @@ class TestEval(BaseApiTest):
         w_globals = space.newdict()
         w_locals = space.newdict()
         space.setitem(w_locals, space.wrap("args"), w_t)
-        w_res = api.PyEval_EvalCode(w_f.code, w_globals, w_locals)
+        w_res = PyEval_EvalCode(space, w_f.code, w_globals, w_locals)
 
         assert space.int_w(w_res) == 10
 
-    def test_run_simple_string(self, space, api):
+    def test_run_simple_string(self, space):
         def run(code):
             buf = rffi.str2charp(code)
             try:
-                return api.PyRun_SimpleString(buf)
+                return PyRun_SimpleString(space, buf)
             finally:
                 rffi.free_charp(buf)
 
-        assert 0 == run("42 * 43")
+        assert run("42 * 43") == 0  # no error
+        with pytest.raises(OperationError):
+            run("4..3 * 43")
 
-        assert -1 == run("4..3 * 43")
-
-        assert api.PyErr_Occurred()
-        api.PyErr_Clear()
-
-    def test_run_string(self, space, api):
+    def test_run_string(self, space):
         def run(code, start, w_globals, w_locals):
             buf = rffi.str2charp(code)
             try:
-                return api.PyRun_String(buf, start, w_globals, w_locals)
+                return PyRun_String(space, buf, start, w_globals, w_locals)
             finally:
                 rffi.free_charp(buf)
 
         w_globals = space.newdict()
         assert 42 * 43 == space.unwrap(
             run("42 * 43", Py_eval_input, w_globals, w_globals))
-        assert api.PyObject_Size(w_globals) == 0
+        assert PyObject_Size(space, w_globals) == 0
 
         assert run("a = 42 * 43", Py_single_input,
                    w_globals, w_globals) == space.w_None
-        assert 42 * 43 == space.unwrap(
-            api.PyObject_GetItem(w_globals, space.wrap("a")))
+        py_obj = PyObject_GetItem(space, w_globals, space.wrap("a"))
+        assert 42 * 43 == space.unwrap(get_w_obj_and_decref(space, py_obj))
 
-    def test_run_string_flags(self, space, api):
+    def test_run_string_flags(self, space):
         flags = lltype.malloc(PyCompilerFlags, flavor='raw')
         flags.c_cf_flags = rffi.cast(rffi.INT, consts.PyCF_SOURCE_IS_UTF8)
         w_globals = space.newdict()
         buf = rffi.str2charp("a = u'caf\xc3\xa9'")
         try:
-            api.PyRun_StringFlags(buf, Py_single_input,
-                                  w_globals, w_globals, flags)
+            PyRun_StringFlags(space, buf, Py_single_input, w_globals,
+                              w_globals, flags)
         finally:
             rffi.free_charp(buf)
         w_a = space.getitem(w_globals, space.wrap("a"))
-        assert space.unwrap(w_a) == u'caf\xe9'
+        assert space.unicode_w(w_a) == u'caf\xe9'
         lltype.free(flags, flavor='raw')
 
-    def test_run_file(self, space, api):
+    def test_run_file(self, space):
         filepath = udir / "cpyext_test_runfile.py"
         filepath.write("raise ZeroDivisionError")
-        fp = fopen(str(filepath), "rb")
+        fp = c_fopen(str(filepath), "rb")
         filename = rffi.str2charp(str(filepath))
         w_globals = w_locals = space.newdict()
-        api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
-        fclose(fp)
-        assert api.PyErr_Occurred() is space.w_ZeroDivisionError
-        api.PyErr_Clear()
+        with raises_w(space, ZeroDivisionError):
+            PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
+        c_fclose(fp)
 
         # try again, but with a closed file
-        fp = fopen(str(filepath), "rb")
-        os.close(fileno(fp))
-        api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
-        fclose(fp)
-        assert api.PyErr_Occurred() is space.w_IOError
-        api.PyErr_Clear()
-
+        fp = c_fopen(str(filepath), "rb")
+        os.close(c_fileno(fp))
+        with raises_w(space, IOError):
+            PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
+            c_fclose(fp)
         rffi.free_charp(filename)
 
-    def test_getbuiltins(self, space, api):
-        assert api.PyEval_GetBuiltins() is space.builtin.w_dict
+    def test_getbuiltins(self, space):
+        assert PyEval_GetBuiltins(space) is space.builtin.w_dict
 
         def cpybuiltins(space):
-            return api.PyEval_GetBuiltins()
+            return PyEval_GetBuiltins(space)
         w_cpybuiltins = space.wrap(interp2app(cpybuiltins))
 
         w_result = space.appexec([w_cpybuiltins], """(cpybuiltins):
@@ -166,13 +171,13 @@ class TestEval(BaseApiTest):
         """)
         assert space.len_w(w_result) == 1
 
-    def test_getglobals(self, space, api):
-        assert api.PyEval_GetLocals() is None
-        assert api.PyEval_GetGlobals() is None
+    def test_getglobals(self, space):
+        assert PyEval_GetLocals(space) is None
+        assert PyEval_GetGlobals(space) is None
 
         def cpyvars(space):
-            return space.newtuple([api.PyEval_GetGlobals(),
-                                   api.PyEval_GetLocals()])
+            return space.newtuple([PyEval_GetGlobals(space),
+                                   PyEval_GetLocals(space)])
         w_cpyvars = space.wrap(interp2app(cpyvars))
 
         w_result = space.appexec([w_cpyvars], """(cpyvars):
@@ -184,26 +189,26 @@ class TestEval(BaseApiTest):
         assert sorted(locals) == ['cpyvars', 'x']
         assert sorted(globals) == ['__builtins__', 'anonymous', 'y']
 
-    def test_sliceindex(self, space, api):
+    def test_sliceindex(self, space):
         pi = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
-        assert api._PyEval_SliceIndex(space.w_None, pi) == 0
-        api.PyErr_Clear()
+        with pytest.raises(OperationError):
+            _PyEval_SliceIndex(space, space.w_None, pi)
 
-        assert api._PyEval_SliceIndex(space.wrap(123), pi) == 1
+        assert _PyEval_SliceIndex(space, space.wrap(123), pi) == 1
         assert pi[0] == 123
 
-        assert api._PyEval_SliceIndex(space.wrap(1 << 66), pi) == 1
+        assert _PyEval_SliceIndex(space, space.wrap(1 << 66), pi) == 1
         assert pi[0] == sys.maxint
 
         lltype.free(pi, flavor='raw')
 
-    def test_atexit(self, space, api):
+    def test_atexit(self, space):
         lst = []
         def func():
             lst.append(42)
-        api.Py_AtExit(func)
+        Py_AtExit(space, func)
         cpyext = space.getbuiltinmodule('cpyext')
-        cpyext.shutdown(space) # simulate shutdown
+        cpyext.shutdown(space)  # simulate shutdown
         assert lst == [42]
 
 class AppTestCall(AppTestCpythonExtensionBase):
@@ -267,12 +272,14 @@ class AppTestCall(AppTestCpythonExtensionBase):
                 return res;
              """),
             ])
+
         def f(*args):
             return args
         assert module.call_func(f) == (None,)
         assert module.call_method("text") == 2
 
     def test_CompileString_and_Exec(self):
+        import sys
         module = self.import_extension('foo', [
             ("compile_string", "METH_NOARGS",
              """
@@ -307,6 +314,9 @@ class AppTestCall(AppTestCpythonExtensionBase):
         print mod.__dict__
         assert mod.f(42) == 47
 
+        # Clean-up
+        del sys.modules['cpyext_test_modname']
+
     def test_merge_compiler_flags(self):
         module = self.import_extension('foo', [
             ("get_flags", "METH_NOARGS",
@@ -320,8 +330,105 @@ class AppTestCall(AppTestCpythonExtensionBase):
             ])
         assert module.get_flags() == (0, 0)
 
-        ns = {'module':module}
+        ns = {'module': module}
         exec """from __future__ import division    \nif 1:
                 def nested_flags():
                     return module.get_flags()""" in ns
         assert ns['nested_flags']() == (1, 0x2000)  # CO_FUTURE_DIVISION
+
+    def test_recursive_function(self):
+        module = self.import_extension('foo', [
+            ("call_recursive", "METH_NOARGS",
+             """
+                int oldlimit;
+                int recurse(void);
+                res = 0;
+                oldlimit = Py_GetRecursionLimit();
+                Py_SetRecursionLimit(oldlimit/100);
+                res = recurse();
+                Py_SetRecursionLimit(oldlimit);
+                if (PyErr_Occurred())
+                    return NULL;
+                return PyLong_FromLong(res);
+             """),], prologue= '''
+                int res;
+                int recurse(void) {
+                    if (Py_EnterRecursiveCall(" while calling recurse")) {
+                        return -1;
+                    }
+                    res ++;
+                    return recurse();
+                };
+             '''
+            )
+        try:
+            res = module.call_recursive()
+        except RuntimeError as e:
+            assert 'while calling recurse' in str(e)
+        else:
+            assert False, "expected RuntimeError"
+
+    def test_build_class(self):
+            # make sure PyObject_Call generates a proper PyTypeObject,
+            # along the way verify that userslot has iter and next
+            module = self.import_extension('foo', [
+                ("object_call", "METH_O",
+                 '''
+                    return PyObject_Call((PyObject*)&PyType_Type, args, NULL);
+                 '''),
+                ('iter', "METH_O",
+                 '''
+                    if (NULL == args->ob_type->tp_iter)
+                    {
+                        PyErr_SetString(PyExc_TypeError, "NULL tp_iter");
+                        return NULL;
+                    }
+                    return args->ob_type->tp_iter(args);
+                 '''),
+                ('next', "METH_O",
+                 '''
+                    if (NULL == args->ob_type->tp_iternext)
+                    {
+                        PyErr_SetString(PyExc_TypeError, "NULL tp_iternext");
+                        return NULL;
+                    }
+                    return args->ob_type->tp_iternext(args);
+                 '''),])
+            def __init__(self, N):
+                self.N = N
+                self.i = 0
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                if self.i < self.N:
+                    i = self.i
+                    self.i += 1
+                    return i
+                raise StopIteration
+
+            d = {'__init__': __init__, '__iter__': __iter__, 'next': __next__,
+                 '__next__': next}
+            C = module.object_call(('Iterable', (object,), d))
+            c = C(5)
+            i = module.iter(c)
+            out = []
+            try:
+                while 1:
+                    out.append(module.next(i))
+            except StopIteration:
+                pass
+            assert out == [0, 1, 2, 3, 4]
+
+    def test_getframe(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("getframe1", "METH_NOARGS",
+             """
+                PyFrameObject *x = PyEval_GetFrame();
+                Py_INCREF(x);
+                return (PyObject *)x;
+             """),], prologue="#include <frameobject.h>\n")
+        res = module.getframe1()
+        assert res is sys._getframe(0)

@@ -398,7 +398,10 @@ And more, added later.
 0
 >>> type(i.gi_frame)
 <type 'frame'>
->>> i.gi_running = 42
+
+PyPy prints "readonly attribute 'gi_running'" so ignore the exception detail
+
+>>> i.gi_running = 42 # doctest: +IGNORE_EXCEPTION_DETAIL
 Traceback (most recent call last):
   ...
 TypeError: readonly attribute
@@ -1099,7 +1102,7 @@ class Queens:
 
         # For each square, compute a bit vector of the columns and
         # diagonals it covers, and for each row compute a function that
-        # generates the possiblities for the columns in that row.
+        # generates the possibilities for the columns in that row.
         self.rowgenerators = []
         for i in rangen:
             rowuses = [(1L << j) |                  # column ordinal

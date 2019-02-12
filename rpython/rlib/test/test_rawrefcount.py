@@ -1,7 +1,7 @@
 import weakref
 from rpython.rlib import rawrefcount, objectmodel, rgc
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.config.translationoption import get_combined_translation_config
@@ -116,7 +116,7 @@ class TestRawRefCount:
         assert rawrefcount.next_dead(PyObject) == lltype.nullptr(PyObjectS)
         assert rawrefcount._o_list == []
         assert wr_p() is None
-        assert ob.c_ob_refcnt == 0
+        assert ob.c_ob_refcnt == 1       # from the pending list
         assert ob.c_ob_pypy_link == 0
         lltype.free(ob, flavor='raw')
 
@@ -173,7 +173,7 @@ class TestRawRefCount:
         assert rawrefcount._d_list == [ob]
         assert rawrefcount._p_list == []
         assert wr_p() is None
-        assert ob.c_ob_refcnt == 0
+        assert ob.c_ob_refcnt == 1       # from _d_list
         assert ob.c_ob_pypy_link == 0
         lltype.free(ob, flavor='raw')
 
@@ -212,6 +212,15 @@ class TestRawRefCount:
         assert rawrefcount.to_obj(W_Root, ob) == p
         lltype.free(ob, flavor='raw')
 
+    def test_mark_deallocating(self):
+        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        w_marker = W_Root(42)
+        rawrefcount.mark_deallocating(w_marker, ob)
+        assert rawrefcount.to_obj(W_Root, ob) is w_marker
+        rawrefcount._collect()
+        assert rawrefcount.to_obj(W_Root, ob) is w_marker
+        lltype.free(ob, flavor='raw')
+
 
 class TestTranslated(StandaloneTests):
 
@@ -222,6 +231,7 @@ class TestTranslated(StandaloneTests):
         state.seen = []
         def dealloc_trigger():
             state.seen.append(1)
+        w_marker = W_Root(-1)
 
         def make_p():
             p = W_Root(42)
@@ -254,8 +264,18 @@ class TestTranslated(StandaloneTests):
             if rawrefcount.next_dead(PyObject) != ob:
                 print "NEXT_DEAD != OB"
                 return 1
+            if ob.c_ob_refcnt != 1:
+                print "next_dead().ob_refcnt != 1"
+                return 1
             if rawrefcount.next_dead(PyObject) != lltype.nullptr(PyObjectS):
                 print "NEXT_DEAD second time != NULL"
+                return 1
+            if rawrefcount.to_obj(W_Root, ob) is not None:
+                print "to_obj(dead) is not None?"
+                return 1
+            rawrefcount.mark_deallocating(w_marker, ob)
+            if rawrefcount.to_obj(W_Root, ob) is not w_marker:
+                print "to_obj(marked-dead) is not w_marker"
                 return 1
             print "OK!"
             lltype.free(ob, flavor='raw')

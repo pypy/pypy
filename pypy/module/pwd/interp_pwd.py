@@ -37,7 +37,8 @@ config = rffi_platform.configure(CConfig)
 passwd_p = lltype.Ptr(config['passwd'])
 
 def external(name, args, result, **kwargs):
-    return rffi.llexternal(name, args, result, compilation_info=eci, **kwargs)
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           releasegil=False, **kwargs)
 
 c_getpwuid = external("getpwuid", [uid_t], passwd_p)
 c_getpwnam = external("getpwnam", [rffi.CCHARP], passwd_p)
@@ -55,12 +56,12 @@ def uid_converter(space, w_uid):
             raise oefmt(space.w_OverflowError, "user id is less than minimum")
         else:
             val = r_uint(val)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
         try:
             val = space.uint_w(w_uid)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_ValueError):
                 raise oefmt(space.w_OverflowError, "user id is less than minimum")
             elif e.match(space, space.w_OverflowError):
@@ -73,15 +74,15 @@ def uid_converter(space, w_uid):
 
 def make_struct_passwd(space, pw):
     w_passwd_struct = space.getattr(space.getbuiltinmodule('pwd'),
-                                    space.wrap('struct_passwd'))
+                                    space.newtext('struct_passwd'))
     w_tuple = space.newtuple([
-        space.wrap(rffi.charp2str(pw.c_pw_name)),
-        space.wrap(rffi.charp2str(pw.c_pw_passwd)),
-        space.int(space.wrap(pw.c_pw_uid)),
-        space.int(space.wrap(pw.c_pw_gid)),
-        space.wrap(rffi.charp2str(pw.c_pw_gecos)),
-        space.wrap(rffi.charp2str(pw.c_pw_dir)),
-        space.wrap(rffi.charp2str(pw.c_pw_shell)),
+        space.newtext(rffi.charp2str(pw.c_pw_name)),
+        space.newtext(rffi.charp2str(pw.c_pw_passwd)),
+        space.int(space.newint(pw.c_pw_uid)),
+        space.int(space.newint(pw.c_pw_gid)),
+        space.newtext(rffi.charp2str(pw.c_pw_gecos)),
+        space.newtext(rffi.charp2str(pw.c_pw_dir)),
+        space.newtext(rffi.charp2str(pw.c_pw_shell)),
         ])
     return space.call_function(w_passwd_struct, w_tuple)
 
@@ -96,17 +97,17 @@ def getpwuid(space, w_uid):
     msg = "getpwuid(): uid not found"
     try:
         uid = uid_converter(space, w_uid)
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_OverflowError):
             raise oefmt(space.w_KeyError, msg)
         raise
     pw = c_getpwuid(uid)
     if not pw:
-        raise OperationError(space.w_KeyError, space.wrap(
+        raise OperationError(space.w_KeyError, space.newtext(
             "%s: %d" % (msg, widen(uid))))
     return make_struct_passwd(space, pw)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def getpwnam(space, name):
     """
     getpwnam(name) -> (pw_name,pw_passwd,pw_uid,

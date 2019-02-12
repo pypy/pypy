@@ -1,37 +1,85 @@
 import sys
 
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    INTERPLEVEL_API)
+    PyVarObject, Py_ssize_t, init_function, cts)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.annlowlevel import llhelper
-from rpython.rlib import rawrefcount
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
+from rpython.rlib import rawrefcount, jit
+from rpython.rlib.debug import ll_assert, fatalerror
 
 
 #________________________________________________________
 # type description
+
+class W_BaseCPyObject(W_ObjectObject):
+    """ A subclass of W_ObjectObject that has one field for directly storing
+    the link from the w_obj to the cpy ref. This is only used for C-defined
+    types. """
+
+
+def check_true(s_arg, bookeeper):
+    assert s_arg.const is True
+
+def w_root_as_pyobj(w_obj, space):
+    from rpython.rlib.debug import check_annotation
+    # make sure that translation crashes if we see this while not translating
+    # with cpyext
+    check_annotation(space.config.objspace.usemodules.cpyext, check_true)
+    # default implementation of _cpyext_as_pyobj
+    return rawrefcount.from_obj(PyObject, w_obj)
+
+def w_root_attach_pyobj(w_obj, space, py_obj):
+    from rpython.rlib.debug import check_annotation
+    check_annotation(space.config.objspace.usemodules.cpyext, check_true)
+    assert space.config.objspace.usemodules.cpyext
+    # default implementation of _cpyext_attach_pyobj
+    rawrefcount.create_link_pypy(w_obj, py_obj)
+
+
+def add_direct_pyobj_storage(cls):
+    """ Add the necessary methods to a class to store a reference to the py_obj
+    on its instances directly. """
+
+    cls._cpy_ref = lltype.nullptr(PyObject.TO)
+
+    def _cpyext_as_pyobj(self, space):
+        return self._cpy_ref
+    cls._cpyext_as_pyobj = _cpyext_as_pyobj
+
+    def _cpyext_attach_pyobj(self, space, py_obj):
+        self._cpy_ref = py_obj
+        rawrefcount.create_link_pypy(self, py_obj)
+    cls._cpyext_attach_pyobj = _cpyext_attach_pyobj
+
+add_direct_pyobj_storage(W_BaseCPyObject) 
+add_direct_pyobj_storage(W_TypeObject)
+add_direct_pyobj_storage(W_NoneObject)
+add_direct_pyobj_storage(W_BoolObject)
+
 
 class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
     W_BaseObject = W_ObjectObject
 
     def get_dealloc(self, space):
-        from pypy.module.cpyext.typeobject import subtype_dealloc
-        return llhelper(
-            subtype_dealloc.api_func.functype,
-            subtype_dealloc.api_func.get_wrapper(space))
+        state = space.fromcache(State)
+        return state.C._PyPy_subtype_dealloc
 
-    def allocate(self, space, w_type, itemcount=0):
-        # similar to PyType_GenericAlloc?
-        # except that it's not related to any pypy object.
+    # CCC port to C
+    def allocate(self, space, w_type, itemcount=0, immortal=False):
+        # typically called from PyType_GenericAlloc via typedescr.allocate
         # this returns a PyObject with ob_refcnt == 1.
 
         pytype = as_pyobj(space, w_type)
@@ -40,28 +88,45 @@ class BaseCpyTypedescr(object):
         # Don't increase refcount for non-heaptypes
         flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
         if flags & Py_TPFLAGS_HEAPTYPE:
-            Py_IncRef(space, w_type)
+            incref(space, pytype)
 
         if pytype:
             size = pytype.c_tp_basicsize
         else:
             size = rffi.sizeof(self.basestruct)
-        if itemcount:
+        if pytype.c_tp_itemsize:
             size += itemcount * pytype.c_tp_itemsize
         assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
-                            flavor='raw', zero=True)
+                            flavor='raw', zero=True,
+                            add_memory_pressure=True, immortal=immortal)
         pyobj = rffi.cast(PyObject, buf)
+        if pytype.c_tp_itemsize:
+            pyvarobj = rffi.cast(PyVarObject, pyobj)
+            pyvarobj.c_ob_size = itemcount
         pyobj.c_ob_refcnt = 1
+        #pyobj.c_ob_pypy_link should get assigned very quickly
         pyobj.c_ob_type = pytype
         return pyobj
 
-    def attach(self, space, pyobj, w_obj):
+    def attach(self, space, pyobj, w_obj, w_userdata=None):
         pass
 
     def realize(self, space, obj):
         w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
-        w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        assert isinstance(w_type, W_TypeObject)
+        try:
+            if w_type.flag_cpytype:
+                w_obj = space.allocate_instance(W_BaseCPyObject, w_type)
+            else:
+                w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_SystemError,
+                            "cpyext: don't know how to make a '%N' object "
+                            "from a PyObject",
+                            w_type)
+            raise
         track_reference(space, obj, w_obj)
         return w_obj
 
@@ -74,7 +139,7 @@ def make_typedescr(typedef, **kw):
     alloc     : allocate and basic initialization of a raw PyObject
     attach    : Function called to tie a raw structure to a pypy object
     realize   : Function called to create a pypy object from a raw struct
-    dealloc   : a cpython_api(header=None), similar to PyObject_dealloc
+    dealloc   : a @slot_function(), similar to PyObject_dealloc
     """
 
     tp_basestruct = kw.pop('basestruct', PyObject.TO)
@@ -85,23 +150,25 @@ def make_typedescr(typedef, **kw):
     assert not kw, "Extra arguments to make_typedescr"
 
     null_dealloc = lltype.nullptr(lltype.FuncType([PyObject], lltype.Void))
+    assert not isinstance(tp_basestruct, lltype.Ptr), "should pass .TO"
 
     class CpyTypedescr(BaseCpyTypedescr):
         basestruct = tp_basestruct
 
         if tp_alloc:
-            def allocate(self, space, w_type, itemcount=0):
-                return tp_alloc(space, w_type)
+            def allocate(self, space, w_type, itemcount=0, immortal=False):
+                return tp_alloc(self, space, w_type, itemcount)
 
-        if tp_dealloc:
+        if hasattr(tp_dealloc, 'api_func'):
             def get_dealloc(self, space):
-                return llhelper(
-                    tp_dealloc.api_func.functype,
-                    tp_dealloc.api_func.get_wrapper(space))
+                return tp_dealloc.api_func.get_llhelper(space)
+        elif tp_dealloc:
+            def get_dealloc(self, space):
+                return tp_dealloc
 
         if tp_attach:
-            def attach(self, space, pyobj, w_obj):
-                tp_attach(space, pyobj, w_obj)
+            def attach(self, space, pyobj, w_obj, w_userdata=None):
+                tp_attach(space, pyobj, w_obj, w_userdata)
 
         if tp_realize:
             def realize(self, space, ref):
@@ -113,10 +180,10 @@ def make_typedescr(typedef, **kw):
 
 @bootstrap_function
 def init_pyobject(space):
-    from pypy.module.cpyext.object import PyObject_dealloc
     # typedescr for the 'object' type
+    state = space.fromcache(State)
     make_typedescr(space.w_object.layout.typedef,
-                   dealloc=PyObject_dealloc)
+                   dealloc=state.C._PyPy_object_dealloc)
     # almost all types, which should better inherit from object.
     make_typedescr(None)
 
@@ -141,25 +208,20 @@ def get_typedescr(typedef):
 class InvalidPointerException(Exception):
     pass
 
-DEBUG_REFCOUNT = False
-
-def debug_refcount(*args, **kwargs):
-    frame_stackdepth = kwargs.pop("frame_stackdepth", 2)
-    assert not kwargs
-    frame = sys._getframe(frame_stackdepth)
-    print >>sys.stderr, "%25s" % (frame.f_code.co_name, ),
-    for arg in args:
-        print >>sys.stderr, arg,
-    print >>sys.stderr
-
-def create_ref(space, w_obj, itemcount=0):
+@jit.dont_look_inside
+def create_ref(space, w_obj, w_userdata=None, immortal=False):
     """
     Allocates a PyObject, and fills its fields with info from the given
     interpreter object.
     """
     w_type = space.type(w_obj)
+    pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
     typedescr = get_typedescr(w_obj.typedef)
-    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
+    if pytype.c_tp_itemsize != 0:
+        itemcount = space.len_w(w_obj) # PyBytesObject and subclasses
+    else:
+        itemcount = 0
+    py_obj = typedescr.allocate(space, w_type, itemcount=itemcount, immortal=immortal)
     track_reference(space, py_obj, w_obj)
     #
     # py_obj.c_ob_refcnt should be exactly REFCNT_FROM_PYPY + 1 here,
@@ -168,26 +230,25 @@ def create_ref(space, w_obj, itemcount=0):
     assert py_obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
     py_obj.c_ob_refcnt -= 1
     #
-    typedescr.attach(space, py_obj, w_obj)
+    typedescr.attach(space, py_obj, w_obj, w_userdata)
     return py_obj
 
 def track_reference(space, py_obj, w_obj):
     """
     Ties together a PyObject and an interpreter object.
     The PyObject's refcnt is increased by REFCNT_FROM_PYPY.
-    The reference in 'py_obj' is not stolen!  Remember to Py_DecRef()
-    it is you need to.
+    The reference in 'py_obj' is not stolen!  Remember to decref()
+    it if you need to.
     """
     # XXX looks like a PyObject_GC_TRACK
     assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
     py_obj.c_ob_refcnt += rawrefcount.REFCNT_FROM_PYPY
-    if DEBUG_REFCOUNT:
-        debug_refcount("MAKREF", py_obj, w_obj)
-        assert w_obj
-        assert py_obj
-    rawrefcount.create_link_pypy(w_obj, py_obj)
+    w_obj._cpyext_attach_pyobj(space, py_obj)
 
 
+w_marker_deallocating = W_Root()
+
+@jit.dont_look_inside
 def from_ref(space, ref):
     """
     Finds the interpreter object corresponding to the given reference.  If the
@@ -198,7 +259,25 @@ def from_ref(space, ref):
         return None
     w_obj = rawrefcount.to_obj(W_Root, ref)
     if w_obj is not None:
-        return w_obj
+        if w_obj is not w_marker_deallocating:
+            return w_obj
+        type_name = rffi.charp2str(cts.cast('char*', ref.c_ob_type.c_tp_name))
+        fatalerror(
+            "*** Invalid usage of a dying CPython object ***\n"
+            "\n"
+            "cpyext, the emulation layer, detected that while it is calling\n"
+            "an object's tp_dealloc, the C code calls back a function that\n"
+            "tries to recreate the PyPy version of the object.  Usually it\n"
+            "means that tp_dealloc calls some general PyXxx() API.  It is\n"
+            "a dangerous and potentially buggy thing to do: even in CPython\n"
+            "the PyXxx() function could, in theory, cause a reference to the\n"
+            "object to be taken and stored somewhere, for an amount of time\n"
+            "exceeding tp_dealloc itself.  Afterwards, the object will be\n"
+            "freed, making that reference point to garbage.\n"
+            ">>> PyPy could contain some workaround to still work if\n"
+            "you are lucky, but it is not done so far; better fix the bug in\n"
+            "the CPython extension.\n"
+            ">>> This object is of type '%s'" % (type_name,))
 
     # This reference is not yet a real interpreter object.
     # Realize it.
@@ -209,34 +288,36 @@ def from_ref(space, ref):
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.layout.typedef).realize(space, ref)
 
-
-def debug_collect():
-    rawrefcount._collect()
-
-
-def as_pyobj(space, w_obj):
+@jit.dont_look_inside
+def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
     """
-    Returns a 'PyObject *' representing the given intepreter object.
+    Returns a 'PyObject *' representing the given interpreter object.
     This doesn't give a new reference, but the returned 'PyObject *'
     is valid at least as long as 'w_obj' is.  **To be safe, you should
     use keepalive_until_here(w_obj) some time later.**  In case of
     doubt, use the safer make_ref().
     """
+    assert not is_pyobj(w_obj)
     if w_obj is not None:
-        assert not is_pyobj(w_obj)
-        py_obj = rawrefcount.from_obj(PyObject, w_obj)
+        py_obj = w_obj._cpyext_as_pyobj(space)
         if not py_obj:
-            py_obj = create_ref(space, w_obj)
+            py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
+        #
+        # Try to crash here, instead of randomly, if we don't keep w_obj alive
+        ll_assert(py_obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY,
+                  "Bug in cpyext: The W_Root object was garbage-collected "
+                  "while being converted to PyObject.")
         return py_obj
     else:
         return lltype.nullptr(PyObject.TO)
 as_pyobj._always_inline_ = 'try'
-INTERPLEVEL_API['as_pyobj'] = as_pyobj
 
 def pyobj_has_w_obj(pyobj):
-    return rawrefcount.to_obj(W_Root, pyobj) is not None
-INTERPLEVEL_API['pyobj_has_w_obj'] = staticmethod(pyobj_has_w_obj)
+    w_obj = rawrefcount.to_obj(W_Root, pyobj)
+    return w_obj is not None and w_obj is not w_marker_deallocating
 
+def w_obj_has_pyobj(w_obj):
+    return bool(rawrefcount.from_obj(PyObject, w_obj))
 
 def is_pyobj(x):
     if x is None or isinstance(x, W_Root):
@@ -245,7 +326,6 @@ def is_pyobj(x):
         return True
     else:
         raise TypeError(repr(type(x)))
-INTERPLEVEL_API['is_pyobj'] = staticmethod(is_pyobj)
 
 class Entry(ExtRegistryEntry):
     _about_ = is_pyobj
@@ -256,87 +336,94 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
-@specialize.ll()
-def make_ref(space, obj):
-    """Increment the reference counter of the PyObject and return it.
-    Can be called with either a PyObject or a W_Root.
-    """
-    if is_pyobj(obj):
-        pyobj = rffi.cast(PyObject, obj)
-    else:
-        pyobj = as_pyobj(space, obj)
-    if pyobj:
-        assert pyobj.c_ob_refcnt > 0
+def get_pyobj_and_incref(space, w_obj, w_userdata=None, immortal=False):
+    pyobj = as_pyobj(space, w_obj, w_userdata, immortal=immortal)
+    if pyobj:  # != NULL
+        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
         pyobj.c_ob_refcnt += 1
-        if not is_pyobj(obj):
-            keepalive_until_here(obj)
+        keepalive_until_here(w_obj)
     return pyobj
-INTERPLEVEL_API['make_ref'] = make_ref
 
+def hack_for_result_often_existing_obj(space, w_obj):
+    # Equivalent to get_pyobj_and_incref() and not to make_ref():
+    # it builds a PyObject from a W_Root, but ensures that the result
+    # gets attached to the original W_Root.  This is needed to work around
+    # some obscure abuses: https://github.com/numpy/numpy/issues/9850
+    return get_pyobj_and_incref(space, w_obj)
+
+def make_ref(space, w_obj, w_userdata=None, immortal=False):
+    """Turn the W_Root into a corresponding PyObject.  You should
+    decref the returned PyObject later.  Note that it is often the
+    case, but not guaranteed, that make_ref() returns always the
+    same PyObject for the same W_Root; for example, integers.
+    """
+    assert not is_pyobj(w_obj)
+    if w_obj is not None and space.type(w_obj) is space.w_int:
+        state = space.fromcache(State)
+        intval = space.int_w(w_obj)
+        return state.ccall("PyInt_FromLong", intval)
+    return get_pyobj_and_incref(space, w_obj, w_userdata, immortal=False)
 
 @specialize.ll()
-def get_w_obj_and_decref(space, obj):
+def get_w_obj_and_decref(space, pyobj):
     """Decrement the reference counter of the PyObject and return the
-    corresponding W_Root object (so the reference count is at least
-    REFCNT_FROM_PYPY and cannot be zero).  Can be called with either
-    a PyObject or a W_Root.
+    corresponding W_Root object (so the reference count after the decref
+    is at least REFCNT_FROM_PYPY and cannot be zero).
     """
-    if is_pyobj(obj):
-        pyobj = rffi.cast(PyObject, obj)
-        w_obj = from_ref(space, pyobj)
-    else:
-        w_obj = obj
-        pyobj = as_pyobj(space, w_obj)
+    assert is_pyobj(pyobj)
+    pyobj = rffi.cast(PyObject, pyobj)
+    w_obj = from_ref(space, pyobj)
     if pyobj:
         pyobj.c_ob_refcnt -= 1
         assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
         keepalive_until_here(w_obj)
     return w_obj
-INTERPLEVEL_API['get_w_obj_and_decref'] = get_w_obj_and_decref
 
 
 @specialize.ll()
-def incref(space, obj):
-    make_ref(space, obj)
-INTERPLEVEL_API['incref'] = incref
+def incref(space, pyobj):
+    assert is_pyobj(pyobj)
+    pyobj = rffi.cast(PyObject, pyobj)
+    assert pyobj.c_ob_refcnt >= 1
+    pyobj.c_ob_refcnt += 1
 
 @specialize.ll()
-def decref(space, obj):
-    if is_pyobj(obj):
-        obj = rffi.cast(PyObject, obj)
-        if obj:
-            assert obj.c_ob_refcnt > 0
-            obj.c_ob_refcnt -= 1
-            if obj.c_ob_refcnt == 0:
-                _Py_Dealloc(space, obj)
-    else:
-        get_w_obj_and_decref(space, obj)
-INTERPLEVEL_API['decref'] = decref
-
-
-@cpython_api([PyObject], lltype.Void)
-def Py_IncRef(space, obj):
-    incref(space, obj)
-
-@cpython_api([PyObject], lltype.Void)
-def Py_DecRef(space, obj):
-    decref(space, obj)
-
-@cpython_api([PyObject], lltype.Void)
-def _Py_NewReference(space, obj):
-    obj.c_ob_refcnt = 1
-    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
-    assert isinstance(w_type, W_TypeObject)
-    get_typedescr(w_type.layout.typedef).realize(space, obj)
-
-@cpython_api([PyObject], lltype.Void)
-def _Py_Dealloc(space, obj):
+def decref(space, pyobj):
     from pypy.module.cpyext.api import generic_cpy_call
-    pto = obj.c_ob_type
-    #print >>sys.stderr, "Calling dealloc slot", pto.c_tp_dealloc, "of", obj, \
-    #      "'s type which is", rffi.charp2str(pto.c_tp_name)
-    generic_cpy_call(space, pto.c_tp_dealloc, obj)
+    assert is_pyobj(pyobj)
+    pyobj = rffi.cast(PyObject, pyobj)
+    if pyobj:
+        assert pyobj.c_ob_refcnt > 0
+        assert (pyobj.c_ob_pypy_link == 0 or
+                pyobj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY)
+        pyobj.c_ob_refcnt -= 1
+        if pyobj.c_ob_refcnt == 0:
+            state = space.fromcache(State)
+            generic_cpy_call(space, state.C._Py_Dealloc, pyobj)
+        #else:
+        #    w_obj = rawrefcount.to_obj(W_Root, ref)
+        #    if w_obj is not None:
+        #        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+
+
+@init_function
+def write_w_marker_deallocating(space):
+    if we_are_translated():
+        llptr = cast_instance_to_base_ptr(w_marker_deallocating)
+        state = space.fromcache(State)
+        state.C.set_marker(llptr)
 
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)
+
+@cpython_api([PyObject], lltype.Void)
+def Py_IncRef(space, obj):
+    # used only ifdef PYPY_DEBUG_REFCOUNT
+    if obj:
+        incref(space, obj)
+
+@cpython_api([PyObject], lltype.Void)
+def Py_DecRef(space, obj):
+    # used only ifdef PYPY_DEBUG_REFCOUNT
+    decref(space, obj)

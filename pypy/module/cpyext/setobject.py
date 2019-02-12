@@ -1,15 +1,30 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers)
-from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
+from pypy.module.cpyext.pyobject import (PyObject, PyObjectP,
     make_ref, from_ref)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.objspace.std.setobject import W_SetObject, newset
+from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, newset
 
 
 PySet_Check, PySet_CheckExact = build_type_checkers("Set")
+PyFrozenSet_Check, PyFrozenSet_CheckExact = build_type_checkers("FrozenSet")
 
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyAnySet_Check(space, w_obj):
+    """Return true if obj is a set object, a frozenset object, or an
+    instance of a subtype."""
+    return (space.isinstance_w(w_obj, space.gettypefor(W_SetObject)) or
+            space.isinstance_w(w_obj, space.gettypefor(W_FrozensetObject)))
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyAnySet_CheckExact(space, w_obj):
+    """Return true if obj is a set object or a frozenset object but
+    not an instance of a subtype."""
+    w_obj_type = space.type(w_obj)
+    return (space.is_w(w_obj_type, space.gettypefor(W_SetObject)) or 
+            space.is_w(w_obj_type, space.gettypefor(W_FrozensetObject)))
 
 @cpython_api([PyObject], PyObject)
 def PySet_New(space, w_iterable):
@@ -49,8 +64,13 @@ def PySet_Discard(space, w_s, w_obj):
     instance of set or its subtype."""
     if not PySet_Check(space, w_s):
         PyErr_BadInternalCall(space)
-    space.call_method(space.w_set, 'discard', w_s, w_obj)
-    return 0
+    try:
+        space.call_method(space.w_set, 'remove', w_s, w_obj)
+    except OperationError as e:
+        if e.match(space, space.w_KeyError):
+            return 0
+        raise
+    return 1
 
 
 @cpython_api([PyObject], PyObject)
@@ -67,7 +87,7 @@ def PySet_Clear(space, w_set):
     space.call_method(space.w_set, 'clear', w_set)
     return 0
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PySet_GET_SIZE(space, w_s):
     """Macro form of PySet_Size() without error checking."""
     return space.int_w(space.len(w_s))
@@ -77,9 +97,8 @@ def PySet_Size(space, ref):
     """Return the length of a set or frozenset object. Equivalent to
     len(anyset).  Raises a PyExc_SystemError if anyset is not a set, frozenset,
     or an instance of a subtype."""
-    if not PySet_Check(space, ref):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected set object"))
+    if not PyAnySet_Check(space, ref):
+        raise oefmt(space.w_TypeError, "expected set object")
     return PySet_GET_SIZE(space, ref)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
@@ -91,3 +110,20 @@ def PySet_Contains(space, w_obj, w_key):
     set, frozenset, or an instance of a subtype."""
     w_res = space.contains(w_obj, w_key)
     return space.int_w(w_res)
+
+@cpython_api([PyObject], PyObject)
+def PyFrozenSet_New(space, w_iterable):
+    """Return a new frozenset containing objects returned by the iterable.
+    The iterable may be NULL to create a new empty frozenset.  Return the new
+    set on success or NULL on failure.  Raise TypeError if iterable is
+    not actually iterable.
+
+    Now guaranteed to return a brand-new frozenset.  Formerly,
+    frozensets of zero-length were a singleton.  This got in the way of
+    building-up new frozensets with PySet_Add()."""
+    if w_iterable is None:
+        return space.call_function(space.w_frozenset)
+    else:
+        return space.call_function(space.w_frozenset, w_iterable)
+
+

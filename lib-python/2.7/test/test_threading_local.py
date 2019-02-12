@@ -197,7 +197,7 @@ class ThreadLocalTest(unittest.TestCase, BaseLocalTest):
         wr = weakref.ref(x)
         del x
         gc.collect()
-        self.assertIs(wr(), None)
+        self.assertIsNone(wr())
 
 class PyThreadingLocalTest(unittest.TestCase, BaseLocalTest):
     _local = _threading_local.local

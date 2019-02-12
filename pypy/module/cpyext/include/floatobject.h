@@ -3,9 +3,21 @@
 
 #ifndef Py_FLOATOBJECT_H
 #define Py_FLOATOBJECT_H
+
+#ifdef _MSC_VER
+#include <math.h>
+#include <float.h>
+#define copysign _copysign
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct {
+    PyObject_HEAD
+    double ob_fval;
+} PyFloatObject;
 
 #define PyFloat_STR_PRECISION 12
 
@@ -19,6 +31,11 @@ extern "C" {
         } else {                                                \
                 return PyFloat_FromDouble(-Py_HUGE_VAL);        \
         } while(0)
+
+#define PyFloat_Check(op) \
+		 _PyPy_Type_FastSubclass((op)->ob_type, Py_TPPYPYFLAGS_FLOAT_SUBCLASS)
+#define PyFloat_CheckExact(op) ((op)->ob_type == &PyFloat_Type)
+
 
 #ifdef __cplusplus
 }

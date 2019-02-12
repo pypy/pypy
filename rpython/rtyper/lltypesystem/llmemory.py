@@ -7,6 +7,7 @@
 import weakref
 from rpython.annotator.bookkeeper import analyzer_for
 from rpython.annotator.model import SomeInteger, SomeObject, SomeString, s_Bool
+from rpython.annotator.model import SomeBool
 from rpython.rlib.objectmodel import Symbolic, specialize
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lltype import SomePtr
@@ -304,8 +305,15 @@ class ArrayItemsOffset(AddressOffset):
         return cast_ptr_to_adr(p)
 
     def raw_memcopy(self, srcadr, dstadr):
-        # should really copy the length field, but we can't
-        pass
+        # copy the length field, if we can
+        srclen = srcadr.ptr._obj.getlength()
+        dstlen = dstadr.ptr._obj.getlength()
+        if dstlen != srclen:
+            assert dstlen > srclen, "can't increase the length"
+            # a decrease in length occurs in the GC tests when copying a STR:
+            # the copy is initially allocated with really one extra char,
+            # the 'extra_item_after_alloc', and must be fixed.
+            dstadr.ptr._obj.shrinklength(srclen)
 
 
 class ArrayLengthOffset(AddressOffset):
@@ -377,7 +385,6 @@ class GCHeaderAntiOffset(AddressOffset):
 def _sizeof_none(TYPE):
     assert not TYPE._is_varsize()
     return ItemOffset(TYPE)
-_sizeof_none._annspecialcase_ = 'specialize:memo'
 
 @specialize.memo()
 def _internal_array_field(TYPE):
@@ -390,11 +397,23 @@ def _sizeof_int(TYPE, n):
     else:
         raise Exception("don't know how to take the size of a %r"%TYPE)
 
+@specialize.memo()
+def extra_item_after_alloc(ARRAY):
+    assert isinstance(ARRAY, lltype.Array)
+    return ARRAY._hints.get('extra_item_after_alloc', 0)
+
 @specialize.arg(0)
 def sizeof(TYPE, n=None):
+    """Return the symbolic size of TYPE.
+    For a Struct with no varsized part, it must be called with n=None.
+    For an Array or a Struct with a varsized part, it is the number of items.
+    There is a special case to return 1 more than requested if the array
+    has the hint 'extra_item_after_alloc' set to 1.
+    """
     if n is None:
         return _sizeof_none(TYPE)
     elif isinstance(TYPE, lltype.Array):
+        n += extra_item_after_alloc(TYPE)
         return itemoffsetof(TYPE) + _sizeof_none(TYPE.OF) * n
     else:
         return _sizeof_int(TYPE, n)
@@ -918,14 +937,15 @@ class _gctransformed_wref(lltype._container):
 
 # ____________________________________________________________
 
-def raw_malloc(size):
+def raw_malloc(size, zero=False):
     if not isinstance(size, AddressOffset):
         raise NotImplementedError(size)
-    return size._raw_malloc([], zero=False)
+    return size._raw_malloc([], zero=zero)
 
 @analyzer_for(raw_malloc)
-def ann_raw_malloc(s_size):
+def ann_raw_malloc(s_size, s_zero=None):
     assert isinstance(s_size, SomeInteger)  # XXX add noneg...?
+    assert s_zero is None or isinstance(s_zero, SomeBool)
     return SomeAddress()
 
 
@@ -1036,7 +1056,7 @@ def _reccopy(source, dest):
                 _reccopy(subsrc, subdst)
             else:
                 # this is a hack XXX de-hack this
-                llvalue = source._obj.getitem(i, uninitialized_ok=True)
+                llvalue = source._obj.getitem(i, uninitialized_ok=2)
                 if not isinstance(llvalue, lltype._uninitialized):
                     dest._obj.setitem(i, llvalue)
     elif isinstance(T, lltype.Struct):

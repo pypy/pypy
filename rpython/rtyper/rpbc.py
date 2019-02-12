@@ -16,7 +16,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper.lltypesystem.lltype import (
     typeOf, Void, ForwardReference, Struct, Bool, Char, Ptr, malloc, nullptr,
-    Array, Signed, cast_pointer, getfunctionptr)
+    Array, Signed, cast_pointer, getfunctionptr, cast_ptr_to_int)
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
@@ -243,7 +243,7 @@ class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
         fields = []
         for row in self.uniquerows:
             fields.append((row.attrname, row.fntype))
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'immutable': True, 'static_immutable': True}}
         return Ptr(Struct('specfunc', *fields, **kwds))
 
     def create_specfunc(self):
@@ -362,9 +362,9 @@ class FunctionRepr(FunctionReprBase):
     def get_concrete_llfn(self, s_pbc, args_s, op):
         bk = self.rtyper.annotator.bookkeeper
         funcdesc, = s_pbc.descriptions
-        args = simple_args(args_s)
         with bk.at_position(None):
-            graph = funcdesc.get_graph(args, op)
+            argspec = simple_args(args_s)
+            graph = funcdesc.get_graph(argspec, op)
         llfn = self.rtyper.getcallable(graph)
         return inputconst(typeOf(llfn), llfn)
 
@@ -414,7 +414,8 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         if self.s_pbc.can_be_None:
             self.descriptions.insert(0, None)
         POINTER_TABLE = Array(self.pointer_repr.lowleveltype,
-                              hints={'nolength': True})
+                              hints={'nolength': True, 'immutable': True,
+                                     'static_immutable': True})
         pointer_table = malloc(POINTER_TABLE, len(self.descriptions),
                                immortal=True)
         for i, desc in enumerate(self.descriptions):
@@ -431,9 +432,13 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         if isinstance(value, types.MethodType) and value.im_self is None:
             value = value.im_func   # unbound method -> bare function
         if value is None:
+            assert self.descriptions[0] is None
             return chr(0)
         funcdesc = self.rtyper.annotator.bookkeeper.getdesc(value)
         return self.convert_desc(funcdesc)
+
+    def special_uninitialized_value(self):
+        return chr(0xFF)
 
     def dispatcher(self, shape, index, argtypes, resulttype):
         key = shape, index, tuple(argtypes), resulttype
@@ -540,12 +545,28 @@ class __extend__(pairtype(FunctionsPBCRepr, SmallFunctionSetPBCRepr)):
         ll_compress = compression_function(r_set)
         return llops.gendirectcall(ll_compress, v)
 
+class __extend__(pairtype(FunctionReprBase, FunctionReprBase)):
+    def rtype_is_((robj1, robj2), hop):
+        if hop.s_result.is_constant():
+            return inputconst(Bool, hop.s_result.const)
+        s_pbc = annmodel.unionof(robj1.s_pbc, robj2.s_pbc)
+        r_pbc = hop.rtyper.getrepr(s_pbc)
+        v1, v2 = hop.inputargs(r_pbc, r_pbc)
+        assert v1.concretetype == v2.concretetype
+        if v1.concretetype == Char:
+            return hop.genop('char_eq', [v1, v2], resulttype=Bool)
+        elif isinstance(v1.concretetype, Ptr):
+            return hop.genop('ptr_eq', [v1, v2], resulttype=Bool)
+        else:
+            raise TyperError("unknown type %r" % (v1.concretetype,))
+
 
 def conversion_table(r_from, r_to):
     if r_to in r_from._conversion_tables:
         return r_from._conversion_tables[r_to]
     else:
-        t = malloc(Array(Char, hints={'nolength': True}),
+        t = malloc(Array(Char, hints={'nolength': True, 'immutable': True,
+                                      'static_immutable': True}),
                    len(r_from.descriptions), immortal=True)
         l = []
         for i, d in enumerate(r_from.descriptions):
@@ -558,7 +579,7 @@ def conversion_table(r_from, r_to):
         if l == range(len(r_from.descriptions)):
             r = None
         else:
-            r = inputconst(Ptr(Array(Char, hints={'nolength': True})), t)
+            r = inputconst(typeOf(t), t)
         r_from._conversion_tables[r_to] = r
         return r
 
@@ -627,6 +648,9 @@ class SingleFrozenPBCRepr(Repr):
     def ll_str(self, x):
         return self.getstr()
 
+    def get_ll_eq_function(self):
+        return None
+
 
 class MultipleFrozenPBCReprBase(CanBeNull, Repr):
     def convert_const(self, pbc):
@@ -635,11 +659,14 @@ class MultipleFrozenPBCReprBase(CanBeNull, Repr):
         frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
         return self.convert_desc(frozendesc)
 
+    def get_ll_eq_function(self):
+        return None
+
 class MultipleUnrelatedFrozenPBCRepr(MultipleFrozenPBCReprBase):
     """For a SomePBC of frozen PBCs that have no common access set.
     The only possible operation on such a thing is comparison with 'is'."""
     lowleveltype = llmemory.Address
-    EMPTY = Struct('pbc', hints={'immutable': True})
+    EMPTY = Struct('pbc', hints={'immutable': True, 'static_immutable': True})
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
@@ -700,7 +727,7 @@ class MultipleFrozenPBCRepr(MultipleFrozenPBCReprBase):
 
     def _setup_repr(self):
         llfields = self._setup_repr_fields()
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'immutable': True, 'static_immutable': True}}
         self.pbc_type.become(Struct('pbc', *llfields, **kwds))
 
     def create_instance(self):
@@ -974,7 +1001,7 @@ class ClassesPBCRepr(Repr):
                 classdef.has_no_attrs()):
                 # special case for instanciating simple built-in
                 # exceptions: always return the same prebuilt instance,
-                # and ignore any arguments passed to the contructor.
+                # and ignore any arguments passed to the constructor.
                 r_instance = rclass.getinstancerepr(hop.rtyper, classdef)
                 example = r_instance.get_reusable_prebuilt_instance()
                 hop.exception_cannot_occur()
@@ -1047,10 +1074,7 @@ class ClassesPBCRepr(Repr):
 
 
 def ll_cls_hash(cls):
-    if not cls:
-        return 0
-    else:
-        return cls.hash
+    return cast_ptr_to_int(cls)
 
 class __extend__(pairtype(ClassesPBCRepr, rclass.ClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):

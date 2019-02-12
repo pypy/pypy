@@ -1,11 +1,8 @@
-import py
-
 from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 from rpython.translator.backendopt import graphanalyze
 
-log = py.log.Producer("canraise")
-py.log.setconsumer("canraise", ansi_log)
+log = AnsiLogger("canraise")
 
 
 class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):

@@ -4,7 +4,7 @@ python builtin open()
 """
 
 import os, stat, errno, sys
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rgc
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder
@@ -173,10 +173,10 @@ def create_file(filename, mode="r", buffering=-1):
 
 def create_fdopen_rfile(fd, mode="r", buffering=-1):
     newmode = _sanitize_mode(mode)
-    rposix.validate_fd(fd)
     ll_mode = rffi.str2charp(newmode)
     try:
-        ll_file = c_fdopen(fd, ll_mode)
+        with rposix.FdValidator(fd):
+            ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
             errno = rposix.get_saved_errno()
             raise OSError(errno, os.strerror(errno))
@@ -294,6 +294,7 @@ class RFile(object):
         if ll_file:
             # double close is allowed
             self._ll_file = lltype.nullptr(FILEP.TO)
+            rgc.may_ignore_finalizer(self)
             do_close = self._close2[0]
             try:
                 if do_close:

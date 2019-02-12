@@ -9,7 +9,7 @@ getcompiled = test_typed.TestTypedTestCase().getcompiled
 getcompiledopt = test_backendoptimized.TestTypedOptimizedTestCase().getcompiled
 
 
-class TestException(Exception):
+class InTestException(Exception):
     pass
 
 class MyException(Exception):
@@ -18,7 +18,7 @@ class MyException(Exception):
 def test_simple1():
     def raise_(i):
         if i == 0:
-            raise TestException()
+            raise InTestException()
         elif i == 1:
             raise MyException()
         else:
@@ -29,7 +29,7 @@ def test_simple1():
             b = raise_(i) + 12
             c = raise_(i) + 13
             return a+b+c
-        except TestException:
+        except InTestException:
             return 7
         except MyException:
             return 123
@@ -142,7 +142,7 @@ def test_reraise_exception():
             raise_something(n)
         except A:
             raise     # go through
-        except Exception, e:
+        except Exception as e:
             return 100
         return -1
 

@@ -227,6 +227,45 @@ class AppTestReversed:
         assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
         raises(TypeError, reversed, reversed("hello"))
 
+    def test_reversed_user_type(self):
+        class X(object):
+            def __getitem__(self, index):
+                return str(index)
+            def __len__(self):
+                return 5
+        assert list(reversed(X())) == ["4", "3", "2", "1", "0"]
+
+    def test_reversed_not_for_mapping(self):
+        raises(TypeError, reversed, {})
+        raises(TypeError, reversed, {2: 3})
+        assert not hasattr(dict, '__reversed__')
+        raises(TypeError, reversed, int.__dict__)
+
+    def test_reversed_type_with_no_len(self):
+        class X(object):
+            def __getitem__(self, key):
+                raise ValueError
+        raises(TypeError, reversed, X())
+
+    def test_reversed_length_hint(self):
+        lst = [1, 2, 3]
+        r = reversed(lst)
+        assert r.__length_hint__() == 3
+        assert next(r) == 3
+        assert r.__length_hint__() == 2
+        lst.pop()
+        assert r.__length_hint__() == 2
+        lst.pop()
+        assert r.__length_hint__() == 0
+        raises(StopIteration, next, r)
+        #
+        r = reversed(lst)
+        assert r.__length_hint__() == 1
+        assert next(r) == 1
+        assert r.__length_hint__() == 0
+        raises(StopIteration, next, r)
+        assert r.__length_hint__() == 0
+
 
 class AppTestApply:
     def test_apply(self):
@@ -296,6 +335,11 @@ class AppTestMinMax:
         assert min([1, 2, 3]) == 1
         raises(TypeError, min, 1, 2, bar=2)
         raises(TypeError, min, 1, 2, key=lambda x: x, bar=2)
+        assert type(min(1, 1.0)) is int
+        assert type(min(1.0, 1)) is float
+        assert type(min(1, 1.0, 1L)) is int
+        assert type(min(1.0, 1L, 1)) is float
+        assert type(min(1L, 1, 1.0)) is long
 
     def test_max(self):
         assert max(1, 2) == 2
@@ -303,3 +347,42 @@ class AppTestMinMax:
         assert max([1, 2, 3]) == 3
         raises(TypeError, max, 1, 2, bar=2)
         raises(TypeError, max, 1, 2, key=lambda x: x, bar=2)
+        assert type(max(1, 1.0)) is int
+        assert type(max(1.0, 1)) is float
+        assert type(max(1, 1.0, 1L)) is int
+        assert type(max(1.0, 1L, 1)) is float
+        assert type(max(1L, 1, 1.0)) is long
+
+    def test_max_list_and_key(self):
+        assert max(["100", "50", "30", "-200"], key=int) == "100"
+        assert max("100", "50", "30", "-200", key=int) == "100"
+
+
+try:
+    from hypothesis import given, strategies, example
+except ImportError:
+    pass
+else:
+    @given(lst=strategies.lists(strategies.integers()))
+    def test_map_hypothesis(space, lst):
+        print lst
+        w_lst = space.appexec([space.wrap(lst[:])], """(lst):
+            def change(n):
+                if n & 3 == 1:
+                    lst.pop(0)
+                elif n & 3 == 2:
+                    lst.append(100)
+                return n * 2
+            return map(change, lst)
+        """)
+        expected = []
+        i = 0
+        while i < len(lst):
+            n = lst[i]
+            if n & 3 == 1:
+                lst.pop(0)
+            elif n & 3 == 2:
+                lst.append(100)
+            expected.append(n * 2)
+            i += 1
+        assert space.unwrap(w_lst) == expected

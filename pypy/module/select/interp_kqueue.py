@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
@@ -108,19 +108,21 @@ syscall_kevent = rffi.llexternal(
 
 class W_Kqueue(W_Root):
     def __init__(self, space, kqfd):
+        self.space = space
         self.kqfd = kqfd
+        self.register_finalizer(space)
 
     def descr__new__(space, w_subtype):
         kqfd = syscall_kqueue()
         if kqfd < 0:
             raise exception_from_saved_errno(space, space.w_IOError)
-        return space.wrap(W_Kqueue(space, kqfd))
+        return W_Kqueue(space, kqfd)
 
     @unwrap_spec(fd=int)
     def descr_fromfd(space, w_cls, fd):
-        return space.wrap(W_Kqueue(space, fd))
+        return W_Kqueue(space, fd)
 
-    def __del__(self):
+    def _finalize_(self):
         self.close()
 
     def get_closed(self):
@@ -131,17 +133,19 @@ class W_Kqueue(W_Root):
             kqfd = self.kqfd
             self.kqfd = -1
             socketclose_no_errno(kqfd)
+            self.may_unregister_rpython_finalizer(self.space)
 
     def check_closed(self, space):
         if self.get_closed():
-            raise OperationError(space.w_ValueError, space.wrap("I/O operation on closed kqueue fd"))
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on closed kqueue fd")
 
     def descr_get_closed(self, space):
-        return space.wrap(self.get_closed())
+        return space.newbool(self.get_closed())
 
     def descr_fileno(self, space):
         self.check_closed(space)
-        return space.wrap(self.kqfd)
+        return space.newint(self.kqfd)
 
     def descr_close(self, space):
         self.close()
@@ -310,44 +314,45 @@ class W_Kevent(W_Root):
             elif op == "ne":
                 return True
             else:
-                raise OperationError(space.w_TypeError, space.wrap('cannot compare kevent to incompatible type'))
+                raise oefmt(space.w_TypeError,
+                            "cannot compare kevent to incompatible type")
         return self._compare_all_fields(space.interp_w(W_Kevent, other), op)
 
     def descr__eq__(self, space, w_other):
-        return space.wrap(self.compare_all_fields(space, w_other, "eq"))
+        return space.newbool(self.compare_all_fields(space, w_other, "eq"))
 
     def descr__ne__(self, space, w_other):
-        return space.wrap(not self.compare_all_fields(space, w_other, "eq"))
+        return space.newbool(not self.compare_all_fields(space, w_other, "eq"))
 
     def descr__le__(self, space, w_other):
-        return space.wrap(not self.compare_all_fields(space, w_other, "gt"))
+        return space.newbool(not self.compare_all_fields(space, w_other, "gt"))
 
     def descr__lt__(self, space, w_other):
-        return space.wrap(self.compare_all_fields(space, w_other, "lt"))
+        return space.newbool(self.compare_all_fields(space, w_other, "lt"))
 
     def descr__ge__(self, space, w_other):
-        return space.wrap(not self.compare_all_fields(space, w_other, "lt"))
+        return space.newbool(not self.compare_all_fields(space, w_other, "lt"))
 
     def descr__gt__(self, space, w_other):
-        return space.wrap(self.compare_all_fields(space, w_other, "gt"))
+        return space.newbool(self.compare_all_fields(space, w_other, "gt"))
 
     def descr_get_ident(self, space):
-        return space.wrap(self.ident)
+        return space.newint(self.ident)
 
     def descr_get_filter(self, space):
-        return space.wrap(self.filter)
+        return space.newint(self.filter)
 
     def descr_get_flags(self, space):
-        return space.wrap(self.flags)
+        return space.newint(self.flags)
 
     def descr_get_fflags(self, space):
-        return space.wrap(self.fflags)
+        return space.newint(self.fflags)
 
     def descr_get_data(self, space):
-        return space.wrap(self.data)
+        return space.newint(self.data)
 
     def descr_get_udata(self, space):
-        return space.wrap(rffi.cast(rffi.UINTPTR_T, self.udata))
+        return space.newint(rffi.cast(rffi.UINTPTR_T, self.udata))
 
 
 W_Kevent.typedef = TypeDef("select.kevent",

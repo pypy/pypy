@@ -13,7 +13,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                  PyObject *empty_string = PyString_FromString("");
                  PyObject *empty_tuple = PyTuple_New(0);
                  PyCodeObject *py_code;
-                 PyFrameObject *py_frame;
+                 PyFrameObject *py_frame = NULL;
 
                  py_code = PyCode_New(
                      0,            /*int argcount,*/
@@ -57,15 +57,17 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                  Py_XDECREF(py_frame);
                  return NULL;
              """),
-            ])
+            ], prologue='#include "frameobject.h"')
         exc = raises(ValueError, module.raise_exception)
-        frame = exc.traceback.tb_frame
-        assert frame.f_code.co_filename == "filename"
-        assert frame.f_code.co_name == "funcname"
+        exc.value[0] == 'error message'
+        if not self.runappdirect:
+            frame = exc.traceback.tb_frame
+            assert frame.f_code.co_filename == "filename"
+            assert frame.f_code.co_name == "funcname"
 
-        # Cython does not work on CPython as well...
-        assert exc.traceback.tb_lineno == 42 # should be 48
-        assert frame.f_lineno == 42
+            # Cython does not work on CPython as well...
+            assert exc.traceback.tb_lineno == 42 # should be 48
+            assert frame.f_lineno == 42
 
     def test_traceback_check(self):
         module = self.import_extension('foo', [
@@ -73,7 +75,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """
                  int check;
                  PyObject *type, *value, *tb;
-                 PyObject *ret = PyRun_String("XXX", Py_eval_input, 
+                 PyObject *ret = PyRun_String("XXX", Py_eval_input,
                                               Py_None, Py_None);
                  if (ret) {
                      Py_DECREF(ret);

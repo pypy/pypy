@@ -3,7 +3,10 @@ from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
-import os, sys
+
+from rpython.rlib.objectmodel import not_rpython
+
+import sys
 
 class MixedModule(Module):
     applevel_name = None
@@ -15,16 +18,17 @@ class MixedModule(Module):
     lazy = False
     submodule_name = None
 
+    @not_rpython
     def __init__(self, space, w_name):
-        """ NOT_RPYTHON """
         Module.__init__(self, space, w_name)
         self.lazy = True
         self.__class__.buildloaders()
         self.loaders = self.loaders.copy()    # copy from the class to the inst
         self.submodules_w = []
 
+    @not_rpython
     def install(self):
-        """NOT_RPYTHON: install this module, and it's submodules into
+        """install this module, and it's submodules into
         space.builtin_modules"""
         Module.install(self)
         if hasattr(self, "submodules"):
@@ -33,7 +37,7 @@ class MixedModule(Module):
             for sub_name, module_cls in self.submodules.iteritems():
                 if module_cls.submodule_name is None:
                     module_cls.submodule_name = sub_name
-                module_name = space.wrap("%s.%s" % (name, sub_name))
+                module_name = space.newtext("%s.%s" % (name, sub_name))
                 m = module_cls(space, module_name)
                 m.install()
                 self.submodules_w.append(m)
@@ -48,8 +52,8 @@ class MixedModule(Module):
             space.call_method(self.w_dict, 'update', self.w_initialdict)
 
         for w_submodule in self.submodules_w:
-            name = space.str0_w(w_submodule.w_name)
-            space.setitem(self.w_dict, space.wrap(name.split(".")[-1]), w_submodule)
+            name = space.text0_w(w_submodule.w_name)
+            space.setitem(self.w_dict, space.newtext(name.split(".")[-1]), w_submodule)
             space.getbuiltinmodule(name)
 
         if self.w_initialdict is None:
@@ -60,21 +64,20 @@ class MixedModule(Module):
     def save_module_content_for_future_reload(self):
         self.w_initialdict = self.space.call_method(self.w_dict, 'items')
 
-
+    @classmethod
+    @not_rpython
     def get_applevel_name(cls):
-        """ NOT_RPYTHON """
         if cls.applevel_name is not None:
             return cls.applevel_name
         else:
             pkgroot = cls.__module__
             return pkgroot.split('.')[-1]
-    get_applevel_name = classmethod(get_applevel_name)
 
     def get(self, name):
         space = self.space
         w_value = self.getdictvalue(space, name)
         if w_value is None:
-            raise OperationError(space.w_AttributeError, space.wrap(name))
+            raise OperationError(space.w_AttributeError, space.newtext(name))
         return w_value
 
     def call(self, name, *args_w):
@@ -103,7 +106,7 @@ class MixedModule(Module):
             # be normal Functions to get the correct binding behaviour
             func = w_value
             if (isinstance(func, Function) and
-                type(func) is not BuiltinFunction):
+                    type(func) is not BuiltinFunction):
                 try:
                     bltin = func._builtinversion_
                 except AttributeError:
@@ -111,10 +114,9 @@ class MixedModule(Module):
                     bltin.w_module = self.w_name
                     func._builtinversion_ = bltin
                     bltin.name = name
-                w_value = space.wrap(bltin)
+                w_value = bltin
             space.setitem(self.w_dict, w_name, w_value)
             return w_value
-
 
     def getdict(self, space):
         if self.lazy:
@@ -131,8 +133,9 @@ class MixedModule(Module):
         self.startup_called = False
         self._frozen = True
 
+    @classmethod
+    @not_rpython
     def buildloaders(cls):
-        """ NOT_RPYTHON """
         if not hasattr(cls, 'loaders'):
             # build a constant dictionary out of
             # applevel/interplevel definitions
@@ -149,31 +152,29 @@ class MixedModule(Module):
             if '__doc__' not in loaders:
                 loaders['__doc__'] = cls.get__doc__
 
-    buildloaders = classmethod(buildloaders)
-
     def extra_interpdef(self, name, spec):
         cls = self.__class__
         pkgroot = cls.__module__
         loader = getinterpevalloader(pkgroot, spec)
         space = self.space
         w_obj = loader(space)
-        space.setattr(space.wrap(self), space.wrap(name), w_obj)
+        space.setattr(self, space.newtext(name), w_obj)
 
+    @classmethod
     def get__doc__(cls, space):
-        return space.wrap(cls.__doc__)
-    get__doc__ = classmethod(get__doc__)
+        return space.newtext_or_none(cls.__doc__)
 
 
+@not_rpython
 def getinterpevalloader(pkgroot, spec):
-    """ NOT_RPYTHON """
     def ifileloader(space):
-        d = {'space' : space}
+        d = {'space':space}
         # EVIL HACK (but it works, and this is not RPython :-)
         while 1:
             try:
                 value = eval(spec, d)
-            except NameError, ex:
-                name = ex.args[0].split("'")[1] # super-Evil
+            except NameError as ex:
+                name = ex.args[0].split("'")[1]  # super-Evil
                 if name in d:
                     raise   # propagate the NameError
                 try:
@@ -189,7 +190,7 @@ def getinterpevalloader(pkgroot, spec):
             else:
                 #print spec, "->", value
                 if hasattr(value, 'func_code'):  # semi-evil
-                    return space.wrap(gateway.interp2app(value))
+                    return gateway.interp2app(value).get_function(space)
 
                 try:
                     is_type = issubclass(value, W_Root)  # pseudo-evil
@@ -205,8 +206,8 @@ def getinterpevalloader(pkgroot, spec):
     return ifileloader
 
 applevelcache = {}
+@not_rpython
 def getappfileloader(pkgroot, appname, spec):
-    """ NOT_RPYTHON """
     # hum, it's a bit more involved, because we usually
     # want the import at applevel
     modname, attrname = spec.split('.')

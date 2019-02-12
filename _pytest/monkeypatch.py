@@ -1,7 +1,12 @@
 """ monkeypatching and mocking functionality.  """
 
 import os, sys
+import re
+
 from py.builtin import _basestring
+
+RE_IMPORT_ERROR_NAME = re.compile("^No module named (.*)$")
+
 
 def pytest_funcarg__monkeypatch(request):
     """The returned ``monkeypatch`` funcarg provides these
@@ -26,50 +31,79 @@ def pytest_funcarg__monkeypatch(request):
     return mpatch
 
 
+def resolve(name):
+    # simplified from zope.dottedname
+    parts = name.split('.')
 
-def derive_importpath(import_path):
-    import pytest
+    used = parts.pop(0)
+    found = __import__(used)
+    for part in parts:
+        used += '.' + part
+        try:
+            found = getattr(found, part)
+        except AttributeError:
+            pass
+        else:
+            continue
+        # we use explicit un-nesting of the handling block in order
+        # to avoid nested exceptions on python 3
+        try:
+            __import__(used)
+        except ImportError as ex:
+            # str is used for py2 vs py3
+            expected = str(ex).split()[-1]
+            if expected == used:
+                raise
+            else:
+                raise ImportError(
+                    'import error in %s: %s' % (used, ex)
+                )
+        found = annotated_getattr(found, part, used)
+    return found
+
+
+def annotated_getattr(obj, name, ann):
+    try:
+        obj = getattr(obj, name)
+    except AttributeError:
+        raise AttributeError(
+                '%r object at %s has no attribute %r' % (
+                    type(obj).__name__, ann, name
+                )
+        )
+    return obj
+
+
+def derive_importpath(import_path, raising):
     if not isinstance(import_path, _basestring) or "." not in import_path:
         raise TypeError("must be absolute import path string, not %r" %
                         (import_path,))
-    rest = []
-    target = import_path
-    while target:
-        try:
-            obj = __import__(target, None, None, "__doc__")
-        except ImportError:
-            if "." not in target:
-                __tracebackhide__ = True
-                pytest.fail("could not import any sub part: %s" %
-                            import_path)
-            target, name = target.rsplit(".", 1)
-            rest.append(name)
-        else:
-            assert rest
-            try:
-                while len(rest) > 1:
-                    attr = rest.pop()
-                    obj = getattr(obj, attr)
-                attr = rest[0]
-                getattr(obj, attr)
-            except AttributeError:
-                __tracebackhide__ = True
-                pytest.fail("object %r has no attribute %r" % (obj, attr))
-            return attr, obj
+    module, attr = import_path.rsplit('.', 1)
+    target = resolve(module)
+    if raising:
+        annotated_getattr(target, attr, ann=module)
+    return attr, target
 
 
+class Notset:
+    def __repr__(self):
+        return "<notset>"
 
-notset = object()
+
+notset = Notset()
+
 
 class monkeypatch:
-    """ object keeping a record of setattr/item/env/syspath changes. """
+    """ Object keeping a record of setattr/item/env/syspath changes. """
+
     def __init__(self):
         self._setattr = []
         self._setitem = []
         self._cwd = None
+        self._savesyspath = None
 
     def setattr(self, target, name, value=notset, raising=True):
-        """ set attribute value on target, memorizing the old value.
+        """ Set attribute value on target, memorizing the old value.
         By default raise AttributeError if the attribute did not exist.
 
         For convenience you can specify a string as ``target`` which
@@ -88,31 +122,31 @@ class monkeypatch:
         if value is notset:
             if not isinstance(target, _basestring):
                 raise TypeError("use setattr(target, name, value) or "
-                   "setattr(target, value) with target being a dotted "
-                   "import string")
+                                "setattr(target, value) with target being a dotted "
+                                "import string")
             value = name
-            name, target = derive_importpath(target)
+            name, target = derive_importpath(target, raising)
 
         oldval = getattr(target, name, notset)
         if raising and oldval is notset:
-            raise AttributeError("%r has no attribute %r" %(target, name))
+            raise AttributeError("%r has no attribute %r" % (target, name))
 
         # avoid class descriptors like staticmethod/classmethod
         if inspect.isclass(target):
             oldval = target.__dict__.get(name, notset)
-        self._setattr.insert(0, (target, name, oldval))
+        self._setattr.append((target, name, oldval))
         setattr(target, name, value)
 
     def delattr(self, target, name=notset, raising=True):
-        """ delete attribute ``name`` from ``target``, by default raise
+        """ Delete attribute ``name`` from ``target``, by default raise
         AttributeError it the attribute did not previously exist.
 
         If no ``name`` is specified and ``target`` is a string
         it will be interpreted as a dotted import path with the
         last part being the attribute name.
 
-        If raising is set to false, the attribute is allowed to not
-        pre-exist.
+        If ``raising`` is set to False, no exception will be raised if the
+        attribute is missing.
         """
         __tracebackhide__ = True
         if name is notset:
@@ -120,32 +154,35 @@ class monkeypatch:
                 raise TypeError("use delattr(target, name) or "
                                 "delattr(target) with target being a dotted "
                                 "import string")
-            name, target = derive_importpath(target)
+            name, target = derive_importpath(target, raising)
 
         if not hasattr(target, name):
             if raising:
                 raise AttributeError(name)
         else:
-            self._setattr.insert(0, (target, name,
-                                     getattr(target, name, notset)))
+            self._setattr.append((target, name, getattr(target, name, notset)))
             delattr(target, name)
 
     def setitem(self, dic, name, value):
-        """ set dictionary entry ``name`` to value. """
-        self._setitem.insert(0, (dic, name, dic.get(name, notset)))
+        """ Set dictionary entry ``name`` to value. """
+        self._setitem.append((dic, name, dic.get(name, notset)))
         dic[name] = value
 
     def delitem(self, dic, name, raising=True):
-        """ delete ``name`` from dict, raise KeyError if it doesn't exist."""
+        """ Delete ``name`` from dict. Raise KeyError if it doesn't exist.
+
+        If ``raising`` is set to False, no exception will be raised if the
+        key is missing.
+        """
         if name not in dic:
             if raising:
                 raise KeyError(name)
         else:
-            self._setitem.insert(0, (dic, name, dic.get(name, notset)))
+            self._setitem.append((dic, name, dic.get(name, notset)))
             del dic[name]
 
     def setenv(self, name, value, prepend=None):
-        """ set environment variable ``name`` to ``value``.  if ``prepend``
+        """ Set environment variable ``name`` to ``value``.  If ``prepend``
         is a character, read the current environment variable value
         and prepend the ``value`` adjoined with the ``prepend`` character."""
         value = str(value)
@@ -154,18 +191,23 @@ class monkeypatch:
         self.setitem(os.environ, name, value)
 
     def delenv(self, name, raising=True):
-        """ delete ``name`` from environment, raise KeyError it not exists."""
+        """ Delete ``name`` from the environment. Raise KeyError it does not
+        exist.
+
+        If ``raising`` is set to False, no exception will be raised if the
+        environment variable is missing.
+        """
         self.delitem(os.environ, name, raising=raising)
 
     def syspath_prepend(self, path):
-        """ prepend ``path`` to ``sys.path`` list of import locations. """
-        if not hasattr(self, '_savesyspath'):
+        """ Prepend ``path`` to ``sys.path`` list of import locations. """
+        if self._savesyspath is None:
             self._savesyspath = sys.path[:]
         sys.path.insert(0, str(path))
 
     def chdir(self, path):
-        """ change the current working directory to the specified path
-        path can be a string or a py.path.local object
+        """ Change the current working directory to the specified path.
+        Path can be a string or a py.path.local object.
         """
         if self._cwd is None:
             self._cwd = os.getcwd()
@@ -175,27 +217,37 @@ class monkeypatch:
             os.chdir(path)
 
     def undo(self):
-        """ undo previous changes.  This call consumes the
-        undo stack.  Calling it a second time has no effect unless
-        you  do more monkeypatching after the undo call."""
-        for obj, name, value in self._setattr:
+        """ Undo previous changes.  This call consumes the
+        undo stack. Calling it a second time has no effect unless
+        you do more monkeypatching after the undo call.
+        
+        There is generally no need to call `undo()`, since it is
+        called automatically during tear-down.
+        
+        Note that the same `monkeypatch` fixture is used across a
+        single test function invocation. If `monkeypatch` is used both by
+        the test function itself and one of the test fixtures,
+        calling `undo()` will undo all of the changes made in
+        both functions.
+        """
+        for obj, name, value in reversed(self._setattr):
             if value is not notset:
                 setattr(obj, name, value)
             else:
                 delattr(obj, name)
         self._setattr[:] = []
-        for dictionary, name, value in self._setitem:
+        for dictionary, name, value in reversed(self._setitem):
             if value is notset:
                 try:
                     del dictionary[name]
                 except KeyError:
-                    pass # was already deleted, so we have the desired state
+                    pass  # was already deleted, so we have the desired state
             else:
                 dictionary[name] = value
         self._setitem[:] = []
-        if hasattr(self, '_savesyspath'):
+        if self._savesyspath is not None:
             sys.path[:] = self._savesyspath
-            del self._savesyspath
+            self._savesyspath = None
 
         if self._cwd is not None:
             os.chdir(self._cwd)

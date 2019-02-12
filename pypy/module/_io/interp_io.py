@@ -34,14 +34,15 @@ W_BlockingIOError.typedef = TypeDef(
                "I/O stream"),
     __new__  = generic_new_descr(W_BlockingIOError),
     __init__ = interp2app(W_BlockingIOError.descr_init),
-    characters_written = interp_attrproperty('written', W_BlockingIOError),
+    characters_written = interp_attrproperty('written', W_BlockingIOError,
+        wrapfn="newint"),
     )
 
 DEFAULT_BUFFER_SIZE = 8 * 1024
 
-@unwrap_spec(mode=str, buffering=int,
-             encoding="str_or_None", errors="str_or_None",
-             newline="str_or_None", closefd=bool)
+@unwrap_spec(mode='text', buffering=int,
+             encoding="text_or_none", errors="text_or_none",
+             newline="text_or_none", closefd=bool)
 def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     newline=None, closefd=True):
     from pypy.module._io.interp_bufferedio import (W_BufferedRandom,
@@ -89,27 +90,21 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         rawmode += "+"
 
     if universal and (writing or appending):
-        raise OperationError(space.w_ValueError,
-            space.wrap("can't use U and writing mode at once")
-        )
+        raise oefmt(space.w_ValueError, "can't use U and writing mode at once")
     if text and binary:
-        raise OperationError(space.w_ValueError,
-            space.wrap("can't have text and binary mode at once")
-        )
+        raise oefmt(space.w_ValueError,
+                    "can't have text and binary mode at once")
     if reading + writing + appending > 1:
-        raise OperationError(space.w_ValueError,
-            space.wrap("must have exactly one of read/write/append mode")
-        )
+        raise oefmt(space.w_ValueError,
+                    "must have exactly one of read/write/append mode")
     if binary and encoding is not None:
-        raise OperationError(space.w_ValueError,
-            space.wrap("binary mode doesn't take an encoding argument")
-        )
+        raise oefmt(space.w_ValueError,
+                    "binary mode doesn't take an encoding argument")
     if binary and newline is not None:
-        raise OperationError(space.w_ValueError,
-            space.wrap("binary mode doesn't take a newline argument")
-        )
+        raise oefmt(space.w_ValueError,
+                    "binary mode doesn't take a newline argument")
     w_raw = space.call_function(
-        space.gettypefor(W_FileIO), w_file, space.wrap(rawmode), space.wrap(closefd)
+        space.gettypefor(W_FileIO), w_file, space.newtext(rawmode), space.newbool(closefd)
     )
 
     isatty = space.is_true(space.call_method(w_raw, "isatty"))
@@ -132,15 +127,11 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
                     buffering = st.st_blksize
 
     if buffering < 0:
-        raise OperationError(space.w_ValueError,
-            space.wrap("invalid buffering size")
-        )
+        raise oefmt(space.w_ValueError, "invalid buffering size")
 
     if buffering == 0:
         if not binary:
-            raise OperationError(space.w_ValueError,
-                space.wrap("can't have unbuffered text I/O")
-            )
+            raise oefmt(space.w_ValueError, "can't have unbuffered text I/O")
         return w_raw
 
     if updating:
@@ -152,17 +143,17 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     else:
         raise oefmt(space.w_ValueError, "unknown mode: '%s'", mode)
     w_buffer = space.call_function(
-        space.gettypefor(buffer_cls), w_raw, space.wrap(buffering)
+        space.gettypefor(buffer_cls), w_raw, space.newint(buffering)
     )
     if binary:
         return w_buffer
 
     w_wrapper = space.call_function(space.gettypefor(W_TextIOWrapper),
         w_buffer,
-        space.wrap(encoding),
-        space.wrap(errors),
-        space.wrap(newline),
-        space.wrap(line_buffering)
+        space.newtext_or_none(encoding),
+        space.newtext_or_none(errors),
+        space.newtext_or_none(newline),
+        space.newbool(line_buffering)
     )
-    space.setattr(w_wrapper, space.wrap("mode"), space.wrap(mode))
+    space.setattr(w_wrapper, space.newtext("mode"), space.newtext(mode))
     return w_wrapper

@@ -1,10 +1,8 @@
 from rpython.jit.metainterp import history
 from rpython.tool.udir import udir
+from rpython.tool.ansi_print import AnsiLogger
 
-import py
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer('jitcodewriter')
-py.log.setconsumer('jitcodewriter', ansi_log)
+log = AnsiLogger('jitcodewriter')
 
 
 class JitPolicy(object):
@@ -13,9 +11,6 @@ class JitPolicy(object):
         self.supports_floats = False
         self.supports_longlong = False
         self.supports_singlefloats = False
-        if jithookiface is None:
-            from rpython.rlib.jit import JitHookInterface
-            jithookiface = JitHookInterface()
         self.jithookiface = jithookiface
 
     def set_supports_floats(self, flag):
@@ -105,7 +100,7 @@ def contains_unsupported_variable_type(graph, supports_floats,
                 getkind(v.concretetype, supports_floats,
                                         supports_longlong,
                                         supports_singlefloats)
-    except NotImplementedError, e:
+    except NotImplementedError as e:
         log.WARNING('%s, ignoring graph' % (e,))
         log.WARNING('  %s' % (graph,))
         return True

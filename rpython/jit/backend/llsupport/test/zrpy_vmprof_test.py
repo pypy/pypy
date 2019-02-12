@@ -6,6 +6,7 @@ from rpython.tool.udir import udir
 from rpython.rlib import rthread
 from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.rlib.rweaklist import RWeakListMixin
 
 class CompiledVmprofTest(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -21,6 +22,7 @@ class CompiledVmprofTest(CCompiledMixin):
 
         class MyCode:
             _vmprof_unique_id = 0
+            _vmprof_weak_list = RWeakListMixin() ; _vmprof_weak_list.initialize()
             def __init__(self, name):
                 self.name = name
 
@@ -32,7 +34,7 @@ class CompiledVmprofTest(CCompiledMixin):
 
         try:
             rvmprof.register_code_object_class(MyCode, get_name)
-        except rvmprof.VMProfPlatformUnsupported, e:
+        except rvmprof.VMProfPlatformUnsupported as e:
             py.test.skip(str(e))
 
         def get_unique_id(code):

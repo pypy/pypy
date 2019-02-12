@@ -39,6 +39,10 @@
 #define PY_SIZE_MAX ((size_t)-1)
 #endif
 
+/* CPython needs this for the c-extension datetime, which is pure python on PyPy 
+   downstream packages assume it is here (Pandas for instance) */
+#include <time.h> 
+
 /* uintptr_t is the C9X name for an unsigned integral type such that a
  * legitimate void* can be cast to uintptr_t and then back to void* again
  * without loss of information.  Similarly for intptr_t, wrt a signed
@@ -63,6 +67,7 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #else
 #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
 #endif /* HAVE_UINTPTR_T */
+
 
 /*******************************
  * stat() and fstat() fiddling *
@@ -103,6 +108,38 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #elif defined(HAVE_STAT_H)
 #include <stat.h>
 #else
+#endif
+
+/*
+ * Hide GCC attributes from compilers that don't support them.
+ */
+#if (!defined(__GNUC__) || __GNUC__ < 2 || \
+     (__GNUC__ == 2 && __GNUC_MINOR__ < 7) ) && \
+    !defined(RISCOS)
+#define Py_GCC_ATTRIBUTE(x)
+#else
+#define Py_GCC_ATTRIBUTE(x) __attribute__(x)
+#endif
+
+/*
+ * Specify alignment on compilers that support it.
+ */
+#if defined(__GNUC__) && __GNUC__ >= 3
+#define Py_ALIGNED(x) __attribute__((aligned(x)))
+#else
+#define Py_ALIGNED(x)
+#endif
+
+/*
+ * Older Microsoft compilers don't support the C99 long long literal suffixes,
+ * so these will be defined in PC/pyconfig.h for those compilers.
+ */
+#ifndef Py_LL
+#define Py_LL(x) x##LL
+#endif
+
+#ifndef Py_ULL
+#define Py_ULL(x) Py_LL(x##U)
 #endif
 
 #endif /* Py_PYPORT_H */

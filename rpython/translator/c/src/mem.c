@@ -73,9 +73,20 @@ void pypy_debug_alloc_results(void)
 
 #ifdef PYPY_USING_BOEHM_GC
 
+struct boehm_fq_s {
+    void *obj;
+    struct boehm_fq_s *next;
+};
+RPY_EXTERN void (*boehm_fq_trigger[])(void);
+
 int boehm_gc_finalizer_lock = 0;
+void boehm_gc_finalizer_notifier(void);
+
+#ifndef RPY_REVERSE_DEBUGGER
 void boehm_gc_finalizer_notifier(void)
 {
+    int i;
+
     boehm_gc_finalizer_lock++;
     while (GC_should_invoke_finalizers()) {
         if (boehm_gc_finalizer_lock > 1) {
@@ -86,8 +97,18 @@ void boehm_gc_finalizer_notifier(void)
         }
         GC_invoke_finalizers();
     }
+
+    i = 0;
+    while (boehm_fq_trigger[i])
+        boehm_fq_trigger[i++]();
+
     boehm_gc_finalizer_lock--;
 }
+#else
+/* see revdb.c */
+RPY_EXTERN void *rpy_reverse_db_next_dead(void *);
+RPY_EXTERN int rpy_reverse_db_fq_register(void *);
+#endif
 
 static void mem_boehm_ignore(char *msg, GC_word arg)
 {
@@ -99,6 +120,43 @@ void boehm_gc_startup_code(void)
     GC_finalizer_notifier = &boehm_gc_finalizer_notifier;
     GC_finalize_on_demand = 1;
     GC_set_warn_proc(mem_boehm_ignore);
+}
+
+static void boehm_fq_callback(void *obj, void *rawfqueue)
+{
+    struct boehm_fq_s **fqueue = rawfqueue;
+    struct boehm_fq_s *node = GC_malloc(sizeof(void *) * 2);
+    if (!node)
+        return;   /* ouch, too bad */
+    node->obj = obj;
+    node->next = *fqueue;
+    *fqueue = node;
+}
+
+void boehm_fq_register(struct boehm_fq_s **fqueue, void *obj)
+{
+#ifdef RPY_REVERSE_DEBUGGER
+    /* this function returns 0 when recording, or 1 when replaying */
+    if (rpy_reverse_db_fq_register(obj))
+        return;
+#endif
+    GC_REGISTER_FINALIZER(obj, boehm_fq_callback, fqueue, NULL, NULL);
+}
+
+void *boehm_fq_next_dead(struct boehm_fq_s **fqueue)
+{
+    struct boehm_fq_s *node = *fqueue;
+    void *result;
+    if (node != NULL) {
+        *fqueue = node->next;
+        result = node->obj;
+    }
+    else
+        result = NULL;
+#ifdef RPY_REVERSE_DEBUGGER
+    result = rpy_reverse_db_next_dead(result);
+#endif
+    return result;
 }
 #endif /* BOEHM GC */
 

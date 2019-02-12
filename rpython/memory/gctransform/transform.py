@@ -97,6 +97,7 @@ class BaseGCTransformer(object):
         self.inline = inline
         if translator and inline:
             self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
+            self.raise_analyzer = RaiseAnalyzer(translator)
         self.graphs_to_inline = {}
         self.graph_dependencies = {}
         self.ll_finalizers_ptrs = []
@@ -113,28 +114,36 @@ class BaseGCTransformer(object):
         self.seen_graphs.add(graph)
         self.minimal_transform.add(graph)
 
-    def inline_helpers(self, graphs):
+    def inline_helpers_into(self, graph):
         from rpython.translator.backendopt.inline import iter_callsites
-        raise_analyzer = RaiseAnalyzer(self.translator)
+        to_enum = []
+        for called, block, i in iter_callsites(graph, None):
+            if called in self.graphs_to_inline:
+                to_enum.append(called)
+        any_inlining = False
+        for inline_graph in to_enum:
+            try:
+                inline.inline_function(self.translator, inline_graph, graph,
+                                       self.lltype_to_classdef,
+                                       self.raise_analyzer,
+                                       cleanup=False)
+                any_inlining = True
+            except inline.CannotInline as e:
+                print 'CANNOT INLINE:', e
+                print '\t%s into %s' % (inline_graph, graph)
+                raise      # for now, make it a fatal error
+        cleanup_graph(graph)
+        if any_inlining:
+            constant_fold_graph(graph)
+        return any_inlining
+
+    def inline_helpers_and_postprocess(self, graphs):
         for graph in graphs:
-            to_enum = []
-            for called, block, i in iter_callsites(graph, None):
-                if called in self.graphs_to_inline:
-                    to_enum.append(called)
-            must_constfold = False
-            for inline_graph in to_enum:
-                try:
-                    inline.inline_function(self.translator, inline_graph, graph,
-                                           self.lltype_to_classdef,
-                                           raise_analyzer,
-                                           cleanup=False)
-                    must_constfold = True
-                except inline.CannotInline, e:
-                    print 'CANNOT INLINE:', e
-                    print '\t%s into %s' % (inline_graph, graph)
-            cleanup_graph(graph)
-            if must_constfold:
-                constant_fold_graph(graph)
+            any_inlining = self.inline and self.inline_helpers_into(graph)
+            self.postprocess_graph(graph, any_inlining)
+
+    def postprocess_graph(self, graph, any_inlining):
+        pass
 
     def compute_borrowed_vars(self, graph):
         # the input args are borrowed, and stay borrowed for as long as they
@@ -201,6 +210,9 @@ class BaseGCTransformer(object):
         self.var_last_needed_in = None
         self.curr_block = None
 
+    def start_transforming_graph(self, graph):
+        pass    # for asmgcc.py
+
     def transform_graph(self, graph):
         if graph in self.minimal_transform:
             if self.minimalgctransformer:
@@ -210,6 +222,7 @@ class BaseGCTransformer(object):
         if graph in self.seen_graphs:
             return
         self.seen_graphs.add(graph)
+        self.start_transforming_graph(graph)
 
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
@@ -285,6 +298,9 @@ class BaseGCTransformer(object):
         # It is likely that the finalizers need special support there
         newgcdependencies = self.ll_finalizers_ptrs
         return newgcdependencies
+
+    def get_finish_helpers(self):
+        return self.finish_helpers
 
     def finish_tables(self):
         pass
@@ -371,9 +387,6 @@ class BaseGCTransformer(object):
         return hop.cast_result(rmodel.inputconst(lltype.Ptr(ARRAY_TYPEID_MAP),
                                         lltype.nullptr(ARRAY_TYPEID_MAP)))
 
-    def get_prebuilt_hash(self, obj):
-        return None
-
 
 class MinimalGCTransformer(BaseGCTransformer):
     def __init__(self, parenttransformer):
@@ -411,7 +424,7 @@ MinimalGCTransformer.MinimalGCTransformer = None
 
 # ________________________________________________________________
 
-def mallocHelpers():
+def mallocHelpers(gckind):
     class _MallocHelpers(object):
         def _freeze_(self):
             return True
@@ -423,6 +436,13 @@ def mallocHelpers():
             raise MemoryError()
         return result
     mh._ll_malloc_fixedsize = _ll_malloc_fixedsize
+
+    def _ll_malloc_fixedsize_zero(size):
+        result = mh.allocate(size, zero=True)
+        if not result:
+            raise MemoryError()
+        return result
+    mh._ll_malloc_fixedsize_zero = _ll_malloc_fixedsize_zero
 
     def _ll_compute_size(length, size, itemsize):
         try:
@@ -442,18 +462,25 @@ def mallocHelpers():
     mh._ll_malloc_varsize_no_length = _ll_malloc_varsize_no_length
     mh.ll_malloc_varsize_no_length = _ll_malloc_varsize_no_length
 
+    if gckind == 'raw':
+        llopstore = llop.raw_store
+    elif gckind == 'gc':
+        llopstore = llop.gc_store
+    else:
+        raise AssertionError(gckind)
+
+
     def ll_malloc_varsize(length, size, itemsize, lengthoffset):
         result = mh.ll_malloc_varsize_no_length(length, size, itemsize)
-        (result + lengthoffset).signed[0] = length
+        llopstore(lltype.Void, result, lengthoffset, length)
         return result
     mh.ll_malloc_varsize = ll_malloc_varsize
 
     def _ll_malloc_varsize_no_length_zero(length, size, itemsize):
         tot_size = _ll_compute_size(length, size, itemsize)
-        result = mh.allocate(tot_size)
+        result = mh.allocate(tot_size, zero=True)
         if not result:
             raise MemoryError()
-        llmemory.raw_memclear(result, tot_size)
         return result
     mh.ll_malloc_varsize_no_length_zero = _ll_malloc_varsize_no_length_zero
 
@@ -464,29 +491,25 @@ class GCTransformer(BaseGCTransformer):
     def __init__(self, translator, inline=False):
         super(GCTransformer, self).__init__(translator, inline=inline)
 
-        mh = mallocHelpers()
+        mh = mallocHelpers(gckind='raw')
         mh.allocate = llmemory.raw_malloc
         ll_raw_malloc_fixedsize = mh._ll_malloc_fixedsize
+        ll_raw_malloc_fixedsize_zero = mh._ll_malloc_fixedsize_zero
         ll_raw_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_raw_malloc_varsize = mh.ll_malloc_varsize
         ll_raw_malloc_varsize_no_length_zero  = mh.ll_malloc_varsize_no_length_zero
 
-        stack_mh = mallocHelpers()
-        stack_mh.allocate = lambda size: llop.stack_malloc(llmemory.Address, size)
-        ll_stack_malloc_fixedsize = stack_mh._ll_malloc_fixedsize
-
         if self.translator:
             self.raw_malloc_fixedsize_ptr = self.inittime_helper(
                 ll_raw_malloc_fixedsize, [lltype.Signed], llmemory.Address)
+            self.raw_malloc_fixedsize_zero_ptr = self.inittime_helper(
+                ll_raw_malloc_fixedsize_zero, [lltype.Signed], llmemory.Address)
             self.raw_malloc_varsize_no_length_ptr = self.inittime_helper(
                 ll_raw_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address, inline=False)
             self.raw_malloc_varsize_ptr = self.inittime_helper(
                 ll_raw_malloc_varsize, [lltype.Signed]*4, llmemory.Address, inline=False)
             self.raw_malloc_varsize_no_length_zero_ptr = self.inittime_helper(
                 ll_raw_malloc_varsize_no_length_zero, [lltype.Signed]*3, llmemory.Address, inline=False)
-
-            self.stack_malloc_fixedsize_ptr = self.inittime_helper(
-                ll_stack_malloc_fixedsize, [lltype.Signed], llmemory.Address)
 
     def gct_malloc(self, hop, add_flags=None):
         TYPE = hop.spaceop.result.concretetype.TO
@@ -500,19 +523,14 @@ class GCTransformer(BaseGCTransformer):
         hop.cast_result(v_raw)
 
     def gct_fv_raw_malloc(self, hop, flags, TYPE, c_size):
-        v_raw = hop.genop("direct_call", [self.raw_malloc_fixedsize_ptr, c_size],
-                          resulttype=llmemory.Address)
         if flags.get('zero'):
-            hop.genop("raw_memclear", [v_raw, c_size])
+            ll_func = self.raw_malloc_fixedsize_zero_ptr
+        else:
+            ll_func = self.raw_malloc_fixedsize_ptr
+        v_raw = hop.genop("direct_call", [ll_func, c_size],
+                          resulttype=llmemory.Address)
         if flags.get('track_allocation', True):
             hop.genop("track_alloc_start", [v_raw])
-        return v_raw
-
-    def gct_fv_stack_malloc(self, hop, flags, TYPE, c_size):
-        v_raw = hop.genop("direct_call", [self.stack_malloc_fixedsize_ptr, c_size],
-                          resulttype=llmemory.Address)
-        if flags.get('zero'):
-            hop.genop("raw_memclear", [v_raw, c_size])
         return v_raw
 
     def gct_malloc_varsize(self, hop, add_flags=None):
@@ -525,12 +543,7 @@ class GCTransformer(BaseGCTransformer):
         return self.varsize_malloc_helper(hop, flags, meth, [])
 
     def gct_gc_add_memory_pressure(self, hop):
-        if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
-            op = hop.spaceop
-            size = op.args[0]
-            return hop.genop("direct_call",
-                          [self.raw_malloc_memory_pressure_ptr,
-                           size])
+        pass
 
     def varsize_malloc_helper(self, hop, flags, meth, extraargs):
         def intconst(c): return rmodel.inputconst(lltype.Signed, c)
@@ -564,9 +577,10 @@ class GCTransformer(BaseGCTransformer):
                                                                     c_offset_to_length):
         if flags.get('add_memory_pressure', False):
             if hasattr(self, 'raw_malloc_memory_pressure_varsize_ptr'):
+                v_adr = rmodel.inputconst(llmemory.Address, llmemory.NULL)
                 hop.genop("direct_call",
                           [self.raw_malloc_memory_pressure_varsize_ptr,
-                           v_length, c_item_size])
+                           v_length, c_item_size, v_adr])
         if c_offset_to_length is None:
             if flags.get('zero'):
                 fnptr = self.raw_malloc_varsize_no_length_zero_ptr

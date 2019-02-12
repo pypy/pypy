@@ -1,7 +1,7 @@
 import py
 
 
-class AppTestItertools: 
+class AppTestItertools(object):
     spaceconfig = dict(usemodules=['itertools'])
 
     def test_count(self):
@@ -330,11 +330,11 @@ class AppTestItertools:
 
     def test_chain(self):
         import itertools
-        
+
         it = itertools.chain()
         raises(StopIteration, it.next)
         raises(StopIteration, it.next)
-        
+
         it = itertools.chain([1, 2, 3])
         for x in [1, 2, 3]:
             assert it.next() == x
@@ -378,7 +378,7 @@ class AppTestItertools:
 
     def test_imap_wrongargs(self):
         import itertools
-        
+
         # Duplicate python 2.4 behaviour for invalid arguments
         it = itertools.imap(0, [])
         raises(StopIteration, it.next)
@@ -401,11 +401,11 @@ class AppTestItertools:
         for x in obj_list:
             assert it.next() == (x, )
         raises(StopIteration, it.next)
-        
+
         it = itertools.izip([1, 2, 3], [4], [5, 6])
         assert it.next() == (1, 4, 5)
         raises(StopIteration, it.next)
-        
+
         it = itertools.izip([], [], [1], [])
         raises(StopIteration, it.next)
 
@@ -423,7 +423,7 @@ class AppTestItertools:
 
     def test_izip_wrongargs(self):
         import itertools, re
-        
+
         # Duplicate python 2.4 behaviour for invalid arguments
         raises(TypeError, itertools.izip, None, 0)
 
@@ -432,7 +432,7 @@ class AppTestItertools:
             args = [()] * x + [None] + [()] * (9 - x)
             try:
                 itertools.izip(*args)
-            except TypeError, e:
+            except TypeError as e:
                 assert str(e).find("#" + str(x + 1) + " ") >= 0
             else:
                 fail("TypeError expected")
@@ -442,7 +442,7 @@ class AppTestItertools:
 
         it = itertools.cycle([])
         raises(StopIteration, it.next)
-        
+
         it = itertools.cycle([1, 2, 3])
         for x in [1, 2, 3, 1, 2, 3, 1, 2, 3]:
             assert it.next() == x
@@ -498,7 +498,7 @@ class AppTestItertools:
 
     def test_tee_wrongargs(self):
         import itertools
-        
+
         raises(TypeError, itertools.tee, 0)
         raises(ValueError, itertools.tee, [], -1)
         raises(TypeError, itertools.tee, [], None)
@@ -536,7 +536,7 @@ class AppTestItertools:
 
     def test_groupby(self):
         import itertools
-        
+
         it = itertools.groupby([])
         raises(StopIteration, it.next)
 
@@ -613,7 +613,7 @@ class AppTestItertools:
             assert g.next() is x
             raises(StopIteration, g.next)
         raises(StopIteration, it.next)
-        
+
         # Grouping is based on key equality
         class AlwaysEqual(object):
             def __eq__(self, other):
@@ -634,9 +634,20 @@ class AppTestItertools:
         it = itertools.groupby([0], 1)
         raises(TypeError, it.next)
 
+    def test_groupby_question_43905804(self):
+        # http://stackoverflow.com/questions/43905804/
+        import itertools
+
+        inputs = ((x > 5, x) for x in range(10))
+        (_, a), (_, b) = itertools.groupby(inputs, key=lambda x: x[0])
+        a = list(a)
+        b = list(b)
+        assert a == []
+        assert b == [(True, 9)]
+
     def test_iterables(self):
         import itertools
-    
+
         iterables = [
             itertools.chain(),
             itertools.count(),
@@ -654,7 +665,7 @@ class AppTestItertools:
             itertools.tee([])[0],
             itertools.tee([])[1],
             ]
-    
+
         for it in iterables:
             assert hasattr(it, '__iter__')
             assert iter(it) is it
@@ -663,7 +674,7 @@ class AppTestItertools:
 
     def test_docstrings(self):
         import itertools
-        
+
         assert itertools.__doc__
         methods = [
             itertools.chain,
@@ -702,15 +713,51 @@ class AppTestItertools:
         x = d.next()
         assert x == 'b'
 
+    def test_tee_defines_copy(self):
+        import itertools
+        a, b = itertools.tee('abc')
+        c = b.__copy__()
+        assert list(a) == ['a', 'b', 'c']
+        assert list(b) == ['a', 'b', 'c']
+        assert list(c) == ['a', 'b', 'c']
+        a, = itertools.tee('abc', 1)
+        x = a.next()
+        assert x == 'a'
+        b = a.__copy__()
+        x = a.next()
+        assert x == 'b'
+        x = b.next()
+        assert x == 'b'
 
-class AppTestItertools26:
+    def test_tee_function_uses_copy(self):
+        import itertools
+        class MyIterator(object):
+            def __iter__(self):
+                return self
+            def next(self):
+                raise NotImplementedError
+            def __copy__(self):
+                return iter('def')
+        my = MyIterator()
+        a, = itertools.tee(my, 1)
+        assert a is my
+        a, b = itertools.tee(my)
+        assert a is my
+        assert b is not my
+        assert list(b) == ['d', 'e', 'f']
+        # this gives AttributeError because it tries to call
+        # my.__copy__().__copy__() and there isn't one
+        raises(AttributeError, itertools.tee, my, 3)
+
+    def test_tee_function_empty(self):
+        import itertools
+        assert itertools.tee('abc', 0) == ()
+        a, = itertools.tee('abc', 1)
+        assert itertools.tee(a, 0) == ()
+
+
+class AppTestItertools26(object):
     spaceconfig = dict(usemodules=['itertools'])
-
-    def setup_class(cls):
-        if cls.space.is_true(cls.space.appexec([], """():
-            import sys; return sys.version_info < (2, 6)
-            """)):
-            py.test.skip("Requires Python 2.6")
 
     def test_count_overflow(self):
         import itertools, sys
@@ -957,16 +1004,8 @@ class AppTestItertools26:
         raises(ValueError, permutations, [1, 2], -1)
 
 
-class AppTestItertools27:
-    spaceconfig = {
-        "usemodules": ['itertools', 'struct', 'binascii'],
-    }
-
-    def setup_class(cls):
-        if cls.space.is_true(cls.space.appexec([], """():
-            import sys; return sys.version_info < (2, 7)
-            """)):
-            py.test.skip("Requires Python 2.7")
+class AppTestItertools27(object):
+    spaceconfig = {"usemodules": ['itertools', 'struct', 'binascii']}
 
     def test_compress(self):
         import itertools

@@ -1,14 +1,19 @@
 """ core implementation of testing process: init, session, runtest loop. """
+import imp
+import os
+import re
+import sys
 
+import _pytest
+import _pytest._code
 import py
-import pytest, _pytest
-import os, sys, imp
+import pytest
 try:
     from collections import MutableMapping as MappingMixin
 except ImportError:
     from UserDict import DictMixin as MappingMixin
 
-from _pytest.runner import collect_one_node, Skipped
+from _pytest.runner import collect_one_node
 
 tracebackcutdir = py.path.local(_pytest.__file__).dirpath()
 
@@ -18,12 +23,15 @@ EXIT_TESTSFAILED = 1
 EXIT_INTERRUPTED = 2
 EXIT_INTERNALERROR = 3
 EXIT_USAGEERROR = 4
+EXIT_NOTESTSCOLLECTED = 5
 
-name_re = py.std.re.compile("^[a-zA-Z_]\w*$")
+name_re = re.compile("^[a-zA-Z_]\w*$")
 
 def pytest_addoption(parser):
     parser.addini("norecursedirs", "directory patterns to avoid for recursion",
-        type="args", default=('.*', 'CVS', '_darcs', '{arch}'))
+        type="args", default=['.*', 'CVS', '_darcs', '{arch}', '*.egg'])
+    parser.addini("testpaths", "directories to search for tests when no files or directories are given in the command line.",
+        type="args", default=[])
     #parser.addini("dirpatterns",
     #    "patterns specifying possible locations of test files",
     #    type="linelist", default=["**/test_*.txt",
@@ -38,6 +46,8 @@ def pytest_addoption(parser):
                help="exit after first num failures or errors.")
     group._addoption('--strict', action="store_true",
                help="run pytest in strict mode, warnings become errors.")
+    group._addoption("-c", metavar="file", type=str, dest="inifilename",
+               help="load configuration from `file` instead of trying to locate one of the implicit configuration files.")
 
     group = parser.getgroup("collect", "collection")
     group.addoption('--collectonly', '--collect-only', action="store_true",
@@ -51,6 +61,9 @@ def pytest_addoption(parser):
     group.addoption('--confcutdir', dest="confcutdir", default=None,
         metavar="dir",
         help="only load conftest.py's relative to specified dir.")
+    group.addoption('--noconftest', action="store_true",
+        dest="noconftest", default=False,
+        help="Don't load any conftest.py files.")
 
     group = parser.getgroup("debugconfig",
         "test session debugging and configuration")
@@ -74,38 +87,32 @@ def wrap_session(config, doit):
     initstate = 0
     try:
         try:
-            config.do_configure()
+            config._do_configure()
             initstate = 1
             config.hook.pytest_sessionstart(session=session)
             initstate = 2
-            doit(config, session)
+            session.exitstatus = doit(config, session) or 0
         except pytest.UsageError:
-            args = sys.exc_info()[1].args
-            for msg in args:
-                sys.stderr.write("ERROR: %s\n" %(msg,))
-            session.exitstatus = EXIT_USAGEERROR
+            raise
         except KeyboardInterrupt:
-            excinfo = py.code.ExceptionInfo()
+            excinfo = _pytest._code.ExceptionInfo()
             config.hook.pytest_keyboard_interrupt(excinfo=excinfo)
             session.exitstatus = EXIT_INTERRUPTED
         except:
-            excinfo = py.code.ExceptionInfo()
+            excinfo = _pytest._code.ExceptionInfo()
             config.notify_exception(excinfo, config.option)
             session.exitstatus = EXIT_INTERNALERROR
             if excinfo.errisinstance(SystemExit):
                 sys.stderr.write("mainloop: caught Spurious SystemExit!\n")
-        else:
-            if session._testsfailed:
-                session.exitstatus = EXIT_TESTSFAILED
+
     finally:
+        excinfo = None  # Explicitly break reference cycle.
         session.startdir.chdir()
         if initstate >= 2:
             config.hook.pytest_sessionfinish(
                 session=session,
                 exitstatus=session.exitstatus)
-        if initstate >= 1:
-            config.do_unconfigure()
-        config.pluginmanager.ensure_shutdown()
+        config._ensure_unconfigure()
     return session.exitstatus
 
 def pytest_cmdline_main(config):
@@ -116,6 +123,11 @@ def _main(config, session):
     running tests and reporting. """
     config.hook.pytest_collection(session=session)
     config.hook.pytest_runtestloop(session=session)
+
+    if session.testsfailed:
+        return EXIT_TESTSFAILED
+    elif session.testscollected == 0:
+        return EXIT_NOTESTSCOLLECTED
 
 def pytest_collection(session):
     return session.perform_collect()
@@ -144,23 +156,21 @@ def pytest_ignore_collect(path, config):
     p = path.dirpath()
     ignore_paths = config._getconftest_pathlist("collect_ignore", path=p)
     ignore_paths = ignore_paths or []
-    excludeopt = config.getvalue("ignore")
+    excludeopt = config.getoption("ignore")
     if excludeopt:
         ignore_paths.extend([py.path.local(x) for x in excludeopt])
     return path in ignore_paths
 
-class HookProxy:
-    def __init__(self, fspath, config):
+class FSHookProxy:
+    def __init__(self, fspath, pm, remove_mods):
         self.fspath = fspath
-        self.config = config
+        self.pm = pm
+        self.remove_mods = remove_mods
 
     def __getattr__(self, name):
-        hookmethod = getattr(self.config.hook, name)
-
-        def call_matching_hooks(**kwargs):
-            plugins = self.config._getmatchingplugins(self.fspath)
-            return hookmethod.pcall(plugins, **kwargs)
-        return call_matching_hooks
+        x = self.pm.subset_hook_caller(name, remove_plugins=self.remove_mods)
+        self.__dict__[name] = x
+        return x
 
 def compatproperty(name):
     def fget(self):
@@ -233,16 +243,11 @@ class Node(object):
 
         # used for storing artificial fixturedefs for direct parametrization
         self._name2pseudofixturedef = {}
-        #self.extrainit()
 
     @property
     def ihook(self):
         """ fspath sensitive hook proxy used to call pytest hooks"""
         return self.session.gethookproxy(self.fspath)
-
-    #def extrainit(self):
-    #    """"extra initialization after Node is initialized.  Implemented
-    #    by some subclasses. """
 
     Module = compatproperty("Module")
     Class = compatproperty("Class")
@@ -262,6 +267,20 @@ class Node(object):
     def __repr__(self):
         return "<%s %r>" %(self.__class__.__name__,
                            getattr(self, 'name', None))
+
+    def warn(self, code, message):
+        """ generate a warning with the given code and message for this
+        item. """
+        assert isinstance(code, str)
+        fslocation = getattr(self, "location", None)
+        if fslocation is None:
+            fslocation = getattr(self, "fspath", None)
+        else:
+            fslocation = "%s:%s" % fslocation[:2]
+
+        self.ihook.pytest_logwarning.call_historic(kwargs=dict(
+            code=code, message=message,
+            nodeid=self.nodeid, fslocation=fslocation))
 
     # methods for ordering nodes
     @property
@@ -297,7 +316,7 @@ class Node(object):
         except py.builtin._sysex:
             raise
         except:
-            failure = py.std.sys.exc_info()
+            failure = sys.exc_info()
             setattr(self, exattrname, failure)
             raise
         setattr(self, attrname, res)
@@ -346,9 +365,6 @@ class Node(object):
     def listnames(self):
         return [x.name for x in self.listchain()]
 
-    def getplugins(self):
-        return self.config._getmatchingplugins(self.fspath)
-
     def addfinalizer(self, fin):
         """ register a function to be called when this node is finalized.
 
@@ -372,20 +388,24 @@ class Node(object):
         fm = self.session._fixturemanager
         if excinfo.errisinstance(fm.FixtureLookupError):
             return excinfo.value.formatrepr()
+        tbfilter = True
         if self.config.option.fulltrace:
             style="long"
         else:
             self._prunetraceback(excinfo)
-        # XXX should excinfo.getrepr record all data and toterminal()
-        # process it?
+            tbfilter = False  # prunetraceback already does it
+            if style == "auto":
+                style = "long"
+        # XXX should excinfo.getrepr record all data and toterminal() process it?
         if style is None:
             if self.config.option.tbstyle == "short":
                 style = "short"
             else:
                 style = "long"
+
         return excinfo.getrepr(funcargs=True,
                                showlocals=self.config.option.showlocals,
-                               style=style)
+                               style=style, tbfilter=tbfilter)
 
     repr_failure = _repr_failure_py
 
@@ -393,10 +413,6 @@ class Collector(Node):
     """ Collector instances create children through collect()
         and thus iteratively build a tree.
     """
-
-    # the set of exceptions to interpret as "Skip the whole module" during
-    # collection
-    skip_exceptions = (Skipped,)
 
     class CollectError(Exception):
         """ an error during collection, contains a custom message. """
@@ -439,9 +455,7 @@ class FSCollector(Collector):
         self.fspath = fspath
 
     def _makeid(self):
-        if self == self.session:
-            return "."
-        relpath = self.session.fspath.bestrelpath(self.fspath)
+        relpath = self.fspath.relto(self.config.rootdir)
         if os.sep != "/":
             relpath = relpath.replace(os.sep, "/")
         return relpath
@@ -454,6 +468,14 @@ class Item(Node):
     there might be multiple test invocation items.
     """
     nextitem = None
+
+    def __init__(self, name, parent=None, config=None, session=None):
+        super(Item, self).__init__(name, parent, config, session)
+        self._report_sections = []
+
+    def add_report_section(self, when, key, content):
+        if content:
+            self._report_sections.append((when, key, content))
 
     def reportinfo(self):
         return self.fspath, None, ""
@@ -478,39 +500,64 @@ class Item(Node):
 class NoMatch(Exception):
     """ raised if matching cannot locate a matching names. """
 
+class Interrupted(KeyboardInterrupt):
+    """ signals an interrupted test run. """
+    __module__ = 'builtins' # for py3
+
 class Session(FSCollector):
-    class Interrupted(KeyboardInterrupt):
-        """ signals an interrupted test run. """
-        __module__ = 'builtins' # for py3
+    Interrupted = Interrupted
 
     def __init__(self, config):
-        FSCollector.__init__(self, py.path.local(), parent=None,
+        FSCollector.__init__(self, config.rootdir, parent=None,
                              config=config, session=self)
-        self.config.pluginmanager.register(self, name="session", prepend=True)
-        self._testsfailed = 0
+        self._fs2hookproxy = {}
+        self.testsfailed = 0
+        self.testscollected = 0
         self.shouldstop = False
         self.trace = config.trace.root.get("collection")
         self._norecursepatterns = config.getini("norecursedirs")
         self.startdir = py.path.local()
+        self.config.pluginmanager.register(self, name="session")
 
+    def _makeid(self):
+        return ""
+
+    @pytest.hookimpl(tryfirst=True)
     def pytest_collectstart(self):
         if self.shouldstop:
             raise self.Interrupted(self.shouldstop)
 
+    @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_logreport(self, report):
         if report.failed and not hasattr(report, 'wasxfail'):
-            self._testsfailed += 1
+            self.testsfailed += 1
             maxfail = self.config.getvalue("maxfail")
-            if maxfail and self._testsfailed >= maxfail:
+            if maxfail and self.testsfailed >= maxfail:
                 self.shouldstop = "stopping after %d failures" % (
-                    self._testsfailed)
+                    self.testsfailed)
     pytest_collectreport = pytest_runtest_logreport
 
     def isinitpath(self, path):
         return path in self._initialpaths
 
     def gethookproxy(self, fspath):
-        return HookProxy(fspath, self.config)
+        try:
+            return self._fs2hookproxy[fspath]
+        except KeyError:
+            # check if we have the common case of running
+            # hooks with all conftest.py filesall conftest.py
+            pm = self.config.pluginmanager
+            my_conftestmodules = pm._getconftestmodules(fspath)
+            remove_mods = pm._conftest_plugins.difference(my_conftestmodules)
+            if remove_mods:
+                # one or more conftests are not in use at this fspath
+                proxy = FSHookProxy(fspath, pm, remove_mods)
+            else:
+                # all plugis are active for this fspath
+                proxy = self.config.hook
+
+            self._fs2hookproxy[fspath] = proxy
+            return proxy
 
     def perform_collect(self, args=None, genitems=True):
         hook = self.config.hook
@@ -520,6 +567,7 @@ class Session(FSCollector):
                 config=self.config, items=items)
         finally:
             hook.pytest_collection_finish(session=self)
+        self.testscollected = len(items)
         return items
 
     def _perform_collect(self, args, genitems):
@@ -632,7 +680,7 @@ class Session(FSCollector):
             arg = self._tryconvertpyarg(arg)
         parts = str(arg).split("::")
         relpath = parts[0].replace("/", os.sep)
-        path = self.fspath.join(relpath, abs=True)
+        path = self.config.invocation_dir.join(relpath, abs=True)
         if not path.check():
             if self.config.option.pyargs:
                 msg = "file or package not found: "
@@ -670,7 +718,8 @@ class Session(FSCollector):
             if rep.passed:
                 has_matched = False
                 for x in rep.result:
-                    if x.name == name:
+                    # TODO: remove parametrized workaround once collection structure contains parametrization
+                    if x.name == name or x.name.split("[")[0] == name:
                         resultnodes.extend(self.matchnodes([x], nextnames))
                         has_matched = True
                 # XXX accept IDs that don't have "()" for class instances
@@ -693,5 +742,3 @@ class Session(FSCollector):
                     for x in self.genitems(subnode):
                         yield x
             node.ihook.pytest_collectreport(report=rep)
-
-

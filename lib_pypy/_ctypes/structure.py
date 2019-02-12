@@ -40,6 +40,22 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         else:
             rawfields.append((f[0], f[1]._ffishape_))
 
+    # hack for duplicate field names
+    already_seen = set()
+    names1 = names
+    names = []
+    for f in names1:
+        if f not in already_seen:
+            names.append(f)
+            already_seen.add(f)
+    already_seen = set()
+    for i in reversed(range(len(rawfields))):
+        if rawfields[i][0] in already_seen:
+            rawfields[i] = (('$DUP%d$%s' % (i, rawfields[i][0]),)
+                            + rawfields[i][1:])
+        already_seen.add(rawfields[i][0])
+    # /hack
+
     _set_shape(self, rawfields, self._is_union)
 
     fields = {}
@@ -67,7 +83,8 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
                     subvalue = subfield.ctype
                     fields[subname] = Field(subname,
                                             relpos, subvalue._sizeofinstances(),
-                                            subvalue, i, is_bitfield)
+                                            subvalue, i, is_bitfield,
+                                            inside_anon_field=fields[name])
             else:
                 resnames.append(name)
         names = resnames
@@ -77,13 +94,15 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
 
 
 class Field(object):
-    def __init__(self, name, offset, size, ctype, num, is_bitfield):
+    def __init__(self, name, offset, size, ctype, num, is_bitfield,
+                 inside_anon_field=None):
         self.__dict__['name'] = name
         self.__dict__['offset'] = offset
         self.__dict__['size'] = size
         self.__dict__['ctype'] = ctype
         self.__dict__['num'] = num
         self.__dict__['is_bitfield'] = is_bitfield
+        self.__dict__['inside_anon_field'] = inside_anon_field
 
     def __setattr__(self, name, value):
         raise AttributeError(name)
@@ -95,6 +114,8 @@ class Field(object):
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
+        if self.inside_anon_field is not None:
+            return getattr(self.inside_anon_field.__get__(obj), self.name)
         if self.is_bitfield:
             # bitfield member, use direct access
             return obj._buffer.__getattr__(self.name)
@@ -105,6 +126,9 @@ class Field(object):
             return fieldtype._CData_output(suba, obj, offset)
 
     def __set__(self, obj, value):
+        if self.inside_anon_field is not None:
+            setattr(self.inside_anon_field.__get__(obj), self.name, value)
+            return
         fieldtype = self.ctype
         cobj = fieldtype.from_param(value)
         key = keepalive_key(self.num)
@@ -122,6 +146,7 @@ class Field(object):
             obj._buffer.__setattr__(self.name, arg)
 
 
+
 def _set_shape(tp, rawfields, is_union=False):
     tp._ffistruct_ = _rawffi.Structure(rawfields, is_union,
                                       getattr(tp, '_pack_', 0))
@@ -135,6 +160,10 @@ def struct_setattr(self, name, value):
             raise AttributeError("_fields_ is final")
         if self in [f[1] for f in value]:
             raise AttributeError("Structure or union cannot contain itself")
+        if self._ffiargtype is not None:
+            raise NotImplementedError("Too late to set _fields_: we already "
+                        "said to libffi that the structure type %s is opaque"
+                        % (self,))
         names_and_fields(
             self,
             value, self.__bases__[0],
@@ -216,14 +245,27 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_index'] = -1
         return res
 
-
 class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
-        self = super(_CData, cls).__new__(cls, *args, **kwds)
-        if '_abstract_' in cls.__dict__:
+        from _ctypes import union
+        if ('_abstract_' in cls.__dict__ or cls is Structure
+                                         or cls is union.Union):
             raise TypeError("abstract class")
+        if hasattr(cls, '_swappedbytes_'):
+            fields = [None] * len(cls._fields_)
+            for i in range(len(cls._fields_)):
+                if cls._fields_[i][1] == cls._fields_[i][1].__dict__.get('__ctype_be__', None):
+                    swapped = cls._fields_[i][1].__dict__.get('__ctype_le__', cls._fields_[i][1])
+                else:
+                    swapped = cls._fields_[i][1].__dict__.get('__ctype_be__', cls._fields_[i][1])
+                if len(cls._fields_[i]) < 3:
+                    fields[i] = (cls._fields_[i][0], swapped)
+                else:
+                    fields[i] = (cls._fields_[i][0], swapped, cls._fields_[i][2])
+            names_and_fields(cls, fields, _CData, cls.__dict__.get('_anonymous_', None))
+        self = super(_CData, cls).__new__(cls)
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self
@@ -239,6 +281,7 @@ class StructOrUnion(_CData):
             self.__setattr__(name, arg)
         for name, arg in kwds.items():
             self.__setattr__(name, arg)
+    _init_no_arg_ = __init__
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as
@@ -252,6 +295,11 @@ class StructOrUnion(_CData):
 
     def _get_buffer_value(self):
         return self._buffer.buffer
+
+    def _copy_to(self, addr):
+        from ctypes import memmove
+        origin = self._get_buffer_value()
+        memmove(addr, origin, self._fficompositesize_)
 
     def _to_ffi_param(self):
         return self._buffer

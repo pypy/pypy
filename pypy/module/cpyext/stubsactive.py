@@ -4,16 +4,6 @@ from pypy.module.cpyext.object import FILEP
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pystate import PyThreadState, PyInterpreterState
 
-
-@cpython_api([PyObject], FILEP, error=CANNOT_FAIL)
-def PyFile_AsFile(space, p):
-    """Return the file object associated with p as a FILE*.
-    
-    If the caller will ever use the returned FILE* object while
-    the GIL is released it must also call the PyFile_IncUseCount() and
-    PyFile_DecUseCount() functions described below as appropriate."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def Py_MakePendingCalls(space):
     return 0
@@ -42,7 +32,3 @@ def Py_AddPendingCall(space, func, arg):
     """
     return -1
 
-thread_func = lltype.Ptr(lltype.FuncType([rffi.VOIDP], lltype.Void))
-@cpython_api([thread_func, rffi.VOIDP], rffi.INT_real, error=-1)
-def PyThread_start_new_thread(space, func, arg):
-    return -1

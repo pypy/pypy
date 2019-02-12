@@ -1,19 +1,22 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.astcompiler import consts
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
-    cpython_struct, is_valid_fp)
+    cpython_struct)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.funcobject import PyCodeObject
+from pypy.module.cpyext.frameobject import PyFrameObject
 from pypy.module.__builtin__ import compiling
 
 PyCompilerFlags = cpython_struct(
     "PyCompilerFlags", (("cf_flags", rffi.INT),))
 PyCompilerFlagsPtr = lltype.Ptr(PyCompilerFlags)
 
-PyCF_MASK = (consts.CO_FUTURE_DIVISION | 
+PyCF_MASK = (consts.CO_FUTURE_DIVISION |
              consts.CO_FUTURE_ABSOLUTE_IMPORT |
              consts.CO_FUTURE_WITH_STATEMENT |
              consts.CO_FUTURE_PRINT_FUNCTION |
@@ -31,7 +34,7 @@ def PyEval_GetBuiltins(space):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     if caller is not None:
         w_globals = caller.get_w_globals()
-        w_builtins = space.getitem(w_globals, space.wrap('__builtins__'))
+        w_builtins = space.getitem(w_globals, space.newtext('__builtins__'))
         if not space.isinstance_w(w_builtins, space.w_dict):
             w_builtins = w_builtins.getdict(space)
     else:
@@ -55,6 +58,11 @@ def PyEval_GetGlobals(space):
     if caller is None:
         return None
     return caller.get_w_globals()    # borrowed ref
+
+@cpython_api([], PyFrameObject, error=CANNOT_FAIL, result_borrowed=True)
+def PyEval_GetFrame(space):
+    caller = space.getexecutioncontext().gettopframe_nohidden()
+    return caller    # borrowed ref, may be null
 
 @cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):
@@ -94,7 +102,7 @@ Py_file_input = 257
 Py_eval_input = 258
 
 def compile_string(space, source, filename, start, flags=0):
-    w_source = space.wrap(source)
+    w_source = space.newbytes(source)
     start = rffi.cast(lltype.Signed, start)
     if start == Py_file_input:
         mode = 'exec'
@@ -103,8 +111,8 @@ def compile_string(space, source, filename, start, flags=0):
     elif start == Py_single_input:
         mode = 'single'
     else:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "invalid mode parameter for compilation"))
+        raise oefmt(space.w_ValueError,
+                    "invalid mode parameter for compilation")
     return compiling.compile(space, w_source, filename, mode, flags)
 
 def run_string(space, source, filename, start, w_globals, w_locals):
@@ -153,22 +161,19 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     BUF_SIZE = 8192
     source = ""
     filename = rffi.charp2str(filename)
-    buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
-    if not is_valid_fp(fp):
-        lltype.free(buf, flavor='raw')
-        PyErr_SetFromErrno(space, space.w_IOError)
-        return None
-    try:
+    with rffi.scoped_alloc_buffer(BUF_SIZE) as buf:
         while True:
-            count = fread(buf, 1, BUF_SIZE, fp)
+            try:
+                count = fread(buf.raw, 1, BUF_SIZE, fp)
+            except OSError:
+                PyErr_SetFromErrno(space, space.w_IOError)
+                return
             count = rffi.cast(lltype.Signed, count)
-            source += rffi.charpsize2str(buf, count)
+            source += rffi.charpsize2str(buf.raw, count)
             if count < BUF_SIZE:
                 if feof(fp):
                     break
                 PyErr_SetFromErrno(space, space.w_IOError)
-    finally:
-        lltype.free(buf, flavor='raw')
     return run_string(space, source, filename, start, w_globals, w_locals)
 
 # Undocumented function!
@@ -227,4 +232,51 @@ def PyEval_MergeCompilerFlags(space, cf):
     cf.c_cf_flags = rffi.cast(rffi.INT, flags)
     return result
 
-        
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def Py_GetRecursionLimit(space):
+    from pypy.module.sys.vm import getrecursionlimit
+    return space.int_w(getrecursionlimit(space))
+
+@cpython_api([rffi.INT_real], lltype.Void, error=CANNOT_FAIL)
+def Py_SetRecursionLimit(space, limit):
+    from pypy.module.sys.vm import setrecursionlimit
+    setrecursionlimit(space, widen(limit))
+
+limit = 0 # for testing
+
+@cpython_api([rffi.CCHARP], rffi.INT_real, error=1)
+def Py_EnterRecursiveCall(space, where):
+    """Marks a point where a recursive C-level call is about to be performed.
+
+    If USE_STACKCHECK is defined, this function checks if the the OS
+    stack overflowed using PyOS_CheckStack().  In this is the case, it
+    sets a MemoryError and returns a nonzero value.
+
+    The function then checks if the recursion limit is reached.  If this is the
+    case, a RuntimeError is set and a nonzero value is returned.
+    Otherwise, zero is returned.
+
+    where should be a string such as " in instance check" to be
+    concatenated to the RuntimeError message caused by the recursion depth
+    limit."""
+    if not we_are_translated():
+        # XXX hack since the stack checks only work translated
+        global limit
+        limit += 1
+        if limit > 10:
+            raise oefmt(space.w_RuntimeError, 
+                 "maximum recursion depth exceeded%s", rffi.charp2str(where))
+        return 0
+    from rpython.rlib.rstack import stack_almost_full
+    if stack_almost_full():
+        raise oefmt(space.w_RuntimeError,
+                 "maximum recursion depth exceeded%s", rffi.charp2str(where))
+    return 0
+
+@cpython_api([], lltype.Void)
+def Py_LeaveRecursiveCall(space):
+    """Ends a Py_EnterRecursiveCall().  Must be called once for each
+    successful invocation of Py_EnterRecursiveCall()."""
+    # A NOP in PyPy
+    if not we_are_translated():
+        limit = 0

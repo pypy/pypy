@@ -1,6 +1,6 @@
 import errno
-from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.api import cpython_api, CONST_STRING
+from pypy.interpreter.error import oefmt
+from pypy.module.cpyext.api import cpython_api, CONST_STRING, INTP_real
 from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
@@ -63,9 +63,8 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
         endpos = (rffi.cast(rffi.LONG, endptr[0]) -
                   rffi.cast(rffi.LONG, s))
         if endpos == 0 or (not user_endptr and not endptr[0][0] == '\0'):
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap('invalid input at position %s' % endpos))
+            raise oefmt(space.w_ValueError,
+                        "invalid input at position %d", endpos)
         err = rffi.cast(lltype.Signed, rposix._get_errno())
         if err == errno.ERANGE:
             rposix._set_errno(rffi.cast(rffi.INT, 0))
@@ -75,14 +74,13 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
                 else:
                     return -rfloat.INFINITY
             else:
-                raise OperationError(w_overflow_exception,
-                                     space.wrap('value too large'))
+                raise oefmt(w_overflow_exception, "value too large")
         return result
     finally:
         if not user_endptr:
             lltype.free(endptr, flavor='raw')
 
-@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, rffi.INTP], rffi.CCHARP)
+@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, INTP_real], rffi.CCHARP)
 def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     """Convert a double val to a string using supplied
     format_code, precision, and flags.
@@ -116,7 +114,7 @@ def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     buffer, rtype = rfloat.double_to_string(val, format_code,
                                             intmask(precision),
                                             intmask(flags))
-    if ptype != lltype.nullptr(rffi.INTP.TO):
-        ptype[0] = rffi.cast(rffi.INT, DOUBLE_TO_STRING_TYPES_MAP[rtype])
+    if ptype != lltype.nullptr(INTP_real.TO):
+        ptype[0] = rffi.cast(rffi.INT_real, DOUBLE_TO_STRING_TYPES_MAP[rtype])
     bufp = rffi.str2charp(buffer)
     return bufp

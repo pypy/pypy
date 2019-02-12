@@ -1,8 +1,8 @@
 
 import weakref, sys
 from rpython.rlib.rstrategies import logger
-from rpython.rlib import jit, objectmodel, rerased
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit, objectmodel, rerased, rarithmetic
+from rpython.rlib.objectmodel import specialize, not_rpython
 
 def make_accessors(strategy='strategy', storage='storage'):
     """
@@ -155,6 +155,7 @@ class StrategyFactory(object):
                 return strategy_type
         raise ValueError("Could not find strategy to handle: %s" % objects)
 
+    @not_rpython
     def decorate_strategies(self, transitions):
         """
         As an alternative to decorating all strategies with @strategy,
@@ -162,7 +163,6 @@ class StrategyFactory(object):
         calling __init__. transitions is a dict mapping all strategy classes to
         their 'generalize' list parameter (see @strategy decorator).
         """
-        "NOT_RPYTHON"
         for strategy_class, generalized in transitions.items():
             strategy(generalized)(strategy_class)
 
@@ -217,8 +217,8 @@ class StrategyFactory(object):
     # Internal methods
     # =============================
 
+    @not_rpython
     def _patch_strategy_class(self, strategy_class, root_class):
-        "NOT_RPYTHON"
         # Patch root class: Add default handler for visitor
         def _convert_storage_from_OTHER(self, w_self, previous_strategy):
             self._convert_storage_from(w_self, previous_strategy)
@@ -231,16 +231,16 @@ class StrategyFactory(object):
             getattr(new_strategy, funcname)(w_self, self)
         strategy_class._convert_storage_to = _convert_storage_to
 
+    @not_rpython
     def _collect_subclasses(self, cls):
-        "NOT_RPYTHON"
         subclasses = []
         for subcls in cls.__subclasses__():
             subclasses.append(subcls)
             subclasses.extend(self._collect_subclasses(subcls))
         return subclasses
 
+    @not_rpython
     def _order_strategies(self):
-        "NOT_RPYTHON"
         def get_generalization_depth(strategy, visited=None):
             if visited is None:
                 visited = set()
@@ -443,6 +443,7 @@ class StrategyWithStorage(AbstractStrategy):
 
     def store(self, w_self, index0, wrapped_value):
         self.check_index_store(w_self, index0)
+        assert index0 >= 0
         if self._check_can_handle(wrapped_value):
             unwrapped = self._unwrap(wrapped_value)
             self.get_storage(w_self)[index0] = unwrapped
@@ -451,6 +452,7 @@ class StrategyWithStorage(AbstractStrategy):
 
     def fetch(self, w_self, index0):
         self.check_index_fetch(w_self, index0)
+        assert index0 >= 0
         unwrapped = self.get_storage(w_self)[index0]
         return self._wrap(unwrapped)
 
@@ -517,7 +519,7 @@ class SafeIndexingMixin(object):
         self.check_index(w_self, start)
         self.check_index(w_self, end)
     def check_index(self, w_self, index0):
-        if index0 < 0 or index0 >= self.size(w_self):
+        if not rarithmetic.int_between(0, index0, self.size(w_self)):
             raise IndexError
 
 class UnsafeIndexingMixin(object):

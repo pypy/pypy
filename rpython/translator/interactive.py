@@ -32,12 +32,6 @@ class Translation(object):
         self.context.viewcg()
 
     def ensure_setup(self, argtypes=None, policy=None):
-        standalone = argtypes is None
-        if standalone:
-            assert argtypes is None
-        else:
-            if argtypes is None:
-                argtypes = []
         self.driver.setup(self.entry_point, argtypes, policy,
                           empty_translator=self.context)
         self.ann_argtypes = argtypes

@@ -23,7 +23,7 @@ def unwrap_cell(space, w_value):
 
 
 def _wrapkey(space, key):
-    return space.wrap(key)
+    return space.newtext(key)
 
 
 class ModuleDictStrategy(DictStrategy):
@@ -56,14 +56,17 @@ class ModuleDictStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            self.setitem_str(w_dict, space.str_w(w_key), w_value)
+        if space.is_w(space.type(w_key), space.w_text):
+            self.setitem_str(w_dict, space.text_w(w_key), w_value)
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
 
     def setitem_str(self, w_dict, key, w_value):
         cell = self.getdictvalue_no_unwrapping(w_dict, key)
+        return self._setitem_str_cell_known(cell, w_dict, key, w_value)
+
+    def _setitem_str_cell_known(self, cell, w_dict, key, w_value):
         w_value = write_cell(self.space, cell, w_value)
         if w_value is None:
             return
@@ -72,12 +75,13 @@ class ModuleDictStrategy(DictStrategy):
 
     def setdefault(self, w_dict, w_key, w_default):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            key = space.str_w(w_key)
-            w_result = self.getitem_str(w_dict, key)
+        if space.is_w(space.type(w_key), space.w_text):
+            key = space.text_w(w_key)
+            cell = self.getdictvalue_no_unwrapping(w_dict, key)
+            w_result = unwrap_cell(self.space, cell)
             if w_result is not None:
                 return w_result
-            self.setitem_str(w_dict, key, w_default)
+            self._setitem_str_cell_known(cell, w_dict, key, w_default)
             return w_default
         else:
             self.switch_to_object_strategy(w_dict)
@@ -86,8 +90,8 @@ class ModuleDictStrategy(DictStrategy):
     def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_str):
-            key = space.str_w(w_key)
+        if space.is_w(w_key_type, space.w_text):
+            key = space.text_w(w_key)
             dict_w = self.unerase(w_dict.dstorage)
             try:
                 del dict_w[key]
@@ -107,8 +111,8 @@ class ModuleDictStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
-            return self.getitem_str(w_dict, space.str_w(w_key))
+        if space.is_w(w_lookup_type, space.w_text):
+            return self.getitem_str(w_dict, space.text_w(w_key))
 
         elif _never_equal_to_string(space, w_lookup_type):
             return None
@@ -123,7 +127,7 @@ class ModuleDictStrategy(DictStrategy):
     def w_keys(self, w_dict):
         space = self.space
         l = self.unerase(w_dict.dstorage).keys()
-        return space.newlist_bytes(l)
+        return space.newlist_text(l)
 
     def values(self, w_dict):
         iterator = self.unerase(w_dict.dstorage).itervalues

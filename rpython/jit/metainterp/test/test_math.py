@@ -1,6 +1,6 @@
 import math
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.rlib.rfloat import isinf, isnan, INFINITY, NAN
+from rpython.rlib.rfloat import INFINITY, NAN
 
 class MathTests:
 
@@ -32,11 +32,11 @@ class MathTests:
         self.check_operations_history(call_pure_f=0)
         #
         res = self.interp_operations(f, [INFINITY])
-        assert isinf(res) and not isnan(res) and res > 0.0
+        assert math.isinf(res) and not math.isnan(res) and res > 0.0
         self.check_operations_history(call_pure_f=0)
         #
         res = self.interp_operations(f, [NAN])
-        assert isnan(res) and not isinf(res)
+        assert math.isnan(res) and not math.isinf(res)
         self.check_operations_history(call_pure_f=0)
 
 

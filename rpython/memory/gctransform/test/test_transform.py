@@ -17,6 +17,7 @@ class LLInterpedTranformerTests:
         t = rtype(f, args_s)
         # XXX we shouldn't need an actual gcpolicy here.
         cbuild = CStandaloneBuilder(t, f, t.config, gcpolicy=self.gcpolicy)
+        cbuild.make_entrypoint_wrapper = False
         cbuild.build_database()
         graph = cbuild.getentrypointptr()._obj.graph
         # arguments cannot be GC objects because nobody would put a

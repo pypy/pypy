@@ -22,12 +22,27 @@ elif sys.platform == 'darwin':
     linklibs = ['tcl', 'tk']
     libdirs = []
 else:
-    for _ver in ['', '8.6', '8.5', '']:
+    # On some Linux distributions, the tcl and tk libraries are
+    # stored in /usr/include, so we must check this case also
+    libdirs = []
+    found = False
+    for _ver in ['', '8.6', '8.5']:
         incdirs = ['/usr/include/tcl' + _ver]
         linklibs = ['tcl' + _ver, 'tk' + _ver]
-        libdirs = []
         if os.path.isdir(incdirs[0]):
+            found = True
             break
+    if not found:
+        for _ver in ['8.6', '8.5', '']:
+            incdirs = []
+            linklibs = ['tcl' + _ver, 'tk' + _ver]
+            if os.path.isfile(''.join(['/usr/lib/lib', linklibs[1], '.so'])):
+                found = True
+                break
+    if not found:
+        sys.stderr.write("*** TCL libraries not found!  Falling back...\n")
+        incdirs = []
+        linklibs = ['tcl', 'tk']
 
 config_ffi = FFI()
 config_ffi.cdef("""
@@ -107,7 +122,7 @@ void Tcl_DeleteInterp(Tcl_Interp* interp);
 int Tcl_Init(Tcl_Interp* interp);
 int Tk_Init(Tcl_Interp* interp);
 
-void Tcl_Free(char* ptr);
+void Tcl_Free(void* ptr);
 
 const char *Tcl_SetVar(Tcl_Interp* interp, const char* varName, const char* newValue, int flags);
 const char *Tcl_SetVar2(Tcl_Interp* interp, const char* name1, const char* name2, const char* newValue, int flags);

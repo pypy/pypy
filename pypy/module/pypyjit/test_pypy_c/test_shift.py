@@ -47,26 +47,74 @@ class TestShift(BaseTestPyPyC):
             res = 0
             a = 0
             while a < 300:
-                assert a >= 0
-                assert 0 <= b <= 10
-                res = a/b     # ID: div
+                res1 = a/b     # ID: div
+                res2 = a/2     # ID: shift
+                res3 = a/11    # ID: mul
+                res += res1 + res2 + res3
                 a += 1
             return res
         #
         log = self.run(main, [3])
-        assert log.result == 99
+        assert log.result == main(3)
         loop, = log.loops_by_filename(self.filepath)
-        if sys.maxint == 2147483647:
-            SHIFT = 31
-        else:
-            SHIFT = 63
         assert loop.match_by_id('div', """
-            i10 = int_floordiv(i6, i7)
-            i11 = int_mul(i10, i7)
-            i12 = int_sub(i6, i11)
-            i14 = int_rshift(i12, %d)
-            i15 = int_add(i10, i14)
-        """ % SHIFT)
+            i56 = int_eq(i48, %d)
+            i57 = int_and(i56, i37)
+            guard_false(i57, descr=...)
+            i1 = call_i(_, i48, i3, descr=...)
+        """ % (-sys.maxint-1,))
+        assert loop.match_by_id('shift', """
+            i1 = int_rshift(i2, 1)
+        """)
+        if sys.maxint > 2**32:
+            args = (63, -5030930201920786804, 3)
+        else:
+            args = (31, -1171354717, 3)
+        assert loop.match_by_id('mul', """
+            i2 = int_rshift(i1, %d)
+            i3 = int_xor(i1, i2)
+            i4 = uint_mul_high(i3, %d)
+            i5 = uint_rshift(i4, %d)
+            i6 = int_xor(i5, i2)
+        """ % args)
+
+    def test_modulo_optimization(self):
+        def main(b):
+            res = 0
+            a = 0
+            while a < 300:
+                res1 = a%b     # ID: mod
+                res2 = a%2     # ID: and
+                res3 = a%11    # ID: mul
+                res += res1 + res2 + res3
+                a += 1
+            return res
+        #
+        log = self.run(main, [3])
+        assert log.result == main(3)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('mod', """
+            i56 = int_eq(i48, %d)
+            i57 = int_and(i56, i37)
+            guard_false(i57, descr=...)
+            i1 = call_i(_, i48, i3, descr=...)
+        """ % (-sys.maxint-1,))
+        assert loop.match_by_id('and', """
+            i1 = int_and(i2, 1)
+        """)
+        if sys.maxint > 2**32:
+            args = (63, -5030930201920786804, 3)
+        else:
+            args = (31, -1171354717, 3)
+        assert loop.match_by_id('mul', """
+            i2 = int_rshift(i1, %d)
+            i3 = int_xor(i1, i2)
+            i4 = uint_mul_high(i3, %d)
+            i5 = uint_rshift(i4, %d)
+            i6 = int_xor(i5, i2)
+            i7 = int_mul(i6, 11)
+            i8 = int_sub(i1, i7)
+        """ % args)
 
     def test_division_to_rshift_allcases(self):
         """

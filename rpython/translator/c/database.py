@@ -29,12 +29,17 @@ class LowLevelDatabase(object):
 
     def __init__(self, translator=None, standalone=False,
                  gcpolicyclass=None,
+                 gchooks=None,
                  exctransformer=None,
                  thread_enabled=False,
-                 sandbox=False):
+                 sandbox=False,
+                 split_gc_address_space=False,
+                 reverse_debugger=False):
         self.translator = translator
         self.standalone = standalone
         self.sandbox    = sandbox
+        self.split_gc_address_space = split_gc_address_space
+        self.reverse_debugger       = reverse_debugger
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)
@@ -48,7 +53,6 @@ class LowLevelDatabase(object):
         self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
-        self.helpers = OrderedDict()
 
         # late_initializations is for when the value you want to
         # assign to a constant object is something C doesn't think is
@@ -57,7 +61,7 @@ class LowLevelDatabase(object):
         self.namespace = CNameManager()
 
         if translator is not None:
-            self.gctransformer = self.gcpolicy.gettransformer(translator)
+            self.gctransformer = self.gcpolicy.gettransformer(translator, gchooks)
         self.completed = False
 
         self.instrument_ncounter = 0
@@ -276,7 +280,7 @@ class LowLevelDatabase(object):
         finish_callbacks = []
         if self.gctransformer:
             finish_callbacks.append(('GC transformer: finished helpers',
-                                     self.gctransformer.finish_helpers))
+                                     self.gctransformer.get_finish_helpers()))
             finish_callbacks.append(('GC transformer: finished tables',
                                      self.gctransformer.get_finish_tables()))
 
@@ -347,8 +351,9 @@ class LowLevelDatabase(object):
 
         assert not self.delayedfunctionptrs
         self.completed = True
-        if self.gctransformer is not None and self.gctransformer.inline:
-            self.gctransformer.inline_helpers(self.all_graphs())
+        if self.gctransformer is not None:
+            log.database("Inlining GC helpers and postprocessing")
+            self.gctransformer.inline_helpers_and_postprocess(self.all_graphs())
         if show_progress:
             dump()
         log.database("Completed")

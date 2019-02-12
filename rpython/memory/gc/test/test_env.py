@@ -161,3 +161,32 @@ etc.
 """)
     result = env.get_L2cache_linux2_cpuinfo(str(filepath))
     assert result == 3072 * 1024
+
+def test_estimate_nursery_s390x():
+    filepath = udir.join('estimate_best_nursery_size_linux2')
+    filepath.write("""\
+vendor_id       : IBM/S390
+# processors    : 2
+bogomips per cpu: 20325.00
+...
+cache2          : level=2 type=Data scope=Private size=2048K line_size=256 associativity=8
+cache3          : level=2 type=Instruction scope=Private size=2048K line_size=256 associativity=8
+...
+""")
+    result = env.get_L2cache_linux2_cpuinfo_s390x(str(filepath))
+    assert result == 2048 * 1024
+
+    filepath = udir.join('estimate_best_nursery_size_linux3')
+    filepath.write("""\
+vendor_id       : IBM/S390
+# processors    : 2
+bogomips per cpu: 9398.00
+...
+cache2          : level=2 type=Unified scope=Private size=1536K line_size=256 associativity=12
+cache3          : level=3 type=Unified scope=Shared size=24576K line_size=256 associativity=12
+...
+""")
+    result = env.get_L2cache_linux2_cpuinfo_s390x(str(filepath), label='cache3')
+    assert result == 24576 * 1024
+    result = env.get_L2cache_linux2_cpuinfo_s390x(str(filepath), label='cache2')
+    assert result == 1536 * 1024

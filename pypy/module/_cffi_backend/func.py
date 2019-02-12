@@ -1,7 +1,8 @@
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, we_are_translated
+from rpython.rlib import jit
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
@@ -44,19 +45,18 @@ def sizeof(space, w_obj):
             raise oefmt(space.w_ValueError,
                         "ctype '%s' is of unknown size", w_obj.name)
     else:
-        raise OperationError(space.w_TypeError,
-                            space.wrap("expected a 'cdata' or 'ctype' object"))
-    return space.wrap(size)
+        raise oefmt(space.w_TypeError, "expected a 'cdata' or 'ctype' object")
+    return space.newint(size)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def alignof(space, w_ctype):
     align = w_ctype.alignof()
-    return space.wrap(align)
+    return space.newint(align)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
     ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
-    return space.newtuple([space.wrap(ctype), space.wrap(offset)])
+    return space.newtuple([ctype, space.newint(offset)])
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
 def rawaddressof(space, w_ctype, w_cdata, offset):
@@ -64,17 +64,23 @@ def rawaddressof(space, w_ctype, w_cdata, offset):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType, replace_with=str)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, replace_with='text')
 def getcname(space, w_ctype, replace_with):
     p = w_ctype.name_position
     s = '%s%s%s' % (w_ctype.name[:p], replace_with, w_ctype.name[p:])
-    return space.wrap(s)
+    return space.newtext(s)
 
 # ____________________________________________________________
 
 @unwrap_spec(w_cdata=cdataobj.W_CData, maxlen=int)
 def string(space, w_cdata, maxlen=-1):
     return w_cdata.ctype.string(w_cdata, maxlen)
+
+# ____________________________________________________________
+
+@unwrap_spec(w_cdata=cdataobj.W_CData, length=int)
+def unpack(space, w_cdata, length):
+    return w_cdata.unpack(length)
 
 # ____________________________________________________________
 
@@ -93,50 +99,116 @@ def _get_common_types(space, w_dict):
             break
         key = rffi.charp2str(p)
         value = rffi.charp2str(rffi.ptradd(p, len(key) + 1))
-        space.setitem_str(w_dict, key, space.wrap(value))
+        space.setitem_str(w_dict, key, space.newtext(value))
         index += 1
 
 # ____________________________________________________________
 
 def _fetch_as_read_buffer(space, w_x):
-    # xxx do we really need to implement the same mess as in CPython 2.7
-    # w.r.t. buffers and memoryviews??
-    try:
-        buf = space.readbuf_w(w_x)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        buf = space.buffer_w(w_x, space.BUF_SIMPLE)
-    return buf
+    return space.readbuf_w(w_x)
 
 def _fetch_as_write_buffer(space, w_x):
-    try:
-        buf = space.writebuf_w(w_x)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        buf = space.buffer_w(w_x, space.BUF_WRITABLE)
-    return buf
+    return space.writebuf_w(w_x)
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType)
-def from_buffer(space, w_ctype, w_x):
-    from pypy.module._cffi_backend import ctypearray, ctypeprim
-    #
-    if (not isinstance(w_ctype, ctypearray.W_CTypeArray) or
-        not isinstance(w_ctype.ctptr.ctitem, ctypeprim.W_CTypePrimitiveChar)):
+@unwrap_spec(w_ctype=ctypeobj.W_CType, require_writable=int)
+def from_buffer(space, w_ctype, w_x, require_writable=0):
+    from pypy.module._cffi_backend import ctypearray
+    if not isinstance(w_ctype, ctypearray.W_CTypeArray):
+        raise oefmt(space.w_TypeError, "expected an array ctype, got '%s'",
+                    w_ctype.name)
+    if space.isinstance_w(w_x, space.w_unicode):
         raise oefmt(space.w_TypeError,
-                    "needs 'char[]', got '%s'", w_ctype.name)
+                "from_buffer() cannot return the address of a unicode object")
+    if require_writable:
+        buf = _fetch_as_write_buffer(space, w_x)
+    else:
+        buf = _fetch_as_read_buffer(space, w_x)
+    if space.isinstance_w(w_x, space.w_bytes):
+        _cdata = get_raw_address_of_string(space, w_x)
+    else:
+        try:
+            _cdata = buf.get_raw_address()
+        except ValueError:
+            raise oefmt(space.w_TypeError,
+                        "from_buffer() got a '%T' object, which supports the "
+                        "buffer interface but cannot be rendered as a plain "
+                        "raw address on PyPy", w_x)
     #
-    buf = _fetch_as_read_buffer(space, w_x)
-    try:
-        _cdata = buf.get_raw_address()
-    except ValueError:
-        raise oefmt(space.w_TypeError,
-                    "from_buffer() got a '%T' object, which supports the "
-                    "buffer interface but cannot be rendered as a plain "
-                    "raw address on PyPy", w_x)
+    buffersize = buf.getlength()
+    arraylength = w_ctype.length
+    if arraylength >= 0:
+        # it's an array with a fixed length; make sure that the
+        # buffer contains enough bytes.
+        if buffersize < w_ctype.size:
+            raise oefmt(space.w_ValueError,
+                "buffer is too small (%d bytes) for '%s' (%d bytes)",
+                buffersize, w_ctype.name, w_ctype.size)
+    else:
+        # it's an open 'array[]'
+        itemsize = w_ctype.ctitem.size
+        if itemsize == 1:
+            # fast path, performance only
+            arraylength = buffersize
+        elif itemsize > 0:
+            # give it as many items as fit the buffer.  Ignore a
+            # partial last element.
+            arraylength = buffersize / itemsize
+        else:
+            # it's an array 'empty[]'.  Unsupported obscure case:
+            # the problem is that setting the length of the result
+            # to anything large (like SSIZE_T_MAX) is dangerous,
+            # because if someone tries to loop over it, it will
+            # turn effectively into an infinite loop.
+            raise oefmt(space.w_ZeroDivisionError,
+                "from_buffer('%s', ..): the actual length of the array "
+                "cannot be computed", w_ctype.name)
     #
-    return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)
+    return cdataobj.W_CDataFromBuffer(space, _cdata, arraylength,
+                                      w_ctype, buf, w_x)
+
+# ____________________________________________________________
+
+class RawBytes(object):
+    def __init__(self, string):
+        self.ptr = rffi.str2charp(string, track_allocation=False)
+    def __del__(self):
+        rffi.free_charp(self.ptr, track_allocation=False)
+
+class RawBytesCache(object):
+    def __init__(self, space):
+        from pypy.interpreter.baseobjspace import W_Root
+        from rpython.rlib import rweakref
+        self.wdict = rweakref.RWeakKeyDictionary(W_Root, RawBytes)
+
+@jit.dont_look_inside
+def get_raw_address_of_string(space, w_x):
+    """Special case for ffi.from_buffer(string).  Returns a 'char *' that
+    is valid as long as the string object is alive.  Two calls to
+    ffi.from_buffer(same_string) are guaranteed to return the same pointer.
+    """
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rtyper.lltypesystem.rstr import STR
+    from rpython.rtyper.lltypesystem import llmemory
+    from rpython.rlib import rgc
+
+    cache = space.fromcache(RawBytesCache)
+    rawbytes = cache.wdict.get(w_x)
+    if rawbytes is None:
+        data = space.bytes_w(w_x)
+        if (we_are_translated() and not rgc.can_move(data)
+                                and not rgc.must_split_gc_address_space()):
+            lldata = llstr(data)
+            data_start = (llmemory.cast_ptr_to_adr(lldata) +
+                          rffi.offsetof(STR, 'chars') +
+                          llmemory.itemoffsetof(STR.chars, 0))
+            data_start = rffi.cast(rffi.CCHARP, data_start)
+            data_start[len(data)] = '\x00'   # write the final extra null
+            return data_start
+        rawbytes = RawBytes(data)
+        cache.wdict.set(w_x, rawbytes)
+    return rawbytes.ptr
+
+# ____________________________________________________________
 
 
 def unsafe_escaping_ptr_for_ptr_or_array(w_cdata):
@@ -196,6 +268,9 @@ def memmove(space, w_dest, w_src, n):
         else:
             copy_string_to_raw(llstr(src_string), dest_data, 0, n)
     else:
+        # nowadays this case should be rare or impossible: as far as
+        # I know, all common types implementing the *writable* buffer
+        # interface now support get_raw_address()
         if src_is_ptr:
             for i in range(n):
                 dest_buf.setitem(i, src_data[i])
@@ -210,6 +285,10 @@ def memmove(space, w_dest, w_src, n):
 
 # ____________________________________________________________
 
+@unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
+def gcp(space, w_cdata, w_destructor, size=0):
+    return w_cdata.with_gc(w_destructor, size)
+
 @unwrap_spec(w_cdata=cdataobj.W_CData)
-def gcp(space, w_cdata, w_destructor):
-    return w_cdata.with_gc(w_destructor)
+def release(space, w_cdata):
+    w_cdata.enter_exit(True)

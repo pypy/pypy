@@ -12,9 +12,9 @@ directly useful to most messy to use with PyPy):
 
 * Write them in pure Python and use ctypes_.
 
-* Write them in C++ and bind them through Reflex_.
+* Write them in C++ and bind them through  cppyy_ using Cling.
 
-* Write them in as `RPython mixed modules`_.
+* Write them as `RPython mixed modules`_.
 
 
 CFFI
@@ -61,25 +61,21 @@ these two modules.
 .. _libffi: http://sourceware.org/libffi/
 
 
-Reflex
-------
+cppyy
+-----
 
-The builtin :doc:`cppyy <cppyy>` module uses reflection information, provided by
-`Reflex`_ (which needs to be `installed separately`_), of C/C++ code to
-automatically generate bindings at runtime.
-In Python, classes and functions are always runtime structures, so when they
-are generated matters not for performance.
-However, if the backend itself is capable of dynamic behavior, it is a much
-better functional match, allowing tighter integration and more natural
-language mappings.
+For C++, _cppyy_ is an automated bindings generator available for both
+PyPy and CPython.
+_cppyy_ relies on declarations from C++ header files to dynamically
+construct Python equivalent classes, functions, variables, etc.
+It is designed for use by large scale programs and supports modern C++.
+With PyPy, it leverages the built-in ``_cppyy`` module, allowing the JIT to
+remove most of the cross-language overhead.
 
-The :doc:`cppyy <cppyy>` module is written in RPython, thus PyPy's JIT is able to remove
-most cross-language call overhead.
+To install, run ``pip install cppyy``.
+Further details are available in the `full documentation`_.
 
-:doc:`Full details <cppyy>` are `available here <cppyy>`.
-
-.. _installed separately: http://cern.ch/wlav/reflex-2013-08-14.tar.bz2
-.. _Reflex: http://root.cern.ch/drupal/content/reflex
+.. _`full documentation`: https://cppyy.readthedocs.org/
 
 
 RPython Mixed Modules
@@ -94,7 +90,3 @@ details of the JIT, allowing us to tweak its interaction with user code.
 This is how the numpy module is being developed.
 
 
-.. toctree::
-   :hidden:
-
-   cppyy

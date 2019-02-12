@@ -3,13 +3,13 @@
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
     normalize_simple_slice)
-from pypy.objspace.std.util import negate
+from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import intmask
@@ -37,6 +37,23 @@ hash_driver = jit.JitDriver(
 
 class W_AbstractTupleObject(W_Root):
     __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractTupleObject):
+            return False
+        if self is w_other:
+            return True
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return False
+        # empty tuples are unique-ified
+        return 0 == w_other.length() == self.length()
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class or self.length() > 0:
+            return None
+        # empty tuple: base value 258
+        uid = (258 << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.newint(uid)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -85,9 +102,9 @@ class W_AbstractTupleObject(W_Root):
     def descr_repr(self, space):
         items = self.tolist()
         if len(items) == 1:
-            return space.wrap("(" + space.str_w(space.repr(items[0])) + ",)")
-        tmp = ", ".join([space.str_w(space.repr(item)) for item in items])
-        return space.wrap("(" + tmp + ")")
+            return space.newtext("(" + space.text_w(space.repr(items[0])) + ",)")
+        tmp = ", ".join([space.text_w(space.repr(item)) for item in items])
+        return space.newtext("(" + tmp + ")")
 
     def descr_hash(self, space):
         raise NotImplementedError
@@ -136,7 +153,7 @@ class W_AbstractTupleObject(W_Root):
     @jit.unroll_safe
     def _descr_contains_unroll_safe(self, space, w_obj):
         for w_item in self.tolist():
-            if space.eq_w(w_item, w_obj):
+            if space.eq_w(w_obj, w_item):
                 return space.w_True
         return space.w_False
 
@@ -144,7 +161,7 @@ class W_AbstractTupleObject(W_Root):
         tp = space.type(w_obj)
         for w_item in self.tolist():
             contains_jmp.jit_merge_point(tp=tp)
-            if space.eq_w(w_item, w_obj):
+            if space.eq_w(w_obj, w_item):
                 return space.w_True
         return space.w_False
 
@@ -158,7 +175,7 @@ class W_AbstractTupleObject(W_Root):
     def descr_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
@@ -199,7 +216,7 @@ class W_AbstractTupleObject(W_Root):
         for w_item in self.tolist():
             if space.eq_w(w_item, w_obj):
                 count += 1
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(sys.maxint))
     @jit.look_inside_iff(lambda self, _1, _2, _3, _4: _unroll_condition(self))
@@ -212,9 +229,8 @@ class W_AbstractTupleObject(W_Root):
         for i in range(start, min(stop, length)):
             w_item = self.tolist()[i]
             if space.eq_w(w_item, w_obj):
-                return space.wrap(i)
-        raise OperationError(space.w_ValueError,
-                             space.wrap("tuple.index(x): x not in tuple"))
+                return space.newint(i)
+        raise oefmt(space.w_ValueError, "tuple.index(x): x not in tuple")
 
 W_AbstractTupleObject.typedef = TypeDef(
     "tuple",
@@ -284,7 +300,7 @@ class W_TupleObject(W_AbstractTupleObject):
             z -= 1
             mult += 82520 + z + z
         x += 97531
-        return space.wrap(intmask(x))
+        return space.newint(intmask(x))
 
     def _descr_hash_jitdriver(self, space):
         mult = 1000003
@@ -298,7 +314,7 @@ class W_TupleObject(W_AbstractTupleObject):
             z -= 1
             mult += 82520 + z + z
         x += 97531
-        return space.wrap(intmask(x))
+        return space.newint(intmask(x))
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_AbstractTupleObject):
@@ -326,8 +342,7 @@ class W_TupleObject(W_AbstractTupleObject):
         try:
             return self.wrappeditems[index]
         except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("tuple index out of range"))
+            raise oefmt(space.w_IndexError, "tuple index out of range")
 
 
 def wraptuple(space, list_w):
