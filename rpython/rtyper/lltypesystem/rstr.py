@@ -784,8 +784,20 @@ class LLHelpers(AbstractLLHelpers):
                 return 0
             return -1
 
-        mlast = m - 1
+        if jit.isconstant(s2):
+            # if s2 is constant we look into _search_look_inside to constant
+            # fold the call to _precompute_skip_mask_*
+            return LLHelpers._search_look_inside(s1, s2, start, end, mode)
+        else:
+            return LLHelpers._search_elidable(s1, s2, start, end, mode)
 
+    @staticmethod
+    @jit.elidable
+    def _search_elidable(s1, s2, start, end, mode):
+        return LLHelpers._search_look_inside(s1, s2, start, end, mode)
+
+    @staticmethod
+    def _search_look_inside(s1, s2, start, end, mode):
         if mode != FAST_RFIND:
             skip, mask = LLHelpers._precompute_skip_mask_forward(s2)
             return LLHelpers._str_search_forward(s1, s2, start, end, mode, skip, mask)

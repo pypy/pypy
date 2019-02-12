@@ -971,3 +971,21 @@ class TestLLtypeUnicode(TestLLtype):
             d = {s: s + s}
             return len(d[s])
         assert self.interp_operations(f, [222]) == 6
+
+    def test_search(self):
+        jitdriver = JitDriver(greens=[], reds="auto")
+        def f():
+            l = [str(i) for i in range(100)]
+            s = "".join(l)
+            start = 0
+            count = 0
+            while 1:
+                jitdriver.jit_merge_point()
+                index = s.find("12", start)
+                if index < 0:
+                    break
+                count += 1
+                start = index + 1
+            return count
+        assert self.meta_interp(f, []) == f()
+        self.check_simple_loop(call_i=1)
