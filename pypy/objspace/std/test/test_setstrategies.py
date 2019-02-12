@@ -7,10 +7,29 @@ from pypy.objspace.std.setobject import (
 from pypy.objspace.std.listobject import W_ListObject
 
 
-from hypothesis import strategies, given
+from hypothesis import strategies, given, example
+
+def clamp(i):
+    if i > sys.maxint:
+        return sys.maxint
+    if i < -sys.maxint - 1:
+        return -sys.maxint-1
+    return i
 
 ints = strategies.integers(-sys.maxint-1, sys.maxint)
-intlists = strategies.lists(ints)
+bools = strategies.booleans()
+
+# try to build somewhat "dense" sets
+def clumpedints(data):
+    l = []
+    for i in range(data.draw(strategies.integers(1, 10))):
+        base = data.draw(strategies.integers(-10000, 10000))
+        for j in range(data.draw(strategies.integers(1, 64))):
+            l.append(clamp(base + data.draw(strategies.integers(1, 10))))
+            base = l[-1]
+    return l
+intlists_nonempty = strategies.builds(clumpedints, strategies.data())
+intlists = intlists_nonempty | strategies.just([])
 
 class TestW_SetStrategies:
 
@@ -160,8 +179,12 @@ class TestSetHypothesis:
     def wrap(self, x):
         return self.space.wrap(x)
 
-    def intset(self, content):
-        return W_SetObject(self.space, self.wrapped(content))
+    def intset(self, content, should_use_object_strategy=False):
+        content = [int(c) for c in content]
+        result = W_SetObject(self.space, self.wrapped(content))
+        if should_use_object_strategy:
+            result.switch_to_object_strategy(self.space)
+        return result
 
     @given(intlists, ints)
     def test_intset_added_element_in_set(self, content, i):
@@ -176,6 +199,11 @@ class TestSetHypothesis:
         w_i = self.wrap(i)
         s.remove(w_i)
         assert not s.has_key(w_i)
+
+    @given(intlists_nonempty)
+    def test_rpy_iter(self, content):
+        s = self.intset(content)
+        assert set(list(s.strategy.rpy_iter(s))) == set(content)
 
     @given(intlists)
     def test_pop(self, content):
@@ -204,11 +232,13 @@ class TestSetHypothesis:
             assert s1.has_key(self.wrap(i))
         # XXX check that no additional keys
 
-    @given(intlists, intlists)
-    def test_symmetric_update(self, c1, c2):
+    @given(intlists, intlists, bools)
+    def test_symmetric_update(self, c1, c2, should_use_object_strategy):
         s1 = self.intset(c1)
-        s2 = self.intset(c2)
+        s2 = self.intset(c2, should_use_object_strategy)
+        s3 = s1.symmetric_difference(s2)
         s1.symmetric_difference_update(s2)
+        assert s1.equals(s3)
         s1.length()
         for i in c1:
             if i not in c2:
@@ -222,12 +252,11 @@ class TestSetHypothesis:
                 assert not s1.has_key(self.wrap(i))
         # XXX check that no additional keys
 
-    @given(intlists, intlists)
-    def test_difference_update(self, c1, c2):
+    @given(intlists, intlists, bools)
+    def test_difference_update(self, c1, c2, should_use_object_strategy):
         s1 = self.intset(c1)
-        s2 = self.intset(c2)
+        s2 = self.intset(c2, should_use_object_strategy)
         s1.difference_update(s2)
-        s1.length()
         for i in c1:
             if i not in c2:
                 assert s1.has_key(self.wrap(i))
@@ -235,16 +264,17 @@ class TestSetHypothesis:
                 assert not s1.has_key(self.wrap(i))
         for i in c2:
             assert not s1.has_key(self.wrap(i))
+        assert s1.isdisjoint(s2)
         # XXX check that no additional keys
 
     @given(intlists, intlists)
     def XXXtest_update_vs_not(self, c1, c2):
         return #XXX write me!
 
-    @given(intlists, intlists)
-    def test_intersect(self, c1, c2):
+    @given(intlists_nonempty, intlists_nonempty, bools)
+    def test_intersect(self, c1, c2, should_use_object_strategy):
         s1 = self.intset(c1)
-        s2 = self.intset(c2)
+        s2 = self.intset(c2, should_use_object_strategy)
         s = s1.intersect(s2)
         for i in c1:
             if i in c2:
@@ -270,11 +300,13 @@ class TestSetHypothesis:
             assert s.has_key(self.wrap(i))
         # XXX check that no additional keys
 
-    @given(intlists, intlists)
-    def test_issubset(self, c1, c2):
+    @example([1], [0], False)
+    @given(intlists_nonempty, intlists, bools)
+    def test_issubset(self, c1, c2, should_use_object_strategy):
         s1 = self.intset(c1)
-        s2 = self.intset(c1)
+        s2 = self.intset(c1, should_use_object_strategy)
         for i in c2:
-            s2.remove(self.wrap(i))
+            s1.add(self.wrap(i))
+            s1.add(self.wrap(c1[0] + 1))
         assert s2.issubset(s1)
         assert not s1.issubset(s2) or s1.equals(s2)

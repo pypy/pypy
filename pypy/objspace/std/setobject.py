@@ -140,7 +140,7 @@ class W_BaseSetObject(W_Root):
         return self.strategy.issubset(self, w_other)
 
     def isdisjoint(self, w_other):
-        """ Checks wether this set and the w_other are completly different, i.e. have no equal elements. W_other must be a set."""
+        """ Checks wether this set and the w_other are completely different, i.e. have no equal elements. W_other must be a set."""
         return self.strategy.isdisjoint(self, w_other)
 
     def update(self, w_other):
@@ -1373,6 +1373,9 @@ class IntegerSetStrategy(SetStrategy):
     def iter(self, w_set):
         return IntegerIteratorImplementation(self.space, self, w_set)
 
+    def rpy_iter(self, w_set):
+        return RPyIntegerSetIterator(self.unerase(w_set.sstorage))
+
     def _set_key(self, setdata, i):
         setdata[i & self.KEYMASK] = setdata.get(i & self.KEYMASK, 0) | (1 << (i & self.BITMASK))
 
@@ -1445,6 +1448,9 @@ class IntegerSetStrategy(SetStrategy):
         key = self.unwrap(w_item)
         return self._remove_key(d, key)
 
+    def getkeys(self, w_set):
+        return [self.wrap(key) for key in self.rpy_iter(w_set)]
+
     def has_key(self, w_set, w_key):
         if not self.is_correct_type(w_key):
             #XXX check type of w_item and immediately return False in some cases
@@ -1485,16 +1491,16 @@ class IntegerSetStrategy(SetStrategy):
         w_set.switch_to_object_strategy(self.space)
         w_set.update(w_other)
 
-    def XXX_symmetric_difference_base(self, w_set, w_other):
+    def _symmetric_difference_base(self, w_set, w_other):
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._symmetric_difference_unwrapped(w_set, w_other)
         else:
-            w_set.switch_to_object_strategy(self.space)
-            return w_set.symmetric_difference(w_other)
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            storage = self._symmetric_difference_wrapped(w_set, w_other)
         return storage, strategy
 
-    def XXXsymmetric_difference(self, w_set, w_other):
+    def symmetric_difference(self, w_set, w_other):
         if w_other.length() == 0:
             return w_set.copy_real()
         storage, strategy = self._symmetric_difference_base(w_set, w_other)
@@ -1528,7 +1534,8 @@ class IntegerSetStrategy(SetStrategy):
 
     def _symmetric_difference_wrapped(self, w_set, w_other):
         newsetdata = newset(self.space)
-        for obj in self.unerase(w_set.sstorage):
+        # XXX speed up if they contain different element types
+        for obj in self.rpy_iter(w_set):
             w_item = self.wrap(obj)
             if not w_other.has_key(w_item):
                 newsetdata[w_item] = None
@@ -1562,17 +1569,19 @@ class IntegerSetStrategy(SetStrategy):
                 storage = w_other.strategy._intersect_wrapped(w_other, w_set)
             else:
                 storage = self._intersect_wrapped(w_set, w_other)
+                strategy = self.space.fromcache(IntegerSetStrategy)
         return storage, strategy
 
-    def XXX_intersect_wrapped(self, w_set, w_other):
-        result = newset(self.space)
-        for key in self.unerase(w_set.sstorage):
+    def _intersect_wrapped(self, w_set, w_other):
+        result = self.get_empty_dict()
+        for key in self.rpy_iter(w_set):
             self.intersect_jmp.jit_merge_point()
             w_key = self.wrap(key)
             if w_other.has_key(w_key):
-                result[w_key] = None
+                dkey = key & self.KEYMASK
+                result[dkey] = result.get(dkey, 0) | (1 << (key & self.BITMASK))
 
-        strategy = self.space.fromcache(ObjectSetStrategy)
+        strategy = self.space.fromcache(IntegerSetStrategy)
         return strategy.erase(result)
 
     def _intersect_unwrapped(self, w_set, w_other):
@@ -1624,6 +1633,15 @@ class IntegerSetStrategy(SetStrategy):
                 result_dict[key] = new
         return self.erase(result_dict)
 
+    def _difference_wrapped(self, w_set, w_other):
+        result_dict = self.get_empty_dict()
+        # XXX can be done faster by going word by word
+        for key in self.rpy_iter(w_set):
+            w_item = self.wrap(key)
+            if not w_other.has_key(w_item):
+                self._set_key(result_dict, key)
+        return self.erase(result_dict)
+
     def _difference_update_unwrapped(self, w_set, w_other):
         my_dict = self.unerase(w_set.sstorage)
         if w_set.sstorage is w_other.sstorage:
@@ -1662,6 +1680,7 @@ class IntegerSetStrategy(SetStrategy):
                 self._difference_update_wrapped(w_set, w_other)
 
     def equals(self, w_set, w_other):
+        # XXX length is slow so far
         if w_set.length() != w_other.length():
             return False
         if w_set.length() == 0:
@@ -1671,8 +1690,7 @@ class IntegerSetStrategy(SetStrategy):
             return self._issubset_unwrapped(w_set, w_other)
         if not self.may_contain_equal_elements(w_other.strategy):
             return False
-        items = self.unerase(w_set.sstorage).keys()
-        for key in items:
+        for key in self.rpy_iter(w_set):
             if not w_other.has_key(self.wrap(key)):
                 return False
         return True
@@ -1680,13 +1698,21 @@ class IntegerSetStrategy(SetStrategy):
     def _issubset_unwrapped(self, w_set, w_other):
         d_set = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for key, keyhash in iterkeys_with_hash(d_set):
-            if not contains_with_hash(d_other, key, keyhash):
+        for key, value in d_set.iteritems():
+            try:
+                othervalue = d_other[key]
+            except KeyError:
+                return False
+            if value & othervalue != value:
                 return False
         return True
 
     def _issubset_wrapped(self, w_set, w_other):
-        XXX
+        for key in self.rpy_iter(w_set):
+            w_item = self.wrap(key)
+            if not w_other.has_key(w_item):
+                return False
+        return True
 
     def issubset(self, w_set, w_other):
         if w_set.length() == 0:
@@ -1698,6 +1724,38 @@ class IntegerSetStrategy(SetStrategy):
             return False
         else:
             return self._issubset_wrapped(w_set, w_other)
+
+    def _isdisjoint_unwrapped(self, w_set, w_other):
+        d_set = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
+        for key, value in d_set.iteritems():
+            try:
+                othervalue = d_other[key]
+            except KeyError:
+                pass
+            else:
+                if othervalue & value:
+                    return False
+        return True
+
+    def _isdisjoint_wrapped(self, w_set, w_other):
+        for key in self.rpy_iter(w_set):
+            if w_other.has_key(self.wrap(key)):
+                return False
+        return True
+
+    def isdisjoint(self, w_set, w_other):
+        if w_other.length() == 0:
+            return True
+        if w_set.length() > w_other.length():
+            return w_other.isdisjoint(w_set)
+
+        if w_set.strategy is w_other.strategy:
+            return self._isdisjoint_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            return True
+        else:
+            return self._isdisjoint_wrapped(w_set, w_other)
 
 
 class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
@@ -1863,16 +1921,29 @@ class UnicodeIteratorImplementation(IteratorImplementation):
 
 
 class IntegerIteratorImplementation(IteratorImplementation):
-    #XXX same implementation in dictmultiobject on dictstrategy-branch
     def __init__(self, space, strategy, w_set):
         IteratorImplementation.__init__(self, space, strategy, w_set)
         d = strategy.unerase(w_set.sstorage)
+        self.iterator = RPyIntegerSetIterator(d)
+
+    def next_entry(self):
+        for key in self.iterator:
+            return self.space.newint(key)
+        else:
+            return None
+
+
+class RPyIntegerSetIterator(object):
+    def __init__(self, d):
         self.iterator = d.iteritems()
         self.key_from_dict = 0
         self.value_from_dict = 0
         self.intvalue = 0
 
-    def next_entry(self):
+    def __iter__(self):
+        return self
+
+    def next(self):
         value_from_dict = self.value_from_dict
         key_from_dict = self.key_from_dict
         intvalue = self.intvalue
@@ -1885,7 +1956,7 @@ class IntegerIteratorImplementation(IteratorImplementation):
                 intvalue = 0
                 break
             else:
-                return None
+                raise StopIteration
         while True:
             result = intvalue
             should_return = value_from_dict & 1
@@ -1894,8 +1965,7 @@ class IntegerIteratorImplementation(IteratorImplementation):
             if should_return:
                 self.value_from_dict = value_from_dict
                 self.intvalue = intvalue
-                return self.space.newint(key_from_dict | result)
-
+                return key_from_dict | result
 
 
 class IdentityIteratorImplementation(IteratorImplementation):
