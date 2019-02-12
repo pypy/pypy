@@ -21,7 +21,7 @@ def popcount(i):
     while i:
         res += i & 1
         i >>= 1
-    return res
+    return intmask(res)
 
 UNROLL_CUTOFF = 5
 
