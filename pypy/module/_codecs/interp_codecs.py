@@ -8,9 +8,6 @@ from rpython.rlib.runicode import raw_unicode_escape_helper
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter import unicodehelper
-from pypy.interpreter.unicodehelper import (
-    unicode_encode_utf_8_impl,
-    str_decode_unicode_escape)
 from pypy.module.unicodedata import unicodedb
 
 
