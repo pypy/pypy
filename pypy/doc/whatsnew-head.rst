@@ -33,3 +33,8 @@ Improve register allocation in the JIT.
 .. branch: promote-unicode
 
 Implement rlib.jit.promote_unicode to complement promote_string
+
+.. branch: intbound-improvements
+
+Better reasoning in the JIT about the results of integer xor, or, modulo
+and invert operations.
