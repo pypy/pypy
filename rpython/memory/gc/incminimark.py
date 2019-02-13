@@ -3011,6 +3011,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                                          PYOBJ_HDR_PTR))
     RAWREFCOUNT_PYOBJ_AS_GC = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR],
                                                          PYOBJ_GC_HDR_PTR))
+    RAWREFCOUNT_FINALIZER_TYPE = lltype.Ptr(lltype.FuncType([PYOBJ_GC_HDR_PTR],
+                                                         lltype.Signed))
 
     def _pyobj(self, pyobjaddr):
         return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
@@ -3018,7 +3020,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(pygchdraddr, self.PYOBJ_GC_HDR_PTR)
 
     def rawrefcount_init(self, dealloc_trigger_callback, tp_traverse,
-                         pyobj_list, gc_as_pyobj, pyobj_as_gc):
+                         pyobj_list, gc_as_pyobj, pyobj_as_gc, finalizer_type):
         # see pypy/doc/discussion/rawrefcount.rst
         if not self.rrc_enabled:
             self.rrc_p_list_young = self.AddressStack()
@@ -3041,6 +3043,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_pyobj_garbage_list.c_gc_prev = self.rrc_pyobj_garbage_list
             self.rrc_gc_as_pyobj = gc_as_pyobj
             self.rrc_pyobj_as_gc = pyobj_as_gc
+            self.rrc_finalizer_type = finalizer_type
             self.rrc_enabled = True
 
     def check_no_more_rawrefcount_state(self):
@@ -3268,13 +3271,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # TODO: pypy objects
 
     def _rrc_major_trace(self, pyobject, ignore):
-        pygchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
-        if pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR):
-            rc = pygchdr.c_gc_refs
-        else:
-            rc = self._pyobj(pyobject).c_ob_refcnt
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
+        # TODO: optimization: if no finalizers are found the cyclic rc
+        # TODO: can be used instead of the real rc, because the objects
+        # TODO: cannot be resurrected anyway
+        # pygchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
+        # if pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR):
+        #     rc = pygchdr.c_gc_refs
+        # else:
+        rc = self._pyobj(pyobject).c_ob_refcnt
 
-        if rc == 0:
+        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT: # or rc == 0
             pass  # the corresponding object may die
         else:
             # force the corresponding object to be alive

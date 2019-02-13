@@ -1187,6 +1187,9 @@ def attach_c_functions(space, eci, prefix):
     state.C._PyPy_pyobj_as_gc = rffi.llexternal(
         '_PyPy_pyobj_as_gc', [GCHdr_PyObject], PyGC_HeadPtr,
         compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_finalizer_type = rffi.llexternal(
+        '_PyPy_finalizer_type', [PyGC_HeadPtr], lltype.Signed,
+        compilation_info=eci, _nowrapper=True)
 
 
 def init_function(func):

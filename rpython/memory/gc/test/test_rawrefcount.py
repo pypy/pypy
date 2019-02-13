@@ -39,6 +39,9 @@ class TestRawRefCount(BaseDirectGCTest):
         def rawrefcount_pyobj_as_gc(pyobj):
             return self.gcobjs[self.pyobjs.index(pyobj)]
 
+        def rawrefcount_finalizer_type(gc):
+            return 0
+
         self.pyobj_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
                                         immortal=True)
         self.pyobj_list.c_gc_next = self.pyobj_list
@@ -47,7 +50,8 @@ class TestRawRefCount(BaseDirectGCTest):
                                  rawrefcount_tp_traverse,
                                  llmemory.cast_ptr_to_adr(self.pyobj_list),
                                  rawrefcount_gc_as_pyobj,
-                                 rawrefcount_pyobj_as_gc)
+                                 rawrefcount_pyobj_as_gc,
+                                 rawrefcount_finalizer_type)
 
     def _collect(self, major, expected_trigger=0):
         if major:
@@ -392,6 +396,8 @@ class TestRawRefCount(BaseDirectGCTest):
     @py.test.mark.parametrize("file", dot_files)
     def test_dots(self, file):
         from rpython.memory.gc.test.dot import pydot
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
 
         class Node:
             def __init__(self, info):
@@ -421,10 +427,12 @@ class TestRawRefCount(BaseDirectGCTest):
                 self.info = info
 
         class NodeInfo:
-            def __init__(self, type, alive, ext_refcnt):
+            def __init__(self, type, alive, ext_refcnt, finalizer, resurrect):
                 self.type = type
                 self.alive = alive
                 self.ext_refcnt = ext_refcnt
+                self.finalizer = finalizer
+                self.resurrect = resurrect
 
         path = os.path.join(self.dot_dir, file)
         g = pydot.graph_from_dot_file(path)[0]
@@ -439,7 +447,9 @@ class TestRawRefCount(BaseDirectGCTest):
             alive = attr['alive'] == "y"
             rooted = attr['rooted'] == "y" if 'rooted' in attr else False
             ext_refcnt = int(attr['ext_refcnt']) if 'ext_refcnt' in attr else 0
-            info = NodeInfo(type, alive, ext_refcnt)
+            finalizer = attr['finalizer'] if 'finalizer' in attr else None
+            resurrect = attr['resurrect'] if 'resurrect' in attr else None
+            info = NodeInfo(type, alive, ext_refcnt, finalizer, resurrect)
             if type == "C":
                 r, raddr, check_alive = self._rawrefcount_pyobj()
                 r.c_ob_refcnt += ext_refcnt
@@ -490,11 +500,7 @@ class TestRawRefCount(BaseDirectGCTest):
             self.gc.rrc_tp_traverse(source.r, append, None)
             assert len(dests_target) == 0
 
-        # do collection
-        self.gc.collect()
-
-        self.gc.rrc_invoke_callback()
-        if self.trigger <> []:
+        def cleanup():
             # do cleanup after collection (clear all dead pyobjects)
             def decref_children(pyobj):
                 self.gc.rrc_tp_traverse(pyobj, decref, None)
@@ -513,19 +519,26 @@ class TestRawRefCount(BaseDirectGCTest):
 
             next_dead = self.gc.rawrefcount_next_dead()
             while next_dead <> llmemory.NULL:
-                pyobj = llmemory.cast_adr_to_ptr(next_dead, self.gc.PYOBJ_HDR_PTR)
+                pyobj = llmemory.cast_adr_to_ptr(next_dead,
+                                                 self.gc.PYOBJ_HDR_PTR)
+                print "nextdead:", pyobj, "refcnt:", pyobj.c_ob_refcnt
                 decref(pyobj, None)
                 next_dead = self.gc.rawrefcount_next_dead()
 
+            # TODO: call finalizers here and during the next collection it
+            #       will be checked if the CI is really trash
+
             next_dead = self.gc.rawrefcount_cyclic_garbage_head()
             while next_dead <> llmemory.NULL:
-                pyobj = llmemory.cast_adr_to_ptr(next_dead, self.gc.PYOBJ_HDR_PTR)
+                pyobj = llmemory.cast_adr_to_ptr(next_dead,
+                                                 self.gc.PYOBJ_HDR_PTR)
                 pyobj.c_ob_refcnt += 1
 
                 def clear(pyobj_to, pyobj_from):
                     refs = self.pyobj_refs[self.pyobjs.index(pyobj_from)]
                     refs.remove(pyobj_to)
                     decref(pyobj_to, None)
+
                 self.gc.rrc_tp_traverse(pyobj, clear, pyobj)
 
                 decref(pyobj, None)
@@ -536,6 +549,21 @@ class TestRawRefCount(BaseDirectGCTest):
                 if llmemory.cast_adr_to_int(next_dead) == curr:
                     self.gc.rawrefcount_cyclic_garbage_remove()
                     next_dead = self.gc.rawrefcount_cyclic_garbage_head()
+
+        # do a collection to find cyclic isolates
+        self.gc.collect()
+
+        self.gc.rrc_invoke_callback()
+        if self.trigger <> []:
+            cleanup()
+
+        # now do another collection, to clean up cyclic trash
+        # TODO: maybe optimize, so that we don't need another major collection
+        self.gc.collect()
+
+        self.gc.rrc_invoke_callback()
+        if self.trigger <> []:
+            cleanup()
 
         # check livelihood of objects, according to graph
         for name in nodes:

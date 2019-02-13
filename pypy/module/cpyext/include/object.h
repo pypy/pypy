@@ -438,6 +438,7 @@ PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
 PyAPI_FUNC(PyGC_Head *) _PyPy_init_pyobj_list();
 PyAPI_FUNC(GCHdr_PyObject *) _PyPy_gc_as_pyobj(PyGC_Head *);
 PyAPI_FUNC(PyGC_Head *) _PyPy_pyobj_as_gc(GCHdr_PyObject *);
+PyAPI_FUNC(Py_ssize_t) _PyPy_finalizer_type(PyGC_Head *);
 
 #ifdef __cplusplus
 }

@@ -61,6 +61,12 @@ _PyPy_pyobj_as_gc(GCHdr_PyObject *obj)
     }
 }
 
+Py_ssize_t
+_PyPy_finalizer_type(PyGC_Head *g)
+{
+    return 0;
+}
+
 void
 _Py_Dealloc(PyObject *obj)
 {

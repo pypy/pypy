@@ -174,7 +174,8 @@ class State:
                     llhelper(rawrefcount.RAWREFCOUNT_TRAVERSE,
                              self.tp_traverse),
                     pypyobj_list,
-                    self.C._PyPy_gc_as_pyobj, self.C._PyPy_pyobj_as_gc)
+                    self.C._PyPy_gc_as_pyobj, self.C._PyPy_pyobj_as_gc,
+                    self.C._PyPy_finalizer_type)
             self.builder.attach_all(space)
 
         setup_new_method_def(space)
