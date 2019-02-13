@@ -254,8 +254,8 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
 
     def descr_method_repr(self):
         return self.getrepr(
-            self.space, u"built-in method '%s' of '%s' object" %
-            (self.name.decode('utf-8'), self.w_objclass.getname(self.space)))
+            self.space, "built-in method '%s' of '%s' object" %
+            (self.name, self.w_objclass.getname(self.space)))
 
 
 class W_PyCWrapperObject(W_Root):

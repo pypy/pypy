@@ -371,9 +371,9 @@ def marshal_pycode(space, w_pycode, m):
     m.atom_str(TYPE_STRING, x.co_code)
     _marshal_tuple(space, x.co_consts_w, m)
     _marshal_tuple(space, x.co_names_w, m)   # list of w_unicodes
-    co_varnames_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_varnames]
-    co_freevars_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_freevars]
-    co_cellvars_w = [space.newunicode(_decode_utf8(space, s)) for s in x.co_cellvars]
+    co_varnames_w = [space.newtext(*_decode_utf8(space, s)) for s in x.co_varnames]
+    co_freevars_w = [space.newtext(*_decode_utf8(space, s)) for s in x.co_freevars]
+    co_cellvars_w = [space.newtext(*_decode_utf8(space, s)) for s in x.co_cellvars]
     _marshal_tuple(space, co_varnames_w, m)  # more lists, now of w_unicodes
     _marshal_tuple(space, co_freevars_w, m)
     _marshal_tuple(space, co_cellvars_w, m)
@@ -387,8 +387,7 @@ def marshal_pycode(space, w_pycode, m):
 
 def _unmarshal_strlist(u):
     items_w = _unmarshal_tuple_w(u)
-    return [_encode_utf8(u.space, u.space.unicode_w(w_item))
-            for w_item in items_w]
+    return [u.space.utf8_w(w_item) for w_item in items_w]
 
 def _unmarshal_tuple_w(u):
     w_obj = u.get_w_obj()
@@ -414,8 +413,8 @@ def unmarshal_pycode(space, u, tc):
     varnames    = _unmarshal_strlist(u)
     freevars    = _unmarshal_strlist(u)
     cellvars    = _unmarshal_strlist(u)
-    filename    = _encode_utf8(space, space.unicode0_w(u.get_w_obj()))
-    name        = _encode_utf8(space, space.unicode_w(u.get_w_obj()))
+    filename    = space.utf8_0_w(u.get_w_obj())
+    name        = space.utf8_w(u.get_w_obj())
     firstlineno = u.get_int()
     lnotab      = space.bytes_w(u.get_w_obj())
     filename = assert_str0(filename)
@@ -442,18 +441,17 @@ def _marshal_unicode(space, s, m, w_unicode=None):
         m.atom_str(typecode, s)
 
 # surrogate-preserving variants
-_encode_utf8 = unicodehelper.encode_utf8sp
 _decode_utf8 = unicodehelper.decode_utf8sp
 
 @marshaller(W_UnicodeObject)
 def marshal_unicode(space, w_unicode, m):
-    s = _encode_utf8(space, space.unicode_w(w_unicode))
+    s = space.utf8_w(w_unicode)
     _marshal_unicode(space, s, m, w_unicode=w_unicode)
 
 @unmarshaller(TYPE_UNICODE)
 def unmarshal_unicode(space, u, tc):
     uc = _decode_utf8(space, u.get_str())
-    return space.newunicode(uc)
+    return space.newtext(*uc)
 
 @unmarshaller(TYPE_INTERNED)
 def unmarshal_interned(space, u, tc):
@@ -461,12 +459,15 @@ def unmarshal_interned(space, u, tc):
     return u.space.new_interned_w_str(w_ret)
 
 def _unmarshal_ascii(u, short_length, interned):
+    from rpython.rlib import rutf8
     if short_length:
         lng = ord(u.get1())
     else:
         lng = u.get_lng()
     s = u.get(lng)
-    w_u = u.space.newunicode(s.decode('latin-1'))
+    # Treat each chr as a single codepoint
+    utf8 = ''.join([rutf8.unichr_as_utf8(ord(c), True) for c in s])
+    w_u = u.space.newtext(utf8)
     if interned:
         w_u = u.space.new_interned_w_str(w_u)
     return w_u

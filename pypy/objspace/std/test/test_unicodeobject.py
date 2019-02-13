@@ -1,6 +1,13 @@
 # -*- encoding: utf-8 -*-
 import py
 import sys
+try:
+    from hypothesis import given, strategies, settings, example
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+    
+from rpython.rlib import rutf8
 from pypy.interpreter.error import OperationError
 
 
@@ -21,22 +28,157 @@ class TestUnicodeObject:
         assert s2 == "10"
 
     def test_listview_unicode(self):
-        w_str = self.space.wrap(u'abcd')
-        assert self.space.listview_unicode(w_str) == list(u"abcd")
+        w_str = self.space.newutf8('abcd', 4)
+        assert self.space.listview_utf8(w_str) == list("abcd")
 
     def test_new_shortcut(self):
         space = self.space
-        w_uni = self.space.wrap(u'abcd')
+        w_uni = self.space.newutf8('abcd', 4)
         w_new = space.call_method(
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
 
-    def test_text_w(self):
-        space = self.space
-        w_uni = space.wrap(u'abcd')
-        assert space.text_w(w_uni) == 'abcd'
-        w_uni = space.wrap(unichr(0xd921) + unichr(0xdddd))
-        space.raises_w(space.w_UnicodeEncodeError, space.text_w, w_uni)
+    if HAS_HYPOTHESIS:
+        @given(strategies.text(), strategies.integers(min_value=0, max_value=10),
+                                  strategies.integers(min_value=-1, max_value=10))
+        def test_hypo_index_find(self, u, start, len1):
+            if start + len1 < 0:
+                return   # skip this case
+            v = u[start : start + len1]
+            space = self.space
+            w_u = space.newutf8(u.encode('utf8'), len(u))
+            w_v = space.newutf8(v.encode('utf8'), len(v))
+            expected = u.find(v, start, start + len1)
+            try:
+                w_index = space.call_method(w_u, 'index', w_v,
+                                            space.newint(start),
+                                            space.newint(start + len1))
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                assert expected == -1
+            else:
+                assert space.int_w(w_index) == expected >= 0
+
+            w_index = space.call_method(w_u, 'find', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+            assert space.int_w(w_index) == expected
+            rexpected = u.rfind(v, start, start + len1)
+            try:
+                w_index = space.call_method(w_u, 'rindex', w_v,
+                                            space.newint(start),
+                                            space.newint(start + len1))
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                assert rexpected == -1
+            else:
+                assert space.int_w(w_index) == rexpected >= 0
+
+            w_index = space.call_method(w_u, 'rfind', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+            assert space.int_w(w_index) == rexpected
+
+            expected = u.startswith(v, start)
+            w_res = space.call_method(w_u, 'startswith', w_v,
+                                      space.newint(start))
+            assert w_res is space.newbool(expected)
+
+            expected = u.startswith(v, start, start + len1)
+            w_res = space.call_method(w_u, 'startswith', w_v,
+                                      space.newint(start),
+                                      space.newint(start + len1))
+            assert w_res is space.newbool(expected)
+
+            expected = u.endswith(v, start)
+            w_res = space.call_method(w_u, 'endswith', w_v,
+                                      space.newint(start))
+            assert w_res is space.newbool(expected)
+
+            expected = u.endswith(v, start, start + len1)
+            w_res = space.call_method(w_u, 'endswith', w_v,
+                                      space.newint(start),
+                                      space.newint(start + len1))
+            assert w_res is space.newbool(expected)
+
+
+        @given(u=strategies.text(),
+               start=strategies.integers(min_value=0, max_value=10),
+               len1=strategies.integers(min_value=-1, max_value=10))
+        def test_hypo_index_find(self, u, start, len1):
+            space = self.space
+            if start + len1 < 0:
+                return   # skip this case
+            v = u[start : start + len1]
+            w_u = space.wrap(u)
+            w_v = space.wrap(v)
+            expected = u.find(v, start, start + len1)
+            try:
+                w_index = space.call_method(w_u, 'index', w_v,
+                                            space.newint(start),
+                                            space.newint(start + len1))
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                assert expected == -1
+            else:
+                assert space.int_w(w_index) == expected >= 0
+
+            w_index = space.call_method(w_u, 'find', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+            assert space.int_w(w_index) == expected
+
+            rexpected = u.rfind(v, start, start + len1)
+            try:
+                w_index = space.call_method(w_u, 'rindex', w_v,
+                                            space.newint(start),
+                                            space.newint(start + len1))
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                assert rexpected == -1
+            else:
+                assert space.int_w(w_index) == rexpected >= 0
+
+            w_index = space.call_method(w_u, 'rfind', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+            assert space.int_w(w_index) == rexpected
+
+            expected = u.startswith(v, start)
+            if expected and start > len(u):
+                expected = False # python2 vs. python3
+            w_res = space.call_method(w_u, 'startswith', w_v,
+                                      space.newint(start))
+            assert w_res is space.newbool(expected)
+
+            expected = u.startswith(v, start, start + len1)
+            if ((expected and start > len(u)) or 
+                    (start > 0 and start + len1 ==0)): 
+                expected = False # python2 vs. python3
+            w_res = space.call_method(w_u, 'startswith', w_v,
+                                      space.newint(start),
+                                      space.newint(start + len1))
+            assert w_res is space.newbool(expected)
+
+            expected = u.endswith(v, start)
+            if expected and start > len(u):
+                expected = False # python2 vs. python3
+            w_res = space.call_method(w_u, 'endswith', w_v,
+                                      space.newint(start))
+            assert w_res is space.newbool(expected)
+
+            expected = u.endswith(v, start, start + len1)
+            if ((expected and start > len(u)) or 
+                    (start > 0 and start + len1 ==0)): 
+                expected = False # python2 vs. python3
+            w_res = space.call_method(w_u, 'endswith', w_v,
+                                      space.newint(start),
+                                      space.newint(start + len1))
+            assert w_res is space.newbool(expected)
 
 
 class AppTestUnicodeStringStdOnly:
@@ -186,6 +328,7 @@ class AppTestUnicodeString:
         assert u'abc'.center(5, u'*') == u'*abc*'    # Python 2.4
         assert u'abc'.center(5, '*') == u'*abc*'     # Python 2.4
         raises(TypeError, u'abc'.center, 4, u'cba')
+        assert 'x'.center(2, u'\U0010FFFF') == u'x\U0010FFFF'
 
     def test_title(self):
         assert "brown fox".title() == "Brown Fox"
@@ -197,6 +340,8 @@ class AppTestUnicodeString:
         assert u'A\u03a3A'.title() == u'A\u03c3a'
         assert u"brow\u4321n fox".title() == u"Brow\u4321N Fox"
         assert u'\ud800'.title() == u'\ud800'
+        assert (chr(0x345) + u'abc').title() == u'\u0399abc'
+        assert (chr(0x345) + u'ABC').title() == u'\u0399abc'
 
     def test_istitle(self):
         assert u"".istitle() == False
@@ -244,6 +389,7 @@ class AppTestUnicodeString:
         assert u'\ud800'.upper() == u'\ud800'
 
     def test_capitalize(self):
+        assert u'A\u0345\u03a3'.capitalize() == u'A\u0345\u03c2'
         assert u"brown fox".capitalize() == u"Brown fox"
         assert u' hello '.capitalize() == u' hello '
         assert u'Hello '.capitalize() == u'Hello '
@@ -264,6 +410,8 @@ class AppTestUnicodeString:
         # check with Ll chars with no upper - nothing changes here
         assert ('\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
                 '\u019b\u1d00\u1d86\u0221\u1fb7')
+        # cpython issue 17252 for i_dot
+        assert u'h\u0130'.capitalize() == u'H\u0069\u0307'
 
     def test_changed_in_unicodedata_version_8(self):
         assert u'\u025C'.upper() == u'\uA7AB'
@@ -397,14 +545,14 @@ class AppTestUnicodeString:
         assert str(123) == '123'
         assert str(object=123) == '123'
         assert str([2, 3]) == '[2, 3]'
-        #assert str(errors='strict') == '' --- obscure case, disabled for now
+        assert str(errors='strict') == ''
         class U(str):
             pass
         assert str(U()).__class__ is str
         assert U().__str__().__class__ is str
         assert U('test') == 'test'
         assert U('test').__class__ is U
-        #assert U(errors='strict') == U('') --- obscure case, disabled for now
+        assert U(errors='strict') == U('')
 
     def test_call_unicode_2(self):
         class X(object):
@@ -480,6 +628,9 @@ class AppTestUnicodeString:
         assert ''.endswith('a') is False
         assert 'x'.endswith('xx') is False
         assert 'y'.endswith('xx') is False
+        assert 'x'.endswith('', 1, 0) is False
+        assert ''.endswith('', 1, 9223372036854775808) is False
+
 
     def test_endswith_more(self):
         assert 'abc'.endswith('ab', 0, 2) is True
@@ -559,6 +710,8 @@ class AppTestUnicodeString:
         assert '<i><i><i>c' == 'abababc'.translate(tbl)
         tbl = str.maketrans('abc', 'xyz', 'd')
         assert 'xyzzy' == 'abdcdcbdddd'.translate(tbl)
+        tbl = str.maketrans({'\xe9': 'a'})
+        assert "[\xe9]".translate(tbl) == "[a]"
 
         raises(TypeError, str.maketrans)
         raises(ValueError, str.maketrans, 'abc', 'defg')
@@ -774,21 +927,26 @@ class AppTestUnicodeString:
     def test_rfind_corner_case(self):
         assert 'abc'.rfind('', 4) == -1
 
-    def test_count(self):
-        assert "".count("x") ==0
-        assert "".count("") ==1
-        assert "Python".count("") ==7
-        assert "ab aaba".count("ab") ==2
-        assert 'aaa'.count('a') == 3
-        assert 'aaa'.count('b') == 0
-        assert 'aaa'.count('a', -1) == 1
-        assert 'aaa'.count('a', -10) == 3
-        assert 'aaa'.count('a', 0, -1) == 2
-        assert 'aaa'.count('a', 0, -10) == 0
-        assert 'ababa'.count('aba') == 1
+    def test_count_unicode(self):
+        assert u'aaa'.count(u'', 10) == 0
+        assert u'aaa'.count(u'', 3) == 1
+        assert u"".count(u"x") ==0
+        assert u"".count(u"") ==1
+        assert u"Python".count(u"") ==7
+        assert u"ab aaba".count(u"ab") ==2
+        assert u'aaa'.count(u'a') == 3
+        assert u'aaa'.count(u'b') == 0
+        assert u'aaa'.count(u'a', -1) == 1
+        assert u'aaa'.count(u'a', -10) == 3
+        assert u'aaa'.count(u'a', 0, -1) == 2
+        assert u'aaa'.count(u'a', 0, -10) == 0
+        assert u'ababa'.count(u'aba') == 1
 
     def test_swapcase(self):
         assert '\xe4\xc4\xdf'.swapcase() == '\xc4\xe4SS'
+        # sigma-little becomes sigma-little-final
+        assert u'A\u0345\u03a3'.swapcase() == u'a\u0399\u03c2'
+        # but not if the previous codepoint is 0-width
         assert u'\u0345\u03a3'.swapcase() == u'\u0399\u03c3'
 
     def test_call_special_methods(self):
@@ -920,7 +1078,11 @@ class AppTestUnicodeString:
         assert type(s) is str
         assert s == '\u1234'
 
-    def test_formatting_unicode__str__(self):
+    def test_formatting_uchr(self):
+        assert '%c' % '\U00021483' == '\U00021483'
+
+    def test_formatting_unicode__str__0(self):
+        assert '%.2s' % "a\xe9\u20ac" == 'a\xe9'
         class A:
             def __init__(self, num):
                 self.num = num
@@ -975,6 +1137,20 @@ class AppTestUnicodeString:
             def __str__(self):
                 return u'\u1234'
         '%s' % X()
+
+    def test_formatting_unicode__str__4(self):
+        # from lib-python/3/test/test_tokenize
+        fmt = "%(token)-13.13r %(start)s"
+        vals = {"token" : u"Örter", "start": "(1, 0)"}
+        expected = u"'Örter'       (1, 0)"
+        s = fmt % vals
+        assert s == expected, "\ns       = '%s'\nexpected= '%s'" %(s, expected)
+
+    def test_format_repeat(self):
+        assert format(u"abc", u"z<5") == u"abczz"
+        assert format(u"abc", u"\u2007<5") == u"abc\u2007\u2007"
+        #CPython2 raises UnicodeEncodeError
+        assert format(123, u"\u2007<5") == u"123\u2007\u2007"
 
     def test_formatting_unicode__repr__(self):
         # Printable character
@@ -1065,6 +1241,28 @@ class AppTestUnicodeString:
         raises(TypeError, "u''.encode(None)")
         raises(TypeError, "str(b'', encoding=None)")
         raises(TypeError, 'u"".encode("utf-8", None)')
+
+    def test_encode_wrong_errors(self):
+        assert ''.encode(errors='some_wrong_name') == b''
+
+    def test_casefold(self):
+        assert u'hello'.casefold() == u'hello'
+        assert u'hELlo'.casefold() == u'hello'
+        assert u'ß'.casefold() == u'ss'
+        assert u'ﬁ'.casefold() == u'fi'
+        assert u'\u03a3'.casefold() == u'\u03c3'
+        assert u'A\u0345\u03a3'.casefold() == u'a\u03b9\u03c3'
+        assert u'\u00b5'.casefold() == u'\u03bc'
+
+    def test_lower_3a3(self):
+        # Special case for GREEK CAPITAL LETTER SIGMA U+03A3
+        assert u'\u03a3'.lower() == u'\u03c3'
+        assert u'\u0345\u03a3'.lower() == u'\u0345\u03c3'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u0345\u03a3a'.lower() == u'a\u0345\u03c3a'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
+        assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
 
     def test_encode_wrong_errors(self):
         assert ''.encode(errors='some_wrong_name') == b''

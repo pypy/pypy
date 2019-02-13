@@ -116,7 +116,7 @@ def intern_if_common_string(space, w_const):
     # only intern identifier-like strings
     from pypy.objspace.std.unicodeobject import _isidentifier
     if (space.is_w(space.type(w_const), space.w_unicode) and
-        _isidentifier(space.unicode_w(w_const))):
+        _isidentifier(space.utf8_w(w_const))):
         return space.new_interned_w_str(w_const)
     return w_const
 

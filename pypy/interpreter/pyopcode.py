@@ -1099,8 +1099,8 @@ class __extend__(pyframe.PyFrame):
             try:
                 w_pkgname = space.getattr(
                     w_module, space.newtext('__name__'))
-                w_fullname = space.newunicode(u'%s.%s' %
-                    (space.unicode_w(w_pkgname), space.unicode_w(w_name)))
+                w_fullname = space.newtext(b'%s.%s' %
+                    (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
                 return space.getitem(space.sys.get('modules'), w_fullname)
             except OperationError:
                 raise oefmt(
@@ -1355,7 +1355,7 @@ class __extend__(pyframe.PyFrame):
     def MAKE_FUNCTION(self, oparg, next_instr):
         space = self.space
         w_qualname = self.popvalue()
-        qualname = self.space.unicode_w(w_qualname)
+        qualname = self.space.utf8_w(w_qualname)
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
         assert 0 <= oparg <= 0x0F
@@ -1659,7 +1659,7 @@ class __extend__(pyframe.PyFrame):
         if (oparg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
             w_spec = self.popvalue()
         else:
-            w_spec = space.newunicode(u'')
+            w_spec = space.newtext('')
         w_value = self.popvalue()
         #
         conversion = oparg & consts.FVC_MASK
@@ -1680,9 +1680,9 @@ class __extend__(pyframe.PyFrame):
         lst = []
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
-            lst.append(space.unicode_w(w_item))
+            lst.append(space.utf8_w(w_item))
         self.dropvalues(itemcount)
-        w_res = space.newunicode(u''.join(lst))
+        w_res = space.newtext(''.join(lst))
         self.pushvalue(w_res)
 
     def _revdb_load_var(self, oparg):

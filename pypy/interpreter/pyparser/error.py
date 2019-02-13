@@ -29,20 +29,24 @@ class SyntaxError(Exception):
                     except:  # we can't allow any exceptions here!
                         return None""")
         elif self.text is not None:
-            from rpython.rlib.runicode import str_decode_utf_8
+            from rpython.rlib.runicode import str_decode_utf_8_impl
             # self.text may not be UTF-8 in case of decoding errors.
             # adjust the encoded text offset to a decoded offset
             # XXX do the right thing about continuation lines, which
             # XXX are their own fun, sometimes giving offset >
             # XXX len(self.text) for example (right now, avoid crashing)
+            def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
+                # must return unicode
+                return u'\ufffd', endpos
             if offset > len(self.text):
                 offset = len(self.text)
-            text, _ = str_decode_utf_8(self.text, offset, 'replace')
+            text, _ = str_decode_utf_8_impl(self.text, offset,
+                             'replace', False, replace_error_handler, True)
             offset = len(text)
             if len(self.text) != offset:
-                text, _ = str_decode_utf_8(self.text, len(self.text),
-                                           'replace')
-            w_text = space.newunicode(text)
+                text, _ = str_decode_utf_8_impl(self.text, len(self.text),
+                             'replace', False, replace_error_handler, True)
+            w_text = space.newtext(text.encode('utf8'), len(text))
         return space.newtuple([
             space.newtext(self.msg),
             space.newtuple([

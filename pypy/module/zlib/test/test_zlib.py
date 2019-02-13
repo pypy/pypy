@@ -2,8 +2,8 @@
 Tests for the zlib module.
 """
 
-import py
 import pypy
+import py
 
 try:
     import zlib
@@ -15,7 +15,7 @@ try:
     from pypy.module.zlib import interp_zlib
     from rpython.rlib import rzlib
 except ImportError:
-    import py; py.test.skip("no zlib C library on this machine")
+    py.test.skip("no zlib C library on this machine")
 
 
 class AppTestZlib(object):
@@ -28,6 +28,8 @@ class AppTestZlib(object):
         compression and decompression tests have a little real data to assert
         against.
         """
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
         cls.w_zlib = cls.space.getbuiltinmodule('zlib')
         expanded = b'some bytes which will be compressed'
         cls.w_expanded = cls.space.newbytes(expanded)
@@ -366,7 +368,8 @@ class AppTestZlib(object):
 
         assert (d1 + from_copy) == (d1 + from_decompressor)
 
-    def test_unsuccessful_decompress_copy(self):
+    def test_cannot_copy_decompressor_with_stream_in_inconsistent_state(self):
+        if self.runappdirect: skip("can't run with -A")
         decompressor = self.zlib.decompressobj()
         self.intentionally_break_a_z_stream(zobj=decompressor)
         raises(self.zlib.error, decompressor.copy)
@@ -400,7 +403,14 @@ class AppTestZlib(object):
 
         assert (d1 + from_copy) == (d1 + from_compressor)
 
-    def test_unsuccessful_compress_copy(self):
+    @py.test.mark.skipif(rzlib.ZLIB_VERSION == '1.2.8', reason='does not error check')
+    def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):
+        if self.runappdirect: skip("can't run with -A")
         compressor = self.zlib.compressobj()
         self.intentionally_break_a_z_stream(zobj=compressor)
         raises(self.zlib.error, compressor.copy)
+
+    def test_cannot_copy_compressor_with_flushed_stream(self):
+        compressor = self.zlib.compressobj()
+        compressor.flush()
+        raises(ValueError, compressor.copy)

@@ -233,9 +233,9 @@ class W_Socket(W_Root):
     def _dealloc_warn(self):
         space = self.space
         try:
-            msg = (u"unclosed %s" %
-                   space.unicode_w(space.repr(self)))
-            space.warn(space.newunicode(msg), space.w_ResourceWarning)
+            msg = (b"unclosed %s" %
+                   space.utf8_w(space.repr(self)))
+            space.warn(space.newtext(msg), space.w_ResourceWarning)
         except OperationError as e:
             # Spurious errors can appear at shutdown
             if e.match(space, space.w_Warning):
@@ -860,7 +860,7 @@ def get_error(space, name):
 
 @specialize.arg(2)
 def converted_error(space, e, eintr_retry=False):
-    message = e.get_msg_unicode()
+    message, lgt = e.get_msg_utf8()
     w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
         if e.errno == errno.EINTR:
@@ -868,9 +868,10 @@ def converted_error(space, e, eintr_retry=False):
             if eintr_retry:
                 return       # only return None if eintr_retry==True
         w_exception = space.call_function(w_exception_class, space.newint(e.errno),
-                                      space.newunicode(message))
+                                      space.newtext(message, lgt))
     else:
-        w_exception = space.call_function(w_exception_class, space.newunicode(message))
+        w_exception = space.call_function(w_exception_class,
+                                          space.newtext(message, lgt))
     raise OperationError(w_exception_class, w_exception)
 
 def explicit_socket_error(space, msg):

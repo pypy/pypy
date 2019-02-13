@@ -132,7 +132,7 @@ class TestEval(BaseApiTest):
         finally:
             rffi.free_charp(buf)
         w_a = space.getitem(w_globals, space.wrap("a"))
-        assert space.unicode_w(w_a) == u'caf\xe9'
+        assert space.utf8_w(w_a) == u'caf\xe9'.encode("utf-8")
         lltype.free(flags, flavor='raw')
 
     def test_run_file(self, space):

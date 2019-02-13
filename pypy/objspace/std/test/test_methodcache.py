@@ -52,7 +52,7 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
         #             if cached_name is name:
 
         # in py3k, identifiers are stored in W_UnicodeObject and unwrapped by
-        # calling space.str_w, which .encode('ascii') the string, thus
+        # calling space.text_w, which .encode('ascii') the string, thus
         # creating new strings all the time. The problem should be solved when
         # we implement proper unicode identifiers in py3k
         @self.retry

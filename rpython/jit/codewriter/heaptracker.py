@@ -94,6 +94,7 @@ def all_fielddescrs(gccache, STRUCT, only_gc=False, res=None,
 
 def all_interiorfielddescrs(gccache, ARRAY, get_field_descr=None):
     from rpython.jit.backend.llsupport import descr
+    from rpython.jit.codewriter.effectinfo import UnsupportedFieldExc
 
     if get_field_descr is None:
         get_field_descr = descr.get_field_descr
@@ -107,7 +108,7 @@ def all_interiorfielddescrs(gccache, ARRAY, get_field_descr=None):
         if name == 'typeptr':
             continue # dealt otherwise
         elif isinstance(FIELD, lltype.Struct):
-            raise Exception("unexpected array(struct(struct))")
+            raise UnsupportedFieldExc("unexpected array(struct(struct))")
         res.append(get_field_descr(gccache, ARRAY, name))
     return res
 

@@ -5,21 +5,16 @@ What's new in PyPy3 6.0+
 .. this is the revision after release-pypy3.5-v6.0
 .. startrev: 580e3e26cd32
 
-.. branch: hroncok/fix-multiprocessing-regression-on-newer--1524656522151
+.. branch: unicode-utf8
 
-Fix multiprocessing regression on newer glibcs
+Use utf-8 internally to represent unicode strings
 
-.. branch: py3.5-user-site-impl
+.. branch: unicode-utf8-py3
 
-Use implementation-specific site directories in sysconfig like in Python2
+Use utf-8 internally to represent unicode strings
 
 
 .. branch: alex_gaynor/remove-an-unneeded-call-into-openssl-th-1526429141011
 
 Remove an unneeded call into OpenSSL, from cpython https://github.com/python/cpython/pull/6887
 
-
-.. branch: py3.5-reverse-debugger
-
-The reverse-debugger branch has been merged.  For more information, see
-https://bitbucket.org/pypy/revdb

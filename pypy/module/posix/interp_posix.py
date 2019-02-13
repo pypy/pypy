@@ -56,7 +56,10 @@ class FileEncoder(object):
         return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
-        return self.space.fsdecode_w(self.w_obj)
+        ret = self.space.realunicode_w(self.w_obj)
+        if u'\x00' in ret:
+            raise oefmt(self.space.w_ValueError, "embedded null character")
+        return ret
 
 class FileDecoder(object):
     is_unicode = False
@@ -66,10 +69,13 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.fsencode_w(self.w_obj)
+        return self.space.bytesbuf0_w(self.w_obj)
 
     def as_unicode(self):
-        return self.space.fsdecode_w(self.w_obj)
+        ret = self.space.fsdecode_w(self.w_obj)
+        if u'\x00' in ret:
+            raise oefmt(self.space.w_ValueError, "embedded null character")
+        return ret
 
 @specialize.memo()
 def make_dispatch_function(func, tag, allow_fd_fn=None):
@@ -143,7 +149,7 @@ def _unwrap_path(space, w_value, allow_fd=True):
         allowed_types = "string, bytes or os.PathLike"
     if _WIN32:
         try:
-            path_u = space.unicode0_w(w_value)
+            path_u = space.utf8_0_w(w_value)
             return Path(-1, None, path_u, w_value)
         except OperationError:
             pass
@@ -221,6 +227,9 @@ def argument_unavailable(space, funcname, arg):
             "%s: %s unavailable on this platform", funcname, arg)
 
 _open_inhcache = rposix.SetNonInheritableCache()
+
+def u2utf8(space, u_str):
+    return space.newutf8(u_str.encode('utf-8'), len(u_str))
 
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0777,
@@ -759,7 +768,7 @@ def _getfullpathname(space, w_path):
         if space.isinstance_w(w_path, space.w_unicode):
             path = FileEncoder(space, w_path)
             fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.newunicode(fullpath)
+            w_fullpath = u2utf8(space, fullpath)
         else:
             path = space.bytesbuf0_w(w_path)
             fullpath = rposix.getfullpathname(path)
@@ -786,7 +795,7 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
         else:
-            return space.newunicode(cur)
+            return u2utf8(space, cur)
 else:
     def getcwd(space):
         """Return the current working directory as a string."""
@@ -847,7 +856,8 @@ dir_fd may not be implemented on your platform.
 def strerror(space, code):
     """Translate an error code to a message string."""
     try:
-        return space.newunicode(_strerror(code))
+        # _strerror returns utf8, lgt
+        return space.newtext(*_strerror(code))
     except ValueError:
         raise oefmt(space.w_ValueError, "strerror() argument out of range")
 
@@ -894,7 +904,7 @@ if _WIN32:
         # started through main() instead of wmain()
         rwin32._wgetenv(u"")
         for key, value in rwin32._wenviron_items():
-            space.setitem(w_env, space.newunicode(key), space.newunicode(value))
+            space.setitem(w_env, space.newtext(key), space.newtext(value))
 
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
@@ -944,7 +954,7 @@ On some platforms, path may also be specified as an open file descriptor;
   the file descriptor must refer to a directory.
   If this functionality is unavailable, using it raises NotImplementedError."""
     if space.is_none(w_path):
-        w_path = space.newunicode(u".")
+        w_path = space.newtext(".")
     if space.isinstance_w(w_path, space.w_bytes):
         # XXX CPython doesn't follow this path either if w_path is,
         # for example, a memoryview or another buffer type
@@ -977,7 +987,7 @@ On some platforms, path may also be specified as an open file descriptor;
     result_w = [None] * len_result
     for i in range(len_result):
         if _WIN32:
-            result_w[i] = space.newunicode(result[i])
+            result_w[i] = space.newtext(result[i])
         else:
             result_w[i] = space.newfilename(result[i])
     return space.newlist(result_w)
@@ -2267,7 +2277,7 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
-        path = space.unicode_w(w_path)
+        path = space.utf8_w(w_path)
         try:
             result = nt._getfinalpathname(path)
         except nt.LLNotImplemented as e:
@@ -2275,7 +2285,7 @@ if _WIN32:
                                  space.newtext(e.msg))
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        return space.newunicode(result)
+        return space.newtext(result)
 
 
 def chflags():

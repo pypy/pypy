@@ -178,15 +178,15 @@ class W_WeakrefBase(W_Root):
     def descr__repr__(self, space):
         w_obj = self.dereference()
         if w_obj is None:
-            state = u'; dead'
+            state = '; dead'
         else:
             typename = space.type(w_obj).getname(space)
             objname = w_obj.getname(space)
-            if objname and objname != u'?':
-                state = u"; to '%s' (%s)" % (typename, objname)
+            if objname and objname != '?':
+                state = "; to '%s' (%s)" % (typename, objname)
             else:
-                state = u"; to '%s'" % (typename,)
-        return self.getrepr(space, unicode(self.typedef.name), state)
+                state = "; to '%s'" % (typename,)
+        return self.getrepr(space, self.typedef.name, state)
 
 
 class W_Weakref(W_WeakrefBase):

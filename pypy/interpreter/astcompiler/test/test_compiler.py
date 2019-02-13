@@ -1,5 +1,6 @@
 from __future__ import division
 import py, sys
+from pytest import raises
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
@@ -75,7 +76,7 @@ class BaseTestCompiler:
         space = self.space
         pyco_expr = space.createcompiler().compile(evalexpr, '<evalexpr>', 'eval', 0)
         w_res = space.exec_(pyco_expr, w_dict, w_dict)
-        res = space.str_w(space.repr(w_res))
+        res = space.text_w(space.repr(w_res))
         expected_repr = self.get_py3_repr(expected)
         if isinstance(expected, float):
             # Float representation can vary a bit between interpreter
@@ -1255,7 +1256,6 @@ class TestCompilerRevDB(BaseTestCompiler):
 
     def test_revdb_metavar(self):
         from pypy.interpreter.reverse_debugging import dbstate, setup_revdb
-        self.space.config.translation.reverse_debugger = True
         self.space.reverse_debugging = True
         try:
             setup_revdb(self.space)
@@ -1269,9 +1269,6 @@ class TestCompilerRevDB(BaseTestCompiler):
 
 
 class AppTestCompiler:
-
-    def setup_class(cls):
-        cls.w_maxunicode = cls.space.wrap(sys.maxunicode)
 
     def test_docstring_not_loaded(self):
         import io, dis, sys
@@ -1442,7 +1439,7 @@ class TestOptimizations:
             ''', d)
             return d['f'](5)
         """)
-        assert 'generator' in space.str_w(space.repr(w_generator))
+        assert 'generator' in space.text_w(space.repr(w_generator))
 
     def test_folding_of_list_constants(self):
         for source in (

@@ -408,8 +408,9 @@ def unpack_cfloat_list_from_raw_array(float_list, source):
 def dlopen_w(space, w_filename, flags):
     if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
         fname = space.text_w(space.repr(w_filename))
-        unicode_name = space.unicode_w(w_filename)
-        with rffi.scoped_unicode2wcharp(unicode_name) as ll_libname:
+        utf8_name = space.utf8_w(w_filename)
+        uni_len = space.len_w(w_filename)
+        with rffi.scoped_utf82wcharp(utf8_name, uni_len) as ll_libname:
             try:
                 handle = dlopenU(ll_libname, flags)
             except DLOpenError as e:

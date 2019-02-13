@@ -1,14 +1,15 @@
 from __future__ import absolute_import
 import sys
+import pytest
 
 import os
 if os.name != 'posix':
-    skip('resource.h only available on unix')
+    pytest.skip('resource.h only available on unix')
 
 try:
     from lib_pypy import resource
 except (ImportError, SyntaxError) as e:
-    skip(str(e))
+    pytest.skip(str(e))
 
 
 def test_getrusage():

@@ -1305,6 +1305,9 @@ class SocketError(Exception):
         return ''
     def get_msg_unicode(self):
         return self.get_msg().decode('latin-1')
+    def get_msg_utf8(self):
+        msg = self.get_msg()
+        return msg, len(msg)
     def __str__(self):
         return self.get_msg()
 
@@ -1323,6 +1326,8 @@ class CSocketError(SocketErrorWithErrno):
         return _c.socket_strerror_str(self.errno)
     def get_msg_unicode(self):
         return _c.socket_strerror_unicode(self.errno)
+    def get_msg_utf8(self):
+        return _c.socket_strerror_utf8(self.errno)
 
 def last_error():
     return CSocketError(_c.geterrno())
@@ -1333,6 +1338,8 @@ class GAIError(SocketErrorWithErrno):
         return _c.gai_strerror_str(self.errno)
     def get_msg_unicode(self):
         return _c.gai_strerror_unicode(self.errno)
+    def get_msg_utf8(self):
+        return _c.gai_strerror_utf8(self.errno)
 
 class HSocketError(SocketError):
     applevelerrcls = 'herror'

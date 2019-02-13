@@ -14,6 +14,7 @@ from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rutf8 import CheckError, check_utf8, surrogate_in_utf8
 
 class MutableCell(W_Root):
     def unwrap_cell(self, space):
@@ -177,6 +178,15 @@ class W_TypeObject(W_Root):
                  overridetypedef=None, force_new_layout=False,
                  is_heaptype=True):
         self.space = space
+        try:
+            check_utf8(name, False)
+        except CheckError as e:
+            raise OperationError(space.w_UnicodeEncodeError,
+                 space.newtuple([space.newtext('utf8'),
+                                 space.newtext(name),
+                                 space.newint(e.pos),
+                                 space.newint(e.pos + 1),
+                                 space.newtext('surrogates not allowed')]))
         self.name = name
         self.qualname = None
         self.bases_w = bases_w
@@ -204,7 +214,7 @@ class W_TypeObject(W_Root):
             w_qualname = self.dict_w.pop('__qualname__', None)
             if w_qualname is not None:
                 if space.isinstance_w(w_qualname, space.w_unicode):
-                    self.qualname = space.unicode_w(w_qualname)
+                    self.qualname = space.utf8_w(w_qualname)
                 elif not self.flag_cpytype:
                     raise oefmt(space.w_TypeError,
                                 "type __qualname__ must be a str, not %T",
@@ -579,7 +589,7 @@ class W_TypeObject(W_Root):
                 result = self.name[dot+1:]
             else:
                 result = self.name
-        return result.decode('utf-8')
+        return result
 
     def getqualname(self, space):
         return self.qualname
@@ -723,9 +733,9 @@ class W_TypeObject(W_Root):
         if w_mod is None or not space.isinstance_w(w_mod, space.w_text):
             mod = None
         else:
-            mod = space.unicode_w(w_mod)
-        if mod is not None and mod != u'builtins':
-            return space.newunicode(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
+            mod = space.utf8_w(w_mod)
+        if mod is not None and mod != b'builtins':
+            return space.newtext(b"<class '%s.%s'>" % (mod, self.getqualname(space)))
         else:
             return space.newtext("<class '%s'>" % (self.name,))
 
@@ -806,10 +816,13 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
             return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
         w_typetype = w_winner
 
-    name = space.text_w(w_name) # NB. CPython forbids surrogates here
-    assert isinstance(name, str)
+    name = space.text_w(w_name) 
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
+    pos = surrogate_in_utf8(name)
+    if pos >= 0:
+        raise oefmt(space.w_ValueError, "can't encode character %s in position "
+                    "%d, surrogates not allowed", name[pos], pos)
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
@@ -899,7 +912,7 @@ def _check(space, w_type, msg="descriptor is for 'type'"):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newunicode(w_type.getname(space))
+    return space.newtext(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -912,17 +925,25 @@ def descr_set__name__(space, w_type, w_value):
     name = space.text_w(w_value)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
+    pos = surrogate_in_utf8(name)
+    if pos >= 0:
+        raise oefmt(space.w_ValueError, "can't encode character %s in position "
+                    "%d, surrogates not allowed", name[pos], pos)
     w_type.name = name
 
 def descr_get__qualname__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newunicode(w_type.getqualname(space))
+    return space.newtext(w_type.getqualname(space))
 
 def descr_set__qualname__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__qualname__", w_type)
-    w_type.qualname = space.unicode_w(w_value)
+    if not space.isinstance_w(w_value, space.w_text):
+        raise oefmt(space.w_TypeError,
+                    "can only assign string to %N.__name__, not '%T'",
+                    w_type, w_value)
+    w_type.qualname = space.utf8_w(w_value)
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
@@ -1211,9 +1232,10 @@ def slot_w(space, w_name):
     if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
             "__slots__ items must be strings, not '%T'", w_name)
-    if not _isidentifier(space.unicode_w(w_name)):
+    s = space.utf8_w(w_name)
+    if not _isidentifier(s):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
-    return w_name.text_w(space)
+    return s
 
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     from pypy.interpreter.miscutils import string_sort
@@ -1513,8 +1535,8 @@ def mro_error(space, orderlists):
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
     # Can't use oefmt() here, since names is a list of unicodes
-    raise OperationError(space.w_TypeError, space.newunicode(
-        u"cycle among base classes: " + u' < '.join(names)))
+    raise OperationError(space.w_TypeError, space.newtext(
+        "cycle among base classes: " + ' < '.join(names)))
 
 
 class TypeCache(SpaceCache):
