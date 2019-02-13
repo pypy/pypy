@@ -1,5 +1,6 @@
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
+from rpython.rlib import rarithmetic
 from rpython.rlib.rarithmetic import *
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
 from hypothesis import given, strategies, assume
@@ -553,6 +554,76 @@ class TestStringToInt:
             py.test.raises(ParseStringError, string_to_int, '+'+s, base)
             py.test.raises(ParseStringError, string_to_int, '-'+s, base)
 
+    @py.test.mark.parametrize('s', [
+        '0_0_0',
+        '4_2',
+        '1_0000_0000',
+        '0b1001_0100',
+        '0xfff_ffff',
+        '0o5_7_7',
+        '0b_0',
+        '0x_f',
+        '0o_5',
+    ])
+    def test_valid_underscores(self, s):
+        result = string_to_int(
+            s, base=0, allow_underscores=True, no_implicit_octal=True)
+        assert result == int(s.replace('_', ''), base=0)
+
+    @py.test.mark.parametrize('s', [
+        # Leading underscores
+        '_100',
+        '_',
+        '_0b1001_0100',
+        # Trailing underscores:
+        '0_',
+        '42_',
+        '1.4j_',
+        '0x_',
+        '0b1_',
+        '0xf_',
+        '0o5_',
+        # Underscores in the base selector:
+        '0_b0',
+        '0_xf',
+        '0_o5',
+        # Old-style octal, still disallowed:
+        '09_99',
+        # Multiple consecutive underscores:
+        '4_______2',
+        '0b1001__0100',
+        '0xfff__ffff',
+        '0x___',
+        '0o5__77',
+        '1e1__0',
+    ])
+    def test_invalid_underscores(self, s):
+        with py.test.raises(ParseStringError):
+            string_to_int(s, base=0, allow_underscores=True)
+
+    def test_no_implicit_octal(self):
+        TESTS = ['00', '000', '00_00', '02', '0377', '02_34']
+        for x in TESTS:
+            for valid_underscore in [False, True]:
+                for no_implicit_octal in [False, True]:
+                    print x, valid_underscore, no_implicit_octal
+                    expected_ok = True
+                    if no_implicit_octal and any('1' <= c <= '7' for c in x):
+                        expected_ok = False
+                    if not valid_underscore and '_' in x:
+                        expected_ok = False
+                    if expected_ok:
+                        y = string_to_int(x, base=0,
+                                          allow_underscores=valid_underscore,
+                                          no_implicit_octal=no_implicit_octal)
+                        assert y == int(x.replace('_', ''), base=8)
+                    else:
+                        py.test.raises(ParseStringError, string_to_int, x,
+                                       base=0,
+                                       allow_underscores=valid_underscore,
+                                       no_implicit_octal=no_implicit_octal)
+
+
 class TestExplicitIntsizes:
 
     _32_max =            2147483647
@@ -686,3 +757,17 @@ def test_ovfcheck_int32():
     py.test.raises(OverflowError, ovfcheck_int32_sub, 2**30, -2**30)
     assert ovfcheck_int32_mul(-2**16, 2**15) == -2**31
     py.test.raises(OverflowError, ovfcheck_int32_mul, -2**16, -2**15)
+
+@given(strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+       strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+       strategies.integers(min_value=1, max_value=sys.maxint))
+def test_mulmod(a, b, c):
+    assert mulmod(a, b, c) == (a * b) % c
+    #
+    import rpython.rlib.rbigint  # import before patching check_support_int128
+    prev = rarithmetic.check_support_int128
+    try:
+        rarithmetic.check_support_int128 = lambda: False
+        assert mulmod(a, b, c) == (a * b) % c
+    finally:
+        rarithmetic.check_support_int128 = prev

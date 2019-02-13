@@ -7,6 +7,7 @@ dicts = advancedcppDict.so \
         fragileDict.so \
         operatorsDict.so \
         overloadsDict.so \
+        pythonizablesDict.so \
         stltypesDict.so \
         templatesDict.so
 
@@ -14,7 +15,7 @@ all : $(dicts)
 
 HASGENREFLEX:=$(shell command -v genreflex 2> /dev/null)
 
-cppflags=-std=c++11 -O3 -m64 -fPIC -rdynamic
+cppflags=-std=c++14 -O3 -fPIC -rdynamic
 ifdef HASGENREFLEX
   genreflex_flags:=$(shell genreflex --cppflags)
   cppflags+=$(genreflex_flags)
@@ -24,7 +25,7 @@ endif
 
 PLATFORM := $(shell uname -s)
 ifeq ($(PLATFORM),Darwin)
-  cppflags+=-dynamiclib -single_module -arch x86_64 -undefined dynamic_lookup
+  cppflags+=-dynamiclib -single_module -undefined dynamic_lookup
 endif
 
 

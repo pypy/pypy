@@ -1,11 +1,11 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
-    CONST_STRING, ADDR, CANNOT_FAIL)
+    CONST_STRING, ADDR, CANNOT_FAIL, INTP_real)
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
-from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers_flags("Long")
 
@@ -112,7 +112,7 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     num = space.bigint_w(w_long)
     return num.ulonglongmask()
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], lltype.Signed,
+@cpython_api([PyObject, INTP_real], lltype.Signed,
              error=-1)
 def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     """
@@ -133,7 +133,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], rffi.LONGLONG,
+@cpython_api([PyObject, INTP_real], rffi.LONGLONG,
              error=-1)
 def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     """
@@ -238,3 +238,26 @@ def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
         byteorder = 'big'
     result = rbigint.frombytes(s, byteorder, signed != 0)
     return space.newlong_from_rbigint(result)
+
+@cpython_api([PyObject, rffi.UCHARP, rffi.SIZE_T,
+              rffi.INT_real, rffi.INT_real], rffi.INT_real, error=-1)
+def _PyLong_AsByteArrayO(space, w_v, bytes, n, little_endian, is_signed):
+    n = rffi.cast(lltype.Signed, n)
+    little_endian = rffi.cast(lltype.Signed, little_endian)
+    signed = rffi.cast(lltype.Signed, is_signed) != 0
+    byteorder = 'little' if little_endian else 'big'
+    bigint = space.bigint_w(w_v)
+    try:
+        digits = bigint.tobytes(n, byteorder, signed)
+    except InvalidSignednessError:     # < 0 but not 'signed'
+        # in this case, CPython raises OverflowError even though the C
+        # comments say it should raise TypeError
+        raise oefmt(space.w_OverflowError,
+                    "can't convert negative long to unsigned")
+    except OverflowError:
+        raise oefmt(space.w_OverflowError,
+                    "long too big to convert")
+    assert len(digits) == n
+    for i in range(n):
+        bytes[i] = rffi.cast(rffi.UCHAR, digits[i])
+    return 0

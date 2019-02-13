@@ -688,6 +688,16 @@ class TestAnnotateTestCase:
         assert isinstance(dictvalue(s), annmodel.SomeInteger)
         assert not dictvalue(s).nonneg
 
+    def test_dict_get(self):
+        def f1(i, j):
+            d = {i: ''}
+            return d.get(j)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f1, [int, int])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
+
+
     def test_exception_deduction(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.exception_deduction, [])
@@ -4054,6 +4064,20 @@ class TestAnnotateTestCase:
         s = a.build_types(fn, [int, int])
         assert len(a.translator.graphs) == 2 # fn, __setitem__
         assert isinstance(s, annmodel.SomeInteger)
+
+    def test_instance_contains(self):
+        class A(object):
+            def __contains__(self, i):
+                return i & 1 == 0
+
+        def fn(i):
+            a = A()
+            return 0 in a and 1 not in a
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert len(a.translator.graphs) == 2 # fn, __contains__
+        assert isinstance(s, annmodel.SomeBool)
 
     def test_instance_getslice(self):
         class A(object):

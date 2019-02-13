@@ -1,6 +1,7 @@
 import sys
 from contextlib import contextmanager
 import signal
+from collections import OrderedDict
 
 from rpython.translator.translator import TranslationContext
 from rpython.annotator.model import (
@@ -207,6 +208,16 @@ class BaseTestRDict(BaseRtypingTest):
             return x1 * 10 + x2
         res = self.interpret(func, ())
         assert res == 421
+
+    def test_dict_get_no_second_arg(self):
+        def func():
+            dic = self.newdict()
+            x1 = dic.get('hi', 'a')
+            x2 = dic.get('blah')
+            return (x1 == 'a') * 10 + (x2 is None)
+            return x1 * 10 + x2
+        res = self.interpret(func, ())
+        assert res == 11
 
     def test_dict_get_empty(self):
         def func():
@@ -528,6 +539,25 @@ class BaseTestRDict(BaseRtypingTest):
         def f():
             d = self.newdict()
             d[A()] = 1
+            return d
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        r_dict = rtyper.getrepr(s)
+        assert not hasattr(r_dict.lowleveltype.TO.entries.TO.OF, "f_hash")
+
+    def test_r_dict_can_be_fast(self):
+        def myeq(n, m):
+            return n == m
+        def myhash(n):
+            return ~n
+        def f():
+            d = self.new_r_dict(myeq, myhash, simple_hash_eq=True)
+            d[5] = 7
+            d[12] = 19
             return d
 
         t = TranslationContext()
@@ -1000,8 +1030,8 @@ class TestRDict(BaseTestRDict):
         return {}
 
     @staticmethod
-    def new_r_dict(myeq, myhash):
-        return r_dict(myeq, myhash)
+    def new_r_dict(myeq, myhash, force_non_null=False, simple_hash_eq=False):
+        return r_dict(myeq, myhash, force_non_null=force_non_null, simple_hash_eq=simple_hash_eq)
 
     def test_two_dicts_with_different_value_types(self):
         def func(i):
@@ -1167,7 +1197,7 @@ class MappingSpace(object):
                         DictValue(None, s_value))
         dictrepr.setup()
         self.l_dict = self.newdict(dictrepr)
-        self.reference = self.new_reference()
+        self.reference = OrderedDict()
         self.ll_key = r_key.convert_const
         self.ll_value = r_value.convert_const
         self.removed_keys = []
@@ -1294,7 +1324,6 @@ class MappingSM(GenericStateMachine):
 
 class DictSpace(MappingSpace):
     MappingRepr = rdict.DictRepr
-    new_reference = dict
     ll_getitem = staticmethod(rdict.ll_dict_getitem)
     ll_setitem = staticmethod(rdict.ll_dict_setitem)
     ll_delitem = staticmethod(rdict.ll_dict_delitem)

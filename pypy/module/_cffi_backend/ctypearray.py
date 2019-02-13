@@ -25,7 +25,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
         assert isinstance(ctptr, W_CTypePointer)
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
                                    ctptr.ctitem)
-        self.length = length
+        self.length = length    # -1 if no length is given, e.g. 'int[]'
         self.ctptr = ctptr
 
     def _alignof(self):
@@ -70,7 +70,15 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 length = wchar_helper.unicode_size_as_char32(u)
             return (w_value, length + 1)
         else:
-            explicitlength = space.getindex_w(w_value, space.w_OverflowError)
+            try:
+                explicitlength = space.getindex_w(w_value,
+                                                  space.w_OverflowError)
+            except OperationError as e:
+                if e.match(space, space.w_TypeError):
+                    raise oefmt(space.w_TypeError,
+                        "expected new array length or list/tuple/str, "
+                        "not %T", w_value)
+                raise
             if explicitlength < 0:
                 raise oefmt(space.w_ValueError, "negative array length")
             return (space.w_None, explicitlength)
@@ -78,7 +86,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def _check_subscript_index(self, w_cdata, i):
         space = self.space
         if i < 0:
-            raise oefmt(space.w_IndexError, "negative index not supported")
+            raise oefmt(space.w_IndexError, "negative index")
         if i >= w_cdata.get_array_length():
             raise oefmt(space.w_IndexError,
                         "index too large for cdata '%s' (expected %d < %d)",
@@ -88,7 +96,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def _check_slice_index(self, w_cdata, start, stop):
         space = self.space
         if start < 0:
-            raise oefmt(space.w_IndexError, "negative index not supported")
+            raise oefmt(space.w_IndexError, "negative index")
         if stop > w_cdata.get_array_length():
             raise oefmt(space.w_IndexError,
                         "index too large (expected %d <= %d)",
@@ -96,7 +104,15 @@ class W_CTypeArray(W_CTypePtrOrArray):
         return self.ctptr
 
     def convert_from_object(self, cdata, w_ob):
-        self.convert_array_from_object(cdata, w_ob)
+        if isinstance(w_ob, cdataobj.W_CData) and w_ob.ctype is self:
+            length = w_ob.get_array_length()
+            with w_ob as source:
+                source = rffi.cast(rffi.VOIDP, source)
+                target = rffi.cast(rffi.VOIDP, cdata)
+                size = rffi.cast(rffi.SIZE_T, self.ctitem.size * length)
+                rffi.c_memcpy(target, source, size)
+        else:
+            self.convert_array_from_object(cdata, w_ob)
 
     def convert_to_object(self, cdata):
         if self.length < 0:

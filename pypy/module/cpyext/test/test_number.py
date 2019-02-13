@@ -4,14 +4,13 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import (
-    PyObjectP, from_ref, make_ref, Py_DecRef)
+    PyObjectP, from_ref, make_ref, decref)
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.number import (
     PyIndex_Check, PyNumber_Check, PyNumber_Long, PyNumber_Int,
     PyNumber_Index, PyNumber_Coerce, PyNumber_CoerceEx, PyNumber_Add,
     PyNumber_Multiply, PyNumber_InPlaceMultiply, PyNumber_Absolute,
     PyNumber_Power, PyNumber_InPlacePower)
-from pypy.module.cpyext.floatobject import PyFloat_Check
 from pypy.module.cpyext.intobject import PyInt_CheckExact
 from pypy.module.cpyext.longobject import PyLong_CheckExact
 from pypy.module.cpyext.object import PyObject_Size
@@ -54,19 +53,23 @@ class TestIterator(BaseApiTest):
     def test_coerce(self, space):
         w_obj1 = space.wrap(123)
         w_obj2 = space.wrap(456.789)
+        p1 = make_ref(space, w_obj1)
+        p2 = make_ref(space, w_obj2)
         pp1 = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        pp1[0] = make_ref(space, w_obj1)
+        pp1[0] = p1
         pp2 = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        pp2[0] = make_ref(space, w_obj2)
+        pp2[0] = p2
         assert PyNumber_Coerce(space, pp1, pp2) == 0
         assert space.str_w(space.repr(from_ref(space, pp1[0]))) == '123.0'
         assert space.str_w(space.repr(from_ref(space, pp2[0]))) == '456.789'
-        Py_DecRef(space, pp1[0])
-        Py_DecRef(space, pp2[0])
+        #
+        # We need to decref twice because PyNumber_Coerce does an incref and
+        # possibly changes the content of pp1 and pp2
+        decref(space, p1)
+        decref(space, pp1[0])
+        decref(space, p2)
+        decref(space, pp2[0])
         lltype.free(pp1, flavor='raw')
-        # Yes, decrement twice since we decoupled between w_obj* and pp*[0].
-        Py_DecRef(space, w_obj1)
-        Py_DecRef(space, w_obj2)
         lltype.free(pp2, flavor='raw')
 
     def test_number_coerce_ex(self, space):
@@ -82,12 +85,12 @@ class TestIterator(BaseApiTest):
 
         w_res = from_ref(space, ppl[0])
 
-        assert PyFloat_Check(space, w_res)
+        assert space.isinstance_w(w_res, space.w_float)
         assert space.unwrap(w_res) == 123.
-        Py_DecRef(space, pl)
-        Py_DecRef(space, pf)
-        Py_DecRef(space, ppl[0])
-        Py_DecRef(space, ppf[0])
+        decref(space, pl)
+        decref(space, pf)
+        decref(space, ppl[0])
+        decref(space, ppf[0])
         lltype.free(ppl, flavor='raw')
         lltype.free(ppf, flavor='raw')
 

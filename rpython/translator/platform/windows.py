@@ -18,47 +18,52 @@ def _get_compiler_type(cc, x64_flag):
         return MingwPlatform(cc)
     return MsvcPlatform(cc=cc, x64=x64_flag)
 
+def _get_vcver0():
+    # try to get the compiler which served to compile python
+    msc_pos = sys.version.find('MSC v.')
+    if msc_pos != -1:
+        msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
+        # 1500 -> 90, 1900 -> 140
+        vsver = (msc_ver / 10) - 60
+        return vsver
+    return None
+
 def Windows(cc=None):
     return _get_compiler_type(cc, False)
 
-def Windows_x64(cc=None):
+def Windows_x64(cc=None, ver0=None):
     raise Exception("Win64 is not supported.  You must either build for Win32"
                     " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
 
-def _find_vcvarsall(version):
-    # copied from setuptools.msvc9_support.py
-    from distutils.msvc9compiler import Reg
-    VC_BASE = r'Software\%sMicrosoft\DevDiv\VCForPython\%0.1f'
-    key = VC_BASE % ('', version)
-    try:
-        # Per-user installs register the compiler path here
-        productdir = Reg.get_value(key, "installdir")
-    except KeyError:
-        try:
-            # All-user installs on a 64-bit system register here
-            key = VC_BASE % ('Wow6432Node\\', version)
-            productdir = Reg.get_value(key, "installdir")
-        except KeyError:
-            productdir = None
-
-    if productdir:
-        vcvarsall = os.path.join(productdir, "vcvarsall.bat")
-        if os.path.isfile(vcvarsall):
-            return vcvarsall
-    return None
+def _find_vcvarsall(version, x64flag):
+    import rpython.tool.setuptools_msvc as msvc
+    if x64flag:
+        arch = 'x64'
+    else:
+        arch = 'x86'
+    if version >= 140:
+        return msvc.msvc14_get_vc_env(arch)
+    else:
+        return msvc.msvc9_query_vcvarsall(version / 10.0, arch)
 
 def _get_msvc_env(vsver, x64flag):
-    vcvars = None
+    vcdict = None
+    toolsdir = None
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
-        # try to import from the registry, as done in setuptools
-        # XXX works for 90 but is it generalizable?
-        toolsdir = ''
-        vcvars = _find_vcvarsall(vsver/10)
-
-    if not vcvars:
+        # use setuptools from python3 to find tools
+        try:
+            vcdict = _find_vcvarsall(vsver, x64flag)
+        except ImportError as e:
+            if 'setuptools' in str(e):
+                log.error('is setuptools installed (perhaps try %s -mensurepip)?' % sys.executable)
+            log.error('looking for compiler %s raised exception "%s' % (vsver, str(e)))
+        except Exception as e:
+            log.error('looking for compiler %s raised exception "%s' % (vsver, str(e)))
+            return None
+    else:
         if x64flag:
             vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
             vcinstalldir = os.path.join(vsinstalldir, 'VC')
@@ -69,46 +74,63 @@ def _get_msvc_env(vsver, x64flag):
             if not os.path.exists(vcvars):
                 # even msdn does not know which to run
                 # see https://msdn.microsoft.com/en-us/library/1700bbwd(v=vs.90).aspx
-                # wich names both
-                vcvars = os.path.join(toolsdir, 'vcvars32.bat') 
+                # which names both
+                vcvars = os.path.join(toolsdir, 'vcvars32.bat')
 
-    import subprocess
-    try:
-        popen = subprocess.Popen('"%s" & set' % (vcvars,),
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+        import subprocess
+        try:
+            popen = subprocess.Popen('"%s" & set' % (vcvars,),
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
 
-        stdout, stderr = popen.communicate()
-        if popen.wait() != 0:
+            stdout, stderr = popen.communicate()
+            if popen.wait() != 0 or stdout[:5].lower() == 'error':
+                log.msg('Running "%s" errored: \n\nstdout:\n%s\n\nstderr:\n%s' % (
+                    vcvars, stdout.split()[0], stderr))
+                return None
+            else:
+                log.msg('Running "%s" succeeded' %(vcvars,))
+        except Exception as e:
+            log.msg('Running "%s" failed: "%s"' % (vcvars, str(e)))
             return None
-    except:
-        return None
-    env = {}
 
-    stdout = stdout.replace("\r\n", "\n")
-    for line in stdout.split("\n"):
-        if '=' not in line:
-            continue
-        key, value = line.split('=', 1)
+        stdout = stdout.replace("\r\n", "\n")
+        vcdict = {}
+        for line in stdout.split("\n"):
+            if '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            vcdict[key] = value
+    env = {}
+    for key, value in vcdict.items():
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
             env[key.upper()] = value
-    log.msg("Updated environment with %s" % (vcvars,))
+    if 'PATH' not in env:
+        log.msg('Did not find "PATH" in stdout\n%s' %(stdout))
+    if not _find_executable('mt.exe', env['PATH']):
+        # For some reason the sdk bin path is missing?
+        # put it together from some other env variables that happened to exist
+        # on the buildbot where this occurred
+        if 'WindowsSDKVersion' in vcdict and 'WindowsSdkDir' in vcdict:
+            binpath = vcdict['WindowsSdkDir'] + '\\bin\\' + vcdict['WindowsSDKVersion'] + 'x86'
+            env['PATH'] += ';' + binpath
+        if not _find_executable('mt.exe', env['PATH']):
+            log.msg('Could not find mt.exe on path=%s' % env['PATH'])
+            log.msg('Running vsver %s set this env' % vsver)
+            for key, value in vcdict.items():
+                log.msg('%s=%s' %(key, value))
+    log.msg("Updated environment with vsver %d, using x64 %s" % (vsver, x64flag,))
     return env
 
-def find_msvc_env(x64flag=False):
-    vcvers = [140, 100, 90, 80, 71, 70]
-    # First, try to get the compiler which served to compile python
-    msc_pos = sys.version.find('MSC v.')
-    if msc_pos != -1:
-        msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
-        # 1500 -> 90, 1900 -> 140
-        vsver = (msc_ver / 10) - 60
-        vcvers.insert(0, vsver)
+def find_msvc_env(x64flag=False, ver0=None):
+    vcvers = [140, 141, 150, 90, 100]
+    if ver0 in vcvers:
+        vcvers.insert(0, ver0)
     errs = []
-    for vsver in vcvers: 
+    for vsver in vcvers:
         env = _get_msvc_env(vsver, x64flag)
         if env is not None:
-            return env
+            return env, vsver
     log.error("Could not find a Microsoft Compiler")
     # Assume that the compiler is already part of the environment
 
@@ -136,7 +158,6 @@ def _find_executable(executable, path=None):
                     return f
     return None
 
-
 class MsvcPlatform(Platform):
     name = "msvc"
     so_ext = 'dll'
@@ -156,20 +177,33 @@ class MsvcPlatform(Platform):
     shared_only = ()
     environ = None
 
-    def __init__(self, cc=None, x64=False):
+    def __init__(self, cc=None, x64=False, ver0=None):
         self.x64 = x64
+        patch_os_env(self.externals)
+        self.c_environ = os.environ.copy()
         if cc is None:
-            msvc_compiler_environ = find_msvc_env(x64)
+            # prefer compiler used to build host. Python2 only
+            if ver0 is None:
+                ver0 = _get_vcver0()
+            msvc_compiler_environ, self.vsver = find_msvc_env(x64, ver0=ver0)
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
-                self.c_environ = os.environ.copy()
                 self.c_environ.update(msvc_compiler_environ)
+                if x64:
+                    self.externals_branch = 'win34_%d' % self.vsver
+                else:
+                    self.externals_branch = 'win32_%d' % self.vsver
         else:
             self.cc = cc
 
         # detect version of current compiler
-        returncode, stdout, stderr = _run_subprocess(self.cc, '',
+        try:
+            returncode, stdout, stderr = _run_subprocess(self.cc, [],
                                                      env=self.c_environ)
+        except EnvironmentError:
+            log.msg('Could not run %s using PATH=\n%s' %(self.cc,
+                '\n'.join(self.c_environ['PATH'].split(';'))))
+            raise
         r = re.search(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
             self.version = int(''.join(r.groups())) / 10 - 60
@@ -178,7 +212,7 @@ class MsvcPlatform(Platform):
             self.version = 0
 
         # Try to find a masm assembler
-        returncode, stdout, stderr = _run_subprocess('ml.exe', '',
+        returncode, stdout, stderr = _run_subprocess('ml.exe', [],
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
@@ -255,23 +289,21 @@ class MsvcPlatform(Platform):
         if not standalone:
             args = self._args_for_shared(args)
 
-        if self.version >= 80:
-            # Tell the linker to generate a manifest file
-            temp_manifest = exe_name.dirpath().join(
-                exe_name.purebasename + '.manifest')
-            args += ["/MANIFEST", "/MANIFESTFILE:%s" % (temp_manifest,)]
+        # Tell the linker to generate a manifest file
+        temp_manifest = exe_name.dirpath().join(
+            exe_name.purebasename + '.manifest')
+        args += ["/MANIFEST", "/MANIFESTFILE:%s" % (temp_manifest,)]
 
         self._execute_c_compiler(self.link, args, exe_name)
 
-        if self.version >= 80:
-            # Now, embed the manifest into the program
-            if standalone:
-                mfid = 1
-            else:
-                mfid = 2
-            out_arg = '-outputresource:%s;%s' % (exe_name, mfid)
-            args = ['-nologo', '-manifest', str(temp_manifest), out_arg]
-            self._execute_c_compiler('mt.exe', args, exe_name)
+        # Now, embed the manifest into the program
+        if standalone:
+            mfid = 1
+        else:
+            mfid = 2
+        out_arg = '-outputresource:%s;%s' % (exe_name, mfid)
+        args = ['-nologo', '-manifest', str(temp_manifest), out_arg]
+        self._execute_c_compiler('mt.exe', args, exe_name)
 
         return exe_name
 
@@ -374,6 +406,9 @@ class MsvcPlatform(Platform):
             ]
 
         if len(headers_to_precompile)>0:
+            if shared:
+                no_precompile_cfiles += [m.makefile_dir / 'main.c',
+                                         m.makefile_dir / 'wmain.c']
             stdafx_h = path.join('stdafx.h')
             txt  = '#ifndef PYPY_STDAFX_H\n'
             txt += '#define PYPY_STDAFX_H\n'
@@ -430,10 +465,14 @@ class MsvcPlatform(Platform):
         if len(headers_to_precompile)>0 and self.version >= 80:
             # at least from VS2013 onwards we need to include PCH
             # objects in the final link command
-            linkobjs = 'stdafx.obj @<<\n$(OBJECTS)\n<<'
+            linkobjs = 'stdafx.obj '
         else:
-            linkobjs = '@<<\n$(OBJECTS)\n<<'
-
+            linkobjs = ''
+        if len(' '.join(rel_ofiles)) > 2048:
+            # command line is limited in length, use a response file
+            linkobjs += '@<<\n$(OBJECTS)\n<<'
+        else:
+            linkobjs += '$(OBJECTS)'
         extra_deps = []
         if icon and not shared:
             extra_deps.append('icon.res')
@@ -515,6 +554,22 @@ class MsvcPlatform(Platform):
             oldcwd.chdir()
 
         self._handle_error(returncode, stdout, stderr, path.join('make'))
+
+# These are the external libraries, created and maintained by get_externals.py
+# The buildbot runs get_externals before building
+def patch_os_env(externals = Platform.externals):
+    #print 'adding %s to PATH, INCLUDE, LIB' % basepath
+    binpath = externals + r'\bin'
+    path = os.environ['PATH']
+    if binpath not in path:
+        path = binpath + ';' + path
+        # make sure externals is in current path for tests and translating
+        os.environ['PATH'] = path
+    if externals not in os.environ.get('INCLUDE', ''):
+        os.environ['INCLUDE'] = externals + r'\include;' + os.environ.get('INCLUDE', '')
+    if externals not in os.environ.get('LIB', ''):
+        os.environ['LIB'] = externals + r'\lib;' + os.environ.get('LIB', '')
+    return None
 
 class WinDefinition(posix.Definition):
     def write(self, f):

@@ -17,9 +17,12 @@ Thanks to Tim Peters for suggesting using it.
 """
 
 from __future__ import division
-import time as _time
+import time as _timemodule
 import math as _math
 import struct as _struct
+
+# for cpyext, use these as base classes
+from __pypy__._pypydatetime import dateinterop, deltainterop, timeinterop
 
 _SENTINEL = object()
 
@@ -179,7 +182,7 @@ _DAYNAMES = [None, "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 def _build_struct_time(y, m, d, hh, mm, ss, dstflag):
     wday = (_ymd2ord(y, m, d) + 6) % 7
     dnum = _days_before_month(y, m) + d
-    return _time.struct_time((y, m, d, hh, mm, ss, wday, dnum, dstflag))
+    return _timemodule.struct_time((y, m, d, hh, mm, ss, wday, dnum, dstflag))
 
 def _format_time(hh, mm, ss, us):
     # Skip trailing microseconds when us==0.
@@ -247,7 +250,7 @@ def _wrap_strftime(object, format, timetuple):
         else:
             push(ch)
     newformat = "".join(newformat)
-    return _time.strftime(newformat, timetuple)
+    return _timemodule.strftime(newformat, timetuple)
 
 # Just raise TypeError if the arg isn't None or a string.
 def _check_tzname(name):
@@ -433,7 +436,7 @@ def _accum(tag, sofar, num, factor, leftover):
     raise TypeError("unsupported type for timedelta %s component: %s" %
                     (tag, type(num)))
 
-class timedelta(object):
+class timedelta(deltainterop):
     """Represent the difference between two datetime objects.
 
     Supported operators:
@@ -489,7 +492,7 @@ class timedelta(object):
         if not -_MAX_DELTA_DAYS <= d <= _MAX_DELTA_DAYS:
             raise OverflowError("days=%d; must have magnitude <= %d" % (d, _MAX_DELTA_DAYS))
 
-        self = object.__new__(cls)
+        self = deltainterop.__new__(cls)
         self._days = d
         self._seconds = s
         self._microseconds = us
@@ -667,7 +670,7 @@ timedelta.min = timedelta(-_MAX_DELTA_DAYS)
 timedelta.max = timedelta(_MAX_DELTA_DAYS, 24*3600-1, 1000000-1)
 timedelta.resolution = timedelta(microseconds=1)
 
-class date(object):
+class date(dateinterop):
     """Concrete date type.
 
     Constructors:
@@ -707,12 +710,12 @@ class date(object):
         if month is None and isinstance(year, bytes) and len(year) == 4 and \
                 1 <= ord(year[2]) <= 12:
             # Pickle support
-            self = object.__new__(cls)
+            self = dateinterop.__new__(cls)
             self.__setstate(year)
             self._hashcode = -1
             return self
         year, month, day = _check_date_fields(year, month, day)
-        self = object.__new__(cls)
+        self = dateinterop.__new__(cls)
         self._year = year
         self._month = month
         self._day = day
@@ -724,13 +727,13 @@ class date(object):
     @classmethod
     def fromtimestamp(cls, t):
         "Construct a date from a POSIX timestamp (like time.time())."
-        y, m, d, hh, mm, ss, weekday, jday, dst = _time.localtime(t)
+        y, m, d, hh, mm, ss, weekday, jday, dst = _timemodule.localtime(t)
         return cls(y, m, d)
 
     @classmethod
     def today(cls):
         "Construct a date from time.time()."
-        t = _time.time()
+        t = _timemodule.time()
         return cls.fromtimestamp(t)
 
     @classmethod
@@ -1061,7 +1064,7 @@ class tzinfo(object):
 
 _tzinfo_class = tzinfo
 
-class time(object):
+class time(timeinterop):
     """Time with time zone.
 
     Constructors:
@@ -1097,14 +1100,14 @@ class time(object):
         """
         if isinstance(hour, bytes) and len(hour) == 6 and ord(hour[0]) < 24:
             # Pickle support
-            self = object.__new__(cls)
+            self = timeinterop.__new__(cls)
             self.__setstate(hour, minute or None)
             self._hashcode = -1
             return self
         hour, minute, second, microsecond = _check_time_fields(
             hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
-        self = object.__new__(cls)
+        self = timeinterop.__new__(cls)
         self._hour = hour
         self._minute = minute
         self._second = second
@@ -1408,15 +1411,20 @@ class datetime(date):
         if isinstance(year, bytes) and len(year) == 10 and \
                 1 <= ord(year[2]) <= 12:
             # Pickle support
-            self = object.__new__(cls)
+            self = dateinterop.__new__(cls)
             self.__setstate(year, month)
             self._hashcode = -1
             return self
-        year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(
-            hour, minute, second, microsecond)
+        elif isinstance(year, tuple) and len(year) == 7:
+            # Used by internal functions where the arguments are guaranteed to
+            # be valid.
+            year, month, day, hour, minute, second, microsecond = year
+        else:
+            year, month, day = _check_date_fields(year, month, day)
+            hour, minute, second, microsecond = _check_time_fields(
+                hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
-        self = object.__new__(cls)
+        self = dateinterop.__new__(cls)
         self._year = year
         self._month = month
         self._day = day
@@ -1461,7 +1469,7 @@ class datetime(date):
         A timezone info object may be passed in as well.
         """
         _check_tzinfo_arg(tz)
-        converter = _time.localtime if tz is None else _time.gmtime
+        converter = _timemodule.localtime if tz is None else _timemodule.gmtime
         self = cls._from_timestamp(converter, timestamp, tz)
         if tz is not None:
             self = tz.fromutc(self)
@@ -1470,7 +1478,7 @@ class datetime(date):
     @classmethod
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
-        return cls._from_timestamp(_time.gmtime, t, None)
+        return cls._from_timestamp(_timemodule.gmtime, t, None)
 
     @classmethod
     def _from_timestamp(cls, converter, timestamp, tzinfo):
@@ -1488,18 +1496,18 @@ class datetime(date):
             us = 0
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(timestamp)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
-        return cls(y, m, d, hh, mm, ss, us, tzinfo)
+        return cls((y, m, d, hh, mm, ss, us), tzinfo=tzinfo)
 
     @classmethod
     def now(cls, tz=None):
         "Construct a datetime from time.time() and optional time zone info."
-        t = _time.time()
+        t = _timemodule.time()
         return cls.fromtimestamp(t, tz)
 
     @classmethod
     def utcnow(cls):
         "Construct a UTC datetime from time.time()."
-        t = _time.time()
+        t = _timemodule.time()
         return cls.utcfromtimestamp(t)
 
     @classmethod
@@ -1797,7 +1805,7 @@ class datetime(date):
         return diff and 1 or 0
 
     def _add_timedelta(self, other, factor):
-        y, m, d, hh, mm, ss, us = _normalize_datetime(
+        result = _normalize_datetime(
             self._year,
             self._month,
             self._day + other.days * factor,
@@ -1805,7 +1813,7 @@ class datetime(date):
             self._minute,
             self._second + other.seconds * factor,
             self._microsecond + other.microseconds * factor)
-        return datetime(y, m, d, hh, mm, ss, us, tzinfo=self._tzinfo)
+        return datetime(result, tzinfo=self._tzinfo)
 
     def __add__(self, other):
         "Add a datetime and a timedelta."

@@ -3,15 +3,16 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
-    bootstrap_function, CONST_STRING,
+    bootstrap_function, CONST_STRING, INTP_real,
     CONST_WSTRING, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
+    PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
+from pypy.interpreter import unicodehelper
 from pypy.objspace.std import unicodeobject
 from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
@@ -84,7 +85,7 @@ def unicode_realize(space, py_obj):
 @slot_function([PyObject], lltype.Void)
 def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    Py_DecRef(space, py_unicode.c_defenc)
+    decref(space, py_unicode.c_defenc)
     if py_unicode.c_str:
         lltype.free(py_unicode.c_str, flavor="raw")
 
@@ -365,10 +366,14 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     in the unicode() built-in function.  The codec to be used is looked up
     using the Python codec registry.  Return NULL if an exception was raised by
     the codec."""
+    return _pyunicode_decode(space, rffi.charpsize2str(s, size),
+                             encoding, errors)
+
+def _pyunicode_decode(space, s, encoding, errors):
     if not encoding:
         # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
         encoding = PyUnicode_GetDefaultEncoding(space)
-    w_str = space.newbytes(rffi.charpsize2str(s, size))
+    w_str = space.newbytes(s)
     w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
         w_errors = space.newbytes(rffi.charp2str(errors))
@@ -397,28 +402,12 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
-    if not encoding:
-        raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
-    w_encoding = space.newtext(rffi.charp2str(encoding))
-    if errors:
-        w_errors = space.newtext(rffi.charp2str(errors))
-    else:
-        w_errors = None
-
-    # - unicode is disallowed
-    # - raise TypeError for non-string types
     if space.isinstance_w(w_obj, space.w_unicode):
-        w_meth = None
-    else:
-        try:
-            w_meth = space.getattr(w_obj, space.newtext('decode'))
-        except OperationError as e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            w_meth = None
-    if w_meth is None:
         raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
-    return space.call_function(w_meth, w_encoding, w_errors)
+    if space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
+        raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
+    s = space.bufferstr_w(w_obj)
+    return _pyunicode_decode(space, s, encoding, errors)
 
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_FromString(space, s):
@@ -460,7 +449,7 @@ def PyUnicode_Resize(space, ref, newsize):
     try:
         py_newuni = new_empty_unicode(space, newsize)
     except MemoryError:
-        Py_DecRef(space, ref[0])
+        decref(space, ref[0])
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
@@ -469,11 +458,11 @@ def PyUnicode_Resize(space, ref, newsize):
         to_cp = oldsize
     for i in range(to_cp):
         py_newuni.c_str[i] = py_uni.c_str[i]
-    Py_DecRef(space, ref[0])
+    decref(space, ref[0])
     ref[0] = rffi.cast(PyObject, py_newuni)
     return 0
 
-def make_conversion_functions(suffix, encoding):
+def make_conversion_functions(suffix, encoding, only_for_asstring=False):
     @cpython_api([PyObject], PyObject)
     @func_renamer('PyUnicode_As%sString' % suffix)
     def PyUnicode_AsXXXString(space, w_unicode):
@@ -484,6 +473,9 @@ def make_conversion_functions(suffix, encoding):
             PyErr_BadArgument(space)
         return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
     globals()['PyUnicode_As%sString' % suffix] = PyUnicode_AsXXXString
+
+    if only_for_asstring:
+        return
 
     @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Decode%s' % suffix)
@@ -515,12 +507,14 @@ def make_conversion_functions(suffix, encoding):
     globals()['PyUnicode_Encode%s' % suffix] = PyUnicode_EncodeXXX
 
 make_conversion_functions('UTF8', 'utf-8')
+make_conversion_functions('UTF16', 'utf-16', only_for_asstring=True)
+make_conversion_functions('UTF32', 'utf-32', only_for_asstring=True)
 make_conversion_functions('ASCII', 'ascii')
 make_conversion_functions('Latin1', 'latin-1')
 if sys.platform == 'win32':
     make_conversion_functions('MBCS', 'mbcs')
 
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, rffi.INTP], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INTP_real], PyObject)
 def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     """Decode length bytes from a UTF-16 encoded buffer string and return the
     corresponding Unicode object.  errors (if non-NULL) defines the error
@@ -570,11 +564,11 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
         None, # errorhandler
         byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
 
     return space.newunicode(result)
 
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, rffi.INTP], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INTP_real], PyObject)
 def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     """Decode length bytes from a UTF-32 encoded buffer string and
     return the corresponding Unicode object.  errors (if non-NULL)
@@ -620,13 +614,13 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_32_helper(
+    result, length, byteorder = unicodehelper.str_decode_utf_32_helper(
         string, size, errors,
         True, # final ? false for multiple passes?
         None, # errorhandler
         byteorder)
     if pbyteorder is not None:
-        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+        pbyteorder[0] = rffi.cast(rffi.INT_real, byteorder)
 
     return space.newunicode(result)
 

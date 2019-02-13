@@ -149,7 +149,7 @@ On SLES11::
     xz-devel # For lzma on PyPy3.
     (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
-On Mac OS X::
+On Mac OS X:
 
 Most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to
@@ -220,11 +220,12 @@ without rerunning the previous steps.
 Making a debug build of PyPy
 ----------------------------
 
-If the Makefile is rerun with the lldebug or lldebug0 target, appropriate
-compilation flags are added to add debug info and reduce compiler optimizations
-to ``-O0`` respectively. If you stop in a debugger, you will see the
-very wordy machine-generated C code from the rpython translation step, which
-takes a little bit of reading to relate back to the rpython code.
+Rerun the ``Makefile`` with the ``make lldebug`` or ``make lldebug0`` target,
+which will build in a way that running under a debugger makes sense.
+Appropriate compilation flags are added to add debug info, and for ``lldebug0``
+compiler optimizations are fully disabled. If you stop in a debugger, you will
+see the very wordy machine-generated C code from the rpython translation step,
+which takes a little bit of reading to relate back to the rpython code.
 
 Build cffi import libraries for the stdlib
 ------------------------------------------
@@ -267,14 +268,14 @@ pre-compiling them, normal users will get errors:
 * PyPy 2.5.1 or earlier: normal users would see permission errors.
   Installers need to run ``pypy -c "import gdbm"`` and other similar
   commands at install time; the exact list is in
-  :source:`pypy/tool/release/package.py <package.py>`.  Users
+  :source:`pypy/tool/release/package.py`.  Users
   seeing a broken installation of PyPy can fix it after-the-fact if they
   have sudo rights, by running once e.g. ``sudo pypy -c "import gdbm``.
 
 * PyPy 2.6 and later: anyone would get ``ImportError: no module named
   _gdbm_cffi``.  Installers need to run ``pypy _gdbm_build.py`` in the
   ``lib_pypy`` directory during the installation process (plus others;
-  see the exact list in :source:`pypy/tool/release/package.py <package.py>`).
+  see the exact list in :source:`pypy/tool/release/package.py`).
   Users seeing a broken
   installation of PyPy can fix it after-the-fact, by running ``pypy
   /path/to/lib_pypy/_gdbm_build.py``.  This command produces a file

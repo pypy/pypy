@@ -8,7 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
-    _prefer_unicode, _preferred_traits)
+    _prefer_unicode, _preferred_traits, _preferred_traits2)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
 from rpython.rlib.rarithmetic import intmask, widen
@@ -39,11 +39,12 @@ class CConstantErrno(CConstant):
 
 if os.name == 'nt':
     if platform.name == 'msvc':
-        includes=['errno.h','stdio.h']
+        includes=['errno.h','stdio.h', 'stdlib.h']
     else:
         includes=['errno.h','stdio.h', 'stdint.h']
     separate_module_sources =['''
-        /* Lifted completely from CPython 3.3 Modules/posix_module.c */
+        /* Lifted completely from CPython 3 Modules/posixmodule.c */
+        #if defined _MSC_VER && _MSC_VER >= 1400 && _MSC_VER < 1900
         #include <malloc.h> /* for _msize */
         typedef struct {
             intptr_t osfhnd;
@@ -95,8 +96,51 @@ if os.name == 'nt':
             errno = EBADF;
             return 0;
         }
+        RPY_EXTERN void* enter_suppress_iph(void) {return (void*)NULL;};
+        RPY_EXTERN void exit_suppress_iph(void* handle) {};
+        #elif defined _MSC_VER
+        RPY_EXTERN int _PyVerify_fd(int fd)
+        {
+            return 1;
+        }
+        static void __cdecl _Py_silent_invalid_parameter_handler(
+            wchar_t const* expression,
+            wchar_t const* function,
+            wchar_t const* file,
+            unsigned int line,
+            uintptr_t pReserved) {
+                wprintf(L"Invalid parameter detected in function %s."
+                            L" File: %s Line: %d\\n", function, file, line);
+                wprintf(L"Expression: %s\\n", expression);
+        }
+
+        RPY_EXTERN void* enter_suppress_iph(void)
+        {
+            void* ret = _set_thread_local_invalid_parameter_handler(_Py_silent_invalid_parameter_handler);
+            /*fprintf(stdout, "setting %p returning %p\\n", (void*)_Py_silent_invalid_parameter_handler, ret);*/
+            return ret;
+        }
+        RPY_EXTERN void exit_suppress_iph(void*  old_handler)
+        {
+            void * ret;
+            _invalid_parameter_handler _handler = (_invalid_parameter_handler)old_handler;
+            ret = _set_thread_local_invalid_parameter_handler(_handler);
+            /*fprintf(stdout, "exiting, setting %p returning %p\\n", old_handler, ret);*/
+        }
+
+        #else
+        RPY_EXTERN int _PyVerify_fd(int fd)
+        {
+            return 1;
+        }
+        RPY_EXTERN void* enter_suppress_iph(void) {return (void*)NULL;};
+        RPY_EXTERN void exit_suppress_iph(void* handle) {};
+        #endif
     ''',]
-    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
+    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);',
+                       'RPY_EXTERN void* enter_suppress_iph();',
+                       'RPY_EXTERN void exit_suppress_iph(void* handle);',
+                      ]
 else:
     separate_module_sources = []
     post_include_bits = []
@@ -193,52 +237,9 @@ def _errno_after(save_err):
         else:
             rthread.tlfield_rpy_errno.setraw(_get_errno())
             # ^^^ keep fork() up-to-date too, below
-
-
-if os.name == 'nt':
-    is_valid_fd = jit.dont_look_inside(rffi.llexternal(
-        "_PyVerify_fd", [rffi.INT], rffi.INT,
-        compilation_info=errno_eci,
-        ))
-    @enforceargs(int)
-    def validate_fd(fd):
-        if not is_valid_fd(fd):
-            from errno import EBADF
-            raise OSError(EBADF, 'Bad file descriptor')
-
-    def _bound_for_write(fd, count):
-        if count > 32767 and c_isatty(fd):
-            # CPython Issue #11395, PyPy Issue #2636: the Windows console
-            # returns an error (12: not enough space error) on writing into
-            # stdout if stdout mode is binary and the length is greater than
-            # 66,000 bytes (or less, depending on heap usage).  Can't easily
-            # test that, because we need 'fd' to be non-redirected...
-            count = 32767
-        elif count > 0x7fffffff:
-            count = 0x7fffffff
-        return count
-else:
-    def is_valid_fd(fd):
-        return 1
-
-    @enforceargs(int)
-    def validate_fd(fd):
-        pass
-
-    def _bound_for_write(fd, count):
-        return count
-
-def closerange(fd_low, fd_high):
-    # this behaves like os.closerange() from Python 2.6.
-    for fd in xrange(fd_low, fd_high):
-        try:
-            if is_valid_fd(fd):
-                os.close(fd)
-        except OSError:
-            pass
-
 if _WIN32:
-    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h',
+                'direct.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -253,15 +254,84 @@ else:
                 'sched.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
-    if sys.platform.startswith('linux'):
+    if sys.platform.startswith('linux') or sys.platform.startswith('gnu'):
         includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd') or sys.platform.startswith('openbsd'):
         includes.append('sys/ttycom.h')
     libraries = ['util']
+
 eci = ExternalCompilationInfo(
     includes=includes,
     libraries=libraries,
 )
+
+def external(name, args, result, compilation_info=eci, **kwds):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=compilation_info, **kwds)
+
+
+if os.name == 'nt':
+    is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
+        rffi.INT, compilation_info=errno_eci,
+        ))
+    c_enter_suppress_iph = jit.dont_look_inside(external("enter_suppress_iph",
+                                  [], rffi.VOIDP, compilation_info=errno_eci))
+    c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
+                                  [rffi.VOIDP], lltype.Void,
+                                  compilation_info=errno_eci))
+
+    @enforceargs(int)
+    def _validate_fd(fd):
+        if not is_valid_fd(fd):
+            from errno import EBADF
+            raise OSError(EBADF, 'Bad file descriptor')
+
+    class FdValidator(object):
+
+        def __init__(self, fd):
+            _validate_fd(fd)
+
+        def __enter__(self):
+            self.invalid_param_hndlr = c_enter_suppress_iph()
+            return self
+
+        def __exit__(self, *args):
+            c_exit_suppress_iph(self.invalid_param_hndlr)
+
+    def _bound_for_write(fd, count):
+        if count > 32767 and c_isatty(fd):
+            # CPython Issue #11395, PyPy Issue #2636: the Windows console
+            # returns an error (12: not enough space error) on writing into
+            # stdout if stdout mode is binary and the length is greater than
+            # 66,000 bytes (or less, depending on heap usage).  Can't easily
+            # test that, because we need 'fd' to be non-redirected...
+            count = 32767
+        elif count > 0x7fffffff:
+            count = 0x7fffffff
+        return count
+else:
+    class FdValidator(object):
+
+        def __init__(self, fd):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    def _bound_for_write(fd, count):
+        return count
+
+def closerange(fd_low, fd_high):
+    # this behaves like os.closerange() from Python 2.6.
+    for fd in xrange(fd_low, fd_high):
+        try:
+            with FdValidator(fd):
+                os.close(fd)
+        except OSError:
+            pass
 
 class CConfig:
     _compilation_info_ = eci
@@ -314,10 +384,6 @@ class CConfig:
 
 config = rffi_platform.configure(CConfig)
 globals().update(config)
-
-def external(name, args, result, compilation_info=eci, **kwds):
-    return rffi.llexternal(name, args, result,
-                           compilation_info=compilation_info, **kwds)
 
 # For now we require off_t to be the same size as LONGLONG, which is the
 # interface required by callers of functions that thake an argument of type
@@ -410,12 +476,12 @@ def handle_posix_error(name, result):
     return result
 
 def _dup(fd, inheritable=True):
-    validate_fd(fd)
-    if inheritable:
-        res = c_dup(fd)
-    else:
-        res = c_dup_noninheritable(fd)
-    return res
+    with FdValidator(fd):
+        if inheritable:
+            res = c_dup(fd)
+        else:
+            res = c_dup_noninheritable(fd)
+        return res
 
 @replace_os_function('dup')
 def dup(fd, inheritable=True):
@@ -424,12 +490,12 @@ def dup(fd, inheritable=True):
 
 @replace_os_function('dup2')
 def dup2(fd, newfd, inheritable=True):
-    validate_fd(fd)
-    if inheritable:
-        res = c_dup2(fd, newfd)
-    else:
-        res = c_dup2_noninheritable(fd, newfd)
-    handle_posix_error('dup2', res)
+    with FdValidator(fd):
+        if inheritable:
+            res = c_dup2(fd, newfd)
+        else:
+            res = c_dup2_noninheritable(fd, newfd)
+        handle_posix_error('dup2', res)
 
 #___________________________________________________________________
 
@@ -453,29 +519,31 @@ c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('read')
-@enforceargs(int, int)
+@signature(types.int(), types.int(), returns=types.any())
 def read(fd, count):
     if count < 0:
         raise OSError(errno.EINVAL, None)
-    validate_fd(fd)
-    with rffi.scoped_alloc_buffer(count) as buf:
-        void_buf = rffi.cast(rffi.VOIDP, buf.raw)
-        got = handle_posix_error('read', c_read(fd, void_buf, count))
-        return buf.str(got)
+    with FdValidator(fd):
+        with rffi.scoped_alloc_buffer(count) as buf:
+            void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+            got = handle_posix_error('read', c_read(fd, void_buf, count))
+            return buf.str(got)
 
 @replace_os_function('write')
-@enforceargs(int, None)
+@signature(types.int(), types.any(), returns=types.any())
 def write(fd, data):
     count = len(data)
-    validate_fd(fd)
-    count = _bound_for_write(fd, count)
-    with rffi.scoped_nonmovingbuffer(data) as buf:
-        return handle_posix_error('write', c_write(fd, buf, count))
+    with FdValidator(fd):
+        count = _bound_for_write(fd, count)
+        with rffi.scoped_nonmovingbuffer(data) as buf:
+            ret = c_write(fd, buf, count)
+            return handle_posix_error('write', ret)
 
 @replace_os_function('close')
+@signature(types.int(), returns=types.any())
 def close(fd):
-    validate_fd(fd)
-    handle_posix_error('close', c_close(fd))
+    with FdValidator(fd):
+        handle_posix_error('close', c_close(fd))
 
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
@@ -483,15 +551,15 @@ c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
 
 @replace_os_function('lseek')
 def lseek(fd, pos, how):
-    validate_fd(fd)
-    if SEEK_SET is not None:
-        if how == 0:
-            how = SEEK_SET
-        elif how == 1:
-            how = SEEK_CUR
-        elif how == 2:
-            how = SEEK_END
-    return handle_posix_error('lseek', c_lseek(fd, pos, how))
+    with FdValidator(fd):
+        if SEEK_SET is not None:
+            if how == 0:
+                how = SEEK_SET
+            elif how == 1:
+                how = SEEK_CUR
+            elif how == 2:
+                how = SEEK_END
+        return handle_posix_error('lseek', c_lseek(fd, pos, how))
 
 if not _WIN32:
     c_pread = external('pread',
@@ -505,7 +573,6 @@ if not _WIN32:
     def pread(fd, count, offset):
         if count < 0:
             raise OSError(errno.EINVAL, None)
-        validate_fd(fd)
         with rffi.scoped_alloc_buffer(count) as buf:
             void_buf = rffi.cast(rffi.VOIDP, buf.raw)
             return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
@@ -513,7 +580,6 @@ if not _WIN32:
     @enforceargs(int, None, None)
     def pwrite(fd, data, offset):
         count = len(data)
-        validate_fd(fd)
         with rffi.scoped_nonmovingbuffer(data) as buf:
             return handle_posix_error('pwrite', c_pwrite(fd, buf, count, offset))
 
@@ -524,7 +590,6 @@ if not _WIN32:
 
         @enforceargs(int, None, None)
         def posix_fallocate(fd, offset, length):
-            validate_fd(fd)
             return handle_posix_error('posix_fallocate', c_posix_fallocate(fd, offset, length))
 
     if HAVE_FADVISE:
@@ -546,7 +611,6 @@ if not _WIN32:
 
         @enforceargs(int, None, None, int)
         def posix_fadvise(fd, offset, length, advice):
-            validate_fd(fd)
             error = c_posix_fadvise(fd, offset, length, advice)
             error = widen(error)
             if error != 0:
@@ -557,7 +621,6 @@ if not _WIN32:
             save_err=rffi.RFFI_SAVE_ERRNO)
     @enforceargs(int, None, None)
     def lockf(fd, cmd, length):
-        validate_fd(fd)
         return handle_posix_error('lockf', c_lockf(fd, cmd, length))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
@@ -571,18 +634,18 @@ if not _WIN32:
 
 @replace_os_function('ftruncate')
 def ftruncate(fd, length):
-    validate_fd(fd)
-    handle_posix_error('ftruncate', c_ftruncate(fd, length))
+    with FdValidator(fd):
+        handle_posix_error('ftruncate', c_ftruncate(fd, length))
 
 @replace_os_function('fsync')
 def fsync(fd):
-    validate_fd(fd)
-    handle_posix_error('fsync', c_fsync(fd))
+    with FdValidator(fd):
+        handle_posix_error('fsync', c_fsync(fd))
 
 @replace_os_function('fdatasync')
 def fdatasync(fd):
-    validate_fd(fd)
-    handle_posix_error('fdatasync', c_fdatasync(fd))
+    with FdValidator(fd):
+        handle_posix_error('fdatasync', c_fdatasync(fd))
 
 def sync():
     c_sync()
@@ -649,8 +712,8 @@ def chdir(path):
 
 @replace_os_function('fchdir')
 def fchdir(fd):
-    validate_fd(fd)
-    handle_posix_error('fchdir', c_fchdir(fd))
+    with FdValidator(fd):
+        handle_posix_error('fchdir', c_fchdir(fd))
 
 @replace_os_function('access')
 @specialize.argtype(0)
@@ -671,16 +734,21 @@ def getfullpathname(path):
     length = rwin32.MAX_PATH + 1
     traits = _preferred_traits(path)
     win32traits = make_win32_traits(traits)
-    with traits.scoped_alloc_buffer(length) as buf:
-        res = win32traits.GetFullPathName(
-            traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
-            buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
-        if res == 0:
-            raise rwin32.lastSavedWindowsError("_getfullpathname failed")
-        result = buf.str(intmask(res))
-        assert result is not None
-        result = rstring.assert_str0(result)
-        return result
+    while True:      # should run the loop body maximum twice
+        with traits.scoped_alloc_buffer(length) as buf:
+            res = win32traits.GetFullPathName(
+                traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
+                buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
+            res = intmask(res)
+            if res == 0:
+                raise rwin32.lastSavedWindowsError("_getfullpathname failed")
+            if res >= length:
+                length = res + 1
+                continue
+            result = buf.str(res)
+            assert result is not None
+            result = rstring.assert_str0(result)
+            return result
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
@@ -815,11 +883,11 @@ def listdir(path):
 
         if traits.str is unicode:
             if path and path[-1] not in (u'/', u'\\', u':'):
-                path += u'/'
+                path += u'\\'
             mask = path + u'*.*'
         else:
             if path and path[-1] not in ('/', '\\', ':'):
-                path += '/'
+                path += '\\'
             mask = path + '*.*'
 
         filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
@@ -1027,9 +1095,12 @@ def _make_waitmacro(name):
         else:
             return bool(c_func(status))
 
-WAIT_MACROS = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+WAIT_MACROS = ['WCOREDUMP', 'WIFSTOPPED',
                'WIFSIGNALED', 'WIFEXITED',
                'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']
+if not sys.platform.startswith('gnu'):
+    WAIT_MACROS.append('WIFCONTINUED')
+
 for name in WAIT_MACROS:
     _make_waitmacro(name)
 
@@ -1090,9 +1161,9 @@ c_isatty = external(UNDERSCORE_ON_WIN32 + 'isatty', [rffi.INT], rffi.INT)
 
 @replace_os_function('isatty')
 def isatty(fd):
-    if not is_valid_fd(fd):
-        return False
-    return c_isatty(fd) != 0
+    with FdValidator(fd):
+        return c_isatty(fd) != 0
+    return False
 
 c_ttyname = external('ttyname', [lltype.Signed], rffi.CCHARP,
                      releasegil=False,
@@ -1198,7 +1269,7 @@ def rename(path1, path2):
         handle_posix_error('rename',
                            c_rename(_as_bytes0(path1), _as_bytes0(path2)))
     else:
-        traits = _preferred_traits(path1)
+        traits = _preferred_traits2(path1, path2)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
@@ -1208,7 +1279,7 @@ def rename(path1, path2):
 @specialize.argtype(0, 1)
 def replace(path1, path2):
     if _WIN32:
-        traits = _preferred_traits(path1)
+        traits = _preferred_traits2(path1, path2)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
@@ -2574,3 +2645,160 @@ if not _WIN32:
         """Passes offset==NULL; not support on all OSes"""
         res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
         return handle_posix_error('sendfile', res)
+
+# ____________________________________________________________
+# Support for *xattr functions
+
+if sys.platform.startswith('linux'):
+
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sys/xattr.h', 'linux/limits.h'],)
+        XATTR_SIZE_MAX = rffi_platform.DefinedConstantInteger('XATTR_SIZE_MAX')
+        XATTR_CREATE = rffi_platform.DefinedConstantInteger('XATTR_CREATE')
+        XATTR_REPLACE = rffi_platform.DefinedConstantInteger('XATTR_REPLACE')
+
+    cConfig = rffi_platform.configure(CConfig)
+    globals().update(cConfig)
+    c_fgetxattr = external('fgetxattr',
+        [rffi.INT, rffi.CCHARP, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_getxattr = external('getxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_lgetxattr = external('lgetxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_fsetxattr = external('fsetxattr',
+        [rffi.INT, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
+        rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_setxattr = external('setxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
+        rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_lsetxattr = external('lsetxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
+        rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_fremovexattr = external('fremovexattr',
+        [rffi.INT, rffi.CCHARP], rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_removexattr = external('removexattr',
+        [rffi.CCHARP, rffi.CCHARP], rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_lremovexattr = external('lremovexattr',
+        [rffi.CCHARP, rffi.CCHARP], rffi.INT,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_flistxattr = external('flistxattr',
+        [rffi.INT, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_listxattr = external('listxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_llistxattr = external('llistxattr',
+        [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        compilation_info=CConfig._compilation_info_,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+    buf_sizes = [256, XATTR_SIZE_MAX]
+
+    def fgetxattr(fd, name):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+                res = c_fgetxattr(fd, name, void_buf, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        raise OSError(err, 'fgetxattr failed')
+                else:
+                    return buf.str(res)
+        else:
+            raise OSError(errno.ERANGE, 'fgetxattr failed')
+
+    def getxattr(path, name, follow_symlinks=True):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+                if follow_symlinks:
+                    res = c_getxattr(path, name, void_buf, size)
+                else:
+                    res = c_lgetxattr(path, name, void_buf, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        c_name = 'getxattr' if follow_symlinks else 'lgetxattr'
+                        raise OSError(err, c_name + 'failed')
+                else:
+                    return buf.str(res)
+        else:
+            c_name = 'getxattr' if follow_symlinks else 'lgetxattr'
+            raise OSError(errno.ERANGE, c_name + 'failed')
+
+    def fsetxattr(fd, name, value, flags=0):
+        return handle_posix_error(
+            'fsetxattr', c_fsetxattr(fd, name, value, len(value), flags))
+
+    def setxattr(path, name, value, flags=0, follow_symlinks=True):
+        if follow_symlinks:
+            return handle_posix_error(
+                'setxattr', c_setxattr(path, name, value, len(value), flags))
+        else:
+            return handle_posix_error(
+                'lsetxattr', c_lsetxattr(path, name, value, len(value), flags))
+
+    def fremovexattr(fd, name):
+        return handle_posix_error('fremovexattr', c_fremovexattr(fd, name))
+
+    def removexattr(path, name, follow_symlinks=True):
+        if follow_symlinks:
+            return handle_posix_error('removexattr', c_removexattr(path, name))
+        else:
+            return handle_posix_error('lremovexattr', c_lremovexattr(path, name))
+
+    def _unpack_attrs(attr_string):
+        result = attr_string.split('\0')
+        del result[-1]
+        return result
+
+    def flistxattr(fd):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                res = c_flistxattr(fd, buf.raw, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        raise OSError(err, 'flistxattr failed')
+                else:
+                    return _unpack_attrs(buf.str(res))
+        else:
+            raise OSError(errno.ERANGE, 'flistxattr failed')
+
+    def listxattr(path, follow_symlinks=True):
+        for size in buf_sizes:
+            with rffi.scoped_alloc_buffer(size) as buf:
+                if follow_symlinks:
+                    res = c_listxattr(path, buf.raw, size)
+                else:
+                    res = c_llistxattr(path, buf.raw, size)
+                if res < 0:
+                    err = get_saved_errno()
+                    if err != errno.ERANGE:
+                        c_name = 'listxattr' if follow_symlinks else 'llistxattr'
+                        raise OSError(err, c_name + 'failed')
+                else:
+                    return _unpack_attrs(buf.str(res))
+        else:
+            c_name = 'listxattr' if follow_symlinks else 'llistxattr'
+            raise OSError(errno.ERANGE, c_name + 'failed')

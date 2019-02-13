@@ -17,13 +17,18 @@ Download a pre-built PyPy
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The quickest way to start using PyPy is to download a prebuilt binary for your
-OS and architecture.  You can either use the `most recent release`_ or one of
-our `development nightly build`_.  Please note that the nightly builds are not
+OS and architecture.  You may be able to use either use the
+`most recent release`_ or one of our `development nightly build`_. These
+builds depend on dynamically linked libraries that may not be available on your
+OS. See the section about `Linux binaries`_ for more info and alternatives that
+may work on your system.
+
+Please note that the nightly builds are not
 guaranteed to be as stable as official releases, use them at your own risk.
 
 .. _most recent release: http://pypy.org/download.html
 .. _development nightly build: http://buildbot.pypy.org/nightly/trunk/
-
+.. _Linux binaries: http://pypy.org/download.html#linux-binaries-and-common-distributions
 
 Installing PyPy
 ~~~~~~~~~~~~~~~
@@ -69,9 +74,9 @@ Installing using virtualenv
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It is often convenient to run pypy inside a virtualenv.  To do this
-you need a recent version of virtualenv -- 1.6.1 or greater.  You can
+you need a version of virtualenv -- 1.6.1 or greater.  You can
 then install PyPy both from a precompiled tarball or from a mercurial
-checkout::
+checkout after translation::
 
 	# from a tarball
 	$ virtualenv -p /opt/pypy-xxx/bin/pypy my-pypy-env

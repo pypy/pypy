@@ -309,12 +309,18 @@ class GetSetProperty(W_Root):
                     self.reqcls, Arguments(space, [w_obj,
                                                    space.newtext(self.name)]))
 
+    def readonly_attribute(self, space):   # overwritten in cpyext
+        if self.name == '<generic property>':
+            raise oefmt(space.w_TypeError, "readonly attribute")
+        else:
+            raise oefmt(space.w_TypeError, "readonly attribute '%s'", self.name)
+
     def descr_property_set(self, space, w_obj, w_value):
         """property.__set__(obj, value)
         Change the value of the property of the given obj."""
         fset = self.fset
         if fset is None:
-            raise oefmt(space.w_TypeError, "readonly attribute")
+            raise self.readonly_attribute(space)
         try:
             fset(self, space, w_obj, w_value)
         except DescrMismatch:
@@ -682,7 +688,7 @@ Function.typedef = TypeDef("function",
 Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(
-    "method",
+    "instancemethod",
     __doc__ = """instancemethod(function, instance, class)
 
 Create an instance method object.""",

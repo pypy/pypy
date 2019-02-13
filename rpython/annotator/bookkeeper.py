@@ -71,6 +71,7 @@ class Bookkeeper(object):
 
         self.needs_generic_instantiate = {}
         self.thread_local_fields = set()
+        self.memory_pressure_types = set()
 
         self.register_builtins()
 
@@ -194,13 +195,14 @@ class Bookkeeper(object):
             listdef.generalize_range_step(flags['range_step'])
         return SomeList(listdef)
 
-    def getdictdef(self, is_r_dict=False, force_non_null=False):
+    def getdictdef(self, is_r_dict=False, force_non_null=False, simple_hash_eq=False):
         """Get the DictDef associated with the current position."""
         try:
             dictdef = self.dictdefs[self.position_key]
         except KeyError:
             dictdef = DictDef(self, is_r_dict=is_r_dict,
-                              force_non_null=force_non_null)
+                              force_non_null=force_non_null,
+                              simple_hash_eq=simple_hash_eq)
             self.dictdefs[self.position_key] = dictdef
         return dictdef
 

@@ -1,31 +1,35 @@
-===========================
-What's new in PyPy2.7 5.10+
-===========================
+==========================
+What's new in PyPy2.7 7.0+
+==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.9.0
-.. startrev:d56dadcef996
+.. this is a revision shortly after release-pypy-7.0.0
+.. startrev: 481c69f7d81f
 
-.. branch: cppyy-packaging
-Cleanup and improve cppyy packaging
+.. branch: zlib-copying-third-time-a-charm
 
-.. branch: docs-osx-brew-openssl
+Make sure zlib decompressobjs have their streams deallocated immediately
+on flush.
 
-.. branch: keep-debug-symbols
-Add a smartstrip tool, which can optionally keep the debug symbols in a
-separate file, instead of just stripping them away. Use it in packaging
+.. branch: zlib-copying-redux
 
-.. branch: bsd-patches
-Fix failures on FreeBSD, contributed by David Naylor as patches on the issue
-tracker (issues 2694, 2695, 2696, 2697)
+Fix calling copy on already-flushed compressobjs.
 
-.. branch: run-extra-tests
-Run extra_tests/ in buildbot
+.. branch: zlib-copying
 
-.. branch: vmprof-0.4.10
-Upgrade the _vmprof backend to vmprof 0.4.10
+The zlib module's compressobj and decompressobj now expose copy methods
+as they do on CPython.
 
-.. branch: fix-vmprof-stacklet-switch
-Fix a vmprof+continulets (i.e. greenelts, eventlet, gevent, ...)
 
-.. branch: win32-vcvars
+.. branch: math-improvements
 
+Improve performance of long operations where one of the operands fits into
+an int.
+
+.. branch: regalloc-playground
+
+Improve register allocation in the JIT.
+
+
+.. branch: promote-unicode
+
+Implement rlib.jit.promote_unicode to complement promote_string

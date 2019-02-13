@@ -49,6 +49,11 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
                      w_stararg=w_args, w_starstararg=w_kwds)
     return space.call_args(w_impl, args)
 
+@slot_function([PyObject, PyObject, PyObject], PyObject)
+def slot_tp_call(space, w_self, w_args, w_kwds):
+    args = Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
+    return space.call_args(w_self, args)
+
 # unary functions
 
 @slot_function([PyObject], PyObject)

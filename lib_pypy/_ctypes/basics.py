@@ -49,10 +49,13 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
+    def _build_ffiargtype(self):
+        return _shape_to_ffi_type(self._ffiargshape_)
+
     def get_ffi_argtype(self):
         if self._ffiargtype:
             return self._ffiargtype
-        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape_)
+        self._ffiargtype = self._build_ffiargtype()
         return self._ffiargtype
 
     def _CData_output(self, resbuffer, base=None, index=-1):
@@ -117,7 +120,7 @@ class _CDataMeta(type):
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
                 % (len(buf) + offset, size + offset))
-        result = self()
+        result = self._newowninstance_()
         dest = result._buffer.buffer
         try:
             raw_addr = buf._pypy_raw_address()
@@ -126,6 +129,11 @@ class _CDataMeta(type):
         else:
             from ctypes import memmove
             memmove(dest, raw_addr, size)
+        return result
+
+    def _newowninstance_(self):
+        result = self.__new__(self)
+        result._init_no_arg_()
         return result
 
 
@@ -159,6 +167,7 @@ class _CData(object):
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
+    _init_no_arg_ = __init__
 
     def _ensure_objects(self):
         if '_objects' not in self.__dict__:

@@ -11,7 +11,6 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp import history
 from rpython.rlib.jit import JitDriver, hint, set_param
 from rpython.rlib.objectmodel import compute_hash
-from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_uint, intmask, r_int
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
@@ -82,55 +81,40 @@ class VectorizeTests(object):
         if not self.supports_vector_ext():
             py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
-    def meta_interp(self, f, args, policy=None, vec=True, vec_all=False):
-        return ll_meta_interp(f, args, enable_opts=self.enable_opts,
-                              policy=policy,
-                              CPUClass=self.CPUClass,
-                              type_system=self.type_system,
-                              vec=vec, vec_all=vec_all)
-
     # FLOAT UNARY
 
-    def _vector_float_unary(self, func, type, data):
+    @pytest.mark.parametrize('func',
+        [lambda v: abs(v), lambda v: -v],
+        ids=['abs', 'neg'])
+    @given(la=st.lists(st.floats(), min_size=10, max_size=150))
+    def test_vector_float_unary(self, func, la):
         func = always_inline(func)
+        tp = rffi.DOUBLE
 
-        size = rffi.sizeof(type)
-        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        size = rffi.sizeof(tp)
+        myjitdriver = JitDriver(greens=[], reds='auto', vectorize=True)
+
         def f(bytecount, va, vc):
             i = 0
             while i < bytecount:
                 myjitdriver.jit_merge_point()
-                a = raw_storage_getitem(type,va,i)
+                a = raw_storage_getitem(tp, va, i)
                 c = func(a)
-                raw_storage_setitem(vc, i, rffi.cast(type,c))
+                raw_storage_setitem(vc, i, rffi.cast(tp, c))
                 i += size
 
-        la = data.draw(st.lists(st.floats(), min_size=10, max_size=150))
         l = len(la)
-
         rawstorage = RawStorage()
-        va = rawstorage.new(la, type)
-        vc = rawstorage.new(None, type, size=l)
-        self.meta_interp(f, [l*size, va, vc], vec=True)
+        va = rawstorage.new(la, tp)
+        vc = rawstorage.new(None, tp, size=l)
+        self.meta_interp(f, [l * size, va, vc], vec=True)
 
         for i in range(l):
-            c = raw_storage_getitem(type,vc,i*size)
+            c = raw_storage_getitem(tp, vc, i * size)
             r = func(la[i])
             assert isclose(r, c)
 
         rawstorage.clear()
-
-    def vec_int_unary(test_func, unary_func, type):
-        return pytest.mark.parametrize('func,type', [
-            (unary_func, type)
-        ])(given(data=st.data())(test_func))
-
-    vec_float_unary = functools.partial(vec_int_unary, _vector_float_unary)
-
-    test_vec_float_abs = \
-            vec_float_unary(lambda v: abs(v), rffi.DOUBLE)
-    test_vec_float_neg = \
-            vec_float_unary(lambda v: -v, rffi.DOUBLE)
 
     # FLOAT BINARY
 
@@ -309,7 +293,7 @@ class VectorizeTests(object):
                                 reds = 'auto',
                                 vectorize=True)
         def fmax(v1, v2):
-            return v1 if v1 >= v2 or rfloat.isnan(v2) else v2
+            return v1 if v1 >= v2 or math.isnan(v2) else v2
         T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
         def f(d):
             i = 0
@@ -377,38 +361,37 @@ class VectorizeTests(object):
         res = self.meta_interp(f, [count], vec=True)
         assert res == f(count) == breaks
 
-    def _vec_reduce(self, strat, func, type, data):
-        func = always_inline(func)
+    def vec_reduce(strat, arith_func, tp):
+        @pytest.mark.parametrize('func, tp', [
+            (arith_func, tp)
+        ])
+        @given(la=st.lists(strat, min_size=11, max_size=150))
+        def _vec_reduce(self, func, tp, la):
+            func = always_inline(func)
 
-        size = rffi.sizeof(type)
-        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
-        def f(accum, bytecount, v):
-            i = 0
-            while i < bytecount:
-                myjitdriver.jit_merge_point()
-                e = raw_storage_getitem(type,v,i)
-                accum = func(accum,e)
-                i += size
-            return accum
+            size = rffi.sizeof(tp)
+            myjitdriver = JitDriver(greens=[], reds='auto', vectorize=True)
 
-        la = data.draw(st.lists(strat, min_size=10, max_size=150))
-        #la = [1.0] * 10
-        l = len(la)
+            def f(accum, bytecount, v):
+                i = 0
+                while i < bytecount:
+                    myjitdriver.jit_merge_point()
+                    e = raw_storage_getitem(tp, v, i)
+                    accum = func(accum, e)
+                    i += size
+                return accum
 
-        accum = data.draw(strat)
-        rawstorage = RawStorage()
-        va = rawstorage.new(la, type)
-        res = self.meta_interp(f, [accum, l*size, va], vec=True)
+            accum = la[0]
+            la = la[1:]
+            l = len(la)
+            rawstorage = RawStorage()
+            va = rawstorage.new(la, tp)
+            res = self.meta_interp(f, [accum, l * size, va], vec=True)
 
-        assert isclose(rffi.cast(type, res), f(accum, l*size, va))
+            assert isclose(rffi.cast(tp, res), f(accum, l * size, va))
 
-        rawstorage.clear()
-
-    def vec_reduce(test_func, strat, arith_func, type):
-        return pytest.mark.parametrize('strat,func,type', [
-            (strat, arith_func, type)
-        ])(given(data=st.data())(test_func))
-    vec_reduce = functools.partial(vec_reduce, _vec_reduce)
+            rawstorage.clear()
+        return _vec_reduce
 
     test_vec_int_sum = vec_reduce(st.integers(min_value=-2**(64-1), max_value=2**(64-1)-1),
                              lambda a,b: lltype.intmask(lltype.intmask(a)+lltype.intmask(b)), lltype.Signed)

@@ -233,20 +233,23 @@ def _rshift(space, a, b):
     return wrapint(space, a)
 
 
-@jit.look_inside_iff(lambda space, iv, iw, iz:
-                     jit.isconstant(iw) and jit.isconstant(iz))
 def _pow(space, iv, iw, iz):
     """Helper for pow"""
-    if iw < 0:
-        if iz != 0:
-            raise oefmt(space.w_TypeError,
-                        "pow() 2nd argument cannot be negative when 3rd "
-                        "argument specified")
+    if iz == 0:
+        return _pow_nomod(iv, iw)
+    else:
+        return _pow_mod(space, iv, iw, iz)
+
+@jit.look_inside_iff(lambda iv, iw: jit.isconstant(iw))
+def _pow_nomod(iv, iw):
+    if iw <= 0:
+        if iw == 0:
+            return 1
         # bounce it, since it always returns float
         raise ValueError
     temp = iv
     ix = 1
-    while iw > 0:
+    while True:
         if iw & 1:
             try:
                 ix = ovfcheck(ix * temp)
@@ -259,16 +262,44 @@ def _pow(space, iv, iw, iz):
             temp = ovfcheck(temp * temp) # Square the value of temp
         except OverflowError:
             raise
-        if iz:
-            # If we did a multiplication, perform a modulo
-            ix %= iz
-            temp %= iz
-    if iz:
-        ix %= iz
+    return ix
+
+@jit.look_inside_iff(lambda space, iv, iw, iz:
+                     jit.isconstant(iw) and jit.isconstant(iz))
+def _pow_mod(space, iv, iw, iz):
+    from rpython.rlib.rarithmetic import mulmod
+
+    if iw <= 0:
+        if iw == 0:
+            return 1 % iz   # != 1, for iz == 1 or iz < 0
+        raise oefmt(space.w_TypeError,
+                    "pow() 2nd argument cannot be negative when 3rd "
+                    "argument specified")
+    if iz < 0:
+        try:
+            iz = ovfcheck(-iz)
+        except OverflowError:
+            raise
+        iz_negative = True
+    else:
+        iz_negative = False
+
+    temp = iv
+    ix = 1
+    while True:
+        if iw & 1:
+            ix = mulmod(ix, temp, iz)
+        iw >>= 1   # Shift exponent down by 1 bit
+        if iw == 0:
+            break
+        temp = mulmod(temp, temp, iz)
+
+    if iz_negative and ix > 0:
+        ix -= iz
     return ix
 
 
-def _pow_ovf2long(space, iv, iw, w_modulus):
+def _pow_ovf2long(space, iv, w_iv, iw, w_iw, w_modulus):
     if space.is_none(w_modulus) and _recover_with_smalllong(space):
         from pypy.objspace.std.smalllongobject import _pow as _pow_small
         try:
@@ -277,9 +308,12 @@ def _pow_ovf2long(space, iv, iw, w_modulus):
             return _pow_small(space, r_longlong(iv), iw, r_longlong(0))
         except (OverflowError, ValueError):
             pass
-    from pypy.objspace.std.longobject import W_LongObject
-    w_iv = W_LongObject.fromint(space, iv)
-    w_iw = W_LongObject.fromint(space, iw)
+    from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
+    if w_iv is None or not isinstance(w_iv, W_AbstractLongObject):
+        w_iv = W_LongObject.fromint(space, iv)
+    if w_iw is None or not isinstance(w_iw, W_AbstractLongObject):
+        w_iw = W_LongObject.fromint(space, iw)
+
     return w_iv.descr_pow(space, w_iw, w_modulus)
 
 
@@ -287,7 +321,7 @@ def _make_ovf2long(opname, ovf2small=None):
     op = getattr(operator, opname, None)
     assert op or ovf2small
 
-    def ovf2long(space, x, y):
+    def ovf2long(space, x, w_x, y, w_y):
         """Handle overflowing to smalllong or long"""
         if _recover_with_smalllong(space):
             if ovf2small:
@@ -299,9 +333,12 @@ def _make_ovf2long(opname, ovf2small=None):
             b = r_longlong(y)
             return W_SmallLongObject(op(a, b))
 
-        from pypy.objspace.std.longobject import W_LongObject
-        w_x = W_LongObject.fromint(space, x)
-        w_y = W_LongObject.fromint(space, y)
+        from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
+        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
+            w_x = W_LongObject.fromint(space, x)
+        if w_y is None or not isinstance(w_y, W_AbstractLongObject):
+            w_y = W_LongObject.fromint(space, y)
+
         return getattr(w_x, 'descr_' + opname)(space, w_y)
 
     return ovf2long
@@ -361,13 +398,7 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        # For compatibility with CPython, we special-case -1
-        # Make sure this is consistent with the hash of floats and longs.
-        # The complete list of built-in types whose hash should be
-        # consistent is: int, long, bool, float, complex.
-        h = self.intval
-        h -= (h == -1)  # No explicit condition, to avoid JIT bridges
-        return wrapint(space, h)
+        return space.newint(_hash_int(self.intval))
 
     def _int(self, space):
         return self.int(space)
@@ -471,12 +502,18 @@ class W_IntObject(W_AbstractIntObject):
             # can't return NotImplemented (space.pow doesn't do full
             # ternary, i.e. w_modulus.__zpow__(self, w_exponent)), so
             # handle it ourselves
-            return _pow_ovf2long(space, x, y, w_modulus)
+            return _pow_ovf2long(space, x, self, y, w_exponent, w_modulus)
 
         try:
             result = _pow(space, x, y, z)
-        except (OverflowError, ValueError):
-            return _pow_ovf2long(space, x, y, w_modulus)
+        except OverflowError:
+            return _pow_ovf2long(space, x, self, y, w_exponent, w_modulus)
+        except ValueError:
+            # float result, so let avoid a roundtrip in rbigint.
+            self = self.descr_float(space)
+            w_exponent = w_exponent.descr_float(space)
+            return space.pow(self, w_exponent, space.w_None)
+            
         return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
@@ -521,7 +558,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     z = ovfcheck(op(x, y))
                 except OverflowError:
-                    return ovf2long(space, x, y)
+                    return ovf2long(space, x, self, y, w_other)
             else:
                 z = op(x, y)
             return wrapint(space, z)
@@ -543,7 +580,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     z = ovfcheck(op(y, x))
                 except OverflowError:
-                    return ovf2long(space, y, x)
+                    return ovf2long(space, y, w_other, x, self)  # XXX write a test
             else:
                 z = op(y, x)
             return wrapint(space, z)
@@ -574,7 +611,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, x, y)
                 except OverflowError:
-                    return ovf2long(space, x, y)
+                    return ovf2long(space, x, self, y, w_other)
             else:
                 return func(space, x, y)
 
@@ -589,7 +626,7 @@ class W_IntObject(W_AbstractIntObject):
                 try:
                     return func(space, y, x)
                 except OverflowError:
-                    return ovf2long(space, y, x)
+                    return ovf2long(space, y, w_other, x, self)
             else:
                 return func(space, y, x)
 
@@ -893,3 +930,17 @@ interpret the base from the string as an integer literal.
     __rpow__ = interp2app(W_IntObject.descr_rpow,
                           doc=W_AbstractIntObject.descr_rpow.__doc__),
 )
+
+
+def _hash_int(a):
+    # For compatibility with CPython, we special-case -1
+    # Make sure this is consistent with the hash of floats and longs.
+    # The complete list of built-in types whose hash should be
+    # consistent is: int, long, bool, float, complex.
+    #
+    # Note: the same function in PyPy3 does far more computations.
+    # So you should call _hash_int() only when you want to get the exact
+    # same result as hash(integer) does on app-level, and not merely to
+    # adjust some unrelated hash result from -1 to -2.
+    #
+    return a - (a == -1)  # No explicit condition, to avoid JIT bridges

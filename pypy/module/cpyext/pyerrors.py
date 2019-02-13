@@ -6,7 +6,7 @@ from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, from_ref, Py_DecRef)
+    PyObject, PyObjectP, make_ref, from_ref, decref, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
@@ -31,9 +31,10 @@ def PyErr_SetNone(space, w_type):
 @cpython_api([], PyObject, result_borrowed=True)
 def PyErr_Occurred(space):
     state = space.fromcache(State)
-    if state.operror is None:
+    operror = state.get_exception()
+    if operror is None:
         return None
-    return state.operror.w_type     # borrowed ref
+    return operror.w_type     # borrowed ref
 
 @cpython_api([], lltype.Void)
 def PyErr_Clear(space):
@@ -65,7 +66,7 @@ def PyErr_Fetch(space, ptype, pvalue, ptraceback):
         ptraceback[0] = lltype.nullptr(PyObject.TO)
 
 @cpython_api([PyObject, PyObject, PyObject], lltype.Void)
-def PyErr_Restore(space, w_type, w_value, w_traceback):
+def PyErr_Restore(space, py_type, py_value, py_traceback):
     """Set  the error indicator from the three objects.  If the error indicator is
     already set, it is cleared first.  If the objects are NULL, the error
     indicator is cleared.  Do not pass a NULL type and non-NULL value or
@@ -80,13 +81,14 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     error indicator temporarily; use PyErr_Fetch() to save the current
     exception state."""
     state = space.fromcache(State)
+    w_type = get_w_obj_and_decref(space, py_type)
+    w_value = get_w_obj_and_decref(space, py_value)
+    w_traceback = get_w_obj_and_decref(space, py_traceback)
+    # XXX do something with w_traceback
     if w_type is None:
         state.clear_exception()
         return
     state.set_exception(OperationError(w_type, w_value))
-    Py_DecRef(space, w_type)
-    Py_DecRef(space, w_value)
-    Py_DecRef(space, w_traceback)
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
@@ -108,8 +110,8 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
         w_evalue = space.w_None
     operr = OperationError(w_etype, w_evalue)
     operr.normalize_exception(space)
-    Py_DecRef(space, exc_p[0])
-    Py_DecRef(space, val_p[0])
+    decref(space, exc_p[0])
+    decref(space, val_p[0])
     exc_p[0] = make_ref(space, operr.w_type)
     val_p[0] = make_ref(space, operr.get_w_value(space))
 
@@ -122,7 +124,7 @@ def PyErr_BadArgument(space):
     error indicator."""
     raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
 
-@cpython_api([], lltype.Void)
+@cpython_api([], lltype.Void, error=None)
 def PyErr_BadInternalCall(space):
     raise oefmt(space.w_SystemError, "Bad internal call!")
 
@@ -390,7 +392,7 @@ def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
         ptraceback[0] = lltype.nullptr(PyObject.TO)
 
 @cpython_api([PyObject, PyObject, PyObject], lltype.Void)
-def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
+def PyErr_SetExcInfo(space, py_type, py_value, py_traceback):
     """---Cython extension---
 
     Set the exception info, as known from ``sys.exc_info()``.  This refers
@@ -406,6 +408,9 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
        restore the exception state temporarily.  Use
        :c:func:`PyErr_GetExcInfo` to read the exception state.
     """
+    w_type = get_w_obj_and_decref(space, py_type)
+    w_value = get_w_obj_and_decref(space, py_value)
+    w_traceback = get_w_obj_and_decref(space, py_traceback)
     if w_value is None or space.is_w(w_value, space.w_None):
         operror = None
     else:
@@ -419,9 +424,6 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     #
     ec = space.getexecutioncontext()
     ec.set_sys_exc_info(operror)
-    Py_DecRef(space, w_type)
-    Py_DecRef(space, w_value)
-    Py_DecRef(space, w_traceback)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyOS_InterruptOccurred(space):

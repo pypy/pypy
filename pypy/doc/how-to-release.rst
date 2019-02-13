@@ -16,9 +16,6 @@ happen more often than stable releases.
 How to Create a PyPy Release
 ++++++++++++++++++++++++++++
 
-Overview
---------
-
 As a meta rule setting up issues in the tracker for items here may help not
 forgetting things. A set of todo files may also work.
 
@@ -28,17 +25,56 @@ the documentation into an up-to-date state!
 
 
 Release Steps
--------------
+++++++++++++++
 
-* If needed, make a release branch
-* Bump the
-  pypy version number in module/sys/version.py and in
-  module/cpyext/include/patchlevel.h and in doc/conf.py. The branch
-  will capture the revision number of this change for the release.
+Make the release branch
+------------------------
 
-  Some of the next updates may be done before or after branching; make
-  sure things are ported back to the trunk and to the branch as
-  necessary.
+This is needed only in case you are doing a new major version; if not, you can
+probably reuse the existing release branch.
+
+We want to be able to freely merge default into the branch and vice-versa;
+thus we need to do a complicate dance to avoid to patch the version number
+when we do a merge::
+
+  $ hg up -r default
+  $ # edit the version to e.g. 7.0.0-final
+  $ hg ci
+  $ hg branch release-pypy2.7-7.x && hg ci
+  $ hg up -r default
+  $ # edit the version to 7.1.0-alpha0
+  $ hg ci
+  $ hg up -r release-pypy2.7-7.x
+  $ hg merge default
+  $ # edit the version to AGAIN 7.0.0-final
+  $ hg ci
+
+Then, we need to do the same for the 3.x branch::
+
+  $ hg up -r py3.5
+  $ hg merge default # this brings the version fo 7.1.0-alpha0
+  $ hg branch release-pypy3.5-7.x
+  $ # edit the version to 7.0.0-final
+  $ hg ci
+  $ hg up -r py3.5
+  $ hg merge release-pypy3.5-7.x
+  $ # edit the version to 7.1.0-alpha0
+  $ hg ci
+
+To change the version, you need to edit three files:
+
+  - ``module/sys/version.py``
+
+  - ``module/cpyext/include/patchlevel.h``
+
+  - ``doc/conf.py``
+
+
+Other steps
+-----------
+
+
+* Make sure the RPython builds on the buildbot pass with no failures
 
 * Maybe bump the SOABI number in module/imp/importing. This has many
   implications, so make sure the PyPy community agrees to the change.
@@ -62,7 +98,7 @@ Release Steps
   * go to pypy/tool/release and run
     ``force-builds.py <release branch>``
     The following JIT binaries should be built, however, we need more buildbots
-    windows, linux-32, linux-64, osx64, armhf-raring, armhf-raspberrian, armel,
+    windows, linux-32, linux-64, osx64, armhf-raspberrian, armel,
     freebsd64 
 
   * wait for builds to complete, make sure there are no failures

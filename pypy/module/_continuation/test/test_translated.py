@@ -1,4 +1,5 @@
 import py
+import pytest
 try:
     import _continuation
 except ImportError:
@@ -101,11 +102,7 @@ class AppTestWrapper:
         particular, we need to ensure that vmprof does not sample the stack in
         the middle of a switch, else we read nonsense.
         """
-        try:
-            import _vmprof
-        except ImportError:
-            py.test.skip("no _vmprof")
-        #
+        _vmprof = pytest.importorskip('_vmprof')
         def switch_forever(c):
             while True:
                 c.switch()

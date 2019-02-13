@@ -285,6 +285,9 @@ def _ll_0_ll_read_timestamp():
     from rpython.rlib import rtimer
     return rtimer.read_timestamp()
 
+def _ll_0_ll_get_timestamp_unit():
+    from rpython.rlib import rtimer
+    return rtimer.get_timestamp_unit()
 
 # math support
 # ------------
@@ -675,6 +678,8 @@ class LLtypeHelpers:
 
     def _ll_1_gc_add_memory_pressure(num):
         llop.gc_add_memory_pressure(lltype.Void, num)
+    def _ll_2_gc_add_memory_pressure(num, obj):
+        llop.gc_add_memory_pressure(lltype.Void, num, obj)
 
 
 def setup_extra_builtin(rtyper, oopspec_name, nb_args, extra=None):

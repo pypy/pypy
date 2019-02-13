@@ -52,6 +52,10 @@ class AppTestLock(GenericTestThread):
             assert feedback == [42]
         assert lock.locked() is False
 
+    def test_weakrefable(self):
+        import thread, weakref
+        weakref.ref(thread.allocate_lock())
+
     def test_timeout(self):
         import thread
         lock = thread.allocate_lock()
@@ -134,6 +138,62 @@ class AppTestLockAgain(GenericTestThread):
     test_lock_again = AppTestLock.test_lock.im_func
 
 
+class AppTestRLock(GenericTestThread):
+    """
+    Tests for recursive locks.
+    """
+    def test_reacquire(self):
+        import thread
+        lock = thread.RLock()
+        lock.acquire()
+        lock.acquire()
+        lock.release()
+        lock.acquire()
+        lock.release()
+        lock.release()
+
+    def test_release_unacquired(self):
+        # Cannot release an unacquired lock
+        import thread
+        lock = thread.RLock()
+        raises(RuntimeError, lock.release)
+        lock.acquire()
+        lock.acquire()
+        lock.release()
+        lock.acquire()
+        lock.release()
+        lock.release()
+        raises(RuntimeError, lock.release)
+
+    def test_release_save(self):
+        import thread
+        lock = thread.RLock()
+        raises(RuntimeError, lock._release_save)
+        lock.acquire()
+        state = lock._release_save()
+        lock._acquire_restore(state)
+        lock.release()
+
+    def test__is_owned(self):
+        import thread
+        lock = thread.RLock()
+        assert lock._is_owned() is False
+        lock.acquire()
+        assert lock._is_owned() is True
+        lock.acquire()
+        assert lock._is_owned() is True
+        lock.release()
+        assert lock._is_owned() is True
+        lock.release()
+        assert lock._is_owned() is False
+
+    def test_context_manager(self):
+        import thread
+        lock = thread.RLock()
+        with lock:
+            assert lock._is_owned() is True
+
+
 class AppTestLockSignals(GenericTestThread):
     pytestmark = py.test.mark.skipif("os.name != 'posix'")
 
@@ -174,6 +234,10 @@ class AppTestLockSignals(GenericTestThread):
         import thread
         self.acquire_retries_on_intr(thread.allocate_lock())
 
+    def test_rlock_acquire_retries_on_intr(self):
+        import thread
+        self.acquire_retries_on_intr(thread.RLock())
+
     def w_alarm_interrupt(self, sig, frame):
         raise KeyboardInterrupt
 
@@ -205,3 +269,20 @@ class AppTestLockSignals(GenericTestThread):
             assert dt < 8.0
         finally:
             signal.signal(signal.SIGALRM, oldalrm)
+
+
+class AppTestLockRepr(GenericTestThread):
+
+    def test_rlock_repr(self):
+        import thread
+        class MyThread:
+            name = "foobar"
+        actives = {thread.get_ident(): MyThread()}
+        rlock = thread.RLock(actives)
+        assert repr(rlock) == "<thread.RLock owner=None count=0>"
+        rlock.acquire()
+        rlock.acquire()
+        assert repr(rlock) == "<thread.RLock owner='foobar' count=2>"
+        actives.clear()
+        assert repr(rlock) == "<thread.RLock owner=%d count=2>" % (
+            thread.get_ident(),)

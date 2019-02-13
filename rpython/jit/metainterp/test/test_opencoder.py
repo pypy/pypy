@@ -209,5 +209,8 @@ class TestOpencoder(object):
     def test_tag_overflow(self):
         t = Trace([], metainterp_sd)
         i0 = FakeOp(100000)
-        py.test.raises(SwitchToBlackhole, t.record_op, rop.FINISH, [i0])
-        assert t.unpack() == ([], [])
+        # if we overflow, we can keep recording
+        for i in range(10):
+            t.record_op(rop.FINISH, [i0])
+            assert t.unpack() == ([], [])
+        assert t.tag_overflow

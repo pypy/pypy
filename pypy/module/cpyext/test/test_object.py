@@ -3,12 +3,13 @@ import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.module.cpyext.api import (
-    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
+    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT, INTP_real)
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
     PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
-    PyObject_GetItem, 
+    PyObject_GetItem,
     PyObject_IsInstance, PyObject_IsSubclass, PyObject_AsFileDescriptor,
     PyObject_Hash, PyObject_Cmp, PyObject_Unicode
 )
@@ -70,7 +71,8 @@ class TestObject(BaseApiTest):
     def test_getattr(self, space):
         charp1 = rffi.str2charp("__len__")
         charp2 = rffi.str2charp("not_real")
-        assert PyObject_GetAttrString(space, space.wrap(""), charp1)
+        assert get_w_obj_and_decref(space,
+            PyObject_GetAttrString(space, space.wrap(""), charp1))
 
         with raises_w(space, AttributeError):
             PyObject_GetAttrString(space, space.wrap(""), charp2)
@@ -79,17 +81,20 @@ class TestObject(BaseApiTest):
         rffi.free_charp(charp1)
         rffi.free_charp(charp2)
 
-        assert PyObject_GetAttr(space, space.wrap(""), space.wrap("__len__"))
+        assert get_w_obj_and_decref(space,
+            PyObject_GetAttr(space, space.wrap(""), space.wrap("__len__")))
         with raises_w(space, AttributeError):
             PyObject_DelAttr(space, space.wrap(""), space.wrap("__len__"))
 
     def test_getitem(self, space, api):
         w_t = space.wrap((1, 2, 3, 4, 5))
-        assert space.unwrap(api.PyObject_GetItem(w_t, space.wrap(3))) == 4
+        assert space.unwrap(get_w_obj_and_decref(space,
+            api.PyObject_GetItem(w_t, space.wrap(3)))) == 4
 
         w_d = space.newdict()
         space.setitem(w_d, space.wrap("a key!"), space.wrap(72))
-        assert space.unwrap(api.PyObject_GetItem(w_d, space.wrap("a key!"))) == 72
+        assert space.unwrap(get_w_obj_and_decref(space,
+            api.PyObject_GetItem(w_d, space.wrap("a key!")))) == 72
 
         assert api.PyObject_SetItem(w_d, space.wrap("key"), space.w_None) == 0
         assert space.getitem(w_d, space.wrap("key")) is space.w_None
@@ -200,7 +205,7 @@ class TestObject(BaseApiTest):
 
     def test_cmp(self, space, api):
         w = space.wrap
-        with lltype.scoped_alloc(rffi.INTP.TO, 1) as ptr:
+        with lltype.scoped_alloc(INTP_real.TO, 1) as ptr:
             assert api.PyObject_Cmp(w(42), w(72), ptr) == 0
             assert ptr[0] == -1
             assert api.PyObject_Cmp(w("a"), w("a"), ptr) == 0
@@ -209,9 +214,9 @@ class TestObject(BaseApiTest):
                 PyObject_Cmp(space, w(u"\xe9"), w("\xe9"), ptr)
 
     def test_unicode(self, space, api):
-        assert space.unwrap(api.PyObject_Unicode(None)) == u"<NULL>"
-        assert space.unwrap(api.PyObject_Unicode(space.wrap([]))) == u"[]"
-        assert space.unwrap(api.PyObject_Unicode(space.wrap("e"))) == u"e"
+        assert space.unicode_w(api.PyObject_Unicode(None)) == u"<NULL>"
+        assert space.unicode_w(api.PyObject_Unicode(space.wrap([]))) == u"[]"
+        assert space.unicode_w(api.PyObject_Unicode(space.wrap("e"))) == u"e"
         with raises_w(space, UnicodeDecodeError):
             PyObject_Unicode(space, space.wrap("\xe9"))
 
@@ -239,7 +244,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
 
         if not cls.runappdirect:
             cls.total_mem = 0
-            def add_memory_pressure(estimate):
+            def add_memory_pressure(estimate, object=None):
                 assert estimate >= 0
                 cls.total_mem += estimate
             cls.orig_add_memory_pressure = [rgc.add_memory_pressure]
@@ -397,6 +402,47 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert self.cur_memory_pressure() == 65536 + 80000
         module.foo(35000)
         assert self.cur_memory_pressure() == 65536 + 80000 + 70000
+
+    def test_repr_enter_leave(self):
+        module = self.import_extension('foo', [
+            ("enter", "METH_O",
+            """
+                return PyInt_FromLong(Py_ReprEnter(args));
+            """),
+            ("leave", "METH_O",
+            """
+                Py_ReprLeave(args);
+                Py_INCREF(Py_None);
+                return Py_None;
+            """)])
+        obj1 = [42]
+        obj2 = [42]   # another list
+
+        n = module.enter(obj1)
+        assert n == 0
+        module.leave(obj1)
+
+        n = module.enter(obj1)
+        assert n == 0
+        n = module.enter(obj1)
+        assert n == 1
+        n = module.enter(obj1)
+        assert n == 1
+        module.leave(obj1)
+
+        n = module.enter(obj1)
+        assert n == 0
+        n = module.enter(obj2)
+        assert n == 0
+        n = module.enter(obj1)
+        assert n == 1
+        n = module.enter(obj2)
+        assert n == 1
+        module.leave(obj1)
+        n = module.enter(obj2)
+        assert n == 1
+        module.leave(obj2)
+
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """
@@ -562,7 +608,7 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
                 PyObject *a = PyTuple_GetItem(args, 0);
                 PyObject *b = PyTuple_GetItem(args, 1);
                 int res = PyObject_RichCompareBool(a, b, Py_EQ);
-                return PyLong_FromLong(res);  
+                return PyLong_FromLong(res);
                 """),])
         a = float('nan')
         b = float('nan')

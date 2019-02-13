@@ -120,7 +120,7 @@ def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
-    When not translated, the type of the actual arguments are checked against
+    When not translated, the type of the actual arguments is checked against
     the enforced types every time the function is called. You can disable the
     typechecking by passing ``typecheck=False`` to @enforceargs.
     """
@@ -137,21 +137,17 @@ def enforceargs(*types_, **kwds):
     def decorator(f):
         def get_annotation(t):
             from rpython.annotator.signature import annotation
-            from rpython.annotator.model import SomeObject, SomeString, SomeUnicodeString
+            from rpython.annotator.model import SomeObject
             if isinstance(t, SomeObject):
                 return t
-            s_result = annotation(t)
-            if (isinstance(s_result, SomeString) or
-                isinstance(s_result, SomeUnicodeString)):
-                return s_result.__class__(can_be_None=True)
-            return s_result
+            return annotation(t)
+
         def get_type_descr_of_argument(arg):
             # we don't want to check *all* the items in list/dict: we assume
             # they are already homogeneous, so we only check the first
             # item. The case of empty list/dict is handled inside typecheck()
             if isinstance(arg, list):
-                item = arg[0]
-                return [get_type_descr_of_argument(item)]
+                return [get_type_descr_of_argument(arg[0])]
             elif isinstance(arg, dict):
                 key, value = next(arg.iteritems())
                 return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
@@ -377,6 +373,37 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, translator.config)
 
+
+def revdb_flag_io_disabled():
+    if not revdb_enabled():
+        return False
+    return _revdb_flag_io_disabled()
+
+def _revdb_flag_io_disabled():
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.flag_io_disabled()
+
+@not_rpython
+def revdb_enabled():
+    return False
+
+class Entry(ExtRegistryEntry):
+    _about_ = revdb_enabled
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.reverse_debugger:
+            return annmodel.s_True
+        else:
+            return annmodel.s_False
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
+
 # ____________________________________________________________
 
 class FREED_OBJECT(object):
@@ -549,9 +576,9 @@ def _hash_float(f):
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
     from rpython.rlib.rarithmetic import intmask
-    from rpython.rlib.rfloat import isfinite, isinf
+    from rpython.rlib.rfloat import isfinite
     if not isfinite(f):
-        if isinf(f):
+        if math.isinf(f):
             if f < 0.0:
                 return -271828
             else:
@@ -748,11 +775,19 @@ class r_dict(object):
     def _newdict(self):
         return {}
 
-    def __init__(self, key_eq, key_hash, force_non_null=False):
+    def __init__(self, key_eq, key_hash, force_non_null=False, simple_hash_eq=False):
+        """ force_non_null=True means that the key can never be None (even if
+        the annotator things it could be)
+
+        simple_hash_eq=True means that the hash function is very fast, meaning it's
+        efficient enough that the dict does not have to store the hash per key.
+        It also implies that neither the hash nor the eq function will mutate
+        the dictionary. """
         self._dict = self._newdict()
         self.key_eq = key_eq
         self.key_hash = key_hash
         self.force_non_null = force_non_null
+        self.simple_hash_eq = simple_hash_eq
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]
@@ -956,7 +991,9 @@ def _untranslated_move_to_end(d, key, last):
         items = d.items()
         d.clear()
         d[key] = value
-        d.update(items)
+        # r_dict.update does not support list of tuples, do it manually
+        for key, value in items:
+            d[key] = value
 
 @specialize.call_location()
 def move_to_end(d, key, last=True):

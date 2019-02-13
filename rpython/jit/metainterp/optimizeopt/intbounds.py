@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, AbstractResOp
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.rarithmetic import intmask
@@ -44,8 +44,9 @@ class OptIntBounds(Optimization):
         if b.has_lower and b.has_upper and b.lower == b.upper:
             self.make_constant_int(box, b.lower)
 
-        if isinstance(box, AbstractResOp):
-            dispatch_bounds_ops(self, box)
+        box1 = self.optimizer.as_operation(box)
+        if box1 is not None:
+            dispatch_bounds_ops(self, box1)
 
     def _optimize_guard_true_false_value(self, op):
         return self.emit(op)
@@ -141,10 +142,11 @@ class OptIntBounds(Optimization):
             v1, v2 = v2, v1
         # if both are constant, the pure optimization will deal with it
         if v2.is_constant() and not v1.is_constant():
-            if not self.optimizer.is_inputarg(arg1):
+            arg1 = self.optimizer.as_operation(arg1)
+            if arg1 is not None:
                 if arg1.getopnum() == rop.INT_ADD:
-                    prod_arg1 = arg1.getarg(0)
-                    prod_arg2 = arg1.getarg(1)
+                    prod_arg1 = self.get_box_replacement(arg1.getarg(0))
+                    prod_arg2 = self.get_box_replacement(arg1.getarg(1))
                     prod_v1 = self.getintbound(prod_arg1)
                     prod_v2 = self.getintbound(prod_arg2)
 

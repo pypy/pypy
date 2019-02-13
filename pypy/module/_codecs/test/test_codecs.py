@@ -115,10 +115,10 @@ class AppTestCodecs:
         raises(TypeError, charmap_decode, '\xff', "strict",  {0xff: 0x110000})
         assert (charmap_decode("\x00\x01\x02", "strict",
                                {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
-                u"\U0010FFFFbc", 3)
+                (u"\U0010FFFFbc", 3))
         assert (charmap_decode("\x00\x01\x02", "strict",
                                {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
-                u"\U0010FFFFbc", 3)
+                (u"\U0010FFFFbc", 3))
 
     def test_escape_decode_errors(self):
         from _codecs import escape_decode as decode
@@ -537,8 +537,17 @@ class AppTestPartialEvaluation:
         assert '\xff'.decode('utf-7', 'ignore') == ''
         assert '\x00'.decode('unicode-internal', 'ignore') == ''
 
-    def test_backslahreplace(self):
-        assert u'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == 'a\\xac\u1234\u20ac\u8000'
+    def test_backslashreplace(self):
+        import sys
+        sin = u"a\xac\u1234\u20ac\u8000\U0010ffff"
+        if sys.maxunicode > 65535:
+            expected_ascii = "a\\xac\\u1234\\u20ac\\u8000\\U0010ffff"
+            expected_8859 = "a\xac\\u1234\xa4\\u8000\\U0010ffff"
+        else:
+            expected_ascii = "a\\xac\\u1234\\u20ac\\u8000\\udbff\\udfff"
+            expected_8859 = "a\xac\\u1234\xa4\\u8000\\udbff\\udfff"
+        assert sin.encode('ascii', 'backslashreplace') == expected_ascii
+        assert sin.encode("iso-8859-15", "backslashreplace") == expected_8859
 
     def test_badhandler(self):
         import codecs
@@ -592,13 +601,13 @@ class AppTestPartialEvaluation:
         def handler_unicodeinternal(exc):
             if not isinstance(exc, UnicodeDecodeError):
                 raise TypeError("don't know how to handle %r" % exc)
-            return (u"\x01", 1)
+            return (u"\x01", 5)
         codecs.register_error("test.hui", handler_unicodeinternal)
         res = "\x00\x00\x00\x00\x00".decode("unicode-internal", "test.hui")
         if sys.maxunicode > 65535:
-            assert res == u"\u0000\u0001\u0000"   # UCS4 build
+            assert res == u"\u0000\u0001"   # UCS4 build
         else:
-            assert res == u"\x00\x00\x01\x00\x00" # UCS2 build
+            assert res == u"\x00\x00\x01" # UCS2 build
 
         def handler1(exc):
             if not isinstance(exc, UnicodeEncodeError) \
@@ -609,6 +618,26 @@ class AppTestPartialEvaluation:
         codecs.register_error("test.handler1", handler1)
         assert b"\\u3042\u3xxx".decode("unicode-escape", "test.handler1") == \
             u"\u3042[<92><117><51>]xxx"
+
+    def test_unicode_internal_error_handler_infinite_loop(self):
+        import codecs
+        class MyException(Exception):
+            pass
+        seen = [0]
+        def handler_unicodeinternal(exc):
+            if not isinstance(exc, UnicodeDecodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            seen[0] += 1
+            if seen[0] == 20:   # stop the 20th time this is called
+                raise MyException
+            return (u"\x01", 4)   # 4 < len(input), so will try and fail again
+        codecs.register_error("test.inf", handler_unicodeinternal)
+        try:
+            "\x00\x00\x00\x00\x00".decode("unicode-internal", "test.inf")
+        except MyException:
+            pass
+        else:
+            raise AssertionError("should have gone into infinite loop")
 
     def test_encode_error_bad_handler(self):
         import codecs
@@ -750,3 +779,31 @@ class AppTestPartialEvaluation:
         assert _codecs.unicode_escape_decode(b) == (u'', 0)
         assert _codecs.raw_unicode_escape_decode(b) == (u'', 0)
         assert _codecs.unicode_internal_decode(b) == (u'', 0)
+
+    def test_xmlcharrefreplace(self):
+        r = u'\u1234\u0080\u2345\u0079\u00AB'.encode('latin1', 'xmlcharrefreplace')
+        assert r == '&#4660;\x80&#9029;y\xab'
+        r = u'\u1234\u0080\u2345\u0079\u00AB'.encode('ascii', 'xmlcharrefreplace')
+        assert r == '&#4660;&#128;&#9029;y&#171;'
+
+    def test_errorhandler_collection(self):
+        import _codecs
+        errors = []
+        def record_error(exc):
+            if not isinstance(exc, UnicodeEncodeError):
+                raise TypeError("don't know how to handle %r" % exc)
+            errors.append(exc.object[exc.start:exc.end])
+            return (u'', exc.end)
+        _codecs.register_error("test.record", record_error)
+
+        sin = u"\xac\u1234\u1234\u20ac\u8000"
+        assert sin.encode("ascii", "test.record") == ""
+        assert errors == [sin]
+
+        errors = []
+        assert sin.encode("latin-1", "test.record") == "\xac"
+        assert errors == [u'\u1234\u1234\u20ac\u8000']
+
+        errors = []
+        assert sin.encode("iso-8859-15", "test.record") == "\xac\xa4"
+        assert errors == [u'\u1234\u1234', u'\u8000']

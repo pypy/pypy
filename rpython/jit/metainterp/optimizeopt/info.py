@@ -260,6 +260,12 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
             # we don't know about this item
             return
         op = optimizer.get_box_replacement(self._fields[fielddescr.get_index()])
+        if op is None:
+            # XXX same bug as in serialize_opt:
+            # op should never be None, because that's an invariant violation in
+            # AbstractCachedEntry. But it still seems to happen when the info
+            # is attached to a Constant. At least we shouldn't crash.
+            return
         opnum = OpHelpers.getfield_for_descr(fielddescr)
         getfield_op = ResOperation(opnum, [structbox], descr=fielddescr)
         shortboxes.add_heap_op(op, getfield_op)
@@ -589,6 +595,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             return
         item = self._items[index]
         if item is not None:
+            # see comment in AbstractStructPtrInfo.produce_short_preamble_ops
             op = optimizer.get_box_replacement(item)
             opnum = OpHelpers.getarrayitem_for_descr(descr)
             getarrayitem_op = ResOperation(opnum, [structbox, ConstInt(index)],

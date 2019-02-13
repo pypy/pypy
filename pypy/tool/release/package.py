@@ -23,13 +23,11 @@ import subprocess
 import glob
 from pypy.tool.release.smartstrip import smartstrip
 
-if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
-
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
 STDLIB_VER = "2.7"
 
-from pypy.tool.build_cffi_imports import (create_cffi_import_libraries, 
+from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
@@ -118,6 +116,8 @@ def create_package(basedir, options, _fake=False):
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
+        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
+                            os.environ.get('PATH', '')
         src,tgt = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():
@@ -149,7 +149,7 @@ def create_package(basedir, options, _fake=False):
             # XXX users will complain that they cannot compile capi (cpyext)
             # modules for windows, also embedding pypy (i.e. in cffi)
             # will fail.
-            # Has the lib moved, was translation not 'shared', or are 
+            # Has the lib moved, was translation not 'shared', or are
             # there no exported functions in the dll so no import
             # library was created?
         if not options.no_tk:
@@ -309,7 +309,7 @@ def package(*args, **kwds):
 if __name__ == '__main__':
     import sys
     if sys.platform == 'win32':
-        # Try to avoid opeing a dialog box if one of the 
+        # Try to avoid opeing a dialog box if one of the
         # subprocesses causes a system error
         import ctypes
         winapi = ctypes.windll.kernel32

@@ -15,6 +15,7 @@ class __extend__(annmodel.SomeDict):
         s_key = dictkey.s_value
         s_value = dictvalue.s_value
         force_non_null = self.dictdef.force_non_null
+        simple_hash_eq = self.dictdef.simple_hash_eq
         if dictkey.custom_eq_hash:
             custom_eq_hash = lambda: (rtyper.getrepr(dictkey.s_rdict_eqfn),
                                       rtyper.getrepr(dictkey.s_rdict_hashfn))
@@ -22,7 +23,7 @@ class __extend__(annmodel.SomeDict):
             custom_eq_hash = None
         return self.get_dict_repr()(rtyper, lambda: rtyper.getrepr(s_key),
                         lambda: rtyper.getrepr(s_value), dictkey, dictvalue,
-                        custom_eq_hash, force_non_null)
+                        custom_eq_hash, force_non_null, simple_hash_eq)
 
     def rtyper_makekey(self):
         self.dictdef.dictkey  .dont_change_any_more = True
@@ -89,7 +90,7 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
                               resulttype=ENTRIES)
         # call the correct variant_*() method
         method = getattr(self, 'variant_' + self.variant)
-        return method(hop, ENTRIES, v_entries, v_index)
+        return method(hop, ENTRIES, v_entries, v_dict, v_index)
 
     def get_tuple_result(self, hop, items_v):
         # this allocates the tuple for the result, directly in the function
@@ -109,7 +110,7 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
             hop.genop('setfield', [v_result, c_item, v_item])
         return v_result
 
-    def variant_keys(self, hop, ENTRIES, v_entries, v_index):
+    def variant_keys(self, hop, ENTRIES, v_entries, v_dict, v_index):
         KEY = ENTRIES.TO.OF.key
         c_key = hop.inputconst(lltype.Void, 'key')
         v_key = hop.genop('getinteriorfield', [v_entries, v_index, c_key],
@@ -118,30 +119,30 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
 
     variant_reversed = variant_keys
 
-    def variant_values(self, hop, ENTRIES, v_entries, v_index):
+    def variant_values(self, hop, ENTRIES, v_entries, v_dict, v_index):
         VALUE = ENTRIES.TO.OF.value
         c_value = hop.inputconst(lltype.Void, 'value')
         v_value = hop.genop('getinteriorfield', [v_entries,v_index,c_value],
                             resulttype=VALUE)
         return self.r_dict.recast_value(hop.llops, v_value)
 
-    def variant_items(self, hop, ENTRIES, v_entries, v_index):
-        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_index)
-        v_value = self.variant_values(hop, ENTRIES, v_entries, v_index)
+    def variant_items(self, hop, ENTRIES, v_entries, v_dict, v_index):
+        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_dict, v_index)
+        v_value = self.variant_values(hop, ENTRIES, v_entries, v_dict, v_index)
         return self.get_tuple_result(hop, (v_key, v_value))
 
-    def variant_hashes(self, hop, ENTRIES, v_entries, v_index):
+    def variant_hashes(self, hop, ENTRIES, v_entries, v_dict, v_index):
         # there is not really a variant 'hashes', but this method is
         # convenient for the following variants
-        return hop.gendirectcall(ENTRIES.TO.hash, v_entries, v_index)
+        return hop.gendirectcall(ENTRIES.TO.entry_hash, v_entries, v_dict, v_index)
 
-    def variant_keys_with_hash(self, hop, ENTRIES, v_entries, v_index):
-        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_index)
-        v_hash = self.variant_hashes(hop, ENTRIES, v_entries, v_index)
+    def variant_keys_with_hash(self, hop, ENTRIES, v_entries, v_dict, v_index):
+        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_dict, v_index)
+        v_hash = self.variant_hashes(hop, ENTRIES, v_entries, v_dict, v_index)
         return self.get_tuple_result(hop, (v_key, v_hash))
 
-    def variant_items_with_hash(self, hop, ENTRIES, v_entries, v_index):
-        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_index)
-        v_value = self.variant_values(hop, ENTRIES, v_entries, v_index)
-        v_hash = self.variant_hashes(hop, ENTRIES, v_entries, v_index)
+    def variant_items_with_hash(self, hop, ENTRIES, v_entries, v_dict, v_index):
+        v_key = self.variant_keys(hop, ENTRIES, v_entries, v_dict, v_index)
+        v_value = self.variant_values(hop, ENTRIES, v_entries, v_dict, v_index)
+        v_hash = self.variant_hashes(hop, ENTRIES, v_entries, v_dict, v_index)
         return self.get_tuple_result(hop, (v_key, v_value, v_hash))

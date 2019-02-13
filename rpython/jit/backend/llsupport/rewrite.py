@@ -63,7 +63,7 @@ class GcRewriterAssembler(object):
     def remember_known_length(self, op, val):
         self._known_lengths[op] = val
 
-    def remember_setarrayitem_occured(self, op, index):
+    def remember_setarrayitem_occurred(self, op, index):
         op = self.get_box_replacement(op)
         try:
             subs = self._setarrayitems_occurred[op]
@@ -354,7 +354,7 @@ class GcRewriterAssembler(object):
             else:
                 # this is dead code, but in case we have a gc that does
                 # not have a write barrier and does not zero memory, we would
-                # need to clal it
+                # need to call it
                 if op.getopnum() == rop.SETFIELD_GC:
                     self.consider_setfield_gc(op)
                 elif op.getopnum() == rop.SETARRAYITEM_GC:
@@ -456,7 +456,7 @@ class GcRewriterAssembler(object):
         array_box = op.getarg(0)
         index_box = op.getarg(1)
         if not isinstance(array_box, ConstPtr) and index_box.is_constant():
-            self.remember_setarrayitem_occured(array_box, index_box.getint())
+            self.remember_setarrayitem_occurred(array_box, index_box.getint())
 
     def clear_varsize_gc_fields(self, kind, descr, result, v_length, opnum):
         if self.gc_ll_descr.malloc_zero_filled:

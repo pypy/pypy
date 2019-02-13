@@ -228,7 +228,28 @@ else:  # _WIN32
         res = rwin32.LoadLibrary(name)
         if not res:
             err = rwin32.GetLastError_saved()
-            raise DLOpenError(rwin32.FormatError(err))
+            ustr = rwin32.FormatErrorW(err)
+            # DLOpenError unicode msg breaks translation of cpyext create_extension_module
+            raise DLOpenError(ustr.encode('utf-8'))
+        return res
+
+    def dlopenex(name):
+        res = rwin32.LoadLibraryExA(name)
+        if not res:
+            err = rwin32.GetLastError_saved()
+            ustr = rwin32.FormatErrorW(err)
+            # DLOpenError unicode msg breaks translation of cpyext create_extension_module
+            raise DLOpenError(ustr.encode('utf-8'))
+        return res
+
+    def dlopenU(name, mode=-1):
+        # mode is unused on windows, but a consistant signature
+        res = rwin32.LoadLibraryW(name)
+        if not res:
+            err = rwin32.GetLastError_saved()
+            ustr = rwin32.FormatErrorW(err)
+            # DLOpenError unicode msg breaks translation of cpyext create_extension_module
+            raise DLOpenError(ustr.encode('utf-8'))
         return res
 
     def dlclose(handle):

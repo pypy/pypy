@@ -1,13 +1,27 @@
 # NOT_RPYTHON
-# do not load _cppyy here, see _init_pythonify()
-import types
+# do not load _cppyy here, see _post_import_startup()
 import sys
 
+class _C:
+    def _m(self): pass
+MethodType = type(_C()._m)
 
-# Metaclasses are needed to store C++ static data members as properties. Since
-# the interp-level does not support metaclasses, they are created at app-level.
-# These are the metaclass base classes:
-class CPPMetaScope(type):
+# Metaclasses are needed to store C++ static data members as properties and to
+# provide Python language features such as a customized __dir__ for namespaces
+# and __getattr__ for both. These features are used for lazy lookup/creation.
+# Since the interp-level does not support metaclasses, this is all done at the
+# app-level.
+#
+# C++ namespaces: are represented as Python classes, with CPPNamespace as the
+#   base class, which is at the moment just a label, and CPPNamespaceMeta as
+#   the base class of their invididualized meta class.
+#
+# C++ classes: are represented as Python classes, with CPPClass as the base
+#   class, which is a subclass of the interp-level CPPInstance. The former
+#   sets up the Python-class behavior for bound classes, the latter adds the
+#   bound object behavior that lives at the class level.
+
+class CPPScopeMeta(type):
     def __getattr__(self, name):
         try:
             return get_scoped_pycppitem(self, name)  # will cache on self
@@ -15,18 +29,65 @@ class CPPMetaScope(type):
             raise AttributeError("%s object has no attribute '%s' (details: %s)" %
                                  (self, name, str(e)))
 
-class CPPMetaNamespace(CPPMetaScope):
+class CPPNamespaceMeta(CPPScopeMeta):
     def __dir__(self):
-        return self.__cppdecl__.__dir__()
+        # For Py3: can actually call base class __dir__ (lives in type)
+        values = set(self.__dict__.keys())
+        values.update(object.__dict__.keys())
+        values.update(type(self).__dict__.keys())
 
-class CPPMetaClass(CPPMetaScope):
+        # add C++ entities
+        values.update(self.__cppdecl__.__dir__())
+        return list(values)
+
+class CPPClassMeta(CPPScopeMeta):
     pass
 
-# namespace base class (class base class defined in _init_pythonify)
-class CPPNamespace(object):
-    __metatype__ = CPPMetaNamespace
+# from six.py ---
+# Copyright (c) 2010-2017 Benjamin Peterson
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+def with_metaclass(meta, *bases):
+    """Create a base class with a metaclass."""
+    # This requires a bit of explanation: the basic idea is to make a dummy
+    # metaclass for one level of class instantiation that replaces itself with
+    # the actual metaclass.
+    class metaclass(type):
+
+        def __new__(cls, name, this_bases, d):
+            return meta(name, bases, d)
+
+        @classmethod
+        def __prepare__(cls, name, this_bases):
+            return meta.__prepare__(name, bases)
+    return type.__new__(metaclass, 'temporary_class', (), {})
+# --- end from six.py
+
+# C++ namespace base class (the C++ class base class defined in _post_import_startup)
+class CPPNamespace(with_metaclass(CPPNamespaceMeta, object)):
+    def __init__(self):
+        raise TypeError("cannot instantiate namespace '%s'", self.__cppname__)
 
 
+# TODO: this can be moved to the interp level (and share template argument
+# construction with function templates there)
 class CPPTemplate(object):
     def __init__(self, name, scope=None):
         self._name = name
@@ -36,24 +97,30 @@ class CPPTemplate(object):
             self._scope = scope
 
     def _arg_to_str(self, arg):
-        try:
-            arg = arg.__cppname__
-        except AttributeError:
-            if arg == str:
-                import _cppyy
-                arg = _cppyy._std_string_name()
-            elif type(arg) != str:
-                arg = arg.__name__
-        return arg
+      # arguments are strings representing types, types, or builtins
+        if type(arg) == str:
+            return arg                       # string describing type
+        elif hasattr(arg, '__cppname__'):
+            return arg.__cppname__           # C++ bound type
+        elif arg == str:
+            import _cppyy
+            return _cppyy._std_string_name() # special case pystr -> C++ string
+        elif isinstance(arg, type):          # builtin types
+            return arg.__name__
+        return str(arg)                      # builtin values
 
     def __call__(self, *args):
         fullname = ''.join(
             [self._name, '<', ','.join(map(self._arg_to_str, args))])
-        if fullname[-1] == '>':
-            fullname += ' >'
-        else:
-            fullname += '>'
-        return getattr(self._scope, fullname)
+        fullname += '>'
+        try:
+            return self._scope.__dict__[fullname]
+        except KeyError:
+            pass
+        result = get_scoped_pycppitem(self._scope, fullname, True)
+        if not result:
+            raise TypeError("%s does not exist" % fullname)
+        return result
 
     def __getitem__(self, *args):
         if args and type(args[0]) == tuple:
@@ -112,20 +179,12 @@ def make_module_name(scope):
         return scope.__module__ + '.' + scope.__name__
     return 'cppyy'
 
-def make_static_function(func_name, cppol):
-    def function(*args):
-        return cppol.call(None, *args)
-    function.__name__ = func_name
-    function.__doc__ = cppol.prototype()
-    return staticmethod(function)
-
-
 def make_cppnamespace(scope, name, decl):
     # build up a representation of a C++ namespace (namespaces are classes)
 
     # create a metaclass to allow properties (for static data write access)
     import _cppyy
-    ns_meta = type(name+'_meta', (CPPMetaNamespace,), {})
+    ns_meta = type(CPPNamespace)(name+'_meta', (CPPNamespaceMeta,), {})
 
     # create the python-side C++ namespace representation, cache in scope if given
     d = {"__cppdecl__" : decl,
@@ -148,7 +207,6 @@ def _drop_cycles(bases):
                 break
     return tuple(bases)
 
-
 def make_new(decl):
     def __new__(cls, *args):
         # create a place-holder only as there may be a derived class defined
@@ -161,14 +219,8 @@ def make_new(decl):
         return instance
     return __new__
 
-def make_method(meth_name, cppol):
-    def method(self, *args):
-        return cppol.call(self, *args)
-    method.__name__ = meth_name
-    method.__doc__ = cppol.prototype()
-    return method
-
 def make_cppclass(scope, cl_name, decl):
+    import _cppyy
 
     # get a list of base classes for class creation
     bases = [get_pycppclass(base) for base in decl.get_base_names()]
@@ -188,7 +240,7 @@ def make_cppclass(scope, cl_name, decl):
     # prepare dictionary for python-side C++ class representation
     def dispatch(self, m_name, signature):
         cppol = decl.__dispatch__(m_name, signature)
-        return types.MethodType(make_method(m_name, cppol), self, type(self))
+        return MethodType(cppol, self, type(self))
     d_class = {"__cppdecl__"   : decl,
          "__new__"      : make_new(decl),
          "__module__"   : make_module_name(scope),
@@ -199,25 +251,22 @@ def make_cppclass(scope, cl_name, decl):
     # insert (static) methods into the class dictionary
     for m_name in decl.get_method_names():
         cppol = decl.get_overload(m_name)
-        if cppol.is_static():
-            d_class[m_name] = make_static_function(m_name, cppol)
-        else:
-            d_class[m_name] = make_method(m_name, cppol)
+        d_class[m_name] = cppol
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the metaclass (needed for property setters)
     for d_name in decl.get_datamember_names():
         cppdm = decl.get_datamember(d_name)
         d_class[d_name] = cppdm
-        if cppdm.is_static():
+        if _cppyy._is_static_data(cppdm):
             d_meta[d_name] = cppdm
 
     # create a metaclass to allow properties (for static data write access)
     metabases = [type(base) for base in bases]
-    metacpp = type(CPPMetaScope)(cl_name+'_meta', _drop_cycles(metabases), d_meta)
+    cl_meta = type(CPPClassMeta)(cl_name+'_meta', _drop_cycles(metabases), d_meta)
 
     # create the python-side C++ class
-    pycls = metacpp(cl_name, _drop_cycles(bases), d_class)
+    pycls = cl_meta(cl_name, _drop_cycles(bases), d_class)
 
     # store the class on its outer scope
     setattr(scope, cl_name, pycls)
@@ -226,14 +275,14 @@ def make_cppclass(scope, cl_name, decl):
     # needs to run first, so that the generic pythonizations can use them
     import _cppyy
     _cppyy._register_class(pycls)
-    _pythonize(pycls)
+    _pythonize(pycls, pycls.__cppname__)
     return pycls
 
 def make_cpptemplatetype(scope, template_name):
     return CPPTemplate(template_name, scope)
 
 
-def get_scoped_pycppitem(scope, name):
+def get_scoped_pycppitem(scope, name, type_only=False):
     import _cppyy
 
     # resolve typedefs/aliases: these may cross namespaces, in which case
@@ -256,6 +305,9 @@ def get_scoped_pycppitem(scope, name):
         else:
             pycppitem = make_cppclass(scope, name, cppitem)
 
+    if type_only:
+        return pycppitem
+
     # templates
     if not cppitem:
         cppitem = _cppyy._is_template(final_scoped_name)
@@ -267,8 +319,7 @@ def get_scoped_pycppitem(scope, name):
     if not cppitem:
         try:
             cppitem = scope.__cppdecl__.get_overload(name)
-            pycppitem = make_static_function(name, cppitem)
-            setattr(scope.__class__, name, pycppitem)
+            setattr(scope, name, cppitem)
             pycppitem = getattr(scope, name)      # binds function as needed
         except AttributeError:
             pass
@@ -278,11 +329,16 @@ def get_scoped_pycppitem(scope, name):
         try:
             cppdm = scope.__cppdecl__.get_datamember(name)
             setattr(scope, name, cppdm)
-            if cppdm.is_static():
+            if _cppyy._is_static_data(cppdm):
                 setattr(scope.__class__, name, cppdm)
             pycppitem = getattr(scope, name)      # gets actual property value
         except AttributeError:
             pass
+
+    # enum type
+    if not cppitem:
+        if scope.__cppdecl__.has_enum(name):
+            pycppitem = int
 
     if pycppitem is not None:      # pycppitem could be a bound C++ NULL, so check explicitly for Py_None
         return pycppitem
@@ -290,19 +346,41 @@ def get_scoped_pycppitem(scope, name):
     raise AttributeError("'%s' has no attribute '%s'" % (str(scope), name))
 
 
+# helper for pythonization API
+def extract_namespace(name):
+    # find the namespace the named class lives in, take care of templates
+    tpl_open = 0
+    for pos in range(len(name)-1, 1, -1):
+        c = name[pos]
+
+        # count '<' and '>' to be able to skip template contents
+        if c == '>':
+            tpl_open += 1
+        elif c == '<':
+            tpl_open -= 1
+
+        # collect name up to "::"
+        elif tpl_open == 0 and c == ':' and name[pos-1] == ':':
+            # found the extend of the scope ... done
+            return name[:pos-1], name[pos+1:]
+
+    # no namespace; assume outer scope
+    return '', name
+
 # pythonization by decoration (move to their own file?)
-def python_style_getitem(self, idx):
+def python_style_getitem(self, _idx):
     # python-style indexing: check for size and allow indexing from the back
-    try:
-        sz = len(self)
+    sz = len(self)
+    idx = _idx
+    if isinstance(idx, int):
         if idx < 0: idx = sz + idx
-        if idx < sz:
+        if 0 <= idx < sz:
             return self._getitem__unchecked(idx)
-        raise IndexError(
-            'index out of range: %d requested for %s of size %d' % (idx, str(self), sz))
-    except TypeError:
-        pass
-    return self._getitem__unchecked(idx)
+        else:
+            raise IndexError(
+                'index out of range: %s requested for %s of size %d' % (str(idx), str(self), sz))
+    # may fail for the same reasons as above, but will now give proper error message
+    return self._getitem__unchecked(_idx)
 
 def python_style_sliceable_getitem(self, slice_or_idx):
     if type(slice_or_idx) == slice:
@@ -310,18 +388,9 @@ def python_style_sliceable_getitem(self, slice_or_idx):
         nseq += [python_style_getitem(self, i) \
                     for i in range(*slice_or_idx.indices(len(self)))]
         return nseq
-    else:
-        return python_style_getitem(self, slice_or_idx)
+    return python_style_getitem(self, slice_or_idx)
 
-
-_pythonizations = {}
-def _pythonize(pyclass):
-
-    try:
-        _pythonizations[pyclass.__name__](pyclass)
-    except KeyError:
-        pass
-
+def _pythonize(pyclass, name):
     # general note: use 'in pyclass.__dict__' rather than 'hasattr' to prevent
     # adding pythonizations multiple times in derived classes
 
@@ -354,38 +423,74 @@ def _pythonize(pyclass):
 
     # map push_back -> __iadd__ (generally true for STL)
     if 'push_back' in pyclass.__dict__ and not '__iadd__' in pyclass.__dict__:
-        def __iadd__(self, ll):
-            [self.push_back(x) for x in ll]
-            return self
-        pyclass.__iadd__ = __iadd__
+        if 'reserve' in pyclass.__dict__:
+            def iadd(self, ll):
+                self.reserve(len(ll))
+                for x in ll: self.push_back(x)
+                return self
+        else:
+            def iadd(self, ll):
+                for x in ll: self.push_back(x)
+                return self
+        pyclass.__iadd__ = iadd
 
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
     # not on vector, which is pythonized in the capi (interp-level; there is
     # also the fallback on the indexed __getitem__, but that is slower)
-    if not 'vector' in pyclass.__name__[:11] and \
-            ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
-        if _cppyy._scope_byname(pyclass.__cppname__+'::iterator') or \
-                _cppyy._scope_byname(pyclass.__cppname__+'::const_iterator'):
-            def __iter__(self):
-                i = self.begin()
-                while i != self.end():
-                    yield i.__deref__()
-                    i.__preinc__()
-                i.__destruct__()
-                raise StopIteration
-            pyclass.__iter__ = __iter__
-        # else: rely on numbered iteration
+    add_checked_item = False
+    if name.find('std::vector', 0, 11) != 0:
+        if ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
+            if _cppyy._scope_byname(name+'::iterator') or \
+                    _cppyy._scope_byname(name+'::const_iterator'):
+                def __iter__(self):
+                    i = self.begin()
+                    while i != self.end():
+                        yield i.__deref__()
+                        i.__preinc__()
+                    i.__destruct__()
+                    raise StopIteration
+                pyclass.__iter__ = __iter__
+            else:
+                # rely on numbered iteration
+                add_checked_item = True
 
-    # combine __getitem__ and __len__ to make a pythonized __getitem__
-    if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
-        pyclass._getitem__unchecked = pyclass.__getitem__
-        if '__setitem__' in pyclass.__dict__ and '__iadd__' in pyclass.__dict__:
-            pyclass.__getitem__ = python_style_sliceable_getitem
-        else:
-            pyclass.__getitem__ = python_style_getitem
+    # add python collection based initializer
+    if name.find('std::vector', 0, 11) == 0:
+        pyclass.__real_init__ = pyclass.__init__
+        def vector_init(self, *args):
+            if len(args) == 1 and isinstance(args[0], (tuple, list)):
+                ll = args[0]
+                self.__real_init__()
+                self.reserve(len(ll))
+                for item in ll:
+                    self.push_back(item)
+                return
+            return self.__real_init__(*args)
+        pyclass.__init__ = vector_init
+
+        # size-up the return of data()
+        if hasattr(pyclass, 'data'):   # not the case for e.g. vector<bool>
+            pyclass.__real_data = pyclass.data
+            def data_with_len(self):
+                arr = self.__real_data()
+                arr.reshape((len(self),))
+                return arr
+            pyclass.data = data_with_len
+
+    # TODO: must be a simpler way to check (or at least hook these to a namespace
+    # std specific pythonizor)
+    if add_checked_item or name.find('std::vector', 0, 11) == 0 or \
+            name.find('std::array', 0, 11) == 0 or name.find('std::deque', 0, 10) == 0:
+        # combine __getitem__ and __len__ to make a pythonized __getitem__
+        if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
+            pyclass._getitem__unchecked = pyclass.__getitem__
+            if '__setitem__' in pyclass.__dict__ and '__iadd__' in pyclass.__dict__:
+                pyclass.__getitem__ = python_style_sliceable_getitem
+            else:
+                pyclass.__getitem__ = python_style_getitem
 
     # string comparisons
-    if pyclass.__name__ == _cppyy._std_string_name():
+    if name == _cppyy._std_string_name():
         def eq(self, other):
             if type(other) == pyclass:
                 return self.c_str() == other.c_str()
@@ -395,7 +500,7 @@ def _pythonize(pyclass):
         pyclass.__str__ = pyclass.c_str
 
     # std::pair unpacking through iteration
-    if 'std::pair' == pyclass.__name__[:9] or 'pair' == pyclass.__name__[:4]:
+    if 'std::pair' == name[:9]:
         def getitem(self, idx):
             if idx == 0: return self.first
             if idx == 1: return self.second
@@ -405,18 +510,34 @@ def _pythonize(pyclass):
         pyclass.__getitem__ = getitem
         pyclass.__len__     = return2
 
+    # user provided, custom pythonizations
+    try:
+        ns_name, cl_name = extract_namespace(name)
+        pythonizors = _pythonizations[ns_name]
+        name = cl_name
+    except KeyError:
+        pythonizors = _pythonizations['']   # global scope
 
-def _init_pythonify():
+    for p in pythonizors:
+        p(pyclass, name)
+
+cppyyIsInitialized = False
+def _post_import_startup():
+    # run only once (function is explicitly called in testing)
+    global cppyyIsInitialized
+    if cppyyIsInitialized:
+        return
+
     # _cppyy should not be loaded at the module level, as that will trigger a
     # call to space.getbuiltinmodule(), which will cause _cppyy to be loaded
     # at pypy-c startup, rather than on the "import _cppyy" statement
     import _cppyy
 
     # root of all proxy classes: CPPClass in pythonify exists to combine the
-    # CPPMetaScope metaclass with the interp-level CPPClassBase
+    # CPPClassMeta metaclass (for Python-side class behavior) with the
+    # interp-level CPPInstance (for bound object behavior)
     global CPPClass
-    class CPPClass(_cppyy.CPPClassBase):
-        __metaclass__ = CPPMetaScope
+    class CPPClass(with_metaclass(CPPClassMeta, _cppyy.CPPInstance)):
         pass
 
     # class generator callback
@@ -438,9 +559,8 @@ def _init_pythonify():
     gbl.std.move = _cppyy.move
 
     # install a type for enums to refer to
-    # TODO: this is correct for C++98, not for C++11 and in general there will
-    # be the same issue for all typedef'd builtin types
     setattr(gbl, 'internal_enum_type_t', int)
+    setattr(gbl, 'unsigned int',         int)     # if resolved
 
     # install for user access
     _cppyy.gbl = gbl
@@ -448,13 +568,31 @@ def _init_pythonify():
     # install nullptr as a unique reference
     _cppyy.nullptr = _cppyy._get_nullptr()
 
+    # done
+    cppyyIsInitialized = True
+
 
 # user-defined pythonizations interface
-_pythonizations = {}
-def add_pythonization(class_name, callback):
-    """Takes a class name and a callback. The callback should take a single
-    argument, the class proxy, and is called the first time the named class
-    is bound."""
-    if not callable(callback):
-        raise TypeError("given '%s' object is not callable" % str(callback))
-    _pythonizations[class_name] = callback
+_pythonizations = {'' : list()}
+def add_pythonization(pythonizor, scope = ''):
+    """<pythonizor> should be a callable taking two arguments: a class proxy,
+    and its C++ name. It is called on each time a named class from <scope>
+    (the global one by default, but a relevant C++ namespace is recommended)
+    is bound.
+    """
+    if not callable(pythonizor):
+        raise TypeError("given '%s' object is not callable" % str(pythonizor))
+    try:
+        _pythonizations[scope].append(pythonizor)
+    except KeyError:
+        _pythonizations[scope] = list()
+        _pythonizations[scope].append(pythonizor)
+
+def remove_pythonization(pythonizor, scope = ''):
+    """Remove previously registered <pythonizor> from <scope>.
+    """
+    try:
+        _pythonizations[scope].remove(pythonizor)
+        return True
+    except (KeyError, ValueError):
+        return False

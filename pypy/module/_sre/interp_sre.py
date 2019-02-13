@@ -77,15 +77,15 @@ def import_re(space):
     w_import = space.getattr(w_builtin, space.newtext("__import__"))
     return space.call_function(w_import, space.newtext("re"))
 
-def matchcontext(space, ctx):
+def matchcontext(space, ctx, pattern):
     try:
-        return rsre_core.match_context(ctx)
+        return rsre_core.match_context(ctx, pattern)
     except rsre_core.Error as e:
         raise OperationError(space.w_RuntimeError, space.newtext(e.msg))
 
-def searchcontext(space, ctx):
+def searchcontext(space, ctx, pattern):
     try:
-        return rsre_core.search_context(ctx)
+        return rsre_core.search_context(ctx, pattern)
     except rsre_core.Error as e:
         raise OperationError(space.w_RuntimeError, space.newtext(e.msg))
 
@@ -114,7 +114,7 @@ class W_SRE_Pattern(W_Root):
                 pos = len(unicodestr)
             if endpos > len(unicodestr):
                 endpos = len(unicodestr)
-            return rsre_core.UnicodeMatchContext(self.code, unicodestr,
+            return rsre_core.UnicodeMatchContext(unicodestr,
                                                  pos, endpos, self.flags)
         elif space.isinstance_w(w_string, space.w_bytes):
             str = space.bytes_w(w_string)
@@ -122,7 +122,7 @@ class W_SRE_Pattern(W_Root):
                 pos = len(str)
             if endpos > len(str):
                 endpos = len(str)
-            return rsre_core.StrMatchContext(self.code, str,
+            return rsre_core.StrMatchContext(str,
                                              pos, endpos, self.flags)
         else:
             buf = space.readbuf_w(w_string)
@@ -132,7 +132,7 @@ class W_SRE_Pattern(W_Root):
                 pos = size
             if endpos > size:
                 endpos = size
-            return rsre_core.BufMatchContext(self.code, buf,
+            return rsre_core.BufMatchContext(buf,
                                              pos, endpos, self.flags)
 
     def getmatch(self, ctx, found):
@@ -144,12 +144,12 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(pos=int, endpos=int)
     def match_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
-        return self.getmatch(ctx, matchcontext(self.space, ctx))
+        return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)
     def search_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
-        return self.getmatch(ctx, searchcontext(self.space, ctx))
+        return self.getmatch(ctx, searchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)
     def findall_w(self, w_string, pos=0, endpos=sys.maxint):
@@ -157,7 +157,7 @@ class W_SRE_Pattern(W_Root):
         matchlist_w = []
         ctx = self.make_ctx(w_string, pos, endpos)
         while ctx.match_start <= ctx.end:
-            if not searchcontext(space, ctx):
+            if not searchcontext(space, ctx, self.code):
                 break
             num_groups = self.num_groups
             w_emptystr = space.newtext("")
@@ -182,7 +182,7 @@ class W_SRE_Pattern(W_Root):
         # this also works as the implementation of the undocumented
         # scanner() method.
         ctx = self.make_ctx(w_string, pos, endpos)
-        scanner = W_SRE_Scanner(self, ctx)
+        scanner = W_SRE_Scanner(self, ctx, self.code)
         return scanner
 
     @unwrap_spec(maxsplit=int)
@@ -193,7 +193,7 @@ class W_SRE_Pattern(W_Root):
         last = 0
         ctx = self.make_ctx(w_string)
         while not maxsplit or n < maxsplit:
-            if not searchcontext(space, ctx):
+            if not searchcontext(space, ctx, self.code):
                 break
             if ctx.match_start == ctx.match_end:     # zero-width match
                 if ctx.match_start == ctx.end:       # or end of string
@@ -274,13 +274,14 @@ class W_SRE_Pattern(W_Root):
         else:
             sublist_w = []
         n = last_pos = 0
+        pattern = self.code
         while not count or n < count:
             sub_jitdriver.jit_merge_point(
                 self=self,
                 use_builder=use_builder,
                 filter_is_callable=filter_is_callable,
                 filter_type=type(w_filter),
-                ctx=ctx,
+                ctx=ctx, pattern=pattern,
                 w_filter=w_filter,
                 strbuilder=strbuilder,
                 unicodebuilder=unicodebuilder,
@@ -291,7 +292,7 @@ class W_SRE_Pattern(W_Root):
                 n=n, last_pos=last_pos, sublist_w=sublist_w
                 )
             space = self.space
-            if not searchcontext(space, ctx):
+            if not searchcontext(space, ctx, pattern):
                 break
             if last_pos < ctx.match_start:
                 _sub_append_slice(
@@ -303,8 +304,11 @@ class W_SRE_Pattern(W_Root):
             if not (last_pos == ctx.match_start
                              == ctx.match_end and n > 0):
                 # the above ignores empty matches on latest position
+                last_pos = ctx.match_end
                 if filter_is_callable:
                     w_match = self.getmatch(ctx, True)
+                    # make a copy of 'ctx'; see test_sub_matches_stay_valid
+                    ctx = ctx.fresh_copy(start) # match_start/match_end dropped
                     w_piece = space.call_function(w_filter, w_match)
                     if not space.is_w(w_piece, space.w_None):
                         assert strbuilder is None and unicodebuilder is None
@@ -321,7 +325,6 @@ class W_SRE_Pattern(W_Root):
                             unicodebuilder.append(filter_as_unicode)
                     else:
                         sublist_w.append(w_filter)
-                last_pos = ctx.match_end
                 n += 1
             elif last_pos >= ctx.end:
                 break    # empty match at the end: finished
@@ -353,7 +356,7 @@ sub_jitdriver = jit.JitDriver(
             filter_as_unicode
             w_string sublist_w
             self""".split(),
-    greens=["filter_is_callable", "use_builder", "filter_type", "ctx.pattern"])
+    greens=["filter_is_callable", "use_builder", "filter_type", "pattern"])
 
 
 def _sub_append_slice(ctx, space, use_builder, sublist_w,
@@ -385,7 +388,11 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     srepat.space = space
     srepat.w_pattern = w_pattern      # the original uncompiled pattern
     srepat.flags = flags
-    srepat.code = code
+    # note: we assume that the app-level is caching SRE_Pattern objects,
+    # so that we don't need to do it here.  Creating new SRE_Pattern
+    # objects all the time would be bad for the JIT, which relies on the
+    # identity of the CompiledPattern() object.
+    srepat.code = rsre_core.CompiledPattern(code)
     srepat.num_groups = groups
     srepat.w_groupindex = w_groupindex
     srepat.w_indexgroup = w_indexgroup
@@ -481,11 +488,13 @@ class W_SRE_Match(W_Root):
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def start_w(self, w_groupnum):
-        return self.space.newint(self.do_span(w_groupnum)[0])
+        start, end = self.do_span(w_groupnum)
+        return self.space.newint(start)
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def end_w(self, w_groupnum):
-        return self.space.newint(self.do_span(w_groupnum)[1])
+        start, end = self.do_span(w_groupnum)
+        return self.space.newint(end)
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def span_w(self, w_groupnum):
@@ -522,7 +531,7 @@ class W_SRE_Match(W_Root):
             assert idx >= 0
             return fmarks[idx], fmarks[idx+1]
         else:
-            raise oefmt(space.w_IndexError, "group index out of range")
+            raise oefmt(space.w_IndexError, "no such group")
 
     def _last_index(self):
         mark = self.ctx.match_marks
@@ -606,10 +615,11 @@ W_SRE_Match.typedef.acceptable_as_base_class = False
 # Our version is also directly iterable, to make finditer() easier.
 
 class W_SRE_Scanner(W_Root):
-    def __init__(self, pattern, ctx):
+    def __init__(self, pattern, ctx, code):
         self.space = pattern.space
         self.srepat = pattern
         self.ctx = ctx
+        self.code = code
         # 'self.ctx' is always a fresh context in which no searching
         # or matching succeeded so far.
 
@@ -619,19 +629,19 @@ class W_SRE_Scanner(W_Root):
     def next_w(self):
         if self.ctx.match_start > self.ctx.end:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        if not searchcontext(self.space, self.ctx):
+        if not searchcontext(self.space, self.ctx, self.code):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         return self.getmatch(True)
 
     def match_w(self):
         if self.ctx.match_start > self.ctx.end:
             return self.space.w_None
-        return self.getmatch(matchcontext(self.space, self.ctx))
+        return self.getmatch(matchcontext(self.space, self.ctx, self.code))
 
     def search_w(self):
         if self.ctx.match_start > self.ctx.end:
             return self.space.w_None
-        return self.getmatch(searchcontext(self.space, self.ctx))
+        return self.getmatch(searchcontext(self.space, self.ctx, self.code))
 
     def getmatch(self, found):
         if found:

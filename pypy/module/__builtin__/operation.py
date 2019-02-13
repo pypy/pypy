@@ -2,11 +2,13 @@
 Interp-level implementation of the basic space operations.
 """
 
+import math
+
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.runicode import UNICHR
-from rpython.rlib.rfloat import isfinite, isinf, round_double, round_away
+from rpython.rlib.rfloat import isfinite, round_double, round_away
 from rpython.rlib import rfloat
 import __builtin__
 
@@ -25,11 +27,9 @@ def chr(space, w_ascii):
 @unwrap_spec(code=int)
 def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
-    # XXX range checking!
-    try:
-        c = UNICHR(code)
-    except ValueError:
+    if code < 0 or code > 0x10FFFF:
         raise oefmt(space.w_ValueError, "unichr() arg out of range")
+    c = UNICHR(code)
     return space.newunicode(c)
 
 def len(space, w_obj):
@@ -151,7 +151,7 @@ This always returns a floating point number.  Precision may be negative."""
         else:
             # finite x, and ndigits is not unreasonably large
             z = round_double(number, ndigits)
-            if isinf(z):
+            if math.isinf(z):
                 raise oefmt(space.w_OverflowError,
                             "rounded value too large to represent")
     return space.newfloat(z)
@@ -180,7 +180,7 @@ def iter(space, w_collection_or_callable, w_sentinel=None):
     """iter(collection) -> iterator over the elements of the collection.
 
 iter(callable, sentinel) -> iterator calling callable() until it returns
-                            the sentinal.
+                            the sentinel.
 """
     if w_sentinel is None:
         return space.iter(w_collection_or_callable)
