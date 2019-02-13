@@ -48,8 +48,8 @@ class W_MyObject(W_Root):
     def str_w(self, space):
         return NonConstant("foobar")
 
-    def unicode_w(self, space):
-        return NonConstant(u"foobar")
+    def utf8_w(self, space):
+        return NonConstant("foobar")
 
     def int_w(self, space, allow_conversion=True):
         return NonConstant(-42)
@@ -209,7 +209,7 @@ class FakeObjSpace(ObjSpace):
     def newbytes(self, x):
         return w_some_obj()
 
-    def newunicode(self, x):
+    def newutf8(self, x, l):
         return w_some_obj()
 
     newtext = newbytes

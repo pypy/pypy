@@ -29,7 +29,11 @@ an int.
 
 Improve register allocation in the JIT.
 
-
 .. branch: promote-unicode
 
 Implement rlib.jit.promote_unicode to complement promote_string
+
+.. branch: unicode-utf8
+
+Use utf8 internally to represent unicode, with the goal of never using rpython-level unicode
+

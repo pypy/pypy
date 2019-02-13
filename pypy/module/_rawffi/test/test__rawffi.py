@@ -351,9 +351,10 @@ class AppTestFfi:
         import _rawffi
         A = _rawffi.Array('u')
         a = A(6, u'xx\x00\x00xx')
-        res = _rawffi.wcharp2unicode(a.buffer)
-        assert isinstance(res, unicode)
-        assert res == u'xx'
+        for i in (-1, 6):
+            res = _rawffi.wcharp2unicode(a.buffer, i)
+            assert isinstance(res, unicode)
+            assert res == u'xx'
         a.free()
 
     def test_rawstring2charp(self):

@@ -8,6 +8,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit, nonconst
 
 
+# We always use MAXUNICODE = 0x10ffff when unicode objects use utf8
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
     allow_surrogate_by_default = False
@@ -94,6 +95,7 @@ def is_narrow_host():
 
 def default_unicode_error_decode(errors, encoding, msg, s,
                                  startingpos, endingpos):
+    assert endingpos >= 0
     if errors == 'replace':
         return u'\ufffd', endingpos
     if errors == 'ignore':
@@ -102,6 +104,7 @@ def default_unicode_error_decode(errors, encoding, msg, s,
 
 def default_unicode_error_encode(errors, encoding, msg, u,
                                  startingpos, endingpos):
+    assert endingpos >= 0
     if errors == 'replace':
         return u'?', None, endingpos
     if errors == 'ignore':

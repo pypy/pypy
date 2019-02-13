@@ -1,7 +1,7 @@
-from rpython.rlib import jit, rgc
+from rpython.rlib import jit, rgc, rutf8
 from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rlib.rarithmetic import ovfcheck, widen
+from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -390,6 +390,8 @@ class W_ArrayBase(W_Root):
         if len(s) % self.itemsize != 0:
             raise oefmt(self.space.w_ValueError,
                         "string length not a multiple of item size")
+        # CPython accepts invalid unicode
+        # self.check_valid_unicode(space, s) # empty for non-u arrays
         oldlen = self.len
         new = len(s) / self.itemsize
         if not new:
@@ -461,7 +463,7 @@ class W_ArrayBase(W_Root):
         """
         if self.typecode == 'u':
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            return space.newunicode(rffi.wcharpsize2unicode(buf, self.len))
+            return space.newutf8(rffi.wcharpsize2utf8(buf, self.len), self.len)
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
@@ -720,6 +722,9 @@ class W_ArrayBase(W_Root):
             s = "array('%s', %s)" % (self.typecode, space.text_w(r))
             return space.newtext(s)
 
+    def check_valid_unicode(self, space, s):
+        pass # overwritten by u
+
 W_ArrayBase.typedef = TypeDef(
     'array.array', None, None, "read-write",
     __new__ = interp2app(w_array),
@@ -807,7 +812,7 @@ else:
          TypeCode(rffi.UINT,          'int_w', True)
 types = {
     'c': TypeCode(lltype.Char,        'bytes_w', method=''),
-    'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
+    'u': TypeCode(lltype.UniChar,     'utf8_len_w', method=''),
     'b': TypeCode(rffi.SIGNEDCHAR,    'int_w', True, True),
     'B': TypeCode(rffi.UCHAR,         'int_w', True),
     'h': TypeCode(rffi.SHORT,         'int_w', True, True),
@@ -880,6 +885,18 @@ def make_array(mytype):
         def get_buffer(self):
             return rffi.cast(mytype.arrayptrtype, self._buffer)
 
+        if mytype.unwrap == 'utf8_len_w':
+            def check_valid_unicode(self, space, s):
+                i = 0
+                while i < len(s):
+                    if s[i] != '\x00' or ord(s[i + 1]) > 0x10:
+                        v = ((ord(s[i]) << 24) + (ord(s[i + 1]) << 16) +
+                             (ord(s[i + 2]) << 8) + ord(s[i + 3]))
+                        raise oefmt(space.w_ValueError,
+                            "Character U+%s is not in range [U+0000, U+10ffff]",
+                            hex(v)[2:])
+                    i += 4
+
         def item_w(self, w_item):
             space = self.space
             unwrap = getattr(space, mytype.unwrap)
@@ -905,11 +922,17 @@ def make_array(mytype):
                                 "unsigned %d-byte integer out of range",
                                 mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
-            if mytype.unwrap == 'bytes_w' or mytype.unwrap == 'unicode_w':
+            if mytype.unwrap == 'bytes_w':
                 if len(item) != 1:
                     raise oefmt(space.w_TypeError, "array item must be char")
                 item = item[0]
                 return rffi.cast(mytype.itemtype, item)
+            if mytype.unwrap == 'utf8_len_w':
+                utf8, lgt = item
+                if lgt != 1:
+                    raise oefmt(space.w_TypeError, "array item must be char")
+                uchar = rutf8.codepoint_at_pos(utf8, 0)
+                return rffi.cast(mytype.itemtype, uchar)
             #
             # "regular" case: it fits in an rpython integer (lltype.Signed)
             # or it is a float
@@ -1017,7 +1040,25 @@ def make_array(mytype):
             elif mytype.typecode == 'c':
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
-                return space.newunicode(item)
+                code = r_uint(ord(item))
+                # cpython will allow values > sys.maxunicode
+                # while silently truncating the top bits
+                if code <= r_uint(0x7F):
+                    # Encode ASCII
+                    item = chr(code)
+                elif code <= r_uint(0x07FF):
+                    item = (chr((0xc0 | (code >> 6))) + 
+                            chr((0x80 | (code & 0x3f))))
+                elif code <= r_uint(0xFFFF):
+                    item = (chr((0xe0 | (code >> 12))) +
+                            chr((0x80 | ((code >> 6) & 0x3f))) +
+                            chr((0x80 | (code & 0x3f))))
+                else:
+                    item = (chr((0xf0 | (code >> 18)) & 0xff) +
+                            chr((0x80 | ((code >> 12) & 0x3f))) +
+                            chr((0x80 | ((code >> 6) & 0x3f))) +
+                            chr((0x80 | (code & 0x3f))))
+                return space.newutf8(item, 1)
             assert 0, "unreachable"
 
         # interface

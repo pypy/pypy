@@ -1,8 +1,9 @@
 import sys
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize, always_inline, r_dict
-from rpython.rlib import rfloat, runicode
+from rpython.rlib import rfloat, rutf8
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import oefmt
 from pypy.interpreter import unicodehelper
 
@@ -18,29 +19,6 @@ def neg_pow_10(x, exp):
     if exp >= len(NEG_POW_10):
         return 0.0
     return x * NEG_POW_10[exp]
-
-def strslice2unicode_latin1(s, start, end):
-    """
-    Convert s[start:end] to unicode. s is supposed to be an RPython string
-    encoded in latin-1, which means that the numeric value of each char is the
-    same as the corresponding unicode code point.
-
-    Internally it's implemented at the level of low-level helpers, to avoid
-    the extra copy we would need if we take the actual slice first.
-
-    No bound checking is done, use carefully.
-    """
-    from rpython.rtyper.annlowlevel import llstr, hlunicode
-    from rpython.rtyper.lltypesystem.rstr import malloc, UNICODE
-    from rpython.rtyper.lltypesystem.lltype import cast_primitive, UniChar
-    length = end-start
-    ll_s = llstr(s)
-    ll_res = malloc(UNICODE, length)
-    ll_res.hash = 0
-    for i in range(length):
-        ch = ll_s.chars[start+i]
-        ll_res.chars[i] = cast_primitive(UniChar, ch)
-    return hlunicode(ll_res)
 
 def slice_eq(a, b):
     (ll_chars1, start1, length1, _) = a
@@ -270,10 +248,10 @@ class JSONDecoder(object):
             self.pos = i+1
             return self.space.newdict()
 
-        d = {}
+        d = self._create_empty_dict()
         while True:
             # parse a key: value
-            name = self.decode_key(i)
+            w_name = self.decode_key(i)
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
@@ -282,7 +260,7 @@ class JSONDecoder(object):
             i = self.skip_whitespace(i)
             #
             w_value = self.decode_any(i)
-            d[name] = w_value
+            d[w_name] = w_value
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             i += 1
@@ -297,10 +275,6 @@ class JSONDecoder(object):
                 self._raise("Unexpected '%s' when decoding object (char %d)",
                             ch, i-1)
 
-    def _create_dict(self, d):
-        from pypy.objspace.std.dictmultiobject import from_unicode_key_dict
-        return from_unicode_key_dict(self.space, d)
-
     def decode_string(self, i):
         start = i
         bits = 0
@@ -312,8 +286,7 @@ class JSONDecoder(object):
             bits |= ord(ch)
             if ch == '"':
                 self.pos = i
-                return self.space.newunicode(
-                        self._create_string(start, i - 1, bits))
+                return self._create_string(start, i - 1, bits)
             elif ch == '\\' or ch < '\x20':
                 self.pos = i-1
                 return self.decode_string_escaped(start)
@@ -322,12 +295,24 @@ class JSONDecoder(object):
         if bits & 0x80:
             # the 8th bit is set, it's an utf8 string
             content_utf8 = self.getslice(start, end)
-            return unicodehelper.decode_utf8(self.space, content_utf8)
+            lgt = unicodehelper.check_utf8_or_raise(self.space,
+                                                          content_utf8)
+            return self.space.newutf8(content_utf8, lgt)
         else:
             # ascii only, fast path (ascii is a strict subset of
             # latin1, and we already checked that all the chars are <
             # 128)
-            return strslice2unicode_latin1(self.s, start, end)
+            return self.space.newutf8(self.getslice(start, end),
+                                      end - start)
+
+    def _create_dict(self, d):
+        from pypy.objspace.std.dictmultiobject import from_unicode_key_dict
+        return from_unicode_key_dict(self.space, d)
+
+    def _create_empty_dict(self):
+        from pypy.objspace.std.dictmultiobject import create_empty_unicode_key_dict
+        return create_empty_unicode_key_dict(self.space)
+
 
     def decode_string_escaped(self, start):
         i = self.pos
@@ -340,9 +325,10 @@ class JSONDecoder(object):
             i += 1
             if ch == '"':
                 content_utf8 = builder.build()
-                content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
+                lgt = unicodehelper.check_utf8_or_raise(self.space,
+                                                           content_utf8)
                 self.pos = i
-                return self.space.newunicode(content_unicode)
+                return self.space.newutf8(content_utf8, lgt)
             elif ch == '\\':
                 i = self.decode_escape_sequence(i, builder)
             elif ch < '\x20':
@@ -389,8 +375,7 @@ class JSONDecoder(object):
             return # help the annotator to know that we'll never go beyond
                    # this point
         #
-        uchr = runicode.code_to_unichr(val)     # may be a surrogate pair again
-        utf8_ch = unicodehelper.encode_utf8(self.space, uchr)
+        utf8_ch = rutf8.unichr_as_utf8(r_uint(val), allow_surrogates=True)
         builder.append(utf8_ch)
         return i
 
@@ -404,7 +389,7 @@ class JSONDecoder(object):
         return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
     def decode_key(self, i):
-        """ returns an unwrapped unicode """
+        """ returns a wrapped unicode """
         from rpython.rlib.rarithmetic import intmask
 
         i = self.skip_whitespace(i)
@@ -424,7 +409,7 @@ class JSONDecoder(object):
                 break
             elif ch == '\\' or ch < '\x20':
                 self.pos = i-1
-                return self.space.unicode_w(self.decode_string_escaped(start))
+                return self.decode_string_escaped(start)
             strhash = intmask((1000003 * strhash) ^ ord(ll_chars[i]))
             bits |= ord(ch)
         length = i - start - 1

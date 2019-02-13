@@ -1221,7 +1221,7 @@ def _jit_conditional_call_value(value, function, *args):
 def conditional_call_elidable(value, function, *args):
     """Does the same as:
 
-        if value == <0 or None>:
+        if value == <0 or None or NULL>:
             value = function(*args)
         return value
 
@@ -1251,7 +1251,7 @@ def conditional_call_elidable(value, function, *args):
                 value = function(*args)
                 assert isinstance(value, int)
         else:
-            if value is None:
+            if not isinstance(value, list) and not value:
                 value = function(*args)
                 assert not isinstance(value, int)
         return value

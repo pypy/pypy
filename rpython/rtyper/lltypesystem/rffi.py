@@ -1020,6 +1020,49 @@ def make_string_mappings(strtype):
  wcharp2unicoden, wcharpsize2unicode, unicode2wchararray, unicode2rawmem,
  ) = make_string_mappings(unicode)
 
+def wcharpsize2utf8(w, size):
+    """ Helper to convert WCHARP pointer to utf8 in one go.
+    Equivalent to wcharpsize2unicode().encode("utf8")
+    Raises ValueError if characters are outside range(0x110000)!
+    """
+    from rpython.rlib import rutf8
+
+    s = StringBuilder(size)
+    for i in range(size):
+        rutf8.unichr_as_utf8_append(s, ord(w[i]), True)
+    return s.build()
+
+def wcharp2utf8(w):
+    from rpython.rlib import rutf8
+
+    s = rutf8.Utf8StringBuilder()
+    i = 0
+    while ord(w[i]):
+        s.append_code(ord(w[i]))
+        i += 1
+    return s.build(), i
+
+def wcharp2utf8n(w, maxlen):
+    from rpython.rlib import rutf8
+
+    s = rutf8.Utf8StringBuilder(maxlen)
+    i = 0
+    while i < maxlen and ord(w[i]):
+        s.append_code(ord(w[i]))
+        i += 1
+    return s.build(), i
+
+def utf82wcharp(utf8, utf8len):
+    from rpython.rlib import rutf8
+
+    w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw')
+    index = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        w[index] = unichr(ch)
+        index += 1
+    w[index] = unichr(0)
+    return w
+
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
 CWCHARPP = lltype.Ptr(lltype.Array(CWCHARP, hints={'nolength': True}))
@@ -1240,6 +1283,18 @@ class scoped_unicode2wcharp:
             self.buf = lltype.nullptr(CWCHARP.TO)
     __init__._annenforceargs_ = [None,
                                  annmodel.SomeUnicodeString(can_be_None=True)]
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        if self.buf:
+            free_wcharp(self.buf)
+
+class scoped_utf82wcharp:
+    def __init__(self, value, unicode_len):
+        if value is not None:
+            self.buf = utf82wcharp(value, unicode_len)
+        else:
+            self.buf = lltype.nullptr(CWCHARP.TO)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):

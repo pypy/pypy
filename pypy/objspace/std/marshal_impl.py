@@ -397,13 +397,14 @@ def unmarshal_pycode(space, u, tc):
 
 @marshaller(W_UnicodeObject)
 def marshal_unicode(space, w_unicode, m):
-    s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode))
+    s = space.utf8_w(w_unicode)
     m.atom_str(TYPE_UNICODE, s)
 
 @unmarshaller(TYPE_UNICODE)
 def unmarshal_unicode(space, u, tc):
-    return space.newunicode(unicodehelper.decode_utf8(space, u.get_str()))
-
+    arg = u.get_str()
+    length = unicodehelper.check_utf8_or_raise(space, arg)
+    return space.newutf8(arg, length)
 
 @marshaller(W_SetObject)
 def marshal_set(space, w_set, m):

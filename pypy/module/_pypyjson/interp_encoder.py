@@ -1,5 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import str_decode_utf_8
+from rpython.rlib import rutf8
 from pypy.interpreter import unicodehelper
 
 
@@ -30,11 +30,8 @@ def raw_encode_basestring_ascii(space, w_string):
             # the input is a string with only non-special ascii chars
             return w_string
 
-        eh = unicodehelper.decode_error_handler(space)
-        u = str_decode_utf_8(
-                s, len(s), None, final=True, errorhandler=eh,
-                allow_surrogates=True)[0]
-        sb = StringBuilder(len(u))
+        unicodehelper.check_utf8_or_raise(space, s)
+        sb = StringBuilder(len(s))
         sb.append_slice(s, 0, first)
     else:
         # We used to check if 'u' contains only safe characters, and return
@@ -44,12 +41,14 @@ def raw_encode_basestring_ascii(space, w_string):
         # a string (with the ascii encoding).  This requires two passes
         # over the characters.  So we may as well directly turn it into a
         # string here --- only one pass.
-        u = space.unicode_w(w_string)
-        sb = StringBuilder(len(u))
+        s = space.utf8_w(w_string)
+        sb = StringBuilder(len(s))
         first = 0
 
-    for i in range(first, len(u)):
-        c = ord(u[i])
+    it = rutf8.Utf8StringIterator(s)
+    for i in range(first):
+        it.next()
+    for c in it:
         if c <= ord('~'):
             if c == ord('"') or c == ord('\\'):
                 sb.append('\\')
