@@ -90,19 +90,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
 
-        # XXX register allocation statistics to be removed later
-        self.num_moves_calls = 0
-        self.num_moves_jump = 0
-        self.num_spills = 0
-        self.num_spills_to_existing = 0
-        self.num_reloads = 0
-
-        self.preamble_num_moves_calls = 0
-        self.preamble_num_moves_jump = 0
-        self.preamble_num_spills = 0
-        self.preamble_num_spills_to_existing = 0
-        self.preamble_num_reloads = 0
-
 
     def teardown(self):
         self.pending_guard_tokens = None

@@ -2,8 +2,8 @@
 Tests for the zlib module.
 """
 
-import py
 import pypy
+import py
 
 try:
     import zlib
@@ -15,7 +15,7 @@ try:
     from pypy.module.zlib import interp_zlib
     from rpython.rlib import rzlib
 except ImportError:
-    import py; py.test.skip("no zlib C library on this machine")
+    py.test.skip("no zlib C library on this machine")
 
 
 class AppTestZlib(object):
@@ -403,6 +403,7 @@ class AppTestZlib(object):
 
         assert (d1 + from_copy) == (d1 + from_compressor)
 
+    @py.test.mark.skipif(rzlib.ZLIB_VERSION == '1.2.8', reason='does not error check')
     def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
         compressor = self.zlib.compressobj()

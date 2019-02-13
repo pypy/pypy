@@ -25,6 +25,15 @@ as they do on CPython.
 Improve performance of long operations where one of the operands fits into
 an int.
 
-.. branch: regalloc-playgrounds
+.. branch: regalloc-playground
 
 Improve register allocation in the JIT.
+
+.. branch: promote-unicode
+
+Implement rlib.jit.promote_unicode to complement promote_string
+
+.. branch: unicode-utf8
+
+Use utf8 internally to represent unicode, with the goal of never using rpython-level unicode
+

@@ -84,6 +84,7 @@ def hint(x, **kwds):
 
     * promote - promote the argument from a variable into a constant
     * promote_string - same, but promote string by *value*
+    * promote_unicode - same, but promote unicode string by *value*
     * access_directly - directly access a virtualizable, as a structure
                         and don't treat it as a virtualizable
     * fresh_virtualizable - means that virtualizable was just allocated.
@@ -125,6 +126,9 @@ def promote(x):
 
 def promote_string(x):
     return hint(x, promote_string=True)
+
+def promote_unicode(x):
+    return hint(x, promote_unicode=True)
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
