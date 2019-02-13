@@ -111,7 +111,7 @@ class TestString(BaseTestPyPyC):
             i19 = int_sub(i6, i87)
 
             i23 = unicodegetitem(ConstPtr(ptr92), i19)
-            p25 = newunicode(1)
+            p25 = newtext(1)
             unicodesetitem(p25, 0, i23)
             p97 = call_r(ConstClass(_rpy_unicode_to_decimal_w), p25, descr=<Callr . r EF=5>)
             guard_no_exception(descr=...)

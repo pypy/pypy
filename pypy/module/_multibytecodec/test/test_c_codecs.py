@@ -14,15 +14,15 @@ def test_codecs_existence():
 def test_decode_gbk():
     c = getcodec("gbk")
     u = decode(c, "\xA1\xAA")
-    assert u == unichr(0x2014)
+    assert u == unichr(0x2014).encode('utf8')
     u = decode(c, "foobar")
-    assert u == u"foobar"
+    assert u == "foobar"
 
 def test_decode_hz():
     # stateful
     c = getcodec("hz")
-    u = decode(c, "~{abc}")
-    assert u == u'\u5f95\u6cef'
+    utf8 = decode(c, "~{abc}")
+    assert utf8.decode('utf8') == u'\u5f95\u6cef'
     u = decode(c, "~{")
     assert u == u''
 
@@ -30,11 +30,11 @@ def test_decodeex_hz():
     c = getcodec("hz")
     decodebuf = c_codecs.pypy_cjk_dec_new(c)
     u = c_codecs.decodeex(decodebuf, "~{abcd~}")
-    assert u == u'\u5f95\u6c85'
+    assert u == u'\u5f95\u6c85'.encode('utf8')
     u = c_codecs.decodeex(decodebuf, "~{efgh~}")
-    assert u == u'\u5f50\u73b7'
+    assert u == u'\u5f50\u73b7'.encode('utf8')
     u = c_codecs.decodeex(decodebuf, "!~{abcd~}xyz~{efgh")
-    assert u == u'!\u5f95\u6c85xyz\u5f50\u73b7'
+    assert u == u'!\u5f95\u6c85xyz\u5f50\u73b7'.encode('utf8')
     c_codecs.pypy_cjk_dec_free(decodebuf)
 
 def test_decodeex_hz_incomplete():
@@ -64,7 +64,7 @@ def test_decodeex_hz_incomplete():
         buf += c
         u = c_codecs.decodeex(decodebuf, buf,
                               ignore_error = c_codecs.MBERR_TOOFEW)
-        assert u == output
+        assert u == output.encode('utf8')
         incompletepos = c_codecs.pypy_cjk_dec_inbuf_consumed(decodebuf)
         buf = buf[incompletepos:]
     assert buf == ''
@@ -85,47 +85,49 @@ def test_decode_hz_error():
 
 def test_decode_hz_ignore():
     c = getcodec("hz")
-    u = decode(c, 'def~{}abc', 'ignore')
-    assert u == u'def\u5f95'
+    utf8 = decode(c, 'def~{}abc', 'ignore')
+    assert utf8.decode('utf8') == u'def\u5f95'
 
 def test_decode_hz_replace():
     c = getcodec("hz")
-    u = decode(c, 'def~{}abc', 'replace')
-    assert u == u'def\ufffd\u5f95\ufffd'
+    utf8 = decode(c, 'def~{}abc', 'replace')
+    assert utf8.decode('utf8') == u'def\ufffd\u5f95\ufffd'
 
 def test_encode_hz():
     c = getcodec("hz")
-    s = encode(c, u'foobar')
+    s = encode(c, u'foobar'.encode('utf8'), 6)
     assert s == 'foobar' and type(s) is str
-    s = encode(c, u'\u5f95\u6cef')
+    s = encode(c, u'\u5f95\u6cef'.encode('utf8'), 2)
     assert s == '~{abc}~}'
 
 def test_encode_hz_error():
     # error
     c = getcodec("hz")
-    e = py.test.raises(EncodeDecodeError, encode, c, u'abc\u1234def').value
+    e = py.test.raises(EncodeDecodeError, encode, c, u'abc\u1234def'.encode('utf8'), 7).value
     assert e.start == 3
     assert e.end == 4
     assert e.reason == "illegal multibyte sequence"
 
 def test_encode_hz_ignore():
     c = getcodec("hz")
-    s = encode(c, u'abc\u1234def', 'ignore')
+    s = encode(c, u'abc\u1234def'.encode('utf8'), 7, 'ignore')
     assert s == 'abcdef'
 
 def test_encode_hz_replace():
     c = getcodec("hz")
-    s = encode(c, u'abc\u1234def', 'replace')
+    s = encode(c, u'abc\u1234def'.encode('utf8'), 7, 'replace')
     assert s == 'abc?def'
 
 def test_encode_jisx0208():
     c = getcodec('iso2022_jp')
-    s = encode(c, u'\u83ca\u5730\u6642\u592b')
+    s = encode(c, u'\u83ca\u5730\u6642\u592b'.encode('utf8'), 4)
     assert s == '\x1b$B5FCO;~IW\x1b(B' and type(s) is str
 
 def test_encode_custom_error_handler_bytes():
+    py.test.skip("needs revamping in py3k")
     c = getcodec("hz")
     def errorhandler(errors, enc, msg, t, startingpos, endingpos):
-        return None, '\xc3', endingpos
-    s = encode(c, u'abc\u1234def', 'foo', errorhandler)
+        return u'\xc3'.encode('utf8'), endingpos
+    s = encode(c, u'abc\u1234def'.encode('utf8'), 7, 'foo', errorhandler)
     assert '\xc3' in s
+

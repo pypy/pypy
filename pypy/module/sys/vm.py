@@ -3,7 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 
 from rpython.rlib import jit
-from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.rutf8 import MAXUNICODE
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import oefmt

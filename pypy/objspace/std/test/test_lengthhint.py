@@ -79,6 +79,9 @@ class TestLengthHint:
     def test_str(self):
         self._test_length_hint(self.space.wrap('P' * self.SIZE))
 
+    def test_unicode(self):
+        self._test_length_hint(self.space.newutf8('Y' * self.SIZE, self.SIZE))
+
     def test_tuple(self):
         self._test_length_hint(self.space.wrap(tuple(self.ITEMS)))
 

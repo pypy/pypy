@@ -101,7 +101,7 @@ def preload_expr(space, expr):
 
 def is_interned_string(space, w_obj):
     try:
-        u = space.unicode_w(w_obj)
+        u = space.utf8_w(w_obj)
     except OperationError:
         return False
     return space.interned_strings.get(u) is not None
@@ -207,7 +207,7 @@ def _unwrap_include_dirs(space, w_include_dirs):
     if w_include_dirs is None:
         return None
     else:
-        return [space.str_w(s) for s in space.listview(w_include_dirs)]
+        return [space.text_w(s) for s in space.listview(w_include_dirs)]
 
 def debug_collect(space):
     rawrefcount._collect()

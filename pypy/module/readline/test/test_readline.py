@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
+import sys
 
 class AppTestReadline:
-    spaceconfig = dict(usemodules={
-        'unicodedata', 'termios', 'select', 'signal', 'fcntl',
+    spaceconfig = dict(usemodules=[
+        'unicodedata', 'select', 'signal', 
         '_minimal_curses', 'faulthandler', '_socket', 'binascii',
         '_posixsubprocess',
-    })
+    ])
+    if sys.platform == 'win32':
+        pass
+    else:
+        spaceconfig['usemodules'] += ['fcntl', 'termios']
 
     def test_nonascii_history(self):
         import os, readline

@@ -68,7 +68,7 @@ class TestSequence(BaseApiTest):
         with pytest.raises(OperationError) as excinfo:
             PySequence_Fast(space, space.wrap(3), message)
         assert excinfo.value.match(space, space.w_TypeError)
-        assert space.str_w(excinfo.value.get_w_value(space)) == "message"
+        assert space.text_w(excinfo.value.get_w_value(space)) == "message"
         rffi.free_charp(message)
 
     def test_get_slice(self, space, api):
@@ -97,7 +97,7 @@ class TestSequence(BaseApiTest):
         w_iter = api.PySeqIter_New(w_t)
         assert space.unwrap(space.next(w_iter)) == 1
         assert space.unwrap(space.next(w_iter)) == 2
-        exc = raises(OperationError, space.next, w_iter)
+        exc = pytest.raises(OperationError, space.next, w_iter)
         assert exc.value.match(space, space.w_StopIteration)
 
     def test_contains(self, space):

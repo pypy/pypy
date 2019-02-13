@@ -878,7 +878,7 @@ class TestPycStuff:
         finally:
             stream.close()
         filename = space.getattr(w_ret, space.wrap('__file__'))
-        assert space.str_w(filename) == u'?'
+        assert space.text_w(filename) == u'?'
 
     def test_parse_source_module(self):
         space = self.space

@@ -88,7 +88,7 @@ def make_GetSet(space, getsetprop):
         py_getsetdef.c_doc = rffi.str2charp(doc)
     else:
         py_getsetdef.c_doc = rffi.cast(rffi.CCHARP, 0)
-    py_getsetdef.c_name = rffi.str2charp(getsetprop.getname(space).encode('utf-8'))
+    py_getsetdef.c_name = rffi.str2charp(getsetprop.getname(space))
     # XXX FIXME - actually assign these !!!
     py_getsetdef.c_get = cts.cast('getter', 0)
     py_getsetdef.c_set = cts.cast('setter', 0)

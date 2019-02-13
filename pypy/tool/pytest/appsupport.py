@@ -23,11 +23,11 @@ class AppCode(object):
         #    self.path = space.unwrap(space.getattr(self.w_file, space.wrap('__path__')))
         #except OperationError:
         #    self.path = space.unwrap(space.getattr(
-        self.path = py.path.local(space.str_w(self.w_file))
+        self.path = py.path.local(space.utf8_w(self.w_file))
         self.space = space
 
     def fullsource(self):
-        filename = self.space.str_w(self.w_file)
+        filename = self.space.utf8_w(self.w_file)
         source = py.code.Source(py.std.linecache.getlines(filename))
         if source.lines:
             return source
@@ -97,7 +97,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
     def __init__(self, space, operr):
         self.space = space
         self.operr = operr
-        self.typename = operr.w_type.getname(space).encode('utf-8')
+        self.typename = operr.w_type.getname(space)
         self.traceback = AppTraceback(space, self.operr.get_traceback())
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:

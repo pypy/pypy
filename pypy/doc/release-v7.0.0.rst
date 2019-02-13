@@ -39,7 +39,7 @@ compatibility and c-extension support.
 
 The utf8 branch that changes internal representation of unicode to utf8 did not
 make it into the release, so there is still more goodness coming.
-You can download the v6.0 releases here:
+You can download the v7.0 releases here:
 
     http://pypy.org/download.html
 

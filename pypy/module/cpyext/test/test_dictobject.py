@@ -1,4 +1,5 @@
 import py
+from pytest import raises
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP, PyTypeObjectPtr

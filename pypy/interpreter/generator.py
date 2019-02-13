@@ -38,14 +38,12 @@ class GeneratorOrCoroutine(W_Root):
         # 'qualname' is a unicode string
         if self._qualname is not None:
             return self._qualname
-        return self.get_name().decode('utf-8')
+        return self.get_name()
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
-        return space.newunicode(u"<%s object %s at 0x%s>" %
-                          (unicode(self.KIND),
-                           self.get_qualname(),
-                           unicode(addrstring)))
+        return space.newtext("<%s object %s at 0x%s>" %
+                          (self.KIND, self.get_qualname(), addrstring))
 
     def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator/coroutine,
@@ -215,7 +213,7 @@ return next yielded value or raise StopIteration."""
             e2.record_context(space, space.getexecutioncontext())
             raise e2
         else:
-            space.warn(space.newunicode(u"generator '%s' raised StopIteration"
+            space.warn(space.newtext("generator '%s' raised StopIteration"
                                         % self.get_qualname()),
                        space.w_PendingDeprecationWarning)
 
@@ -308,11 +306,11 @@ return next yielded value or raise StopIteration."""
                         "__name__ must be set to a string object")
 
     def descr__qualname__(self, space):
-        return space.newunicode(self.get_qualname())
+        return space.newtext(self.get_qualname())
 
     def descr_set__qualname__(self, space, w_name):
         try:
-            self._qualname = space.unicode_w(w_name)
+            self._qualname = space.utf8_w(w_name)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
@@ -399,8 +397,8 @@ class Coroutine(GeneratorOrCoroutine):
            self.frame is not None and \
            self.frame.last_instr == -1:
             space = self.space
-            msg = u"coroutine '%s' was never awaited" % self.get_qualname()
-            space.warn(space.newunicode(msg), space.w_RuntimeWarning)
+            msg = "coroutine '%s' was never awaited" % self.get_qualname()
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
         GeneratorOrCoroutine._finalize_(self)
 
 

@@ -664,7 +664,7 @@ def test():
         w_d = space.newdict()
         space.exec_(code, w_d, w_d)
         w_res = space.getitem(w_d, space.wrap('res'))
-        assert space.str_w(w_res) == "global value"
+        assert space.text_w(w_res) == "global value"
 
     def test_method_and_var(self):
         space = self.space
@@ -753,7 +753,7 @@ def test():
         ex = e.value
         space = self.space
         assert ex.match(space, space.w_SyntaxError)
-        assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
+        assert 'hello_world' in space.text_w(space.str(ex.get_w_value(space)))
 
     def test_del_None(self):
         snippet = '''if 1:

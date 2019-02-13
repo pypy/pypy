@@ -125,6 +125,7 @@ class TestW_DictObject(object):
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
     def test_fromkeys_fastpath(self):
+        py.test.skip("doesn't make sense here")
         space = self.space
         w = space.wrap
 
@@ -142,11 +143,12 @@ class TestW_DictObject(object):
         w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(2))])
         assert self.space.listview_bytes(w_d) == ["a", "b"]
 
+    @py.test.mark.skip("possible re-enable later?")
     def test_listview_unicode_dict(self):
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
-        assert self.space.listview_unicode(w_d) == [u"a", u"b"]
+        assert self.space.listview_utf8(w_d) == ["a", "b"]
 
     def test_listview_int_dict(self):
         w = self.space.wrap
@@ -175,14 +177,14 @@ class TestW_DictObject(object):
         w_l = self.space.call_function(self.space.w_list, w_k)
         assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
+        #---the rest is for listview_unicode(), which is disabled---
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
-        monkeypatch.undo()
-        w_d = self.space.newdict()
-        w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
-        w_k = self.space.call_method(w_d, "keys")
-        w_l = self.space.call_function(self.space.w_list, w_k)
-        assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+        # monkeypatch.undo()
+        # w_d = self.space.newdict()
+        # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
+        # w_l = self.space.call_method(w_d, "keys")
+        # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
 
 class AppTest_DictObject:
     def setup_class(cls):
@@ -337,7 +339,8 @@ class AppTest_DictObject:
             return k
         for last in [False, True]:
             for d, key in [({1: 2, 3: 4, 5: 6}, 3),
-                           ({"a": 5, "b": 2, "c": 6}, "b"),
+                           ({b"a": 5, b"b": 2, b"c": 6}, b"b"),
+                           ({u"a": 5, u"b": 2, u"c": 6}, u"b"),
                            (kwdict(d=7, e=8, f=9), "e")]:
                 other_keys = [k for k in d if k != key]
                 __pypy__.move_to_end(d, key, last=last)
@@ -1165,8 +1168,24 @@ class AppTestStrategies(object):
         assert list(d.keys()) == ["a"]
         assert type(list(d.keys())[0]) is str
 
+    def test_setitem_str_nonascii(self):
+        d = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        d[u"a"] = 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+        exec("a = 1", d)
+        assert d["a"] == 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+        exec("ä = 2", d)
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+        assert d["a"] == 1
+        assert d["ä"] == 2
+
+        d = {}
+        d[u"ä"] = 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+
     def test_empty_to_int(self):
-        import sys
         d = {}
         d[1] = "hi"
         assert "IntDictStrategy" in self.get_strategy(d)
@@ -1235,6 +1254,17 @@ class FakeUnicode(unicode):
         self.hash_count += 1
         return unicode.__hash__(self)
 
+    def hash_w(self):
+        return hash(self)
+
+    def eq_w(self, other):
+        return self == other
+
+    def is_ascii(self):
+        return True
+
+    def unwrapped(self):
+        return True
 
 # the minimal 'space' needed to use a W_DictMultiObject
 class FakeSpace:
@@ -1273,14 +1303,16 @@ class FakeSpace:
 
     def text_w(self, u):
         assert isinstance(u, unicode)
-        return u.encode('utf-8')
+        return FakeUnicode(u).encode('utf8')
 
     def bytes_w(self, string):
         assert isinstance(string, str)
         return string
 
-    def unicode_w(self, u):
-        assert isinstance(u, unicode)
+    def utf8_w(self, u):
+        if isinstance(u, unicode):
+            u = u.encode('utf8')
+        assert isinstance(u, str)
         return u
 
     def int_w(self, integer, allow_conversion=True):
@@ -1289,16 +1321,17 @@ class FakeSpace:
 
     def wrap(self, obj):
         if isinstance(obj, str):
-            return obj.decode('ascii')
+            return FakeUnicode(obj.decode('ascii'))
         return obj
 
-    def newunicode(self, u):
-        assert isinstance(u, unicode)
-        return u
-
     def newtext(self, string):
-        assert isinstance(string, str)
-        return string.decode('utf-8')
+        if isinstance(string, str):
+            return FakeUnicode(string.decode('utf-8'))
+        assert isinstance(string, unicode)
+        return FakeUnicode(string)
+
+    def newutf8(self, obj, lgt):
+        return obj
 
     def newbytes(self, obj):
         return obj
@@ -1550,6 +1583,13 @@ class TestUnicodeDictImplementation(BaseTestRDictImplementation):
     def test_view_as_kwargs(self):
         self.fill_impl()
         assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
+
+    def test_setitem_str(self):
+        self.impl.setitem_str(self.fakespace.text_w(self.string), 1000)
+        assert self.impl.length() == 1
+        assert self.impl.getitem(self.string) == 1000
+        assert self.impl.getitem_str(str(self.string)) == 1000
+        self.check_not_devolved()
 
     def test_setitem_str(self):
         self.impl.setitem_str(self.fakespace.text_w(self.string), 1000)

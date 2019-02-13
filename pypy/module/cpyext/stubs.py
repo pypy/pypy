@@ -1556,13 +1556,6 @@ def PyUnicode_DecodeMBCSStateful(space, s, size, errors, consumed):
     in consumed."""
     raise NotImplementedError
 
-@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.CCHARP], PyObject)
-def PyUnicode_EncodeMBCS(space, s, size, errors):
-    """Encode the Py_UNICODE buffer of the given size using MBCS and return
-    a Python bytes object.  Return NULL if an exception was raised by the
-    codec."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsMBCSString(space, unicode):
     """Encode a Unicode object using MBCS and return the result as Python bytes

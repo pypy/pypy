@@ -122,10 +122,10 @@ but it needn't be locked by the same thread that unlocks it."""
     def descr__repr__(self, space):
         classname = space.getfulltypename(self)
         if self._is_locked():
-            locked = u"locked"
+            locked = "locked"
         else:
-            locked = u"unlocked"
-        return self.getrepr(space, u'%s %s object' % (locked, classname))
+            locked = "unlocked"
+        return self.getrepr(space, '%s %s object' % (locked, classname))
 
 Lock.typedef = TypeDef(
     "_thread.lock",
@@ -190,10 +190,10 @@ class W_RLock(W_Root):
     def descr__repr__(self, space):
         classname = space.getfulltypename(self)
         if self.rlock_count == 0:
-            locked = u"unlocked"
+            locked = "unlocked"
         else:
-            locked = u"locked"
-        return self.getrepr(space, u'%s %s object owner=%d count=%d' % (
+            locked = "locked"
+        return self.getrepr(space, '%s %s object owner=%d count=%d' % (
             locked, classname, self.rlock_owner, self.rlock_count))
 
     @unwrap_spec(blocking=int, timeout=float)

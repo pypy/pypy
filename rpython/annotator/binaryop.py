@@ -727,6 +727,10 @@ def setitem_SomeInstance(annotator, v_ins, v_idx, v_value):
     return [get_setitem,
             op.simple_call(get_setitem.result, v_idx, v_value)]
 
+@op.contains.register_transform(SomeInstance)
+def contains_SomeInstance(annotator, v_ins, v_idx):
+    get_contains = op.getattr(v_ins, const('__contains__'))
+    return [get_contains, op.simple_call(get_contains.result, v_idx)]
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
