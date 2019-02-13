@@ -960,7 +960,7 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, lgt, u_len = unicodehelper.str_decode_unicode_escape(
+    result, lgt, u_len, first_escape_error_char = unicodehelper.str_decode_unicode_escape(
         string, errors,
         final, state.decode_error_handler,
         unicode_name_handler)

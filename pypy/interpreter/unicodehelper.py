@@ -136,11 +136,12 @@ def decode_unicode_escape(space, string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
-    return str_decode_unicode_escape(
+    s, blen, ulen, first_escape_error_char = str_decode_unicode_escape(
         string, "strict",
         final=True,
         errorhandler=state.decode_error_handler,
         ud_handler=unicodedata_handler)
+    return s, blen, ulen
 
 def decode_raw_unicode_escape(space, string):
     return str_decode_raw_unicode_escape(
@@ -501,10 +502,11 @@ def hexescape(builder, s, pos, digits,
 def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
     size = len(s)
     if size == 0:
-        return '', 0, 0
+        return '', 0, 0, None
 
     builder = rutf8.Utf8StringBuilder(size)
     pos = 0
+    first_escape_error_char = None
     while pos < size:
         ch = s[pos]
 
@@ -619,8 +621,9 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
         else:
             builder.append_char('\\')
             builder.append_code(ord(ch))
+            first_escape_error_char = ch
 
-    return builder.build(), builder.getlength(), pos
+    return builder.build(), builder.getlength(), pos, first_escape_error_char
 
 def wcharpsize2utf8(space, wcharp, size):
     """Safe version of rffi.wcharpsize2utf8.
