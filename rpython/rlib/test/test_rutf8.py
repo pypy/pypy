@@ -130,7 +130,7 @@ def test_codepoint_position_at_index(u):
         assert (rutf8.codepoint_position_at_index(u.encode('utf8'), index, i) ==
                 len(u[:i].encode('utf8')))
 
-@given(strategies.text(average_size=140))
+@given(strategies.text())
 @example(u'x' * 64 * 5)
 @example(u'x' * (64 * 5 - 1))
 def test_codepoint_index_at_byte_position(u):
