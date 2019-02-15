@@ -19,7 +19,7 @@ import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
 from rpython.rlib.objectmodel import always_inline, dont_inline, try_inline
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import jit, types
+from rpython.rlib import jit, types, rarithmetic
 from rpython.rlib.signature import signature, finishsigs
 from rpython.rlib.types import char, none
 from rpython.rlib.rarithmetic import r_uint
@@ -117,6 +117,12 @@ def _nonascii_unichr_as_utf8_append_nosurrogates(builder, code):
 #        chinese wikipedia, they're anywhere between 10% and 30% slower.
 #        In extreme cases (small, only chinese text), they're 40% slower
 
+#        The following was found by hand to be more optimal than both,
+#        on x86-64...
+_is_64bit = sys.maxint > 2**32
+_constant_ncp = rarithmetic.r_uint64(0xffff0000ffffffff)
+
+@always_inline
 def next_codepoint_pos(code, pos):
     """Gives the position of the next codepoint after pos.
     Assumes valid utf8.  'pos' must be before the end of the string.
@@ -125,6 +131,11 @@ def next_codepoint_pos(code, pos):
     chr1 = ord(code[pos])
     if chr1 <= 0x7F:
         return pos + 1
+    if _is_64bit and not jit.we_are_jitted():
+        # optimized for Intel x86-64 by hand
+        return pos + 1 + (
+            ((chr1 > 0xDF) << 1) +
+            rarithmetic.intmask((_constant_ncp >> (chr1 & 0x3F)) & 1))
     if chr1 <= 0xDF:
         return pos + 2
     if chr1 <= 0xEF:
@@ -162,7 +173,6 @@ def codepoint_at_pos(code, pos):
     ordch1 = ord(code[pos])
     if ordch1 <= 0x7F or pos +1 >= lgt:
         return ordch1
-
     ordch2 = ord(code[pos+1])
     if ordch1 <= 0xDF or pos +2 >= lgt:
         # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
@@ -518,7 +528,7 @@ def create_utf8_index_storage(utf8, utf8len):
         break
     return storage
 
-@jit.dont_look_inside
+@jit.elidable
 def codepoint_position_at_index(utf8, storage, index):
     """ Return byte index of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE.  The index must be smaller than
@@ -546,7 +556,7 @@ def _pos_at_index(utf8, index):
         pos = next_codepoint_pos(utf8, pos)
     return pos
 
-@jit.dont_look_inside
+@jit.elidable
 def codepoint_at_index(utf8, storage, index):
     """ Return codepoint of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE
@@ -564,7 +574,7 @@ def codepoint_at_index(utf8, storage, index):
         bytepos = next_codepoint_pos(utf8, bytepos)
     return codepoint_at_pos(utf8, bytepos)
 
-@jit.dont_look_inside
+@jit.elidable
 def codepoint_index_at_byte_position(utf8, storage, bytepos):
     """ Return the character index for which
     codepoint_position_at_index(index) == bytepos.
