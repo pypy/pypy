@@ -151,7 +151,10 @@ class AbstractMatchContext(object):
     # The following methods are provided to be overriden in
     # Utf8MatchContext.  The non-utf8 implementation is provided
     # by the FixedMatchContext abstract subclass, in order to use
-    # the same @not_rpython safety trick as above.
+    # the same @not_rpython safety trick as above.  If you get a
+    # "not_rpython" error during translation, either consider
+    # calling the methods xxx_indirect() instead of xxx(), or if
+    # applicable add the @specializectx decorator.
     ZERO = 0
     @not_rpython
     def next(self, position):
@@ -460,8 +463,7 @@ class MinRepeatOneMatchResult(MatchResult):
         ptr = self.start_ptr
         if not self.next_char_ok(ctx, pattern, ptr, self.ppos3):
             return
-        assert not isinstance(ctx, AbstractMatchContext)
-        self.start_ptr = ctx.next(ptr)
+        self.start_ptr = ctx.next_indirect(ptr)
         return self.find_first_result(ctx, pattern)
 
     def next_char_ok(self, ctx, pattern, ptr, ppos):
