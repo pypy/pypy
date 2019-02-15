@@ -130,7 +130,7 @@ def test_codepoint_position_at_index(u):
         assert (rutf8.codepoint_position_at_index(u.encode('utf8'), index, i) ==
                 len(u[:i].encode('utf8')))
 
-@given(strategies.text(average_size=140))
+@given(strategies.text())
 @example(u'x' * 64 * 5)
 @example(u'x' * (64 * 5 - 1))
 def test_codepoint_index_at_byte_position(u):
@@ -152,7 +152,7 @@ def test_repr(u):
 @example([u'\ud800', u'\udc00'])
 def test_surrogate_in_utf8(unichars):
     uni = ''.join([u.encode('utf8') for u in unichars])
-    result = rutf8.surrogate_in_utf8(uni) < 0
+    result = rutf8.surrogate_in_utf8(uni) >= 0
     expected = any(uch for uch in unichars if u'\ud800' <= uch <= u'\udfff')
     assert result == expected
 
