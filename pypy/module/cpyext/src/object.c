@@ -62,9 +62,17 @@ _PyPy_pyobj_as_gc(GCHdr_PyObject *obj)
 }
 
 Py_ssize_t
-_PyPy_finalizer_type(PyGC_Head *g)
+_PyPy_finalizer_type(PyGC_Head *gc)
 {
-    return 0;
+    PyObject *op = FROM_GC(gc);
+    if (!_PyGCHead_FINALIZED(gc) &&
+        PyType_HasFeature(Py_TYPE(op), Py_TPFLAGS_HAVE_FINALIZE) &&
+        Py_TYPE(op)->tp_finalize != NULL) {
+        return 1;
+    } else {
+        return 0;
+    }
+    // TODO: legacy finalizer (tp_del)
 }
 
 void
@@ -74,6 +82,23 @@ _Py_Dealloc(PyObject *obj)
     /* this is the same as rawrefcount.mark_deallocating() */
     obj->ob_pypy_link = _pypy_rawrefcount_w_marker_deallocating;
     pto->tp_dealloc(obj);
+}
+
+void
+_Py_Finalize(PyObject *op)
+{
+    PyGC_Head *gc = _Py_AS_GC(op);
+    destructor finalize;
+
+    if (!_PyGCHead_FINALIZED(gc) &&
+                PyType_HasFeature(Py_TYPE(op), Py_TPFLAGS_HAVE_FINALIZE) &&
+                (finalize = Py_TYPE(op)->tp_finalize) != NULL) {
+            _PyGCHead_SET_FINALIZED(gc, 0);
+            Py_INCREF(op);
+            finalize(op);
+            assert(!PyErr_Occurred());
+            Py_DECREF(op);
+    }
 }
 
 void

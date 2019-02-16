@@ -502,6 +502,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.rawrefcount_next_dead_ptr = getfn(
                 GCClass.rawrefcount_next_dead, [s_gc], SomeAddress(),
                 inline = True)
+            self.rawrefcount_next_cyclic_isolate_ptr = getfn(
+                GCClass.rawrefcount_next_cyclic_isolate, [s_gc], SomeAddress(),
+                inline = True)
             self.rawrefcount_cyclic_garbage_head_ptr = getfn(
                 GCClass.rawrefcount_cyclic_garbage_head, [s_gc], SomeAddress(),
                 inline = True)
@@ -1377,6 +1380,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   [self.rawrefcount_next_dead_ptr, self.c_const_gc],
                   resultvar=hop.spaceop.result)
 
+    def gct_gc_rawrefcount_next_cyclic_isolate(self, hop):
+        assert hop.spaceop.result.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_next_cyclic_isolate_ptr, self.c_const_gc],
+                  resultvar=hop.spaceop.result)
+
     def gct_gc_rawrefcount_cyclic_garbage_head(self, hop):
         assert hop.spaceop.result.concretetype == llmemory.Address
         hop.genop("direct_call",
@@ -1385,7 +1394,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gct_gc_rawrefcount_cyclic_garbage_remove(self, hop):
         hop.genop("direct_call",
-                  [self.rawrefcount_cyclic_garbage_remove_ptr, self.c_const_gc])
+                  [self.rawrefcount_cyclic_garbage_remove_ptr,
+                   self.c_const_gc])
 
     def _set_into_gc_array_part(self, op):
         if op.opname == 'setarrayitem':

@@ -1,7 +1,7 @@
 digraph G {
     "a" [type=P, alive=y];
     "b" [type=B, alive=y];
-    "c" [type=C, alive=y, finalizer=modern, resurrect=d];
+    "c" [type=C, alive=y, finalizer=modern, resurrect="d"];
     "d" [type=C, alive=y];
     "e" [type=B, alive=y];
     "f" [type=P, alive=y];

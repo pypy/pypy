@@ -1190,7 +1190,10 @@ def attach_c_functions(space, eci, prefix):
     state.C._PyPy_finalizer_type = rffi.llexternal(
         '_PyPy_finalizer_type', [PyGC_HeadPtr], lltype.Signed,
         compilation_info=eci, _nowrapper=True)
-
+    state.C._Py_Finalize = rffi.llexternal('_Py_Finalize',
+                                           [PyObject], lltype.Void,
+                                           compilation_info=eci,
+                                           _nowrapper=True)
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)

@@ -1046,6 +1046,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         Test if a simple collect is working
         TODO: make more precise
         """
+        skip('does not work right now, because of how the test is set up, '
+             'see comment below')
 
         if self.runappdirect:
             skip('cannot import module with undefined functions')

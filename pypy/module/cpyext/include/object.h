@@ -51,6 +51,7 @@ PyAPI_FUNC(void) Py_IncRef(PyObject *);
 PyAPI_FUNC(void) Py_DecRef(PyObject *);
 extern Py_ssize_t _pypy_rawrefcount_w_marker_deallocating;
 PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
+PyAPI_FUNC(void) _Py_Finalize(PyObject *);
 
 #define Py_CLEAR(op)                        \
         do {                            	\
@@ -244,6 +245,8 @@ manually remove this flag though!
 
 #define Py_TPFLAGS_DEFAULT Py_TPFLAGS_DEFAULT_EXTERNAL
 
+#define Py_TPFLAGS_HAVE_FINALIZE (1UL << 0)
+
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
@@ -317,7 +320,7 @@ extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
 
 #define _PyGCHead_FINALIZED(g) (((g)->gc_refs & _PyGC_REFS_MASK_FINALIZED) != 0)
 #define _PyGCHead_SET_FINALIZED(g, v) do {  \
-    (g)->gc_refs = ((g)->gc_refs & ~_PyGC_REFS_MASK_FINALIZED) \
+   (g)->gc_refs = ((g)->gc_refs & ~_PyGC_REFS_MASK_FINALIZED) \
         | (v != 0); \
     } while (0)
 

@@ -9,6 +9,9 @@ PYOBJ_HDR_PTR = IncrementalMiniMarkGC.PYOBJ_HDR_PTR
 RAWREFCOUNT_VISIT = IncrementalMiniMarkGC.RAWREFCOUNT_VISIT
 PYOBJ_GC_HDR = IncrementalMiniMarkGC.PYOBJ_GC_HDR
 PYOBJ_GC_HDR_PTR = IncrementalMiniMarkGC.PYOBJ_GC_HDR_PTR
+RAWREFCOUNT_FINALIZER_MODERN = \
+    IncrementalMiniMarkGC.RAWREFCOUNT_FINALIZER_MODERN
+RAWREFCOUNT_FINALIZER_NONE = IncrementalMiniMarkGC.RAWREFCOUNT_FINALIZER_NONE
 
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('S',
@@ -27,6 +30,8 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gcobjs = []
         self.pyobjs = []
         self.pyobj_refs = []
+        self.pyobj_finalizer = {}
+        self.pyobj_resurrect = {}
 
         def rawrefcount_tp_traverse(obj, callback, args):
             refs = self.pyobj_refs[self.pyobjs.index(obj)]
@@ -40,7 +45,14 @@ class TestRawRefCount(BaseDirectGCTest):
             return self.gcobjs[self.pyobjs.index(pyobj)]
 
         def rawrefcount_finalizer_type(gc):
-            return 0
+            pyobj = self.pyobjs[self.gcobjs.index(gc)]
+            if pyobj in self.pyobjs and \
+                    self.pyobj_finalizer.has_key(self.pyobjs.index(pyobj)):
+                # TODO: improve test, so that NONE is returned, if finalizer
+                #       has already been called
+                return self.pyobj_finalizer[self.pyobjs.index(pyobj)]
+            else:
+                return RAWREFCOUNT_FINALIZER_NONE
 
         self.pyobj_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
                                         immortal=True)
@@ -68,6 +80,10 @@ class TestRawRefCount(BaseDirectGCTest):
         refs = self.pyobj_refs[self.pyobjs.index(pyobj_from)]
         refs.append(pyobj_to)
         pyobj_to.c_ob_refcnt += 1
+
+    def _rawrefcount_add_resurrect(self, pyobj_source, pyobj_target):
+        refs = self.pyobj_resurrect[self.pyobjs.index(pyobj_source)] = []
+        refs.append(pyobj_target)
 
     def _rawrefcount_pypyobj(self, intval, rooted=False, create_old=True):
         p1 = self.malloc(S)
@@ -439,6 +455,7 @@ class TestRawRefCount(BaseDirectGCTest):
         nodes = {}
 
         # create objects from graph (always create old to prevent moving)
+        finalizers = False
         i = 0
         for n in g.get_nodes():
             name = n.get_name()
@@ -448,6 +465,8 @@ class TestRawRefCount(BaseDirectGCTest):
             rooted = attr['rooted'] == "y" if 'rooted' in attr else False
             ext_refcnt = int(attr['ext_refcnt']) if 'ext_refcnt' in attr else 0
             finalizer = attr['finalizer'] if 'finalizer' in attr else None
+            if finalizer <> None:
+                finalizers = True
             resurrect = attr['resurrect'] if 'resurrect' in attr else None
             info = NodeInfo(type, alive, ext_refcnt, finalizer, resurrect)
             if type == "C":
@@ -484,6 +503,19 @@ class TestRawRefCount(BaseDirectGCTest):
                 else:
                     assert False  # only 2 refs supported from pypy obj
 
+        # add finalizers
+        for name in nodes:
+            n = nodes[name]
+            if hasattr(n, "r"):
+                index = self.pyobjs.index(n.r)
+                resurrect = n.info.resurrect
+                if n.info.finalizer == "modern" and resurrect is not None:
+                    self.pyobj_finalizer[index] = RAWREFCOUNT_FINALIZER_MODERN
+                    self._rawrefcount_add_resurrect(n.r, nodes[resurrect].r)
+                    nodes[resurrect].info.ext_refcnt += 1
+                else:
+                    self.pyobj_finalizer[index] = RAWREFCOUNT_FINALIZER_NONE
+
         # quick self check, if traverse works properly
         dests_by_source = {}
         for e in g.get_edges():
@@ -508,6 +540,13 @@ class TestRawRefCount(BaseDirectGCTest):
             def decref(pyobj, ignore):
                 pyobj.c_ob_refcnt -= 1
                 if pyobj.c_ob_refcnt == 0:
+                    if self.pyobj_resurrect.has_key(self.pyobjs.index(pyobj)):
+                        resurrect = self.pyobj_resurrect[
+                            self.pyobjs.index(pyobj)]
+                        for r in resurrect:
+                            r.c_ob_refcnt += 1
+                            resurrect.remove(r)
+                if pyobj.c_ob_refcnt == 0:
                     gchdr = self.gc.rrc_pyobj_as_gc(pyobj)
                     next = gchdr.c_gc_next
                     next.c_gc_prev = gchdr.c_gc_prev
@@ -521,12 +560,20 @@ class TestRawRefCount(BaseDirectGCTest):
             while next_dead <> llmemory.NULL:
                 pyobj = llmemory.cast_adr_to_ptr(next_dead,
                                                  self.gc.PYOBJ_HDR_PTR)
-                print "nextdead:", pyobj, "refcnt:", pyobj.c_ob_refcnt
                 decref(pyobj, None)
                 next_dead = self.gc.rawrefcount_next_dead()
 
-            # TODO: call finalizers here and during the next collection it
-            #       will be checked if the CI is really trash
+            next = self.gc.rawrefcount_next_cyclic_isolate()
+            while next <> llmemory.NULL:
+                pyobj = llmemory.cast_adr_to_ptr(next,
+                                                 self.gc.PYOBJ_HDR_PTR)
+                if self.pyobj_resurrect.has_key(self.pyobjs.index(pyobj)):
+                    resurrect = self.pyobj_resurrect[self.pyobjs.index(pyobj)]
+                    for r in resurrect:
+                        r.c_ob_refcnt += 1
+                        # TODO: improve test, use flag in gc_refs instead
+                        resurrect.remove(r)
+                next = self.gc.rawrefcount_next_cyclic_isolate()
 
             next_dead = self.gc.rawrefcount_cyclic_garbage_head()
             while next_dead <> llmemory.NULL:
@@ -550,20 +597,20 @@ class TestRawRefCount(BaseDirectGCTest):
                     self.gc.rawrefcount_cyclic_garbage_remove()
                     next_dead = self.gc.rawrefcount_cyclic_garbage_head()
 
-        # do a collection to find cyclic isolates
+        # do a collection to find cyclic isolates and clean them, if there are
+        # no finalizers
         self.gc.collect()
-
         self.gc.rrc_invoke_callback()
         if self.trigger <> []:
             cleanup()
 
-        # now do another collection, to clean up cyclic trash
-        # TODO: maybe optimize, so that we don't need another major collection
-        self.gc.collect()
-
-        self.gc.rrc_invoke_callback()
-        if self.trigger <> []:
-            cleanup()
+        if finalizers:
+            # now do another collection, to clean up cyclic trash, if there
+            # were finalizers involved
+            self.gc.collect()
+            self.gc.rrc_invoke_callback()
+            if self.trigger <> []:
+                cleanup()
 
         # check livelihood of objects, according to graph
         for name in nodes:

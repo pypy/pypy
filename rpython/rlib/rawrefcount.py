@@ -142,6 +142,10 @@ def cyclic_garbage_remove():
     old_pyobj_list.remove(old_pyobj_list[0])
 
 @not_rpython
+def next_cyclic_isolate(OB_PTR_TYPE):
+    return lltype.nullptr(OB_PTR_TYPE.TO)
+
+@not_rpython
 def _collect(track_allocation=True):
     """for tests only.  Emulates a GC collection.
     Will invoke dealloc_trigger_callback() once if there are objects
@@ -363,7 +367,7 @@ class Entry(ExtRegistryEntry):
         return _spec_p(hop, v_p)
 
 class Entry(ExtRegistryEntry):
-    _about_ = (next_dead, cyclic_garbage_head)
+    _about_ = (next_dead, cyclic_garbage_head, next_cyclic_isolate)
 
     def compute_result_annotation(self, s_OB_PTR_TYPE):
         from rpython.rtyper.llannotation import lltype_to_annotation
@@ -375,6 +379,8 @@ class Entry(ExtRegistryEntry):
             name = 'gc_rawrefcount_next_dead'
         elif self.instance is cyclic_garbage_head:
             name = 'gc_rawrefcount_cyclic_garbage_head'
+        elif self.instance is next_cyclic_isolate:
+            name = 'gc_rawrefcount_next_cyclic_isolate'
         hop.exception_cannot_occur()
         v_ob = hop.genop(name, [], resulttype = llmemory.Address)
         return _spec_ob(hop, v_ob)

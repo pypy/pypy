@@ -406,6 +406,13 @@ def decref(space, pyobj):
         #    if w_obj is not None:
         #        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
 
+@specialize.ll()
+def finalize(space, pyobj):
+    from pypy.module.cpyext.api import generic_cpy_call
+    assert is_pyobj(pyobj)
+    pyobj = rffi.cast(PyObject, pyobj)
+    state = space.fromcache(State)
+    generic_cpy_call(space, state.C._Py_Finalize, pyobj)
 
 @init_function
 def write_w_marker_deallocating(space):

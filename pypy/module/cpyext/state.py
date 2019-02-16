@@ -61,7 +61,7 @@ class State:
         if not self.space.config.translating:
             def dealloc_trigger():
                 from pypy.module.cpyext.pyobject import PyObject, decref, \
-                    incref, cts
+                    incref, cts, finalize
                 print 'dealloc_trigger...'
                 while True:
                     ob = rawrefcount.next_dead(PyObject)
@@ -71,6 +71,11 @@ class State:
                     name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
                     print 'deallocating PyObject', ob, 'of type', name
                     decref(space, ob)
+                while True:
+                    py_obj = rawrefcount.next_cyclic_isolate(PyObject)
+                    if not py_obj:
+                        break
+                    finalize(space, py_obj)
                 while True:
                     ob = rawrefcount.cyclic_garbage_head(PyObject)
                     if not ob:
@@ -252,12 +257,18 @@ class CNamespace:
 
 
 def _rawrefcount_perform(space):
-    from pypy.module.cpyext.pyobject import PyObject, incref, decref
+    from pypy.module.cpyext.pyobject import PyObject, incref, decref, finalize
     while True:
         py_obj = rawrefcount.next_dead(PyObject)
         if not py_obj:
             break
         decref(space, py_obj)
+
+    while True:
+        py_obj = rawrefcount.next_cyclic_isolate(PyObject)
+        if not py_obj:
+            break
+        finalize(space, py_obj)
 
     while True:
         py_obj = rawrefcount.cyclic_garbage_head(PyObject)

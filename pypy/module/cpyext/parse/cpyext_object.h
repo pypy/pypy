@@ -311,6 +311,8 @@ typedef struct _typeobject {
 	/* Type attribute cache version tag. Added in version 2.6 */
 	unsigned int tp_version_tag;
 
+    destructor tp_finalize;
+
 } PyTypeObject;
 
 typedef struct _heaptypeobject {
