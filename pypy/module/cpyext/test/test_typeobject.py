@@ -528,7 +528,8 @@ class TestTypes(BaseApiTest):
 
         py_type = rffi.cast(PyTypeObjectPtr, ref)
         assert py_type.c_tp_alloc
-        assert from_ref(space, py_type.c_tp_mro).wrappeditems is w_class.mro_w
+        w_tup = from_ref(space, py_type.c_tp_mro)
+        assert space.fixedview(w_tup) == w_class.mro_w
 
         decref(space, ref)
 
