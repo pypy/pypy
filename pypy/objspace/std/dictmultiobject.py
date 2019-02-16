@@ -1219,6 +1219,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         return unwrapped
 
     def unwrap(self, wrapped):
+        assert type(wrapped) is self.space.UnicodeObjectCls
         return wrapped
 
     def is_correct_type(self, w_obj):
