@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.sequence import (
     PySequence_Fast, PySequence_Contains, PySequence_Index,
     PySequence_GetItem, PySequence_SetItem, PySequence_DelItem)
-from pypy.module.cpyext.pyobject import get_w_obj_and_decref
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref, from_ref
 from pypy.module.cpyext.state import State
 import pytest
 
@@ -22,7 +22,7 @@ class TestSequence(BaseApiTest):
         assert api.PySequence_Fast(w_l, "message") is w_l
 
         py_result = api.PySequence_Fast_GET_ITEM(w_l, 1)
-        w_result = get_w_obj_and_decref(space, py_result)
+        w_result = from_ref(space, py_result)
         assert space.int_w(w_result) == 2
         assert api.PySequence_Fast_GET_SIZE(w_l) == 4
 
