@@ -124,6 +124,14 @@ class TestInstrBuilder(object):
         cb.ADD_rr(rd.value, rn.value, rm.value)
         assert cb.hexdump() == assemble("ADD %r, %r, %r" % (rd, rn, rm))
 
+    @settings(max_examples=20)
+    @given(rn=st.sampled_from(r.registers),
+           rm=st.sampled_from(r.registers))
+    def test_CMP_rr(self, rn, rm):
+        cb = CodeBuilder()
+        cb.CMP_rr(rn.value, rm.value)
+        assert cb.hexdump() == assemble("CMP %r, %r" % (rn, rm))
+
     def test_BRK(self):
         cb = CodeBuilder()
         cb.BRK()

@@ -2,6 +2,7 @@
 from rpython.jit.metainterp.history import (AbstractFailDescr, ConstInt,
                                             INT, FLOAT, REF)
 from rpython.jit.backend.aarch64 import registers as r
+from rpython.jit.backend.arm import conditions as c # yes, arm, not aarch64
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 
 class ResOpAssembler(BaseAssembler):
@@ -24,12 +25,26 @@ class ResOpAssembler(BaseAssembler):
         else:
             self.mc.ADD_rr(res.value, l0.value, l1.value)
 
+    def emit_int_comp_op(self, op, arglocs):
+        l0, l1 = arglocs
+
+        if l1.is_imm():
+            xxx
+            self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)
+        else:
+            self.mc.CMP_rr(l0.value, l1.value)
+
+    emit_comp_op_int_le = emit_int_comp_op
+
     def emit_op_increment_debug_counter(self, op, arglocs):
         return # XXXX
         base_loc, value_loc = arglocs
         self.mc.LDR_ri(value_loc.value, base_loc.value, 0)
         self.mc.ADD_ri(value_loc.value, value_loc.value, 1)
         self.mc.STR_ri(value_loc.value, base_loc.value, 0)
+
+    def emit_op_label(self, op, arglocs):
+        pass
 
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()

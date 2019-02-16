@@ -177,6 +177,12 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_vars(list(inputargs))
         return operations
 
+    def loc(self, var):
+        if var.type == FLOAT:
+            return self.vfprm.loc(var)
+        else:
+            return self.rm.loc(var)
+
     def possibly_free_var(self, var):
         if var.type == FLOAT:
             self.vfprm.possibly_free_var(var)
@@ -245,7 +251,7 @@ class Regalloc(BaseRegalloc):
         #   we would like the boxes to be after the jump.
 
     def _compute_hint_frame_locations_from_descr(self, descr):
-        arglocs = self.assembler.target_arglocs(descr)
+        arglocs = descr._arm_arglocs
         jump_op = self.final_jump_op
         assert len(arglocs) == jump_op.numargs()
         for i in range(jump_op.numargs()):
@@ -271,23 +277,6 @@ class Regalloc(BaseRegalloc):
         self.free_temp_vars()
         return [base_loc, value_loc]
 
-    def _prepare_op_int_add(self, op, fcond):
-        XXX
-        boxes = op.getarglist()
-        a0, a1 = boxes
-        imm_a0 = check_imm_box(a0)
-        imm_a1 = check_imm_box(a1)
-        if not imm_a0 and imm_a1:
-            l0 = self.make_sure_var_in_reg(a0, boxes)
-            l1 = self.convert_to_imm(a1)
-        elif imm_a0 and not imm_a1:
-            l0 = self.convert_to_imm(a0)
-            l1 = self.make_sure_var_in_reg(a1, boxes)
-        else:
-            l0 = self.make_sure_var_in_reg(a0, boxes)
-            l1 = self.make_sure_var_in_reg(a1, boxes)
-        return [l0, l1]
-
     def prepare_op_int_add(self, op):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
@@ -298,6 +287,71 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
 
+
+    def prepare_int_cmp(self, op, res_in_cc):
+        boxes = op.getarglist()
+        arg0, arg1 = boxes
+        imm_a1 = False # XXX check_imm_box(arg1)
+
+        l0 = self.make_sure_var_in_reg(arg0, forbidden_vars=boxes)
+        if imm_a1:
+            l1 = self.convert_to_imm(arg1)
+        else:
+            l1 = self.make_sure_var_in_reg(arg1, forbidden_vars=boxes)
+
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        if not res_in_cc:
+            res = self.force_allocate_reg_or_cc(op)
+            return [l0, l1, res]
+        return [l0, l1]
+
+    prepare_comp_op_int_lt = prepare_int_cmp
+    prepare_comp_op_int_le = prepare_int_cmp
+
+    def prepare_op_int_le(self, op):
+        return self.prepare_int_cmp(op, False)
+
+    def prepare_op_label(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        inputargs = op.getarglist()
+        arglocs = [None] * len(inputargs)
+        #
+        # we use force_spill() on the boxes that are not going to be really
+        # used any more in the loop, but that are kept alive anyway
+        # by being in a next LABEL's or a JUMP's argument or fail_args
+        # of some guard
+        position = self.rm.position
+        for arg in inputargs:
+            assert not isinstance(arg, Const)
+            if self.last_real_usage.get(arg, -1) <= position:
+                self.force_spill_var(arg)
+
+        #
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert not isinstance(arg, Const)
+            loc = self.loc(arg)
+            arglocs[i] = loc
+            if loc.is_core_reg() or loc.is_vfp_reg():
+                self.frame_manager.mark_as_free(arg)
+        #
+        descr._arm_arglocs = arglocs
+        descr._ll_loop_code = self.assembler.mc.currpos()
+        descr._arm_clt = self.assembler.current_clt
+        self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
+        #
+        # if the LABEL's descr is precisely the target of the JUMP at the
+        # end of the same loop, i.e. if what we are compiling is a single
+        # loop that ends up jumping to this LABEL, then we can now provide
+        # the hints about the expected position of the spilled variables.
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
+        return []
+
     def prepare_op_finish(self, op):
         # the frame is in fp, but we have to point where in the frame is
         # the potential argument to FINISH
@@ -307,6 +361,10 @@ class Regalloc(BaseRegalloc):
         else:
             locs = []
         return locs
+
+    def prepare_guard_op_guard_true(self, op, prevop):
+        arglocs = self.assembler.dispatch_comparison(prevop)
+        xxx
 
     prepare_op_nursery_ptr_increment = prepare_op_int_add
 
@@ -330,8 +388,17 @@ def notimplemented(self, op):
     print "[ARM64/regalloc] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
+def notimplemented_guard_op(self, op, prevop):
+    print "[ARM64/regalloc] %s not implemented" % op.getopname()
+    raise NotImplementedError(op)    
+
+def notimplemented_comp_op(self, op, res_in_cc):
+    print "[ARM64/regalloc] %s not implemented" % op.getopname()
+    raise NotImplementedError(op)    
 
 operations = [notimplemented] * (rop._LAST + 1)
+guard_operations = [notimplemented_guard_op] * (rop._LAST + 1)
+comp_operations = [notimplemented_comp_op] * (rop._LAST + 1)
 
 
 for key, value in rop.__dict__.items():
@@ -342,3 +409,12 @@ for key, value in rop.__dict__.items():
     if hasattr(Regalloc, methname):
         func = getattr(Regalloc, methname).im_func
         operations[value] = func
+    methname = 'prepare_guard_op_%s' % key
+    if hasattr(Regalloc, methname):
+        func = getattr(Regalloc, methname).im_func
+        guard_operations[value] = func
+    methname = 'prepare_comp_op_%s' % key
+    if hasattr(Regalloc, methname):
+        func = getattr(Regalloc, methname).im_func
+        comp_operations[value] = func
+    

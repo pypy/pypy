@@ -5,8 +5,8 @@ from rpython.jit.backend.aarch64.codebuilder import InstrBuilder
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
 from rpython.jit.backend.aarch64.regalloc import (Regalloc,
+    operations as regalloc_operations, guard_operations, comp_operations)
 #    CoreRegisterManager, check_imm_arg, VFPRegisterManager,
-    operations as regalloc_operations)
 #from rpython.jit.backend.arm import callbuilder
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.llsupport import jitframe
@@ -276,6 +276,12 @@ class AssemblerARM64(ResOpAssembler):
                 regalloc.possibly_free_vars_for_op(op)
             elif not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
                 regalloc.prepare_force_spill(op)
+            elif i < len(operations) - 1 and regalloc.next_op_can_accept_cc(operations, i):
+                arglocs = guard_operations[operations[i + 1].getopnum()](
+                    regalloc, operations[i + 1], op)
+                if arglocs is not None:
+                    xxx
+                regalloc.next_instruction() # advance one more
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op)
                 if arglocs is not None:
@@ -291,6 +297,13 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.BRK()
         self.mc.mark_op(None)  # end of the loop
         regalloc.operations = None
+
+    def dispatch_comparison(self, op):
+        opnum = op.getopnum()
+        arglocs = comp_operations[opnum](self._regalloc, op, True)
+        assert arglocs is not None
+        asm_comp_operations[opnum](self, op, arglocs)
+        return arglocs
 
     # regalloc support
     def load(self, loc, value):
@@ -415,12 +428,16 @@ def not_implemented(msg):
     raise NotImplementedError(msg)
 
 
-def notimplemented_op(self, op, arglocs, regalloc):
+def notimplemented_op(self, op, arglocs):
     print "[ARM/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
+def notimplemented_comp_op(self, op, arglocs):
+    print "[ARM/asm] %s not implemented" % op.getopname()
+    raise NotImplementedError(op)
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
+asm_comp_operations = [notimplemented_comp_op] * (rop._LAST + 1)
 asm_extra_operations = {}
 
 for name, value in ResOpAssembler.__dict__.iteritems():
@@ -432,3 +449,7 @@ for name, value in ResOpAssembler.__dict__.iteritems():
         opname = name[len('emit_op_'):]
         num = getattr(rop, opname.upper())
         asm_operations[num] = value
+    elif name.startswith('emit_comp_op_'):
+        opname = name[len('emit_comp_op_'):]
+        num = getattr(rop, opname.upper())
+        asm_comp_operations[num] = value

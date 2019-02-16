@@ -104,6 +104,10 @@ class AbstractAarch64Builder(object):
         base = 0b10001011000
         self.write32((base << 21) | (rm << 16) | (rn << 5) | (rd))
 
+    def CMP_rr(self, rn, rm):
+        base = 0b11101011000
+        self.write32((base << 21) | (rm << 16) | (rn << 5) | 0b11111)
+
     def BRK(self):
         self.write32(0b11010100001 << 21)
 
