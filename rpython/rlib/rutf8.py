@@ -133,9 +133,11 @@ def next_codepoint_pos(code, pos):
         return pos + 1
     if _is_64bit and not jit.we_are_jitted():
         # optimized for Intel x86-64 by hand
-        return pos + 1 + (
+        res = pos + 1 + (
             ((chr1 > 0xDF) << 1) +
             rarithmetic.intmask((_constant_ncp >> (chr1 & 0x3F)) & 1))
+        assert res >= 0
+        return res
     if chr1 <= 0xDF:
         return pos + 2
     if chr1 <= 0xEF:

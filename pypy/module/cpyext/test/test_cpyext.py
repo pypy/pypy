@@ -141,6 +141,7 @@ class LeakCheckingTest(object):
                                    '_cffi_backend',
                                    ],
                    "objspace.disable_entrypoints_in_cffi": True}
+    spaceconfig["objspace.std.withspecialisedtuple"] = True
 
     @classmethod
     def preload_builtins(cls, space):

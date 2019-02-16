@@ -45,7 +45,8 @@ def w_dict_unrolling_heuristic(w_dct):
 # for json decoder
 def create_empty_unicode_key_dict(space):
     return r_dict(unicode_eq, unicode_hash,
-                  force_non_null=True)
+                  force_non_null=True,
+                  simple_hash_eq=True)
 
 def from_unicode_key_dict(space, d):
     strategy = space.fromcache(UnicodeDictStrategy)
@@ -1176,6 +1177,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         return unwrapped
 
     def unwrap(self, wrapped):
+        assert type(wrapped) is self.space.UnicodeObjectCls
         return wrapped
 
     def is_correct_type(self, w_obj):
