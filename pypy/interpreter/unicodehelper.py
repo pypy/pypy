@@ -21,7 +21,7 @@ def decode_error_handler(space):
                                              space.newtext(msg)]))
     return raise_unicode_exception_decode
 
-def _decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
+def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
     assert startingpos >= 0
     ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
     return ''.join(ux), endingpos, 'b'
@@ -218,20 +218,38 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
     return res.build(), len(s), len(s)
 
 def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
-    try:
-        lgt = rutf8.check_utf8(s, allow_surrogates=allow_surrogates)
-    except rutf8.CheckError as e:
-        # XXX change this to non-recursive
-        pos = e.pos
-        assert pos >= 0
-        start = s[:pos]
-        upos = rutf8.codepoints_in_utf8(s, end=pos)
-        ru, lgt, rettype = errorhandler(errors, 'utf8',
-                    'surrogates not allowed', s, upos, upos + 1)
-        end = utf8_encode_utf_8(s[pos+3:], errors, errorhandler,
-                                allow_surrogates=allow_surrogates)
-        s = start + ru + end
-    return s
+    size = len(s)
+    if size == 0:
+        return ''
+    pos = 0
+    upos = 0
+    result = StringBuilder(size)
+    while pos < size:
+        try:
+            lgt = rutf8.check_utf8(s, allow_surrogates=allow_surrogates, start=pos)
+            if pos == 0:
+                # fast path
+                return s
+            for ch in s[pos:]:
+                result.append(ch)
+            break
+        except rutf8.CheckError as e:
+            for ch in s[pos:e.pos]:
+                result.append(ch)
+            upos += rutf8.codepoints_in_utf8(s, start=pos, end=e.pos)
+            pos = e.pos
+            assert pos >= 0
+            res, newindex, rettype = errorhandler(errors, 'utf8',
+                        'surrogates not allowed', s, upos, upos + 1)
+            if rettype == 'u':
+                for cp in rutf8.Utf8StringIterator(res):
+                    result.append(chr(cp))
+            else:
+                for ch in res:
+                    result.append(ch)
+            upos = newindex
+            pos = rutf8._pos_at_index(s, upos)
+    return result.build()
 
 def utf8_encode_latin_1(s, errors, errorhandler, allow_surrogates=False):
     try:
@@ -1017,7 +1035,7 @@ def decode_utf8sp(space, string):
     # Surrogate-preserving utf-8 decoding.  Assuming there is no
     # encoding error, it should always be reversible, and the reverse is
     # unused encode_utf8sp().
-    return str_decode_utf8(string, "string", True, _decode_never_raise,
+    return str_decode_utf8(string, "string", True, decode_never_raise,
                            allow_surrogates=True)
 
 # ____________________________________________________________
