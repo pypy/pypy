@@ -366,8 +366,6 @@ class StdObjSpace(ObjSpace):
         return W_SliceObject(w_start, w_end, w_step)
 
     def newseqiter(self, w_obj):
-        if type(w_obj) is W_UnicodeObject:
-            return W_FastUnicodeIterObject(w_obj)
         return W_SeqIterObject(w_obj)
 
     def newmemoryview(self, w_obj):
