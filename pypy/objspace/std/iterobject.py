@@ -116,6 +116,7 @@ class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
         end = rutf8.next_codepoint_pos(w_seq._utf8, start)
         w_res = W_UnicodeObject(w_seq._utf8[start:end], 1)
         self.byteindex = end
+        self.index += 1
         return w_res
 
 
