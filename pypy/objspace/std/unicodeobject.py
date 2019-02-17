@@ -93,6 +93,10 @@ class W_UnicodeObject(W_Root):
     def listview_utf8(self):
         return _create_list_from_unicode(self._utf8)
 
+    def descr_iter(self, space):
+        from pypy.objspace.std.iterobject import W_FastUnicodeIterObject
+        return W_FastUnicodeIterObject(self)
+
     def ord(self, space):
         if self._len() != 1:
             raise oefmt(space.w_TypeError,

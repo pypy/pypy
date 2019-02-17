@@ -100,6 +100,34 @@ class W_FastListIterObject(W_AbstractSeqIterObject):
         return w_item
 
 
+class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
+    """Sequence iterator specialized for unicode objects."""
+
+    def __init__(self, w_seq):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        W_AbstractSeqIterObject.__init__(self, w_seq)
+        assert isinstance(w_seq, W_UnicodeObject)
+        self.byteindex = 0
+
+    def descr_next(self, space):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        from rpython.rlib import rutf8
+        w_seq = self.w_seq
+        if w_seq is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        assert isinstance(w_seq, W_UnicodeObject)
+        index = self.index
+        if index == w_seq._length:
+            self.w_seq = None
+            raise OperationError(space.w_StopIteration, space.w_None)
+        start = self.byteindex
+        end = rutf8.next_codepoint_pos(w_seq._utf8, start)
+        w_res = W_UnicodeObject(w_seq._utf8[start:end], 1)
+        self.byteindex = end
+        self.index += 1
+        return w_res
+
+
 class W_FastTupleIterObject(W_AbstractSeqIterObject):
     """Sequence iterator specialized for tuples, accessing directly
     their RPython-level list of wrapped objects.

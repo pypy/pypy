@@ -26,6 +26,7 @@ from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import (
     W_AbstractIntObject, W_IntObject, setup_prebuilt, wrapint)
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject, W_SeqIterObject
+from pypy.objspace.std.iterobject import W_FastUnicodeIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.memoryobject import W_MemoryView
