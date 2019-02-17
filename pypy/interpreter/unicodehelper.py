@@ -21,7 +21,7 @@ def decode_error_handler(space):
                                              space.newtext(msg)]))
     return raise_unicode_exception_decode
 
-def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
+def _decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
     assert startingpos >= 0
     ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
     return ''.join(ux), endingpos, 'b'
@@ -1013,56 +1013,14 @@ def utf8_encode_utf_7(s, errors, errorhandler, allow_surrogates=False):
 
     return result.build()
 
-@specialize.memo()
-def _encode_unicode_error_handler(space):
-    # Fast version of the "strict" errors handler.
     # used only in (unused) encode_utf8
-    from rpython.rlib import runicode
-    def raise_unicode_exception_encode(errors, encoding, msg, uni,
-                                       startingpos, endingpos):
-        assert isinstance(uni, unicode)
-        u_len = len(uni)
-        utf8 = runicode.unicode_encode_utf8sp(uni, u_len)
-        raise OperationError(space.w_UnicodeEncodeError,
-                             space.newtuple([space.newtext(encoding),
-                                             space.newtext(utf8, u_len),
-                                             space.newint(startingpos),
-                                             space.newint(endingpos),
-                                             space.newtext(msg)]))
-        return u'', None, 0
-    return raise_unicode_exception_encode
-
-
-def encode_utf8(space, uni, allow_surrogates=False):
-    # Note that Python3 tends to forbid *all* surrogates in utf-8.
-    # If allow_surrogates=True, then revert to the Python 2 behavior
-    # which never raises UnicodeEncodeError.  Surrogate pairs are then
-    # allowed, either paired or lone.  A paired surrogate is considered
-    # like the non-BMP character it stands for.  See also *_utf8sp().
     xxx
-    from rpython.rlib import runicode
-    assert isinstance(uni, unicode)
-    return runicode.unicode_encode_utf_8(
-        uni, len(uni), "strict",
-        errorhandler=_encode_unicode_error_handler(space),
-        allow_surrogates=allow_surrogates)
-
-def encode_utf8sp(space, uni, allow_surrogates=True):
-    xxx
-    # Surrogate-preserving utf-8 encoding.  Any surrogate character
-    # turns into its 3-bytes encoding, whether it is paired or not.
-    # This should always be reversible, and the reverse is
-    # decode_utf8sp().
-    from rpython.rlib import runicode
-    return runicode.unicode_encode_utf8sp(uni, len(uni))
-
 def decode_utf8sp(space, string):
     # Surrogate-preserving utf-8 decoding.  Assuming there is no
     # encoding error, it should always be reversible, and the reverse is
     # unused encode_utf8sp().
-    return str_decode_utf8(string, "string", True, decode_never_raise,
+    return str_decode_utf8(string, "string", True, _decode_never_raise,
                            allow_surrogates=True)
-
 
 # ____________________________________________________________
 # utf-16
