@@ -1013,8 +1013,6 @@ def utf8_encode_utf_7(s, errors, errorhandler, allow_surrogates=False):
 
     return result.build()
 
-    # used only in (unused) encode_utf8
-    xxx
 def decode_utf8sp(space, string):
     # Surrogate-preserving utf-8 decoding.  Assuming there is no
     # encoding error, it should always be reversible, and the reverse is
