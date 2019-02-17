@@ -21,7 +21,7 @@ def decode_error_handler(space):
                                              space.newtext(msg)]))
     return raise_unicode_exception_decode
 
-def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
+def _decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
     assert startingpos >= 0
     ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
     return ''.join(ux), endingpos, 'b'
@@ -917,6 +917,13 @@ def utf8_encode_utf_7(s, errors, errorhandler):
         result.append('-')
 
     return result.build()
+
+def decode_utf8sp(space, string):
+    # Surrogate-preserving utf-8 decoding.  Assuming there is no
+    # encoding error, it should always be reversible, and the reverse is
+    # encode_utf8sp().
+    return str_decode_utf8(string, "string", True, _decode_never_raise,
+                           allow_surrogates=True)
 
 # ____________________________________________________________
 # utf-16
