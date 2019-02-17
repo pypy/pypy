@@ -38,6 +38,18 @@ class TestUnicodeObject:
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
 
+    def test_fast_iter(self):
+        space = self.space
+        w_uni = space.newutf8(u"aä".encode("utf-8"), 2)
+        old_index_storage = w_uni._index_storage
+        w_iter = space.iter(w_uni)
+        w_char1 = w_iter.descr_next(space)
+        w_char2 = w_iter.descr_next(space)
+        assert w_uni._index_storage is old_index_storage
+        assert space.eq_w(w_char1, w_uni._getitem_result(space, 0))
+        assert space.eq_w(w_char2, w_uni._getitem_result(space, 1))
+
+
     if HAS_HYPOTHESIS:
         @given(strategies.text(), strategies.integers(min_value=0, max_value=10),
                                   strategies.integers(min_value=-1, max_value=10))
