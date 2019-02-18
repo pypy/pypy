@@ -41,6 +41,15 @@ class W_UnicodeObject(W_Root):
         self._utf8 = utf8str
         self._length = length
         self._index_storage = rutf8.null_storage()
+        if not we_are_translated():
+            try:
+                # best effort, too expensive to handle surrogates
+                ulength = len(utf8str.decode('utf8'))
+            except:
+                ulength = length 
+            assert ulength == length
+
+
 
     @staticmethod
     def from_utf8builder(builder):
