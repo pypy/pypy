@@ -507,11 +507,13 @@ def get_operrcls2(valuefmt):
                         result = str(value)
                         lgt += len(result)
                     elif fmt == 'R':
-                        result = space.utf8_w(space.repr(value))
-                        lgt += len(result)
+                        s = space.repr(value)
+                        result = space.utf8_w(s)
+                        lgt += space.len_w(s)
                     elif fmt == 'S':
-                        result = space.utf8_w(space.str(value))
-                        lgt += len(result)
+                        s = space.str(value)
+                        result = space.utf8_w(s)
+                        lgt += space.len_w(s)
                     elif fmt == 'T':
                         result = space.type(value).name
                         lgt += len(result)
