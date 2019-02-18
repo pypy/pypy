@@ -43,7 +43,7 @@ class TestString(BaseTestPyPyC):
             guard_no_exception(descr=...)
             i100 = int_lt(i98, 0)
             guard_true(i100, descr=...)
-            i102 = call_i(ConstClass(_ll_4_str_eq_slice_char__rpy_stringPtr_Signed_Signed_Char), p55, i83, 1, i87, descr=<Calli 8 riii EF=0 OS=27>)
+            i102 = call_i(ConstClass(_ll_4_str_eq_slice_char__rpy_stringPtr_Signed_Signed_Char), p55, i83, 1, i89, descr=<Calli 8 riii EF=0 OS=27>)
             guard_true(i102, descr=...)
             i104 = int_add(i74, 1)
             --TICK--
