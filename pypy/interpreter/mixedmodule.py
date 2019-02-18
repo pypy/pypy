@@ -197,6 +197,17 @@ class MixedModule(Module):
     def get__doc__(cls, space):
         return space.newtext_or_none(cls.__doc__)
 
+    def setdictvalue_dont_introduce_cell(self, name, w_value):
+        """ inofficial interface on MixedModules to override an existing value
+        in the module but without introducing a cell (in the sense of
+        celldict.py) for it. Should be used sparingly, since it will trigger a
+        JIT recompile of all code that uses this module."""
+        from pypy.objspace.std.celldict import setdictvalue_dont_introduce_cell
+        # first do a regular setdictvalue to force the lazy loading
+        self.setdictvalue(self.space, name, w_value)
+        # then ask cell dict to remove the cell, and store the value directly
+        setdictvalue_dont_introduce_cell(self, self.space, name, w_value)
+
 
 @not_rpython
 def getinterpevalloader(pkgroot, spec):
