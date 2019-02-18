@@ -246,7 +246,11 @@ class W_LongObject(W_AbstractLongObject):
             return W_LongObject(res)
     @delegate_other
     def descr_rsub(self, space, w_other):
-        return W_LongObject(w_other.asbigint().sub(self.num))
+        res = w_other.asbigint().sub(self.num)
+        try:
+            return W_IntObject(res.toint())
+        except OverflowError:
+            return W_LongObject(res)
 
     def _make_generic_descr_binop(opname):
         if opname not in COMMUTATIVE_OPS:
@@ -320,12 +324,20 @@ class W_LongObject(W_AbstractLongObject):
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big
             raise oefmt(space.w_OverflowError, "shift count too large")
-        return W_LongObject(self.num.lshift(shift))
-
+        res = self.num.lshift(shift)
+        try:
+            return W_IntObject(res.toint())
+        except OverflowError:
+            return W_LongObject(res)
+            
     def _int_lshift(self, space, other):
         if other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
-        return W_LongObject(self.num.lshift(other))
+        res = self.num.lshift(other)
+        try:
+            return W_IntObject(res.toint())
+        except OverflowError:
+            return W_LongObject(res)
 
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift, _int_lshift)
 
@@ -336,13 +348,20 @@ class W_LongObject(W_AbstractLongObject):
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big # XXX maybe just return 0L instead?
             raise oefmt(space.w_OverflowError, "shift count too large")
-        return newlong(space, self.num.rshift(shift))
+        res = self.num.rshift(shift)
+        try:
+            return space.newint(res.toint())
+        except OverflowError:
+            return newlong(space, res)
 
     def _int_rshift(self, space, other):
         if other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
-
-        return newlong(space, self.num.rshift(other))
+        res = self.num.rshift(other)
+        try:
+            return space.newint(res.toint())
+        except OverflowError:
+            return newlong(space, res)
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, _int_rshift)
 
     def _floordiv(self, space, w_other):
