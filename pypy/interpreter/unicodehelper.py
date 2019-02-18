@@ -218,20 +218,38 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
     return res.build(), len(s), len(s)
 
 def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
-    try:
-        lgt = rutf8.check_utf8(s, allow_surrogates=allow_surrogates)
-    except rutf8.CheckError as e:
-        # XXX change this to non-recursive
-        pos = e.pos
-        assert pos >= 0
-        start = s[:pos]
-        upos = rutf8.codepoints_in_utf8(s, end=pos)
-        ru, lgt, rettype = errorhandler(errors, 'utf8',
-                    'surrogates not allowed', s, upos, upos + 1)
-        end = utf8_encode_utf_8(s[pos+3:], errors, errorhandler,
-                                allow_surrogates=allow_surrogates)
-        s = start + ru + end
-    return s
+    size = len(s)
+    if size == 0:
+        return ''
+    pos = 0
+    upos = 0
+    result = StringBuilder(size)
+    while pos < size:
+        try:
+            lgt = rutf8.check_utf8(s, allow_surrogates=allow_surrogates, start=pos)
+            if pos == 0:
+                # fast path
+                return s
+            for ch in s[pos:]:
+                result.append(ch)
+            break
+        except rutf8.CheckError as e:
+            for ch in s[pos:e.pos]:
+                result.append(ch)
+            upos += rutf8.codepoints_in_utf8(s, start=pos, end=e.pos)
+            pos = e.pos
+            assert pos >= 0
+            res, newindex, rettype = errorhandler(errors, 'utf8',
+                        'surrogates not allowed', s, upos, upos + 1)
+            if rettype == 'u':
+                for cp in rutf8.Utf8StringIterator(res):
+                    result.append(chr(cp))
+            else:
+                for ch in res:
+                    result.append(ch)
+            upos = newindex
+            pos = rutf8._pos_at_index(s, upos)
+    return result.build()
 
 def utf8_encode_latin_1(s, errors, errorhandler, allow_surrogates=False):
     try:
@@ -1013,56 +1031,12 @@ def utf8_encode_utf_7(s, errors, errorhandler, allow_surrogates=False):
 
     return result.build()
 
-@specialize.memo()
-def _encode_unicode_error_handler(space):
-    # Fast version of the "strict" errors handler.
-    # used only in (unused) encode_utf8
-    from rpython.rlib import runicode
-    def raise_unicode_exception_encode(errors, encoding, msg, uni,
-                                       startingpos, endingpos):
-        assert isinstance(uni, unicode)
-        u_len = len(uni)
-        utf8 = runicode.unicode_encode_utf8sp(uni, u_len)
-        raise OperationError(space.w_UnicodeEncodeError,
-                             space.newtuple([space.newtext(encoding),
-                                             space.newtext(utf8, u_len),
-                                             space.newint(startingpos),
-                                             space.newint(endingpos),
-                                             space.newtext(msg)]))
-        return u'', None, 0
-    return raise_unicode_exception_encode
-
-
-def encode_utf8(space, uni, allow_surrogates=False):
-    # Note that Python3 tends to forbid *all* surrogates in utf-8.
-    # If allow_surrogates=True, then revert to the Python 2 behavior
-    # which never raises UnicodeEncodeError.  Surrogate pairs are then
-    # allowed, either paired or lone.  A paired surrogate is considered
-    # like the non-BMP character it stands for.  See also *_utf8sp().
-    xxx
-    from rpython.rlib import runicode
-    assert isinstance(uni, unicode)
-    return runicode.unicode_encode_utf_8(
-        uni, len(uni), "strict",
-        errorhandler=_encode_unicode_error_handler(space),
-        allow_surrogates=allow_surrogates)
-
-def encode_utf8sp(space, uni, allow_surrogates=True):
-    xxx
-    # Surrogate-preserving utf-8 encoding.  Any surrogate character
-    # turns into its 3-bytes encoding, whether it is paired or not.
-    # This should always be reversible, and the reverse is
-    # decode_utf8sp().
-    from rpython.rlib import runicode
-    return runicode.unicode_encode_utf8sp(uni, len(uni))
-
 def decode_utf8sp(space, string):
     # Surrogate-preserving utf-8 decoding.  Assuming there is no
     # encoding error, it should always be reversible, and the reverse is
     # unused encode_utf8sp().
     return str_decode_utf8(string, "string", True, decode_never_raise,
                            allow_surrogates=True)
-
 
 # ____________________________________________________________
 # utf-16

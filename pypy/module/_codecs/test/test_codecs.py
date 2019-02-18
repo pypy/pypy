@@ -1149,7 +1149,6 @@ class AppTestPartialEvaluation:
                 backslashreplace = ''.join('\\x%02x' % b for b in ill_surrogate)
                 assert test_sequence.decode(encoding, "backslashreplace") == (before +
                                                              backslashreplace + after)
-                
 
     def test_lone_surrogates_utf_8(self):
         """
@@ -1158,6 +1157,8 @@ class AppTestPartialEvaluation:
         """
         e = raises(UnicodeEncodeError, u"\udc80\ud800\udfff".encode, "utf-8",
                    "surrogateescape").value
+        assert e.start == 1
+        assert e.end == 3
         assert e.object[e.start:e.end] == u'\ud800\udfff'
 
     def test_charmap_encode(self):
