@@ -1326,3 +1326,22 @@ class AppTestUnicodeString:
         assert str(e.value) == 'decoding str is not supported'
         e = raises(TypeError, str, z, 'supposedly_the_encoding')
         assert str(e.value) == 'decoding str is not supported'
+
+    def test_reduce_iterator(self):
+        it = iter(u"abcdef")
+        assert next(it) == u"a"
+        assert next(it) == u"b"
+        assert next(it) == u"c"
+        assert next(it) == u"d"
+        args = it.__reduce__()
+        assert next(it) == u"e"
+        assert next(it) == u"f"
+        it2 = args[0](*args[1])
+        it2.__setstate__(args[2])
+        assert next(it2) == u"e"
+        assert next(it2) == u"f"
+        it3 = args[0](*args[1])
+        it3.__setstate__(args[2])
+        assert next(it3) == u"e"
+        assert next(it3) == u"f"
+
