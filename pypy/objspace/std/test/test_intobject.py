@@ -588,7 +588,7 @@ class AppTestInt(object):
     def test_int_error_msg_surrogate(self):
         value = u'123\ud800'
         e = raises(ValueError, int, value)
-        assert str(e.value) == "invalid literal for int() with base 10: %r" % value
+        assert str(e.value) == u"invalid literal for int() with base 10: %r" % value
 
     def test_non_numeric_input_types(self):
         # Test possible non-numeric types for the argument x, including
