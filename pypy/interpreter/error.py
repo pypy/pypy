@@ -516,7 +516,7 @@ def get_operrcls2(valuefmt):
                         lgt += space.len_w(s)
                     elif fmt == 'T':
                         result = space.type(value).name
-                        lgt += len(result)
+                        lgt += rutf8.codepoints_in_utf8(result)
                     elif fmt == 'N':
                         result = value.getname(space)
                         lgt += len(result)
