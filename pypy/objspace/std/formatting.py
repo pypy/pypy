@@ -576,7 +576,7 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
             if fmt_type == FORMAT_BYTES:
                 return space.newbytes(result)
             elif fmt_type == FORMAT_BYTEARRAY:
-                return space.newbytearray([c for c in result])
+                return _bytearray_from_bytes(space, result)
             return space.newbytes(result)
     fmt = space.utf8_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
@@ -584,6 +584,10 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
     # this can force strings, not sure if it's a problem or not
     lgt = rutf8.codepoints_in_utf8(result)
     return space.newutf8(result, lgt)
+
+# in its own function to make the JIT look into format above
+def _bytearray_from_bytes(space, result):
+    return space.newbytearray([c for c in result])
 
 def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
     if space.isinstance_w(w_values, space.w_tuple):
