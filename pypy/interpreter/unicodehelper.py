@@ -239,8 +239,19 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
             upos += rutf8.codepoints_in_utf8(s, start=pos, end=e.pos)
             pos = e.pos
             assert pos >= 0
+            # Try to get collect surrogates in one pass
+            # XXX do we care about performance in this case?
+            # XXX should this loop for more than one pair? 
+            delta = 1
+            uchr = rutf8.codepoint_at_pos(s, pos)
+            if 0xD800 <= uchr <= 0xDBFF:
+                pos = rutf8.next_codepoint_pos(s, pos)
+                if pos < size:
+                    uchr = rutf8.codepoint_at_pos(s, pos)
+                    if 0xDC00 <= uchr <= 0xDFFF:
+                        delta += 1 
             res, newindex, rettype = errorhandler(errors, 'utf8',
-                        'surrogates not allowed', s, upos, upos + 1)
+                        'surrogates not allowed', s, upos, upos + delta)
             if rettype == 'u':
                 for cp in rutf8.Utf8StringIterator(res):
                     result.append(chr(cp))
