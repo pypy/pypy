@@ -913,7 +913,12 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             return _from_intlike(space, w_inttype, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            b = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+            try:
+                b = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+            except Exception:
+                raise oefmt(space.w_ValueError,
+                            'invalid literal for int() with base 10: %R',
+                            w_value)
             return _string_to_int_or_long(space, w_inttype, w_value, b)
         elif (space.isinstance_w(w_value, space.w_bytearray) or
               space.isinstance_w(w_value, space.w_bytes)):
@@ -941,7 +946,12 @@ def _new_int(space, w_inttype, w_x, w_base=None):
 
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+            try:
+                s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+            except Exception:
+                raise oefmt(space.w_ValueError,
+                            'invalid literal for int() with base %d: %S',
+                            base, w_value)
         elif (space.isinstance_w(w_value, space.w_bytes) or
               space.isinstance_w(w_value, space.w_bytearray)):
             s = space.charbuf_w(w_value)
