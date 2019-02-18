@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 import py
 from pypy.objspace.std import longobject as lobj
+from pypy.objspace.std import intobject as iobj
 from rpython.rlib.rbigint import rbigint
 
 class TestW_LongObject:
@@ -38,7 +39,21 @@ class TestW_LongObject:
                 w_obj = space.newlong_from_rarith_int(r(x))
                 assert space.bigint_w(w_obj).eq(rbigint.fromlong(x))
 
-
+    def test_long_to_int(self):
+        a = lobj.W_LongObject.fromlong(8)
+        b = lobj.W_LongObject.fromlong(1)
+        
+        floordivres = a._floordiv(self.space, b)
+        assert type(floordivres) is iobj.W_IntObject
+        
+        modres = a._mod(self.space, b)
+        assert type(modres) is iobj.W_IntObject
+        
+        addres = a.descr_add(self.space, b)
+        assert type(addres) is iobj.W_IntObject
+        
+        subres = a.descr_sub(self.space, b)
+        assert type(subres) is iobj.W_IntObject
 class AppTestLong:
 
     def w__long(self, obj):
