@@ -132,8 +132,7 @@ class TestCall(BaseTestPyPyC):
         ops = entry_bridge.ops_by_id('meth1', opcode='LOOKUP_METHOD')
         assert log.opnames(ops) == ['guard_value', 'getfield_gc_r',
                                     'guard_value',
-                                    'guard_not_invalidated',
-                                    'getfield_gc_r']
+                                    'guard_not_invalidated']
         # the second LOOKUP_METHOD is folded away
         assert list(entry_bridge.ops_by_id('meth2', opcode='LOOKUP_METHOD')) == []
         #
