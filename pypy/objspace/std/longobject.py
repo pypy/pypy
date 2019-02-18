@@ -234,23 +234,22 @@ class W_LongObject(W_AbstractLongObject):
     descr_gt = _make_descr_cmp('gt')
     descr_ge = _make_descr_cmp('ge')
 
-    def descr_sub(self, space, w_other):
-        if isinstance(w_other, W_IntObject):
-            res = self.num.int_sub(w_other.int_w(space))
-        elif not isinstance(w_other, W_AbstractLongObject):
-            return space.w_NotImplemented
-        res = self.num.sub(w_other.asbigint())
-        try:
-            return W_IntObject(res.toint())
-        except OverflowError:
-            return W_LongObject(res)
-    @delegate_other
-    def descr_rsub(self, space, w_other):
-        res = w_other.asbigint().sub(self.num)
-        try:
-            return W_IntObject(res.toint())
-        except OverflowError:
-            return W_LongObject(res)
+    def _make_generic_descr_binop_noncommutative(opname):
+        methname = opname + '_' if opname in ('and', 'or') else opname
+        descr_rname = 'descr_r' + opname
+        op = getattr(rbigint, methname)
+
+        @func_renamer('descr_' + opname)
+        @delegate_other
+        def descr_binop(self, space, w_other):
+            return W_LongObject(op(self.num, w_other.asbigint()))
+
+        @func_renamer(descr_rname)
+        @delegate_other
+        def descr_rbinop(self, space, w_other):
+            return W_LongObject(op(w_other.asbigint(), self.num))
+
+        return descr_binop, descr_rbinop
 
     def _make_generic_descr_binop(opname):
         if opname not in COMMUTATIVE_OPS:
@@ -264,49 +263,82 @@ class W_LongObject(W_AbstractLongObject):
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
             if isinstance(w_other, W_IntObject):
-                res = intop(self.num, w_other.int_w(space))
+                return W_LongObject(intop(self.num, w_other.int_w(space)))
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
-            else:
-                res = op(self.num, w_other.asbigint())
-            try:
-                return W_IntObject(res.toint())
-            except OverflowError:
-                return W_LongObject(res)
+
+            return W_LongObject(op(self.num, w_other.asbigint()))
+
+        @func_renamer(descr_rname)
+        def descr_rbinop(self, space, w_other):
+            if isinstance(w_other, W_IntObject):
+                return W_LongObject(intop(self.num, w_other.int_w(space)))
+            elif not isinstance(w_other, W_AbstractLongObject):
+                return space.w_NotImplemented
+
+            return W_LongObject(op(w_other.asbigint(), self.num))
+
+        return descr_binop, descr_rbinop
+
+    def _make_generic_descr_binop_maybeint(opname):
+        if opname not in COMMUTATIVE_OPS:
+            raise Exception("Not supported")
+
+        methname = opname + '_' if opname in ('and', 'or') else opname
+        descr_rname = 'descr_r' + opname
+        op = getattr(rbigint, methname)
+        intop = getattr(rbigint, "int_" + methname)
+
+        @func_renamer('descr_' + opname)
+        def descr_binop(self, space, w_other):
+            if isinstance(w_other, W_IntObject):
+                res = intop(self.num, w_other.int_w(space))
+                try:
+                    return W_IntObject(res.toint())
+                except OverflowError:
+                    return W_LongObject(res)
+            elif not isinstance(w_other, W_AbstractLongObject):
+                return space.w_NotImplemented
+
+            return W_LongObject(op(self.num, w_other.asbigint()))
 
         @func_renamer(descr_rname)
         def descr_rbinop(self, space, w_other):
             if isinstance(w_other, W_IntObject):
                 res = intop(self.num, w_other.int_w(space))
+                try:
+                    return W_IntObject(res.toint())
+                except OverflowError:
+                    return W_LongObject(res)
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
-            else:
-                res = op(w_other.asbigint(), self.num)
-            try:
-                return W_IntObject(res.toint())
-            except OverflowError:
-                return W_LongObject(res)
-                
+
+            return W_LongObject(op(w_other.asbigint(), self.num))
+
         return descr_binop, descr_rbinop
-
     descr_add, descr_radd = _make_generic_descr_binop('add')
-
+    descr_sub, descr_rsub = _make_generic_descr_binop_noncommutative('sub')
     descr_mul, descr_rmul = _make_generic_descr_binop('mul')
-    descr_and, descr_rand = _make_generic_descr_binop('and')
+    descr_and, descr_rand = _make_generic_descr_binop_maybeint('and')
     descr_or, descr_ror = _make_generic_descr_binop('or')
     descr_xor, descr_rxor = _make_generic_descr_binop('xor')
 
-    def _make_descr_binop(func, int_func):
+    def _make_descr_binop(func, int_func=None):
         opname = func.__name__[1:]
 
-        @func_renamer('descr_' + opname)
-        def descr_binop(self, space, w_other):
-            if isinstance(w_other, W_IntObject):
-                return int_func(self, space, w_other.int_w(space))
-            elif not isinstance(w_other, W_AbstractLongObject):
-                return space.w_NotImplemented
-            return func(self, space, w_other)
-
+        if int_func:
+            @func_renamer('descr_' + opname)
+            def descr_binop(self, space, w_other):
+                if isinstance(w_other, W_IntObject):
+                    return int_func(self, space, w_other.int_w(space))
+                elif not isinstance(w_other, W_AbstractLongObject):
+                    return space.w_NotImplemented
+                return func(self, space, w_other)
+        else:
+            @delegate_other
+            @func_renamer('descr_' + opname)
+            def descr_binop(self, space, w_other):
+                return func(self, space, w_other)
         @delegate_other
         @func_renamer('descr_r' + opname)
         def descr_rbinop(self, space, w_other):
@@ -324,20 +356,12 @@ class W_LongObject(W_AbstractLongObject):
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big
             raise oefmt(space.w_OverflowError, "shift count too large")
-        res = self.num.lshift(shift)
-        try:
-            return W_IntObject(res.toint())
-        except OverflowError:
-            return W_LongObject(res)
-            
-    def _int_lshift(self, space, other):
-        if other < 0:
+        return W_LongObject(self.num.lshift(shift))
+
+    def _int_lshift(self, space, w_other):
+        if w_other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
-        res = self.num.lshift(other)
-        try:
-            return W_IntObject(res.toint())
-        except OverflowError:
-            return W_LongObject(res)
+        return W_LongObject(self.num.lshift(w_other))
 
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift, _int_lshift)
 
@@ -348,20 +372,13 @@ class W_LongObject(W_AbstractLongObject):
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big # XXX maybe just return 0L instead?
             raise oefmt(space.w_OverflowError, "shift count too large")
-        res = self.num.rshift(shift)
-        try:
-            return space.newint(res.toint())
-        except OverflowError:
-            return newlong(space, res)
+        return newlong(space, self.num.rshift(shift))
 
-    def _int_rshift(self, space, other):
-        if other < 0:
+    def _int_rshift(self, space, w_other):
+        if w_other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
-        res = self.num.rshift(other)
-        try:
-            return space.newint(res.toint())
-        except OverflowError:
-            return newlong(space, res)
+
+        return newlong(space, self.num.rshift(w_other))
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, _int_rshift)
 
     def _floordiv(self, space, w_other):
@@ -370,20 +387,16 @@ class W_LongObject(W_AbstractLongObject):
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
-                        
-        try:
-            return space.newint(z.toint())
-        except OverflowError:
-            return newlong(space, z)
+        return newlong(space, z)
 
-    def _int_floordiv(self, space, other):
+    def _floordiv(self, space, w_other):
         try:
-            z = self.num.int_floordiv(other)
+            z = self.num.floordiv(w_other.asbigint())
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "integer division or modulo by zero")
         return newlong(space, z)
-    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv, _int_floordiv)
+    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
 
     def _mod(self, space, w_other):
         try:
@@ -391,21 +404,17 @@ class W_LongObject(W_AbstractLongObject):
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "integer division or modulo by zero")
-        try:
-            return space.newint(z.toint())
-        except OverflowError:
-            return newlong(space, z)
+        return newlong(space, z)
 
-    def _int_mod(self, space, other):
+    def _int_mod(self, space, w_other):
         try:
-            z = self.num.int_mod(other)
+            z = self.num.int_mod(w_other)
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
-                        
-        # Int mod should always fit into an int.
-        return space.newint(z.toint())
         #return newlong(space, z)
+        # Should always fit.
+        return space.newint(z.toint())
     descr_mod, descr_rmod = _make_descr_binop(_mod, _int_mod)
 
     def _divmod(self, space, w_other):
@@ -415,16 +424,7 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError,
                         "integer division or modulo by zero")
         return space.newtuple([newlong(space, div), newlong(space, mod)])
-
-    def _int_divmod(self, space, other):
-        try:
-            div, mod = self.num.int_divmod(other)
-        except ZeroDivisionError:
-            raise oefmt(space.w_ZeroDivisionError,
-                        "long division or modulo by zero")
-        return space.newtuple([newlong(space, div), newlong(space, mod)])
-
-    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
+    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
 
 
 def _hash_long(space, v):

@@ -42,29 +42,24 @@ class TestW_LongObject:
     def test_long_to_int(self):
         a = lobj.W_LongObject.fromlong(8)
         b = lobj.W_LongObject.fromlong(1)
+        c = iobj.W_IntObject(1)
+
+        modres = a.descr_mod(self.space, b)
+        assert type(modres) is lobj.W_LongObject
         
-        floordivres = a._floordiv(self.space, b)
-        assert type(floordivres) is iobj.W_IntObject
+        intmodres = a.descr_mod(self.space, c)
+        assert type(intmodres) is iobj.W_IntObject
         
-        modres = a._mod(self.space, b)
-        assert type(modres) is iobj.W_IntObject
+        andres = a.descr_and(self.space, b)
+        assert type(andres) is lobj.W_LongObject
         
-        # Covers all of descr_binop?
-        addres = a.descr_add(self.space, b)
-        assert type(addres) is iobj.W_IntObject
+        intandres = a.descr_and(self.space, c)
+        assert type(intandres) is iobj.W_IntObject
         
-        # Covers all of descr_rbinop?
-        raddres = a.descr_radd(self.space, b)
-        assert type(raddres) is iobj.W_IntObject
+        # Maybe in next round.
+        #intdivlongres = a.descr_rfloordiv(self.space, c)
+        #assert type(intdivlongres) is iobj.W_IntObject
         
-        subres = a.descr_sub(self.space, b)
-        assert type(subres) is iobj.W_IntObject
-        
-        lshiftres = a._lshift(self.space, b)
-        assert type(lshiftres) is iobj.W_IntObject
-        
-        rshiftres = a._rshift(self.space, b)
-        assert type(rshiftres) is iobj.W_IntObject
 class AppTestLong:
 
     def w__long(self, obj):
