@@ -250,8 +250,11 @@ class TestString(BaseTestPyPyC):
         p80 = call_r(ConstClass(ll_char_mul__Char_Signed), 120, i53, descr=<Callr . ii EF=3>)
         guard_no_exception(descr=...)
         guard_not_invalidated(descr=...)
-        p53 = call_r(ConstClass(fast_str_decode_ascii), p80, descr=<Callr . r EF=4>)
+        i59 = call_i(ConstClass(first_non_ascii_char), p80, descr=<Calli . r EF=4>)
         guard_no_exception(descr=...)
+        i61 = int_lt(i59, 0)
+        guard_true(i61, descr=...)
+        i62 = strlen(p80)
         --TICK--
         jump(..., descr=...)
         """)
