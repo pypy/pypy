@@ -1442,11 +1442,15 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def BUILD_CONST_KEY_MAP(self, itemcount, next_instr):
-        keys_w = self.space.fixedview(self.popvalue())
+        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+        # the reason why we don't use space.fixedview here is that then the
+        # immutability of the tuple would not propagate into the loop below in
+        # the JIT
+        w_keys = self.space.interp_w(W_AbstractTupleObject, self.popvalue())
         w_dict = self.space.newdict()
         for i in range(itemcount):
             w_value = self.peekvalue(itemcount - 1 - i)
-            w_key = keys_w[i]
+            w_key = w_keys.getitem(self.space, i)
             self.space.setitem(w_dict, w_key, w_value)
         self.dropvalues(itemcount)
         self.pushvalue(w_dict)
