@@ -49,11 +49,22 @@ class TestW_LongObject:
         modres = a._mod(self.space, b)
         assert type(modres) is iobj.W_IntObject
         
+        # Covers all of descr_binop?
         addres = a.descr_add(self.space, b)
         assert type(addres) is iobj.W_IntObject
         
+        # Covers all of descr_rbinop?
+        raddres = a.descr_radd(self.space, b)
+        assert type(raddres) is iobj.W_IntObject
+        
         subres = a.descr_sub(self.space, b)
         assert type(subres) is iobj.W_IntObject
+        
+        lshiftres = a._lshift(self.space, b)
+        assert type(lshiftres) is iobj.W_IntObject
+        
+        rshiftres = a._rshift(self.space, b)
+        assert type(rshiftres) is iobj.W_IntObject
 class AppTestLong:
 
     def w__long(self, obj):
