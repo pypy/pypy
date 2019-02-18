@@ -234,11 +234,12 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
                 result.append(ch)
             break
         except rutf8.CheckError as e:
-            for ch in s[pos:e.pos]:
+            end = e.pos
+            assert end >= 0
+            for ch in s[pos:end]:
                 result.append(ch)
-            upos += rutf8.codepoints_in_utf8(s, start=pos, end=e.pos)
-            pos = e.pos
-            assert pos >= 0
+            upos += rutf8.codepoints_in_utf8(s, start=pos, end=end)
+            pos = end
             # Try to get collect surrogates in one pass
             # XXX do we care about performance in this case?
             # XXX should this loop for more than one pair? 
