@@ -254,6 +254,10 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
             else:
                 for ch in res:
                     result.append(ch)
+            if newindex <= upos:
+                raise IndexError(
+                   "position %d from error handler invalid, already encoded %d",
+                   newindex, upos)
             upos = newindex
             pos = rutf8._pos_at_index(s, upos)
     return result.build()
