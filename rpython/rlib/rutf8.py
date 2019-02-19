@@ -30,6 +30,11 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 MAXUNICODE = 0x10ffff
 allow_surrogate_by_default = False
 
+
+class OutOfRange(Exception):
+    def __init__(self, code):
+        self.code = code
+
 # we need a way to accept both r_uint and int(nonneg=True)
 #@signature(types.int_nonneg(), types.bool(), returns=types.str())
 def unichr_as_utf8(code, allow_surrogates=False):
@@ -44,7 +49,7 @@ def unichr_as_utf8(code, allow_surrogates=False):
         return chr((0xc0 | (code >> 6))) + chr((0x80 | (code & 0x3f)))
     if code <= r_uint(0xFFFF):
         if not allow_surrogates and 0xD800 <= code <= 0xDfff:
-            raise ValueError
+            raise OutOfRange(code)
         return (chr((0xe0 | (code >> 12))) +
                 chr((0x80 | ((code >> 6) & 0x3f))) +
                 chr((0x80 | (code & 0x3f))))
@@ -53,7 +58,7 @@ def unichr_as_utf8(code, allow_surrogates=False):
                 chr((0x80 | ((code >> 12) & 0x3f))) +
                 chr((0x80 | ((code >> 6) & 0x3f))) +
                 chr((0x80 | (code & 0x3f))))
-    raise ValueError
+    raise OutOfRange(code)
 
 @try_inline
 def unichr_as_utf8_append(builder, code, allow_surrogates=False):
@@ -89,7 +94,7 @@ def _nonascii_unichr_as_utf8_append(builder, code):
         builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
         builder.append(chr((0x80 | (code & 0x3f))))
         return
-    raise ValueError('character U+%x is not in range [U+0000; U+10ffff]' % code)
+    raise OutOfRange(code)
 
 @dont_inline
 def _nonascii_unichr_as_utf8_append_nosurrogates(builder, code):
@@ -110,7 +115,7 @@ def _nonascii_unichr_as_utf8_append_nosurrogates(builder, code):
         builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
         builder.append(chr((0x80 | (code & 0x3f))))
         return
-    raise ValueError
+    raise OutOfRange(code)
 
 
 # note - table lookups are really slow. Measured on various elements of obama

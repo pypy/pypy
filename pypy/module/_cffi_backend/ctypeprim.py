@@ -175,7 +175,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
         value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
         try:
             utf8 = rutf8.unichr_as_utf8(value, allow_surrogates=True)
-        except ValueError:
+        except rutf8.OutOfRange:
             if self.is_signed_wchar:
                 s = hex(intmask(value))
             else:
