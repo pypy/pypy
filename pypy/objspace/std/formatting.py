@@ -473,7 +473,7 @@ def make_formatter_subclass(do_unicode):
                 if do_unicode:
                     try:
                         c = rutf8.unichr_as_utf8(r_uint(n))
-                    except ValueError:
+                    except rutf8.OutOfRange:
                         raise oefmt(space.w_OverflowError,
                                     "unicode character code out of range")
                     self.std_wp(c, False)

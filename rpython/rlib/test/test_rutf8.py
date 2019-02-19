@@ -9,7 +9,7 @@ from rpython.rlib import rutf8, runicode
 def test_unichr_as_utf8(c, allow_surrogates):
     i = ord(c)
     if not allow_surrogates and 0xD800 <= i <= 0xDFFF:
-        with pytest.raises(ValueError):
+        with pytest.raises(rutf8.OutOfRange):
             rutf8.unichr_as_utf8(i, allow_surrogates)
     else:
         u = rutf8.unichr_as_utf8(i, allow_surrogates)
