@@ -94,7 +94,7 @@ def unicode_realize(space, py_obj):
     try:
         s_utf8 = rffi.wcharpsize2utf8(get_wbuffer(py_obj), lgt)
     except ValueError as e:
-        raise oefmt(space.w_ValueError, e.args[0])
+        raise oefmt(space.w_ValueError, '%s' % e.args[0])
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s_utf8, lgt)
@@ -288,7 +288,7 @@ def _PyUnicode_Ready(space, py_obj):
         w_obj = from_ref(space, rffi.cast(PyObject, py_obj))
     else:
         s = kind_to_name.get(kind, "INVALID")
-        raise oefmt(ValueError,
+        raise oefmt(space.w_ValueError,
             "converting %s PyUnicodeObject not supported yet", s)
     return _readify(space, py_obj, space.utf8_w(w_obj))
 
