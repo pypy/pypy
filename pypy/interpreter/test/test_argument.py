@@ -55,6 +55,9 @@ class kwargsdict(dict):
     pass
 
 class DummySpace(object):
+    class sys:
+        defaultencoding = 'utf-8'
+
     def newtuple(self, items):
         return tuple(items)
 
@@ -92,16 +95,15 @@ class DummySpace(object):
     def getitem(self, obj, key):
         return obj[key]
 
-    def wrap(self, obj):
+    def wrap(self, obj, lgt=-1):
         return obj
     newtext = wrap
-    newunicode = wrap
 
     def text_w(self, s):
-        return self.unicode_w(s).encode('utf-8')
+        return self.utf8_w(s)
 
-    def unicode_w(self, s):
-        return unicode(s)
+    def utf8_w(self, s):
+        return s
 
     def len(self, x):
         return len(x)
@@ -135,7 +137,7 @@ class DummySpace(object):
     def type(self, obj):
         class Type:
             def getname(self, space):
-                return unicode(type(obj).__name__)
+                return type(obj).__name__
         return Type()
 
 
@@ -343,14 +345,14 @@ class TestArgumentsNormal(object):
     def test_unwrap_error(self):
         space = DummySpace()
         valuedummy = object()
-        def unicode_w(w):
+        def utf8_w(w):
             if w is None:
                 raise OperationError(TypeError, None)
             if w is valuedummy:
                 raise OperationError(ValueError, None)
-            return str(w)
-        space.unicode_w = unicode_w
-        space.text_w = unicode_w
+            return bytes(w, 'utf-8')
+        space.utf8_w = utf8_w
+        space.text_w = utf8_w
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
@@ -672,14 +674,14 @@ class TestErrorHandling(object):
         try:
             Arguments(space, [], w_stararg=space.wrap(42))
         except OperationError as e:
-            msg = space.str_w(space.str(e.get_w_value(space)))
+            msg = space.text_w(space.str(e.get_w_value(space)))
             assert msg == "argument after * must be an iterable, not int"
         else:
             assert 0, "did not raise"
         try:
             Arguments(space, [], w_starstararg=space.wrap(42))
         except OperationError as e:
-            msg = space.str_w(space.str(e.get_w_value(space)))
+            msg = space.text_w(space.str(e.get_w_value(space)))
             assert msg == "argument after ** must be a mapping, not int"
         else:
             assert 0, "did not raise"
@@ -838,7 +840,6 @@ class AppTestArgument:
 
 
     def test_unicode_keywords(self):
-        """
         def f(**kwargs):
             assert kwargs["美"] == 42
         f(**{"美" : 42})
@@ -846,7 +847,6 @@ class AppTestArgument:
         def f(x): pass
         e = raises(TypeError, "f(**{'ü' : 19})")
         assert e.value.args[0] == "f() got an unexpected keyword argument 'ü'"
-        """
 
     def test_starstarargs_dict_subclass(self):
         def f(**kwargs):

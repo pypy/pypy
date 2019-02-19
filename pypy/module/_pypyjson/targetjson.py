@@ -75,10 +75,6 @@ class FakeSpace(object):
         assert isinstance(w_x, W_String)
         return w_x.strval
 
-    def unicode_w(self, w_x):
-        assert isinstance(w_x, W_Unicode)
-        return w_x.unival
-
     @dont_inline
     def call_method(self, obj, name, arg):
         assert name == 'append'
@@ -92,9 +88,6 @@ class FakeSpace(object):
         assert isinstance(d, W_Dict)
         assert isinstance(key, W_Unicode)
         d.dictval[key.unival] = value
-
-    def newunicode(self, x):
-        return W_Unicode(x)
 
     def newtext(self, x):
         return W_String(x)

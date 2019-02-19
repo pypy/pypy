@@ -1,6 +1,3 @@
-...
-
-
 antocuni's older TODO:
 
 * run coverage against the parser/astbuilder/astcompiler: it's probably full of
@@ -11,3 +8,5 @@ version of the same string
 
 * re-enable BUILD_LIST_FROM_ARG: see the comment in astcompiler/codegen.py in
 ast.ListComp.build_container
+
+* review use of std_decode_utf8, we probably do not want to be using it

@@ -684,7 +684,7 @@ class W_CPPOverload(W_Root):
 
     def getname(self, space): 
         # for the benefit of Method/instancemethod
-        return capi.c_method_name(space, self.functions[0].cppmethod).decode('latin-1')
+        return capi.c_method_name(space, self.functions[0].cppmethod)
 
     def __repr__(self):
         return "W_CPPOverload(%s)" % [f.prototype() for f in self.functions]
@@ -960,7 +960,7 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
         return self.getitem_impl(self.name, args_w)
 
     def getname(self, space):
-        return self.name.decode('latin-1')
+        return self.name
 
     def __repr__(self):
         return "W_CPPTemplateOverload(%s)" % [f.prototype() for f in self.functions]
@@ -1034,7 +1034,7 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
         return self.getitem_impl(self.name, args_w)
 
     def getname(self, space):
-        return self.name.decode('latin-1')
+        return self.name
 
     def __repr__(self):
         return "W_CPPTemplateStaticOverload(%s)" % [f.prototype() for f in self.functions]

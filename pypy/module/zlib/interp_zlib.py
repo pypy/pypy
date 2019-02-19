@@ -154,6 +154,11 @@ class Compress(ZLibObject):
         try:
             self.lock()
             try:
+                if not self.stream:
+                    raise oefmt(
+                        space.w_ValueError,
+                        "Compressor was already flushed",
+                    )
                 copied = rzlib.deflateCopy(self.stream)
             finally:
                 self.unlock()
@@ -308,9 +313,6 @@ class Decompress(ZLibObject):
         try:
             self.lock()
             try:
-                if not self.stream:
-                    raise zlib_error(space,
-                                     "decompressor object already flushed")
                 copied = rzlib.inflateCopy(self.stream)
             finally:
                 self.unlock()
@@ -349,6 +351,9 @@ class Decompress(ZLibObject):
         else:
             string, finished, unused_len = result
             self._save_unconsumed_input(data, finished, unused_len)
+            if finished:
+                rzlib.inflateEnd(self.stream)
+                self.stream = rzlib.null_stream
         return space.newbytes(string)
 
 

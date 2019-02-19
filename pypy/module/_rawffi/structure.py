@@ -14,7 +14,7 @@ from pypy.module._rawffi.interp_rawffi import LL_TYPEMAP
 from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
-from rpython.rlib import clibffi, rgc
+from rpython.rlib import clibffi, rgc, rutf8
 from rpython.rlib.rarithmetic import intmask, signedtype, r_uint, \
     r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -163,6 +163,10 @@ class W_Structure(W_DataShape):
                 if name in name_to_index:
                     raise oefmt(space.w_ValueError,
                                 "duplicate field name %s", name)
+                try:
+                    rutf8.check_ascii(name)
+                except rutf8.CheckError:
+                    raise oefmt(space.w_TypeError, 'non-ascii field name')
                 name_to_index[name] = i
             size, alignment, pos, bitsizes = size_alignment_pos(
                 fields, is_union, pack)

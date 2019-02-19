@@ -4,6 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import gateway
 
 IDTAG_SHIFT   = 4
+IDTAG_ALT_UID = 2     # gives an alternate id() from the same real uid
 
 IDTAG_INT     = 1
 IDTAG_LONG    = 3

@@ -588,7 +588,7 @@ class AppTestInt(object):
     def test_int_error_msg_surrogate(self):
         value = u'123\ud800'
         e = raises(ValueError, int, value)
-        assert str(e.value) == "invalid literal for int() with base 10: %r" % value
+        assert str(e.value) == u"invalid literal for int() with base 10: %r" % value
 
     def test_non_numeric_input_types(self):
         # Test possible non-numeric types for the argument x, including
@@ -737,6 +737,11 @@ class AppTestInt(object):
         raises(ValueError, int, '07777777777777777777777777777777777777', 0)
         raises(ValueError, int, '00000000000000000000000000000000000007', 0)
         raises(ValueError, int, '00000000000000000077777777777777777777', 0)
+
+    def test_some_rops(self):
+        b = 2 ** 31
+        x = -b
+        assert x.__rsub__(2) == (2 + b)
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}

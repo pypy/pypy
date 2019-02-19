@@ -71,9 +71,7 @@ class FakeType(FakeBase):
         self.name = name
         self.__name__ = name
     def getname(self, space, name):
-        if sys.hexversion < 0x3000000:
-            return self.name
-        return unicode(self.name)
+        return self.name
 class FakeBuffer(FakeBase):
     typedname = "buffer"
     def __init__(self, val):
@@ -262,7 +260,7 @@ class FakeSpace(object):
 
     def getattr(self, w_obj, w_name):
         assert isinstance(w_obj, FakeException)
-        assert self.str_w(w_name) == "__name__"
+        assert self.text_w(w_name) == "__name__"
         return FakeString(w_obj.name)
 
     def findattr(self, w_obj, w_name):

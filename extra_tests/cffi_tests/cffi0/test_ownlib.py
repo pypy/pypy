@@ -352,6 +352,8 @@ class TestOwnLib(object):
     def test_modify_struct_value(self):
         if self.module is None:
             py.test.skip("fix the auto-generation of the tiny test lib")
+        if self.Backend is CTypesBackend:
+            py.test.skip("fails with the ctypes backend on some architectures")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
             typedef struct {

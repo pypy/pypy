@@ -1,6 +1,6 @@
 """The builtin bytes implementation"""
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.rstring import StringBuilder
@@ -14,6 +14,8 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 from pypy.objspace.std.formatting import mod_format, FORMAT_BYTES
+from pypy.objspace.std.unicodeobject import (encode_object, getdefaultencoding,
+           decode_object)
 
 class W_AbstractBytesObject(W_Root):
     __slots__ = ()
@@ -402,9 +404,9 @@ class W_BytesObject(W_AbstractBytesObject):
     _KIND1 = "byte"
     _KIND2 = "bytes"
 
-    def __init__(self, str):
-        assert str is not None
-        self._value = str
+    def __init__(self, s):
+        assert s is not None
+        self._value = s
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -414,6 +416,22 @@ class W_BytesObject(W_AbstractBytesObject):
         return self._value
 
     def bytes_w(self, space):
+        return self._value
+
+    def realunicode_w(self, space):
+        raise oefmt(space.w_TypeError,
+                    "unicode object expected, received bytes instead")
+
+    def text_w(self, space):
+        return self._value
+
+    def utf8_w(self, space):
+        return self._value
+
+    def utf8_w(self, space):
+        return self._value
+
+    def utf8_w(self, space):
         return self._value
 
     def buffer_w(self, space, flags):
@@ -561,7 +579,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if not space.is_w(space.type(w_hexstring), space.w_unicode):
             raise oefmt(space.w_TypeError, "must be str, not %T", w_hexstring)
         from pypy.objspace.std.bytearrayobject import _hexstring_to_array
-        hexstring = space.unicode_w(w_hexstring)
+        hexstring = space.utf8_w(w_hexstring)
         bytes = ''.join(_hexstring_to_array(space, hexstring))
         w_result = W_BytesObject(bytes)
         if w_type is not space.w_bytes:
@@ -686,7 +704,6 @@ def newbytesdata_w(space, w_source, encoding, errors):
             raise oefmt(space.w_TypeError,
                 "encoding without string argument (got '%T' instead)",
                 w_source)
-        from pypy.objspace.std.unicodeobject import encode_object
         w_source = encode_object(space, w_source, encoding, errors)
         # and continue with the encoded string
     elif errors is not None:
@@ -755,7 +772,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
 
 def _get_printable_location(w_type):
     return ('bytearray_from_byte_sequence [w_type=%s]' %
-            w_type.getname(w_type.space).encode('utf-8'))
+            w_type.getname(w_type.space))
 
 _byteseq_jitdriver = jit.JitDriver(
     name='bytearray_from_byte_sequence',

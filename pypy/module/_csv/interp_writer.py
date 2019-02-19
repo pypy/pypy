@@ -42,9 +42,9 @@ class W_Writer(W_Root):
             if space.is_w(w_field, space.w_None):
                 field = u""
             elif space.isinstance_w(w_field, space.w_float):
-                field = space.unicode_w(space.repr(w_field))
+                field = space.realunicode_w(space.repr(w_field))
             else:
-                field = space.unicode_w(space.str(w_field))
+                field = space.realunicode_w(space.str(w_field))
             #
             if dialect.quoting == QUOTE_NONNUMERIC:
                 try:
@@ -115,7 +115,7 @@ class W_Writer(W_Root):
         rec.append(dialect.lineterminator)
 
         line = rec.build()
-        return space.call_function(self.w_filewrite, space.newunicode(line))
+        return space.call_function(self.w_filewrite, space.newtext(line))
 
     def writerows(self, w_seqseq):
         """Construct and write a series of sequences to a csv file.

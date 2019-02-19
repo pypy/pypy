@@ -80,7 +80,9 @@ class Module(MixedModule):
         """Copy our __import__ to builtins."""
         if not we_are_translated():
             self.startup_at_translation_time_only(space)
-        self.space.builtin.setdictvalue(space, '__import__', self.w_import)
+        # use special module api to prevent a cell from being introduced
+        self.space.builtin.setdictvalue_dont_introduce_cell(
+            '__import__', self.w_import)
 
     def startup_at_translation_time_only(self, space):
         # Issue #2834

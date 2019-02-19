@@ -9,8 +9,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import dont_inline, not_rpython
 from rpython.rlib import rstack, rstackovf
-from rpython.rlib import rwin32
-from rpython.rlib import runicode
+from rpython.rlib import rwin32, rutf8
 
 from pypy.interpreter import debug
 
@@ -21,7 +20,8 @@ RECORD_INTERPLEVEL_TRACEBACK = True
 def strerror(errno):
     """Translate an error code to a unicode message string."""
     from pypy.module._codecs.locale import str_decode_locale_surrogateescape
-    return str_decode_locale_surrogateescape(os.strerror(errno))
+    utf8, lgt = str_decode_locale_surrogateescape(os.strerror(errno))
+    return utf8, lgt
 
 class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
@@ -72,7 +72,7 @@ class OperationError(Exception):
         space = getattr(self.w_type, 'space', None)
         if space is not None:
             if self.__class__ is not OperationError and s is None:
-                s = self._compute_value(space)
+                s, lgt = self._compute_value(space)
             try:
                 s = space.text_w(s)
             except Exception:
@@ -306,8 +306,8 @@ class OperationError(Exception):
     def get_w_value(self, space):
         w_value = self._w_value
         if w_value is None:
-            value = self._compute_value(space)
-            self._w_value = w_value = space.newunicode(value)
+            value, lgt = self._compute_value(space)
+            self._w_value = w_value = space.newtext(value, lgt)
         return w_value
 
     def _compute_value(self, space):
@@ -478,16 +478,7 @@ def decompose_valuefmt(valuefmt):
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
 
-def _decode_utf8(string):
-    # when building the error message, don't crash if the byte string
-    # provided is not valid UTF-8
-    assert isinstance(string, str)
-    result, consumed = runicode.str_decode_utf_8(
-        string, len(string), "replace", final=True)
-    return result
-
 def get_operrcls2(valuefmt):
-    valuefmt = valuefmt.decode('ascii')
     strings, formats = decompose_valuefmt(valuefmt)
     assert len(strings) == len(formats) + 1
     try:
@@ -507,30 +498,51 @@ def get_operrcls2(valuefmt):
 
             def _compute_value(self, space):
                 lst = [None] * (len(formats) + len(formats) + 1)
+                lgt = 0
                 for i, fmt, attr in entries:
                     lst[i + i] = self.xstrings[i]
+                    lgt += len(self.xstrings[i])
                     value = getattr(self, attr)
                     if fmt == 'd':
-                        result = str(value).decode('ascii')
+                        result = str(value)
+                        lgt += len(result)
                     elif fmt == 'R':
-                        result = space.unicode_w(space.repr(value))
+                        s = space.repr(value)
+                        result = space.utf8_w(s)
+                        lgt += space.len_w(s)
                     elif fmt == 'S':
-                        result = space.unicode_w(space.str(value))
+                        s = space.str(value)
+                        result = space.utf8_w(s)
+                        lgt += space.len_w(s)
                     elif fmt == 'T':
-                        result = _decode_utf8(space.type(value).name)
+                        result = space.type(value).name
+                        lgt += rutf8.codepoints_in_utf8(result)
                     elif fmt == 'N':
                         result = value.getname(space)
+                        lgt += len(result)
                     elif fmt == '8':
-                        result = _decode_utf8(value)
+                        # u'str\uxxxx' -> 'str\xXX\xXX' -> u"'str\xXX\xXX'"
+                        from pypy.interpreter import unicodehelper
+                        result, _lgt, pos  = unicodehelper.str_decode_utf8(
+                            value, 'replace', True,
+                            unicodehelper.decode_never_raise, True)
+                        lgt += _lgt
+                    elif isinstance(value, unicode):
+                        # 's'
+                        result = str(value.encode('utf-8'))
+                        lgt += len(value)
                     else:
-                        if isinstance(value, unicode):
-                            result = value
-                        else:
-                            result = _decode_utf8(str(value))
+                        result = str(value)
+                        try:
+                            lgt += rutf8.check_utf8(result, True)
+                        except rutf8.CheckError as e:
+                            lgt -= e.pos
                     lst[i + i + 1] = result
                 lst[-1] = self.xstrings[-1]
-                return u''.join(lst)
-        #
+                lgt += len(self.xstrings[-1])
+                retval = ''.join(lst)
+                return retval, lgt
+
         _fmtcache2[formats] = OpErrFmt
     return OpErrFmt, strings
 
@@ -540,7 +552,7 @@ class OpErrFmtNoArgs(OperationError):
         self.setup(w_type)
 
     def _compute_value(self, space):
-        return self._value.decode('utf-8')
+        return self._value, len(self._value)
 
     def async(self, space):
         # also matches a RuntimeError("maximum rec.") if the stack is
@@ -571,8 +583,8 @@ def oefmt(w_type, valuefmt, *args):
 
     %8 - The result of arg.decode('utf-8')
     %N - The result of w_arg.getname(space)
-    %R - The result of space.unicode_w(space.repr(w_arg))
-    %S - The result of space.unicode_w(space.str(w_arg))
+    %R - The result of space.utf8_w(space.repr(w_arg))
+    %S - The result of space.utf8_w(space.str(w_arg))
     %T - The result of space.type(w_arg).name
 
     """
@@ -627,12 +639,13 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
     if rwin32.WIN32 and isinstance(e, WindowsError):
         winerror = e.winerror
         try:
-            msg = rwin32.FormatErrorW(winerror)
+            msg, lgt = rwin32.FormatErrorW(winerror)
         except ValueError:
-            msg = u'Windows Error %d' % winerror
+            msg = 'Windows Error %d' % winerror
+            lgt = len(msg)
         w_errno = space.w_None
         w_winerror = space.newint(winerror)
-        w_msg = space.newunicode(msg)
+        w_msg = space.newtext(msg, lgt)
     else:
         errno = e.errno
         if errno == EINTR:
@@ -641,12 +654,13 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
                 return None
 
         try:
-            msg = strerror(errno)
+            msg, lgt = strerror(errno)
         except ValueError:
-            msg = u'error %d' % errno
+            msg = 'error %d' % errno
+            lgt = len(msg)
         w_errno = space.newint(errno)
         w_winerror = space.w_None
-        w_msg = space.newunicode(msg)
+        w_msg = space.newtext(msg, lgt)
 
     if w_filename is None:
         w_filename = space.w_None
@@ -676,9 +690,9 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                          eintr_retry=eintr_retry)
 
 def exception_from_errno(space, w_type, errno):
-    msg = strerror(errno)
+    msg, lgt = strerror(errno)
     w_error = space.call_function(w_type, space.newint(errno),
-                                  space.newunicode(msg))
+                                  space.newtext(msg, lgt))
     return OperationError(w_type, w_error)
 
 def exception_from_saved_errno(space, w_type):

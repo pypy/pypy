@@ -1,3 +1,6 @@
+
+from rpython.rlib import rutf8
+
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 
@@ -244,10 +247,10 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     w_stderr = space.sys.get("stderr")
 
     # Print "filename:lineno: category: text\n"
-    message = u"%s:%d: %s: %s\n" % (space.unicode_w(w_filename), lineno,
-                                    space.unicode_w(w_name),
-                                    space.unicode_w(w_text))
-    space.call_method(w_stderr, "write", space.newunicode(message))
+    message = b"%s:%d: %s: %s\n" % (space.utf8_w(w_filename), lineno,
+                                    space.utf8_w(w_name),
+                                    space.utf8_w(w_text))
+    space.call_method(w_stderr, "write", space.newtext(message))
 
     # Print "  source_line\n"
     if not w_sourceline:
@@ -264,17 +267,17 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
 
     if not w_sourceline:
         return
-    line = space.unicode_w(w_sourceline)
+    line = space.utf8_w(w_sourceline)
     if not line:
         return
 
-    message = u"\n"
+    message = "\n"
     for i in range(len(line)):
         c = line[i]
-        if c not in u' \t\014':
-            message = u"  %s\n" % (line[i:],)
+        if c not in ' \t\014':
+            message = "  %s\n" % (line[i:],)
             break
-    space.call_method(w_stderr, "write", space.newunicode(message))
+    space.call_method(w_stderr, "write", space.newtext(message))
 
 def do_warn(space, w_message, w_category, stacklevel, w_source=None):
     context_w = setup_context(space, stacklevel)

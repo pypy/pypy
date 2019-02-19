@@ -14,7 +14,7 @@ from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
     if space.is_none(w_path):
-        w_path = space.newunicode(u".")
+        w_path = space.newtext(".")
 
     if not _WIN32:
         if space.isinstance_w(w_path, space.w_bytes):
@@ -27,7 +27,7 @@ def scandir(space, w_path=None):
         if space.isinstance_w(w_path, space.w_bytes):
             raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
                                            " on Windows, use Unicode instead")
-        path = space.unicode_w(w_path)
+        path = space.realunicode_w(w_path)
         result_is_bytes = False
 
     # 'path' is always bytes on posix and always unicode on windows
@@ -45,7 +45,7 @@ def scandir(space, w_path=None):
     else:
         if len(path_prefix) > 0 and path_prefix[-1] not in (u'\\', u'/', u':'):
             path_prefix += u'\\'
-        w_path_prefix = space.newunicode(path_prefix)
+        w_path_prefix = space.newtext(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
     else:
@@ -184,12 +184,12 @@ class W_DirEntry(W_Root):
             if not scandir_iterator.result_is_bytes:
                 w_name = self.space.fsdecode(w_name)
         else:
-            w_name = self.space.newunicode(name)
+            w_name = self.space.newtext(name)
         self.w_name = w_name
 
     def descr_repr(self, space):
-        u = space.unicode_w(space.repr(self.w_name))
-        return space.newunicode(u"<DirEntry %s>" % u)
+        u = space.utf8_w(space.repr(self.w_name))
+        return space.newtext(b"<DirEntry %s>" % u)
 
     def fget_name(self, space):
         return self.w_name
@@ -300,7 +300,7 @@ class W_DirEntry(W_Root):
 
         def get_stat_or_lstat(self, follow_symlinks):     # 'follow_symlinks' ignored
             if not self.stat_cached:
-                path = self.space.unicode0_w(self.fget_path(self.space))
+                path = self.space.utf8_0_w(self.fget_path(self.space))
                 self.d_stat = rposix_stat.stat(path)
                 self.stat_cached = True
             return self.d_stat

@@ -267,6 +267,11 @@ class AppTestPyexpat2:
                                    '_socket', 'time', 'struct', 'binascii',
                                    'select'])
 
+    def setup_class(cls):
+        import py, sys
+        if sys.platform != 'linux2':
+            py.test.skip("even if we add all the crazy includes to run ctypes, it ends with MallocMismatch")
+
     def test_django_bug(self):
         xml_str = '<?xml version="1.0" standalone="no"?><!DOCTYPE example SYSTEM "http://example.com/example.dtd"><root/>'
 
