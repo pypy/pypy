@@ -403,7 +403,7 @@ def hexescape(builder, s, pos, digits,
             try:
                 builder.append_code(chr)
                 pos += digits
-            except ValueError:
+            except rutf8.OutOfRange:
                 message = "illegal Unicode character"
                 res, pos = errorhandler(
                     errors, encoding, message, s, pos - 2, pos + digits)
