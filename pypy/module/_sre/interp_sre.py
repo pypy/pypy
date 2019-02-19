@@ -154,9 +154,13 @@ class W_SRE_Pattern(W_Root):
             space.eq_w(self.w_pattern, other.w_pattern))
 
     def descr_hash(self, space):
-        code = ''.join([chr(c) for c in self.code.pattern])
-        return space.newint(compute_hash(
-            (self.flags, code, space.hash_w(self.w_pattern))))
+        from rpython.rlib.rarithmetic import intmask
+        x = 0x345678
+        for c in self.code.pattern:
+            x = intmask((1000003 * x) ^ c)
+        x = intmask((1000003 * x) ^ self.flags)
+        x = intmask((1000003 * x) ^ space.hash_w(self.w_pattern))
+        return space.newint(x)
 
     def fget_groupindex(self, space):
         w_groupindex = self.w_groupindex
