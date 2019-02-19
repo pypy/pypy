@@ -296,25 +296,41 @@ def PyDateTime_GET_DAY(space, w_obj):
 def PyDateTime_DATE_GET_HOUR(space, w_obj):
     """Return the hour, as an int from 0 through 23.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("hour")))
+    # w_obj must be a datetime.timedate object.  However, I've seen libraries
+    # call this macro with a datetime.date object.  I think it returns
+    # nonsense in CPython, but it doesn't crash.  We'll just return zero
+    # in case there is no field 'hour'.
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("hour")))
+    except OperationError:
+        return 0
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MINUTE(space, w_obj):
     """Return the minute, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("minute")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("minute")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_SECOND(space, w_obj):
     """Return the second, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("second")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("second")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MICROSECOND(space, w_obj):
     """Return the microsecond, as an int from 0 through 999999.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_HOUR(space, w_obj):
