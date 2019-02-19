@@ -64,11 +64,6 @@ def fsdecode(space, w_string):
         slen = len(bytes)
         uni, lgt = runicode.str_decode_mbcs(bytes, slen, 'strict', final=True,
                            errorhandler=errorhandler, force_ignore=False)
-        
-        utf8 = uni.encode('utf-8')
-        
-        utf8 = uni.encode('utf-8')
-        
         utf8 = uni.encode('utf-8')
     elif 0 and  _MACOSX:
         bytes = space.bytes_w(w_string)
@@ -242,7 +237,7 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
             pos = end
             # Try to get collect surrogates in one pass
             # XXX do we care about performance in this case?
-            # XXX should this loop for more than one pair? 
+            # XXX should this loop for more than one pair?
             delta = 1
             uchr = rutf8.codepoint_at_pos(s, pos)
             if 0xD800 <= uchr <= 0xDBFF:
@@ -250,7 +245,7 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
                 if pos < size:
                     uchr = rutf8.codepoint_at_pos(s, pos)
                     if 0xDC00 <= uchr <= 0xDFFF:
-                        delta += 1 
+                        delta += 1
             res, newindex, rettype = errorhandler(errors, 'utf8',
                         'surrogates not allowed', s, upos, upos + delta)
             if rettype == 'u':
