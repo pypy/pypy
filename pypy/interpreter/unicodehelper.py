@@ -212,6 +212,11 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
             i = end
     return res.build(), len(s), len(s)
 
+class ErrorHandlerError(Exception):
+    def __init__(self, new, old):
+        self.new = new
+        self.old = old
+
 def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
     size = len(s)
     if size == 0:
@@ -255,9 +260,7 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
                 for ch in res:
                     result.append(ch)
             if newindex <= upos:
-                raise IndexError(
-                   "position %d from error handler invalid, already encoded %d",
-                   newindex, upos)
+                raise ErrorHandlerError(newindex, upos)
             upos = newindex
             pos = rutf8._pos_at_index(s, upos)
     return result.build()
@@ -521,7 +524,7 @@ def hexescape(builder, s, pos, digits,
             try:
                 builder.append_code(chr)
                 pos += digits
-            except ValueError:
+            except rutf8.OutOfRange:
                 message = "illegal Unicode character"
                 r, pos, rettype = errorhandler(
                     errors, encoding, message, s, pos - 2, pos + digits)

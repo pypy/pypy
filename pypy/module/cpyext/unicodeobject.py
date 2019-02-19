@@ -93,8 +93,9 @@ def unicode_realize(space, py_obj):
     lgt = get_wsize(py_obj)
     try:
         s_utf8 = rffi.wcharpsize2utf8(get_wbuffer(py_obj), lgt)
-    except ValueError as e:
-        raise oefmt(space.w_ValueError, '%s' % e.args[0])
+    except rutf8.OutOfRange as e:
+        raise oefmt(space.w_ValueError,
+                   'character U+%x is not in range [U+0000; U+10ffff]' % e.code)
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s_utf8, lgt)
