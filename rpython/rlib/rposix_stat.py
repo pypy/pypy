@@ -685,6 +685,7 @@ if _WIN32:
         # XXX 'traverse' is ignored, and everything related to
         # the "reparse points" is missing
         win32traits = make_win32_traits(traits)
+
         hFile = win32traits.CreateFile(traits.as_str0(path),
             win32traits.FILE_READ_ATTRIBUTES,
             0,
