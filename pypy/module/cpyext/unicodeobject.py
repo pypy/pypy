@@ -52,6 +52,13 @@ _1BYTE_KIND = 1
 _2BYTE_KIND = 2
 _4BYTE_KIND = 4
 
+kind_to_name = {
+    0: 'WCHAR_KIND',
+    1: '_1BYTE_KIND',
+    2: '_2BYTE_KIND',
+    4: '_4BYTE_KIND',
+    }
+                
 
 def new_empty_unicode(space, length):
     """
@@ -84,7 +91,10 @@ def unicode_realize(space, py_obj):
     be modified after this call.
     """
     lgt = get_wsize(py_obj)
-    s_utf8 = rffi.wcharpsize2utf8(get_wbuffer(py_obj), lgt)
+    try:
+        s_utf8 = rffi.wcharpsize2utf8(get_wbuffer(py_obj), lgt)
+    except ValueError as e:
+        raise oefmt(space.w_ValueError, e.args[0])
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s_utf8, lgt)
@@ -270,10 +280,16 @@ def PyUnicode_GetMax(space):
     return runicode.UNICHR(rutf8.MAXUNICODE)
 
 @cts.decl("int _PyUnicode_Ready(PyObject *unicode)", error=-1)
-def _PyUnicode_Ready(space, w_obj):
-    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
-    py_obj = as_pyobj(space, w_obj)
-    assert get_kind(py_obj) == WCHAR_KIND
+def _PyUnicode_Ready(space, py_obj):
+    # conversion from pyobj to space.w_unicode can fail,
+    # so create the rpython object here and not in the api wrapper
+    kind = get_kind(py_obj)
+    if kind == WCHAR_KIND:
+        w_obj = from_ref(space, rffi.cast(PyObject, py_obj))
+    else:
+        s = kind_to_name.get(kind, "INVALID")
+        raise oefmt(ValueError,
+            "converting %s PyUnicodeObject not supported yet", s)
     return _readify(space, py_obj, space.utf8_w(w_obj))
 
 def _readify(space, py_obj, value):

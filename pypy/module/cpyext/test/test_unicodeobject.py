@@ -373,7 +373,9 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         m = self.import_module('_widechar')
         if m.get_sizeof_wchar() != 4:
             pytest.skip('only for sizeof(wchar)==4')
-        raises(ValueError, m.test_widechar)
+        exc = raises(ValueError, m.test_widechar)
+        assert (str(exc.value) == 'character U+110000 is not in range '
+                '[U+0000; U+10ffff]'), str(exc.value)
 
     def test_AsUTFNString(self):
         module = self.import_extension('foo', [
