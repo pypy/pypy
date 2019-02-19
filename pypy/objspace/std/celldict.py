@@ -186,15 +186,15 @@ class ModuleDictStrategy(DictStrategy):
     def wrapvalue(space, value):
         return unwrap_cell(space, value)
 
-def setdictvalue_dont_introduce_cell(w_obj, space, name, w_value):
+def remove_cell(w_dict, space, name):
     from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-    w_dict = w_obj.getdict(space)
     if isinstance(w_dict, W_DictMultiObject):
         strategy = w_dict.get_strategy()
         if isinstance(strategy, ModuleDictStrategy):
+            w_value = strategy.getitem_str(w_dict, name)
             dict_w = strategy.unerase(w_dict.dstorage)
             strategy.mutated()
-            dict_w[name] = w_value
+            dict_w[name] = w_value # store without cell
             return
     w_obj.setdictvalue(space, name, w_value)
 

@@ -202,11 +202,9 @@ class MixedModule(Module):
         in the module but without introducing a cell (in the sense of
         celldict.py) for it. Should be used sparingly, since it will trigger a
         JIT recompile of all code that uses this module."""
-        from pypy.objspace.std.celldict import setdictvalue_dont_introduce_cell
-        # first do a regular setdictvalue to force the lazy loading
+        from pypy.objspace.std.celldict import remove_cell
         self.setdictvalue(self.space, name, w_value)
-        # then ask cell dict to remove the cell, and store the value directly
-        setdictvalue_dont_introduce_cell(self, self.space, name, w_value)
+        remove_cell(self.w_dict, self.space, name)
 
 
 @not_rpython
