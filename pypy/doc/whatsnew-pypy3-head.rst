@@ -2,9 +2,10 @@
 What's new in PyPy3 7.0+
 ========================
 
-.. this is the revision after release-pypy3.5-v7.0
-.. startrev: 9d2fa7c63b7c
+.. this is the revision after release-pypy3.6-v7.0
+.. startrev: 33fe3b2cf186
 
-.. branch: unicode-utf8-py3
+.. branch: py3.5
 
-Use utf8 instead of rpython-level unicode
+Merge in py.35 and use this branch as the primary pypy3 one
+
