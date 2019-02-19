@@ -1270,7 +1270,8 @@ getservbyport = external('getservbyport', [rffi.INT, rffi.CCHARP], lltype.Ptr(cC
 getprotobyname = external('getprotobyname', [rffi.CCHARP], lltype.Ptr(cConfig.protoent))
 
 if _POSIX:
-    fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT)
+    fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT,
+                     save_err=SAVE_ERR)
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT,
@@ -1282,7 +1283,7 @@ if _POSIX:
 if _WIN32:
     ioctlsocket = external('ioctlsocket',
                            [socketfd_type, rffi.LONG, rffi.ULONGP],
-                           rffi.INT)
+                           rffi.INT, save_err=SAVE_ERR)
 
 select = external('select',
                   [rffi.INT, fd_set, fd_set,
