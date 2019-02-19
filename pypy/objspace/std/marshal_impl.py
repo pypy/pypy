@@ -210,7 +210,11 @@ def unmarshal_long(space, u, tc):
         raise oefmt(space.w_ValueError, "bad marshal data")
     if negative:
         result = result.neg()
-    return space.newlong_from_rbigint(result)
+    # try to fit it into an int
+    try:
+        return space.newint(result.toint())
+    except OverflowError:
+        return space.newlong_from_rbigint(result)
 
 
 def pack_float(f):
