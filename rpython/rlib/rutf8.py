@@ -89,7 +89,7 @@ def _nonascii_unichr_as_utf8_append(builder, code):
         builder.append(chr((0x80 | ((code >> 6) & 0x3f))))
         builder.append(chr((0x80 | (code & 0x3f))))
         return
-    raise ValueError
+    raise ValueError('character U+%x is not in range [U+0000; U+10ffff]' % code)
 
 @dont_inline
 def _nonascii_unichr_as_utf8_append_nosurrogates(builder, code):
