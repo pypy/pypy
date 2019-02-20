@@ -90,7 +90,8 @@ if MESSAGEBOX:
 
             w_text = self.space.call_function(w_done)
             p = rffi.utf82wcharp(self.space.utf8_w(w_text),
-                                    track_allocation=False)
+                                 self.space.len_w(w_text),
+                                 track_allocation=False)
             if self.text_p:
                 rffi.free_wcharp(self.text_p, track_allocation=False)
             self.text_p = p      # keepalive

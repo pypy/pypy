@@ -488,7 +488,7 @@ class W_UnicodeObject(W_Root):
                                 "or str")
             try:
                 builder.append_code(codepoint)
-            except ValueError:
+            except rutf8.OutOfRange:
                 raise oefmt(space.w_ValueError,
                             "character mapping must be in range(0x110000)")
         return self.from_utf8builder(builder)
@@ -1927,7 +1927,7 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
                 pass
         try:
             c = rutf8.unichr_as_utf8(r_uint(uchr))
-        except ValueError:
+        except rutf8.OutOfRange:
             w_encoding = space.newtext('utf-8')
             w_start = space.newint(pos)
             w_end = space.newint(pos+1)

@@ -200,7 +200,7 @@ def test_utf8_string_builder():
 
 def test_utf8_string_builder_bad_code():
     s = rutf8.Utf8StringBuilder()
-    with pytest.raises(ValueError):
+    with pytest.raises(rutf8.OutOfRange):
         s.append_code(0x110000)
     assert s.build() == ''
     assert s.getlength() == 0
