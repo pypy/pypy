@@ -1065,7 +1065,7 @@ def utf82wcharp(utf8, utf8len, track_allocation=True):
         index += 1
     w[index] = unichr(0)
     return w
-utf82charp._annenforceargs_ = [str, int, bool]
+utf82wcharp._annenforceargs_ = [str, int, bool]
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
