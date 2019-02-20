@@ -23,6 +23,8 @@ def setup_module(mod):
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
+    mod.path3 = udir.join('unlinktestfile.txt')
+    mod.path3.write("delete me!")
     pdir = udir.ensure('posixtestdir', dir=True)
     pdir.join('file1').write("test1")
     os.chmod(str(pdir.join('file1')), 0o600)
@@ -66,6 +68,7 @@ class AppTestPosix:
         cls.w_os = space.appexec([], "(): import os as m ; return m")
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
+        cls.w_path3 = space.wrap(str(path3))
         cls.w_pdir = space.wrap(str(pdir))
         cls.w_bytes_dir = space.newbytes(str(bytes_dir))
         cls.w_esurrogate_dir = space.newbytes(str(esurrogate_dir))
@@ -391,7 +394,7 @@ class AppTestPosix:
 
     def test_unlink(self):
         os = self.posix
-        path = self.path
+        path = self.path3
         with open(path, 'wb'):
             pass
         class Path:
