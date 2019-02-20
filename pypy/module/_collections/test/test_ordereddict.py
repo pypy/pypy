@@ -36,3 +36,18 @@ class AppTestBasic:
         assert list(reversed(od.keys())) == [t[0] for t in reversed(pairs)]
         assert list(reversed(od.values())) == [t[1] for t in reversed(pairs)]
         assert list(reversed(od.items())) == list(reversed(pairs))
+
+    def test_call_key_first(self):
+        from _collections import OrderedDict
+
+        calls = []
+        class Spam:
+            def keys(self):
+                calls.append('keys')
+                return ()
+            def items(self):
+                calls.append('items')
+                return ()
+
+        OrderedDict(Spam())
+        assert calls == ['keys']
