@@ -1052,16 +1052,20 @@ def wcharp2utf8n(w, maxlen):
         i += 1
     return s.build(), i
 
-def utf82wcharp(utf8, utf8len):
+def utf82wcharp(utf8, utf8len, track_allocation=True):
     from rpython.rlib import rutf8
 
-    w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw')
+    if track_allocation:
+        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=True)
+    else:
+        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=False)
     index = 0
     for ch in rutf8.Utf8StringIterator(utf8):
         w[index] = unichr(ch)
         index += 1
     w[index] = unichr(0)
     return w
+utf82charp._annenforceargs_ = [str, int, bool]
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
