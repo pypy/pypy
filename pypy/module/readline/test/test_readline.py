@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
 import sys
+import pytest
+
+def setup_module(mod):
+    try:
+        import curses
+        curses.setupterm()
+    except:
+        pytest.skip("Cannot test this here")
+
 
 class AppTestReadline:
     spaceconfig = dict(usemodules=[
