@@ -18,7 +18,6 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
-from pypy.interpreter import unicodehelper
 from pypy.objspace.std import unicodeobject
 import sys
 
@@ -618,7 +617,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
         errors = None
 
     state = space.fromcache(CodecState)
-    result, _,  length, byteorder = unicodehelper.str_decode_utf_32_helper(
+    result, _,  length, byteorder = str_decode_utf_32_helper(
         string, errors, final=True, errorhandler=state.decode_error_handler,
         byteorder=byteorder)
     if pbyteorder is not None:
@@ -641,7 +640,7 @@ def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
 
     Returns 0 on success, -1 on failure.
     """
-    u = rffi.wcharpsize2utf8(s, length)
+    u = wcharpsize2utf8(space, s, length)
     if llerrors:
         errors = rffi.charp2str(llerrors)
     else:
