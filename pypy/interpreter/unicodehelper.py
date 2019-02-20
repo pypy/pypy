@@ -660,14 +660,14 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
 def wcharpsize2utf8(space, wcharp, size):
     """Safe version of rffi.wcharpsize2utf8.
 
-    Raises app-level ValueError if any wchar value is outside the valid
+    Raises app-level rutf8.OutOfRange if any wchar value is outside the valid
     codepoint range.
     """
     try:
         return rffi.wcharpsize2utf8(wcharp, size)
-    except ValueError:
+    except rutf8.OutOfRange as e:
         raise oefmt(space.w_ValueError,
-            "character is not in range [U+0000; U+10ffff]")
+            "character %s is not in range [U+0000; U+10ffff]", 'U+%x' % e.code)
 
 
 # ____________________________________________________________
