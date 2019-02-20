@@ -198,7 +198,7 @@ class MixedModule(Module):
         return space.newtext_or_none(cls.__doc__)
 
     def setdictvalue_dont_introduce_cell(self, name, w_value):
-        """ inofficial interface on MixedModules to override an existing value
+        """ unofficial interface in MixedModules to override an existing value
         in the module but without introducing a cell (in the sense of
         celldict.py) for it. Should be used sparingly, since it will trigger a
         JIT recompile of all code that uses this module."""

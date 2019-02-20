@@ -195,8 +195,7 @@ def remove_cell(w_dict, space, name):
             dict_w = strategy.unerase(w_dict.dstorage)
             strategy.mutated()
             dict_w[name] = w_value # store without cell
-            return
-    w_obj.setdictvalue(space, name, w_value)
+    # nothing to do, not a W_DictMultiObject or wrong strategy
 
 
 create_iterator_classes(ModuleDictStrategy)

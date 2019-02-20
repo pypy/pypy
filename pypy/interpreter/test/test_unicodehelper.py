@@ -56,7 +56,7 @@ def test_bad_error_handler():
         assert s[start:end] in [u'\udc80', u'\uD800\uDFFF']
         return '', start, 'b'
 
-    assert pytest.raises(IndexError, utf8_encode_utf_8, u, 'strict',
+    assert pytest.raises(Exception, utf8_encode_utf_8, u, 'strict',
                   errorhandler=errorhandler, allow_surrogates=False)
 
 def test_decode_utf8sp():
