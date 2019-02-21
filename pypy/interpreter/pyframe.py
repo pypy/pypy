@@ -25,7 +25,6 @@ from pypy.tool import stdlib_opcode
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 SETUP_ASYNC_WITH POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
-HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
 class FrameDebugData(object):
     """ A small object that holds debug data for tracing
