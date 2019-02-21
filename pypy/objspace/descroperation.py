@@ -5,7 +5,6 @@ from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
 from rpython.tool.sourcetools import compile2, func_with_new_name
-from pypy.module.__builtin__.interp_classobj import W_InstanceObject
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 
@@ -45,14 +44,9 @@ def tuple_iter(space):
     return space.lookup_in_type(space.w_tuple, '__iter__')
 
 @specialize.memo()
-def bytes_getitem(space):
-    "Utility that returns the app-level descriptor str.__getitem__."
-    return space.lookup_in_type(space.w_bytes, '__getitem__')
-
-@specialize.memo()
-def unicode_getitem(space):
-    "Utility that returns the app-level descriptor unicode.__getitem__."
-    return space.lookup_in_type(space.w_unicode, '__getitem__')
+def unicode_iter(space):
+    "Utility that returns the app-level descriptor str.__iter__."
+    return space.lookup_in_type(space.w_unicode, '__iter__')
 
 @specialize.memo()
 def dict_getitem(space):
@@ -60,28 +54,30 @@ def dict_getitem(space):
     return space.lookup_in_type(space.w_dict, '__getitem__')
 
 
-def raiseattrerror(space, w_obj, name, w_descr=None):
+def raiseattrerror(space, w_obj, w_name, w_descr=None):
+    # space.repr always returns an encodable string.
     if w_descr is None:
         raise oefmt(space.w_AttributeError,
-                    "'%T' object has no attribute '%s'", w_obj, name)
+                    "'%T' object has no attribute %R", w_obj, w_name)
     else:
         raise oefmt(space.w_AttributeError,
-                    "'%T' object attribute '%s' is read-only", w_obj, name)
+                    "'%T' object attribute %R is read-only", w_obj, w_name)
 
-# Helpers for old-style and mix-style mixup
+def get_attribute_name(space, w_obj, w_name):
+    try:
+        return space.text_w(w_name)
+    except OperationError as e:
+        if e.match(space, space.w_UnicodeEncodeError):
+            raiseattrerror(space, w_obj, w_name)
+        raise
 
 def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
-    if (space.is_oldstyle_instance(w_obj1) and
-        space.is_oldstyle_instance(w_obj2)):
-        assert isinstance(w_obj1, W_InstanceObject)
-        assert isinstance(w_obj2, W_InstanceObject)
-        return space.is_w(w_obj1.w_class, w_obj2.w_class)
     return space.is_w(w_typ1, w_typ2)
 
 
 class Object(object):
     def descr__getattribute__(space, w_obj, w_name):
-        name = space.text_w(w_name)
+        name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -96,11 +92,18 @@ class Object(object):
         if w_value is not None:
             return w_value
         if w_descr is not None:
+            typ = type(w_descr)
+            if typ is Function or typ is FunctionWithFixedCode:
+                # This shortcut is necessary if w_obj is None.  Otherwise e.g.
+                # None.__eq__ would return an unbound function because calling
+                # __get__ with None as the first argument returns the attribute
+                # as if it was accessed through the owner (type(None).__eq__).
+                return Method(space, w_descr, w_obj)
             return space.get(w_descr, w_obj)
-        raiseattrerror(space, w_obj, name)
+        raiseattrerror(space, w_obj, w_name)
 
     def descr__setattr__(space, w_obj, w_name, w_value):
-        name = space.text_w(w_name)
+        name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -108,10 +111,10 @@ class Object(object):
                 return
         if w_obj.setdictvalue(space, name, w_value):
             return
-        raiseattrerror(space, w_obj, name, w_descr)
+        raiseattrerror(space, w_obj, w_name, w_descr)
 
     def descr__delattr__(space, w_obj, w_name):
-        name = space.text_w(w_name)
+        name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -119,7 +122,7 @@ class Object(object):
                 return
         if w_obj.deldictvalue(space, name):
             return
-        raiseattrerror(space, w_obj, name, w_descr)
+        raiseattrerror(space, w_obj, w_name, w_descr)
 
     def descr__init__(space, w_obj, __args__):
         pass
@@ -228,7 +231,7 @@ class DescrOperation(object):
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        w_descr = space.lookup(w_obj, "__nonzero__")
+        w_descr = space.lookup(w_obj, "__bool__")
         if w_descr is None:
             w_descr = space.lookup(w_obj, "__len__")
             if w_descr is None:
@@ -236,7 +239,7 @@ class DescrOperation(object):
             # call __len__
             w_res = space.get_and_call_function(w_descr, w_obj)
             return space._check_len_result(w_res) != 0
-        # call __nonzero__
+        # call __bool__
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
         if space.is_w(w_res, space.w_False):
@@ -246,11 +249,8 @@ class DescrOperation(object):
         w_restype = space.type(w_res)
         # Note there is no check for bool here because the only possible
         # instances of bool are w_False and w_True, which are checked above.
-        if space.is_w(w_restype, space.w_int):
-            return space.int_w(w_res) != 0
-        else:
-            raise oefmt(space.w_TypeError,
-                        "__nonzero__ should return bool or integer")
+        raise oefmt(space.w_TypeError,
+                    "__bool__ should return bool, returned %T", w_obj)
 
     def nonzero(space, w_obj):
         if space.is_true(w_obj):
@@ -267,10 +267,19 @@ class DescrOperation(object):
 
     def _check_len_result(space, w_obj):
         # Will complain if result is too big.
-        result = space.int_w(space.int(w_obj))
+        result = space.getindex_w(w_obj, space.w_OverflowError)
         if result < 0:
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
+
+    def is_iterable(space, w_obj):
+        w_descr = space.lookup(w_obj, '__iter__')
+        if w_descr is None:
+            if space.type(w_obj).flag_map_or_seq != 'M':
+                w_descr = space.lookup(w_obj, '__getitem__')
+            if w_descr is None:
+                return False
+        return True
 
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
@@ -282,13 +291,13 @@ class DescrOperation(object):
                             "'%T' object is not iterable", w_obj)
             return space.newseqiter(w_obj)
         w_iter = space.get_and_call_function(w_descr, w_obj)
-        w_next = space.lookup(w_iter, 'next')
+        w_next = space.lookup(w_iter, '__next__')
         if w_next is None:
             raise oefmt(space.w_TypeError, "iter() returned non-iterator")
         return w_iter
 
     def next(space, w_obj):
-        w_descr = space.lookup(w_obj, 'next')
+        w_descr = space.lookup(w_obj, '__next__')
         if w_descr is None:
             raise oefmt(space.w_TypeError,
                         "'%T' object is not an iterator", w_obj)
@@ -298,7 +307,8 @@ class DescrOperation(object):
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None:
             raise oefmt(space.w_TypeError,
-                        "'%T' object is not subscriptable", w_obj)
+                        "'%T' object is not subscriptable (key %R)",
+                        w_obj, w_key)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
     def setitem(space, w_obj, w_key, w_val):
@@ -315,39 +325,15 @@ class DescrOperation(object):
                         "'%T' object does not support item deletion", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
-    def getslice(space, w_obj, w_start, w_stop):
-        w_descr = space.lookup(w_obj, '__getslice__')
-        if w_descr is None:
-            w_slice = space.newslice(w_start, w_stop, space.w_None)
-            return space.getitem(w_obj, w_slice)
-        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
-        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
-
-    def setslice(space, w_obj, w_start, w_stop, w_sequence):
-        w_descr = space.lookup(w_obj, '__setslice__')
-        if w_descr is None:
-            w_slice = space.newslice(w_start, w_stop, space.w_None)
-            return space.setitem(w_obj, w_slice, w_sequence)
-        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
-        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop, w_sequence)
-
-    def delslice(space, w_obj, w_start, w_stop):
-        w_descr = space.lookup(w_obj, '__delslice__')
-        if w_descr is None:
-            w_slice = space.newslice(w_start, w_stop, space.w_None)
-            return space.delitem(w_obj, w_slice)
-        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
-        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
-
     def format(space, w_obj, w_format_spec):
         w_descr = space.lookup(w_obj, '__format__')
         if w_descr is None:
             raise oefmt(space.w_TypeError,
                         "'%T' object does not define __format__", w_obj)
         w_res = space.get_and_call_function(w_descr, w_obj, w_format_spec)
-        if not space.isinstance_w(w_res, space.w_basestring):
+        if not space.isinstance_w(w_res, space.w_unicode):
             raise oefmt(space.w_TypeError,
-                        "%T.__format__ must return string or unicode, not %T",
+                        "%T.__format__ must return string, not %T",
                         w_obj, w_res)
         return w_res
 
@@ -355,7 +341,7 @@ class DescrOperation(object):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__pow__')
-        if _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
+        if space.is_w(w_typ1, w_typ2):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__rpow__')
@@ -398,9 +384,9 @@ class DescrOperation(object):
         if w_descr is not None:
             w_result = space.get_and_call_function(w_descr, w_container, w_item)
             return space.nonzero(w_result)
-        return space._contains(w_container, w_item)
+        return space.sequence_contains(w_container, w_item)
 
-    def _contains(space, w_container, w_item):
+    def sequence_contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
         w_type = space.type(w_iter)
         while 1:
@@ -414,6 +400,34 @@ class DescrOperation(object):
             if space.eq_w(w_item, w_next):
                 return space.w_True
 
+    def sequence_count(space, w_container, w_item):
+        w_iter = space.iter(w_container)
+        count = 0
+        while 1:
+            try:
+                w_next = space.next(w_iter)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                return space.newint(count)
+            if space.eq_w(w_next, w_item):
+                count += 1
+
+    def sequence_index(space, w_container, w_item):
+        w_iter = space.iter(w_container)
+        index = 0
+        while 1:
+            try:
+                w_next = space.next(w_iter)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                raise oefmt(space.w_ValueError,
+                            "sequence.index(x): x not in sequence")
+            if space.eq_w(w_next, w_item):
+                return space.newint(index)
+            index += 1
+
     def hash(space, w_obj):
         w_hash = space.lookup(w_obj, '__hash__')
         if w_hash is None:
@@ -426,75 +440,21 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "'%T' objects are unhashable", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
-
-        # issue 2346 : returns now -2 for hashing -1 like cpython
-        if space.isinstance_w(w_result, space.w_int):
-            h = space.int_w(w_result)
-        elif space.isinstance_w(w_result, space.w_long):
-            bigint = space.bigint_w(w_result)
-            h = bigint.hash()
-        else:
+        if not space.isinstance_w(w_result, space.w_int):
             raise oefmt(space.w_TypeError,
-                        "__hash__() should return an int or long")
+                        "__hash__ method should return an integer")
+
+        from pypy.objspace.std.intobject import (
+            W_AbstractIntObject, W_IntObject)
+        if not isinstance(w_result, W_IntObject):
+            # a non W_IntObject int, assume long-like
+            assert isinstance(w_result, W_AbstractIntObject)
+            w_result = w_result.descr_hash(space)
+        result = space.int_w(w_result)
         # turn -1 into -2 without using a condition, which would
         # create a potential bridge in the JIT
-        h -= (h == -1)
-        return space.newint(h)
-
-    def cmp(space, w_v, w_w):
-
-        if space.is_w(w_v, w_w):
-            return space.newint(0)
-
-        # The real comparison
-        if space.is_w(space.type(w_v), space.type(w_w)):
-            # for object of the same type, prefer __cmp__ over rich comparison.
-            w_cmp = space.lookup(w_v, '__cmp__')
-            w_res = _invoke_binop(space, w_cmp, w_v, w_w)
-            if w_res is not None:
-                return w_res
-        # fall back to rich comparison.
-        if space.eq_w(w_v, w_w):
-            return space.newint(0)
-        elif space.is_true(space.lt(w_v, w_w)):
-            return space.newint(-1)
-        return space.newint(1)
-
-    def coerce(space, w_obj1, w_obj2):
-        w_res = space.try_coerce(w_obj1, w_obj2)
-        if w_res is None:
-            raise oefmt(space.w_TypeError, "coercion failed")
-        return w_res
-
-    def try_coerce(space, w_obj1, w_obj2):
-        """Returns a wrapped 2-tuple or a real None if it failed."""
-        w_typ1 = space.type(w_obj1)
-        w_typ2 = space.type(w_obj2)
-        w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__coerce__')
-        if space.is_w(w_typ1, w_typ2):
-            w_right_impl = None
-        else:
-            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__coerce__')
-            if (w_left_src is not w_right_src
-                and space.issubtype_w(w_typ2, w_typ1)):
-                w_obj1, w_obj2 = w_obj2, w_obj1
-                w_left_impl, w_right_impl = w_right_impl, w_left_impl
-
-        w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
-        if w_res is None or space.is_w(w_res, space.w_None):
-            w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
-            if w_res is None  or space.is_w(w_res, space.w_None):
-                return None
-            if (not space.isinstance_w(w_res, space.w_tuple) or
-                space.len_w(w_res) != 2):
-                raise oefmt(space.w_TypeError,
-                            "coercion should return None or 2-tuple")
-            w_res = space.newtuple([space.getitem(w_res, space.newint(1)), space.getitem(w_res, space.newint(0))])
-        elif (not space.isinstance_w(w_res, space.w_tuple) or
-            space.len_w(w_res) != 2):
-            raise oefmt(space.w_TypeError,
-                        "coercion should return None or 2-tuple")
-        return w_res
+        result -= (result == -1)
+        return space.newint(result)
 
     def issubtype_w(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
@@ -511,21 +471,27 @@ class DescrOperation(object):
         return space.newbool(space.isinstance_w(w_inst, w_type))
 
     def index(space, w_obj):
-        if (space.isinstance_w(w_obj, space.w_int) or
-            space.isinstance_w(w_obj, space.w_long)):
+        if space.isinstance_w(w_obj, space.w_int):
             return w_obj
         w_impl = space.lookup(w_obj, '__index__')
         if w_impl is None:
             raise oefmt(space.w_TypeError,
-                        "'%T' object cannot be interpreted as an index",
+                        "'%T' object cannot be interpreted as an integer",
                         w_obj)
         w_result = space.get_and_call_function(w_impl, w_obj)
 
-        if (space.isinstance_w(w_result, space.w_int) or
-            space.isinstance_w(w_result, space.w_long)):
+        if space.is_w(space.type(w_result), space.w_int):
+            return w_result
+        if space.isinstance_w(w_result, space.w_int):
+            tp = space.type(w_result).name
+            space.warn(space.newtext(
+                "__index__ returned non-int (type %s).  "
+                "The ability to return an instance of a strict subclass of int "
+                "is deprecated, and may be removed in a future version of "
+                "Python." % (tp,)), space.w_DeprecationWarning)
             return w_result
         raise oefmt(space.w_TypeError,
-                    "__index__ returned non-(int,long) (type '%T')", w_result)
+                    "__index__ returned non-int (type %T)", w_result)
 
 
 # helpers
@@ -540,131 +506,6 @@ def _invoke_binop(space, w_impl, w_obj1, w_obj2):
             return w_res
     return None
 
-# helper for invoking __cmp__
-
-def _conditional_neg(space, w_obj, flag):
-    if flag:
-        return space.neg(w_obj)
-    else:
-        return w_obj
-
-def _cmp(space, w_obj1, w_obj2, symbol):
-    w_typ1 = space.type(w_obj1)
-    w_typ2 = space.type(w_obj2)
-    w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__cmp__')
-    do_neg1 = False
-    do_neg2 = True
-    if space.is_w(w_typ1, w_typ2):
-        w_right_impl = None
-    else:
-        w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__cmp__')
-        if (w_left_src is not w_right_src
-            and space.issubtype_w(w_typ2, w_typ1)):
-            w_obj1, w_obj2 = w_obj2, w_obj1
-            w_left_impl, w_right_impl = w_right_impl, w_left_impl
-            do_neg1, do_neg2 = do_neg2, do_neg1
-
-    w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
-    if w_res is not None:
-        return _conditional_neg(space, w_res, do_neg1)
-    w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
-    if w_res is not None:
-        return _conditional_neg(space, w_res, do_neg2)
-    # fall back to internal rules
-    if space.is_w(w_obj1, w_obj2):
-        return space.newint(0)
-    if space.is_w(w_obj1, space.w_None):
-        return space.newint(-1)
-    if space.is_w(w_obj2, space.w_None):
-        return space.newint(1)
-    if space.is_w(w_typ1, w_typ2):
-        #print "WARNING, comparison by address!"
-        lt = _id_cmpr(space, w_obj1, w_obj2, symbol)
-    else:
-        #print "WARNING, comparison by type name!"
-
-        # the CPython rule is to compare type names; numbers are
-        # smaller.  So we compare the types by the following key:
-        #   (not_a_number_flag, type_name, type_id)
-        num1 = number_check(space, w_obj1)
-        num2 = number_check(space, w_obj2)
-        if num1 != num2:
-            lt = num1      # if obj1 is a number, it is Lower Than obj2
-        else:
-            name1 = w_typ1.getname(space)
-            name2 = w_typ2.getname(space)
-            if name1 != name2:
-                lt = name1 < name2
-            else:
-                lt = _id_cmpr(space, w_typ1, w_typ2, symbol)
-    if lt:
-        return space.newint(-1)
-    else:
-        return space.newint(1)
-
-def _id_cmpr(space, w_obj1, w_obj2, symbol):
-    if symbol == "==":
-        return not space.is_w(w_obj1, w_obj2)
-    elif symbol == "!=":
-        return space.is_w(w_obj1, w_obj2)
-    w_id1 = space.id(w_obj1)
-    w_id2 = space.id(w_obj2)
-    return space.is_true(space.lt(w_id1, w_id2))
-
-
-def number_check(space, w_obj):
-    # avoid this as much as possible.  It checks if w_obj "looks like"
-    # it might be a number-ish thing.
-    return (space.lookup(w_obj, '__int__') is not None or
-            space.lookup(w_obj, '__float__') is not None)
-
-
-
-# what is the maximum value slices can get on CPython?
-# we need to stick to that value, because fake.py etc.
-class Temp(object):
-    def __getslice__(self, i, j):
-        return j
-slice_max = Temp()[:]
-del Temp
-
-def old_slice_range_getlength(space, w_obj):
-    # NB. the language ref is inconsistent with the new-style class
-    # behavior when w_obj doesn't implement __len__(), so we just
-    # follow cpython. Also note that CPython slots make it easier
-    # to check for object implementing it or not. We just catch errors
-    # so this behavior is slightly different
-    try:
-        return space.len(w_obj)
-    except OperationError as e:
-        if not ((e.match(space, space.w_AttributeError) or
-                 e.match(space, space.w_TypeError))):
-            raise
-    return None
-
-def old_slice_range(space, w_obj, w_start, w_stop):
-    """Only for backward compatibility for __getslice__()&co methods."""
-    w_length = None
-    if space.is_w(w_start, space.w_None):
-        w_start = space.newint(0)
-    else:
-        start = space.getindex_w(w_start, None)
-        w_start = space.newint(start)
-        if start < 0:
-            w_length = old_slice_range_getlength(space, w_obj)
-            if w_length is not None:
-                w_start = space.add(w_start, w_length)
-    if space.is_w(w_stop, space.w_None):
-        w_stop = space.newint(slice_max)
-    else:
-        stop = space.getindex_w(w_stop, None)
-        w_stop = space.newint(stop)
-        if stop < 0:
-            if w_length is None:
-                w_length = old_slice_range_getlength(space, w_obj)
-            if w_length is not None:
-                w_stop = space.add(w_stop, w_length)
-    return w_start, w_stop
 
 # regular methods def helpers
 
@@ -678,7 +519,7 @@ def _make_binop_impl(symbol, specialnames):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
-        if _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
+        if space.is_w(w_typ1, w_typ2):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
@@ -712,6 +553,30 @@ def _make_binop_impl(symbol, specialnames):
 
     return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))
 
+def _invoke_comparison(space, w_descr, w_obj1, w_obj2):
+    if w_descr is not None:
+        # a special case for performance (see get_and_call_function) but
+        # also avoids binding via __get__ when unnecessary; in
+        # particular when w_obj1 is None, __get__(None, type(None))
+        # won't actually bind =]
+        typ = type(w_descr)
+        if typ is Function or typ is FunctionWithFixedCode:
+            w_res = w_descr.funccall(w_obj1, w_obj2)
+        else:
+            try:
+                w_impl = space.get(w_descr, w_obj1)
+            except OperationError as e:
+                # see testForExceptionsRaisedInInstanceGetattr2 in
+                # test_class
+                if not e.match(space, space.w_AttributeError):
+                    raise
+                return None
+            else:
+                w_res = space.call_function(w_impl, w_obj2)
+        if _check_notimplemented(space, w_res):
+            return w_res
+    return None
+
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
@@ -721,35 +586,40 @@ def _make_comparison_impl(symbol, specialnames):
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
         w_first = w_obj1
         w_second = w_obj2
-        #
-        if left == right and _same_class_w(space, w_obj1, w_obj2,
-                                           w_typ1, w_typ2):
-            # for __eq__ and __ne__, if the objects have the same
-            # (old-style or new-style) class, then don't try the
-            # opposite method, which is the same one.
-            w_right_impl = None
-        else:
-            # in all other cases, try the opposite method.
-            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,right)
-            if space.is_w(w_typ1, w_typ2):
-                # if the type is the same, *or* if both are old-style classes,
-                # then don't reverse: try left first, right next.
-                pass
-            elif space.issubtype_w(w_typ2, w_typ1):
-                # for new-style classes, if typ2 is a subclass of typ1.
-                w_obj1, w_obj2 = w_obj2, w_obj1
-                w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
-        w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
+        w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,right)
+        if space.is_w(w_typ1, w_typ2):
+            # if the type is the same, then don't reverse: try
+            # left first, right next.
+            pass
+        elif space.issubtype_w(w_typ2, w_typ1):
+            # if typ2 is a subclass of typ1.
+            w_obj1, w_obj2 = w_obj2, w_obj1
+            w_left_impl, w_right_impl = w_right_impl, w_left_impl
+
+        w_res = _invoke_comparison(space, w_left_impl, w_obj1, w_obj2)
         if w_res is not None:
             return w_res
-        w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
+        w_res = _invoke_comparison(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
-        # fallback: lt(a, b) <= lt(cmp(a, b), 0) ...
-        w_res = _cmp(space, w_first, w_second, symbol)
-        res = space.int_w(w_res)
-        return space.newbool(op(res, 0))
+        #
+        # we did not find any special method, let's do the default logic for
+        # == and !=
+        if left == '__eq__':
+            if space.is_w(w_obj1, w_obj2):
+                return space.w_True
+            else:
+                return space.w_False
+        elif left == '__ne__':
+            if space.is_w(w_obj1, w_obj2):
+                return space.w_False
+            else:
+                return space.w_True
+        #
+        # if we arrived here, they are unorderable
+        raise oefmt(space.w_TypeError,
+                    "unorderable types: %T %s %T", w_obj1, symbol, w_obj2)
 
     return func_with_new_name(comparison_impl, 'comparison_%s_impl'%left.strip('_'))
 
@@ -802,7 +672,6 @@ def _make_unaryop_impl(symbol, specialnames):
 # more of the above manually-coded operations as well)
 
 for targetname, specialname, checkerspec in [
-    ('long', '__long__', ("space.w_int", "space.w_long")),
     ('float', '__float__', ("space.w_float",))]:
 
     l = ["space.isinstance_w(w_result, %s)" % x
@@ -832,9 +701,7 @@ for targetname, specialname, checkerspec in [
 
 for targetname, specialname in [
     ('str', '__str__'),
-    ('repr', '__repr__'),
-    ('oct', '__oct__'),
-    ('hex', '__hex__')]:
+    ('repr', '__repr__')]:
 
     source = """if 1:
         def %(targetname)s(space, w_obj):
@@ -844,20 +711,12 @@ for targetname, specialname in [
                             "unsupported operand type for %(targetname)s(): "
                             "'%%T'", w_obj)
             w_result = space.get_and_call_function(w_impl, w_obj)
-
-            if space.isinstance_w(w_result, space.w_text):
+            if space.isinstance_w(w_result, space.w_unicode):
                 return w_result
-            try:
-                result = space.text_w(w_result)
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                raise oefmt(space.w_TypeError,
-                            "%(specialname)s returned non-string "
-                            "(type '%%T')", w_result)
-            else:
-                # re-wrap the result as a real string
-                return space.newtext(result)
+
+            raise oefmt(space.w_TypeError,
+                        "%(specialname)s returned non-string (type "
+                        "'%%T')", w_result)
         assert not hasattr(DescrOperation, %(targetname)r)
         DescrOperation.%(targetname)s = %(targetname)s
         del %(targetname)s

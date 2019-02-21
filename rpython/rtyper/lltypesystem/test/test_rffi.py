@@ -590,6 +590,14 @@ class BaseTestRffi:
         res = fn(expected_extra_mallocs=range(30))
         assert res == 32 * len(d)
 
+    def test_wcharp_to_utf8(self):
+        wchar = lltype.malloc(CWCHARP.TO, 3, flavor='raw')
+        wchar[0] = u'\u1234'
+        wchar[1] = u'\x80'
+        wchar[2] = u'a'
+        assert wcharpsize2utf8(wchar, 3).decode("utf8") == u'\u1234\x80a'
+        lltype.free(wchar, flavor='raw')
+
 class TestRffiInternals:
     def test_struct_create(self):
         X = CStruct('xx', ('one', INT))
@@ -814,6 +822,52 @@ class TestCRffi(BaseTestRffi):
     def test_generate_return_char_tests(self):
         py.test.skip("GenC does not handle char return values correctly")
 
+    def test__get_raw_address_buf_from_string(self):
+        from rpython.rlib import rgc
+        from rpython.rtyper.lltypesystem import rffi
+
+        def check_content(strings, rawptrs):
+            for i in range(len(strings)):
+                p = rawptrs[i]
+                expected = strings[i] + '\x00'
+                for j in range(len(expected)):
+                    assert p[j] == expected[j]
+
+        def f(n):
+            strings = ["foo%d" % i for i in range(n)]
+            rawptrs = [rffi._get_raw_address_buf_from_string(s)
+                       for s in strings]
+            check_content(strings, rawptrs)
+            rgc.collect(); rgc.collect(); rgc.collect()
+            check_content(strings, rawptrs)
+            for i in range(len(strings)):   # check that it still returns the
+                                            # same raw ptrs
+                p1 = rffi._get_raw_address_buf_from_string(strings[i])
+                assert rawptrs[i] == p1
+            del strings
+            rgc.collect(); rgc.collect(); rgc.collect()
+            return 42
+
+        rffi._StrFinalizerQueue.print_debugging = True
+        try:
+            xf = self.compile(f, [int], gcpolicy="incminimark",
+                              return_stderr=True)
+        finally:
+            rffi._StrFinalizerQueue.print_debugging = False
+
+        os.environ['PYPYLOG'] = ':-'
+        try:
+            error = xf(10000)
+        finally:
+            del os.environ['PYPYLOG']
+
+        import re
+        r = re.compile(r"freeing str [[] [0-9a-fx]+ []]")
+        matches = r.findall(error)
+        assert len(matches) == 10000        # must be all 10000 strings,
+        assert len(set(matches)) == 10000   # and no duplicates
+
+
 def test_enforced_args():
     from rpython.annotator.model import s_None
     from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
@@ -862,3 +916,8 @@ def test_scoped_view_charp():
         assert buf[1] == 'a'
         assert buf[2] == 'r'
         assert buf[3] == '\x00'
+
+def test_wcharp2utf8n():
+    w = 'hello\x00\x00\x00\x00'
+    u, i = wcharp2utf8n(w, len(w))
+    assert i == len('hello')

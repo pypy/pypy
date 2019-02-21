@@ -1,27 +1,21 @@
-"""The builtin str implementation"""
+"""The builtin bytes implementation"""
 
-from rpython.rlib import jit
-from rpython.rlib.jit import we_are_jitted
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
-from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.rstring import StringBuilder, replace
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import SimpleView
+from pypy.interpreter.buffer import SimpleView, StringBuffer
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
-from pypy.objspace.std import newformat
-from pypy.objspace.std.basestringtype import basestring_typedef
-from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
-from pypy.objspace.std.unicodeobject import (
-    decode_object, unicode_from_encoded_object,
-    unicode_from_string, getdefaultencoding)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
-
+from pypy.objspace.std.formatting import mod_format, FORMAT_BYTES
+from pypy.objspace.std.unicodeobject import (encode_object, getdefaultencoding,
+           decode_object)
 
 class W_AbstractBytesObject(W_Root):
     __slots__ = ()
@@ -54,11 +48,6 @@ class W_AbstractBytesObject(W_Root):
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
         return space.newint(uid)
 
-    def unicode_w(self, space):
-        # Use the default encoding.
-        encoding = getdefaultencoding(space)
-        return space.unicode_w(decode_object(space, self, encoding, None))
-
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""
 
@@ -67,12 +56,6 @@ class W_AbstractBytesObject(W_Root):
 
     def descr_eq(self, space, w_other):
         """x.__eq__(y) <==> x==y"""
-
-    def descr__format__(self, space, w_format_spec):
-        """S.__format__(format_spec) -> string
-
-        Return a formatted version of S as described by format_spec.
-        """
 
     def descr_ge(self, space, w_other):
         """x.__ge__(y) <==> x>=y"""
@@ -83,17 +66,14 @@ class W_AbstractBytesObject(W_Root):
     def descr_getnewargs(self, space):
         ""
 
-    def descr_getslice(self, space, w_start, w_stop):
-        """x.__getslice__(i, j) <==> x[i:j]
-
-        Use of negative indices is not supported.
-        """
-
     def descr_gt(self, space, w_other):
         """x.__gt__(y) <==> x>y"""
 
     def descr_hash(self, space):
         """x.__hash__() <==> hash(x)"""
+
+    def descr_iter(self, space):
+        """x.__iter__() <==> iter(x)"""
 
     def descr_le(self, space, w_other):
         """x.__le__(y) <==> x<=y"""
@@ -103,9 +83,6 @@ class W_AbstractBytesObject(W_Root):
 
     def descr_lt(self, space, w_other):
         """x.__lt__(y) <==> x<y"""
-
-    def descr_mod(self, space, w_values):
-        """x.__mod__(y) <==> x%y"""
 
     def descr_mul(self, space, w_times):
         """x.__mul__(n) <==> x*n"""
@@ -126,32 +103,32 @@ class W_AbstractBytesObject(W_Root):
         """x.__str__() <==> str(x)"""
 
     def descr_capitalize(self, space):
-        """S.capitalize() -> string
+        """B.capitalize() -> copy of B
 
-        Return a capitalized version of S, i.e. make the first character
+        Return a capitalized version of B, i.e. make the first character
         have upper case and the rest lower case.
         """
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
-        """S.center(width[, fillchar]) -> string
+        """B.center(width[, fillchar]) -> copy of B
 
-        Return S centered in a string of length width. Padding is
+        Return B centered in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
 
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
-        """S.count(sub[, start[, end]]) -> int
+        """B.count(sub[, start[, end]]) -> int
 
         Return the number of non-overlapping occurrences of substring sub in
-        string S[start:end].  Optional arguments start and end are interpreted
+        string B[start:end].  Optional arguments start and end are interpreted
         as in slice notation.
         """
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
-        """S.decode(encoding=None, errors='strict') -> object
+        """B.decode(encoding=None, errors='strict') -> object
 
-        Decode S using the codec registered for encoding. encoding defaults
+        Decode B using the codec registered for encoding. encoding defaults
         to the default encoding. errors may be given to set a different error
         handling scheme. Default is 'strict' meaning that encoding errors raise
         a UnicodeDecodeError. Other possible values are 'ignore' and 'replace'
@@ -159,191 +136,172 @@ class W_AbstractBytesObject(W_Root):
         able to handle UnicodeDecodeErrors.
         """
 
-    def descr_encode(self, space, w_encoding=None, w_errors=None):
-        """S.encode(encoding=None, errors='strict') -> object
-
-        Encode S using the codec registered for encoding. encoding defaults
-        to the default encoding. errors may be given to set a different error
-        handling scheme. Default is 'strict' meaning that encoding errors raise
-        a UnicodeEncodeError. Other possible values are 'ignore', 'replace' and
-        'xmlcharrefreplace' as well as any other name registered with
-        codecs.register_error that is able to handle UnicodeEncodeErrors.
-        """
-
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
-        """S.endswith(suffix[, start[, end]]) -> bool
+        """B.endswith(suffix[, start[, end]]) -> bool
 
-        Return True if S ends with the specified suffix, False otherwise.
-        With optional start, test S beginning at that position.
-        With optional end, stop comparing S at that position.
-        suffix can also be a tuple of strings to try.
+        Return True if B ends with the specified suffix, False otherwise.
+        With optional start, test B beginning at that position.
+        With optional end, stop comparing B at that position.
+        suffix can also be a tuple of bytes to try.
         """
 
     @unwrap_spec(tabsize=int)
     def descr_expandtabs(self, space, tabsize=8):
-        """S.expandtabs([tabsize]) -> string
+        """B.expandtabs([tabsize]) -> copy of B
 
-        Return a copy of S where all tab characters are expanded using spaces.
+        Return a copy of B where all tab characters are expanded using spaces.
         If tabsize is not given, a tab size of 8 characters is assumed.
         """
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
-        """S.find(sub[, start[, end]]) -> int
+        """B.find(sub[, start[, end]]) -> int
 
-        Return the lowest index in S where substring sub is found,
-        such that sub is contained within S[start:end].  Optional
+        Return the lowest index in B where substring sub is found,
+        such that sub is contained within B[start:end].  Optional
         arguments start and end are interpreted as in slice notation.
 
         Return -1 on failure.
         """
 
-    def descr_format(self, space, __args__):
-        """S.format(*args, **kwargs) -> string
-
-        Return a formatted version of S, using substitutions from args and
-        kwargs.  The substitutions are identified by braces ('{' and '}').
-        """
-
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
-        """S.index(sub[, start[, end]]) -> int
+        """B.index(sub[, start[, end]]) -> int
 
-        Like S.find() but raise ValueError when the substring is not found.
+        Like B.find() but raise ValueError when the substring is not found.
         """
 
     def descr_isalnum(self, space):
-        """S.isalnum() -> bool
+        """B.isalnum() -> bool
 
-        Return True if all characters in S are alphanumeric
-        and there is at least one character in S, False otherwise.
+        Return True if all characters in B are alphanumeric
+        and there is at least one character in B, False otherwise.
         """
 
     def descr_isalpha(self, space):
-        """S.isalpha() -> bool
+        """B.isalpha() -> bool
 
-        Return True if all characters in S are alphabetic
-        and there is at least one character in S, False otherwise.
+        Return True if all characters in B are alphabetic
+        and there is at least one character in B, False otherwise.
         """
 
     def descr_isdigit(self, space):
-        """S.isdigit() -> bool
+        """B.isdigit() -> bool
 
-        Return True if all characters in S are digits
-        and there is at least one character in S, False otherwise.
+        Return True if all characters in B are digits
+        and there is at least one character in B, False otherwise.
         """
 
     def descr_islower(self, space):
-        """S.islower() -> bool
+        """B.islower() -> bool
 
-        Return True if all cased characters in S are lowercase and there is
-        at least one cased character in S, False otherwise.
+        Return True if all cased characters in B are lowercase and there is
+        at least one cased character in B, False otherwise.
         """
 
     def descr_isspace(self, space):
-        """S.isspace() -> bool
+        """B.isspace() -> bool
 
-        Return True if all characters in S are whitespace
-        and there is at least one character in S, False otherwise.
+        Return True if all characters in B are whitespace
+        and there is at least one character in B, False otherwise.
         """
 
     def descr_istitle(self, space):
-        """S.istitle() -> bool
+        """B.istitle() -> bool
 
-        Return True if S is a titlecased string and there is at least one
-        character in S, i.e. uppercase characters may only follow uncased
+        Return True if B is a titlecased string and there is at least one
+        character in B, i.e. uppercase characters may only follow uncased
         characters and lowercase characters only cased ones. Return False
         otherwise.
         """
 
     def descr_isupper(self, space):
-        """S.isupper() -> bool
+        """B.isupper() -> bool
 
-        Return True if all cased characters in S are uppercase and there is
-        at least one cased character in S, False otherwise.
+        Return True if all cased characters in B are uppercase and there is
+        at least one cased character in B, False otherwise.
         """
 
     def descr_join(self, space, w_list):
-        """S.join(iterable) -> string
+        """B.join(iterable) -> bytes
 
-        Return a string which is the concatenation of the strings in the
-        iterable.  The separator between elements is S.
+        Return a bytes object which is the concatenation of the bytes in the
+        iterable.  The separator between elements is B.
         """
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_ljust(self, space, width, w_fillchar):
-        """S.ljust(width[, fillchar]) -> string
+        """B.ljust(width[, fillchar]) -> copy of B
 
-        Return S left-justified in a string of length width. Padding is
+        Return B left-justified in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
 
     def descr_lower(self, space):
-        """S.lower() -> string
+        """B.lower() -> copy of B
 
-        Return a copy of the string S converted to lowercase.
+        Return a copy of the string B converted to lowercase.
         """
 
     def descr_lstrip(self, space, w_chars=None):
-        """S.lstrip([chars]) -> string or unicode
+        """B.lstrip([chars]) -> copy of B
 
-        Return a copy of the string S with leading whitespace removed.
+        Return a copy of the string B with leading whitespace removed.
         If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
         """
 
     def descr_partition(self, space, w_sub):
-        """S.partition(sep) -> (head, sep, tail)
+        """B.partition(sep) -> (head, sep, tail)
 
-        Search for the separator sep in S, and return the part before it,
+        Search for the separator sep in B, and return the part before it,
         the separator itself, and the part after it.  If the separator is not
-        found, return S and two empty strings.
+        found, return B and two empty bytes objects.
         """
 
     @unwrap_spec(count=int)
     def descr_replace(self, space, w_old, w_new, count=-1):
-        """S.replace(old, new[, count]) -> string
+        """B.replace(old, new[, count]) -> copy of B
 
-        Return a copy of string S with all occurrences of substring
+        Return a copy of string B with all occurrences of substring
         old replaced by new.  If the optional argument count is
         given, only the first count occurrences are replaced.
         """
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
-        """S.rfind(sub[, start[, end]]) -> int
+        """B.rfind(sub[, start[, end]]) -> int
 
-        Return the highest index in S where substring sub is found,
-        such that sub is contained within S[start:end].  Optional
+        Return the highest index in B where substring sub is found,
+        such that sub is contained within B[start:end].  Optional
         arguments start and end are interpreted as in slice notation.
 
         Return -1 on failure.
         """
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
-        """S.rindex(sub[, start[, end]]) -> int
+        """B.rindex(sub[, start[, end]]) -> int
 
-        Like S.rfind() but raise ValueError when the substring is not found.
+        Like B.rfind() but raise ValueError when the substring is not found.
         """
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_rjust(self, space, width, w_fillchar):
-        """S.rjust(width[, fillchar]) -> string
+        """B.rjust(width[, fillchar]) -> copy of B
 
-        Return S right-justified in a string of length width. Padding is
+        Return B right-justified in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
 
     def descr_rpartition(self, space, w_sub):
-        """S.rpartition(sep) -> (head, sep, tail)
+        """B.rpartition(sep) -> (head, sep, tail)
 
-        Search for the separator sep in S, starting at the end of S, and return
+        Search for the separator sep in B, starting at the end of B, and return
         the part before it, the separator itself, and the part after it.  If
-        the separator is not found, return two empty strings and S.
+        the separator is not found, return two empty bytes objects and B.
         """
 
     @unwrap_spec(maxsplit=int)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
-        """S.rsplit(sep=None, maxsplit=-1) -> list of strings
+        """B.rsplit(sep=None, maxsplit=-1) -> list of bytes objects
 
-        Return a list of the words in the string S, using sep as the
+        Return a list of the words in the string B, using sep as the
         delimiter string, starting at the end of the string and working
         to the front.  If maxsplit is given, at most maxsplit splits are
         done. If sep is not specified or is None, any whitespace string
@@ -351,18 +309,17 @@ class W_AbstractBytesObject(W_Root):
         """
 
     def descr_rstrip(self, space, w_chars=None):
-        """S.rstrip([chars]) -> string or unicode
+        """B.rstrip([chars]) -> copy of B
 
-        Return a copy of the string S with trailing whitespace removed.
+        Return a copy of the string B with trailing whitespace removed.
         If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
         """
 
     @unwrap_spec(maxsplit=int)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
-        """S.split(sep=None, maxsplit=-1) -> list of strings
+        """B.split(sep=None, maxsplit=-1) -> list of bytes objects
 
-        Return a list of the words in the string S, using sep as the
+        Return a list of the words in the string B, using sep as the
         delimiter string.  If maxsplit is given, at most maxsplit
         splits are done. If sep is not specified or is None, any
         whitespace string is a separator and empty strings are removed
@@ -371,50 +328,49 @@ class W_AbstractBytesObject(W_Root):
 
     @unwrap_spec(keepends=bool)
     def descr_splitlines(self, space, keepends=False):
-        """S.splitlines(keepends=False) -> list of strings
+        """B.splitlines(keepends=False) -> list of bytes objects
 
-        Return a list of the lines in S, breaking at line boundaries.
+        Return a list of the lines in B, breaking at line boundaries.
         Line breaks are not included in the resulting list unless keepends
         is given and true.
         """
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
-        """S.startswith(prefix[, start[, end]]) -> bool
+        """B.startswith(prefix[, start[, end]]) -> bool
 
-        Return True if S starts with the specified prefix, False otherwise.
-        With optional start, test S beginning at that position.
-        With optional end, stop comparing S at that position.
-        prefix can also be a tuple of strings to try.
+        Return True if B starts with the specified prefix, False otherwise.
+        With optional start, test B beginning at that position.
+        With optional end, stop comparing B at that position.
+        prefix can also be a tuple of bytes to try.
         """
 
     def descr_strip(self, space, w_chars=None):
-        """S.strip([chars]) -> string or unicode
+        """B.strip([chars]) -> copy of B
 
-        Return a copy of the string S with leading and trailing
+        Return a copy of the string B with leading and trailing
         whitespace removed.
         If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
         """
 
     def descr_swapcase(self, space):
-        """S.swapcase() -> string
+        """B.swapcase() -> copy of B
 
-        Return a copy of the string S with uppercase characters
+        Return a copy of the string B with uppercase characters
         converted to lowercase and vice versa.
         """
 
     def descr_title(self, space):
-        """S.title() -> string
+        """B.title() -> copy of B
 
-        Return a titlecased version of S, i.e. words start with uppercase
+        Return a titlecased version of B, i.e. words start with uppercase
         characters, all remaining cased characters have lowercase.
         """
 
-    @unwrap_spec(w_deletechars=WrappedDefault(''))
-    def descr_translate(self, space, w_table, w_deletechars):
-        """S.translate(table[, deletechars]) -> string
+    @unwrap_spec(w_delete=WrappedDefault(''))
+    def descr_translate(self, space, w_table, w_delete):
+        """B.translate(table[, deletechars]) -> copy of B
 
-        Return a copy of the string S, where all characters occurring
+        Return a copy of the string B, where all characters occurring
         in the optional argument deletechars are removed, and the
         remaining characters have been mapped through the given
         translation table, which must be a string of length 256 or None.
@@ -423,26 +379,34 @@ class W_AbstractBytesObject(W_Root):
         """
 
     def descr_upper(self, space):
-        """S.upper() -> string
+        """B.upper() -> copy of B
 
-        Return a copy of the string S converted to uppercase.
+        Return a copy of the string B converted to uppercase.
         """
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
-        """S.zfill(width) -> string
+        """B.zfill(width) -> copy of B
 
-        Pad a numeric string S with zeros on the left, to fill a field
-        of the specified width. The string S is never truncated.
+        Pad a numeric string B with zeros on the left, to fill a field
+        of the specified width. The string B is never truncated.
+        """
+
+    def descr_mod(self, space, w_values):
+        """B % values -> bytes
+
+        Format bytes objects
         """
 
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
+    _KIND1 = "byte"
+    _KIND2 = "bytes"
 
-    def __init__(self, str):
-        assert str is not None
-        self._value = str
+    def __init__(self, s):
+        assert s is not None
+        self._value = s
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -451,34 +415,41 @@ class W_BytesObject(W_AbstractBytesObject):
     def unwrap(self, space):
         return self._value
 
-    def str_w(self, space):
+    def bytes_w(self, space):
+        return self._value
+
+    def realunicode_w(self, space):
+        raise oefmt(space.w_TypeError,
+                    "unicode object expected, received bytes instead")
+
+    def text_w(self, space):
+        return self._value
+
+    def utf8_w(self, space):
+        return self._value
+
+    def utf8_w(self, space):
+        return self._value
+
+    def utf8_w(self, space):
         return self._value
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
         return SimpleView(StringBuffer(self._value))
 
-    def readbuf_w(self, space):
-        return StringBuffer(self._value)
-
-    def writebuf_w(self, space):
-        raise oefmt(space.w_TypeError,
-                    "Cannot use string as modifiable buffer")
-
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
         #return W_Buffer(StringBuffer(self._value))
         return self
 
-    charbuf_w = str_w
-
-    def listview_bytes(self):
+    def listview_int(self):
         return _create_list_from_bytes(self._value)
 
     def ord(self, space):
         if len(self._value) != 1:
             raise oefmt(space.w_TypeError,
-                        "ord() expected a character, but string of length %d "
+                        "ord() expected a character, but bytes of length %d "
                         "found", len(self._value))
         return space.newint(ord(self._value[0]))
 
@@ -494,25 +465,24 @@ class W_BytesObject(W_AbstractBytesObject):
     def _len(self):
         return len(self._value)
 
-    _val = str_w
+    _val = bytes_w
 
     @staticmethod
     def _use_rstr_ops(space, w_other):
-        from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        return (isinstance(w_other, W_BytesObject) or
-                isinstance(w_other, W_UnicodeObject))
+        return True
 
     @staticmethod
-    def _op_val(space, w_other, strict=None):
-        if strict and not space.isinstance_w(w_other, space.w_bytes):
-            raise oefmt(space.w_TypeError,
-                "%s arg must be None, str or unicode", strict)
+    def _op_val(space, w_other, allow_char=False):
+        # Some functions (contains, find) allow a number to specify a
+        # single char.
+        if allow_char and space.isinstance_w(w_other, space.w_int):
+            return StringMethods._single_char(space, w_other)
         try:
             return space.bytes_w(w_other)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
-        return space.charbuf_w(w_other)
+        return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
         assert len(char) == 1
@@ -566,50 +536,66 @@ class W_BytesObject(W_AbstractBytesObject):
         return space.newlist_bytes(lst)
 
     @staticmethod
-    @unwrap_spec(w_object=WrappedDefault(""))
-    def descr_new(space, w_stringtype, w_object):
-        # NB. the default value of w_object is really a *wrapped* empty string:
-        #     there is gateway magic at work
-        w_obj = space.str(w_object)
-        if space.is_w(w_stringtype, space.w_bytes):
-            return w_obj  # XXX might be reworked when space.str() typechecks
-        value = space.bytes_w(w_obj)
+    @unwrap_spec(encoding='text_or_none', errors='text_or_none')
+    def descr_new(space, w_stringtype, w_source=None, encoding=None,
+                  errors=None):
+        if (w_source and space.is_w(w_stringtype, space.w_bytes)
+                and encoding is None and errors is None):
+            # special-case 'bytes(byte_object)'
+            w_srctype = space.type(w_source)
+            if w_srctype is space.w_bytes:
+                return w_source
+            # special-case 'bytes([single_integer])' or 'bytes((single_int,))'
+            # for JITted performance only, when we clearly see the
+            # length of the list/tuple being constant and equal to 1
+            if w_srctype is space.w_list or w_srctype is space.w_tuple:
+                length = space.len_w(w_source)
+                if jit.isconstant(length) and length == 1:
+                    w_item = space.getitem(w_source, space.newint(0))
+                    value = space.byte_w(w_item)
+                    return W_BytesObject(value)
+            else:
+                # special-case 'bytes(X)' if X has a __bytes__() method:
+                # we must return the result unmodified even if it is a
+                # subclass of bytes
+                w_result = invoke_bytes_method(space, w_source)
+                if w_result is not None:
+                    return w_result
+            value = newbytesdata_w_tail(space, w_source)
+        else:
+            value = newbytesdata_w(space, w_source, encoding, errors)
         w_obj = space.allocate_instance(W_BytesObject, w_stringtype)
         W_BytesObject.__init__(w_obj, value)
         return w_obj
 
+    @staticmethod
+    def descr_fromhex(space, w_type, w_hexstring):
+        r"""bytes.fromhex(string) -> bytes
+
+        Create a bytes object from a string of hexadecimal numbers.
+        Spaces between two numbers are accepted.
+        Example: bytes.fromhex('B9 01EF') -> b'\xb9\x01\xef'.
+        """
+        if not space.is_w(space.type(w_hexstring), space.w_unicode):
+            raise oefmt(space.w_TypeError, "must be str, not %T", w_hexstring)
+        from pypy.objspace.std.bytearrayobject import _hexstring_to_array
+        hexstring = space.utf8_w(w_hexstring)
+        bytes = ''.join(_hexstring_to_array(space, hexstring))
+        return W_BytesObject(bytes)
+
     def descr_repr(self, space):
-        s = self._value
-        quote = "'"
-        if quote in s and '"' not in s:
-            quote = '"'
-        return space.newtext(string_escape_encode(s, quote))
+        return space.newtext(string_escape_encode(self._value, True))
 
     def descr_str(self, space):
-        if type(self) is W_BytesObject:
-            return self
-        return W_BytesObject(self._value)
+        if space.sys.get_flag('bytes_warning'):
+            space.warn(space.newtext("str() on a bytes instance"),
+                       space.w_BytesWarning)
+        return self.descr_repr(space)
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
         x -= (x == -1) # convert -1 to -2 without creating a bridge
         return space.newint(x)
-
-    def descr_format(self, space, __args__):
-        return newformat.format_method(space, self, __args__, is_unicode=False)
-
-    def descr__format__(self, space, w_format_spec):
-        if not space.isinstance_w(w_format_spec, space.w_bytes):
-            w_format_spec = space.str(w_format_spec)
-        spec = space.bytes_w(w_format_spec)
-        formatter = newformat.str_formatter(space, spec)
-        return formatter.format_string(self._value)
-
-    def descr_mod(self, space, w_values):
-        return mod_format(space, self, w_values, do_unicode=False)
-
-    def descr_rmod(self, space, w_values):
-        return mod_format(space, w_values, self, do_unicode=False)
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_BytesObject):
@@ -645,57 +631,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     _StringMethods_descr_add = descr_add
     def descr_add(self, space, w_other):
-        if space.isinstance_w(w_other, space.w_unicode):
-            self_as_unicode = unicode_from_encoded_object(space, self, None,
-                                                          None)
-            return self_as_unicode.descr_add(space, w_other)
-        elif space.isinstance_w(w_other, space.w_bytearray):
-            # XXX: eliminate double-copy
-            from .bytearrayobject import W_BytearrayObject, _make_data
-            self_as_bytearray = W_BytearrayObject(_make_data(self._value))
-            return space.add(self_as_bytearray, w_other)
         return self._StringMethods_descr_add(space, w_other)
-
-    _StringMethods__startswith = _startswith
-    def _startswith(self, space, value, w_prefix, start, end):
-        if space.isinstance_w(w_prefix, space.w_unicode):
-            self_as_unicode = unicode_from_encoded_object(space, self, None,
-                                                          None)
-            return self_as_unicode._startswith(space, self_as_unicode._value,
-                                               w_prefix, start, end)
-        return self._StringMethods__startswith(space, value, w_prefix, start,
-                                               end)
-
-    _StringMethods__endswith = _endswith
-    def _endswith(self, space, value, w_suffix, start, end):
-        if space.isinstance_w(w_suffix, space.w_unicode):
-            self_as_unicode = unicode_from_encoded_object(space, self, None,
-                                                          None)
-            return self_as_unicode._endswith(space, self_as_unicode._value,
-                                             w_suffix, start, end)
-        return self._StringMethods__endswith(space, value, w_suffix, start,
-                                             end)
-
-    _StringMethods_descr_contains = descr_contains
-    def descr_contains(self, space, w_sub):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            from pypy.objspace.std.unicodeobject import W_UnicodeObject
-            assert isinstance(w_sub, W_UnicodeObject)
-            self_as_unicode = unicode_from_encoded_object(space, self, None,
-                                                          None)
-            return space.newbool(
-                self_as_unicode._value.find(w_sub._value) >= 0)
-        return self._StringMethods_descr_contains(space, w_sub)
-
-    _StringMethods_descr_replace = descr_replace
-    @unwrap_spec(count=int)
-    def descr_replace(self, space, w_old, w_new, count=-1):
-        old_is_unicode = space.isinstance_w(w_old, space.w_unicode)
-        new_is_unicode = space.isinstance_w(w_new, space.w_unicode)
-        if old_is_unicode or new_is_unicode:
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_replace(space, w_old, w_new, count)
-        return self._StringMethods_descr_replace(space, w_old, w_new, count)
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
@@ -706,109 +642,8 @@ class W_BytesObject(W_AbstractBytesObject):
             return space.newbytes(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
-    _StringMethods_descr_split = descr_split
-    @unwrap_spec(maxsplit=int)
-    def descr_split(self, space, w_sep=None, maxsplit=-1):
-        if w_sep is not None and space.isinstance_w(w_sep, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_split(space, w_sep, maxsplit)
-        return self._StringMethods_descr_split(space, w_sep, maxsplit)
-
-    _StringMethods_descr_rsplit = descr_rsplit
-    @unwrap_spec(maxsplit=int)
-    def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
-        if w_sep is not None and space.isinstance_w(w_sep, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_rsplit(space, w_sep, maxsplit)
-        return self._StringMethods_descr_rsplit(space, w_sep, maxsplit)
-
-    _StringMethods_descr_strip = descr_strip
-    def descr_strip(self, space, w_chars=None):
-        if w_chars is not None and space.isinstance_w(w_chars, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_strip(space, w_chars)
-        return self._StringMethods_descr_strip(space, w_chars)
-
-    _StringMethods_descr_lstrip = descr_lstrip
-    def descr_lstrip(self, space, w_chars=None):
-        if w_chars is not None and space.isinstance_w(w_chars, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_lstrip(space, w_chars)
-        return self._StringMethods_descr_lstrip(space, w_chars)
-
-    _StringMethods_descr_rstrip = descr_rstrip
-    def descr_rstrip(self, space, w_chars=None):
-        if w_chars is not None and space.isinstance_w(w_chars, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_rstrip(space, w_chars)
-        return self._StringMethods_descr_rstrip(space, w_chars)
-
-    _StringMethods_descr_count = descr_count
-    def descr_count(self, space, w_sub, w_start=None, w_end=None):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_count(space, w_sub, w_start, w_end)
-        return self._StringMethods_descr_count(space, w_sub, w_start, w_end)
-
-    _StringMethods_descr_find = descr_find
-    def descr_find(self, space, w_sub, w_start=None, w_end=None):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_find(space, w_sub, w_start, w_end)
-        return self._StringMethods_descr_find(space, w_sub, w_start, w_end)
-
-    _StringMethods_descr_rfind = descr_rfind
-    def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_rfind(space, w_sub, w_start, w_end)
-        return self._StringMethods_descr_rfind(space, w_sub, w_start, w_end)
-
-    _StringMethods_descr_index = descr_index
-    def descr_index(self, space, w_sub, w_start=None, w_end=None):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_index(space, w_sub, w_start, w_end)
-        return self._StringMethods_descr_index(space, w_sub, w_start, w_end)
-
-    _StringMethods_descr_rindex = descr_rindex
-    def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_rindex(space, w_sub, w_start, w_end)
-        return self._StringMethods_descr_rindex(space, w_sub, w_start, w_end)
-
-    _StringMethods_descr_partition = descr_partition
-    def descr_partition(self, space, w_sub):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_partition(space, w_sub)
-        return self._StringMethods_descr_partition(space, w_sub)
-
-    _StringMethods_descr_rpartition = descr_rpartition
-    def descr_rpartition(self, space, w_sub):
-        if space.isinstance_w(w_sub, space.w_unicode):
-            self_as_uni = unicode_from_encoded_object(space, self, None, None)
-            return self_as_uni.descr_rpartition(space, w_sub)
-        return self._StringMethods_descr_rpartition(space, w_sub)
-
     def _join_return_one(self, space, w_obj):
-        return (space.is_w(space.type(w_obj), space.w_bytes) or
-                space.is_w(space.type(w_obj), space.w_unicode))
-
-    def _join_check_item(self, space, w_obj):
-        if space.isinstance_w(w_obj, space.w_bytes):
-            return 0
-        if space.isinstance_w(w_obj, space.w_unicode):
-            return 2
-        return 1
-
-    def _join_autoconvert(self, space, list_w):
-        # we need to rebuild w_list here, because the original
-        # w_list might be an iterable which we already consumed
-        w_list = space.newlist(list_w)
-        w_u = space.call_function(space.w_unicode, self)
-        return space.call_method(w_u, "join", w_list)
+        return space.is_w(space.type(w_obj), space.w_bytes)
 
     def descr_lower(self, space):
         return W_BytesObject(self._value.lower())
@@ -816,32 +651,171 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_upper(self, space):
         return W_BytesObject(self._value.upper())
 
-    def descr_formatter_parser(self, space):
-        from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.bytes_w(self))
-        return tformat.formatter_parser()
+    def descr_hex(self, space):
+        from pypy.objspace.std.bytearrayobject import _array_to_hexstring
+        return _array_to_hexstring(space, StringBuffer(self._value), 0, 1, len(self._value))
 
-    def descr_formatter_field_name_split(self, space):
-        from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.bytes_w(self))
-        return tformat.formatter_field_name_split()
+    def descr_mod(self, space, w_values):
+        return mod_format(space, self, w_values, fmt_type=FORMAT_BYTES)
+
+    def descr_rmod(self, space, w_values):
+        if not isinstance(w_values, W_AbstractBytesObject):
+            return space.w_NotImplemented
+        return mod_format(space, w_values, self, fmt_type=FORMAT_BYTES)
+
+    @staticmethod
+    def _iter_getitem_result(self, space, index):
+        assert isinstance(self, W_BytesObject)
+        return self._getitem_result(space, index)
 
 
 def _create_list_from_bytes(value):
     # need this helper function to allow the jit to look inside and inline
-    # listview_bytes
-    return [s for s in value]
+    # listview_int
+    return [ord(s) for s in value]
 
 W_BytesObject.EMPTY = W_BytesObject('')
 
 
-W_BytesObject.typedef = TypeDef(
-    "str", basestring_typedef, None, "read",
-    __new__ = interp2app(W_BytesObject.descr_new),
-    __doc__ = """str(object='') -> string
+def invoke_bytes_method(space, w_source):
+    w_bytes_method = space.lookup(w_source, "__bytes__")
+    if w_bytes_method is not None:
+        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                        "__bytes__ returned non-bytes (type '%T')", w_bytes)
+        return w_bytes
+    return None
 
-    Return a nice string representation of the object.
-    If the argument is a string, the return value is the same object.
+def newbytesdata_w(space, w_source, encoding, errors):
+    # None value
+    if w_source is None:
+        if encoding is not None or errors is not None:
+            raise oefmt(space.w_TypeError,
+                "encoding or errors without sequence argument")
+        else:
+            return b""
+    # Unicode with encoding
+    if encoding is not None:
+        if not space.isinstance_w(w_source, space.w_unicode):
+            raise oefmt(space.w_TypeError,
+                "encoding without string argument (got '%T' instead)",
+                w_source)
+        w_source = encode_object(space, w_source, encoding, errors)
+        # and continue with the encoded string
+    elif errors is not None:
+        if not space.isinstance_w(w_source, space.w_unicode):
+            raise oefmt(space.w_TypeError,
+                "errors without string argument (got '%T' instead)",
+                w_source)
+        else:
+            raise oefmt(space.w_TypeError,
+                "string argument without an encoding")
+    # Fast-path for bytes
+    if space.type(w_source) is space.w_bytes:
+        return space.bytes_w(w_source)
+    # Some other object with a __bytes__ special method (could be str subclass)
+    w_result = invoke_bytes_method(space, w_source)
+    if w_result is not None:
+        return space.bytes_w(w_result)
+
+    return newbytesdata_w_tail(space, w_source)
+
+def newbytesdata_w_tail(space, w_source):
+    # converts rare case of bytes constructor arguments: we don't have
+    # any encodings/errors, and the argument does not have __bytes__()
+    if space.isinstance_w(w_source, space.w_unicode):
+        raise oefmt(space.w_TypeError, "string argument without an encoding")
+
+    # Is it an integer?
+    # Note that we're calling space.getindex_w() instead of space.int_w().
+    try:
+        count = space.getindex_w(w_source, space.w_OverflowError)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        if count < 0:
+            raise oefmt(space.w_ValueError, "negative count")
+        return '\0' * count
+
+    return _convert_from_buffer_or_iterable(space, w_source)
+
+def makebytesdata_w(space, w_source):
+    w_bytes_method = space.lookup(w_source, "__bytes__")
+    if w_bytes_method is not None:
+        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                        "__bytes__ returned non-bytes (type '%T')", w_bytes)
+        return space.bytes_w(w_bytes)
+    return _convert_from_buffer_or_iterable(space, w_source)
+
+def _convert_from_buffer_or_iterable(space, w_source):
+    # String-like argument
+    try:
+        buf = space.buffer_w(w_source, space.BUF_FULL_RO)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        return buf.as_str()
+
+    if space.isinstance_w(w_source, space.w_unicode):
+        raise oefmt(space.w_TypeError,
+                    "cannot convert a (unicode) str object to bytes")
+    return _from_byte_sequence(space, w_source)
+
+
+def _get_printable_location(w_type):
+    return ('bytearray_from_byte_sequence [w_type=%s]' %
+            w_type.getname(w_type.space))
+
+_byteseq_jitdriver = jit.JitDriver(
+    name='bytearray_from_byte_sequence',
+    greens=['w_type'],
+    reds=['w_iter', 'builder'],
+    get_printable_location=_get_printable_location)
+
+def _from_byte_sequence(space, w_source):
+    # Split off in a separate function for the JIT's benefit
+    # and add a jitdriver with the type of w_iter as the green key
+    w_iter = space.iter(w_source)
+    length_hint = space.length_hint(w_source, 0)
+    builder = StringBuilder(length_hint)
+    #
+    _from_byte_sequence_loop(space, w_iter, builder)
+    #
+    return builder.build()
+
+def _from_byte_sequence_loop(space, w_iter, builder):
+    w_type = space.type(w_iter)
+    while True:
+        _byteseq_jitdriver.jit_merge_point(w_type=w_type,
+                                           w_iter=w_iter,
+                                           builder=builder)
+        try:
+            w_item = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        builder.append(space.byte_w(w_item))
+
+W_BytesObject.typedef = TypeDef(
+    "bytes", None, None, "read",
+    __new__ = interp2app(W_BytesObject.descr_new),
+    __doc__ = """bytes(iterable_of_ints) -> bytes
+    bytes(string, encoding[, errors]) -> bytes
+    bytes(bytes_or_buffer) -> immutable copy of bytes_or_buffer
+    bytes(int) -> bytes object of size given by the parameter initialized with null bytes
+    bytes() -> empty bytes object
+
+    Construct an immutable array of bytes from:
+      - an iterable yielding integers in range(256)
+      - a text string encoded using the specified encoding
+      - any object implementing the buffer API.
+      - an integer
     """,
 
     __repr__ = interpindirect2app(W_AbstractBytesObject.descr_repr),
@@ -855,6 +829,7 @@ W_BytesObject.typedef = TypeDef(
     __gt__ = interpindirect2app(W_AbstractBytesObject.descr_gt),
     __ge__ = interpindirect2app(W_AbstractBytesObject.descr_ge),
 
+    __iter__ = interpindirect2app(W_AbstractBytesObject.descr_iter),
     __len__ = interpindirect2app(W_AbstractBytesObject.descr_len),
     __contains__ = interpindirect2app(W_AbstractBytesObject.descr_contains),
 
@@ -862,14 +837,15 @@ W_BytesObject.typedef = TypeDef(
     __mul__ = interpindirect2app(W_AbstractBytesObject.descr_mul),
     __rmul__ = interpindirect2app(W_AbstractBytesObject.descr_rmul),
 
+    __mod__ = interpindirect2app(W_AbstractBytesObject.descr_mod),
+    __rmod__ = interpindirect2app(W_AbstractBytesObject.descr_rmod),
+
     __getitem__ = interpindirect2app(W_AbstractBytesObject.descr_getitem),
-    __getslice__ = interpindirect2app(W_AbstractBytesObject.descr_getslice),
 
     capitalize = interpindirect2app(W_AbstractBytesObject.descr_capitalize),
     center = interpindirect2app(W_AbstractBytesObject.descr_center),
     count = interpindirect2app(W_AbstractBytesObject.descr_count),
     decode = interpindirect2app(W_AbstractBytesObject.descr_decode),
-    encode = interpindirect2app(W_AbstractBytesObject.descr_encode),
     expandtabs = interpindirect2app(W_AbstractBytesObject.descr_expandtabs),
     find = interpindirect2app(W_AbstractBytesObject.descr_find),
     rfind = interpindirect2app(W_AbstractBytesObject.descr_rfind),
@@ -902,26 +878,29 @@ W_BytesObject.typedef = TypeDef(
     translate = interpindirect2app(W_AbstractBytesObject.descr_translate),
     upper = interpindirect2app(W_AbstractBytesObject.descr_upper),
     zfill = interpindirect2app(W_AbstractBytesObject.descr_zfill),
-    __buffer__ = interp2app(W_BytesObject.descr_getbuffer),
 
-    format = interpindirect2app(W_BytesObject.descr_format),
-    __format__ = interpindirect2app(W_BytesObject.descr__format__),
-    __mod__ = interpindirect2app(W_BytesObject.descr_mod),
-    __rmod__ = interpindirect2app(W_BytesObject.descr_rmod),
     __getnewargs__ = interpindirect2app(
         W_AbstractBytesObject.descr_getnewargs),
-    _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),
-    _formatter_field_name_split =
-        interp2app(W_BytesObject.descr_formatter_field_name_split),
+
+    fromhex = interp2app(W_BytesObject.descr_fromhex, as_classmethod=True),
+    maketrans = interp2app(W_BytesObject.descr_maketrans, as_classmethod=True),
+    hex = interp2app(W_BytesObject.descr_hex),
 )
 W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
 @jit.elidable
-def string_escape_encode(s, quote):
+def string_escape_encode(s, quotes):
     buf = StringBuilder(len(s) + 2)
 
-    buf.append(quote)
+    quote = "'"
+    if quotes:
+        if quote in s and '"' not in s:
+            quote = '"'
+            buf.append('b"')
+        else:
+            buf.append("b'")
+
     startslice = 0
 
     for i in range(len(s)):
@@ -959,6 +938,7 @@ def string_escape_encode(s, quote):
     if len(s) != startslice:
         buf.append_slice(s, startslice, len(s))
 
-    buf.append(quote)
+    if quotes:
+        buf.append(quote)
 
     return buf.build()

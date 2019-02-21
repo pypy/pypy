@@ -21,7 +21,7 @@ class TestAppLevelObject(BaseApiTest):
         assert py_datetype.c_tp_as_number.c_nb_add
         w_obj = generic_cpy_call(space, py_datetype.c_tp_as_number.c_nb_add,
                                  py_date, py_date)
-        assert space.str_w(w_obj) == 'sum!'
+        assert space.text_w(w_obj) == 'sum!'
 
     def test_tp_new_from_python(self, space, api):
         w_date = space.appexec([], """():
@@ -190,18 +190,18 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                     0,                  /* tp_basicsize*/
                     0                  /* tp_itemsize */
                 };
-                PyObject * mod;
+                PyObject * mod1;
                 PyObject * dt;
             ''', more_init='''
-                mod = PyImport_ImportModule("datetime");
-                if (mod == NULL) INITERROR;
-                dt = PyString_FromString("datetime");
-                datetime_cls = (PyTypeObject*)PyObject_GetAttr(mod, dt); 
+                mod1 = PyImport_ImportModule("datetime");
+                if (mod1 == NULL) INITERROR;
+                dt = PyUnicode_FromString("datetime");
+                datetime_cls = (PyTypeObject*)PyObject_GetAttr(mod1, dt);
                 if (datetime_cls == NULL) INITERROR;
                 _Timestamp.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
                 _Timestamp.tp_base = datetime_cls;
                 _Timestamp.tp_new = _timestamp_new;
-                Py_DECREF(mod);
+                Py_DECREF(mod1);
                 Py_DECREF(dt);
                 if (PyType_Ready(&_Timestamp) < 0) INITERROR;
 

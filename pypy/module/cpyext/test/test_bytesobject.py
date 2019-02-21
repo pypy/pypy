@@ -5,14 +5,14 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.bytesobject import (
-    new_empty_str, PyBytesObject, _PyString_Resize, PyString_Concat,
-    PyString_ConcatAndDel, PyString_Format, PyString_InternFromString,
-    PyString_AsEncodedObject, PyString_AsDecodedObject, _PyString_Eq,
-    _PyString_Join)
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
+    new_empty_str, PyBytesObject, _PyBytes_Resize, PyBytes_Concat,
+    _PyBytes_Eq, PyBytes_ConcatAndDel, _PyBytes_Join)
+from pypy.module.cpyext.api import (PyObjectP, PyObject, Py_ssize_tP,
+                  Py_buffer, Py_bufferP, generic_cpy_call)
 from pypy.module.cpyext.pyobject import decref, from_ref, make_ref
 from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
-from pypy.module.cpyext.api import PyTypeObjectPtr
+from pypy.module.cpyext.unicodeobject import (PyUnicode_AsEncodedObject,
+        PyUnicode_InternFromString, PyUnicode_Format)
 
 
 class AppTestBytesObject(AppTestCpythonExtensionBase):
@@ -49,7 +49,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """)], prologue='#include <stdlib.h>')
         assert module.get_hello1() == b'Hello world'
         assert module.get_hello2() == b'Hello world'
-        assert module.test_Size() == 11
+        assert module.test_Size()
         raises(TypeError, module.test_Size_exception)
 
         assert module.test_is_bytes(b"")
@@ -87,20 +87,20 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """
                 PyObject *base;
                 PyTypeObject * type;
-                PyBytesObject *obj;
+                PyObject *obj;
                 base = PyBytes_FromString("test");
                 if (PyBytes_GET_SIZE(base) != 4)
                     return PyLong_FromLong(-PyBytes_GET_SIZE(base));
                 type = base->ob_type;
                 if (type->tp_itemsize != 1)
                     return PyLong_FromLong(type->tp_itemsize);
-                obj = (PyBytesObject*)type->tp_alloc(type, 10);
+                obj = type->tp_alloc(type, 10);
                 if (PyBytes_GET_SIZE(obj) != 10)
                     return PyLong_FromLong(PyBytes_GET_SIZE(obj));
                 /* cannot work, there is only RO access
                 memcpy(PyBytes_AS_STRING(obj), "works", 6); */
                 Py_INCREF(obj);
-                return (PyObject*)obj;
+                return obj;
              """),
             ('alloc_rw', "METH_NOARGS",
              '''
@@ -149,10 +149,6 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         assert module.bytes_as_string(b"huheduwe") == b"huhe"
         ret = module.concat(b'abc', b'def')
         assert ret == b'abcdef'
-        ret = module.concat('abc', u'def')
-        assert not isinstance(ret, str)
-        assert isinstance(ret, unicode)
-        assert ret == 'abcdef'
 
     def test_py_bytes_as_string_None(self):
         module = self.import_extension('foo', [
@@ -210,116 +206,118 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         module.getbytes()
         module.c_only()
 
-    def test_py_string_as_string_Unicode(self):
+    def test_FromFormat(self):
         module = self.import_extension('foo', [
-            ("getstring_unicode", "METH_NOARGS",
+            ("fmt", "METH_VARARGS",
              """
-                 Py_UNICODE chars[] = {'t', 'e', 's', 't'};
-                 PyObject* u1 = PyUnicode_FromUnicode(chars, 4);
-                 char *buf;
-                 buf = PyString_AsString(u1);
-                 if (buf == NULL)
-                     return NULL;
-                 if (buf[3] != 't') {
-                     PyErr_SetString(PyExc_AssertionError, "Bad conversion");
-                     return NULL;
-                 }
-                 Py_DECREF(u1);
-                 Py_INCREF(Py_None);
-                 return Py_None;
+                PyObject* fmt = PyTuple_GetItem(args, 0);
+                int n = PyLong_AsLong(PyTuple_GetItem(args, 1));
+                PyObject* result = PyBytes_FromFormat(PyBytes_AsString(fmt), n);
+                return result;
              """),
-            ("getstringandsize_unicode", "METH_NOARGS",
+        ])
+        print(module.fmt(b'd:%d', 10))
+        assert module.fmt(b'd:%d', 10) == b'd:10'
+
+    def test_suboffsets(self):
+        module = self.import_extension('foo', [
+            ("check_suboffsets", "METH_O",
              """
-                 Py_UNICODE chars[] = {'t', 'e', 's', 't'};
-                 PyObject* u1 = PyUnicode_FromUnicode(chars, 4);
-                 char *buf;
-                 Py_ssize_t len;
-                 if (PyString_AsStringAndSize(u1, &buf, &len) < 0)
-                     return NULL;
-                 if (len != 4) {
-                     PyErr_SetString(PyExc_AssertionError, "Bad Length");
-                     return NULL;
-                 }
-                 Py_DECREF(u1);
-                 Py_INCREF(Py_None);
-                 return Py_None;
-             """),
-            ])
-        module.getstring_unicode()
-        module.getstringandsize_unicode()
-
-    def test_format_v(self):
-        module = self.import_extension('foo', [
-            ("test_string_format_v", "METH_VARARGS",
-             '''
-                 return helper("bla %d ble %s\\n",
-                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
-                        PyString_AsString(PyTuple_GetItem(args, 1)));
-             '''
-             )
-            ], prologue='''
-            PyObject* helper(char* fmt, ...)
-            {
-              va_list va;
-              PyObject* res;
-              va_start(va, fmt);
-              res = PyString_FromFormatV(fmt, va);
-              va_end(va);
-              return res;
-            }
-            ''')
-        res = module.test_string_format_v(1, "xyz")
-        assert res == "bla 1 ble xyz\n"
-
-    def test_format(self):
-        module = self.import_extension('foo', [
-            ("test_string_format", "METH_VARARGS",
-             '''
-                 return PyString_FromFormat("bla %d ble %s\\n",
-                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
-                        PyString_AsString(PyTuple_GetItem(args, 1)));
-             '''
-             )
-            ])
-        res = module.test_string_format(1, "xyz")
-        assert res == "bla 1 ble xyz\n"
-
-    def test_intern_inplace(self):
-        module = self.import_extension('foo', [
-            ("test_intern_inplace", "METH_O",
-             '''
-                 PyObject *s = args;
-                 Py_INCREF(s);
-                 PyString_InternInPlace(&s);
-                 if (((PyBytesObject*)s)->ob_sstate == SSTATE_NOT_INTERNED)
-                 {
-                    Py_DECREF(s);
-                    s = PyString_FromString("interned error");
-                 }
-                 return s;
-             '''
-             )
-            ])
-        # This does not test much, but at least the refcounts are checked.
-        assert module.test_intern_inplace('s') == 's'
-
-    def test_bytes_macros(self):
-        """The PyString_* macros cast, and calls expecting that build."""
-        module = self.import_extension('foo', [
-             ("test_macro_invocations", "METH_NOARGS",
-             """
-                PyObject* o = PyString_FromString("");
-                PyBytesObject* u = (PyBytesObject*)o;
-
-                PyString_GET_SIZE(u);
-                PyString_GET_SIZE(o);
-
-                PyString_AS_STRING(o);
-                PyString_AS_STRING(u);
-
-                return o;
+                Py_buffer view;
+                PyObject_GetBuffer(args, &view, 0);
+                return PyLong_FromLong(view.suboffsets == NULL);
              """)])
-        assert module.test_macro_invocations() == ''
+        assert module.check_suboffsets(b'1234') == 1
+
+class TestBytes(BaseApiTest):
+    def test_bytes_resize(self, space):
+        py_str = new_empty_str(space, 10)
+        ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        py_str.c_ob_sval[0] = 'a'
+        py_str.c_ob_sval[1] = 'b'
+        py_str.c_ob_sval[2] = 'c'
+        ar[0] = rffi.cast(PyObject, py_str)
+        _PyBytes_Resize(space, ar, 3)
+        py_str = rffi.cast(PyBytesObject, ar[0])
+        assert py_str.c_ob_size == 3
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[3] == '\x00'
+        # the same for growing
+        ar[0] = rffi.cast(PyObject, py_str)
+        _PyBytes_Resize(space, ar, 10)
+        py_str = rffi.cast(PyBytesObject, ar[0])
+        assert py_str.c_ob_size == 10
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[10] == '\x00'
+        decref(space, ar[0])
+        lltype.free(ar, flavor='raw')
+
+    def test_Concat(self, space):
+        ref = make_ref(space, space.newbytes('abc'))
+        ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        ptr[0] = ref
+        prev_refcnt = ref.c_ob_refcnt
+        PyBytes_Concat(space, ptr, space.newbytes('def'))
+        assert ref.c_ob_refcnt == prev_refcnt - 1
+        assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
+        with raises_w(space, TypeError):
+            PyBytes_Concat(space, ptr, space.w_None)
+        assert not ptr[0]
+        ptr[0] = lltype.nullptr(PyObject.TO)
+        PyBytes_Concat(space, ptr, space.newbytes('def')) # should not crash
+        lltype.free(ptr, flavor='raw')
+
+    def test_ConcatAndDel1(self, space):
+        # XXX remove this or test_ConcatAndDel2
+        ref1 = make_ref(space, space.newbytes('abc'))
+        ref2 = make_ref(space, space.newbytes('def'))
+        ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        ptr[0] = ref1
+        prev_refcnf = ref2.c_ob_refcnt
+        PyBytes_ConcatAndDel(space, ptr, ref2)
+        assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
+        assert ref2.c_ob_refcnt == prev_refcnf - 1
+        decref(space, ptr[0])
+        ptr[0] = lltype.nullptr(PyObject.TO)
+        ref2 = make_ref(space, space.newbytes('foo'))
+        prev_refcnf = ref2.c_ob_refcnt
+        PyBytes_ConcatAndDel(space, ptr, ref2) # should not crash
+        assert ref2.c_ob_refcnt == prev_refcnf - 1
+        lltype.free(ptr, flavor='raw')
+
+    def test_asbuffer(self, space):
+        bufp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
+        lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
+
+        w_text = space.newbytes("text")
+        ref = make_ref(space, w_text)
+        prev_refcnt = ref.c_ob_refcnt
+        assert PyObject_AsCharBuffer(space, ref, bufp, lenp) == 0
+        assert ref.c_ob_refcnt == prev_refcnt
+        assert lenp[0] == 4
+        assert rffi.charp2str(bufp[0]) == 'text'
+        lltype.free(bufp, flavor='raw')
+        lltype.free(lenp, flavor='raw')
+        decref(space, ref)
+
+    def test_eq(self, space):
+        assert 1 == _PyBytes_Eq(space, space.newbytes("hello"), space.newbytes("hello"))
+        assert 0 == _PyBytes_Eq(space, space.newbytes("hello"), space.newbytes("world"))
+
+    def test_join(self, space):
+        w_sep = space.newbytes('<sep>')
+        w_seq = space.newtuple([space.newbytes('a'), space.newbytes('b')])
+        w_joined = _PyBytes_Join(space, w_sep, w_seq)
+        assert space.bytes_w(w_joined) == 'a<sep>b'
+
+    def test_FromObject(self, space, api):
+        w_obj = space.newbytes("test")
+        assert space.eq_w(w_obj, api.PyBytes_FromObject(w_obj))
+        w_obj = space.call_function(space.w_bytearray, w_obj)
+        assert space.eq_w(w_obj, api.PyBytes_FromObject(w_obj))
+        w_obj = space.wrap(u"test")
+        with raises_w(space, TypeError):
+            api.PyBytes_FromObject(w_obj)
 
     def test_hash_and_state(self):
         module = self.import_extension('foo', [
@@ -473,14 +471,14 @@ class TestBytes(BaseApiTest):
         py_str.c_ob_sval[1] = 'b'
         py_str.c_ob_sval[2] = 'c'
         ar[0] = rffi.cast(PyObject, py_str)
-        _PyString_Resize(space, ar, 3)
+        _PyBytes_Resize(space, ar, 3)
         py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 3
         assert py_str.c_ob_sval[1] == 'b'
         assert py_str.c_ob_sval[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
-        _PyString_Resize(space, ar, 10)
+        _PyBytes_Resize(space, ar, 10)
         py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 10
         assert py_str.c_ob_sval[1] == 'b'
@@ -493,61 +491,58 @@ class TestBytes(BaseApiTest):
         c_buf = py_str.c_ob_type.c_tp_as_buffer
         assert c_buf
         py_obj = rffi.cast(PyObject, py_str)
-        assert generic_cpy_call(space, c_buf.c_bf_getsegcount,
-                                py_obj, lltype.nullptr(Py_ssize_tP.TO)) == 1
-        ref = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
-        assert generic_cpy_call(space, c_buf.c_bf_getsegcount,
-                                py_obj, ref) == 1
-        assert ref[0] == 10
-        lltype.free(ref, flavor='raw')
-        ref = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
-        assert generic_cpy_call(space, c_buf.c_bf_getreadbuffer,
-                                py_obj, 0, ref) == 10
+        size = rffi.sizeof(Py_buffer)
+        ref = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw', zero=True)
+        ref = rffi.cast(Py_bufferP, ref)
+        assert generic_cpy_call(space, c_buf.c_bf_getbuffer,
+                            py_obj, ref, rffi.cast(rffi.INT_real, 0)) == 0
         lltype.free(ref, flavor='raw')
         decref(space, py_obj)
 
     def test_Concat(self, space):
-        ref = make_ref(space, space.wrap('abc'))
+        ref = make_ref(space, space.newbytes('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref
         prev_refcnt = ref.c_ob_refcnt
-        PyString_Concat(space, ptr, space.wrap('def'))
+        PyBytes_Concat(space, ptr, space.newbytes('def'))
         assert ref.c_ob_refcnt == prev_refcnt - 1
-        assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
+        assert space.utf8_w(from_ref(space, ptr[0])) == 'abcdef'
         with pytest.raises(OperationError):
-            PyString_Concat(space, ptr, space.w_None)
+            PyBytes_Concat(space, ptr, space.w_None)
         assert not ptr[0]
         ptr[0] = lltype.nullptr(PyObject.TO)
-        PyString_Concat(space, ptr, space.wrap('def')) # should not crash
+        PyBytes_Concat(space, ptr, space.wrap('def')) # should not crash
         lltype.free(ptr, flavor='raw')
 
-    def test_ConcatAndDel(self, space):
-        ref1 = make_ref(space, space.wrap('abc'))
-        ref2 = make_ref(space, space.wrap('def'))
+    def test_ConcatAndDel2(self, space):
+        # XXX remove this or test_ConcatAndDel1
+        ref1 = make_ref(space, space.newbytes('abc'))
+        ref2 = make_ref(space, space.newbytes('def'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref1
         prev_refcnf = ref2.c_ob_refcnt
-        PyString_ConcatAndDel(space, ptr, ref2)
-        assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
+        PyBytes_ConcatAndDel(space, ptr, ref2)
+        assert space.utf8_w(from_ref(space, ptr[0])) == 'abcdef'
         assert ref2.c_ob_refcnt == prev_refcnf - 1
         decref(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
         ref2 = make_ref(space, space.wrap('foo'))
         prev_refcnf = ref2.c_ob_refcnt
-        PyString_ConcatAndDel(space, ptr, ref2) # should not crash
+        PyBytes_ConcatAndDel(space, ptr, ref2) # should not crash
         assert ref2.c_ob_refcnt == prev_refcnf - 1
         lltype.free(ptr, flavor='raw')
 
     def test_format(self, space):
+        # XXX move to test_unicodeobject
         assert "1 2" == space.unwrap(
-            PyString_Format(space, space.wrap('%s %d'), space.wrap((1, 2))))
+            PyUnicode_Format(space, space.wrap('%s %d'), space.wrap((1, 2))))
 
     def test_asbuffer(self, space):
         bufp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
-        w_text = space.wrap("text")
-        ref = make_ref(space, w_text)
+        w_bytes = space.newbytes("text")
+        ref = make_ref(space, w_bytes)
         prev_refcnt = ref.c_ob_refcnt
         assert PyObject_AsCharBuffer(space, ref, bufp, lenp) == 0
         assert ref.c_ob_refcnt == prev_refcnt
@@ -558,54 +553,49 @@ class TestBytes(BaseApiTest):
         decref(space, ref)
 
     def test_intern(self, space):
+        # XXX move to test_unicodeobject
         buf = rffi.str2charp("test")
-        w_s1 = PyString_InternFromString(space, buf)
-        w_s2 = PyString_InternFromString(space, buf)
+        w_s1 = PyUnicode_InternFromString(space, buf)
+        w_s2 = PyUnicode_InternFromString(space, buf)
         rffi.free_charp(buf)
         assert w_s1 is w_s2
 
     def test_AsEncodedObject(self, space):
+        # XXX move to test_unicodeobject
         ptr = space.wrap('abc')
 
         errors = rffi.str2charp("strict")
 
-        encoding = rffi.str2charp("hex")
-        res = PyString_AsEncodedObject(space, ptr, encoding, errors)
-        assert space.unwrap(res) == "616263"
+        encoding = rffi.str2charp("ascii")
+        res = PyUnicode_AsEncodedObject(space, ptr, encoding, errors)
+        assert space.unwrap(res) == "abc"
 
-        res = PyString_AsEncodedObject(space,
+        res = PyUnicode_AsEncodedObject(space,
             ptr, encoding, lltype.nullptr(rffi.CCHARP.TO))
-        assert space.unwrap(res) == "616263"
+        assert space.unwrap(res) == "abc"
         rffi.free_charp(encoding)
 
         encoding = rffi.str2charp("unknown_encoding")
         with raises_w(space, LookupError):
-            PyString_AsEncodedObject(space, ptr, encoding, errors)
+            PyUnicode_AsEncodedObject(space, ptr, encoding, errors)
         rffi.free_charp(encoding)
 
         rffi.free_charp(errors)
 
         NULL = lltype.nullptr(rffi.CCHARP.TO)
-        res = PyString_AsEncodedObject(space, ptr, NULL, NULL)
+        res = PyUnicode_AsEncodedObject(space, ptr, NULL, NULL)
         assert space.unwrap(res) == "abc"
         with raises_w(space, TypeError):
-            PyString_AsEncodedObject(space, space.wrap(2), NULL, NULL)
-
-    def test_AsDecodedObject(self, space):
-        w_str = space.wrap('caf\xe9')
-        encoding = rffi.str2charp("latin-1")
-        w_res = PyString_AsDecodedObject(space, w_str, encoding, None)
-        rffi.free_charp(encoding)
-        assert space.unwrap(w_res) == u"caf\xe9"
+            PyUnicode_AsEncodedObject(space, space.wrap(2), NULL, NULL)
 
     def test_eq(self, space):
-        assert 1 == _PyString_Eq(
+        assert 1 == _PyBytes_Eq(
             space, space.wrap("hello"), space.wrap("hello"))
-        assert 0 == _PyString_Eq(
+        assert 0 == _PyBytes_Eq(
             space, space.wrap("hello"), space.wrap("world"))
 
     def test_join(self, space):
         w_sep = space.wrap('<sep>')
         w_seq = space.wrap(['a', 'b'])
-        w_joined = _PyString_Join(space, w_sep, w_seq)
+        w_joined = _PyBytes_Join(space, w_sep, w_seq)
         assert space.unwrap(w_joined) == 'a<sep>b'

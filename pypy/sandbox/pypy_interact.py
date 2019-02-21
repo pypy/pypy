@@ -17,7 +17,7 @@ Options:
 Note that you can get readline-like behavior with a tool like 'ledit',
 provided you use enough -u options:
 
-    ledit python -u pypy_interact.py pypy-c-sandbox -u
+    ledit python -u pypy_interact.py pypy3-c-sandbox -u
 """
 
 import sys, os
@@ -29,7 +29,7 @@ import pypy
 LIB_ROOT = os.path.dirname(os.path.dirname(pypy.__file__))
 
 class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
-    argv0 = '/bin/pypy-c'
+    argv0 = '/bin/pypy3-c'
     virtual_cwd = '/tmp'
     virtual_env = {}
     virtual_console_isatty = True
@@ -46,7 +46,7 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
         # * can access its own executable
         # * can access the pure Python libraries
         # * can access the temporary usession directory as /tmp
-        exclude = ['.pyc', '.pyo']
+        exclude = ['.pyc']
         if self.tmpdir is None:
             tmpdirnode = Dir({})
         else:
@@ -55,9 +55,9 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
         return Dir({
             'bin': Dir({
-                'pypy-c': RealFile(self.executable, mode=0111),
+                'pypy3-c': RealFile(self.executable, mode=0111),
                 'lib-python': RealDir(os.path.join(libroot, 'lib-python'),
-                                      exclude=exclude), 
+                                      exclude=exclude),
                 'lib_pypy': RealDir(os.path.join(libroot, 'lib_pypy'),
                                       exclude=exclude),
                 }),
@@ -66,7 +66,7 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
 def main():
     from getopt import getopt      # and not gnu_getopt!
-    options, arguments = getopt(sys.argv[1:], 't:hv', 
+    options, arguments = getopt(sys.argv[1:], 't:hv',
                                 ['tmp=', 'heapsize=', 'timeout=', 'log=',
                                  'verbose', 'help'])
     tmpdir = None

@@ -44,15 +44,15 @@ def W_MD5___new__(space, w_subtype, initialdata=''):
 
 
 W_MD5.typedef = TypeDef(
-    'MD5Type',
+    '_md5_md5',
     __new__   = interp2app(W_MD5___new__),
     update    = interp2app(W_MD5.update_w),
     digest    = interp2app(W_MD5.digest_w),
     hexdigest = interp2app(W_MD5.hexdigest_w),
     copy      = interp2app(W_MD5.copy_w),
     digest_size = 16,
-    digestsize = 16,
     block_size = 64,
+    name      = 'md5',
     __doc__   = """md5(arg) -> return new md5 object.
 
 If arg is present, the method call update(arg) is made.""")

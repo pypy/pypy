@@ -178,8 +178,8 @@ class TestNumArrayDirect(object):
                                                            space.wrap("b")]),
                                             None)
         assert shape == [2]
-        assert space.str_w(elems[0]) == "a"
-        assert space.str_w(elems[1]) == "b"
+        assert space.text_w(elems[0]) == "a"
+        assert space.text_w(elems[1]) == "b"
 
     def test_from_shape_and_storage(self):
         from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
@@ -2480,15 +2480,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([1, 2])
         b = array([1, 2, 3, 4])
         assert (a == b) == False
-
-    def test__long__(self):
-        from numpy import array
-        assert long(array(1)) == 1
-        assert long(array([1])) == 1
-        assert isinstance(long(array([1])), long)
-        assert isinstance(long(array([1, 2][0])), long)
-        assert raises(TypeError, "long(array([1, 2]))")
-        assert long(array([1.5])) == 1
 
     def test__int__(self):
         from numpy import array

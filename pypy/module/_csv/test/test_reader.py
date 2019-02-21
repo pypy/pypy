@@ -1,3 +1,6 @@
+from __future__ import unicode_literals
+
+
 class AppTestReader(object):
     spaceconfig = dict(usemodules=['_csv'])
 
@@ -18,8 +21,19 @@ class AppTestReader(object):
             w__read_test = staticmethod(w__read_test)
         cls.w__read_test = w__read_test
 
+    def test_escaped_char_quotes(self):
+        import _csv
+        from io import StringIO
+        r = _csv.reader(StringIO('a\\\nb,c\n'), quoting=_csv.QUOTE_NONE, escapechar='\\')
+        assert next(r) == ['a\nb', 'c']
+
     def test_simple_reader(self):
         self._read_test(['foo:bar\n'], [['foo', 'bar']], delimiter=':')
+
+    def test_cannot_read_bytes(self):
+        import _csv
+        reader = _csv.reader([b'foo'])
+        raises(_csv.Error, next, reader)
 
     def test_read_oddinputs(self):
         self._read_test([], [])
@@ -85,13 +99,13 @@ class AppTestReader(object):
         import _csv as csv
         r = csv.reader(['line,1', 'line,2', 'line,3'])
         assert r.line_num == 0
-        r.next()
+        next(r)
         assert r.line_num == 1
-        r.next()
+        next(r)
         assert r.line_num == 2
-        r.next()
+        next(r)
         assert r.line_num == 3
-        raises(StopIteration, r.next)
+        raises(StopIteration, "next(r)")
         assert r.line_num == 3
 
     def test_dubious_quote(self):

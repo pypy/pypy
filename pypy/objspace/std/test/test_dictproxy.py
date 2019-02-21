@@ -23,9 +23,6 @@ class AppTestUserObject:
         class substr(str):
             pass
         assert substr('a') in NotEmpty.__dict__
-        assert u'a' in NotEmpty.__dict__
-        assert NotEmpty.__dict__[u'a'] == 1
-        assert u'\xe9' not in NotEmpty.__dict__
 
     def test_dictproxyeq(self):
         class a(object):
@@ -44,41 +41,41 @@ class AppTestUserObject:
         class a(object):
             pass
         s1 = repr(a.__dict__)
-        assert s1.startswith('dict_proxy({') and s1.endswith('})')
+        assert s1.startswith('mappingproxy({') and s1.endswith('})')
         s2 = str(a.__dict__)
-        assert s1 == 'dict_proxy(%s)' % s2
+        assert s1 == 'mappingproxy(%s)' % s2
 
     def test_immutable_dict_on_builtin_type(self):
         raises(TypeError, "int.__dict__['a'] = 1")
         raises((AttributeError, TypeError), "int.__dict__.popitem()")
         raises((AttributeError, TypeError), "int.__dict__.clear()")
 
-    def test_dictproxy(self):
+    def test_mappingproxy(self):
         dictproxy = type(int.__dict__)
         assert dictproxy is not dict
-        assert dictproxy.__name__ == 'dictproxy'
+        assert dictproxy.__name__ == 'mappingproxy'
         raises(TypeError, dictproxy)
-
-        mapping = {'a': 1}
-        raises(TypeError, dictproxy, mapping)
-
-        class A(object):
-            a = 1
-
-        proxy = A.__dict__
-        mapping = dict(proxy)
+        mapping = dict(a=1, b=2, c=3)
+        proxy = dictproxy(mapping)
         assert proxy['a'] == 1
         assert 'a' in proxy
         assert 'z' not in proxy
-        assert repr(proxy) == 'dict_proxy(%r)' % mapping
+        assert repr(proxy) == 'mappingproxy(%r)' % mapping
         assert proxy.keys() == mapping.keys()
-        assert list(proxy.iterkeys()) == proxy.keys()
-        assert list(proxy.itervalues()) == proxy.values()
-        assert list(proxy.iteritems()) == proxy.items()
         raises(TypeError, "proxy['a'] = 4")
         raises(TypeError, "del proxy['a']")
         raises(AttributeError, "proxy.clear()")
         raises(TypeError, reversed, proxy)
+        #
+        class D(dict):
+            def copy(self): return 3
+        proxy = dictproxy(D(a=1, b=2, c=3))
+        assert proxy.copy() == 3
+        #
+        raises(TypeError, dictproxy, 3)
+        raises(TypeError, dictproxy, [3])
+        #
+        {}.update(proxy)
 
 
 class AppTestUserObjectMethodCache(AppTestUserObject):

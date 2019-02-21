@@ -5,6 +5,8 @@ class AppTestBasic:
     def test_basics(self):
         from _collections import defaultdict
         d = defaultdict(list)
+        assert d.default_factory is list
+        assert defaultdict.default_factory.__get__(d) is list
         l = d[5]
         d[5].append(42)
         d[5].append(43)
@@ -35,12 +37,12 @@ class AppTestBasic:
         from _collections import defaultdict
         raises(TypeError, defaultdict, [('a', 5)])
         d = defaultdict(None, [('a', 5)])
-        assert d.items() == [('a', 5)]
+        assert list(d.items()) == [('a', 5)]
 
     def test_kwds(self):
         from _collections import defaultdict
         d = defaultdict(default_factory=5)
-        assert d.keys() == ['default_factory']
+        assert list(d.keys()) == ['default_factory']
 
     def test_copy(self):
         import _collections
@@ -82,3 +84,18 @@ class AppTestBasic:
         assert d.default_factory is f
         d.default_factory = lambda: 43
         assert d['5'] == 43
+
+    def test_reduce(self):
+        import _collections
+        d = _collections.defaultdict(None, {3: 4})
+        dict_iter = d.__reduce__()[4]
+        assert type(dict_iter) is type(iter(d.items()))
+
+    def test_rec_repr(self):
+        import _collections
+        class X(_collections.defaultdict):
+            def mydefault(self):
+                pass
+        d = X.__new__(X)
+        d.__init__(d.mydefault)
+        assert repr(d).endswith('defaultdict(..., {})>, {})')

@@ -1,28 +1,28 @@
 
 class AppTestBasic:
-    spaceconfig = dict(usemodules=['_collections'])
+    spaceconfig = dict(usemodules=['_collections', 'struct'])
 
     def test_basics(self):
         from _collections import deque
         assert deque.__module__ == 'collections'
 
-        d = deque(xrange(-5125, -5000))
-        d.__init__(xrange(200))
-        for i in xrange(200, 400):
+        d = deque(range(-5125, -5000))
+        d.__init__(range(200))
+        for i in range(200, 400):
             d.append(i)
-        for i in reversed(xrange(-200, 0)):
+        for i in reversed(range(-200, 0)):
             d.appendleft(i)
-        assert list(d) == range(-200, 400)
+        assert list(d) == list(range(-200, 400))
         assert len(d) == 600
 
-        left = [d.popleft() for i in xrange(250)]
-        assert left == range(-200, 50)
-        assert list(d) == range(50, 400)
+        left = [d.popleft() for i in range(250)]
+        assert left == list(range(-200, 50))
+        assert list(d) == list(range(50, 400))
 
-        right = [d.pop() for i in xrange(250)]
+        right = [d.pop() for i in range(250)]
         right.reverse()
-        assert right == range(150, 400)
-        assert list(d) == range(50, 150)
+        assert right == list(range(150, 400))
+        assert list(d) == list(range(50, 150))
 
     def test_maxlen(self):
         from _collections import deque
@@ -32,7 +32,7 @@ class AppTestBasic:
         d = deque(it, maxlen=3)
         assert list(it) == []
         assert repr(d) == 'deque([7, 8, 9], maxlen=3)'
-        assert list(d) == range(7, 10)
+        assert list(d) == list(range(7, 10))
         d.appendleft(3)
         assert list(d) == [3, 7, 8]
         d.extend([20, 21])
@@ -64,17 +64,17 @@ class AppTestBasic:
         d = deque('abcdefg')
         it = iter(d)
         d.pop()
-        raises(RuntimeError, it.next)
+        raises(RuntimeError, next, it)
         #
         d = deque('abcdefg')
         it = iter(d)
         d.append(d.pop())
-        raises(RuntimeError, it.next)
+        raises(RuntimeError, next, it)
         #
         d = deque()
         it = iter(d)
         d.append(10)
-        raises(RuntimeError, it.next)
+        raises(RuntimeError, next, it)
 
     def test_count(self):
         from _collections import deque
@@ -107,7 +107,6 @@ class AppTestBasic:
                 assert (x <= y) == (list(x) <= list(y))
                 assert (x >  y) == (list(x) >  list(y))
                 assert (x >= y) == (list(x) >= list(y))
-                assert cmp(x,y) == cmp(list(x),list(y))
 
     def test_extend(self):
         from _collections import deque
@@ -116,6 +115,16 @@ class AppTestBasic:
         assert list(d) == list('abcd')
         d.extend(d)
         assert list(d) == list('abcdabcd')
+
+    def test_add(self):
+        from _collections import deque
+        d1 = deque([1,2,3])
+        d2 = deque([3,4,5])
+        assert d1 + d2 == deque([1,2,3,3,4,5])
+
+    def test_cannot_add_list(self):
+        from _collections import deque
+        raises(TypeError, "deque([2]) + [3]")
 
     def test_iadd(self):
         from _collections import deque
@@ -138,9 +147,9 @@ class AppTestBasic:
     def test_getitem(self):
         from _collections import deque
         n = 200
-        l = xrange(1000, 1000 + n)
+        l = range(1000, 1000 + n)
         d = deque(l)
-        for j in xrange(-n, n):
+        for j in range(-n, n):
             assert d[j] == l[j]
         raises(IndexError, "d[-n-1]")
         raises(IndexError, "d[n]")
@@ -148,12 +157,12 @@ class AppTestBasic:
     def test_setitem(self):
         from _collections import deque
         n = 200
-        d = deque(xrange(n))
-        for i in xrange(n):
+        d = deque(range(n))
+        for i in range(n):
             d[i] = 10 * i
-        assert list(d) == [10*i for i in xrange(n)]
+        assert list(d) == [10*i for i in range(n)]
         l = list(d)
-        for i in xrange(1-n, 0, -3):
+        for i in range(1-n, 0, -3):
             d[i] = 7*i
             l[i] = 7*i
         assert list(d) == l
@@ -166,12 +175,12 @@ class AppTestBasic:
 
     def test_reverse(self):
         from _collections import deque
-        d = deque(xrange(1000, 1200))
+        d = deque(range(1000, 1200))
         d.reverse()
         assert list(d) == list(reversed(range(1000, 1200)))
         #
         n = 100
-        data = map(str, range(n))
+        data = list(map(str, range(n)))
         for i in range(n):
             d = deque(data[:i])
             r = d.reverse()
@@ -231,11 +240,12 @@ class AppTestBasic:
 
     def test_repr(self):
         from _collections import deque
-        d = deque(xrange(20))
+        d = deque(range(20))
         e = eval(repr(d))
         assert d == e
+        d = deque()
         d.append(d)
-        assert '...' in repr(d)
+        assert repr(d) == "deque([[...]])"
 
     def test_hash(self):
         from _collections import deque
@@ -243,7 +253,7 @@ class AppTestBasic:
 
     def test_roundtrip_iter_init(self):
         from _collections import deque
-        d = deque(xrange(200))
+        d = deque(range(200))
         e = deque(d)
         assert d is not e
         assert d == e
@@ -285,9 +295,24 @@ class AppTestBasic:
         mut[0] = 11
         assert d == e
 
+    def test_index(self):
+        from _collections import deque
+        d = deque([1,2,'a',1,2])
+        assert d.index(1) is 0
+        assert d.index('a') is 2
+        assert d.index(1,2) is 3
+        assert d.index('a',-3) is 2
+        assert d.index('a',-3,-1) is 2
+        assert d.index('a',-9) is 2
+        raises(ValueError, d.index, 2, 2, -1)
+        raises(ValueError, d.index, 1, 1, 3)
+        raises(ValueError, d.index, 'a', -3, -3)
+        raises(ValueError, d.index, 'a', 1, -3)
+        raises(ValueError, d.index, 'a', -3, -9)
+
     def test_reversed(self):
         from _collections import deque
-        for s in ('abcd', xrange(200)):
+        for s in ('abcd', range(200)):
             assert list(reversed(deque(s))) == list(reversed(s))
 
     def test_free(self):
@@ -302,3 +327,124 @@ class AppTestBasic:
         d.pop()
         gc.collect(); gc.collect(); gc.collect()
         assert X.freed
+
+    def test_DequeIter_pickle(self):
+        from _collections import deque
+        import pickle
+        for i in range(4):
+            d = deque([1,2,3])
+            iterator = iter(d)
+            assert iterator.__reduce__() == (type(iterator), (d, 0))
+            for j in range(i):
+                next(iterator)
+            assert iterator.__reduce__() == (type(iterator), (d, i))
+            copy = pickle.loads(pickle.dumps(iterator))
+            assert list(iterator) == list(copy)
+
+    def test_DequeRevIter_pickle(self):
+        from _collections import deque
+        import pickle
+        for i in range(4):
+            d = deque([1,2,3])
+            iterator = reversed(d)
+            assert iterator.__reduce__() == (type(iterator), (d, 0))
+            for j in range(i):
+                assert next(iterator)
+            assert iterator.__reduce__() == (type(iterator), (d, i))
+            copy = pickle.loads(pickle.dumps(iterator))
+            assert list(iterator) == list(copy)
+
+    def test_deque_mul(self):
+        from _collections import deque
+        d = deque([1,2,3])
+        assert d*3 == deque([1,2,3]*3)
+
+    def test_deque_imul(self):
+        from _collections import deque
+        d = deque([1,2,3])
+        d *= 3
+        assert d == deque([1,2,3]*3)
+        assert d is not deque([1,2,3]*3)
+        d = deque('a')
+        for n in (-10, -1, 0, 1, 2, 10, 1000):
+            d = deque('a')
+            d *= n
+            assert d == deque('a' * n)
+            assert d.maxlen is None
+
+    def test_deque_repeat_big(self):
+        import sys
+        from _collections import deque
+        d = deque([0])
+        d *= 2**8
+        if sys.maxsize <= 2147483647:
+            raises(MemoryError, d.__mul__, 2**24)
+            raises(MemoryError, d.__rmul__, 2**24)
+            raises(MemoryError, d.__imul__, 2**24)
+        else:
+            raises(MemoryError, d.__mul__, 2**56)
+            raises(MemoryError, d.__rmul__, 2**56)
+            raises(MemoryError, d.__imul__, 2**56)
+
+    def test_deque_insert(self):
+        from _collections import deque
+        for i in range(0,11):
+            d = deque(range(10))
+            d.insert(i, 'a')
+            assert 'a' in d
+            assert 'b' not in d
+            assert d.__contains__('a')
+            assert not d.__contains__('b')
+            assert d.index('a') == i
+        d = deque(range(10))
+        d.insert(-1, 500)
+        assert d.index(500) == 9
+
+    def test_deque_raises_runtimeerror(self):
+        from _collections import deque
+        n = 200
+        class MutateCmp:
+            def __init__(self, deque, result):
+                self.deque = deque
+                self.result = result
+            def __eq__(self, other):
+                self.deque.clear()
+                return self.result
+        d = deque(range(n))
+        d[n//2] = MutateCmp(d, False)
+        try:
+            d.index(n)
+            assert 0, "must raise!"
+        except RuntimeError:
+            pass
+
+    def test_deque_rmul(self):
+        from _collections import deque
+        d = deque([1,2])
+        assert 2 * d == deque([1,2,1,2])
+        assert -5 * d == deque()
+
+    def test_deque_maxlen(self):
+        from _collections import deque
+        g = deque('abcdef', maxlen=4)
+        assert len(g) == 4 and g == deque('cdef')
+        h = deque('gh')
+        assert ''.join(g + h) == 'efgh'
+        assert g + h == deque('efgh')
+
+    def test_deque_insert2(self):
+        from _collections import deque
+        elements = 'ABCDEFGHI'
+        for i in range(-5 - len(elements)*2, 5 + len(elements) * 2):
+            d = deque('ABCDEFGHI')
+            s = list('ABCDEFGHI')
+            d.insert(i, 'Z')
+            s.insert(i, 'Z')
+            assert list(d) == s
+
+    def test_deque_index_overflow_start_end(self):
+        from _collections import deque
+        import sys
+        elements = 'ABCDEFGHI'
+        d = deque([-2, -1, 0, 0, 1, 2])
+        assert d.index(0, -4*sys.maxsize, 4*sys.maxsize) == 2

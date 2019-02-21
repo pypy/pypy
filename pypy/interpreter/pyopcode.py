@@ -4,10 +4,10 @@ Implementation of a part of the standard Python opcodes.
 The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
-from rpython.rlib import jit, rstackovf
+from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
-from rpython.rlib.objectmodel import (we_are_translated, always_inline,
-        dont_inline, not_rpython)
+from rpython.rlib.objectmodel import (
+    we_are_translated, always_inline, dont_inline, not_rpython)
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -19,6 +19,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
+
+CANNOT_CATCH_MSG = ("catching classes that don't inherit from BaseException "
+                    "is not allowed in 3.x")
 
 @not_rpython
 def unaryoperation(operationname):
@@ -57,18 +60,17 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
-
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
-            self.last_exception = None
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
         except OperationError as operr:
+            operr.record_context(self.space, ec)
             next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
@@ -83,7 +85,7 @@ class __extend__(pyframe.PyFrame):
             # Note that this case catches AttributeError!
             rstackovf.check_stack_overflow()
             next_instr = self.handle_asynchronous_error(ec,
-                self.space.w_RuntimeError,
+                self.space.w_RecursionError,
                 self.space.newtext("maximum recursion depth exceeded"))
         return next_instr
 
@@ -93,6 +95,11 @@ class __extend__(pyframe.PyFrame):
         if w_value is None:
             w_value = self.space.w_None
         operr = OperationError(w_type, w_value)
+        return self.handle_operation_error(ec, operr)
+
+    def handle_generator_error(self, operr):
+        # for generator.py
+        ec = self.space.getexecutioncontext()
         return self.handle_operation_error(ec, operr)
 
     def handle_operation_error(self, ec, operr, attach_tb=True):
@@ -221,10 +228,10 @@ class __extend__(pyframe.PyFrame):
                 self.BINARY_ADD(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_AND.index:
                 self.BINARY_AND(oparg, next_instr)
-            elif opcode == opcodedesc.BINARY_DIVIDE.index:
-                self.BINARY_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_FLOOR_DIVIDE.index:
                 self.BINARY_FLOOR_DIVIDE(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_MATRIX_MULTIPLY.index:
+                self.BINARY_MATRIX_MULTIPLY(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_LSHIFT.index:
                 self.BINARY_LSHIFT(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_MODULO.index:
@@ -245,20 +252,28 @@ class __extend__(pyframe.PyFrame):
                 self.BINARY_TRUE_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_XOR.index:
                 self.BINARY_XOR(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_CLASS.index:
-                self.BUILD_CLASS(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST.index:
                 self.BUILD_LIST(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST_FROM_ARG.index:
                 self.BUILD_LIST_FROM_ARG(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_LIST_UNPACK.index:
+                self.BUILD_LIST_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_MAP.index:
                 self.BUILD_MAP(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_MAP_UNPACK.index:
+                self.BUILD_MAP_UNPACK(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_MAP_UNPACK_WITH_CALL.index:
+                self.BUILD_MAP_UNPACK_WITH_CALL(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SET.index:
                 self.BUILD_SET(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_SET_UNPACK.index:
+                self.BUILD_SET_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SLICE.index:
                 self.BUILD_SLICE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_TUPLE.index:
                 self.BUILD_TUPLE(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_TUPLE_UNPACK.index:
+                self.BUILD_TUPLE_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.CALL_FUNCTION.index:
                 self.CALL_FUNCTION(oparg, next_instr)
             elif opcode == opcodedesc.CALL_FUNCTION_KW.index:
@@ -273,28 +288,20 @@ class __extend__(pyframe.PyFrame):
                 self.COMPARE_OP(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_ATTR.index:
                 self.DELETE_ATTR(oparg, next_instr)
+            elif opcode == opcodedesc.DELETE_DEREF.index:
+                self.DELETE_DEREF(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_FAST.index:
                 self.DELETE_FAST(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_GLOBAL.index:
                 self.DELETE_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_NAME.index:
                 self.DELETE_NAME(oparg, next_instr)
-            elif opcode == opcodedesc.DELETE_SLICE_0.index:
-                self.DELETE_SLICE_0(oparg, next_instr)
-            elif opcode == opcodedesc.DELETE_SLICE_1.index:
-                self.DELETE_SLICE_1(oparg, next_instr)
-            elif opcode == opcodedesc.DELETE_SLICE_2.index:
-                self.DELETE_SLICE_2(oparg, next_instr)
-            elif opcode == opcodedesc.DELETE_SLICE_3.index:
-                self.DELETE_SLICE_3(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_SUBSCR.index:
                 self.DELETE_SUBSCR(oparg, next_instr)
             elif opcode == opcodedesc.DUP_TOP.index:
                 self.DUP_TOP(oparg, next_instr)
-            elif opcode == opcodedesc.DUP_TOPX.index:
-                self.DUP_TOPX(oparg, next_instr)
-            elif opcode == opcodedesc.EXEC_STMT.index:
-                self.EXEC_STMT(oparg, next_instr)
+            elif opcode == opcodedesc.DUP_TOP_TWO.index:
+                self.DUP_TOP_TWO(oparg, next_instr)
             elif opcode == opcodedesc.GET_ITER.index:
                 self.GET_ITER(oparg, next_instr)
             elif opcode == opcodedesc.IMPORT_FROM.index:
@@ -307,12 +314,12 @@ class __extend__(pyframe.PyFrame):
                 self.INPLACE_ADD(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_AND.index:
                 self.INPLACE_AND(oparg, next_instr)
-            elif opcode == opcodedesc.INPLACE_DIVIDE.index:
-                self.INPLACE_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_FLOOR_DIVIDE.index:
                 self.INPLACE_FLOOR_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_LSHIFT.index:
                 self.INPLACE_LSHIFT(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_MATRIX_MULTIPLY.index:
+                self.INPLACE_MATRIX_MULTIPLY(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_MODULO.index:
                 self.INPLACE_MODULO(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_MULTIPLY.index:
@@ -333,18 +340,20 @@ class __extend__(pyframe.PyFrame):
                 self.LIST_APPEND(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_ATTR.index:
                 self.LOAD_ATTR(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_BUILD_CLASS.index:
+                self.LOAD_BUILD_CLASS(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_CLOSURE.index:
                 self.LOAD_CLOSURE(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_CONST.index:
                 self.LOAD_CONST(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_DEREF.index:
                 self.LOAD_DEREF(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_CLASSDEREF.index:
+                self.LOAD_CLASSDEREF(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_FAST.index:
                 self.LOAD_FAST(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_GLOBAL.index:
                 self.LOAD_GLOBAL(oparg, next_instr)
-            elif opcode == opcodedesc.LOAD_LOCALS.index:
-                self.LOAD_LOCALS(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_NAME.index:
                 self.LOAD_NAME(oparg, next_instr)
             elif opcode == opcodedesc.LOOKUP_METHOD.index:
@@ -359,22 +368,14 @@ class __extend__(pyframe.PyFrame):
                 self.NOP(oparg, next_instr)
             elif opcode == opcodedesc.POP_BLOCK.index:
                 self.POP_BLOCK(oparg, next_instr)
+            elif opcode == opcodedesc.POP_EXCEPT.index:
+                self.POP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.POP_TOP.index:
                 self.POP_TOP(oparg, next_instr)
             elif opcode == opcodedesc.PRINT_EXPR.index:
                 self.PRINT_EXPR(oparg, next_instr)
-            elif opcode == opcodedesc.PRINT_ITEM.index:
-                self.PRINT_ITEM(oparg, next_instr)
-            elif opcode == opcodedesc.PRINT_ITEM_TO.index:
-                self.PRINT_ITEM_TO(oparg, next_instr)
-            elif opcode == opcodedesc.PRINT_NEWLINE.index:
-                self.PRINT_NEWLINE(oparg, next_instr)
-            elif opcode == opcodedesc.PRINT_NEWLINE_TO.index:
-                self.PRINT_NEWLINE_TO(oparg, next_instr)
             elif opcode == opcodedesc.RAISE_VARARGS.index:
                 self.RAISE_VARARGS(oparg, next_instr)
-            elif opcode == opcodedesc.ROT_FOUR.index:
-                self.ROT_FOUR(oparg, next_instr)
             elif opcode == opcodedesc.ROT_THREE.index:
                 self.ROT_THREE(oparg, next_instr)
             elif opcode == opcodedesc.ROT_TWO.index:
@@ -389,16 +390,6 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
                 self.SET_ADD(oparg, next_instr)
-            elif opcode == opcodedesc.SLICE_0.index:
-                self.SLICE_0(oparg, next_instr)
-            elif opcode == opcodedesc.SLICE_1.index:
-                self.SLICE_1(oparg, next_instr)
-            elif opcode == opcodedesc.SLICE_2.index:
-                self.SLICE_2(oparg, next_instr)
-            elif opcode == opcodedesc.SLICE_3.index:
-                self.SLICE_3(oparg, next_instr)
-            elif opcode == opcodedesc.STOP_CODE.index:
-                self.STOP_CODE(oparg, next_instr)
             elif opcode == opcodedesc.STORE_ATTR.index:
                 self.STORE_ATTR(oparg, next_instr)
             elif opcode == opcodedesc.STORE_DEREF.index:
@@ -407,22 +398,10 @@ class __extend__(pyframe.PyFrame):
                 self.STORE_FAST(oparg, next_instr)
             elif opcode == opcodedesc.STORE_GLOBAL.index:
                 self.STORE_GLOBAL(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_MAP.index:
-                self.STORE_MAP(oparg, next_instr)
             elif opcode == opcodedesc.STORE_NAME.index:
                 self.STORE_NAME(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_SLICE_0.index:
-                self.STORE_SLICE_0(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_SLICE_1.index:
-                self.STORE_SLICE_1(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_SLICE_2.index:
-                self.STORE_SLICE_2(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_SLICE_3.index:
-                self.STORE_SLICE_3(oparg, next_instr)
             elif opcode == opcodedesc.STORE_SUBSCR.index:
                 self.STORE_SUBSCR(oparg, next_instr)
-            elif opcode == opcodedesc.UNARY_CONVERT.index:
-                self.UNARY_CONVERT(oparg, next_instr)
             elif opcode == opcodedesc.UNARY_INVERT.index:
                 self.UNARY_INVERT(oparg, next_instr)
             elif opcode == opcodedesc.UNARY_NEGATIVE.index:
@@ -431,12 +410,36 @@ class __extend__(pyframe.PyFrame):
                 self.UNARY_NOT(oparg, next_instr)
             elif opcode == opcodedesc.UNARY_POSITIVE.index:
                 self.UNARY_POSITIVE(oparg, next_instr)
+            elif opcode == opcodedesc.UNPACK_EX.index:
+                self.UNPACK_EX(oparg, next_instr)
             elif opcode == opcodedesc.UNPACK_SEQUENCE.index:
                 self.UNPACK_SEQUENCE(oparg, next_instr)
-            elif opcode == opcodedesc.WITH_CLEANUP.index:
-                self.WITH_CLEANUP(oparg, next_instr)
+            elif opcode == opcodedesc.WITH_CLEANUP_START.index:
+                self.WITH_CLEANUP_START(oparg, next_instr)
+            elif opcode == opcodedesc.WITH_CLEANUP_FINISH.index:
+                self.WITH_CLEANUP_FINISH(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.YIELD_FROM.index:
+                self.YIELD_FROM(oparg, next_instr)
+            elif opcode == opcodedesc.GET_YIELD_FROM_ITER.index:
+                self.GET_YIELD_FROM_ITER(oparg, next_instr)
+            elif opcode == opcodedesc.GET_AWAITABLE.index:
+                self.GET_AWAITABLE(oparg, next_instr)
+            elif opcode == opcodedesc.SETUP_ASYNC_WITH.index:
+                self.SETUP_ASYNC_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.BEFORE_ASYNC_WITH.index:
+                self.BEFORE_ASYNC_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.GET_AITER.index:
+                self.GET_AITER(oparg, next_instr)
+            elif opcode == opcodedesc.GET_ANEXT.index:
+                self.GET_ANEXT(oparg, next_instr)
+            elif opcode == opcodedesc.FORMAT_VALUE.index:
+                self.FORMAT_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_STRING.index:
+                self.BUILD_STRING(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
+                self.LOAD_REVDB_VAR(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -468,7 +471,7 @@ class __extend__(pyframe.PyFrame):
         return self.getcode().co_consts_w[index]
 
     def getname_u(self, index):
-        return self.space.text_w(self.getcode().co_names_w[index])
+        return self.space.text_w(self.getname_w(index))
 
     def getname_w(self, index):
         return self.getcode().co_names_w[index]
@@ -522,15 +525,19 @@ class __extend__(pyframe.PyFrame):
         try:
             w_value = cell.get()
         except ValueError:
-            varname = self.getfreevarname(varindex)
-            if self.iscellvar(varindex):
-                message = "local variable '%s' referenced before assignment" % varname
-                w_exc_type = self.space.w_UnboundLocalError
-            else:
-                message = ("free variable '%s' referenced before assignment"
-                           " in enclosing scope" % varname)
-                w_exc_type = self.space.w_NameError
-            raise OperationError(w_exc_type, self.space.newtext(message))
+            self.raise_exc_unbound(varindex)
+        else:
+            self.pushvalue(w_value)
+
+    def LOAD_CLASSDEREF(self, varindex, next_instr):
+        # like LOAD_DEREF but used in class bodies
+        space = self.space
+        i = varindex - len(self.pycode.co_cellvars)
+        assert i >= 0
+        name = self.pycode.co_freevars[i]
+        w_value = space.finditem(self.debugdata.w_locals, space.newtext(name))
+        if w_value is None:
+            self.LOAD_DEREF(varindex, next_instr)
         else:
             self.pushvalue(w_value)
 
@@ -539,6 +546,26 @@ class __extend__(pyframe.PyFrame):
         w_newvalue = self.popvalue()
         cell = self._getcell(varindex)
         cell.set(w_newvalue)
+
+    def DELETE_DEREF(self, varindex, next_instr):
+        cell = self._getcell(varindex)
+        try:
+            cell.get()
+        except ValueError:
+            self.raise_exc_unbound(varindex)
+        else:
+            cell.set(None)
+
+    def raise_exc_unbound(self, varindex):
+        varname = self.getfreevarname(varindex)
+        if self.iscellvar(varindex):
+            raise oefmt(self.space.w_UnboundLocalError,
+                        "local variable '%s' referenced before assignment",
+                        varname)
+        else:
+            raise oefmt(self.space.w_NameError,
+                        "free variable '%s' referenced before assignment"
+                        " in enclosing scope", varname)
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
@@ -562,19 +589,12 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_3)
         self.pushvalue(w_2)
 
-    def ROT_FOUR(self, oparg, next_instr):
-        w_1 = self.popvalue()
-        w_2 = self.popvalue()
-        w_3 = self.popvalue()
-        w_4 = self.popvalue()
-        self.pushvalue(w_1)
-        self.pushvalue(w_4)
-        self.pushvalue(w_3)
-        self.pushvalue(w_2)
-
     def DUP_TOP(self, oparg, next_instr):
         w_1 = self.peekvalue()
         self.pushvalue(w_1)
+
+    def DUP_TOP_TWO(self, oparg, next_instr):
+        self.dupvalues(2)
 
     def DUP_TOPX(self, itemcount, next_instr):
         assert 1 <= itemcount <= 5, "limitation of the current interpreter"
@@ -598,6 +618,7 @@ class __extend__(pyframe.PyFrame):
     BINARY_DIVIDE       = binaryoperation("div")
     # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
+    BINARY_MATRIX_MULTIPLY = binaryoperation("matmul")
     BINARY_ADD      = binaryoperation("add")
     BINARY_SUBTRACT = binaryoperation("sub")
     BINARY_SUBSCR   = binaryoperation("getitem")
@@ -619,6 +640,7 @@ class __extend__(pyframe.PyFrame):
     INPLACE_DIVIDE       = binaryoperation("inplace_div")
     # XXX INPLACE_DIVIDE must fall back to INPLACE_TRUE_DIVIDE with -Qnew
     INPLACE_MODULO       = binaryoperation("inplace_mod")
+    INPLACE_MATRIX_MULTIPLY = binaryoperation("inplace_matmul")
     INPLACE_ADD      = binaryoperation("inplace_add")
     INPLACE_SUBTRACT = binaryoperation("inplace_sub")
     INPLACE_LSHIFT   = binaryoperation("inplace_lshift")
@@ -626,68 +648,6 @@ class __extend__(pyframe.PyFrame):
     INPLACE_AND = binaryoperation("inplace_and")
     INPLACE_XOR = binaryoperation("inplace_xor")
     INPLACE_OR  = binaryoperation("inplace_or")
-
-    def slice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        w_result = self.space.getslice(w_obj, w_start, w_end)
-        self.pushvalue(w_result)
-
-    def SLICE_0(self, oparg, next_instr):
-        self.slice(self.space.w_None, self.space.w_None)
-
-    def SLICE_1(self, oparg, next_instr):
-        w_start = self.popvalue()
-        self.slice(w_start, self.space.w_None)
-
-    def SLICE_2(self, oparg, next_instr):
-        w_end = self.popvalue()
-        self.slice(self.space.w_None, w_end)
-
-    def SLICE_3(self, oparg, next_instr):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.slice(w_start, w_end)
-
-    def storeslice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        w_newvalue = self.popvalue()
-        self.space.setslice(w_obj, w_start, w_end, w_newvalue)
-
-    def STORE_SLICE_0(self, oparg, next_instr):
-        self.storeslice(self.space.w_None, self.space.w_None)
-
-    def STORE_SLICE_1(self, oparg, next_instr):
-        w_start = self.popvalue()
-        self.storeslice(w_start, self.space.w_None)
-
-    def STORE_SLICE_2(self, oparg, next_instr):
-        w_end = self.popvalue()
-        self.storeslice(self.space.w_None, w_end)
-
-    def STORE_SLICE_3(self, oparg, next_instr):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.storeslice(w_start, w_end)
-
-    def deleteslice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        self.space.delslice(w_obj, w_start, w_end)
-
-    def DELETE_SLICE_0(self, oparg, next_instr):
-        self.deleteslice(self.space.w_None, self.space.w_None)
-
-    def DELETE_SLICE_1(self, oparg, next_instr):
-        w_start = self.popvalue()
-        self.deleteslice(w_start, self.space.w_None)
-
-    def DELETE_SLICE_2(self, oparg, next_instr):
-        w_end = self.popvalue()
-        self.deleteslice(self.space.w_None, w_end)
-
-    def DELETE_SLICE_3(self, oparg, next_instr):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.deleteslice(w_start, w_end)
 
     def STORE_SUBSCR(self, oparg, next_instr):
         "obj[subscr] = newvalue"
@@ -741,63 +701,90 @@ class __extend__(pyframe.PyFrame):
 
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
+        if nbargs > 2:
+            raise BytecodeCorruption("bad RAISE_VARARGS oparg")
         if nbargs == 0:
-            last_operr = self._exc_info_unroll(space, for_hidden=True)
+            if not self.hide():
+                last_operr = self.space.getexecutioncontext().sys_exc_info()
+            else:
+                last_operr = self.getorcreatedebug().hidden_operationerr
             if last_operr is None:
-                raise oefmt(space.w_TypeError,
+                raise oefmt(space.w_RuntimeError,
                             "No active exception to reraise")
             # re-raise, no new traceback obj will be attached
-            self.last_exception = last_operr
             raise RaiseWithExplicitTraceback(last_operr)
-
-        w_value = w_traceback = space.w_None
-        if nbargs >= 3:
-            w_traceback = self.popvalue()
-        if nbargs >= 2:
-            w_value = self.popvalue()
-        if 1:
-            w_type = self.popvalue()
+        if nbargs == 2:
+            w_cause = self.popvalue()
+            if space.exception_is_valid_obj_as_class_w(w_cause):
+                w_cause = space.call_function(w_cause)
+        else:
+            w_cause = None
+        w_value = self.popvalue()
+        if space.exception_is_valid_obj_as_class_w(w_value):
+            w_type = w_value
+            w_value = space.call_function(w_type)
+        else:
+            w_type = space.type(w_value)
         operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
-        if space.is_w(w_traceback, space.w_None):
-            # common case
-            raise operror
-        else:
-            msg = "raise: arg 3 must be a traceback or None"
-            tb = pytraceback.check_traceback(space, w_traceback, msg)
+        operror.set_cause(space, w_cause)
+        tb = space.getattr(w_value, space.newtext('__traceback__'))
+        if not space.is_w(tb, space.w_None):
             operror.set_traceback(tb)
-            # special 3-arguments raise, no new traceback obj will be attached
-            raise RaiseWithExplicitTraceback(operror)
+        raise operror
 
     def LOAD_LOCALS(self, oparg, next_instr):
         self.pushvalue(self.getorcreatedebug().w_locals)
 
-    def EXEC_STMT(self, oparg, next_instr):
-        w_locals = self.popvalue()
-        w_globals = self.popvalue()
-        w_prog = self.popvalue()
-        ec = self.space.getexecutioncontext()
+    def exec_(self, w_prog, w_globals, w_locals):
+        """The builtins.exec function."""
+        space = self.space
+        ec = space.getexecutioncontext()
         flags = ec.compiler.getcodeflags(self.pycode)
-        w_compile_flags = self.space.newint(flags)
-        w_resulttuple = prepare_exec(self.space, self, w_prog,
-                                     w_globals, w_locals,
-                                     w_compile_flags,
-                                     self.get_builtin(),
-                                     self.space.gettypeobject(PyCode.typedef))
-        w_prog, w_globals, w_locals = self.space.fixedview(w_resulttuple, 3)
+
+        if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
+            code = space.interp_w(PyCode, w_prog)
+        else:
+            from pypy.interpreter.astcompiler import consts
+            flags |= consts.PyCF_SOURCE_IS_UTF8
+            source, flags = source_as_str(space, w_prog, 'exec',
+                                          "string, bytes or code", flags)
+            code = ec.compiler.compile(source, "<string>", 'exec', flags)
+
+        w_globals, w_locals = ensure_ns(space, w_globals, w_locals, 'exec',
+                                        self)
+        space.call_method(w_globals, 'setdefault', space.newtext('__builtins__'),
+                          self.get_builtin())
 
         plain = (self.get_w_locals() is not None and
-                 self.space.is_w(w_locals, self.get_w_locals()))
+                 space.is_w(w_locals, self.get_w_locals()))
         if plain:
             w_locals = self.getdictscope()
-        co = self.space.interp_w(eval.Code, w_prog)
-        co.exec_code(self.space, w_globals, w_locals)
+        code.exec_code(space, w_globals, w_locals)
         if plain:
             self.setdictscope(w_locals)
 
+    def POP_EXCEPT(self, oparg, next_instr):
+        block = self.pop_block()
+        assert isinstance(block, SysExcInfoRestorer)
+        block.cleanupstack(self)   # restores ec.sys_exc_operror
+
     def POP_BLOCK(self, oparg, next_instr):
         block = self.pop_block()
-        block.cleanup(self)  # the block knows how to clean up the value stack
+        block.pop_block(self)  # the block knows how to clean up the value stack
+
+    def save_and_change_sys_exc_info(self, operationerr):
+        ec = self.space.getexecutioncontext()
+        last_exception = ec.sys_exc_info()
+        block = SysExcInfoRestorer(last_exception, self.lastblock)
+        self.lastblock = block
+        if operationerr is not None:   # otherwise, don't change sys_exc_info
+            if not self.hide():
+                ec.set_sys_exc_info(operationerr)
+            else:
+                # for hidden frames, a more limited solution should be
+                # enough: store away the exception on the frame
+                self.getorcreatedebug().hidden_operationerr = operationerr
 
     def end_finally(self):
         # unlike CPython, there are two statically distinct cases: the
@@ -807,8 +794,14 @@ class __extend__(pyframe.PyFrame):
         #   [exception value we are now handling]
         #   [wrapped SApplicationException]
         # In the case of a finally: block, the stack contains only one
-        # item (unlike CPython which can have 1, 2 or 3 items):
+        # item (unlike CPython which can have 1, 2, 3 or 5 items, and
+        # even in one case a non-fixed number of items):
         #   [wrapped subclass of SuspendedUnroller]
+
+        block = self.pop_block()
+        assert isinstance(block, SysExcInfoRestorer)
+        block.cleanupstack(self)   # restores ec.sys_exc_operror
+
         w_top = self.popvalue()
         if self.space.is_w(w_top, self.space.w_None):
             # case of a finally: block with no exception
@@ -823,16 +816,21 @@ class __extend__(pyframe.PyFrame):
             assert w_unroller is not None
             return w_unroller
 
-    def BUILD_CLASS(self, oparg, next_instr):
-        w_methodsdict = self.popvalue()
-        w_bases = self.popvalue()
-        w_name = self.popvalue()
-        w_metaclass = find_metaclass(self.space, w_bases,
-                                     w_methodsdict, self.get_w_globals(),
-                                     self.get_builtin())
-        w_newclass = self.space.call_function(w_metaclass, w_name,
-                                              w_bases, w_methodsdict)
-        self.pushvalue(w_newclass)
+    @jit.unroll_safe
+    def _any_except_or_finally_handler(self):
+        block = self.lastblock
+        while block is not None:
+            if isinstance(block, SysExcInfoRestorer):
+                return True
+            block = block.previous
+        return False
+
+    def LOAD_BUILD_CLASS(self, oparg, next_instr):
+        w_build_class = self.get_builtin().getdictvalue(
+            self.space, '__build_class__')
+        if w_build_class is None:
+            raise oefmt(self.space.w_ImportError, "__build_class__ not found")
+        self.pushvalue(w_build_class)
 
     def STORE_NAME(self, varindex, next_instr):
         varname = self.getname_u(varindex)
@@ -848,13 +846,39 @@ class __extend__(pyframe.PyFrame):
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
                 raise
-            raise oefmt(self.space.w_NameError, "name %R is not defined",
-                        w_varname)
+            raise oefmt(self.space.w_NameError,
+                        "name %R is not defined", w_varname)
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
         items = self.space.fixedview_unroll(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
+
+    @jit.unroll_safe
+    def UNPACK_EX(self, oparg, next_instr):
+        "a, *b, c = range(10)"
+        left = oparg & 0xFF
+        right = (oparg & 0xFF00) >> 8
+        w_iterable = self.popvalue()
+        items = self.space.fixedview(w_iterable)
+        itemcount = len(items)
+        count = left + right
+        if count > itemcount:
+            raise oefmt(self.space.w_ValueError,
+                        "not enough values to unpack (expected at least %d, got %d)",
+                        count, itemcount)
+        right = itemcount - right
+        assert right >= 0
+        # push values in reverse order
+        i = itemcount - 1
+        while i >= right:
+            self.pushvalue(items[i])
+            i -= 1
+        self.pushvalue(self.space.newlist(items[left:right]))
+        i = left - 1
+        while i >= 0:
+            self.pushvalue(items[i])
+            i -= 1
 
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"
@@ -879,14 +903,20 @@ class __extend__(pyframe.PyFrame):
         self.space.delitem(self.get_w_globals(), w_varname)
 
     def LOAD_NAME(self, nameindex, next_instr):
+        w_varname = self.getname_w(nameindex)
+        varname = self.space.text_w(w_varname)
         if self.getorcreatedebug().w_locals is not self.get_w_globals():
-            varname = self.getname_u(nameindex)
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
-        self.LOAD_GLOBAL(nameindex, next_instr)    # fall-back
+        # fall-back
+        w_value = self._load_global(varname)
+        if w_value is None:
+            raise oefmt(self.space.w_NameError,
+                        "name %R is not defined", w_varname)
+        self.pushvalue(w_value)
 
     @always_inline
     def _load_global(self, varname):
@@ -894,18 +924,22 @@ class __extend__(pyframe.PyFrame):
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
-            if w_value is None:
-                self._load_global_failed(varname)
         return w_value
 
     @dont_inline
-    def _load_global_failed(self, varname):
+    def _load_global_failed(self, w_varname):
+        # CPython Issue #17032: The "global" in the "NameError: global
+        # name 'x' is not defined" error message has been removed.
         raise oefmt(self.space.w_NameError,
-                    "global name '%s' is not defined", varname)
+                    "name %R is not defined", w_varname)
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
-        self.pushvalue(self._load_global(self.getname_u(nameindex)))
+        w_varname = self.getname_w(nameindex)
+        w_value = self._load_global(self.space.text_w(w_varname))
+        if w_value is None:
+            self._load_global_failed(w_varname)
+        self.pushvalue(w_value)
 
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
@@ -955,13 +989,11 @@ class __extend__(pyframe.PyFrame):
     def cmp_exc_match(self, w_1, w_2):
         space = self.space
         if space.isinstance_w(w_2, space.w_tuple):
-            for w_t in space.fixedview(w_2):
-                if space.isinstance_w(w_t, space.w_bytes):
-                    msg = "catching of string exceptions is deprecated"
-                    space.warn(space.newtext(msg), space.w_DeprecationWarning)
-        elif space.isinstance_w(w_2, space.w_bytes):
-            msg = "catching of string exceptions is deprecated"
-            space.warn(space.newtext(msg), space.w_DeprecationWarning)
+            for w_type in space.fixedview(w_2):
+                if not space.exception_is_valid_class_w(w_type):
+                    raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
+        elif not space.exception_is_valid_class_w(w_2):
+            raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
         return space.newbool(space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
@@ -996,6 +1028,7 @@ class __extend__(pyframe.PyFrame):
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
         w_modulename = self.getname_w(nameindex)
+        modulename = self.space.text_w(w_modulename)
         w_fromlist = self.popvalue()
 
         w_flag = self.popvalue()
@@ -1016,6 +1049,7 @@ class __extend__(pyframe.PyFrame):
             w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
+        w_modulename = space.newtext(modulename)
         w_globals = self.get_w_globals()
         if w_flag is None:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
@@ -1035,21 +1069,63 @@ class __extend__(pyframe.PyFrame):
     def IMPORT_FROM(self, nameindex, next_instr):
         w_name = self.getname_w(nameindex)
         w_module = self.peekvalue()
+        self.pushvalue(self.import_from(w_module, w_name))
+
+    def import_from(self, w_module, w_name):
+        space = self.space
         try:
-            w_obj = self.space.getattr(w_module, w_name)
+            return space.getattr(w_module, w_name)
         except OperationError as e:
-            if not e.match(self.space, self.space.w_AttributeError):
+            if not e.match(space, space.w_AttributeError):
                 raise
-            raise oefmt(self.space.w_ImportError,
-                        "cannot import name %R", w_name)
-        self.pushvalue(w_obj)
+            try:
+                w_pkgname = space.getattr(
+                    w_module, space.newtext('__name__'))
+                w_fullname = space.newtext(b'%s.%s' %
+                    (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
+                return space.getitem(space.sys.get('modules'), w_fullname)
+            except OperationError:
+                raise oefmt(
+                    space.w_ImportError, "cannot import name %R", w_name)
+
 
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
 
+    def YIELD_FROM(self, oparg, next_instr):
+        # Unlike CPython, we handle this not by repeating the same
+        # bytecode over and over until the inner iterator is exhausted.
+        # Instead, we directly set the generator's w_yielded_from.
+        # This asks generator.resume_execute_frame() to exhaust that
+        # sub-iterable first before continuing on the next bytecode.
+        from pypy.interpreter.generator import Coroutine
+        in_generator = self.get_generator()
+        if in_generator is None:
+            # Issue #2768: rare case involving __del__ methods.
+            # XXX This is a workaround, not a proper solution.
+            raise oefmt(self.space.w_RuntimeError,
+                        "PyPy limitation: cannot use 'yield from' or 'await' "
+                        "in a generator/coroutine that has been partially "
+                        "deallocated already, typically seen via __del__")
+        w_inputvalue = self.popvalue()    # that's always w_None, actually
+        w_gen = self.popvalue()
+        #
+        in_generator.next_yield_from(self, w_gen, w_inputvalue)
+        # Common case: the call above raises Yield.
+        # If instead the iterable is empty, next_yield_from() pushed the
+        # final result and returns.  In that case, we can just continue
+        # with the next bytecode.
+
+    def _revdb_jump_backward(self, jumpto):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import jump_backward
+        jump_backward(self, jumpto)
+
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
+        if self.space.reverse_debugging:
+            self._revdb_jump_backward(jumpto)
         return jumpto
 
     def JUMP_FORWARD(self, jumpby, next_instr):
@@ -1100,25 +1176,47 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
             # iterator exhausted
+            self._report_stopiteration_sometimes(w_iterator, e)
             self.popvalue()
             next_instr += jumpby
         else:
             self.pushvalue(w_nextitem)
         return next_instr
 
+    def _report_stopiteration_sometimes(self, w_iterator, operr):
+        # CPython 3.5 calls the exception trace in an ill-defined subset
+        # of cases: only if tp_iternext returned NULL and set a
+        # StopIteration exception, but not if tp_iternext returned NULL
+        # *without* setting an exception.  We can't easily emulate that
+        # behavior at this point.  For example, the generator's
+        # tp_iternext uses one or other case depending on whether the
+        # generator is already exhausted or just exhausted now.  We'll
+        # classify that as a CPython incompatibility and use an
+        # approximative rule: if w_iterator is a generator-iterator,
+        # we always report it; if operr has already a stack trace
+        # attached (likely from a custom __iter__() method), we also
+        # report it; in other cases, we don't.
+        from pypy.interpreter.generator import GeneratorOrCoroutine
+        if (isinstance(w_iterator, GeneratorOrCoroutine) or
+                operr.has_any_traceback()):
+            self.space.getexecutioncontext().exception_trace(self, operr)
+
     def FOR_LOOP(self, oparg, next_instr):
         raise BytecodeCorruption("old opcode, no longer in use")
 
     def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
+        block = LoopBlock(self.valuestackdepth,
+                          next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self, next_instr + offsettoend, self.lastblock)
+        block = ExceptBlock(self.valuestackdepth,
+                            next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self, next_instr + offsettoend, self.lastblock)
+        block = FinallyBlock(self.valuestackdepth,
+                             next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
     def SETUP_WITH(self, offsettoend, next_instr):
@@ -1132,11 +1230,12 @@ class __extend__(pyframe.PyFrame):
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
-        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        block = FinallyBlock(self.valuestackdepth,
+                             next_instr + offsettoend, self.lastblock)
         self.lastblock = block
         self.pushvalue(w_result)
 
-    def WITH_CLEANUP(self, oparg, next_instr):
+    def WITH_CLEANUP_START(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
         w_unroller = self.popvalue()
         w_exitfunc = self.popvalue()
@@ -1144,25 +1243,33 @@ class __extend__(pyframe.PyFrame):
         if isinstance(w_unroller, SApplicationException):
             # app-level exception
             operr = w_unroller.operr
-            self.last_exception = operr
             w_traceback = operr.get_w_traceback(self.space)
-            w_suppress = self.call_contextmanager_exit_function(
+            w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
                 operr.get_w_value(self.space),
                 w_traceback)
-            if self.space.is_true(w_suppress):
-                # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None)
         else:
-            self.call_contextmanager_exit_function(
+            w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 self.space.w_None,
                 self.space.w_None,
                 self.space.w_None)
+        self.pushvalue(w_res)
+        # in the stack now:  [w_res, w_unroller-or-w_None..]
+
+    def WITH_CLEANUP_FINISH(self, oparg, next_instr):
+        w_suppress = self.popvalue()
+        w_unroller = self.peekvalue()
+        if isinstance(w_unroller, SApplicationException):
+            if self.space.is_true(w_suppress):
+                # __exit__() returned True -> Swallow the exception.
+                self.settopvalue(self.space.w_None)
+        # this is always followed by END_FINALLY
+        # in the stack now: [w_unroller-or-w_None..]
 
     @jit.unroll_safe
-    def call_function(self, oparg, w_star=None, w_starstar=None):
+    def call_function(self, oparg, w_starstar=None, has_vararg=False):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
         if n_keywords:
@@ -1180,6 +1287,10 @@ class __extend__(pyframe.PyFrame):
         else:
             keywords = None
             keywords_w = None
+        if has_vararg:
+            w_star = self.popvalue()
+        else:
+            w_star = None
         arguments = self.popvalues(n_arguments)
         args = self.argument_factory(arguments, keywords, keywords_w, w_star,
                                      w_starstar)
@@ -1208,37 +1319,57 @@ class __extend__(pyframe.PyFrame):
             self.call_function(oparg)
 
     def CALL_FUNCTION_VAR(self, oparg, next_instr):
-        w_varargs = self.popvalue()
-        self.call_function(oparg, w_varargs)
+        self.call_function(oparg, has_vararg=True)
 
     def CALL_FUNCTION_KW(self, oparg, next_instr):
         w_varkw = self.popvalue()
-        self.call_function(oparg, None, w_varkw)
+        self.call_function(oparg, w_varkw)
 
     def CALL_FUNCTION_VAR_KW(self, oparg, next_instr):
         w_varkw = self.popvalue()
-        w_varargs = self.popvalue()
-        self.call_function(oparg, w_varargs, w_varkw)
-
-    def MAKE_FUNCTION(self, numdefaults, next_instr):
-        w_codeobj = self.popvalue()
-        codeobj = self.space.interp_w(PyCode, w_codeobj)
-        defaultarguments = self.popvalues(numdefaults)
-        fn = function.Function(self.space, codeobj, self.get_w_globals(),
-                               defaultarguments)
-        self.pushvalue(fn)
+        self.call_function(oparg, w_varkw, has_vararg=True)
 
     @jit.unroll_safe
-    def MAKE_CLOSURE(self, numdefaults, next_instr):
+    def _make_function(self, oparg, freevars=None):
+        space = self.space
+        w_qualname = self.popvalue()
+        qualname = self.space.utf8_w(w_qualname)
         w_codeobj = self.popvalue()
-        codeobj = self.space.interp_w(pycode.PyCode, w_codeobj)
-        w_freevarstuple = self.popvalue()
+        codeobj = self.space.interp_w(PyCode, w_codeobj)
+        if freevars is not None:
+            # Pop freevars
+            self.popvalue()
+        posdefaults = oparg & 0xFF
+        kwdefaults = (oparg >> 8) & 0xFF
+        num_annotations = (oparg >> 16) & 0xFF
+        w_ann = None
+        if num_annotations:
+            names_w = space.fixedview(self.popvalue())
+            w_ann = space.newdict(strdict=True)
+            for i in range(len(names_w) - 1, -1, -1):
+                space.setitem(w_ann, names_w[i], self.popvalue())
+        kw_defs_w = None
+        if kwdefaults:
+            kw_defs_w = []
+            for i in range(kwdefaults):
+                w_defvalue = self.popvalue()
+                w_defname = self.popvalue()
+                kw_defs_w.append((w_defname, w_defvalue))
+        defaultarguments = self.popvalues(posdefaults)
+        fn = function.Function(space, codeobj, self.get_w_globals(),
+                               defaultarguments,
+                               kw_defs_w, freevars, w_ann, qualname=qualname)
+        self.pushvalue(fn)
+
+    def MAKE_FUNCTION(self, oparg, next_instr):
+        return self._make_function(oparg)
+
+    @jit.unroll_safe
+    def MAKE_CLOSURE(self, oparg, next_instr):
+        w_freevarstuple = self.peekvalue(2)
         freevars = [self.space.interp_w(Cell, cell)
                     for cell in self.space.fixedview(w_freevarstuple)]
-        defaultarguments = self.popvalues(numdefaults)
-        fn = function.Function(self.space, codeobj, self.get_w_globals(),
-                               defaultarguments, freevars)
-        self.pushvalue(fn)
+        self._make_function(oparg, freevars)
 
     def BUILD_SLICE(self, numargs, next_instr):
         if numargs == 3:
@@ -1282,10 +1413,14 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
                                  (ofs, ord(c), name) )
 
-    STOP_CODE = MISSING_OPCODE
-
+    @jit.unroll_safe
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
+        for i in range(itemcount-1, -1, -1):
+            w_value = self.peekvalue(2 * i)
+            w_key = self.peekvalue(2 * i + 1)
+            self.space.setitem(w_dict, w_key, w_value)
+        self.popvalues(2 * itemcount)
         self.pushvalue(w_dict)
 
     @jit.unroll_safe
@@ -1297,11 +1432,239 @@ class __extend__(pyframe.PyFrame):
         self.popvalues(itemcount)
         self.pushvalue(w_set)
 
-    def STORE_MAP(self, oparg, next_instr):
-        w_key = self.popvalue()
+    @jit.unroll_safe
+    def BUILD_SET_UNPACK(self, itemcount, next_instr):
+        space = self.space
+        w_set = space.newset()
+        for i in range(itemcount, 0, -1):
+            w_item = self.peekvalue(i-1)
+            space.call_method(w_set, "update", w_item)
+        self.popvalues(itemcount)
+        self.pushvalue(w_set)
+
+    @jit.unroll_safe
+    def list_unpack_helper(frame, itemcount):
+        space = frame.space
+        w_sum = space.newlist([], sizehint=itemcount)
+        for i in range(itemcount, 0, -1):
+            w_item = frame.peekvalue(i-1)
+            w_sum.extend(w_item)
+        frame.popvalues(itemcount)
+        return w_sum
+
+    @jit.unroll_safe
+    def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
+        w_list = self.list_unpack_helper(itemcount)
+        items = [w_obj for w_obj in w_list.getitems_unroll()]
+        self.pushvalue(self.space.newtuple(items))
+
+    def BUILD_LIST_UNPACK(self, itemcount, next_instr):
+        w_sum = self.list_unpack_helper(itemcount)
+        self.pushvalue(w_sum)
+
+    def BUILD_MAP_UNPACK(self, itemcount, next_instr):
+        self._build_map_unpack(itemcount, with_call=False)
+
+    def BUILD_MAP_UNPACK_WITH_CALL(self, oparg, next_instr):
+        num_maps = oparg & 0xff
+        self._build_map_unpack(num_maps, with_call=True)
+
+    @jit.unroll_safe
+    def _build_map_unpack(self, itemcount, with_call):
+        space = self.space
+        w_dict = space.newdict()
+        expected_length = 0
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
+            if not space.ismapping_w(w_item):
+                if not with_call:
+                    raise oefmt(space.w_TypeError,
+                                "'%T' object is not a mapping", w_item)
+                else:
+                    raise oefmt(space.w_TypeError,
+                                "argument after ** must be a mapping, not %T",
+                                w_item)
+            if with_call:
+                expected_length += space.len_w(w_item)
+            space.call_method(w_dict, 'update', w_item)
+        if with_call and space.len_w(w_dict) < expected_length:
+            self._build_map_unpack_error(itemcount)
+        self.popvalues(itemcount)
+        self.pushvalue(w_dict)
+
+    @jit.dont_look_inside
+    def _build_map_unpack_error(self, itemcount):
+        space = self.space
+        w_set = space.newset()
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
+            w_inter = space.call_method(w_set, 'intersection', w_item)
+            if space.is_true(w_inter):
+                w_key = space.next(space.iter(w_inter))
+                if not space.isinstance_w(w_key, space.w_unicode):
+                    raise oefmt(space.w_TypeError,
+                            "keywords must be strings, not '%T'", w_key)
+                raise oefmt(space.w_TypeError,
+                    "got multiple values for keyword argument %R",
+                    w_key)
+            space.call_method(w_set, 'update', w_item)
+
+    def GET_YIELD_FROM_ITER(self, oparg, next_instr):
+        from pypy.interpreter.astcompiler import consts
+        from pypy.interpreter.generator import GeneratorIterator, Coroutine
+        w_iterable = self.peekvalue()
+        if isinstance(w_iterable, Coroutine):
+            if not self.pycode.co_flags & (consts.CO_COROUTINE |
+                                       consts.CO_ITERABLE_COROUTINE):
+                #'iterable' coroutine is used in a 'yield from' expression
+                #of a regular generator
+                raise oefmt(self.space.w_TypeError,
+                            "cannot 'yield from' a coroutine object "
+                            "in a non-coroutine generator")
+        elif not isinstance(w_iterable, GeneratorIterator):
+            w_iterator = self.space.iter(w_iterable)
+            self.settopvalue(w_iterator)
+
+    def GET_AWAITABLE(self, oparg, next_instr):
+        from pypy.interpreter.generator import get_awaitable_iter
+        from pypy.interpreter.generator import Coroutine
+        w_iterable = self.popvalue()
+        w_iter = get_awaitable_iter(self.space, w_iterable)
+        if isinstance(w_iter, Coroutine):
+            if w_iter.w_yielded_from is not None:
+                # 'w_iter' is a coroutine object that is being awaited,
+                # '.w_yielded_from' is the current awaitable being awaited on.
+                raise oefmt(self.space.w_RuntimeError,
+                            "coroutine is being awaited already")
+        self.pushvalue(w_iter)
+
+    def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
+        res = self.popvalue()
+        block = FinallyBlock(self.valuestackdepth,
+                             next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
+        self.pushvalue(res)
+
+    def BEFORE_ASYNC_WITH(self, oparg, next_instr):
+        space = self.space
+        w_manager = self.peekvalue()
+        w_enter = space.lookup(w_manager, "__aenter__")
+        w_descr = space.lookup(w_manager, "__aexit__")
+        if w_enter is None or w_descr is None:
+            raise oefmt(space.w_AttributeError,
+                        "'%T' object is not a context manager (no __aenter__/"
+                        "__aexit__ method)", w_manager)
+        w_exit = space.get(w_descr, w_manager)
+        self.settopvalue(w_exit)
+        w_result = space.get_and_call_function(w_enter, w_manager)
+        self.pushvalue(w_result)
+
+    def GET_AITER(self, oparg, next_instr):
+        from pypy.interpreter.generator import AIterWrapper, get_awaitable_iter
+
+        space = self.space
+        w_obj = self.popvalue()
+        w_func = space.lookup(w_obj, "__aiter__")
+        if w_func is None:
+            raise oefmt(space.w_TypeError,
+                        "'async for' requires an object with "
+                        "__aiter__ method, got %T",
+                        w_obj)
+        w_iter = space.get_and_call_function(w_func, w_obj)
+
+        # If __aiter__() returns an object with a __anext__() method,
+        # wrap it in a awaitable that resolves to 'w_iter'.
+        if space.lookup(w_iter, "__anext__") is not None:
+            w_awaitable = AIterWrapper(w_iter)
+        else:
+            try:
+                w_awaitable = get_awaitable_iter(space, w_iter)
+            except OperationError as e:
+                # yay! get_awaitable_iter() carefully builds a useful
+                # error message, but here we're eating *all errors*
+                # to replace it with a generic one.
+                if e.async(space):
+                    raise
+                raise oefmt(space.w_TypeError,
+                            "'async for' received an invalid object "
+                            "from __aiter__: %T", w_iter)
+            space.warn(space.newtext(
+                "'%s' implements legacy __aiter__ protocol; "
+                "__aiter__ should return an asynchronous "
+                "iterator, not awaitable" %
+                    space.type(w_obj).name),
+                space.w_PendingDeprecationWarning)
+        self.pushvalue(w_awaitable)
+
+    def GET_ANEXT(self, oparg, next_instr):
+        from pypy.interpreter.generator import get_awaitable_iter
+
+        space = self.space
+        w_aiter = self.peekvalue()
+        w_func = space.lookup(w_aiter, "__anext__")
+        if w_func is None:
+            raise oefmt(space.w_TypeError,
+                        "'async for' requires an iterator with "
+                        "__anext__ method, got %T",
+                        w_aiter)
+        w_next_iter = space.get_and_call_function(w_func, w_aiter)
+        try:
+            w_awaitable = get_awaitable_iter(space, w_next_iter)
+        except OperationError as e:
+            # yay! get_awaitable_iter() carefully builds a useful
+            # error message, but here we're eating *all errors*
+            # to replace it with a generic one.
+            if e.async(space):
+                raise
+            raise oefmt(space.w_TypeError,
+                        "'async for' received an invalid object "
+                        "from __anext__: %T", w_next_iter)
+        self.pushvalue(w_awaitable)
+
+    def FORMAT_VALUE(self, oparg, next_instr):
+        from pypy.interpreter.astcompiler import consts
+        space = self.space
+        #
+        if (oparg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
+            w_spec = self.popvalue()
+        else:
+            w_spec = space.newtext('')
         w_value = self.popvalue()
-        w_dict = self.peekvalue()
-        self.space.setitem(w_dict, w_key, w_value)
+        #
+        conversion = oparg & consts.FVC_MASK
+        if conversion == consts.FVC_STR:
+            w_value = space.str(w_value)
+        elif conversion == consts.FVC_REPR:
+            w_value = space.repr(w_value)
+        elif conversion == consts.FVC_ASCII:
+            from pypy.objspace.std.unicodeobject import ascii_from_object
+            w_value = ascii_from_object(space, w_value)
+        #
+        w_res = space.format(w_value, w_spec)
+        self.pushvalue(w_res)
+
+    @jit.unroll_safe
+    def BUILD_STRING(self, itemcount, next_instr):
+        space = self.space
+        lst = []
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
+            lst.append(space.utf8_w(w_item))
+        self.dropvalues(itemcount)
+        w_res = space.newtext(''.join(lst))
+        self.pushvalue(w_res)
+
+    def _revdb_load_var(self, oparg):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import load_metavar
+        w_var = load_metavar(oparg)
+        self.pushvalue(w_var)
+
+    def LOAD_REVDB_VAR(self, oparg, next_instr):
+        if self.space.reverse_debugging:
+            self._revdb_load_var(oparg)
+        else:
+            self.MISSING_OPCODE(oparg, next_instr)
 
 
 ### ____________________________________________________________ ###
@@ -1319,7 +1682,7 @@ class Yield(ExitFrame):
 
 
 class RaiseWithExplicitTraceback(Exception):
-    """Raised at interp-level by a 0- or 3-arguments 'raise' statement."""
+    """Raised at interp-level by a 0-argument 'raise' statement."""
     def __init__(self, operr):
         self.operr = operr
 
@@ -1387,9 +1750,9 @@ class FrameBlock(object):
 
     _immutable_ = True
 
-    def __init__(self, frame, handlerposition, previous):
+    def __init__(self, valuestackdepth, handlerposition, previous):
         self.handlerposition = handlerposition
-        self.valuestackdepth = frame.valuestackdepth
+        self.valuestackdepth = valuestackdepth
         self.previous = previous   # this makes a linked list of blocks
 
     def __eq__(self, other):
@@ -1406,7 +1769,7 @@ class FrameBlock(object):
     def cleanupstack(self, frame):
         frame.dropvaluesuntil(self.valuestackdepth)
 
-    def cleanup(self, frame):
+    def pop_block(self, frame):
         "Clean up a frame when we normally exit the block."
         self.cleanupstack(frame)
 
@@ -1442,6 +1805,31 @@ class LoopBlock(FrameBlock):
             return r_uint(self.handlerposition)
 
 
+class SysExcInfoRestorer(FrameBlock):
+    """
+    This is a special, implicit block type which is created when entering a
+    finally or except handler. It does not belong to any opcode
+    """
+
+    _immutable_ = True
+    _opname = 'SYS_EXC_INFO_RESTORER' # it's not associated to any opcode
+    handling_mask = 0 # this block is never handled, only popped by POP_EXCEPT
+
+    def __init__(self, operr, previous):
+        self.operr = operr
+        self.previous = previous
+
+    def pop_block(self, frame):
+        assert False # never called
+
+    def handle(self, frame, unroller):
+        assert False # never called
+
+    def cleanupstack(self, frame):
+        ec = frame.space.getexecutioncontext()
+        ec.set_sys_exc_info(self.operr)
+
+
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
 
@@ -1453,16 +1841,18 @@ class ExceptBlock(FrameBlock):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
         self.cleanupstack(frame)
-        assert isinstance(unroller, SApplicationException)
-        operationerr = unroller.operr
-        operationerr.normalize_exception(frame.space)
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
+        assert isinstance(unroller, SApplicationException)
+        operationerr = unroller.operr
+        operationerr.normalize_exception(frame.space)
         frame.pushvalue(unroller)
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
-        frame.last_exception = operationerr
+        # set the current value of sys_exc_info to operationerr,
+        # saving the old value in a custom type of FrameBlock
+        frame.save_and_change_sys_exc_info(operationerr)
         return r_uint(self.handlerposition)   # jump to the handler
 
 
@@ -1478,24 +1868,114 @@ class FinallyBlock(FrameBlock):
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
         self.cleanupstack(frame)
+        operationerr = None
+        if isinstance(unroller, SApplicationException):
+            operationerr = unroller.operr
+            operationerr.normalize_exception(frame.space)
         frame.pushvalue(unroller)
+        # set the current value of sys_exc_info to operationerr,
+        # saving the old value in a custom type of FrameBlock
+        frame.save_and_change_sys_exc_info(operationerr)
         return r_uint(self.handlerposition)   # jump to the handler
 
+    def pop_block(self, frame):
+        self.cleanupstack(frame)
+        frame.save_and_change_sys_exc_info(None)
 
-class WithBlock(FinallyBlock):
 
-    _immutable_ = True
-
-    def handle(self, frame, unroller):
-        if isinstance(unroller, SApplicationException):
-            unroller.operr.normalize_exception(frame.space)
-        return FinallyBlock.handle(self, frame, unroller)
-
-block_classes = {'SETUP_LOOP': LoopBlock,
+block_classes = {'SYS_EXC_INFO_RESTORER': SysExcInfoRestorer,
+                 'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
                  'SETUP_FINALLY': FinallyBlock,
-                 'SETUP_WITH': WithBlock,
+                 'SETUP_WITH': FinallyBlock,
                  }
+
+
+##class W_OperationError(W_Root):
+##    """
+##    Tiny applevel wrapper around an OperationError.
+##    """
+##
+##    def __init__(self, operr):
+##        self.operr = operr
+##
+##    def descr_reduce(self, space):
+##        from pypy.interpreter.mixedmodule import MixedModule
+##        w_mod = space.getbuiltinmodule('_pickle_support')
+##        mod = space.interp_w(MixedModule, w_mod)
+##        w_new_inst = mod.get('operationerror_new')
+##        w_args = space.newtuple([])
+##        operr = self.operr
+##        if operr is None:
+##            return space.newtuple([w_new_inst, w_args])
+##        w_state = space.newtuple([operr.w_type, operr.get_w_value(space),
+##                                  operr.get_traceback()])
+##        return space.newtuple([w_new_inst, w_args, w_state])
+##
+##    def descr_setstate(self, space, w_state):
+##        w_type, w_value, w_tb = space.fixedview(w_state, 3)
+##        self.operr = OperationError(w_type, w_value, w_tb)
+
+def source_as_str(space, w_source, funcname, what, flags):
+    """Return source code as str0 with adjusted compiler flags
+
+    w_source must be a str or support the buffer interface
+    """
+    from pypy.interpreter.astcompiler import consts
+
+    if space.isinstance_w(w_source, space.w_unicode):
+        from pypy.interpreter.unicodehelper import encode
+        w_source = encode(space, w_source)
+        source = space.bytes_w(w_source)
+        flags |= consts.PyCF_IGNORE_COOKIE
+    elif space.isinstance_w(w_source, space.w_bytes):
+        source = space.bytes_w(w_source)
+    else:
+        try:
+            buf = space.buffer_w(w_source, space.BUF_SIMPLE)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise oefmt(space.w_TypeError,
+                        "%s() arg 1 must be a %s object", funcname, what)
+        source = buf.as_str()
+
+    if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
+        if '\x00' in source:
+            raise oefmt(space.w_ValueError,
+                        "source code string cannot contain null bytes")
+        source = rstring.assert_str0(source)
+    return source, flags
+
+
+def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
+    """Ensure globals/locals exist and are of the correct type"""
+    if (not space.is_none(w_globals) and
+        not space.isinstance_w(w_globals, space.w_dict)):
+        raise oefmt(space.w_TypeError,
+                    '%s() arg 2 must be a dict, not %T', funcname, w_globals)
+    if (not space.is_none(w_locals) and
+        space.lookup(w_locals, '__getitem__') is None):
+        raise oefmt(space.w_TypeError,
+                    '%s() arg 3 must be a mapping or None, not %T',
+                    funcname, w_locals)
+
+    if space.is_none(w_globals):
+        if caller is None:
+            caller = space.getexecutioncontext().gettopframe_nohidden()
+        if caller is None:
+            w_globals = space.newdict(module=True)
+            if space.is_none(w_locals):
+                w_locals = w_globals
+        else:
+            w_globals = caller.get_w_globals()
+            if space.is_none(w_locals):
+                w_locals = caller.getdictscope()
+    elif space.is_none(w_locals):
+        w_locals = w_globals
+
+    return w_globals, w_locals
+
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
@@ -1524,43 +2004,33 @@ app = gateway.applevel(r'''
         displayhook(obj)
 
     def print_item_to(x, stream):
-        if file_softspace(stream, False):
-           stream.write(" ")
-
         # give to write() an argument which is either a string or a unicode
         # (and let it deals itself with unicode handling).  The check "is
         # unicode" should not use isinstance() at app-level, because that
         # could be fooled by strange objects, so it is done at interp-level.
-        stream.write(x)
+        try:
+            stream.write(x)
+        except UnicodeEncodeError:
+            print_unencodable_to(x, stream)
 
-        # add a softspace unless we just printed a string which ends in a '\t'
-        # or '\n' -- or more generally any whitespace character but ' '
-        if x:
-            lastchar = x[-1]
-            if lastchar.isspace() and lastchar != ' ':
-                return
-        file_softspace(stream, True)
+    def print_unencodable_to(x, stream):
+        encoding = stream.encoding
+        encoded = x.encode(encoding, 'backslashreplace')
+        buffer = getattr(stream, 'buffer', None)
+        if buffer is not None:
+             buffer.write(encoded)
+        else:
+            escaped = encoded.decode(encoding, 'strict')
+            stream.write(escaped)
 
     def print_item(x):
         print_item_to(x, sys_stdout())
 
     def print_newline_to(stream):
         stream.write("\n")
-        file_softspace(stream, False)
 
     def print_newline():
         print_newline_to(sys_stdout())
-
-    def file_softspace(file, newflag):
-        try:
-            softspace = file.softspace
-        except AttributeError:
-            softspace = 0
-        try:
-            file.softspace = newflag
-        except AttributeError:
-            pass
-        return softspace
 ''', filename=__file__)
 
 sys_stdout      = app.interphook('sys_stdout')
@@ -1569,7 +2039,6 @@ print_item      = app.interphook('print_item')
 print_item_to   = app.interphook('print_item_to')
 print_newline   = app.interphook('print_newline')
 print_newline_to= app.interphook('print_newline_to')
-file_softspace  = app.interphook('file_softspace')
 
 app = gateway.applevel(r'''
     def find_metaclass(bases, namespace, globals, builtin):
@@ -1607,50 +2076,9 @@ app = gateway.applevel(r'''
         else:
             skip_leading_underscores = False
         for name in all:
-            if skip_leading_underscores and name[0]=='_':
+            if skip_leading_underscores and name and name[0] == '_':
                 continue
             into_locals[name] = getattr(module, name)
 ''', filename=__file__)
 
 import_all_from = app.interphook('import_all_from')
-
-app = gateway.applevel(r'''
-    def prepare_exec(f, prog, globals, locals, compile_flags, builtin, codetype):
-        """Manipulate parameters to exec statement to (codeobject, dict, dict).
-        """
-        if (globals is None and locals is None and
-            isinstance(prog, tuple) and
-            (len(prog) == 2 or len(prog) == 3)):
-            globals = prog[1]
-            if len(prog) == 3:
-                locals = prog[2]
-            prog = prog[0]
-        if globals is None:
-            globals = f.f_globals
-            if locals is None:
-                locals = f.f_locals
-        if locals is None:
-            locals = globals
-
-        if not isinstance(globals, dict):
-            if not hasattr(globals, '__getitem__'):
-                raise TypeError("exec: arg 2 must be a dictionary or None")
-        globals.setdefault('__builtins__', builtin)
-        if not isinstance(locals, dict):
-            if not hasattr(locals, '__getitem__'):
-                raise TypeError("exec: arg 3 must be a dictionary or None")
-
-        if not isinstance(prog, codetype):
-            filename = '<string>'
-            if not isinstance(prog, basestring):
-                if isinstance(prog, file):
-                    filename = prog.name
-                    prog = prog.read()
-                else:
-                    raise TypeError("exec: arg 1 must be a string, file, "
-                                    "or code object")
-            prog = compile(prog, filename, 'exec', compile_flags, 1)
-        return (prog, globals, locals)
-''', filename=__file__)
-
-prepare_exec    = app.interphook('prepare_exec')

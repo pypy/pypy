@@ -56,6 +56,7 @@ class ASTNodeVisitor(ASDLVisitor):
 
     def visitSum(self, sum, base):
         if is_simple_sum(sum):
+            assert not sum.attributes
             self.emit("class %s(AST):" % (base,))
             self.emit("@staticmethod", 1)
             self.emit("def from_object(space, w_node):", 1)
@@ -111,15 +112,19 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitProduct(self, product, name):
         self.emit("class %s(AST):" % (name,))
         self.emit("")
-        self.make_constructor(product.fields, product)
+        self.make_constructor(product.fields + product.attributes, product)
         self.emit("")
         self.make_mutate_over(product, name)
         self.emit("def walkabout(self, visitor):", 1)
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
-        self.make_converters(product.fields, name)
-        self.emit("State.ast_type(%r, 'AST', %s)" %
-                  (name, [f.name for f in product.fields]))
+        self.make_converters(product.fields + product.attributes, name)
+        if product.attributes:
+            attr_names = ', %s' % ([a.name for a in product.attributes],)
+        else:
+            attr_names = ''
+        self.emit("State.ast_type(%r, 'AST', %s%s)" %
+                  (name, [f.name for f in product.fields], attr_names))
         self.emit("")
 
     def get_value_converter(self, field, value):
@@ -137,7 +142,13 @@ class ASTNodeVisitor(ASDLVisitor):
             return "space.newtext(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)
-            if field.opt:
+            allow_none = field.opt
+            # Some sequences allow None values:
+            # - arguments.kw_defaults (for mandatory kw-only arguments)
+            # - Dict.keys (for **nested_dict elements)
+            if field.name in ('kw_defaults', 'keys'):
+                allow_none = True
+            if allow_none:
                 wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
 
@@ -150,15 +161,27 @@ class ASTNodeVisitor(ASDLVisitor):
             return "check_string(space, %s)" % (value,)
         elif field.type in ("identifier",):
             if field.opt:
-                return ("space.realtext_w(%s) if not space.is_none(%s) "
-                        "else None" % (value, value))
-            return "space.realtext_w(%s)" % (value,)
+                return "space.text_or_none_w(%s)" % (value,)
+            return "space.text_w(%s)" % (value,)
         elif field.type in ("int",):
             return "space.int_w(%s)" % (value,)
         elif field.type in ("bool",):
             return "space.bool_w(%s)" % (value,)
         else:
-            return "%s.from_object(space, %s)" % (field.type, value)
+            extractor = "%s.from_object(space, %s)" % (field.type, value)
+            if field.opt:
+                if field.type == 'expr':
+                    # the expr.from_object() method should accept w_None and
+                    # return None; nothing more to do here
+                    pass
+                elif field.type == 'arg':
+                    # the method arg.from_object() doesn't accept w_None
+                    extractor += (
+                        ' if not space.is_w(%s, space.w_None) else None'
+                        % (value,))
+                else:
+                    raise NotImplementedError(field.type)
+            return extractor
 
     def get_field_converter(self, field):
         if field.seq:
@@ -243,9 +266,11 @@ class ASTNodeVisitor(ASDLVisitor):
                     sub = field.name
                     self.emit("for i in range(len(self.{})):".format(sub),
                         level)
+                    self.emit("if self.{}[i] is not None:".format(sub),
+                        level + 1)
                     self.emit(
                         "self.{0}[i] = self.{0}[i].mutate_over(visitor)".format(sub),
-                        level + 1)
+                        level + 2)
                 else:
                     sub = field.name
                     self.emit(
@@ -281,7 +306,14 @@ class ASTVisitorVisitor(ASDLVisitor):
         self.emit("def visit_sequence(self, seq):", 1)
         self.emit("if seq is not None:", 2)
         self.emit("for node in seq:", 3)
-        self.emit("node.walkabout(self)", 4)
+        self.emit("if node is not None:", 4)
+        self.emit("node.walkabout(self)", 5)
+        self.emit("")
+        self.emit("def visit_kwonlydefaults(self, seq):", 1)
+        self.emit("if seq is not None:", 2)
+        self.emit("for node in seq:", 3)
+        self.emit("if node:", 4)
+        self.emit("node.walkabout(self)", 5)
         self.emit("")
         self.emit("def default_visitor(self, node):", 1)
         self.emit("raise NodeVisitorNotImplemented", 2)

@@ -116,7 +116,7 @@ def find_clean_setarrayitems(collect_analyzer, graph):
 class BaseFrameworkGCTransformer(GCTransformer):
     root_stack_depth = None    # for tests to override
 
-    def __init__(self, translator):
+    def __init__(self, translator, gchooks=None):
         from rpython.memory.gc.base import choose_gc_from_config
 
         super(BaseFrameworkGCTransformer, self).__init__(translator,
@@ -162,7 +162,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.finalizer_queue_indexes = {}
         self.finalizer_handlers = []
 
-        gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
+        gcdata.gc = GCClass(translator.config.translation, hooks=gchooks,
+                            **GC_PARAMS)
         root_walker = self.build_root_walker()
         root_walker.finished_minor_collection_func = finished_minor_collection
         self.root_walker = root_walker
@@ -308,6 +309,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
+        self.collect_step_ptr = getfn(GCClass.collect_step.im_func, [s_gc],
+                                      annmodel.SomeInteger())
+        self.enable_ptr = getfn(GCClass.enable.im_func, [s_gc], annmodel.s_None)
+        self.disable_ptr = getfn(GCClass.disable.im_func, [s_gc], annmodel.s_None)
+        self.isenabled_ptr = getfn(GCClass.isenabled.im_func, [s_gc],
+                                   annmodel.s_Bool)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
                                   [s_gc, SomeAddress()],
                                   annmodel.SomeBool())
@@ -895,6 +902,28 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.collect_ptr, self.c_const_gc, v_gen],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
+
+    def gct_gc__collect_step(self, hop):
+        op = hop.spaceop
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call", [self.collect_step_ptr, self.c_const_gc],
+                  resultvar=op.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc__enable(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.enable_ptr, self.c_const_gc],
+                  resultvar=op.result)
+
+    def gct_gc__disable(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.disable_ptr, self.c_const_gc],
+                  resultvar=op.result)
+
+    def gct_gc__isenabled(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.isenabled_ptr, self.c_const_gc],
+                  resultvar=op.result)
 
     def gct_gc_can_move(self, hop):
         op = hop.spaceop
@@ -1628,8 +1657,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         index = self.get_finalizer_queue_index(hop)
         c_index = rmodel.inputconst(lltype.Signed, index)
         v_ptr = hop.spaceop.args[1]
-        v_ptr = hop.genop("cast_opaque_ptr", [v_ptr],
-                          resulttype=llmemory.GCREF)
+        assert v_ptr.concretetype == llmemory.GCREF
         hop.genop("direct_call", [self.register_finalizer_ptr, self.c_const_gc,
                                   c_index, v_ptr])
 

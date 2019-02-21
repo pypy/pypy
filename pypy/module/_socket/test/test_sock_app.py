@@ -1,14 +1,15 @@
+# -*- coding: utf-8 -*-
 import sys, os
 import pytest
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
-from pypy.module._file.test.test_file import regex_search
 from rpython.tool.udir import udir
 from rpython.rlib import rsocket
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct'])
+    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct',
+                                            'unicodedata'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
@@ -89,25 +90,6 @@ def test_getprotobyname():
                         "(_socket, name): return _socket.getprotobyname(name)")
     assert space.unwrap(w_n) == socket.IPPROTO_TCP
 
-def test_fromfd():
-    # XXX review
-    if not hasattr(socket, 'fromfd'):
-        pytest.skip("No socket.fromfd on this platform")
-    orig_fd = path.open()
-    fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
-            space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM),
-            space.wrap(0)],
-           """(_socket, fd, family, type, proto):
-                 return _socket.fromfd(fd, family, type, proto)""")
-
-    assert space.unwrap(space.call_method(fd, 'fileno'))
-    fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
-            space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM)],
-                """(_socket, fd, family, type):
-                    return _socket.fromfd(fd, family, type)""")
-
-    assert space.unwrap(space.call_method(fd, 'fileno'))
-
 def test_ntohs():
     w_n = space.appexec([w_socket, space.wrap(125)],
                         "(_socket, x): return _socket.ntohs(x)")
@@ -145,10 +127,10 @@ def test_aton_ntoa():
     packed = socket.inet_aton(ip)
     w_p = space.appexec([w_socket, space.wrap(ip)],
                         "(_socket, ip): return _socket.inet_aton(ip)")
-    assert space.unwrap(w_p) == packed
-    w_ip = space.appexec([w_socket, space.wrap(packed)],
+    assert space.bytes_w(w_p) == packed
+    w_ip = space.appexec([w_socket, w_p],
                          "(_socket, p): return _socket.inet_ntoa(p)")
-    assert space.unwrap(w_ip) == ip
+    assert space.utf8_w(w_ip) == ip
 
 def test_pton_ntop_ipv4():
     if not hasattr(socket, 'inet_pton'):
@@ -179,7 +161,7 @@ def test_ntop_ipv6():
         ("\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
     ]
     for packed, ip in tests:
-        w_ip = space.appexec([w_socket, space.wrap(packed)],
+        w_ip = space.appexec([w_socket, space.newbytes(packed)],
             "(_socket, packed): return _socket.inet_ntop(_socket.AF_INET6, packed)")
         if ip is not None:   # else don't check for the precise representation
             assert space.unwrap(w_ip) == ip
@@ -215,19 +197,29 @@ def test_has_ipv6():
     assert space.unwrap(res) == socket.has_ipv6
 
 def test_getaddrinfo():
-    host = "localhost"
+    host = b"localhost"
     port = 25
     info = socket.getaddrinfo(host, port)
-    w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
-                        "(_socket, host, port): return _socket.getaddrinfo(host, long(port))")
-    assert space.unwrap(w_l) == info
-    pytest.skip("Unicode conversion is too slow")
-    w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap('smtp')],
+                        "(_socket, host, port): return _socket.getaddrinfo(host, port)")
+    assert space.unwrap(w_l) == socket.getaddrinfo(host, 'smtp')
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap(u'\uD800')], '''
+
+       (_socket, host, port):
+            try:
+                info = _socket.getaddrinfo(host, port)
+            except Exception as e:
+                return e.reason == 'surrogates not allowed'
+            return -1
+        ''')
+    assert space.unwrap(w_l) == True
+
 
 def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
@@ -240,7 +232,7 @@ def test_unknown_addr_as_object():
     w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
     assert space.isinstance_w(w_obj, space.w_tuple)
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
-    assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
+    assert space.text_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 
 def test_addr_raw_packet():
     from pypy.module._socket.interp_socket import addr_as_object
@@ -271,20 +263,31 @@ def test_addr_raw_packet():
     w_obj = addr_as_object(rsocket.make_address(c_addr, addrlen), fd, space)
     lltype.free(c_addr_ll, flavor='raw')
     assert space.is_true(space.eq(w_obj, space.newtuple([
-        space.wrap('lo'),
-        space.wrap(socket.ntohs(8)),
-        space.wrap(13),
-        space.wrap(False),
-        space.wrap("abc"),
+        space.newtext('lo'),
+        space.newint(socket.ntohs(8)),
+        space.newint(13),
+        space.newbool(False),
+        space.newbytes("abc"),
         ])))
 
 def test_getnameinfo():
+    from pypy.module._socket.interp_socket import get_error
     host = "127.0.0.1"
     port = 25
     info = socket.getnameinfo((host, port), 0)
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getnameinfo((host, port), 0)")
     assert space.unwrap(w_l) == info
+    sockaddr = space.newtuple([space.wrap('mail.python.org'), space.wrap(0)])
+    space.raises_w(get_error(space, 'error'), space.appexec,
+                   [w_socket, sockaddr, space.wrap(0)],
+                   "(_socket, sockaddr, flags): return _socket.getnameinfo(sockaddr, flags)")
+    if socket.has_ipv6:
+        sockaddr = space.newtuple([space.wrap('::1'), space.wrap(0),
+                                   space.wrap(0xffffffff)])
+        space.raises_w(space.w_OverflowError, space.appexec,
+                       [w_socket, sockaddr, space.wrap(0)],
+                       "(_socket, sockaddr, flags): return _socket.getnameinfo(sockaddr, flags)")
 
 def test_timeout():
     space.appexec([w_socket, space.wrap(25.4)],
@@ -304,12 +307,12 @@ def test_timeout():
 
 
 class AppTestSocket:
-    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct'])
+    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct', 'select',
+                                   'unicodedata'])
 
     def setup_class(cls):
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
-        cls.w_regex_search = space.wrap(interp2app(regex_search))
 
     def teardown_class(cls):
         if not cls.runappdirect:
@@ -341,10 +344,10 @@ class AppTestSocket:
         if not hasattr(_socket, 'inet_ntop'):
             skip('No socket.inet_pton on this platform')
         for family, packed, exception in \
-                    [(_socket.AF_INET + _socket.AF_INET6, "", _socket.error),
-                     (_socket.AF_INET, "a", ValueError),
-                     (_socket.AF_INET6, "a", ValueError),
-                     (_socket.AF_INET, u"aa\u2222a", UnicodeEncodeError)]:
+                    [(_socket.AF_INET + _socket.AF_INET6, b"", _socket.error),
+                     (_socket.AF_INET, b"a", ValueError),
+                     (_socket.AF_INET6, b"a", ValueError),
+                     (_socket.AF_INET, "aa\u2222a", TypeError)]:
             raises(exception, _socket.inet_ntop, family, packed)
 
     def test_pton_exceptions(self):
@@ -383,12 +386,12 @@ class AppTestSocket:
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         try:
-            expected = ('<socket object, fd=%s, family=%s, type=%s, protocol=%s>'
+            expected = ('<socket object, fd=%s, family=%s, type=%s, proto=%s>'
                         % (s.fileno(), s.family, s.type, s.proto))
             assert repr(s) == expected
         finally:
             s.close()
-        expected = ('<socket object, fd=-1, family=%s, type=%s, protocol=%s>'
+        expected = ('<socket object, fd=-1, family=%s, type=%s, proto=%s>'
                     % (s.family, s.type, s.proto))
         assert repr(s) == expected
 
@@ -402,64 +405,6 @@ class AppTestSocket:
         s.close()
         if os.name != 'nt':
             raises(OSError, os.close, fileno)
-
-    def test_socket_track_resources(self):
-        import _socket, os, gc, sys, cStringIO
-        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        fileno = s.fileno()
-        assert s.fileno() >= 0
-        s.close()
-        assert s.fileno() < 0
-        s.close()
-        if os.name != 'nt':
-            raises(OSError, os.close, fileno)
-
-    @pytest.mark.skipif("config.option.runappdirect")
-    def test_track_resources(self):
-        import os, gc, sys, cStringIO
-        import _socket
-        if '__pypy__' not in sys.builtin_module_names:
-            skip("pypy specific test")
-        #
-        def fn(flag1, flag2, do_close=False):
-            sys.pypy_set_track_resources(flag1)
-            mysock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-            sys.pypy_set_track_resources(flag2)
-            buf = cStringIO.StringIO()
-            preverr = sys.stderr
-            try:
-                sys.stderr = buf
-                if do_close:
-                    mysock.close()
-                del mysock
-                gc.collect() # force __del__ to be called
-            finally:
-                sys.stderr = preverr
-                sys.pypy_set_track_resources(False)
-            return buf.getvalue()
-
-        # check with track_resources disabled
-        assert fn(False, False) == ""
-        #
-        # check that we don't get the warning if we actually closed the socket
-        msg = fn(True, True, do_close=True)
-        assert msg == ''
-        #
-        # check with track_resources enabled
-        msg = fn(True, True)
-        assert self.regex_search(r"""
-        WARNING: unclosed <socket object, .*>
-        Created at \(most recent call last\):
-          File ".*", line .*, in test_track_resources
-          File ".*", line .*, in fn
-        """, msg)
-        #
-        # track_resources is enabled after the construction of the socket. in
-        # this case, the socket is not registered for finalization at all, so
-        # we don't see a message
-        msg = fn(False, True)
-        assert msg == ''
-
 
     def test_socket_close_error(self):
         import _socket, os
@@ -535,10 +480,8 @@ class AppTestSocket:
             swapped = func(mask)
             assert swapped & mask == mask
             raises(OverflowError, func, -1)
-            raises(OverflowError, func, -1L)
             if size > 16:    # else, values too large are ignored
                 raises(OverflowError, func, 2 ** size)
-                raises(OverflowError, func, 2L ** size)
 
     def test_newsocket(self):
         import socket
@@ -628,17 +571,38 @@ class AppTestSocket:
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
 
     def test_dup(self):
-        import _socket as socket
-        if not hasattr(socket.socket, 'dup'):
-            skip('No dup() on this platform')
+        import _socket as socket, os
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('localhost', 0))
-        s2 = s.dup()
-        assert s.fileno() != s2.fileno()
-        assert s.getsockname() == s2.getsockname()
+        fd = socket.dup(s.fileno())
+        assert s.fileno() != fd
+        assert os.get_inheritable(s.fileno()) is False
+        assert os.get_inheritable(fd) is False
+        os.close(fd)
+        s.close()
 
-    def test_buffer_or_unicode(self):
-        # Test that send/sendall/sendto accept a buffer or a unicode as arg
+    def test_dup_error(self):
+        import _socket
+        raises(_socket.error, _socket.dup, 123456)
+
+    def test_recvmsg_issue2649(self):
+        import _socket as socket
+        listener = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(('::1', 1234))
+
+        s = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        IPV6_RECVERR = 25
+        s.setsockopt(socket.IPPROTO_IPV6, IPV6_RECVERR, 1)
+
+        s.sendto(b'x', ('::1', 1234))
+        try:
+            queue = s.recvmsg(1024, 1024, socket.MSG_ERRQUEUE)
+        except BlockingIOError as e:
+            assert True
+
+    def test_buffer(self):
+        # Test that send/sendall/sendto accept a buffer as arg
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         # XXX temporarily we use python.org to test, will have more robust tests
@@ -650,18 +614,21 @@ class AppTestSocket:
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         exc = raises(TypeError, s.send, None)
-        assert str(exc.value) == "must be string or buffer, not None"
-        assert s.send(buffer('')) == 0
-        assert s.sendall(buffer('')) is None
-        assert s.send(memoryview('')) == 0
-        assert s.sendall(memoryview('')) is None
-        assert s.send(u'') == 0
-        assert s.sendall(u'') is None
-        raises(UnicodeEncodeError, s.send, u'\xe9')
+        assert str(exc.value).startswith("a bytes-like object is required,")
+        assert s.send(memoryview(b'')) == 0
+        assert s.sendall(memoryview(b'')) is None
+        exc = raises(TypeError, s.send, '')
+        assert str(exc.value).startswith("a bytes-like object is required,")
+        raises(TypeError, s.sendall, '')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
-        s.sendto(buffer(''), ('localhost', 9)) # Send to discard port.
+        s.sendto(memoryview(b''), ('localhost', 9)) # Send to discard port.
         s.close()
+
+    def test_listen_default(self):
+        import _socket
+        _socket.socket().listen()
+        assert isinstance(_socket.SOMAXCONN, int)
 
     def test_unix_socket_connect(self):
         import _socket, os
@@ -670,7 +637,9 @@ class AppTestSocket:
         oldcwd = os.getcwd()
         os.chdir(self.udir)
         try:
-            sockpath = 'app_test_unix_socket_connect'
+          for sockpath in ['app_test_unix_socket_connect',
+                           b'b_app_test_unix_socket_connect',
+                           bytearray(b'ba_app_test_unix_socket_connect')]:
 
             serversock = _socket.socket(_socket.AF_UNIX)
             serversock.bind(sockpath)
@@ -678,7 +647,8 @@ class AppTestSocket:
 
             clientsock = _socket.socket(_socket.AF_UNIX)
             clientsock.connect(sockpath)
-            s, addr = serversock.accept()
+            fileno, addr = serversock._accept()
+            s = _socket.socket(fileno=fileno)
             assert not addr
 
             s.send(b'X')
@@ -699,12 +669,83 @@ class AppTestSocket:
         import _socket
         self.foo = _socket.socket()
 
+    def test_subclass_init(self):
+        # Socket is not created in __new__, but in __init__.
+        import socket
+        class Socket_IPV6(socket.socket):
+            def __init__(self):
+                socket.socket.__init__(self, family=socket.AF_INET6)
+        assert Socket_IPV6().family == socket.AF_INET6
+
+    def test_subclass_noinit(self):
+        from _socket import socket
+        class MySock(socket):
+            def __init__(self, *args):
+                pass  # don't call super
+        s = MySock()
+        assert s.type == 0
+        assert s.proto == 0
+        assert s.family == 0
+        assert s.fileno() < 0
+        raises(OSError, s.bind, ('localhost', 0))
+
+    def test_dealloc_warn(self):
+        import _socket
+        import gc
+        import warnings
+
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        r = repr(s)
+        gc.collect()
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            s = None
+            gc.collect()
+        assert len(w) == 1, [str(warning) for warning in w]
+        assert r in str(w[0])
+
+    def test_invalid_fd(self):
+        import _socket
+        raises(ValueError, _socket.socket, fileno=-1)
+
+    def test_socket_non_inheritable(self):
+        import _socket, os
+        s1 = _socket.socket()
+        assert os.get_inheritable(s1.fileno()) is False
+        s1.close()
+
+    def test_socketpair_non_inheritable(self):
+        import _socket, os
+        if not hasattr(_socket, 'socketpair'):
+            skip("no socketpair")
+        s1, s2 = _socket.socketpair()
+        assert os.get_inheritable(s1.fileno()) is False
+        assert os.get_inheritable(s2.fileno()) is False
+        s1.close()
+        s2.close()
+
+    def test_hostname_unicode(self):
+        import _socket
+        domain = u"испытание.pythontest.net"
+        _socket.gethostbyname(domain)
+        _socket.gethostbyname_ex(domain)
+        _socket.getaddrinfo(domain, 0, _socket.AF_UNSPEC, _socket.SOCK_STREAM)
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.connect((domain, 80))
+        s.close()
+        raises(TypeError, s.connect, (domain + '\x00', 80))
+
 
 class AppTestNetlink:
     def setup_class(cls):
         if not hasattr(os, 'getpid'):
             pytest.skip("AF_NETLINK needs os.getpid()")
-        w_ok = space.appexec([], "(): import _socket; " +
+
+        if cls.runappdirect:
+            import _socket
+            w_ok = hasattr(_socket, 'AF_NETLINK')
+        else:
+            w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_NETLINK')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_NETLINK on this platform")
@@ -712,7 +753,8 @@ class AppTestNetlink:
 
     def test_connect_to_kernel_netlink_routing_socket(self):
         import _socket, os
-        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM, _socket.NETLINK_ROUTE)
+        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM,
+                           _socket.NETLINK_ROUTE)
         assert s.getsockname() == (0, 0)
         s.bind((0, 0))
         a, b = s.getsockname()
@@ -724,7 +766,11 @@ class AppTestPacket:
     def setup_class(cls):
         if not hasattr(os, 'getuid') or os.getuid() != 0:
             pytest.skip("AF_PACKET needs to be root for testing")
-        w_ok = space.appexec([], "(): import _socket; " +
+        if cls.runappdirect:
+            import _socket
+            w_ok = hasattr(_socket, 'AF_PACKET')
+        else:
+            w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_PACKET')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_PACKET on this platform")
@@ -733,23 +779,25 @@ class AppTestPacket:
     def test_convert_between_tuple_and_sockaddr_ll(self):
         import _socket
         s = _socket.socket(_socket.AF_PACKET, _socket.SOCK_RAW)
-        assert s.getsockname() == ('', 0, 0, 0, '')
+        assert s.getsockname() == ('', 0, 0, 0, b''), 's.getsockname %s' % str(s.getsockname())
         s.bind(('lo', 123))
         a, b, c, d, e = s.getsockname()
         assert (a, b, c) == ('lo', 123, 0)
         assert isinstance(d, int)
-        assert isinstance(e, str)
+        assert isinstance(e, bytes)
         assert 0 <= len(e) <= 8
+        s.close()
 
 
 class AppTestSocketTCP:
     HOST = 'localhost'
-    spaceconfig = {'usemodules': ['_socket', 'array']}
+    spaceconfig = {'usemodules': ['_socket', 'array', 'select']}
 
     def setup_method(self, method):
         w_HOST = self.space.wrap(self.HOST)
-        self.w_serv =self.space.appexec([w_socket, w_HOST],
-            '''(_socket, HOST):
+        self.w_serv = self.space.appexec([w_HOST],
+            '''(HOST):
+            import _socket
             serv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
             serv.bind((HOST, 0))
             serv.listen(1)
@@ -765,22 +813,23 @@ class AppTestSocketTCP:
         from _socket import timeout
         def raise_timeout():
             self.serv.settimeout(1.0)
-            self.serv.accept()
+            self.serv._accept()
         raises(timeout, raise_timeout)
 
     def test_timeout_zero(self):
         from _socket import error
         def raise_error():
             self.serv.settimeout(0.0)
-            foo = self.serv.accept()
+            foo = self.serv._accept()
         raises(error, raise_error)
 
     def test_recv_send_timeout(self):
         from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
         cli = socket()
-        cli.connect(self.serv.getsockname())
-        t, addr = self.serv.accept()
         cli.settimeout(1.0)
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        t = socket(fileno=fileno)
         # test recv() timeout
         t.send(b'*')
         buf = cli.recv(100)
@@ -824,13 +873,14 @@ class AppTestSocketTCP:
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
-        conn, addr = self.serv.accept()
-        buf = buffer(MSG)
+        fileno, addr = self.serv._accept()
+        conn = socket.socket(fileno=fileno)
+        buf = memoryview(MSG)
         conn.send(buf)
         buf = array.array('b', b' ' * 1024)
         nbytes = cli.recv_into(buf)
         assert nbytes == len(MSG)
-        msg = buf.tostring()[:len(MSG)]
+        msg = buf.tobytes()[:len(MSG)]
         assert msg == MSG
 
         conn.send(MSG)
@@ -846,13 +896,14 @@ class AppTestSocketTCP:
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
-        conn, addr = self.serv.accept()
-        buf = buffer(MSG)
+        fileno, addr = self.serv._accept()
+        conn = socket.socket(fileno=fileno)
+        buf = memoryview(MSG)
         conn.send(buf)
         buf = array.array('b', b' ' * 1024)
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
-        msg = buf.tostring()[:len(MSG)]
+        msg = buf.tobytes()[:len(MSG)]
         assert msg == MSG
 
         conn.send(MSG)
@@ -873,8 +924,39 @@ class AppTestSocketTCP:
         assert cli.family == socket.AF_INET
 
 
+    def test_accept_non_inheritable(self):
+        import _socket, os
+        cli = _socket.socket()
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        assert os.get_inheritable(fileno) is False
+        os.close(fileno)
+        cli.close()
+
+    def test_recv_into_params(self):
+        import os
+        import _socket
+        cli = _socket.socket()
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        os.write(fileno, b"abcdef")
+        #
+        m = memoryview(bytearray(5))
+        raises(ValueError, cli.recv_into, m, -1)
+        raises(ValueError, cli.recv_into, m, 6)
+        cli.recv_into(m,5)
+        assert m.tobytes() == b"abcde"
+        os.close(fileno)
+        cli.close()
+
+    def test_bytearray_name(self):
+        import _socket as socket
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.bind(bytearray(b"\x00python\x00test\x00"))
+        assert s.getsockname() == b"\x00python\x00test\x00"
+
 class AppTestErrno:
-    spaceconfig = {'usemodules': ['_socket']}
+    spaceconfig = {'usemodules': ['_socket', 'select']}
 
     def test_errno(self):
         from socket import socket, AF_INET, SOCK_STREAM, error
@@ -885,4 +967,4 @@ class AppTestErrno:
         assert isinstance(exc.value, IOError)
         # error is EINVAL, or WSAEINVAL on Windows
         assert exc.value.errno == getattr(errno, 'WSAEINVAL', errno.EINVAL)
-        assert isinstance(exc.value.message, str)
+        assert isinstance(exc.value.strerror, str)

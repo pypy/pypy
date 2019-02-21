@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """ packages PyPy, provided that it's already built.
-It uses 'pypy/goal/pypy-c' and parts of the rest of the working
+It uses 'pypy/goal/pypy3-c' and parts of the rest of the working
 copy.  Usage:
 
     package.py [--options] --archive-name=pypy-VER-PLATFORM
@@ -20,16 +20,15 @@ sys.path.insert(0,basedir)
 import py
 import fnmatch
 import subprocess
-import glob
 from pypy.tool.release.smartstrip import smartstrip
-
-if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
-STDLIB_VER = "2.7"
+STDLIB_VER = "3"
 
-from pypy.tool.build_cffi_imports import (create_cffi_import_libraries, 
+POSIX_EXE = 'pypy3'
+
+from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
@@ -70,7 +69,7 @@ def create_package(basedir, options, _fake=False):
 
     basedir = py.path.local(basedir)
     if not override_pypy_c:
-        basename = 'pypy-c'
+        basename = 'pypy3-c'
         if sys.platform == 'win32':
             basename += '.exe'
         pypy_c = basedir.join('pypy', 'goal', basename)
@@ -85,7 +84,11 @@ def create_package(basedir, options, _fake=False):
     if not _fake and not pypy_runs(pypy_c):
         raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
-        failures = create_cffi_import_libraries(pypy_c, options, basedir)
+        failures = create_cffi_import_libraries(
+            str(pypy_c), options, str(basedir),
+            embed_dependencies=options.embed_dependencies,
+        )
+
         for key, module in failures:
             print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
                 You can either install development headers package,
@@ -100,10 +103,10 @@ def create_package(basedir, options, _fake=False):
 
     if (sys.platform != 'win32' and    # handled below
         not _fake and os.path.getsize(str(pypy_c)) < 500000):
-        # This pypy-c is very small, so it means it relies on libpypy_c.so.
+        # This pypy3-c is very small, so it means it relies on libpypy3_c.so.
         # If it would be bigger, it wouldn't.  That's a hack.
-        libpypy_name = ('libpypy-c.so' if not sys.platform.startswith('darwin')
-                                       else 'libpypy-c.dylib')
+        libpypy_name = ('libpypy3-c.so' if not sys.platform.startswith('darwin')
+                                        else 'libpypy3-c.dylib')
         libpypy_c = pypy_c.new(basename=libpypy_name)
         if not libpypy_c.check():
             raise PyPyCNotFound('Expected pypy to be mostly in %r, but did '
@@ -118,14 +121,16 @@ def create_package(basedir, options, _fake=False):
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
+        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
+                            os.environ.get('PATH', '')
         src,tgt = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():
             tgt = py.path.local(tgt)
             binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename))
             print "Picking %s" % str(pypyw)
-        # Can't rename a DLL: it is always called 'libpypy-c.dll'
-        win_extras = ['libpypy-c.dll', 'sqlite3.dll']
+        # Can't rename a DLL: it is always called 'libpypy3-c.dll'
+        win_extras = ['libpypy3-c.dll', 'sqlite3.dll']
         if not options.no_tk:
             win_extras += ['tcl85.dll', 'tk85.dll']
 
@@ -145,11 +150,11 @@ def create_package(basedir, options, _fake=False):
         else:
             print '"libs" dir with import library not found.'
             print 'You have to create %r' % (str(libsdir),)
-            print 'and copy libpypy-c.lib in there, renamed to python27.lib'
+            print 'and copy libpypy3-c.lib in there, renamed to python32.lib'
             # XXX users will complain that they cannot compile capi (cpyext)
             # modules for windows, also embedding pypy (i.e. in cffi)
             # will fail.
-            # Has the lib moved, was translation not 'shared', or are 
+            # Has the lib moved, was translation not 'shared', or are
             # there no exported functions in the dll so no import
             # library was created?
         if not options.no_tk:
@@ -208,6 +213,14 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
         else:
             open(str(archive), 'wb').close()
         os.chmod(str(archive), 0755)
+    #if not _fake and not sys.platform == 'win32':
+    #    # create the pypy3 symlink
+    #    old_dir = os.getcwd()
+    #    os.chdir(str(bindir))
+    #    try:
+    #        os.symlink(POSIX_EXE, 'pypy3')
+    #    finally:
+    #        os.chdir(old_dir)
     fix_permissions(pypydir)
 
     old_dir = os.getcwd()
@@ -253,15 +266,20 @@ using another platform..."""
     return retval, builddir # for tests
 
 def package(*args, **kwds):
-    try:
-        import argparse
-    except ImportError:
-        import imp
-        argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
+    import argparse
+
+    class NegateAction(argparse.Action):
+        def __init__(self, option_strings, dest, nargs=0, **kwargs):
+            super(NegateAction, self).__init__(option_strings, dest, nargs,
+                                               **kwargs)
+
+        def __call__(self, parser, ns, values, option):
+            setattr(ns, self.dest, option[2:4] != 'no')
+
     if sys.platform == 'win32':
-        pypy_exe = 'pypy.exe'
+        pypy_exe = 'pypy3.exe'
     else:
-        pypy_exe = 'pypy'
+        pypy_exe = POSIX_EXE
     parser = argparse.ArgumentParser()
     args = list(args)
     if args:
@@ -279,7 +297,7 @@ def package(*args, **kwds):
     parser.add_argument('--no-keep-debug', dest='keep_debug',
                         action='store_false', help='do not keep debug symbols')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
-        help='target executable name, defaults to "pypy"')
+        help='target executable name, defaults to "%s"' % pypy_exe)
     parser.add_argument('--archive-name', dest='name', type=str, default='',
         help='pypy-VER-PLATFORM')
     parser.add_argument('--builddir', type=str, default='',
@@ -287,13 +305,21 @@ def package(*args, **kwds):
     parser.add_argument('--targetdir', type=str, default='',
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
-        help='use as pypy exe instead of pypy/goal/pypy-c')
+        help='use as pypy3 exe instead of pypy/goal/pypy3-c')
+    parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
+                        dest='embed_dependencies',
+                        action=NegateAction,
+                        default=(sys.platform == 'darwin'),
+                        help='whether to embed dependencies for distribution '
+                        '(default on OS X)')
     options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
         options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
         options.no_tk = True
+    if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
+        options.embed_dependencies = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
@@ -309,7 +335,7 @@ def package(*args, **kwds):
 if __name__ == '__main__':
     import sys
     if sys.platform == 'win32':
-        # Try to avoid opeing a dialog box if one of the 
+        # Try to avoid opeing a dialog box if one of the
         # subprocesses causes a system error
         import ctypes
         winapi = ctypes.windll.kernel32

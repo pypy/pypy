@@ -67,6 +67,9 @@ class SystemCompilationInfo(object):
         if filename is None, the module name will be used to construct the
         filename.
         """
+        if body or init:
+            if init is None:
+                init = "return PyModule_Create(&moduledef);"
         if init is not None:
             code = make_source(name, init, body, PY_SSIZE_T_CLEAN)
             kwds = dict(source_strings=[code])
@@ -83,12 +86,13 @@ class SystemCompilationInfo(object):
     def import_extension(self, modname, functions, prologue="",
             include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
         body = prologue + make_methods(functions, modname)
-        init = """Py_InitModule("%s", methods);
-               """ % (modname,)
+        init = """PyObject *mod = PyModule_Create(&moduledef);
+               """
         if more_init:
-            init += """#define INITERROR return
+            init += """#define INITERROR return NULL
                     """
             init += more_init
+        init += "\nreturn mod;"
         return self.import_module(
             name=modname, init=init, body=body, include_dirs=include_dirs,
             PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
@@ -130,30 +134,28 @@ def make_methods(functions, modname):
 
     body = "\n".join(codes) + """
     static PyMethodDef methods[] = {
-    %s
+    %(methods)s
     { NULL }
     };
-    """ % ('\n'.join(methods_table),)
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "%(modname)s",  /* m_name */
+        NULL,           /* m_doc */
+        -1,             /* m_size */
+        methods,        /* m_methods */
+    };
+    """ % dict(methods='\n'.join(methods_table), modname=modname)
     return body
 
 def make_source(name, init, body, PY_SSIZE_T_CLEAN):
     code = """
     %(PY_SSIZE_T_CLEAN)s
     #include <Python.h>
-    /* fix for cpython 2.7 Python.h if running tests with -A
-        since pypy compiles with -fvisibility-hidden */
-    #undef PyMODINIT_FUNC
-    #ifdef __GNUC__
-    #  define RPY_EXPORTED extern __attribute__((visibility("default")))
-    #else
-    #  define RPY_EXPORTED extern __declspec(dllexport)
-    #endif
-    #define PyMODINIT_FUNC RPY_EXPORTED void
 
     %(body)s
 
     PyMODINIT_FUNC
-    init%(name)s(void) {
+    PyInit_%(name)s(void) {
     %(init)s
     }
     """ % dict(

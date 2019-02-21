@@ -1,4 +1,4 @@
-import thread
+from . import thread
 # ^^ relative import of __pypy__.thread.  Note that some tests depend on
 # this (test_enable_signals in test_signal.py) to work properly,
 # otherwise they get caught in some deadlock waiting for the import

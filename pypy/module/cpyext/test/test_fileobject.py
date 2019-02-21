@@ -7,7 +7,7 @@ class AppTestFileObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("defenc", "METH_NOARGS",
              """
-                return PyString_FromString(Py_FileSystemDefaultEncoding);
+                return PyUnicode_FromString(Py_FileSystemDefaultEncoding);
              """),
             ])
         assert module.defenc() == sys.getfilesystemencoding()

@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, size_t, slot_function,
+    cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
+    PyVarObject, size_t, slot_function, cts,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, FILEP, fwrite, c_only)
 from pypy.module.cpyext.pyobject import (
@@ -10,7 +10,9 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.executioncontext import ExecutionContext
 import pypy.module.__builtin__.operation as operation
 
 
@@ -181,6 +183,19 @@ def PyObject_Str(space, w_obj):
         return space.newtext("<NULL>")
     return space.str(w_obj)
 
+@cts.decl("PyObject * PyObject_Bytes(PyObject *v)")
+def PyObject_Bytes(space, w_obj):
+    if w_obj is None:
+        return space.newbytes("<NULL>")
+    if space.type(w_obj) is space.w_bytes:
+        return w_obj
+    w_result = invoke_bytes_method(space, w_obj)
+    if w_result is not None:
+        return w_result
+    # return PyBytes_FromObject(space, w_obj)
+    buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
+    return space.newbytes(buffer.as_str())
+
 @cpython_api([PyObject], PyObject)
 def PyObject_Repr(space, w_obj):
     """Compute a string representation of object o.  Returns the string
@@ -201,34 +216,23 @@ def PyObject_Format(space, w_obj, w_format_spec):
     return w_ret
 
 @cpython_api([PyObject], PyObject)
+def PyObject_ASCII(space, w_obj):
+    r"""As PyObject_Repr(), compute a string representation of object
+    o, but escape the non-ASCII characters in the string returned by
+    PyObject_Repr() with \x, \u or \U escapes.  This generates a
+    string similar to that returned by PyObject_Repr() in Python 2.
+    Called by the ascii() built-in function."""
+    return operation.ascii(space, w_obj)
+
+@cpython_api([PyObject], PyObject)
 def PyObject_Unicode(space, w_obj):
     """Compute a Unicode string representation of object o.  Returns the Unicode
     string representation on success, NULL on failure. This is the equivalent of
     the Python expression unicode(o).  Called by the unicode() built-in
     function."""
     if w_obj is None:
-        return space.newunicode(u"<NULL>")
+        return space.newutf8("<NULL>", 6)
     return space.call_function(space.w_unicode, w_obj)
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyObject_Compare(space, w_o1, w_o2):
-    """
-    Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  Returns the result of the
-    comparison on success.  On error, the value returned is undefined; use
-    PyErr_Occurred() to detect an error.  This is equivalent to the Python
-    expression cmp(o1, o2)."""
-    return space.int_w(space.cmp(w_o1, w_o2))
-
-@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
-def PyObject_Cmp(space, w_o1, w_o2, result):
-    """Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  The result of the
-    comparison is returned in result.  Returns -1 on failure.  This is the
-    equivalent of the Python statement result = cmp(o1, o2)."""
-    res = space.int_w(space.cmp(w_o1, w_o2))
-    result[0] = rffi.cast(rffi.INT, res)
-    return 0
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
@@ -263,7 +267,7 @@ def PyObject_RichCompareBool(space, w_o1, w_o2, opid_int):
         if opid == Py_EQ:
             return 1
         if opid == Py_NE:
-            return 0 
+            return 0
     w_res = PyObject_RichCompare(space, w_o1, w_o2, opid_int)
     return int(space.is_true(w_res))
 
@@ -407,7 +411,37 @@ def PyObject_Print(space, pyobj, fp, flags):
         fwrite(buf, 1, count, fp)
     return 0
 
+@cts.decl("""
+    Py_ssize_t PyObject_LengthHint(PyObject *o, Py_ssize_t defaultvalue)""",
+    error=-1)
+def PyObject_LengthHint(space, w_o, defaultvalue):
+    return space.length_hint(w_o, defaultvalue)
+
 @cpython_api([lltype.Signed], lltype.Void)
 def _PyPyGC_AddMemoryPressure(space, report):
     from rpython.rlib import rgc
     rgc.add_memory_pressure(report)
+
+
+ExecutionContext.cpyext_recursive_repr = None
+
+@cpython_api([PyObject], rffi.INT_real, error=-1)
+def Py_ReprEnter(space, w_obj):
+    ec = space.getexecutioncontext()
+    d = ec.cpyext_recursive_repr
+    if d is None:
+        d = ec.cpyext_recursive_repr = {}
+    if w_obj in d:
+        return 1
+    d[w_obj] = None
+    return 0
+
+@cpython_api([PyObject], lltype.Void)
+def Py_ReprLeave(space, w_obj):
+    ec = space.getexecutioncontext()
+    d = ec.cpyext_recursive_repr
+    if d is not None:
+        try:
+            del d[w_obj]
+        except KeyError:
+            pass

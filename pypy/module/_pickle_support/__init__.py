@@ -14,14 +14,12 @@ class Module(MixedModule):
         'method_new'   : 'maker.method_new',
         'builtin_method_new'   : 'maker.builtin_method_new',
         'dictiter_surrogate_new' : 'maker.dictiter_surrogate_new',
-        'seqiter_new'  : 'maker.seqiter_new',
-        'reverseseqiter_new' : 'maker.reverseseqiter_new',
         'frame_new'    : 'maker.frame_new',
         'traceback_new' : 'maker.traceback_new',
         'generator_new' : 'maker.generator_new',
-        'xrangeiter_new': 'maker.xrangeiter_new',
+        'coroutine_new' : 'maker.coroutine_new',
+        'longrangeiter_new': 'maker.longrangeiter_new',
+        'intrangeiter_new': 'maker.intrangeiter_new',
         'builtin_code': 'maker.builtin_code',
         'builtin_function' : 'maker.builtin_function',
-        'enumerate_new': 'maker.enumerate_new',
-        'reversed_new': 'maker.reversed_new'
     }

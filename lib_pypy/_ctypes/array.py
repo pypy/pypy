@@ -12,8 +12,7 @@ class ArrayMeta(_CDataMeta):
         if cls == (_CData,): # this is the Array class defined below
             res._ffiarray = None
             return res
-        if not hasattr(res, '_length_') or not isinstance(res._length_,
-                                                          (int, long)):
+        if not hasattr(res, '_length_') or not isinstance(res._length_, int):
             raise AttributeError(
                 "class must define a '_length_' attribute, "
                 "which must be a positive integer")
@@ -54,7 +53,7 @@ class ArrayMeta(_CDataMeta):
                 # we don't want to have buffers here
                 if len(val) > self._length_:
                     raise ValueError("%r too long" % (val,))
-                if isinstance(val, unicode):
+                if isinstance(val, str):
                     target = self._buffer
                 else:
                     target = self
@@ -82,8 +81,11 @@ class ArrayMeta(_CDataMeta):
     def _CData_output(self, resarray, base=None, index=-1):
         from _rawffi.alt import types
         # If a char_p or unichar_p is received, skip the string interpretation
-        if base._ffiargtype != types.Pointer(types.char_p) and \
-           base._ffiargtype != types.Pointer(types.unichar_p):
+        try:
+            deref = type(base)._deref_ffiargtype()
+        except AttributeError:
+            deref = None
+        if deref != types.char_p and deref != types.unichar_p:
             # this seems to be a string if we're array of char, surprise!
             from ctypes import c_char, c_wchar
             if self._type_ is c_char:
@@ -105,13 +107,21 @@ class ArrayMeta(_CDataMeta):
         # array accepts very strange parameters as part of structure
         # or function argument...
         from ctypes import c_char, c_wchar
-        if issubclass(self._type_, (c_char, c_wchar)):
-            if isinstance(value, basestring):
+        if issubclass(self._type_, c_char):
+            if isinstance(value, bytes):
                 if len(value) > self._length_:
                     raise ValueError("Invalid length")
                 value = self(*value)
             elif not isinstance(value, self):
-                raise TypeError("expected string or Unicode object, %s found"
+                raise TypeError("expected bytes, %s found"
+                                % (value.__class__.__name__,))
+        elif issubclass(self._type_, c_wchar):
+            if isinstance(value, str):
+                if len(value) > self._length_:
+                    raise ValueError("Invalid length")
+                value = self(*value)
+            elif not isinstance(value, self):
+                raise TypeError("expected unicode string, %s found"
                                 % (value.__class__.__name__,))
         else:
             if isinstance(value, tuple):
@@ -119,6 +129,12 @@ class ArrayMeta(_CDataMeta):
                     raise RuntimeError("Invalid length")
                 value = self(*value)
         return _CDataMeta.from_param(self, value)
+
+    def _build_ffiargtype(self):
+        return _ffi.types.Pointer(self._type_.get_ffi_argtype())
+
+    def _deref_ffiargtype(self):
+        return self._type_.get_ffi_argtype()
 
 def array_get_slice_params(self, index):
     if hasattr(self, '_length_'):
@@ -165,8 +181,7 @@ def array_slice_getitem(self, index):
         return u"".join(l)
     return l
 
-class Array(_CData):
-    __metaclass__ = ArrayMeta
+class Array(_CData, metaclass=ArrayMeta):
     _ffiargshape_ = 'P'
 
     def __init__(self, *args):
@@ -174,6 +189,7 @@ class Array(_CData):
             self._buffer = self._ffiarray(self._length_, autofree=True)
         for i, arg in enumerate(args):
             self[i] = arg
+    _init_no_arg_ = __init__
 
     def _fix_index(self, index):
         if index < 0:
@@ -234,7 +250,7 @@ class Array(_CData):
 ARRAY_CACHE = {}
 
 def create_array_type(base, length):
-    if not isinstance(length, (int, long)):
+    if not isinstance(length, int):
         raise TypeError("Can't multiply a ctypes type by a non-integer")
     if length < 0:
         raise ValueError("Array length must be >= 0")
@@ -248,6 +264,5 @@ def create_array_type(base, length):
             _type_ = base
         )
         cls = ArrayMeta(name, (Array,), tpdict)
-        cls._ffiargtype = _ffi.types.Pointer(base.get_ffi_argtype())
         ARRAY_CACHE[key] = cls
         return cls

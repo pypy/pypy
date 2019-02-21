@@ -3,20 +3,10 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, r_uint32
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.lltypesystem import rffi
 
 from rpython.rlib import rzlib
-
-
-if intmask(2**31) == -2**31:
-    # 32-bit platforms
-    unsigned_to_signed_32bit = intmask
-else:
-    # 64-bit platforms
-    def unsigned_to_signed_32bit(x):
-        return intmask(rffi.cast(rffi.INT, x))
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
@@ -27,16 +17,8 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     An optional starting value can be specified.  The returned checksum is
     an integer.
     """
-    ustart = r_uint(start)
+    ustart = r_uint(r_uint32(start))
     checksum = rzlib.crc32(string, ustart)
-
-    # This is, perhaps, a little stupid.  zlib returns the checksum unsigned.
-    # CPython exposes it as a signed value, though. -exarkun
-    # Note that in CPython < 2.6 on 64-bit platforms the result is
-    # actually unsigned, but it was considered to be a bug so we stick to
-    # the 2.6 behavior and always return a number in range(-2**31, 2**31).
-    checksum = unsigned_to_signed_32bit(checksum)
-
     return space.newint(checksum)
 
 
@@ -48,11 +30,8 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     An optional starting value can be specified.  The returned checksum is
     an integer.
     """
-    ustart = r_uint(start)
+    ustart = r_uint(r_uint32(start))
     checksum = rzlib.adler32(string, ustart)
-    # See comments in crc32() for the following line
-    checksum = unsigned_to_signed_32bit(checksum)
-
     return space.newint(checksum)
 
 
@@ -65,10 +44,10 @@ def zlib_error(space, msg):
     return OperationError(w_error, space.newtext(msg))
 
 
-@unwrap_spec(string='bufferstr', level=int)
-def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
+@unwrap_spec(data='bufferstr', level=int)
+def compress(space, data, level=rzlib.Z_DEFAULT_COMPRESSION):
     """
-    compress(string[, level]) -- Returned compressed string.
+    compress(data[, level]) -- Returned compressed string.
 
     Optional arg level is the compression level, in 1-9.
     """
@@ -78,7 +57,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
         except ValueError:
             raise zlib_error(space, "Bad compression level")
         try:
-            result = rzlib.compress(stream, string, rzlib.Z_FINISH)
+            result = rzlib.compress(stream, data, rzlib.Z_FINISH)
         finally:
             rzlib.deflateEnd(stream)
     except rzlib.RZlibError as e:
@@ -134,19 +113,9 @@ class Compress(ZLibObject):
     Wrapper around zlib's z_stream structure which provides convenient
     compression functionality.
     """
-    def __init__(self, space, level=rzlib.Z_DEFAULT_COMPRESSION,
-                 method=rzlib.Z_DEFLATED,             # \
-                 wbits=rzlib.MAX_WBITS,               #  \   undocumented
-                 memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
-                 strategy=rzlib.Z_DEFAULT_STRATEGY):  # /
+    def __init__(self, space, stream):
         ZLibObject.__init__(self, space)
-        try:
-            self.stream = rzlib.deflateInit(level, method, wbits,
-                                            memLevel, strategy)
-        except rzlib.RZlibError as e:
-            raise zlib_error(space, e.msg)
-        except ValueError:
-            raise oefmt(space.w_ValueError, "Invalid initialization option")
+        self.stream = stream
         self.register_finalizer(space)
 
     def _finalize_(self):
@@ -177,6 +146,25 @@ class Compress(ZLibObject):
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         return space.newbytes(result)
+
+    def copy(self, space):
+        """
+        copy() -- Return a copy of the compression object.
+        """
+        try:
+            self.lock()
+            try:
+                if not self.stream:
+                    raise oefmt(
+                        space.w_ValueError,
+                        "Compressor was already flushed",
+                    )
+                copied = rzlib.deflateCopy(self.stream)
+            finally:
+                self.unlock()
+        except rzlib.RZlibError as e:
+            raise zlib_error(space, e.msg)
+        return Compress(space=space, stream=copied)
 
     @unwrap_spec(mode="c_int")
     def flush(self, space, mode=rzlib.Z_FINISH):
@@ -214,20 +202,32 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
                      method=rzlib.Z_DEFLATED,             # \
                      wbits=rzlib.MAX_WBITS,               #  \   undocumented
                      memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
-                     strategy=rzlib.Z_DEFAULT_STRATEGY):  # /
+                     strategy=rzlib.Z_DEFAULT_STRATEGY,   # /
+                     w_zdict=None):
     """
     Create a new z_stream and call its initializer.
     """
-    stream = space.allocate_instance(Compress, w_subtype)
-    stream = space.interp_w(Compress, stream)
-    Compress.__init__(stream, space, level,
-                      method, wbits, memLevel, strategy)
-    return stream
+    if space.is_none(w_zdict):
+        zdict = None
+    else:
+        zdict = space.charbuf_w(w_zdict)
+    w_stream = space.allocate_instance(Compress, w_subtype)
+    w_stream = space.interp_w(Compress, w_stream)
+    try:
+        stream = rzlib.deflateInit(level, method, wbits, memLevel, strategy,
+                                   zdict=zdict)
+    except rzlib.RZlibError as e:
+        raise zlib_error(space, e.msg)
+    except ValueError:
+        raise oefmt(space.w_ValueError, "Invalid initialization option")
+    Compress.__init__(w_stream, space, stream)
+    return w_stream
 
 
 Compress.typedef = TypeDef(
     'Compress',
     __new__ = interp2app(Compress___new__),
+    copy = interp2app(Compress.copy),
     compress = interp2app(Compress.compress),
     flush = interp2app(Compress.flush),
     __doc__ = """compressobj([level]) -- Return a compressor object.
@@ -241,7 +241,7 @@ class Decompress(ZLibObject):
     Wrapper around zlib's z_stream structure which provides convenient
     decompression functionality.
     """
-    def __init__(self, space, wbits=rzlib.MAX_WBITS):
+    def __init__(self, space, stream, zdict, unused_data, unconsumed_tail):
         """
         Initialize a new decompression object.
 
@@ -251,14 +251,12 @@ class Decompress(ZLibObject):
         inflateInit2.
         """
         ZLibObject.__init__(self, space)
-        self.unused_data = ''
-        self.unconsumed_tail = ''
-        try:
-            self.stream = rzlib.inflateInit(wbits)
-        except rzlib.RZlibError as e:
-            raise zlib_error(space, e.msg)
-        except ValueError:
-            raise oefmt(space.w_ValueError, "Invalid initialization option")
+
+        self.stream = stream
+        self.zdict = zdict
+        self.unused_data = unused_data
+        self.unconsumed_tail = unconsumed_tail
+        self.eof = False
         self.register_finalizer(space)
 
     def _finalize_(self):
@@ -295,15 +293,39 @@ class Decompress(ZLibObject):
         try:
             self.lock()
             try:
-                result = rzlib.decompress(self.stream, data, max_length=max_length)
+                result = rzlib.decompress(self.stream, data,
+                                          max_length=max_length,
+                                          zdict=self.zdict)
             finally:
                 self.unlock()
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
 
         string, finished, unused_len = result
+        self.eof = finished
         self._save_unconsumed_input(data, finished, unused_len)
         return space.newbytes(string)
+
+    def copy(self, space):
+        """
+        copy() -- Return a copy of the decompression object.
+        """
+        try:
+            self.lock()
+            try:
+                copied = rzlib.inflateCopy(self.stream)
+            finally:
+                self.unlock()
+        except rzlib.RZlibError as e:
+            raise zlib_error(space, e.msg)
+
+        return Decompress(
+            space=space,
+            stream=copied,
+            unused_data=self.unused_data,
+            unconsumed_tail=self.unconsumed_tail,
+            zdict=self.zdict,
+        )
 
     def flush(self, space, w_length=None):
         """
@@ -320,7 +342,8 @@ class Decompress(ZLibObject):
         try:
             self.lock()
             try:
-                result = rzlib.decompress(self.stream, data, rzlib.Z_FINISH)
+                result = rzlib.decompress(self.stream, data, rzlib.Z_FINISH,
+                                          zdict=self.zdict)
             finally:
                 self.unlock()
         except rzlib.RZlibError:
@@ -328,27 +351,44 @@ class Decompress(ZLibObject):
         else:
             string, finished, unused_len = result
             self._save_unconsumed_input(data, finished, unused_len)
+            if finished:
+                rzlib.inflateEnd(self.stream)
+                self.stream = rzlib.null_stream
         return space.newbytes(string)
 
 
 @unwrap_spec(wbits=int)
-def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS):
+def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS, w_zdict=None):
     """
     Create a new Decompress and call its initializer.
     """
-    stream = space.allocate_instance(Decompress, w_subtype)
-    stream = space.interp_w(Decompress, stream)
-    Decompress.__init__(stream, space, wbits)
-    return stream
+    if space.is_none(w_zdict):
+        zdict = None
+    else:
+        zdict = space.charbuf_w(w_zdict)
+    w_stream = space.allocate_instance(Decompress, w_subtype)
+    w_stream = space.interp_w(Decompress, w_stream)
+    try:
+        stream = rzlib.inflateInit(wbits, zdict=zdict)
+    except rzlib.RZlibError as e:
+        raise zlib_error(space, e.msg)
+    except ValueError:
+        raise oefmt(space.w_ValueError, "Invalid initialization option")
+    Decompress.__init__(w_stream, space, stream, zdict, '', '')
+    return w_stream
 
+def default_buffer_size(space):
+    return space.newint(rzlib.OUTPUT_BUFFER_SIZE)
 
 Decompress.typedef = TypeDef(
     'Decompress',
     __new__ = interp2app(Decompress___new__),
+    copy = interp2app(Decompress.copy),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
     unused_data = interp_attrproperty('unused_data', Decompress, wrapfn="newbytes"),
     unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress, wrapfn="newbytes"),
+    eof = interp_attrproperty('eof', Decompress, wrapfn="newbool"),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.

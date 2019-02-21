@@ -6,11 +6,11 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("raise_exception", "METH_NOARGS",
              """
-                 PyObject *py_srcfile = PyString_FromString("filename");
-                 PyObject *py_funcname = PyString_FromString("funcname");
+                 PyObject *py_srcfile = PyUnicode_FromString("filename");
+                 PyObject *py_funcname = PyUnicode_FromString("funcname");
                  PyObject *py_globals = PyDict_New();
                  PyObject *py_locals = PyDict_New();
-                 PyObject *empty_string = PyString_FromString("");
+                 PyObject *empty_bytes = PyBytes_FromString("");
                  PyObject *empty_tuple = PyTuple_New(0);
                  PyCodeObject *py_code;
                  PyFrameObject *py_frame = NULL;
@@ -23,7 +23,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                      0,            /*int nlocals,*/
                      0,            /*int stacksize,*/
                      0,            /*int flags,*/
-                     empty_string, /*PyObject *code,*/
+                     empty_bytes,  /*PyObject *code,*/
                      empty_tuple,  /*PyObject *consts,*/
                      empty_tuple,  /*PyObject *names,*/
                      empty_tuple,  /*PyObject *varnames,*/
@@ -32,7 +32,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                      py_srcfile,   /*PyObject *filename,*/
                      py_funcname,  /*PyObject *name,*/
                      42,           /*int firstlineno,*/
-                     empty_string  /*PyObject *lnotab*/
+                     empty_bytes   /*PyObject *lnotab*/
                  );
 
                  if (!py_code) goto bad;
@@ -49,7 +49,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              bad:
                  Py_XDECREF(py_srcfile);
                  Py_XDECREF(py_funcname);
-                 Py_XDECREF(empty_string);
+                 Py_XDECREF(empty_bytes);
                  Py_XDECREF(empty_tuple);
                  Py_XDECREF(py_globals);
                  Py_XDECREF(py_locals);
@@ -59,7 +59,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """),
             ], prologue='#include "frameobject.h"')
         exc = raises(ValueError, module.raise_exception)
-        exc.value[0] == 'error message'
+        exc.value.args[0] == 'error message'
         if not self.runappdirect:
             frame = exc.traceback.tb_frame
             assert frame.f_code.co_filename == "filename"

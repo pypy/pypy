@@ -56,7 +56,7 @@ class AppTestIoModule:
         import _io
         try:
             raise _io.BlockingIOError(42, "test blocking", 123)
-        except IOError as e:
+        except OSError as e:
             assert isinstance(e, _io.BlockingIOError)
             assert e.errno == 42
             assert e.strerror == "test blocking"
@@ -76,11 +76,11 @@ class AppTestIoModule:
             return _io.BytesIO.write(f, data)
         f.write = write
         bufio = _io.BufferedWriter(f)
-        bufio.write("abc")
+        bufio.write(b"abc")
         bufio.flush()
-        assert f.getvalue() == "ABC"
+        assert f.getvalue() == b"ABC"
 
-    def test_destructor(self):
+    def test_destructor_1(self):
         import io
         io.IOBase()
 
@@ -88,6 +88,26 @@ class AppTestIoModule:
         class MyIO(io.IOBase):
             def __del__(self):
                 record.append(1)
+                # doesn't call the inherited __del__, so file not closed
+            def close(self):
+                record.append(2)
+                super(MyIO, self).close()
+            def flush(self):
+                record.append(3)
+                super(MyIO, self).flush()
+        MyIO()
+        import gc; gc.collect()
+        assert record == [1]
+
+    def test_destructor_2(self):
+        import io
+        io.IOBase()
+
+        record = []
+        class MyIO(io.IOBase):
+            def __del__(self):
+                record.append(1)
+                super(MyIO, self).__del__()
             def close(self):
                 record.append(2)
                 super(MyIO, self).close()
@@ -115,17 +135,17 @@ class AppTestIoModule:
     def test_rawio_read(self):
         import _io
         class MockRawIO(_io._RawIOBase):
-            stack = ['abc', 'de', '']
+            stack = [b'abc', b'de', b'']
             def readinto(self, buf):
                 data = self.stack.pop(0)
                 buf[:len(data)] = data
                 return len(data)
-        assert MockRawIO().read() == 'abcde'
+        assert MockRawIO().read() == b'abcde'
 
     def test_rawio_read_pieces(self):
         import _io
         class MockRawIO(_io._RawIOBase):
-            stack = ['abc', 'de', None, 'fg', '']
+            stack = [b'abc', b'de', None, b'fg', b'']
             def readinto(self, buf):
                 data = self.stack.pop(0)
                 if data is None:
@@ -138,17 +158,17 @@ class AppTestIoModule:
                     self.stack.insert(0, data[len(buf):])
                     return len(buf)
         r = MockRawIO()
-        assert r.read(2) == 'ab'
-        assert r.read(2) == 'c'
-        assert r.read(2) == 'de'
+        assert r.read(2) == b'ab'
+        assert r.read(2) == b'c'
+        assert r.read(2) == b'de'
         assert r.read(2) is None
-        assert r.read(2) == 'fg'
-        assert r.read(2) == ''
+        assert r.read(2) == b'fg'
+        assert r.read(2) == b''
 
     def test_rawio_readall_none(self):
         import _io
         class MockRawIO(_io._RawIOBase):
-            read_stack = [None, None, "a"]
+            read_stack = [None, None, b"a"]
             def readinto(self, buf):
                 v = self.read_stack.pop()
                 if v is None:
@@ -158,7 +178,7 @@ class AppTestIoModule:
 
         r = MockRawIO()
         s = r.readall()
-        assert s =="a"
+        assert s == b"a"
         s = r.readall()
         assert s is None
 
@@ -193,7 +213,7 @@ class AppTestOpen:
 
     def test_array_write(self):
         import _io, array
-        a = array.array(b'i', range(10))
+        a = array.array('i', range(10))
         n = len(a.tostring())
         with _io.open(self.tmpfile, "wb", 0) as f:
             res = f.write(a)
@@ -205,17 +225,21 @@ class AppTestOpen:
 
     def test_attributes(self):
         import _io
+        import warnings
 
         with _io.open(self.tmpfile, "wb", buffering=0) as f:
             assert f.mode == "wb"
 
-        with _io.open(self.tmpfile, "U") as f:
-            assert f.name == self.tmpfile
-            assert f.buffer.name == self.tmpfile
-            assert f.buffer.raw.name == self.tmpfile
-            assert f.mode == "U"
-            assert f.buffer.mode == "rb"
-            assert f.buffer.raw.mode == "rb"
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            with _io.open(self.tmpfile, "U") as f:
+                assert f.name == self.tmpfile
+                assert f.buffer.name == self.tmpfile
+                assert f.buffer.raw.name == self.tmpfile
+                assert f.mode == "U"
+                assert f.buffer.mode == "rb"
+                assert f.buffer.raw.mode == "rb"
+        assert isinstance(l[0].message, DeprecationWarning)
 
         with _io.open(self.tmpfile, "w+") as f:
             assert f.mode == "w+"
@@ -228,17 +252,27 @@ class AppTestOpen:
                 assert g.name == f.fileno()
                 assert g.raw.name == f.fileno()
 
+    def test_opener(self):
+        import _io, os
+        with _io.open(self.tmpfile, "w") as f:
+            f.write("egg\n")
+        fd = os.open(self.tmpfile, os.O_RDONLY)
+        def opener(path, flags):
+            return fd
+        with _io.open("non-existent", "r", opener=opener) as f:
+            assert f.read() == "egg\n"
+
     def test_seek_and_tell(self):
         import _io
 
         with _io.open(self.tmpfile, "wb") as f:
-            f.write("abcd")
+            f.write(b"abcd")
 
         with _io.open(self.tmpfile) as f:
             decoded = f.read()
 
         # seek positions
-        for i in xrange(len(decoded) + 1):
+        for i in range(len(decoded) + 1):
             # read lenghts
             for j in [1, 5, len(decoded) - i]:
                 with _io.open(self.tmpfile) as f:
@@ -256,23 +290,23 @@ class AppTestOpen:
 
         with _io.open(self.tmpfile, "w+", encoding="utf8") as f:
             p0 = f.tell()
-            f.write(u"\xff\n")
+            f.write("\xff\n")
             p1 = f.tell()
-            f.write(u"\xff\n")
+            f.write("\xff\n")
             p2 = f.tell()
             f.seek(0)
 
             assert f.tell() == p0
             res = f.readline()
-            assert res == u"\xff\n"
+            assert res == "\xff\n"
             assert f.tell() == p1
             res = f.readline()
-            assert res == u"\xff\n"
+            assert res == "\xff\n"
             assert f.tell() == p2
             f.seek(0)
 
             for line in f:
-                assert line == u"\xff\n"
+                assert line == "\xff\n"
                 raises(IOError, f.tell)
             assert f.tell() == p2
 
@@ -289,7 +323,7 @@ class AppTestOpen:
         import _io
 
         with _io.open(self.tmpfile, "w+") as f:
-            f.write(u"abc")
+            f.write("abc")
 
         with _io.open(self.tmpfile, "w+") as f:
             f.truncate()
@@ -312,13 +346,13 @@ class AppTestOpen:
         # The BOM is not written again when appending to a non-empty file
         for charset in ["utf-8-sig", "utf-16", "utf-32"]:
             with _io.open(self.tmpfile, "w", encoding=charset) as f:
-                f.write(u"aaa")
+                f.write("aaa")
                 pos = f.tell()
             with _io.open(self.tmpfile, "rb") as f:
                 res = f.read()
                 assert res == "aaa".encode(charset)
             with _io.open(self.tmpfile, "a", encoding=charset) as f:
-                f.write(u"xxx")
+                f.write("xxx")
             with _io.open(self.tmpfile, "rb") as f:
                 res = f.read()
                 assert res == "aaaxxx".encode(charset)
@@ -330,7 +364,7 @@ class AppTestOpen:
             assert f.newlines is None
 
         with _io.open(self.tmpfile, "wb") as f:
-            f.write("hello\nworld\n")
+            f.write(b"hello\nworld\n")
 
         with _io.open(self.tmpfile, "r") as f:
             res = f.readline()
@@ -338,15 +372,53 @@ class AppTestOpen:
             res = f.readline()
             assert res == "world\n"
             assert f.newlines == "\n"
-            assert type(f.newlines) is unicode
+            assert type(f.newlines) is str
+
+    def w__check_warn_on_dealloc(self, *args, **kwargs):
+        import gc
+        import warnings
+
+        f = open(*args, **kwargs)
+        r = repr(f)
+        gc.collect()
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            f = None
+            gc.collect()
+        assert len(w) == 1, len(w)
+        assert r in str(w[0])
+
+    def test_warn_on_dealloc(self):
+        self._check_warn_on_dealloc(self.tmpfile, 'wb', buffering=0)
+        self._check_warn_on_dealloc(self.tmpfile, 'wb')
+        self._check_warn_on_dealloc(self.tmpfile, 'w')
+
+    def test_pickling(self):
+        import _io
+        import pickle
+        # Pickling file objects is forbidden
+        for kwargs in [
+                {"mode": "w"},
+                {"mode": "wb"},
+                {"mode": "wb", "buffering": 0},
+                {"mode": "r"},
+                {"mode": "rb"},
+                {"mode": "rb", "buffering": 0},
+                {"mode": "w+"},
+                {"mode": "w+b"},
+                {"mode": "w+b", "buffering": 0},
+            ]:
+            for protocol in range(pickle.HIGHEST_PROTOCOL + 1):
+                with _io.open(self.tmpfile, **kwargs) as f:
+                    raises(TypeError, pickle.dumps, f, protocol)
 
     def test_mod(self):
         import _io
-        typemods = dict((t, t.__module__) for t in vars(_io).values()
-                        if isinstance(t, type))
+        typemods = dict((t, t.__module__) for name, t in vars(_io).items()
+                        if isinstance(t, type) and name != '__loader__')
         for t, mod in typemods.items():
             if t is _io.BlockingIOError:
-                assert mod == '__builtin__'
+                assert mod == 'builtins'
             elif t is _io.UnsupportedOperation:
                 assert mod == 'io'
             else:
@@ -391,6 +463,33 @@ class AppTestOpen:
             f.read(buffer_size * 2)
             assert f.tell() == 1 + buffer_size * 2
 
+    def test_open_exclusive(self):
+        # XXX: should raise FileExistsError
+        FileExistsError = OSError
+
+        import _io
+        filename = self.tmpfile + '_x2'
+        raises(ValueError, _io.open, filename, 'xw')
+        with _io.open(filename, 'x') as f:
+            assert f.mode == 'x'
+        raises(FileExistsError, _io.open, filename, 'x')
+
+    def test_nonbuffered_textio(self):
+        import warnings, _io as io
+        filename = self.tmpfile + '_x2'
+        warnings.simplefilter("always", category=ResourceWarning)
+        with warnings.catch_warnings(record=True) as recorded:
+            raises(ValueError, io.open, filename, 'w', buffering=0)
+        assert recorded == []
+
+    def test_invalid_newline(self):
+        import warnings, _io as io
+        filename = self.tmpfile + '_x2'
+        warnings.simplefilter("always", category=ResourceWarning)
+        with warnings.catch_warnings(record=True) as recorded:
+            raises(ValueError, io.open, filename, 'w', newline='invalid')
+        assert recorded == []
+
 
 class AppTestIoAferClose:
     spaceconfig = dict(usemodules=['_io'])
@@ -418,7 +517,6 @@ class AppTestIoAferClose:
                 {"mode": "w+", "buffering": 2},
                 {"mode": "w+b", "buffering": 0},
             ]:
-            print kwargs
             if "b" not in kwargs["mode"]:
                 kwargs["encoding"] = "ascii"
             f = _io.open(self.tmpfile, **kwargs)

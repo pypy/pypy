@@ -28,18 +28,18 @@ class AppTestDeque:
         d = self.get_deque()
         it = iter(d)
         raises(TypeError, len, it)
-        assert it.next() == 0
+        assert next(it) == 0
         d.pop()
-        raises(RuntimeError, it.next)
+        raises(RuntimeError, next, it)
 
     def test_deque_reversed(self):
         d = self.get_deque()
         it = reversed(d)
         raises(TypeError, len, it)
-        assert it.next() == self.n-1
-        assert it.next() == self.n-2
+        assert next(it) == self.n-1
+        assert next(it) == self.n-2
         d.pop()
-        raises(RuntimeError, it.next)
+        raises(RuntimeError, next, it)
 
     def test_deque_remove(self):
         d = self.get_deque()
@@ -131,7 +131,7 @@ class AppTestDequeExtra:
 
         d = collections.deque(range(100))
         d.reverse()
-        assert list(d) == range(99, -1, -1)
+        assert list(d) == list(range(99, -1, -1))
 
     def test_subclass_with_kwargs(self):
         collections = self.collections
@@ -201,7 +201,7 @@ class AppTestDefaultDict:
         d2 = collections.defaultdict(int)
         assert d2.default_factory == int
         d2[12] = 42
-        assert repr(d2) == "defaultdict(<type 'int'>, {12: 42})"
+        assert repr(d2) == "defaultdict(<class 'int'>, {12: 42})"
         def foo(): return 43
         d3 = collections.defaultdict(foo)
         assert d3.default_factory is foo
@@ -219,9 +219,10 @@ class AppTestDefaultDict:
                 self.default_factory = self._factory
             def _factory(self):
                 return []
+        sub._factory.__qualname__ = "FACTORY"
         d = sub()
         assert repr(d).startswith(
-            "defaultdict(<bound method sub._factory of defaultdict(...")
+            "defaultdict(<bound method FACTORY of defaultdict(...")
 
     def test_copy(self):
         collections = self.collections

@@ -69,7 +69,7 @@ class Bytecode:
         if space is None:
             return [repr(c) for c in co.co_consts_w]
         
-        r = lambda x: space.str_w(space.repr(x))
+        r = lambda x: space.text_w(space.repr(x))
         return [r(c) for c in co.co_consts_w]
 
     def repr_with_space(self, space):

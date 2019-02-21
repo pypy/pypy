@@ -1,5 +1,9 @@
 #include "Python.h"
 
+#if PY_MAJOR_VERSION >= 3
+    #define PyInt_CheckExact PyLong_CheckExact
+#endif
+
 typedef struct CmpObject {
     PyObject_HEAD
 } CmpObject;
@@ -69,59 +73,29 @@ PyTypeObject CmpType = {
 };
 
 
-static int cmp_compare(PyObject *self, PyObject *other) {
-    return -1;
-}
-
-PyTypeObject OldCmpType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "comparisons.OldCmpType",             /* tp_name */
-    sizeof(CmpObject),                    /* tp_basicsize */
-    0,                                    /* tp_itemsize */
-    0,                                    /* tp_dealloc */
-    0,                                    /* tp_print */
-    0,                                    /* tp_getattr */
-    0,                                    /* tp_setattr */
-    (cmpfunc)cmp_compare,                 /* tp_compare */
-    0,                                    /*tp_repr*/
-    0,                                    /*tp_as_number*/
-    0,                                    /*tp_as_sequence*/
-    0,                                    /*tp_as_mapping*/
-    0,                                    /*tp_hash */
-    0,                                    /*tp_call*/
-    0,                                    /*tp_str*/
-    0,                                    /*tp_getattro*/
-    0,                                    /*tp_setattro*/
-    0,                                    /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT,                   /*tp_flags*/
-    "Compare objects", /* tp_doc */
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "comparisons",
+    "Module Doc",
+    -1,
+    NULL
 };
 
-#ifdef __GNUC__
-extern __attribute__((visibility("default")))
-#else
-extern __declspec(dllexport)
-#endif
 
 PyMODINIT_FUNC
-initcomparisons(void)
+PyInit_comparisons(void)
 {
     PyObject *m, *d;
 
-    OldCmpType.tp_new = &PyType_GenericNew;
-
     if (PyType_Ready(&CmpType) < 0)
-        return;
-    if (PyType_Ready(&OldCmpType) < 0)
-        return;
-    m = Py_InitModule("comparisons", NULL);
+        return NULL;
+    m = PyModule_Create(&moduledef);
     if (m == NULL)
-        return;
+        return NULL;
     d = PyModule_GetDict(m);
     if (d == NULL)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "CmpType", (PyObject *)&CmpType) < 0)
-        return;
-    if (PyDict_SetItemString(d, "OldCmpType", (PyObject *)&OldCmpType) < 0)
-        return;
+        return NULL;
+    return m;
 }

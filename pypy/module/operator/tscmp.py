@@ -8,8 +8,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-from pypy.interpreter.error import oefmt
-from pypy.interpreter.baseobjspace import BufferInterfaceNotFound
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import encode
 
 cwd = py.path.local(__file__).dirpath()
 eci = ExternalCompilationInfo(
@@ -28,10 +28,6 @@ pypy_tscmp = llexternal(
     'pypy_tscmp',
     [rffi.CCHARP, rffi.CCHARP, rffi.LONG, rffi.LONG],
     rffi.INT)
-pypy_tscmp_wide = llexternal(
-    'pypy_tscmp_wide',
-    [rffi.CWCHARP, rffi.CWCHARP, rffi.LONG, rffi.LONG],
-    rffi.INT)
 
 
 def compare_digest(space, w_a, w_b):
@@ -45,30 +41,31 @@ def compare_digest(space, w_a, w_b):
     Note: If a and b are of different lengths, or if an error occurs, a
     timing attack could theoretically reveal information about the types
     and lengths of a and b--but not their values.
+
+    XXX note that here the strings have to have the same length as UTF8,
+    not only as unicode. Not sure how to do better
     """
     if (space.isinstance_w(w_a, space.w_unicode) and
         space.isinstance_w(w_b, space.w_unicode)):
-        a = space.unicode_w(w_a)
-        b = space.unicode_w(w_b)
-        with rffi.scoped_nonmoving_unicodebuffer(a) as a_buf:
-            with rffi.scoped_nonmoving_unicodebuffer(b) as b_buf:
-                result = pypy_tscmp_wide(a_buf, b_buf, len(a), len(b))
-        return space.newbool(rffi.cast(lltype.Bool, result))
+        try:
+            w_a = encode(space, w_a, 'ascii')
+            w_b = encode(space, w_b, 'ascii')
+        except OperationError as e:
+            if not e.match(space, space.w_UnicodeEncodeError):
+                raise
+            raise oefmt(space.w_TypeError,
+                        "comparing strings with non-ASCII characters is not "
+                        "supported")
     return compare_digest_buffer(space, w_a, w_b)
 
 
 def compare_digest_buffer(space, w_a, w_b):
-    try:
-        a_buf = w_a.buffer_w(space, space.BUF_SIMPLE)
-        b_buf = w_b.buffer_w(space, space.BUF_SIMPLE)
-    except BufferInterfaceNotFound:
-        raise oefmt(space.w_TypeError,
-                    "unsupported operand types(s) or combination of types: "
-                    "'%T' and '%T'", w_a, w_b)
+    a = space.charbuf_w(w_a)
+    b = space.charbuf_w(w_b)
+    return space.newbool(_compare_two_strings(a, b))
 
-    a = a_buf.as_str()
-    b = b_buf.as_str()
+def _compare_two_strings(a, b):
     with rffi.scoped_nonmovingbuffer(a) as a_buf:
         with rffi.scoped_nonmovingbuffer(b) as b_buf:
             result = pypy_tscmp(a_buf, b_buf, len(a), len(b))
-    return space.newbool(rffi.cast(lltype.Bool, result))
+    return rffi.cast(lltype.Bool, result)

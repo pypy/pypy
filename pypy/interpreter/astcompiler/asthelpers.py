@@ -22,15 +22,19 @@ class __extend__(ast.AST):
 class __extend__(ast.expr):
 
     constant = False
+    _description = None
 
     def as_node_list(self, space):
         return None
 
     def set_context(self, ctx):
+        d = self._description
+        if d is None:
+            d = "%r" % (self,)
         if ctx == ast.Del:
-            msg = "can't delete %s" % (self._description,)
+            msg = "can't delete %s" % (d,)
         else:
-            msg = "can't assign to %s" % (self._description,)
+            msg = "can't assign to %s" % (d,)
         raise UnacceptableExpressionContext(self, msg)
 
 
@@ -124,7 +128,7 @@ class __extend__(ast.DictComp):
     _description = "dict comprehension"
 
 
-class __extend__(ast.Dict, ast.Set, ast.Str, ast.Num, ast.Const):
+class __extend__(ast.Dict, ast.Set, ast.Str, ast.Bytes, ast.Num, ast.Const):
 
     _description = "literal"
 
@@ -133,15 +137,17 @@ class __extend__(ast.Compare):
 
     _description = "comparison"
 
+class __extend__(ast.Starred):
+
+    _description = "starred expression"
+
+    def set_context(self, ctx):
+        self.ctx = ctx
+        self.value.set_context(ctx)
 
 class __extend__(ast.IfExp):
 
     _description = "conditional expression"
-
-
-class __extend__(ast.Repr):
-
-    _description = "repr"
 
 
 class __extend__(ast.Const):
@@ -150,7 +156,7 @@ class __extend__(ast.Const):
 
     def as_node_list(self, space):
         try:
-            values_w = space.unpackiterable(self.value)
+            values_w = space.unpackiterable(self.obj)
         except OperationError:
             return None
         line = self.lineno
@@ -165,4 +171,16 @@ class __extend__(ast.Str):
 
 class __extend__(ast.Num):
 
+    constant = True
+
+
+class __extend__(ast.Ellipsis):
+
+    _description = "Ellipsis"
+    constant = True
+
+
+class __extend__(ast.NameConstant):
+
+    _description = "name constant"
     constant = True

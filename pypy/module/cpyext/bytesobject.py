@@ -47,7 +47,7 @@ PyBytesObjectStruct = lltype.ForwardReference()
 PyBytesObject = lltype.Ptr(PyBytesObjectStruct)
 PyBytesObjectFields = PyVarObjectFields + \
     (("ob_shash", rffi.LONG), ("ob_sstate", rffi.INT), ("ob_sval", rffi.CArray(lltype.Char)))
-cpython_struct("PyStringObject", PyBytesObjectFields, PyBytesObjectStruct)
+cpython_struct("PyBytesObject", PyBytesObjectFields, PyBytesObjectStruct)
 
 @bootstrap_function
 def init_bytesobject(space):
@@ -58,7 +58,7 @@ def init_bytesobject(space):
                    dealloc=bytes_dealloc,
                    realize=bytes_realize)
 
-PyString_Check, PyString_CheckExact = build_type_checkers_flags("String", "w_bytes")
+PyBytes_Check, PyBytes_CheckExact = build_type_checkers_flags("Bytes", "w_bytes")
 
 def new_empty_str(space, length):
     """
@@ -121,7 +121,7 @@ def bytes_dealloc(space, py_obj):
 #_______________________________________________________________________
 
 @cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
-def PyString_FromStringAndSize(space, char_p, length):
+def PyBytes_FromStringAndSize(space, char_p, length):
     if char_p:
         s = rffi.charpsize2str(char_p, length)
         return make_ref(space, space.newbytes(s))
@@ -129,50 +129,38 @@ def PyString_FromStringAndSize(space, char_p, length):
         return rffi.cast(PyObject, new_empty_str(space, length))
 
 @cpython_api([CONST_STRING], PyObject)
-def PyString_FromString(space, char_p):
+def PyBytes_FromString(space, char_p):
     s = rffi.charp2str(char_p)
     return space.newbytes(s)
 
 @cpython_api([PyObject], rffi.CCHARP, error=0)
-def PyString_AsString(space, ref):
-    return _PyString_AsString(space, ref)
+def PyBytes_AsString(space, ref):
+    return _PyBytes_AsString(space, ref)
 
-def _PyString_AsString(space, ref):
+def _PyBytes_AsString(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         pass    # typecheck returned "ok" without forcing 'ref' at all
-    elif not PyString_Check(space, ref):   # otherwise, use the alternate way
-        from pypy.module.cpyext.unicodeobject import (
-            PyUnicode_Check, _PyUnicode_AsDefaultEncodedString)
-        if PyUnicode_Check(space, ref):
-            ref = _PyUnicode_AsDefaultEncodedString(space, ref, lltype.nullptr(rffi.CCHARP.TO))
-        else:
-            raise oefmt(space.w_TypeError,
-                        "expected string or Unicode object, %T found",
-                        from_ref(space, ref))
+    elif not PyBytes_Check(space, ref):   # otherwise, use the alternate way
+        raise oefmt(space.w_TypeError,
+            "expected bytes, %T found", from_ref(space, ref))
     ref_str = rffi.cast(PyBytesObject, ref)
     return ref_str.c_ob_sval
 
 @cpython_api([rffi.VOIDP], rffi.CCHARP, error=0)
-def PyString_AS_STRING(space, void_ref):
+def PyBytes_AS_STRING(space, void_ref):
     ref = rffi.cast(PyObject, void_ref)
     # if no w_str is associated with this ref,
     # return the c-level ptr as RW
     if not pyobj_has_w_obj(ref):
         py_str = rffi.cast(PyBytesObject, ref)
         return py_str.c_ob_sval
-    return _PyString_AsString(space, ref)
+    return _PyBytes_AsString(space, ref)
 
 @cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1)
-def PyString_AsStringAndSize(space, ref, data, length):
-    if not PyString_Check(space, ref):
-        from pypy.module.cpyext.unicodeobject import (
-            PyUnicode_Check, _PyUnicode_AsDefaultEncodedString)
-        if PyUnicode_Check(space, ref):
-            ref = _PyUnicode_AsDefaultEncodedString(space, ref, lltype.nullptr(rffi.CCHARP.TO))
-        else:
-            raise oefmt(space.w_TypeError,
-                        "expected string or Unicode object, %T found",
-                        from_ref(space, ref))
+def PyBytes_AsStringAndSize(space, ref, data, length):
+    if not PyBytes_Check(space, ref):
+        raise oefmt(space.w_TypeError,
+            "expected bytes, %T found", from_ref(space, ref))
     ref_str = rffi.cast(PyBytesObject, ref)
     data[0] = ref_str.c_ob_sval
     if length:
@@ -187,7 +175,7 @@ def PyString_AsStringAndSize(space, ref, data, length):
     return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyString_Size(space, ref):
+def PyBytes_Size(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         ref = rffi.cast(PyBytesObject, ref)
         return ref.c_ob_size
@@ -196,7 +184,7 @@ def PyString_Size(space, ref):
         return space.len_w(w_obj)
 
 @cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
-def _PyString_Resize(space, ref, newsize):
+def _PyBytes_Resize(space, ref, newsize):
     """A way to resize a string object even though it is "immutable". Only use this to
     build up a brand new string object; don't use this if the string may already be
     known in other parts of the code.  It is an error to call this function if the
@@ -210,7 +198,7 @@ def _PyString_Resize(space, ref, newsize):
     # XXX always create a new string so far
     if pyobj_has_w_obj(ref[0]):
         raise oefmt(space.w_SystemError,
-                    "_PyString_Resize called on already created string")
+                    "_PyBytes_Resize called on already created string")
     py_str = rffi.cast(PyBytesObject, ref[0])
     try:
         py_newstr = new_empty_str(space, newsize)
@@ -229,11 +217,11 @@ def _PyString_Resize(space, ref, newsize):
     return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT, error=CANNOT_FAIL)
-def _PyString_Eq(space, w_str1, w_str2):
+def _PyBytes_Eq(space, w_str1, w_str2):
     return space.eq_w(w_str1, w_str2)
 
 @cpython_api([PyObjectP, PyObject], lltype.Void, error=None)
-def PyString_Concat(space, ref, w_newpart):
+def PyBytes_Concat(space, ref, w_newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string; the caller will own the new reference.  The reference to
     the old value of string will be stolen.  If the new string cannot be created,
@@ -246,96 +234,29 @@ def PyString_Concat(space, ref, w_newpart):
 
     ref[0] = lltype.nullptr(PyObject.TO)
     w_str = get_w_obj_and_decref(space, old)
-    if w_newpart is not None and PyString_Check(space, old):
-        # xxx if w_newpart is not a string or unicode or bytearray,
-        # this might call __radd__() on it, whereas CPython raises
-        # a TypeError in this case.
+    if w_newpart is not None and PyBytes_Check(space, old):
+        # XXX: should use buffer protocol
         w_newstr = space.add(w_str, w_newpart)
         ref[0] = make_ref(space, w_newstr)
 
 @cpython_api([PyObjectP, PyObject], lltype.Void, error=None)
-def PyString_ConcatAndDel(space, ref, newpart):
+def PyBytes_ConcatAndDel(space, ref, newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string.  This version decrements the reference count of newpart."""
     try:
-        PyString_Concat(space, ref, newpart)
+        PyBytes_Concat(space, ref, newpart)
     finally:
         decref(space, newpart)
 
 @cpython_api([PyObject, PyObject], PyObject)
-def PyString_Format(space, w_format, w_args):
-    """Return a new string object from format and args. Analogous to format %
-    args.  The args argument must be a tuple."""
-    return space.mod(w_format, w_args)
-
-@cpython_api([CONST_STRING], PyObject)
-def PyString_InternFromString(space, string):
-    """A combination of PyString_FromString() and
-    PyString_InternInPlace(), returning either a new string object that has
-    been interned, or a new ("owned") reference to an earlier interned string
-    object with the same value."""
-    s = rffi.charp2str(string)
-    return space.new_interned_str(s)
-
-@cpython_api([PyObjectP], lltype.Void)
-def PyString_InternInPlace(space, string):
-    """Intern the argument *string in place.  The argument must be the
-    address of a pointer variable pointing to a Python string object.
-    If there is an existing interned string that is the same as
-    *string, it sets *string to it (decrementing the reference count
-    of the old string object and incrementing the reference count of
-    the interned string object), otherwise it leaves *string alone and
-    interns it (incrementing its reference count).  (Clarification:
-    even though there is a lot of talk about reference counts, think
-    of this function as reference-count-neutral; you own the object
-    after the call if and only if you owned it before the call.)
-
-    This function is not available in 3.x and does not have a PyBytes
-    alias."""
-    w_str = from_ref(space, string[0])
-    w_str = space.new_interned_w_str(w_str)
-    decref(space, string[0])
-    string[0] = make_ref(space, w_str)
-
-@cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
-def PyString_AsEncodedObject(space, w_str, encoding, errors):
-    """Encode a string object using the codec registered for encoding and return
-    the result as Python object. encoding and errors have the same meaning as
-    the parameters of the same name in the string encode() method. The codec to
-    be used is looked up using the Python codec registry. Return NULL if an
-    exception was raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    if not PyString_Check(space, w_str):
-        PyErr_BadArgument(space)
-
-    w_encoding = w_errors = None
-    if encoding:
-        w_encoding = space.newtext(rffi.charp2str(encoding))
-    if errors:
-        w_errors = space.newtext(rffi.charp2str(errors))
-    return space.call_method(w_str, 'encode', w_encoding, w_errors)
-
-@cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
-def PyString_AsDecodedObject(space, w_str, encoding, errors):
-    """Decode a string object by passing it to the codec registered
-    for encoding and return the result as Python object. encoding and
-    errors have the same meaning as the parameters of the same name in
-    the string encode() method.  The codec to be used is looked up
-    using the Python codec registry. Return NULL if an exception was
-    raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    if not PyString_Check(space, w_str):
-        PyErr_BadArgument(space)
-
-    w_encoding = w_errors = None
-    if encoding:
-        w_encoding = space.newtext(rffi.charp2str(encoding))
-    if errors:
-        w_errors = space.newtext(rffi.charp2str(errors))
-    return space.call_method(w_str, "decode", w_encoding, w_errors)
-
-@cpython_api([PyObject, PyObject], PyObject)
-def _PyString_Join(space, w_sep, w_seq):
+def _PyBytes_Join(space, w_sep, w_seq):
     return space.call_method(w_sep, 'join', w_seq)
+
+@cpython_api([PyObject], PyObject)
+def PyBytes_FromObject(space, w_obj):
+    """Return the bytes representation of object obj that implements
+    the buffer protocol."""
+    if space.is_w(space.type(w_obj), space.w_bytes):
+        return w_obj
+    buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
+    return space.newbytes(buffer.as_str())

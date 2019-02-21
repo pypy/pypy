@@ -3,6 +3,8 @@ from pypy.interpreter.mixedmodule import MixedModule
 import os
 
 class Module(MixedModule):
+    applevel_name = '_signal'
+
     interpleveldefs = {
         'signal':              'interp_signal.signal',
         'getsignal':           'interp_signal.getsignal',
@@ -25,6 +27,15 @@ class Module(MixedModule):
         for name in ['ITIMER_REAL', 'ITIMER_VIRTUAL', 'ITIMER_PROF']:
             interpleveldefs[name] = 'space.wrap(interp_signal.%s)' % (name,)
 
+    if os.name == 'posix':
+        interpleveldefs['sigwait'] = 'interp_signal.sigwait'
+        interpleveldefs['sigpending'] = 'interp_signal.sigpending'
+        interpleveldefs['pthread_kill'] = 'interp_signal.pthread_kill'
+        interpleveldefs['pthread_sigmask'] = 'interp_signal.pthread_sigmask'
+        interpleveldefs['SIG_BLOCK'] = 'space.wrap(interp_signal.SIG_BLOCK)'
+        interpleveldefs['SIG_UNBLOCK'] = 'space.wrap(interp_signal.SIG_UNBLOCK)'
+        interpleveldefs['SIG_SETMASK'] = 'space.wrap(interp_signal.SIG_SETMASK)'
+
     appleveldefs = {
     }
 
@@ -46,7 +57,11 @@ class Module(MixedModule):
         space.check_signal_action = interp_signal.CheckSignalAction(space)
         space.actionflag.register_periodic_action(space.check_signal_action,
                                                   use_bytecode_counter=False)
-        space.actionflag.__class__ = interp_signal.SignalActionFlag
+        if space.reverse_debugging:
+            from pypy.interpreter.reverse_debugging import RDBSignalActionFlag
+            space.actionflag.__class__ = RDBSignalActionFlag
+        else:
+            space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack
 
     def startup(self, space):

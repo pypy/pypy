@@ -160,6 +160,10 @@ def struct_setattr(self, name, value):
             raise AttributeError("_fields_ is final")
         if self in [f[1] for f in value]:
             raise AttributeError("Structure or union cannot contain itself")
+        if self._ffiargtype is not None:
+            raise NotImplementedError("Too late to set _fields_: we already "
+                        "said to libffi that the structure type %s is opaque"
+                        % (self,))
         names_and_fields(
             self,
             value, self.__bases__[0],
@@ -205,7 +209,7 @@ class StructOrUnionMeta(_CDataMeta):
         if isinstance(address, _rawffi.StructureInstance):
             address = address.buffer
         # fix the address: turn it into as unsigned, in case it is negative
-        address = address & (sys.maxint * 2 + 1)
+        address = address & (sys.maxsize * 2 + 1)
         instance.__dict__['_buffer'] = self._ffistruct_.fromaddress(address)
         return instance
 
@@ -221,7 +225,7 @@ class StructOrUnionMeta(_CDataMeta):
         if isinstance(value, tuple):
             try:
                 value = self(*value)
-            except Exception, e:
+            except Exception as e:
                 # XXX CPython does not even respect the exception type
                 raise RuntimeError("(%s) %s: %s" % (self.__name__, type(e), e))
         return _CDataMeta.from_param(self, value)
@@ -241,8 +245,7 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_index'] = -1
         return res
 
-class StructOrUnion(_CData):
-    __metaclass__ = StructOrUnionMeta
+class StructOrUnion(_CData, metaclass=StructOrUnionMeta):
 
     def __new__(cls, *args, **kwds):
         from _ctypes import union
@@ -277,6 +280,7 @@ class StructOrUnion(_CData):
             self.__setattr__(name, arg)
         for name, arg in kwds.items():
             self.__setattr__(name, arg)
+    _init_no_arg_ = __init__
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as
@@ -304,5 +308,5 @@ class StructureMeta(StructOrUnionMeta):
     _is_union = False
 
 
-class Structure(StructOrUnion):
-    __metaclass__ = StructureMeta
+class Structure(StructOrUnion, metaclass=StructureMeta):
+    pass

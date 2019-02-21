@@ -1,6 +1,6 @@
 from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
                                       maxint, intmask)
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rstruct.formatiterator import FormatIterator
@@ -67,8 +67,7 @@ class PackFormatIterator(FormatIterator):
     def _accept_integral(self, meth):
         space = self.space
         w_obj = self.accept_obj_arg()
-        if (space.isinstance_w(w_obj, space.w_int) or
-            space.isinstance_w(w_obj, space.w_long)):
+        if space.isinstance_w(w_obj, space.w_int):
             w_index = w_obj
         else:
             w_index = None
@@ -79,16 +78,8 @@ class PackFormatIterator(FormatIterator):
                     if not e.match(space, space.w_TypeError):
                         raise
                     pass
-            if w_index is None and space.lookup(w_obj, '__int__'):
-                if space.isinstance_w(w_obj, space.w_float):
-                    msg = "integer argument expected, got float"
-                else:
-                    msg = "integer argument expected, got non-integer" \
-                          " (implicit conversion using __int__ is deprecated)"
-                space.warn(space.newtext(msg), space.w_DeprecationWarning)
-                w_index = space.int(w_obj)   # wrapped float -> wrapped int or long
             if w_index is None:
-                raise StructError("cannot convert argument to integer")
+                raise StructError("required argument is not an integer")
         method = getattr(space, meth)
         try:
             return method(w_index)
@@ -107,7 +98,7 @@ class PackFormatIterator(FormatIterator):
 
     def accept_unicode_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.unicode_w(w_obj)
+        return self.space.utf8_len_w(w_obj)
 
     def accept_float_arg(self):
         w_obj = self.accept_obj_arg()
@@ -125,6 +116,7 @@ class UnpackFormatIterator(FormatIterator):
         self.buf = buf
         self.length = buf.getlength()
         self.pos = 0
+        self.strides = None
         self.result_w = []     # list of wrapped objects
 
     # See above comment on operate.
@@ -142,10 +134,15 @@ class UnpackFormatIterator(FormatIterator):
         self.pos = (self.pos + mask) & ~mask
 
     def finished(self):
-        if self.pos != self.length:
+        value = self.pos
+        if self.strides and self.strides[0] < 0:
+                value = -self.pos
+        if value != self.length:
             raise StructError("unpack str size too long for format")
 
     def can_advance(self, count):
+        if self.strides:
+            count = self.strides[0]
         end = self.pos + count
         return end <= self.length
 
@@ -162,34 +159,22 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        # CPython tries hard to return int objects whenever it can, but
-        # space.newint returns a long if we pass a r_uint, r_ulonglong or
-        # r_longlong. So, we need special care in those cases.
-        is_unsigned = (isinstance(value, r_uint) or
-                       isinstance(value, r_ulonglong))
-        if is_unsigned:
-            if value <= maxint:
-                w_value = self.space.newint(intmask(value))
-            else:
-                w_value = self.space.newint(value)
-        elif isinstance(value, r_longlong):
-            if value == r_longlong(intmask(value)):
-                w_value = self.space.newint(intmask(value))
-            else:
-                w_value = self.space.newint(value)
-        elif isinstance(value, bool):
-            w_value = self.space.newbool(value)
-        elif isinstance(value, int):
-            w_value = self.space.newint(value)
-        elif isinstance(value, float):
+        if isinstance(value, float):
             w_value = self.space.newfloat(value)
         elif isinstance(value, str):
             w_value = self.space.newbytes(value)
         elif isinstance(value, unicode):
-            w_value = self.space.newunicode(value)
+            assert not isinstance(value, unicode)
+            w_value = self.space.newutf8(value.decode('utf-8'), len(value))
+        elif isinstance(value, bool):
+            w_value = self.space.newbool(value)
         else:
-            assert 0, "unreachable"
+            w_value = self.space.newint(value)
         self.result_w.append(w_value)
+
+    def append_utf8(self, value):
+        w_ch = self.space.newutf8(rutf8.unichr_as_utf8(r_uint(value)), 1)
+        self.result_w.append(w_ch)
 
     def get_pos(self):
         return self.pos
@@ -197,5 +182,14 @@ class UnpackFormatIterator(FormatIterator):
     def get_buffer_and_pos(self):
         return self.buf, self.pos
 
-    def skip(self, size):
-        self.read(size) # XXX, could avoid taking the slice
+    def skip(self, count):
+        # assumption: UnpackFormatIterator only iterates over
+        # flat structures (continous memory) either: forward (index
+        # grows) or reverse
+        if self.strides:
+            assert len(self.strides) == 1
+            count = self.strides[0]
+        end = self.pos + count
+        if end > self.length:
+            raise StructError("unpack str size too short for format")
+        self.pos = end

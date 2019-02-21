@@ -1,48 +1,43 @@
-# TclObject, conversions with Python objects
+# Tcl_Obj, conversions with Python objects
 
 from .tklib_cffi import ffi as tkffi, lib as tklib
 import binascii
 
 class TypeCache(object):
     def __init__(self):
-        self.OldBooleanType = tklib.Tcl_GetObjType("boolean")
+        self.OldBooleanType = tklib.Tcl_GetObjType(b"boolean")
         self.BooleanType = None
-        self.ByteArrayType = tklib.Tcl_GetObjType("bytearray")
-        self.DoubleType = tklib.Tcl_GetObjType("double")
-        self.IntType = tklib.Tcl_GetObjType("int")
-        self.WideIntType = tklib.Tcl_GetObjType("wideInt")
+        self.ByteArrayType = tklib.Tcl_GetObjType(b"bytearray")
+        self.DoubleType = tklib.Tcl_GetObjType(b"double")
+        self.IntType = tklib.Tcl_GetObjType(b"int")
+        self.WideIntType = tklib.Tcl_GetObjType(b"wideInt")
         self.BigNumType = None
-        self.ListType = tklib.Tcl_GetObjType("list")
-        self.ProcBodyType = tklib.Tcl_GetObjType("procbody")
-        self.StringType = tklib.Tcl_GetObjType("string")
+        self.ListType = tklib.Tcl_GetObjType(b"list")
+        self.ProcBodyType = tklib.Tcl_GetObjType(b"procbody")
+        self.StringType = tklib.Tcl_GetObjType(b"string")
 
     def add_extra_types(self, app):
         # Some types are not registered in Tcl.
         result = app.call('expr', 'true')
         typePtr = AsObj(result).typePtr
-        if tkffi.string(typePtr.name) == "booleanString":
+        if tkffi.string(typePtr.name) == b"booleanString":
             self.BooleanType = typePtr
 
         result = app.call('expr', '2**63')
         typePtr = AsObj(result).typePtr
-        if tkffi.string(typePtr.name) == "bignum":
+        if tkffi.string(typePtr.name) == b"bignum":
             self.BigNumType = typePtr
 
 
 def FromTclString(s):
-    # If the result contains any bytes with the top bit set, it's
-    # UTF-8 and we should decode it to Unicode.
     try:
-        s.decode('ascii')
+        return s.decode('utf-8')
     except UnicodeDecodeError:
+        # Tcl encodes null character as \xc0\x80
         try:
-            return s.decode('utf8')
+            return s.replace(b'\xc0\x80', b'\x00').decode('utf-8')
         except UnicodeDecodeError:
-            # Tcl encodes null character as \xc0\x80
-            try:
-                return s.replace('\xc0\x80', '\x00').decode('utf-8')
-            except UnicodeDecodeError:
-                pass
+            pass
     return s
 
 
@@ -75,7 +70,7 @@ def FromBignumObj(app, value):
 
 def AsBignumObj(value):
     sign = -1 if value < 0 else 1
-    hexstr = '%x' % abs(value)
+    hexstr = b'%x' % abs(value)
     bigValue = tkffi.new("mp_int*")
     tklib.mp_init(bigValue)
     try:
@@ -134,51 +129,45 @@ def FromObj(app, value):
         buf = tkffi.buffer(tkffi.cast("char*", buf), length*2)[:]
         return buf.decode('utf-16')
 
-    return TclObject(value)
+    return Tcl_Obj(value)
 
 def AsObj(value):
-    if isinstance(value, str):
-        return tklib.Tcl_NewStringObj(value, len(value))
+    if isinstance(value, bytes):
+        return tklib.Tcl_NewByteArrayObj(value, len(value))
     if isinstance(value, bool):
         return tklib.Tcl_NewBooleanObj(value)
     if isinstance(value, int):
-        return tklib.Tcl_NewLongObj(value)
-    if isinstance(value, long):
         try:
-            tkffi.new("long[]", [value])
-        except OverflowError:
-            pass 
-        else:
             return tklib.Tcl_NewLongObj(value)
-        if tklib.HAVE_WIDE_INT_TYPE:
-            try:
-                tkffi.new("Tcl_WideInt[]", [value])
-            except OverflowError:
-                pass
-            else:
-                return tklib.Tcl_NewWideIntObj(value)
-        if tklib.HAVE_LIBTOMMATH:
-            return AsBignumObj(value)
-            
+        except OverflowError:
+            if tklib.HAVE_WIDE_INT_TYPE:
+                try:
+                    tkffi.new("Tcl_WideInt[]", [value])
+                except OverflowError:
+                    pass
+                else:
+                    return tklib.Tcl_NewWideIntObj(value)
+            if tklib.HAVE_LIBTOMMATH:
+                return AsBignumObj(value)
     if isinstance(value, float):
         return tklib.Tcl_NewDoubleObj(value)
-    if isinstance(value, tuple):
+    if isinstance(value, (tuple, list)):
         argv = tkffi.new("Tcl_Obj*[]", len(value))
         for i in range(len(value)):
             argv[i] = AsObj(value[i])
         return tklib.Tcl_NewListObj(len(value), argv)
-    if isinstance(value, unicode):
+    if isinstance(value, str):
         encoded = value.encode('utf-16')[2:]
         buf = tkffi.new("char[]", encoded)
         inbuf = tkffi.cast("Tcl_UniChar*", buf)
-        return tklib.Tcl_NewUnicodeObj(inbuf, len(encoded)/2)
-    if isinstance(value, TclObject):
+        return tklib.Tcl_NewUnicodeObj(inbuf, len(encoded)//2)
+    if isinstance(value, Tcl_Obj):
         tklib.Tcl_IncrRefCount(value._value)
         return value._value
 
     return AsObj(str(value))
 
-class TclObject(object):
+class Tcl_Obj(object):
     def __new__(cls, value):
         self = object.__new__(cls)
         tklib.Tcl_IncrRefCount(value)
@@ -192,30 +181,28 @@ class TclObject(object):
     def __str__(self):
         if self._string and isinstance(self._string, str):
             return self._string
-        return tkffi.string(tklib.Tcl_GetString(self._value))
+        return tkffi.string(tklib.Tcl_GetString(self._value)).decode('utf-8')
 
     def __repr__(self):
         return "<%s object at 0x%x>" % (
-            self.typename, tkffi.cast("intptr_t", self._value))
+            self.typename, int(tkffi.cast("intptr_t", self._value)))
 
     def __eq__(self, other):
-        if not isinstance(other, TclObject):
+        if not isinstance(other, Tcl_Obj):
             return NotImplemented
         return self._value == other._value
 
     @property
     def typename(self):
-        return tkffi.string(self._value.typePtr.name)
+        return FromTclString(tkffi.string(self._value.typePtr.name))
 
     @property
     def string(self):
+        "the string representation of this object, either as str or bytes"
         if self._string is None:
             length = tkffi.new("int*")
             s = tklib.Tcl_GetStringFromObj(self._value, length)
             value = tkffi.buffer(s, length[0])[:]
-            try:
-                value.decode('ascii')
-            except UnicodeDecodeError:
-                value = value.decode('utf8')
+            value = value.decode('utf-8')
             self._string = value
         return self._string

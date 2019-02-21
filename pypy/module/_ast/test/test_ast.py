@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 
 
@@ -20,7 +21,7 @@ class AppTestAST:
         assert isinstance(ast.__version__, str)
 
     def test_flags(self):
-        from copy_reg import _HEAPTYPE
+        from copyreg import _HEAPTYPE
         assert self.ast.AST.__flags__ & _HEAPTYPE == 0
         assert self.ast.Module.__flags__ & _HEAPTYPE == _HEAPTYPE
 
@@ -40,7 +41,7 @@ class AppTestAST:
         assert isinstance(expr.op, ast.Sub)
         co = compile(mod, "<example>", "exec")
         ns = {}
-        exec co in ns
+        exec(co, ns)
         assert ns["x"] == -1
         mod = self.get_ast("4 < 5 < 6", "eval")
         assert isinstance(mod.body, ast.Compare)
@@ -90,27 +91,42 @@ class AppTestAST:
         name.id = "hi"
         assert name.id == "hi"
 
-    def test_bool(self):
+    def test_name_pep3131(self):
+        name = self.get_ast("日本", "eval").body
+        assert isinstance(name, self.ast.Name)
+        assert name.id == "日本"
+
+    def test_function_pep3131(self):
+        fn = self.get_ast("def µ(µ='foo'): pass").body[0]
+        assert isinstance(fn, self.ast.FunctionDef)
+        # µ normalized to NFKC
+        expected = '\u03bc'
+        assert fn.name == expected
+        assert fn.args.args[0].arg == expected
+
+    def test_import_pep3131(self):
         ast = self.ast
-        pr = ast.Print(None, [ast.Name("hi", ast.Load())], False)
-        assert not pr.nl
-        assert isinstance(pr.nl, bool)
-        pr.nl = True
-        assert pr.nl
+        im = self.get_ast("from packageµ import modµ as µ").body[0]
+        assert isinstance(im, ast.ImportFrom)
+        expected = '\u03bc'
+        assert im.module == 'package' + expected
+        alias = im.names[0]
+        assert alias.name == 'mod' + expected
+        assert alias.asname == expected
 
     @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_object(self):
         ast = self.ast
         const = ast.Const(4)
-        assert const.value == 4
-        const.value = 5
-        assert const.value == 5
+        assert const.obj == 4
+        const.obj = 5
+        assert const.obj == 5
 
     def test_optional(self):
         mod = self.get_ast("x(32)", "eval")
         call = mod.body
-        assert call.starargs is None
-        assert call.kwargs is None
+        assert len(call.args) == 1
+        assert call.args[0].n == 32
         co = compile(mod, "<test>", "eval")
         ns = {"x" : lambda x: x}
         assert eval(co, ns) == 32
@@ -130,7 +146,7 @@ class AppTestAST:
                                    lineno=0, col_offset=0))
         co = compile(mod, "<test>", "exec")
         ns = {}
-        exec co in ns
+        exec(co, ns)
         assert "y" not in ns
         assert ns["x"] == ns["lemon"] == 3
         assert ns["apple"] == 4
@@ -196,7 +212,7 @@ from __future__ import generators""")
         mod = self.get_ast("from __future__ import division\nx = 1/2")
         co = compile(mod, "<test>", "exec")
         ns = {}
-        exec co in ns
+        exec(co, ns)
         assert ns["x"] == .5
 
     def test_field_attr_writable(self):
@@ -215,7 +231,7 @@ from __future__ import generators""")
         mod2 = pickle.loads(s)
         ns = {"y" : 1}
         co2 = compile(mod2, "<example>", "exec")
-        exec co2 in ns
+        exec(co2, ns)
         assert ns["x"] == 4
 
     def test_classattrs(self):
@@ -343,13 +359,14 @@ from __future__ import generators""")
     def test_issue793(self):
         import _ast as ast
         body = ast.Module([
-            ast.TryExcept([ast.Pass(lineno=2, col_offset=4)],
+            ast.Try([ast.Pass(lineno=2, col_offset=4)],
                 [ast.ExceptHandler(ast.Name('Exception', ast.Load(),
                                             lineno=3, col_offset=0),
-                                   None, [], lineno=4, col_offset=0)],
-                [], lineno=1, col_offset=0)
+                                   None, [ast.Pass(lineno=4, col_offset=0)],
+                                   lineno=4, col_offset=0)],
+                [], [], lineno=1, col_offset=0)
         ])
-        exec compile(body, '<string>', 'exec')
+        exec(compile(body, '<string>', 'exec'))
 
     def test_empty_set(self):
         import ast
@@ -365,7 +382,7 @@ from __future__ import generators""")
 
     def test_invalid_identitifer(self):
         import ast
-        m = ast.Module([ast.Expr(ast.Name(u"x", ast.Load()))])
+        m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))])
         ast.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
@@ -430,3 +447,37 @@ from __future__ import generators""")
         import ast
         code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Num(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[])]))
         compile(code, '<template>', 'eval')
+
+    def test_empty_yield_from(self):
+        # Issue 16546: yield from value is not optional.
+        import ast
+        empty_yield_from = ast.parse("def f():\n yield from g()")
+        empty_yield_from.body[0].body[0].value.value = None
+        exc = raises(ValueError, compile, empty_yield_from, "<test>", "exec")
+        assert "field value is required" in str(exc.value)
+
+    def test_compare(self):
+        import ast
+        
+        def _mod(mod, msg=None, mode="exec", exc=ValueError):
+            mod.lineno = mod.col_offset = 0
+            ast.fix_missing_locations(mod)
+            exc = raises(exc, compile, mod, "<test>", mode)
+            if msg is not None:
+                assert msg in str(exc.value)
+        def _expr(node, msg=None, exc=ValueError):
+            mod = ast.Module([ast.Expr(node)])
+            _mod(mod, msg, exc=exc)
+        left = ast.Name("x", ast.Load())
+        comp = ast.Compare(left, [ast.In()], [])
+        _expr(comp, "no comparators")
+        comp = ast.Compare(left, [ast.In()], [ast.Num(4), ast.Num(5)])
+        _expr(comp, "different number of comparators and operands")
+        comp = ast.Compare(ast.Num("blah"), [ast.In()], [left])
+        _expr(comp, "non-numeric", exc=TypeError)
+        comp = ast.Compare(left, [ast.In()], [ast.Num("blah")])
+        _expr(comp, "non-numeric", exc=TypeError)
+
+    def test_dict_unpacking(self):
+        self.get_ast("{**{1:2}, 2:3}")
+

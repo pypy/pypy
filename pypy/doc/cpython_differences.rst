@@ -10,89 +10,6 @@ Differences that are not listed here should be considered bugs of
 PyPy.
 
 
-.. _extension-modules:
-
-Extension modules
------------------
-
-List of extension modules that we support:
-
-* Supported as built-in modules (in :source:`pypy/module/`):
-
-    __builtin__
-    :doc:`__pypy__ <__pypy__-module>`
-    _ast
-    _codecs
-    _collections
-    :doc:`_continuation <stackless>`
-    :doc:`_ffi <discussion/ctypes-implementation>`
-    _hashlib
-    _io
-    _locale
-    _lsprof
-    _md5
-    :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
-    _multiprocessing
-    _random
-    :doc:`_rawffi <discussion/ctypes-implementation>`
-    _sha
-    _socket
-    _sre
-    _ssl
-    _warnings
-    _weakref
-    _winreg
-    array
-    binascii
-    bz2
-    cStringIO
-    cmath
-    `cpyext`_
-    crypt
-    errno
-    exceptions
-    fcntl
-    gc
-    imp
-    itertools
-    marshal
-    math
-    mmap
-    operator
-    parser
-    posix
-    pyexpat
-    select
-    signal
-    struct
-    symbol
-    sys
-    termios
-    thread
-    time
-    token
-    unicodedata
-    zipimport
-    zlib
-
-  When translated on Windows, a few Unix-only modules are skipped,
-  and the following module is built instead:
-
-    _winreg
-
-* Supported by being rewritten in pure Python (possibly using ``cffi``):
-  see the :source:`lib_pypy/` directory.  Examples of modules that we
-  support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
-  Note that some modules are both in there and in the list above;
-  by default, the built-in module is used (but can be disabled
-  at translation time).
-
-The extension modules (i.e. modules written in C, in the standard CPython)
-that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
-(You may have a chance to use them anyway with `cpyext`_.)
-
-.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
-
 
 Differences related to garbage collection strategies
 ----------------------------------------------------
@@ -165,6 +82,13 @@ and the callback will not be invoked.  (Issue `#2030`__)
 
 .. __: https://docs.python.org/2/library/weakref.html
 .. __: https://bitbucket.org/pypy/pypy/issue/2030/
+
+A new difference: before CPython 3.4, a weakref to ``x`` was always
+cleared before the ``x.__del__()`` method was called.  Since CPython 3.4
+the picture is more muddy.  Often, the weakref is still alive while
+``x.__del__()`` runs, but not always (e.g. not in case of reference
+cycles).  In PyPy3 we have kept the more consistent pre-3.4 behavior; we
+can't do something really different if there are cycles or not.
 
 ---------------------------------
 
@@ -406,7 +330,8 @@ Miscellaneous
 -------------
 
 * Hash randomization (``-R``) `is ignored in PyPy`_.  In CPython
-  before 3.4 it has `little point`_.
+  before 3.4 it has `little point`_.  Both CPython >= 3.4 and PyPy3
+  implement the randomized SipHash algorithm and ignore ``-R``.
 
 * You can't store non-string keys in type objects.  For example::
 
@@ -476,8 +401,10 @@ Miscellaneous
   
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and
-  ``gc.disable`` are supported, but instead of enabling and disabling
-  the GC, they just enable and disable the execution of finalizers.
+  ``gc.disable`` are supported, but "enabling and disabling the GC" has
+  a different meaning in PyPy than in CPython.  These functions
+  actually enable and disable the major collections and the
+  execution of finalizers.
 
 * PyPy prints a random line from past #pypy IRC topics at startup in
   interactive mode. In a released version, this behaviour is suppressed, but
@@ -518,6 +445,12 @@ Miscellaneous
   from the Makefile used to build the interpreter. PyPy should bake the values
   in during compilation, but does not do that yet.
 
+* CPython's ``sys.settrace()`` sometimes reports an ``exception`` at the
+  end of ``for`` or ``yield from`` lines for the ``StopIteration``, and
+  sometimes not.  The problem is that it occurs in an ill-defined subset
+  of cases.  PyPy attempts to emulate that but the precise set of cases
+  is not exactly the same.
+
 * ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
   an instance of a subclass of ``long`` that overrides the special
   methods ``__str__`` or ``__hex__`` or ``__oct__``: PyPy doesn't call
@@ -554,7 +487,101 @@ Miscellaneous
   versions of PyPy may have to rename the arguments if CPython starts
   accepting them too.
 
+* PyPy3: ``distutils`` has been enhanced to allow finding ``VsDevCmd.bat`` in the
+  directory pointed to by the ``VS%0.f0COMNTOOLS`` (typically ``VS140COMNTOOLS``)
+  environment variable. CPython searches for ``vcvarsall.bat`` somewhere **above**
+  that value.
+
+* SyntaxError_ s try harder to give details about the cause of the failure, so
+  the error messages are not the same as in CPython
+
+
+.. _extension-modules:
+
+Extension modules
+-----------------
+
+List of extension modules that we support:
+
+* Supported as built-in modules (in :source:`pypy/module/`):
+
+    __builtin__
+    :doc:`__pypy__ <__pypy__-module>`
+    _ast
+    _codecs
+    _collections
+    :doc:`_continuation <stackless>`
+    :doc:`_ffi <discussion/ctypes-implementation>`
+    _hashlib
+    _io
+    _locale
+    _lsprof
+    _md5
+    :doc:`_minimal_curses <config/objspace.usemodules._minimal_curses>`
+    _multiprocessing
+    _random
+    :doc:`_rawffi <discussion/ctypes-implementation>`
+    _sha
+    _socket
+    _sre
+    _ssl
+    _warnings
+    _weakref
+    _winreg
+    array
+    binascii
+    bz2
+    cStringIO
+    cmath
+    `cpyext`_
+    crypt
+    errno
+    exceptions
+    fcntl
+    gc
+    imp
+    itertools
+    marshal
+    math
+    mmap
+    operator
+    parser
+    posix
+    pyexpat
+    select
+    signal
+    struct
+    symbol
+    sys
+    termios
+    thread
+    time
+    token
+    unicodedata
+    zipimport
+    zlib
+
+  When translated on Windows, a few Unix-only modules are skipped,
+  and the following module is built instead:
+
+    _winreg
+
+* Supported by being rewritten in pure Python (possibly using ``cffi``):
+  see the :source:`lib_pypy/` directory.  Examples of modules that we
+  support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
+  Note that some modules are both in there and in the list above;
+  by default, the built-in module is used (but can be disabled
+  at translation time).
+
+The extension modules (i.e. modules written in C, in the standard CPython)
+that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
+(You may have a chance to use them anyway with `cpyext`_.)
+
+.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
+
+
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
 .. _`issue #2653`: https://bitbucket.org/pypy/pypy/issues/2653/
+.. _SyntaxError: https://morepypy.blogspot.co.il/2018/04/improving-syntaxerror-in-pypy.html

@@ -7,7 +7,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'DEFAULT_BUFFER_SIZE': 'space.wrap(interp_iobase.DEFAULT_BUFFER_SIZE)',
-        'BlockingIOError': 'interp_io.W_BlockingIOError',
+        'BlockingIOError': 'space.w_BlockingIOError',
         'UnsupportedOperation':
             'space.fromcache(interp_io.Cache).w_unsupportedoperation',
         '_IOBase': 'interp_iobase.W_IOBase',

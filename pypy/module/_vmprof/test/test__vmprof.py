@@ -26,30 +26,30 @@ class AppTestVMProf(object):
             i = 0
             count = 0
             i += 5 * WORD # header
-            assert s[i    ] == '\x05'    # MARKER_HEADER
-            assert s[i + 1] == '\x00'    # 0
-            assert s[i + 2] == '\x06'    # VERSION_TIMESTAMP
-            assert s[i + 3] == '\x08'    # PROFILE_RPYTHON
-            assert s[i + 4] == chr(4)    # len('pypy')
-            assert s[i + 5: i + 9] == 'pypy'
+            assert s[i    ] == 5    # MARKER_HEADER
+            assert s[i + 1] == 0    # 0
+            assert s[i + 2] == 6    # VERSION_TIMESTAMP
+            assert s[i + 3] == 8    # PROFILE_RPYTHON
+            assert s[i + 4] == 4    # len('pypy')
+            assert s[i + 5: i + 9] == b'pypy'
             i += 9
             while i < len(s):
-                if s[i] == '\x03':
+                if s[i] == 3:
                     break
-                elif s[i] == '\x01':
+                elif s[i] == 1:
                     i += 1
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                     i += 2 * WORD + size * struct.calcsize("P")
                     i += WORD    # thread id
-                elif s[i] == '\x02':
+                elif s[i] == 2:
                     i += 1
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                     count += 1
                     i += 2 * WORD + size
-                elif s[i] == '\x06':
+                elif s[i] == 6:
                     print(s[i:i+24])
                     i += 1+8+8+8
-                elif s[i] == '\x07':
+                elif s[i] == 7:
                     i += 1
                     # skip string
                     size, = struct.unpack("l", s[i:i + WORD])
@@ -58,7 +58,7 @@ class AppTestVMProf(object):
                     size, = struct.unpack("l", s[i:i + WORD])
                     i += WORD+size
                 else:
-                    raise AssertionError(ord(s[i]))
+                    raise AssertionError(s[i])
             return count
 
         import _vmprof
@@ -71,23 +71,26 @@ class AppTestVMProf(object):
         assert no_of_codes > 10
         d = {}
 
-        exec """def foo():
+        def exec_(code, d):
+            exec(code, d)
+
+        exec_("""def foo():
             pass
-        """ in d
+        """, d)
 
         gc.collect()
         gc.collect()
         _vmprof.enable(tmpfileno2, 0.01, 0, 0, 0, 0)
 
-        exec """def foo2():
+        exec_("""def foo2():
             pass
-        """ in d
+        """, d)
 
         _vmprof.disable()
         s = open(self.tmpfilename2, 'rb').read()
         no_of_codes2 = count(s)
-        assert "py:foo:" in s
-        assert "py:foo2:" in s
+        assert b"py:foo:" in s
+        assert b"py:foo2:" in s
         assert no_of_codes2 >= no_of_codes + 2 # some extra codes from tests
 
     def test_enable_ovf(self):

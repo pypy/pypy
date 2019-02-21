@@ -1,5 +1,11 @@
 #include "Python.h"
 
+PyObject *
+PyType_FromSpec(PyType_Spec *spec)
+{
+    return PyType_FromSpecWithBases(spec, NULL);
+}
+
 void
 _PyPy_subtype_dealloc(PyObject *obj)
 {

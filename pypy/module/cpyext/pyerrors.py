@@ -1,22 +1,58 @@
 import os
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
 from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
+from pypy.module.cpyext.api import PyObjectFields, cpython_struct
+from pypy.module.cpyext.api import bootstrap_function, slot_function
+from pypy.module.cpyext.pyobject import make_typedescr
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
+from pypy.module.exceptions.interp_exceptions import W_StopIteration
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
 
+PyStopIterationObjectStruct = lltype.ForwardReference()
+PyStopIterationObject = lltype.Ptr(PyStopIterationObjectStruct)
+PyStopIterationObjectFields = PyObjectFields + \
+    (("value", PyObject), )
+cpython_struct("PyStopIterationObject", PyStopIterationObjectFields,
+               PyStopIterationObjectStruct)
+
+@bootstrap_function
+def init_stopiterationobject(space):
+    "Type description of PyStopIterationObject"
+    make_typedescr(W_StopIteration.typedef,
+                   basestruct=PyStopIterationObject.TO,
+                   attach=stopiteration_attach,
+                   dealloc=stopiteration_dealloc)
+
+def stopiteration_attach(space, py_obj, w_obj, w_userdata=None):
+    py_stopiteration = rffi.cast(PyStopIterationObject, py_obj)
+    assert isinstance(w_obj, W_StopIteration)
+    # note: assumes that w_value is read-only; changes on one side won't
+    # be reflected on the other side
+    py_stopiteration.c_value = make_ref(space, w_obj.w_value)
+
+@slot_function([PyObject], lltype.Void)
+def stopiteration_dealloc(space, py_obj):
+    py_stopiteration = rffi.cast(PyStopIterationObject, py_obj)
+    decref(space, py_stopiteration.c_value)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+
+
 @cpython_api([PyObject, PyObject], lltype.Void)
 def PyErr_SetObject(space, w_type, w_value):
     """This function is similar to PyErr_SetString() but lets you specify an
     arbitrary Python object for the "value" of the exception."""
     state = space.fromcache(State)
-    state.set_exception(OperationError(w_type, w_value))
+    operr = OperationError(w_type, w_value)
+    operr.record_context(space, space.getexecutioncontext())
+    state.set_exception(operr)
 
 @cpython_api([PyObject, CONST_STRING], lltype.Void)
 def PyErr_SetString(space, w_type, message_ptr):
@@ -31,18 +67,15 @@ def PyErr_SetNone(space, w_type):
 @cpython_api([], PyObject, result_borrowed=True)
 def PyErr_Occurred(space):
     state = space.fromcache(State)
-    if state.operror is None:
+    operror = state.get_exception()
+    if operror is None:
         return None
-    return state.operror.w_type     # borrowed ref
+    return operror.w_type     # borrowed ref
 
 @cpython_api([], lltype.Void)
 def PyErr_Clear(space):
     state = space.fromcache(State)
     state.clear_exception()
-
-@cpython_api([PyObject], PyObject)
-def PyExceptionInstance_Class(space, w_obj):
-    return space.type(w_obj)
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_Fetch(space, ptype, pvalue, ptraceback):
@@ -162,7 +195,7 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     if llfilename:
         filename = rffi.charp2str(llfilename)
-        w_filename = space.newbytes(filename)
+        w_filename = space.newfilename(filename)
     else:
         w_filename = space.w_None
 
@@ -178,16 +211,16 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = rffi.cast(lltype.Signed, rposix._get_errno())
-    msg = os.strerror(errno)
+    msg, lgt = _strerror(errno)
     if w_value:
         w_error = space.call_function(w_type,
                                       space.newint(errno),
-                                      space.newtext(msg),
+                                      space.newtext(msg, lgt),
                                       w_value)
     else:
         w_error = space.call_function(w_type,
                                       space.newint(errno),
-                                      space.newtext(msg))
+                                      space.newtext(msg, lgt))
     raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)
@@ -210,12 +243,14 @@ def PyErr_GivenExceptionMatches(space, w_given, w_exc):
     exc is a class object, this also returns true when given is an instance
     of a subclass.  If exc is a tuple, all exceptions in the tuple (and
     recursively in subtuples) are searched for a match."""
-    if (space.isinstance_w(w_given, space.w_BaseException) or
-        space.is_oldstyle_instance(w_given)):
-        w_given_type = space.exception_getclass(w_given)
+    if space.isinstance_w(w_given, space.w_BaseException):
+        w_given_type = space.type(w_given)
     else:
         w_given_type = w_given
-    return space.exception_match(w_given_type, w_exc)
+    try:
+        return space.exception_match(w_given_type, w_exc)
+    except:
+        return 0
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyErr_ExceptionMatches(space, w_exc):
@@ -292,9 +327,9 @@ def PyErr_PrintEx(space, set_sys_last_vars):
     type, value and traceback of the printed exception, respectively."""
     if not PyErr_Occurred(space):
         PyErr_BadInternalCall(space)
-    state = space.fromcache(State)
-    operror = state.clear_exception()
 
+    operror = space.fromcache(State).clear_exception()
+    operror.normalize_exception(space)
     w_type = operror.w_type
     w_value = operror.get_w_value(space)
     w_tb = operror.get_w_traceback(space)

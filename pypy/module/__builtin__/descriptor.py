@@ -1,8 +1,9 @@
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
-    TypeDef, generic_new_descr, interp_attrproperty_w)
+    GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty_w)
 from pypy.objspace.descroperation import object_getattribute
 
 
@@ -13,7 +14,11 @@ class W_Super(W_Root):
         self.w_objtype = None
         self.w_self = None
 
-    def descr_init(self, space, w_starttype, w_obj_or_type=None):
+    def descr_init(self, space, w_starttype=None, w_obj_or_type=None):
+        if space.is_none(w_starttype):
+            frame = space.getexecutioncontext().gettopframe()
+            w_starttype, w_obj_or_type = _super_from_frame(space, frame)
+
         if space.is_none(w_obj_or_type):
             w_type = None  # unbound super object
             w_obj_or_type = None
@@ -69,6 +74,46 @@ class W_Super(W_Root):
                                                    w_obj, self.w_objtype)
         # fallback to object.__getattribute__()
         return space.call_function(object_getattribute(space), self, w_name)
+
+@jit.elidable
+def _get_self_location(space, code):
+    if code.co_argcount == 0:
+        raise oefmt(space.w_RuntimeError, "super(): no arguments")
+    args_to_copy = code._args_as_cellvars
+    for i in range(len(args_to_copy)):
+        if args_to_copy[i] == 0:
+            self_cell = i
+            break
+    else:
+        self_cell = -1
+
+    for index, name in enumerate(code.co_freevars):
+        if name == '__class__':
+            break
+    else:
+        raise oefmt(space.w_RuntimeError, "super(): __class__ cell not found")
+    class_cell = len(code.co_cellvars) + index
+    return self_cell, class_cell
+
+def _super_from_frame(space, frame):
+    """super() without args -- fill in from __class__ and first local
+    variable on the stack.
+    """
+    if frame is None:
+        raise oefmt(space.w_RuntimeError, "super(): no frame object")
+    self_cell, class_cell = _get_self_location(space, frame.getcode())
+    if self_cell < 0:
+        w_obj = frame.locals_cells_stack_w[0]
+    else:
+        w_obj = frame._getcell(self_cell).w_value
+    if not w_obj:
+        raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
+
+    # a kind of LOAD_DEREF
+    w_starttype = frame._getcell(class_cell).w_value
+    if w_starttype is None:
+        raise oefmt(space.w_RuntimeError, "super(): empty __class__ cell")
+    return w_starttype, w_obj
 
 def _super_check(space, w_starttype, w_obj_or_type):
     """Check that the super() call makes sense. Returns a type"""
@@ -177,6 +222,13 @@ class W_Property(W_Root):
     def deleter(self, space, w_deleter):
         return self._copy(space, w_deleter=w_deleter)
 
+    def get_doc(self, space):
+        return self.w_doc
+
+    def set_doc(self, space, w_doc):
+        self.w_doc = w_doc
+        self.getter_doc = False
+
     def _copy(self, space, w_getter=None, w_setter=None, w_deleter=None):
         if w_getter is None:
             w_getter = self.w_fget
@@ -191,6 +243,11 @@ class W_Property(W_Root):
         w_type = self.getclass(space)
         return space.call_function(w_type, w_getter, w_setter, w_deleter,
                                    w_doc)
+
+    def descr_isabstract(self, space):
+        return space.newbool(space.isabstractmethod_w(self.w_fget) or
+                             space.isabstractmethod_w(self.w_fset) or
+                             space.isabstractmethod_w(self.w_fdel))
 
 W_Property.typedef = TypeDef(
     'property',
@@ -210,6 +267,7 @@ class C(object):
     __get__ = interp2app(W_Property.get),
     __set__ = interp2app(W_Property.set),
     __delete__ = interp2app(W_Property.delete),
+    __isabstractmethod__ = GetSetProperty(W_Property.descr_isabstract),
     fdel = interp_attrproperty_w('w_fdel', W_Property),
     fget = interp_attrproperty_w('w_fget', W_Property),
     fset = interp_attrproperty_w('w_fset', W_Property),
@@ -219,5 +277,5 @@ class C(object):
 )
 # This allows there to be a __doc__ of the property type and a __doc__
 # descriptor for the instances.
-W_Property.typedef.rawdict['__doc__'] = interp_attrproperty_w('w_doc',
-                                                              W_Property)
+W_Property.typedef.rawdict['__doc__'] = GetSetProperty(
+    W_Property.get_doc, W_Property.set_doc)

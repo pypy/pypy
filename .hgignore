@@ -4,9 +4,13 @@ syntax: glob
 *~
 .*.swp
 .idea
+.mypy_cache
 .project
 .pydevproject
+.vscode
 __pycache__
+.venv
+.cache
 
 .cache/
 .gdb_history
@@ -57,11 +61,14 @@ syntax: regexp
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.h$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.log$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.status$
+^pypy/tool/dest$
 ^pypy/goal/pypy-translation-snapshot$
 ^pypy/goal/pypy-c
+^pypy/goal/pypy3-c
 ^pypy/goal/.+\.exe$
 ^pypy/goal/.+\.dll$
 ^pypy/goal/.+\.lib$
+^pypy/goal/.+\.dylib$
 ^pypy/_cache$
 ^lib-python/2.7/lib2to3/.+\.pickle$
 ^lib_pypy/__pycache__$
@@ -87,6 +94,7 @@ syntax: regexp
 ^rpython/doc/_build/.*$
 ^compiled
 ^.git/
+.git/
 .hypothesis/
 ^release/
 ^rpython/_cache$

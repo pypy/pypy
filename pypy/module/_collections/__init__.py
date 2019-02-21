@@ -8,10 +8,13 @@ class Module(MixedModule):
 
     appleveldefs = {
         'defaultdict': 'app_defaultdict.defaultdict',
+        'OrderedDict': 'app_odict.OrderedDict',
         }
 
     interpleveldefs = {
         'deque' : 'interp_deque.W_Deque',
+        'deque_iterator' : 'interp_deque.W_DequeIter',
+        'deque_reverse_iterator' : 'interp_deque.W_DequeRevIter',
         '__missing__': 'interp_defaultdict.missing',
         }
 

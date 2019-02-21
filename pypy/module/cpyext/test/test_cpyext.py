@@ -43,9 +43,11 @@ class SpaceCompiler(SystemCompilationInfo):
 
     def load_module(self, mod, name):
         space = self.space
-        api.load_extension_module(space, mod, name)
-        return space.getitem(
-            space.sys.get('modules'), space.wrap(name))
+        w_path = space.newtext(mod)
+        w_name = space.newtext(name)
+        return space.appexec([w_name, w_path], '''(name, path):
+            import imp
+            return imp.load_dynamic(name, path)''')
 
 
 def get_cpyext_info(space):
@@ -99,10 +101,10 @@ def preload_expr(space, expr):
 
 def is_interned_string(space, w_obj):
     try:
-        s = space.str_w(w_obj)
+        u = space.utf8_w(w_obj)
     except OperationError:
         return False
-    return space.is_interned_str(s)
+    return space.interned_strings.get(u) is not None
 
 def is_allowed_to_leak(space, obj):
     from pypy.module.cpyext.methodobject import W_PyCFunctionObject
@@ -134,10 +136,12 @@ class CpyextLeak(leakfinder.MallocMismatch):
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
-    spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
-                                   'itertools', 'time', 'binascii',
-                                   'mmap'
-                                   ])
+    spaceconfig = {"usemodules" : ['cpyext', 'thread', 'struct', 'array',
+                                   'itertools', 'time', 'binascii', 'mmap',
+                                   '_cffi_backend',
+                                   ],
+                   "objspace.disable_entrypoints_in_cffi": True}
+    spaceconfig["objspace.std.withspecialisedtuple"] = True
 
     @classmethod
     def preload_builtins(cls, space):
@@ -155,8 +159,9 @@ class LeakCheckingTest(object):
 
     def cleanup(self):
         self.space.getexecutioncontext().cleanup_cpyext_state()
-        rawrefcount._collect()
-        self.space.user_del_action._run_finalizers()
+        for _ in range(5):
+            rawrefcount._collect()
+            self.space.user_del_action._run_finalizers()
         try:
             # set check=True to actually enable leakfinder
             leakfinder.stop_tracking_allocations(check=False)
@@ -192,12 +197,6 @@ class AppTestApi(LeakCheckingTest):
     def test_only_import(self):
         import cpyext
 
-    @pytest.mark.skipif(only_pypy, reason='pypy only test')
-    def test_load_error(self):
-        import cpyext
-        raises(ImportError, cpyext.load_module, "missing.file", "foo")
-        raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
-
     def test_dllhandle(self):
         import sys
         if sys.platform != "win32" or sys.version_info < (2, 6):
@@ -209,7 +208,7 @@ def _unwrap_include_dirs(space, w_include_dirs):
     if w_include_dirs is None:
         return None
     else:
-        return [space.str_w(s) for s in space.listview(w_include_dirs)]
+        return [space.text_w(s) for s in space.listview(w_include_dirs)]
 
 def debug_collect(space):
     rawrefcount._collect()
@@ -294,7 +293,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             Build an extension module linked against the cpyext api library.
             """
             if not space.is_none(w_source_files):
-                source_files = space.listview_bytes(w_source_files)
+                source_files = space.unwrap(w_source_files)
             else:
                 source_files = None
             if not space.is_none(w_source_strings):
@@ -370,16 +369,14 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         for name in self.imported_module_names:
             self.unimport_module(name)
         self.cleanup()
+        state = self.space.fromcache(State)
+        assert 'operror' not in dir(state)
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
     def test_createmodule(self):
         import sys
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", NULL);
-        """
-        self.import_module(name='foo', init=init)
+        self.import_module(name='foo')
         assert 'foo' in sys.modules
 
     def test_export_function(self):
@@ -389,10 +386,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         else:
             import inspect
             is_cpyext_function = inspect.isbuiltin
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", methods);
-        """
         body = """
         PyObject* foo_pi(PyObject* self, PyObject *args)
         {
@@ -402,8 +395,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "return_pi", foo_pi, METH_NOARGS },
             { NULL }
         };
+        static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "foo",          /* m_name */
+            NULL,           /* m_doc */
+            -1,             /* m_size */
+            methods,        /* m_methods */
+        };
         """
-        module = self.import_module(name='foo', init=init, body=body)
+        module = self.import_module(name='foo', body=body)
         assert 'foo' in sys.modules
         assert 'return_pi' in dir(module)
         assert module.return_pi is not None
@@ -413,60 +413,40 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_export_docstring(self):
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", methods);
-        """
         body = """
         PyDoc_STRVAR(foo_pi_doc, "Return pi.");
         PyObject* foo_pi(PyObject* self, PyObject *args)
         {
             return PyFloat_FromDouble(3.14);
         }
-        static PyMethodDef methods[] ={
+        static PyMethodDef methods[] = {
             { "return_pi", foo_pi, METH_NOARGS, foo_pi_doc },
             { NULL }
         };
+        static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "foo",          /* m_name */
+            NULL,           /* m_doc */
+            -1,             /* m_size */
+            methods,        /* m_methods */
+        };
         """
-        module = self.import_module(name='foo', init=init, body=body)
+        module = self.import_module(name='foo', body=body)
         doc = module.return_pi.__doc__
         assert doc == "Return pi."
 
-
-    def test_InitModule4(self):
-        init = """
-        PyObject *cookie = PyFloat_FromDouble(3.14);
-        Py_InitModule4("foo", methods, "docstring",
-                       cookie, PYTHON_API_VERSION);
-        Py_DECREF(cookie);
-        """
-        body = """
-        PyObject* return_cookie(PyObject* self, PyObject *args)
-        {
-            if (self)
-            {
-                Py_IncRef(self);
-                return self;
-            }
-            else
-                Py_RETURN_FALSE;
-        }
-        static PyMethodDef methods[] = {
-            { "return_cookie", return_cookie, METH_NOARGS },
-            { NULL }
-        };
-        """
-        module = self.import_module(name='foo', init=init, body=body)
-        assert module.__doc__ == "docstring"
-        assert module.return_cookie() == 3.14
-
     def test_load_dynamic(self):
         import sys
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", NULL);
+        body = """
+        static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "%(modname)s",  /* m_name */
+            NULL,           /* m_doc */
+            -1,             /* m_size */
+            NULL,           /* m_methods */
+        };
         """
-        foo = self.import_module(name='foo', init=init)
+        foo = self.import_module(name='foo', body=body)
         assert 'foo' in sys.modules
         del sys.modules['foo']
         import imp
@@ -531,10 +511,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_export_function2(self):
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", methods);
-        """
         body = """
         static PyObject* my_objects[1];
         static PyObject* foo_cached_pi(PyObject* self, PyObject *args)
@@ -564,28 +540,26 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "return_invalid_pointer", foo_retinvalid, METH_NOARGS },
             { NULL }
         };
+        static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "%(modname)s",  /* m_name */
+            NULL,           /* m_doc */
+            -1,             /* m_size */
+            methods,        /* m_methods */
+        };
         """
-        module = self.import_module(name='foo', init=init, body=body)
+        module = self.import_module(name='foo', body=body)
         assert module.return_pi() == 3.14
-        print "A"
         module.drop_pi()
-        print "B"
         module.drop_pi()
-        print "C"
         assert module.return_pi() == 3.14
-        print "D"
         assert module.return_pi() == 3.14
-        print "E"
         module.drop_pi()
         skip("Hmm, how to check for the exception?")
         raises(api.InvalidPointerException, module.return_invalid_pointer)
 
     def test_argument(self):
         import sys
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", methods);
-        """
         body = """
         PyObject* foo_test(PyObject* self, PyObject *args)
         {
@@ -597,16 +571,19 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "test", foo_test, METH_VARARGS },
             { NULL }
         };
+        static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "%(modname)s",  /* m_name */
+            NULL,           /* m_doc */
+            -1,             /* m_size */
+            methods,        /* m_methods */
+        };
         """
-        module = self.import_module(name='foo', init=init, body=body)
+        module = self.import_module(name='foo', body=body)
         assert module.test(True, True) == True
 
     def test_exception(self):
         import sys
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", methods);
-        """
         body = """
         static PyObject* foo_pi(PyObject* self, PyObject *args)
         {
@@ -617,20 +594,23 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "raise_exception", foo_pi, METH_NOARGS },
             { NULL }
         };
+        static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "%(modname)s",  /* m_name */
+            NULL,           /* m_doc */
+            -1,             /* m_size */
+            methods,        /* m_methods */
+        };
         """
-        module = self.import_module(name='foo', init=init, body=body)
+        module = self.import_module(name='foo', body=body)
         exc = raises(Exception, module.raise_exception)
         if type(exc.value) is not Exception:
             raise exc.value
 
-        assert exc.value.message == "moo!"
+        assert str(exc.value) == "moo!"
 
     def test_refcount(self):
         import sys
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", methods);
-        """
         body = """
         static PyObject* foo_pi(PyObject* self, PyObject *args)
         {
@@ -639,7 +619,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_ssize_t refcnt_after;
             Py_INCREF(true_obj);
             Py_INCREF(true_obj);
-            PyBool_Check(true_obj);
+            if (!PyBool_Check(true_obj))
+                Py_RETURN_NONE;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);
@@ -670,8 +651,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "test_refcount2", foo_bar, METH_NOARGS },
             { NULL }
         };
+        static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "%(modname)s",  /* m_name */
+            NULL,           /* m_doc */
+            -1,             /* m_size */
+            methods,        /* m_methods */
+        };
         """
-        module = self.import_module(name='foo', init=init, body=body)
+        module = self.import_module(name='foo', body=body)
         assert module.test_refcount()
         assert module.test_refcount2()
 
@@ -680,21 +668,19 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         import sys
         init = """
             PyErr_SetString(PyExc_Exception, "moo!");
+            return NULL;
         """
-        exc = raises(Exception, "self.import_module(name='foo', init=init)")
+        exc = raises(Exception, self.import_module, name='foo', init=init)
         if type(exc.value) is not Exception:
             raise exc.value
 
-        assert exc.value.message == "moo!"
+        assert str(exc.value) == "moo!"
 
 
     def test_internal_exceptions(self):
         if self.runappdirect:
             skip('cannot import module with undefined functions')
-        init = """
-        if (Py_IsInitialized())
-            Py_InitModule("foo", methods);
-        """
+        import sys
         body = """
         PyAPI_FUNC(PyObject*) PyPy_Crash1(void);
         PyAPI_FUNC(long) PyPy_Crash2(void);
@@ -730,7 +716,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         static PyObject* foo_set(PyObject* self, PyObject *args)
         {
             PyErr_SetString(PyExc_TypeError, "clear called with no error");
-            if (PyInt_Check(args)) {
+            if (PyLong_Check(args)) {
                 Py_INCREF(args);
                 return args;
             }
@@ -739,7 +725,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         static PyObject* foo_clear(PyObject* self, PyObject *args)
         {
             PyErr_Clear();
-            if (PyInt_Check(args)) {
+            if (PyLong_Check(args)) {
                 Py_INCREF(args);
                 return args;
             }
@@ -755,16 +741,23 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "noop",   foo_noop,   METH_O },
             { NULL }
         };
+        static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "%(modname)s",  /* m_name */
+            NULL,           /* m_doc */
+            -1,             /* m_size */
+            methods,        /* m_methods */
+        };
         """
-        module = self.import_module(name='foo', init=init, body=body)
+        module = self.import_module(name='foo', body=body)
 
         # uncaught interplevel exceptions are turned into SystemError
         expected = "ZeroDivisionError('integer division by zero',)"
         exc = raises(SystemError, module.crash1)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
         exc = raises(SystemError, module.crash2)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
         # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
@@ -772,7 +765,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         expected = 'An exception was set, but function returned a value'
         # PyPy only incompatibility/extension
         exc = raises(SystemError, module.crash4)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
         # An exception was set by the previous call, it can pass
         # cleanly through a call that doesn't check error state
@@ -781,7 +774,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # clear the exception but return NULL, signalling an error
         expected = 'Function returned a NULL result without setting an exception'
         exc = raises(SystemError, module.clear, None)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
         # Set an exception and return NULL
         raises(TypeError, module.set, None)
@@ -792,7 +785,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # Set an exception, but return non-NULL
         expected = 'An exception was set, but function returned a value'
         exc = raises(SystemError, module.set, 1)
-        assert exc.value[0] == expected
+        assert exc.value.args[0] == expected
 
 
         # Clear the exception and return a value, all is OK
@@ -802,7 +795,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         mod = self.import_extension('foo', [
             ('newexc', 'METH_VARARGS',
              '''
-             char *name = PyString_AsString(PyTuple_GetItem(args, 0));
+             char *name = _PyUnicode_AsString(PyTuple_GetItem(args, 0));
              return PyErr_NewException(name, PyTuple_GetItem(args, 1),
                                        PyTuple_GetItem(args, 2));
              '''
@@ -815,7 +808,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         mod = self.import_extension('foo', [
             ('get_hash', 'METH_NOARGS',
              '''
-             return PyInt_FromLong(_Py_HashPointer(Py_None));
+             return PyLong_FromLong(_Py_HashPointer(Py_None));
              '''
              ),
             ])
@@ -849,16 +842,16 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         mod = self.import_extension('foo', [
             ('get_programname', 'METH_NOARGS',
              '''
-             char* name1 = Py_GetProgramName();
-             char* name2 = Py_GetProgramName();
+             wchar_t* name1 = Py_GetProgramName();
+             wchar_t* name2 = Py_GetProgramName();
              if (name1 != name2)
                  Py_RETURN_FALSE;
-             return PyString_FromString(name1);
+             return PyUnicode_FromWideChar(name1, wcslen(name1));
              '''
-             ),
-            ])
+             )],
+            prologue='#include <wchar.h>')
         p = mod.get_programname()
-        print p
+        print(p)
         assert 'py' in p
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
@@ -870,28 +863,35 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              char* name2 = Py_GetVersion();
              if (name1 != name2)
                  Py_RETURN_FALSE;
-             return PyString_FromString(name1);
+             return PyUnicode_FromString(name1);
              '''
              ),
             ])
         p = mod.get_version()
-        print p
+        print(p)
         assert 'PyPy' in p
 
     def test_no_double_imports(self):
         import sys, os
         try:
+            body = """
+            static struct PyModuleDef moduledef = {
+                PyModuleDef_HEAD_INIT,
+                "%(modname)s",  /* m_name */
+                NULL,           /* m_doc */
+                -1,             /* m_size */
+                NULL            /* m_methods */
+            };
+            """
             init = """
             static int _imported_already = 0;
             FILE *f = fopen("_imported_already", "w");
             fprintf(f, "imported_already: %d\\n", _imported_already);
             fclose(f);
             _imported_already = 1;
-            if (Py_IsInitialized()) {
-                Py_InitModule("foo", NULL);
-            }
+            return PyModule_Create(&moduledef);
             """
-            self.import_module(name='foo', init=init)
+            self.import_module(name='foo', init=init, body=body)
             assert 'foo' in sys.modules
 
             f = open('_imported_already')
@@ -942,12 +942,13 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         if (Py_IsInitialized()) {
             PyObject* m;
             if (PyType_Ready(&FooType) < 0)
-                return;
-            m = Py_InitModule("foo", module_methods);
+                return NULL;
+            m = PyModule_Create(&moduledef);
             if (m == NULL)
-                return;
+                return NULL;
             Py_INCREF(&FooType);
             PyModule_AddObject(m, "Foo", (PyObject *)&FooType);
+            return m;
         }
         """
         body = """
@@ -987,7 +988,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             0,                         /* tp_as_buffer */
             Py_TPFLAGS_DEFAULT |
                 Py_TPFLAGS_HAVE_GC,    /* tp_flags */
-            "",                        /* tp_doc */
+            0,                         /* tp_doc */
             0,                         /* tp_traverse */
             0,                         /* tp_clear */
             0,                         /* tp_richcompare */
@@ -1008,27 +1009,31 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             PyObject_GC_Del,           /* tp_free */
         };
                 
-        static PyObject * Foo_pygchead(PyObject *self, Foo *foo)
+        static PyObject * Foo_pygchead(PyObject *self, PyObject *foo)
         {
             PyGC_Head * gc_head = _PyPy_pyobj_as_gc((GCHdr_PyObject *)foo);
-            PyObject *obj = PyObject_MALLOC(sizeof(PyIntObject));
-            obj = PyObject_Init(obj, &PyInt_Type);
-            if (obj != NULL)
-                ((PyIntObject *)obj)->ob_ival = (long)gc_head;
-            return obj;
+            return PyLong_FromLong((long)gc_head);
         }
         
-        static PyObject * Foo_untrack(PyObject *self, Foo *foo)
+        static PyObject * Foo_untrack(PyObject *self, PyObject *foo)
         {
            PyObject_GC_UnTrack(foo);
            Py_RETURN_NONE;
         }
         
         static PyMethodDef module_methods[] = {
-            {"pygchead", (PyCFunction)Foo_pygchead, METH_OLDARGS, ""},
-            {"untrack", (PyCFunction)Foo_untrack, METH_OLDARGS, ""},
+            {"pygchead", (PyCFunction)Foo_pygchead, METH_O, ""},
+            {"untrack", (PyCFunction)Foo_untrack, METH_O, ""},
             {NULL}  /* Sentinel */
         };
+        
+        static struct PyModuleDef moduledef = {
+                PyModuleDef_HEAD_INIT,
+                "%(modname)s",  /* m_name */
+                NULL,           /* m_doc */
+                -1,             /* m_size */
+                module_methods  /* m_methods */
+            };
         """
         module = self.import_module(name='foo', init=init, body=body)
 

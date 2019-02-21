@@ -7,6 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter import timeutils
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib._rsocket_rffi import socketclose, FD_SETSIZE
@@ -39,7 +40,8 @@ public_symbols = dict.fromkeys([
 for symbol in public_symbols:
     setattr(CConfig, symbol, rffi_platform.DefinedConstantInteger(symbol))
 
-for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL"]:
+for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL",
+               "EPOLL_CLOEXEC"]:
     setattr(CConfig, symbol, rffi_platform.ConstantInteger(symbol))
 
 cconfig = rffi_platform.configure(CConfig)
@@ -52,13 +54,14 @@ epoll_event = cconfig["epoll_event"]
 EPOLL_CTL_ADD = cconfig["EPOLL_CTL_ADD"]
 EPOLL_CTL_MOD = cconfig["EPOLL_CTL_MOD"]
 EPOLL_CTL_DEL = cconfig["EPOLL_CTL_DEL"]
+EPOLL_CLOEXEC = cconfig["EPOLL_CLOEXEC"]
 
 DEF_REGISTER_EVENTMASK = (public_symbols["EPOLLIN"] |
                           public_symbols["EPOLLOUT"] |
                           public_symbols["EPOLLPRI"])
 
-epoll_create = rffi.llexternal(
-    "epoll_create", [rffi.INT], rffi.INT, compilation_info=eci,
+epoll_create1 = rffi.llexternal(
+    "epoll_create1", [rffi.INT], rffi.INT, compilation_info=eci,
     save_err=rffi.RFFI_SAVE_ERRNO
 )
 epoll_ctl = rffi.llexternal(
@@ -83,14 +86,12 @@ class W_Epoll(W_Root):
         self.epfd = epfd
         self.register_finalizer(space)
 
-    @unwrap_spec(sizehint=int)
-    def descr__new__(space, w_subtype, sizehint=-1):
-        if sizehint == -1:
-            sizehint = FD_SETSIZE - 1
-        elif sizehint < 0:
+    @unwrap_spec(sizehint=int, flags=int)
+    def descr__new__(space, w_subtype, sizehint=0, flags=0):
+        if sizehint < 0:     # 'sizehint' is otherwise ignored
             raise oefmt(space.w_ValueError,
                         "sizehint must be greater than zero, got %d", sizehint)
-        epfd = epoll_create(sizehint)
+        epfd = epoll_create1(flags | EPOLL_CLOEXEC)
         if epfd < 0:
             raise exception_from_saved_errno(space, space.w_IOError)
 
@@ -156,9 +157,11 @@ class W_Epoll(W_Root):
     def descr_poll(self, space, timeout=-1.0, maxevents=-1):
         self.check_closed(space)
         if timeout < 0:
-            timeout = -1.0
+            end_time = 0.0
+            itimeout = -1
         else:
-            timeout *= 1000.0
+            end_time = timeutils.monotonic(space) + timeout
+            itimeout = int(timeout * 1000.0 + 0.999)
 
         if maxevents == -1:
             maxevents = FD_SETSIZE - 1
@@ -167,9 +170,18 @@ class W_Epoll(W_Root):
                         "maxevents must be greater than 0, not %d", maxevents)
 
         with lltype.scoped_alloc(rffi.CArray(epoll_event), maxevents) as evs:
-            nfds = epoll_wait(self.epfd, evs, maxevents, int(timeout))
-            if nfds < 0:
-                raise exception_from_saved_errno(space, space.w_IOError)
+            while True:
+                nfds = epoll_wait(self.epfd, evs, maxevents, itimeout)
+                if nfds < 0:
+                    if get_saved_errno() == errno.EINTR:
+                        space.getexecutioncontext().checksignals()
+                        if itimeout >= 0:
+                            timeout = end_time - timeutils.monotonic(space)
+                            timeout = max(timeout, 0.0)
+                            itimeout = int(timeout * 1000.0 + 0.999)
+                        continue
+                    raise exception_from_saved_errno(space, space.w_IOError)
+                break
 
             elist_w = [None] * nfds
             for i in xrange(nfds):
@@ -178,6 +190,13 @@ class W_Epoll(W_Root):
                     [space.newint(event.c_data.c_fd), space.newint(event.c_events)]
                 )
             return space.newlist(elist_w)
+
+    def descr_enter(self, space):
+        self.check_closed(space)
+        return self
+
+    def descr_exit(self, space, __args__):
+        self.close()
 
 
 W_Epoll.typedef = TypeDef("select.epoll",
@@ -191,5 +210,7 @@ W_Epoll.typedef = TypeDef("select.epoll",
     unregister = interp2app(W_Epoll.descr_unregister),
     modify = interp2app(W_Epoll.descr_modify),
     poll = interp2app(W_Epoll.descr_poll),
+    __enter__ = interp2app(W_Epoll.descr_enter),
+    __exit__ = interp2app(W_Epoll.descr_exit),
 )
 W_Epoll.typedef.acceptable_as_base_class = False

@@ -1,5 +1,6 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
+from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.listobject import (
     PyList_Check, PyList_CheckExact, PyList_Size)
 
@@ -39,12 +40,10 @@ class TestListObject(BaseApiTest):
         assert api.PyList_Insert(w_l, 0, space.wrap(1)) == 0
         assert api.PyList_Size(w_l) == 3
         assert api.PyList_Insert(w_l, 99, space.wrap(2)) == 0
-        assert api.PyObject_Compare(api.PyList_GetItem(w_l, 3),
-                                    space.wrap(2)) == 0
+        assert space.unwrap(from_ref(space, api.PyList_GetItem(w_l, 3))) == 2
         # insert at index -1: next-to-last
         assert api.PyList_Insert(w_l, -1, space.wrap(3)) == 0
-        assert api.PyObject_Compare(api.PyList_GET_ITEM(w_l, 3),
-                                    space.wrap(3)) == 0
+        assert space.unwrap(from_ref(space, api.PyList_GET_ITEM(w_l, 3))) == 3
 
     def test_sort(self, space, api):
         l = space.newlist([space.wrap(1), space.wrap(0), space.wrap(7000)])
@@ -73,16 +72,16 @@ class AppTestListObject(AppTestCpythonExtensionBase):
             ("newlist", "METH_NOARGS",
              """
              PyObject *lst = PyList_New(3);
-             PyList_SetItem(lst, 0, PyInt_FromLong(3));
-             PyList_SetItem(lst, 2, PyInt_FromLong(1000));
-             PyList_SetItem(lst, 1, PyInt_FromLong(-5));
+             PyList_SetItem(lst, 0, PyLong_FromLong(3));
+             PyList_SetItem(lst, 2, PyLong_FromLong(1000));
+             PyList_SetItem(lst, 1, PyLong_FromLong(-5));
              return lst;
              """
              ),
             ("setlistitem", "METH_VARARGS",
              """
              PyObject *l = PyTuple_GetItem(args, 0);
-             int index = PyInt_AsLong(PyTuple_GetItem(args, 1));
+             int index = PyLong_AsLong(PyTuple_GetItem(args, 1));
              Py_INCREF(Py_None);
              if (PyList_SetItem(l, index, Py_None) < 0)
                 return NULL;
@@ -137,11 +136,11 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         assert len(l) == 1
         assert l[0] == 14
 
-        l = range(6)
+        l = list(range(6))
         module.setslice(l, ['a'])
         assert l == [0, 'a', 4, 5]
 
-        l = range(6)
+        l = list(range(6))
         module.setslice(l, None)
         assert l == [0, 4, 5]
 

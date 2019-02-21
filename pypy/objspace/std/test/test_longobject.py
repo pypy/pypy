@@ -1,7 +1,7 @@
+# -*- encoding: utf-8 -*-
 import py
 from pypy.objspace.std import longobject as lobj
 from rpython.rlib.rbigint import rbigint
-
 
 class TestW_LongObject:
     def test_bigint_w(self):
@@ -40,64 +40,92 @@ class TestW_LongObject:
 
 
 class AppTestLong:
+
+    def w__long(self, obj):
+        # XXX: currently returns a W_LongObject but might return
+        # W_IntObject in the future
+        huge = 1 << 65
+        return obj + huge - huge
+
     def test_trunc(self):
         import math
-        assert math.trunc(1L) == 1L
-        assert math.trunc(-1L) == -1L
+        assert math.trunc(self._long(1)) == self._long(1)
+        assert math.trunc(-self._long(1)) == -self._long(1)
 
     def test_add(self):
-        x = 123L
-        assert int(x + 12443L) == 123 + 12443
+        x = self._long(123)
+        assert int(x + self._long(12443)) == 123 + 12443
         x = -20
-        assert x + 2 + 3L + True == -14L
+        assert x + 2 + self._long(3) + True == -self._long(14)
 
     def test_sub(self):
-        x = 58543L
-        assert int(x - 12332L) == 58543 - 12332
-        x = 237123838281233L
-        assert x * 12 == x * 12L
+        assert int(self._long(58543) - self._long(12332)) == 58543 - 12332
+        assert int(self._long(58543) - 12332) == 58543 - 12332
+        assert int(58543 - self._long(12332)) == 58543 - 12332
+        x = self._long(237123838281233)
+        assert x * 12 == x * self._long(12)
 
     def test_mul(self):
-        x = 363L
+        x = self._long(363)
         assert x * 2 ** 40 == x << 40
 
     def test_truediv(self):
-        exec "from __future__ import division; a = 31415926L / 10000000L"
+        a = self._long(31415926) / self._long(10000000)
         assert a == 3.1415926
 
     def test_floordiv(self):
-        x = 31415926L
-        a = x // 10000000L
-        assert a == 3L
+        x = self._long(31415926)
+        a = x // self._long(10000000)
+        assert a == self._long(3)
+
+    def test_int_floordiv(self):
+        import sys
+        long = self._long
+
+        x = long(3000)
+        a = x // 1000
+        assert a == 3
+
+        x = long(3000)
+        a = x // -1000
+        assert a == -3
+
+        x = long(3000)
+        raises(ZeroDivisionError, "x // 0")
+
+        n = sys.maxsize + 1
+        assert n / int(-n) == long(-1)
 
     def test_numerator_denominator(self):
-        assert (1L).numerator == 1L
-        assert (1L).denominator == 1L
-        assert (42L).numerator == 42L
-        assert (42L).denominator == 1L
+        assert (self._long(1)).numerator == self._long(1)
+        assert (self._long(1)).denominator == self._long(1)
+        assert (self._long(42)).numerator == self._long(42)
+        assert (self._long(42)).denominator == self._long(1)
 
     def test_compare(self):
         Z = 0
-        ZL = 0L
-        for BIG in (1L, 1L << 62, 1L << 9999):
-            assert Z == ZL
-            assert not (Z != ZL)
-            assert ZL == Z
-            assert not (ZL != Z)
+        ZL = self._long(0)
+
+        assert Z == ZL
+        assert not (Z != ZL)
+        assert ZL == Z
+        assert not (ZL != Z)
+        assert Z <= ZL
+        assert not (Z < ZL)
+        assert ZL <= ZL
+        assert not (ZL < ZL)
+
+        for BIG in (self._long(1), self._long(1) << 62, self._long(1) << 9999):
             assert not (Z == BIG)
             assert Z != BIG
             assert not (BIG == Z)
             assert BIG != Z
             assert not (ZL == BIG)
             assert ZL != BIG
-            assert Z <= ZL
-            assert not (Z < ZL)
             assert Z <= BIG
             assert Z < BIG
             assert not (BIG <= Z)
             assert not (BIG < Z)
-            assert ZL <= ZL
-            assert not (ZL < ZL)
             assert ZL <= BIG
             assert ZL < BIG
             assert not (BIG <= ZL)
@@ -154,48 +182,82 @@ class AppTestLong:
             assert not (int(BIG)-1 >= BIG)
 
     def test_conversion(self):
-        class long2(long):
+        class long2(int):
             pass
-        x = 1L
+        x = self._long(1)
         x = long2(x<<100)
         y = int(x)
-        assert type(y) == long
-        assert type(+long2(5)) is long
-        assert type(long2(5) << 0) is long
-        assert type(long2(5) >> 0) is long
-        assert type(long2(5) + 0) is long
-        assert type(long2(5) - 0) is long
-        assert type(long2(5) * 1) is long
-        assert type(1 * long2(5)) is long
-        assert type(0 + long2(5)) is long
-        assert type(-long2(0)) is long
-        assert type(long2(5) // 1) is long
+        assert type(y) == int
+        assert type(+long2(5)) is int
+        assert type(long2(5) << 0) is int
+        assert type(long2(5) >> 0) is int
+        assert type(long2(5) + 0) is int
+        assert type(long2(5) - 0) is int
+        assert type(long2(5) * 1) is int
+        assert type(1 * long2(5)) is int
+        assert type(0 + long2(5)) is int
+        assert type(-long2(0)) is int
+        assert type(long2(5) // 1) is int
+
+    def test_shift(self):
+        long = self._long
+        assert long(65) >> long(2) == long(16)
+        assert long(65) >> 2 == long(16)
+        assert 65 >> long(2) == long(16)
+        assert long(65) << long(2) == long(65) * 4
+        assert long(65) << 2 == long(65) * 4
+        assert 65 << long(2) == long(65) * 4
+        raises(ValueError, "long(1) << long(-1)")
+        raises(ValueError, "long(1) << -1")
+        raises(OverflowError, "long(1) << (2 ** 100)")
+        raises(ValueError, "long(1) >> long(-1)")
+        raises(ValueError, "long(1) >> -1")
+        raises(OverflowError, "long(1) >> (2 ** 100)")
 
     def test_pow(self):
-        x = 0L
-        assert pow(x, 0L, 1L) == 0L
-        assert pow(-1L, -1L) == -1.0
+        long = self._long
+        x = self._long(0)
+        assert pow(x, self._long(0), self._long(1)) == self._long(0)
+        assert pow(-self._long(1), -self._long(1)) == -1.0
+        assert pow(2 ** 68, 0.5) == 2.0 ** 34
+        assert pow(2 ** 68, 2) == 2 ** 136
+        raises(ValueError, pow, long(2), -1, 3)
+        raises(ValueError, pow, long(2), 5, 0)
+
+        # some rpow tests
+        assert pow(0, long(0), long(1)) == long(0)
+        assert pow(-1, long(-1)) == -1.0
+
+    def test_int_pow(self):
+        long = self._long
+        x = long(2)
+        assert pow(x, 2) == long(4)
+        assert pow(x, 2, 2) == long(0)
+        assert pow(x, 2, long(3)) == long(1)
 
     def test_getnewargs(self):
-        assert  0L .__getnewargs__() == (0L,)
-        assert  (-1L) .__getnewargs__() == (-1L,)
+        assert  self._long(0) .__getnewargs__() == (self._long(0),)
+        assert  (-self._long(1)) .__getnewargs__() == (-self._long(1),)
 
     def test_divmod(self):
+        long = self._long
         def check_division(x, y):
             q, r = divmod(x, y)
             pab, pba = x*y, y*x
             assert pab == pba
-            assert q == x//y
-            assert r == x%y
+            assert q == x // y
+            assert r == x % y
             assert x == q*y + r
             if y > 0:
                 assert 0 <= r < y
             else:
                 assert y < r <= 0
-        for x in [-1L, 0L, 1L, 2L ** 100 - 1, -2L ** 100 - 1]:
-            for y in [-105566530L, -1L, 1L, 1034522340L]:
-                print "checking division for %s, %s" % (x, y)
+        for x in [-self._long(1), self._long(0), self._long(1), self._long(2) ** 100 - 1, -self._long(2) ** 100 - 1]:
+            for y in [-self._long(105566530), -self._long(1), self._long(1), self._long(1034522340)]:
+                print("checking division for %s, %s" % (x, y))
                 check_division(x, y)
+                check_division(x, int(y))
+                check_division(int(x), y)
         # special case from python tests:
         s1 = 33
         s2 = 2
@@ -203,186 +265,248 @@ class AppTestLong:
         x >>= s1*16
         y = 10953035502453784575
         y >>= s2*16
-        x = 0x3FE0003FFFFC0001FFFL
-        y = 0x9800FFC1L
+        x = 0x3FE0003FFFFC0001FFF
+        y = self._long(0x9800FFC1)
         check_division(x, y)
-        raises(ZeroDivisionError, "x // 0L")
+        raises(ZeroDivisionError, "x // self._long(0)")
+        divmod(3, self._long(4))
+        raises(ZeroDivisionError, "x % long(0)")
+        raises(ZeroDivisionError, divmod, x, long(0))
+        raises(ZeroDivisionError, "x // 0")
+        raises(ZeroDivisionError, "x % 0")
+        raises(ZeroDivisionError, divmod, x, 0)
+
+    def test_int_divmod(self):
+        long = self._long
+        q, r = divmod(long(100), 11)
+        assert q == 9
+        assert r == 1
 
     def test_format(self):
-        assert repr(12345678901234567890) == '12345678901234567890L'
+        assert repr(12345678901234567890) == '12345678901234567890'
         assert str(12345678901234567890) == '12345678901234567890'
-        assert hex(0x1234567890ABCDEFL) == '0x1234567890abcdefL'
-        assert oct(01234567012345670L) == '01234567012345670L'
+        assert hex(self._long(0x1234567890ABCDEF)) == '0x1234567890abcdef'
+        assert oct(self._long(0o1234567012345670)) == '0o1234567012345670'
 
     def test_bits(self):
-        x = 0xAAAAAAAAL
-        assert x | 0x55555555L == 0xFFFFFFFFL
-        assert x & 0x55555555L == 0x00000000L
-        assert x ^ 0x55555555L == 0xFFFFFFFFL
-        assert -x | 0x55555555L == -0xAAAAAAA9L
-        assert x | 0x555555555L == 0x5FFFFFFFFL
-        assert x & 0x555555555L == 0x000000000L
-        assert x ^ 0x555555555L == 0x5FFFFFFFFL
+        x = self._long(0xAAAAAAAA)
+        assert x | self._long(0x55555555) == self._long(0xFFFFFFFF)
+        assert x & self._long(0x55555555) == self._long(0x00000000)
+        assert x ^ self._long(0x55555555) == self._long(0xFFFFFFFF)
+        assert -x | self._long(0x55555555) == -self._long(0xAAAAAAA9)
+        assert x | self._long(0x555555555) == self._long(0x5FFFFFFFF)
+        assert x & self._long(0x555555555) == self._long(0x000000000)
+        assert x ^ self._long(0x555555555) == self._long(0x5FFFFFFFF)
 
     def test_hash(self):
-        # ints have the same hash as equal longs
-        for i in range(-4, 14):
-            assert hash(i) == hash(long(i)) == long(i).__hash__()
-        # might check too much -- it's ok to change the hashing algorithm
-        assert hash(123456789L) == 123456789
-        assert hash(1234567890123456789L) in (
-            -1895067127,            # with 32-bit platforms
-            1234567890123456789)    # with 64-bit platforms
+        import sys
+        modulus = sys.hash_info.modulus
+        def longhash(x):
+            return hash(self._long(x))
+        for x in (list(range(200)) +
+                  [1234567890123456789, 18446743523953737727,
+                   987685321987685321987685321987685321987685321,
+                   10**50]):
+            y = x % modulus
+            assert longhash(x) == longhash(y)
+            assert longhash(-x) == longhash(-y)
+        assert longhash(modulus - 1) == modulus - 1
+        assert longhash(modulus) == 0
+        assert longhash(modulus + 1) == 1
+
+        assert longhash(-1) == -2
+        value = -(modulus + 1)
+        assert longhash(value) == -2
+        assert longhash(value * 2 + 1) == -2
+        assert longhash(value * 4 + 3) == -2
+
+    def test_hash_2(self):
+        class AAA:
+            def __hash__(a):
+                return self._long(-1)
+        assert hash(AAA()) == -2
 
     def test_math_log(self):
         import math
-        raises(ValueError, math.log, 0L)
-        raises(ValueError, math.log, -1L)
-        raises(ValueError, math.log, -2L)
-        raises(ValueError, math.log, -(1L << 10000))
+        raises(ValueError, math.log, self._long(0))
+        raises(ValueError, math.log, -self._long(1))
+        raises(ValueError, math.log, -self._long(2))
+        raises(ValueError, math.log, -(self._long(1) << 10000))
         #raises(ValueError, math.log, 0)
         raises(ValueError, math.log, -1)
         raises(ValueError, math.log, -2)
 
     def test_long(self):
         import sys
-        n = -sys.maxint-1
-        assert long(n) == n
-        assert str(long(n)) == str(n)
-        a = buffer('123')
-        assert long(a) == 123L
+        n = -sys.maxsize-1
+        assert int(n) == n
+        assert str(int(n)) == str(n)
+        a = memoryview(b'123')
+        assert int(a) == self._long(123)
 
     def test_huge_longs(self):
         import operator
-        x = 1L
-        huge = x << 40000L
+        x = self._long(1)
+        huge = x << self._long(40000)
         raises(OverflowError, float, huge)
         raises(OverflowError, operator.truediv, huge, 3)
-        raises(OverflowError, operator.truediv, huge, 3L)
+        raises(OverflowError, operator.truediv, huge, self._long(3))
 
     def test_just_trunc(self):
         class myint(object):
             def __trunc__(self):
                 return 42
-        assert long(myint()) == 42
+        assert int(myint()) == 42
 
-    def test_override___long__(self):
-        class mylong(long):
-            def __long__(self):
-                return 42L
-        assert long(mylong(21)) == 42L
-        class myotherlong(long):
-            pass
-        assert long(myotherlong(21)) == 21L
-
-    def test___long__(self):
-        class A(object):
-            def __long__(self):
-                return 42
-        assert long(A()) == 42L
-        class B(object):
+    def test_override___int__(self):
+        class myint(int):
             def __int__(self):
                 return 42
-        raises(TypeError, long, B())
-
-        class LongSubclass(long):
+        assert int(myint(21)) == 42
+        class myotherint(int):
             pass
-        class ReturnsLongSubclass(object):
-            def __long__(self):
-                return LongSubclass(42L)
-        n = long(ReturnsLongSubclass())
+        assert int(myotherint(21)) == 21
+
+    def test___int__(self):
+        class A(object):
+            def __int__(self):
+                return 42
+        assert int(A()) == 42
+
+        class IntSubclass(int):
+            pass
+        class ReturnsIntSubclass(object):
+            def __int__(self):
+                return IntSubclass(42)
+        n = int(ReturnsIntSubclass())
         assert n == 42
-        assert type(n) is LongSubclass
+        assert type(n) is IntSubclass
 
     def test_trunc_returns(self):
         # but!: (blame CPython 2.7)
         class Integral(object):
             def __int__(self):
                 return 42
-        class TruncReturnsNonLong(object):
+        class TruncReturnsNonInt(object):
             def __trunc__(self):
                 return Integral()
-        n = long(TruncReturnsNonLong())
-        assert type(n) is long
+        n = int(TruncReturnsNonInt())
+        assert type(n) is int
         assert n == 42
 
-        class LongSubclass(long):
+        class IntSubclass(int):
             pass
         class TruncReturnsNonInt(object):
             def __trunc__(self):
-                return LongSubclass(42)
-        n = long(TruncReturnsNonInt())
+                return IntSubclass(42)
+        n = int(TruncReturnsNonInt())
         assert n == 42
-        assert type(n) is LongSubclass
+        assert type(n) is IntSubclass
 
     def test_long_before_string(self):
         class A(str):
-            def __long__(self):
+            def __int__(self):
                 return 42
-        assert long(A('abc')) == 42
+        assert int(A('abc')) == 42
 
     def test_conjugate(self):
-        assert (7L).conjugate() == 7L
-        assert (-7L).conjugate() == -7L
+        assert (self._long(7)).conjugate() == self._long(7)
+        assert (-self._long(7)).conjugate() == -self._long(7)
 
-        class L(long):
+        class L(int):
             pass
 
-        assert type(L(7).conjugate()) is long
+        assert type(L(7).conjugate()) is int
 
-        class L(long):
+        class L(int):
             def __pos__(self):
                 return 43
-        assert L(7).conjugate() == 7L
+        assert L(7).conjugate() == self._long(7)
 
     def test_bit_length(self):
-        assert 8L.bit_length() == 4
+        assert self._long(8).bit_length() == 4
         assert (-1<<40).bit_length() == 41
         assert ((2**31)-1).bit_length() == 31
 
+    def test_from_bytes(self):
+        assert int.from_bytes(b'c', 'little') == 99
+        assert int.from_bytes(b'\x01\x01', 'little') == 257
+        assert int.from_bytes(b'\x01\x00', 'big') == 256
+        assert int.from_bytes(b'\x00\x80', 'little', signed=True) == -32768
+        assert int.from_bytes([255, 0, 0], 'big', signed=True) == -65536
+        raises(TypeError, int.from_bytes, 0, 'big')
+        raises(TypeError, int.from_bytes, '', 'big')
+        raises(ValueError, int.from_bytes, b'c', 'foo')
+
+    def test_to_bytes(self):
+        assert 65535 .to_bytes(2, 'big') == b'\xff\xff'
+        assert (-8388608).to_bytes(3, 'little', signed=True) == b'\x00\x00\x80'
+        raises(OverflowError, (-5).to_bytes, 1, 'big')
+        raises(ValueError, (-5).to_bytes, 1, 'foo')
+        assert 65535 .to_bytes(length=2, byteorder='big') == b'\xff\xff'
+
     def test_negative_zero(self):
-        x = eval("-0L")
-        assert x == 0L
-
-    def test_mix_int_and_long(self):
-        class IntLongMixClass(object):
-            def __int__(self):
-                return 42L
-
-            def __long__(self):
-                return 64
-
-        mixIntAndLong = IntLongMixClass()
-        as_long = long(mixIntAndLong)
-        assert type(as_long) is long
-        assert as_long == 64
+        x = eval("-self._long(0)")
+        assert x == self._long(0)
 
     def test_long_real(self):
-        class A(long): pass
+        class A(int): pass
         b = A(5).real
-        assert type(b) is long
+        assert type(b) is int
+
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
+    def test_long_from_unicode(self):
+        raises(ValueError, int, '123L')
+        assert int('L', 22) == 21
+        s = '\U0001D7CF\U0001D7CE' # 𝟏𝟎
+        assert int(s) == 10
+
+    def test_long_from_bytes(self):
+        assert int(b'1234') == 1234
+
+    def test_invalid_literal_message(self):
+        try:
+            int('hello àèìò')
+        except ValueError as e:
+            assert 'hello àèìò' in str(e)
+        else:
+            assert False, 'did not raise'
+
+    def test_base_overflow(self):
+        raises(ValueError, int, '42', 2**63)
+
+    def test_long_real(self):
+        class A(int): pass
+        b = A(5).real
+        assert type(b) is int
 
     def test__int__(self):
-        class A(long):
+        class A(int):
             def __int__(self):
                 return 42
 
-        assert int(long(3)) == long(3)
+        assert int(int(3)) == int(3)
         assert int(A(13)) == 42
 
     def test_long_error_msg(self):
-        e = raises(TypeError, long, [])
+        e = raises(TypeError, int, [])
         assert str(e.value) == (
-            "long() argument must be a string or a number, not 'list'")
-
-    def test_coerce(self):
-        assert 3L.__coerce__(4L) == (3L, 4L)
-        assert 3L.__coerce__(4) == (3, 4)
-        assert 3L.__coerce__(object()) == NotImplemented
+            "int() argument must be a string, a bytes-like object "
+            "or a number, not 'list'")
 
     def test_linear_long_base_16(self):
-        # never finishes if long(_, 16) is not linear-time
+        # never finishes if int(_, 16) is not linear-time
         size = 100000
         n = "a" * size
         expected = (2 << (size * 4)) // 3
-        assert long(n, 16) == expected
+        assert int(n, 16) == expected
+
+    def test_large_identity(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only')
+        a = sys.maxsize + 1
+        b = sys.maxsize + 2
+        assert a is not b
+        b -= 1
+        assert a is b

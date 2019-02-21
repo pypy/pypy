@@ -26,7 +26,7 @@ void datetimetype_tp_dealloc(PyObject* self)
     return ((PyTypeObject*)typ)->tp_dealloc(self);
 }
 
-#define BASEFLAGS Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES
+#define BASEFLAGS Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE
 
 PyTypeObject footype = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -126,13 +126,25 @@ PyTypeObject datetimetype = {
 
 static PyMethodDef sbkMethods[] = {{NULL, NULL, 0, NULL}};
 
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "foo",
+    "Module Doc",
+    -1,
+    sbkMethods,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
+
 /* Initialize this module. */
 #ifdef __GNUC__
 extern __attribute__((visibility("default")))
 #endif
 
 PyMODINIT_FUNC
-initfoo3(void)
+PyInit_foo3(void)
 {
     PyObject *mod, *d;
     PyObject *module = NULL;
@@ -141,21 +153,22 @@ initfoo3(void)
     Py_DECREF(module);
     if (!PyType_Check(typ)) {
         PyErr_Format(PyExc_TypeError, "datetime.datetime is not a type object");
-        return;
+        return NULL;
     }
     datetimetype.tp_base = (PyTypeObject*)typ;
     PyType_Ready(&datetimetype);
     footype.tp_base = &PyType_Type;
     PyType_Ready(&footype);
-    mod = Py_InitModule("foo3", sbkMethods);
+    mod = PyModule_Create(&moduledef);
     if (mod == NULL)
-        return;
+        return NULL;
     d = PyModule_GetDict(mod);
     if (d == NULL)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "footype", (PyObject *)&footype) < 0)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "datetimetype", (PyObject *)&datetimetype) < 0)
-        return;
+        return NULL;
     Py_INCREF(&footype);
+    return mod;
 }

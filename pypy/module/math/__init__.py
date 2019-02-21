@@ -4,12 +4,15 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {
-       'factorial' : 'app_math.factorial'
+       'factorial' : 'app_math.factorial',
+       'gcd' :       'app_math.gcd',
     }
 
     interpleveldefs = {
-       'e'              : 'interp_math.get(space).w_e', 
-       'pi'             : 'interp_math.get(space).w_pi', 
+       'e'              : 'interp_math.get(space).w_e',
+       'pi'             : 'interp_math.get(space).w_pi',
+       'inf'            : 'interp_math.get(space).w_inf',
+       'nan'            : 'interp_math.get(space).w_nan',
        'pow'            : 'interp_math.pow',
        'cosh'           : 'interp_math.cosh',
        'copysign'       : 'interp_math.copysign',
@@ -23,6 +26,7 @@ class Module(MixedModule):
        'frexp'          : 'interp_math.frexp',
        'degrees'        : 'interp_math.degrees',
        'log'            : 'interp_math.log',
+       'log2'           : 'interp_math.log2',
        'log10'          : 'interp_math.log10',
        'fmod'           : 'interp_math.fmod',
        'atan'           : 'interp_math.atan',
@@ -39,6 +43,7 @@ class Module(MixedModule):
        'acos'           : 'interp_math.acos',
        'isinf'          : 'interp_math.isinf',
        'isnan'          : 'interp_math.isnan',
+       'isfinite'       : 'interp_math.isfinite',
        'trunc'          : 'interp_math.trunc',
        'fsum'           : 'interp_math.fsum',
        'asinh'          : 'interp_math.asinh',
@@ -50,5 +55,6 @@ class Module(MixedModule):
        'erfc'           : 'interp_math.erfc',
        'gamma'          : 'interp_math.gamma',
        'lgamma'         : 'interp_math.lgamma',
+       'isclose'        : 'interp_math.isclose',
 }
 

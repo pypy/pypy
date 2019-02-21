@@ -22,7 +22,7 @@ if sys.platform == 'win32':
     def _where_is_errno():
         return standard_c_lib._errno()
 
-elif sys.platform in ('linux2', 'freebsd6'):
+elif sys.platform in ('linux', 'freebsd6'):
     standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
     standard_c_lib.__errno_location.argtypes = None
     def _where_is_errno():

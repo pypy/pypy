@@ -18,7 +18,7 @@ def ensure__main__(space):
 
 def compilecode(space, source, filename, cmd='exec'):
     w_code = space.builtin.call(
-        'compile', space.newtext(source), space.newtext(filename),
+        'compile', space.newbytes(source), space.newfilename(filename),
         space.newtext(cmd), space.newint(0), space.newint(0))
     pycode = space.interp_w(eval.Code, w_code)
     return pycode
@@ -42,7 +42,8 @@ def _run_eval_string(source, filename, space, eval):
 
         space.setitem(w_globals, space.newtext('__builtins__'), space.builtin)
         if filename is not None:
-            space.setitem(w_globals, space.newtext('__file__'), space.newtext(filename))
+            space.setitem(w_globals, space.newtext('__file__'),
+                          space.newfilename(filename))
 
         retval = pycode.exec_code(space, w_globals, w_globals)
         if eval:
@@ -97,25 +98,11 @@ def run_toplevel(space, f, verbose=False):
     """Calls f() and handle all OperationErrors.
     Intended use is to run the main program or one interactive statement.
     run_protected() handles details like forwarding exceptions to
-    sys.excepthook(), catching SystemExit, printing a newline after
-    sys.stdout if needed, etc.
+    sys.excepthook(), catching SystemExit, etc.
     """
     try:
         # run it
         f()
-
-        # we arrive here if no exception is raised.  stdout cosmetics...
-        try:
-            w_stdout = space.sys.get('stdout')
-            w_softspace = space.getattr(w_stdout, space.newtext('softspace'))
-        except OperationError as e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            # Don't crash if user defined stdout doesn't have softspace
-        else:
-            if space.is_true(w_softspace):
-                space.call_method(w_stdout, 'write', space.newtext('\n'))
-
     except OperationError as operationerr:
         operationerr.normalize_exception(space)
         w_type = operationerr.w_type

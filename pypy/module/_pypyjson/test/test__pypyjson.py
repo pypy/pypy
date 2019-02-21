@@ -10,10 +10,14 @@ def test_skip_whitespace():
     assert dec.skip_whitespace(8) == len(s)
     dec.close()
 
+class FakeSpace(object):
+    def newutf8(self, s, l):
+        return s
+
 def test_decode_key():
     s1 = "123" * 100
     s = ' "%s"   "%s" ' % (s1, s1)
-    dec = JSONDecoder('fake space', s)
+    dec = JSONDecoder(FakeSpace(), s)
     assert dec.pos == 0
     x = dec.decode_key(0)
     assert x == s1
@@ -24,11 +28,11 @@ def test_decode_key():
     dec.close()
 
 class AppTest(object):
-    spaceconfig = {"objspace.usemodules._pypyjson": True}
+    spaceconfig = {"usemodules": ['_pypyjson']}
 
-    def test_raise_on_unicode(self):
+    def test_raise_on_bytes(self):
         import _pypyjson
-        raises(TypeError, _pypyjson.loads, u"42")
+        raises(TypeError, _pypyjson.loads, b"42")
 
 
     def test_decode_constants(self):
@@ -51,24 +55,23 @@ class AppTest(object):
         raises(ValueError, _pypyjson.loads, 'fa')
         raises(ValueError, _pypyjson.loads, 'f')
         raises(ValueError, _pypyjson.loads, 'falXX')
-        
+
 
     def test_decode_string(self):
         import _pypyjson
         res = _pypyjson.loads('"hello"')
-        assert res == u'hello'
-        assert type(res) is unicode
+        assert res == 'hello'
+        assert type(res) is str
 
     def test_decode_string_utf8(self):
         import _pypyjson
-        s = u'àèìòù'
-        res = _pypyjson.loads('"%s"' % s.encode('utf-8'))
-        assert res == s
+        s = 'àèìòù'
+        raises(ValueError, _pypyjson.loads, '"%s"' % s.encode('utf-8'))
 
     def test_skip_whitespace(self):
         import _pypyjson
         s = '   "hello"   '
-        assert _pypyjson.loads(s) == u'hello'
+        assert _pypyjson.loads(s) == 'hello'
         s = '   "hello"   extra'
         raises(ValueError, "_pypyjson.loads(s)")
 
@@ -79,14 +82,14 @@ class AppTest(object):
 
     def test_escape_sequence(self):
         import _pypyjson
-        assert _pypyjson.loads(r'"\\"') == u'\\'
-        assert _pypyjson.loads(r'"\""') == u'"'
-        assert _pypyjson.loads(r'"\/"') == u'/'       
-        assert _pypyjson.loads(r'"\b"') == u'\b'
-        assert _pypyjson.loads(r'"\f"') == u'\f'
-        assert _pypyjson.loads(r'"\n"') == u'\n'
-        assert _pypyjson.loads(r'"\r"') == u'\r'
-        assert _pypyjson.loads(r'"\t"') == u'\t'
+        assert _pypyjson.loads(r'"\\"') == '\\'
+        assert _pypyjson.loads(r'"\""') == '"'
+        assert _pypyjson.loads(r'"\/"') == '/'
+        assert _pypyjson.loads(r'"\b"') == '\b'
+        assert _pypyjson.loads(r'"\f"') == '\f'
+        assert _pypyjson.loads(r'"\n"') == '\n'
+        assert _pypyjson.loads(r'"\r"') == '\r'
+        assert _pypyjson.loads(r'"\t"') == '\t'
 
     def test_escape_sequence_in_the_middle(self):
         import _pypyjson
@@ -97,16 +100,16 @@ class AppTest(object):
         import _pypyjson
         s = r'"hello\nworld' # missing the trailing "
         raises(ValueError, "_pypyjson.loads(s)")
-        
+
     def test_escape_sequence_unicode(self):
         import _pypyjson
         s = r'"\u1234"'
-        assert _pypyjson.loads(s) == u'\u1234'
+        assert _pypyjson.loads(s) == '\u1234'
 
     def test_invalid_utf_8(self):
         import _pypyjson
         s = '"\xe0"' # this is an invalid UTF8 sequence inside a string
-        raises(UnicodeDecodeError, "_pypyjson.loads(s)")
+        assert _pypyjson.loads(s) == 'à'
 
     def test_decode_numeric(self):
         import sys
@@ -132,11 +135,11 @@ class AppTest(object):
         check(str(1 << 32), 1 << 32)
         check(str(1 << 64), 1 << 64)
         #
-        x = str(sys.maxint+1) + '.123'
+        x = str(sys.maxsize+1) + '.123'
         check(x, float(x))
-        x = str(sys.maxint+1) + 'E1'
+        x = str(sys.maxsize+1) + 'E1'
         check(x, float(x))
-        x = str(sys.maxint+1) + 'E-1'
+        x = str(sys.maxsize+1) + 'E-1'
         check(x, float(x))
         #
         check('1E400', float('inf'))
@@ -178,7 +181,7 @@ class AppTest(object):
     def test_decode_object_nonstring_key(self):
         import _pypyjson
         raises(ValueError, "_pypyjson.loads('{42: 43}')")
-        
+
     def test_decode_array(self):
         import _pypyjson
         assert _pypyjson.loads('[]') == []
@@ -191,11 +194,11 @@ class AppTest(object):
 
     def test_unicode_surrogate_pair(self):
         import _pypyjson
-        expected = u'z\U0001d120x'
+        expected = 'z\U0001d120x'
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
 
-    def test_surrogate_pair(self):
+    def test_lone_surrogate(self):
         import _pypyjson
         json = '{"a":"\\uD83D"}'
         res = _pypyjson.loads(json)
@@ -223,9 +226,8 @@ class AppTest(object):
         assert check(u"") == ""
         assert check("abc ") == "abc "
         assert check(u"abc ") == "abc "
-        raises(UnicodeDecodeError, check, "\xc0")
-        assert check("\xc2\x84") == "\\u0084"
-        assert check("\xf0\x92\x8d\x85") == "\\ud808\\udf45"
+        assert check("\xc0") == "\\u00c0"
+        assert check("\xc2\x84") == "\\u00c2\\u0084"
         assert check(u"\ud808\udf45") == "\\ud808\\udf45"
         assert check(u"\U00012345") == "\\ud808\\udf45"
         assert check("a\"c") == "a\\\"c"
@@ -235,16 +237,31 @@ class AppTest(object):
     def test_error_position(self):
         import _pypyjson
         test_cases = [
-            ('[,', "No JSON object could be decoded: unexpected ',' at char 1"),
-            ('{"spam":[}', "No JSON object could be decoded: unexpected '}' at char 9"),
-            ('[42:', "Unexpected ':' when decoding array (char 3)"),
-            ('[42 "spam"', "Unexpected '\"' when decoding array (char 4)"),
-            ('[42,]', "No JSON object could be decoded: unexpected ']' at char 4"),
-            ('{"spam":[42}', "Unexpected '}' when decoding array (char 11)"),
-            ('["]', 'Unterminated string starting at char 1'),
-            ('["spam":', "Unexpected ':' when decoding array (char 7)"),
-            ('[{]', "Key name must be string at char 2"),
+            ('[,', "Unexpected ',' at", 1),
+            ('{"spam":[}', "Unexpected '}' at", 9),
+            ('[42:', "Unexpected ':' when decoding array", 3),
+            ('[42 "spam"', "Unexpected '\"' when decoding array", 4),
+            ('[42,]', "Unexpected ']' at", 4),
+            ('{"spam":[42}', "Unexpected '}' when decoding array", 11),
+            ('["]', 'Unterminated string starting at', 1),
+            ('["spam":', "Unexpected ':' when decoding array", 7),
+            ('[{]', "Key name must be string at char", 2),
         ]
-        for inputtext, errmsg in test_cases:
+        for inputtext, errmsg, errpos in test_cases:
             exc = raises(ValueError, _pypyjson.loads, inputtext)
-            assert str(exc.value) == errmsg
+            assert exc.value.args == (errmsg, inputtext, errpos)
+
+    def test_keys_reuse(self):
+        import _pypyjson
+        s = '[{"a_key": 1, "b_\xe9": 2}, {"a_key": 3, "b_\xe9": 4}]'
+        rval = _pypyjson.loads(s)
+        (a, b), (c, d) = sorted(rval[0]), sorted(rval[1])
+        assert a is c
+        assert b is d
+
+    def test_custom_error_class(self):
+        import _pypyjson
+        class MyError(Exception):
+            pass
+        exc = raises(MyError, _pypyjson.loads, 'nul', MyError)
+        assert exc.value.args == ('Error when decoding null at', 'nul', 1)

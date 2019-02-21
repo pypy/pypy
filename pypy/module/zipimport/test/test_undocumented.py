@@ -9,11 +9,11 @@ import zipfile
 
 TESTFN = '@test'
 
-created_paths = dict.fromkeys(['_top_level',
-                     os.path.join('_pkg', '__init__'),
-                     os.path.join('_pkg', 'submodule'),
-                     os.path.join('_pkg', '_subpkg', '__init__'),
-                     os.path.join('_pkg', '_subpkg', 'submodule')
+created_paths = dict.fromkeys([u'_top_level',
+                     os.path.join(u'_pkg', '__init__'),
+                     os.path.join(u'_pkg', 'submodule'),
+                     os.path.join(u'_pkg', '_subpkg', '__init__'),
+                     os.path.join(u'_pkg', '_subpkg', 'submodule')
                                ])
 
 
@@ -52,7 +52,8 @@ class AppTestZipImport:
             if source:
                 zip_file.write(code_path)
             if bytecode:
-                py_compile.compile(code_path, doraise=True)
+                py_compile.compile(code_path, code_path + bytecode_suffix,
+                                   doraise=True)
                 zip_file.write(code_path + bytecode_suffix)
         zip_file.close()
         return os.path.abspath(zip_path)
@@ -134,7 +135,7 @@ class AppTestZipImport:
         try:
             importer = zipimport.zipimporter(os.path.join(zip_path, '_pkg'))
             assert zip_path in zipimport._zip_directory_cache
-            file_set = set(zipimport._zip_directory_cache[zip_path].iterkeys())
+            file_set = set(zipimport._zip_directory_cache[zip_path].keys())
             compare_set = set(path + '.py' for path in self.created_paths)
             assert file_set == compare_set
         finally:

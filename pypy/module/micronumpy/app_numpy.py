@@ -19,7 +19,7 @@ def arange(start, stop=None, step=1, dtype=None):
     length = int(length)
     arr = _numpypy.multiarray.empty(length, dtype=dtype)
     i = start
-    for j in xrange(arr.size):
+    for j in range(arr.size):
         arr[j] = i
         i += step
     return arr

@@ -1,4 +1,28 @@
-from cffi import FFI
+import os
+from cffi import FFI, VerificationError
+
+
+def find_curses_library():
+    for curses_library in ['ncursesw', 'ncurses']:
+        ffi = FFI()
+        ffi.set_source("_curses_cffi_check", "", libraries=[curses_library])
+        try:
+            ffi.compile()
+        except VerificationError as e:
+            e_last = e
+            continue
+        else:
+            return curses_library
+
+    # If none of the libraries is available, present the user a meaningful
+    # error message
+    raise e_last
+
+def find_curses_include_dirs():
+    if os.path.exists('/usr/include/ncursesw'):
+        return ['/usr/include/ncursesw']
+    return []
+
 
 ffi = FFI()
 
@@ -41,7 +65,8 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
-""", libraries=['ncurses', 'panel'])
+""", libraries=[find_curses_library(), 'panel'],
+     include_dirs=find_curses_include_dirs())
 
 
 ffi.cdef("""
@@ -51,6 +76,8 @@ typedef unsigned long... mmask_t;
 typedef unsigned char bool;
 typedef unsigned long... chtype;
 typedef chtype attr_t;
+
+typedef int... wint_t;
 
 typedef struct
 {
@@ -149,6 +176,8 @@ char erasechar(void);
 void filter(void);
 int flash(void);
 int flushinp(void);
+int wget_wch(WINDOW *, wint_t *);
+int mvwget_wch(WINDOW *, int, int, wint_t *);
 chtype getbkgd(WINDOW *);
 WINDOW * getwin(FILE *);
 int halfdelay(int);
@@ -224,6 +253,7 @@ int touchline(WINDOW *, int, int);
 int touchwin(WINDOW *);
 int typeahead(int);
 int ungetch(int);
+int unget_wch(const wchar_t);
 int untouchwin(WINDOW *);
 void use_env(bool);
 int waddch(WINDOW *, const chtype);

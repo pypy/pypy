@@ -5,7 +5,7 @@ from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.rutf8 import MAXUNICODE
 from rpython.rlib.objectmodel import specialize
 
 
@@ -57,7 +57,18 @@ class __extend__(ast.Str):
         return self.s
 
 
+class __extend__(ast.Ellipsis):
+
+    def as_constant_truth(self, space):
+        return True
+
+
 class __extend__(ast.Const):
+
+    def as_constant(self):
+        return self.obj
+
+class __extend__(ast.NameConstant):
 
     def as_constant(self):
         return self.value
@@ -113,7 +124,7 @@ def _fold_pow(space, w_left, w_right):
     # don't constant-fold if "w_left" and "w_right" are integers and
     # the estimated bit length of the power is unreasonably large
     space.appexec([w_left, w_right], """(left, right):
-        if isinstance(left, (int, long)) and isinstance(right, (int, long)):
+        if isinstance(left, int) and isinstance(right, int):
             if left.bit_length() * right > 5000:
                 raise OverflowError
     """)
@@ -136,6 +147,7 @@ binary_folders = {
     ast.BitOr : _binary_fold("or_"),
     ast.BitXor : _binary_fold("xor"),
     ast.BitAnd : _binary_fold("and_"),
+    ast.MatMult : _binary_fold("matmul"),
 }
 unrolling_binary_folders = unrolling_iterable(binary_folders.items())
 
@@ -176,12 +188,6 @@ class OptimizingVisitor(ast.ASTVisitor):
             right = binop.right.as_constant()
             if right is not None:
                 op = binop.op
-                # Can't fold straight division without "from __future_ import
-                # division" because it might be affected at runtime by the -Q
-                # flag.
-                if op == ast.Div and \
-                        not self.compile_info.flags & consts.CO_FUTURE_DIVISION:
-                    return binop
                 try:
                     for op_kind, folder in unrolling_binary_folders:
                         if op_kind == op:
@@ -263,15 +269,20 @@ class OptimizingVisitor(ast.ASTVisitor):
         return rep
 
     def visit_Name(self, name):
-        # Turn loading None into a constant lookup.  We cannot do this
-        # for True and False, because rebinding them is allowed (2.7).
-        if name.id == "None":
-            # The compiler refuses to parse "None = ...", but "del None"
-            # is allowed (if pointless).  Check anyway: custom asts that
-            # correspond to "None = ..." can be made by hand.
-            if name.ctx == ast.Load:
-                return ast.Const(self.space.w_None, name.lineno,
-                                 name.col_offset)
+        """Turn loading None, True, and False into a constant lookup."""
+        if name.ctx == ast.Del:
+            return name
+        space = self.space
+        iden = name.id
+        w_const = None
+        if iden == "None":
+            w_const = space.w_None
+        elif iden == "True":
+            w_const = space.w_True
+        elif iden == "False":
+            w_const = space.w_False
+        if w_const is not None:
+            return ast.Const(w_const, name.lineno, name.col_offset)
         return name
 
     def visit_Tuple(self, tup):
@@ -315,7 +326,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                     # produce compatible pycs.
                     if (self.space.isinstance_w(w_obj, self.space.w_unicode) and
                         self.space.isinstance_w(w_const, self.space.w_unicode)):
-                        #unistr = self.space.unicode_w(w_const)
+                        #unistr = self.space.utf8_w(w_const)
                         #if len(unistr) == 1:
                         #    ch = ord(unistr[0])
                         #else:

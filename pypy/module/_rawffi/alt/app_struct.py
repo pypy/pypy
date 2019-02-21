@@ -17,5 +17,5 @@ class MetaStructure(type):
         dic['_struct_'] = struct_descr
 
 
-class Structure(object):
-    __metaclass__ = MetaStructure
+class Structure(metaclass=MetaStructure):
+    pass

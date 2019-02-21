@@ -68,7 +68,7 @@ sys_write(char *name, FILE *fp, const char *format, va_list va)
 
     PyErr_Fetch(&error_type, &error_value, &error_traceback);
     file = PySys_GetObject(name);
-    written = vsnprintf(buffer, sizeof(buffer), format, va);
+    written = PyOS_vsnprintf(buffer, sizeof(buffer), format, va);
     if (sys_pyfile_write(buffer, file) != 0) {
         PyErr_Clear();
         fputs(buffer, fp);

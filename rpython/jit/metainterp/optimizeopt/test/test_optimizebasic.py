@@ -31,8 +31,8 @@ class BaseTestBasic(BaseTest):
         expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         trace = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
-        compile_data = compile.SimpleCompileData(trace,
-                                                 call_pure_results)
+        compile_data = compile.SimpleCompileData(
+            trace, call_pure_results=call_pure_results)
         info, ops = self._do_optimize_loop(compile_data)
         label_op = ResOperation(rop.LABEL, info.inputargs)
         loop.inputargs = info.inputargs
@@ -4017,7 +4017,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p3, i2, i0)
         i5 = int_add(i2, 1)
         strsetitem(p3, i5, i1)
-        ifoo = int_add(i5, 1)
         jump(i1, i0, p3)
         """
         self.optimize_strunicode_loop(ops, expected)

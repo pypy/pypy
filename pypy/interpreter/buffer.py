@@ -1,4 +1,6 @@
+from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.buffer import StringBuffer, SubBuffer
+from rpython.rlib.mutbuffer import MutableStringBuffer
 
 from pypy.interpreter.error import oefmt
 
@@ -68,6 +70,19 @@ class BufferView(object):
         fmtiter.interpret(self.getformat())
         return fmtiter.result_w[0]
 
+    def bytes_from_value(self, space, w_val):
+        from pypy.module.struct.formatiterator import PackFormatIterator
+        itemsize = self.getitemsize()
+        buf = MutableStringBuffer(itemsize)
+        fmtiter = PackFormatIterator(space, buf, [w_val])
+        try:
+            fmtiter.interpret(self.getformat())
+        except StructError as e:
+            raise oefmt(space.w_TypeError,
+                        "memoryview: invalid type for format '%s'",
+                        self.getformat())
+        return buf.finish()
+
     def _copy_buffer(self):
         if self.getndim() == 0:
             itemsize = self.getitemsize()
@@ -123,10 +138,16 @@ class BufferView(object):
         itemsize = self.getitemsize()
         # TODO: this probably isn't very fast
         data = self.getbytes(offset, itemsize)
-        return space.newbytes(data)
+        return self.value_from_bytes(space, data)
 
     def new_slice(self, start, step, slicelength):
         return BufferSlice(self, start, step, slicelength)
+
+    def setitem_w(self, space, idx, w_obj):
+        offset = self.get_offset(space, 0, idx)
+        # TODO: this probably isn't very fast
+        byteval = self.bytes_from_value(space, w_obj)
+        self.setbytes(offset, byteval)
 
     def w_tolist(self, space):
         dim = self.getndim()
@@ -134,7 +155,7 @@ class BufferView(object):
             raise NotImplementedError
         elif dim == 1:
             n = self.getshape()[0]
-            values_w = [space.ord(self.w_getitem(space, i)) for i in range(n)]
+            values_w = [self.w_getitem(space, i) for i in range(n)]
             return space.newlist(values_w)
         else:
             return self._tolist_rec(space, 0, 0)
@@ -226,13 +247,17 @@ class SimpleView(BufferView):
     def w_getitem(self, space, idx):
         idx = self.get_offset(space, 0, idx)
         ch = self.data[idx]
-        return space.newbytes(ch)
+        return space.newint(ord(ch))
 
     def new_slice(self, start, step, slicelength):
         if step == 1:
             return SimpleView(SubBuffer(self.data, start, slicelength))
         else:
             return BufferSlice(self, start, step, slicelength)
+
+    def setitem_w(self, space, idx, w_obj):
+        idx = self.get_offset(space, 0, idx)
+        self.data[idx] = space.byte_w(w_obj)
 
 
 class BufferSlice(BufferView):
@@ -293,3 +318,6 @@ class BufferSlice(BufferView):
         real_start = start + self.start
         real_step = self.step * step
         return BufferSlice(self.parent, real_start, real_step, slicelength)
+
+    def setitem_w(self, space, idx, w_obj):
+        return self.parent.setitem_w(space, self.parent_index(idx), w_obj)

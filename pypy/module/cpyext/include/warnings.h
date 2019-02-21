@@ -6,6 +6,9 @@ extern "C" {
 
 #define PyErr_WarnPy3k(msg, stacklevel) 0
 
+PyAPI_FUNC(int) PyErr_WarnFormat(PyObject *category, Py_ssize_t stack_level,
+                                 const char *format, ...);
+
 #ifdef __cplusplus
 }
 #endif

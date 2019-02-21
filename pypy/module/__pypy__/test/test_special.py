@@ -21,9 +21,9 @@ class AppTest(object):
         assert my.b() == ()
         assert A.a(my) == (my,)
         assert A.b(my) == (my,)
-        assert A.a.im_func(my) == (my,)
+        assert not hasattr(A.a, 'im_func')
         assert not hasattr(A.b, 'im_func')
-        assert A.a is not A.__dict__['a']
+        assert A.a is A.__dict__['a']
         assert A.b is A.__dict__['b']
 
     def test_hidden_applevel(self):
@@ -35,7 +35,7 @@ class AppTest(object):
         try:
             sneak()
         except ZeroDivisionError as e:
-            tb = sys.exc_info()[2]
+            tb = e.__traceback__
             assert tb.tb_frame == sys._getframe()
             assert tb.tb_next.tb_frame.f_code.co_name == '<lambda>'
         else:
@@ -52,28 +52,12 @@ class AppTest(object):
             try: e()
             except ZeroDivisionError as e:
                 assert sys.exc_info() == (None, None, None)
+                frame = e.__traceback__.tb_frame
+                assert frame != sys._getframe()
+                assert frame.f_code.co_name == 'e'
             else: assert False
             return 2
         assert test_hidden() == 2
-
-    def test_get_hidden_tb(self):
-        import __pypy__
-        import sys
-
-        result = [False]
-        @__pypy__.hidden_applevel
-        def test_hidden_with_tb():
-            def not_hidden(): 1/0
-            try: not_hidden()
-            except ZeroDivisionError as e:
-                assert sys.exc_info() == (None, None, None)
-                tb = __pypy__.get_hidden_tb()
-                assert tb.tb_frame.f_code.co_name == 'not_hidden'
-                result[0] = True
-                raise
-            else: return False
-        raises(ZeroDivisionError, test_hidden_with_tb)
-        assert result[0]
 
     def test_lookup_special(self):
         from __pypy__ import lookup_special
@@ -84,9 +68,6 @@ class AppTest(object):
         x.bar = 80
         assert lookup_special(x, "foo")() == 42
         assert lookup_special(x, "bar") is None
-        class X:
-            pass
-        raises(TypeError, lookup_special, X(), "foo")
 
     def test_do_what_I_mean(self):
         from __pypy__ import do_what_I_mean
@@ -98,16 +79,12 @@ class AppTest(object):
 
         l = [1, 2, 3]
         assert strategy(l) == "IntegerListStrategy"
-        l = ["a", "b", "c"]
+        l = [b"a", b"b", b"c"]
         assert strategy(l) == "BytesListStrategy"
         l = [u"a", u"b", u"c"]
         assert strategy(l) == "UnicodeListStrategy"
         l = [1.1, 2.2, 3.3]
         assert strategy(l) == "FloatListStrategy"
-        l = range(3)
-        assert strategy(l) == "SimpleRangeListStrategy"
-        l = range(1, 2)
-        assert strategy(l) == "RangeListStrategy"
         l = [1, "b", 3]
         assert strategy(l) == "ObjectListStrategy"
         l = []
@@ -131,6 +108,25 @@ class AppTest(object):
         s = set([2, 3, 4])
         assert strategy(s) == "IntegerSetStrategy"
 
+    def test_normalize_exc(self):
+        from __pypy__ import normalize_exc
+        e = normalize_exc(TypeError)
+        assert isinstance(e, TypeError)
+        e = normalize_exc(TypeError, 'foo')
+        assert isinstance(e, TypeError)
+        assert str(e) == 'foo'
+        e = normalize_exc(TypeError('doh'))
+        assert isinstance(e, TypeError)
+        assert str(e) == 'doh'
+
+        try:
+            1 / 0
+        except ZeroDivisionError as e:
+            tb = e.__traceback__
+        e = normalize_exc(TypeError, None, tb)
+        assert isinstance(e, TypeError)
+        assert e.__traceback__ == tb
+
 
 class AppTestJitFeatures(object):
     spaceconfig = {"translation.jit": True}
@@ -139,7 +135,10 @@ class AppTestJitFeatures(object):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_jit_backend_features(self):
-        from __pypy__ import jit_backend_features
+        try:
+            from __pypy__ import jit_backend_features
+        except ImportError:
+            skip("compiled without jit")
         supported_types = jit_backend_features
         assert isinstance(supported_types, list)
         for x in supported_types:

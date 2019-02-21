@@ -15,9 +15,9 @@ my_execute_frame = _decorator(PyFrame.execute_frame)
 
 
 class __extend__(PyFrame):
-    def execute_frame(self, w_inputvalue=None, operr=None):
+    def execute_frame(self, in_generator=None, w_arg_or_err=None):
         # indirection for the optional arguments
-        return my_execute_frame(self, w_inputvalue, operr)
+        return my_execute_frame(self, in_generator, w_arg_or_err)
 
 
 def _safe(s):

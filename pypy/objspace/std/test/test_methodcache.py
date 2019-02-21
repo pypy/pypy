@@ -1,6 +1,8 @@
+import pytest
 from pypy.objspace.std.test import test_typeobject
 
 
+@pytest.mark.skipif('config.option.runappdirect')
 class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
@@ -45,34 +47,14 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             assert cache_counter[1] >= 3 # should be (27, 3)
             assert sum(cache_counter) == 30
 
-    def test_class_that_cannot_be_cached(self):
-        @self.retry
-        def run():
-            import __pypy__
-            class X:
-                pass
-            class Y(object):
-                pass
-            class A(Y, X):
-                def f(self):
-                    return 42
-
-            class B(object):
-                def f(self):
-                    return 43
-            class C(object):
-                def f(self):
-                    return 44
-            l = [A(), B(), C()] * 10
-            __pypy__.reset_method_cache_counter()
-            for i, a in enumerate(l):
-                assert a.f() == 42 + i % 3
-            cache_counter = __pypy__.method_cache_counter("f")
-            assert cache_counter[0] >= 9
-            assert cache_counter[1] >= 2 # should be (18, 2)
-            assert sum(cache_counter) == 20
-
     def test_change_methods(self):
+        # this test fails because of the following line in typeobject.py:427
+        #             if cached_name is name:
+
+        # in py3k, identifiers are stored in W_UnicodeObject and unwrapped by
+        # calling space.text_w, which .encode('ascii') the string, thus
+        # creating new strings all the time. The problem should be solved when
+        # we implement proper unicode identifiers in py3k
         @self.retry
         def run():
             import __pypy__
@@ -137,19 +119,28 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
         @self.retry
         def run():
             import __pypy__
+            laste = None
             for j in range(20):
                 class A(object):
-                    foo = 5
-                    bar = 6
-                    baz = 7
-                    xyz = 8
-                    stuff = 9
-                    a = 10
-                    foobar = 11
+                    def f(self):
+                        return 42
+                class B(object):
+                    def f(self):
+                        return 43
+                class C(A):
+                    pass
+                l = [A(), B(), C()] * 10
+                __pypy__.reset_method_cache_counter()
+                for i, a in enumerate(l):
+                    assert a.f() == 42 + (i % 3 == 1)
+                cache_counter = __pypy__.method_cache_counter("f")
+                assert cache_counter[0] >= 15
+                assert cache_counter[1] >= 3 # should be (27, 3)
+                assert sum(cache_counter) == 30
 
                 a = A()
                 names = [name for name in A.__dict__.keys()
-                              if not name.startswith('_')]
+                         if not name.startswith('_')]
                 names.sort()
                 names_repeated = names * 10
                 result = []
@@ -164,10 +155,10 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
                     for name, count in zip(names, names_counters):
                         assert count == (9, 1), str((name, count))
                     break
-                except AssertionError:
-                    pass
+                except AssertionError as e:
+                    laste = e
             else:
-                raise
+                raise laste
 
     def test_mutating_bases(self):
         class C(object):

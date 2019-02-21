@@ -3,7 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload, clibffi
 from rpython.rtyper.lltypesystem import rffi
 
-VERSION = "1.11.4"
+VERSION = "1.12.1"
 
 FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
 try:
@@ -52,6 +52,7 @@ class Module(MixedModule):
         'unpack': 'func.unpack',
         'buffer': 'cbuffer.MiniBuffer',
         'memmove': 'func.memmove',
+        'release': 'func.release',
 
         'get_errno': 'cerrno.get_errno',
         'set_errno': 'cerrno.set_errno',
@@ -71,7 +72,8 @@ class Module(MixedModule):
     def __init__(self, space, *args):
         MixedModule.__init__(self, space, *args)
         #
-        if not space.config.objspace.disable_entrypoints:
+        if (not space.config.objspace.disable_entrypoints and
+            not space.config.objspace.disable_entrypoints_in_cffi):
             # import 'embedding', which has the side-effect of registering
             # the 'pypy_init_embedded_cffi_module' entry point
             from pypy.module._cffi_backend import embedding

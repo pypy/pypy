@@ -4,7 +4,6 @@ from pypy.module.cpyext import api
 
 class Module(MixedModule):
     interpleveldefs = {
-        'load_module': 'api.load_extension_module',
         'is_cpyext_function': 'interp_cpyext.is_cpyext_function',
     }
 
@@ -49,12 +48,10 @@ import pypy.module.cpyext.bytearrayobject
 import pypy.module.cpyext.tupleobject
 import pypy.module.cpyext.setobject
 import pypy.module.cpyext.dictobject
-import pypy.module.cpyext.intobject
 import pypy.module.cpyext.longobject
 import pypy.module.cpyext.listobject
 import pypy.module.cpyext.sequence
 import pypy.module.cpyext.buffer
-import pypy.module.cpyext.bufferobject
 import pypy.module.cpyext.eval
 import pypy.module.cpyext.import_
 import pypy.module.cpyext.mapping
@@ -71,12 +68,17 @@ import pypy.module.cpyext.weakrefobject
 import pypy.module.cpyext.funcobject
 import pypy.module.cpyext.frameobject
 import pypy.module.cpyext.classobject
+import pypy.module.cpyext.exception
 import pypy.module.cpyext.memoryobject
 import pypy.module.cpyext.codecs
 import pypy.module.cpyext.pyfile
 import pypy.module.cpyext.pystrtod
 import pypy.module.cpyext.pytraceback
 import pypy.module.cpyext.methodobject
+import pypy.module.cpyext.dictproxyobject
+import pypy.module.cpyext.marshal
+import pypy.module.cpyext.genobject
+import pypy.module.cpyext.namespaceobject
 
 # now that all rffi_platform.Struct types are registered, configure them
 api.configure_types()

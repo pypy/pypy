@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import BufferInterfaceNotFound
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from rpython.rlib.buffer import SubBuffer
+from pypy.interpreter.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -279,7 +279,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
         # not an array
         npy_order = order_converter(space, w_order, NPY.CORDER)
         shape, elems_w = find_shape_and_elems(space, w_object, dtype)
-    if dtype is None and space.isinstance_w(w_object, space.w_buffer):
+    if dtype is None and space.isinstance_w(w_object, space.w_memoryview):
         dtype = descriptor.get_dtype_cache(space).w_uint8dtype
     if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
         dtype = find_dtype_for_seq(space, elems_w, dtype)

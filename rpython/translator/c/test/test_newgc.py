@@ -1812,7 +1812,106 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         res = self.run("ignore_finalizer")
         assert res == 1    # translated: x1 is removed from the list
 
+    def define_enable_disable(self):
+        class Counter(object):
+            val = 0
+        counter = Counter()
+        class X(object):
+            def __del__(self):
+                counter.val += 1
+        def f(should_disable):
+            x1 = X()
+            rgc.collect() # make x1 old
+            assert not rgc.can_move(x1)
+            x1 = None
+            #
+            if should_disable:
+                gc.disable()
+                assert not gc.isenabled()
+            # try to trigger a major collection
+            N = 100 # this should be enough, increase if not
+            lst = []
+            for i in range(N):
+                lst.append(chr(i%256) * (1024*1024))
+                #print i, counter.val
+            #
+            gc.enable()
+            assert gc.isenabled()
+            return counter.val
+        return f
 
+    def test_enable_disable(self):
+        # first, run with normal gc. If the assert fails it means that in the
+        # loop we don't allocate enough mem to trigger a major collection. Try
+        # to increase N
+        deleted = self.run("enable_disable", 0)
+        assert deleted == 1, 'This should not fail, try to increment N'
+        #
+        # now, run with gc.disable: this should NOT free x1
+        deleted = self.run("enable_disable", 1)
+        assert deleted == 0
+
+    def define_collect_step(self):
+        class Counter(object):
+            val = 0
+        counter = Counter()
+        class X(object):
+            def __del__(self):
+                counter.val += 1
+        def f():
+            x1 = X()
+            rgc.collect() # make x1 old
+            assert not rgc.can_move(x1)
+            x1 = None
+            #
+            gc.disable()
+            n = 0
+            states = []
+            while True:
+                n += 1
+                val = rgc.collect_step()
+                states.append((rgc.old_state(val), rgc.new_state(val)))
+                if rgc.is_done(val):
+                    break
+                if n == 100:
+                    print 'Endless loop!'
+                    assert False, 'this looks like an endless loop'
+                
+            if n < 4: # we expect at least 4 steps
+                print 'Too few steps! n =', n
+                assert False
+
+            # check that the state transitions are reasonable
+            first_state, _ = states[0]
+            for i, (old_state, new_state) in enumerate(states):
+                is_last = (i == len(states) - 1)
+                is_valid = False
+                if is_last:
+                    assert old_state != new_state == first_state
+                else:
+                    assert new_state == old_state or new_state == old_state+1
+
+            return counter.val
+        return f
+
+    def test_collect_step(self):
+        deleted = self.run("collect_step")
+        assert deleted == 1
+
+    def define_total_gc_time(cls):
+        def f():
+            l = []
+            for i in range(1000000):
+                l.append(str(i))
+            l = []
+            for i in range(10):
+                rgc.collect()
+            return rgc.get_stats(rgc.TOTAL_GC_TIME)
+        return f
+
+    def test_total_gc_time(self):
+        res = self.run("total_gc_time")
+        assert res > 0 # should take a few microseconds
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):

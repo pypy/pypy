@@ -3,7 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 
 from rpython.rlib import jit
-from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.rutf8 import MAXUNICODE
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import oefmt
@@ -41,32 +41,39 @@ def getframe(space, depth):
         f = ec.getnextframe_nohidden(f)
 
 
+def _stack_check_noinline():
+    from rpython.rlib.rstack import stack_check
+    stack_check()
+_stack_check_noinline._dont_inline_ = True
+
+@jit.dont_look_inside
 @unwrap_spec(new_limit="c_int")
 def setrecursionlimit(space, new_limit):
     """setrecursionlimit() sets the maximum number of nested calls that
-can occur before a RuntimeError is raised.  On PyPy the limit is
-approximative and checked at a lower level.  The default 1000
+can occur before a RecursionError is raised.  On PyPy the limit
+is approximative and checked at a lower level.  The default 1000
 reserves 768KB of stack space, which should suffice (on Linux,
 depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
 """
     from rpython.rlib.rstack import _stack_set_length_fraction
+    from rpython.rlib.rstackovf import StackOverflow
     if new_limit <= 0:
         raise oefmt(space.w_ValueError, "recursion limit must be positive")
+    try:
+        _stack_set_length_fraction(new_limit * 0.001)
+        _stack_check_noinline()
+    except StackOverflow:
+        old_limit = space.sys.recursionlimit
+        _stack_set_length_fraction(old_limit * 0.001)
+        raise oefmt(space.w_RecursionError,
+                    "maximum recursion depth exceeded")
     space.sys.recursionlimit = new_limit
-    _stack_set_length_fraction(new_limit * 0.001)
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
     """
     return space.newint(space.sys.recursionlimit)
-
-@unwrap_spec(flag=bool)
-def set_track_resources(space, flag):
-    space.sys.track_resources = flag
-
-def get_track_resources(space):
-    return space.newbool(space.sys.track_resources)
 
 @unwrap_spec(interval=int)
 def setcheckinterval(space, interval):
@@ -86,6 +93,25 @@ def getcheckinterval(space):
         result = 0
     return space.newint(result)
 
+@unwrap_spec(interval=float)
+def setswitchinterval(space, interval):
+    """For CPython compatibility, this maps to
+    sys.setcheckinterval(interval * 2000000)
+    """
+    # The scaling factor is chosen so that with the default
+    # checkinterval value of 10000, it corresponds to 0.005, which is
+    # the default value of the switchinterval in CPython 3.5
+    if interval <= 0.0:
+        raise oefmt(space.w_ValueError,
+                    "switch interval must be strictly positive")
+    space.actionflag.setcheckinterval(int(interval * 2000000.0))
+
+def getswitchinterval(space):
+    """For CPython compatibility, this maps to
+    sys.getcheckinterval() / 2000000
+    """
+    return space.newfloat(space.actionflag.getcheckinterval() / 2000000.0)
+
 def exc_info(space):
     """Return the (type, value, traceback) of the most recent exception
 caught by an except clause in the current stack frame or in an older stack
@@ -100,8 +126,7 @@ def exc_info_with_tb(space):
         return space.newtuple([operror.w_type, operror.get_w_value(space),
                                operror.get_w_traceback(space)])
 
-def exc_info_without_tb(space, frame):
-    operror = frame.last_exception
+def exc_info_without_tb(space, operror):
     return space.newtuple([operror.w_type, operror.get_w_value(space),
                            space.w_None])
 
@@ -115,13 +140,10 @@ def exc_info_direct(space, frame):
     #       BINARY_SUBSCR
     # or:
     #       CALL_FUNCTION/CALL_METHOD
+    #       LOAD_CONST any integer or None
     #       LOAD_CONST <=2
-    #       SLICE_2
-    # or:
-    #       CALL_FUNCTION/CALL_METHOD
-    #       LOAD_CONST any integer
-    #       LOAD_CONST <=2
-    #       SLICE_3
+    #       BUILD_SLICE 2
+    #       BINARY_SUBSCR
     need_all_three_args = True
     co = frame.getcode().co_code
     p = frame.last_instr
@@ -131,16 +153,16 @@ def exc_info_direct(space, frame):
             lo = ord(co[p+4])
             hi = ord(co[p+5])
             w_constant = frame.getconstant_w((hi * 256) | lo)
-            if space.isinstance_w(w_constant, space.w_int):
-                constant = space.int_w(w_constant)
-                if ord(co[p+6]) == stdlib_opcode.BINARY_SUBSCR:
+            if ord(co[p+6]) == stdlib_opcode.BINARY_SUBSCR:
+                if space.isinstance_w(w_constant, space.w_int):
+                    constant = space.int_w(w_constant)
                     if -3 <= constant <= 1 and constant != -1:
                         need_all_three_args = False
-                elif ord(co[p+6]) == stdlib_opcode.SLICE+2:
-                    if constant <= 2:
-                        need_all_three_args = False
-                elif (ord(co[p+6]) == stdlib_opcode.LOAD_CONST and
-                      ord(co[p+9]) == stdlib_opcode.SLICE+3):
+            elif (ord(co[p+6]) == stdlib_opcode.LOAD_CONST and
+                  ord(co[p+9]) == stdlib_opcode.BUILD_SLICE and
+                  ord(co[p+12]) == stdlib_opcode.BINARY_SUBSCR):
+                if (space.is_w(w_constant, space.w_None) or
+                    space.isinstance_w(w_constant, space.w_int)):
                     lo = ord(co[p+7])
                     hi = ord(co[p+8])
                     w_constant = frame.getconstant_w((hi * 256) | lo)
@@ -148,10 +170,11 @@ def exc_info_direct(space, frame):
                         if space.int_w(w_constant) <= 2:
                             need_all_three_args = False
     #
-    if need_all_three_args or frame.last_exception is None or frame.hide():
+    operror = space.getexecutioncontext().sys_exc_info()
+    if need_all_three_args or operror is None or frame.hide():
         return exc_info_with_tb(space)
     else:
-        return exc_info_without_tb(space, frame)
+        return exc_info_without_tb(space, operror)
 
 def exc_clear(space):
     """Clear global information on the current exception.  Subsequent calls
@@ -195,8 +218,7 @@ app = gateway.applevel('''
 "NOT_RPYTHON"
 from _structseq import structseqtype, structseqfield
 
-class windows_version_info:
-    __metaclass__ = structseqtype
+class windows_version_info(metaclass=structseqtype):
 
     name = "sys.getwindowsversion"
 
@@ -212,6 +234,7 @@ class windows_version_info:
     service_pack_minor = structseqfield(11, "Service Pack minor version number")
     suite_mask = structseqfield(12, "Bit mask identifying available product suites")
     product_type = structseqfield(13, "System product type")
+    _platform_version = structseqfield(14, "Diagnostic version number")
 ''')
 
 
@@ -229,6 +252,9 @@ def getwindowsversion(space):
         space.newint(info[6]),
         space.newint(info[7]),
         space.newint(info[8]),
+        # leave _platform_version empty, platform.py will use the main
+        # version numbers above.
+        space.w_None,
     ])
     return space.call_function(w_windows_version_info, raw_version)
 
@@ -291,4 +317,34 @@ def getsizeof(space, w_object, w_default=None):
     if w_default is None:
         raise oefmt(space.w_TypeError, getsizeof_missing)
     return w_default
+
 getsizeof.__doc__ = getsizeof_missing
+
+def intern(space, w_str):
+    """``Intern'' the given string.  This enters the string in the (global)
+table of interned strings whose purpose is to speed up dictionary lookups.
+Return the string itself or the previously interned string object with the
+same value."""
+    if space.is_w(space.type(w_str), space.w_unicode):
+        return space.new_interned_w_str(w_str)
+    raise oefmt(space.w_TypeError, "intern() argument must be string.")
+
+def get_coroutine_wrapper(space):
+    "Return the wrapper for coroutine objects set by sys.set_coroutine_wrapper."
+    ec = space.getexecutioncontext()
+    if ec.w_coroutine_wrapper_fn is None:
+        return space.w_None
+    return ec.w_coroutine_wrapper_fn
+
+def set_coroutine_wrapper(space, w_wrapper):
+    "Set a wrapper for coroutine objects."
+    ec = space.getexecutioncontext()
+    if space.is_w(w_wrapper, space.w_None):
+        ec.w_coroutine_wrapper_fn = None
+    elif space.is_true(space.callable(w_wrapper)):
+        ec.w_coroutine_wrapper_fn = w_wrapper
+    else:
+        raise oefmt(space.w_TypeError, "callable expected, got %T", w_wrapper)
+
+def is_finalizing(space):
+    return space.newbool(space.sys.finalizing)

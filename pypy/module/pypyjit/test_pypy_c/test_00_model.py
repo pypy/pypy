@@ -2,23 +2,38 @@ from __future__ import with_statement
 import sys, os
 import types
 import subprocess
-import py
-from rpython.tool import disassembler
+import py, pytest
 from rpython.tool.udir import udir
 from rpython.tool import logparser
 from rpython.jit.tool.jitoutput import parse_prof
+from rpython.tool.jitlogparser import storage
 from pypy.module.pypyjit.test_pypy_c.model import \
-    Log, find_ids_range, find_ids, OpMatcher, InvalidMatch
+    Log, find_id_linenos, OpMatcher, InvalidMatch
+
+my_file = __file__
+if my_file.endswith('pyc'):
+    my_file = my_file[:-1]
 
 
 class BaseTestPyPyC(object):
     log_string = 'jit-log-opt,jit-log-noopt,jit-log-virtualstate,jit-summary'
 
     def setup_class(cls):
-        if '__pypy__' not in sys.builtin_module_names:
-            py.test.skip("must run this test with pypy")
-        if not sys.pypy_translation_info['translation.jit']:
-            py.test.skip("must give a pypy-c with the jit enabled")
+        pypy_c = pytest.config.option.pypy_c or None
+        if pypy_c is not None:
+            pypy_c = os.path.expanduser(pypy_c)
+            assert os.path.exists(pypy_c), (
+                "--pypy specifies %r, which does not exist" % (pypy_c,))
+            out = subprocess.check_output([pypy_c, '-c',
+            "import sys; print('__pypy__' in sys.builtin_module_names)"])
+            assert 'True' in out, "%r is not a pypy executable" % (pypy_c,)
+            out = subprocess.check_output([pypy_c, '-c',
+            "import sys; print(sys.pypy_translation_info['translation.jit'])"])
+            assert 'True' in out, "%r is a not a JIT-enabled pypy" % (pypy_c,)
+            out = subprocess.check_output([pypy_c, '-c',
+            "import sys; print(sys.version)"])
+            assert out.startswith('3'), "%r is a not a pypy 3" % (pypy_c,)
+        cls.pypy_c = pypy_c
         cls.tmpdir = udir.join('test-pypy-jit')
         cls.tmpdir.ensure(dir=True)
 
@@ -29,6 +44,8 @@ class BaseTestPyPyC(object):
             discard_stdout_before_last_line=False, **jitopts):
         jitopts.setdefault('threshold', 200)
         jitopts.setdefault('disable_unrolling', 9999)
+        if self.pypy_c is None:
+            py.test.skip("run with --pypy=PATH")
         src = py.code.Source(func_or_src)
         if isinstance(func_or_src, types.FunctionType):
             funcname = func_or_src.func_name
@@ -42,12 +59,12 @@ class BaseTestPyPyC(object):
             f.write("import sys\n")
             f.write("sys.setcheckinterval(10000000)\n")
             f.write(str(src) + "\n")
-            f.write("print %s(%s)\n" % (funcname, arglist))
+            f.write("print(%s(%s))\n" % (funcname, arglist))
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
         #
-        cmdline = [sys.executable]
+        cmdline = [self.pypy_c]
         if not import_site:
             cmdline.append('-S')
         if jitopts:
@@ -74,6 +91,9 @@ class BaseTestPyPyC(object):
         #if stderr.startswith('debug_alloc.h:'):   # lldebug builds
         #    stderr = ''
         #assert not stderr
+        if not stdout:
+            raise Exception("no stdout produced; stderr='''\n%s'''"
+                            % (stderr,))
         if stderr:
             print '*** stderr of the subprocess: ***'
             print stderr
@@ -106,31 +126,16 @@ class BaseTestPyPyC(object):
 
 
 class TestLog(object):
-    def test_find_ids_range(self):
+    def test_find_id_linenos(self):
         def f():
             a = 0 # ID: myline
             return a
         #
         start_lineno = f.func_code.co_firstlineno
-        code = disassembler.dis(f)
-        ids = find_ids_range(code)
-        assert len(ids) == 1
-        myline_range = ids['myline']
-        assert list(myline_range) == range(start_lineno+1, start_lineno+2)
-
-    def test_find_ids(self):
-        def f():
-            i = 0
-            x = 0
-            z = x + 3 # ID: myline
-            return z
-        #
-        code = disassembler.dis(f)
-        ids = find_ids(code)
-        assert len(ids) == 1
+        code = storage.GenericCode(my_file, start_lineno, 'f')
+        ids = find_id_linenos(code)
         myline = ids['myline']
-        opcodes_names = [opcode.__class__.__name__ for opcode in myline]
-        assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
+        assert myline == start_lineno + 1
 
 
 class TestOpMatcher_(object):
@@ -433,7 +438,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         import pytest
         def f():
             import sys
-            print >> sys.stderr, 'SKIP: foobar'
+            sys.stderr.write('SKIP: foobar\n')
         #
         raises(pytest.skip.Exception, "self.run(f, [])")
 
@@ -471,7 +476,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_id('increment')
         assert loop.filename == self.filepath
-        assert loop.code.co.co_name == 'f'
+        assert loop.code.name == 'f'
         #
         ops = loop.allops()
         assert log.opnames(ops) == [

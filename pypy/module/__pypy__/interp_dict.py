@@ -70,7 +70,11 @@ def delitem_if_value_is(space, w_obj, w_key, w_value):
 def move_to_end(space, w_obj, w_key, last=True):
     """Move the key in a dictionary object into the first or last position.
 
-    This is used in Python 3.x to implement OrderedDict.move_to_end().
+    This is a __pypy__ function instead of being simply done by calling
+    dict.move_to_end(), for CPython compatibility: dictionaries are only
+    ordered on PyPy.  You should use the collections.OrderedDict class for
+    cases where ordering is important.  That class implements the
+    move_to_end() method by calling __pypy__.move_to_end().
     """
     from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     if not isinstance(w_obj, W_DictMultiObject):

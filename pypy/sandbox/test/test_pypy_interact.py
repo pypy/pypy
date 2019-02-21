@@ -5,7 +5,7 @@ from rpython.translator.interactive import Translation
 from pypy.module.sys.version import CPYTHON_VERSION
 from pypy.tool.lib_pypy import LIB_PYTHON
 
-VERSION = '%d.%d' % CPYTHON_VERSION[:2]
+VERSION = '%d' % CPYTHON_VERSION[0]
 SITE_PY_CONTENT = LIB_PYTHON.join('site.py').read()
 ERROR_TEXT = os.strerror(errno.ENOENT)
 
@@ -26,9 +26,9 @@ def mini_pypy_like_entry_point(argv):
     assert_(argv[2] == 'bar', "bad argv[2]")
     env = os.environ.items()
     assert_(len(env) == 0, "empty environment expected")
-    assert_(argv[0] == '/bin/pypy-c', "bad argv[0]")
-    st = os.lstat('/bin/pypy-c')
-    assert_(stat.S_ISREG(st.st_mode), "bad st_mode for /bin/pypy-c")
+    assert_(argv[0] == '/bin/pypy3-c', "bad argv[0]")
+    st = os.lstat('/bin/pypy3-c')
+    assert_(stat.S_ISREG(st.st_mode), "bad st_mode for /bin/pypy3-c")
     for dirname in ['/bin/lib-python/' + VERSION, '/bin/lib_pypy']:
         st = os.stat(dirname)
         assert_(stat.S_ISDIR(st.st_mode), "bad st_mode for " + dirname)

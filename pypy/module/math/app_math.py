@@ -1,3 +1,9 @@
+import sys
+try:
+    from _operator import index
+except ImportError:
+    pass      # for tests only
+
 def factorial(x):
     """factorial(x) -> Integral
 
@@ -7,6 +13,8 @@ def factorial(x):
         if fl != x:
             raise ValueError("float arguments must be integral")
         x = fl
+    if x > sys.maxsize:
+        raise OverflowError("Too large for a factorial")
 
     if x <= 100:
         if x < 0:
@@ -38,3 +46,11 @@ def factorial(x):
 
     res, _, shift = _fac1(x)
     return res << shift
+
+def gcd(x, y):
+    """greatest common divisor of x and y"""
+    x = abs(index(x))
+    y = abs(index(y))
+    while x > 0:
+        x, y = y % x, x
+    return y

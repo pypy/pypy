@@ -2,23 +2,31 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import executioncontext
+from pypy.interpreter.executioncontext import ExecutionContext
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
 import sys
 
+
+# Keep track of exceptions raised in cpyext for a particular execution
+# context.
+ExecutionContext.cpyext_operror = None
+
+
 class State:
     def __init__(self, space):
         self.space = space
         self.reset()
-        self.programname = lltype.nullptr(rffi.CCHARP.TO)
+        self.programname = lltype.nullptr(rffi.CWCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
         self.builder = None
         self.C = CNamespace()
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
-        self.operror = None
+        ec = self.space.getexecutioncontext()
+        ec.cpyext_operror = None
         self.new_method_def = lltype.nullptr(PyMethodDef)
 
         # When importing a package, use this to keep track
@@ -34,20 +42,29 @@ class State:
         # A mapping {filename: copy-of-the-w_dict}, similar to CPython's
         # variable 'extensions' in Python/import.c.
         self.extensions = {}
+        # XXX will leak if _PyDateTime_Import already called
+        self.datetimeAPI = []
 
     def set_exception(self, operror):
         self.clear_exception()
-        self.operror = operror
+        ec = self.space.getexecutioncontext()
+        ec.cpyext_operror = operror
 
     def clear_exception(self):
         """Clear the current exception state, and return the operror."""
-        operror = self.operror
-        self.operror = None
+        ec = self.space.getexecutioncontext()
+        operror = ec.cpyext_operror
+        ec.cpyext_operror = None
         return operror
+
+    def get_exception(self):
+        ec = self.space.getexecutioncontext()
+        return ec.cpyext_operror
 
     @specialize.arg(1)
     def check_and_raise_exception(self, always=False):
-        operror = self.operror
+        ec = self.space.getexecutioncontext()
+        operror = ec.cpyext_operror
         if operror:
             self.clear_exception()
             raise operror
@@ -195,10 +212,12 @@ class State:
             argv = space.sys.get('argv')
             if space.len_w(argv):
                 argv0 = space.getitem(argv, space.newint(0))
-                progname = space.text_w(argv0)
+                progname = space.utf8_w(argv0)
+                lgt = space.len_w(argv0)
             else:
-                progname = "pypy"
-            self.programname = rffi.str2charp(progname)
+                progname = "pypy3"
+                lgt = len(progname)
+            self.programname = rffi.utf82wcharp(progname, lgt)
             lltype.render_immortal(self.programname)
         return self.programname
 
@@ -210,29 +229,27 @@ class State:
             self.version = rffi.str2charp(version)
             lltype.render_immortal(self.version)
         return self.version
+        foo = self.import_module(name='foo', init=init)
 
     def find_extension(self, name, path):
-        from pypy.module.cpyext.modsupport import PyImport_AddModule
+        from pypy.module.cpyext.import_ import PyImport_AddModule
         from pypy.interpreter.module import Module
         try:
             w_dict = self.extensions[path]
         except KeyError:
             return None
-        w_mod = PyImport_AddModule(self.space, name)
+        with rffi.scoped_str2charp(name) as ll_name:
+            w_mod = PyImport_AddModule(self.space, ll_name)
         assert isinstance(w_mod, Module)
         w_mdict = w_mod.getdict(self.space)
         self.space.call_method(w_mdict, 'update', w_dict)
         return w_mod
 
-    def fixup_extension(self, name, path):
+    def fixup_extension(self, w_mod, name, path):
         from pypy.interpreter.module import Module
         space = self.space
         w_modules = space.sys.get('modules')
-        w_mod = space.finditem_str(w_modules, name)
-        if not isinstance(w_mod, Module):
-            msg = "fixup_extension: module '%s' not loaded" % name
-            raise OperationError(space.w_SystemError,
-                                 space.newtext(msg))
+        space.setitem_str(w_modules, name, w_mod)
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy

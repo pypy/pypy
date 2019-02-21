@@ -1,9 +1,30 @@
-import py, pytest, sys, textwrap
+import py, pytest, sys, os, textwrap
 from inspect import isclass
+
+if hasattr(sys, 'setrecursionlimit'):
+    # some tests fail otherwise
+    sys.setrecursionlimit(2000)
+
+LOOK_FOR_PYTHON3 = 'python3.5'
+PYTHON3 = os.getenv('PYTHON3') or py.path.local.sysfind(LOOK_FOR_PYTHON3)
+if PYTHON3 is not None:
+    PYTHON3 = str(PYTHON3)
 
 # pytest settings
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
+
+try:
+    from hypothesis import settings, __version__
+except ImportError:
+    pass
+else:
+    if __version__[:2] < '3.6':
+        s = settings(deadline=None)
+        settings.register_profile('default', s)
+    else:
+        settings.register_profile('default', deadline=None)
+    settings.load_profile('default')
 
 # PyPy's command line extra options (these are added
 # to py.test's standard options)
@@ -24,12 +45,16 @@ def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
 def pytest_addhooks(pluginmanager):
-    from rpython.conftest import LeakFinder
-    pluginmanager.register(LeakFinder())
+    if sys.version_info < (3,):
+        from rpython.conftest import LeakFinder
+        pluginmanager.register(LeakFinder())
 
 def pytest_configure(config):
     global option
     option = config.option
+    def py3k_skip(message):
+        py.test.skip('[py3k] %s' % message)
+    py.test.py3k_skip = py3k_skip
 
 def pytest_addoption(parser):
     from rpython.conftest import pytest_addoption
@@ -38,7 +63,10 @@ def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
-           help="run applevel tests directly on python interpreter (not through PyPy)")
+           help="run applevel tests directly on the python interpreter " +
+                "specified by --python")
+    group.addoption('--python', type="string", default=PYTHON3,
+           help="python interpreter to run appdirect tests with")
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")
@@ -64,10 +92,13 @@ def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
         apparently earlier on "raises" was already added
         to module's globals.
     """
-    import __builtin__
+    try:
+        import builtins
+    except ImportError:
+        import __builtin__ as builtins
     for helper in helpers:
-        if not hasattr(__builtin__, helper):
-            setattr(__builtin__, helper, getattr(py.test, helper))
+        if not hasattr(builtins, helper):
+            setattr(builtins, helper, getattr(py.test, helper))
 
 def pytest_sessionstart(session):
     """ before session.main() is called. """
@@ -139,7 +170,7 @@ def skip_on_missing_buildoption(**ropts):
     import sys
     options = getattr(sys, 'pypy_translation_info', None)
     if options is None:
-        py.test.skip("not running on translated pypy "
+        py.test.skip("not running on translated pypy3 "
                      "(btw, i would need options: %s)" %
                      (ropts,))
     for opt in ropts:
@@ -147,7 +178,7 @@ def skip_on_missing_buildoption(**ropts):
             break
     else:
         return
-    py.test.skip("need translated pypy with: %s, got %s"
+    py.test.skip("need translated pypy3 with: %s, got %s"
                  %(ropts,options))
 
 class LazyObjSpaceGetter(object):

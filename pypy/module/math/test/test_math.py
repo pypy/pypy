@@ -4,7 +4,7 @@ import py
 from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.module.math.test import test_direct
-
+from rpython.rlib.rfloat import INFINITY, NAN
 
 class AppTestMath:
     spaceconfig = {
@@ -12,19 +12,12 @@ class AppTestMath:
     }
 
     def setup_class(cls):
+        from rpython.rtyper.lltypesystem.module.test import math_cases
+        filename = math_cases.__file__
+        if filename.endswith('.pyc'):
+            filename = filename[:-1]
         space = cls.space
-        cases = []
-        for a, b, expected in test_direct.MathTests.TESTCASES:
-            if type(expected) is type and issubclass(expected, Exception):
-                expected = getattr(space, "w_%s" % expected.__name__)
-            elif callable(expected):
-                if not cls.runappdirect:
-                    expected = cls.make_callable_wrapper(expected)
-            else:
-                expected = space.wrap(expected)
-            cases.append(space.newtuple([space.wrap(a), space.wrap(b), expected]))
-        cls.w_cases = space.newlist(cases)
-        cls.w_consistent_host = space.wrap(test_direct.consistent_host)
+        cls.w_math_cases = space.wrap(filename)
 
     @classmethod
     def make_callable_wrapper(cls, func):
@@ -35,13 +28,34 @@ class AppTestMath:
     def w_ftest(self, actual, expected):
         assert abs(actual - expected) < 10E-5
 
+    def w_cases(self):
+        with open(self.math_cases) as f:
+            mod = compile(f.read(), "math_cases.py", "exec")
+        ns = {}
+        eval(mod, ns)
+        TESTCASES = ns['MathTests'].TESTCASES
+        INFINITY = ns['INFINITY']
+        NAN = ns['NAN']
+
+        for fnname, args, expected in TESTCASES:
+            # marked as OverflowError to match 2.x/ll_math in
+            # test_direct, but this is a ValueError on 3.x
+            if (fnname, args, expected) == ('log1p', (-1.0,), OverflowError):
+                expected = ValueError
+            # 3.x ceil/floor differ from 2.x
+            if fnname in ('ceil', 'floor'):
+                if args[0] in (INFINITY, -INFINITY):
+                    expected = OverflowError
+                elif args[0] is NAN:
+                    expected = ValueError
+
+            yield fnname, args, expected
+
     def test_all_cases(self):
-        if not self.consistent_host:
-            skip("please test this on top of PyPy or CPython >= 2.6")
         import math
-        for fnname, args, expected in self.cases:
+        for fnname, args, expected in self.cases():
             fn = getattr(math, fnname)
-            print fn, args
+            print(fn, args, expected)
             try:
                 got = fn(*args)
             except ValueError:
@@ -116,7 +130,7 @@ class AppTestMath:
                 math.isnan(actual) and math.isnan(expected))
 
     def test_factorial(self):
-        import math
+        import math, sys
         assert math.factorial(0) == 1
         assert math.factorial(1) == 1
         assert math.factorial(2) == 2
@@ -125,6 +139,8 @@ class AppTestMath:
         raises(ValueError, math.factorial, -1)
         raises(ValueError, math.factorial, -1.)
         raises(ValueError, math.factorial, 1.1)
+        raises(OverflowError, math.factorial, sys.maxsize+1)
+        raises(OverflowError, math.factorial, 10e100)
 
     def test_log1p(self):
         import math
@@ -132,6 +148,25 @@ class AppTestMath:
         self.ftest(math.log1p(0), 0)
         self.ftest(math.log1p(math.e-1), 1)
         self.ftest(math.log1p(1), math.log(2))
+        raises(ValueError, math.log1p, -1)
+        raises(ValueError, math.log1p, -100)
+
+    def test_log2(self):
+        import math
+        self.ftest(math.log2(0.125), -3)
+        self.ftest(math.log2(0.5), -1)
+        self.ftest(math.log2(4), 2)
+
+    def test_log10(self):
+        import math
+        self.ftest(math.log10(0.1), -1)
+        self.ftest(math.log10(10), 1)
+        self.ftest(math.log10(100), 2)
+        self.ftest(math.log10(0.01), -2)
+
+    def test_log_largevalue(self):
+        import math
+        assert math.log2(2**1234) == 1234.0
 
     def test_acosh(self):
         import math
@@ -169,6 +204,110 @@ class AppTestMath:
         import math
         assert math.copysign(1.0, float('-nan')) == -1.0
 
+    def test_special_methods(self):
+        import math
+        class Z:
+            pass
+        for i, name in enumerate(('ceil', 'floor', 'trunc')):
+            setattr(Z, '__{}__'.format(name), lambda self: i)
+            func = getattr(math, name)
+            assert func(Z()) == i
+
+    def test_int_results(self):
+        import math
+        for func in math.ceil, math.floor:
+            assert type(func(0.5)) is int
+            raises(OverflowError, func, float('inf'))
+            raises(ValueError, func, float('nan'))
+
+    def test_ceil(self):
+        # adapted from the cpython test case
+        import math
+        raises(TypeError, math.ceil)
+        assert type(math.ceil(0.4)) is int
+        assert math.ceil(0.5) == 1
+        assert math.ceil(1.0) == 1
+        assert math.ceil(1.5) == 2
+        assert math.ceil(-0.5) == 0
+        assert math.ceil(-1.0) == -1
+        assert math.ceil(-1.5) == -1
+
+        class TestCeil:
+            def __ceil__(self):
+                return 42
+        class TestNoCeil:
+            pass
+        assert math.ceil(TestCeil()) == 42
+        raises(TypeError, math.ceil, TestNoCeil())
+
+        t = TestNoCeil()
+        t.__ceil__ = lambda *args: args
+        raises(TypeError, math.ceil, t)
+        raises(TypeError, math.ceil, t, 0)
+
+        # observed in a cpython interactive shell
+        raises(OverflowError, math.ceil, float("inf"))
+        raises(OverflowError, math.ceil, float("-inf"))
+        raises(ValueError, math.ceil, float("nan"))
+
+        class StrangeCeil:
+            def __ceil__(self):
+                return "this is a string"
+
+        assert math.ceil(StrangeCeil()) == "this is a string"
+
+        class CustomFloat:
+            def __float__(self):
+                return 99.9
+
+        assert math.ceil(CustomFloat()) == 100
+
+    def test_floor(self):
+        # adapted from the cpython test case
+        import math
+        raises(TypeError, math.floor)
+        assert type(math.floor(0.4)) is int
+        assert math.floor(0.5) == 0
+        assert math.floor(1.0) == 1
+        assert math.floor(1.5) == 1
+        assert math.floor(-0.5) == -1
+        assert math.floor(-1.0) == -1
+        assert math.floor(-1.5) == -2
+        assert math.floor(1.23e167) == int(1.23e167)
+        assert math.floor(-1.23e167) == int(-1.23e167)
+
+        class TestFloor:
+            def __floor__(self):
+                return 42
+        class TestNoFloor:
+            pass
+        assert math.floor(TestFloor()) == 42
+        raises(TypeError, math.floor, TestNoFloor())
+
+        t = TestNoFloor()
+        t.__floor__ = lambda *args: args
+        raises(TypeError, math.floor, t)
+        raises(TypeError, math.floor, t, 0)
+
+        # observed in a cpython interactive shell
+        raises(OverflowError, math.floor, float("inf"))
+        raises(OverflowError, math.floor, float("-inf"))
+        raises(ValueError, math.floor, float("nan"))
+
+        class StrangeCeil:
+            def __floor__(self):
+                return "this is a string"
+
+        assert math.floor(StrangeCeil()) == "this is a string"
+
+        assert math.floor(1.23e167) - 1.23e167 == 0.0
+
+        class CustomFloat:
+            def __float__(self):
+                return 99.9
+
+        assert math.floor(CustomFloat()) == 99
+
     def test_erf(self):
         import math
         assert math.erf(100.0) == 1.0
@@ -205,3 +344,36 @@ class AppTestMath:
         assert round(math.lgamma(6.0), 9) == round(math.log(120.0), 9)
         assert raises(ValueError, math.gamma, -1)
         assert round(math.lgamma(0.5), 9) == round(math.log(math.pi ** 0.5), 9)
+
+    def test_isclose(self):
+        import math
+        assert math.isclose(0, 1) is False
+        assert math.isclose(0, 0.0) is True
+        assert math.isclose(1000.1, 1000.2, abs_tol=0.2) is True
+        assert math.isclose(1000.1, 1000.2, rel_tol=1e-3) is True
+        assert math.isclose(1000.1, 1000.2, abs_tol=0.02) is False
+        assert math.isclose(1000.1, 1000.2, rel_tol=1e-5) is False
+        assert math.isclose(float("inf"), float("inf")) is True
+        assert math.isclose(float("-inf"), float("-inf")) is True
+        assert math.isclose(float("inf"), float("-inf")) is False
+        assert math.isclose(float("-inf"), float("inf")) is False
+        assert math.isclose(float("-inf"), 12.34) is False
+        assert math.isclose(float("-inf"), float("nan")) is False
+        assert math.isclose(float("nan"), 12.34) is False
+        assert math.isclose(float("nan"), float("nan")) is False
+        #
+        raises(TypeError, math.isclose, 0, 1, rel_tol=None)
+        raises(TypeError, math.isclose, 0, 1, abs_tol=None)
+
+    def test_gcd(self):
+        import math
+        assert math.gcd(-4, -10) == 2
+        assert math.gcd(0, -10) == 10
+        assert math.gcd(0, 0) == 0
+        raises(TypeError, math.gcd, 0, 0.0)
+
+    def test_inf_nan(self):
+        import math
+        assert math.isinf(math.inf)
+        assert math.inf > -math.inf
+        assert math.isnan(math.nan)

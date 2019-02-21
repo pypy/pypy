@@ -1,4 +1,5 @@
 import pytest
+pytest.skip("This cannot possibly work on pypy3")
 import sys
 try:
     import __pypy__

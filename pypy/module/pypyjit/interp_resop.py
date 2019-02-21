@@ -21,9 +21,10 @@ class Cache(object):
     no = 0
 
     def __init__(self, space):
-        self.w_compile_hook = space.w_None
-        self.w_abort_hook = space.w_None
-        self.w_trace_too_long_hook = space.w_None
+        self.w_compile_hook = None
+        self.w_abort_hook = None
+        self.w_trace_too_long_hook = None
+        self.compile_hook_with_ops = False
 
     def getno(self):
         self.no += 1
@@ -44,8 +45,8 @@ def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
     else:
         return space.newtext(greenkey_repr)
 
-@unwrap_spec(operations=bool)
-def set_compile_hook(space, w_hook, operations=True):
+@unwrap_spec(operations=int)
+def set_compile_hook(space, w_hook, operations=1):
     """ set_compile_hook(hook, operations=True)
 
     Set a compiling hook that will be called each time a loop is compiled.
@@ -58,9 +59,10 @@ def set_compile_hook(space, w_hook, operations=True):
     jit hook won't be called for that.
     """
     cache = space.fromcache(Cache)
-    assert w_hook is not None
+    if space.is_w(w_hook, space.w_None):
+        w_hook = None
     cache.w_compile_hook = w_hook
-    cache.compile_hook_with_ops = operations
+    cache.compile_hook_with_ops = bool(operations)
     cache.in_recursion = NonConstant(False)
 
 def set_abort_hook(space, w_hook):
@@ -77,7 +79,8 @@ def set_abort_hook(space, w_hook):
     as attributes on JitLoopInfo object.
     """
     cache = space.fromcache(Cache)
-    assert w_hook is not None
+    if space.is_w(w_hook, space.w_None):
+        w_hook = None
     cache.w_abort_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
@@ -92,14 +95,15 @@ def set_trace_too_long_hook(space, w_hook):
         hook(jitdriver_name, greenkey)
     """
     cache = space.fromcache(Cache)
-    assert w_hook is not None
+    if space.is_w(w_hook, space.w_None):
+        w_hook = None
     cache.w_trace_too_long_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
 def wrap_oplist(space, logops, operations, ops_offset=None):
     # this function is called from the JIT
     from rpython.jit.metainterp.resoperation import rop
-    
+
     l_w = []
     jitdrivers_sd = logops.metainterp_sd.jitdrivers_sd
     for op in operations:
@@ -121,8 +125,13 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
                                        op.getarg(2).getint(),
                                        w_greenkey))
         elif op.is_guard():
+            descr = op.getdescr()
+            if descr is not None: # can be none in on_abort!
+                hash = op.getdescr().get_jitcounter_hash()
+            else:
+                hash = r_uint(0)
             l_w.append(GuardOp(name, ofs, logops.repr_of_resop(op),
-                op.getdescr().get_jitcounter_hash()))
+                hash))
         else:
             l_w.append(WrappedOp(name, ofs, logops.repr_of_resop(op)))
     return l_w

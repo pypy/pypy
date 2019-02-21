@@ -1,12 +1,13 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rgc  # Force registration of gc.collect
 from rpython.rlib.buffer import RawBuffer
+from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.buffer import BufferView
 from pypy.module.cpyext.api import (
     cpython_api, Py_buffer, Py_ssize_t, Py_ssize_tP, CONST_STRINGP, cts,
     generic_cpy_call,
-    PyBUF_WRITABLE, PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES)
+    PyBUF_WRITABLE, PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES, PyBUF_SIMPLE)
 from pypy.module.cpyext.typeobjectdefs import releasebufferproc
 from pypy.module.cpyext.pyobject import PyObject, incref, decref, as_pyobj
 
@@ -56,13 +57,23 @@ class CPyBuffer(BufferView):
         self.ndim = ndim
         self.itemsize = itemsize
 
-        if not shape:
-            self.shape = [size]
+        # cf. Objects/memoryobject.c:init_shape_strides()
+        if ndim == 0:
+            self.shape = []
+            self.strides = []
+        elif ndim == 1:
+            if shape is None:
+                self.shape = [size // itemsize]
+            else:
+                self.shape = shape
+            if strides is None:
+                self.strides = [itemsize]
+            else:
+                self.strides = strides
         else:
+            assert len(shape) == ndim
             self.shape = shape
-        if not strides:
-            self.strides = [1]
-        else:
+            # XXX: missing init_strides_from_shape
             self.strides = strides
         self.readonly = readonly
         self.needs_decref = needs_decref
@@ -159,17 +170,23 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     """
     pto = obj.c_ob_type
     pb = pto.c_tp_as_buffer
-    if not (pb and pb.c_bf_getreadbuffer and pb.c_bf_getsegcount):
-        raise oefmt(space.w_TypeError, "expected a character buffer object")
-    if generic_cpy_call(space, pb.c_bf_getsegcount,
-                        obj, lltype.nullptr(Py_ssize_tP.TO)) != 1:
+    if not (pb and pb.c_bf_getbuffer):
         raise oefmt(space.w_TypeError,
-                    "expected a single-segment buffer object")
-    size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
-                            obj, 0, bufferp)
-    if size < 0:
-        return -1
-    sizep[0] = size
+                    "expected an object with the buffer interface")
+    with lltype.scoped_alloc(Py_buffer) as view:
+        ret = generic_cpy_call(
+            space, pb.c_bf_getbuffer,
+            obj, view, rffi.cast(rffi.INT_real, PyBUF_SIMPLE))
+        if rffi.cast(lltype.Signed, ret) == -1:
+            return -1
+
+        bufferp[0] = rffi.cast(rffi.CCHARP, view.c_buf)
+        sizep[0] = view.c_len
+
+        if pb.c_bf_releasebuffer:
+            generic_cpy_call(space, pb.c_bf_releasebuffer,
+                             obj, view)
+        decref(space, view.c_obj)
     return 0
 
 DEFAULT_FMT = rffi.str2charp("B")
@@ -182,6 +199,7 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     share a contiguous chunk of memory of "unsigned bytes" of the given
     length. Returns 0 on success and -1 (with raising an error) on error.
     """
+    flags = widen(flags)
     if flags & PyBUF_WRITABLE and readonly:
         raise oefmt(space.w_ValueError, "Object is not writable")
     view.c_buf = buf

@@ -8,7 +8,7 @@ from rpython.rlib.objectmodel import Symbolic
 from rpython.rlib.rarithmetic import (
     base_int, intmask, is_emulated_long, is_valid_int, longlonglongmask,
     longlongmask, maxint, normalizedinttype, r_int, r_longfloat, r_longlong,
-    r_longlonglong, r_singlefloat, r_uint, r_ulonglong)
+    r_longlonglong, r_singlefloat, r_uint, r_ulonglong, r_ulonglonglong)
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
@@ -676,6 +676,7 @@ _numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
 _numbertypes[r_longlonglong] = Number("SignedLongLongLong", r_longlonglong,
                                       longlonglongmask)
+
 if r_longlong is not r_int:
     _numbertypes[r_longlong] = Number("SignedLongLong", r_longlong,
                                       longlongmask)
@@ -700,6 +701,7 @@ Unsigned = build_number("Unsigned", r_uint)
 SignedLongLong = build_number("SignedLongLong", r_longlong)
 SignedLongLongLong = build_number("SignedLongLongLong", r_longlonglong)
 UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
+UnsignedLongLongLong = build_number("UnsignedLongLongLong", r_ulonglonglong)
 
 Float       = Primitive("Float",       0.0)                  # C type 'double'
 SingleFloat = Primitive("SingleFloat", r_singlefloat(0.0))   # 'float'

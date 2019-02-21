@@ -1,3 +1,4 @@
+import pytest
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.interpreter.error import OperationError
 
@@ -11,15 +12,15 @@ class TestW_IterObject:
         self.body0(w_iter)
 
     def body0(self, w_iter):
-        raises(OperationError, self.space.next, w_iter)
-        raises(OperationError, self.space.next, w_iter)
+        pytest.raises(OperationError, self.space.next, w_iter)
+        pytest.raises(OperationError, self.space.next, w_iter)
 
     def test_iter(self):
         w = self.space.wrap
         w_tuple = self.space.newtuple([w(5), w(3), w(99)])
         w_iter = W_SeqIterObject(w_tuple)
         self.body3(w_iter)
-        
+
     def test_iter_builtin(self):
         w = self.space.wrap
         w_tuple = self.space.newtuple([w(5), w(3), w(99)])
@@ -30,7 +31,7 @@ class TestW_IterObject:
         w_list = self.space.newlist([])
         w_iter = W_SeqIterObject(w_list)
         self.body0(w_iter)
-        
+
     def test_emptyiter_builtin(self):
         w_list = self.space.newlist([])
         w_iter = self.space.iter(w_list)
@@ -39,7 +40,7 @@ class TestW_IterObject:
 class AppTestW_IterObjectApp:
     def test_user_iter(self):
         class C(object):
-            def next(self):
+            def __next__(self):
                 raise StopIteration
             def __iter__(self):
                 return self
@@ -49,7 +50,7 @@ class AppTestW_IterObjectApp:
         class C(object):
             def __getitem__(self, i):
                 return range(2)[i]
-        assert list(C()) == range(2)
+        assert list(C()) == list(range(2))
 
     def test_iter_fail_noseq(self):
         class C(object):
@@ -63,10 +64,71 @@ class AppTest_IterObject(object):
         iterable = [1,2,3,4]
         raises(TypeError, len, iter(iterable))
 
+    def test_list_iter_setstate(self):
+        iterable = iter([1,2,3,4])
+        assert next(iterable) == 1
+        iterable.__setstate__(0)
+        assert next(iterable) == 1
+        iterable.__setstate__(-100)
+        assert next(iterable) == 1
+        raises(TypeError, iterable.__setstate__, '0')
+
+    def test_reversed_iter_setstate(self):
+        iterable = reversed([1,2,3,4])
+        assert next(iterable) == 4
+        iterable.__setstate__(0)
+        assert next(iterable) == 1
+        iterable.__setstate__(2)
+        next(iterable); next(iterable)
+        assert next(iterable) == 1
+        iterable.__setstate__(3)
+        assert next(iterable) == 4
+        iterable.__setstate__(-1)
+        raises(StopIteration, next, iterable)
+        #
+        iterable = reversed([1,2,3,4])
+        iterable.__setstate__(-100)
+        raises(StopIteration, next, iterable)
+        #
+        iterable = reversed([1,2,3,4])
+        iterable.__setstate__(100)
+        assert next(iterable) == 4
+        assert next(iterable) == 3
+
+    def test_forward_iter_reduce(self):
+        T = "abc"
+        iterable = iter(T)
+        assert iterable.__reduce__() == (iter, (T, ), 0)
+        assert next(iterable) == "a"
+        assert iterable.__reduce__() == (iter, (T, ), 1)
+        assert next(iterable) == "b"
+        assert iterable.__reduce__() == (iter, (T, ), 2)
+        assert next(iterable) == "c"
+        assert iterable.__reduce__() == (iter, (T, ), 3)
+        raises(StopIteration, next, iterable)
+        assert (iterable.__reduce__() == (iter, ((), )) or   # pypy
+                iterable.__reduce__() == (iter, ("", )))     # cpython
+
+    def test_reversed_iter_reduce(self):
+        T = [1, 2, 3, 4]
+        iterable = reversed(T)
+        assert iterable.__reduce__() == (reversed, (T, ), 3)
+        assert next(iterable) == 4
+        assert iterable.__reduce__() == (reversed, (T, ), 2)
+        assert next(iterable) == 3
+        assert iterable.__reduce__() == (reversed, (T, ), 1)
+        assert next(iterable) == 2
+        assert iterable.__reduce__() == (reversed, (T, ), 0)
+        assert next(iterable) == 1
+        assert iterable.__reduce__() == (reversed, (T, ), -1)
+        raises(StopIteration, next, iterable)
+        assert (iterable.__reduce__() == (iter, ((), )) or   # pypy
+                iterable.__reduce__() == (iter, ([], )))     # cpython
+
     def test_no_len_on_tuple_iter(self):
         iterable = (1,2,3,4)
         raises(TypeError, len, iter(iterable))
-        
+
     def test_no_len_on_deque_iter(self):
         from _collections import deque
         iterable = deque([1,2,3,4])
@@ -81,18 +143,32 @@ class AppTest_IterObject(object):
         it = reversed([5,6,7])
         raises(TypeError, len, it)
 
-    def test_no_len_on_UserList_iter_reversed(self):
-        import sys, _abcoll
-        sys.modules['collections'] = _abcoll
-        from UserList import UserList
+    def test_no_len_on_UserList_iter(self):
+        class UserList(object):
+            def __init__(self, i):
+                self.i = i
+            def __getitem__(self, i):
+                return range(self.i)[i]
         iterable = UserList([1,2,3,4])
         raises(TypeError, len, iter(iterable))
+
+    def test_no_len_on_UserList_iter_reversed(self):
+        class UserList(object):
+            def __init__(self, i):
+                self.i = i
+            def __getitem__(self, i):
+                return range(self.i)[i]
+        iterable = UserList([1,2,3,4])
+        raises(TypeError, len, iter(iterable))
+        raises(TypeError, reversed, iterable)
+
+    def test_no_len_on_UserList_reversed(self):
+        iterable = [1,2,3,4]
         raises(TypeError, len, reversed(iterable))
-        del sys.modules['collections']
 
     def test_reversed_frees_empty(self):
         import gc
-        for typ in list, unicode:
+        for typ in list, str:
             free = [False]
             class U(typ):
                 def __del__(self):
@@ -104,7 +180,7 @@ class AppTest_IterObject(object):
 
     def test_reversed_mutation(self):
         n = 10
-        d = range(n)
+        d = list(range(n))
         it = reversed(d)
         next(it)
         next(it)
@@ -114,7 +190,7 @@ class AppTest_IterObject(object):
         d[1:] = []
         assert it.__length_hint__() == 0
         assert list(it) == []
-        d.extend(xrange(20))
+        d.extend(range(20))
         assert it.__length_hint__() == 0
 
     def test_no_len_on_set_iter(self):
@@ -122,7 +198,7 @@ class AppTest_IterObject(object):
         raises(TypeError, len, iter(iterable))
 
     def test_no_len_on_xrange(self):
-        iterable = xrange(10)
+        iterable = range(10)
         raises(TypeError, len, iter(iterable))
 
     def test_contains(self):

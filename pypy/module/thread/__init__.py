@@ -3,6 +3,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
+    applevel_name = '_thread'
+
     appleveldefs = {
     }
 
@@ -18,8 +20,11 @@ class Module(MixedModule):
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.Lock',
+        'RLock':                  'os_lock.W_RLock',
+        '_set_sentinel':          'os_lock._set_sentinel',
         '_local':                 'os_local.Local',
-        'error':                  'space.fromcache(error.Cache).w_error',
+        'TIMEOUT_MAX':            'space.wrap(float(os_lock.TIMEOUT_MAX // 1000000))',
+        'error':                  'space.w_RuntimeError',
     }
 
     def __init__(self, space, *args):

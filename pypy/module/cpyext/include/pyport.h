@@ -68,6 +68,24 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
 #endif /* HAVE_UINTPTR_T */
 
+/* Py_hash_t is the same size as a pointer. */
+#define SIZEOF_PY_HASH_T SIZEOF_SIZE_T
+typedef Py_ssize_t Py_hash_t;
+/* Py_uhash_t is the unsigned equivalent needed to calculate numeric hash. */
+#define SIZEOF_PY_UHASH_T SIZEOF_SIZE_T
+typedef size_t Py_uhash_t;
+
+#include <stdarg.h>
+
+#ifdef __va_copy
+#define Py_VA_COPY __va_copy
+#else
+#ifdef VA_LIST_IS_ARRAY
+#define Py_VA_COPY(x, y) Py_MEMCPY((x), (y), sizeof(va_list))
+#else
+#define Py_VA_COPY(x, y) (x) = (y)
+#endif
+#endif
 
 /*******************************
  * stat() and fstat() fiddling *
@@ -108,6 +126,38 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #elif defined(HAVE_STAT_H)
 #include <stat.h>
 #else
+#endif
+
+/*
+ * Hide GCC attributes from compilers that don't support them.
+ */
+#if (!defined(__GNUC__) || __GNUC__ < 2 || \
+     (__GNUC__ == 2 && __GNUC_MINOR__ < 7) ) && \
+    !defined(RISCOS)
+#define Py_GCC_ATTRIBUTE(x)
+#else
+#define Py_GCC_ATTRIBUTE(x) __attribute__(x)
+#endif
+
+/*
+ * Specify alignment on compilers that support it.
+ */
+#if defined(__GNUC__) && __GNUC__ >= 3
+#define Py_ALIGNED(x) __attribute__((aligned(x)))
+#else
+#define Py_ALIGNED(x)
+#endif
+
+/*
+ * Older Microsoft compilers don't support the C99 long long literal suffixes,
+ * so these will be defined in PC/pyconfig.h for those compilers.
+ */
+#ifndef Py_LL
+#define Py_LL(x) x##LL
+#endif
+
+#ifndef Py_ULL
+#define Py_ULL(x) Py_LL(x##U)
 #endif
 
 #endif /* Py_PYPORT_H */

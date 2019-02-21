@@ -5,6 +5,7 @@
 # This version is based on cffi, and is a translation of _tkinter.c
 # from CPython, version 2.7.4.
 
+import os
 import sys
 
 class TclError(Exception):
@@ -13,10 +14,10 @@ class TclError(Exception):
 from .tklib_cffi import ffi as tkffi, lib as tklib
 
 from .app import TkApp
-from .tclobj import TclObject as Tcl_Obj
+from .tclobj import Tcl_Obj
 
-TK_VERSION = tkffi.string(tklib.get_tk_version())
-TCL_VERSION = tkffi.string(tklib.get_tcl_version())
+TK_VERSION = tkffi.string(tklib.get_tk_version()).decode('utf-8')
+TCL_VERSION = tkffi.string(tklib.get_tcl_version()).decode('utf-8')
 
 READABLE = tklib.TCL_READABLE
 WRITABLE = tklib.TCL_WRITABLE
@@ -26,7 +27,7 @@ DONT_WAIT = tklib.TCL_DONT_WAIT
 def create(screenName=None, baseName=None, className=None,
            interactive=False, wantobjects=False, wantTk=True,
            sync=False, use=None):
-    return TkApp(screenName, baseName, className,
+    return TkApp(screenName, className,
                  interactive, wantobjects, wantTk, sync, use)
 
 def dooneevent(flags=0):
@@ -51,4 +52,4 @@ def _flatten(item):
     return tuple(result)
 
 
-tklib.Tcl_FindExecutable(sys.executable)
+tklib.Tcl_FindExecutable(os.fsencode(sys.executable))

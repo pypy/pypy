@@ -1,10 +1,9 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
-    CONST_STRING, ADDR, CANNOT_FAIL)
-from pypy.objspace.std.longobject import W_LongObject
+    CONST_STRING, ADDR, CANNOT_FAIL, INTP_real)
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
+from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers_flags("Long")
@@ -64,15 +63,16 @@ def PyLong_AsUnsignedLongMask(space, w_long):
     """Return a C unsigned long from a Python long integer, without checking
     for overflow.
     """
-    return PyInt_AsUnsignedLongMask(space, w_long)
+    num = space.bigint_w(w_long)
+    return num.uintmask()
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyLong_AsLong(space, w_long):
     """
-    Return a C long representation of the contents of pylong.  If
-    pylong is greater than LONG_MAX, an OverflowError is raised
-    and -1 will be returned."""
-    return space.int_w(w_long)
+    Get a C long int from an int object or any object that has an __int__
+    method.  Return -1 and set an error if overflow occurs.
+    """
+    return space.int_w(space.int(w_long))
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyLong_AsSsize_t(space, w_long):
@@ -81,6 +81,15 @@ def PyLong_AsSsize_t(space, w_long):
     and -1 will be returned.
     """
     return space.int_w(w_long)
+
+@cpython_api([PyObject], rffi.SIZE_T, error=-1)
+def PyLong_AsSize_t(space, w_long):
+    """Return a C size_t representation of of pylong.  pylong must be
+    an instance of PyLongObject.
+
+    Raise OverflowError if the value of pylong is out of range for a
+    size_t."""
+    return space.uint_w(w_long)
 
 @cpython_api([PyObject], rffi.LONGLONG, error=-1)
 def PyLong_AsLongLong(space, w_long):
@@ -112,7 +121,7 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     num = space.bigint_w(w_long)
     return num.ulonglongmask()
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], lltype.Signed,
+@cpython_api([PyObject, INTP_real], lltype.Signed,
              error=-1)
 def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     """
@@ -133,7 +142,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], rffi.LONGLONG,
+@cpython_api([PyObject, INTP_real], rffi.LONGLONG,
              error=-1)
 def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     """
@@ -191,7 +200,13 @@ def PyLong_FromUnicode(space, u, length, base):
     string, length gives the number of characters, and base is the radix
     for the conversion.  The radix must be in the range [2, 36]; if it is
     out of range, ValueError will be raised."""
-    w_value = space.newunicode(rffi.wcharpsize2unicode(u, length))
+    if length < 0:
+        length = 0
+    w_value = space.newutf8(wcharpsize2utf8(space, u, length), length)
+    return PyLong_FromUnicodeObject(space, w_value, base)
+
+@cpython_api([PyObject, rffi.INT_real], PyObject)
+def PyLong_FromUnicodeObject(space, w_value, base):
     w_base = space.newint(rffi.cast(lltype.Signed, base))
     return space.call_function(space.w_long, w_value, w_base)
 
@@ -221,8 +236,8 @@ def _PyLong_NumBits(space, w_long):
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyLong_Sign(space, w_long):
-    assert isinstance(w_long, W_LongObject)
-    return w_long.num.sign
+    bigint = space.bigint_w(w_long)
+    return bigint.sign
 
 CONST_UCHARP = lltype.Ptr(lltype.Array(rffi.UCHAR, hints={'nolength': True,
                                        'render_as_const': True}))

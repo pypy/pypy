@@ -26,7 +26,7 @@ class AppTestStacklet(BaseAppTest):
                         # frame cycle
                         res.append('...')
                         break
-                    if f.f_code.co_name == 'runtest':
+                    if f.f_code.co_name == '<module>':
                         # if we are running with -A, cut all the stack above
                         # the test function
                         break
@@ -38,9 +38,6 @@ class AppTestStacklet(BaseAppTest):
             return stack
        """)
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
-        if cls.runappdirect:
-            # make sure that "self.stack" does not pass the self
-            cls.w_stack = staticmethod(cls.w_stack.im_func)
 
 
     @pytest.fixture
@@ -554,12 +551,12 @@ class AppTestStacklet(BaseAppTest):
         from _continuation import continulet
         #
         def f1(c1):
-            print 'in f1'
+            print('in f1')
             return 'm'
         #
         def f2(c2):
             res = c2.switch('z')
-            print 'got there!'
+            print('got there!')
             assert res == 'a'
             return None
         #
@@ -569,9 +566,9 @@ class AppTestStacklet(BaseAppTest):
         assert res == 'z'
         assert c1.is_pending()
         assert c2.is_pending()
-        print 'calling!'
+        print('calling!')
         res = c1.switch('a', to=c2)
-        print 'back'
+        print('back')
         assert res == 'm'
 
     def test_switch2_immediately_away_corner_case(self):
@@ -643,12 +640,12 @@ class AppTestStacklet(BaseAppTest):
                 res = "got keyerror"
             try:
                 c1.switch(res)
-            except IndexError as e:
-                pass
+            except IndexError as exc:
+                e = exc
             try:
                 c1.switch(e)
-            except IndexError as e2:
-                pass
+            except IndexError as exc:
+                e2 = exc
             try:
                 c1.switch(e2)
             except IndexError:
@@ -685,7 +682,8 @@ class AppTestStacklet(BaseAppTest):
         assert tb.tb_next.tb_frame.f_code.co_name == 'f1'
         assert tb.tb_next.tb_next.tb_frame.f_code.co_name == 'main'
         assert tb.tb_next.tb_next.tb_next.tb_frame.f_code.co_name == 'do_raise'
-        assert tb.tb_next.tb_next.tb_next.tb_next is None
+        assert tb.tb_next.tb_next.tb_next.tb_next.tb_frame.f_code.co_name == 'f1'
+        assert tb.tb_next.tb_next.tb_next.tb_next.tb_next is None
 
     def test_throw_to_starting(self):
         from _continuation import continulet
@@ -797,6 +795,35 @@ class AppTestStacklet(BaseAppTest):
 
         continulet.switch(c1, to=c2)
         raises(error, continulet.switch, c1, to=c2)
+
+    def test_exc_info_save_restore(self):
+        from _continuation import continulet
+        import sys
+        main = []
+
+        def f(c):
+            print("in f... 222")
+            try:
+                raise ValueError('fun')
+            except:
+                print("333")
+                exc_info = sys.exc_info()
+                print("444")
+                c17650 = continulet(h)
+                bd50.switch(to=c17650)
+                print("back in f...")
+                assert exc_info == sys.exc_info()
+
+        def h(c):
+            print("in h... 555")
+            assert sys.exc_info() == (None, None, None)
+            print("666")
+
+        main = continulet.__new__(continulet)
+        print(111)
+        bd50 = continulet(f)
+        main.switch(to=bd50)
+        print(999)
 
     def test_sampling_inside_callback(self):
         if self.appdirect:

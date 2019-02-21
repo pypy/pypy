@@ -30,12 +30,19 @@ objects support decompress() and flush()."""
         'decompressobj': 'interp_zlib.Decompress',
         'compress': 'interp_zlib.compress',
         'decompress': 'interp_zlib.decompress',
+        'DEF_BUF_SIZE': 'interp_zlib.default_buffer_size(space)',
         '__version__': 'space.newtext("1.0")',
         'error': 'space.fromcache(interp_zlib.Cache).w_error',
         }
 
     appleveldefs = {
         }
+
+    def setup_after_space_initialization(self):
+        space = self.space
+        space.setattr(self, space.wrap('ZLIB_RUNTIME_VERSION'),
+                      space.wrap(rzlib.zlibVersion()))
+
 
 
 for _name in """

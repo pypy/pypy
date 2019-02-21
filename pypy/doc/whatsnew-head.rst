@@ -1,46 +1,39 @@
-===========================
-What's new in PyPy2.7 5.10+
-===========================
+==========================
+What's new in PyPy2.7 7.0+
+==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.10.0
-.. startrev: 6b024edd9d12
+.. this is a revision shortly after release-pypy-7.0.0
+.. startrev: 481c69f7d81f
 
-.. branch: cpyext-avoid-roundtrip
+.. branch: zlib-copying-third-time-a-charm
 
-Big refactoring of some cpyext code, which avoids a lot of nonsense when
-calling C from Python and vice-versa: the result is a big speedup in
-function/method calls, up to 6 times faster.
+Make sure zlib decompressobjs have their streams deallocated immediately
+on flush.
 
-.. branch: cpyext-datetime2
+.. branch: zlib-copying-redux
 
-Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD
+Fix calling copy on already-flushed compressobjs.
 
+.. branch: zlib-copying
 
-.. branch: mapdict-size-limit
-
-Fix a corner case of mapdict: When an instance is used like a dict (using
-``setattr`` and ``getattr``, or ``.__dict__``) and a lot of attributes are
-added, then the performance using mapdict is linear in the number of
-attributes. This is now fixed (by switching to a regular dict after 80
-attributes).
+The zlib module's compressobj and decompressobj now expose copy methods
+as they do on CPython.
 
 
-.. branch: cpyext-faster-arg-passing
+.. branch: math-improvements
 
-When using cpyext, improve the speed of passing certain objects from PyPy to C
-code, most notably None, True, False, types, all instances of C-defined types.
-Before, a dict lookup was needed every time such an object crossed over, now it
-is just a field read.
+Improve performance of long operations where one of the operands fits into
+an int.
 
+.. branch: regalloc-playground
 
-.. branch: 2634_datetime_timedelta_performance
+Improve register allocation in the JIT.
 
-Improve datetime + timedelta performance.
+.. branch: promote-unicode
 
-.. branch: memory-accounting
+Implement rlib.jit.promote_unicode to complement promote_string
 
-Improve way to describe memory
+.. branch: unicode-utf8
 
-.. branch: msvc14
+Use utf8 internally to represent unicode, with the goal of never using rpython-level unicode
 
-Allow compilaiton with Visual Studio 2017 compiler suite on windows

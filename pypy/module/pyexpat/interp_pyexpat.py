@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import rgc, jit
+from rpython.rlib import rgc, jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -341,6 +341,8 @@ callback_type = lltype.Ptr(lltype.FuncType(
 XML_SetUnknownEncodingHandler = expat_external(
     'XML_SetUnknownEncodingHandler',
     [XML_Parser, callback_type, rffi.VOIDP], lltype.Void)
+XML_SetEncoding = expat_external(
+    'XML_SetEncoding', [XML_Parser, rffi.CCHARP], rffi.INT)
 
 # Declarations of external functions
 
@@ -419,7 +421,6 @@ class W_XMLParserType(W_Root):
 
         self.w_intern = w_intern
 
-        self.returns_unicode = True
         self.ordered_attributes = False
         self.specified_attributes = False
         self.ns_prefixes = False
@@ -474,11 +475,18 @@ getting the advantage of providing document type information to the parser.
     # Handlers management
 
     def w_convert(self, space, s):
-        if self.returns_unicode:
-            from pypy.interpreter.unicodehelper import decode_utf8
-            return space.newunicode(decode_utf8(space, s))
-        else:
-            return space.newtext(s)
+        # I suppose this is a valid utf8, but there is noone to check
+        # and noone to catch an error either
+        try:
+            lgt = rutf8.check_utf8(s, True)
+            return space.newutf8(s, lgt)
+        except rutf8.CheckError:
+            from pypy.interpreter import unicodehelper
+            # get the correct error msg
+            unicodehelper.str_decode_utf8(s, 'string', True,
+                unicodehelper.decode_error_handler(space))
+            assert False, "always raises"
+        return space.newtext(s)
 
     def w_convert_charp(self, space, data):
         if data:
@@ -578,21 +586,22 @@ getting the advantage of providing document type information to the parser.
 
     def UnknownEncodingHandler(self, space, name, info):
         # Yes, supports only 8bit encodings
-        translationmap = space.unicode_w(
+        translationmap, lgt = space.utf8_len_w(
             space.call_method(
                 space.newbytes(self.all_chars), "decode",
                 space.newtext(name), space.newtext("replace")))
 
-        if len(translationmap) != 256:
+        if lgt != 256:
             raise oefmt(space.w_ValueError,
                         "multi-byte encodings are not supported")
 
-        for i in range(256):
-            c = translationmap[i]
-            if c == u'\ufffd':
+        i = 0
+        for c in rutf8.Utf8StringIterator(translationmap):
+            if c == 0xfffd:
                 info.c_map[i] = rffi.cast(rffi.INT, -1)
             else:
                 info.c_map[i] = rffi.cast(rffi.INT, c)
+            i += 1
         info.c_data = lltype.nullptr(rffi.VOIDP.TO)
         info.c_convert = lltype.nullptr(rffi.VOIDP.TO)
         info.c_release = lltype.nullptr(rffi.VOIDP.TO)
@@ -624,11 +633,17 @@ getting the advantage of providing document type information to the parser.
 
     # Parse methods
 
-    @unwrap_spec(data='text', isfinal=bool)
-    def Parse(self, space, data, isfinal=False):
+    @unwrap_spec(isfinal=int)
+    def Parse(self, space, w_data, isfinal=False):
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
-
+        if space.isinstance_w(w_data, space.w_unicode):
+            data = w_data.utf8_w(space)
+            # Explicitly set UTF-8 encoding. Return code ignored.
+            XML_SetEncoding(self.itself, "utf-8")
+        else:
+            data = space.charbuf_w(w_data)
+        isfinal = bool(isfinal)
         res = XML_Parse(self.itself, data, len(data), isfinal)
         if self._exc_info:
             e = self._exc_info
@@ -646,9 +661,8 @@ Parse XML data from file-like object."""
         eof = False
         while not eof:
             w_data = space.call_method(w_file, 'read', space.newint(2048))
-            data = space.text_w(w_data)
-            eof = len(data) == 0
-            w_res = self.Parse(space, data, isfinal=eof)
+            eof = space.len_w(w_data) == 0
+            w_res = self.Parse(space, w_data, isfinal=eof)
         return w_res
 
     @unwrap_spec(base='text')
@@ -725,7 +739,7 @@ information passed to the ExternalEntityRefHandler."""
     def get_buffer_size(self, space):
         return space.newint(self.buffer_size)
     def set_buffer_size(self, space, w_value):
-        value = space.getindex_w(w_value, space.w_TypeError)
+        value = space.getindex_w(w_value, space.w_OverflowError)
         if value <= 0:
             raise oefmt(space.w_ValueError,
                         "buffer_size must be greater than zero")
@@ -773,7 +787,6 @@ W_XMLParserType.typedef = TypeDef(
     namespace_prefixes = GetSetProperty(W_XMLParserType.get_namespace_prefixes,
                                         W_XMLParserType.set_namespace_prefixes,
                                         cls=W_XMLParserType),
-    returns_unicode = bool_property('returns_unicode', W_XMLParserType),
     ordered_attributes = bool_property('ordered_attributes', W_XMLParserType),
     specified_attributes = bool_property('specified_attributes', W_XMLParserType),
     intern = GetSetProperty(W_XMLParserType.get_intern, cls=W_XMLParserType),
@@ -804,7 +817,7 @@ Return a new XML parser object."""
         encoding = space.text_w(w_encoding)
     else:
         raise oefmt(space.w_TypeError,
-                    "ParserCreate() argument 1 must be string or None, not %T",
+                    "ParserCreate() argument 1 must be str or None, not %T",
                     w_encoding)
 
     if space.is_none(w_namespace_separator):
@@ -821,7 +834,7 @@ Return a new XML parser object."""
                         "omitted, or None")
     else:
         raise oefmt(space.w_TypeError,
-                    "ParserCreate() argument 2 must be string or None, not %T",
+                    "ParserCreate() argument 2 must be str or None, not %T",
                     w_namespace_separator)
 
     # Explicitly passing None means no interning is desired.

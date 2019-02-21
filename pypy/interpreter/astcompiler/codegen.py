@@ -6,6 +6,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 # help the annotator.  To it, unfortunately, everything is not so obvious.  If
 # you figure out a way to remove them, great, but try a translation first,
 # please.
+import struct
 
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
@@ -13,6 +14,7 @@ from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
 
+C_INT_MAX = (2 ** (struct.calcsize('i') * 8)) / 2 - 1
 
 def compile_ast(space, module, info):
     """Generate a code object from AST."""
@@ -35,6 +37,7 @@ name_ops_fast = misc.dict_to_switch({
 name_ops_deref = misc.dict_to_switch({
     ast.Load: ops.LOAD_DEREF,
     ast.Store: ops.STORE_DEREF,
+    ast.Del: ops.DELETE_DEREF,
 })
 
 name_ops_global = misc.dict_to_switch({
@@ -55,6 +58,7 @@ binary_operations = misc.dict_to_switch({
     ast.Add: ops.BINARY_ADD,
     ast.Sub: ops.BINARY_SUBTRACT,
     ast.Mult: ops.BINARY_MULTIPLY,
+    ast.Div: ops.BINARY_TRUE_DIVIDE,
     ast.Mod: ops.BINARY_MODULO,
     ast.Pow: ops.BINARY_POWER,
     ast.LShift: ops.BINARY_LSHIFT,
@@ -62,13 +66,15 @@ binary_operations = misc.dict_to_switch({
     ast.BitOr: ops.BINARY_OR,
     ast.BitAnd: ops.BINARY_AND,
     ast.BitXor: ops.BINARY_XOR,
-    ast.FloorDiv: ops.BINARY_FLOOR_DIVIDE
+    ast.FloorDiv: ops.BINARY_FLOOR_DIVIDE,
+    ast.MatMult: ops.BINARY_MATRIX_MULTIPLY
 })
 
 inplace_operations = misc.dict_to_switch({
     ast.Add: ops.INPLACE_ADD,
     ast.Sub: ops.INPLACE_SUBTRACT,
     ast.Mult: ops.INPLACE_MULTIPLY,
+    ast.Div: ops.INPLACE_TRUE_DIVIDE,
     ast.Mod: ops.INPLACE_MODULO,
     ast.Pow: ops.INPLACE_POWER,
     ast.LShift: ops.INPLACE_LSHIFT,
@@ -76,7 +82,8 @@ inplace_operations = misc.dict_to_switch({
     ast.BitOr: ops.INPLACE_OR,
     ast.BitAnd: ops.INPLACE_AND,
     ast.BitXor: ops.INPLACE_XOR,
-    ast.FloorDiv: ops.INPLACE_FLOOR_DIVIDE
+    ast.FloorDiv: ops.INPLACE_FLOOR_DIVIDE,
+    ast.MatMult: ops.INPLACE_MATRIX_MULTIPLY
 })
 
 compare_operations = misc.dict_to_switch({
@@ -100,14 +107,6 @@ subscr_operations = misc.dict_to_switch({
     ast.Del: ops.DELETE_SUBSCR
 })
 
-slice_operations = misc.dict_to_switch({
-    ast.AugLoad: ops.SLICE,
-    ast.Load: ops.SLICE,
-    ast.AugStore: ops.STORE_SLICE,
-    ast.Store: ops.STORE_SLICE,
-    ast.Del: ops.DELETE_SLICE
-})
-
 
 class __extend__(ast.GeneratorExp):
 
@@ -121,6 +120,23 @@ class __extend__(ast.GeneratorExp):
         self.elt.walkabout(codegen)
         codegen.emit_op(ops.YIELD_VALUE)
         codegen.emit_op(ops.POP_TOP)
+
+
+class __extend__(ast.ListComp):
+
+    def build_container(self, codegen):
+        # XXX: this is suboptimal: if we use BUILD_LIST_FROM_ARG it's faster
+        # because it preallocates the list; however, we cannot use it because
+        # at this point we only have the iterator, not the original iterable
+        # object
+        codegen.emit_op_arg(ops.BUILD_LIST, 0)
+
+    def get_generators(self):
+        return self.generators
+
+    def accept_comp_iteration(self, codegen, index):
+        self.elt.walkabout(codegen)
+        codegen.emit_op_arg(ops.LIST_APPEND, index + 1)
 
 
 class __extend__(ast.SetComp):
@@ -164,7 +180,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     across the AST tree generating bytecode as needed.
     """
 
-    def __init__(self, space, name, tree, lineno, symbols, compile_info):
+    def __init__(self, space, name, tree, lineno, symbols, compile_info,
+                 qualname):
         self.scope = symbols.find_scope(tree)
         assemble.PythonCodeMaker.__init__(self, space, name, lineno,
                                           self.scope, compile_info)
@@ -172,6 +189,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.frame_blocks = []
         self.interactive = False
         self.temporary_name_counter = 1
+        if isinstance(self.scope, symtable.FunctionScope):
+            self.qualname = qualname + '.<locals>'
+        else:
+            self.qualname = qualname
         self._compile(tree)
 
     def _compile(self, tree):
@@ -190,9 +211,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def sub_scope(self, kind, name, node, lineno):
         """Convenience function for compiling a sub scope."""
+        if self.scope.lookup(name) == symtable.SCOPE_GLOBAL_EXPLICIT:
+            qualname = name
+        elif self.qualname:
+            qualname = '%s.%s' % (self.qualname, name)
+        else:
+            qualname = name
         generator = kind(self.space, name, node, lineno, self.symbols,
-                         self.compile_info)
-        return generator.assemble()
+                         self.compile_info, qualname)
+        return generator.assemble(), qualname
 
     def push_frame_block(self, kind, block):
         self.frame_blocks.append((kind, block))
@@ -207,7 +234,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                           filename=self.compile_info.filename)
 
     def name_op(self, identifier, ctx):
-        """Generate an operation appropiate for the scope of the identifier."""
+        """Generate an operation appropriate for the scope of the identifier."""
         scope = self.scope.lookup(identifier)
         op = ops.NOP
         container = self.names
@@ -217,17 +244,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 op = name_ops_fast(ctx)
         elif scope == symtable.SCOPE_FREE:
             op = name_ops_deref(ctx)
+            if op == ops.LOAD_DEREF and isinstance(self, ClassCodeGenerator):
+                op = ops.LOAD_CLASSDEREF
             container = self.free_vars
         elif scope == symtable.SCOPE_CELL:
-            try:
-                op = name_ops_deref(ctx)
-            except KeyError:
-                assert ctx == ast.Del
-                raise SyntaxError("Can't delete variable used in "
-                                  "nested scopes: '%s'" % (identifier,))
+            op = name_ops_deref(ctx)
             container = self.cell_vars
         elif scope == symtable.SCOPE_GLOBAL_IMPLICIT:
-            if self.scope.locals_fully_known:
+            if self.scope.optimized:
                 op = name_ops_global(ctx)
         elif scope == symtable.SCOPE_GLOBAL_EXPLICIT:
             op = name_ops_global(ctx)
@@ -236,15 +260,28 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(op, self.add_name(container, identifier))
 
     def possible_docstring(self, node):
-        if isinstance(node, ast.Expr):
+        if isinstance(node, ast.Expr) and self.compile_info.optimize < 2:
             expr_value = node.value
             if isinstance(expr_value, ast.Str):
                 return expr_value
         return None
 
+    def ensure_docstring_constant(self, body):
+        # If there's a docstring, store it as the first constant.
+        if body:
+            doc_expr = self.possible_docstring(body[0])
+        else:
+            doc_expr = None
+        if doc_expr is not None:
+            self.add_const(doc_expr.s)
+            self.scope.doc_removable = True
+            return True
+        else:
+            self.add_const(self.space.w_None)
+            return False
+
     def _get_code_flags(self):
-        # Default for everything but module scopes.
-        return consts.CO_NEWLOCALS
+        return 0
 
     def _handle_body(self, body):
         """Compile a list of statements, handling doc strings if needed."""
@@ -274,73 +311,143 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.add_none_to_final_return = False
         mod.body.walkabout(self)
 
-    def _make_function(self, code, num_defaults=0):
+    def _make_function(self, code, num_defaults=0, qualname=None):
         """Emit the opcodes to turn a code object into a function."""
-        code_index = self.add_const(code)
+        w_qualname = self.space.newtext(qualname or code.co_name)
         if code.co_freevars:
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
                 free_scope = self.scope.lookup(free)
-                if free_scope == symtable.SCOPE_CELL:
+                if free_scope in (symtable.SCOPE_CELL,
+                                  symtable.SCOPE_CELL_CLASS):
                     index = self.cell_vars[free]
                 else:
                     index = self.free_vars[free]
                 self.emit_op_arg(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
-            self.emit_op_arg(ops.LOAD_CONST, code_index)
+            self.load_const(code)
+            self.load_const(w_qualname)
             self.emit_op_arg(ops.MAKE_CLOSURE, num_defaults)
         else:
-            self.emit_op_arg(ops.LOAD_CONST, code_index)
+            self.load_const(code)
+            self.load_const(w_qualname)
             self.emit_op_arg(ops.MAKE_FUNCTION, num_defaults)
 
-    def visit_FunctionDef(self, func):
+    def _visit_kwonlydefaults(self, args):
+        defaults = 0
+        for i, default in enumerate(args.kw_defaults):
+            if default:
+                kwonly = args.kwonlyargs[i]
+                assert isinstance(kwonly, ast.arg)
+                mangled = self.scope.mangle(kwonly.arg)
+                self.load_const(self.space.newtext(mangled))
+                default.walkabout(self)
+                defaults += 1
+        return defaults
+
+    def _visit_arg_annotation(self, name, ann, names):
+        if ann:
+            ann.walkabout(self)
+            names.append(self.scope.mangle(name))
+
+    def _visit_arg_annotations(self, args, names):
+        if args:
+            for arg in args:
+                assert isinstance(arg, ast.arg)
+                self._visit_arg_annotation(arg.arg, arg.annotation, names)
+
+    @specialize.argtype(1)
+    def _visit_annotations(self, func, args, returns):
+        space = self.space
+        names = []
+        self._visit_arg_annotations(args.args, names)
+        vararg = args.vararg
+        if vararg:
+            self._visit_arg_annotation(vararg.arg, vararg.annotation,
+                                       names)
+        self._visit_arg_annotations(args.kwonlyargs, names)
+        kwarg = args.kwarg
+        if kwarg:
+            self._visit_arg_annotation(kwarg.arg, kwarg.annotation,
+                                       names)
+        self._visit_arg_annotation("return", returns, names)
+        l = len(names)
+        if l:
+            if l > 65534:
+                self.error("too many annotations", func)
+            w_tup = space.newtuple([space.newtext(name) for name in names])
+            self.load_const(w_tup)
+            l += 1
+        return l
+
+    @specialize.arg(2)
+    def _visit_function(self, func, function_code_generator):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
         self.visit_sequence(func.decorator_list)
         args = func.args
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
+        kw_default_count = 0
+        if args.kwonlyargs:
+            kw_default_count = self._visit_kwonlydefaults(args)
+        num_annotations = self._visit_annotations(func, args, func.returns)
         num_defaults = len(args.defaults) if args.defaults is not None else 0
-        code = self.sub_scope(FunctionCodeGenerator, func.name, func,
-                              func.lineno)
-        self._make_function(code, num_defaults)
+        oparg = num_defaults
+        oparg |= kw_default_count << 8
+        oparg |= num_annotations << 16
+        code, qualname = self.sub_scope(function_code_generator, func.name,
+                                        func, func.lineno)
+        self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
             for i in range(len(func.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store)
 
+    def visit_FunctionDef(self, func):
+        self._visit_function(func, FunctionCodeGenerator)
+
+    def visit_AsyncFunctionDef(self, func):
+        self._visit_function(func, AsyncFunctionCodeGenerator)
+
     def visit_Lambda(self, lam):
         self.update_position(lam.lineno)
         args = lam.args
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
+        kw_default_count = 0
+        if args.kwonlyargs:
+            kw_default_count = self._visit_kwonlydefaults(args)
         default_count = len(args.defaults) if args.defaults is not None else 0
-        code = self.sub_scope(LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
-        self._make_function(code, default_count)
+        code, qualname = self.sub_scope(
+            LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
+        oparg = default_count
+        oparg |= kw_default_count << 8
+        self._make_function(code, oparg, qualname=qualname)
 
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
         self.visit_sequence(cls.decorator_list)
+        # 1. compile the class body into a code object
+        code, qualname = self.sub_scope(
+            ClassCodeGenerator, cls.name, cls, cls.lineno)
+        # 2. load the 'build_class' function
+        self.emit_op(ops.LOAD_BUILD_CLASS)
+        # 3. load a function (or closure) made from the code object
+        self._make_function(code, qualname=qualname)
+        # 4. load class name
         self.load_const(self.space.newtext(cls.name))
-        self.visit_sequence(cls.bases)
-        bases_count = len(cls.bases) if cls.bases is not None else 0
-        self.emit_op_arg(ops.BUILD_TUPLE, bases_count)
-        code = self.sub_scope(ClassCodeGenerator, cls.name, cls, cls.lineno)
-        self._make_function(code, 0)
-        self.emit_op_arg(ops.CALL_FUNCTION, 0)
-        self.emit_op(ops.BUILD_CLASS)
+        # 5. generate the rest of the code for the call
+        self._make_call(2, cls.bases, cls.keywords)
+        # 6. apply decorators
         if cls.decorator_list:
             for i in range(len(cls.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        # 7. store into <name>
         self.name_op(cls.name, ast.Store)
 
     def _op_for_augassign(self, op):
-        if op == ast.Div:
-            if self.compile_info.flags & consts.CO_FUTURE_DIVISION:
-                return ops.INPLACE_TRUE_DIVIDE
-            else:
-                return ops.INPLACE_DIVIDE
         return inplace_operations(op)
 
     def visit_AugAssign(self, assign):
@@ -371,9 +478,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.error("illegal expression for augmented assignment", assign)
 
     def visit_Assert(self, asrt):
+        if self.compile_info.optimize >= 1:
+            return
         self.update_position(asrt.lineno)
         end = self.new_block()
-        self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
+        if self.compile_info.optimize != 0:
+            self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
@@ -383,11 +493,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(end)
 
     def _binop(self, op):
-        if op == ast.Div:
-            if self.compile_info.flags & consts.CO_FUTURE_DIVISION:
-                return ops.BINARY_TRUE_DIVIDE
-            else:
-                return ops.BINARY_DIVIDE
         return binary_operations(op)
 
     def visit_BinOp(self, binop):
@@ -403,29 +508,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self.load_const(self.space.w_None)
         self.emit_op(ops.RETURN_VALUE)
-
-    def visit_Print(self, pr):
-        self.update_position(pr.lineno, True)
-        have_dest = bool(pr.dest)
-        if have_dest:
-            pr.dest.walkabout(self)
-        if pr.values:
-            for value in pr.values:
-                if have_dest:
-                    self.emit_op(ops.DUP_TOP)
-                    value.walkabout(self)
-                    self.emit_op(ops.ROT_TWO)
-                    self.emit_op(ops.PRINT_ITEM_TO)
-                else:
-                    value.walkabout(self)
-                    self.emit_op(ops.PRINT_ITEM)
-        if pr.nl:
-            if have_dest:
-                self.emit_op(ops.PRINT_NEWLINE_TO)
-            else:
-                self.emit_op(ops.PRINT_NEWLINE)
-        elif have_dest:
-            self.emit_op(ops.POP_TOP)
 
     def visit_Delete(self, delete):
         self.update_position(delete.lineno, True)
@@ -506,6 +588,76 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.visit_sequence(fr.orelse)
         self.use_next_block(end)
 
+    def visit_AsyncFor(self, fr):
+        self.update_position(fr.lineno, True)
+        b_try = self.new_block()
+        b_except = self.new_block()
+        b_end = self.new_block()
+        b_after_try = self.new_block()
+        b_try_cleanup = self.new_block()
+        b_after_loop = self.new_block()
+        b_after_loop_else = self.new_block()
+
+        self.emit_jump(ops.SETUP_LOOP, b_after_loop)
+        self.push_frame_block(F_BLOCK_LOOP, b_try)
+
+        fr.iter.walkabout(self)
+        self.emit_op(ops.GET_AITER)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+
+        self.use_next_block(b_try)
+        # This adds another line, so each for iteration can be traced.
+        self.lineno_set = False
+        self.emit_jump(ops.SETUP_EXCEPT, b_except)
+        self.push_frame_block(F_BLOCK_EXCEPT, b_try)
+
+        self.emit_op(ops.GET_ANEXT)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+        fr.target.walkabout(self)
+        self.emit_op(ops.POP_BLOCK)
+        self.pop_frame_block(F_BLOCK_EXCEPT, b_try)
+        self.emit_jump(ops.JUMP_FORWARD, b_after_try)
+
+        self.use_next_block(b_except)
+        self.emit_op(ops.DUP_TOP)
+        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
+        self.emit_op_arg(ops.COMPARE_OP, 10)
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, b_try_cleanup, True)
+
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
+        # Manually remove the 'aiter' object from the valuestack.
+        # This POP_TOP is not needed from the point of view of
+        # pyopcode.py, which will pop anything to match the stack
+        # depth of the SETUP_LOOP, but it is needed to make
+        # PythonCodeMaker._stacksize() compute an exact result and not
+        # crash with StackDepthComputationError.
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_after_loop_else, True)
+
+        self.use_next_block(b_try_cleanup)
+        self.emit_op(ops.END_FINALLY)
+
+        self.use_next_block(b_after_try)
+        self.visit_sequence(fr.body)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
+
+        self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
+        self.pop_frame_block(F_BLOCK_LOOP, b_try)
+
+        self.use_next_block(b_after_loop)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_end, True)
+
+        self.use_next_block(b_after_loop_else)
+        self.visit_sequence(fr.orelse)
+
+        self.use_next_block(b_end)
+
     def visit_While(self, wh):
         self.update_position(wh.lineno, True)
         test_constant = wh.test.as_constant_truth(self.space)
@@ -533,20 +685,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.visit_sequence(wh.orelse)
             self.use_next_block(end)
 
-    def visit_TryExcept(self, te):
-        self.update_position(te.lineno, True)
+    def _visit_try_except(self, tr):
+        self.update_position(tr.lineno, True)
         exc = self.new_block()
         otherwise = self.new_block()
         end = self.new_block()
         self.emit_jump(ops.SETUP_EXCEPT, exc)
         body = self.use_next_block()
         self.push_frame_block(F_BLOCK_EXCEPT, body)
-        self.visit_sequence(te.body)
+        self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_EXCEPT, body)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
-        for handler in te.handlers:
+        for handler in tr.handlers:
             assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler.lineno, True)
             next_except = self.new_block()
@@ -557,34 +709,81 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_jump(ops.POP_JUMP_IF_FALSE, next_except, True)
             self.emit_op(ops.POP_TOP)
             if handler.name:
-                handler.name.walkabout(self)
+                ## generate the equivalent of:
+                ##
+                ## try:
+                ##     # body
+                ## except type as name:
+                ##     try:
+                ##         # body
+                ##     finally:
+                ##         name = None
+                ##         del name
+                #
+                cleanup_end = self.new_block()
+                self.name_op(handler.name, ast.Store)
+                self.emit_op(ops.POP_TOP)
+                # second try
+                self.emit_jump(ops.SETUP_FINALLY, cleanup_end)
+                cleanup_body = self.use_next_block()
+                self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                # second # body
+                self.visit_sequence(handler.body)
+                self.emit_op(ops.POP_BLOCK)
+                self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                # finally
+                self.load_const(self.space.w_None)
+                self.use_next_block(cleanup_end)
+                self.push_frame_block(F_BLOCK_FINALLY_END, cleanup_end)
+                # name = None
+                self.load_const(self.space.w_None)
+                self.name_op(handler.name, ast.Store)
+                # del name
+                self.name_op(handler.name, ast.Del)
+                #
+                self.emit_op(ops.END_FINALLY)
+                self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup_end)
             else:
                 self.emit_op(ops.POP_TOP)
-            self.emit_op(ops.POP_TOP)
-            self.visit_sequence(handler.body)
+                self.emit_op(ops.POP_TOP)
+                cleanup_body = self.use_next_block()
+                self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.visit_sequence(handler.body)
+                self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
+            #
+            self.emit_op(ops.POP_EXCEPT)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
         self.use_next_block(otherwise)
-        self.visit_sequence(te.orelse)
+        self.visit_sequence(tr.orelse)
         self.use_next_block(end)
 
-    def visit_TryFinally(self, tf):
-        self.update_position(tf.lineno, True)
+    def _visit_try_finally(self, tr):
+        self.update_position(tr.lineno, True)
         end = self.new_block()
         self.emit_jump(ops.SETUP_FINALLY, end)
         body = self.use_next_block()
         self.push_frame_block(F_BLOCK_FINALLY, body)
-        self.visit_sequence(tf.body)
+        if tr.handlers:
+            self._visit_try_except(tr)
+        else:
+            self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body)
         # Indicates there was no exception.
         self.load_const(self.space.w_None)
         self.use_next_block(end)
         self.push_frame_block(F_BLOCK_FINALLY_END, end)
-        self.visit_sequence(tf.finalbody)
+        self.visit_sequence(tr.finalbody)
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, end)
+
+    def visit_Try(self, tr):
+        if tr.finalbody:
+            return self._visit_try_finally(tr)
+        else:
+            return self._visit_try_except(tr)
 
     def _import_as(self, alias):
         source_name = alias.name
@@ -607,10 +806,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(imp.lineno, True)
         for alias in imp.names:
             assert isinstance(alias, ast.alias)
-            if self.compile_info.flags & consts.CO_FUTURE_ABSOLUTE_IMPORT:
-                level = 0
-            else:
-                level = -1
+            level = 0
             self.load_const(self.space.newint(level))
             self.load_const(self.space.w_None)
             self.emit_op_name(ops.IMPORT_NAME, self.names, alias.name)
@@ -649,12 +845,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         self.error("not a chance", imp)
                     self.error("future feature %s is not defined" %
                                (alias.name,), imp)
-        if imp.level == 0 and \
-                not self.compile_info.flags & consts.CO_FUTURE_ABSOLUTE_IMPORT:
-            level = -1
-        else:
-            level = imp.level
-        self.load_const(space.newint(level))
+        self.load_const(space.newint(imp.level))
         names_w = [None]*len(imp.names)
         for i in range(len(imp.names)):
             alias = imp.names[i]
@@ -707,6 +898,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return False
         for target in targets:
             if not isinstance(target, ast.Name):
+                if isinstance(target, ast.Starred):
+                    # these require extra checks
+                    return False
                 break
         else:
             self.visit_sequence(values)
@@ -733,55 +927,68 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_With(self, wih):
         self.update_position(wih.lineno, True)
+        self.handle_withitem(wih, 0, is_async=False)
+
+    @specialize.argtype(1)
+    def handle_withitem(self, wih, pos, is_async):
         body_block = self.new_block()
         cleanup = self.new_block()
-        wih.context_expr.walkabout(self)
-        self.emit_jump(ops.SETUP_WITH, cleanup)
+        witem = wih.items[pos]
+        assert isinstance(witem, ast.withitem)
+        witem.context_expr.walkabout(self)
+        if not is_async:
+            self.emit_jump(ops.SETUP_WITH, cleanup)
+        else:
+            self.emit_op(ops.BEFORE_ASYNC_WITH)
+            self.emit_op(ops.GET_AWAITABLE)
+            self.load_const(self.space.w_None)
+            self.emit_op(ops.YIELD_FROM)
+            self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
+
         self.use_next_block(body_block)
         self.push_frame_block(F_BLOCK_FINALLY, body_block)
-        if wih.optional_vars:
-            wih.optional_vars.walkabout(self)
+        if witem.optional_vars:
+            witem.optional_vars.walkabout(self)
         else:
             self.emit_op(ops.POP_TOP)
-        self.visit_sequence(wih.body)
+        if pos == len(wih.items) - 1:
+            self.visit_sequence(wih.body)
+        else:
+            self.handle_withitem(wih, pos + 1, is_async=is_async)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body_block)
         self.load_const(self.space.w_None)
         self.use_next_block(cleanup)
         self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
-        self.emit_op(ops.WITH_CLEANUP)
+        self.emit_op(ops.WITH_CLEANUP_START)
+        if is_async:
+            self.emit_op(ops.GET_AWAITABLE)
+            self.load_const(self.space.w_None)
+            self.emit_op(ops.YIELD_FROM)
+        self.emit_op(ops.WITH_CLEANUP_FINISH)
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
+
+    def visit_AsyncWith(self, wih):
+        self.update_position(wih.lineno, True)
+        self.handle_withitem(wih, 0, is_async=True)
 
     def visit_Raise(self, rais):
         self.update_position(rais.lineno, True)
         arg = 0
-        if rais.type:
-            rais.type.walkabout(self)
+        if rais.exc:
+            rais.exc.walkabout(self)
             arg += 1
-            if rais.inst:
-                rais.inst.walkabout(self)
+            if rais.cause:
+                rais.cause.walkabout(self)
                 arg += 1
-                if rais.tback:
-                    rais.tback.walkabout(self)
-                    arg += 1
         self.emit_op_arg(ops.RAISE_VARARGS, arg)
 
-    def visit_Exec(self, exc):
-        self.update_position(exc.lineno, True)
-        exc.body.walkabout(self)
-        if exc.globals:
-            exc.globals.walkabout(self)
-            if exc.locals:
-                exc.locals.walkabout(self)
-            else:
-                self.emit_op(ops.DUP_TOP)
-        else:
-            self.load_const(self.space.w_None)
-            self.emit_op(ops.DUP_TOP)
-        self.emit_op(ops.EXEC_STMT)
-
     def visit_Global(self, glob):
+        # Handled in symbol table building.
+        pass
+
+    def visit_Nonlocal(self, glob):
         # Handled in symbol table building.
         pass
 
@@ -793,8 +1000,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.interactive:
             expr.value.walkabout(self)
             self.emit_op(ops.PRINT_EXPR)
-        # Only compile if the expression isn't constant.
-        elif not expr.value.constant:
+        elif not (isinstance(expr.value, ast.Num) or
+                  isinstance(expr.value, ast.Str)):
             expr.value.walkabout(self)
             self.emit_op(ops.POP_TOP)
 
@@ -806,6 +1013,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_VALUE)
 
+    def visit_YieldFrom(self, yfr):
+        self.update_position(yfr.lineno)
+        yfr.value.walkabout(self)
+        self.emit_op(ops.GET_YIELD_FROM_ITER)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+
+    def visit_Await(self, aw):
+        self.update_position(aw.lineno)
+        aw.value.walkabout(self)
+        self.emit_op(ops.GET_AWAITABLE)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+
     def visit_Num(self, num):
         self.update_position(num.lineno)
         self.load_const(num.n)
@@ -814,9 +1035,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(string.lineno)
         self.load_const(string.s)
 
+    def visit_Bytes(self, b):
+        self.update_position(b.lineno)
+        self.load_const(b.s)
+
     def visit_Const(self, const):
         self.update_position(const.lineno)
-        self.load_const(const.value)
+        self.load_const(const.obj)
+
+    def visit_Ellipsis(self, e):
+        self.load_const(self.space.w_Ellipsis)
 
     def visit_UnaryOp(self, op):
         self.update_position(op.lineno)
@@ -906,64 +1134,201 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
+    def _visit_starunpack(self, node, elts, single_op, inner_op, outer_op):
+        elt_count = len(elts) if elts else 0
+        seen_star = 0
+        elt_subitems = 0
+        for i in range(elt_count):
+            elt = elts[i]
+            is_starred = isinstance(elt, ast.Starred)
+            if is_starred:
+                if seen_star:
+                    self.emit_op_arg(inner_op, seen_star)
+                    seen_star = 0
+                    elt_subitems += 1
+                elt.value.walkabout(self)
+                elt_subitems += 1
+            else:
+                elt.walkabout(self)
+                seen_star += 1
+        if elt_subitems:
+            if seen_star:
+                self.emit_op_arg(inner_op, seen_star)
+                elt_subitems += 1
+            self.emit_op_arg(outer_op, elt_subitems)
+        else:
+            self.emit_op_arg(single_op, seen_star)
+
+    def _visit_assignment(self, node, elts, ctx):
+        elt_count = len(elts) if elts else 0
+        if ctx == ast.Store:
+            seen_star = False
+            for i in range(elt_count):
+                elt = elts[i]
+                is_starred = isinstance(elt, ast.Starred)
+                if is_starred and not seen_star:
+                    if i >= 1 << 8 or elt_count - i - 1 >= (C_INT_MAX >> 8):
+                        self.error("too many expressions in star-unpacking "
+                                   "assignment", node)
+                    self.emit_op_arg(ops.UNPACK_EX,
+                                     i + ((elt_count - i - 1) << 8))
+                    seen_star = True
+                    elts[i] = elt.value
+                elif is_starred:
+                    self.error("two starred expressions in assignment", node)
+            if not seen_star:
+                self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
+        self.visit_sequence(elts)
+
+    def visit_Starred(self, star):
+        if star.ctx != ast.Store:
+            self.error("can't use starred expression here",
+                       star)
+        self.error("starred assignment target must be in a list or tuple", star)
+
     def visit_Tuple(self, tup):
         self.update_position(tup.lineno)
-        elt_count = len(tup.elts) if tup.elts is not None else 0
         if tup.ctx == ast.Store:
-            self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(tup.elts)
-        if tup.ctx == ast.Load:
-            self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
+            self._visit_assignment(tup, tup.elts, tup.ctx)
+        elif tup.ctx == ast.Load:
+            self._visit_starunpack(tup, tup.elts, ops.BUILD_TUPLE, ops.BUILD_TUPLE, ops.BUILD_TUPLE_UNPACK)
+        else:
+            self.visit_sequence(tup.elts)
 
     def visit_List(self, l):
         self.update_position(l.lineno)
-        elt_count = len(l.elts) if l.elts is not None else 0
         if l.ctx == ast.Store:
-            self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(l.elts)
-        if l.ctx == ast.Load:
-            self.emit_op_arg(ops.BUILD_LIST, elt_count)
+            self._visit_assignment(l, l.elts, l.ctx)
+        elif l.ctx == ast.Load:
+            self._visit_starunpack(l, l.elts, ops.BUILD_LIST, ops.BUILD_TUPLE, ops.BUILD_LIST_UNPACK)
+        else:
+            self.visit_sequence(l.elts)
 
     def visit_Dict(self, d):
         self.update_position(d.lineno)
-        self.emit_op_arg(ops.BUILD_MAP, 0)
+        containers = 0
+        elements = 0
+        is_unpacking = False
         if d.values:
             for i in range(len(d.values)):
-                d.values[i].walkabout(self)
-                d.keys[i].walkabout(self)
-                self.emit_op(ops.STORE_MAP)
+                key = d.keys[i]
+                is_unpacking = key is None
+                if elements == 0xFFFF or (elements and is_unpacking):
+                    self.emit_op_arg(ops.BUILD_MAP, elements)
+                    containers += 1
+                    elements = 0
+                if is_unpacking:
+                    d.values[i].walkabout(self)
+                    containers += 1
+                else:
+                    key.walkabout(self)
+                    d.values[i].walkabout(self)
+                    elements += 1
+        if elements or containers == 0:
+            self.emit_op_arg(ops.BUILD_MAP, elements)
+            containers += 1
+        # If there is more than one dict, they need to be merged into
+        # a new dict. If there is one dict and it's an unpacking, then
+        #it needs to be copied into a new dict.
+        while containers > 1 or is_unpacking:
+            oparg = min(containers, 255)
+            self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
+            containers -= (oparg - 1)
+            is_unpacking = False
 
     def visit_Set(self, s):
-        self.update_position(s.lineno)
-        elt_count = len(s.elts) if s.elts is not None else 0
-        self.visit_sequence(s.elts)
-        self.emit_op_arg(ops.BUILD_SET, elt_count)
+        self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK)
 
     def visit_Name(self, name):
         self.update_position(name.lineno)
         self.name_op(name.id, name.ctx)
 
+    def visit_NameConstant(self, node):
+        self.update_position(node.lineno)
+        self.load_const(node.value)
+
     def visit_keyword(self, keyword):
-        self.load_const(self.space.newtext(keyword.arg))
+        if keyword.arg is not None:
+            self.load_const(self.space.newtext(keyword.arg))
         keyword.value.walkabout(self)
 
-    def visit_Call(self, call):
-        self.update_position(call.lineno)
-        if self._optimize_method_call(call):
-            return
-        call.func.walkabout(self)
-        arg = len(call.args) if call.args is not None else 0
+    def _make_call(self, n, # args already pushed
+                   args, keywords):
         call_type = 0
-        self.visit_sequence(call.args)
-        if call.keywords:
-            self.visit_sequence(call.keywords)
-            arg |= len(call.keywords) << 8
-        if call.starargs:
-            call.starargs.walkabout(self)
-            call_type |= 1
-        if call.kwargs:
-            call.kwargs.walkabout(self)
-            call_type |= 2
+        # the number of tuples and dictionaries on the stack
+        nsubargs = 0
+        nsubkwargs = 0
+        nkw = 0
+        nseen = 0 # the number of positional arguments on the stack
+        if args is not None:
+            for elt in args:
+                if isinstance(elt, ast.Starred):
+                    # A star-arg. If we've seen positional arguments,
+                    # pack the positional arguments into a tuple.
+                    if nseen:
+                        self.emit_op_arg(ops.BUILD_TUPLE, nseen)
+                        nseen = 0
+                        nsubargs += 1
+                    elt.value.walkabout(self)
+                    nsubargs += 1
+                elif nsubargs:
+                    # We've seen star-args already, so we
+                    # count towards items-to-pack-into-tuple.
+                    elt.walkabout(self)
+                    nseen += 1
+                else:
+                    # Positional arguments before star-arguments
+                    # are left on the stack.
+                    elt.walkabout(self)
+                    n += 1
+            if nseen:
+                # Pack up any trailing positional arguments.
+                self.emit_op_arg(ops.BUILD_TUPLE, nseen)
+                nsubargs += 1
+            if nsubargs:
+                call_type |= 1
+                if nsubargs > 1:
+                    # If we ended up with more than one stararg, we need
+                    # to concatenate them into a single sequence.
+                    self.emit_op_arg(ops.BUILD_LIST_UNPACK, nsubargs)
+
+        # Repeat procedure for keyword args
+        nseen = 0 # the number of keyword arguments on the stack following
+        if keywords is not None:
+            for kw in keywords:
+                assert isinstance(kw, ast.keyword)
+                if kw.arg is None:
+                    # A keyword argument unpacking.
+                    if nseen:
+                        self.emit_op_arg(ops.BUILD_MAP, nseen)
+                        nseen = 0
+                        nsubkwargs += 1
+                    kw.value.walkabout(self)
+                    nsubkwargs += 1
+                elif nsubkwargs:
+                    # A keyword argument and we already have a dict.
+                    self.load_const(self.space.newtext(kw.arg))
+                    kw.value.walkabout(self)
+                    nseen += 1
+                else:
+                    # keyword argument
+                    kw.walkabout(self)
+                    nkw += 1
+            if nseen:
+                # Pack up any trailing keyword arguments.
+                self.emit_op_arg(ops.BUILD_MAP,nseen)
+                nsubkwargs += 1
+            if nsubkwargs:
+                call_type |= 2
+                if nsubkwargs > 1:
+                    # Pack it all up
+                    function_pos = n + (call_type & 1) + nkw + 1
+                    self.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, (nsubkwargs | (function_pos << 8)))
+
+        assert n < 1<<8
+        assert nkw < 1<<24
+        n |= nkw << 8;
+
         op = 0
         if call_type == 0:
             op = ops.CALL_FUNCTION
@@ -973,10 +1338,26 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             op = ops.CALL_FUNCTION_KW
         elif call_type == 3:
             op = ops.CALL_FUNCTION_VAR_KW
-        self.emit_op_arg(op, arg)
+        self.emit_op_arg(op, n)
+
+    def visit_Call(self, call):
+        self.update_position(call.lineno)
+        if self._optimize_method_call(call):
+            return
+        call.func.walkabout(self)
+        self._make_call(0, call.args, call.keywords)
 
     def _call_has_no_star_args(self, call):
-        return not call.starargs and not call.kwargs
+        if call.args is not None:
+            for elt in call.args:
+                if isinstance(elt, ast.Starred):
+                    return False
+        if call.keywords is not None:
+            for kw in call.keywords:
+                assert isinstance(kw, ast.keyword)
+                if kw.arg is None:
+                    return False
+        return True
 
     def _call_has_simple_args(self, call):
         return self._call_has_no_star_args(call) and not call.keywords
@@ -996,50 +1377,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
         return True
 
-    def _listcomp_generator(self, gens, gen_index, elt, single=False):
-        start = self.new_block()
-        skip = self.new_block()
-        if_cleanup = self.new_block()
-        anchor = self.new_block()
-        gen = gens[gen_index]
-        assert isinstance(gen, ast.comprehension)
-        gen.iter.walkabout(self)
-        if single:
-            self.emit_op_arg(ops.BUILD_LIST_FROM_ARG, 0)
-        self.emit_op(ops.GET_ITER)
-        self.use_next_block(start)
-        self.emit_jump(ops.FOR_ITER, anchor)
-        self.use_next_block()
-        gen.target.walkabout(self)
-        if gen.ifs:
-            for if_ in gen.ifs:
-                if_.accept_jump_if(self, False, if_cleanup)
-                self.use_next_block()
-        gen_index += 1
-        if gen_index < len(gens):
-            self._listcomp_generator(gens, gen_index, elt)
-        else:
-            elt.walkabout(self)
-            self.emit_op_arg(ops.LIST_APPEND, gen_index + 1)
-            self.use_next_block(skip)
-        self.use_next_block(if_cleanup)
-        self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
-        self.use_next_block(anchor)
-
     def visit_ListComp(self, lc):
-        self.update_position(lc.lineno)
-        if len(lc.generators) == 1:
-            comp = lc.generators[0]
-            assert isinstance(comp, ast.comprehension)
-            if comp.ifs:
-                single = False
-                self.emit_op_arg(ops.BUILD_LIST, 0)
-            else:
-                single = True
-        else:
-            single = False
-            self.emit_op_arg(ops.BUILD_LIST, 0)
-        self._listcomp_generator(lc.generators, 0, lc.elt, single=single)
+        self._compile_comprehension(lc, "<listcomp>",
+                                    ComprehensionCodeGenerator)
 
     def _comp_generator(self, node, generators, gen_index):
         start = self.new_block()
@@ -1071,9 +1411,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(anchor)
 
     def _compile_comprehension(self, node, name, sub_scope):
-        code = self.sub_scope(sub_scope, name, node, node.lineno)
+        code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
         self.update_position(node.lineno)
-        self._make_function(code)
+        self._make_function(code, qualname=qualname)
         first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
         first_comp.iter.walkabout(self)
@@ -1090,11 +1430,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_DictComp(self, dictcomp):
         self._compile_comprehension(dictcomp, "<dictcomp>",
                                     ComprehensionCodeGenerator)
-
-    def visit_Repr(self, rep):
-        self.update_position(rep.lineno)
-        rep.value.walkabout(self)
-        self.emit_op(ops.UNARY_CONVERT)
 
     def visit_Attribute(self, attr):
         self.update_position(attr.lineno)
@@ -1117,35 +1452,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             raise AssertionError("unknown context")
 
-    def _simple_slice(self, slc, ctx):
-        slice_offset = 0
-        stack_count = 0
-        if slc.lower:
-            slice_offset += 1
-            stack_count += 1
-            if ctx != ast.AugStore:
-                slc.lower.walkabout(self)
-        if slc.upper:
-            slice_offset += 2
-            stack_count += 1
-            if ctx != ast.AugStore:
-                slc.upper.walkabout(self)
-        if ctx == ast.AugLoad:
-            if stack_count == 0:
-                self.emit_op(ops.DUP_TOP)
-            elif stack_count == 1:
-                self.emit_op_arg(ops.DUP_TOPX, 2)
-            elif stack_count == 2:
-                self.emit_op_arg(ops.DUP_TOPX, 3)
-        elif ctx == ast.AugStore:
-            if stack_count == 0:
-                self.emit_op(ops.ROT_TWO)
-            elif stack_count == 1:
-                self.emit_op(ops.ROT_THREE)
-            elif stack_count == 2:
-                self.emit_op(ops.ROT_FOUR)
-        self.emit_op(slice_operations(ctx) + slice_offset)
-
     def _complex_slice(self, slc, ctx):
         if slc.lower:
             slc.lower.walkabout(self)
@@ -1162,9 +1468,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.BUILD_SLICE, arg)
 
     def _nested_slice(self, slc, ctx):
-        if isinstance(slc, ast.Ellipsis):
-            self.load_const(self.space.w_Ellipsis)
-        elif isinstance(slc, ast.Slice):
+        if isinstance(slc, ast.Slice):
             self._complex_slice(slc, ctx)
         elif isinstance(slc, ast.Index):
             slc.value.walkabout(self)
@@ -1175,14 +1479,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if isinstance(slc, ast.Index):
             if ctx != ast.AugStore:
                 slc.value.walkabout(self)
-        elif isinstance(slc, ast.Ellipsis):
-            if ctx != ast.AugStore:
-                self.load_const(self.space.w_Ellipsis)
         elif isinstance(slc, ast.Slice):
-            if not slc.step:
-                self._simple_slice(slc, ctx)
-                return
-            elif ctx != ast.AugStore:
+            if ctx != ast.AugStore:
                 self._complex_slice(slc, ctx)
         elif isinstance(slc, ast.ExtSlice):
             if ctx != ast.AugStore:
@@ -1192,7 +1490,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             raise AssertionError("unknown slice type")
         if ctx == ast.AugLoad:
-            self.emit_op_arg(ops.DUP_TOPX, 2)
+            self.emit_op(ops.DUP_TOP_TWO)
         elif ctx == ast.AugStore:
             self.emit_op(ops.ROT_THREE)
         self.emit_op(subscr_operations(ctx))
@@ -1203,18 +1501,52 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             sub.value.walkabout(self)
         self._compile_slice(sub.slice, sub.ctx)
 
+    def visit_JoinedStr(self, joinedstr):
+        self.update_position(joinedstr.lineno)
+        for node in joinedstr.values:
+            node.walkabout(self)
+        if len(joinedstr.values) != 1:
+            self.emit_op_arg(ops.BUILD_STRING, len(joinedstr.values))
+
+    def visit_FormattedValue(self, fmt):
+        fmt.value.walkabout(self)
+        arg = 0
+        if fmt.conversion == ord('s'): arg = consts.FVC_STR
+        if fmt.conversion == ord('r'): arg = consts.FVC_REPR
+        if fmt.conversion == ord('a'): arg = consts.FVC_ASCII
+        if fmt.format_spec is not None:
+            arg |= consts.FVS_HAVE_SPEC
+            fmt.format_spec.walkabout(self)
+        self.emit_op_arg(ops.FORMAT_VALUE, arg)
+
+    def _revdb_metavar(self, node):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import dbstate
+        if not dbstate.standard_code:
+            self.emit_op_arg(ops.LOAD_REVDB_VAR, node.metavar)
+            return True
+        return False
+
+    def visit_RevDBMetaVar(self, node):
+        if self.space.reverse_debugging and self._revdb_metavar(node):
+            return
+        self.error("Unknown character ('$NUM' is only valid in the "
+                   "reverse-debugger)", node)
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
     def __init__(self, space, tree, symbols, compile_info):
         PythonCodeGenerator.__init__(self, space, "<module>", tree, -1,
-                                     symbols, compile_info)
+                                     symbols, compile_info, qualname=None)
 
     def _compile(self, tree):
         tree.walkabout(self)
 
     def _get_code_flags(self):
         flags = 0
+        if not self.cell_vars and not self.free_vars:
+            flags |= consts.CO_NOFREE
         if self.scope.doc_removable:
             flags |= consts.CO_KILL_DOCSTRING
         return flags
@@ -1222,19 +1554,11 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
 
 class AbstractFunctionCodeGenerator(PythonCodeGenerator):
 
-    def _handle_nested_args(self, args):
-        for i in range(len(args)):
-            arg = args[i]
-            if isinstance(arg, ast.Tuple):
-                self.update_position(arg.lineno)
-                self.name_op(".%d" % (i,), ast.Load)
-                arg.walkabout(self)
-
     def _get_code_flags(self):
         scope = self.scope
         assert isinstance(scope, symtable.FunctionScope)
-        flags = 0
-        if scope.locals_fully_known:
+        flags = consts.CO_NEWLOCALS
+        if scope.optimized:
             flags |= consts.CO_OPTIMIZED
         if scope.nested:
             flags |= consts.CO_NESTED
@@ -1257,27 +1581,37 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
         assert isinstance(func, ast.FunctionDef)
-        # If there's a docstring, store it as the first constant.
-        if func.body:
-            doc_expr = self.possible_docstring(func.body[0])
-        else:
-            doc_expr = None
-        if doc_expr is not None:
-            self.add_const(doc_expr.s)
-            self.scope.doc_removable = True
-            start = 1
-        else:
-            self.add_const(self.space.w_None)
-            start = 0
+        has_docstring = self.ensure_docstring_constant(func.body)
+        start = 1 if has_docstring else 0
         args = func.args
         assert isinstance(args, ast.arguments)
         if args.args:
-            self._handle_nested_args(args.args)
             self.argcount = len(args.args)
+        if args.kwonlyargs:
+            self.kwonlyargcount = len(args.kwonlyargs)
         if func.body:
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
 
+class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
+
+    def _compile(self, func):
+        assert isinstance(func, ast.AsyncFunctionDef)
+        has_docstring = self.ensure_docstring_constant(func.body)
+        start = 1 if has_docstring else 0
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        if args.args:
+            self.argcount = len(args.args)
+        if args.kwonlyargs:
+            self.kwonlyargcount = len(args.kwonlyargs)
+        if func.body:
+            for i in range(start, len(func.body)):
+                func.body[i].walkabout(self)
+
+    def _get_code_flags(self):
+        flags = AbstractFunctionCodeGenerator._get_code_flags(self)
+        return flags | consts.CO_COROUTINE
 
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 
@@ -1286,8 +1620,9 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         args = lam.args
         assert isinstance(args, ast.arguments)
         if args.args:
-            self._handle_nested_args(args.args)
             self.argcount = len(args.args)
+        if args.kwonlyargs:
+            self.kwonlyargcount = len(args.kwonlyargs)
         # Prevent a string from being the first constant and thus a docstring.
         self.add_const(self.space.w_None)
         lam.body.walkabout(self)
@@ -1321,11 +1656,27 @@ class ClassCodeGenerator(PythonCodeGenerator):
 
     def _compile(self, cls):
         assert isinstance(cls, ast.ClassDef)
+        self.ensure_docstring_constant(cls.body)
         self.lineno = self.first_lineno
+        self.argcount = 1
+        # load (global) __name__ ...
         self.name_op("__name__", ast.Load)
+        # ... and store it as __module__
         self.name_op("__module__", ast.Store)
+        # store the qualname
+        w_qualname = self.space.newtext(self.qualname)
+        self.load_const(w_qualname)
+        self.name_op("__qualname__", ast.Store)
+        # compile the body proper
         self._handle_body(cls.body)
-        self.emit_op(ops.LOAD_LOCALS)
+        # return the (empty) __class__ cell
+        scope = self.scope.lookup("__class__")
+        if scope == symtable.SCOPE_CELL_CLASS:
+            # Return the cell where to store __class__
+            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
+        else:
+            # This happens when nobody references the cell
+            self.load_const(self.space.w_None)
         self.emit_op(ops.RETURN_VALUE)
 
     def _get_code_flags(self):

@@ -49,6 +49,11 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
                      w_stararg=w_args, w_starstararg=w_kwds)
     return space.call_args(w_impl, args)
 
+@slot_function([PyObject, PyObject, PyObject], PyObject)
+def slot_tp_call(space, w_self, w_args, w_kwds):
+    args = Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
+    return space.call_args(w_self, args)
+
 # unary functions
 
 @slot_function([PyObject], PyObject)
@@ -106,7 +111,7 @@ def slot_mp_subscript(space, w_obj1, w_obj2):
     return space.getitem(w_obj1, w_obj2)
 
 @slot_function([PyObject, PyObject], PyObject)
-def slot_tp_getattr(space, w_obj1, w_obj2):
+def slot_tp_getattr_hook(space, w_obj1, w_obj2):
     return space.getattr(w_obj1, w_obj2)
 
 @slot_function([PyObject, PyObject, PyObject], PyObject)
@@ -130,3 +135,27 @@ def slot_tp_iter(space, w_self):
 @slot_function([PyObject], PyObject)
 def slot_tp_iternext(space, w_self):
     return space.next(w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_am_await(space, w_self):
+    w_await = space.lookup(w_self, "__await__")
+    if w_await is None:
+        raise oefmt(space.w_TypeError,
+            "object %T does not have __await__ method", w_self)
+    return space.get_and_call_function(w_await, w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_am_aiter(space, w_self):
+    w_aiter = space.lookup(w_self, "__aiter__")
+    if w_aiter is None:
+        raise oefmt(space.w_TypeError,
+            "object %T does not have __aiter__ method", w_self)
+    return space.get_and_call_function(w_aiter, w_self)
+
+@slot_function([PyObject], PyObject)
+def slot_am_anext(space, w_self):
+    w_anext = space.lookup(w_self, "__anext__")
+    if w_anext is None:
+        raise oefmt(space.w_TypeError,
+            "object %T does not have __anext__ method", w_self)
+    return space.get_and_call_function(w_anext, w_self)

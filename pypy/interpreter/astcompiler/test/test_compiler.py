@@ -1,33 +1,38 @@
+from __future__ import division
 import py, sys
+from pytest import raises
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
+from pypy.interpreter.error import OperationError
 from pypy.tool import stdlib_opcode as ops
 
 def compile_with_astcompiler(expr, mode, space):
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", mode)
     cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info)
+    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
     return codegen.compile_ast(space, ast, info)
 
 def generate_function_code(expr, space):
+    from pypy.interpreter.astcompiler.ast import FunctionDef
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", 'exec')
     cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info)
+    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
     function_ast = optimize.optimize_ast(space, ast.body[0], info)
     function_ast = ast.body[0]
+    assert isinstance(function_ast, FunctionDef)
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
-        space, 'function', function_ast, 1, symbols, info)
+        space, 'function', function_ast, 1, symbols, info, qualname='function')
     blocks = generator.first_block.post_order()
     generator._resolve_block_targets(blocks)
     return generator, blocks
 
-class TestCompiler:
+class BaseTestCompiler:
     """These tests compile snippets of code and check them by
     running them with our own interpreter.  These are thus not
     completely *unit* tests, but given that our interpreter is
@@ -40,14 +45,30 @@ class TestCompiler:
         source = str(py.code.Source(source))
         space = self.space
         code = compile_with_astcompiler(source, 'exec', space)
-        # 2.7 bytecode is too different, the standard `dis` module crashes
+        # 3.2 bytecode is too different, the standard `dis` module crashes
         # on older cpython versions
-        if sys.version_info >= (2, 7):
+        if sys.version_info >= (3, 2):
+            # this will only (maybe) work in the far future, when we run pypy
+            # on top of Python 3. For now, it's just disabled
             print
             code.dump()
         w_dict = space.newdict()
         code.exec_code(space, w_dict, w_dict)
         return w_dict
+
+    # on Python3 some reprs are different than Python2. Here is a collection
+    # of how the repr should be on on Python3 for some objects
+    PY3_REPR = {
+        int: "<class 'int'>",
+        float: "<class 'float'>",
+        }
+
+    def get_py3_repr(self, val):
+        try:
+            return self.PY3_REPR.get(val, repr(val))
+        except TypeError:
+            # e.g., for unhashable types
+            return repr(val)
 
     def check(self, w_dict, evalexpr, expected):
         # for now, we compile evalexpr with CPython's compiler but run
@@ -56,14 +77,17 @@ class TestCompiler:
         space = self.space
         pyco_expr = PyCode._from_code(space, co_expr)
         w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
-        res = space.str_w(space.repr(w_res))
-        if not isinstance(expected, float):
-            noL = lambda expr: expr.replace('L', '')
-            assert noL(res) == noL(repr(expected))
-        else:
+        res = space.text_w(space.repr(w_res))
+        expected_repr = self.get_py3_repr(expected)
+        if isinstance(expected, float):
             # Float representation can vary a bit between interpreter
             # versions, compare the numbers instead.
             assert eval(res) == expected
+        elif isinstance(expected, long):
+            assert expected_repr.endswith('L')
+            assert res == expected_repr[:-1] # in py3 we don't have the L suffix
+        else:
+            assert res == expected_repr
 
     def simple_test(self, source, evalexpr, expected):
         w_g = self.run(source)
@@ -73,6 +97,9 @@ class TestCompiler:
 
     def error_test(self, source, exc_type):
         py.test.raises(exc_type, self.simple_test, source, None, None)
+
+
+class TestCompiler(BaseTestCompiler):
 
     def test_issue_713(self):
         func = "def f(_=2): return (_ if _ else _) if False else _"
@@ -89,12 +116,12 @@ class TestCompiler:
         yield self.st, func, "f(0)", 0
 
     def test_argtuple(self):
-        yield (self.simple_test, "def f( x, (y,z) ): return x,y,z",
-               "f((1,2),(3,4))", ((1,2),3,4))
-        yield (self.simple_test, "def f( x, (y,(z,t)) ): return x,y,z,t",
-               "f(1,(2,(3,4)))", (1,2,3,4))
-        yield (self.simple_test, "def f(((((x,),y),z),t),u): return x,y,z,t,u",
-               "f(((((1,),2),3),4),5)", (1,2,3,4,5))
+        yield (self.error_test, "def f( x, (y,z) ): return x,y,z",
+               SyntaxError)
+        yield (self.error_test, "def f( x, (y,(z,t)) ): return x,y,z,t",
+               SyntaxError)
+        yield (self.error_test, "def f(((((x,),y),z),t),u): return x,y,z,t,u",
+               SyntaxError)
 
     def test_constants(self):
         for c in expressions.constants:
@@ -223,8 +250,7 @@ class TestCompiler:
     def test_funccalls(self):
         decl = py.code.Source("""
             def f(*args, **kwds):
-                kwds = kwds.items()
-                kwds.sort()
+                kwds = sorted(kwds.items())
                 return list(args) + kwds
         """)
         decl = str(decl) + '\n'
@@ -235,6 +261,16 @@ class TestCompiler:
         yield self.st, decl + "x=f(5, b=2, *[6,7])", "x", [5, 6, 7, ('b', 2)]
         yield self.st, decl + "x=f(5, b=2, **{'a': 8})", "x", [5, ('a', 8),
                                                                   ('b', 2)]
+
+    def test_kwonly(self):
+        decl = py.code.Source("""
+            def f(a, *, b):
+                return a, b
+        """)
+        decl = str(decl) + '\n'
+        self.st(decl + "x=f(1, b=2)", "x", (1, 2))
+        operr = py.test.raises(OperationError, 'self.st(decl + "x=f(1, 2)", "x", (1, 2))')
+        assert operr.value.w_type is self.space.w_TypeError
 
     def test_listmakers(self):
         yield (self.st,
@@ -315,9 +351,9 @@ class TestCompiler:
                     from __foo__.bar import x
             try:
                 A().m()
-            except ImportError, e:
+            except ImportError as e:
                 msg = str(e)
-            ''', "msg", "No module named __foo__")
+            ''', "msg", "No module named '__foo__'")
 
     def test_if_stmts(self):
         yield self.st, "a = 42\nif a > 10: a += 2", "a", 44
@@ -377,14 +413,15 @@ class TestCompiler:
                     return a
              ''',                            "foo docstring"),
             ('''def foo():
-                    """doc"""; print 1
+                    """doc"""; assert 1
                     a=1
              ''',                            "doc"),
             ('''
                 class Foo(object): pass
                 foo = Foo()
-                exec "'moduledoc'" in foo.__dict__
+                exec("'moduledoc'", foo.__dict__)
              ''',                            "moduledoc"),
+            ('''def foo(): f"abc"''',        None),
             ]:
             yield self.simple_test, source, "foo.__doc__", expected
 
@@ -448,27 +485,14 @@ class TestCompiler:
         yield self.st, decl, 'A,A1,A2,B2,C,C1,C2,D1,E,G,G1,G2,N1', \
                              (6,6 ,4 ,1 ,5,5 ,5 ,3 ,8,2,2 ,2 ,7 )
 
-        decl = py.code.Source("""
-            def f((a, b)):
-                def g((c, d)):
-                    return (a, b, c, d)
-                return g
-            x = f((1, 2))((3, 4))
-        """)
-        decl = str(decl) + "\n"
-        yield self.st, decl, 'x', (1, 2, 3, 4)
-
-    def test_closure_error(self):
-        source = """if 1:
-        def f(a):
-            del a
-            def x():
-                a
-        """
-        with py.test.raises(SyntaxError) as excinfo:
-            self.run(source)
-        msg = excinfo.value.msg
-        assert msg == "Can't delete variable used in nested scopes: 'a'"
+    def test_try_except(self):
+        yield self.simple_test, """
+        x = 42
+        try:
+            pass
+        except:
+            x = 0
+        """, 'x', 42
 
     def test_try_except_finally(self):
         yield self.simple_test, """
@@ -481,6 +505,35 @@ class TestCompiler:
                     x += 1
             except ValueError:
                 x *= 7
+        """, 'x', 42
+
+    def test_try_finally_bug(self):
+        yield self.simple_test, """
+        x = 0
+        try:
+            pass
+        finally:
+            x = 6
+        print(None, None, None, None)
+        x *= 7
+        """, 'x', 42
+
+    def test_with_stacksize_bug(self):
+        compile_with_astcompiler("with a:\n  pass", 'exec', self.space)
+
+    def test_with_bug(self):
+        yield self.simple_test, """
+        class ContextManager:
+            def __enter__(self, *args):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        x = 0
+        with ContextManager():
+            x = 6
+        print(None, None, None, None)
+        x *= 7
         """, 'x', 42
 
     def test_while_loop(self):
@@ -511,7 +564,7 @@ class TestCompiler:
                 else:                 # line 5
                     if 1: pass        # line 6
             import dis
-            co = ireturn_example.func_code
+            co = ireturn_example.__code__
             linestarts = list(dis.findlinestarts(co))
             addrreturn = linestarts[-1][0]
             x = [addrreturn == (len(co.co_code) - 4)]
@@ -519,8 +572,8 @@ class TestCompiler:
         """, 'x', [True, 3, 4, 6]
 
     def test_type_of_constants(self):
-        yield self.simple_test, "x=[0, 0L]", 'type(x[1])', long
-        yield self.simple_test, "x=[(1,0), (1,0L)]", 'type(x[1][1])', long
+        yield self.simple_test, "x=[0, 0.]", 'type(x[1])', float
+        yield self.simple_test, "x=[(1,0), (1,0.)]", 'type(x[1][1])', float
         yield self.simple_test, "x=['2?-', '2?-']", 'id(x[0])==id(x[1])', True
 
     def test_pprint(self):
@@ -564,7 +617,7 @@ class TestCompiler:
                     append = components.append
                     level += 1
                     saferepr = _safe_repr
-                    for k, v in object.iteritems():
+                    for k, v in object.items():
                         krepr, kreadable, krecur = saferepr(k, context, maxlevels, level)
                         vrepr, vreadable, vrecur = saferepr(v, context, maxlevels, level)
                         append("%s: %s" % (krepr, vrepr))
@@ -646,39 +699,37 @@ class TestCompiler:
                 #Indexing
                 for key, value in self.reference.items():
                     self.assertEqual(d[key], value)
-                knownkey = self.other.keys()[0]
+                knownkey = next(iter(self.other))
                 self.failUnlessRaises(KeyError, lambda:d[knownkey])
                 #len
                 self.assertEqual(len(p), 0)
                 self.assertEqual(len(d), len(self.reference))
                 #has_key
                 for k in self.reference:
-                    self.assert_(d.has_key(k))
                     self.assert_(k in d)
                 for k in self.other:
-                    self.failIf(d.has_key(k))
                     self.failIf(k in d)
                 #cmp
-                self.assertEqual(cmp(p,p), 0)
-                self.assertEqual(cmp(d,d), 0)
-                self.assertEqual(cmp(p,d), -1)
-                self.assertEqual(cmp(d,p), 1)
+                self.assert_(p == p)
+                self.assert_(d == d)
+                self.failUnlessRaises(TypeError, lambda: p < d)
+                self.failUnlessRaises(TypeError, lambda: d > p)
                 #__non__zero__
                 if p: self.fail("Empty mapping must compare to False")
                 if not d: self.fail("Full mapping must compare to True")
                 # keys(), items(), iterkeys() ...
                 def check_iterandlist(iter, lst, ref):
-                    self.assert_(hasattr(iter, 'next'))
+                    self.assert_(hasattr(iter, '__next__'))
                     self.assert_(hasattr(iter, '__iter__'))
                     x = list(iter)
                     self.assert_(set(x)==set(lst)==set(ref))
-                check_iterandlist(d.iterkeys(), d.keys(), self.reference.keys())
+                check_iterandlist(iter(d.keys()), d.keys(), self.reference.keys())
                 check_iterandlist(iter(d), d.keys(), self.reference.keys())
-                check_iterandlist(d.itervalues(), d.values(), self.reference.values())
-                check_iterandlist(d.iteritems(), d.items(), self.reference.items())
+                check_iterandlist(iter(d.values()), d.values(), self.reference.values())
+                check_iterandlist(iter(d.items()), d.items(), self.reference.items())
                 #get
-                key, value = d.iteritems().next()
-                knownkey, knownvalue = self.other.iteritems().next()
+                key, value = next(iter(d.items()))
+                knownkey, knownvalue = next(iter(self.other.items()))
                 self.assertEqual(d.get(key, knownvalue), value)
                 self.assertEqual(d.get(knownkey, knownvalue), knownvalue)
                 self.failIf(knownkey in d)
@@ -700,6 +751,15 @@ class TestCompiler:
         """)
         decl = str(decl) + '\n'
         yield self.simple_test, decl, 'r', None
+
+    def test_assert(self):
+        decl = py.code.Source("""
+        try:
+            assert 0, 'hi'
+        except AssertionError as e:
+            msg = str(e)
+        """)
+        yield self.simple_test, decl, 'msg', 'hi'
 
     def test_indentation_error(self):
         source = py.code.Source("""
@@ -742,9 +802,19 @@ class TestCompiler:
         py.test.raises(SyntaxError, self.simple_test, "int(base=10, '2')",
                        None, None)
 
-    def test_crap_after_starargs(self):
-        source = "call(*args, *args)"
-        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+    def test_starargs_after_starargs(self):
+        #allowed since PEP 448 "Additional Unpacking Generalizations"
+        source = py.code.Source("""
+        def call(*arg):
+            ret = []
+            for i in arg:
+                ret.append(i)
+            return ret
+
+        args = [4,5,6]
+        res = call(*args, *args)
+        """)
+        self.simple_test(source, 'res', [4,5,6,4,5,6])
 
     def test_not_a_name(self):
         source = "call(a, b, c, 3=3)"
@@ -804,7 +874,7 @@ class TestCompiler:
         finally: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 3
+        assert code.co_stacksize == 4
 
     def test_stackeffect_bug4(self):
         source = """if 1:
@@ -814,9 +884,10 @@ class TestCompiler:
         with a: pass
         with a: pass
         with a: pass
+        with a: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 4
+        assert code.co_stacksize == 5  # i.e. <= 7, there is no systematic leak
 
     def test_stackeffect_bug5(self):
         source = """if 1:
@@ -846,7 +917,7 @@ class TestCompiler:
         yield self.st, "y = lambda x: x", "y(4)", 4
 
     def test_backquote_repr(self):
-        yield self.st, "x = None; y = `x`", "y", "None"
+        py.test.raises(SyntaxError, self.simple_test, "y = `0`", None, None)
 
     def test_deleting_attributes(self):
         test = """if 1:
@@ -860,6 +931,39 @@ class TestCompiler:
         else:
             raise AssertionError("attribute not removed")"""
         yield self.st, test, "X.__name__", "X"
+
+    def test_nonlocal(self):
+        test = """if 1:
+        def f():
+            y = 0
+            def g(x):
+                nonlocal y
+                y = x + 1
+            g(3)
+            return y"""
+        yield self.st, test, "f()", 4
+
+    def test_nonlocal_from_arg(self):
+        test = """if 1:
+        def test1(x):
+            def test2():
+                nonlocal x
+                def test3():
+                    return x
+                return test3()
+            return test2()"""
+        yield self.st, test, "test1(2)", 2
+
+    def test_class_nonlocal_from_arg(self):
+        test = """if 1:
+        def f(x):
+            class c:
+                nonlocal x
+                x += 1
+                def get(self):
+                    return x
+            return c().get()"""
+        yield self.st, test, "f(3)", 4
 
     def test_lots_of_loops(self):
         source = "for x in y: pass\n" * 1000
@@ -953,35 +1057,225 @@ class TestCompiler:
         yield (self.st, "x=(lambda: (-0.0, 0.0), lambda: (0.0, -0.0))[1]()",
                         'repr(x)', '(0.0, -0.0)')
 
+    def test_raise_from(self):
+        test = """if 1:
+        def f():
+            try:
+                raise TypeError() from ValueError()
+            except TypeError as e:
+                assert isinstance(e.__cause__, ValueError)
+                return 42
+        """
+        yield self.st, test, "f()", 42
+        test = """if 1:
+        def f():
+            try:
+                raise TypeError from ValueError
+            except TypeError as e:
+                assert isinstance(e.__cause__, ValueError)
+                return 42
+        """
+        yield self.st, test, "f()", 42
+    # This line is needed for py.code to find the source.
+
+    def test_extended_unpacking(self):
+        func = """def f():
+            (a, *b, c) = 1, 2, 3, 4, 5
+            return a, b, c
+        """
+        yield self.st, func, "f()", (1, [2, 3, 4], 5)
+        func = """def f():
+            [a, *b, c] = 1, 2, 3, 4, 5
+            return a, b, c
+        """
+        yield self.st, func, "f()", (1, [2, 3, 4], 5)
+        func = """def f():
+            *a, = [1, 2, 3]
+            return a
+        """
+        yield self.st, func, "f()", [1, 2, 3]
+        func = """def f():
+            for a, *b, c in [(1, 2, 3, 4)]:
+                return a, b, c
+        """
+        yield self.st, func, "f()", (1, [2, 3], 4)
+        func = """def f():
+            b = [4,5,6]
+            c = 7
+            a = [*b, c]
+            return a
+        """
+        yield self.st, func, "f()", [4, 5, 6, 7]
+
+    def test_extended_unpacking_fail(self):
+        exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
+                             None, None).value
+        assert exc.msg == "two starred expressions in assignment"
+        exc = py.test.raises(SyntaxError, self.simple_test,
+                             "[*b, *c] = range(10)", None, None).value
+        assert exc.msg == "two starred expressions in assignment"
+
+        exc = py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
+                             None, None).value
+        assert exc.msg == "starred assignment target must be in a list or tuple"
+
+        s = ", ".join("a%d" % i for i in range(1<<8)) + ", *rest = range(1<<8 + 1)"
+        exc = py.test.raises(SyntaxError, self.simple_test, s, None,
+                             None).value
+        assert exc.msg == "too many expressions in star-unpacking assignment"
+        s = ", ".join("a%d" % i for i in range(1<<8 + 1)) + ", *rest = range(1<<8 + 2)"
+        exc = py.test.raises(SyntaxError, self.simple_test, s, None,
+                             None).value
+        assert exc.msg == "too many expressions in star-unpacking assignment"
+
+    def test_list_compr_or(self):
+        yield self.st, 'x = list(d for d in [1] or [])', 'x', [1]
+        yield self.st, 'y = [d for d in [1] or []]', 'y', [1]
+
+    def test_yield_from(self):
+        test = """if 1:
+        def f():
+            yield from range(3)
+        def g():
+            return list(f())
+        """
+        yield self.st, test, "g()", range(3)
+
+    def test__class__global(self):
+        source = """if 1:
+        class X:
+           global __class__
+        """
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+        # XXX this raises "'global __class__' inside a class statement
+        # is not implemented in PyPy".  The reason it is not is that it
+        # seems we need to refactor some things to implement it exactly
+        # like CPython, and I seriously don't think there is a point
+        #
+        # Another case which so far works on CPython but not on PyPy:
+        #class X:
+        #    __class__ = 42
+        #    def f(self):
+        #        return __class__
+        #assert X.__dict__['__class__'] == 42
+        #assert X().f() is X
+
+    def test_error_message_1(self):
+        source = """if 1:
+        async def f():
+            {await a for a in b}
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, None, None)
+        assert e.value.msg == (
+            "'await' expressions in comprehensions are not supported")
+
+    def test_load_classderef(self):
+        source = """if 1:
+        def f():
+            x = 42
+            class X:
+                locals()["x"] = 43
+                y = x
+            return X.y
+        """
+        yield self.st, source, "f()", 43
+
+    def test_fstring(self):
+        yield self.st, """x = 42; z = f'ab{x}cd'""", 'z', 'ab42cd'
+        yield self.st, """z = f'{{'""", 'z', '{'
+        yield self.st, """z = f'}}'""", 'z', '}'
+        yield self.st, """z = f'x{{y'""", 'z', 'x{y'
+        yield self.st, """z = f'x}}y'""", 'z', 'x}y'
+        yield self.st, """z = f'{{{4*10}}}'""", 'z', '{40}'
+        yield self.st, r"""z = fr'x={4*10}\n'""", 'z', 'x=40\\n'
+
+        yield self.st, """x = 'hi'; z = f'{x}'""", 'z', 'hi'
+        yield self.st, """x = 'hi'; z = f'{x!s}'""", 'z', 'hi'
+        yield self.st, """x = 'hi'; z = f'{x!r}'""", 'z', "'hi'"
+        yield self.st, """x = 'hi'; z = f'{x!a}'""", 'z', "'hi'"
+
+        yield self.st, """x = 'hi'; z = f'''{\nx}'''""", 'z', 'hi'
+
+        yield self.st, """x = 'hi'; z = f'{x:5}'""", 'z', 'hi   '
+        yield self.st, """x = 42;   z = f'{x:5}'""", 'z', '   42'
+        yield self.st, """x = 2; z = f'{5:{x:+1}0}'""", 'z', (' ' * 18 + '+5')
+
+        yield self.st, """z=f'{"}"}'""", 'z', '}'
+
+        yield self.st, """z=f'{f"{0}"*3}'""", 'z', '000'
+
+    def test_fstring_error(self):
+        raises(SyntaxError, self.run, "f'{}'")
+        raises(SyntaxError, self.run, "f'{   \t   }'")
+        raises(SyntaxError, self.run, "f'{5#}'")
+        raises(SyntaxError, self.run, "f'{5)#}'")
+        raises(SyntaxError, self.run, "f'''{5)\n#}'''")
+        raises(SyntaxError, self.run, "f'\\x'")
+
+    def test_fstring_encoding(self):
+        src = """# -*- coding: latin-1 -*-\nz=ord(f'{"\xd8"}')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(f'{"\xc3\x98"}')\n"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """z=ord(f'\\xd8')"""
+        yield self.st, src, 'z', 0xd8
+        src = """z=ord(f'\\u00d8')"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """# -*- coding: latin-1 -*-\nz=ord(f'\xd8')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(f'\xc3\x98')\n"""
+        yield self.st, src, 'z', 0xd8
+
+    def test_fstring_encoding_r(self):
+        src = """# -*- coding: latin-1 -*-\nz=ord(fr'{"\xd8"}')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(rf'{"\xc3\x98"}')\n"""
+        yield self.st, src, 'z', 0xd8
+
+        src = """z=fr'\\xd8'"""
+        yield self.st, src, 'z', "\\xd8"
+        src = """z=rf'\\u00d8'"""
+        yield self.st, src, 'z', "\\u00d8"
+
+        src = """# -*- coding: latin-1 -*-\nz=ord(rf'\xd8')\n"""
+        yield self.st, src, 'z', 0xd8
+        src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
+        yield self.st, src, 'z', 0xd8
+
+
+class TestCompilerRevDB(BaseTestCompiler):
+    spaceconfig = {"translation.reverse_debugger": True}
+
+    def test_revdb_metavar(self):
+        from pypy.interpreter.reverse_debugging import dbstate, setup_revdb
+        self.space.reverse_debugging = True
+        try:
+            setup_revdb(self.space)
+            dbstate.standard_code = False
+            dbstate.metavars = [self.space.wrap(6)]
+            self.simple_test("x = 7*$0", "x", 42)
+            dbstate.standard_code = True
+            self.error_test("x = 7*$0", SyntaxError)
+        finally:
+            self.space.reverse_debugging = False
+
 
 class AppTestCompiler:
 
-    def setup_class(cls):
-        cls.w_maxunicode = cls.space.wrap(sys.maxunicode)
-
     def test_docstring_not_loaded(self):
-        import StringIO, dis, sys
+        import io, dis, sys
         ns = {}
-        exec "def f():\n    'hi'" in ns
+        exec("def f():\n    'hi'", ns)
         f = ns["f"]
         save = sys.stdout
-        sys.stdout = output = StringIO.StringIO()
+        sys.stdout = output = io.StringIO()
         try:
             dis.dis(f)
         finally:
             sys.stdout = save
         assert "0 ('hi')" not in output.getvalue()
-
-    def test_print_to(self):
-        exec """if 1:
-        from StringIO import StringIO
-        s = StringIO()
-        print >> s, "hi", "lovely!"
-        assert s.getvalue() == "hi lovely!\\n"
-        s = StringIO()
-        print >> s, "hi", "lovely!",
-        assert s.getvalue() == "hi lovely!"
-        """ in {}
 
     def test_assert_with_tuple_arg(self):
         try:
@@ -992,6 +1286,7 @@ class AppTestCompiler:
     # BUILD_LIST_FROM_ARG is PyPy specific
     @py.test.mark.skipif('config.option.runappdirect')
     def test_build_list_from_arg_length_hint(self):
+        py3k_skip('XXX: BUILD_LIST_FROM_ARG list comps are genexps on py3k')
         hint_called = [False]
         class Foo(object):
             def __length_hint__(self):
@@ -1007,12 +1302,15 @@ class AppTestCompiler:
     def test_unicode_in_source(self):
         import sys
         d = {}
-        exec '# -*- coding: utf-8 -*-\n\nu = u"\xf0\x9f\x92\x8b"' in d
-        if sys.maxunicode > 65535 and self.maxunicode > 65535:
-            expected_length = 1
-        else:
-            expected_length = 2
-        assert len(d['u']) == expected_length
+        exec('# -*- coding: utf-8 -*-\n\nu = "\xf0\x9f\x92\x8b"', d)
+        assert len(d['u']) == 4
+
+    def test_kw_defaults_None(self):
+        import _ast
+        source = "def foo(self, *args, name): pass"
+        ast = compile(source, '', 'exec', _ast.PyCF_ONLY_AST)
+        # compiling the produced AST previously triggered a crash
+        compile(ast, '', 'exec')
 
 
 class TestOptimizations:
@@ -1051,7 +1349,7 @@ class TestOptimizations:
 
     def test_const_fold_unicode_subscr(self, monkeypatch):
         source = """def f():
-        return u"abc"[0]
+        return "abc"[0]
         """
         counts = self.count_instructions(source)
         if 0:   # xxx later?
@@ -1059,14 +1357,14 @@ class TestOptimizations:
 
         # getitem outside of the BMP should not be optimized
         source = """def f():
-        return u"\U00012345"[0]
+        return "\U00012345"[0]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
                           ops.RETURN_VALUE: 1}
 
         source = """def f():
-        return u"\U00012345abcdef"[3]
+        return "\U00012345abcdef"[3]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
@@ -1074,7 +1372,7 @@ class TestOptimizations:
 
         monkeypatch.setattr(optimize, "MAXUNICODE", 0xFFFF)
         source = """def f():
-        return u"\uE01F"[0]
+        return "\uE01F"[0]
         """
         counts = self.count_instructions(source)
         if 0:   # xxx later?
@@ -1084,11 +1382,11 @@ class TestOptimizations:
         # getslice is not yet optimized.
         # Still, check a case which yields the empty string.
         source = """def f():
-        return u"abc"[:0]
+        return "abc"[:0]
         """
         counts = self.count_instructions(source)
-        assert counts == {ops.LOAD_CONST: 2, ops.SLICE+2: 1,
-                          ops.RETURN_VALUE: 1}
+        assert counts == {ops.LOAD_CONST: 3, ops.BUILD_SLICE: 1,
+                          ops.BINARY_SUBSCR: 1, ops.RETURN_VALUE: 1}
 
     def test_remove_dead_code(self):
         source = """def f(x):
@@ -1121,27 +1419,13 @@ class TestOptimizations:
         space = self.space
         w_generator = space.appexec([], """():
             d = {}
-            exec '''def f(x):
+            exec('''def f(x):
                 return
                 yield 6
-            ''' in d
+            ''', d)
             return d['f'](5)
         """)
-        assert 'generator' in space.str_w(space.repr(w_generator))
-
-    def test_list_comprehension(self):
-        source = "def f(): [i for i in l]"
-        source2 = "def f(): [i for i in l for j in l]"
-        source3 = "def f(): [i for i in l if i]"
-        counts = self.count_instructions(source)
-        assert ops.BUILD_LIST not in counts
-        assert counts[ops.BUILD_LIST_FROM_ARG] == 1
-        counts = self.count_instructions(source2)
-        assert counts[ops.BUILD_LIST] == 1
-        assert ops.BUILD_LIST_FROM_ARG not in counts
-        counts = self.count_instructions(source3)
-        assert counts[ops.BUILD_LIST] == 1
-        assert ops.BUILD_LIST_FROM_ARG not in counts
+        assert 'generator' in space.text_w(space.repr(w_generator))
 
     def test_folding_of_list_constants(self):
         for source in (
@@ -1188,3 +1472,17 @@ class TestOptimizations:
             source = 'def f(): %s' % source
             counts = self.count_instructions(source)
             assert ops.BINARY_POWER not in counts
+
+    def test_call_function_var(self):
+        source = """def f():
+            call(*me)
+        """
+        code, blocks = generate_function_code(source, self.space)
+        # there is a stack computation error
+        assert blocks[0].instructions[3].arg == 0
+
+    def test_fstring(self):
+        source = """def f(x):
+            return f'ab{x}cd'
+        """
+        code, blocks = generate_function_code(source, self.space)

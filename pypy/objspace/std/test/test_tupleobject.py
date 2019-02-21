@@ -1,3 +1,4 @@
+import pytest
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.tupleobject import W_TupleObject
 
@@ -42,8 +43,8 @@ class TestW_TupleObject:
         assert self.space.eq_w(self.space.next(w_iter), w(5))
         assert self.space.eq_w(self.space.next(w_iter), w(3))
         assert self.space.eq_w(self.space.next(w_iter), w(99))
-        raises(OperationError, self.space.next, w_iter)
-        raises(OperationError, self.space.next, w_iter)
+        pytest.raises(OperationError, self.space.next, w_iter)
+        pytest.raises(OperationError, self.space.next, w_iter)
 
     def test_contains(self):
         w = self.space.wrap
@@ -257,10 +258,10 @@ class AppTestW_TupleObject:
     def test_iter(self):
         t = (5, 3, 99)
         i = iter(t)
-        assert i.next() == 5
-        assert i.next() == 3
-        assert i.next() == 99
-        raises(StopIteration, i.next)
+        assert next(i) == 5
+        assert next(i) == 3
+        assert next(i) == 99
+        raises(StopIteration, next, i)
 
     def test_contains(self):
         t = (5, 3, 99)
@@ -358,9 +359,11 @@ class AppTestW_TupleObject:
         assert repr((1,)) == '(1,)'
         assert repr(()) == '()'
         assert repr((1, 2, 3)) == '(1, 2, 3)'
+        assert repr(('\xe9',)) == "('\xe9',)"
+        assert repr(('\xe9', 1)) == "('\xe9', 1)"
 
     def test_getslice(self):
-        assert ('a', 'b', 'c').__getslice__(-17, 2) == ('a', 'b')
+        assert ('a', 'b', 'c')[-17: 2] == ('a', 'b')
 
     def test_count(self):
         assert ().count(4) == 0
@@ -435,22 +438,3 @@ class AppTestW_TupleObject:
         assert (() != object()) is True
         assert ((1,) != object()) is True
         assert ((1, 2) != object()) is True
-
-    def test_zip_two_lists(self):
-        try:
-            from __pypy__ import specialized_zip_2_lists
-        except ImportError:
-            specialized_zip_2_lists = zip
-        else:
-            raises(TypeError, specialized_zip_2_lists, [], ())
-            raises(TypeError, specialized_zip_2_lists, (), [])
-        assert specialized_zip_2_lists([], []) == [
-            ]
-        assert specialized_zip_2_lists([2, 3], []) == [
-            ]
-        assert specialized_zip_2_lists([2, 3], [4, 5, 6]) == [
-            (2, 4), (3, 5)]
-        assert specialized_zip_2_lists([4.1, 3.6, 7.2], [2.3, 4.8]) == [
-            (4.1, 2.3), (3.6, 4.8)]
-        assert specialized_zip_2_lists(["foo", "bar"], [6, 2]) == [
-            ("foo", 6), ("bar", 2)]

@@ -1,3 +1,4 @@
+import pytest
 import sys
 import py
 import pypy
@@ -35,6 +36,7 @@ def test_pypy_collection(testdir):
     ])
 
 class TestSpaceConfig:
+    @pytest.mark.xfail(reason="Can't check config with -A in pypy3")
     def test_applevel_skipped_on_cpython_and_spaceconfig(self, testdir):
         setpypyconftest(testdir)
         testdir.makepyfile("""
@@ -135,3 +137,12 @@ def app_test_raises():
     info = raises(ZeroDivisionError, "x/0")
     assert info.type is ZeroDivisionError
     assert isinstance(info.value, ZeroDivisionError)
+
+def test_rename_module():
+    from pypy.tool.pytest.apptest import _rename_module
+    assert _rename_module("sys") == "sys"
+    if sys.platform == "win32":
+        assert _rename_module("_winreg") == "winreg"
+    assert _rename_module("struct") == "_struct"
+    assert _rename_module("operator") == "_operator"
+    assert _rename_module("signal") == "_signal"

@@ -1,46 +1,87 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import CANNOT_FAIL, cpython_api, build_type_checkers
-from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, from_ref, make_typedescr)
-from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.__builtin__.interp_classobj import W_ClassObject, W_InstanceObject
+from pypy.module.cpyext.api import CANNOT_FAIL, cpython_api
+from pypy.module.cpyext.pyobject import PyObject
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.function import Method
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w, GetSetProperty
+from pypy.interpreter.gateway import interp2app
 
-PyClass_Check, PyClass_CheckExact = build_type_checkers("Class", W_ClassObject)
-PyInstance_Check, PyInstance_CheckExact = build_type_checkers("Instance", W_InstanceObject)
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PyInstance_NewRaw(space, w_class, w_dict):
-    """Create a new instance of a specific class without calling its constructor.
-    class is the class of new object.  The dict parameter will be used as the
-    object's __dict__; if NULL, a new dictionary will be created for the
-    instance."""
-    if not isinstance(w_class, W_ClassObject):
-        return PyErr_BadInternalCall(space)
-    w_result = w_class.instantiate(space)
-    if w_dict is not None:
-        w_result.setdict(space, w_dict)
-    return w_result
+class InstanceMethod(W_Root):
+    """The instancemethod facade."""
+    _immutable_fields_ = ['w_function']
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
-def PyInstance_New(space, w_cls, w_arg, w_kw):
-    """Create a new instance of a specific class.  The parameters arg and kw are
-    used as the positional and keyword parameters to the object's constructor."""
-    return space.call(w_cls, w_arg, w_kw)
+    def __init__(self, w_function):
+        self.w_function = w_function
 
-@cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL)
-def _PyInstance_Lookup(space, w_instance, w_name):
-    name = space.text_w(w_name)
-    assert isinstance(w_instance, W_InstanceObject)
-    w_result = w_instance.getdictvalue(space, name)
-    if w_result is not None:
-        return w_result
-    return w_instance.w_class.lookup(space, name)
+    def fget_name(self, space):
+        return space.getattr(self.w_function, space.newtext("__name__"))
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
-def PyClass_New(space, w_bases, w_dict, w_name):
+    def fget_module(self, space):
+        return space.getattr(self.w_function, space.newtext("__module__"))
+
+    def fget_docstring(self, space):
+        return space.getattr(self.w_function, space.newtext("__doc__"))
+
+    @staticmethod
+    def descr_new(space, w_subtype, w_function):
+        # instancemethod is not subclassable
+        return InstanceMethod(w_function)
+
+    def descr_get(self, space, w_obj, w_klass=None):
+        if space.is_none(w_obj):
+            return self.w_function
+        return Method(space, self.w_function, w_obj)
+
+    def descr_call(self, space, __args__):
+        return space.call_args(self.w_function, __args__)
+
+    def descr_repr(self, space):
+        return self.getrepr(space, '<instancemethod %s>' %
+                            (self.w_function.getname(space),))
+
+InstanceMethod.typedef = TypeDef("instancemethod",
+    __new__ = interp2app(InstanceMethod.descr_new),
+    __call__ = interp2app(InstanceMethod.descr_call,
+                          descrmismatch='__call__'),
+    __get__ = interp2app(InstanceMethod.descr_get),
+    __repr__ = interp2app(InstanceMethod.descr_repr,
+                          descrmismatch='__repr__'),
+    __func__ = interp_attrproperty_w('w_function', cls=InstanceMethod),
+    __name__ = GetSetProperty(InstanceMethod.fget_name, cls=InstanceMethod),
+    __module__ = GetSetProperty(InstanceMethod.fget_module, cls=InstanceMethod),
+    __doc__ = GetSetProperty(InstanceMethod.fget_docstring, cls=InstanceMethod),
+)
+InstanceMethod.typedef.acceptable_as_base_class = False
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyInstanceMethod_Check(space, w_o):
+    """Return true if o is an instance method object (has type
+    PyInstanceMethod_Type).  The parameter must not be NULL."""
+    return space.isinstance_w(w_o,
+                              space.gettypeobject(InstanceMethod.typedef))
+    
+
+@cpython_api([PyObject], PyObject)
+def PyInstanceMethod_New(space, w_func):
+    """Return a new instance method object, with func being any
+    callable object func is the function that will be called when the
+    instance method is called."""
+    return InstanceMethod(w_func)
+    
+
+@cpython_api([PyObject], PyObject)
+def PyInstanceMethod_Function(space, w_im):
+    """Return the function object associated with the instance method im."""
+    return space.interp_w(InstanceMethod, w_im).w_function
+    
+
+@cpython_api([PyObject], PyObject)
+def PyInstanceMethod_GET_FUNCTION(space, w_im):
+    """Macro version of PyInstanceMethod_Function() which avoids error
+    checking."""
+    return space.interp_w(InstanceMethod, w_im).w_function
+    
     if w_bases is None:
         w_bases = space.newtuple([])
-    w_classobj = space.gettypefor(W_ClassObject)
-    return space.call_function(w_classobj,
-                               w_name, w_bases, w_dict)
 

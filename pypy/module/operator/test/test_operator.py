@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 
 class AppTestOperator:
-    def test_equality(self):
-        import operator
-        assert operator.eq == operator.__eq__
-
     def test_getters_are_not_regular_functions(self):
-        import operator
+        import _operator as operator
         class A(object):
             getx = operator.attrgetter('x')
             get3 = operator.itemgetter(3)
@@ -16,13 +12,12 @@ class AppTestOperator:
         assert a.getx(a) == 5
         assert a.get3("foobar") == "b"
         assert a.getx(*(a,)) == 5
-        assert a.get3(obj="foobar") == "b"
         l = []
         a.callx(l)
         assert l == ["x"]
 
     def test_getter_multiple_gest(self):
-        import operator
+        import _operator as operator
 
         class A(object):
             pass
@@ -33,15 +28,19 @@ class AppTestOperator:
         a.z = 'Z'
 
         assert operator.attrgetter('x','z','y')(a) == ('X', 'Z', 'Y')
-        e = raises(TypeError, operator.attrgetter('x', (), 'y'), a)
+        e = raises(TypeError, operator.attrgetter, ('x', (), 'y'))
         assert str(e.value) == "attribute name must be a string, not 'tuple'"
 
-        data = map(str, range(20))
+        data = list(map(str, range(20)))
         assert operator.itemgetter(2,10,5)(data) == ('2', '10', '5')
         raises(TypeError, operator.itemgetter(2, 'x', 5), data)
 
+    def test_attrgetter(self):
+        import _operator as operator
+        raises(TypeError, operator.attrgetter, 2)
+
     def test_dotted_attrgetter(self):
-        from operator import attrgetter
+        from _operator import attrgetter
         class A:
             pass
         a = A()
@@ -53,7 +52,7 @@ class AppTestOperator:
         assert attrgetter("child.name", "child.foo")(a) == ("world", "bar")
 
     def test_attrgetter_type(self):
-        from operator import attrgetter
+        from _operator import attrgetter
         assert type(attrgetter("child.name")) is attrgetter
 
     def test_concat(self):
@@ -85,7 +84,7 @@ class AppTestOperator:
             def __rmul__(self, other):
                 return other * self.lst
 
-        import operator
+        import _operator as operator
 
         raises(TypeError, operator.concat)
         raises(TypeError, operator.concat, None, None)
@@ -95,7 +94,7 @@ class AppTestOperator:
         assert operator.concat(Seq2([5, 6]), Seq2([7])) == [5, 6, 7]
         raises(TypeError, operator.concat, 13, 29)
 
-    def test_repeat(self):
+    def test_mul(self):
         class Seq1:
             def __init__(self, lst):
                 self.lst = lst
@@ -124,117 +123,56 @@ class AppTestOperator:
             def __rmul__(self, other):
                 return other * self.lst
 
-        import operator
+        import _operator as operator
 
-        a = range(3)
-        raises(TypeError, operator.repeat)
-        raises(TypeError, operator.repeat, a, None)
-        assert operator.repeat(a, 2) == a+a
-        assert operator.repeat(a, 1) == a
-        assert operator.repeat(a, 0) == []
+        a = list(range(3))
+        raises(TypeError, operator.mul)
+        raises(TypeError, operator.mul, a, None)
+        assert operator.mul(a, 2) == a+a
+        assert operator.mul(a, 1) == a
+        assert operator.mul(a, 0) == []
         a = (1, 2, 3)
-        assert operator.repeat(a, 2) == a+a
-        assert operator.repeat(a, 1) == a
-        assert operator.repeat(a, 0) == ()
+        assert operator.mul(a, 2) == a+a
+        assert operator.mul(a, 1) == a
+        assert operator.mul(a, 0) == ()
         a = '123'
-        assert operator.repeat(a, 2) == a+a
-        assert operator.repeat(a, 1) == a
-        assert operator.repeat(a, 0) == ''
+        assert operator.mul(a, 2) == a+a
+        assert operator.mul(a, 1) == a
+        assert operator.mul(a, 0) == ''
         a = Seq1([4, 5, 6])
-        assert operator.repeat(a, 2) == [4, 5, 6, 4, 5, 6]
-        assert operator.repeat(a, 1) == [4, 5, 6]
-        assert operator.repeat(a, 0) == []
+        assert operator.mul(a, 2) == [4, 5, 6, 4, 5, 6]
+        assert operator.mul(a, 1) == [4, 5, 6]
+        assert operator.mul(a, 0) == []
         a = Seq2([4, 5, 6])
-        assert operator.repeat(a, 2) == [4, 5, 6, 4, 5, 6]
-        assert operator.repeat(a, 1) == [4, 5, 6]
-        assert operator.repeat(a, 0) == []
-        raises(TypeError, operator.repeat, 6, 7)
+        assert operator.mul(a, 2) == [4, 5, 6, 4, 5, 6]
+        assert operator.mul(a, 1) == [4, 5, 6]
+        assert operator.mul(a, 0) == []
 
-    def test_isMappingType(self):
-        import operator
-        assert not operator.isMappingType([])
-        assert operator.isMappingType(dict())
-        class M:
-            def __getitem__(self, key):
-                return 42
-        assert operator.isMappingType(M())
-        del M.__getitem__
-        assert not operator.isMappingType(M())
-        class M(object):
-            def __getitem__(self, key):
-                return 42
-        assert operator.isMappingType(M())
-        del M.__getitem__
-        assert not operator.isMappingType(M())
-        class M:
-            def __getitem__(self, key):
-                return 42
-            def __getslice__(self, key):
-                return 42
-        assert operator.isMappingType(M())
-        class M(object):
-            def __getitem__(self, key):
-                return 42
-            def __getslice__(self, key):
-                return 42
-        assert not operator.isMappingType(M())
-
-    def test_isSequenceType(self):
-        import operator
-
-        raises(TypeError, operator.isSequenceType)
-        assert operator.isSequenceType(dir())
-        assert operator.isSequenceType(())
-        assert operator.isSequenceType(xrange(10))
-        assert operator.isSequenceType('yeahbuddy')
-        assert not operator.isSequenceType(3)
-        class Dict(dict): pass
-        assert not operator.isSequenceType(Dict())
-
-    def test_isXxxType_more(self):
-        import operator
-
-        assert not operator.isSequenceType(list)
-        assert not operator.isSequenceType(dict)
-        assert not operator.isSequenceType({})
-        assert not operator.isMappingType(list)
-        assert not operator.isMappingType(dict)
-        assert not operator.isMappingType([])
-        assert not operator.isMappingType(())
-        assert not operator.isNumberType(int)
-        assert not operator.isNumberType(float)
-
-    def test_inplace(self):
-        import operator
+    def test_iadd(self):
+        import _operator as operator
 
         list = []
         assert operator.iadd(list, [1, 2]) is list
         assert list == [1, 2]
 
-        list = [1, 2]
-        assert operator.imul(list, 2) is list
-        assert list == [1, 2, 1, 2]
-
-    def test_irepeat(self):
-        import operator
+    def test_imul(self):
+        import _operator as operator
 
         class X(object):
             def __index__(self):
                 return 5
 
-        a = range(3)
-        raises(TypeError, operator.irepeat)
-        raises(TypeError, operator.irepeat, a, None)
-        raises(TypeError, operator.irepeat, a, [])
-        raises(TypeError, operator.irepeat, a, X())
-        raises(TypeError, operator.irepeat, 6, 7)
-        assert operator.irepeat(a, 2L) is a
+        a = list(range(3))
+        raises(TypeError, operator.imul)
+        raises(TypeError, operator.imul, a, None)
+        raises(TypeError, operator.imul, a, [])
+        assert operator.imul(a, 2) is a
         assert a == [0, 1, 2, 0, 1, 2]
-        assert operator.irepeat(a, 1) is a
+        assert operator.imul(a, 1) is a
         assert a == [0, 1, 2, 0, 1, 2]
 
     def test_methodcaller(self):
-        from operator import methodcaller
+        from _operator import methodcaller
         class X(object):
             def method(self, arg1=2, arg2=3):
                 return arg1, arg2
@@ -251,12 +189,31 @@ class AppTestOperator:
                 return self * 6
         assert methodcaller("method", self=7)(X()) == 42
 
+    def test_methodcaller_not_string(self):
+        import _operator as operator
+        e = raises(TypeError, operator.methodcaller, 42)
+        assert str(e.value) == "method name must be a string"
+
     def test_index(self):
-        import operator
+        import _operator as operator
         assert operator.index(42) == 42
-        assert operator.__index__(42) == 42
+        raises(TypeError, operator.index, "abc")
         exc = raises(TypeError, operator.index, "abc")
-        assert str(exc.value) == "'str' object cannot be interpreted as an index"
+        assert str(exc.value) == "'str' object cannot be interpreted as an integer"
+
+    def test_indexOf(self):
+        import _operator as operator
+        raises(TypeError, operator.indexOf)
+        raises(TypeError, operator.indexOf, None, None)
+        assert operator.indexOf([4, 3, 2, 1], 3) == 1
+        raises(ValueError, operator.indexOf, [4, 3, 2, 1], 0)
+
+    def test_index_int_subclass(self):
+        import operator
+        class myint(int):
+            def __index__(self):
+                return 13289
+        assert operator.index(myint(7)) == 7
 
     def test_index_int_subclass(self):
         import operator
@@ -266,7 +223,7 @@ class AppTestOperator:
         assert operator.index(myint(7)) == 7
 
     def test_compare_digest(self):
-        import operator
+        import _operator as operator
 
         # Testing input type exception handling
         a, b = 100, 200
@@ -347,7 +304,7 @@ class AppTestOperator:
         a, b = 100, 200
         raises(TypeError, operator._compare_digest, a, b)
         a, b = "fooä", "fooä"
-        assert operator._compare_digest(a, b)
+        raises(TypeError, operator._compare_digest, a, b)
 
         # subclasses are supported by ignore __eq__
         class mystr(str):
@@ -373,7 +330,31 @@ class AppTestOperator:
         assert not operator._compare_digest(a, b)
 
     def test_compare_digest_unicode(self):
-        import operator
+        import _operator as operator
         assert operator._compare_digest(u'asd', u'asd')
         assert not operator._compare_digest(u'asd', u'qwe')
         raises(TypeError, operator._compare_digest, u'asd', b'qwe')
+
+    def test_length_hint(self):
+        import _operator as operator
+        assert operator.length_hint([1, 2]) == 2
+
+    def test_repr_attrgetter(self):
+        import _operator as operator
+        assert repr(operator.attrgetter("foo")) == "operator.attrgetter('foo')"
+        assert repr(operator.attrgetter("foo", 'bar')) == (
+            "operator.attrgetter('foo', 'bar')")
+        assert repr(operator.attrgetter("foo.bar")) == (
+            "operator.attrgetter('foo.bar')")
+        assert repr(operator.attrgetter("foo", 'bar.baz')) == (
+            "operator.attrgetter('foo', 'bar.baz')")
+
+    def test_repr_itemgetter(self):
+        import _operator as operator
+        assert repr(operator.itemgetter(2)) == "operator.itemgetter(2)"
+        assert repr(operator.itemgetter(2, 3)) == "operator.itemgetter(2, 3)"
+
+    def test_repr_methodcaller(self):
+        import _operator as operator
+        assert repr(operator.methodcaller("foo", "bar", baz=42)) == (
+            "operator.methodcaller('foo', 'bar', baz=42)")

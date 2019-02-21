@@ -13,5 +13,5 @@ class AppTestProxyIter(AppProxy):
         g = self.get_proxy(some([1,2,3]))
         assert list(g) == [1,2,3]
         g = self.get_proxy(some([1,2,3]))
-        assert g.next() == 1
-        assert g.next() == 2
+        assert next(g) == 1
+        assert next(g) == 2

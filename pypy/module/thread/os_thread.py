@@ -102,6 +102,7 @@ class Bootstrapper(object):
                 os.write(STDERR, "\n")
             except OSError:
                 pass
+        #
         bootstrapper.nbthreads -= 1
         rthread.gc_thread_die()
     bootstrap = staticmethod(bootstrap)

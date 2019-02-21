@@ -61,11 +61,17 @@ _add_tok('DOUBLESTAREQUAL', "**=" )
 _add_tok('DOUBLESLASH', "//" )
 _add_tok('DOUBLESLASHEQUAL',"//=" )
 _add_tok('AT', "@" )
+_add_tok('ATEQUAL', "@=" )
+_add_tok('RARROW', "->")
+_add_tok('ELLIPSIS', "...")
 _add_tok('OP')
+_add_tok('ASYNC')
+_add_tok('AWAIT')
 _add_tok('ERRORTOKEN')
 
 # extra PyPy-specific tokens
 _add_tok("COMMENT")
 _add_tok("NL")
+_add_tok("REVDBMETAVAR", "$NUM")
 
 del _add_tok

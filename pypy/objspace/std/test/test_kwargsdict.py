@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.kwargsdict import *
@@ -73,7 +74,15 @@ def test_limit_size():
     for i in range(100):
         assert d.setitem_str("d%s" % i, 4) is None
     assert d.get_strategy() is not strategy
-    assert "BytesDictStrategy" == d.get_strategy().__class__.__name__
+    assert "UnicodeDictStrategy" == d.get_strategy().__class__.__name__
+
+def test_limit_size_non_ascii():
+    storage = strategy.get_empty_storage()
+    d = W_DictObject(space, strategy, storage)
+    for i in range(100):
+        assert d.setitem_str("ה%s" % i, 4) is None
+    assert d.get_strategy() is not strategy
+    assert "UnicodeDictStrategy" == d.get_strategy().__class__.__name__
 
 def test_keys_doesnt_wrap():
     space = FakeSpace()
@@ -152,7 +161,7 @@ class AppTestKwargsDictStrategy(object):
             return args
 
         assert dict.fromkeys(f(a=2, b=3)) == {"a": None, "b": None}
-        assert sorted(f(a=2, b=3).itervalues()) == [2, 3]
+        assert sorted(f(a=2, b=3).values()) == [2, 3]
 
     def test_setdefault(self):
         def f(**args):
@@ -171,5 +180,26 @@ class AppTestKwargsDictStrategy(object):
             return args
 
         d = f(a=2, b=3, c=4)
-        for key, value in d.iteritems():
+        for key, value in d.items():
             None in d
+
+    def test_unicode(self):
+        """
+        def f(**kwargs):
+            return kwargs
+
+        d = f(λ=True)
+        assert list(d) == ['λ']
+        assert next(iter(d)) == 'λ'
+        assert "KwargsDictStrategy" in self.get_strategy(d)
+
+        d['foo'] = 'bar'
+        assert sorted(d) == ['foo', 'λ']
+        assert "KwargsDictStrategy" in self.get_strategy(d)
+
+        d = f(λ=True)
+        o = object()
+        d[o] = 'baz'
+        assert set(d) == set(['λ', o])
+        assert "ObjectDictStrategy" in self.get_strategy(d)
+        """

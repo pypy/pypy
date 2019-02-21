@@ -16,6 +16,7 @@ def no_vector_backend():
         return not detect_simd_z()
     return True
 
+@py.test.mark.skipif(True, reason='no _numpypy on pypy3')
 class TestMicroNumPy(BaseTestPyPyC):
 
     arith_comb = [('+','float','float', 4*3427,   3427, 1.0,3.0),
@@ -243,6 +244,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             f80 = raw_load_f(i67, i79, descr=<ArrayF 8>)
             i81 = int_add(i71, 1)
             --TICK--
+            i92 = int_le(i33, _)
+            guard_true(i92, descr=...)
             jump(..., descr=...)
         """)
 
@@ -282,6 +285,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             f86 = float_add(f74, f85)
             i87 = int_add(i76, 1)
             --TICK--
+            i98 = int_le(i36, _)
+            guard_true(i98, descr=...)
             jump(..., descr=...)
         """)
 
@@ -389,6 +394,8 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result == [0.] * N
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            i4 = int_lt(i91, 0)
+            guard_false(i4, descr=...)
             i92 = int_ge(i91, i37)
             guard_false(i92, descr=...)
             i93 = int_add(i91, 1)

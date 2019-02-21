@@ -168,7 +168,7 @@ class bomb(object):
         self.traceback = exp_traceback
 
     def raise_(self):
-        raise self.type, self.value, self.traceback
+        raise self.type(self.value).with_traceback(self.traceback)
 
 #
 #
@@ -548,7 +548,7 @@ def _init():
     _main_tasklet = coroutine.getcurrent()
     _main_tasklet.__class__ = tasklet         # XXX HAAAAAAAAAAAAAAAAAAAAACK
     _last_task = _main_tasklet
-    tasklet._init.im_func(_main_tasklet, label='main')
+    tasklet._init(_main_tasklet, label='main')
     _squeue = deque()
     _scheduler_append(_main_tasklet)
 

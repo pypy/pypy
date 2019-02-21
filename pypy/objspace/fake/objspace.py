@@ -5,7 +5,6 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype
-from pypy.tool.option import make_config
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
 
@@ -45,11 +44,12 @@ class W_MyObject(W_Root):
     def buffer_w(self, space, flags):
         return SimpleView(StringBuffer("foobar"))
 
-    def str_w(self, space):
+    def text_w(self, space):
         return NonConstant("foobar")
+    bytes_w = text_w
 
-    def unicode_w(self, space):
-        return NonConstant(u"foobar")
+    def utf8_w(self, space):
+        return NonConstant("foobar")
 
     def int_w(self, space, allow_conversion=True):
         return NonConstant(-42)
@@ -67,6 +67,15 @@ class W_MyObject(W_Root):
 class W_MyListObj(W_MyObject):
     def append(self, w_other):
         pass
+
+class W_UnicodeOjbect(W_MyObject):
+    _length = 21
+    _utf8 = 'foobar'
+    def _index_to_byte(self, at):
+        return NonConstant(42)
+    def _len(self):
+        return self._length
+    
 
 class W_MyType(W_MyObject):
     name = "foobar"
@@ -123,9 +132,9 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 
-BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
-                 'unicode', 'complex', 'slice', 'bool', 'basestring', 'object',
-                 'set', 'frozenset', 'bytearray', 'buffer', 'memoryview']
+BUILTIN_TYPES = ['int', 'float', 'tuple', 'list', 'dict', 'bytes',
+                 'unicode', 'complex', 'slice', 'bool', 'text', 'object',
+                 'set', 'frozenset', 'bytearray', 'memoryview']
 
 INTERP_TYPES = ['function', 'builtin_function', 'module', 'getset_descriptor',
                 'instance', 'classobj']
@@ -137,6 +146,12 @@ class FakeObjSpace(ObjSpace):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
         self.setup()
+
+        # Be sure to annotate W_SliceObject constructor.
+        # In Python2, this is triggered by W_InstanceObject.__getslice__.
+        def build_slice():
+            self.newslice(self.w_None, self.w_None, self.w_None)
+        self._seen_extras.append(build_slice)
 
     def _freeze_(self):
         return True
@@ -209,12 +224,14 @@ class FakeObjSpace(ObjSpace):
     def newbytes(self, x):
         return w_some_obj()
 
-    def newunicode(self, x):
+    def newutf8(self, x, l):
         return w_some_obj()
 
-    newtext = newbytes
-    newtext_or_none = newbytes
-    newfilename = newbytes
+    @specialize.argtype(1)
+    def newtext(self, x, lgt=-1):
+        return W_UnicodeOjbect()
+    newtext_or_none = newtext
+    newfilename = newtext
 
     @not_rpython
     def wrap(self, x):
@@ -295,6 +312,9 @@ class FakeObjSpace(ObjSpace):
     def type(self, w_obj):
         return w_some_type()
 
+    def lookup_in_type_where(self, w_type, key):
+        return w_some_obj(), w_some_obj()
+
     def issubtype_w(self, w_sub, w_type):
         is_root(w_sub)
         is_root(w_type)
@@ -349,8 +369,17 @@ class FakeObjSpace(ObjSpace):
     def is_generator(self, w_obj):
         return NonConstant(False)
 
+    def is_iterable(self, w_obj):
+        return NonConstant(False)
+
     def lookup_in_type(self, w_type, name):
         return w_some_obj()
+
+    def warn(self, w_msg, w_warningcls, stacklevel=2):
+        pass
+
+    def _try_buffer_w(self, w_obj, flags):
+        return w_obj.buffer_w(self, flags)
 
     # ----------
 
@@ -449,9 +478,10 @@ class FakeModule(W_Root):
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()
+    def setmodule(self, w_mod):
+        is_root(w_mod)
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.sys.dlopenflags = 123
-FakeObjSpace.sys.track_resources = False
 FakeObjSpace.builtin = FakeModule()

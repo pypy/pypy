@@ -1,5 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rstring import StringBuilder
+from pypy.module.binascii.interp_binascii import AsciiBufferUnwrapper
 
 MAXLINESIZE = 76
 
@@ -14,7 +15,7 @@ def hexval(c):
         return ord(c) - (ord('a') - 10)
 hexval._always_inline_ = True
 
-@unwrap_spec(data='bufferstr', header=int)
+@unwrap_spec(data=AsciiBufferUnwrapper, header=int)
 def a2b_qp(space, data, header=0):
     "Decode a string of qp-encoded data."
 

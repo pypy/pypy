@@ -4,14 +4,16 @@ static PyMethodDef banana_functions[] = {
     {NULL, NULL}
 };
 
-#ifdef __GNUC__
-extern __attribute__((visibility("default")))
-#else
-extern __declspec(dllexport)
-#endif
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "banana",
+    "Module Doc",
+    -1,
+    banana_functions,
+};
 
 PyMODINIT_FUNC
-initbanana(void)
+PyInit_banana(void)
 {
-    Py_InitModule("banana", banana_functions);
+    return PyModule_Create(&moduledef);
 }

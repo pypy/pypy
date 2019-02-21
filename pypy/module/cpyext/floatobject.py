@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
     cpython_struct,
-    CANNOT_FAIL, cpython_api, PyObject, build_type_checkers, CONST_STRING)
+    CANNOT_FAIL, cpython_api, PyObject, CONST_STRING)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
 from pypy.interpreter.error import OperationError
@@ -38,8 +38,6 @@ def float_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float")
-
 @cpython_api([lltype.Float], PyObject)
 def PyFloat_FromDouble(space, value):
     return space.newfloat(value)
@@ -61,26 +59,28 @@ def PyNumber_Float(space, w_obj):
     This is the equivalent of the Python expression float(o)."""
     return space.call_function(space.w_float, w_obj)
 
-@cpython_api([PyObject, rffi.CCHARPP], PyObject)
-def PyFloat_FromString(space, w_obj, _):
-    """Create a PyFloatObject object based on the string value in str, or
-    NULL on failure.  The pend argument is ignored.  It remains only for
-    backward compatibility."""
+@cpython_api([PyObject], PyObject)
+def PyFloat_FromString(space, w_obj):
+    """
+    Create a PyFloatObject object based on the string value in str, or
+    NULL on failure.
+    """
     return space.call_function(space.w_float, w_obj)
 
-@cpython_api([CONST_STRING, rffi.INT_real], rffi.DOUBLE, error=-1.0)
+UCHARP = lltype.Ptr(lltype.Array(
+    rffi.UCHAR, hints={'nolength':True, 'render_as_const':True}))
+@cpython_api([UCHARP, rffi.INT_real], rffi.DOUBLE, error=-1.0)
 def _PyFloat_Unpack4(space, ptr, le):
-    input = rffi.charpsize2str(ptr, 4)
+    input = rffi.charpsize2str(rffi.cast(CONST_STRING, ptr), 4)
     if rffi.cast(lltype.Signed, le):
         return runpack.runpack("<f", input)
     else:
         return runpack.runpack(">f", input)
 
-@cpython_api([CONST_STRING, rffi.INT_real], rffi.DOUBLE, error=-1.0)
+@cpython_api([UCHARP, rffi.INT_real], rffi.DOUBLE, error=-1.0)
 def _PyFloat_Unpack8(space, ptr, le):
-    input = rffi.charpsize2str(ptr, 8)
+    input = rffi.charpsize2str(rffi.cast(CONST_STRING, ptr), 8)
     if rffi.cast(lltype.Signed, le):
         return runpack.runpack("<d", input)
     else:
         return runpack.runpack(">d", input)
-

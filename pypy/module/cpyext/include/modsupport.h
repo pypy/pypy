@@ -26,8 +26,15 @@ extern "C" {
 #define Py_VaBuildValue         _Py_VaBuildValue_SizeT
 #endif
 
+#define Py_CLEANUP_SUPPORTED 0x20000
+
 #define PYTHON_API_VERSION 1013
 #define PYTHON_API_STRING "1013"
+/* The PYTHON_ABI_VERSION is introduced in PEP 384. For the lifetime of
+   Python 3, it will stay at the value of 3; changes to the limited API
+   must be performed in a strictly backwards-compatible manner. */
+#define PYTHON_ABI_VERSION 3
+#define PYTHON_ABI_STRING "3"
 
 PyAPI_FUNC(int) PyArg_Parse(PyObject *, const char *, ...);
 PyAPI_FUNC(int) PyArg_ParseTuple(PyObject *, const char *, ...);
@@ -46,25 +53,25 @@ PyAPI_FUNC(int) _PyArg_ParseTupleAndKeywords_SizeT(PyObject *, PyObject *,
 				const char *, char **, ...);
 PyAPI_FUNC(int) _PyArg_VaParseTupleAndKeywords_SizeT(PyObject *, PyObject *,
 				const char *, char **, va_list);
-
-/* to make sure that modules compiled with CPython's or PyPy's Python.h
-   are not importable on the other interpreter, use a #define to expect a
-   different symbol: (this function is implemented in ../modsupport.py) */
-#define Py_InitModule4 _Py_InitPyPyModule
-
-#define Py_InitModule(name, methods) \
-	Py_InitModule4(name, methods, (char *)NULL, (PyObject *)NULL, \
-		       PYTHON_API_VERSION)
-
-#define Py_InitModule3(name, methods, doc) \
-	Py_InitModule4(name, methods, doc, (PyObject *)NULL, \
-		       PYTHON_API_VERSION)
+  
+PyAPI_FUNC(PyObject *) PyModule_Create2(struct PyModuleDef*,
+					int apiver);
+#ifdef Py_LIMITED_API
+#define PyModule_Create(module) \
+	PyModule_Create2(module, PYTHON_ABI_VERSION)
+#else
+#define PyModule_Create(module) \
+	PyModule_Create2(module, PYTHON_API_VERSION)
+#endif
 
 PyAPI_FUNC(int) PyModule_AddObject(PyObject *m, const char *name, PyObject *o);
 PyAPI_FUNC(int) PyModule_AddIntConstant(PyObject *m, const char *name, long value);
 PyAPI_FUNC(int) PyModule_AddStringConstant(PyObject *m, const char *name, const char *value);
 #define PyModule_AddIntMacro(m, c) PyModule_AddIntConstant(m, #c, c)
 #define PyModule_AddStringMacro(m, c) PyModule_AddStringConstant(m, #c, c)
+
+PyAPI_FUNC(struct PyModuleDef*) PyModule_GetDef(PyObject*);
+PyAPI_FUNC(void*) PyModule_GetState(PyObject*);
 
 
 PyAPI_FUNC(PyObject *) Py_BuildValue(const char *, ...);
@@ -81,15 +88,15 @@ PyAPI_FUNC(int) PyArg_UnpackTuple(PyObject *args, const char *name, Py_ssize_t m
 #ifdef _WIN32
 /* explicitly export since PyAPI_FUNC is usually dllimport */
 #ifdef __cplusplus
-#define PyMODINIT_FUNC extern "C" __declspec(dllexport) void
+#define PyMODINIT_FUNC extern "C" __declspec(dllexport) PyObject*
 #else
-#define PyMODINIT_FUNC __declspec(dllexport) void
+#define PyMODINIT_FUNC __declspec(dllexport) PyObject*
 #endif
 #else
 #ifdef __cplusplus
-#define PyMODINIT_FUNC extern "C" PyAPI_FUNC(void)
+#define PyMODINIT_FUNC extern "C" PyAPI_FUNC(PyObject *)
 #else
-#define PyMODINIT_FUNC PyAPI_FUNC(void)
+#define PyMODINIT_FUNC PyAPI_FUNC(PyObject *)
 #endif
 #endif /* WIN32 */
 

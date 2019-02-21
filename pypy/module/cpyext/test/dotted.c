@@ -4,14 +4,16 @@ static PyMethodDef dotted_functions[] = {
     {NULL, NULL}
 };
 
-#ifdef __GNUC__
-extern __attribute__((visibility("default")))
-#else
-extern __declspec(dllexport)
-#endif
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "pypy.module.cpyext.test.dotted",
+    "Module Doc",
+    -1,
+    dotted_functions
+};
 
 PyMODINIT_FUNC
-initdotted(void)
+PyInit_dotted(void)
 {
-    Py_InitModule("pypy.module.cpyext.test.dotted", dotted_functions);
+    return PyModule_Create(&moduledef);
 }

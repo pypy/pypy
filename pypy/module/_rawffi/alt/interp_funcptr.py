@@ -20,8 +20,8 @@ if os.name == 'nt':
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
-        if (space.isinstance_w(w_name, space.w_bytes) or
-                space.isinstance_w(w_name, space.w_unicode)):
+        if space.isinstance_w(w_name, space.w_text):
+            # XXX: support LoadLibraryW
             name = space.text_w(w_name)
             try:
                 func = CDLL.cdll.getpointer(name, argtypes, restype,
@@ -167,8 +167,8 @@ class PushArgumentConverter(FromAppLevelConverter):
         addr = rffi.cast(rffi.ULONG, buf)
         self.argchain.arg(addr)
 
-    def handle_unichar_p(self, w_ffitype, w_obj, unicodeval):
-        buf = rffi.unicode2wcharp(unicodeval)
+    def handle_unichar_p(self, w_ffitype, w_obj, utf8val, utf8len):
+        buf = rffi.utf82wcharp(utf8val, utf8len)
         self.w_func.to_free.append(rffi.cast(rffi.VOIDP, buf))
         addr = rffi.cast(rffi.ULONG, buf)
         self.argchain.arg(addr)

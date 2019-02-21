@@ -20,10 +20,7 @@ class AppTestIdentitySet(object):
         class CustomEq(object):
             def __eq__(self, other):
                 return True
-
-        class CustomCmp (object):
-            def __cmp__(self, other):
-                return 0
+            __hash__ = object.__hash__
 
         class CustomHash(object):
             def __hash__(self):
@@ -37,7 +34,7 @@ class AppTestIdentitySet(object):
 
         assert self.uses_strategy('IdentitySetStrategy',s)
 
-        for cls in [CustomEq,CustomCmp,CustomHash]:
+        for cls in [CustomEq,CustomHash]:
             s = set()
             s.add(cls())
             assert not self.uses_strategy('IdentitySetStrategy',s)
@@ -50,7 +47,7 @@ class AppTestIdentitySet(object):
 
         assert self.uses_strategy('IdentitySetStrategy',set([X(),X()]))
         assert not self.uses_strategy('IdentitySetStrategy',set([X(),""]))
-        assert not self.uses_strategy('IdentitySetStrategy',set([X(),u""]))
+        assert not self.uses_strategy('IdentitySetStrategy',set([X(),""]))
         assert not self.uses_strategy('IdentitySetStrategy',set([X(),1]))
 
     def test_identity_strategy_add(self):
@@ -61,6 +58,7 @@ class AppTestIdentitySet(object):
         class NotIdent(object):
             def __eq__(self,other):
                 pass
+            __hash__ = object.__hash__
 
         s = set([X(),X()])
         s.add('foo')
@@ -122,11 +120,11 @@ class AppTestIdentitySet(object):
         assert s.intersection(set(['a','b','c'])) == set()
         assert s.intersection(set([X(),X()])) == set()
 
-        other = set(['a','b','c',s.__iter__().next()])
+        other = set(['a','b','c',next(s.__iter__())])
         intersect = s.intersection(other)
         assert len(intersect) == 1
-        assert intersect.__iter__().next() in s
-        assert intersect.__iter__().next() in other
+        assert next(intersect.__iter__()) in s
+        assert next(intersect.__iter__()) in other
 
     def test_class_monkey_patch(self):
 
@@ -142,7 +140,7 @@ class AppTestIdentitySet(object):
         assert not self.uses_strategy('IdentitySetStrategy',s)
         assert not self.uses_strategy('IdentitySetStrategy',set([X(),X()]))
         assert not self.uses_strategy('IdentitySetStrategy',set([X(),""]))
-        assert not self.uses_strategy('IdentitySetStrategy',set([X(),u""]))
+        assert not self.uses_strategy('IdentitySetStrategy',set([X(),""]))
         assert not self.uses_strategy('IdentitySetStrategy',set([X(),1]))
 
         # An interesting case, add an instance, mutate the class,
@@ -158,7 +156,7 @@ class AppTestIdentitySet(object):
         s.add(inst)
 
         assert len(s) == 1
-        assert s.__iter__().next() is inst
+        assert next(s.__iter__()) is inst
         assert not self.uses_strategy('IdentitySetStrategy',s)
 
 

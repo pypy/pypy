@@ -44,7 +44,7 @@ class TestSymbolTable:
         gen_scope = mod_scope.children[0]
         assert isinstance(gen_scope, symtable.FunctionScope)
         assert not gen_scope.children
-        assert gen_scope.name == "genexp"
+        assert gen_scope.name == "<genexpr>"
         return mod_scope, gen_scope
 
     def check_unknown(self, scp, *names):
@@ -54,12 +54,12 @@ class TestSymbolTable:
     def test_toplevel(self):
         scp = self.mod_scope("x = 4")
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
-        assert not scp.locals_fully_known
+        assert not scp.optimized
         scp = self.mod_scope("x = 4", "single")
-        assert not scp.locals_fully_known
+        assert not scp.optimized
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
         scp = self.mod_scope("x*4*6", "eval")
-        assert not scp.locals_fully_known
+        assert not scp.optimized
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT
 
     def test_duplicate_argument(self):
@@ -68,12 +68,24 @@ class TestSymbolTable:
         assert exc.msg == "duplicate argument 'x' in function definition"
 
     def test_function_defaults(self):
-        scp = self.mod_scope("y = 4\ndef f(x=y): return x")
+        scp = self.mod_scope("y = w = 4\ndef f(x=y, *, z=w): return x")
         self.check_unknown(scp, "x")
+        self.check_unknown(scp, "z")
         assert scp.lookup("y") == symtable.SCOPE_LOCAL
+        assert scp.lookup("w") == symtable.SCOPE_LOCAL
         scp = scp.children[0]
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
+        assert scp.lookup("z") == symtable.SCOPE_LOCAL
         self.check_unknown(scp, "y")
+        self.check_unknown(scp, "w")
+
+    def test_function_annotations(self):
+        scp = self.mod_scope("def f(x : X) -> Y: pass")
+        assert scp.lookup("X") == symtable.SCOPE_GLOBAL_IMPLICIT
+        assert scp.lookup("Y") == symtable.SCOPE_GLOBAL_IMPLICIT
+        scp = scp.children[0]
+        self.check_unknown(scp, "X")
+        self.check_unknown(scp, "Y")
 
     def check_comprehension(self, template):
         def brack(s):
@@ -93,6 +105,9 @@ class TestSymbolTable:
 
     def test_genexp(self):
         self.check_comprehension("(%s)")
+
+    def test_listcomp(self):
+        self.check_comprehension("[%s]")
 
     def test_setcomp(self):
         self.check_comprehension("{%s}")
@@ -124,18 +139,25 @@ class TestSymbolTable:
         assert scp.has_keywords_arg
         assert not scp.has_variable_arg
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
-        scp = self.func_scope("def f((x, y), a): pass")
-        for name in ("x", "y", "a"):
+
+    def test_arguments_kwonly(self):
+        scp = self.func_scope("def f(a, *b, c, **d): pass")
+        varnames = ["a", "c", "b", "d"]
+        for name in varnames:
             assert scp.lookup(name) == symtable.SCOPE_LOCAL
-        scp = self.func_scope("def f(((a, b), c)): pass")
-        for name in ("a", "b", "c"):
-            assert scp.lookup(name) == symtable.SCOPE_LOCAL
+        assert scp.varnames == varnames
+        scp = self.func_scope("def f(a, b=0, *args, k1, k2=0): pass")
+        assert scp.varnames == ["a", "b", "k1", "k2", "args"]
 
     def test_function(self):
         scp = self.func_scope("def f(): x = 4")
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
         scp = self.func_scope("def f(): x")
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT
+
+    def test_exception_variable(self):
+        scp = self.mod_scope("try: pass\nexcept ValueError as e: pass")
+        assert scp.lookup("e") == symtable.SCOPE_LOCAL
 
     def test_nested_scopes(self):
         def nested_scope(*bodies):
@@ -214,13 +236,22 @@ class TestSymbolTable:
         xscp = cscp.children[1]
         assert xscp.lookup("n") == symtable.SCOPE_FREE
 
+    def test_class_kwargs(self):
+        scp = self.func_scope("""def f(n):
+            class X(meta=Z, *args, **kwargs):
+                 pass""")
+        assert scp.lookup("X") == symtable.SCOPE_LOCAL
+        assert scp.lookup("Z") == symtable.SCOPE_GLOBAL_IMPLICIT
+        assert scp.lookup("args") == symtable.SCOPE_GLOBAL_IMPLICIT
+        assert scp.lookup("kwargs") == symtable.SCOPE_GLOBAL_IMPLICIT
+
     def test_lambda(self):
         scp = self.mod_scope("lambda x: y")
         self.check_unknown(scp, "x", "y")
         assert len(scp.children) == 1
         lscp = scp.children[0]
         assert isinstance(lscp, symtable.FunctionScope)
-        assert lscp.name == "lambda"
+        assert lscp.name == "<lambda>"
         assert lscp.lookup("x") == symtable.SCOPE_LOCAL
         assert lscp.lookup("y") == symtable.SCOPE_GLOBAL_IMPLICIT
         scp = self.mod_scope("lambda x=a: b")
@@ -248,15 +279,10 @@ class TestSymbolTable:
         self.check_unknown(scp, "a", "b")
         scp = self.mod_scope("from x import *")
         self.check_unknown("x")
-        scp = self.func_scope("def f(): from x import *")
-        self.check_unknown(scp, "x")
-        assert not scp.optimized
-        assert scp.import_star
 
     def test_global(self):
         scp = self.func_scope("def f():\n   global x\n   x = 4")
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_EXPLICIT
-        input = "def f(x):\n   global x"
         scp = self.func_scope("""def f():
     y = 3
     def x():
@@ -268,71 +294,135 @@ class TestSymbolTable:
         xscp, zscp = scp.children
         assert xscp.lookup("y") == symtable.SCOPE_GLOBAL_EXPLICIT
         assert zscp.lookup("y") == symtable.SCOPE_FREE
-        exc = py.test.raises(SyntaxError, self.func_scope, input).value
-        assert exc.msg == "name 'x' is local and global"
+
+        src = "def f(x):\n   global x"
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.lineno == 2
+        assert exc.msg == "name 'x' is parameter and global"
+
+    def test_global_nested(self):
+        src = """
+def f(x):
+    def g(x):
+        global x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.lineno == 4
+        assert exc.msg == "name 'x' is parameter and global"
+
+        scp = self.func_scope("""
+def f(x):
+    def g():
+        global x""")
+        g = scp.children[0]
+        assert g.name == 'g'
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_GLOBAL
+
+    def test_nonlocal(self):
+        src = """
+x = 1
+def f():
+    nonlocal x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "no binding for nonlocal 'x' found"
+
+        src = str(py.code.Source("""
+                     def f(x):
+                         nonlocal x
+                 """))
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is parameter and nonlocal"
+        #
+        src = str(py.code.Source("""
+                     def f():
+                         nonlocal x
+                 """))
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "no binding for nonlocal 'x' found"
+        #
+        src = "nonlocal x"
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "nonlocal declaration not allowed at module level"
+        assert exc.lineno == 1
+
+        src = "x = 2\nnonlocal x"
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "nonlocal declaration not allowed at module level"
+        assert exc.lineno == 2
+
+    def test_nonlocal_and_global(self):
+        """This test differs from CPython3 behaviour. CPython points to the
+        first occurance of the global/local expression. PyPy will point to the
+        last expression which makes the problem."""
+        src = """
+def f():
+    nonlocal x
+    global x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is nonlocal and global"
+        assert exc.lineno == 4
+
+        src = """
+def f():
+    global x
+    nonlocal x """
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is nonlocal and global"
+        assert exc.lineno == 4
+
+    def test_nonlocal_nested(self):
+        scp = self.func_scope("""
+def f(x):
+    def g():
+        nonlocal x""")
+        g = scp.children[0]
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_NONLOCAL
+
+        scp = self.func_scope("""
+def f():
+    def g():
+        nonlocal x
+    x = 1""")
+        g = scp.children[0]
+        x = g.lookup_role('x')
+        assert x == symtable.SYM_NONLOCAL
+
+        src = """
+def f(x):
+    def g(x):
+        nonlocal x"""
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is parameter and nonlocal"
+        assert exc.lineno == 4
 
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized
         assert not self.class_scope("class x: pass").can_be_optimized
         assert self.func_scope("def f(): pass").can_be_optimized
 
-    def test_unoptimization_with_nested_scopes(self):
-        table = (
-            ("from x import *; exec 'hi'", "function 'f' uses import * " \
-                 "and bare exec, which are illegal because it"),
-            ("from x import *", "import * is not allowed in function 'f' " \
-                 "because it"),
-            ("exec 'hi'", "unqualified exec is not allowed in function 'f' " \
-                 "because it")
-         )
-        for line, error in table:
-            input = """def n():
-    x = 4
-    def f():
-         %s
-         return x""" % (line,)
-            exc = py.test.raises(SyntaxError, self.mod_scope, input).value
-            assert exc.msg == error + " is a nested function"
-            input = """def f():
-     %s
-     x = 4
-     def n():
-         return x""" % (line,)
-            exc = py.test.raises(SyntaxError, self.mod_scope, input).value
-            assert exc.msg == error + " contains a nested function with free variables"
-            input = """def f():
-     %s
-     x = 4
-     class Y:
-         def n():
-             return x""" % (line,)
-            exc = py.test.raises(SyntaxError, self.mod_scope, input).value
-            assert exc.msg == error + " contains a nested function with free variables"
+    def test_importstar_nonglobal(self):
+        src = str(py.code.Source("""
+                     def f():
+                         from re import *
+                     """))
+        exc = py.test.raises(SyntaxError, self.mod_scope, src)
+        assert exc.value.msg == "import * only allowed at module level"
+        #
+        src = str(py.code.Source("""
+                     def f():
+                         def g():
+                             from re import *
+                     """))
+        exc = py.test.raises(SyntaxError, self.mod_scope, src)
+        assert exc.value.msg == "import * only allowed at module level"
 
-    def test_importstar_warning(self, capfd):
-        self.mod_scope("def f():\n    from re import *")
-        _, err1 = capfd.readouterr()
-
-        self.mod_scope("if 1:\n    from re import *")
-        _, err2 = capfd.readouterr()
-
-        capfd.close()
-        assert     "import * only allowed at module level" in err1
-        assert not "import * only allowed at module level" in err2
-
-    def test_exec(self):
-        self.mod_scope("exec 'hi'")
-        scp = self.func_scope("def f(): exec 'hi'")
-        assert not scp.optimized
-        assert not scp.locals_fully_known
-        assert isinstance(scp.bare_exec, ast.Exec)
-        assert scp.has_exec
-        for line in ("exec 'hi' in g", "exec 'hi' in g, h"):
-            scp = self.func_scope("def f(): " + line)
-            assert scp.optimized
-            assert not scp.locals_fully_known
-            assert scp.bare_exec is None
-            assert scp.has_exec
+        src = str(py.code.Source("""
+                     if True:
+                         from re import *
+                     """))
+        scp = self.mod_scope(src)
+        assert scp # did not raise
 
     def test_yield(self):
         scp = self.func_scope("def f(): yield x")
@@ -342,9 +432,15 @@ class TestSymbolTable:
             assert exc.msg == "'yield' outside function"
         for input in ("yield\n    return x", "return x\n    yield"):
             input = "def f():\n    " + input
-            exc = py.test.raises(SyntaxError, self.func_scope, input).value
-            assert exc.msg == "'return' with argument inside generator"
+            scp = self.func_scope(input)
         scp = self.func_scope("def f():\n    return\n    yield x")
+
+    def test_async_def(self):
+        # CPython compatibility only; "is_generator" is otherwise ignored
+        scp = self.func_scope("async def f(): pass")
+        assert not scp.is_generator
+        scp = self.func_scope("async def f(): await 5")
+        assert scp.is_generator
 
     def test_yield_inside_try(self):
         scp = self.func_scope("def f(): yield x")
@@ -373,6 +469,7 @@ class TestSymbolTable:
     def test_tmpnames(self):
         scp = self.mod_scope("with x: pass")
         assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
-        scp = self.mod_scope("with x as y: pass")
-        assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
-        assert scp.lookup("_[2]") == symtable.SCOPE_LOCAL
+
+    def test_issue13343(self):
+        scp = self.mod_scope("lambda *, k1=x, k2: None")
+        assert scp.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT

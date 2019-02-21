@@ -53,8 +53,8 @@ class ProxyOperation(object):
         res = objattr(*self.args, **self.kwargs)
         if self.opname == "__getattribute__":
             if (isinstance(res, MethodType) and
-                res.im_self is self.instance):
-                res = MethodType(res.im_func, self.proxyobj, res.im_class)
+                res.__self__ is self.instance):
+                res = MethodType(res.__func__, self.proxyobj, res.__self__.__class__)
         if res is self.obj:
             res = self.proxyobj
         return res

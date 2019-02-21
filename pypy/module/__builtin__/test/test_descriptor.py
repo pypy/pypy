@@ -14,6 +14,17 @@ class AppTestBuiltinApp:
         assert d.f("abc", "def") == "abcdef"
         assert D.f("abc", "def") == "abcdef"
 
+    def test_staticmethod_dict(self):
+        sm = staticmethod(None)
+        assert sm.__dict__ == {}
+        sm.x = 42
+        assert sm.x == 42
+        assert sm.__dict__ == {"x" : 42}
+        del sm.x
+        assert not hasattr(sm, "x")
+        raises(TypeError, setattr, sm, '__dict__', [])
+        raises((AttributeError, TypeError), delattr, sm, '__dict__')
+
     def test_staticmethod_subclass(self):
         class Static(staticmethod):
             pass
@@ -82,6 +93,23 @@ class AppTestBuiltinApp:
         assert d.f() == "DBCA"
         assert D.__mro__ == (D, B, C, A, object)
 
+    def test_super_magic(self):
+        class A(object):
+            def f(self):
+                return 'A'
+        class B(A):
+            def f(self):
+                return 'B' + super().f()
+        class C(A):
+            def f(self):
+                return 'C' + super().f()
+        class D(B, C):
+            def f(self):
+                return 'D' + super().f()
+        d = D()
+        assert d.f() == "DBCA"
+        assert D.__mro__ == (D, B, C, A, object)
+
     def test_super_metaclass(self):
         class xtype(type):
             def __init__(self, name, bases, dict):
@@ -99,6 +127,17 @@ class AppTestBuiltinApp:
         class B(A):
             def f(cls):
                 return [cls, super(B, cls).f()]
+            f = classmethod(f)
+        assert B().f() == [B, B]
+
+    def test_super_magic_classmethod(self):
+        class A(object):
+            def f(cls):
+                return cls
+            f = classmethod(f)
+        class B(A):
+            def f(cls):
+                return [cls, super().f()]
             f = classmethod(f)
         assert B().f() == [B, B]
 
@@ -219,6 +258,17 @@ class AppTestBuiltinApp:
         raises(TypeError, "super(D).__get__(12)")
         raises(TypeError, "super(D).__get__(C())")
 
+    def test_super_incomplete(self):
+        """
+        class M(type):
+            def mro(cls):
+                if cls.__mro__ is None:
+                    raises(AttributeError, lambda: super(cls, cls).xxx)
+                return type.mro(cls)
+        class A(metaclass=M):
+            pass
+        """
+
     def test_classmethods_various(self):
         class C(object):
             def foo(*a): return a
@@ -240,15 +290,29 @@ class AppTestBuiltinApp:
         assert ff.__get__(0, int)(42) == (int, 42)
         assert ff.__get__(0)(42) == (int, 42)
 
-        assert C.goo.im_self is C
-        assert D.goo.im_self is D
-        assert super(D,D).goo.im_self is D
-        assert super(D,d).goo.im_self is D
+        assert C.goo.__self__ is C
+        assert D.goo.__self__ is D
+        assert super(D,D).goo.__self__ is D
+        assert super(D,d).goo.__self__ is D
         assert super(D,D).goo() == (D,)
         assert super(D,d).goo() == (D,)
 
         meth = classmethod(1).__get__(1)
         raises(TypeError, meth)
+
+    def test_classmethod_dict(self):
+        cm = classmethod(None)
+        assert cm.__dict__ == {}
+        cm.x = 42
+        assert cm.x == 42
+        assert cm.__dict__ == {"x": 42}
+        del cm.x
+        assert not hasattr(cm, "x")
+        cm.x = 42
+        cm.__dict__ = {}
+        assert not hasattr(cm, "x")
+        raises(TypeError, setattr, cm, '__dict__', [])
+        raises((AttributeError, TypeError), delattr, cm, '__dict__')
 
     def test_super_thisclass(self):
         class A(object):
@@ -342,14 +406,18 @@ class AppTestBuiltinApp:
         assert "fdel" in attrs
 
         assert raw.__doc__ == "I'm the x property."
+        raw.__doc__ = "modified"
+        assert raw.__doc__ == "modified"
         assert raw.fget is C.__dict__['getx']
         assert raw.fset is C.__dict__['setx']
         assert raw.fdel is C.__dict__['delx']
 
-        for attr in "__doc__", "fget", "fset", "fdel":
+        for attr in "fget", "fset", "fdel":
             try:
                 setattr(raw, attr, 42)
-            except TypeError as msg:
+            # it raises TypeError on pypy, AttributeError on CPython: we catch
+            # both so that it runs also with -A
+            except (TypeError, AttributeError) as msg:
                 if str(msg).find('readonly') < 0:
                     raise Exception("when setting readonly attr %r on a "
                                     "property, got unexpected TypeError "
@@ -427,6 +495,58 @@ class AppTestBuiltinApp:
         assert x.y == 42
         del x.x
         assert x.z == 42
+
+    def test_abstract_property(self):
+        def foo(self): pass
+        foo.__isabstractmethod__ = True
+        foo = property(foo)
+        assert foo.__isabstractmethod__ is True
+
+    def test___class___variable(self):
+        class X:
+            def f(self):
+                return __class__
+        assert X().f() is X
+
+        class X:
+            @classmethod
+            def f(cls):
+                return __class__
+        assert X.f() is X
+
+        class X:
+            @staticmethod
+            def f():
+                return __class__
+        assert X.f() is X
+
+    def test_obscure_super_errors(self):
+        """
+        def f():
+            super()
+        raises(RuntimeError, f)
+        def f(x):
+            del x
+            super()
+        raises(RuntimeError, f, None)
+        class X:
+            def f(x):
+                nonlocal __class__
+                del __class__
+                super()
+        raises(RuntimeError, X().f)
+        class X:
+            def f(self):
+                def g():
+                    print(self)    # make 'self' a closure inside 'f'
+                del self
+                super()
+        raises(RuntimeError, X().f)
+        class X:
+            def f(*args):
+                super()
+        raises(RuntimeError, X().f)
+        """
 
     def test_uninitialized_property(self):
         p = property.__new__(property)

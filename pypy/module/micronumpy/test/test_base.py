@@ -1,3 +1,5 @@
+import py
+
 from pypy.conftest import option
 from pypy.module.micronumpy import constants as NPY
 
@@ -7,6 +9,7 @@ class BaseNumpyAppTest(object):
 
     @classmethod
     def setup_class(cls):
+        # XXX py.test.py3k_skip("micronumpy not supported on py3k")
         if option.runappdirect:
             import sys
             if '__pypy__' not in sys.builtin_module_names:

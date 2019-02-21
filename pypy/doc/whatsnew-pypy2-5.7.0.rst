@@ -14,6 +14,15 @@ Note that CPython is inconsistent too: in 2.7.12, ``{5, 5.0}`` would be
 changed in exactly the same way because of this fix.
 
 
+.. branch: mappingproxy
+.. branch: py3k-finish_time
+.. branch: py3k-kwonly-builtin
+.. branch: py3k_add_terminal_size
+.. branch: testing-cleanup-py3k
+
+.. branch: rpython-resync
+Backport rpython changes made directly on the py3k and py3.5 branches.
+
 .. branch: rpython-error-to-systemerror
 
 Any uncaught RPython exception (from a PyPy bug) is turned into an
@@ -163,6 +172,10 @@ by decoding the RPython string, assumed to be utf-8.
 .. branch: fix_bool_restype
 
 Fix for ``ctypes.c_bool``-returning ctypes functions
+
+.. branch: py3.5-text-utf8
+
+space.text_w now encodes to utf-8 not preserving surrogates.
 
 .. branch: fix-cpyext-releasebuffer
 

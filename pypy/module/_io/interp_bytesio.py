@@ -2,6 +2,8 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.buffer import SimpleView
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.rStringIO import RStringIO
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import import_from_mixin
@@ -10,12 +12,54 @@ from pypy.module._io.interp_iobase import convert_size
 import sys
 
 
+class BytesIOBuffer(Buffer):
+    _immutable_ = True
+
+    def __init__(self, w_bytesio):
+        self.w_bytesio = w_bytesio
+        self.readonly = False
+
+    def getlength(self):
+        return int(self.w_bytesio.getsize())
+
+    def as_str(self):
+        return self.w_bytesio.getvalue()
+
+    def getitem(self, index):
+        # XXX: move this & setitem into rStringIO or some kind of
+        # rStringIOBufferView
+        w_bytesio = self.w_bytesio
+        tell = w_bytesio.tell()
+        try:
+            w_bytesio.seek(index)
+            item = w_bytesio.read(1)
+            # cast to char
+            assert len(item) == 1
+            return item[0]
+        finally:
+            w_bytesio.seek(tell)
+
+    def setitem(self, index, char):
+        w_bytesio = self.w_bytesio
+        tell = w_bytesio.tell()
+        try:
+            w_bytesio.seek(index)
+            w_bytesio.write(char)
+        finally:
+            w_bytesio.seek(tell)
+
+
 class W_BytesIO(W_BufferedIOBase):
     import_from_mixin(RStringIO)
 
     def __init__(self, space):
         W_BufferedIOBase.__init__(self, space, add_to_autoflusher=False)
         self.init()
+
+    def descr_new(space, w_subtype, __args__):
+        self = space.allocate_instance(W_BytesIO, w_subtype)
+        W_BytesIO.__init__(self, space)
+        return self
 
     def descr_init(self, space, w_initial_bytes=None):
         self.init()
@@ -79,6 +123,10 @@ class W_BytesIO(W_BufferedIOBase):
             self.seek(pos)
         return space.newint(size)
 
+    def getbuffer_w(self, space):
+        self._check_closed(space)
+        return SimpleView(BytesIOBuffer(self)).wrap(space)
+
     def getvalue_w(self, space):
         self._check_closed(space)
         return space.newbytes(self.getvalue())
@@ -122,6 +170,10 @@ class W_BytesIO(W_BufferedIOBase):
     def close_w(self, space):
         self.close()
 
+    def needs_finalizer(self):
+        # self.close() is not necessary when the object goes away
+        return type(self) is not W_BytesIO
+
     def closed_get_w(self, space):
         return space.newbool(self.is_closed())
 
@@ -151,16 +203,18 @@ class W_BytesIO(W_BufferedIOBase):
             space.call_method(self.getdict(space), "update", w_dict)
 
 W_BytesIO.typedef = TypeDef(
-    '_io.BytesIO', W_BufferedIOBase.typedef,
-    __new__ = generic_new_descr(W_BytesIO),
+    '_io.BytesIO', W_BufferedIOBase.typedef, None, 'read-write',
+    __new__  = interp2app(W_BytesIO.descr_new.im_func),
     __init__  = interp2app(W_BytesIO.descr_init),
 
     read = interp2app(W_BytesIO.read_w),
     read1 = interp2app(W_BytesIO.read1_w),
     readline = interp2app(W_BytesIO.readline_w),
     readinto = interp2app(W_BytesIO.readinto_w),
+    readinto1 = interp2app(W_BytesIO.readinto_w),
     write = interp2app(W_BytesIO.write_w),
     truncate = interp2app(W_BytesIO.truncate_w),
+    getbuffer = interp2app(W_BytesIO.getbuffer_w),
     getvalue = interp2app(W_BytesIO.getvalue_w),
     seek = interp2app(W_BytesIO.seek_w),
     tell = interp2app(W_BytesIO.tell_w),

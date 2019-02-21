@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.alt.interp_ffitype import W_FFIType
 from pypy.module._rawffi.alt.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
@@ -101,12 +101,16 @@ class W__StructDescr(W_Root):
         rawmem = rffi.cast(rffi.VOIDP, addr)
         return W__StructInstance(self, allocate=False, autofree=True, rawmem=rawmem)
 
-    @jit.elidable_promote('0')
-    def get_type_and_offset_for_field(self, space, name):
+    def get_type_and_offset_for_field(self, space, w_name):
+        name = space.text_w(w_name)
         try:
-            w_field = self.name2w_field[name]
+            return self._get_type_and_offset_for_field(space, name)
         except KeyError:
-            raise oefmt(space.w_AttributeError, '%s', name)
+            raise OperationError(space.w_AttributeError, w_name)
+
+    @jit.elidable_promote('0')
+    def _get_type_and_offset_for_field(self, space, name):
+        w_field = self.name2w_field[name]
         return w_field.w_ffitype, w_field.offset
 
 
@@ -180,17 +184,15 @@ class W__StructInstance(W_Root):
         addr = rffi.cast(rffi.ULONG, self.rawmem)
         return space.newint(addr)
 
-    @unwrap_spec(name='text')
-    def getfield(self, space, name):
+    def getfield(self, space, w_name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(
-            space, name)
+            space, w_name)
         field_getter = GetFieldConverter(space, self.rawmem, offset)
         return field_getter.do_and_wrap(w_ffitype)
 
-    @unwrap_spec(name='text')
-    def setfield(self, space, name, w_value):
+    def setfield(self, space, w_name, w_value):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(
-            space, name)
+            space, w_name)
         field_setter = SetFieldConverter(space, self.rawmem, offset)
         field_setter.unwrap_and_do(w_ffitype, w_value)
 

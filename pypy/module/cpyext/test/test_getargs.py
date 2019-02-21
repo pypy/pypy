@@ -20,7 +20,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "i", &l)) {
                 return NULL;
             }
-            return PyInt_FromLong(l);
+            return PyLong_FromLong(l);
             ''')
         assert oneargint(1) == 1
         raises(TypeError, oneargint, None)
@@ -38,7 +38,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "i:oneargandstuff", &l)) {
                 return NULL;
             }
-            return PyInt_FromLong(l);
+            return PyLong_FromLong(l);
             ''')
         assert oneargandform(1) == 1
 
@@ -96,7 +96,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (b)
                 Py_INCREF(b);
             else
-                b = PyInt_FromLong(42);
+                b = PyLong_FromLong(42);
             /* return an owned reference */
             return b;
             ''')
@@ -118,27 +118,14 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "s*", &buf)) {
                 return NULL;
             }
-            result = PyString_FromStringAndSize(buf.buf, buf.len);
+            result = PyBytes_FromStringAndSize(buf.buf, buf.len);
             PyBuffer_Release(&buf);
             return result;
             ''')
-        assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
-        assert 'foo\0bar\0baz' == pybuffer(bytearray('foo\0bar\0baz'))
+        assert b'foo\0bar\0baz' == pybuffer(b'foo\0bar\0baz')
+        #return  # XXX?
+        assert b'foo\0bar\0baz' == pybuffer(bytearray(b'foo\0bar\0baz'))
 
-
-    def test_pyarg_parse_string_old_buffer(self):
-        pybuffer = self.import_parser(
-            '''
-            Py_buffer buf;
-            PyObject *result;
-            if (!PyArg_ParseTuple(args, "s*", &buf)) {
-                return NULL;
-            }
-            result = PyString_FromStringAndSize(buf.buf, buf.len);
-            PyBuffer_Release(&buf);
-            return result;
-            ''')
-        assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
 
     def test_pyarg_parse_string_fails(self):
         """
@@ -155,11 +142,11 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return NULL;
             ''')
         freed = []
-        class freestring(str):
+        class freestring(bytes):
             def __del__(self):
                 freed.append('x')
         raises(TypeError, pybuffer,
-               freestring("string"), freestring("other string"), 42)
+               freestring(b"string"), freestring(b"other string"), 42)
         self.debug_collect()    # gc.collect() is not enough in this test:
                                 # we need to check and free the PyObject
                                 # linked to the freestring object as well
@@ -168,20 +155,20 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
 
     def test_pyarg_parse_charbuf_and_length(self):
         """
-        The `t#` format specifier can be used to parse a read-only 8-bit
+        The `s#` format specifier can be used to parse a read-only 8-bit
         character buffer into a char* and int giving its length in bytes.
         """
         charbuf = self.import_parser(
             '''
             char *buf;
             int len;
-            if (!PyArg_ParseTuple(args, "t#", &buf, &len)) {
+            if (!PyArg_ParseTuple(args, "s#", &buf, &len)) {
                 return NULL;
             }
-            return PyString_FromStringAndSize(buf, len);
+            return PyBytes_FromStringAndSize(buf, len);
             ''')
         raises(TypeError, "charbuf(10)")
-        assert 'foo\0bar\0baz' == charbuf('foo\0bar\0baz')
+        assert b'foo\0bar\0baz' == charbuf(b'foo\0bar\0baz')
 
     def test_pyarg_parse_without_py_ssize_t(self):
         import sys
@@ -192,7 +179,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "s#", &buf, &y)) {
                 return NULL;
             }
-            return PyInt_FromSsize_t(y);
+            return PyLong_FromSsize_t(y);
             ''')
         if sys.maxsize < 2**32:
             expected = 5
@@ -200,7 +187,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             expected = -0xfffffffb
         else:
             expected = 0x5ffffffff
-        assert charbuf('12345') == expected
+        assert charbuf(b'12345') == expected
 
     def test_pyarg_parse_with_py_ssize_t(self):
         charbuf = self.import_parser(
@@ -210,6 +197,41 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "s#", &buf, &y)) {
                 return NULL;
             }
-            return PyInt_FromSsize_t(y);
+            return PyLong_FromSsize_t(y);
             ''', PY_SSIZE_T_CLEAN=True)
-        assert charbuf('12345') == 5
+        assert charbuf(b'12345') == 5
+
+    def test_pyarg_parse_with_py_ssize_t_bytes(self):
+        charbuf = self.import_parser(
+            '''
+            char *buf;
+            Py_ssize_t len = -1;
+            if (!PyArg_ParseTuple(args, "y#", &buf, &len)) {
+                return NULL;
+            }
+            return PyBytes_FromStringAndSize(buf, len);
+            ''', PY_SSIZE_T_CLEAN=True)
+        assert type(charbuf(b'12345')) is bytes
+        assert charbuf(b'12345') == b'12345'
+
+    def test_getargs_keywords(self):
+        # taken from lib-python/3/test_getargs2.py
+        module = self.import_extension('foo', [
+            ("getargs_keywords", "METH_KEYWORDS | METH_VARARGS",
+            '''
+            static char *keywords[] = {"arg1","arg2","arg3","arg4","arg5", NULL};
+            static char *fmt="(ii)i|(i(ii))(iii)i";
+            int int_args[10]={-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+
+            if (!PyArg_ParseTupleAndKeywords(args, kwargs, fmt, keywords,
+                &int_args[0], &int_args[1], &int_args[2], &int_args[3],
+                &int_args[4], &int_args[5], &int_args[6], &int_args[7],
+                &int_args[8], &int_args[9]))
+                return NULL;
+            return Py_BuildValue("iiiiiiiiii",
+                int_args[0], int_args[1], int_args[2], int_args[3], int_args[4],
+                int_args[5], int_args[6], int_args[7], int_args[8], int_args[9]
+                );
+            ''')])
+        raises(TypeError, module.getargs_keywords, (1,2), 3, (4,(5,6)), (7,8,9), **{'\uDC80': 10})
+

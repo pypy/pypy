@@ -4,7 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import dis, imp, struct, types, new, sys, os
+import imp, struct, types, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
@@ -12,12 +12,13 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
+    CO_GENERATOR, CO_COROUTINE, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY,
+    CO_ITERABLE_COROUTINE)
+from pypy.tool import dis3
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
-from rpython.rlib.rarithmetic import intmask, r_longlong
-from rpython.rlib.objectmodel import compute_hash
-from rpython.rlib import jit
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import compute_hash, we_are_translated
+from rpython.rlib import jit, rstring
 
 
 class BytecodeCorruption(Exception):
@@ -32,23 +33,45 @@ def unpack_text_tuple(space, w_str_tuple):
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
-default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
-                                                        # (from CPython 2.7.0)
+
+# we compute the magic number in a similar way to CPython, but we use a
+# different value for the highest 16 bits. Bump pypy_incremental_magic every
+# time you make pyc files incompatible.  This value ends up in the frozen
+# importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
+
+pypy_incremental_magic = 112 # bump it by 16
+assert pypy_incremental_magic % 16 == 0
+assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
+                                     # no known magic numbers below this value
+default_magic = pypy_incremental_magic | (ord('\r')<<16) | (ord('\n')<<24)
 
 # cpython_code_signature helper
 def cpython_code_signature(code):
     """Return a Signature instance."""
     argcount = code.co_argcount
     varnames = code.co_varnames
+    if we_are_translated():
+        kwonlyargcount = code.co_kwonlyargcount
+    else:
+        # for compatibility with CPython 2.7 code objects
+        kwonlyargcount = getattr(code, 'co_kwonlyargcount', 0)
     assert argcount >= 0     # annotator hint
+    assert kwonlyargcount >= 0
     argnames = list(varnames[:argcount])
+    if argcount < len(varnames):
+        kwonlyargs = list(varnames[argcount:argcount + kwonlyargcount])
+    else:
+        kwonlyargs = None
     if code.co_flags & CO_VARARGS:
         varargname = varnames[argcount]
         argcount += 1
     else:
         varargname = None
-    kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
-    return Signature(argnames, varargname, kwargname)
+    if code.co_flags & CO_VARKEYWORDS:
+        kwargname = code.co_varnames[argcount + kwonlyargcount]
+    else:
+        kwargname = None
+    return Signature(argnames, varargname, kwargname, kwonlyargs)
 
 class CodeHookCache(object):
     def __init__(self, space):
@@ -56,14 +79,14 @@ class CodeHookCache(object):
 
 class PyCode(eval.Code):
     "CPython-style code objects."
-    _immutable_fields_ = ["_signature", "co_argcount", "co_cellvars[*]",
-                          "co_code", "co_consts_w[*]", "co_filename",
+    _immutable_fields_ = ["_signature", "co_argcount", "co_kwonlyargcount", "co_cellvars[*]",
+                          "co_code", "co_consts_w[*]", "co_filename", "w_filename",
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
                           "_args_as_cellvars[*]", "w_globals?"]
 
-    def __init__(self, space,  argcount, nlocals, stacksize, flags,
+    def __init__(self, space,  argcount, kwonlyargcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
                      hidden_applevel=False, magic=default_magic):
@@ -73,16 +96,22 @@ class PyCode(eval.Code):
         eval.Code.__init__(self, name)
         assert nlocals >= 0
         self.co_argcount = argcount
+        self.co_kwonlyargcount = kwonlyargcount
         self.co_nlocals = nlocals
         self.co_stacksize = stacksize
         self.co_flags = flags
         self.co_code = code
         self.co_consts_w = consts
-        self.co_names_w = [space.new_interned_str(aname) for aname in names]
+        self.co_names_w = [
+            space.new_interned_w_str(space.newtext(aname))
+            for aname in names]
         self.co_varnames = varnames
         self.co_freevars = freevars
         self.co_cellvars = cellvars
+        assert isinstance(filename, str)
+        rstring.check_str0(filename)
         self.co_filename = filename
+        self.w_filename = space.newfilename(filename)
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
@@ -117,6 +146,7 @@ class PyCode(eval.Code):
         from pypy.objspace.std.mapdict import init_mapdict_cache
         if self.co_cellvars:
             argcount = self.co_argcount
+            argcount += self.co_kwonlyargcount
             assert argcount >= 0     # annotator hint
             if self.co_flags & CO_VARARGS:
                 argcount += 1
@@ -163,7 +193,8 @@ class PyCode(eval.Code):
         #     <builtin>/lastdirname/basename.py
         # instead of freezing the complete translation-time path.
         filename = self.co_filename
-        if filename.startswith('<builtin>'):
+        if (filename.startswith('<builtin>') or
+            filename == '<frozen importlib._bootstrap>'):
             return
         filename = filename.lstrip('<').rstrip('>')
         if filename.lower().endswith('.pyc'):
@@ -173,8 +204,9 @@ class PyCode(eval.Code):
         if lastdirname:
             basename = '%s/%s' % (lastdirname, basename)
         self.co_filename = '<builtin>/%s' % (basename,)
+        self.w_filename = self.space.newfilename(self.co_filename)
 
-    co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
+    co_names = property(lambda self: [self.space.text_w(w_name) for w_name in self.co_names_w]) # for trace
 
     def signature(self):
         return self._signature
@@ -197,6 +229,7 @@ class PyCode(eval.Code):
         # stick the underlying CPython magic value, if the code object
         # comes from there
         return cls(space, code.co_argcount,
+                      getattr(code, 'co_kwonlyargcount', 0),
                       code.co_nlocals,
                       code.co_stacksize,
                       code.co_flags,
@@ -219,6 +252,8 @@ class PyCode(eval.Code):
             return
         if len(self._args_as_cellvars) > 0:
             return
+        if self.co_kwonlyargcount > 0:
+            return
         if self.co_argcount > 0xff:
             return
 
@@ -232,9 +267,9 @@ class PyCode(eval.Code):
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
         args.parse_into_scope(None, fresh_frame.locals_cells_stack_w, func.name,
-                              sig, func.defs_w)
+                              sig, func.defs_w, func.w_kw_defs)
         fresh_frame.init_cells()
-        return frame.run()
+        return frame.run(func.name, func.qualname)
 
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
@@ -244,9 +279,9 @@ class PyCode(eval.Code):
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
         args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
-                              sig, func.defs_w)
+                              sig, func.defs_w, func.w_kw_defs)
         fresh_frame.init_cells()
-        return frame.run()
+        return frame.run(func.name, func.qualname)
 
     def getvarnames(self):
         return self.co_varnames
@@ -254,7 +289,7 @@ class PyCode(eval.Code):
     def getdocstring(self, space):
         if self.co_consts_w:   # it is probably never empty
             w_first = self.co_consts_w[0]
-            if space.isinstance_w(w_first, space.w_basestring):
+            if space.isinstance_w(w_first, space.w_unicode):
                 return w_first
         return space.w_None
 
@@ -265,31 +300,6 @@ class PyCode(eval.Code):
             if isinstance(w_co, PyCode):
                 w_co.remove_docstrings(space)
 
-    def _to_code(self):
-        """For debugging only."""
-        consts = [None] * len(self.co_consts_w)
-        num = 0
-        for w in self.co_consts_w:
-            if isinstance(w, PyCode):
-                consts[num] = w._to_code()
-            else:
-                consts[num] = self.space.unwrap(w)
-            num += 1
-        return new.code(self.co_argcount,
-                        self.co_nlocals,
-                        self.co_stacksize,
-                        self.co_flags,
-                        self.co_code,
-                        tuple(consts),
-                        tuple(self.co_names),
-                        tuple(self.co_varnames),
-                        self.co_filename,
-                        self.co_name,
-                        self.co_firstlineno,
-                        self.co_lnotab,
-                        tuple(self.co_freevars),
-                        tuple(self.co_cellvars))
-
     def exec_host_bytecode(self, w_globals, w_locals):
         if sys.version_info < (2, 7):
             raise Exception("PyPy no longer supports Python 2.6 or lower")
@@ -298,9 +308,11 @@ class PyCode(eval.Code):
         return frame.run()
 
     def dump(self):
-        """A dis.dis() dump of the code object."""
-        co = self._to_code()
-        dis.dis(co)
+        """NOT_RPYTHON: A dis.dis() dump of the code object."""
+        if not hasattr(self, 'co_consts'):
+            self.co_consts = [w if isinstance(w, PyCode) else self.space.unwrap(w)
+                              for w in self.co_consts_w]
+        dis3.dis(self)
 
     def fget_co_consts(self, space):
         return space.newtuple(self.co_consts_w)
@@ -323,6 +335,7 @@ class PyCode(eval.Code):
             return space.w_False
         areEqual = (self.co_name == w_other.co_name and
                     self.co_argcount == w_other.co_argcount and
+                    self.co_kwonlyargcount == w_other.co_kwonlyargcount and
                     self.co_nlocals == w_other.co_nlocals and
                     self.co_flags == w_other.co_flags and
                     self.co_firstlineno == w_other.co_firstlineno and
@@ -349,6 +362,7 @@ class PyCode(eval.Code):
         space = self.space
         result =  compute_hash(self.co_name)
         result ^= self.co_argcount
+        result ^= self.co_kwonlyargcount
         result ^= self.co_nlocals
         result ^= self.co_flags
         result ^= self.co_firstlineno
@@ -363,12 +377,12 @@ class PyCode(eval.Code):
             w_result = space.xor(w_result, space.hash(w_const))
         return w_result
 
-    @unwrap_spec(argcount=int, nlocals=int, stacksize=int, flags=int,
+    @unwrap_spec(argcount=int, kwonlyargcount=int, nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
-                 filename='text', name='text', firstlineno=int,
+                 filename='fsencode', name='text', firstlineno=int,
                  lnotab='bytes', magic=int)
     def descr_code__new__(space, w_subtype,
-                          argcount, nlocals, stacksize, flags,
+                          argcount, kwonlyargcount, nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
                           w_varnames, filename, name, firstlineno,
                           lnotab, w_freevars=None, w_cellvars=None,
@@ -376,6 +390,9 @@ class PyCode(eval.Code):
         if argcount < 0:
             raise oefmt(space.w_ValueError,
                         "code: argcount must not be negative")
+        if kwonlyargcount < 0:
+            raise oefmt(space.w_ValueError,
+                        "code: kwonlyargcount must not be negative")
         if nlocals < 0:
             raise oefmt(space.w_ValueError,
                         "code: nlocals must not be negative")
@@ -393,7 +410,7 @@ class PyCode(eval.Code):
         else:
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)
-        PyCode.__init__(code, space, argcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
+        PyCode.__init__(code, space, argcount, kwonlyargcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
                       varnames, filename, name, firstlineno, lnotab, freevars, cellvars, magic=magic)
         return code
 
@@ -404,6 +421,7 @@ class PyCode(eval.Code):
         new_inst = mod.get('code_new')
         tup      = [
             space.newint(self.co_argcount),
+            space.newint(self.co_kwonlyargcount),
             space.newint(self.co_nlocals),
             space.newint(self.co_stacksize),
             space.newint(self.co_flags),
@@ -411,7 +429,7 @@ class PyCode(eval.Code):
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
             space.newtuple([space.newtext(v) for v in self.co_varnames]),
-            space.newtext(self.co_filename),
+            self.w_filename,
             space.newtext(self.co_name),
             space.newint(self.co_firstlineno),
             space.newbytes(self.co_lnotab),
@@ -422,11 +440,20 @@ class PyCode(eval.Code):
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def get_repr(self):
-        return "<code object %s, file '%s', line %d>" % (
-            self.co_name, self.co_filename, self.co_firstlineno)
+        # This is called by the default get_printable_location so it
+        # must avoid doing too much (that might release the gil)
+        return '<code object %s, file "%s", line %d>' % (
+            self.co_name, self.co_filename,
+            -1 if self.co_firstlineno == 0 else self.co_firstlineno)
 
     def __repr__(self):
         return self.get_repr()
 
     def repr(self, space):
-        return space.newtext(self.get_repr())
+        space = self.space
+        # co_name should be an identifier
+        name = self.co_name
+        fn = space.utf8_w(self.w_filename)
+        return space.newtext(b'<code object %s at 0x%s, file "%s", line %d>' % (
+            name, self.getaddrstring(space), fn,
+            -1 if self.co_firstlineno == 0 else self.co_firstlineno))

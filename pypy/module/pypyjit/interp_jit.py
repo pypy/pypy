@@ -12,10 +12,10 @@ from rpython.rlib.jit import current_trace_length, unroll_parameters,\
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.pycode import CO_GENERATOR, PyCode
+from pypy.interpreter.pycode import CO_GENERATOR, CO_COROUTINE, PyCode
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import ExitFrame, Yield
+from pypy.interpreter.pyopcode import Yield, Return
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
@@ -26,7 +26,6 @@ PyFrame._virtualizable_ = ['last_instr', 'pycode',
                            'valuestackdepth',
                            'locals_cells_stack_w[*]',
                            'debugdata',
-                           'last_exception',
                            'lastblock',
                            'w_globals',
                            ]
@@ -35,8 +34,12 @@ JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
 def get_printable_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
-    name = opcode_method_names[ord(bytecode.co_code[next_instr])]
-    return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
+    from pypy.interpreter.pytraceback import offset2lineno
+    bytecode_name = opcode_method_names[ord(bytecode.co_code[next_instr])]
+    lineno = offset2lineno(bytecode, intmask(next_instr))
+    return '%s;%s:%d-%d~#%d %s' % (
+        bytecode.co_name, bytecode.co_filename, bytecode.co_firstlineno,
+        lineno, next_instr, bytecode_name)
 
 def get_unique_id(next_instr, is_being_profiled, bytecode):
     from rpython.rlib import rvmprof
@@ -46,7 +49,7 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
             jl.MP_SCOPE, jl.MP_INDEX, jl.MP_OPCODE)
 def get_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
-    from rpython.tool.error import offset2lineno
+    from pypy.interpreter.pytraceback import offset2lineno
     bcindex = ord(bytecode.co_code[next_instr])
     opname = ""
     if 0 <= bcindex < len(opcode_method_names):
@@ -59,7 +62,7 @@ def get_location(next_instr, is_being_profiled, bytecode):
             name, intmask(next_instr), opname)
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
-    return (bytecode.co_flags & CO_GENERATOR) != 0
+    return (bytecode.co_flags & (CO_COROUTINE | CO_GENERATOR)) != 0
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
@@ -90,12 +93,10 @@ class __extend__(PyFrame):
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
                 is_being_profiled = self.get_is_being_profiled()
         except Yield:
-            self.last_exception = None
             w_result = self.popvalue()
             jit.hint(self, force_virtualizable=True)
             return w_result
-        except ExitFrame:
-            self.last_exception = None
+        except Return:
             return self.popvalue()
 
     def jump_absolute(self, jumpto, ec):
@@ -209,27 +210,27 @@ like tools.  For that purpose, if g = not_from_assembler(f), then
 )
 W_NotFromAssembler.typedef.acceptable_as_base_class = False
 
-@unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
 @dont_look_inside
 def get_jitcell_at_key(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     return space.newbool(bool(jit_hooks.get_jitcell_at_key(
-        'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)))
+       'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)))
 
-@unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
 @dont_look_inside
 def dont_trace_here(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     jit_hooks.dont_trace_here(
-        'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)
+        'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)
     return space.w_None
 
-@unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
 @dont_look_inside
 def trace_next_iteration(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     jit_hooks.trace_next_iteration(
-        'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)
+        'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)
     return space.w_None
 
 @unwrap_spec(hash=r_uint)

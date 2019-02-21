@@ -11,6 +11,8 @@ import pypy.module.micronumpy.constants as NPY
 from pypy.module.cpyext.ndarrayobject import (
     _PyArray_FromAny, _PyArray_FromObject)
 
+pytest.skip("Micronumpy not yet supported on py3k.")
+
 def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype
     return W_NDimArray.new_scalar(space, dtype, space.wrap(10.))

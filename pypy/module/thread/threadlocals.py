@@ -7,6 +7,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 
 
 ExecutionContext._signals_enabled = 0     # default value
+ExecutionContext._sentinel_lock = None
 
 
 class OSThreadLocals:

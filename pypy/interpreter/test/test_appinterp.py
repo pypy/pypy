@@ -31,7 +31,7 @@ def test_simple_applevel(space):
     app = appdef("""app(x,y): 
         return x + y
     """)
-    assert app.func_name == 'app'
+    assert app.__name__ == 'app'
     w_result = app(space, space.wrap(41), space.wrap(1))
     assert space.eq_w(w_result, space.wrap(42))
 
@@ -39,7 +39,7 @@ def test_applevel_with_one_default(space):
     app = appdef("""app(x,y=1): 
         return x + y
     """)
-    assert app.func_name == 'app'
+    assert app.__name__ == 'app'
     w_result = app(space, space.wrap(41)) 
     assert space.eq_w(w_result, space.wrap(42))
 
@@ -61,7 +61,7 @@ def test_applevel_noargs(space):
     app = appdef("""app(): 
         return 42 
     """)
-    assert app.func_name == 'app'
+    assert app.__name__ == 'app'
     w_result = app(space) 
     assert space.eq_w(w_result, space.wrap(42))
 
@@ -155,10 +155,10 @@ class TestMixedModule:
         w_mymod2 = MyModule(space2, space2.wrap('mymod'))
 
         w_str = space1.getattr(w_mymod1, space1.wrap("hi"))
-        assert space1.str_w(w_str) == "hello"
+        assert space1.text_w(w_str) == "hello"
 
 class TestMixedModuleUnfreeze:
-    spaceconfig = dict(usemodules=('_ssl', '_socket'))
+    spaceconfig = dict(usemodules=('_socket',))
 
     def test_random_stuff_can_unfreeze(self):
         # When a module contains an "import" statement in applevel code, the
@@ -169,13 +169,13 @@ class TestMixedModuleUnfreeze:
         # at runtime, like setting os.environ (posix module) or initializing
         # the winsock library (_socket module)
         w_socket = self.space.builtin_modules['_socket']
-        w_ssl = self.space.builtin_modules['_ssl']
+        # _ssl is not builtin anymore, this test also tried to _cleanup_ on
+        # the wrapped ssl object
+        # w_ssl = self.space.builtin_modules['_ssl']
 
         # Uncomment this line for a workaround
         # space.getattr(w_ssl, space.wrap('SSLError'))
 
         w_socket._cleanup_()
-        assert w_socket.startup_called == False
-        w_ssl._cleanup_() # w_ssl.appleveldefs['SSLError'] imports _socket
         assert w_socket.startup_called == False
 

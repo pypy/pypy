@@ -14,17 +14,20 @@ class TestThread(BaseTestPyPyC):
 
         def main(n):
             obj = Dummy()
-            for i in xrange(n):
+            for i in range(n):
                 weakref.ref(obj, noop)
         """, [500])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-        i58 = getfield_gc_i(p18, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current .>)
+        i58 = getfield_gc_i(p18, descr=<FieldS pypy.module.__builtin__.functional.W_IntRangeIterator.inst_current .>)
         i60 = int_lt(i58, i31)
         guard_true(i60, descr=...)
         i61 = int_add(i58, 1)
-        setfield_gc(p18, i61, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
+        dummy_get_utf8?
+        setfield_gc(p18, i61, descr=<FieldS pypy.module.__builtin__.functional.W_IntRangeIterator.inst_current 8>)
         guard_not_invalidated(descr=...)
+        dummy_get_utf8?
+        dummy_get_utf8?
         p65 = getfield_gc_r(p14, descr=<FieldP .+inst_map \d+>)
         guard_value(p65, ConstPtr(ptr45), descr=...)
         p66 = getfield_gc_r(p14, descr=<FieldP .+inst__value0 \d+>)

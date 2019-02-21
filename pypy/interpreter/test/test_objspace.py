@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 from py.test import raises
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
@@ -78,7 +79,7 @@ class TestObjSpace:
         class A(object):
             def __iter__(self):
                 return self
-            def next(self):
+            def __next__(self):
                 raise StopIteration
             def __len__(self):
                 1/0
@@ -88,7 +89,7 @@ class TestObjSpace:
             space.unpackiterable(w_a)
         except OperationError as o:
             if not o.match(space, space.w_ZeroDivisionError):
-                raise Exception("DID NOT RAISE")
+                raise
         else:
             raise Exception("DID NOT RAISE")
 
@@ -128,13 +129,14 @@ class TestObjSpace:
         w = self.space.wrap
         w_object_doc = self.space.getattr(self.space.w_object, w("__doc__"))
         w_instance = self.space.appexec([], "(): return object()")
-        assert self.space.lookup(w_instance, "__doc__") == w_object_doc 
+        w_doc = self.space.lookup(w_instance, "__doc__")
+        assert self.space.text_w(w_doc) == self.space.text_w(w_object_doc)
         assert self.space.lookup(w_instance, "gobbledygook") is None
         w_instance = self.space.appexec([], """():
             class Lookup(object):
-                "bla" 
+                "bla"
             return Lookup()""")
-        assert self.space.str_w(self.space.lookup(w_instance, "__doc__")) == "bla"
+        assert self.space.text_w(self.space.lookup(w_instance, "__doc__")) == "bla"
 
     def test_callable(self):
         def is_callable(w_obj):
@@ -146,7 +148,7 @@ class TestObjSpace:
         assert is_callable(w_func)
         w_lambda_func = self.space.appexec([], "(): return lambda: True")
         assert is_callable(w_lambda_func)
-        
+
         w_instance = self.space.appexec([], """():
             class Call(object):
                 def __call__(self): pass
@@ -159,13 +161,6 @@ class TestObjSpace:
         self.space.setattr(w_instance, self.space.wrap("__call__"), w_func)
         assert not is_callable(w_instance)
 
-        w_oldstyle = self.space.appexec([], """():
-            class NoCall:
-                pass
-            return NoCall()""")
-        assert not is_callable(w_oldstyle)
-        self.space.setattr(w_oldstyle, self.space.wrap("__call__"), w_func)
-        assert is_callable(w_oldstyle)
 
     def test_int_w(self):
         space = self.space
@@ -200,7 +195,6 @@ class TestObjSpace:
         space.raises_w(space.w_TypeError, space.int_w, w_instance)
         space.raises_w(space.w_TypeError, space.int_w, w_instance, allow_conversion=False)
 
-
     def test_interp_w(self):
         w = self.space.wrap
         w_bltinfunction = self.space.builtin.get('len')
@@ -216,9 +210,13 @@ class TestObjSpace:
         space = self.space
         w = space.wrap
         assert space.text0_w(w("123")) == "123"
-        exc = space.raises_w(space.w_TypeError, space.text0_w, w("123\x004"))
-        assert space.unicode0_w(w(u"123")) == u"123"
-        exc = space.raises_w(space.w_TypeError, space.unicode0_w, w(u"123\x004"))
+        space.raises_w(space.w_ValueError, space.text0_w, w("123\x004"))
+
+    def test_text_w(self):
+        space = self.space
+        x = u'àèì'
+        w_name = space.wrap(x)
+        assert space.text_w(w_name) == x.encode('utf-8')
 
     def test_getindex_w(self):
         w_instance1 = self.space.appexec([], """():
@@ -238,8 +236,8 @@ class TestObjSpace:
         try:
             self.space.getindex_w(self.space.w_tuple, None, "foobar")
         except OperationError as e:
-            assert e.match(self.space, self.space.w_TypeError)
-            assert "foobar" in e.errorstr(self.space)
+            assert e.errorstr(self.space) == (
+               "TypeError: foobar indices must be integers or slices, not type")
         else:
             assert 0, "should have raised"
 
@@ -308,7 +306,7 @@ class TestObjSpace:
 
     def test_call_obj_args(self):
         from pypy.interpreter.argument import Arguments
-        
+
         space = self.space
 
         w_f = space.appexec([], """():
@@ -333,7 +331,7 @@ class TestObjSpace:
         assert w_x is w_9
         assert w_y is w_1
 
-        w_res = space.call_obj_args(w_a, w_9, Arguments(space, []))        
+        w_res = space.call_obj_args(w_a, w_9, Arguments(space, []))
         assert w_res is w_9
 
     def test_compare_by_iteration(self):
@@ -352,7 +350,38 @@ class TestObjSpace:
                         else:
                             assert w_res is space.w_False
 
-class TestModuleMinimal: 
+    def test_isabstract(self, space):
+        w_A = space.appexec([], """():
+            class A:
+               def f(): pass
+               f.__isabstractmethod__ = True
+
+               def g(): pass
+               g.__isabstractmethod__ = True
+               g = classmethod(g)
+
+               def h(): pass
+               h.__isabstractmethod__ = True
+               h = staticmethod(h)
+            return A""")
+        w_B = space.appexec([], """():
+            class B:
+               def f(): pass
+
+               @classmethod
+               def g(): pass
+
+               @staticmethod
+               def h(): pass
+            return B""")
+        assert space.isabstractmethod_w(space.getattr(w_A, space.wrap('f')))
+        assert space.isabstractmethod_w(space.getattr(w_A, space.wrap('g')))
+        assert space.isabstractmethod_w(space.getattr(w_A, space.wrap('h')))
+        assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('f')))
+        assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('g')))
+        assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('h')))
+
+class TestModuleMinimal:
     def test_sys_exists(self):
         assert self.space.sys
 
@@ -360,7 +389,7 @@ class TestModuleMinimal:
         space = self.space
         assert space.builtin
         w_name = space.wrap('__import__')
-        w_builtin = space.sys.getmodule('__builtin__')
+        w_builtin = space.sys.getmodule('builtins')
         w_import = self.space.getattr(w_builtin, w_name)
         assert space.is_true(w_import)
 
@@ -375,9 +404,9 @@ class TestModuleMinimal:
         w_executable = space.wrap('executable')
         assert space.findattr(space.sys, w_executable) is None
         space.setattr(space.sys, w_executable, space.wrap('foobar'))
-        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        assert space.text_w(space.getattr(space.sys, w_executable)) == 'foobar'
         space.startup()
-        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        assert space.text_w(space.getattr(space.sys, w_executable)) == 'foobar'
 
     def test_interned_strings_are_weak(self):
         import weakref, gc, random
@@ -427,28 +456,3 @@ class TestModuleMinimal:
         space.finish()
         # assert that we reach this point without getting interrupted
         # by the OperationError(NameError)
-
-    def test_format_traceback(self):
-        from pypy.tool.pytest.objspace import maketestobjspace
-        from pypy.interpreter.gateway import interp2app
-        #
-        def format_traceback(space):
-            return space.format_traceback()
-        #
-        space = maketestobjspace()
-        w_format_traceback = space.wrap(interp2app(format_traceback))
-        w_tb = space.appexec([w_format_traceback], """(format_traceback):
-            def foo():
-                return bar()
-            def bar():
-                return format_traceback()
-            return foo()
-        """)
-        tb = space.str_w(w_tb)
-        expected = '\n'.join([
-            '  File "?", line 6, in anonymous',  # this is the appexec code object
-            '  File "?", line 3, in foo',
-            '  File "?", line 5, in bar',
-            ''
-        ])
-        assert tb == expected

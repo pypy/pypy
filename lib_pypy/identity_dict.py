@@ -32,7 +32,7 @@ class IdentityDictPurePython(object, DictMixin):
 
     def copy(self):
         d = type(self)()
-        d.update(self.iteritems())
+        d.update(self.items())
         assert len(d) == len(self)
         return d
 
@@ -60,7 +60,7 @@ class IdentityDictPyPy(object, DictMixin):
 
     def copy(self):
         d = type(self)()
-        d.update(self.iteritems())
+        d.update(self.items())
         assert len(d) == len(self)
         return d
 

@@ -9,41 +9,28 @@ class AppTestClass:
         assert c.__class__ == C
 
     def test_metaclass_explicit(self):
+        """
         class M(type):
             pass
-        class C:
-            __metaclass__ = M
+        class C(metaclass=M):
+            pass
         assert C.__class__ == M
         c = C()
         assert c.__class__ == C
+        """
 
     def test_metaclass_inherited(self):
+        """
         class M(type):
             pass
-        class B:
-            __metaclass__ = M
+        class B(metaclass=M):
+            pass
         class C(B):
             pass
         assert C.__class__ == M
         c = C()
         assert c.__class__ == C
-
-    def test_metaclass_global(self):
-        d = {}
-        metatest_text = """if 1: 
-            class M(type):
-                pass
-
-            __metaclass__ = M
-
-            class C:
-                pass\n"""
-        exec metatest_text in d
-        C = d['C']
-        M = d['M']
-        assert C.__class__ == M
-        c = C()
-        assert c.__class__ == C
+        """
 
     def test_method(self):
         class C(object):
@@ -91,15 +78,6 @@ class AppTestClass:
         assert type(int(x)) == int
         assert int(x) == 5
 
-    def test_long_subclass(self):
-        class R(long):
-            pass
-        x = R(5L)
-        assert type(x) == R
-        assert x == 5L
-        assert type(long(x)) == long
-        assert long(x) == 5L
-
     def test_float_subclass(self):
         class R(float):
             pass
@@ -131,3 +109,17 @@ class AppTestClass:
         c = C()
         assert c.one == "two"
         raises(AttributeError, getattr, c, "two")
+
+    def test___class__(self):
+        class C(object):
+            def get_class(self):
+                return __class__
+        assert C().get_class()
+
+    def test_qualname(self):
+        class C:
+            class D:
+                pass
+        assert C.__qualname__ == 'test_qualname.<locals>.C'
+        assert C.D.__qualname__ == 'test_qualname.<locals>.C.D'
+        assert not hasattr(C(), '__qualname__')

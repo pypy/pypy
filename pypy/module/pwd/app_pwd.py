@@ -1,6 +1,6 @@
 from _structseq import structseqtype, structseqfield
 
-class struct_passwd:
+class struct_passwd(metaclass=structseqtype):
     """
     pwd.struct_passwd: Results from getpw*() routines.
 
@@ -8,7 +8,6 @@ class struct_passwd:
       (pw_name,pw_passwd,pw_uid,pw_gid,pw_gecos,pw_dir,pw_shell)
     or via the object attributes as named in the above tuple.
     """
-    __metaclass__ = structseqtype
     name = "pwd.struct_passwd"
 
     pw_name   = structseqfield(0, "user name")

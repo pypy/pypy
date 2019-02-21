@@ -4,11 +4,11 @@ list of tested expressions / suites (used by test_parser and test_astbuilder)
 
 constants = [
     "0",
+    "00",
     "7",
     "-3",
-    "053",
+    "0o53",
     "0x18",
-    "14L",
     "1.0",
     "3.9",
     "-3.6",

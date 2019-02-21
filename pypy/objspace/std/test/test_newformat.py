@@ -5,20 +5,21 @@ from __future__ import with_statement
 class BaseStringFormatTests:
     """Test format and __format__ methods of string objects."""
 
+    spaceconfig = {'usemodules': ['itertools']}
+
     def test_escape(self):
-        assert self.s("{{").format() == self.s("{")
-        assert self.s("}}").format() == self.s("}")
-        assert self.s("{} {{ {}").format(1, 2) == self.s("1 { 2")
-        assert self.s("{{}}").format() == self.s("{}")
-        assert self.s("{{{{").format() == self.s("{{")
+        assert self.s("{{").format() == "{"
+        assert self.s("}}").format() == "}"
+        assert self.s("{} {{ {}").format(1, 2) == "1 { 2"
+        assert self.s("{{}}").format() == "{}"
+        assert self.s("{{{{").format() == "{{"
 
     def test_empty(self):
-        assert self.s().format() == self.s()
-        assert self.s("x").format() == self.s("x")
+        assert self.s().format() == ""
+        assert self.s("x").format() == "x"
 
     def test_several(self):
-        res = self.s("x32 stuff 42m")
-        assert self.s("x{} stuff {}m").format(32, 42) == res
+        assert self.s("x{} stuff {}m").format(32, 42) == "x32 stuff 42m"
 
     def test_stray_brackets(self):
         raises(ValueError, self.s("}").format, 3)
@@ -26,44 +27,43 @@ class BaseStringFormatTests:
         raises(ValueError, self.s("{}}").format, 3)
 
     def test_auto_numbering(self):
-        res = "1 3 2"
-        assert self.s("{} {name} {}").format(1, 2, name=3) == self.s(res)
+        assert self.s("{} {name} {}").format(1, 2, name=3) == "1 3 2"
         raises(ValueError, self.s("{} {2}").format, 2, 3)
         raises(ValueError, self.s("{0} {}").format, 2, 3)
 
     def test_positional_args(self):
-        assert self.s("{1}{0}").format(2, 3) == self.s("32")
+        assert self.s("{1}{0}").format(2, 3) == "32"
         raises(IndexError, self.s("{2}").format, 2)
         big = self.s("{123476028570192873049182730984172039840712934}")
         raises(ValueError, big.format)
 
     def test_kwargs(self):
-        assert self.s("{what}").format(what=42) == self.s("42")
+        assert self.s("{what}").format(what=42) == "42"
         raises(KeyError, self.s("{nothing}").format)
 
     def test_attr(self):
         class x:
             apple = 42
-        assert self.s("{.apple}").format(x) == self.s("42")
+        assert self.s("{.apple}").format(x) == "42"
         #
         raises(ValueError, self.s("{.}").format, x)
 
     def test_index(self):
         seq = (1, 42)
-        assert self.s("{[1]}").format(seq) == self.s("42")
+        assert self.s("{[1]}").format(seq) == "42"
         big = self.s("{[1092837041982035981720398471029384012937412]}")
         raises(ValueError, big.format, [0])
 
     def test_getitem(self):
         d = {"hi" : 32}
-        assert self.s("{[hi]}").format(d) == self.s("32")
+        assert self.s("{[hi]}").format(d) == "32"
 
     def test_chained(self):
         class x:
             y = [1, 2, 3]
-        assert self.s("{.y[1]}").format(x) == self.s("2")
+        assert self.s("{.y[1]}").format(x) == "2"
         l = [1, x]
-        assert self.s("{[1].y[2]}").format(l) == self.s("3")
+        assert self.s("{[1].y[2]}").format(l) == "3"
 
     def test_invalid_field_name(self):
         raises(ValueError, self.s("{[x]y}").format, {"x" : 2})
@@ -72,8 +72,8 @@ class BaseStringFormatTests:
         class x(object):
             def __repr__(self):
                 return "32"
-        assert self.s("{!r}").format(x()) == self.s("32")
-        assert self.s("{!s}").format(x()) == self.s("32")
+        assert self.s("{!r}").format(x()) == "32"
+        assert self.s("{!s}").format(x()) == "32"
 
     def test_format_spec(self):
         assert self.s('{0!s:}').format('Hello') == 'Hello'
@@ -81,33 +81,35 @@ class BaseStringFormatTests:
         assert self.s('{0!s:15s}').format('Hello') == 'Hello          '
         assert self.s('{0!r}').format('Hello') == "'Hello'"
         assert self.s('{0!r:}').format('Hello') == "'Hello'"
+        assert self.s('{0!r}').format('Caf\xe9') == "'Caf\xe9'"
+        assert self.s('{0!a}').format('Caf\xe9') == "'Caf\\xe9'"
 
     def test_invalid_conversion(self):
         raises(ValueError, self.s("{!x}").format, 3)
         raises(ValueError, self.s("{!}").format)
 
     def test_recursive(self):
-        assert self.s("{:{}}").format(42, "#o") == self.s("0o52")
+        assert self.s("{:{}}").format(42, "#o") == "0o52"
         raises(ValueError, self.s("{{}:s}").format)
         raises(ValueError, self.s("{:{:{}}}").format, 1, 2, 3)
 
     def test_presentation(self):
-        assert format(self.s("blah"), "s") == self.s("blah")
-        assert format(self.s("blah")) == self.s("blah")
+        assert format(self.s("blah"), "s") == "blah"
+        assert format(self.s("blah")) == "blah"
         for pres in "bcdoxXeEfFgGn%":
             raises(ValueError, format, self.s("blah"), pres)
 
     def test_padding(self):
-        assert format(self.s("h"), "3") == self.s("h  ")
-        assert format(self.s("h"), "<3") == self.s("h  ")
-        assert format(self.s("h"), ">3") == self.s("  h")
-        assert format(self.s("h"), "^3") == self.s(" h ")
-        assert format(self.s("h"), "^4") == self.s(" h  ")
-        assert format(self.s("h"), "c<3") == self.s("hcc")
+        assert format(self.s("h"), "3") == "h  "
+        assert format(self.s("h"), "<3") == "h  "
+        assert format(self.s("h"), ">3") == "  h"
+        assert format(self.s("h"), "^3") == " h "
+        assert format(self.s("h"), "^4") == " h  "
+        assert format(self.s("h"), "c<3") == "hcc"
         raises(ValueError, format, self.s("blah"), "=12")
 
     def test_precision(self):
-        assert format(self.s("abcdef"), ".3") == self.s("abc")
+        assert format(self.s("abcdef"), ".3") == "abc"
 
     def test_non_ascii_presentation(self):
         raises(ValueError, format, self.s(""), "\x234")
@@ -140,29 +142,21 @@ class BaseStringFormatTests:
                     return 'G(' + self.x + ')'
                 return object.__format__(self, format_spec)
 
-        assert self.s("{1}{0}").format(D(10), D(20)) == self.s("2010")
-        assert self.s("{0._x.x}").format(C(D("abc"))) == self.s("abc")
-        assert self.s("{0[1][0].x}").format(["abc", [D("def")]]) == self.s("def")
-        assert self.s("{0}").format(E("data")) == self.s("E(data)")
-        assert self.s("{0:d}").format(G("data")) == self.s("G(data)")
-        assert self.s("{0!s}").format(G("data")) == self.s("string is data")
+        assert self.s("{1}{0}").format(D(10), D(20)) == "2010"
+        assert self.s("{0._x.x}").format(C(D("abc"))) == "abc"
+        assert self.s("{0[1][0].x}").format(["abc", [D("def")]]) == "def"
+        assert self.s("{0}").format(E("data")) == "E(data)"
+        assert self.s("{0:d}").format(G("data")) == "G(data)"
+        assert self.s("{0!s}").format(G("data")) == "string is data"
 
-        msg = "object.__format__ with a non-empty format string is deprecated",
-        with warnings.catch_warnings(record=True) as log:
-            # This is ok because warnings.catch_warnings resets the filters
-            warnings.simplefilter("always", PendingDeprecationWarning)
-            assert self.s("{0:^10}").format(E("data")) == self.s(" E(data)  ")
-            assert log[0].message.args == msg
-            assert type(log[0].message) is PendingDeprecationWarning
-
-            assert self.s("{0:^10s}").format(E("data")) == self.s(" E(data)  ")
-            assert log[1].message.args == msg
-            assert type(log[1].message) is PendingDeprecationWarning
-
-            assert self.s("{0:>15s}").format(G("data")) == self.s(" string is data")
-            assert log[2].message.args == msg
-            assert type(log[2].message) is PendingDeprecationWarning
-        assert len(log) == 3
+        msg = "unsupported format string passed to E.__format__"
+        e = raises(TypeError, self.s("{0:^10}").format, E("data"))
+        assert str(e.value) == msg
+        e = raises(TypeError, self.s("{0:^10s}").format, E("data"))
+        assert str(e.value) == msg
+        msg = "unsupported format string passed to G.__format__"
+        e = raises(TypeError, self.s("{0:>15s}").format, G("data"))
+        assert str(e.value) == msg
 
     def test_bogus_cases(self):
         raises(KeyError, '{0]}'.format, 5)
@@ -198,10 +192,21 @@ class BaseStringFormatTests:
         assert self.s('{0:\x00<12}').format(3+2.0j) == '(3+2j)' + '\x00' * 6
         assert self.s('{0:\x01<12}').format(3+2.0j) == '(3+2j)' + '\x01' * 6
 
+    def test_more_indexing_cases(self):
+        assert self.s('x{[3]}y').format(['a', 'b', 'c', 'd', 'e']) == 'xdy'
+        assert self.s('x{[[]}y').format({'[': 'a'}) == 'xay'
+        assert self.s('x{[{]}y').format({'{': 'a'}) == 'xay'
+        assert self.s("x{[:]}y").format({":" : "a"}) == "xay"
+        assert self.s("x{[!]}y").format({"!" : "a"}) == "xay"
+        raises(ValueError, self.s("{a{}b}").format, 42)
+        raises(ValueError, self.s("{a{b}").format, 42)
+        raises(ValueError, self.s("{[}").format, 42)
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
     def setup_class(cls):
-        cls.w_s = cls.space.w_unicode
+        cls.w_s = cls.space.appexec(
+            [], """(): return str""")
 
     def test_string_conversion(self):
         class x(object):
@@ -209,31 +214,13 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
                 return "32"
             def __str__(self):
                 return "18"
-            def __unicode__(self):
-                return "42"
-        assert self.s("{!s}").format(x()) == self.s("42")
-        assert self.s("{!r}").format(x()) == self.s("32")
+        assert self.s("{!s}").format(x()) == "18"
+        assert self.s("{!r}").format(x()) == "32"
 
     def test_non_latin1_key(self):
         raises(KeyError, u"{\u1000}".format)
         d = {u"\u1000": u"foo"}
         assert u"{\u1000}".format(**d) == u"foo"
-
-
-class AppTestStringFormat(BaseStringFormatTests):
-    def setup_class(cls):
-        cls.w_s = cls.space.w_bytes
-
-    def test_string_conversion(self):
-        class x(object):
-            def __repr__(self):
-                return "32"
-            def __str__(self):
-                return "18"
-            def __unicode__(self):
-                return "42"
-        assert self.s("{!s}").format(x()) == self.s("18")
-        assert self.s("{!r}").format(x()) == self.s("32")
 
 
 class AppTestBoolFormat:
@@ -254,7 +241,7 @@ class AppTestBoolFormat:
 class BaseIntegralFormattingTest:
     def test_simple(self):
         assert format(self.i(2)) == "2"
-        assert isinstance(format(self.i(2), u""), unicode)
+        assert isinstance(format(self.i(2), ""), str)
 
     def test_invalid(self):
         raises(ValueError, format, self.i(8), "s")
@@ -263,11 +250,9 @@ class BaseIntegralFormattingTest:
     def test_c(self):
         a = self.i(ord("a"))
         assert format(a, "c") == "a"
-        as_uni = format(a, u"c")
-        assert as_uni == u"a"
-        assert isinstance(as_uni, unicode)
         raises(ValueError, format, a, "-c")
         raises(ValueError, format, a, ",c")
+        raises(ValueError, format, a, "#c")
         assert format(a, "3c") == "  a"
         assert format(a, "<3c") == "a  "
         assert format(a, "^3c") == " a "
@@ -328,19 +313,16 @@ class BaseIntegralFormattingTest:
 
 class AppTestIntFormatting(BaseIntegralFormattingTest):
     def setup_class(cls):
-        cls.w_i = cls.space.w_int
-
-
-class AppTestLongFormatting(BaseIntegralFormattingTest):
-    def setup_class(cls):
-        cls.w_i = cls.space.w_long
+        cls.w_i = cls.space.appexec(
+            [], """(): return int""")
 
 
 class AppTestFloatFormatting:
     spaceconfig = dict(usemodules=('_locale',))
 
     def test_alternate(self):
-        raises(ValueError, format, 1.0, "#")
+        assert format(1.0, "#.0e") == "1.e+00"
+        assert format(1+1j, '#.0e') == '1.e+00+1.e+00j'
 
     def test_simple(self):
         assert format(0.0, "f") == "0.000000"
@@ -395,76 +377,81 @@ class AppTestInternalMethods:
     # undocumented API on string and unicode object, but used by string.py
 
     def test_formatter_parser(self):
-        l = list('abcd'._formatter_parser())
+        import _string
+        l = list(_string.formatter_parser('abcd'))
         assert l == [('abcd', None, None, None)]
         #
-        l = list('ab{0}cd'._formatter_parser())
+        l = list(_string.formatter_parser('ab{0}cd'))
         assert l == [('ab', '0', '', None), ('cd', None, None, None)]
         #
-        l = list('{0}cd'._formatter_parser())
+        l = list(_string.formatter_parser('{0}cd'))
         assert l == [('', '0', '', None), ('cd', None, None, None)]
         #
-        l = list('ab{0}'._formatter_parser())
+        l = list(_string.formatter_parser('ab{0}'))
         assert l == [('ab', '0', '', None)]
         #
-        l = list(''._formatter_parser())
+        l = list(_string.formatter_parser(''))
         assert l == []
         #
-        l = list('{0:123}'._formatter_parser())
+        l = list(_string.formatter_parser('{0:123}'))
         assert l == [('', '0', '123', None)]
         #
-        l = list('{0!x:123}'._formatter_parser())
+        l = list(_string.formatter_parser('{0!x:123}'))
         assert l == [('', '0', '123', 'x')]
         #
-        l = list('{0!x:12{sdd}3}'._formatter_parser())
+        l = list(_string.formatter_parser('{0!x:12{sdd}3}'))
         assert l == [('', '0', '12{sdd}3', 'x')]
 
     def test_u_formatter_parser(self):
-        l = list(u'{0!x:12{sdd}3}'._formatter_parser())
-        assert l == [(u'', u'0', u'12{sdd}3', u'x')]
+        import _string
+        l = list(_string.formatter_parser('{0!x:12{sdd}3}'))
+        assert l == [('', '0', '12{sdd}3', 'x')]
         for x in l[0]:
-            assert isinstance(x, unicode)
+            assert isinstance(x, str)
 
     def test_formatter_parser_escape(self):
-        l = list("{{a}}"._formatter_parser())
+        import _string
+        l = list(_string.formatter_parser("{{a}}"))
         assert l == [('{', None, None, None), ('a}', None, None, None)]
-        l = list("{{{{"._formatter_parser())
+        l = list(_string.formatter_parser("{{{{"))
         assert l == [('{', None, None, None), ('{', None, None, None)]
 
     def test_formatter_field_name_split(self):
-        first, rest = ''._formatter_field_name_split()
+        import _string
+        first, rest = _string.formatter_field_name_split('')
         assert first == ''
         assert list(rest) == []
         #
-        first, rest = '31'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('31')
         assert first == 31
         assert list(rest) == []
         #
-        first, rest = 'foo'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo')
         assert first == 'foo'
         assert list(rest) == []
         #
-        first, rest = 'foo.bar'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo.bar')
         assert first == 'foo'
         assert list(rest) == [(True, 'bar')]
         #
-        first, rest = 'foo[123]'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo[123]')
         assert first == 'foo'
         assert list(rest) == [(False, 123)]
         #
-        first, rest = 'foo.baz[123].bok'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo.baz[123].bok')
         assert first == 'foo'
         assert list(rest) == [(True, 'baz'), (False, 123), (True, 'bok')]
         #
-        first, rest = 'foo.baz[hi].bok'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo.baz[hi].bok')
         assert first == 'foo'
         assert list(rest) == [(True, 'baz'), (False, 'hi'), (True, 'bok')]
 
     def test_u_formatter_field_name_split(self):
-        first, rest = u'foo.baz[hi].bok'._formatter_field_name_split()
+        import _string
+        first, rest = _string.formatter_field_name_split('foo.baz[hi].bok')
         l = list(rest)
-        assert first == u'foo'
-        assert l == [(True, u'baz'), (False, u'hi'), (True, u'bok')]
-        assert isinstance(first, unicode)
+        assert first == 'foo'
+        assert l == [(True, 'baz'), (False, 'hi'), (True, 'bok')]
+        assert isinstance(first, str)
         for x, y in l:
-            assert isinstance(y, unicode)
+            assert isinstance(y, str)

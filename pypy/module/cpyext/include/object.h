@@ -37,30 +37,57 @@ we have it for compatibility with CPython.
 #define Py_INCREF(ob)   (((PyObject *)(ob))->ob_refcnt++)
 #define Py_DECREF(op)                                   \
     do {                                                \
-        if (--((PyObject *)(op))->ob_refcnt != 0)       \
+        PyObject *_py_decref_tmp = (PyObject *)(op);    \
+        if (--(_py_decref_tmp)->ob_refcnt != 0)         \
             ;                                           \
         else                                            \
-            _Py_Dealloc((PyObject *)(op));              \
+            _Py_Dealloc(_py_decref_tmp);                \
     } while (0)
 
-#define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
-#define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
-#endif
+#define Py_XINCREF(op)                                \
+    do {                                              \
+        PyObject *_py_xincref_tmp = (PyObject *)(op); \
+        if (_py_xincref_tmp != NULL)                  \
+            Py_INCREF(_py_xincref_tmp);               \
+    } while (0)
 
+#define Py_XDECREF(op)                                \
+    do {                                              \
+        PyObject *_py_xdecref_tmp = (PyObject *)(op); \
+        if (_py_xdecref_tmp != NULL)                  \
+            Py_DECREF(_py_xdecref_tmp);               \
+    } while (0)
+
+#endif
 PyAPI_FUNC(void) Py_IncRef(PyObject *);
 PyAPI_FUNC(void) Py_DecRef(PyObject *);
-extern Py_ssize_t _pypy_rawrefcount_w_marker_deallocating;
+extern void *_pypy_rawrefcount_w_marker_deallocating;
 PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
 PyAPI_FUNC(void) _Py_Finalize(PyObject *);
 
-#define Py_CLEAR(op)                        \
-        do {                            	\
-                if (op) {			\
-                        PyObject *_py_tmp = (PyObject *)(op);	\
-                        (op) = NULL;		\
-                        Py_DECREF(_py_tmp);	\
-                }				\
-        } while (0)
+
+#define Py_CLEAR(op)                            \
+    do {                                        \
+        PyObject *_py_tmp = (PyObject *)(op);   \
+        if (_py_tmp != NULL) {                  \
+            (op) = NULL;                        \
+            Py_DECREF(_py_tmp);                 \
+        }                                       \
+    } while (0)
+
+#define Py_SETREF(op, op2)                      \
+    do {                                        \
+        PyObject *_py_tmp = (PyObject *)(op);   \
+        (op) = (op2);                           \
+        Py_DECREF(_py_tmp);                     \
+    } while (0)
+
+#define Py_XSETREF(op, op2)                     \
+    do {                                        \
+        PyObject *_py_tmp = (PyObject *)(op);   \
+        (op) = (op2);                           \
+        Py_XDECREF(_py_tmp);                    \
+    } while (0)
 
 #define Py_REFCNT(ob)          (((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
@@ -123,13 +150,15 @@ not implemented for a given type combination.
 #define PyBUF_SHADOW 0x400
 /* end Py3k buffer interface */
 
-#define PyObject_Bytes PyObject_Str
+
+PyAPI_FUNC(PyObject*) PyType_FromSpec(PyType_Spec*);
+
 
 /* Flag bits for printing: */
-#define Py_PRINT_RAW	1	/* No string quotes etc. */
+#define Py_PRINT_RAW    1       /* No string quotes etc. */
 
 /*
-Type flags (tp_flags)
+`Type flags (tp_flags)
 
 These flags are used to extend the type structure in a backwards-compatible
 fashion. Extensions can use the flags to indicate (and test) when a given
@@ -141,47 +170,15 @@ Arbitration of the flag bit positions will need to be coordinated among
 all extension writers who publically release their extensions (this will
 be fewer than you might expect!)..
 
-Python 1.5.2 introduced the bf_getcharbuffer slot into PyBufferProcs.
+Most flags were removed as of Python 3.0 to make room for new flags.  (Some
+flags are not for backwards compatibility but to indicate the presence of an
+optional feature; these flags remain of course.)
 
 Type definitions should use Py_TPFLAGS_DEFAULT for their tp_flags value.
 
 Code can use PyType_HasFeature(type_ob, flag_value) to test whether the
 given type object has a specified feature.
-
-NOTE: when building the core, Py_TPFLAGS_DEFAULT includes
-Py_TPFLAGS_HAVE_VERSION_TAG; outside the core, it doesn't.  This is so
-that extensions that modify tp_dict of their own types directly don't
-break, since this was allowed in 2.5.  In 3.0 they will have to
-manually remove this flag though!
 */
-
-/* PyBufferProcs contains bf_getcharbuffer */
-#define Py_TPFLAGS_HAVE_GETCHARBUFFER  (1L<<0)
-
-/* PySequenceMethods contains sq_contains */
-#define Py_TPFLAGS_HAVE_SEQUENCE_IN (1L<<1)
-
-/* This is here for backwards compatibility.  Extensions that use the old GC
- * API will still compile but the objects will not be tracked by the GC. */
-#define Py_TPFLAGS_GC 0 /* used to be (1L<<2) */
-
-/* PySequenceMethods and PyNumberMethods contain in-place operators */
-#define Py_TPFLAGS_HAVE_INPLACEOPS (1L<<3)
-
-/* PyNumberMethods do their own coercion */
-#define Py_TPFLAGS_CHECKTYPES (1L<<4)
-
-/* tp_richcompare is defined */
-#define Py_TPFLAGS_HAVE_RICHCOMPARE (1L<<5)
-
-/* Objects which are weakly referencable if their tp_weaklistoffset is >0 */
-#define Py_TPFLAGS_HAVE_WEAKREFS (1L<<6)
-
-/* tp_iter is defined */
-#define Py_TPFLAGS_HAVE_ITER (1L<<7)
-
-/* New members introduced by Python 2.2 exist */
-#define Py_TPFLAGS_HAVE_CLASS (1L<<8)
 
 /* Set if the type object is dynamically allocated */
 #define Py_TPFLAGS_HEAPTYPE (1L<<9)
@@ -205,9 +202,6 @@ manually remove this flag though!
 #define Py_TPFLAGS_HAVE_STACKLESS_EXTENSION 0
 #endif
 
-/* Objects support nb_index in PyNumberMethods */
-#define Py_TPFLAGS_HAVE_INDEX (1L<<17)
-
 /* Objects support type attribute cache */
 #define Py_TPFLAGS_HAVE_VERSION_TAG   (1L<<18)
 #define Py_TPFLAGS_VALID_VERSION_TAG  (1L<<19)
@@ -215,41 +209,42 @@ manually remove this flag though!
 /* Type is abstract and cannot be instantiated */
 #define Py_TPFLAGS_IS_ABSTRACT (1L<<20)
 
-/* Has the new buffer protocol */
-#define Py_TPFLAGS_HAVE_NEWBUFFER (1L<<21)
-
 /* These flags are used to determine if a type is a subclass. */
-#define Py_TPFLAGS_INT_SUBCLASS		(1L<<23)
-#define Py_TPFLAGS_LONG_SUBCLASS	(1L<<24)
-#define Py_TPFLAGS_LIST_SUBCLASS	(1L<<25)
-#define Py_TPFLAGS_TUPLE_SUBCLASS	(1L<<26)
-#define Py_TPFLAGS_STRING_SUBCLASS	(1L<<27)
-#define Py_TPFLAGS_UNICODE_SUBCLASS	(1L<<28)
-#define Py_TPFLAGS_DICT_SUBCLASS	(1L<<29)
-#define Py_TPFLAGS_BASE_EXC_SUBCLASS	(1L<<30)
-#define Py_TPFLAGS_TYPE_SUBCLASS	(1L<<31)
+#define Py_TPFLAGS_LONG_SUBCLASS        (1UL << 24)
+#define Py_TPFLAGS_LIST_SUBCLASS        (1UL << 25)
+#define Py_TPFLAGS_TUPLE_SUBCLASS       (1UL << 26)
+#define Py_TPFLAGS_BYTES_SUBCLASS       (1UL << 27)
+#define Py_TPFLAGS_UNICODE_SUBCLASS     (1UL << 28)
+#define Py_TPFLAGS_DICT_SUBCLASS        (1UL << 29)
+#define Py_TPFLAGS_BASE_EXC_SUBCLASS    (1UL << 30)
+#define Py_TPFLAGS_TYPE_SUBCLASS        (1UL << 31)
 
-#define Py_TPFLAGS_DEFAULT_EXTERNAL ( \
-                             Py_TPFLAGS_HAVE_GETCHARBUFFER | \
-                             Py_TPFLAGS_HAVE_SEQUENCE_IN | \
-                             Py_TPFLAGS_HAVE_INPLACEOPS | \
-                             Py_TPFLAGS_HAVE_RICHCOMPARE | \
-                             Py_TPFLAGS_HAVE_WEAKREFS | \
-                             Py_TPFLAGS_HAVE_ITER | \
-                             Py_TPFLAGS_HAVE_CLASS | \
-                             Py_TPFLAGS_HAVE_STACKLESS_EXTENSION | \
-                             Py_TPFLAGS_HAVE_INDEX | \
-                             0)
-#define Py_TPFLAGS_DEFAULT_CORE (Py_TPFLAGS_DEFAULT_EXTERNAL | \
-                                 Py_TPFLAGS_HAVE_VERSION_TAG)
 
-#define Py_TPFLAGS_DEFAULT Py_TPFLAGS_DEFAULT_EXTERNAL
+/* These are conceptually the same as the flags above, but they are
+   PyPy-specific and are stored inside tp_pypy_flags */
+#define Py_TPPYPYFLAGS_FLOAT_SUBCLASS (1L<<0)
 
+    
+#define Py_TPFLAGS_DEFAULT  ( \
+                 Py_TPFLAGS_HAVE_STACKLESS_EXTENSION | \
+                 Py_TPFLAGS_HAVE_VERSION_TAG | \
+                0)
+
+/* NOTE: The following flags reuse lower bits (removed as part of the
+ * Python 3.0 transition). */
+
+/* Type structure has tp_finalize member (3.4) */
 #define Py_TPFLAGS_HAVE_FINALIZE (1UL << 0)
 
+#ifdef Py_LIMITED_API
+#define PyType_HasFeature(t,f)  ((PyType_GetFlags(t) & (f)) != 0)
+#else
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
+#endif
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
+#define _PyPy_Type_FastSubclass(t,f) (((t)->tp_pypy_flags & (f)) != 0)
+    
 #define PyType_Check(op) \
     PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
 #define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
@@ -296,9 +291,8 @@ PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
 
 #define PyObject_GC_New(type, typeobj) \
                 ( (type *) _PyObject_GC_New(typeobj) )
-
-#define PyObject_GC_NewVar(type, typeobj, n) \
-                ( (type *) _PyObject_GC_NewVar((typeobj), (n)) )
+#define PyObject_GC_NewVar(type, typeobj, size) \
+                ( (type *) _PyObject_GC_NewVar(typeobj, size) )
 
 extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
 
@@ -374,7 +368,7 @@ PyAPI_FUNC(void) PyObject_GC_UnTrack(void *);
         } while (0)
 
 #define PyObject_TypeCheck(ob, tp) \
-    ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
+    (Py_TYPE(ob) == (tp) || PyType_IsSubtype(Py_TYPE(ob), (tp)))
 
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
@@ -424,12 +418,17 @@ PyAPI_FUNC(void) PyObject_GC_Del(void *);
 
 PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) _PyObject_GC_Malloc(size_t);
 PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
 
 PyAPI_FUNC(PyObject *) PyObject_Init(PyObject *, PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) PyObject_InitVar(PyVarObject *,
                                            PyTypeObject *, Py_ssize_t);
+
+#ifndef Py_LIMITED_API
+PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
+#endif
 
 
 /* PyPy internal ----------------------------------- */

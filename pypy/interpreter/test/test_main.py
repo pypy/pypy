@@ -1,3 +1,4 @@
+# coding: utf-8
 from cStringIO import StringIO
 
 import py
@@ -8,7 +9,7 @@ from pypy.interpreter import main
 testcode = """\
 def main():
     aStr = 'hello world'
-    print len(aStr)
+    print(len(aStr))
 
 main()
 """
@@ -19,7 +20,7 @@ testmodulecode = """
 import sys
 if __name__ == '__main__':
     aStr = sys.argv[1]
-    print len(aStr)
+    print(len(aStr))
 """
 
 testresultoutput = '11\n'
@@ -78,3 +79,29 @@ class TestMain:
                     testmodule, ['hello world'])
         checkoutput(self.space, testresultoutput, main.run_module,
                     testpackage + '.' + testmodule, ['hello world'])
+
+
+class TestMainPEP3120:
+    def setup_class(cls):
+        # Encoding the string here to ease writing to the captured
+        # stdout's underlying Python 2 (not 3) file!
+        testfn.write("""print('日本'.encode('utf-8'), end='')""", 'wb')
+        space = cls.space
+        cls.w_oldsyspath = space.appexec([space.wrap(str(udir))], """(udir):
+            import sys
+            old = sys.path[:]
+            sys.path.insert(0, udir)
+            return old
+        """)
+
+    def teardown_class(cls):
+        cls.space.appexec([cls.w_oldsyspath], """(old):
+            import sys
+            sys.path[:] = old
+        """)
+
+    def test_pep3120(self):
+        # Ensure '日本' written to the file above is interpreted as utf-8
+        # per PEP3120
+        checkoutput(self.space, 'b' + repr(u'日本'.encode('utf-8')),
+                    main.run_file, str(testfn))

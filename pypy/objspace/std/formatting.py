@@ -2,15 +2,16 @@
 import math
 import sys
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import INT_MAX
+from rpython.rlib.rarithmetic import INT_MAX, r_uint
 from rpython.rlib.rfloat import DTSF_ALT, formatd
-from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import check_ascii_or_raise
 
 
 class BaseStringFormatter(object):
@@ -41,7 +42,7 @@ class BaseStringFormatter(object):
             raise oefmt(self.space.w_TypeError,
                         "not all arguments converted during string formatting")
 
-    def std_wp_int(self, r, prefix='', keep_zero=False):
+    def std_wp_int(self, r, prefix=''):
         # use self.prec to add some '0' on the left of the number
         if self.prec >= 0:
             if self.prec > 1000:
@@ -55,8 +56,6 @@ class BaseStringFormatter(object):
                     r = '-' + '0'*padding + r[1:]
                 else:
                     r = '0'*padding + r
-            elif self.prec == 0 and r == '0' and not keep_zero:
-                r = ''
         self.std_wp_number(r, prefix)
 
     def fmt_d(self, w_value):
@@ -75,7 +74,7 @@ class BaseStringFormatter(object):
 
     def fmt_X(self, w_value):
         "HEX formatting"
-        r = hex_num_helper(self.space, w_value)
+        r = hex_num_helper(self.space, w_value, fmt_for_error='%X')
         if self.f_alt:
             prefix = '0X'
         else:
@@ -85,15 +84,11 @@ class BaseStringFormatter(object):
     def fmt_o(self, w_value):
         "oct formatting"
         r = oct_num_helper(self.space, w_value)
-        keep_zero = False
         if self.f_alt:
-            if r == '0':
-                keep_zero = True
-            elif r.startswith('-'):
-                r = '-0' + r[1:]
-            else:
-                r = '0' + r
-        self.std_wp_int(r, keep_zero=keep_zero)
+            prefix = '0o'
+        else:
+            prefix = ''
+        self.std_wp_int(r, prefix)
 
     fmt_i = fmt_d
     fmt_u = fmt_d
@@ -154,18 +149,15 @@ def make_formatter_subclass(do_unicode):
     # to build two subclasses of the BaseStringFormatter class,
     # each one getting its own subtle differences and RPython types.
 
-    if do_unicode:
-        const = unicode
-    else:
-        const = str
-
     class StringFormatter(BaseStringFormatter):
         def __init__(self, space, fmt, values_w, w_valuedict):
             BaseStringFormatter.__init__(self, space, values_w, w_valuedict)
-            self.fmt = fmt    # either a string or a unicode
+            self.fmt = fmt    # always a string, if unicode, utf8 encoded
 
         def peekchr(self):
-            # return the 'current' character
+            # Return the 'current' character. Note that this returns utf8
+            # encoded part, but this is ok since we only need one-character
+            # comparisons
             try:
                 return self.fmt[self.fmtpos]
             except IndexError:
@@ -202,7 +194,8 @@ def make_formatter_subclass(do_unicode):
             if self.w_valuedict is None:
                 raise oefmt(space.w_TypeError, "format requires a mapping")
             if do_unicode:
-                w_key = space.newunicode(key)
+                lgt = rutf8.check_utf8(key, True)
+                w_key = space.newutf8(key, lgt)
             else:
                 w_key = space.newbytes(key)
             return space.getitem(self.w_valuedict, w_key)
@@ -223,7 +216,7 @@ def make_formatter_subclass(do_unicode):
 
             if self.peekchr() == '.':
                 self.forward()
-                self.prec = self.peel_num('prec', INT_MAX)
+                self.prec = self.peel_num('precision', INT_MAX)
                 if self.prec < 0:
                     self.prec = 0    # this can happen:  '%.*f' % (-5, 3)
             else:
@@ -269,7 +262,7 @@ def make_formatter_subclass(do_unicode):
                 w_value = self.nextinputvalue()
                 if name == 'width':
                     return space.int_w(w_value)
-                elif name == 'prec':
+                elif name == 'precision':
                     return space.c_int_w(w_value)
                 else:
                     assert False
@@ -288,10 +281,7 @@ def make_formatter_subclass(do_unicode):
         @jit.look_inside_iff(lambda self: jit.isconstant(self.fmt))
         def format(self):
             lgt = len(self.fmt) + 4 * len(self.values_w) + 10
-            if do_unicode:
-                result = UnicodeBuilder(lgt)
-            else:
-                result = StringBuilder(lgt)
+            result = StringBuilder(lgt)
             self.result = result
             while True:
                 # fast path: consume as many characters as possible
@@ -312,7 +302,7 @@ def make_formatter_subclass(do_unicode):
                 c = self.peekchr()
                 self.forward()
                 if c == '%':
-                    self.std_wp(const('%'))
+                    self.std_wp('%', False)
                     continue
                 if w_value is None:
                     w_value = self.nextinputvalue()
@@ -334,37 +324,46 @@ def make_formatter_subclass(do_unicode):
 
         def unknown_fmtchar(self):
             space = self.space
-            c = self.fmt[self.fmtpos - 1]
-            w_s = space.newunicode(c) if do_unicode else space.newbytes(c)
+            if do_unicode:
+                cp = rutf8.codepoint_at_pos(self.fmt, self.fmtpos - 1)
+                w_s = space.newutf8(rutf8.unichr_as_utf8(r_uint(cp)), 1)
+            else:
+                cp = ord(self.fmt[self.fmtpos - 1])
+                w_s = space.newbytes(chr(cp))
             raise oefmt(space.w_ValueError,
                         "unsupported format character %R (%s) at index %d",
-                        w_s, hex(ord(c)), self.fmtpos - 1)
+                        w_s, hex(cp), self.fmtpos - 1)
 
-        @specialize.argtype(1)
-        def std_wp(self, r):
-            length = len(r)
-            if do_unicode and isinstance(r, str):
+        @specialize.arg(2)
+        def std_wp(self, r, is_string=False):
+            # r is utf8-encoded unicode
+            length = rutf8.codepoints_in_utf8(r)
+            if do_unicode and is_string:
                 # convert string to unicode using the default encoding
-                r = self.space.unicode_w(self.space.newbytes(r))
+                r = self.space.utf8_w(self.space.newbytes(r))
             prec = self.prec
             if prec == -1 and self.width == 0:
                 # fast path
-                self.result.append(const(r))
+                self.result.append(r)
                 return
             if prec >= 0 and prec < length:
                 length = prec   # ignore the end of the string if too long
-            result = self.result
             padding = self.width - length
+            if do_unicode:
+                # XXX could use W_UnicodeObject.descr_getslice, but that would
+                # require a refactor to use the w_val, not r
+                length = rutf8._pos_at_index(r, length)
+            result = self.result
             if padding < 0:
                 padding = 0
             assert padding >= 0
             if not self.f_ljust and padding > 0:
-                result.append_multiple_char(const(' '), padding)
+                result.append_multiple_char(' ', padding)
                 # add any padding at the left of 'r'
                 padding = 0
             result.append_slice(r, 0, length)       # add 'r' itself
             if padding > 0:
-                result.append_multiple_char(const(' '), padding)
+                result.append_multiple_char(' ', padding)
             # add any remaining padding at the right
 
         def std_wp_number(self, r, prefix=''):
@@ -376,10 +375,10 @@ def make_formatter_subclass(do_unicode):
                 # result.append(), and no startswith() if not f_sign and
                 # not f_blank).
                 if self.f_sign and not r.startswith('-'):
-                    result.append(const('+'))
+                    result.append('+')
                 elif self.f_blank and not r.startswith('-'):
-                    result.append(const(' '))
-                result.append(const(r))
+                    result.append(' ')
+                result.append(r)
                 return
             # add a '+' or ' ' sign if necessary
             sign = r.startswith('-')
@@ -406,18 +405,18 @@ def make_formatter_subclass(do_unicode):
 
             assert padding >= 0
             if padnumber == '>':
-                result.append_multiple_char(const(' '), padding)
+                result.append_multiple_char(' ', padding)
                 # pad with spaces on the left
             if sign:
-                result.append(const(r[0]))        # the sign
-            result.append(const(prefix))               # the prefix
+                result.append(r[0])        # the sign
+            result.append(prefix)               # the prefix
             if padnumber == '0':
-                result.append_multiple_char(const('0'), padding)
+                result.append_multiple_char('0', padding)
                 # pad with zeroes
-            result.append_slice(const(r), int(sign), len(r))
+            result.append_slice(r, int(sign), len(r))
             # the rest of the number
             if padnumber == '<':           # spaces on the right
-                result.append_multiple_char(const(' '), padding)
+                result.append_multiple_char(' ', padding)
 
         def string_formatting(self, w_value):
             space = self.space
@@ -426,62 +425,117 @@ def make_formatter_subclass(do_unicode):
                 raise oefmt(space.w_TypeError,
                             "operand does not support unary str")
             w_result = space.get_and_call_function(w_impl, w_value)
-            if space.isinstance_w(w_result,
-                                              space.w_unicode):
+            if space.isinstance_w(w_result, space.w_unicode):
                 raise NeedUnicodeFormattingError
             return space.bytes_w(w_result)
 
         def fmt_s(self, w_value):
-            space = self.space
-            got_unicode = space.isinstance_w(w_value,
-                                                         space.w_unicode)
             if not do_unicode:
-                if got_unicode:
-                    raise NeedUnicodeFormattingError
-                s = self.string_formatting(w_value)
+                # on bytes, %s is equivalent to %b
+                self.fmt_b(w_value)
+                return
+            space = self.space
+            got_unicode = space.isinstance_w(w_value, space.w_unicode)
+            if not got_unicode:
+                w_value = space.call_function(space.w_unicode, w_value)
             else:
-                if not got_unicode:
-                    w_value = space.call_function(space.w_unicode, w_value)
-                else:
-                    from pypy.objspace.std.unicodeobject import unicode_from_object
-                    w_value = unicode_from_object(space, w_value)
-                s = space.unicode_w(w_value)
-            self.std_wp(s)
+                from pypy.objspace.std.unicodeobject import unicode_from_object
+                w_value = unicode_from_object(space, w_value)
+            s = space.utf8_w(w_value)
+            self.std_wp(s, False)
 
         def fmt_r(self, w_value):
-            self.std_wp(self.space.text_w(self.space.repr(w_value)))
+            if not do_unicode:
+                # on bytes, %r is equivalent to %a
+                self.fmt_a(w_value)
+            else:
+                # on unicodes, %r calls repr(), which typically returns
+                # arbitrary unicode chars if w_value is an arbitrary unicode
+                # string
+                w_value = self.space.repr(w_value)
+                self.std_wp(self.space.utf8_w(w_value))
+
+        def fmt_a(self, w_value):
+            from pypy.objspace.std.unicodeobject import ascii_from_object
+            w_value = ascii_from_object(self.space, w_value)
+            # %a calls ascii(), which should return an ascii unicode string
+            if do_unicode:
+                value = self.space.utf8_w(w_value)
+            else:
+                value = self.space.text_w(w_value)
+            self.std_wp(value)
 
         def fmt_c(self, w_value):
             self.prec = -1     # just because
             space = self.space
-            if space.isinstance_w(w_value, space.w_bytes):
-                s = space.bytes_w(w_value)
-                if len(s) != 1:
-                    raise oefmt(space.w_TypeError, "%c requires int or char")
-                self.std_wp(s)
-            elif space.isinstance_w(w_value, space.w_unicode):
-                if not do_unicode:
-                    raise NeedUnicodeFormattingError
-                ustr = space.unicode_w(w_value)
-                if len(ustr) != 1:
-                    raise oefmt(space.w_TypeError, "%c requires int or unichar")
-                self.std_wp(ustr)
+            try:
+                w_value = space.index(w_value)
+            except OperationError as e:
+                if e.async(space):
+                    raise
+                # otherwise, eats all exceptions, like CPython
             else:
                 n = space.int_w(w_value)
                 if do_unicode:
                     try:
-                        c = unichr(n)
+                        c = rutf8.unichr_as_utf8(r_uint(n))
                     except ValueError:
                         raise oefmt(space.w_OverflowError,
                                     "unicode character code out of range")
-                    self.std_wp(c)
+                    self.std_wp(c, False)
                 else:
                     try:
                         s = chr(n)
                     except ValueError:
                         raise oefmt(space.w_OverflowError,
                                     "character code not in range(256)")
+                    self.std_wp(s, True)
+                return
+            if not do_unicode:
+                if space.isinstance_w(w_value, space.w_bytes):
+                    s = space.bytes_w(w_value)
+                elif space.isinstance_w(w_value, space.w_bytearray):
+                    s = w_value.buffer_w(space, 0).as_str()
+                else:
+                    s = ''
+                if len(s) == 1:
                     self.std_wp(s)
+                    return
+                raise oefmt(space.w_TypeError, "%c requires int or single byte")
+            else:
+                if space.isinstance_w(w_value, space.w_unicode):
+                    ustr = space.utf8_w(w_value)
+                    if space.len_w(w_value) == 1:
+                        self.std_wp(ustr)
+                        return
+                raise oefmt(space.w_TypeError, "%c requires int or char")
+
+        def fmt_b(self, w_value):
+            if do_unicode:
+                self.unknown_fmtchar()
+            space = self.space
+            # cpython explicitly checks for bytes & bytearray
+            if space.isinstance_w(w_value, space.w_bytes):
+                self.std_wp(space.bytes_w(w_value))
+                return
+            if space.isinstance_w(w_value, space.w_bytearray):
+                buf = w_value.buffer_w(space, 0)
+                # convert the array of the buffer to a py 2 string
+                self.std_wp(buf.as_str())
+                return
+
+            w_bytes_method = space.lookup(w_value, "__bytes__")
+            if w_bytes_method is not None:
+                w_bytes = space.get_and_call_function(w_bytes_method, w_value)
+                if not space.isinstance_w(w_bytes, space.w_bytes):
+                    raise oefmt(space.w_TypeError,
+                                "__bytes__ returned non-bytes (type '%T')", w_bytes)
+                self.std_wp(space.bytes_w(w_bytes))
+                return
+
+            raise oefmt(space.w_TypeError,
+                    "requires bytes, or an object that "
+                    "implements __bytes__, not '%T'", w_value)
 
     return StringFormatter
 
@@ -500,10 +554,18 @@ FORMATTER_CHARS = unrolling_iterable(
     [_name[-1] for _name in dir(StringFormatter)
                if len(_name) == 5 and _name.startswith('fmt_')])
 
-def format(space, w_fmt, values_w, w_valuedict, do_unicode):
+FORMAT_STR = 0
+FORMAT_UNICODE = 1
+FORMAT_BYTES = 2
+FORMAT_BYTEARRAY = 3
+
+def format(space, w_fmt, values_w, w_valuedict, fmt_type):
     "Entry point"
-    if not do_unicode:
-        fmt = space.bytes_w(w_fmt)
+    if fmt_type != FORMAT_UNICODE:
+        if fmt_type == FORMAT_BYTEARRAY:
+            fmt = w_fmt.buffer_w(space, 0).as_str()
+        else:
+            fmt = space.bytes_w(w_fmt)
         formatter = StringFormatter(space, fmt, values_w, w_valuedict)
         try:
             result = formatter.format()
@@ -511,25 +573,41 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
             # fall through to the unicode case
             pass
         else:
+            if fmt_type == FORMAT_BYTES:
+                return space.newbytes(result)
+            elif fmt_type == FORMAT_BYTEARRAY:
+                return space.newbytearray([c for c in result])
             return space.newbytes(result)
-    fmt = space.unicode_w(w_fmt)
+    fmt = space.utf8_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
-    return space.newunicode(result)
+    # this can force strings, not sure if it's a problem or not
+    lgt = rutf8.codepoints_in_utf8(result)
+    return space.newutf8(result, lgt)
 
-def mod_format(space, w_format, w_values, do_unicode=False):
+def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
     if space.isinstance_w(w_values, space.w_tuple):
         values_w = space.fixedview(w_values)
-        return format(space, w_format, values_w, None, do_unicode)
+        return format(space, w_format, values_w, None, fmt_type)
     else:
         # we check directly for dict to avoid obscure checking
         # in simplest case
         if space.isinstance_w(w_values, space.w_dict) or \
-           (space.lookup(w_values, '__getitem__') and
-           not space.isinstance_w(w_values, space.w_basestring)):
-            return format(space, w_format, [w_values], w_values, do_unicode)
+             _looks_like_a_mapping(space, w_values, fmt_type):
+            return format(space, w_format, [w_values], w_values, fmt_type)
         else:
-            return format(space, w_format, [w_values], None, do_unicode)
+            return format(space, w_format, [w_values], None, fmt_type)
+
+def _looks_like_a_mapping(space, w_x, fmt_type):
+    if not space.lookup(w_x, '__getitem__'):
+        return False
+    if space.isinstance_w(w_x, space.w_unicode):
+        return False
+    if fmt_type != FORMAT_UNICODE:  # (S6) in http://bugs.python.org/issue28885
+        if (space.isinstance_w(w_x, space.w_bytes) or
+            space.isinstance_w(w_x, space.w_bytearray)):
+            return False
+    return True
 
 # ____________________________________________________________
 # Formatting helpers
@@ -538,26 +616,23 @@ def maybe_int(space, w_value):
     # make sure that w_value is a wrapped integer
     return space.int(w_value)
 
+def maybe_index(space, w_value):
+    return space.index(w_value)
+
 def maybe_float(space, w_value):
     # make sure that w_value is a wrapped float
     return space.float(w_value)
 
-def format_num_helper_generator(fmt, digits):
-    def format_num_helper(space, w_value):
-        if (not space.isinstance_w(w_value, space.w_int) and
-            not space.isinstance_w(w_value, space.w_long)):
-          try:
-            w_value = maybe_int(space, w_value)
-          except OperationError:
+def format_num_helper_generator(fmt, digits, decoder=maybe_int,
+                                expect_text="a number"):
+    def format_num_helper(space, w_value, fmt_for_error=fmt):
+        if not space.isinstance_w(w_value, space.w_int):
             try:
-                w_value = space.long(w_value)
-            except OperationError as operr:
-                if operr.match(space, space.w_TypeError):
-                    raise oefmt(
-                        space.w_TypeError,
-                        "%s format: a number is required, not %T", fmt, w_value)
-                else:
-                    raise
+                w_value = decoder(space, w_value)
+            except OperationError:
+                raise oefmt(space.w_TypeError,
+                            "%s format: %s is required, not %T",
+                            fmt_for_error, expect_text, w_value)
         try:
             value = space.int_w(w_value)
             return fmt % (value,)
@@ -570,5 +645,7 @@ def format_num_helper_generator(fmt, digits):
                               'base%d_num_helper' % len(digits))
 
 int_num_helper = format_num_helper_generator('%d', '0123456789')
-oct_num_helper = format_num_helper_generator('%o', '01234567')
-hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef')
+oct_num_helper = format_num_helper_generator('%o', '01234567',
+                     decoder=maybe_index, expect_text="an integer")
+hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef',
+                     decoder=maybe_index, expect_text="an integer")

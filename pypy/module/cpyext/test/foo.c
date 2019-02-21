@@ -100,7 +100,7 @@ PyObject* make_classmethod(PyObject* method)
     // adapted from __Pyx_Method_ClassMethod
     if (PyMethodDescr_Check(method)) {
         PyMethodDescrObject *descr = (PyMethodDescrObject *)method;
-        PyTypeObject *d_type = descr->d_type;
+        PyTypeObject *d_type = descr->d_common.d_type;
         return PyDescr_NewClassMethod(d_type, descr->d_method);
     }
     else if (PyMethod_Check(method)) {
@@ -332,7 +332,7 @@ PyTypeObject UnicodeSubtype = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -390,7 +390,7 @@ PyTypeObject UnicodeSubtype2 = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -456,7 +456,7 @@ PyTypeObject MetaType = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -535,7 +535,7 @@ PyTypeObject InitErrType = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -618,7 +618,7 @@ PyTypeObject SimplePropertyType = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -717,14 +717,17 @@ static PyObject *gettype1_getattr(PyObject *self, char *name)
     char buf[200];
     strcpy(buf, "getattr:");
     strcat(buf, name);
-    return PyString_FromString(buf);
+    return PyBytes_FromString(buf);
 }
 static PyObject *gettype2_getattro(PyObject *self, PyObject *name)
 {
     char buf[200];
+    PyObject* temp;
+    temp = PyUnicode_AsASCIIString(name);
+    if (temp == NULL) return NULL;
     strcpy(buf, "getattro:");
-    strcat(buf, PyString_AS_STRING(name));
-    return PyString_FromString(buf);
+    strcat(buf, PyBytes_AS_STRING(temp));
+    return PyBytes_FromString(buf);
 }
 
 

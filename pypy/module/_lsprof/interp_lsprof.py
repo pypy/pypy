@@ -2,7 +2,7 @@ import py
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.function import Method, Function
+from pypy.interpreter.function import BuiltinFunction, Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
@@ -62,7 +62,7 @@ class W_StatsEntry(W_Root):
         return returns_code(space, self.frame)
 
 W_StatsEntry.typedef = TypeDef(
-    'StatsEntry',
+    '_lsprof.StatsEntry',
     code = GetSetProperty(W_StatsEntry.get_code),
     callcount = interp_attrproperty('callcount', W_StatsEntry,
         wrapfn="newint"),
@@ -93,7 +93,7 @@ class W_StatsSubEntry(W_Root):
         return returns_code(space, self.frame)
 
 W_StatsSubEntry.typedef = TypeDef(
-    'SubStatsEntry',
+    '_lsprof.SubStatsEntry',
     code = GetSetProperty(W_StatsSubEntry.get_code),
     callcount = interp_attrproperty('callcount', W_StatsSubEntry,
         wrapfn="newint"),
@@ -212,21 +212,22 @@ def create_spec_for_method(space, w_function, w_type):
         name = '?'
     if class_name is None:
         class_name = w_type.getname(space)    # if the rest doesn't work
-    return "<method '%s' of '%s' objects>" % (name, class_name)
+    return b"<method '%s' of '%s' objects>" % (name, class_name)
 
 
 def create_spec_for_function(space, w_func):
     assert isinstance(w_func, Function)
+    pre = b'built-in function ' if isinstance(w_func, BuiltinFunction) else b''
     if w_func.w_module is not None:
-        module = space.text_w(w_func.w_module)
-        if module != '__builtin__':
-            return '<%s.%s>' % (module, w_func.name)
-    return '<%s>' % w_func.name
+        module = space.utf8_w(w_func.w_module)
+        if module != b'builtins':
+            return b'<%s%s.%s>' % (pre, module, w_func.getname(space))
+    return b'<%s%s>' % (pre, w_func.getname(space))
 
 
 def create_spec_for_object(space, w_type):
     class_name = w_type.getname(space)
-    return "<'%s' object>" % (class_name,)
+    return b"<'%s' object>" % (class_name,)
 
 
 class W_DelayedBuiltinStr(W_Root):
@@ -267,7 +268,7 @@ def returns_code(space, w_frame):
 @always_inline
 def prepare_spec(space, w_arg):
     if isinstance(w_arg, Method):
-        return (w_arg.w_function, w_arg.w_class)
+        return (w_arg.w_function, space.type(w_arg.w_instance))
     elif isinstance(w_arg, Function):
         return (w_arg, None)
     else:
@@ -438,11 +439,11 @@ class W_Profiler(W_Root):
         return stats(space, self.data.values() + self.builtin_data.values(),
                      factor)
 
-@unwrap_spec(time_unit=float, subcalls=bool, builtins=bool)
+@unwrap_spec(time_unit=float, subcalls=int, builtins=int)
 def descr_new_profile(space, w_type, w_callable=None, time_unit=0.0,
-                      subcalls=True, builtins=True):
+                      subcalls=1, builtins=1):
     p = space.allocate_instance(W_Profiler, w_type)
-    p.__init__(space, w_callable, time_unit, subcalls, builtins)
+    p.__init__(space, w_callable, time_unit, bool(subcalls), bool(builtins))
     return p
 
 W_Profiler.typedef = TypeDef(

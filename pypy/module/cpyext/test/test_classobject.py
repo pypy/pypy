@@ -1,93 +1,56 @@
-from pypy.interpreter.function import Function
-from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.classobject import (
-    PyClass_Check, PyClass_New, PyInstance_Check, PyInstance_New,
-    PyInstance_NewRaw, _PyInstance_Lookup)
-from pypy.module.cpyext.object import PyObject_GetAttr
-from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 
-class TestClassObject(BaseApiTest):
-    def test_newinstance(self, space):
-        w_class = space.appexec([], """():
-            class C:
-                x = None
-                def __init__(self, *args, **kwargs):
-                    self.x = 1
-                    self.args = args
-                    self.__dict__.update(kwargs)
-            return C
-        """)
 
-        assert PyClass_Check(space, w_class)
-
-        w_instance = PyInstance_NewRaw(space, w_class, None)
-        assert PyInstance_Check(space, w_instance)
-        assert space.getattr(w_instance, space.wrap('x')) is space.w_None
-
-        w_instance = PyInstance_NewRaw(space, w_class, space.wrap(dict(a=3)))
-        assert space.getattr(w_instance, space.wrap('x')) is space.w_None
-        assert space.unwrap(space.getattr(w_instance, space.wrap('a'))) == 3
-
-        w_instance = PyInstance_New(space, w_class,
-                                        space.wrap((3,)), space.wrap(dict(y=2)))
-        assert space.unwrap(space.getattr(w_instance, space.wrap('x'))) == 1
-        assert space.unwrap(space.getattr(w_instance, space.wrap('y'))) == 2
-        assert space.unwrap(space.getattr(w_instance, space.wrap('args'))) == (3,)
-
-    def test_lookup(self, space):
-        w_instance = space.appexec([], """():
-            class C:
-                def __init__(self):
-                    self.x = None
-                def f(self): pass
-            return C()
-        """)
-
-        assert PyInstance_Check(space, w_instance)
-        py_obj = PyObject_GetAttr(space, w_instance, space.wrap('x'))
-        assert get_w_obj_and_decref(space, py_obj) is space.w_None
-        assert _PyInstance_Lookup(space, w_instance, space.wrap('x')) is space.w_None
-        assert _PyInstance_Lookup(space, w_instance, space.wrap('y')) is None
-
-        # getattr returns a bound method
-        py_obj = PyObject_GetAttr(space, w_instance, space.wrap('f'))
-        assert not isinstance(get_w_obj_and_decref(space, py_obj), Function)
-        # _PyInstance_Lookup returns the raw descriptor
-        assert isinstance(
-            _PyInstance_Lookup(space, w_instance, space.wrap('f')), Function)
-
-    def test_pyclass_new(self, space):
-        w_bases = space.newtuple([])
-        w_dict = space.newdict()
-        w_name = space.wrap("C")
-        w_class = PyClass_New(space, w_bases, w_dict, w_name)
-        assert not space.isinstance_w(w_class, space.w_type)
-        w_instance = space.call_function(w_class)
-        assert PyInstance_Check(space, w_instance)
-        assert space.is_true(space.call_method(space.builtin, "isinstance",
-                                               w_instance, w_class))
-
-class AppTestStringObject(AppTestCpythonExtensionBase):
-    def test_class_type(self):
+class AppTestInstanceMethod(AppTestCpythonExtensionBase):
+    def test_instancemethod(self):
         module = self.import_extension('foo', [
-            ("get_classtype", "METH_NOARGS",
+            ("instancemethod", "METH_O",
              """
-                 Py_INCREF(&PyClass_Type);
-                 return (PyObject*)&PyClass_Type;
+                 return PyInstanceMethod_New(args);
              """)])
-        class C:
-            pass
-        assert module.get_classtype() is type(C)
 
-    def test_pyclass_new_no_bases(self):
+        def testfunction(self):
+            """some doc"""
+            return self
+
+        class InstanceMethod:
+            id = module.instancemethod(id)
+            testmethod = module.instancemethod(testfunction)
+
+        inst = InstanceMethod()
+        assert id(inst) == inst.id()
+        assert inst.testmethod() is inst
+        assert InstanceMethod.testmethod(inst) is inst
+        assert InstanceMethod.__dict__['testmethod'](inst) is inst
+        assert inst.testmethod.__doc__ == testfunction.__doc__
+        assert InstanceMethod.testmethod.__doc__ == testfunction.__doc__
+
+        InstanceMethod.testmethod.attribute = "test"
+        assert testfunction.attribute == "test"
+        raises(AttributeError, setattr, inst.testmethod, "attribute", "test")
+
+    def test_instancemethod_cpyext_attributes(self):
         module = self.import_extension('foo', [
-            ("new_foo", "METH_O",
+            ("instancemethod_get_doc", "METH_O",
              """
-                 return PyClass_New(NULL, PyDict_New(), args);
-             """)])
-        FooClass = module.new_foo("FooClass")
-        class Cls1:
-            pass
-        assert type(FooClass) is type(Cls1)
-        assert FooClass.__bases__ == Cls1.__bases__
+                 PyObject* instancemethod = PyInstanceMethod_New(args);
+                 return PyObject_GetAttrString(instancemethod, "__doc__");
+             """),
+            ("instancemethod_get_name", "METH_O",
+             """
+                 PyObject* instancemethod = PyInstanceMethod_New(args);
+                 return PyObject_GetAttrString(instancemethod, "__name__");
+             """),
+            ("instancemethod_get_module", "METH_O",
+             """
+                 PyObject* instancemethod = PyInstanceMethod_New(args);
+                 return PyObject_GetAttrString(instancemethod, "__module__");
+             """)
+        ])
+
+        def testfunction(self):
+            """some doc"""
+            return self
+        assert(module.instancemethod_get_doc(testfunction) == testfunction.__doc__)
+        assert(module.instancemethod_get_module(testfunction) == testfunction.__module__)
+        assert(module.instancemethod_get_name(testfunction) == testfunction.__name__)

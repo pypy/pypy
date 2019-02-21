@@ -14,7 +14,6 @@ class Module(MixedModule):
     ifilterfalse(pred, seq) --> elements of seq where pred(elem) is False
     islice(seq, [start,] stop [, step]) --> elements from
            seq[start:stop:step]
-    imap(fun, p, q, ...) --> fun(p0, q0), fun(p1, q1), ...
     starmap(fun, seq) --> fun(*seq[0]), fun(*seq[1]), ...
     tee(it, n=2) --> (it1, it2 , ... itn) splits one iterator into n
     chain(p, q, ...) --> p0, p1, ... plast, q0, q1, ... 
@@ -32,6 +31,7 @@ class Module(MixedModule):
     """
 
     interpleveldefs = {
+        'accumulate'    : 'interp_itertools.W_Accumulate',
         'chain'         : 'interp_itertools.W_Chain',
         'combinations'  : 'interp_itertools.W_Combinations',
         'combinations_with_replacement' : 'interp_itertools.W_CombinationsWithReplacement',
@@ -40,18 +40,18 @@ class Module(MixedModule):
         'cycle'         : 'interp_itertools.W_Cycle',
         'dropwhile'     : 'interp_itertools.W_DropWhile',
         'groupby'       : 'interp_itertools.W_GroupBy',
-        'ifilter'       : 'interp_itertools.W_IFilter',
-        'ifilterfalse'  : 'interp_itertools.W_IFilterFalse',
-        'imap'          : 'interp_itertools.W_IMap',
+        '_groupby'      : 'interp_itertools.W_GroupByIterator',
+        'filterfalse'   : 'interp_itertools.W_FilterFalse',
         'islice'        : 'interp_itertools.W_ISlice',
-        'izip'          : 'interp_itertools.W_IZip',
-        'izip_longest'  : 'interp_itertools.W_IZipLongest',
         'permutations'  : 'interp_itertools.W_Permutations',
         'product'       : 'interp_itertools.W_Product',
         'repeat'        : 'interp_itertools.W_Repeat',
         'starmap'       : 'interp_itertools.W_StarMap',
         'takewhile'     : 'interp_itertools.W_TakeWhile',
         'tee'           : 'interp_itertools.tee',
+        '_tee'          : 'interp_itertools.W_TeeIterable',
+        '_tee_dataobject' : 'interp_itertools.W_TeeChainedListNode',
+        'zip_longest'  : 'interp_itertools.W_ZipLongest',
     }
 
     appleveldefs = {

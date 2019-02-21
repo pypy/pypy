@@ -6,11 +6,14 @@ from rpython.rlib import compilerinfo
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (2, 7, 13, "final", 42)
+CPYTHON_VERSION            = (3, 5, 3, "final", 0)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (5, 11, 0, "alpha", 0)    #XXX # sync patchlevel.h
+# make sure to keep PYPY_VERSION in sync with:
+#    module/cpyext/include/patchlevel.h
+#    doc/conf.py
+PYPY_VERSION               = (7, 1, 0, "alpha", 0)
 
 
 import pypy
@@ -30,8 +33,7 @@ del t
 app = gateway.applevel('''
 "NOT_RPYTHON"
 from _structseq import structseqtype, structseqfield
-class version_info:
-    __metaclass__ = structseqtype
+class version_info(metaclass=structseqtype):
 
     major        = structseqfield(0, "Major release number")
     minor        = structseqfield(1, "Minor release number")

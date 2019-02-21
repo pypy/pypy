@@ -1,5 +1,7 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rposix
+from rpython.rlib import rdynload
 
 import os
 exec 'import %s as posix' % os.name
@@ -16,17 +18,14 @@ corresponding Unix manual entries for more information on calls."""
         'error': 'app_posix.error',
         'stat_result': 'app_posix.stat_result',
         'statvfs_result': 'app_posix.statvfs_result',
-        'fdopen': 'app_posix.fdopen',
-        'tmpfile': 'app_posix.tmpfile',
-        'popen': 'app_posix.popen',
-        'tmpnam': 'app_posix.tmpnam',
-        'tempnam': 'app_posix.tempnam',
+        'times_result': 'app_posix.times_result',
+        'uname_result': 'app_posix.uname_result',
+        'urandom': 'app_posix.urandom',
+        'terminal_size': 'app_posix.terminal_size',
     }
     if os.name == 'nt':
+        del appleveldefs['urandom'] # at interp on win32
         appleveldefs.update({
-            'popen2': 'app_posix.popen2',
-            'popen3': 'app_posix.popen3',
-            'popen4': 'app_posix.popen4',
             'startfile': 'app_startfile.startfile',
         })
 
@@ -45,6 +44,7 @@ corresponding Unix manual entries for more information on calls."""
         'read': 'interp_posix.read',
         'close': 'interp_posix.close',
         'closerange': 'interp_posix.closerange',
+        'cpu_count': 'interp_posix.cpu_count',
 
         'fstat': 'interp_posix.fstat',
         'stat': 'interp_posix.stat',
@@ -59,7 +59,7 @@ corresponding Unix manual entries for more information on calls."""
         'unlink': 'interp_posix.unlink',
         'remove': 'interp_posix.remove',
         'getcwd': 'interp_posix.getcwd',
-        'getcwdu': 'interp_posix.getcwdu',
+        'getcwdb': 'interp_posix.getcwdb',
         'chdir': 'interp_posix.chdir',
         'mkdir': 'interp_posix.mkdir',
         'rmdir': 'interp_posix.rmdir',
@@ -69,6 +69,8 @@ corresponding Unix manual entries for more information on calls."""
         'pipe': 'interp_posix.pipe',
         'chmod': 'interp_posix.chmod',
         'rename': 'interp_posix.rename',
+        'replace': 'interp_posix.replace',
+        'link': 'interp_posix.link',
         'umask': 'interp_posix.umask',
         '_exit': 'interp_posix._exit',
         'utime': 'interp_posix.utime',
@@ -76,6 +78,13 @@ corresponding Unix manual entries for more information on calls."""
         'kill': 'interp_posix.kill',
         'abort': 'interp_posix.abort',
         'urandom': 'interp_posix.urandom',
+        'device_encoding': 'interp_posix.device_encoding',
+        'get_terminal_size': 'interp_posix.get_terminal_size',
+        'symlink': 'interp_posix.symlink',
+
+        'scandir': 'interp_scandir.scandir',
+        'get_inheritable': 'interp_posix.get_inheritable',
+        'set_inheritable': 'interp_posix.set_inheritable',
     }
 
     if hasattr(os, 'chown'):
@@ -88,6 +97,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fchmod'] = 'interp_posix.fchmod'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
+        interpleveldefs['truncate'] = 'interp_posix.truncate'
     if hasattr(os, 'fsync'):
         interpleveldefs['fsync'] = 'interp_posix.fsync'
     if hasattr(os, 'fdatasync'):
@@ -102,10 +112,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
-    if hasattr(os, 'link'):
-        interpleveldefs['link'] = 'interp_posix.link'
-    if hasattr(os, 'symlink'):
-        interpleveldefs['symlink'] = 'interp_posix.symlink'
     if hasattr(os, 'readlink'):
         interpleveldefs['readlink'] = 'interp_posix.readlink'
     if hasattr(os, 'fork'):
@@ -169,6 +175,11 @@ corresponding Unix manual entries for more information on calls."""
     # not visible via os, inconsistency in nt:
     if hasattr(posix, '_getfullpathname'):
         interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
+    if os.name == 'nt':
+        interpleveldefs.update({
+                '_getfileinformation': 'interp_posix._getfileinformation',
+                '_getfinalpathname': 'interp_posix._getfinalpathname',
+        })
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
 
@@ -176,11 +187,92 @@ corresponding Unix manual entries for more information on calls."""
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
 
+    for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
+                  "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:
+        if getattr(rdynload.cConfig, _name) is not None:
+            interpleveldefs[_name] = 'space.wrap(%d)' % (
+                getattr(rdynload.cConfig, _name),)
+
+    # os.py uses this list to build os.supports_dir_fd() and os.supports_fd().
+    # Fill with e.g. HAVE_FCHDIR, when os.chdir() supports file descriptors.
+    interpleveldefs['_have_functions'] = (
+        'space.newlist([space.wrap(x) for x in interp_posix.have_functions])')
+
+    if rposix.HAVE_PIPE2:
+        interpleveldefs['pipe2'] = 'interp_posix.pipe2'
+
+    if not rposix._WIN32:
+        interpleveldefs['sync'] = 'interp_posix.sync'
+        interpleveldefs['get_blocking'] = 'interp_posix.get_blocking'
+        interpleveldefs['set_blocking'] = 'interp_posix.set_blocking'
+
+    if hasattr(rposix, 'getpriority'):
+        interpleveldefs['getpriority'] = 'interp_posix.getpriority'
+        interpleveldefs['setpriority'] = 'interp_posix.setpriority'
+        for _name in ['PRIO_PROCESS', 'PRIO_PGRP', 'PRIO_USER']:
+            assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if sys.platform.startswith('linux'): #hasattr(rposix, 'sendfile'):
+        interpleveldefs['sendfile'] = 'interp_posix.sendfile'
+
+    if hasattr(rposix, 'pread'):
+        interpleveldefs['pread'] = 'interp_posix.pread'
+    if hasattr(rposix, 'pwrite'):
+       interpleveldefs['pwrite'] = 'interp_posix.pwrite'
+
+    if hasattr(rposix, 'posix_fadvise'):
+        interpleveldefs['posix_fadvise'] = 'interp_posix.posix_fadvise'
+        interpleveldefs['posix_fallocate'] = 'interp_posix.posix_fallocate'
+        for _name in ['POSIX_FADV_WILLNEED', 'POSIX_FADV_NORMAL', 'POSIX_FADV_SEQUENTIAL',
+        'POSIX_FADV_RANDOM', 'POSIX_FADV_NOREUSE', 'POSIX_FADV_DONTNEED']:
+            assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if hasattr(rposix, 'sched_get_priority_max'):
+        interpleveldefs['sched_get_priority_max'] = 'interp_posix.sched_get_priority_max'
+        interpleveldefs['sched_get_priority_min'] = 'interp_posix.sched_get_priority_min'
+        for _name in ['SCHED_FIFO', 'SCHED_RR', 'SCHED_OTHER',
+        'SCHED_BATCH']:
+            if getattr(rposix, _name) is not None:
+                interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if sys.platform.startswith('linux'):
+        interpleveldefs['lockf'] = 'interp_posix.lockf'
+        for _name in ['F_LOCK', 'F_TLOCK', 'F_ULOCK', 'F_TEST']:
+            if getattr(rposix, _name) is not None:
+                interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if hasattr(rposix, 'sched_yield'):
+        interpleveldefs['sched_yield'] = 'interp_posix.sched_yield'
+
+    for _name in ["O_CLOEXEC"]:
+        if getattr(rposix, _name) is not None:
+            interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+    if hasattr(rposix, 'getxattr'):
+        interpleveldefs['getxattr'] = 'interp_posix.getxattr'
+        interpleveldefs['setxattr'] = 'interp_posix.setxattr'
+        interpleveldefs['removexattr'] = 'interp_posix.removexattr'
+        interpleveldefs['listxattr'] = 'interp_posix.listxattr'
+        for _name in ['XATTR_SIZE_MAX', 'XATTR_CREATE', 'XATTR_REPLACE']:
+            if getattr(rposix, _name) is not None:
+                interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+
+
     def startup(self, space):
         from pypy.module.posix import interp_posix
+        from pypy.module.imp import importing
         interp_posix.get(space).startup(space)
+        # Import structseq before the full importlib is ready
+        importing.importhook(space, '_structseq')
 
 for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:
+        if constant in ['SEEK_SET', 'SEEK_CUR', 'SEEK_END',
+                        'P_NOWAIT', 'P_NOWAITO', 'P_WAIT']:
+            # obscure, but these names are not in CPython's posix module
+            # and if we put it here then they end up twice in 'os.__all__'
+            continue
         Module.interpleveldefs[constant] = "space.wrap(%s)" % value

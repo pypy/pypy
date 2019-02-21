@@ -13,7 +13,7 @@ PyErr_Format(PyObject *exception, const char *format, ...)
     va_start(vargs);
 #endif
 
-    string = PyString_FromFormatV(format, vargs);
+    string = PyUnicode_FromFormatV(format, vargs);
     PyErr_SetObject(exception, string);
     Py_XDECREF(string);
     va_end(vargs);
@@ -25,7 +25,7 @@ PyErr_Format(PyObject *exception, const char *format, ...)
 PyObject *
 PyErr_NewException(const char *name, PyObject *base, PyObject *dict)
 {
-    char *dot;
+    const char *dot;
     PyObject *modulename = NULL;
     PyObject *classname = NULL;
     PyObject *mydict = NULL;
@@ -45,7 +45,7 @@ PyErr_NewException(const char *name, PyObject *base, PyObject *dict)
             goto failure;
     }
     if (PyDict_GetItemString(dict, "__module__") == NULL) {
-        modulename = PyString_FromStringAndSize(name,
+        modulename = PyUnicode_FromStringAndSize(name,
                                              (Py_ssize_t)(dot-name));
         if (modulename == NULL)
             goto failure;
@@ -75,7 +75,8 @@ PyErr_NewException(const char *name, PyObject *base, PyObject *dict)
 
 /* Create an exception with docstring */
 PyObject *
-PyErr_NewExceptionWithDoc(const char *name, const char *doc, PyObject *base, PyObject *dict)
+PyErr_NewExceptionWithDoc(const char *name, const char *doc,
+                          PyObject *base, PyObject *dict)
 {
     int result;
     PyObject *ret = NULL;
@@ -90,7 +91,7 @@ PyErr_NewExceptionWithDoc(const char *name, const char *doc, PyObject *base, PyO
     }
 
     if (doc != NULL) {
-        docobj = PyString_FromString(doc);
+        docobj = PyUnicode_FromString(doc);
         if (docobj == NULL)
             goto failure;
         result = PyDict_SetItemString(dict, "__doc__", docobj);

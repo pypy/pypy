@@ -139,8 +139,9 @@ class PyGameConsole(Console):
 
         line_top = self.cur_top
         width, height = self.fontsize
-        self.cxy = cxy
-        cp = self.char_pos(*cxy)
+        cx, cy = cxy
+        self.cxy = (cx, cy)
+        cp = self.char_pos(cx, cy)
         if cp[1] < tmargin:
             self.scroll = - (cy*self.fh + self.cur_top)
             self.repaint()
@@ -148,7 +149,7 @@ class PyGameConsole(Console):
             self.scroll += (600 - bmargin) - (cp[1] + self.fh)
             self.repaint()
         if self.curs_vis:
-            self.pygame_screen.blit(self.cursor, self.char_pos(*cxy))
+            self.pygame_screen.blit(self.cursor, self.char_pos(cx, cy))
         for line in screen:
             if 0 <= line_top + self.scroll <= (600 - bmargin - tmargin - self.fh):
                 if line:
@@ -282,7 +283,7 @@ class PyGameConsole(Console):
 
     def forgetinput(self):
         """Forget all pending, but not yet processed input."""
-        while pygame.event.poll().type <> NOEVENT:
+        while pygame.event.poll().type != NOEVENT:
             pass
     
     def getpending(self):
@@ -299,7 +300,7 @@ class PyGameConsole(Console):
 
     def wait(self):
         """Wait for an event."""
-        raise Exception, "erp!"
+        raise Exception("erp!")
 
     def repaint(self):
         # perhaps we should consolidate grobs?

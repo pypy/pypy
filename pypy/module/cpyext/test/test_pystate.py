@@ -44,10 +44,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
              '''),
             ])
         module.double_ensure(0)
-        print '0 ok'
         module.double_ensure(1)
-        print '1 ok'
-
 
     def test_thread_state_get(self):
         module = self.import_extension('foo', [
@@ -68,6 +65,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 ])
         assert module.get() == 3
 
+    @py.test.mark.xfail(run=False, reason='PyThreadState_Get() segfaults on py3k and CPython')
     def test_basic_threadstate_dance(self):
         module = self.import_extension('foo', [
                 ("dance", "METH_NOARGS",
@@ -131,7 +129,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                  PyEval_RestoreThread(tstate);
 
                  if (PyThreadState_Get() != tstate) {
-                     return PyLong_FromLong(1);
+                     return PyLong_FromLong(2);
                  }
 
                  return PyLong_FromLong(3);
@@ -200,16 +198,16 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
                 ("test", "METH_NOARGS",
                  """
-                 return PyInt_FromLong(PyEval_ThreadsInitialized());
+                 return PyLong_FromLong(PyEval_ThreadsInitialized());
                  """),
                 ])
         res = module.test()
-        print "got", res
         assert res in (0, 1)
 
 
 class AppTestState(AppTestCpythonExtensionBase):
 
+    @pytest.mark.xfail('not config.option.runappdirect', reason='segfaults', run=False)
     def test_frame_tstate_tracing(self):
         import sys, threading
         module = self.import_extension('foo', [

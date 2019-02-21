@@ -69,7 +69,7 @@ def pypy_init_embedded_cffi_module(version, init_struct):
                                    with_traceback=True)
             space.appexec([], r"""():
                 import sys
-                sys.stderr.write('pypy version: %s.%s.%s\n' %
+                sys.stderr.write('pypy3 version: %s.%s.%s\n' %
                                  sys.pypy_version_info[:3])
                 sys.stderr.write('sys.path: %r\n' % (sys.path,))
             """)
@@ -95,7 +95,9 @@ def pypy_init_embedded_cffi_module(version, init_struct):
 if os.name == 'nt':
 
     do_includes = r"""
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
+#endif
 #include <windows.h>
 
 static void _cffi_init(void);

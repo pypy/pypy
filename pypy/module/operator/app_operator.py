@@ -5,8 +5,6 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 
-import __pypy__
-
 
 def countOf(a,b):
     'countOf(a, b) -- Return the number of times b occurs in a.'
@@ -15,53 +13,6 @@ def countOf(a,b):
         if x == b:
             count += 1
     return count
-
-def delslice(obj, start, end):
-    'delslice(a, b, c) -- Same as del a[b:c].'
-    if not isinstance(start, int) or not isinstance(end, int):
-        raise TypeError("an integer is expected")
-    del obj[start:end]
-__delslice__ = delslice
-
-def getslice(a, start, end):
-    'getslice(a, b, c) -- Same as a[b:c].'
-    if not isinstance(start, int) or not isinstance(end, int):
-        raise TypeError("an integer is expected")
-    return a[start:end]
-__getslice__ = getslice
-
-def indexOf(a, b):
-    'indexOf(a, b) -- Return the first index of b in a.'
-    index = 0
-    for x in a:
-        if x == b:
-            return index
-        index += 1
-    raise ValueError('sequence.index(x): x not in sequence')
-
-def isNumberType(obj,):
-    'isNumberType(a) -- Return True if a has a numeric type, False otherwise.'
-    return (__pypy__.lookup_special(obj, '__int__') is not None or
-            __pypy__.lookup_special(obj, '__float__') is not None)
-
-def repeat(obj, num):
-    'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
-    import operator
-
-    if not isinstance(num, (int, long)):
-        raise TypeError('an integer is required')
-    if not operator.isSequenceType(obj):
-        raise TypeError("non-sequence object can't be repeated")
-
-    return obj * num
-
-__repeat__ = repeat
-
-def setslice(a, b, c, d):
-    'setslice(a, b, c, d) -- Same as a[b:c] = d.'
-    a[b:c] = d
-__setslice__ = setslice
-
 
 def _resolve_attr_chain(chain, obj, idx=0):
     obj = getattr(obj, chain[idx])
@@ -72,14 +23,13 @@ def _resolve_attr_chain(chain, obj, idx=0):
 
 class attrgetter(object):
     def __init__(self, attr, *attrs):
-        if not isinstance(attr, basestring):
-            self._error(attr)
-            return
-        if attrs:
-            for a in attrs:
-                if not isinstance(a, basestring):
-                    self._error(a)
-                    return
+        if (
+            not isinstance(attr, str) or
+            not all(isinstance(a, str) for a in attrs)
+        ):
+            raise TypeError("attribute name must be a string, not %r" %
+                        type(attr).__name__)
+        elif attrs:
             self._multi_attrs = [
                 a.split(".") for a in [attr] + list(attrs)
             ]
@@ -90,13 +40,6 @@ class attrgetter(object):
         else:
             self._single_attr = attr.split(".")
             self._call = self._single_attrgetter
-
-    def _error(self, attr):
-        def _raise_typeerror(obj):
-            raise TypeError(
-                "attribute name must be a string, not %r" % type(attr).__name__
-            )
-        self._call = _raise_typeerror
 
     def __call__(self, obj):
         return self._call(obj)
@@ -113,6 +56,17 @@ class attrgetter(object):
             for attrs in self._multi_attrs
         ])
 
+    def __repr__(self):
+        try:
+            a = repr(self._simple_attr)
+        except AttributeError:
+            try:
+                a = repr('.'.join(self._single_attr))
+            except AttributeError:
+                lst = self._multi_attrs
+                a = ', '.join([repr('.'.join(a1)) for a1 in lst])
+        return 'operator.attrgetter(%s)' % (a,)
+
 
 class itemgetter(object):
     def __init__(self, item, *items):
@@ -128,15 +82,32 @@ class itemgetter(object):
         else:
             return tuple([obj[i] for i in self._idx])
 
+    def __repr__(self):
+        if self._single:
+            a = repr(self._idx)
+        else:
+            a = ', '.join([repr(i) for i in self._idx])
+        return 'operator.itemgetter(%s)' % (a,)
+
 
 class methodcaller(object):
     def __init__(*args, **kwargs):
         if len(args) < 2:
             raise TypeError("methodcaller() called with not enough arguments")
         self, method_name = args[:2]
+        if not isinstance(method_name, str):
+            raise TypeError("method name must be a string")
         self._method_name = method_name
         self._args = args[2:]
         self._kwargs = kwargs
 
     def __call__(self, obj):
         return getattr(obj, self._method_name)(*self._args, **self._kwargs)
+
+    def __repr__(self):
+        args = [repr(self._method_name)]
+        for a in self._args:
+            args.append(repr(a))
+        for key, value in self._kwargs.items():
+            args.append('%s=%r' % (key, value))
+        return 'operator.methodcaller(%s)' % (', '.join(args),)

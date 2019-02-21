@@ -1,6 +1,6 @@
 """The builtin dict implementation"""
 
-from rpython.rlib import jit, rerased, objectmodel
+from rpython.rlib import jit, rerased, objectmodel, rutf8
 from rpython.rlib.debug import mark_dict_non_null
 from rpython.rlib.objectmodel import newlist_hint, r_dict, specialize
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
@@ -11,7 +11,8 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
+from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.objspace.std.util import negate
 
 
@@ -39,6 +40,17 @@ def w_dict_unrolling_heuristic(w_dct):
     """
     return jit.isvirtual(w_dct) or (jit.isconstant(w_dct) and
                                     w_dct.length() <= UNROLL_CUTOFF)
+
+
+# for json decoder
+def create_empty_unicode_key_dict(space):
+    return r_dict(unicode_eq, unicode_hash,
+                  force_non_null=True,
+                  simple_hash_eq=True)
+
+def from_unicode_key_dict(space, d):
+    strategy = space.fromcache(UnicodeDictStrategy)
+    return W_DictObject(space, strategy, strategy.erase(d))
 
 
 class W_DictMultiObject(W_Root):
@@ -71,7 +83,7 @@ class W_DictMultiObject(W_Root):
             strategy = space.fromcache(MapDictStrategy)
         elif strdict or module:
             assert w_type is None
-            strategy = space.fromcache(BytesDictStrategy)
+            strategy = space.fromcache(UnicodeDictStrategy)
         elif kwargs:
             assert w_type is None
             from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
@@ -115,20 +127,17 @@ class W_DictMultiObject(W_Root):
         return w_obj
 
     @staticmethod
-    def descr_fromkeys(space, w_type, w_keys, w_fill=None):
+    def descr_fromkeys(space, w_type, w_iterable, w_value=None):
+        w_keys = w_iterable  # \
+        w_fill = w_value     # / rename the arguments for app-level
         if w_fill is None:
             w_fill = space.w_None
         if space.is_w(w_type, space.w_dict):
+            # XXX consider re-enabling a fast-path here
             w_dict = W_DictMultiObject.allocate_and_init_instance(space,
                                                                   w_type)
-
-            byteslist = space.listview_bytes(w_keys)
-            if byteslist is not None:
-                for key in byteslist:
-                    w_dict.setitem_str(key, w_fill)
-            else:
-                for w_key in space.listview(w_keys):
-                    w_dict.setitem(w_key, w_fill)
+            for w_key in space.listview(w_keys):
+                w_dict.setitem(w_key, w_fill)
         else:
             w_dict = space.call_function(w_type)
             for w_key in space.listview(w_keys):
@@ -161,41 +170,7 @@ class W_DictMultiObject(W_Root):
                 return space.w_False
         return space.w_True
 
-    def descr_lt(self, space, w_other):
-        if not isinstance(w_other, W_DictMultiObject):
-            return space.w_NotImplemented
-        return self._compare_lt(space, w_other)
-
-    def descr_gt(self, space, w_other):
-        if not isinstance(w_other, W_DictMultiObject):
-            return space.w_NotImplemented
-        return w_other._compare_lt(space, self)
-
-    def _compare_lt(self, space, w_other):
-        # Different sizes, no problem
-        if self.length() < w_other.length():
-            return space.w_True
-        if self.length() > w_other.length():
-            return space.w_False
-
-        # Same size
-        w_leftdiff, w_leftval = characterize(space, self, w_other)
-        if w_leftdiff is None:
-            return space.w_False
-        w_rightdiff, w_rightval = characterize(space, w_other, self)
-        if w_rightdiff is None:
-            # w_leftdiff is not None, w_rightdiff is None
-            return space.w_True
-        w_res = space.lt(w_leftdiff, w_rightdiff)
-        if (not space.is_true(w_res) and
-            space.eq_w(w_leftdiff, w_rightdiff) and
-            w_rightval is not None):
-            w_res = space.lt(w_leftval, w_rightval)
-        return w_res
-
     descr_ne = negate(descr_eq)
-    descr_le = negate(descr_gt)
-    descr_ge = negate(descr_lt)
 
     def descr_len(self, space):
         return space.newint(self.length())
@@ -238,45 +213,25 @@ class W_DictMultiObject(W_Root):
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
-        w_new = W_DictMultiObject.allocate_and_init_instance(space)
-        update1_dict_dict(space, w_new, self)
-        return w_new
+        return self.copy()
 
     def descr_items(self, space):
-        """D.items() -> list of D's (key, value) pairs, as 2-tuples"""
-        return space.newlist(self.items())
+        """D.items() -> a set-like object providing a view on D's items"""
+        return W_DictViewItemsObject(space, self)
 
     def descr_keys(self, space):
-        """D.keys() -> list of D's keys"""
-        return self.w_keys()
+        """D.keys() -> a set-like object providing a view on D's keys"""
+        return W_DictViewKeysObject(space, self)
 
     def descr_values(self, space):
-        """D.values() -> list of D's values"""
-        return space.newlist(self.values())
-
-    def descr_iteritems(self, space):
-        """D.iteritems() -> an iterator over the (key, value) items of D"""
-        return W_DictMultiIterItemsObject(space, self.iteritems())
-
-    def descr_iterkeys(self, space):
-        """D.iterkeys() -> an iterator over the keys of D"""
-        return W_DictMultiIterKeysObject(space, self.iterkeys())
-
-    def descr_itervalues(self, space):
-        """D.itervalues() -> an iterator over the values of D"""
-        return W_DictMultiIterValuesObject(space, self.itervalues())
+        """D.values() -> an object providing a view on D's values"""
+        return W_DictViewValuesObject(space, self)
 
     def nondescr_reversed_dict(self, space):
         """Not exposed directly to app-level, but via __pypy__.reversed_dict().
         """
         strategy = self.get_strategy()
-        if strategy.has_iterreversed:
-            it = strategy.iterreversed(self)
-            return W_DictMultiIterKeysObject(space, it)
-        else:
-            # fall-back
-            w_keys = self.w_keys()
-            return space.call_method(w_keys, '__reversed__')
+        return strategy.iterreversed(self)
 
     def nondescr_delitem_if_value_is(self, space, w_key, w_value):
         """Not exposed directly to app-level, but used by
@@ -286,52 +241,11 @@ class W_DictMultiObject(W_Root):
         d = strategy.unerase(self.dstorage)
         objectmodel.delitem_if_value_is(d, w_key, w_value)
 
-    def descr_viewitems(self, space):
-        """D.viewitems() -> a set-like object providing a view on D's items"""
-        return W_DictViewItemsObject(space, self)
-
-    def descr_viewkeys(self, space):
-        """D.viewkeys() -> a set-like object providing a view on D's keys"""
-        return W_DictViewKeysObject(space, self)
-
-    def descr_viewvalues(self, space):
-        """D.viewvalues() -> an object providing a view on D's values"""
-        return W_DictViewValuesObject(space, self)
-
-    def descr_has_key(self, space, w_key):
-        """D.has_key(k) -> True if D has a key k, else False"""
-        return space.newbool(self.getitem(w_key) is not None)
-
     def nondescr_move_to_end(self, space, w_key, last_flag):
         """Not exposed directly to app-level, but via __pypy__.move_to_end().
         """
         strategy = self.get_strategy()
-        if strategy.has_move_to_end:
-            strategy.move_to_end(self, w_key, last_flag)
-        else:
-            # fall-back
-            w_value = self.getitem(w_key)
-            if w_value is None:
-                space.raise_key_error(w_key)
-            else:
-                self.internal_delitem(w_key)
-                if last_flag:
-                    self.setitem(w_key, w_value)
-                else:
-                    # *very slow* fall-back
-                    keys_w = []
-                    values_w = []
-                    iteratorimplementation = self.iteritems()
-                    while True:
-                        w_k, w_v = iteratorimplementation.next_item()
-                        if w_k is None:
-                            break
-                        keys_w.append(w_k)
-                        values_w.append(w_v)
-                    self.clear()
-                    self.setitem(w_key, w_value)
-                    for i in range(len(keys_w)):
-                        self.setitem(keys_w[i], values_w[i])
+        strategy.move_to_end(self, w_key, last_flag)
 
     def nondescr_popitem_first(self, space):
         """Not exposed directly to app-level, but via __pypy__.popitem_first().
@@ -358,21 +272,10 @@ class W_DictMultiObject(W_Root):
         otherwise KeyError is raised
         """
         strategy = self.get_strategy()
-        if strategy.has_pop:
-            try:
-                return strategy.pop(self, w_key, w_default)
-            except KeyError:
-                raise space.raise_key_error(w_key)
-        # fall-back
-        w_item = self.getitem(w_key)
-        if w_item is None:
-            if w_default is not None:
-                return w_default
-            else:
-                space.raise_key_error(w_key)
-        else:
-            self.internal_delitem(w_key)
-            return w_item
+        try:
+            return strategy.pop(self, w_key, w_default)
+        except KeyError:
+            raise space.raise_key_error(w_key)
 
     def descr_popitem(self, space):
         """D.popitem() -> (k, v), remove and return some (key, value) pair as
@@ -438,10 +341,10 @@ class W_ModuleDictObject(W_DictMultiObject):
 
 def _add_indirections():
     dict_methods = "getitem getitem_str setitem setdefault \
-                    popitem delitem clear \
+                    popitem delitem clear copy \
                     length w_keys values items \
                     iterkeys itervalues iteritems \
-                    listview_bytes listview_unicode listview_int \
+                    listview_bytes listview_utf8 listview_int \
                     view_as_kwargs".split()
 
     def make_method(method):
@@ -465,10 +368,11 @@ app = applevel('''
         currently_in_repr[d] = 1
         try:
             items = []
-            # XXX for now, we cannot use iteritems() at app-level because
-            #     we want a reasonable result instead of a RuntimeError
-            #     even if the dict is mutated by the repr() in the loop.
-            for k, v in dict.items(d):
+            # XXX for now, we cannot use items() without list at
+            #     app-level because we want a reasonable result instead
+            #     of a RuntimeError even if the dict is mutated by the
+            #     repr() in the loop.
+            for k, v in list(dict.items(d)):
                 items.append(repr(k) + ": " + repr(v))
             return "{" +  ', '.join(items) + "}"
         finally:
@@ -500,10 +404,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
 
     __eq__ = interp2app(W_DictMultiObject.descr_eq),
     __ne__ = interp2app(W_DictMultiObject.descr_ne),
-    __lt__ = interp2app(W_DictMultiObject.descr_lt),
-    __le__ = interp2app(W_DictMultiObject.descr_le),
-    __gt__ = interp2app(W_DictMultiObject.descr_gt),
-    __ge__ = interp2app(W_DictMultiObject.descr_ge),
 
     __len__ = interp2app(W_DictMultiObject.descr_len),
     __iter__ = interp2app(W_DictMultiObject.descr_iter),
@@ -517,13 +417,6 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     items = interp2app(W_DictMultiObject.descr_items),
     keys = interp2app(W_DictMultiObject.descr_keys),
     values = interp2app(W_DictMultiObject.descr_values),
-    iteritems = interp2app(W_DictMultiObject.descr_iteritems),
-    iterkeys = interp2app(W_DictMultiObject.descr_iterkeys),
-    itervalues = interp2app(W_DictMultiObject.descr_itervalues),
-    viewkeys = interp2app(W_DictMultiObject.descr_viewkeys),
-    viewitems = interp2app(W_DictMultiObject.descr_viewitems),
-    viewvalues = interp2app(W_DictMultiObject.descr_viewvalues),
-    has_key = interp2app(W_DictMultiObject.descr_has_key),
     clear = interp2app(W_DictMultiObject.descr_clear),
     get = interp2app(W_DictMultiObject.descr_get),
     pop = interp2app(W_DictMultiObject.descr_pop),
@@ -590,10 +483,15 @@ class DictStrategy(object):
         w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
+    def copy(self, w_dict):
+        w_new = W_DictMultiObject.allocate_and_init_instance(self.space)
+        update1_dict_dict(self.space, w_new, w_dict)
+        return w_new
+
     def listview_bytes(self, w_dict):
         return None
 
-    def listview_unicode(self, w_dict):
+    def listview_utf8(self, w_dict):
         return None
 
     def listview_int(self, w_dict):
@@ -612,7 +510,6 @@ class DictStrategy(object):
         raise NotImplementedError
 
     has_iterreversed = False
-    has_move_to_end = False
     has_pop = False
     # ^^^ no default implementation available for these methods
 
@@ -627,6 +524,48 @@ class DictStrategy(object):
     def prepare_update(self, w_dict, num_extra):
         pass
 
+    def move_to_end(self, w_dict, w_key, last_flag):
+        # fall-back
+        w_value = w_dict.getitem(w_key)
+        if w_value is None:
+            self.space.raise_key_error(w_key)
+        else:
+            w_dict.internal_delitem(w_key)
+            if last_flag:
+                w_dict.setitem(w_key, w_value)
+            else:
+                # *very slow* fall-back
+                keys_w = []
+                values_w = []
+                iteratorimplementation = w_dict.iteritems()
+                while True:
+                    w_k, w_v = iteratorimplementation.next_item()
+                    if w_k is None:
+                        break
+                    keys_w.append(w_k)
+                    values_w.append(w_v)
+                w_dict.clear()
+                w_dict.setitem(w_key, w_value)
+                for i in range(len(keys_w)):
+                    w_dict.setitem(keys_w[i], values_w[i])
+
+
+    def pop(self, w_dict, w_key, w_default):
+        # fall-back
+        w_item = w_dict.getitem(w_key)
+        if w_item is None:
+            if w_default is not None:
+                return w_default
+            else:
+                raise KeyError
+        else:
+            w_dict.internal_delitem(w_key)
+            return w_item
+
+    def iterreversed(self, w_dict):
+        # fall-back if getiterreversed is not present
+        w_keys = self.w_keys(w_dict)
+        return self.space.call_method(w_keys, '__reversed__')
 
 class EmptyDictStrategy(DictStrategy):
     erase, unerase = rerased.new_erasing_pair("empty")
@@ -637,10 +576,11 @@ class EmptyDictStrategy(DictStrategy):
         return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
+        from pypy.objspace.std.intobject import W_IntObject
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_bytes_strategy(w_dict)
             return
-        elif type(w_key) is self.space.UnicodeObjectCls:
+        if type(w_key) is self.space.UnicodeObjectCls:
             self.switch_to_unicode_strategy(w_dict)
             return
         w_type = self.space.type(w_key)
@@ -704,7 +644,7 @@ class EmptyDictStrategy(DictStrategy):
         w_dict.setitem(w_key, w_value)
 
     def setitem_str(self, w_dict, key, w_value):
-        self.switch_to_bytes_strategy(w_dict)
+        self.switch_to_unicode_strategy(w_dict)
         w_dict.setitem_str(key, w_value)
 
     def delitem(self, w_dict, w_key):
@@ -723,6 +663,15 @@ class EmptyDictStrategy(DictStrategy):
 
     def view_as_kwargs(self, w_dict):
         return ([], [])
+
+    def move_to_end(self, w_dict, w_key, last_flag):
+        self.space.raise_key_error(w_key)
+
+    def pop(self, w_dict, w_key, w_default):
+        if w_default is not None:
+            return w_default
+        else:
+            raise KeyError
 
     # ---------- iterator interface ----------------
 
@@ -809,7 +758,10 @@ class BaseItemIterator(BaseIteratorImplementation):
     next_item = _new_next('item')
 
 
-def create_iterator_classes(dictimpl):
+def create_iterator_classes(dictimpl,
+                            override_next_key=None,
+                            override_next_value=None,
+                            override_next_item=None):
     if not hasattr(dictimpl, 'wrapkey'):
         wrapkey = lambda space, key: key
     else:
@@ -830,34 +782,43 @@ def create_iterator_classes(dictimpl):
             self.iterator = strategy.getiterkeys(w_dict)
             BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
 
-        def next_key_entry(self):
-            for key in self.iterator:
-                return wrapkey(self.space, key)
-            else:
-                return None
+        if override_next_key is not None:
+            next_key_entry = override_next_key
+        else:
+            def next_key_entry(self):
+                for key in self.iterator:
+                    return wrapkey(self.space, key)
+                else:
+                    return None
 
     class IterClassValues(BaseValueIterator):
         def __init__(self, space, strategy, w_dict):
             self.iterator = strategy.getitervalues(w_dict)
             BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
 
-        def next_value_entry(self):
-            for value in self.iterator:
-                return wrapvalue(self.space, value)
-            else:
-                return None
+        if override_next_value is not None:
+            next_value_entry = override_next_value
+        else:
+            def next_value_entry(self):
+                for value in self.iterator:
+                    return wrapvalue(self.space, value)
+                else:
+                    return None
 
     class IterClassItems(BaseItemIterator):
         def __init__(self, space, strategy, w_dict):
             self.iterator = strategy.getiteritems_with_hash(w_dict)
             BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
 
-        def next_item_entry(self):
-            for key, value, keyhash in self.iterator:
-                return (wrapkey(self.space, key),
-                        wrapvalue(self.space, value))
-            else:
-                return None, None
+        if override_next_item is not None:
+            next_item_entry = override_next_item
+        else:
+            def next_item_entry(self):
+                for key, value, keyhash in self.iterator:
+                    return (wrapkey(self.space, key),
+                            wrapvalue(self.space, value))
+                else:
+                    return None, None
 
     class IterClassReversed(BaseKeyIterator):
         def __init__(self, space, strategy, w_dict):
@@ -881,22 +842,32 @@ def create_iterator_classes(dictimpl):
 
     if hasattr(dictimpl, 'getiterreversed'):
         def iterreversed(self, w_dict):
-            return IterClassReversed(self.space, self, w_dict)
+            return W_DictMultiIterKeysObject(
+                    self.space,
+                    IterClassReversed(self.space, self, w_dict))
         dictimpl.iterreversed = iterreversed
-        dictimpl.has_iterreversed = True
-
-    if hasattr(dictimpl, 'move_to_end'):
-        dictimpl.has_move_to_end = True
-
-    if hasattr(dictimpl, 'pop'):
-        dictimpl.has_pop = True
 
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
                          w_dict_unrolling_heuristic(w_dict))
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         # the logic is to call prepare_dict_update() after the first setitem():
         # it gives the w_updatedict a chance to switch its strategy.
-        if 1:     # (preserve indentation)
+        if override_next_item is not None:
+            # this is very similar to the general version, but the difference
+            # is that it is specialized to call a specific next_item()
+            iteritems = IterClassItems(self.space, self, w_dict)
+            w_key, w_value = iteritems.next_item()
+            if w_key is None:
+                return
+            w_updatedict.setitem(w_key, w_value)
+            w_updatedict.get_strategy().prepare_update(w_updatedict,
+                                                       w_dict.length() - 1)
+            while True:
+                w_key, w_value = iteritems.next_item()
+                if w_key is None:
+                    return
+                w_updatedict.setitem(w_key, w_value)
+        else:
             iteritemsh = self.getiteritems_with_hash(w_dict)
             if not same_strategy(self, w_updatedict):
                 # Different strategy.  Try to copy one item of w_dict
@@ -1150,21 +1121,21 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     def _never_equal_to(self, w_lookup_type):
         return _never_equal_to_string(self.space, w_lookup_type)
 
-    def setitem_str(self, w_dict, key, w_value):
-        assert key is not None
-        self.unerase(w_dict.dstorage)[key] = w_value
+    ##def setitem_str(self, w_dict, key, w_value):
+    ##    assert key is not None
+    ##    self.unerase(w_dict.dstorage)[key] = w_value
 
-    def getitem(self, w_dict, w_key):
-        space = self.space
-        # -- This is called extremely often.  Hack for performance --
-        if type(w_key) is space.StringObjectCls:
-            return self.getitem_str(w_dict, w_key.unwrap(space))
-        # -- End of performance hack --
-        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
+    ##def getitem(self, w_dict, w_key):
+    ##    space = self.space
+    ##    # -- This is called extremely often.  Hack for performance --
+    ##    if type(w_key) is space.StringObjectCls:
+    ##        return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
+    ##    # -- End of performance hack --
+    ##    return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
-    def getitem_str(self, w_dict, key):
-        assert key is not None
-        return self.unerase(w_dict.dstorage).get(key, None)
+    ##def getitem_str(self, w_dict, key):
+    ##    assert key is not None
+    ##    return self.unerase(w_dict.dstorage).get(key, None)
 
     def listview_bytes(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
@@ -1175,21 +1146,27 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     def wrapkey(space, key):
         return space.newbytes(key)
 
-    @jit.look_inside_iff(lambda self, w_dict:
-                         w_dict_unrolling_heuristic(w_dict))
-    def view_as_kwargs(self, w_dict):
-        d = self.unerase(w_dict.dstorage)
-        l = len(d)
-        keys, values = [None] * l, [None] * l
-        i = 0
-        for key, val in d.iteritems():
-            keys[i] = key
-            values[i] = val
-            i += 1
-        return keys, values
+    ##@jit.look_inside_iff(lambda self, w_dict:
+    ##                     w_dict_unrolling_heuristic(w_dict))
+    ##def view_as_kwargs(self, w_dict):
+    ##    return (None, None) # XXX: fix me to return unicode keys
+    ##    d = self.unerase(w_dict.dstorage)
+    ##    l = len(d)
+    ##    keys, values = [None] * l, [None] * l
+    ##    i = 0
+    ##    for key, val in d.iteritems():
+    ##        keys[i] = key
+    ##        values[i] = val
+    ##        i += 1
+    ##    return keys, values
 
 create_iterator_classes(BytesDictStrategy)
 
+def unicode_eq(w_uni1, w_uni2):
+    return w_uni1.eq_w(w_uni2)
+
+def unicode_hash(w_uni):
+    return w_uni.hash_w()
 
 class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     erase, unerase = rerased.new_erasing_pair("unicode")
@@ -1197,18 +1174,18 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.newunicode(unwrapped)
+        return unwrapped
 
     def unwrap(self, wrapped):
-        return self.space.unicode_w(wrapped)
+        assert type(wrapped) is self.space.UnicodeObjectCls
+        return wrapped
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_unicode)
+        return type(w_obj) is space.UnicodeObjectCls
 
     def get_empty_storage(self):
-        res = {}
-        mark_dict_non_null(res)
+        res = create_empty_unicode_key_dict(self.space)
         return self.erase(res)
 
     def _never_equal_to(self, w_lookup_type):
@@ -1216,51 +1193,35 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # we should implement the same shortcuts as we do for BytesDictStrategy
 
-    ## def setitem_str(self, w_dict, key, w_value):
-    ##     assert key is not None
-    ##     self.unerase(w_dict.dstorage)[key] = w_value
+    def setitem_str(self, w_dict, key, w_value):
+        # XXX think about how to do better again
+        self.setitem(w_dict, self.space.newtext(key), w_value)
 
-    ## def getitem(self, w_dict, w_key):
-    ##     space = self.space
-    ##     # -- This is called extremely often.  Hack for performance --
-    ##     if type(w_key) is space.StringObjectCls:
-    ##         return self.getitem_str(w_dict, w_key.unwrap(space))
-    ##     # -- End of performance hack --
-    ##     return AbstractTypedStrategy.getitem(self, w_dict, w_key)
+    def getitem_str(self, w_dict, key):
+        # XXX think about how to do better again
+        assert key is not None
+        return self.getitem(w_dict, self.space.newtext(key))
 
-    ## def getitem_str(self, w_dict, key):
-    ##     assert key is not None
-    ##     return self.unerase(w_dict.dstorage).get(key, None)
-
-    def listview_unicode(self, w_dict):
-        return self.unerase(w_dict.dstorage).keys()
-
-    ## def w_keys(self, w_dict):
-    ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
+    ## def listview_utf8(self, w_dict):
+    ##     return self.unerase(w_dict.dstorage).keys()
 
     def wrapkey(space, key):
-        return space.newunicode(key)
+        return key
 
-    ## @jit.look_inside_iff(lambda self, w_dict:
-    ##                      w_dict_unrolling_heuristic(w_dict))
-    ## def view_as_kwargs(self, w_dict):
-    ##     d = self.unerase(w_dict.dstorage)
-    ##     l = len(d)
-    ##     keys, values = [None] * l, [None] * l
-    ##     i = 0
-    ##     for key, val in d.iteritems():
-    ##         keys[i] = key
-    ##         values[i] = val
-    ##         i += 1
-    ##     return keys, values
+    @jit.look_inside_iff(lambda self, w_dict:
+                         w_dict_unrolling_heuristic(w_dict))
+    def view_as_kwargs(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        l = len(d)
+        keys, values = [None] * l, [None] * l
+        i = 0
+        for w_key, val in d.iteritems():
+            keys[i] = self.space.utf8_w(w_key)
+            values[i] = val
+            i += 1
+        return keys, values
 
 create_iterator_classes(UnicodeDictStrategy)
-
-
-def from_unicode_key_dict(space, d):
-    strategy = space.fromcache(UnicodeDictStrategy)
-    storage = strategy.erase(d)
-    return W_DictObject(space, strategy, storage)
 
 
 class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
@@ -1278,8 +1239,8 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.erase({})
 
     def is_correct_type(self, w_obj):
-        space = self.space
-        return space.is_w(space.type(w_obj), space.w_int)
+        from pypy.objspace.std.intobject import W_IntObject
+        return type(w_obj) is W_IntObject
 
     def _never_equal_to(self, w_lookup_type):
         space = self.space
@@ -1348,29 +1309,6 @@ def init_or_update(space, w_dict, __args__, funcname):
     if space.is_true(w_kwds):
         update1(space, w_dict, w_kwds)
 
-def characterize(space, w_a, w_b):
-    """(similar to CPython)
-    returns the smallest key in acontent for which b's value is
-    different or absent and this value"""
-    w_smallest_diff_a_key = None
-    w_its_value = None
-    iteratorimplementation = w_a.iteritems()
-    while True:
-        w_key, w_val = iteratorimplementation.next_item()
-        if w_key is None:
-            break
-        if w_smallest_diff_a_key is None or space.is_true(space.lt(
-                w_key, w_smallest_diff_a_key)):
-            w_bvalue = w_b.getitem(w_key)
-            if w_bvalue is None:
-                w_its_value = w_val
-                w_smallest_diff_a_key = w_key
-            else:
-                if not space.eq_w(w_val, w_bvalue):
-                    w_its_value = w_val
-                    w_smallest_diff_a_key = w_key
-    return w_smallest_diff_a_key, w_its_value
-
 
 # ____________________________________________________________
 # Iteration
@@ -1399,43 +1337,27 @@ class W_BaseDictMultiIterObject(W_Root):
         At unpickling time, we just use that list
         and create an iterator on it.
         This is of course not the standard way.
-
-        XXX to do: remove this __reduce__ method and do
-        a registration with copy_reg, instead.
         """
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('dictiter_surrogate_new')
-        w_typeobj = space.type(self)
 
-        raise oefmt(space.w_TypeError,
-                    "can't pickle dictionary-keyiterator objects")
-        # XXXXXX get that working again
+        w_dict = self.iteratorimplementation.w_dict
 
-        # we cannot call __init__ since we don't have the original dict
         if isinstance(self, W_DictMultiIterKeysObject):
-            w_clone = space.allocate_instance(W_DictMultiIterKeysObject,
-                                              w_typeobj)
+            w_clone = W_DictMultiIterKeysObject(space, w_dict.iterkeys())
         elif isinstance(self, W_DictMultiIterValuesObject):
-            w_clone = space.allocate_instance(W_DictMultiIterValuesObject,
-                                              w_typeobj)
+            w_clone = W_DictMultiIterValuesObject(space, w_dict.itervalues())
         elif isinstance(self, W_DictMultiIterItemsObject):
-            w_clone = space.allocate_instance(W_DictMultiIterItemsObject,
-                                              w_typeobj)
+            w_clone = W_DictMultiIterItemsObject(space, w_dict.iteritems())
         else:
             raise oefmt(space.w_TypeError,
                         "unsupported dictiter type '%R' during pickling", self)
-        w_clone.space = space
-        w_clone.content = self.content
-        w_clone.len = self.len
-        w_clone.pos = 0
-        w_clone.setup_iterator()
+
         # spool until we have the same pos
-        while w_clone.pos < self.pos:
-            w_clone.next_entry()
-            w_clone.pos += 1
-        stuff = [w_clone.next_entry() for i in range(w_clone.pos, w_clone.len)]
-        w_res = space.newlist(stuff)
+        for x in xrange(self.iteratorimplementation.pos):
+            w_clone.descr_next(space)
+        w_res = space.call_function(space.w_list, w_clone)
         w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
         return w_ret
 
@@ -1469,25 +1391,25 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
         raise OperationError(space.w_StopIteration, space.w_None)
 
 W_DictMultiIterItemsObject.typedef = TypeDef(
-    "dict_iteritems",
+    "dict_itemiterator",
     __iter__ = interp2app(W_DictMultiIterItemsObject.descr_iter),
-    next = interp2app(W_DictMultiIterItemsObject.descr_next),
+    __next__ = interp2app(W_DictMultiIterItemsObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint),
     __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
 W_DictMultiIterKeysObject.typedef = TypeDef(
-    "dict_iterkeys",
+    "dict_keyiterator",
     __iter__ = interp2app(W_DictMultiIterKeysObject.descr_iter),
-    next = interp2app(W_DictMultiIterKeysObject.descr_next),
+    __next__ = interp2app(W_DictMultiIterKeysObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint),
     __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
 W_DictMultiIterValuesObject.typedef = TypeDef(
-    "dict_itervalues",
+    "dict_valueiterator",
     __iter__ = interp2app(W_DictMultiIterValuesObject.descr_iter),
-    next = interp2app(W_DictMultiIterValuesObject.descr_next),
+    __next__ = interp2app(W_DictMultiIterValuesObject.descr_next),
     __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint),
     __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
@@ -1501,10 +1423,10 @@ class W_DictViewObject(W_Root):
         self.w_dict = w_dict
 
     def descr_repr(self, space):
+        typename = space.type(self).getname(space)
         w_seq = space.call_function(space.w_list, self)
-        w_repr = space.repr(w_seq)
-        return space.newtext("%s(%s)" % (space.type(self).getname(space),
-                                         space.text_w(w_repr)))
+        seq_repr = space.utf8_w(space.repr(w_seq))
+        return space.newtext("%s(%s)" % (typename, seq_repr))
 
     def descr_len(self, space):
         return space.len(self.w_dict)
@@ -1561,6 +1483,26 @@ class SetLikeDictView(object):
             return _all_contained_in(space, w_other, self)
         return space.w_False
 
+    def descr_isdisjoint(self, space, w_other):
+        """"Return True if the view and the given iterable have a null
+        intersection.
+        """
+        if self is w_other:
+            return space.newbool(space.len_w(self) == 0)
+
+        if _is_set_like(w_other):
+            # if w_other is set-like and it's longer, we iterate over
+            # self instead
+            len_self = space.len_w(self)
+            len_other = space.len_w(w_other)
+            if len_other > len_self:
+                self, w_other = w_other, self
+
+        for w_item in space.iteriterable(w_other):
+            if space.contains_w(self, w_item):
+                return space.w_False
+        return space.w_True
+
     def _as_set_op(name, methname):
         @func_renamer('descr_' + name)
         def op(self, space, w_other):
@@ -1579,6 +1521,12 @@ class SetLikeDictView(object):
     descr_or, descr_ror = _as_set_op('or', 'update')
     descr_xor, descr_rxor = _as_set_op('xor', 'symmetric_difference_update')
 
+def new_dict_items(space, w_type, w_dict):
+    w_dict = space.interp_w(W_DictMultiObject, w_dict)
+    w_obj = space.allocate_instance(W_DictViewItemsObject, w_type)
+    W_DictViewObject.__init__(w_obj, space, w_dict)
+    return w_obj
+
 class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
@@ -1588,20 +1536,34 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
             return space.w_False
         try:
             w_key, w_value = space.fixedview_unroll(w_item, 2)
-            w_found = self.w_dict.getitem(w_key)
         except OperationError as e:
             if e.async(space):
                 raise
             w_found = None
+        else:
+            w_found = self.w_dict.getitem(w_key)
         if w_found is None:
             return space.w_False
         return space.newbool(space.eq_w(w_value, w_found))
 
+def new_dict_keys(space, w_type, w_dict):
+    w_dict = space.interp_w(W_DictMultiObject, w_dict)
+    w_obj = space.allocate_instance(W_DictViewKeysObject, w_type)
+    W_DictViewObject.__init__(w_obj, space, w_dict)
+    return w_obj
+
 class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
+
     def descr_contains(self, space, w_key):
         return self.w_dict.descr_contains(space, w_key)
+
+def new_dict_values(space, w_type, w_dict):
+    w_dict = space.interp_w(W_DictMultiObject, w_dict)
+    w_obj = space.allocate_instance(W_DictViewValuesObject, w_type)
+    W_DictViewObject.__init__(w_obj, space, w_dict)
+    return w_obj
 
 class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
@@ -1609,6 +1571,7 @@ class W_DictViewValuesObject(W_DictViewObject):
 
 W_DictViewItemsObject.typedef = TypeDef(
     "dict_items",
+    __new__ = interp2app(new_dict_items),
     __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
@@ -1629,10 +1592,13 @@ W_DictViewItemsObject.typedef = TypeDef(
     __ror__ = interp2app(W_DictViewItemsObject.descr_ror),
     __xor__ = interp2app(W_DictViewItemsObject.descr_xor),
     __rxor__ = interp2app(W_DictViewItemsObject.descr_rxor),
+    isdisjoint = interp2app(W_DictViewItemsObject.descr_isdisjoint),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewItemsObject),
     )
 
 W_DictViewKeysObject.typedef = TypeDef(
     "dict_keys",
+    __new__ = interp2app(new_dict_keys),
     __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
@@ -1653,11 +1619,15 @@ W_DictViewKeysObject.typedef = TypeDef(
     __ror__ = interp2app(W_DictViewKeysObject.descr_ror),
     __xor__ = interp2app(W_DictViewKeysObject.descr_xor),
     __rxor__ = interp2app(W_DictViewKeysObject.descr_rxor),
+    isdisjoint = interp2app(W_DictViewKeysObject.descr_isdisjoint),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewKeysObject),
     )
 
 W_DictViewValuesObject.typedef = TypeDef(
     "dict_values",
+    __new__ = interp2app(new_dict_values),
     __repr__ = interp2app(W_DictViewValuesObject.descr_repr),
     __len__ = interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = interp2app(W_DictViewValuesObject.descr_iter),
+    _dict = interp_attrproperty_w('w_dict', cls=W_DictViewValuesObject),
     )

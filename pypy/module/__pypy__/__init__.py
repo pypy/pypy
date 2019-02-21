@@ -12,7 +12,7 @@ class BuildersModule(MixedModule):
 
     interpleveldefs = {
         "StringBuilder": "interp_builders.W_StringBuilder",
-        "UnicodeBuilder": "interp_builders.W_UnicodeBuilder",
+        "BytesBuilder": "interp_builders.W_BytesBuilder",
     }
 
 class TimeModule(MixedModule):
@@ -48,6 +48,7 @@ class IntOpModule(MixedModule):
         'int_lshift':      'interp_intop.int_lshift',
         'int_rshift':      'interp_intop.int_rshift',
         'uint_rshift':     'interp_intop.uint_rshift',
+        'int_mulmod':      'interp_intop.int_mulmod',
     }
 
 
@@ -75,6 +76,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'attach_gdb'                : 'interp_magic.attach_gdb',
         'internal_repr'             : 'interp_magic.internal_repr',
+        'objects_in_repr'           : 'interp_magic.objects_in_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
         'identity_dict'             : 'interp_identitydict.W_IdentityDict',
         'debug_start'               : 'interp_debug.debug_start',
@@ -82,9 +84,10 @@ class Module(MixedModule):
         'debug_stop'                : 'interp_debug.debug_stop',
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'debug_flush'               : 'interp_debug.debug_flush',
+        'debug_read_timestamp'      : 'interp_debug.debug_read_timestamp',
+        'debug_get_timestamp_unit'  : 'interp_debug.debug_get_timestamp_unit',
         'builtinify'                : 'interp_magic.builtinify',
         'hidden_applevel'           : 'interp_magic.hidden_applevel',
-        'get_hidden_tb'             : 'interp_magic.get_hidden_tb',
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'resizelist_hint'           : 'interp_magic.resizelist_hint',
@@ -96,18 +99,19 @@ class Module(MixedModule):
         'delitem_if_value_is'       : 'interp_dict.delitem_if_value_is',
         'move_to_end'               : 'interp_dict.move_to_end',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
-        'specialized_zip_2_lists'   : 'interp_magic.specialized_zip_2_lists',
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
         'set_code_callback'         : 'interp_magic.set_code_callback',
-        'save_module_content_for_future_reload':
-                          'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
         '_promote'                   : 'interp_magic._promote',
+        'normalize_exc'             : 'interp_magic.normalize_exc',
+        'StdErrPrinter'             : 'interp_stderrprinter.W_StdErrPrinter',
+        'side_effects_ok'           : 'interp_magic.side_effects_ok',
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
+        'fsencode'                  : 'interp_magic.fsencode',
+        'fsdecode'                  : 'interp_magic.fsdecode',
+        'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
     }
-    if sys.platform == 'win32':
-        interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
 
     submodules = {
         "builders": BuildersModule,
@@ -138,8 +142,12 @@ class Module(MixedModule):
                 raise
             else:
                 pass   # ok fine to ignore in this case
-        
+
         if self.space.config.translation.jit:
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',
                                     'space.wrap(%r)' % features)
+        if self.space.config.translation.reverse_debugger:
+            self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
+        else:
+            self.extra_interpdef('revdb_stop', 'space.w_None')

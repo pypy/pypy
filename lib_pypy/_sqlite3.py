@@ -29,7 +29,8 @@ import datetime
 import string
 import sys
 import weakref
-from threading import _get_ident as _thread_get_ident
+import threading
+
 try:
     from __pypy__ import newlist_hint, add_memory_pressure
 except ImportError:
@@ -149,12 +150,13 @@ class NotSupportedError(DatabaseError):
 
 
 def connect(database, timeout=5.0, detect_types=0, isolation_level="",
-                 check_same_thread=True, factory=None, cached_statements=100):
+                 check_same_thread=True, factory=None, cached_statements=100,
+                 uri=0):
     factory = Connection if not factory else factory
     # an sqlite3 db seems to be around 100 KiB at least (doesn't matter if
     # backed by :memory: or a file)
     res = factory(database, timeout, detect_types, isolation_level,
-                    check_same_thread, factory, cached_statements)
+                    check_same_thread, factory, cached_statements, uri)
     add_memory_pressure(100 * 1024)
     return res
 
@@ -193,20 +195,35 @@ class _StatementCache(object):
                 self.cache[sql] = stat
         return stat
 
+BEGIN_STATMENTS = (
+    "BEGIN ",
+    "BEGIN DEFERRED",
+    "BEGIN IMMEDIATE",
+    "BEGIN EXCLUSIVE",
+)
 
 class Connection(object):
     __initialized = False
     _db = None
 
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
-                 check_same_thread=True, factory=None, cached_statements=100):
+                 check_same_thread=True, factory=None, cached_statements=100, uri=0):
         self.__initialized = True
         db_star = _ffi.new('sqlite3 **')
 
         if isinstance(database, unicode):
             database = database.encode('utf-8')
-        if _lib.sqlite3_open(database, db_star) != _lib.SQLITE_OK:
-            raise OperationalError("Could not open database")
+        if _lib.SQLITE_OPEN_URI != 0:
+            if uri and _lib.SQLITE_OPEN_URI == 0:
+                raise NotSupportedError("URIs not supported")
+            flags = _lib.SQLITE_OPEN_READWRITE | _lib.SQLITE_OPEN_CREATE
+            if uri:
+                flags |= _lib.SQLITE_OPEN_URI
+            if _lib.sqlite3_open_v2(database, db_star, flags, _ffi.NULL) != _lib.SQLITE_OK:
+                raise OperationalError("Could not open database")
+        else:
+            if _lib.sqlite3_open(database, db_star) != _lib.SQLITE_OK:
+                raise OperationalError("Could not open database")
         self._db = db_star[0]
         if timeout is not None:
             timeout = int(timeout * 1000)  # pysqlite2 uses timeout in seconds
@@ -232,7 +249,9 @@ class Connection(object):
         self.__aggregate_instances = {}
         self.__collations = {}
         if check_same_thread:
-            self.__thread_ident = _thread_get_ident()
+            self.__thread_ident = threading.get_ident()
+        if not check_same_thread and _lib.sqlite3_libversion_number() < 3003001:
+            raise NotSupportedError("shared connections not available")
 
         self.Error = Error
         self.Warning = Warning
@@ -283,7 +302,7 @@ class Connection(object):
 
     def _check_thread(self):
         try:
-            if self.__thread_ident == _thread_get_ident():
+            if self.__thread_ident == threading.get_ident():
                 return
         except AttributeError:
             pass
@@ -291,7 +310,7 @@ class Connection(object):
             raise ProgrammingError(
                 "SQLite objects created in a thread can only be used in that "
                 "same thread. The object was created in thread id %d and this "
-                "is thread id %d" % (self.__thread_ident, _thread_get_ident()))
+                "is thread id %d" % (self.__thread_ident, threading.get_ident()))
 
     def _check_thread_wrap(func):
         @wraps(func)
@@ -652,6 +671,22 @@ class Connection(object):
         _lib.sqlite3_progress_handler(self._db, nsteps, progress_handler,
                                       _ffi.NULL)
 
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def set_trace_callback(self, callable):
+        if callable is None:
+            trace_callback = _ffi.NULL
+        else:
+            try:
+                trace_callback = self.__func_cache[callable]
+            except KeyError:
+                @_ffi.callback("void(void*, const char*)")
+                def trace_callback(userdata, statement):
+                    stmt = _ffi.string(statement).decode('utf-8')
+                    callable(stmt)
+                self.__func_cache[callable] = trace_callback
+        _lib.sqlite3_trace(self._db, trace_callback, _ffi.NULL)
+
     if sys.version_info[0] >= 3:
         def __get_in_transaction(self):
             return self._in_transaction
@@ -669,7 +704,13 @@ class Connection(object):
         if val is None:
             self.commit()
         else:
-            self.__begin_statement = str("BEGIN " + val).encode('utf-8')
+            if not isinstance(val, str):
+                raise TypeError("isolation level must be " \
+                        "a string or None, not %s" % type(val).__name__)
+            stmt = str("BEGIN " + val).upper()
+            if stmt not in BEGIN_STATMENTS:
+                raise ValueError("invalid value for isolation_level")
+            self.__begin_statement = stmt.encode('utf-8')
         self._isolation_level = val
     isolation_level = property(__get_isolation_level, __set_isolation_level)
 
@@ -798,7 +839,19 @@ class Cursor(object):
                     text = _lib.sqlite3_column_text(self.__statement._statement, i)
                     text_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
                     val = _ffi.buffer(text, text_len)[:]
-                    val = self.__connection.text_factory(val)
+                    try:
+                        val = self.__connection.text_factory(val)
+                    except Exception:
+                        column_name = _lib.sqlite3_column_name(
+                            self.__statement._statement, i)
+                        if column_name:
+                            column_name = _ffi.string(column_name).decode('utf-8')
+                        else:
+                            column_name = "<unknown column name>"
+                        val = val.decode('ascii', 'replace')
+                        raise OperationalError(
+                            "Could not decode to UTF-8 column '%s' with text '%s'" % (
+                                column_name, val))
                 elif typ == _lib.SQLITE_BLOB:
                     blob = _lib.sqlite3_column_blob(self.__statement._statement, i)
                     blob_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
@@ -905,7 +958,7 @@ class Cursor(object):
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
         elif not isinstance(sql, str):
-            raise ValueError("script argument must be unicode or string.")
+            raise ValueError("script argument must be unicode.")
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
 
@@ -1191,7 +1244,7 @@ class Statement(object):
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             name = _lib.sqlite3_column_name(self._statement, i)
             if name:
-                name = _ffi.string(name).split("[")[0].strip()
+                name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 
@@ -1208,6 +1261,8 @@ class Row(object):
 
     def __getitem__(self, item):
         if isinstance(item, (int, long)):
+            return self.values[item]
+        elif isinstance(item, slice):
             return self.values[item]
         else:
             item = item.lower()

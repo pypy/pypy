@@ -5,7 +5,7 @@ from pypy.interpreter import gateway
 
 app = gateway.applevel('''
 "NOT_RPYTHON"
-import __builtin__
+import builtins
 
 class fake_code(object):
     co_name = "?"
@@ -14,7 +14,7 @@ class fake_code(object):
 
 class fake_frame(object):
     f_back = None
-    f_builtins = __builtin__.__dict__
+    f_builtins = builtins.__dict__
     f_code = fake_code()
     f_exc_traceback = None
     f_exc_type = None

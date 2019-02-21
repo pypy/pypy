@@ -1,6 +1,5 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.__builtin__.interp_classobj import W_InstanceObject
 
 
 def index(space, w_a):
@@ -36,12 +35,6 @@ def delitem(space, w_obj, w_key):
     'delitem(a,b) -- Same as del a[b]'
     space.delitem(w_obj, w_key)
 
-# delslice
-
-def div(space, w_a, w_b):
-    'div(a, b) -- Same as a / b when __future__.division is no in effect'
-    return space.div(w_a, w_b)
-
 def eq(space, w_a, w_b):
     'eq(a, b) -- Same as a==b'
     return space.eq(w_a, w_b)
@@ -58,13 +51,13 @@ def getitem(space, w_a, w_b):
     'getitem(a, b) -- Same as a[b].'
     return space.getitem(w_a, w_b)
 
-# getslice
-
 def gt(space, w_a, w_b):
     'gt(a, b) -- Same as a>b.'
     return space.gt(w_a, w_b)
 
-# indexOf
+def indexOf(space, w_a, w_b):
+    'indexOf(a, b) -- Return the first index of b in a.'
+    return space.sequence_index(w_a, w_b)
 
 def inv(space, w_obj,):
     'inv(a) -- Same as ~a.'
@@ -73,16 +66,6 @@ def inv(space, w_obj,):
 def invert(space, w_obj,):
     'invert(a) -- Same as ~a.'
     return space.invert(w_obj)
-
-def isCallable(space, w_obj):
-    'isCallable(a) -- Same as callable(a).'
-    return space.callable(w_obj)
-
-# isMappingType
-
-# isNumberType
-
-# isSequenceType
 
 def is_(space, w_a, w_b):
     'is_(a,b) -- Same as a is b'
@@ -136,19 +119,13 @@ def pow(space, w_a, w_b):
     'pow(a, b) -- Same as a**b.'
     return space.pow(w_a, w_b, space.w_None)
 
-# reapeat
-
 def rshift(space, w_a, w_b):
     'rshift(a, b) -- Same as a >> b.'
     return space.rshift(w_a, w_b)
 
-# sequenceIncludes
-
 def setitem(space, w_obj, w_key, w_value):
     'setitem(a, b, c) -- Same as a[b] = c.'
     space.setitem(w_obj, w_key, w_value)
-
-# setslice
 
 def sub(space, w_a, w_b):
     'sub(a, b) -- Same as a - b.'
@@ -166,6 +143,10 @@ def xor(space, w_a, w_b):
     'xor(a, b) -- Same as a ^ b.'
     return space.xor(w_a, w_b)
 
+def matmul(space, w_a, w_b):
+    'matmul(a, b) -- Same as a @ b.'
+    return space.matmul(w_a, w_b)
+
 # in-place operations
 
 def iadd(space, w_obj1, w_obj2):
@@ -175,10 +156,6 @@ def iadd(space, w_obj1, w_obj2):
 def iand(space, w_obj1, w_obj2):
     'iand(a, b) -- Same as a =& b'
     return space.inplace_and(w_obj1, w_obj2)
-
-def idiv(space, w_a, w_b):
-    'idiv(a, b) -- Same as a /= b when __future__.division is no in effect'
-    return space.inplace_div(w_a, w_b)
 
 def ifloordiv(space, w_a, w_b):
     'ifloordiv(a, b) -- Same as a //= b.'
@@ -220,6 +197,10 @@ def ixor(space, w_a, w_b):
     'ixor(a, b) -- Same as a ^= b.'
     return space.inplace_xor(w_a, w_b)
 
+def imatmul(space, w_a, w_b):
+    'imatmul(a, b) -- Same as a @= b.'
+    return space.inplace_matmul(w_a, w_b)
+
 def iconcat(space, w_obj1, w_obj2):
     'iconcat(a, b) -- Same as a += b, for a and b sequences.'
     if (space.lookup(w_obj1, '__getitem__') is None or
@@ -228,30 +209,11 @@ def iconcat(space, w_obj1, w_obj2):
 
     return space.inplace_add(w_obj1, w_obj2)
 
-def irepeat(space, w_obj1, w_obj2):
-    'irepeat(a, b) -- Same as a *= b, for a and b sequences.'
-    if space.lookup(w_obj1, '__getitem__') is None:
-        # first arg has to be a sequence
-        raise oefmt(space.w_TypeError, "non-sequence object can't be repeated")
-
-    if not (space.isinstance_w(w_obj2, space.w_int) or
-            space.isinstance_w(w_obj2, space.w_long)):
-        # second arg has to be int/long
-        raise oefmt(space.w_TypeError, "an integer is required")
-
-    return space.inplace_mul(w_obj1, w_obj2)
-
-# _length_hint (to be length_hint in 3.4)
-
 @unwrap_spec(default=int)
-def _length_hint(space, w_iterable, default):
+def length_hint(space, w_iterable, default=0):
+    """Return an estimate of the number of items in obj.
+    This is useful for presizing containers when building from an iterable.
+    If the object supports len(), the result will be exact.
+    Otherwise, it may over- or under-estimate by an arbitrary amount.
+    The result will be an integer >= 0."""
     return space.newint(space.length_hint(w_iterable, default))
-
-
-def isMappingType(space, w_obj):
-    'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    return space.newbool(space.ismapping_w(w_obj))
-
-def isSequenceType(space, w_obj):
-    'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    return space.newbool(space.issequence_w(w_obj))

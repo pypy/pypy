@@ -2,13 +2,14 @@
 
 from .tklib_cffi import ffi as tkffi, lib as tklib
 from . import TclError
-from .tclobj import (TclObject, FromObj, FromTclString, AsObj, TypeCache,
+from .tclobj import (Tcl_Obj, FromObj, FromTclString, AsObj, TypeCache,
                      FromBignumObj, FromWideIntObj)
 
 import contextlib
 import sys
 import threading
 import time
+import warnings
 
 
 class _DummyLock(object):
@@ -24,8 +25,10 @@ class _DummyLock(object):
 
 
 def varname_converter(input):
-    if isinstance(input, TclObject):
-        return input.string
+    if isinstance(input, Tcl_Obj):
+        input = input.string
+    if isinstance(input, str):
+        input = input.encode('utf-8')
     if b'\0' in input:
         raise ValueError("NUL character in string")
     return input
@@ -35,8 +38,8 @@ def Tcl_AppInit(app):
     if tklib.Tcl_Init(app.interp) == tklib.TCL_ERROR:
         app.raiseTclError()
     skip_tk_init = tklib.Tcl_GetVar(
-        app.interp, "_tkinter_skip_tk_init", tklib.TCL_GLOBAL_ONLY)
-    if skip_tk_init and tkffi.string(skip_tk_init) == "1":
+        app.interp, b"_tkinter_skip_tk_init", tklib.TCL_GLOBAL_ONLY)
+    if skip_tk_init and tkffi.string(skip_tk_init) == b"1":
         return
 
     if tklib.Tk_Init(app.interp) == tklib.TCL_ERROR:
@@ -80,7 +83,7 @@ class _CommandData(object):
 class TkApp(object):
     _busywaitinterval = 0.02  # 20ms.
 
-    def __new__(cls, screenName, baseName, className,
+    def __new__(cls, screenName, className,
                 interactive, wantobjects, wantTk, sync, use):
         if not wantobjects:
             raise NotImplementedError("wantobjects=True only")
@@ -88,7 +91,7 @@ class TkApp(object):
         self.interp = tklib.Tcl_CreateInterp()
         self._wantobjects = wantobjects
         self.threaded = bool(tklib.Tcl_GetVar2Ex(
-            self.interp, "tcl_platform", "threaded",
+            self.interp, b"tcl_platform", b"threaded",
             tklib.TCL_GLOBAL_ONLY))
         self.thread_id = tklib.Tcl_GetCurrentThread()
         self.dispatching = False
@@ -105,26 +108,27 @@ class TkApp(object):
         self._commands = {}
 
         # Delete the 'exit' command, which can screw things up
-        tklib.Tcl_DeleteCommand(self.interp, "exit")
+        tklib.Tcl_DeleteCommand(self.interp, b"exit")
 
         if screenName is not None:
-            tklib.Tcl_SetVar2(self.interp, "env", "DISPLAY", screenName,
+            tklib.Tcl_SetVar2(self.interp, b"env", b"DISPLAY",
+                              screenName.encode('utf-8'),
                               tklib.TCL_GLOBAL_ONLY)
 
         if interactive:
-            tklib.Tcl_SetVar(self.interp, "tcl_interactive", "1",
+            tklib.Tcl_SetVar(self.interp, b"tcl_interactive", b"1",
                              tklib.TCL_GLOBAL_ONLY)
         else:
-            tklib.Tcl_SetVar(self.interp, "tcl_interactive", "0",
+            tklib.Tcl_SetVar(self.interp, b"tcl_interactive", b"0",
                              tklib.TCL_GLOBAL_ONLY)
 
         # This is used to get the application class for Tk 4.1 and up
-        argv0 = className.lower().encode('ascii')
-        tklib.Tcl_SetVar(self.interp, "argv0", argv0,
+        argv0 = className.lower().encode('utf-8')
+        tklib.Tcl_SetVar(self.interp, b"argv0", argv0,
                          tklib.TCL_GLOBAL_ONLY)
 
         if not wantTk:
-            tklib.Tcl_SetVar(self.interp, "_tkinter_skip_tk_init", "1",
+            tklib.Tcl_SetVar(self.interp, b"_tkinter_skip_tk_init", b"1",
                              tklib.TCL_GLOBAL_ONLY)
 
         # some initial arguments need to be in argv
@@ -152,8 +156,9 @@ class TkApp(object):
     def raiseTclError(self):
         if self.errorInCmd:
             self.errorInCmd = False
-            raise self.exc_info[0], self.exc_info[1], self.exc_info[2]
-        raise TclError(tkffi.string(tklib.Tcl_GetStringResult(self.interp)))
+            raise self.exc_info[1].with_traceback(self.exc_info[2])
+        raise TclError(tkffi.string(
+                tklib.Tcl_GetStringResult(self.interp)).decode('utf-8'))
 
     def wantobjects(self):
         return self._wantobjects
@@ -171,11 +176,11 @@ class TkApp(object):
 
     def loadtk(self):
         # We want to guard against calling Tk_Init() multiple times
-        err = tklib.Tcl_Eval(self.interp, "info exists     tk_version")
+        err = tklib.Tcl_Eval(self.interp, b"info exists     tk_version")
         if err == tklib.TCL_ERROR:
             self.raiseTclError()
         tk_exists = tklib.Tcl_GetStringResult(self.interp)
-        if not tk_exists or tkffi.string(tk_exists) != "1":
+        if not tk_exists or tkffi.string(tk_exists) != b"1":
             err = tklib.Tk_Init(self.interp)
             if err == tklib.TCL_ERROR:
                 self.raiseTclError()
@@ -264,7 +269,7 @@ class TkApp(object):
 
         with self._tcl_lock:
             res = tklib.Tcl_CreateCommand(
-                self.interp, cmdName, _CommandData.PythonCmd,
+                self.interp, cmdName.encode('utf-8'), _CommandData.PythonCmd,
                 clientData, _CommandData.PythonCmdDelete)
         if not res:
             raise TclError("can't create Tcl command")
@@ -274,7 +279,7 @@ class TkApp(object):
             raise NotImplementedError("Call from another thread")
 
         with self._tcl_lock:
-            res = tklib.Tcl_DeleteCommand(self.interp, cmdName)
+            res = tklib.Tcl_DeleteCommand(self.interp, cmdName.encode('utf-8'))
         if res == -1:
             raise TclError("can't delete Tcl command")
 
@@ -327,21 +332,23 @@ class TkApp(object):
     def eval(self, script):
         self._check_tcl_appartment()
         with self._tcl_lock:
-            res = tklib.Tcl_Eval(self.interp, script)
+            res = tklib.Tcl_Eval(self.interp, script.encode('utf-8'))
             if res == tklib.TCL_ERROR:
                 self.raiseTclError()
-            return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+            result = tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+            return FromTclString(result)
 
     def evalfile(self, filename):
         self._check_tcl_appartment()
         with self._tcl_lock:
-            res = tklib.Tcl_EvalFile(self.interp, filename)
+            res = tklib.Tcl_EvalFile(self.interp, filename.encode('utf-8'))
             if res == tklib.TCL_ERROR:
                 self.raiseTclError()
-            return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+            result = tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+            return FromTclString(result)
 
     def split(self, arg):
-        if isinstance(arg, TclObject):
+        if isinstance(arg, Tcl_Obj):
             objc = tkffi.new("int*")
             objv = tkffi.new("Tcl_Obj***")
             status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
@@ -355,14 +362,14 @@ class TkApp(object):
             for i in range(objc[0]):
                 result.append(FromObj(self, objv[0][i]))
             return tuple(result)
-        elif isinstance(arg, tuple):
+        elif isinstance(arg, (tuple, list)):
             return self._splitObj(arg)
-        elif isinstance(arg, unicode):
-            arg = arg.encode('utf8')
+        if isinstance(arg, str):
+            arg = arg.encode('utf-8')
         return self._split(arg)
 
     def splitlist(self, arg):
-        if isinstance(arg, TclObject):
+        if isinstance(arg, Tcl_Obj):
             objc = tkffi.new("int*")
             objv = tkffi.new("Tcl_Obj***")
             status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
@@ -374,7 +381,9 @@ class TkApp(object):
             return tuple(result)
         elif isinstance(arg, tuple):
             return arg
-        elif isinstance(arg, unicode):
+        elif isinstance(arg, list):
+            return tuple(arg)
+        elif isinstance(arg, str):
             arg = arg.encode('utf8')
 
         argc = tkffi.new("int*")
@@ -383,7 +392,7 @@ class TkApp(object):
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
 
-        result = tuple(tkffi.string(argv[0][i])
+        result = tuple(FromTclString(tkffi.string(argv[0][i]))
                        for i in range(argc[0]))
         tklib.Tcl_Free(argv[0])
         return result
@@ -407,12 +416,23 @@ class TkApp(object):
                 result[i] = newelem
             if result is not None:
                 return tuple(result)
-        elif isinstance(arg, basestring):
+        if isinstance(arg, list):
+            # Recursively invoke SplitObj for all list items.
+            return tuple(self._splitObj(elem) for elem in arg)
+        elif isinstance(arg, str):
             argc = tkffi.new("int*")
             argv = tkffi.new("char***")
-            if isinstance(arg, unicode):
-                arg = arg.encode('utf-8')
-            list_ = str(arg)
+            list_ = arg.encode('utf-8')
+            res = tklib.Tcl_SplitList(tkffi.NULL, list_, argc, argv)
+            if res != tklib.TCL_OK:
+                return arg
+            tklib.Tcl_Free(argv[0])
+            if argc[0] > 1:
+                return self._split(list_)
+        elif isinstance(arg, bytes):
+            argc = tkffi.new("int*")
+            argv = tkffi.new("char***")
+            list_ = arg
             res = tklib.Tcl_SplitList(tkffi.NULL, list_, argc, argv)
             if res != tklib.TCL_OK:
                 return arg
@@ -429,25 +449,53 @@ class TkApp(object):
             # Not a list.
             # Could be a quoted string containing funnies, e.g. {"}.
             # Return the string itself.
-            return arg
+            return FromTclString(arg)
 
         try:
             if argc[0] == 0:
                 return ""
             elif argc[0] == 1:
-                return tkffi.string(argv[0][0])
+                return FromTclString(tkffi.string(argv[0][0]))
             else:
                 return tuple(self._split(argv[0][i])
                              for i in range(argc[0]))
         finally:
             tklib.Tcl_Free(argv[0])
 
+    def merge(self, *args):
+        warnings.warn("merge is deprecated and will be removed in 3.4",
+                      DeprecationWarning)
+        s = self._merge(args)
+        return s.decode('utf-8')
+
+    def _merge(self, args):
+        argv = []
+        for arg in args:
+            if isinstance(arg, tuple):
+                argv.append(self._merge(arg))
+            elif arg is None:
+                break
+            elif isinstance(arg, bytes):
+                argv.append(arg)
+            else:
+                argv.append(str(arg).encode('utf-8'))
+        argv_array = [tkffi.new("char[]", arg) for arg in argv]
+        res = tklib.Tcl_Merge(len(argv), argv_array)
+        if not res:
+            raise TclError("merge failed")
+        try:
+            return tkffi.string(res)
+        finally:
+            tklib.Tcl_Free(res)
+
     def getboolean(self, s):
-        if isinstance(s, (int, long)):
+        if isinstance(s, int):
             return bool(s)
-        if isinstance(s, unicode):
-            s = str(s)
-        if '\x00' in s:
+        try:
+            s = s.encode('utf-8')
+        except AttributeError:
+            raise TypeError
+        if b'\x00' in s:
             raise TypeError
         v = tkffi.new("int*")
         res = tklib.Tcl_GetBoolean(self.interp, s, v)
@@ -456,11 +504,13 @@ class TkApp(object):
         return bool(v[0])
 
     def getint(self, s):
-        if isinstance(s, (int, long)):
+        if isinstance(s, int):
             return s
-        if isinstance(s, unicode):
-            s = str(s)
-        if '\x00' in s:
+        try:
+            s = s.encode('utf-8')
+        except AttributeError:
+            raise TypeError
+        if b'\x00' in s:
             raise TypeError
         if tklib.HAVE_LIBTOMMATH or tklib.HAVE_WIDE_INT_TYPE:
             value = tklib.Tcl_NewStringObj(s, -1)
@@ -481,11 +531,13 @@ class TkApp(object):
             return v[0]
 
     def getdouble(self, s):
-        if isinstance(s, float):
-            return s
-        if isinstance(s, unicode):
-            s = str(s)
-        if '\x00' in s:
+        if isinstance(s, (float, int)):
+            return float(s)
+        try:
+            s = s.encode('utf-8')
+        except AttributeError:
+            raise TypeError
+        if b'\x00' in s:
             raise TypeError
         v = tkffi.new("double*")
         res = tklib.Tcl_GetDouble(self.interp, s, v)
@@ -496,6 +548,7 @@ class TkApp(object):
     def exprboolean(self, s):
         if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("int*")
         res = tklib.Tcl_ExprBoolean(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -505,6 +558,7 @@ class TkApp(object):
     def exprlong(self, s):
         if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("long*")
         res = tklib.Tcl_ExprLong(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -514,6 +568,7 @@ class TkApp(object):
     def exprdouble(self, s):
         if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("double*")
         res = tklib.Tcl_ExprDouble(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -523,10 +578,12 @@ class TkApp(object):
     def exprstring(self, s):
         if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         res = tklib.Tcl_ExprString(self.interp, s)
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
-        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        return FromTclString(tkffi.string(
+            tklib.Tcl_GetStringResult(self.interp)))
 
     def mainloop(self, threshold):
         self._check_tcl_appartment()
@@ -548,7 +605,7 @@ class TkApp(object):
         self.quitMainLoop = False
         if self.errorInCmd:
             self.errorInCmd = False
-            raise self.exc_info[0], self.exc_info[1], self.exc_info[2]
+            raise self.exc_info[1].with_traceback(self.exc_info[2])
 
     def quit(self):
         self.quitMainLoop = True

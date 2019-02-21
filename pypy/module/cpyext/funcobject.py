@@ -18,6 +18,8 @@ CODE_FLAGS = dict(
     CO_VARKEYWORDS = 0x0008,
     CO_NESTED      = 0x0010,
     CO_GENERATOR   = 0x0020,
+    CO_COROUTINE=0x0080,
+    CO_ITERABLE_COROUTINE=0x0100,
 )
 ALL_CODE_FLAGS = unrolling_iterable(CODE_FLAGS.items())
 
@@ -68,7 +70,7 @@ def code_attach(space, py_obj, w_obj, w_userdata=None):
     py_code = rffi.cast(PyCodeObject, py_obj)
     assert isinstance(w_obj, PyCode)
     py_code.c_co_name = make_ref(space, space.newtext(w_obj.co_name))
-    py_code.c_co_filename = make_ref(space, space.newtext(w_obj.co_filename))
+    py_code.c_co_filename = make_ref(space, w_obj.w_filename)
     co_flags = 0
     for name, value in ALL_CODE_FLAGS:
         if w_obj.co_flags & getattr(pycode, name):
@@ -90,14 +92,13 @@ def PyFunction_GetCode(space, w_func):
     func = space.interp_w(Function, w_func)
     return func.code      # borrowed ref
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
-def PyMethod_New(space, w_func, w_self, w_cls):
-    """Return a new method object, with func being any callable object; this is the
-    function that will be called when the method is called.  If this method should
-    be bound to an instance, self should be the instance and class should be the
-    class of self, otherwise self should be NULL and class should be the
-    class which provides the unbound method."""
-    return Method(space, w_func, w_self, w_cls)
+@cpython_api([PyObject, PyObject], PyObject)
+def PyMethod_New(space, w_func, w_self):
+    """Return a new method object, with func being any callable object
+    and self the instance the method should be bound. func is the
+    function that will be called when the method is called. self must
+    not be NULL."""
+    return Method(space, w_func, w_self)
 
 @cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyMethod_Function(space, w_method):
@@ -112,20 +113,14 @@ def PyMethod_Self(space, w_method):
     assert isinstance(w_method, Method)
     return w_method.w_instance     # borrowed ref
 
-@cpython_api([PyObject], PyObject, result_borrowed=True)
-def PyMethod_Class(space, w_method):
-    """Return the class object from which the method meth was created; if this was
-    created from an instance, it will be the class of the instance."""
-    assert isinstance(w_method, Method)
-    return w_method.w_class     # borrowed ref
-
 def unwrap_list_of_texts(space, w_list):
     return [space.text_w(w_item) for w_item in space.fixedview(w_list)]
 
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
+              rffi.INT_real,
               PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
               PyObject, PyObject, rffi.INT_real, PyObject], PyCodeObject)
-def PyCode_New(space, argcount, nlocals, stacksize, flags,
+def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
                w_filename, w_funcname, firstlineno, w_lnotab):
     """Return a new code object.  If you need a dummy code object to
@@ -134,6 +129,7 @@ def PyCode_New(space, argcount, nlocals, stacksize, flags,
     version since the definition of the bytecode changes often."""
     return PyCode(space,
                   argcount=rffi.cast(lltype.Signed, argcount),
+                  kwonlyargcount = rffi.cast(lltype.Signed, kwonlyargcount),
                   nlocals=rffi.cast(lltype.Signed, nlocals),
                   stacksize=rffi.cast(lltype.Signed, stacksize),
                   flags=rffi.cast(lltype.Signed, flags),
@@ -141,7 +137,7 @@ def PyCode_New(space, argcount, nlocals, stacksize, flags,
                   consts=space.fixedview(w_consts),
                   names=unwrap_list_of_texts(space, w_names),
                   varnames=unwrap_list_of_texts(space, w_varnames),
-                  filename=space.text_w(w_filename),
+                  filename=space.fsencode_w(w_filename),
                   name=space.text_w(w_funcname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   lnotab=space.bytes_w(w_lnotab),
@@ -153,6 +149,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
     return PyCode(space,
                   argcount=0,
+                  kwonlyargcount=0,
                   nlocals=0,
                   stacksize=0,
                   flags=0,

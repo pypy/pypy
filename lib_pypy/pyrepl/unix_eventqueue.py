@@ -24,8 +24,14 @@
 from pyrepl import keymap
 from pyrepl.console import Event
 from pyrepl import curses
+from .trace import trace
 from termios import tcgetattr, VERASE
 import os
+try:
+    unicode
+except NameError:
+    unicode = str
+
 
 _keynames = {
     "delete" : "kdch1",
@@ -46,41 +52,70 @@ _keynames = {
     "up" : "kcuu1",
     }
 
-class EventQueue(object):
-    def __init__(self, fd):
-        our_keycodes = {}
-        for key, tiname in _keynames.items():
-            keycode = curses.tigetstr(tiname)
-            if keycode:
-                our_keycodes[keycode] = unicode(key)
-        if os.isatty(fd):
-            our_keycodes[tcgetattr(fd)[6][VERASE]] = u'backspace'
-        self.k = self.ck = keymap.compile_keymap(our_keycodes)
+def general_keycodes():
+    keycodes = {}
+    for key, tiname in _keynames.items():
+        keycode = curses.tigetstr(tiname)
+        trace('key {key} tiname {tiname} keycode {keycode!r}', **locals())
+        if keycode:
+            keycodes[keycode] = key
+    return keycodes
+
+
+
+def EventQueue(fd, encoding):
+    keycodes = general_keycodes()
+    if os.isatty(fd):
+        backspace = tcgetattr(fd)[6][VERASE]
+        keycodes[backspace] = unicode('backspace')
+    k = keymap.compile_keymap(keycodes)
+    trace('keymap {k!r}', k=k)
+    return EncodedQueue(k, encoding)
+
+class EncodedQueue(object):
+    def __init__(self, keymap, encoding):
+        self.k = self.ck = keymap
         self.events = []
-        self.buf = []
+        self.buf = bytearray()
+        self.encoding=encoding
+
     def get(self):
         if self.events:
             return self.events.pop(0)
         else:
             return None
+
     def empty(self):
         return not self.events
+
+    def flush_buf(self):
+        old = self.buf
+        self.buf = bytearray()
+        return bytes(old)
+
     def insert(self, event):
+        trace('added event {event}', event=event)
         self.events.append(event)
+
     def push(self, char):
+        self.buf.append(ord(char))
         if char in self.k:
+            if self.k is self.ck:
+                #sanity check, buffer is empty when a special key comes
+                assert len(self.buf) == 1
             k = self.k[char]
+            trace('found map {k!r}', k=k)
             if isinstance(k, dict):
-                self.buf.append(char)
                 self.k = k
             else:
-                self.events.append(Event('key', k, ''.join(self.buf) + char))
-                self.buf = []
+                self.insert(Event('key', k, self.flush_buf()))
                 self.k = self.ck
-        elif self.buf:
-            self.events.extend([Event('key', c, c) for c in self.buf])
-            self.buf = []
-            self.k = self.ck
-            self.push(char)
+
         else:
-            self.events.append(Event('key', char, char))
+            try:
+                decoded = bytes(self.buf).decode(self.encoding)
+            except:
+                return
+
+            self.insert(Event('key', decoded, self.flush_buf()))
+            self.k = self.ck

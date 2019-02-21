@@ -77,8 +77,8 @@ class AppTestProxyInternals(AppProxy):
             e = sys.exc_info()
 
         tb = self.get_proxy(e[2])
-        raises(ZeroDivisionError, "raise e[0], e[1], tb")
-        raises(ZeroDivisionError, "raise e[0], self.get_proxy(e[1]), tb")
+        raises(ZeroDivisionError, "raise e[0](e[1]).with_traceback(tb)")
+        raises(ZeroDivisionError, "raise e[0](self.get_proxy(e[1])).with_traceback(tb)")
         import traceback
         assert len(traceback.format_tb(tb)) == 1
 
@@ -132,11 +132,11 @@ class AppTestProxyTracebackController(AppProxy):
         last_tb = e[2]
         tb = get_proxy(e[2])
         try:
-            raise e[0], e[1], tb
+            raise e[0](e[1]).with_traceback(tb)
         except:
             e = sys.exc_info()
 
-        assert traceback.format_tb(last_tb) == traceback.format_tb(e[2])
+        assert traceback.format_tb(last_tb) == traceback.format_tb(e[2])[1:]
 
     def test_proxy_get(self):
         from __pypy__ import tproxy, get_tproxy_controller
@@ -148,11 +148,3 @@ class AppTestProxyTracebackController(AppProxy):
             pass
         lst = tproxy(A, f)
         assert get_tproxy_controller(lst) is f
-
-    def test_proxy_file(self):
-        from __pypy__ import tproxy
-
-        def f(name, *args, **kwds):
-            pass
-
-        t = tproxy(file, f)

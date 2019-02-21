@@ -38,6 +38,8 @@ Integer constants:
 Many constants are defined - see the documentation for each function
 to see what constants are used, and where."""
 
+    applevel_name = 'winreg'
+
     appleveldefs = {
     }
     interpleveldefs = {

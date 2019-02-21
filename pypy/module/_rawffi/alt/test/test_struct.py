@@ -40,27 +40,32 @@ class TestStruct(object):
 
 class AppTestStruct(BaseAppTestFFI):
 
+    @classmethod
+    def read_raw_mem(cls, addr, typename, length):
+        import ctypes
+        addr = ctypes.cast(addr, ctypes.c_void_p)
+        c_type = getattr(ctypes, typename)
+        array_type = ctypes.POINTER(c_type * length)
+        ptr_array = ctypes.cast(addr, array_type)
+        array = ptr_array[0]
+        lst = [array[i] for i in range(length)]
+        return lst
+
     def setup_class(cls):
         BaseAppTestFFI.setup_class.im_func(cls)
 
-        @unwrap_spec(addr=int, typename='text', length=int)
-        def read_raw_mem(space, addr, typename, length):
-            import ctypes
-            addr = ctypes.cast(addr, ctypes.c_void_p)
-            c_type = getattr(ctypes, typename)
-            array_type = ctypes.POINTER(c_type * length)
-            ptr_array = ctypes.cast(addr, array_type)
-            array = ptr_array[0]
-            lst = [array[i] for i in range(length)]
-            return space.wrap(lst)
-        if cls.runappdirect:
-            cls.w_read_raw_mem = lambda self, *args: read_raw_mem(cls.space, *args)
-        else:
-            cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem))
-        #
         from rpython.rlib import clibffi
         from rpython.rlib.rarithmetic import r_uint
         from rpython.rtyper.lltypesystem import lltype, rffi
+
+        if cls.runappdirect:
+            cls.w_read_raw_mem = cls.read_raw_mem
+        else:
+            @unwrap_spec(addr=r_uint, typename='text', length=int)
+            def read_raw_mem_w(space, addr, typename, length):
+                return space.wrap(cls.read_raw_mem(addr, typename, length))
+            cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem_w))
+        #
         dummy_type = lltype.malloc(clibffi.FFI_TYPE_P.TO, flavor='raw')
         dummy_type.c_size = r_uint(123)
         dummy_type.c_alignment = rffi.cast(rffi.USHORT, 0)
@@ -149,10 +154,10 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('sshort') == -32768
         struct.setfield('sint', 43)
         assert struct.getfield('sint') == 43
-        struct.setfield('slong', sys.maxint+1)
-        assert struct.getfield('slong') == -sys.maxint-1
-        struct.setfield('slong', sys.maxint*3)
-        assert struct.getfield('slong') == sys.maxint-2
+        struct.setfield('slong', sys.maxsize+1)
+        assert struct.getfield('slong') == -sys.maxsize-1
+        struct.setfield('slong', sys.maxsize*3)
+        assert struct.getfield('slong') == sys.maxsize-2
 
     def test_getfield_setfield_unsigned_types(self):
         import sys
@@ -176,15 +181,15 @@ class AppTestStruct(BaseAppTestFFI):
         struct.setfield('uint', 43)
         assert struct.getfield('uint') == 43
         struct.setfield('ulong', -1)
-        assert struct.getfield('ulong') == sys.maxint*2 + 1
-        struct.setfield('ulong', sys.maxint*2 + 2)
+        assert struct.getfield('ulong') == sys.maxsize*2 + 1
+        struct.setfield('ulong', sys.maxsize*2 + 2)
         assert struct.getfield('ulong') == 0
-        struct.setfield('char', 'a')
-        assert struct.getfield('char') == 'a'
-        struct.setfield('unichar', u'\u1234')
-        assert struct.getfield('unichar') == u'\u1234'
+        struct.setfield('char', b'a')
+        assert struct.getfield('char') == b'a'
+        struct.setfield('unichar', '\u1234')
+        assert struct.getfield('unichar') == '\u1234'
         struct.setfield('ptr', -1)
-        assert struct.getfield('ptr') == sys.maxint*2 + 1
+        assert struct.getfield('ptr') == sys.maxsize*2 + 1
     
     def test_getfield_setfield_longlong(self):
         import sys

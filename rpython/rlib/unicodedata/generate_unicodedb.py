@@ -913,8 +913,17 @@ def lookup_with_alias(name, with_named_sequence=False):
 
     casefolds = {}
     for code, char in table.enum_chars():
-        if char.casefolding and char.casefolding != [char.lower]:
-            casefolds[code] = char.casefolding
+        full_casefold = char.casefolding
+        if full_casefold is None:
+            full_casefold = [code]
+        full_lower = char.lower
+        if full_lower is None:
+            full_lower = code
+        # if we don't write anything into the file, then the RPython
+        # program would compute the result 'full_lower' instead.
+        # Is that the right answer?
+        if full_casefold != [full_lower]:
+            casefolds[code] = full_casefold
     writeDict(outfile, '_casefolds', casefolds, base_mod)
     print >> outfile, '''
 

@@ -53,10 +53,10 @@ def _bytelist2long(list):
     j = 0
     i = 0
     while i < imax:
-        b0 = ord(list[j])
-        b1 = ord(list[j+1]) << 8
-        b2 = ord(list[j+2]) << 16
-        b3 = ord(list[j+3]) << 24
+        b0 = list[j]
+        b1 = list[j+1] << 8
+        b2 = list[j+2] << 16
+        b3 = list[j+3] << 24
         hl[i] = b0 | b1 |b2 | b3
         i = i+1
         j = j+4
@@ -112,13 +112,13 @@ def XX(func, a, b, c, d, x, s, ac):
     return res & 0xffffffff
 
 
-class MD5Type:
+class md5:
     "An implementation of the MD5 hash function in pure Python."
 
     digest_size = digestsize = 16
     block_size = 64
 
-    def __init__(self):
+    def __init__(self, arg=None):
         "Initialisation."
         
         # Initial message length in bits(!).
@@ -131,6 +131,9 @@ class MD5Type:
         # Call a separate init function, that can be used repeatedly
         # to start from scratch on the same object.
         self.init()
+
+        if arg:
+            self.update(arg)
 
 
     def init(self):
@@ -316,7 +319,7 @@ class MD5Type:
         else:
             padLen = 120 - index
 
-        padding = [b'\200'] + [b'\000'] * 63
+        padding = [128] + [0] * 63
         self.update(padding[:padLen])
 
         # Append length (before padding).
@@ -346,7 +349,7 @@ class MD5Type:
         binary environments.
         """
 
-        return ''.join(['%02x' % ord(c) for c in self.digest()])
+        return ''.join(['%02x' % c for c in self.digest()])
 
     def copy(self):
         """Return a clone object.
@@ -366,23 +369,3 @@ class MD5Type:
         clone.C = self.C
         clone.D = self.D
         return clone
-
-
-# ======================================================================
-# Mimic Python top-level functions from standard library API
-# for consistency with the _md5 module of the standard library.
-# ======================================================================
-
-digest_size = 16
-
-def new(arg=None):
-    """Return a new md5 crypto object.
-    If arg is present, the method call update(arg) is made.
-    """
-
-    crypto = MD5Type()
-    if arg:
-        crypto.update(arg)
-
-    return crypto
-

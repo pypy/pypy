@@ -9,21 +9,12 @@ from rpython.rtyper.lltypesystem import rffi
 
 class TestExceptions(BaseApiTest):
     def test_GivenExceptionMatches(self, space, api):
-        old_style_exception = space.appexec([], """():
-            class OldStyle:
-                pass
-            return OldStyle
-        """)
         exc_matches = api.PyErr_GivenExceptionMatches
 
         string_exception = space.wrap('exception')
         instance = space.call_function(space.w_ValueError)
-        old_style_instance = space.call_function(old_style_exception)
         assert exc_matches(string_exception, string_exception)
-        assert exc_matches(old_style_exception, old_style_exception)
-        assert not exc_matches(old_style_exception, space.w_Exception)
         assert exc_matches(instance, space.w_ValueError)
-        assert exc_matches(old_style_instance, old_style_exception)
         assert exc_matches(space.w_ValueError, space.w_ValueError)
         assert exc_matches(space.w_IndexError, space.w_LookupError)
         assert not exc_matches(space.w_ValueError, space.w_LookupError)
@@ -52,7 +43,8 @@ class TestExceptions(BaseApiTest):
         api.PyErr_SetObject(space.w_ValueError, space.wrap("a value"))
         assert api.PyErr_Occurred() is space.w_ValueError
         state = space.fromcache(State)
-        assert space.eq_w(state.operror.get_w_value(space),
+        operror = state.get_exception()
+        assert space.eq_w(operror.get_w_value(space),
                           space.wrap("a value"))
 
         api.PyErr_Clear()
@@ -60,17 +52,20 @@ class TestExceptions(BaseApiTest):
     def test_SetNone(self, space, api):
         api.PyErr_SetNone(space.w_KeyError)
         state = space.fromcache(State)
-        assert space.eq_w(state.operror.w_type, space.w_KeyError)
-        assert space.eq_w(state.operror.get_w_value(space), space.w_None)
+        operror = state.get_exception()
+        assert space.eq_w(operror.w_type, space.w_KeyError)
+        assert space.eq_w(operror.get_w_value(space), space.w_None)
         api.PyErr_Clear()
 
         api.PyErr_NoMemory()
-        assert space.eq_w(state.operror.w_type, space.w_MemoryError)
+        operror = state.get_exception()
+        assert space.eq_w(operror.w_type, space.w_MemoryError)
         api.PyErr_Clear()
 
     def test_Warning(self, space, api, capfd):
         message = rffi.str2charp("this is a warning")
         api.PyErr_WarnEx(None, message, 1)
+        space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
         assert ": UserWarning: this is a warning" in err
         rffi.free_charp(message)
@@ -78,6 +73,7 @@ class TestExceptions(BaseApiTest):
     def test_print_err(self, space, api, capfd):
         api.PyErr_SetObject(space.w_Exception, space.wrap("cpyext is cool"))
         api.PyErr_Print()
+        space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
         assert "cpyext is cool" in err
         assert not api.PyErr_Occurred()
@@ -86,12 +82,9 @@ class TestExceptions(BaseApiTest):
         api.PyErr_SetObject(space.w_ValueError, space.wrap("message"))
         w_where = space.wrap("location")
         api.PyErr_WriteUnraisable(w_where)
+        space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
-        assert "Exception ValueError: 'message' in 'location' ignored" == err.strip()
-
-    def test_ExceptionInstance_Class(self, space, api):
-        instance = space.call_function(space.w_ValueError)
-        assert api.PyExceptionInstance_Class(instance) is space.w_ValueError
+        assert "Exception ignored in: 'location'\nValueError: message" == err.strip()
 
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
@@ -106,6 +99,13 @@ class TestExceptions(BaseApiTest):
         assert api.PyOS_InterruptOccurred()
 
 class AppTestFetch(AppTestCpythonExtensionBase):
+    def setup_class(cls):
+        from pypy.interpreter.test.test_fsencode import get_special_char
+        space = cls.space
+        cls.special_char = get_special_char()
+        cls.w_special_char = space.wrap(cls.special_char)
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+
 
     def test_occurred(self):
         module = self.import_extension('foo', [
@@ -153,7 +153,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              PyErr_Fetch(&type, &val, &tb);
              if (type != PyExc_TypeError)
                  Py_RETURN_FALSE;
-             if (!PyString_Check(val))
+             if (!PyUnicode_Check(val))
                  Py_RETURN_FALSE;
              /* Normalize */
              PyErr_NormalizeException(&type, &val, &tb);
@@ -217,6 +217,9 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert e.filename is None
 
     def test_SetFromErrnoWithFilename(self):
+        char = self.special_char
+        if char is None:
+            char = "a" # boring
         import errno, os
 
         module = self.import_extension('foo', [
@@ -226,10 +229,21 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  PyErr_SetFromErrnoWithFilename(PyExc_OSError, "/path/to/file");
                  return NULL;
                  '''),
+                ("set_from_errno_special", "METH_NOARGS",
+                 '''
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "/path/to/%s");
+                 return NULL;
+                 ''' % (char, )),
                 ],
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == "/path/to/file"
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+        exc_info = raises(OSError, module.set_from_errno_special)
+        assert exc_info.value.filename == "/path/to/%s" % (char, )
         assert exc_info.value.errno == errno.EBADF
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
@@ -250,13 +264,13 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert exc_info.value.errno == errno.EBADF
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
-    def test_SetFromErrnoWithFilenameObject__PyString(self):
+    def test_SetFromErrnoWithFilenameObject__PyUnicode(self):
         import errno, os
 
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
-                 PyObject *filenameObject = PyString_FromString("/path/to/file");
+                 PyObject *filenameObject = PyUnicode_FromString("/path/to/file");
                  errno = EBADF;
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, filenameObject);
                  Py_DECREF(filenameObject);
@@ -269,13 +283,13 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert exc_info.value.errno == errno.EBADF
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
-    def test_SetFromErrnoWithFilenameObject__PyInt(self):
+    def test_SetFromErrnoWithFilenameObject__PyLong(self):
         import errno, os
 
         module = self.import_extension('foo', [
                 ("set_from_errno", "METH_NOARGS",
                  '''
-                 PyObject *intObject = PyInt_FromLong(3);
+                 PyObject *intObject = PyLong_FromLong(3);
                  errno = EBADF;
                  PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, intObject);
                  Py_DECREF(intObject);
@@ -361,8 +375,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              Py_RETURN_NONE;
              '''),
             ])
-        import sys, StringIO
-        sys.stderr = StringIO.StringIO()
+        import io, sys
+        sys.stderr = io.StringIO()
         try:
             1 / 0
         except ZeroDivisionError:
@@ -426,6 +440,33 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert new_exc_info == (new_exc.__class__, new_exc, None)
             assert new_exc_info == new_sys_exc_info
 
+    def test_PyErr_WarnFormat(self):
+        import warnings
+
+        module = self.import_extension('foo', [
+                ("test", "METH_NOARGS",
+                 '''
+                 PyErr_WarnFormat(PyExc_UserWarning, 1, "foo %d bar", 42);
+                 Py_RETURN_NONE;
+                 '''),
+                ])
+        with warnings.catch_warnings(record=True) as l:
+            module.test()
+        assert len(l) == 1
+        assert "foo 42 bar" in str(l[0])
+
+    def test_StopIteration_value(self):
+        module = self.import_extension('foo', [
+                ("test", "METH_O",
+                 '''
+                 PyObject *o = ((PyStopIterationObject *)args)->value;
+                 Py_INCREF(o);
+                 return o;
+                 '''),
+                ])
+        res = module.test(StopIteration("foo!"))
+        assert res == "foo!"
+
     def test_PyErr_BadInternalCall(self):
         # NB. it only seemed to fail when run with '-s'... but I think
         # that it always printed stuff to stderr
@@ -437,3 +478,60 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              '''),
             ])
         raises(SystemError, module.oops)
+
+    @pytest.mark.skipif("not config.option.runappdirect", reason='-A only')
+    def test_error_thread_race(self):
+        # Check race condition: thread 0 returns from cpyext with error set,
+        # after thread 1 has set an error but before it returns.
+        module = self.import_extension('foo', [
+            ("emit_error", "METH_VARARGS",
+             '''
+             PyThreadState *save = NULL;
+             PyGILState_STATE gilsave;
+
+             /* NB. synchronization due to GIL */
+             static volatile int flag = 0;
+             int id;
+
+             if (!PyArg_ParseTuple(args, "i", &id))
+                 return NULL;
+
+             /* Proceed in thread 1 first */
+             save = PyEval_SaveThread();
+             while (id == 0 && flag == 0);
+             gilsave = PyGILState_Ensure();
+
+             PyErr_Format(PyExc_ValueError, "%d", id);
+
+             /* Proceed in thread 0 first */
+             if (id == 1) flag = 1;
+             PyGILState_Release(gilsave);
+             while (id == 1 && flag == 1);
+             PyEval_RestoreThread(save);
+
+             if (id == 0) flag = 0;
+             return NULL;
+             '''
+             ),
+            ])
+
+        import threading
+
+        failures = []
+
+        def worker(arg):
+            try:
+                module.emit_error(arg)
+                failures.append(True)
+            except Exception as exc:
+                if str(exc) != str(arg):
+                    failures.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(j,))
+                   for j in (0, 1)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not failures

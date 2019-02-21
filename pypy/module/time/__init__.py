@@ -1,5 +1,7 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
+from .interp_time import HAS_MONOTONIC
+from rpython.rlib import rtime
 import os
 
 _WIN = os.name == "nt"
@@ -17,8 +19,20 @@ class Module(MixedModule):
         'mktime': 'interp_time.mktime',
         'strftime': 'interp_time.strftime',
         'sleep' : 'interp_time.sleep',
+        '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
+        'perf_counter': 'interp_time.perf_counter',
+        'process_time': 'interp_time.process_time',
     }
 
+    if rtime.HAS_CLOCK_GETTIME:
+        interpleveldefs['clock_gettime'] = 'interp_time.clock_gettime'
+        interpleveldefs['clock_settime'] = 'interp_time.clock_settime'
+        interpleveldefs['clock_getres'] = 'interp_time.clock_getres'
+        for constant in rtime.ALL_DEFINED_CLOCKS:
+            interpleveldefs[constant] = 'space.wrap(%d)' % (
+                getattr(rtime, constant),)
+    if HAS_MONOTONIC:
+        interpleveldefs['monotonic'] = 'interp_time.monotonic'
     if os.name == "posix":
         interpleveldefs['tzset'] = 'interp_time.tzset'
 
@@ -26,6 +40,7 @@ class Module(MixedModule):
         'struct_time': 'app_time.struct_time',
         '__doc__': 'app_time.__doc__',
         'strptime': 'app_time.strptime',
+        'get_clock_info': 'app_time.get_clock_info'
     }
 
     def startup(self, space):
@@ -38,5 +53,4 @@ class Module(MixedModule):
         from pypy.module.time import interp_time
 
         interp_time._init_timezone(space)
-        interp_time._init_accept2dyear(space)
 

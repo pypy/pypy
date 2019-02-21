@@ -8,27 +8,18 @@ from pypy.objspace.std.typeobject import unwrap_cell
 
 
 class ClassDictStrategy(DictStrategy):
+    """Exposes a W_TypeObject.dict_w at app-level.
+
+    Uses getdictvalue() and setdictvalue() to access items.
+    """
     erase, unerase = rerased.new_erasing_pair("dictproxy")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
-    def __init__(self, space):
-        DictStrategy.__init__(self, space)
-
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if (space.is_w(w_lookup_type, space.w_text) or  # Most common path first
-            space.abstract_issubclass_w(w_lookup_type, space.w_text)):
-            return self.getitem_str(w_dict, space.text_w(w_key))
-        elif space.abstract_issubclass_w(w_lookup_type, space.w_unicode):
-            try:
-                w_key = space.str(w_key)
-            except OperationError as e:
-                if not e.match(space, space.w_UnicodeEncodeError):
-                    raise
-                # non-ascii unicode is never equal to a byte string
-                return None
+        if space.issubtype_w(w_lookup_type, space.w_text):
             return self.getitem_str(w_dict, space.text_w(w_key))
         else:
             return None
@@ -112,6 +103,7 @@ class ClassDictStrategy(DictStrategy):
         return iteritems_with_hash(self.unerase(w_dict.dstorage).dict_w)
 
     def wrapkey(space, key):
+        # keys are utf-8 encoded identifiers from type's dict_w
         return space.newtext(key)
 
     def wrapvalue(space, value):

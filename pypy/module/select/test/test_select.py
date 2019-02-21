@@ -22,6 +22,7 @@ class _AppTestSelect:
         finally:
             readend.close()
             writeend.close()
+        raises(ValueError, select.select, [], [], [], -1)
 
     def test_list_tuple(self):
         import time, select
@@ -274,7 +275,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
         return FileAsSocket(s1), FileAsSocket(s2)
 
     def test_poll_threaded(self):
-        import os, select, thread, time
+        import os, select, _thread as thread, time
         if not hasattr(select, 'poll'):
             skip("no select.poll() on this platform")
         r, w = os.pipe()
@@ -287,7 +288,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
             t = thread.start_new_thread(pollster.poll, ())
             try:
                 time.sleep(0.3)
-                for i in range(5): print '',  # to release GIL untranslated
+                for i in range(100): print(''),  # to release GIL untranslated
                 # trigger ufds array reallocation
                 for fd in rfds:
                     pollster.unregister(fd)
@@ -298,7 +299,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 # and make the call to poll() from the thread return
                 os.write(w, b'spam')
                 time.sleep(0.3)
-                for i in range(5): print '',  # to release GIL untranslated
+                for i in range(100): print(''),  # to release GIL untranslated
         finally:
             os.close(r)
             os.close(w)
@@ -317,6 +318,11 @@ class AppTestSelectWithPipes(_AppTestSelect):
         assert 1 <= len(l) <= 100    
         # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
         # long as there is no crash.
+
+    def test_PIPE_BUF(self):
+        # no PIPE_BUF on Windows; this test class is skipped on Windows.
+        import select
+        assert isinstance(select.PIPE_BUF, int)
 
 
 class AppTestSelectWithSockets(_AppTestSelect):
@@ -352,13 +358,15 @@ class AppTestSelectWithSockets(_AppTestSelect):
     def w_getpair(self):
         """Helper method which returns a pair of connected sockets."""
         import socket
-        import thread
+        import _thread
+
+        self.make_server()
 
         self.make_server()
 
         self.sock.listen(1)
         s2 = socket.socket()
-        thread.start_new_thread(s2.connect, (self.sockaddress,))
+        _thread.start_new_thread(s2.connect, (self.sockaddress,))
         s1, addr2 = self.sock.accept()
 
         # speed up the tests that want to fill the buffers

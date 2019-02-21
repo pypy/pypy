@@ -1,3 +1,8 @@
+# -*- encoding: utf-8 -*-
+from __future__ import print_function
+
+import py
+
 from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
 
 EPS = 1e-9
@@ -77,7 +82,7 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
-    spaceconfig = {'usemodules': ['binascii', 'time', 'struct']}
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct', 'unicodedata']}
 
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""
@@ -85,14 +90,10 @@ class AppTestAppComplexTest:
         if x != 0:
             q = z / x
             assert self.close(q, y)
-            q = z.__div__(x)
-            assert self.close(q, y)
             q = z.__truediv__(x)
             assert self.close(q, y)
         if y != 0:
             q = z / y
-            assert self.close(q, x)
-            q = z.__div__(y)
             assert self.close(q, x)
             q = z.__truediv__(y)
             assert self.close(q, x)
@@ -125,11 +126,28 @@ class AppTestAppComplexTest:
             else:
                 return a - b < eps
 
+    def w_floats_identical(self, x, y):
+        from math import isnan, copysign
+        msg = 'floats {!r} and {!r} are not identical'
+
+        if isnan(x) or isnan(y):
+            if isnan(x) and isnan(y):
+                return
+        elif x == y:
+            if x != 0.0:
+                return
+            # both zero; check that signs match
+            elif copysign(1.0, x) == copysign(1.0, y):
+                return
+            else:
+                msg += ': zeros have different signs'
+        assert False, msg.format(x, y)
+
     def test_div(self):
         from random import random
         # XXX this test passed but took waaaaay to long
         # look at dist/lib-python/modified-2.5.2/test/test_complex.py
-        #simple_real = [float(i) for i in xrange(-5, 6)]
+        #simple_real = [float(i) for i in range(-5, 6)]
         simple_real = [-2.0, 0.0, 1.0]
         simple_complex = [complex(x, y) for x in simple_real for y in simple_real]
         for x in simple_complex:
@@ -142,11 +160,11 @@ class AppTestAppComplexTest:
         self.check_div(complex(1e-200, 1e-200), 1+0j)
 
         # Just for fun.
-        for i in xrange(100):
+        for i in range(100):
             self.check_div(complex(random(), random()),
                            complex(random(), random()))
 
-        raises(ZeroDivisionError, complex.__div__, 1+1j, 0+0j)
+        raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
         # FIXME: The following currently crashes on Alpha
         raises(OverflowError, pow, 1e200+1j, 1e200+1j)
 
@@ -155,11 +173,7 @@ class AppTestAppComplexTest:
         raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
 
     def test_floordiv(self):
-        assert self.almost_equal(complex.__floordiv__(3+0j, 1.5+0j), 2)
-        raises(ZeroDivisionError, complex.__floordiv__, 3+0j, 0+0j)
-
-    def test_coerce(self):
-        raises(OverflowError, complex.__coerce__, 1+1j, 1L<<10000)
+        raises(TypeError, "3+0j // 0+0j")
 
     def test_convert(self):
         exc = raises(TypeError, complex.__int__, 3j)
@@ -168,15 +182,20 @@ class AppTestAppComplexTest:
         assert str(exc.value) == "can't convert complex to float"
 
     def test_richcompare(self):
+        import operator
         assert complex.__lt__(1+1j, None) is NotImplemented
         assert complex.__eq__(1+1j, 2+2j) is False
         assert complex.__eq__(1+1j, 1+1j) is True
         assert complex.__ne__(1+1j, 1+1j) is False
         assert complex.__ne__(1+1j, 2+2j) is True
-        raises(TypeError, complex.__lt__, 1+1j, 2+2j)
-        raises(TypeError, complex.__le__, 1+1j, 2+2j)
-        raises(TypeError, complex.__gt__, 1+1j, 2+2j)
-        raises(TypeError, complex.__ge__, 1+1j, 2+2j)
+        assert complex.__lt__(1+1j, 2+2j) is NotImplemented
+        assert complex.__le__(1+1j, 2+2j) is NotImplemented
+        assert complex.__gt__(1+1j, 2+2j) is NotImplemented
+        assert complex.__ge__(1+1j, 2+2j) is NotImplemented
+        raises(TypeError, operator.lt, 1+1j, 2+2j)
+        raises(TypeError, operator.le, 1+1j, 2+2j)
+        raises(TypeError, operator.gt, 1+1j, 2+2j)
+        raises(TypeError, operator.ge, 1+1j, 2+2j)
         large = 1 << 10000
         assert not (5+0j) == large
         assert not large == (5+0j)
@@ -184,29 +203,25 @@ class AppTestAppComplexTest:
         assert large != (5+0j)
 
     def test_richcompare_numbers(self):
-        for n in 8, 8L, 0.01:
+        for n in 8, 0.01:
             assert complex.__eq__(n+0j, n)
             assert not complex.__ne__(n+0j, n)
             assert not complex.__eq__(complex(n, n), n)
             assert complex.__ne__(complex(n, n), n)
-            raises(TypeError, complex.__lt__, n+0j, n)
+            assert complex.__lt__(n+0j, n) is NotImplemented
 
     def test_richcompare_boundaries(self):
         z = 9007199254740992+0j
         i = 9007199254740993
         assert not complex.__eq__(z, i)
-        assert not complex.__eq__(z, long(i))
         assert complex.__ne__(z, i)
-        assert complex.__ne__(z, long(i))
 
     def test_mod(self):
-        raises(ZeroDivisionError, (1+1j).__mod__, 0+0j)
-
         a = 3.33+4.43j
-        raises(ZeroDivisionError, "a % 0")
+        raises(TypeError, "a % a")
 
     def test_divmod(self):
-        raises(ZeroDivisionError, divmod, 1+1j, 0+0j)
+        raises(TypeError, divmod, 1+1j, 0+0j)
 
     def test_pow(self):
         assert self.almost_equal(pow(1+1j, 0+0j), 1.0)
@@ -242,7 +257,7 @@ class AppTestAppComplexTest:
 
     def test_boolcontext(self):
         from random import random
-        for i in xrange(100):
+        for i in range(100):
             assert complex(random() + 1e-6, random() + 1e-6)
         assert not complex(0.0, 0.0)
 
@@ -250,61 +265,42 @@ class AppTestAppComplexTest:
         assert self.close(complex(5.3, 9.8).conjugate(), 5.3-9.8j)
 
     def test_constructor(self):
-        class OS:
-            def __init__(self, value):
-                self.value = value
-            def __complex__(self):
-                return self.value
         class NS(object):
             def __init__(self, value):
                 self.value = value
             def __complex__(self):
                 return self.value
-        assert complex(OS(1+10j)) == 1+10j
         assert complex(NS(1+10j)) == 1+10j
-        assert complex(OS(1+10j), 5) == 1+15j
         assert complex(NS(1+10j), 5) == 1+15j
-        assert complex(OS(1+10j), 5j) == -4+10j
         assert complex(NS(1+10j), 5j) == -4+10j
-
-        raises(TypeError, complex, OS(None))
+        raises(TypeError, complex, NS(2.0))
+        raises(TypeError, complex, NS(2))
         raises(TypeError, complex, NS(None))
+        raises(TypeError, complex, b'10')
 
         # -- The following cases are not supported by CPython, but they
         # -- are supported by PyPy, which is most probably ok
-        #raises((TypeError, AttributeError), complex, OS(1+10j), OS(1+10j))
-        #raises((TypeError, AttributeError), complex, NS(1+10j), OS(1+10j))
-        #raises((TypeError, AttributeError), complex, OS(1+10j), NS(1+10j))
         #raises((TypeError, AttributeError), complex, NS(1+10j), NS(1+10j))
 
         class F(object):
             def __float__(self):
                 return 2.0
-        assert complex(OS(1+10j), F()) == 1+12j
         assert complex(NS(1+10j), F()) == 1+12j
 
         assert self.almost_equal(complex("1+10j"), 1+10j)
         assert self.almost_equal(complex(10), 10+0j)
         assert self.almost_equal(complex(10.0), 10+0j)
-        assert self.almost_equal(complex(10L), 10+0j)
         assert self.almost_equal(complex(10+0j), 10+0j)
         assert self.almost_equal(complex(1,10), 1+10j)
-        assert self.almost_equal(complex(1,10L), 1+10j)
         assert self.almost_equal(complex(1,10.0), 1+10j)
-        assert self.almost_equal(complex(1L,10), 1+10j)
-        assert self.almost_equal(complex(1L,10L), 1+10j)
-        assert self.almost_equal(complex(1L,10.0), 1+10j)
         assert self.almost_equal(complex(1.0,10), 1+10j)
-        assert self.almost_equal(complex(1.0,10L), 1+10j)
         assert self.almost_equal(complex(1.0,10.0), 1+10j)
         assert self.almost_equal(complex(3.14+0j), 3.14+0j)
         assert self.almost_equal(complex(3.14), 3.14+0j)
         assert self.almost_equal(complex(314), 314.0+0j)
-        assert self.almost_equal(complex(314L), 314.0+0j)
         assert self.almost_equal(complex(3.14+0j, 0j), 3.14+0j)
         assert self.almost_equal(complex(3.14, 0.0), 3.14+0j)
         assert self.almost_equal(complex(314, 0), 314.0+0j)
-        assert self.almost_equal(complex(314L, 0L), 314.0+0j)
         assert self.almost_equal(complex(0j, 3.14j), -3.14+0j)
         assert self.almost_equal(complex(0.0, 3.14j), -3.14+0j)
         assert self.almost_equal(complex(0j, 3.14), 3.14j)
@@ -341,7 +337,6 @@ class AppTestAppComplexTest:
         raises(ValueError, complex, '1+1j\0j')
 
         raises(TypeError, int, 5+3j)
-        raises(TypeError, long, 5+3j)
         raises(TypeError, float, 5+3j)
         raises(ValueError, complex, "")
         raises(TypeError, complex, None)
@@ -375,32 +370,37 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(real=float2(17.), imag=float2(23.)), 17+23j)
         raises(TypeError, complex, float2(None))
 
-    def test___complex___returning_non_complex(self):
-        import cmath
-        class Obj(object):
-            def __init__(self, value):
-                self.value = value
-            def __complex__(self):
-                return self.value
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
+    def test_constructor_unicode(self):
+        b1 = '\N{MATHEMATICAL BOLD DIGIT ONE}' # 𝟏
+        b2 = '\N{MATHEMATICAL BOLD DIGIT TWO}' # 𝟐
+        s = '{0}+{1}j'.format(b1, b2)
+        assert complex(s) == 1+2j
+        assert complex('\N{EM SPACE}(\N{EN SPACE}1+1j ) ') == 1+1j
 
-        # "bug-to-bug" compatibility to CPython: complex() is more relaxed in
-        # what __complex__ can return. cmath functions really wants a complex
-        # number to be returned by __complex__.
-        assert complex(Obj(2.0)) == 2+0j
-        assert complex(Obj(2)) == 2+0j
-        assert complex(Obj(2L)) == 2+0j
-        #
-        assert cmath.polar(1) == (1.0, 0.0)
-        raises(TypeError, "cmath.polar(Obj(1))")
+    def test_constructor_bad_error_message(self):
+        err = raises(TypeError, complex, {}).value
+        assert "float" not in str(err)
+        assert str(err) == "complex() first argument must be a string or a number, not 'dict'"
+        err = raises(TypeError, complex, 1, {}).value
+        assert "float" not in str(err)
+        assert str(err) == "complex() second argument must be a number, not 'dict'"
+
+    def test_error_messages(self):
+        err = raises(ZeroDivisionError, "1+1j / 0").value
+        assert str(err) == "complex division by zero"
+        err = raises(TypeError, "1+1j // 0").value
+        assert str(err) == "can't take floor of complex number."
+
 
     def test_hash(self):
-        for x in xrange(-30, 30):
+        for x in range(-30, 30):
             assert hash(x) == hash(complex(x, 0))
             x /= 3.0    # now check against floating point
             assert hash(x) == hash(complex(x, 0.))
 
     def test_abs(self):
-        nums = [complex(x/3., y/7.) for x in xrange(-9,9) for y in xrange(-9,9)]
+        nums = [complex(x/3., y/7.) for x in range(-9,9) for y in range(-9,9)]
         for num in nums:
             assert self.almost_equal((num.real**2 + num.imag**2)  ** 0.5, abs(num))
 
@@ -410,7 +410,6 @@ class AppTestAppComplexTest:
             pass
         assert j(100 + 0j) == 100 + 0j
         assert isinstance(j(100), j)
-        assert j(100L + 0j) == 100 + 0j
         assert j("100+0j") == 100 + 0j
         exc = raises(ValueError, j, "100 + 0j")
         assert str(exc.value) == "complex() arg is a malformed string"
@@ -437,6 +436,36 @@ class AppTestAppComplexTest:
         assert repr(complex(1e200*1e200)) == '(inf+0j)'
         assert repr(complex(1,-float("nan"))) == '(1+nanj)'
 
+    def test_repr_roundtrip(self):
+        # Copied from CPython
+        INF = float("inf")
+        NAN = float("nan")
+        vals = [0.0, 1e-500, 1e-315, 1e-200, 0.0123, 3.1415, 1e50, INF, NAN]
+        vals += [-v for v in vals]
+
+        # complex(repr(z)) should recover z exactly, even for complex
+        # numbers involving an infinity, nan, or negative zero
+        for x in vals:
+            for y in vals:
+                z = complex(x, y)
+                roundtrip = complex(repr(z))
+                self.floats_identical(z.real, roundtrip.real)
+                self.floats_identical(z.imag, roundtrip.imag)
+
+        # if we predefine some constants, then eval(repr(z)) should
+        # also work, except that it might change the sign of zeros
+        inf, nan = float('inf'), float('nan')
+        infj, nanj = complex(0.0, inf), complex(0.0, nan)
+        for x in vals:
+            for y in vals:
+                z = complex(x, y)
+                roundtrip = eval(repr(z))
+                # adding 0.0 has no effect beside changing -0.0 to 0.0
+                self.floats_identical(0.0 + z.real,
+                                      0.0 + roundtrip.real)
+                self.floats_identical(0.0 + z.imag,
+                                      0.0 + roundtrip.imag)
+
     def test_neg(self):
         assert -(1+6j) == -1-6j
 
@@ -450,10 +479,10 @@ class AppTestAppComplexTest:
         fo = None
         try:
             pth = tempfile.mktemp()
-            fo = open(pth,"wb")
-            print >>fo, a, b
+            fo = open(pth, "w")
+            print(a, b, file=fo)
             fo.close()
-            fo = open(pth, "rb")
+            fo = open(pth, "r")
             res = fo.read()
             assert res == "%s %s\n" % (a, b)
         finally:
@@ -569,9 +598,7 @@ class AppTestAppComplexTest:
         assert format(1.5e20+3j, '^40,.2f') == '  150,000,000,000,000,000,000.00+3.00j  '
         assert format(1.5e21+3j, '^40,.2f') == ' 1,500,000,000,000,000,000,000.00+3.00j '
         assert format(1.5e21+3000j, ',.2f') == '1,500,000,000,000,000,000,000.00+3,000.00j'
-
-        # alternate is invalid
-        raises(ValueError, (1.5+0.5j).__format__, '#f')
+        assert format(1.5+0.5j, '#f') == '1.500000+0.500000j'
 
         # zero padding is invalid
         raises(ValueError, (1.5+0.5j).__format__, '010f')
@@ -585,8 +612,7 @@ class AppTestAppComplexTest:
 
         # make sure everything works in ''.format()
         assert '*{0:.3f}*'.format(3.14159+2.71828j) == '*3.142+2.718j*'
-        assert u'*{0:.3f}*'.format(3.14159+2.71828j) == u'*3.142+2.718j*'
-        assert u'{:-}'.format(1.5+3.5j) == u'(1.5+3.5j)'
+        assert '{:-}'.format(1.5+3.5j) == '(1.5+3.5j)'
 
         INF = float("inf")
         NAN = float("nan")
@@ -611,6 +637,22 @@ class AppTestAppComplexTest:
 
     def test_complex_two_arguments(self):
         raises(TypeError, complex, 5, None)
+
+    def test_negated_imaginary_literal(self):
+        def sign(x):
+            import math
+            return math.copysign(1.0, x)
+        z0 = -0j
+        z1 = -7j
+        z2 = -1e1000j
+        # Note: In versions of Python < 3.2, a negated imaginary literal
+        # accidentally ended up with real part 0.0 instead of -0.0
+        assert sign(z0.real) == -1
+        assert sign(z0.imag) == -1
+        assert sign(z1.real) == -1
+        assert sign(z1.imag) == -1
+        assert sign(z2.real) == -1
+        assert sign(z2.real) == -1
 
     def test_hash_minus_one(self):
         assert hash(-1.0 + 0j) == -2

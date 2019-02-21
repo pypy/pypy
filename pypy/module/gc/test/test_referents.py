@@ -8,12 +8,16 @@ class AppTestReferents(object):
         cls._backup = [rgc.get_rpy_roots]
         w = cls.space.wrap
         space = cls.space
-        class RandomRPythonObject(object):
-            pass
+        if option.runappdirect:
+            ro = None
+        else:
+            class RandomRPythonObject(object):
+                pass
+            ro = RandomRPythonObject()
         l4 = space.newlist([w(4)])
         l2 = space.newlist([w(2)])
         l7 = space.newlist([w(7)])
-        cls.ALL_ROOTS = [l4, space.newlist([l2, l7]), RandomRPythonObject(),
+        cls.ALL_ROOTS = [l4, space.newlist([l2, l7]), ro,
                          space.newtuple([l7])]
         cls.w_ALL_ROOTS = cls.space.newlist(cls.ALL_ROOTS)
         rgc.get_rpy_roots = lambda: (
@@ -59,7 +63,7 @@ class AppTestReferents(object):
         lst = gc.get_rpy_referents(x)
         # After translation, 'lst' should contain the RPython-level list
         # (as a GcStruct).  Before translation, the 'wrappeditems' list.
-        print lst
+        print(lst)
         lst2 = [x for x in lst if type(x) is gc.GcRef]
         assert lst2 != []
         # In any case, we should land on 'y' after one or two extra levels
@@ -75,7 +79,7 @@ class AppTestReferents(object):
     def test_get_rpy_memory_usage(self):
         import gc
         n = gc.get_rpy_memory_usage(12345)
-        print n
+        print(n)
         assert 4 <= n <= 64
 
     def test_get_rpy_type_index(self):
@@ -86,7 +90,7 @@ class AppTestReferents(object):
         n2 = gc.get_rpy_type_index(23456)
         n3 = gc.get_rpy_type_index(1.2)
         n4 = gc.get_rpy_type_index(Foo())
-        print n1, n2, n3, n4
+        print(n1, n2, n3, n4)
         assert n1 == n2
         assert n1 != n3
         assert n1 != n4
@@ -115,7 +119,8 @@ class AppTestReferents(object):
             if x is l7t:
                 break   # found
         else:
-            assert 0, "the tuple (7,) is not found as gc.get_referrers(7)"
+            if i7 is self.ALL_ROOTS[3][0]: # not the case under runappdirect
+                assert 0, "the tuple (7,) is not found as gc.get_referrers(7)"
 
 
 class AppTestReferentsMore(object):

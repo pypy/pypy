@@ -50,7 +50,7 @@ def tigetstr(space, capname):
         else:
             return space.w_None
 
-@unwrap_spec(s='text')
+@unwrap_spec(s='bufferstr')
 def tparm(space, s, args_w):
     check_setup_invoked(space)
     args = [space.int_w(a) for a in args_w]

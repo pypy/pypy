@@ -1,5 +1,4 @@
-
-/* Bool object interface */
+/* Boolean object interface */
 
 #ifndef Py_BOOLOBJECT_H
 #define Py_BOOLOBJECT_H
@@ -7,9 +6,13 @@
 extern "C" {
 #endif
 
-#define PyBoolObject PyIntObject
+#define PyBool_Check(x) (Py_TYPE(x) == &PyBool_Type)
 
-#define Py_False ((PyObject *) &_Py_ZeroStruct)
+/* Py_False and Py_True are the only two bools in existence.
+Don't forget to apply Py_INCREF() when returning either!!! */
+
+/* Use these macros */
+#define Py_False ((PyObject *) &_Py_FalseStruct)
 #define Py_True ((PyObject *) &_Py_TrueStruct)
 
 /* Macros for returning Py_True or Py_False, respectively */

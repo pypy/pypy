@@ -40,9 +40,6 @@ class Code(W_Root):
         and possibly more locals."""
         return self.signature().getallvarnames()
 
-    def getformalargcount(self):
-        return self.signature().scope_length()
-
     def getdocstring(self, space):
         return space.w_None
 

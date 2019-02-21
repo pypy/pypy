@@ -25,7 +25,7 @@ def waitfor(space, w_condition, delay=1):
     print '*** timed out ***'
 
 
-def timeout_killer(pid, delay):
+def timeout_killer(cls, pid, delay):
     def kill():
         for x in range(delay * 10):
             time.sleep(0.1)
@@ -36,8 +36,9 @@ def timeout_killer(pid, delay):
                     return
                 raise
         os.kill(pid, 9)
-        print "process %s killed!" % (pid,)
-    thread.start_new_thread(kill, ())
+        print("process %s killed!" % (pid,))
+    import threading
+    threading.Thread(target=kill).start()
 
 
 class GenericTestThread:
@@ -46,21 +47,22 @@ class GenericTestThread:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         if cls.runappdirect:
-            def plain_waitfor(self, condition, delay=1):
+            cls.w_NORMAL_TIMEOUT = NORMAL_TIMEOUT
+            def plain_waitfor(cls, condition, delay=1):
+                import gc
+                import time
                 adaptivedelay = 0.04
-                limit = time.time() + NORMAL_TIMEOUT * delay
+                limit = time.time() + cls.NORMAL_TIMEOUT * delay
                 while time.time() <= limit:
                     time.sleep(adaptivedelay)
                     gc.collect()
                     if condition():
                         return
                     adaptivedelay *= 1.05
-                print '*** timed out ***'
+                print('*** timed out ***')
             cls.w_waitfor = plain_waitfor
 
-            def py_timeout_killer(self, *args, **kwargs):
-                timeout_killer(*args, **kwargs)
-            cls.w_timeout_killer = cls.space.wrap(py_timeout_killer)
+            cls.w_timeout_killer = timeout_killer
         else:
             @unwrap_spec(delay=int)
             def py_waitfor(space, w_condition, delay=1):
@@ -74,7 +76,7 @@ class GenericTestThread:
                     (k, space.unwrap(v))
                     for k, v in kwargs_w.iteritems()
                 ])
-                timeout_killer(*args, **kwargs)
+                timeout_killer(cls, *args, **kwargs)
             cls.w_timeout_killer = cls.space.wrap(interp2app(py_timeout_killer))
 
         cls.w_busywait = cls.space.appexec([], """():

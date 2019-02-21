@@ -1,58 +1,67 @@
 from pypy.module.marshal import interp_marshal
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std.intobject import W_IntObject
 import sys
 
 
 class AppTestMarshalMore:
     spaceconfig = dict(usemodules=('array',))
 
-    def test_long_0(self):
-        import marshal
-        z = 0L
-        z1 = marshal.loads(marshal.dumps(z))
-        assert z == z1
-        assert type(z1) is long
-
-    def test_unmarshal_int64(self):
-        # test that we can unmarshal 64-bit ints on 32-bit platforms
-        # (of course we only test that if we're running on such a
-        # platform :-)
-        import marshal
-        z = marshal.loads('I\x00\xe4\x0bT\x02\x00\x00\x00')
-        assert z == 10000000000
-        z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
-        assert z == -10000000000
-        z = marshal.loads('I\x88\x87\x86\x85\x84\x83\x82\x01')
-        assert z == 108793946209421192
-        z = marshal.loads('I\xd8\xd8\xd9\xda\xdb\xdc\xcd\xfe')
-        assert z == -0x0132232425262728
-
-    def test_buffer(self):
-        import marshal
-        z = marshal.loads(buffer('i\x02\x00\x00\x00???'))
-        assert z == 2
-
-    def test_marshal_buffer_object(self):
-        import marshal
-        s = marshal.dumps(buffer('foobar'))
-        t = marshal.loads(s)
-        assert type(t) is str and t == 'foobar'
-
     def test_marshal_bufferlike_object(self):
         import marshal, array
-        s = marshal.dumps(array.array('c', 'asd'))
+        s = marshal.dumps(array.array('b', b'asd'))
         t = marshal.loads(s)
-        assert type(t) is str and t == 'asd'
-        exc = raises(ValueError, marshal.dumps, memoryview('asd'))
-        assert str(exc.value) == "unmarshallable object"
+        assert type(t) is bytes and t == b'asd'
+
+        s = marshal.dumps(memoryview(b'asd'))
+        t = marshal.loads(s)
+        assert type(t) is bytes and t == b'asd'
 
     def test_unmarshal_evil_long(self):
         import marshal
-        raises(ValueError, marshal.loads, 'l\x02\x00\x00\x00\x00\x00\x00\x00')
-        z = marshal.loads('I\x00\xe4\x0bT\x02\x00\x00\x00')
-        assert z == 10000000000
-        z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
-        assert z == -10000000000
+        raises(ValueError, marshal.loads, b'l\x02\x00\x00\x00\x00\x00\x00\x00')
+
+    def test_marshal_code_object(self):
+        def foo(a, b):
+            pass
+
+        import marshal
+        s = marshal.dumps(foo.__code__)
+        code2 = marshal.loads(s)
+        for attr_name in dir(code2):
+            if attr_name.startswith("co_"):
+                assert getattr(code2, attr_name) == getattr(foo.__code__, attr_name)
+
+    def test_unmarshal_ascii(self):
+        import marshal
+        s = marshal.loads(b"a\x04\x00\x00\x00ab\xc2\x84")
+        assert s == u"ab\xc2\x84"
+        #s = marshal.loads(b"A\x04\x00\x00\x00ab\xc2\x84")
+        #assert s == u"ab\xc2\x84"
+        #s = marshal.loads(b"z\x04ab\xc2\x84")
+        #assert s == u"ab\xc2\x84"
+        #s = marshal.loads(b"Z\x04ab\xc2\x84")
+        #assert s == u"ab\xc2\x84"
+
+    def test_shared_string(self):
+        import marshal
+        x = "hello, "
+        x += "world"
+        xl = 256
+        xl **= 100
+        for version in [2, 3]:
+            s = marshal.dumps((x, x), version)
+            assert s.count(b'hello, world') == 2 if version < 3 else 1
+            y = marshal.loads(s)
+            assert y == (x, x)
+            #
+            s = marshal.dumps((xl, xl), version)
+            if version < 3:
+                assert 200 < len(s) < 250
+            else:
+                assert 100 < len(s) < 125
+            yl = marshal.loads(s)
+            assert yl == (xl, xl)
 
 
 class AppTestMarshalSmallLong(AppTestMarshalMore):
@@ -67,6 +76,7 @@ def test_long_more(space):
         # NOTE: marshal is platform independent, running this test must assume
         # that self.seen gets values from the endianess of the marshal module.
         # (which is little endian!)
+        version = 2
         def __init__(self):
             self.seen = []
         def start(self, code):
@@ -83,7 +93,7 @@ def test_long_more(space):
         interp_marshal.marshal(space, w_obj, m)
         assert ''.join(m.seen) == expected
         #
-        u = interp_marshal.StringUnmarshaller(space, space.wrap(expected))
+        u = interp_marshal.StringUnmarshaller(space, space.newbytes(expected))
         w_long = u.load_w_obj()
         assert space.eq_w(w_long, w_obj)
 
@@ -91,3 +101,15 @@ def test_long_more(space):
         for i in range(100):
             _marshal_check(sign * ((1L << i) - 1L))
             _marshal_check(sign * (1L << i))
+
+def test_int_roundtrip(space):
+    a = 0xffffffff
+    w_a = space.newint(a)
+    m = interp_marshal.StringMarshaller(space, 4)
+    interp_marshal.marshal(space, w_a, m)
+    s = m.get_value()
+    u = interp_marshal.StringUnmarshaller(space, space.newbytes(s))
+    w_res = u.load_w_obj()
+
+    assert type(w_res) is W_IntObject
+    assert w_res.intval == w_a.intval == a

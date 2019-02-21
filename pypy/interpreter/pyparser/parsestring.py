@@ -1,12 +1,24 @@
+# coding: utf-8
+from rpython.rlib import rutf8
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import unicodehelper
 from rpython.rlib.rstring import StringBuilder
 
 
-def parsestr(space, encoding, s, unicode_literal=False):
-    """Parses a string or unicode literal, and return a wrapped value.
+class W_FString(W_Root):
+    def __init__(self, unparsed, raw_mode):
+        assert isinstance(unparsed, str)    # utf-8 encoded string
+        self.unparsed = unparsed     # but the quotes are removed
+        self.raw_mode = raw_mode
+        self.current_index = 0       # for astcompiler.fstring
 
-    If encoding=iso8859-1, the source string is also in this encoding.
+
+def parsestr(space, encoding, s):
+    """Parses a string or unicode literal, and return usually
+    a wrapped value.  If we get an f-string, then instead return
+    an unparsed but unquoted W_FString instance.
+
     If encoding=None, the source string is ascii only.
     In other cases, the source string is in utf-8 encoding.
 
@@ -21,6 +33,9 @@ def parsestr(space, encoding, s, unicode_literal=False):
     ps = 0
     quote = s[ps]
     rawmode = False
+    unicode_literal = True
+    saw_u = False
+    saw_f = False
 
     # string decoration handling
     if quote == 'b' or quote == 'B':
@@ -30,11 +45,30 @@ def parsestr(space, encoding, s, unicode_literal=False):
     elif quote == 'u' or quote == 'U':
         ps += 1
         quote = s[ps]
-        unicode_literal = True
-    if quote == 'r' or quote == 'R':
+        saw_u = True
+    elif quote == 'r' or quote == 'R':
         ps += 1
         quote = s[ps]
         rawmode = True
+    elif quote == 'f' or quote == 'F':
+        ps += 1
+        quote = s[ps]
+        saw_f = True
+
+    if not saw_u:
+        if quote == 'r' or quote == 'R':
+            ps += 1
+            quote = s[ps]
+            rawmode = True
+        elif quote == 'b' or quote == 'B':
+            ps += 1
+            quote = s[ps]
+            unicode_literal = False
+        elif quote == 'f' or quote == 'F':
+            ps += 1
+            quote = s[ps]
+            saw_f = True
+
     if quote != "'" and quote != '"':
         raise_app_valueerror(space,
                              'Internal error: parser passed unquoted literal')
@@ -51,36 +85,39 @@ def parsestr(space, encoding, s, unicode_literal=False):
                                         'unmatched triple quotes in literal')
         q -= 2
 
-    if unicode_literal: # XXX Py_UnicodeFlag is ignored for now
-        if encoding is None or encoding == "iso-8859-1":
-            # 'unicode_escape' expects latin-1 bytes, string is ready.
-            assert 0 <= ps <= q
+    if unicode_literal and not rawmode: # XXX Py_UnicodeFlag is ignored for now
+        assert 0 <= ps <= q
+        if saw_f:
+            return W_FString(s[ps:q], rawmode)
+        if encoding is None:
             substr = s[ps:q]
         else:
+            unicodehelper.check_utf8_or_raise(space, s, ps, q)
             substr = decode_unicode_utf8(space, s, ps, q)
-        if rawmode:
-            v = unicodehelper.decode_raw_unicode_escape(space, substr)
-        else:
-            v = unicodehelper.decode_unicode_escape(space, substr)
-        return space.newunicode(v)
+        r = unicodehelper.decode_unicode_escape(space, substr)
+        v, length, pos = r
+        return space.newutf8(v, length)
 
-    need_encoding = (encoding is not None and
-                     encoding != "utf-8" and encoding != "utf8" and
-                     encoding != "iso-8859-1")
     assert 0 <= ps <= q
     substr = s[ps : q]
-    if rawmode or '\\' not in s[ps:]:
-        if need_encoding:
-            w_u = space.newunicode(unicodehelper.decode_utf8(space, substr))
-            w_v = unicodehelper.encode(space, w_u, encoding)
-            return w_v
-        else:
-            return space.newbytes(substr)
 
-    enc = None
-    if need_encoding:
-        enc = encoding
-    v = PyString_DecodeEscape(space, substr, 'strict', enc)
+    if not unicode_literal:
+        # Disallow non-ascii characters (but not escapes)
+        for c in substr:
+            if ord(c) > 0x80:
+                raise oefmt(space.w_SyntaxError,
+                            "bytes can only contain ASCII literal characters.")
+
+    if rawmode or '\\' not in substr:
+        if not unicode_literal:
+            return space.newbytes(substr)
+        elif saw_f:
+            return W_FString(substr, rawmode)
+        else:
+            v = unicodehelper.str_decode_utf8(substr, 'strict', True, None)
+            return space.newtext(*v)
+
+    v = PyString_DecodeEscape(space, substr, 'strict', encoding)
     return space.newbytes(v)
 
 def decode_unicode_utf8(space, s, ps, q):
@@ -101,15 +138,12 @@ def decode_unicode_utf8(space, s, ps, q):
                 # the backslash we just wrote, we emit "\u005c"
                 # instead.
                 lis.append("u005c")
-        if ord(s[ps]) & 0x80: # XXX inefficient
-            w, ps = decode_utf8(space, s, ps, end)
-            for c in w:
-                # The equivalent of %08x, which is not supported by RPython.
-                # 7 zeroes are enough for the unicode range, and the
-                # result still fits in 32-bit.
-                hexa = hex(ord(c) + 0x10000000)
-                lis.append('\\U0')
-                lis.append(hexa[3:])  # Skip 0x and the leading 1
+        if ord(s[ps]) & 0x80:
+            cp = rutf8.codepoint_at_pos(s, ps)
+            hexa = hex(cp + 0x10000000)
+            lis.append('\\U0')
+            lis.append(hexa[3:])  # Skip 0x and the leading 1
+            ps = rutf8.next_codepoint_pos(s, ps)
         else:
             lis.append(s[ps])
             ps += 1
@@ -185,7 +219,8 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
                 ps += 2
             else:
                 if errors == 'strict':
-                    raise_app_valueerror(space, 'invalid \\x escape')
+                    raise_app_valueerror(
+                        space, "invalid \\x escape at position %d" % (ps - 2))
                 elif errors == 'replace':
                     builder.append('?')
                 elif errors == 'ignore':
@@ -215,20 +250,29 @@ def isxdigit(ch):
             ch >= 'A' and ch <= 'F')
 
 
-def decode_utf8(space, s, ps, end):
+def check_utf8(space, s, ps, end):
     assert ps >= 0
     pt = ps
     # while (s < end && *s != '\\') s++; */ /* inefficient for u".."
     while ps < end and ord(s[ps]) & 0x80:
         ps += 1
-    u = unicodehelper.decode_utf8(space, s[pt:ps])
-    return u, ps
+    try:
+        rutf8.check_utf8(s, True, pt, ps)
+    except rutf8.CheckError as e:
+        lgt, flag = rutf8.check_utf8(s, True, pt, e.pos)
+        unicodehelper.decode_error_handler(space)('strict', 'utf8',
+            'invalid utf-8', s, pt + lgt, pt + lgt + 1)
+    return s[pt:ps]
 
 def decode_utf8_recode(space, s, ps, end, recode_encoding):
-    u, ps = decode_utf8(space, s, ps, end)
-    w_v = unicodehelper.encode(space, space.newunicode(u), recode_encoding)
+    p = ps
+    while p < end and ord(s[p]) & 0x80:
+        p += 1
+    lgt = unicodehelper.check_utf8_or_raise(space, s, ps, p)
+    w_v = unicodehelper.encode(space, space.newutf8(s[ps:p], lgt),
+                               recode_encoding)
     v = space.bytes_w(w_v)
-    return v, ps
+    return v, p
 
 def raise_app_valueerror(space, msg):
     raise OperationError(space.w_ValueError, space.newtext(msg))

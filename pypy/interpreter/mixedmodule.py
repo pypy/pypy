@@ -1,4 +1,4 @@
-from pypy.interpreter.module import Module
+from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
@@ -12,7 +12,7 @@ class MixedModule(Module):
     applevel_name = None
 
     # The following attribute is None as long as the module has not been
-    # imported yet, and when it has been, it is mod.__dict__.items() just
+    # imported yet, and when it has been, it is mod.__dict__.copy() just
     # after startup().
     w_initialdict = None
     lazy = False
@@ -21,7 +21,9 @@ class MixedModule(Module):
     @not_rpython
     def __init__(self, space, w_name):
         Module.__init__(self, space, w_name)
+        init_extra_module_attrs(space, self)
         self.lazy = True
+        self.lazy_initial_values_w = {}
         self.__class__.buildloaders()
         self.loaders = self.loaders.copy()    # copy from the class to the inst
         self.submodules_w = []
@@ -33,7 +35,7 @@ class MixedModule(Module):
         Module.install(self)
         if hasattr(self, "submodules"):
             space = self.space
-            name = space.unwrap(self.w_name)
+            name = space.text_w(self.w_name)
             for sub_name, module_cls in self.submodules.iteritems():
                 if module_cls.submodule_name is None:
                     module_cls.submodule_name = sub_name
@@ -62,7 +64,10 @@ class MixedModule(Module):
                 self.save_module_content_for_future_reload()
 
     def save_module_content_for_future_reload(self):
-        self.w_initialdict = self.space.call_method(self.w_dict, 'items')
+        # Save the current dictionary in w_initialdict, for future
+        # reloads.  This forces the dictionary if needed.
+        w_dict = self.getdict(self.space)
+        self.w_initialdict = self.space.call_method(w_dict, 'copy')
 
     @classmethod
     @not_rpython
@@ -90,6 +95,17 @@ class MixedModule(Module):
             return self._load_lazily(space, name)
         return w_value
 
+    def setdictvalue(self, space, attr, w_value):
+        if self.lazy and attr not in self.lazy_initial_values_w:
+            # in lazy mode, the first time an attribute changes,
+            # we save away the old (initial) value.  This allows
+            # a future getdict() call to build the correct
+            # self.w_initialdict, containing the initial value.
+            w_initial_value = self._load_lazily(space, attr)
+            self.lazy_initial_values_w[attr] = w_initial_value
+        space.setitem_str(self.w_dict, attr, w_value)
+        return True
+
     def _load_lazily(self, space, name):
         w_name = space.new_interned_str(name)
         try:
@@ -114,18 +130,35 @@ class MixedModule(Module):
                     bltin.w_module = self.w_name
                     func._builtinversion_ = bltin
                     bltin.name = name
+                    bltin.qualname = bltin.name
                 w_value = bltin
             space.setitem(self.w_dict, w_name, w_value)
             return w_value
 
     def getdict(self, space):
         if self.lazy:
-            for name in self.loaders:
-                w_value = self.get(name)
-                space.setitem(self.w_dict, space.new_interned_str(name), w_value)
-            self.lazy = False
-            self.save_module_content_for_future_reload()
+            self._force_lazy_dict_now()
         return self.w_dict
+
+    def _force_lazy_dict_now(self):
+        # Force the dictionary by calling all lazy loaders now.
+        # This also saves in self.w_initialdict a copy of all the
+        # initial values, including if they have already been
+        # modified by setdictvalue().
+        space = self.space
+        for name in self.loaders:
+            w_value = self.get(name)
+            space.setitem(self.w_dict, space.new_interned_str(name), w_value)
+        self.lazy = False
+        self.save_module_content_for_future_reload()
+        for key, w_initial_value in self.lazy_initial_values_w.items():
+            w_key = space.new_interned_str(key)
+            if w_initial_value is not None:
+                space.setitem(self.w_initialdict, w_key, w_initial_value)
+            else:
+                if space.finditem(self.w_initialdict, w_key) is not None:
+                    space.delitem(self.w_initialdict, w_key)
+        del self.lazy_initial_values_w
 
     def _cleanup_(self):
         self.getdict(self.space)
@@ -168,7 +201,7 @@ class MixedModule(Module):
 @not_rpython
 def getinterpevalloader(pkgroot, spec):
     def ifileloader(space):
-        d = {'space':space}
+        d = {'space': space}
         # EVIL HACK (but it works, and this is not RPython :-)
         while 1:
             try:
@@ -221,7 +254,7 @@ def getappfileloader(pkgroot, appname, spec):
         assert typ == imp.PY_SOURCE
         source = file.read()
         file.close()
-        if fn.endswith('.pyc') or fn.endswith('.pyo'):
+        if fn.endswith('.pyc'):
             fn = fn[:-1]
         app = gateway.applevel(source, filename=fn, modname=appname)
         applevelcache[impbase] = app

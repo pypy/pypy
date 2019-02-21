@@ -105,25 +105,6 @@ the representation of the instance dict contains only a list of values.
 
 
 
-List Optimizations
-~~~~~~~~~~~~~~~~~~
-
-Range-Lists
-+++++++++++
-
-Range-lists solve the same problem that the ``xrange`` builtin solves poorly:
-the problem that ``range`` allocates memory even if the resulting list is only
-ever used for iterating over it. Range lists are a different implementation for
-lists. They are created only as a result of a call to ``range``. As long as the
-resulting list is used without being mutated, the list stores only the start, stop
-and step of the range. Only when somebody mutates the list the actual list is
-created. This gives the memory and speed behaviour of ``xrange`` and the generality
-of use of ``range``, and makes ``xrange`` essentially useless.
-
-This feature is enabled by default as part of the
-:config:`objspace.std.withliststrategies` option.
-
-
 User Class Optimizations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

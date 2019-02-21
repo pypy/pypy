@@ -15,54 +15,59 @@ all_modules = [p.basename for p in modulepath.listdir()
                and not p.basename.startswith('test')]
 
 essential_modules = set([
-    "exceptions", "_file", "sys", "__builtin__", "posix", "_warnings",
-    "itertools"
+    "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
+    "itertools", "_frozen_importlib", "operator", "_locale", "struct",
 ])
+if sys.platform == "win32":
+    essential_modules.add("_winreg")
 
 default_modules = essential_modules.copy()
 default_modules.update([
-    "_codecs", "gc", "_weakref", "marshal", "errno", "imp", "math", "cmath",
-    "_sre", "_pickle_support", "operator", "parser", "symbol", "token", "_ast",
-    "_io", "_random", "__pypy__", "_testing", "time"
+    "_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "imp",
+    "itertools", "math", "cmath", "_sre", "_pickle_support",
+    "parser", "symbol", "token", "_ast", "_random", "__pypy__",
+    "_string", "_testing", "time"
 ])
 
 
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update([
-    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
+    "_socket", "unicodedata", "mmap", "fcntl", "pwd",
     "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
-    "zlib", "bz2", "struct", "_hashlib", "_md5", "_sha", "_minimal_curses",
-    "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+    "zlib", "bz2", "_md5", "_minimal_curses",
+    "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
-    "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
-    "_csv", "_cppyy", "_pypyjson", "_jitlog"
+    "_multibytecodec", "_continuation", "_cffi_backend",
+    "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
+    "_jitlog",
 ])
 
-from rpython.jit.backend import detect_cpu
-try:
-    if detect_cpu.autodetect().startswith('x86'):
-        if not sys.platform.startswith('openbsd'):
-            working_modules.add('_vmprof')
-            working_modules.add('faulthandler')
-except detect_cpu.ProcessorAutodetectError:
-    pass
+import rpython.rlib.rvmprof.cintf
+if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
+    working_modules.add('_vmprof')
+    working_modules.add('faulthandler')
 
 translation_modules = default_modules.copy()
 translation_modules.update([
-    "fcntl", "time", "select", "signal", "_rawffi", "zlib", "struct", "_md5",
-    "cStringIO", "array", "binascii",
+    "fcntl", "time", "select", "signal", "_rawffi", "zlib", "struct",
+    "array", "binascii",
     # the following are needed for pyrepl (and hence for the
     # interactive prompt/pdb)
     "termios", "_minimal_curses",
 ])
 
+reverse_debugger_disable_modules = set([
+    "_continuation", "_vmprof", "_multiprocessing",
+    "micronumpy",
+    ])
+
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
-    working_modules.add("_winreg")
     # unix only modules
-    for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses"]:
+    for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses",
+                 "_posixsubprocess"]:
         working_modules.remove(name)
         if name in translation_modules:
             translation_modules.remove(name)
@@ -117,12 +122,11 @@ module_import_dependencies = {
     "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
-    "_ssl"      : ["pypy.module._ssl.interp_ssl"],
-    "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
     "_vmprof"      : ["pypy.module._vmprof.interp_vmprof"],
     "faulthandler" : ["pypy.module._vmprof.interp_vmprof"],
+    "_lzma"     : ["pypy.module._lzma.interp_lzma"],
     }
 
 def get_module_validator(modname):
@@ -177,9 +181,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("lonepycfiles", "Import pyc files with no matching py file",
-               default=False),
-
     StrOption("soabi",
               "Tag to differentiate extension modules built for different Python interpreters",
               cmdline="--soabi",
@@ -199,11 +200,20 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                default=False,
                requires=[("objspace.usemodules.cpyext", False)]),
 
+    BoolOption("disable_entrypoints_in_cffi",
+               "Disable only cffi's embedding mode.",
+               default=False),
+
+    BoolOption("fstrings",
+               "if you are really convinced that f-strings are a security "
+               "issue, you can disable them here",
+               default=True),
+
     ChoiceOption("hash",
                  "The hash function to use for strings: fnv from CPython 2.7"
                  " or siphash24 from CPython >= 3.4",
                  ["fnv", "siphash24"],
-                 default="fnv",
+                 default="siphash24",
                  cmdline="--hash"),
 
     OptionDescription("std", "Standard Object Space Options", [
@@ -292,6 +302,9 @@ def enable_allworkingmodules(config):
     modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
+    if config.translation.reverse_debugger:
+        for mod in reverse_debugger_disable_modules:
+            setattr(config.objspace.usemodules, mod, False)
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
@@ -310,3 +323,4 @@ if __name__ == '__main__':
     parser = to_optparse(config) #, useoptions=["translation.*"])
     option, args = parser.parse_args()
     print config
+    print working_modules

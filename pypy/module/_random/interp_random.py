@@ -30,8 +30,6 @@ class W_Random(W_Root):
         else:
             if space.isinstance_w(w_n, space.w_int):
                 w_n = space.abs(w_n)
-            elif space.isinstance_w(w_n, space.w_long):
-                w_n = space.abs(w_n)
             else:
                 n = space.hash_w(w_n)
                 w_n = space.newint(r_uint(n))
@@ -78,14 +76,6 @@ class W_Random(W_Root):
             raise oefmt(space.w_ValueError, "invalid state")
         self._rnd.index = index
 
-    def jumpahead(self, space, w_n):
-        if space.isinstance_w(w_n, space.w_long):
-            num = space.bigint_w(w_n)
-            n = intmask(num.uintmask())
-        else:
-            n = space.int_w(w_n)
-        self._rnd.jumpahead(n)
-
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
         if k <= 0:
@@ -115,6 +105,5 @@ W_Random.typedef = TypeDef("Random",
     seed = interp2app(W_Random.seed),
     getstate = interp2app(W_Random.getstate),
     setstate = interp2app(W_Random.setstate),
-    jumpahead = interp2app(W_Random.jumpahead),
     getrandbits = interp2app(W_Random.getrandbits),
 )

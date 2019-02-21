@@ -26,7 +26,7 @@ class TestCurses(object):
 
     def spawn(self, argv):
         py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
-        return self._spawn(sys.executable, [str(py_py)] + argv)
+        return self._spawn(sys.executable, [str(py_py), '-S'] + argv)
 
     def setup_class(self):
         try:
@@ -40,7 +40,7 @@ class TestCurses(object):
         try:
             _minimal_curses.tigetstr('cup')
         except _minimal_curses.error:
-            print 'ok!'
+            print('ok!')
         """)
         f = udir.join("test_setupterm.py")
         f.write(source)
@@ -51,8 +51,8 @@ class TestCurses(object):
         source = py.code.Source("""
         import _minimal_curses
         _minimal_curses.setupterm()
-        assert _minimal_curses.tigetstr('cup') == '\x1b[%i%p1%d;%p2%dH'
-        print 'ok!'
+        assert _minimal_curses.tigetstr('cup') == b'\x1b[%i%p1%d;%p2%dH'
+        print('ok!')
         """)
         f = udir.join("test_tigetstr.py")
         f.write(source)
@@ -63,8 +63,8 @@ class TestCurses(object):
         source = py.code.Source("""
         import _minimal_curses
         _minimal_curses.setupterm()
-        assert _minimal_curses.tparm(_minimal_curses.tigetstr('cup'), 5, 3) == '\033[6;4H'
-        print 'ok!'
+        assert _minimal_curses.tparm(_minimal_curses.tigetstr('cup'), 5, 3) == b'\033[6;4H'
+        print('ok!')
         """)
         f = udir.join("test_tparm.py")
         f.write(source)

@@ -1,4 +1,7 @@
+# -*- encoding: utf-8 -*-
 import sys
+
+import py
 
 from pypy.objspace.std.floatobject import W_FloatObject
 
@@ -24,10 +27,8 @@ class TestW_FloatObject:
         assert v.floatval == x ** y
         f1 = W_FloatObject(-1.23)
         f2 = W_FloatObject(-4.56)
-        self.space.raises_w(self.space.w_ValueError,
-                            f1.descr_pow,
-                            self.space, f2,
-                            self.space.w_None)
+        v = f1.descr_pow(self.space, f2, self.space.w_None)
+        assert self.space.isinstance_w(v, self.space.w_complex)
         x = -10
         y = 2.0
         f1 = W_FloatObject(x)
@@ -95,28 +96,35 @@ class AppTestAppFloatTest:
         assert 42.0 == float(42)
 
     def test_float_hash(self):
-        # these are taken from standard Python, which produces
-        # the same but for -1.
         import math
+        import sys
+
+        assert hash(-1.0) == -2
+        assert hash(-2.0) == -2
+        assert hash(-3.0) == -3
         assert hash(42.0) == 42
-        assert hash(42.125) == 1413677056
-        assert hash(math.ldexp(0.125, 1000)) in (
-            32,              # answer on 32-bit machines
-            137438953472)    # answer on 64-bit machines
-        # testing special overflow values
-        inf = 1e200 * 1e200
+        if sys.maxsize > 2 ** 31 - 1:
+            assert hash(42.125) == 288230376151711786
+            assert hash(math.ldexp(0.125, 1000)) == 2097152
+            assert hash(3.141593) == 326491229203594243
+            assert hash(2.5) == 1152921504606846978
+        else:
+            assert hash(42.125) == 268435498
+            assert hash(math.ldexp(0.125, 1000)) == 32
+            assert hash(3.141593) == 671854639
+            assert hash(2.5) == 1073741826
+        inf = float('inf')
+        nan = float('nan')
         assert hash(inf) == 314159
-        assert hash(-inf) == -271828
-        assert hash(inf/inf) == 0
+        assert hash(-inf) == -314159
+        assert hash(nan) == 0
 
     def test_int_float(self):
         assert int(42.1234) == 42
-        assert int(4e10) == 40000000000L
+        assert int(4e10) == 40000000000
 
         raises(OverflowError, int, float('inf'))
-        raises(OverflowError, long, float('inf'))
         raises(ValueError, int, float('nan'))
-        raises(ValueError, long, float('nan'))
 
     def test_float_string(self):
         assert 42 == float("42")
@@ -138,22 +146,22 @@ class AppTestAppFloatTest:
         assert repr(float("+nan")) == "nan"
         assert repr(float("-nAn")) == "nan"
 
-        assert float(buffer("inf")) == inf
-        assert float(bytearray("inf")) == inf
-        exc = raises(TypeError, float, memoryview("inf"))
-        assert str(exc.value) == "float() argument must be a string or a number"
+        assert float(memoryview(b"inf")) == inf
+        assert float(bytearray(b"inf")) == inf
+
+        raises(UnicodeEncodeError, float, u"\ud800")
 
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
-        assert 42.75 == float(unichr(0x00A0)+unicode("42.75")+unichr(0x2000))
-        class FloatUnicode(unicode):
+        assert 42.75 == float(chr(0x00A0)+str("42.75")+chr(0x2000))
+        class FloatStr(str):
             def __float__(self):
-                return float(unicode(self)) + 1
-        assert float(FloatUnicode("8")) == 9.0
+                return float(str(self)) + 1
+        assert float(FloatStr("8")) == 9.0
 
     def test_float_long(self):
-        assert 42.0 == float(42L)
-        assert 10000000000.0 == float(10000000000L)
+        assert 42.0 == float(42)
+        assert 10000000000.0 == float(10000000000)
         raises(OverflowError, float, 10**400)
 
     def test_as_integer_ratio(self):
@@ -193,6 +201,7 @@ class AppTestAppFloatTest:
         assert round(123.456, -700) == 0.0
         assert round(123.456, -2**100) == 0.0
         assert math.copysign(1., round(-123.456, -700)) == -1.
+        assert round(2.5, 0) == 2.0
 
     def test_special_float_method(self):
         class a(object):
@@ -222,7 +231,7 @@ class AppTestAppFloatTest:
         assert espeq(pw(4.0, 0.5), 2.0)
         assert pw(4.0, 0) == 1.0
         assert pw(-4.0, 0) == 1.0
-        raises(ValueError, pw, -1.0, 0.5)
+        assert type(pw(-1.0, 0.5)) == complex
         assert pw(-1.0, 2.0) == 1.0
         assert pw(-1.0, 3.0) == -1.0
         assert pw(-1.0, 1e200) == 1.0
@@ -246,6 +255,11 @@ class AppTestAppFloatTest:
             assert str(pw(float('-inf'), 1.0)) == '-inf'
             assert str(pw(float('-inf'), 2.0)) == 'inf'
 
+    def test_builtin_pow(self):
+        result = pow(-1, 0.5)
+        def assertAlmostEqual(x, y): assert round(abs(y - x), 7) == 0
+        assertAlmostEqual(result, 1j)
+
     def test_pow_neg_base(self):
         import math
         def pw(x, y):
@@ -265,19 +279,19 @@ class AppTestAppFloatTest:
         assert 4.3 > 2.3
         assert 0.01 >= -0.01
         # float+long
-        verylonglong = 10L**400
+        verylonglong = 10**400
         infinite = 1e200*1e200
-        assert 12.0 == 12L
-        assert 1e300 == long(1e300)
-        assert 12.1 != 12L
-        assert infinite != 123456789L
-        assert 12.9 < 13L
-        assert -infinite < -13L
-        assert 12.9 <= 13L
-        assert 13.0 <= 13L
-        assert 13.01 > 13L
-        assert 13.0 >= 13L
-        assert 13.01 >= 13L
+        assert 12.0 == 12
+        assert 1e300 == (1e300)
+        assert 12.1 != 12
+        assert infinite != 123456789
+        assert 12.9 < 13
+        assert -infinite < -13
+        assert 12.9 <= 13
+        assert 13.0 <= 13
+        assert 13.01 > 13
+        assert 13.0 >= 13
+        assert 13.01 >= 13
         assert 12.0 == 12
         assert 12.1 != 12
         assert infinite != 123456789
@@ -293,17 +307,17 @@ class AppTestAppFloatTest:
         assert 1234.56 < verylonglong
         assert 1234.56 <= verylonglong
         # long+float
-        assert 12L == 12.0
-        assert long(1e300) == 1e300
-        assert 12L != 12.1
-        assert 123456789L != infinite
-        assert 13L > 12.9
-        assert -13L > -infinite
-        assert 13L >= 12.9
-        assert 13L >= 13.0
-        assert 13L < 13.01
-        assert 13L <= 13.0
-        assert 13L <= 13.01
+        assert 12 == 12.0
+        assert int(1e300) == 1e300
+        assert 12 != 12.1
+        assert 123456789 != infinite
+        assert 13 > 12.9
+        assert -13 > -infinite
+        assert 13 >= 12.9
+        assert 13 >= 13.0
+        assert 13 < 13.01
+        assert 13 <= 13.0
+        assert 13 <= 13.01
         assert verylonglong < infinite
         assert verylonglong <= infinite
         assert verylonglong > 1234.56
@@ -432,15 +446,16 @@ class AppTestAppFloatTest:
         assert 5 .__eq__(3.14) is NotImplemented
         assert 3.14 .__eq__(5) is False
 
-        assert 5L .__eq__(3.14) is NotImplemented
-        assert 3.14 .__eq__(5L) is False
-
     def test_from_string(self):
         raises(ValueError, float, "\0")
+        raises(ValueError, float, '\uD8F0')
 
     def test_format(self):
         f = 1.1234e200
         assert f.__format__("G") == "1.1234E+200"
+        assert 123.456.__format__('.4') == '123.5'
+        assert 1234.56.__format__('.4') == '1.235e+03'
+        assert 12345.6.__format__('.4') == '1.235e+04'
 
     def test_float_real(self):
         class A(float): pass
@@ -451,14 +466,58 @@ class AppTestAppFloatTest:
         try:
             float('abcdef')
         except ValueError as e:
-            assert 'abcdef' in e.message
+            assert 'abcdef' in str(e)
         else:
             assert False, 'did not raise'
+
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
+    def test_float_from_unicode(self):
+        s = '\U0001D7CF\U0001D7CE.4' # 𝟏𝟎.4
+        assert float(s) == 10.4
 
     def test_hash_minus_one(self):
         assert hash(-1.0) == -2
         assert (-1.0).__hash__() == -2
 
+    def test_float_from_dict(self):
+        try:
+            float({})
+        except TypeError as e:
+            assert "not 'dict'" in str(e)
+        else:
+            assert False, 'did not raise'
+
+    def test_non_numeric_input_types(self):
+        # Test possible non-numeric types for the argument x, including
+        # subclasses of the explicitly documented accepted types.
+        class CustomStr(str): pass
+        class CustomBytes(bytes): pass
+        class CustomByteArray(bytearray): pass
+
+        factories = [
+            bytes,
+            bytearray,
+            lambda b: CustomStr(b.decode()),
+            CustomBytes,
+            CustomByteArray,
+            memoryview,
+        ]
+        try:
+            from array import array
+        except ImportError:
+            pass
+        else:
+            factories.append(lambda b: array('B', b))
+
+        for f in factories:
+            x = f(b" 3.14  ")
+            assert float(x) == 3.14
+            try:
+                float(f(b'A' * 0x10))
+            except ValueError as e:
+                assert "could not convert" in str(e)
+            else:
+                assert False, 'did not raise'
 
 class AppTestFloatHex:
     spaceconfig = {
@@ -527,7 +586,7 @@ class AppTestFloatHex:
         self.identical(fromHex('+0x1p0'), 1.0)
         self.identical(fromHex('0x01p0'), 1.0)
         self.identical(fromHex('0x1p00'), 1.0)
-        self.identical(fromHex(u'0x1p0'), 1.0)
+        self.identical(fromHex('0x1p0'), 1.0)
         self.identical(fromHex(' 0x1p0 '), 1.0)
         self.identical(fromHex('\n 0x1p0'), 1.0)
         self.identical(fromHex('0x1p0 \t'), 1.0)
@@ -782,7 +841,7 @@ class AppTestFloatHex:
 
         # fromHex(toHex(x)) should exactly recover x, for any non-NaN float x.
         import random
-        for i in xrange(500):
+        for i in range(500):
             e = random.randrange(-1200, 1200)
             m = random.random()
             s = random.choice([1.0, -1.0])
@@ -851,5 +910,8 @@ class AppTestFloatHex:
         assert f == 2.0 ** 63
         assert i != f
         assert f != i
-        assert long(i) != f
-        assert f != long(i)
+        assert int(i) != f
+        assert f != int(i)
+
+    def test_repr_str_eq(self):
+        assert repr(19 * 0.1) == str(19 * 0.1)

@@ -73,27 +73,6 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         #
         raises(TypeError, mod.getarg_VARARGS, k=1)
 
-    def test_call_METH_OLDARGS(self):
-        mod = self.import_extension('MyModule', [
-            ('getarg_OLD', 'METH_OLDARGS',
-             '''
-             if(args) {
-                 return Py_BuildValue("Ol", args, args->ob_refcnt);
-             }
-             else {
-                 Py_INCREF(Py_None);
-                 return Py_None;
-             }
-             '''
-             ),
-            ])
-        assert mod.getarg_OLD() is None
-        val, refcnt = mod.getarg_OLD(1)
-        assert val == 1
-        val, refcnt = mod.getarg_OLD(1, 2)
-        assert val == (1, 2)
-        assert refcnt == 1 # see the comments in the test above
-
     def test_call_METH_KEYWORDS(self):
         mod = self.import_extension('MyModule', [
             ('getarg_KW', 'METH_VARARGS | METH_KEYWORDS',
@@ -109,13 +88,14 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_KW(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})
         assert mod.getarg_KW.__name__ == "getarg_KW"
 
+
     def test_func_attributes(self):
         mod = self.import_extension('MyModule', [
             ('isCFunction', 'METH_O',
              '''
              if(PyCFunction_Check(args)) {
                  PyCFunctionObject* func = (PyCFunctionObject*)args;
-                 return PyString_FromString(func->m_ml->ml_name);
+                 return PyUnicode_FromString(func->m_ml->ml_name);
              }
              else {
                  Py_RETURN_FALSE;
@@ -163,8 +143,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         A.f = mod.f
         A.g = lambda: 42
         # Unbound method
-        assert A.f() == 42
-        raises(TypeError, A.g)
+        assert A.f() == A.g() == 42
         # Bound method
         assert A().f() == 42
         raises(TypeError, A().g)
@@ -192,3 +171,37 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.check(A) == 0
         assert mod.check(A.meth) == 0
         assert mod.check(A.stat) == 0
+
+    def test_module_attribute(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_NO', 'METH_NOARGS',
+             '''
+                 Py_INCREF(Py_None);
+                 return Py_None;
+             '''
+             ),
+            ])
+        assert mod.getarg_NO() is None
+        assert mod.getarg_NO.__module__ == 'MyModule'
+        mod.getarg_NO.__module__ = 'foobar'
+        assert mod.getarg_NO.__module__ == 'foobar'
+
+    def test_text_signature(self):
+        mod = self.import_module('docstrings')
+        assert mod.no_doc.__doc__ is None
+        assert mod.no_doc.__text_signature__ is None
+        assert mod.empty_doc.__doc__ is None
+        assert mod.empty_doc.__text_signature__ is None
+        assert mod.no_sig.__doc__
+        assert mod.no_sig.__text_signature__ is None
+        assert mod.invalid_sig.__doc__
+        assert mod.invalid_sig.__text_signature__ is None
+        assert mod.invalid_sig2.__doc__
+        assert mod.invalid_sig2.__text_signature__ is None
+        assert mod.with_sig.__doc__
+        assert mod.with_sig.__text_signature__ == '($module, /, sig)'
+        assert mod.with_sig_but_no_doc.__doc__ is None
+        assert mod.with_sig_but_no_doc.__text_signature__ == '($module, /, sig)'
+        assert mod.with_signature_and_extra_newlines.__doc__
+        assert (mod.with_signature_and_extra_newlines.__text_signature__ ==
+                '($module, /, parameter)')

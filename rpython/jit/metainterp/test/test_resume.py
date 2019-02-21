@@ -40,7 +40,7 @@ class Storage:
 
 class FakeOptimizer(object):
     metainterp_sd = None
-    optheap = None
+    optheap = optrewrite = None
 
     def __init__(self, trace=None):
         self.trace = trace

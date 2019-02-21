@@ -7,6 +7,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'warn'         : 'interp_warnings.warn',
         'warn_explicit': 'interp_warnings.warn_explicit',
+        '_filters_mutated': 'interp_warnings.filters_mutated',
     }
 
     appleveldefs = {
@@ -16,6 +17,6 @@ class Module(MixedModule):
         from pypy.module._warnings.interp_warnings import State
         state = self.space.fromcache(State)
         self.setdictvalue(self.space, "filters", state.w_filters)
-        self.setdictvalue(self.space, "once_registry", state.w_once_registry)
-        self.setdictvalue(self.space, "default_action", state.w_default_action)
+        self.setdictvalue(self.space, "_onceregistry", state.w_once_registry)
+        self.setdictvalue(self.space, "_defaultaction", state.w_default_action)
 

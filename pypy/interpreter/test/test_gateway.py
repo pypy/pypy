@@ -14,10 +14,11 @@ class FakeFunc(object):
         self.space = space
         self.name = name
         self.defs_w = []
+        self.w_kw_defs = None
 
 
 class TestBuiltinCode:
-    def test_signature(self):
+    def test_signature(self, space):
         def c(space, w_x, w_y, hello_w):
             pass
         code = gateway.BuiltinCode(c, unwrap_spec=[gateway.ObjSpace,
@@ -46,6 +47,14 @@ class TestBuiltinCode:
             pass
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace, "index"])
         assert code.signature() == Signature(["index"], None, None)
+
+        def f(space, __kwonly__, w_x):
+            pass
+        code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace,
+                                                   "kwonly", W_Root])
+        assert code.signature() == Signature([], kwonlyargnames=['x'])
+        assert space.int_w(space.getattr(
+            code, space.newtext('co_kwonlyargcount'))) == 1
 
 
     def test_call(self):
@@ -195,7 +204,7 @@ class TestGateway:
         assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
         assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
 
-        doc = space.str_w(space.getattr(w_c, space.wrap('__doc__')))
+        doc = space.text_w(space.getattr(w_c, space.wrap('__doc__')))
         assert doc == "This is a method"
 
         meth_with_default = gateway.interpindirect2app(
@@ -492,6 +501,22 @@ class TestGateway:
                        w_app_g3_idx,
                        space.mul(space.wrap(sys.maxint), space.wrap(-7)))
 
+    def test_interp2app_unwrap_spec_fsencode(self):
+        import sys
+        space = self.space
+        w = space.wrap
+        def f(filename):
+            return space.newbytes(filename)
+        app_f = gateway.interp2app_temp(f, unwrap_spec=['fsencode'])
+        w_app_f = space.wrap(app_f)
+        if sys.platform == 'win32':
+            raises(gateway.OperationError, space.call_function, 
+                   w_app_f, w(u'\udc80'))
+        else:
+            assert space.eq_w(
+                space.call_function(w_app_f, w(u'\udc80')),
+                space.newbytes('\x80'))
+
     def test_interp2app_unwrap_spec_typechecks(self):
         from rpython.rlib.rarithmetic import r_longlong
 
@@ -505,19 +530,19 @@ class TestGateway:
         w_app_g3_i = space.wrap(app_g3_i)
         assert space.eq_w(space.call_function(w_app_g3_i,w(1)),w(1))
         assert space.eq_w(space.call_function(w_app_g3_i,w(1L)),w(1))
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w(sys.maxint*2))
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w(None))
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w("foo"))
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w(1.0))
+        space.raises_w(space.w_OverflowError, space.call_function,w_app_g3_i,w(sys.maxint*2))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_i,w(None))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_i,w("foo"))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_i,w(1.0))
 
         app_g3_s = gateway.interp2app_temp(g3_id,
                                          unwrap_spec=[gateway.ObjSpace,
                                                       'text'])
         w_app_g3_s = space.wrap(app_g3_s)
         assert space.eq_w(space.call_function(w_app_g3_s,w("foo")),w("foo"))
-        raises(gateway.OperationError,space.call_function,w_app_g3_s,w(None))
-        raises(gateway.OperationError,space.call_function,w_app_g3_s,w(1))
-        raises(gateway.OperationError,space.call_function,w_app_g3_s,w(1.0))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_s,w(None))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_s,w(1))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_s,w(1.0))
 
         app_g3_f = gateway.interp2app_temp(g3_id,
                                          unwrap_spec=[gateway.ObjSpace,
@@ -526,34 +551,41 @@ class TestGateway:
         assert space.eq_w(space.call_function(w_app_g3_f,w(1.0)),w(1.0))
         assert space.eq_w(space.call_function(w_app_g3_f,w(1)),w(1.0))
         assert space.eq_w(space.call_function(w_app_g3_f,w(1L)),w(1.0))
-        raises(gateway.OperationError,space.call_function,w_app_g3_f,w(None))
-        raises(gateway.OperationError,space.call_function,w_app_g3_f,w("foo"))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_f,w(None))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_f,w("foo"))
 
         app_g3_r = gateway.interp2app_temp(g3_id,
                                            unwrap_spec=[gateway.ObjSpace,
                                                         r_longlong])
         w_app_g3_r = space.wrap(app_g3_r)
-        raises(gateway.OperationError,space.call_function,w_app_g3_r,w(1.0))
+        space.raises_w(space.w_TypeError, space.call_function,w_app_g3_r,w(1.0))
 
-    def test_interp2app_unwrap_spec_unicode(self):
+    def test_interp2app_unwrap_spec_utf8(self):
         space = self.space
         w = space.wrap
-        def g3_u(space, uni):
-            return space.wrap(len(uni))
+        def g3_u(space, utf8):
+            return space.wrap(utf8)
         app_g3_u = gateway.interp2app_temp(g3_u,
                                          unwrap_spec=[gateway.ObjSpace,
-                                                      unicode])
+                                                      'utf8'])
         w_app_g3_u = space.wrap(app_g3_u)
+        encoded = u"gęść".encode('utf8')
         assert self.space.eq_w(
-            space.call_function(w_app_g3_u, w(u"foo")),
-            w(3))
+            space.call_function(w_app_g3_u, w(u"gęść")),
+            w(encoded))
         assert self.space.eq_w(
-            space.call_function(w_app_g3_u, w("baz")),
-            w(3))
-        raises(gateway.OperationError, space.call_function, w_app_g3_u,
+            space.call_function(w_app_g3_u, w("foo")),
+            w("foo"))
+        space.raises_w(space.w_TypeError, space.call_function, w_app_g3_u,
                w(None))
-        raises(gateway.OperationError, space.call_function, w_app_g3_u,
+        space.raises_w(space.w_TypeError, space.call_function, w_app_g3_u,
                w(42))
+        w_ascii = space.appexec([], """():
+            import sys
+            return sys.getdefaultencoding() == 'ascii'""")
+        if space.is_true(w_ascii):
+            raises(gateway.OperationError, space.call_function, w_app_g3_u,
+                   w("\x80"))
 
     def test_interp2app_unwrap_spec_unwrapper(self):
         space = self.space
@@ -569,7 +601,7 @@ class TestGateway:
                                                       Unwrapper])
         assert self.space.eq_w(
             space.call_function(w(app_g3_u), w(42)), w(43))
-        raises(gateway.OperationError, space.call_function,
+        space.raises_w(space.w_TypeError, space.call_function,
                w(app_g3_u), w(None))
 
     def test_interp2app_classmethod(self):
@@ -767,7 +799,7 @@ class TestGateway:
         @gateway.unwrap_spec(w_x = WrappedDefault(42), y=int)
         def g(space, w_x, y):
             never_called
-        py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
+        py.test.raises(KeyError, space.wrap, gateway.interp2app_temp(g))
 
     def test_unwrap_spec_default_applevel_bug2(self):
         space = self.space
@@ -829,9 +861,114 @@ class TestGateway:
             except SystemError as e:
                 return str(e)
         """)
-        err = space.str_w(w_msg)
+        err = space.text_w(w_msg)
         assert ('unexpected internal exception (please '
                 'report a bug): UnexpectedException') in err
+
+    def test_bare_raise_in_app_helper(self):
+        space = self.space
+        w = space.wrap
+        def app_g3(a):
+            try:
+                1 / a
+            except ZeroDivisionError:
+                raise
+        g3 = gateway.app2interp(app_g3)
+        space.raises_w(space.w_ZeroDivisionError, g3, space, w(0))
+
+    def test_unwrap_spec_default_bytes(self):
+        space = self.space
+        @gateway.unwrap_spec(s='bufferstr')
+        def g(space, s=''):
+            return space.wrap(type(s) is str)
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        args = argument.Arguments(space, [])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.w_True)
+
+    def test_unwrap_spec_default_applevel_bytes(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x=WrappedDefault('foo'))
+        def g(space, w_x):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        args = argument.Arguments(space, [])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.newbytes('foo'))
+
+    def test_unwrap_spec_kwonly(self):
+        space = self.space
+        def g(space, w_x, __kwonly__, w_y):
+            return space.sub(w_x, w_y)
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w = space.wrap
+        w1 = w(1)
+
+        for i in range(4):
+            a = argument.Arguments(space, [w1, w1, w1])
+            py.test.raises(gateway.OperationError, space.call_args, w_g, a)
+            py.test.raises(gateway.OperationError, space.call_function, w_g,
+                           *(i * (w1,)))
+
+        args = argument.Arguments(space, [w(1)],
+                                  w_starstararg = w({'y': 10}))
+        assert space.eq_w(space.call_args(w_g, args), w(-9))
+        args = argument.Arguments(space, [],
+                                  w_starstararg = w({'x': 2, 'y': 10}))
+        assert space.eq_w(space.call_args(w_g, args), w(-8))
+
+    def test_unwrap_spec_kwonly_default(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x2=WrappedDefault(50), y2=int)
+        def g(space, w_x1, w_x2, __kwonly__, w_y1, y2=200):
+            return space.sub(space.sub(w_x1, w_x2),
+                             space.sub(w_y1, w(y2)))
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w = space.wrap
+        w1 = w(1)
+
+        for i in range(6):
+            py.test.raises(gateway.OperationError, space.call_function, w_g,
+                           *(i * (w1,)))
+
+        def expected(x1, x2=50, y1="missing", y2=200):
+            return (x1 - x2) - (y1 - y2)
+
+        def check(*args, **kwds):
+            a = argument.Arguments(space, [], w_stararg = w(args),
+                                          w_starstararg = w(kwds))
+            w_res = space.call_args(w_g, a)
+            assert space.eq_w(w_res, w(expected(*args, **kwds)))
+
+            del kwds['y1']
+            a = argument.Arguments(space, [], w_stararg = w(args),
+                                          w_starstararg = w(kwds))
+            py.test.raises(gateway.OperationError, space.call_args, w_g, a)
+
+            args += (1234,)
+            a = argument.Arguments(space, [], w_stararg = w(args),
+                                          w_starstararg = w(kwds))
+            py.test.raises(gateway.OperationError, space.call_args, w_g, a)
+
+        check(5,       y1=1234)
+        check(5, 1,    y1=1234)
+        check(5, x2=1, y1=1234)
+        check(5,       y1=1234, y2=343)
+        check(5, 1,    y1=1234, y2=343)
+        check(5, x2=1, y1=1234, y2=343)
+        check(x1=5,       y1=1234,       )
+        check(x1=5, x2=1, y1=1234,       )
+        check(x1=5,       y1=1234, y2=343)
+        check(x1=5, x2=1, y1=1234, y2=343)
+
+    def test_unwrap_spec_kwonly_default_2(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x2=WrappedDefault(50))
+        def g(space, w_x2=None):
+            return w_x2
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_res = space.call_function(w_g)
+        assert space.eq_w(w_res, space.wrap(50))
 
 
 class AppTestPyTestMark:
@@ -925,11 +1062,11 @@ class TestPassThroughArguments:
         class A(object):
            m = g # not a builtin function, so works as method
         d = {'A': A}
-        exec \"\"\"
+        exec(\"\"\"
 # own compiler
 a = A()
 y = a.m(33)
-\"\"\" in d
+\"\"\", d)
         return d['y'] == ('g', d['a'], 33)
         """)
         assert space.is_true(w_res)
@@ -964,7 +1101,7 @@ class AppTestKeywordsToBuiltinSanity(object):
         class X(object):
             def __init__(myself, **kw):
                 pass
-        clash = type.__call__.func_code.co_varnames[0]
+        clash = type.__call__.__code__.co_varnames[0]
 
         X(**{clash: 33})
         type.__call__(X, **{clash: 33})
@@ -973,27 +1110,27 @@ class AppTestKeywordsToBuiltinSanity(object):
         class X(object):
             def __init__(self, **kw):
                 pass
-        clash = object.__new__.func_code.co_varnames[0]
+        clash = object.__new__.__code__.co_varnames[0]
 
         X(**{clash: 33})
         object.__new__(X, **{clash: 33})
 
     def test_dict_new(self):
-        clash = dict.__new__.func_code.co_varnames[0]
+        clash = dict.__new__.__code__.co_varnames[0]
 
         dict(**{clash: 33})
         dict.__new__(dict, **{clash: 33})
 
     def test_dict_init(self):
         d = {}
-        clash = dict.__init__.func_code.co_varnames[0]
+        clash = dict.__init__.__code__.co_varnames[0]
 
         d.__init__(**{clash: 33})
         dict.__init__(d, **{clash: 33})
 
     def test_dict_update(self):
         d = {}
-        clash = dict.update.func_code.co_varnames[0]
+        clash = dict.update.__code__.co_varnames[0]
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})

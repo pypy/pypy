@@ -35,10 +35,12 @@ def openlog(ident=None, logoption=0, facility=lib.LOG_USER):
         ident = _get_argv()
     if ident is None:
         _S_ident_o = ffi.NULL
-    elif isinstance(ident, str):
-        _S_ident_o = ffi.new("char[]", ident)    # keepalive
     else:
-        raise TypeError("'ident' must be a string or None")
+        if not isinstance(ident, str):
+            msg = "openlog() argument 1 must be a str, not {!r}"
+            raise TypeError(msg.format(type(ident).__name__))
+        ident = ident.encode(sys.getdefaultencoding())
+        _S_ident_o = ffi.new("char[]", ident)  # keepalive
     lib.openlog(_S_ident_o, logoption, facility)
     _S_log_open = True
 
@@ -51,9 +53,11 @@ def syslog(arg1, arg2=None):
     # if log is not opened, open it now
     if not _S_log_open:
         openlog()
-    if isinstance(message, unicode):
-        message = str(message)
-    lib.syslog(priority, "%s", message)
+    if not isinstance(message, str):
+        raise TypeError("syslog() message must be a str, not {!r}".format(
+                type(message).__name__))
+    message = message.encode(sys.getdefaultencoding())
+    lib.syslog(priority, b"%s", message)
 
 @builtinify
 def closelog():

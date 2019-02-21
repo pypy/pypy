@@ -569,8 +569,10 @@ class W_Dtype(W_Root):
         if not self.fields:
             raise oefmt(space.w_KeyError, "There are no fields in dtype %s.",
                         self.get_name())
-        if space.isinstance_w(w_item, space.w_basestring):
+        if space.isinstance_w(w_item, space.w_text):
             item = space.text_w(w_item)
+        elif space.isinstance_w(w_item, space.w_bytes):
+            item = space.bytes_w(w_item)   # XXX should it be supported?
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
@@ -1066,9 +1068,7 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
     if space.isinstance_w(w_dtype, w_subtype):
         return w_dtype
     if space.isinstance_w(w_dtype, space.w_unicode):
-        w_dtype = space.newbytes(space.text_w(w_dtype))  # may raise if invalid
-    if space.isinstance_w(w_dtype, space.w_bytes):
-        name = space.bytes_w(w_dtype)
+        name = space.text_w(w_dtype)
         if _check_for_commastring(name):
             return _set_metadata_and_copy(space, w_metadata,
                                 dtype_from_spec(space, w_dtype, alignment))
@@ -1341,7 +1341,7 @@ class DtypeCache(object):
                            space.gettypefor(boxes.W_IntegerBox),
                            space.gettypefor(boxes.W_SignedIntegerBox)],
             NPY.ULONG:    [space.gettypefor(boxes.W_UnsignedIntegerBox)],
-            NPY.LONGLONG: [space.w_long],
+            NPY.LONGLONG: [space.w_int],
             NPY.DOUBLE:   [space.w_float,
                            space.gettypefor(boxes.W_NumberBox),
                            space.gettypefor(boxes.W_FloatingBox)],
@@ -1508,5 +1508,4 @@ def is_scalar_w(space, w_arg):
             space.isinstance_w(w_arg, space.w_int) or
             space.isinstance_w(w_arg, space.w_float) or
             space.isinstance_w(w_arg, space.w_complex) or
-            space.isinstance_w(w_arg, space.w_long) or
             space.isinstance_w(w_arg, space.w_bool))

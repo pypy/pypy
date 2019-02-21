@@ -38,10 +38,13 @@ class AppTestWeakref(object):
             a2.ref = ref()
         ref1 = _weakref.ref(a1, callback)
         ref2 = _weakref.ref(a1)
+        assert ref1.__callback__ is callback
+        assert ref2.__callback__ is None
         assert _weakref.getweakrefcount(a1) == 2
         del a1
         gc.collect()
         assert ref1() is None
+        assert ref1.__callback__ is None
         assert a2.ref is None
 
     def test_callback_order(self):
@@ -234,7 +237,9 @@ class AppTestWeakref(object):
         assert w_bound()() == 42
         del meth
         gc.collect()
-        assert w_unbound() is None
+        # it used to be None on py2, but now there is no longer a newly
+        # created unbound method object
+        assert w_unbound() is A.f
         assert w_bound() is None
 
     def test_set_weakrefable(self):
@@ -253,16 +258,16 @@ class AppTestWeakref(object):
                 yield i
         g = f(10)
         w = _weakref.ref(g)
-        r = w().next()
+        r = next(w())
         assert r == 0
-        r = g.next()
+        r = next(g)
         assert r == 1
         del g
         gc.collect()
         assert w() is None
         g = f(10)
         w = _weakref.ref(g)
-        assert list(g) == range(10)
+        assert list(g) == list(range(10))
         del g
         gc.collect()
         assert w() is None
@@ -432,7 +437,7 @@ class AppTestProxy(object):
                 return 42
             w = getattr(_weakref, kind)(foobaz)
             s = repr(w)
-            print s
+            print(s)
             if kind == 'ref':
                 assert s.startswith('<weakref at ')
             else:
@@ -448,20 +453,17 @@ class AppTestProxy(object):
             except ReferenceError:
                 pass    # only reachable if kind == 'proxy'
             s = repr(w)
-            print s
+            print(s)
             assert "dead" in s
 
-    def test_unicode(self):
+    def test_bytes(self):
         import _weakref
         class C(object):
-            def __str__(self):
-                return "string"
-            def __unicode__(self):
-                return u"unicode"
+            def __bytes__(self):
+                return b"string"
         instance = C()
-        assert "__unicode__" in dir(_weakref.proxy(instance))
-        assert str(_weakref.proxy(instance)) == "string"
-        assert unicode(_weakref.proxy(instance)) == u"unicode"
+        assert "__bytes__" in dir(_weakref.proxy(instance))
+        assert bytes(_weakref.proxy(instance)) == b"string"
 
     def test_eq(self):
         import _weakref

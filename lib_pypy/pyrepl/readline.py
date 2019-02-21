@@ -32,6 +32,10 @@ from pyrepl.historical_reader import HistoricalReader
 from pyrepl.completing_reader import CompletingReader
 from pyrepl.unix_console import UnixConsole, _error
 
+try:
+    unicode
+except NameError:
+    unicode = str
 
 ENCODING = sys.getfilesystemencoding() or 'latin1'     # XXX review
 
@@ -255,7 +259,7 @@ class _ReadlineWrapper(object):
         except _error:
             return _old_raw_input(prompt)
         reader.ps1 = prompt
-        return reader.readline(startup_hook=self.startup_hook)
+        return reader.readline(reader, startup_hook=self.startup_hook)
 
     def multiline_input(self, more_lines, ps1, ps2, returns_unicode=False):
         """Read an input on possibly multiple lines, asking for more
@@ -285,16 +289,15 @@ class _ReadlineWrapper(object):
         self.config.completer_delims = dict.fromkeys(string)
 
     def get_completer_delims(self):
-        chars = self.config.completer_delims.keys()
+        chars = list(self.config.completer_delims.keys())
         chars.sort()
         return ''.join(chars)
 
     def _histline(self, line):
         line = line.rstrip('\n')
-        try:
-            return unicode(line, ENCODING)
-        except UnicodeDecodeError:   # bah, silently fall back...
-            return unicode(line, 'utf-8', 'replace')
+        if isinstance(line, unicode):
+            return line # on py3k
+        return unicode(line, 'utf-8', 'replace')
 
     def get_history_length(self):
         return self.saved_history_length
@@ -311,7 +314,8 @@ class _ReadlineWrapper(object):
         # history item: we use \r\n instead of just \n.  If the history
         # file is passed to GNU readline, the extra \r are just ignored.
         history = self.get_reader().history
-        f = open(os.path.expanduser(filename), 'r')
+        f = open(os.path.expanduser(filename), 'r', encoding='utf-8',
+                 errors='replace')
         buffer = []
         for line in f:
             if line.endswith('\r\n'):
@@ -328,13 +332,12 @@ class _ReadlineWrapper(object):
     def write_history_file(self, filename='~/.history'):
         maxlength = self.saved_history_length
         history = self.get_reader().get_trimmed_history(maxlength)
-        f = open(os.path.expanduser(filename), 'w')
+        f = open(os.path.expanduser(filename), 'w', encoding='utf-8')
         for entry in history:
-            if isinstance(entry, unicode):
-                try:
-                    entry = entry.encode(ENCODING)
-                except UnicodeEncodeError:   # bah, silently fall back...
-                    entry = entry.encode('utf-8')
+            # if we are on py3k, we don't need to encode strings before
+            # writing it to a file
+            if isinstance(entry, unicode) and sys.version_info < (3,):
+                entry = entry.encode('utf-8')
             entry = entry.replace('\n', '\r\n')   # multiline history support
             f.write(entry + '\n')
         f.close()
@@ -473,14 +476,19 @@ def _setup():
                 del sys.__raw_input__
             except AttributeError:
                 pass
-            return raw_input(prompt)
+            return input(prompt)
         sys.__raw_input__ = _wrapper.raw_input
 
     else:
         # this is not really what readline.c does.  Better than nothing I guess
-        import __builtin__
-        _old_raw_input = __builtin__.raw_input
-        __builtin__.raw_input = _wrapper.raw_input
+        if sys.version_info < (3,):
+            import __builtin__
+            _old_raw_input = __builtin__.raw_input
+            __builtin__.raw_input = _wrapper.raw_input
+        else:
+            import builtins
+            _old_raw_input = builtins.input
+            builtins.input = _wrapper.raw_input
 
 _old_raw_input = None
 _setup()

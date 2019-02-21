@@ -4,10 +4,11 @@ import pytest
 
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
-only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 class AppTestThread(AppTestCpythonExtensionBase):
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    @pytest.mark.xfail(reason='segfaults', run=False)
     def test_get_thread_ident(self):
         module = self.import_extension('foo', [
             ("get_thread_ident", "METH_NOARGS",
@@ -15,14 +16,14 @@ class AppTestThread(AppTestCpythonExtensionBase):
 #ifndef PyThread_get_thread_ident
 #error "seems we are not accessing PyPy's functions"
 #endif
-                 return PyInt_FromLong(PyThread_get_thread_ident());
+                 return PyLong_FromLong(PyThread_get_thread_ident());
              """),
             ])
-        import thread, threading
+        import threading
         results = []
         def some_thread():
             res = module.get_thread_ident()
-            results.append((res, thread.get_ident()))
+            results.append((res, threading.get_ident()))
 
         some_thread()
         assert results[0][0] == results[0][1]
@@ -81,15 +82,16 @@ class AppTestThread(AppTestCpythonExtensionBase):
         module.test_release_lock()
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    @pytest.mark.xfail(reason='segfaults', run=False)
     def test_tls(self):
         module = self.import_extension('foo', [
             ("create_key", "METH_NOARGS",
              """
-                 return PyInt_FromLong(PyThread_create_key());
+                 return PyLong_FromLong(PyThread_create_key());
              """),
             ("test_key", "METH_O",
              """
-                 int key = PyInt_AsLong(args);
+                 int key = PyLong_AsLong(args);
                  if (PyThread_get_key_value(key) != NULL) {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
@@ -112,7 +114,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
         raises(ValueError, module.test_key, key)
         # Same test, in another thread.
         result = []
-        import thread, time
+        import _thread, time
         def in_thread():
             try:
                 module.test_key(key)
@@ -121,8 +123,8 @@ class AppTestThread(AppTestCpythonExtensionBase):
                 result.append(e)
             else:
                 result.append(True)
-        thread.start_new_thread(in_thread, ())
+        _thread.start_new_thread(in_thread, ())
         while not result:
-            print "."
+            print(".")
             time.sleep(.5)
         assert result == [True]

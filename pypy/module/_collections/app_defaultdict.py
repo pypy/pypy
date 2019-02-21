@@ -27,18 +27,20 @@ class defaultdict(dict):
 
     def __missing__(self, key):
         pass    # this method is written at interp-level
-    __missing__.func_code = _collections.__missing__.func_code
+    __missing__.__code__ = _collections.__missing__.__code__
 
     def __repr__(self, recurse=set()):
         # XXX not thread-safe, but good enough
+        dictrepr = super(defaultdict, self).__repr__()
         if id(self) in recurse:
-            return "defaultdict(...)"
-        try:
-            recurse.add(id(self))
-            return "defaultdict(%s, %s)" % (self.default_factory,
-                                            super(defaultdict, self).__repr__())
-        finally:
-            recurse.remove(id(self))
+            factoryrepr = "..."
+        else:
+            try:
+                recurse.add(id(self))
+                factoryrepr = repr(self.default_factory)
+            finally:
+                recurse.remove(id(self))
+        return "defaultdict(%s, %s)" % (factoryrepr, dictrepr)
 
     def copy(self):
         return type(self)(self.default_factory, self)
@@ -58,4 +60,4 @@ class defaultdict(dict):
            This API is used by pickle.py and copy.py.
         """
         return (type(self), (self.default_factory,), None, None,
-                defaultdict.iteritems(self))
+                iter(self.items()))

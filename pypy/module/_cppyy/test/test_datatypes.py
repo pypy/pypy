@@ -14,7 +14,8 @@ class AppTestDATATYPES:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
         cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
 
@@ -32,9 +33,9 @@ class AppTestDATATYPES:
         assert not c.get_bool(); assert not c.get_bool_cr(); assert not c.get_bool_r()
 
         # reading char types
-        assert c.m_char  == 'a'
-        assert c.m_schar == 'b'
-        assert c.m_uchar == 'c'
+        assert c.m_char  == b'a'
+        assert c.m_schar == b'b'
+        assert c.m_uchar == b'c'
 
         # reading integer types
         assert c.m_short   == -11; assert c.get_short_cr()   == -11; assert c.get_short_r()   == -11
@@ -55,10 +56,35 @@ class AppTestDATATYPES:
         assert round(c.m_double         + 77., 11) == 0
         assert round(c.get_double_cr()  + 77., 11) == 0
         assert round(c.get_double_r()   + 77., 11) == 0
-        #assert round(c.m_ldouble        + 88., 24) == 0
-        #assert round(c.get_ldouble_cr() + 88., 24) == 0
-        #assert round(c.get_ldouble_r()  + 88., 24) == 0
-        assert round(c.m_double + 77., 8) == 0
+        assert round(c.m_ldouble        + 88., 24) == 0
+        assert round(c.get_ldouble_cr() + 88., 24) == 0
+        assert round(c.get_ldouble_r()  + 88., 24) == 0
+        assert round(c.get_ldouble_def()  -1., 24) == 0
+        assert round(c.get_ldouble_def(2) -2., 24) == 0
+
+        """# complex<double> type
+        assert type(c.get_complex()) == complex
+        assert round(c.get_complex().real    -  99., 11) == 0
+        assert round(c.get_complex().imag    - 101., 11) == 0
+        assert repr(c.get_complex()) == '(99+101j)'
+        assert round(c.get_complex_cr().real -  99., 11) == 0
+        assert round(c.get_complex_cr().imag - 101., 11) == 0
+        assert round(c.get_complex_r().real  -  99., 11) == 0
+        assert round(c.get_complex_r().imag  - 101., 11) == 0
+        assert complex(cppyy.gbl.std.complex['double'](1, 2)) == complex(1, 2)
+
+        # complex<int> retains C++ type in all cases (but includes pythonization to
+        # resemble Python's complex more closely
+        assert type(c.get_icomplex()) == cppyy.gbl.std.complex[int]
+        assert round(c.get_icomplex().real    - 121., 11) == 0
+        assert round(c.get_icomplex().imag    - 141., 11) == 0
+        assert repr(c.get_icomplex()) == '(121+141j)'
+        assert round(c.get_icomplex_cr().real - 121., 11) == 0
+        assert round(c.get_icomplex_cr().imag - 141., 11) == 0
+        assert type(c.get_icomplex_r()) == cppyy.gbl.std.complex[int]
+        assert round(c.get_icomplex_r().real  - 121., 11) == 0
+        assert round(c.get_icomplex_r().imag  - 141., 11) == 0
+        assert complex(cppyy.gbl.std.complex['int'](1, 2)) == complex(1, 2)"""
 
         # reading of enum types
         assert c.m_enum == CppyyTestData.kNothing
@@ -72,8 +98,8 @@ class AppTestDATATYPES:
             assert c.get_bool_array2()[i]   ==   bool((i+1)%2)
 
         # reading of integer array types
-        names = [ 'short', 'ushort',    'int', 'uint',    'long',  'ulong']
-        alpha = [(-1, -2),   (3, 4), (-5, -6), (7, 8), (-9, -10), (11, 12)]
+        names = ['uchar',  'short', 'ushort',    'int', 'uint',    'long',  'ulong']
+        alpha = [ (1, 2), (-1, -2),   (3, 4), (-5, -6), (7, 8), (-9, -10), (11, 12)]
         for j in range(self.N):
             assert getattr(c, 'm_%s_array'    % names[i])[i]   == alpha[i][0]*i
             assert getattr(c, 'get_%s_array'  % names[i])()[i] == alpha[i][0]*i
@@ -88,6 +114,7 @@ class AppTestDATATYPES:
             assert round(c.m_double_array2[k] + 16.*k, 8) == 0
 
         # out-of-bounds checks
+        raises(IndexError, c.m_uchar_array.__getitem__,  self.N)
         raises(IndexError, c.m_short_array.__getitem__,  self.N)
         raises(IndexError, c.m_ushort_array.__getitem__, self.N)
         raises(IndexError, c.m_int_array.__getitem__,    self.N)
@@ -128,18 +155,20 @@ class AppTestDATATYPES:
         raises(ValueError, 'c.set_bool(10)')
 
         # char types through functions
-        c.set_char('c');   assert c.get_char()  == 'c'
-        c.set_uchar('e');  assert c.get_uchar() == 'e'
+        c.set_char('c');   assert c.get_char()  == b'c'
+        c.set_char(b'b');  assert c.get_char()  == b'b'
+        c.set_uchar('e');  assert c.get_uchar() == b'e'
+        c.set_uchar(b'd'); assert c.get_uchar() == b'd'
 
         # char types through data members
-        c.m_char = 'b';    assert c.get_char()  ==     'b'
-        c.m_char = 40;     assert c.get_char()  == chr(40)
-        c.set_char('c');   assert c.m_char      ==     'c'
-        c.set_char(41);    assert c.m_char      == chr(41)
-        c.m_uchar = 'd';   assert c.get_uchar() ==     'd'
-        c.m_uchar = 42;    assert c.get_uchar() == chr(42)
-        c.set_uchar('e');  assert c.m_uchar     ==     'e'
-        c.set_uchar(43);   assert c.m_uchar     == chr(43)
+        c.m_char = 'b';    assert c.get_char()  == b'b'
+        c.m_char = 40;     assert c.get_char()  == str.encode(chr(40))
+        c.set_char('c');   assert c.m_char      == b'c'
+        c.set_char(41);    assert c.m_char      == str.encode(chr(41))
+        c.m_uchar = 'd';   assert c.get_uchar() == b'd'
+        c.m_uchar = 42;    assert c.get_uchar() == str.encode(chr(42))
+        c.set_uchar('e');  assert c.m_uchar     == b'e'
+        c.set_uchar(43);   assert c.m_uchar     == str.encode(chr(43))
 
         raises(ValueError, 'c.set_char("string")')
         raises(ValueError, 'c.set_char(500)')
@@ -161,25 +190,29 @@ class AppTestDATATYPES:
             assert eval('c.m_%s' % names[i]) == 3*i
 
         # float types through functions
-        c.set_float( 0.123 );  assert round(c.get_float()  - 0.123, 5) == 0
-        c.set_double( 0.456 ); assert round(c.get_double() - 0.456, 8) == 0
+        c.set_float(0.123);   assert round(c.get_float()   - 0.123, 5) == 0
+        c.set_double(0.456);  assert round(c.get_double()  - 0.456, 8) == 0
+        c.set_ldouble(0.789); assert round(c.get_ldouble() - 0.789, 8) == 0
 
         # float types through data members
-        c.m_float = 0.123;      assert round(c.get_float()  - 0.123, 5) == 0
-        c.set_float(0.234);     assert round(c.m_float      - 0.234, 5) == 0
-        c.set_float_cr(0.456);  assert round(c.m_float      - 0.456, 5) == 0
-        c.m_double = 0.678;     assert round(c.get_double() - 0.678, 8) == 0
-        c.set_double(0.890);    assert round(c.m_double     - 0.890, 8) == 0
-        c.set_double_cr(0.012); assert round(c.m_double     - 0.012, 8) == 0
+        c.m_float = 0.123;       assert round(c.get_float()   - 0.123, 5) == 0
+        c.set_float(0.234);      assert round(c.m_float       - 0.234, 5) == 0
+        c.set_float_cr(0.456);   assert round(c.m_float       - 0.456, 5) == 0
+        c.m_double = 0.678;      assert round(c.get_double()  - 0.678, 8) == 0
+        c.set_double(0.890);     assert round(c.m_double      - 0.890, 8) == 0
+        c.set_double_cr(0.012);  assert round(c.m_double      - 0.012, 8) == 0
+        c.m_ldouble = 0.876;     assert round(c.get_ldouble() - 0.876, 8) == 0
+        c.set_ldouble(0.098);    assert round(c.m_ldouble     - 0.098, 8) == 0
+        c.set_ldouble_cr(0.210); assert round(c.m_ldouble     - 0.210, 8) == 0
 
         # arrays; there will be pointer copies, so destroy the current ones
         c.destroy_arrays()
 
         # integer arrays
-        names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong']
+        names = ['uchar', 'short', 'ushort', 'int', 'uint', 'long', 'ulong']
         import array
         a = range(self.N)
-        atypes = ['h', 'H', 'i', 'I', 'l', 'L' ]
+        atypes = ['B', 'h', 'H', 'i', 'I', 'l', 'L']
         for j in range(len(names)):
             b = array.array(atypes[j], a)
             setattr(c, 'm_'+names[j]+'_array', b)     # buffer copies
@@ -187,9 +220,14 @@ class AppTestDATATYPES:
                 assert eval('c.m_%s_array[i]' % names[j]) == b[i]
 
             setattr(c, 'm_'+names[j]+'_array2', b)    # pointer copies
-            b[i] = 28
+            assert 3 < self.N
+            b[3] = 28
             for i in range(self.N):
                 assert eval('c.m_%s_array2[i]' % names[j]) == b[i]
+
+        # can not write to constant data
+        assert c.m_const_int == 17
+        raises(TypeError, setattr, c, 'm_const_int', 71)
 
         c.__destruct__()
 
@@ -204,7 +242,7 @@ class AppTestDATATYPES:
 
         a = range(self.N)
         # test arrays in mixed order, to give overload resolution a workout
-        for t in ['d', 'i', 'f', 'H', 'I', 'h', 'L', 'l' ]:
+        for t in ['d', 'i', 'f', 'H', 'I', 'h', 'L', 'l']:
             b = array.array(t, a)
 
             # typed passing
@@ -240,10 +278,10 @@ class AppTestDATATYPES:
         assert isinstance(c, CppyyTestData)
 
         # char types
-        assert CppyyTestData.s_char     == 'c'
-        assert c.s_char                 == 'c'
-        assert c.s_uchar                == 'u'
-        assert CppyyTestData.s_uchar    == 'u'
+        assert CppyyTestData.s_char    == b'c'
+        assert c.s_char                == b'c'
+        assert c.s_uchar               == b'u'
+        assert CppyyTestData.s_uchar   == b'u'
 
         # integer types
         assert CppyyTestData.s_short    == -101
@@ -264,10 +302,12 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_ullong   ==  404
 
         # floating point types
-        assert round(CppyyTestData.s_float  + 606., 5) == 0
-        assert round(c.s_float              + 606., 5) == 0
-        assert round(CppyyTestData.s_double + 707., 8) == 0
-        assert round(c.s_double             + 707., 8) == 0
+        assert round(CppyyTestData.s_float   + 606., 5) == 0
+        assert round(c.s_float               + 606., 5) == 0
+        assert round(CppyyTestData.s_double  + 707., 8) == 0
+        assert round(c.s_double              + 707., 8) == 0
+        assert round(CppyyTestData.s_ldouble + 808., 8) == 0
+        assert round(c.s_ldouble             + 808., 8) == 0
 
         c.__destruct__()
 
@@ -281,14 +321,14 @@ class AppTestDATATYPES:
         assert isinstance(c, CppyyTestData)
 
         # char types
-        CppyyTestData.s_char             = 'a'
-        assert c.s_char                 == 'a'
-        c.s_char                         = 'b'
-        assert CppyyTestData.s_char     == 'b'
-        CppyyTestData.s_uchar            = 'c'
-        assert c.s_uchar                == 'c'
-        c.s_uchar                        = 'd'
-        assert CppyyTestData.s_uchar    == 'd'
+        CppyyTestData.s_char           =  'a'
+        assert c.s_char               == b'a'
+        c.s_char                       =  'b'
+        assert CppyyTestData.s_char   == b'b'
+        CppyyTestData.s_uchar          =  'c'
+        assert c.s_uchar              == b'c'
+        c.s_uchar                      =  'd'
+        assert CppyyTestData.s_uchar  == b'd'
         raises(ValueError, setattr, CppyyTestData, 's_uchar', -1)
         raises(ValueError, setattr, c,             's_uchar', -1)
 
@@ -332,6 +372,10 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_double             == -math.pi
         CppyyTestData.s_double                     =  math.pi
         assert c.s_double                         ==  math.pi
+        c.s_ldouble                                = -math.pi
+        assert CppyyTestData.s_ldouble            == -math.pi
+        CppyyTestData.s_ldouble                    =  math.pi
+        assert c.s_ldouble                        ==  math.pi
 
         c.__destruct__()
 
@@ -464,6 +508,15 @@ class AppTestDATATYPES:
         assert gbl.kBanana == 29
         assert gbl.kCitrus == 34
 
+        assert gbl.EnumSpace.E
+        assert gbl.EnumSpace.EnumClass.E1 == -1   # anonymous
+        assert gbl.EnumSpace.EnumClass.E2 == -1   # named type
+
+        # typedef enum
+        assert gbl.EnumSpace.letter_code
+        assert gbl.EnumSpace.AA == 1
+        assert gbl.EnumSpace.BB == 2
+
     def test11_string_passing(self):
         """Test passing/returning of a const char*"""
 
@@ -474,7 +527,7 @@ class AppTestDATATYPES:
         assert c.get_valid_string('aap') == 'aap'
         #assert c.get_invalid_string() == ''
 
-    def test12_copy_contructor(self):
+    def test12_copy_constructor(self):
         """Test copy constructor"""
 
         import _cppyy as cppyy
@@ -672,15 +725,13 @@ class AppTestDATATYPES:
 
         c = CppyyTestData()
         for func in ['get_bool_array',   'get_bool_array2',
+                     'get_uchar_array',   'get_uchar_array2',
                      'get_ushort_array', 'get_ushort_array2',
                      'get_int_array',    'get_int_array2',
                      'get_uint_array',   'get_uint_array2',
                      'get_long_array',   'get_long_array2',
                      'get_ulong_array',  'get_ulong_array2']:
             arr = getattr(c, func)()
-            arr = arr.shape.fromaddress(arr.itemaddress(0), self.N)
-
-            """TODO: interface change ...
             arr.reshape((self.N,))
             assert len(arr) == self.N
 
@@ -692,7 +743,7 @@ class AppTestDATATYPES:
 
             l = list(arr)
             for i in range(self.N):
-                assert arr[i] == l[i]"""
+                assert arr[i] == l[i]
 
     def test20_voidp(self):
         """Test usage of void* data"""
@@ -741,3 +792,28 @@ class AppTestDATATYPES:
 
         c.s_voidp = c2
         address_equality_test(c.s_voidp, c2)
+
+    def test21_function_pointers(self):
+        """Function pointer passing"""
+
+        import os
+
+        # TODO: currently crashes if fast path disabled
+        try:
+            if os.environ['CPPYY_DISABLE_FASTPATH']:
+                return
+        except KeyError:
+            pass
+
+        import _cppyy as cppyy
+
+        f1 = cppyy.gbl.sum_of_int
+        f2 = cppyy.gbl.sum_of_double
+        f3 = cppyy.gbl.call_double_double
+
+        assert 5 == f1(2, 3)
+        assert 5. == f2(5., 0.)
+
+        raises(TypeError, f3, f1, 2, 3)
+
+        assert 5. == f3(f2, 5., 0.)

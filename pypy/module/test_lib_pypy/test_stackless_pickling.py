@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 from py.test import skip
 try:
     import stackless
@@ -15,7 +14,7 @@ class Test_StacklessPickling:
     def test_pickle_main_coroutine(self):
         import stackless, pickle
         s = pickle.dumps(stackless.coroutine.getcurrent())
-        print s
+        print(s)
         c = pickle.loads(s)
         assert c is stackless.coroutine.getcurrent()
 
@@ -31,13 +30,13 @@ class Test_StacklessPickling:
         mod = new.module('mod')
         mod.output = output
 
-        exec """from stackless import schedule
+        exec("""from stackless import schedule
         
 def aCallable(name):
     output.append(('b', name))
     schedule()
     output.append(('a', name))
-""" in mod.__dict__
+""", mod.__dict__)
         import sys
         sys.modules['mod'] = mod
         aCallable = mod.aCallable

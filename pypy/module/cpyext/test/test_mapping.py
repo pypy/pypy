@@ -8,6 +8,7 @@ class TestMapping(BaseApiTest):
     def test_check(self, space, api):
         assert api.PyMapping_Check(space.newdict())
         assert not api.PyMapping_Check(space.newlist([]))
+        assert not api.PyMapping_Check(space.newtuple([]))
 
     def test_size(self, space, api):
         w_d = space.newdict()
@@ -54,7 +55,7 @@ class AppTestMapping(AppTestCpythonExtensionBase):
                    but some code out there assumes that it has a refcnt
                    of at least two --- which is bogus --- because it
                    is generally kept alive by the container. */
-                PyObject *refcnt = PyInt_FromLong(value->ob_refcnt);
+                PyObject *refcnt = PyLong_FromLong(value->ob_refcnt);
                 Py_DECREF(value);
                 return refcnt;
             '''),])

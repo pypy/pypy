@@ -25,13 +25,12 @@ class TestTermios(object):
 
     def _spawn(self, *args, **kwds):
         print 'SPAWN:', args, kwds
-        kwds.setdefault('timeout', 600)
-        child = self.pexpect.spawn(*args, **kwds)
+        child = self.pexpect.spawn(timeout=600, maxread=5000, *args, **kwds)
         child.logfile = sys.stdout
         return child
 
     def spawn(self, argv):
-        return self._spawn(sys.executable, [str(self.py_py)] + argv)
+        return self._spawn(sys.executable, [str(self.py_py), '-S'] + argv)
 
     def test_one(self):
         child = self.spawn(['--withmod-termios'])
@@ -43,9 +42,9 @@ class TestTermios(object):
         # output of the first time is ignored: it contains the compilation
         # of more C stuff relating to errno
         child.expect('>>> ')
-        child.sendline('termios.tcgetattr(0)')
-        child.expect('\[.*?\[.*?\]\]')
-        lst = eval(child.match.group(0))
+        child.sendline('print("attr=", termios.tcgetattr(0))')
+        child.expect('attr= (\[.*?\[.*?\]\])')
+        lst = eval(child.match.group(1))
         assert len(lst) == 7
          # Length of the last element is 32 on Linux, 20 on MacOSX.
         assert len(lst[-1]) in (20, 32)
@@ -61,7 +60,7 @@ class TestTermios(object):
         termios.tcdrain(2)
         termios.tcflush(2, termios.TCIOFLUSH)
         termios.tcflow(2, termios.TCOON)
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_tcall.py")
         f.write(source)
@@ -79,7 +78,7 @@ class TestTermios(object):
         import termios
         cc = termios.tcgetattr(sys.stdin)[-1]
         termios.tcsetattr(sys.stdin, 1, [16640, 4, 191, 2608, 15, 15, cc])
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_tcsetattr.py")
         f.write(source)
@@ -90,9 +89,9 @@ class TestTermios(object):
         source = py.code.Source(r"""
         import termios
         import fcntl
-        lgt = len(fcntl.ioctl(2, termios.TIOCGWINSZ, '\000'*8))
+        lgt = len(fcntl.ioctl(2, termios.TIOCGWINSZ, b'\000'*8))
         assert lgt == 8
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_ioctl_termios.py")
         f.write(source)
@@ -111,7 +110,7 @@ class TestTermios(object):
         assert len([i for i in f[-1] if isinstance(i, int)]) == 2
         assert isinstance(f[-1][termios.VMIN], int)
         assert isinstance(f[-1][termios.VTIME], int)
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_ioctl_termios.py")
         f.write(source)

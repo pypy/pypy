@@ -35,12 +35,18 @@ class Function(W_Root):
                           'w_func_globals?',
                           'closure?[*]',
                           'defs_w?[*]',
-                          'name?']
+                          'name?',
+                          'qualname?',
+                          'w_kw_defs?']
 
-    def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
-                 forcename=None):
+    w_kw_defs = None
+
+    def __init__(self, space, code, w_globals=None, defs_w=[], kw_defs_w=None,
+                 closure=None, w_ann=None, forcename=None, qualname=None):
         self.space = space
         self.name = forcename or code.co_name
+        self.qualname = qualname or self.name
+        assert isinstance(self.qualname, str)
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
@@ -48,6 +54,10 @@ class Function(W_Root):
         self.defs_w = defs_w
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
+        self.w_ann = w_ann
+        #
+        if kw_defs_w is not None:
+            self.init_kwdefaults_dict(kw_defs_w)
 
     def __repr__(self):
         # return "function %s.%s" % (self.space, self.name)
@@ -109,7 +119,7 @@ class Function(W_Root):
                 for i in funccallunrolling:
                     if i < nargs:
                         new_frame.locals_cells_stack_w[i] = args_w[i]
-                return new_frame.run()
+                return new_frame.run(self.name, self.qualname)
         elif nargs >= 1 and fast_natural_arity == Code.PASSTHROUGHARGS1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             return code.funcrun_obj(self, args_w[0],
@@ -177,7 +187,7 @@ class Function(W_Root):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.locals_cells_stack_w[i] = w_arg
 
-        return new_frame.run()
+        return new_frame.run(self.name, self.qualname)
 
     @jit.unroll_safe
     def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load):
@@ -194,7 +204,7 @@ class Function(W_Root):
         for j in xrange(start, ndefs):
             new_frame.locals_cells_stack_w[i] = self.defs_w[j]
             i += 1
-        return new_frame.run()
+        return new_frame.run(self.name, self.qualname)
 
     def getdict(self, space):
         if self.w_func_dict is None:
@@ -238,14 +248,15 @@ class Function(W_Root):
                 raise oefmt(space.w_ValueError, "closure is wrong size")
             closure = [space.interp_w(Cell, w_cell) for w_cell in closure_w]
         func = space.allocate_instance(Function, w_subtype)
-        Function.__init__(func, space, code, w_globals, defs_w, closure, name)
+        Function.__init__(func, space, code, w_globals, defs_w, None, closure,
+                          None,name)
         return func
 
     def descr_function_call(self, __args__):
         return self.call_args(__args__)
 
     def descr_function_repr(self):
-        return self.getrepr(self.space, 'function %s' % (self.name,))
+        return self.getrepr(self.space, 'function %s' % self.qualname)
 
 
     def _cleanup_(self):
@@ -270,6 +281,7 @@ class Function(W_Root):
     find = staticmethod(find)
 
     def descr_function__reduce__(self, space):
+        XXX   # This is not used any more
         from pypy.interpreter.gateway import BuiltinCode
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
@@ -302,6 +314,7 @@ class Function(W_Root):
         tup_base = []
         tup_state = [
             space.newtext(self.name),
+            space.newtext(self.qualname),
             w_doc,
             self.code,
             w_func_globals,
@@ -313,10 +326,11 @@ class Function(W_Root):
         return nt([new_inst, nt(tup_base), nt(tup_state)])
 
     def descr_function__setstate__(self, space, w_args):
+        XXX   # This is not used any more
         args_w = space.unpackiterable(w_args)
         try:
-            (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs,
-             w_func_dict, w_module) = args_w
+            (w_name, w_qualname, w_doc, w_code, w_func_globals, w_closure,
+             w_defs, w_func_dict, w_module) = args_w
         except ValueError:
             # wrong args
             raise oefmt(space.w_ValueError,
@@ -324,6 +338,7 @@ class Function(W_Root):
 
         self.space = space
         self.name = space.text_w(w_name)
+        self.qualname = space.utf8_w(w_qualname)
         self.code = space.interp_w(Code, w_code)
         if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
@@ -352,6 +367,15 @@ class Function(W_Root):
             return space.w_None
         return space.newtuple(values_w)
 
+    def fget_defaults_count(self, space):
+        # PyPy extension.  This is mostly to make inspect.py happy about
+        # methods like dict.pop(), which take a default but is None.
+        # Previously, inspect.py would build a signature saying that all
+        # arguments are required, and then unittest.mock would complain
+        # if we call it with less arguments.  Now inspect.py looks up
+        # '__defaults_count__' too.
+        return space.newint(len(self.defs_w))
+
     def fset_func_defaults(self, space, w_defaults):
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
@@ -363,6 +387,30 @@ class Function(W_Root):
 
     def fdel_func_defaults(self, space):
         self.defs_w = []
+
+    def fget_func_kwdefaults(self, space):
+        if self.w_kw_defs is None:
+            return space.w_None
+        return self.w_kw_defs
+
+    def fset_func_kwdefaults(self, space, w_new):
+        if space.is_w(w_new, space.w_None):
+            self.w_kw_defs = None
+        else:
+            if not space.isinstance_w(w_new, space.w_dict):
+                raise oefmt(space.w_TypeError, "__kwdefaults__ must be a dict")
+            self.w_kw_defs = w_new
+
+    def fdel_func_kwdefaults(self, space):
+        self.w_kw_defs = None
+
+    def init_kwdefaults_dict(self, kw_defs_w):
+        # use the moduledict logic to get normally-constant entries
+        space = self.space
+        w_dict = space.newdict(module=True)
+        for w_name, w_value in kw_defs_w:
+            space.setitem(w_dict, w_name, w_value)
+        self.w_kw_defs = w_dict
 
     def fget_func_doc(self, space):
         if self.w_doc is None:
@@ -381,6 +429,18 @@ class Function(W_Root):
         else:
             raise oefmt(space.w_TypeError,
                         "__name__ must be set to a string object")
+
+    def fget_func_qualname(self, space):
+        return space.newtext(self.qualname)
+
+    def fset_func_qualname(self, space, w_name):
+        try:
+            self.qualname = space.realutf8_w(w_name)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_TypeError,
+                            "__qualname__ must be set to a string object")
+            raise
 
     def fdel_func_doc(self, space):
         self.w_doc = space.w_None
@@ -425,112 +485,79 @@ class Function(W_Root):
             w_res = space.w_None
         return w_res
 
+    def fget_func_annotations(self, space):
+        if self.w_ann is None:
+            self.w_ann = space.newdict()
+        return self.w_ann
+
+    def fset_func_annotations(self, space, w_new):
+        if space.is_w(w_new, space.w_None):
+            w_new = None
+        elif not space.isinstance_w(w_new, space.w_dict):
+            raise oefmt(space.w_TypeError, "__annotations__ must be a dict")
+        self.w_ann = w_new
+
+    def fdel_func_annotations(self, space):
+        self.w_ann = None
+
 
 def descr_function_get(space, w_function, w_obj, w_cls=None):
     """functionobject.__get__(obj[, type]) -> method"""
     # this is not defined as a method on Function because it's generally
     # useful logic: w_function can be any callable.  It is used by Method too.
-    asking_for_bound = (space.is_none(w_cls) or
-                        not space.is_w(w_obj, space.w_None) or
-                        space.is_w(w_cls, space.type(space.w_None)))
-    if asking_for_bound:
-        return Method(space, w_function, w_obj, w_cls)
+    if w_obj is None or space.is_w(w_obj, space.w_None):
+        return w_function
     else:
-        return Method(space, w_function, None, w_cls)
+        return Method(space, w_function, w_obj)
 
 
 class Method(W_Root):
-    """A method is a function bound to a specific instance or class."""
-    _immutable_fields_ = ['w_function', 'w_instance', 'w_class']
+    """A method is a function bound to a specific instance."""
+    _immutable_fields_ = ['w_function', 'w_instance']
 
-    def __init__(self, space, w_function, w_instance, w_class):
+    def __init__(self, space, w_function, w_instance):
         self.space = space
+        assert w_instance is not None   # unbound methods only exist in Python 2
         self.w_function = w_function
-        self.w_instance = w_instance   # or None
-        if w_class is None:
-            w_class = space.w_None
-        self.w_class = w_class         # possibly space.w_None
+        self.w_instance = w_instance
 
-    def descr_method__new__(space, w_subtype, w_function, w_instance,
-                            w_class=None):
+    def descr_method__new__(space, w_subtype, w_function, w_instance):
         if space.is_w(w_instance, space.w_None):
             w_instance = None
-        if w_instance is None and space.is_none(w_class):
-            raise oefmt(space.w_TypeError, "unbound methods must have class")
+        if w_instance is None:
+            raise oefmt(space.w_TypeError, "self must not be None")
         method = space.allocate_instance(Method, w_subtype)
-        Method.__init__(method, space, w_function, w_instance, w_class)
+        Method.__init__(method, space, w_function, w_instance)
         return method
 
     def __repr__(self):
-        if self.w_instance:
-            pre = "bound"
-        else:
-            pre = "unbound"
-        return "%s method %s" % (pre, self.w_function.getname(self.space))
+        return u"bound method %s" % (self.w_function.getname(self.space),)
 
     def call_args(self, args):
         space = self.space
-        if self.w_instance is not None:
-            # bound method
-            return space.call_obj_args(self.w_function, self.w_instance, args)
-
-        # unbound method
-        w_firstarg = args.firstarg()
-        if w_firstarg is not None and (
-                space.abstract_isinstance_w(w_firstarg, self.w_class)):
-            pass  # ok
-        else:
-            clsdescr = self.w_class.getname(space)
-            if clsdescr and clsdescr != '?':
-                clsdescr += " instance"
-            else:
-                clsdescr = "instance"
-            if w_firstarg is None:
-                instdescr = "nothing"
-            else:
-                instname = space.abstract_getclass(w_firstarg).getname(space)
-                if instname and instname != '?':
-                    instdescr = instname + " instance"
-                else:
-                    instdescr = "instance"
-            raise oefmt(space.w_TypeError,
-                        "unbound method %N() must be called with %s as first "
-                        "argument (got %s instead)", self, clsdescr, instdescr)
-        return space.call_args(self.w_function, args)
+        return space.call_obj_args(self.w_function, self.w_instance, args)
 
     def descr_method_get(self, w_obj, w_cls=None):
-        space = self.space
-        if self.w_instance is not None:
-            return self    # already bound
-        else:
-            # only allow binding to a more specific class than before
-            if (w_cls is not None and
-                not space.is_w(w_cls, space.w_None) and
-                not space.abstract_issubclass_w(w_cls, self.w_class,
-                                                allow_override=True)):
-                return self    # subclass test failed
-            else:
-                return descr_function_get(space, self.w_function, w_obj, w_cls)
+        return self     # already bound
 
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
 
     def descr_method_repr(self):
         space = self.space
-        name = self.w_function.getname(self.space)
-        # XXX do we handle all cases sanely here?
-        if space.is_w(self.w_class, space.w_None):
-            w_class = space.type(self.w_instance)
+        w_name = space.findattr(self.w_function, space.newtext('__qualname__'))
+        if w_name is None:
+            name = self.w_function.getname(self.space)
         else:
-            w_class = self.w_class
-        typename = w_class.getname(self.space)
-        if self.w_instance is None:
-            s = "<unbound method %s.%s>" % (typename, name)
-            return space.newtext(s)
-        else:
-            objrepr = space.text_w(space.repr(self.w_instance))
-            s = '<bound method %s.%s of %s>' % (typename, name, objrepr)
-            return space.newtext(s)
+            try:
+                name = space.utf8_w(w_name)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                name = '?'
+        objrepr = space.utf8_w(space.repr(self.w_instance))
+        s = b'<bound method %s of %s>' % (name, objrepr)
+        return space.newtext(s)
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
@@ -548,49 +575,14 @@ class Method(W_Root):
         space = self.space
         if not isinstance(w_other, Method):
             return space.w_NotImplemented
-        if self.w_instance is None:
-            if w_other.w_instance is not None:
-                return space.w_False
-        else:
-            if w_other.w_instance is None:
-                return space.w_False
-            if not space.eq_w(self.w_instance, w_other.w_instance):
-                return space.w_False
+        if not space.eq_w(self.w_instance, w_other.w_instance):
+            return space.w_False
         return space.newbool(space.eq_w(self.w_function, w_other.w_function))
-
-    def is_w(self, space, other):
-        if self.w_instance is not None:
-            return W_Root.is_w(self, space, other)
-        # The following special-case is only for *unbound* method objects.
-        # Motivation: in CPython, it seems that no strange internal type
-        # exists where the equivalent of ``x.method is x.method`` would
-        # return True.  This is unlike unbound methods, where e.g.
-        # ``list.append is list.append`` returns True.  The following code
-        # is here to emulate that behaviour.  Unlike CPython, we return
-        # True for all equal unbound methods, not just for built-in types.
-        if not isinstance(other, Method):
-            return False
-        return (other.w_instance is None and
-                self.w_function is other.w_function and
-                self.w_class is other.w_class)
-
-    def immutable_unique_id(self, space):
-        if self.w_instance is not None:
-            return W_Root.immutable_unique_id(self, space)
-        # the special-case is only for *unbound* method objects
-        #
-        from pypy.objspace.std.util import IDTAG_UNBOUND_METHOD as tag
-        from pypy.objspace.std.util import IDTAG_SHIFT
-        id = space.bigint_w(space.id(self.w_function))
-        id = id.lshift(LONG_BIT).or_(space.bigint_w(space.id(self.w_class)))
-        id = id.lshift(IDTAG_SHIFT).int_or_(tag)
-        return space.newlong_from_rbigint(id)
 
     def descr_method_hash(self):
         space = self.space
         w_result = space.hash(self.w_function)
-        if self.w_instance is not None:
-            w_result = space.xor(w_result, space.hash(self.w_instance))
+        w_result = space.xor(w_result, space.hash(self.w_instance))
         return w_result
 
     def descr_method__reduce__(self, space):
@@ -598,20 +590,16 @@ class Method(W_Root):
         from pypy.interpreter.gateway import BuiltinCode
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('method_new')
-        w_instance = self.w_instance or space.w_None
+        w_instance = self.w_instance
         w_function = self.w_function
         if (isinstance(w_function, Function) and
                 isinstance(w_function.code, BuiltinCode)):
             new_inst = mod.get('builtin_method_new')
-            if space.is_w(w_instance, space.w_None):
-                tup = [self.w_class, space.newtext(w_function.name)]
-            else:
-                tup = [w_instance, space.newtext(w_function.name)]
-        elif space.is_w(self.w_class, space.w_None):
-            tup = [self.w_function, w_instance]
+            tup = [w_instance, space.newtext(w_function.name)]
         else:
-            tup = [self.w_function, w_instance, self.w_class]
+            w_builtins = space.getbuiltinmodule('builtins')
+            new_inst = space.getattr(w_builtins, space.newtext('getattr'))
+            tup = [w_instance, space.newtext(w_function.getname(space))]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
 
@@ -621,6 +609,19 @@ class StaticMethod(W_Root):
 
     def __init__(self, w_function):
         self.w_function = w_function
+        self.w_dict = None
+
+    def getdict(self, space):
+        if self.w_dict is None:
+            self.w_dict = space.newdict(instance=True)
+        return self.w_dict
+
+    def setdict(self, space, w_dict):
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise oefmt(space.w_TypeError,
+                        "__dict__ must be set to a dictionary, not a %T",
+                        w_dict)
+        self.w_dict = w_dict
 
     def descr_staticmethod_get(self, w_obj, w_cls=None):
         """staticmethod(x).__get__(obj[, type]) -> x"""
@@ -634,6 +635,9 @@ class StaticMethod(W_Root):
     def descr_init(self, space, w_function):
         self.w_function = w_function
 
+    def descr_isabstract(self, space):
+        return space.newbool(space.isabstractmethod_w(self.w_function))
+
 
 class ClassMethod(W_Root):
     """The classmethod objects."""
@@ -641,12 +645,24 @@ class ClassMethod(W_Root):
 
     def __init__(self, w_function):
         self.w_function = w_function
+        self.w_dict = None
+
+    def getdict(self, space):
+        if self.w_dict is None:
+            self.w_dict = space.newdict(instance=True)
+        return self.w_dict
+
+    def setdict(self, space, w_dict):
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise oefmt(space.w_TypeError,
+                        "__dict__ must be set to a dictionary, not a %T",
+                        w_dict)
+        self.w_dict = w_dict
 
     def descr_classmethod_get(self, space, w_obj, w_klass=None):
         if space.is_none(w_klass):
             w_klass = space.type(w_obj)
-        return Method(space, self.w_function, w_klass,
-                      space.type(w_klass))
+        return Method(space, self.w_function, w_klass)
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(ClassMethod, w_subtype)
@@ -655,6 +671,10 @@ class ClassMethod(W_Root):
 
     def descr_init(self, space, w_function):
         self.w_function = w_function
+
+    def descr_isabstract(self, space):
+        return space.newbool(space.isabstractmethod_w(self.w_function))
+
 
 class FunctionWithFixedCode(Function):
     can_change_code = False
@@ -665,10 +685,12 @@ class BuiltinFunction(Function):
     def __init__(self, func):
         assert isinstance(func, Function)
         Function.__init__(self, func.space, func.code, func.w_func_globals,
-                          func.defs_w, func.closure, func.name)
+                          func.defs_w, None, func.closure,
+                          None, func.name)
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
+        self.w_kw_defs = func.w_kw_defs
 
     def descr_builtinfunction__new__(space, w_subtype):
         raise oefmt(space.w_TypeError,
@@ -676,6 +698,9 @@ class BuiltinFunction(Function):
 
     def descr_function_repr(self):
         return self.space.newtext('<built-in function %s>' % (self.name,))
+
+    def descr__reduce__(self, space):
+        return space.newtext(self.qualname)
 
 def is_builtin_code(w_func):
     from pypy.interpreter.gateway import BuiltinCode

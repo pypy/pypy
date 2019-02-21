@@ -6,7 +6,7 @@ import os
 irc_header = "And now for something completely different"
 
 
-def interactive_console(mainmodule=None, quiet=False, future_flags=0):
+def interactive_console(mainmodule=None, quiet=False):
     # set sys.{ps1,ps2} just before invoking the interactive interpreter. This
     # mimics what CPython does in pythonrun.c
     if not hasattr(sys, 'ps1'):
@@ -26,6 +26,7 @@ def interactive_console(mainmodule=None, quiet=False, future_flags=0):
         except ImportError:
             pass
     #
+    run_interactive = run_simple_interactive_console
     try:
         if not os.isatty(sys.stdin.fileno()):
             # Bail out if stdin is not tty-like, as pyrepl wouldn't be happy
@@ -36,21 +37,23 @@ def interactive_console(mainmodule=None, quiet=False, future_flags=0):
         if not check():
             raise ImportError
         from pyrepl.simple_interact import run_multiline_interactive_console
+        run_interactive = run_multiline_interactive_console
     except ImportError:
-        run_simple_interactive_console(mainmodule, future_flags=future_flags)
-    else:
-        run_multiline_interactive_console(mainmodule, future_flags=future_flags)
+        pass
+    except SyntaxError:
+        print("Warning: 'import pyrepl' failed with SyntaxError")
+    run_interactive(mainmodule)
 
-def run_simple_interactive_console(mainmodule, future_flags=0):
+def run_simple_interactive_console(mainmodule):
     import code
     if mainmodule is None:
         import __main__ as mainmodule
     console = code.InteractiveConsole(mainmodule.__dict__, filename='<stdin>')
-    if future_flags:
-        console.compile.compiler.flags |= future_flags
-    # some parts of code.py are copied here because it seems to be impossible
+    # some parts of code.py are copied here because it was impossible
     # to start an interactive console without printing at least one line
-    # of banner
+    # of banner.  This was fixed in 3.4; but then from 3.6 it prints a
+    # line when exiting.  This can be disabled too---by passing an argument
+    # that doesn't exist in <= 3.5.  So, too much mess: just copy the code.
     more = 0
     while 1:
         try:
@@ -59,11 +62,7 @@ def run_simple_interactive_console(mainmodule, future_flags=0):
             else:
                 prompt = getattr(sys, 'ps1', '>>> ')
             try:
-                line = raw_input(prompt)
-                # Can be None if sys.stdin was redefined
-                encoding = getattr(sys.stdin, 'encoding', None)
-                if encoding and not isinstance(line, unicode):
-                    line = line.decode(encoding)
+                line = input(prompt)
             except EOFError:
                 console.write("\n")
                 break
@@ -78,5 +77,5 @@ def run_simple_interactive_console(mainmodule, future_flags=0):
 
 if __name__ == '__main__':    # for testing
     if os.getenv('PYTHONSTARTUP'):
-        execfile(os.getenv('PYTHONSTARTUP'))
+        exec(compile(open(os.getenv('PYTHONSTARTUP')).read(), os.getenv('PYTHONSTARTUP'), 'exec'))
     interactive_console()

@@ -164,13 +164,13 @@ def _mk_w_return_val(method_name):
 def _chtype(ch):
     return int(ffi.cast("chtype", ch))
 
-def _texttype(text):
-    if isinstance(text, str):
+def _bytestype(text):
+    if isinstance(text, bytes):
         return text
-    elif isinstance(text, unicode):
-        return str(text)   # default encoding
+    elif isinstance(text, str):
+        return text.encode()
     else:
-        raise TypeError("str or unicode expected, got a '%s' object"
+        raise TypeError("bytes or str expected, got a '%s' object"
                         % (type(text).__name__,))
 
 
@@ -286,7 +286,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def addstr(self, y, x, text, attr=None):
-        text = _texttype(text)
+        text = _bytestype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -300,7 +300,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def addnstr(self, y, x, text, n, attr=None):
-        text = _texttype(text)
+        text = _bytestype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -403,6 +403,17 @@ class Window(object):
             raise error("getch requires 0 or 2 arguments")
         return val
 
+    def get_wch(self, *args):
+        wch = ffi.new("wint_t[1]")
+        if len(args) == 0:
+            val = lib.wget_wch(self._win, wch)
+        elif len(args) == 2:
+            val = lib.mvwget_wch(self._win, *args, wch)
+        else:
+            raise error("get_wch requires 0 or 2 arguments")
+        _check_ERR(val, "get_wch")
+        return wch[0]
+
     def getkey(self, *args):
         if len(args) == 0:
             val = lib.wgetch(self._win)
@@ -479,7 +490,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def insstr(self, y, x, text, attr=None):
-        text = _texttype(text)
+        text = _bytestype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -493,7 +504,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def insnstr(self, y, x, text, n, attr=None):
-        text = _texttype(text)
+        text = _bytestype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -553,6 +564,9 @@ class Window(object):
     def putwin(self, filep):
         # filestar = ffi.new("FILE *", filep)
         return _check_ERR(lib.putwin(self._win, filep), "putwin")
+        # XXX CPython 3.5 says: We have to simulate this by writing to
+        # a temporary FILE*, then reading back, then writing to the
+        # argument stream.
 
     def redrawln(self, beg, num):
         return _check_ERR(lib.wredrawln(self._win, beg, num), "redrawln")
@@ -703,6 +717,7 @@ if lib._m_NCURSES_MOUSE_VERSION:
 
 
 def getwin(filep):
+    # XXX CPython 3.5: there's logic to use a temp file instead
     return Window(_check_NULL(lib.getwin(filep)))
 
 
@@ -807,6 +822,8 @@ def setupterm(term=None, fd=-1):
 
     if term is None:
         term = ffi.NULL
+    elif isinstance(term, str):
+        term = term.encode()
     err = ffi.new("int *")
     if lib.setupterm(term, fd, err) == lib.ERR:
         err = err[0]
@@ -899,7 +916,7 @@ def pair_number(pairvalue):
 
 
 def putp(text):
-    text = _texttype(text)
+    text = _bytestype(text)
     return _check_ERR(lib.putp(text), "putp")
 
 
@@ -953,23 +970,17 @@ def start_color():
 
 def tigetflag(capname):
     _ensure_initialised_setupterm()
-    if isinstance(capname, unicode):
-        capname = capname.encode('ascii')
-    return lib.tigetflag(capname)
+    return lib.tigetflag(capname.encode())
 
 
 def tigetnum(capname):
     _ensure_initialised_setupterm()
-    if isinstance(capname, unicode):
-        capname = capname.encode('ascii')
-    return lib.tigetnum(capname)
+    return lib.tigetnum(capname.encode())
 
 
 def tigetstr(capname):
     _ensure_initialised_setupterm()
-    if isinstance(capname, unicode):
-        capname = capname.encode('ascii')
-    val = lib.tigetstr(capname)
+    val = lib.tigetstr(capname.encode())
     if int(ffi.cast("intptr_t", val)) in (0, -1):
         return None
     return ffi.string(val)
@@ -977,6 +988,13 @@ def tigetstr(capname):
 
 def tparm(fmt, i1=0, i2=0, i3=0, i4=0, i5=0, i6=0, i7=0, i8=0, i9=0):
     args = [ffi.cast("int", i) for i in (i1, i2, i3, i4, i5, i6, i7, i8, i9)]
+    # fmt is expected to be a byte string; CPython 3.x complains
+    # "TypeError: 'str' does not support the buffer interface", but we
+    # can do better.
+    if isinstance(fmt, str):
+        # error message modeled on "TypeError: must be str, not bytes"
+        # that you get if you call curses.tigetstr(b'...') on CPython 3.x
+        raise TypeError('must be bytes, not str')
     result = lib.tparm(fmt, *args)
     if result == ffi.NULL:
         raise error("tparm() returned NULL")
@@ -996,6 +1014,11 @@ def unctrl(ch):
 def ungetch(ch):
     _ensure_initialised()
     return _check_ERR(lib.ungetch(_chtype(ch)), "ungetch")
+
+
+def unget_wch(ch):
+    _ensure_initialised()
+    return _check_ERR(lib.unget_wch(_chtype(ch)), "unget_wch")
 
 
 def use_env(flag):

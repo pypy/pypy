@@ -1,4 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from rpython.rlib.rsocket import SOMAXCONN
+
 
 class Module(MixedModule):
 
@@ -12,6 +14,7 @@ class Module(MixedModule):
         'herror'    :  'interp_socket.get_error(space, "herror")',
         'gaierror'  :  'interp_socket.get_error(space, "gaierror")',
         'timeout'   :  'interp_socket.get_error(space, "timeout")',
+        'SOMAXCONN' :  'space.wrap(%d)' % SOMAXCONN,
     }
 
     def startup(self, space):
@@ -27,14 +30,16 @@ class Module(MixedModule):
         for name in """
             gethostbyname gethostbyname_ex gethostbyaddr gethostname
             getservbyname getservbyport getprotobyname
-            fromfd socketpair
+            dup socketpair
             ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop
             getaddrinfo getnameinfo
             getdefaulttimeout setdefaulttimeout
+            CMSG_SPACE CMSG_LEN
             """.split():
 
-            if name in ('inet_pton', 'inet_ntop', 'fromfd', 'socketpair') \
-                    and not hasattr(rsocket, name):
+            if (name in ('inet_pton', 'inet_ntop', 'socketpair',
+                         'CMSG_SPACE', 'CMSG_LEN') and
+                not hasattr(rsocket, name)):
                 continue
 
             Module.interpleveldefs[name] = 'interp_func.%s' % (name, )

@@ -11,18 +11,6 @@
 extern void _PyPy_Free(void *ptr);
 extern void *_PyPy_Malloc(Py_ssize_t size);
 
-void
-Py_IncRef(PyObject *o)
-{
-    Py_XINCREF(o);
-}
-
-void
-Py_DecRef(PyObject *o)
-{
-    Py_XDECREF(o);
-}
-
 /* 
  * The actual value of this variable will be the address of
  * pyobject.w_marker_deallocating, and will be set by
@@ -32,7 +20,7 @@ Py_DecRef(PyObject *o)
  * tests we cannot call set_marker(), so we need to set a special value
  * directly here)
  */
-Py_ssize_t _pypy_rawrefcount_w_marker_deallocating = 0xDEADFFF;
+void* _pypy_rawrefcount_w_marker_deallocating = (void*) 0xDEADFFF;
 
 static PyGC_Head _internal_pyobj_list;
 PyGC_Head *_pypy_rawrefcount_pyobj_list = &_internal_pyobj_list;
@@ -80,7 +68,7 @@ _Py_Dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     /* this is the same as rawrefcount.mark_deallocating() */
-    obj->ob_pypy_link = _pypy_rawrefcount_w_marker_deallocating;
+    obj->ob_pypy_link = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
     pto->tp_dealloc(obj);
 }
 
@@ -150,6 +138,11 @@ PyObject *
 _PyObject_New(PyTypeObject *type)
 {
     return (PyObject*)_PyObject_NewVar(type, 0);
+}
+
+PyObject * _PyObject_GC_Malloc(size_t size)
+{
+    return (PyObject *)PyObject_Malloc(size);
 }
 
 static PyObject *
@@ -256,4 +249,17 @@ PyObject_InitVar(PyVarObject *obj, PyTypeObject *type, Py_ssize_t size)
 {
     obj->ob_size = size;
     return (PyVarObject*)PyObject_Init((PyObject*)obj, type);
+}
+
+int
+PyObject_CallFinalizerFromDealloc(PyObject *self)
+{
+    /* STUB */
+    if (self->ob_type->tp_finalize) {
+        fprintf(stderr, "WARNING: PyObject_CallFinalizerFromDealloc() "
+                        "not implemented (objects of type '%s')\n",
+                        self->ob_type->tp_name);
+        self->ob_type->tp_finalize = NULL;   /* only once */
+    }
+    return 0;
 }

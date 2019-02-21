@@ -86,20 +86,20 @@ class AppTestFFI(BaseAppTestFFI):
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         assert pow(2, 3) == 8
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_getaddr(self):
         from _rawffi.alt import CDLL, types
         libm = CDLL(self.libm_name)
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         assert pow.getaddr() == self.pow_addr
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_getaddressindll(self):
         import sys
         from _rawffi.alt import CDLL
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
-        fff = sys.maxint*2-1
-        if sys.platform == 'win32' or sys.platform == 'darwin':
-            fff = sys.maxint*2+1
+        fff = sys.maxsize*2-1
         assert pow_addr == self.pow_addr & fff
 
     def test_func_fromaddr(self):
@@ -122,7 +122,7 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy', [types.sint, types.sint], types.sint)
         assert sum_xy(30, 12) == 42
-        assert sum_xy(sys.maxint*2, 0) == -2
+        assert sum_xy(sys.maxsize*2, 0) == -2
 
     def test_void_result(self):
         """
@@ -181,7 +181,7 @@ class AppTestFFI(BaseAppTestFFI):
                                         types.void)
         assert get_dummy() == 0
         ptr = get_dummy_ptr()
-        assert type(ptr) in (int, long)
+        assert type(ptr) is int
         ptr2 = MyPointerWrapper(ptr)
         set_val_to_ptr(ptr2, 123)
         assert get_dummy() == 123
@@ -208,10 +208,10 @@ class AppTestFFI(BaseAppTestFFI):
         mystrlen = libfoo.getfunc('mystrlen', [types.char_p], types.slong)
         #
         # first, try automatic conversion from a string
-        assert mystrlen('foobar') == 6
+        assert mystrlen(b'foobar') == 6
         # then, try to pass an explicit pointer
         CharArray = _rawffi.Array('c')
-        mystr = CharArray(7, 'foobar')
+        mystr = CharArray(7, b'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
         mystrlen.free_temp_buffers()
@@ -235,11 +235,11 @@ class AppTestFFI(BaseAppTestFFI):
         #
         # first, try automatic conversion from strings and unicode
         assert mystrlen('foobar') == 6
-        assert mystrlen(u'foobar') == 6
-        assert mystrlen(u'ab\u2070') == 3
+        assert mystrlen('foobar') == 6
+        assert mystrlen('ab\u2070') == 3
         # then, try to pass an explicit pointer
         UniCharArray = _rawffi.Array('u')
-        mystr = UniCharArray(7, u'foobar')
+        mystr = UniCharArray(7, 'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
         mystrlen.free_temp_buffers()
@@ -258,9 +258,9 @@ class AppTestFFI(BaseAppTestFFI):
         do_nothing = libfoo.getfunc('do_nothing', [types.char_p], types.char_p)
         CharArray = _rawffi.Array('c')
         #
-        ptr = do_nothing('foobar')
+        ptr = do_nothing(b'foobar')
         array = CharArray.fromaddress(ptr, 7)
-        assert list(array) == list('foobar\00')
+        assert bytes(array) == b'foobar\00'
         do_nothing.free_temp_buffers()
 
     def test_typed_pointer_args(self):
@@ -291,7 +291,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _rawffi.alt import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         is_null_ptr = libfoo.getfunc('is_null_ptr', [types.void_p], types.ulong)
-        assert not is_null_ptr(sys.maxint+1)
+        assert not is_null_ptr(sys.maxsize+1)
 
     def test_unsigned_long_args(self):
         """
@@ -305,10 +305,10 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy_ul', [types.ulong, types.ulong],
                                 types.ulong)
-        assert sum_xy(sys.maxint, 12) == sys.maxint+12
-        assert sum_xy(sys.maxint+1, 12) == sys.maxint+13
+        assert sum_xy(sys.maxsize, 12) == sys.maxsize+12
+        assert sum_xy(sys.maxsize+1, 12) == sys.maxsize+13
         #
-        res = sum_xy(sys.maxint*2+3, 0)
+        res = sum_xy(sys.maxsize*2+3, 0)
         assert res == 1
 
     def test_unsigned_short_args(self):
@@ -380,7 +380,9 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         my_toupper = libfoo.getfunc('my_toupper', [types.char],
                                     types.char)
-        assert my_toupper('c') == 'C'
+        res = my_toupper(b'c')
+        assert type(res) is bytes
+        assert res == b'C'
 
     def test_unichar_args(self):
         """
@@ -394,8 +396,8 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy_wc', [types.unichar, types.unichar],
                                 types.unichar)
-        res = sum_xy(unichr(1000), unichr(2000))
-        assert type(res) is unicode
+        res = sum_xy(chr(1000), chr(2000))
+        assert type(res) is str
         assert ord(res) == 3000
 
     def test_single_float_args(self):
@@ -580,7 +582,7 @@ class AppTestFFI(BaseAppTestFFI):
         try:
             pow(2, 3)
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 
@@ -601,7 +603,7 @@ class AppTestFFI(BaseAppTestFFI):
         try:
             wrong_sleep(10)
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 
@@ -617,7 +619,7 @@ class AppTestFFI(BaseAppTestFFI):
         try:
             wrong_pow(2, 3) == 8
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 

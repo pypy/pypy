@@ -805,20 +805,12 @@ class __extend__(W_NDimArray):
         return w_result
 
     def buffer_w(self, space, flags):
+        # XXX format isn't always 'B' probably
         return self.implementation.get_buffer(space, flags)
 
-    def readbuf_w(self, space):
-        return self.implementation.get_buffer(space, space.BUF_FULL_RO).as_readbuf()
-
-    def writebuf_w(self, space):
-        return self.implementation.get_buffer(space, space.BUF_FULL).as_writebuf()
-
-    def charbuf_w(self, space):
-        return self.implementation.get_buffer(space, space.BUF_FULL_RO).as_str()
-
     def descr_get_data(self, space):
-        return space.newbuffer(
-            self.implementation.get_buffer(space, space.BUF_FULL).as_writebuf())
+        return space.newmemoryview(
+            self.implementation.get_buffer(space, space.BUF_FULL))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
@@ -828,7 +820,7 @@ class __extend__(W_NDimArray):
         if (axis1 < 0 or axis2 < 0 or axis1 >= self.ndims() or
                 axis2 >= self.ndims()):
             raise oefmt(space.w_ValueError,
-                        "axis1(=%d) and axis2(=%d) must be withing range "
+                        "axis1(=%d) and axis2(=%d) must be within range "
                         "(ndim=%d)", axis1, axis2, self.ndims())
         if axis1 == axis2:
             raise oefmt(space.w_ValueError,
@@ -1297,17 +1289,6 @@ class __extend__(W_NDimArray):
         value = self.get_scalar_value()
         return space.int(value)
 
-    def descr_long(self, space):
-        if self.get_size() != 1:
-            raise oefmt(space.w_TypeError,
-                        "only length-1 arrays can be converted to Python "
-                        "scalars")
-        if self.get_dtype().is_str_or_unicode():
-            raise oefmt(space.w_TypeError,
-                        "don't know how to convert scalar number to long")
-        value = self.get_scalar_value()
-        return space.long(value)
-
     def descr_float(self, space):
         if self.get_size() != 1:
             raise oefmt(space.w_TypeError,
@@ -1327,7 +1308,7 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_TypeError,
                         "don't know how to convert scalar number to hex")
         value = self.get_scalar_value()
-        return space.hex(value)
+        return space.call_method(space.builtin, 'hex', value)
 
     def descr_oct(self, space):
         if self.get_size() != 1:
@@ -1337,7 +1318,7 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_TypeError,
                         "don't know how to convert scalar number to oct")
         value = self.get_scalar_value()
-        return space.oct(value)
+        return space.call_method(space.builtin, 'oct', value)
 
     def descr_index(self, space):
         if self.get_size() != 1 or \
@@ -1545,7 +1526,6 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray", None, None, 'read-write',
     __repr__ = interp2app(W_NDimArray.descr_repr),
     __str__ = interp2app(W_NDimArray.descr_str),
     __int__ = interp2app(W_NDimArray.descr_int),
-    __long__ = interp2app(W_NDimArray.descr_long),
     __float__ = interp2app(W_NDimArray.descr_float),
     __hex__ = interp2app(W_NDimArray.descr_hex),
     __oct__ = interp2app(W_NDimArray.descr_oct),

@@ -1,77 +1,53 @@
+from __future__ import print_function
+
+
 class AppTestRawInput():
 
     def test_input_and_raw_input(self):
-        import sys, StringIO
-        for prompt, expected in [("def:", "abc/ def:/ghi\n"),
-                                 ("", "abc/ /ghi\n"),
-                                 (42, "abc/ 42/ghi\n"),
-                                 (None, "abc/ None/ghi\n"),
-                                 (Ellipsis, "abc/ /ghi\n")]:
+        import sys, io
+        flushed = [False]
+        class CheckFlushed(io.StringIO):
+            def flush(self):
+                flushed[0] = True
+                super().flush()
+        for prompt, expected in [("def:", "abc/def:/ghi\n"),
+                                 ("", "abc//ghi\n"),
+                                 (42, "abc/42/ghi\n"),
+                                 (None, "abc/None/ghi\n"),
+                                 (Ellipsis, "abc//ghi\n")]:
             for inputfn, inputtext, gottext in [
-                    (raw_input, "foo\nbar\n", "foo"),
-                    (input, "40+2\n", 42)]:
-                save = sys.stdin, sys.stdout
+                    (input, "foo\nbar\n", "foo")]:
+                save = sys.stdin, sys.stdout, sys.stderr
                 try:
-                    sys.stdin = StringIO.StringIO(inputtext)
-                    out = sys.stdout = StringIO.StringIO()
-                    print "abc",    # softspace = 1
+                    sys.stdin = io.StringIO(inputtext)
+                    out = sys.stdout = io.StringIO()
+                    # Ensure that input flushes stderr
+                    flushed = [False]
+                    err = sys.stderr = CheckFlushed()
+                    sys.stderr.write('foo')
+                    print("abc", end='')
                     out.write('/')
                     if prompt is Ellipsis:
                         got = inputfn()
                     else:
                         got = inputfn(prompt)
                     out.write('/')
-                    print "ghi"
+                    print("ghi")
                 finally:
-                    sys.stdin, sys.stdout = save
+                    sys.stdin, sys.stdout, sys.stderr = save
                 assert out.getvalue() == expected
+                assert flushed[0]
                 assert got == gottext
 
-    def test_softspace(self):
+    def test_bad_fileno(self):
+        import io
         import sys
-        import StringIO
-        fin = StringIO.StringIO()
-        fout = StringIO.StringIO()
-
-        fin.write("Coconuts\n")
-        fin.seek(0)
-
-        sys_stdin_orig = sys.stdin
-        sys_stdout_orig = sys.stdout
-
-        sys.stdin = fin
-        sys.stdout = fout
-
-        print "test",
-        raw_input("test")
-
-        sys.stdin = sys_stdin_orig
-        sys.stdout = sys_stdout_orig
-
-        fout.seek(0)
-        assert fout.read() == "test test"
-
-    def test_softspace_carryover(self):
-        import sys
-        import StringIO
-        fin = StringIO.StringIO()
-        fout = StringIO.StringIO()
-
-        fin.write("Coconuts\n")
-        fin.seek(0)
-
-        sys_stdin_orig = sys.stdin
-        sys_stdout_orig = sys.stdout
-
-        sys.stdin = fin
-        sys.stdout = fout
-
-        print "test",
-        raw_input("test")
-        print "test",
-
-        sys.stdin = sys_stdin_orig
-        sys.stdout = sys_stdout_orig
-
-        fout.seek(0)
-        assert fout.read() == "test testtest"
+        class BadFileno(io.StringIO):
+            def fileno(self):
+                1 / 0
+        stdin, sys.stdin = sys.stdin, BadFileno('foo')
+        try:
+            result = input()
+        finally:
+            sys.stdin = stdin
+        assert result == 'foo'

@@ -24,12 +24,10 @@ def tcsetattr(space, w_fd, when, w_attributes):
                     "tcsetattr, arg 3: must be 7 element list")
     w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed, w_cc = \
              space.unpackiterable(w_attributes, expected_length=7)
-    w_builtin = space.getbuiltinmodule('__builtin__')
     cc = []
     for w_c in space.unpackiterable(w_cc):
         if space.isinstance_w(w_c, space.w_int):
-            w_c = space.call_function(space.getattr(w_builtin,
-                                      space.newtext('chr')), w_c)
+            w_c = space.call_function(space.w_bytes, space.newlist([w_c]))
         cc.append(space.bytes_w(w_c))
     tup = (space.int_w(w_iflag), space.int_w(w_oflag),
            space.int_w(w_cflag), space.int_w(w_lflag),

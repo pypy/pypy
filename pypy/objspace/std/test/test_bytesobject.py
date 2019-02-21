@@ -1,3 +1,6 @@
+# coding: utf-8
+import pytest
+
 from pypy.interpreter.error import OperationError
 
 
@@ -31,8 +34,8 @@ class TestW_BytesObject:
         space = self.space
         w = space.wrap
         w_str = space.newbytes('abc')
-        assert self.space.eq_w(space.getitem(w_str, w(0)), w('a'))
-        assert self.space.eq_w(space.getitem(w_str, w(-1)), w('c'))
+        assert space.eq_w(space.getitem(w_str, w(0)), w(ord('a')))
+        assert space.eq_w(space.getitem(w_str, w(-1)), w(ord('c')))
         self.space.raises_w(space.w_IndexError,
                             space.getitem,
                             w_str,
@@ -85,89 +88,60 @@ class TestW_BytesObject:
         w_slice = space.newslice(w(1), w_None, w(2))
         assert self.space.eq_w(space.getitem(w_str, w_slice), wb('el'))
 
-    def test_listview_bytes(self):
+    def test_listview_bytes_int(self):
         w_bytes = self.space.newbytes('abcd')
-        assert self.space.listview_bytes(w_bytes) == list("abcd")
+        # list(b'abcd') is a list of numbers
+        assert self.space.listview_bytes(w_bytes) == None
+        assert self.space.listview_int(w_bytes) == [97, 98, 99, 100]
 
-
-try:
-    from hypothesis import given, strategies
-except ImportError:
-    pass
-else:
-    @given(u=strategies.binary(),
-           start=strategies.integers(min_value=0, max_value=10),
-           len1=strategies.integers(min_value=-1, max_value=10))
-    def test_hypo_index_find(u, start, len1, space):
-        if start + len1 < 0:
-            return   # skip this case
-        v = u[start : start + len1]
-        w_u = space.wrap(u)
-        w_v = space.wrap(v)
-        expected = u.find(v, start, start + len1)
-        try:
-            w_index = space.call_method(w_u, 'index', w_v,
-                                        space.newint(start),
-                                        space.newint(start + len1))
-        except OperationError as e:
-            if not e.match(space, space.w_ValueError):
-                raise
-            assert expected == -1
-        else:
-            assert space.int_w(w_index) == expected >= 0
-
-        w_index = space.call_method(w_u, 'find', w_v,
-                                    space.newint(start),
-                                    space.newint(start + len1))
-        assert space.int_w(w_index) == expected
-
-        rexpected = u.rfind(v, start, start + len1)
-        try:
-            w_index = space.call_method(w_u, 'rindex', w_v,
-                                        space.newint(start),
-                                        space.newint(start + len1))
-        except OperationError as e:
-            if not e.match(space, space.w_ValueError):
-                raise
-            assert rexpected == -1
-        else:
-            assert space.int_w(w_index) == rexpected >= 0
-
-        w_index = space.call_method(w_u, 'rfind', w_v,
-                                    space.newint(start),
-                                    space.newint(start + len1))
-        assert space.int_w(w_index) == rexpected
-
-        expected = u.startswith(v, start)
-        w_res = space.call_method(w_u, 'startswith', w_v,
-                                  space.newint(start))
-        assert w_res is space.newbool(expected)
-
-        expected = u.startswith(v, start, start + len1)
-        w_res = space.call_method(w_u, 'startswith', w_v,
-                                  space.newint(start),
-                                  space.newint(start + len1))
-        assert w_res is space.newbool(expected)
-
-        expected = u.endswith(v, start)
-        w_res = space.call_method(w_u, 'endswith', w_v,
-                                  space.newint(start))
-        assert w_res is space.newbool(expected)
-
-        expected = u.endswith(v, start, start + len1)
-        w_res = space.call_method(w_u, 'endswith', w_v,
-                                  space.newint(start),
-                                  space.newint(start + len1))
-        assert w_res is space.newbool(expected)
+    def test_constructor_single_char(self, monkeypatch):
+        from rpython.rlib import jit
+        monkeypatch.setattr(jit, 'isconstant', lambda x: True)
+        space = self.space
+        w_res = space.call_function(space.w_bytes, space.wrap([42]))
+        assert space.bytes_w(w_res) == b'*'
 
 
 class AppTestBytesObject:
 
-    def test_format_wrongchar(self):
-        raises(ValueError, 'a%Zb'.__mod__, ((23,),))
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
+    def test_constructor(self):
+        assert bytes() == b''
+        assert bytes(3) == b'\0\0\0'
+        assert bytes(b'abc') == b'abc'
+        assert bytes('abc', 'ascii') == b'abc'
+        assert bytes(set(b'foo')) in (b'fo', b'of')
+        assert bytes([]) == b''
+        assert bytes([42]) == b'*'
+        assert bytes([0xFC]) == b'\xFC'
+        assert bytes([42, 0xCC]) == b'*\xCC'
+        raises(TypeError, bytes, 'abc', b'ascii')
+        raises(UnicodeEncodeError, bytes, '\x80', 'ascii')
+
+    def test_constructor_list_of_objs(self):
+        class X:
+            def __index__(self):
+                return 42
+        class Y:
+            def __int__(self):
+                return 42
+        for obj in [42, X()]:
+            assert bytes([obj]) == b'*'
+            assert bytes([obj, obj, obj]) == b'***'
+        raises(TypeError, bytes, [Y()])
+        raises(TypeError, bytes, [Y(), Y()])
+
+    def test_fromhex(self):
+        assert bytes.fromhex("abcd") == b'\xab\xcd'
+        assert b''.fromhex("abcd") == b'\xab\xcd'
+        assert bytes.fromhex("ab cd  ef") == b'\xab\xcd\xef'
+        raises(TypeError, bytes.fromhex, b"abcd")
+        raises(TypeError, bytes.fromhex, True)
+        raises(ValueError, bytes.fromhex, "hello world")
 
     def test_format(self):
-        import sys
         raises(TypeError, "foo".__mod__, "bar")
         raises(TypeError, u"foo".__mod__, "bar")
         raises(TypeError, "foo".__mod__, u"bar")
@@ -197,23 +171,36 @@ class AppTestBytesObject:
             else:
                 assert result is NotImplemented
 
-    def test_format_c_overflow(self):
-        raises(OverflowError, b'{0:c}'.format, -1)
-        raises(OverflowError, b'{0:c}'.format, 256)
-
     def test_format_wrongtype(self):
         for int_format in '%d', '%o', '%x':
             exc_info = raises(TypeError, int_format.__mod__, '123')
-            expected = int_format + ' format: a number is required, not str'
-            assert str(exc_info.value) == expected
+            expected1 = int_format + ' format: a number is required, not str'
+            expected2 = int_format + ' format: an integer is required, not str'
+            assert str(exc_info.value) in (expected1, expected2)
         raises(TypeError, "None % 'abc'") # __rmod__
+        assert b'abc'.__rmod__('-%b-') is NotImplemented
+        assert b'abc'.__rmod__(b'-%b-') == b'-abc-'
+
+    def test_format_bytes(self):
+        assert b'<%s>' % b'abc' == b'<abc>'
+
+    def test_formatting_not_tuple(self):
+        class mydict(dict):
+            pass
+        assert b'xxx' % mydict() == b'xxx'
+        assert b'xxx' % [] == b'xxx'       # [] considered as a mapping(!)
+        raises(TypeError, "b'xxx' % 'foo'")
+        raises(TypeError, "b'xxx' % b'foo'")
+        raises(TypeError, "b'xxx' % bytearray()")
+        raises(TypeError, "b'xxx' % 53")
 
     def test_split(self):
         assert b"".split() == []
         assert b"".split(b'x') == [b'']
         assert b" ".split() == []
         assert b"a".split() == [b'a']
-        assert "a".split("a", 1) == ['', '']
+        assert b"a".split(b"aa") == [b'a']
+        assert b"a".split(b"a", 1) == [b'', b'']
         assert b" ".split(b" ", 1) == [b'', b'']
         assert b"aa".split(b"a", 2) == [b'', b'', b'']
         assert b" a ".split() == [b'a']
@@ -232,17 +219,20 @@ class AppTestBytesObject:
         assert b'a//b//c//d'.split(b'//') == [b'a', b'b', b'c', b'd']
         assert b'endcase test'.split(b'test') == [b'endcase ', b'']
         raises(ValueError, b'abc'.split, b'')
+        raises(TypeError, b'abc'.split, 123)
+        raises(TypeError, b'abc'.split, None, 1.0)
 
     def test_rsplit(self):
-        assert "".rsplit() == []
-        assert " ".rsplit() == []
-        assert "a".rsplit() == ['a']
-        assert "a".rsplit("a", 1) == ['', '']
-        assert " ".rsplit(" ", 1) == ['', '']
-        assert "aa".rsplit("a", 2) == ['', '', '']
-        assert " a ".rsplit() == ['a']
+        assert b"".rsplit() == []
+        assert b" ".rsplit() == []
+        assert b"a".rsplit() == [b'a']
+        assert b"a".rsplit(b"a", 1) == [b'', b'']
+        assert b" ".rsplit(b" ", 1) == [b'', b'']
+        assert b"aa".rsplit(b"a", 2) == [b'', b'', b'']
+        assert b" a ".rsplit() == [b'a']
         assert b"a b c".rsplit() == [b'a',b'b',b'c']
-        assert 'this is the rsplit function'.rsplit() == ['this', 'is', 'the', 'rsplit', 'function']
+        assert b'this is the rsplit function'.rsplit() == [
+            b'this', b'is', b'the', b'rsplit', b'function']
         assert b'a|b|c|d'.rsplit(b'|') == [b'a', b'b', b'c', b'd']
         assert b'a|b|c|d'.rsplit(b'|', 2) == [b'a|b', b'c', b'd']
         assert b'a b c d'.rsplit(None, 1) == [b'a b c', b'd']
@@ -255,9 +245,6 @@ class AppTestBytesObject:
         assert b'a//b//c//d'.rsplit(b'//') == [b'a', b'b', b'c', b'd']
         assert b'endcase test'.rsplit(b'test') == [b'endcase ', b'']
         raises(ValueError, b'abc'.rsplit, b'')
-
-    def test_split_splitchar(self):
-        assert "/a/b/c".split('/') == ['','a','b','c']
 
     def test_title(self):
         assert b"brown fox".title() == b"Brown Fox"
@@ -300,7 +287,13 @@ class AppTestBytesObject:
         assert b'abc'.rjust(3) == b'abc'
         assert b'abc'.rjust(2) == b'abc'
         assert b'abc'.rjust(5, b'*') == b'**abc'     # Python 2.4
-        raises(TypeError, 'abc'.rjust, 5, 'xx')
+        assert b'abc'.rjust(0) == b'abc'
+        assert b'abc'.rjust(-1) == b'abc'
+        assert b'abc'.rjust(5, bytearray(b' ')) == b'  abc'
+        raises(TypeError, b'abc'.rjust, 5.0)
+        raises(TypeError, b'abc'.rjust, 5, '*')
+        raises(TypeError, b'abc'.rjust, 5, b'xx')
+        raises(TypeError, b'abc'.rjust, 5, 32)
 
     def test_ljust(self):
         s = b"abc"
@@ -313,7 +306,8 @@ class AppTestBytesObject:
         assert b'abc'.ljust(3) == b'abc'
         assert b'abc'.ljust(2) == b'abc'
         assert b'abc'.ljust(5, b'*') == b'abc**'     # Python 2.4
-        raises(TypeError, 'abc'.ljust, 6, '')
+        raises(TypeError, b'abc'.ljust, 5, '*')
+        raises(TypeError, b'abc'.ljust, 6, b'')
 
     def test_replace(self):
         assert b'one!two!three!'.replace(b'!', b'@', 1) == b'one@two!three!'
@@ -337,23 +331,17 @@ class AppTestBytesObject:
         assert b'123x123'.replace(b'123', b'') == b'x'
 
     def test_replace_buffer(self):
-        assert 'one'.replace(buffer('o'), buffer('n'), 1) == 'nne'
-        assert 'one'.replace(buffer('o'), buffer('n')) == 'nne'
+        assert b'one'.replace(memoryview(b'o'), memoryview(b'n'), 1) == b'nne'
+        assert b'one'.replace(memoryview(b'o'), memoryview(b'n')) == b'nne'
 
     def test_strip(self):
-        s = " a b "
-        assert s.strip() == "a b"
-        assert s.rstrip() == " a b"
-        assert s.lstrip() == "a b "
+        s = b" a b "
+        assert s.strip() == b"a b"
+        assert s.rstrip() == b" a b"
+        assert s.lstrip() == b"a b "
         assert b'xyzzyhelloxyzzy'.strip(b'xyz') == b'hello'
         assert b'xyzzyhelloxyzzy'.lstrip(b'xyz') == b'helloxyzzy'
         assert b'xyzzyhelloxyzzy'.rstrip(b'xyz') == b'xyzzyhello'
-        exc = raises(TypeError, s.strip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, str or unicode'
-        exc = raises(TypeError, s.rstrip, buffer(' '))
-        assert str(exc.value) == 'rstrip arg must be None, str or unicode'
-        exc = raises(TypeError, s.lstrip, buffer(' '))
-        assert str(exc.value) == 'lstrip arg must be None, str or unicode'
 
     def test_zfill(self):
         assert b'123'.zfill(2) == b'123'
@@ -386,6 +374,9 @@ class AppTestBytesObject:
         assert b'abc'.center(3) == b'abc'
         assert b'abc'.center(2) == b'abc'
         assert b'abc'.center(5, b'*') == b'*abc*'     # Python 2.4
+        assert b'abc'.center(0) == b'abc'
+        assert b'abc'.center(-1) == b'abc'
+        assert b'abc'.center(5, bytearray(b' ')) == b' abc '
         raises(TypeError, b'abc'.center, 4, b'cba')
         assert b' abc'.center(7) == b'   abc '
 
@@ -401,6 +392,7 @@ class AppTestBytesObject:
         assert b'aaa'.count(b'a', 0, -1) == 2
         assert b'aaa'.count(b'a', 0, -10) == 0
         assert b'ababa'.count(b'aba') == 1
+        assert b'ababa'.count(ord('a')) == 3
 
     def test_startswith(self):
         assert b'ab'.startswith(b'ab') is True
@@ -411,7 +403,15 @@ class AppTestBytesObject:
         assert b''.startswith(b'') is True
         assert b''.startswith(b'a') is False
         assert b'x'.startswith(b'xx') is False
+        assert b'hello'.startswith((bytearray(b'he'), bytearray(b'hel')))
+        assert b'hello'.startswith((b'he', None, 123))
         assert b'y'.startswith(b'xx') is False
+        try:
+            b'hello'.startswith([b'o'])
+        except TypeError as e:
+            assert 'bytes' in str(e)
+        else:
+            assert False, 'Expected TypeError'
 
     def test_startswith_more(self):
         assert b'ab'.startswith(b'a', 0) is True
@@ -450,6 +450,12 @@ class AppTestBytesObject:
         assert b''.endswith(b'a') is False
         assert b'x'.endswith(b'xx') is False
         assert b'y'.endswith(b'xx') is False
+        try:
+            b'hello'.endswith([b'o'])
+        except TypeError as e:
+            assert 'bytes' in str(e)
+        else:
+            assert False, 'Expected TypeError'
 
     def test_endswith_more(self):
         assert b'abc'.endswith(b'ab', 0, 2) is True
@@ -492,13 +498,16 @@ class AppTestBytesObject:
         assert b'xy'.expandtabs() == b'xy'
         assert b''.expandtabs() == b''
 
-        raises(OverflowError, b"t\tt\t".expandtabs, sys.maxint)
+        assert b'x\t\t'.expandtabs(-1) == b'x'
+        assert b'x\t\t'.expandtabs(0) == b'x'
+
+        raises(OverflowError, b"t\tt\t".expandtabs, sys.maxsize)
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
-        if sys.maxint > (1 << 32):
+        if sys.maxsize > (1 << 32):
             skip("Wrong platform")
-        raises((MemoryError, OverflowError), b't\tt\t'.expandtabs, sys.maxint)
+        raises((MemoryError, OverflowError), b't\tt\t'.expandtabs, sys.maxsize)
 
     def test_expandtabs_0(self):
         assert 'x\ty'.expandtabs(0) == 'xy'
@@ -537,12 +546,12 @@ class AppTestBytesObject:
         raises(TypeError, b'abcdef'.find, b'd', 1.0)
 
     def test_index(self):
-        from sys import maxint
+        from sys import maxsize
         assert b'abcdefghiabc'.index(b'') == 0
         assert b'abcdefghiabc'.index(b'def') == 3
         assert b'abcdefghiabc'.index(b'abc') == 0
         assert b'abcdefghiabc'.index(b'abc', 1) == 9
-        assert b'abcdefghiabc'.index(b'def', -4*maxint, 4*maxint) == 3
+        assert b'abcdefghiabc'.index(b'def', -4*maxsize, 4*maxsize) == 3
         assert b'abcdefgh'.index(b'def', 2, None) == 3
         assert b'abcdefgh'.index(b'def', None, None) == 3
         raises(ValueError, b'abcdefghiabc'.index, b'hib')
@@ -563,12 +572,12 @@ class AppTestBytesObject:
         assert b'abcdefgh'.rfind(b'def', 2, None) == 3
 
     def test_rindex(self):
-        from sys import maxint
+        from sys import maxsize
         assert b'abcdefghiabc'.rindex(b'') == 12
         assert b'abcdefghiabc'.rindex(b'def') == 3
         assert b'abcdefghiabc'.rindex(b'abc') == 9
         assert b'abcdefghiabc'.rindex(b'abc', 0, -1) == 0
-        assert b'abcdefghiabc'.rindex(b'abc', -4*maxint, 4*maxint) == 9
+        assert b'abcdefghiabc'.rindex(b'abc', -4*maxsize, 4*maxsize) == 9
         raises(ValueError, b'abcdefghiabc'.rindex, b'hib')
         raises(ValueError, b'defghiabc'.rindex, b'def', 1)
         raises(ValueError, b'defghiabc'.rindex, b'abc', 0, -1)
@@ -628,42 +637,9 @@ class AppTestBytesObject:
         raises(TypeError, b''.join, [[1]])
 
     def test_unicode_join_str_arg_ascii(self):
-        raises(UnicodeDecodeError, u''.join, ['\xc3\xa1'])
+        raises(TypeError, ''.join, [b'\xc3\xa1'])
 
-    def test_unicode_join_str_arg_utf8(self):
-        # Need default encoding utf-8, but sys.setdefaultencoding
-        # is removed after startup.
-        import sys
-        if not hasattr(sys, 'setdefaultencoding'):
-            skip("sys.setdefaultencoding() not available")
-        old_encoding = sys.getdefaultencoding()
-        # Duplicate unittest.test_support.CleanImport logic because it won't
-        # import.
-        self.original_modules = sys.modules.copy()
-        try:
-            import sys as temp_sys
-            module_name = 'sys'
-            if module_name in sys.modules:
-                module = sys.modules[module_name]
-                # It is possible that module_name is just an alias for
-                # another module (e.g. stub for modules renamed in 3.x).
-                # In that case, we also need delete the real module to
-                # clear the import cache.
-                if module.__name__ != module_name:
-                    del sys.modules[module.__name__]
-                del sys.modules[module_name]
-            temp_sys.setdefaultencoding('utf-8')
-            assert u''.join(['\xc3\xa1']) == u'\xe1'
-            #
-            assert ('\xc3\xa1:%s' % u'\xe2') == u'\xe1:\xe2'
-            class Foo(object):
-                def __repr__(self):
-                    return '\xc3\xa2'
-            assert u'\xe1:%r' % Foo() == u'\xe1:\xe2'
-        finally:
-            temp_sys.setdefaultencoding(old_encoding)
-            sys.modules.update(self.original_modules)
-
+    @pytest.mark.xfail(reason='setdefaultencoding does not work?')
     def test_unicode_join_endcase(self):
         # This class inserts a Unicode object into its argument's natural
         # iteration, in the 3rd position.
@@ -675,16 +651,15 @@ class AppTestBytesObject:
             def __iter__(self):
                 return self
 
-            def next(self):
+            def __next__(self):
                 i = self.i
                 self.i = i+1
                 if i == 2:
-                    return unicode("fooled you!")
-                return self.it.next()
+                    return "fooled you!"
+                return next(self.it)
 
         f = (b'a\n', b'b\n', b'c\n')
-        got = " - ".join(OhPhooey(f))
-        assert got == unicode("a\n - b\n - fooled you! - c\n")
+        raises(TypeError, b" - ".join, OhPhooey(f))
 
     def test_lower(self):
         assert b"aaa AAA".lower() == b"aaa aaa"
@@ -749,22 +724,22 @@ class AppTestBytesObject:
         def maketrans(origin, image):
             if len(origin) != len(image):
                 raise ValueError("maketrans arguments must have same length")
-            L = [chr(i) for i in range(256)]
+            L = [i for i in range(256)]
             for i in range(len(origin)):
-                L[ord(origin[i])] = image[i]
+                L[origin[i]] = image[i]
 
-            tbl = ''.join(L)
+            tbl = bytes(L)
             return tbl
 
         table = maketrans(b'abc', b'xyz')
         assert b'xyzxyz' == b'xyzabcdef'.translate(table, b'def')
-        exc = raises(TypeError, "'xyzabcdef'.translate(memoryview(table), 'def')")
-        assert 'expected a' in str(exc.value)
+        assert b'xyzxyz' == b'xyzabcdef'.translate(memoryview(table), b'def')
 
         table = maketrans(b'a', b'A')
         assert b'Abc' == b'abc'.translate(table)
         assert b'xyz' == b'xyz'.translate(table)
         assert b'yz' ==  b'xyz'.translate(table, b'x')
+        raises(TypeError, b'xyz'.translate, table, 'x')
 
         raises(ValueError, b'xyz'.translate, b'too short', b'strip')
         raises(ValueError, b'xyz'.translate, b'too short')
@@ -776,44 +751,55 @@ class AppTestBytesObject:
         l=[]
         for i in iter(b"42"):
             l.append(i)
-        assert l == ['4','2']
+        assert l == [52, 50]
+        assert list(b"42".__iter__()) == [52, 50]
 
     def test_repr(self):
-        assert repr("")       =="''"
-        assert repr("a")      =="'a'"
-        assert repr("'")      =='"\'"'
-        assert repr("\'")     =="\"\'\""
-        assert repr("\"")     =='\'"\''
-        assert repr("\t")     =="'\\t'"
-        assert repr("\\")     =="'\\\\'"
-        assert repr('')       =="''"
-        assert repr('a')      =="'a'"
-        assert repr('"')      =="'\"'"
-        assert repr('\'')     =='"\'"'
-        assert repr('\"')     =="'\"'"
-        assert repr('\t')     =="'\\t'"
-        assert repr('\\')     =="'\\\\'"
-        assert repr("'''\"")  =='\'\\\'\\\'\\\'"\''
-        assert repr(chr(19))  =="'\\x13'"
-        assert repr(chr(2))   =="'\\x02'"
+        for f in str, repr:
+            assert f(b"")       =="b''"
+            assert f(b"a")      =="b'a'"
+            assert f(b"'")      =='b"\'"'
+            assert f(b"\'")     =="b\"\'\""
+            assert f(b"\"")     =='b\'"\''
+            assert f(b"\t")     =="b'\\t'"
+            assert f(b"\\")     =="b'\\\\'"
+            assert f(b'')       =="b''"
+            assert f(b'a')      =="b'a'"
+            assert f(b'"')      =="b'\"'"
+            assert f(b'\'')     =='b"\'"'
+            assert f(b'\"')     =="b'\"'"
+            assert f(b'\t')     =="b'\\t'"
+            assert f(b'\\')     =="b'\\\\'"
+            assert f(b"'''\"")  =='b\'\\\'\\\'\\\'"\''
+            assert f(b"\x13")   =="b'\\x13'"
+            assert f(b"\x02")   =="b'\\x02'"
 
     def test_contains(self):
         assert b'' in b'abc'
         assert b'a' in b'abc'
         assert b'ab' in b'abc'
         assert not b'd' in b'abc'
-        raises(TypeError, 'a'.__contains__, 1)
+        assert 97 in b'a'
+        raises(TypeError, b'a'.__contains__, 1.0)
+        raises(ValueError, b'a'.__contains__, 256)
+        raises(ValueError, b'a'.__contains__, -1)
+        raises(TypeError, b'a'.__contains__, None)
 
     def test_decode(self):
-        assert 'hello'.decode('rot-13') == 'uryyb'
-        assert 'hello'.decode('string-escape') == 'hello'
-        assert u'hello'.decode('rot-13') == 'uryyb'
+        assert b'hello'.decode('ascii') == 'hello'
+        raises(UnicodeDecodeError, b'he\x97lo'.decode, 'ascii')
 
     def test_encode(self):
-        assert 'hello'.encode() == 'hello'
-        assert type('hello'.encode()) is str
+        assert 'hello'.encode() == b'hello'
+        assert type('hello'.encode()) is bytes
+
+    def test_non_text_encoding(self):
+        raises(LookupError, b'hello'.decode, 'base64')
+        raises(LookupError, 'hello'.encode, 'base64')
 
     def test_hash(self):
+        if self.runappdirect:
+            skip("randomized hash by default")
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
         # disabled: assert hash('') == 0 --- different special case
@@ -823,63 +809,88 @@ class AppTestBytesObject:
     def test_buffer(self):
         x = b"he"
         x += b"llo"
-        b = buffer(x)
+        b = memoryview(x)
         assert len(b) == 5
-        assert b[-1] == "o"
+        assert b[-1] == ord("o")
         assert b[:] == b"hello"
         assert b[1:0] == b""
         raises(TypeError, "b[3] = 'x'")
+
+    def test_concat_array(self):
+        m = memoryview(b"123")
+        assert b"abc" + m == b'abc123'
+
+    def test_fromobject(self):
+        class S:
+            def __bytes__(self):
+                return b"bytes"
+        assert bytes(S()) == b"bytes"
+
+        class X:
+            __bytes__ = property(lambda self: self.bytes)
+            def bytes(self):
+                return b'pyramid'
+        assert bytes(X()) == b'pyramid'
+
+        class Z:
+            def __bytes__(self):
+                return [3, 4]
+        raises(TypeError, bytes, Z())
+
+    def test_fromobject___index__(self):
+        class WithIndex:
+            def __index__(self):
+                return 3
+        assert bytes(WithIndex()) == b'\x00\x00\x00'
+
+    def test_fromobject___int__(self):
+        class WithInt:
+            def __int__(self):
+                return 3
+        raises(TypeError, bytes, WithInt())
+
+    def test_fromobject___bytes__(self):
+        class WithIndex:
+            def __bytes__(self):
+                return b'a'
+            def __index__(self):
+                return 3
+        assert bytes(WithIndex()) == b'a'
+
+        class Str(str):
+            def __bytes__(self):
+                return b'a'
+        assert bytes(Str('abc')) == b'a'
 
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)
 
     def test_subclass(self):
-        class S(str):
+        class S(bytes):
             pass
-        s = S('abc')
-        assert type(''.join([s])) is str
-        assert type(s.join([])) is str
-        assert type(s.split('x')[0]) is str
-        assert type(s.ljust(3)) is str
-        assert type(s.rjust(3)) is str
-        assert type(S('A').upper()) is str
-        assert type(S('a').lower()) is str
-        assert type(S('A').capitalize()) is str
-        assert type(S('A').title()) is str
-        assert type(s.replace(s, s)) is str
-        assert type(s.replace('x', 'y')) is str
-        assert type(s.replace('x', 'y', 0)) is str
-        assert type(s.zfill(3)) is str
-        assert type(s.strip()) is str
-        assert type(s.rstrip()) is str
-        assert type(s.lstrip()) is str
-        assert type(s.center(3)) is str
-        assert type(s.splitlines()[0]) is str
-
-    def test_str_unicode_interchangeable(self):
-        stuff = ['xxxxx', u'xxxxx']
-        for x in stuff:
-            for y in stuff:
-                assert x.startswith(y)
-                assert x.endswith(y)
-                assert x.count(y) == 1
-                assert x.find(y) != -1
-                assert x.index(y) == 0
-                d = ["x", u"x"]
-                for a in d:
-                    for b in d:
-                        assert x.replace(a, b) == y
-                assert x.rfind(y) != -1
-                assert x.rindex(y) == 0
-                assert x.split(y) == ['', '']
-                assert x.rsplit(y) == ['', '']
-                assert x.strip(y) == ''
-                assert x.rstrip(y) == ''
-                assert x.lstrip(y) == ''
+        s = S(b'abc')
+        assert type(b''.join([s])) is bytes
+        assert type(s.join([])) is bytes
+        assert type(s.split(b'x')[0]) is bytes
+        assert type(s.ljust(3)) is bytes
+        assert type(s.rjust(3)) is bytes
+        assert type(S(b'A').upper()) is bytes
+        assert type(S(b'a').lower()) is bytes
+        assert type(S(b'A').capitalize()) is bytes
+        assert type(S(b'A').title()) is bytes
+        assert type(s.replace(s, s)) is bytes
+        assert type(s.replace(b'x', b'y')) is bytes
+        assert type(s.replace(b'x', b'y', 0)) is bytes
+        assert type(s.zfill(3)) is bytes
+        assert type(s.strip()) is bytes
+        assert type(s.rstrip()) is bytes
+        assert type(s.lstrip()) is bytes
+        assert type(s.center(3)) is bytes
+        assert type(s.splitlines()[0]) is bytes
 
     def test_replace_overflow(self):
         import sys
-        if sys.maxint > 2**31-1:
+        if sys.maxsize > 2**31-1:
             skip("Wrong platform")
         s = b"a" * (2**16)
         raises(OverflowError, s.replace, b"", s)
@@ -895,7 +906,6 @@ class AppTestBytesObject:
         assert ''.replace('', 'x', 1000) == ''
 
     def test_getslice(self):
-        assert "foobar".__getslice__(4, 4321) == "ar"
         s = b"abc"
         assert s[:] == b"abc"
         assert s[1:] == b"bc"
@@ -922,6 +932,107 @@ class AppTestBytesObject:
         x = Foo()
         assert "hello" + x == 42
 
-    def test_add(self):
-        assert 'abc' + 'abc' == 'abcabc'
-        assert isinstance('abc' + u'\u03a3', unicode)
+    def test_maketrans(self):
+        table = b'\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037 !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`xyzdefghijklmnopqrstuvwxyz{|}~\177\200\201\202\203\204\205\206\207\210\211\212\213\214\215\216\217\220\221\222\223\224\225\226\227\230\231\232\233\234\235\236\237\240\241\242\243\244\245\246\247\250\251\252\253\254\255\256\257\260\261\262\263\264\265\266\267\270\271\272\273\274\275\276\277\300\301\302\303\304\305\306\307\310\311\312\313\314\315\316\317\320\321\322\323\324\325\326\327\330\331\332\333\334\335\336\337\340\341\342\343\344\345\346\347\350\351\352\353\354\355\356\357\360\361\362\363\364\365\366\367\370\371\372\373\374\375\376\377'
+        assert bytes.maketrans(b'abc', b'xyz') == table
+        raises(TypeError, bytes.maketrans, 5, 5)
+
+    def test_compatibility(self):
+        #a whole bunch of methods should accept bytearray/memoryview without complaining...
+        #I don't know how slavishly we should follow the cpython spec here, since it appears
+        #quite arbitrary in which methods accept only bytes as secondary arguments or
+        #anything with the buffer protocol
+
+        b = b'hello world'
+        b2 = b'ello'
+        #not testing result, just lack of TypeError
+        for bb in (b2, bytearray(b2), memoryview(b2)):
+            assert b.split(bb)
+            assert b.rsplit(bb)
+            assert b.split(bb[:1])
+            assert b.rsplit(bb[:1])
+            assert b.join((bb, bb))  # accepts memoryview() since CPython 3.4/5
+            assert bb in b
+            assert b.find(bb)
+            assert b.rfind(bb)
+            assert b.strip(bb)
+            assert b.rstrip(bb)
+            assert b.lstrip(bb)
+            assert not b.startswith(bb)
+            assert not b.startswith((bb, bb))
+            assert not b.endswith(bb)
+            assert not b.endswith((bb, bb))
+            assert bytes.maketrans(bb, bb)
+
+    def test_constructor_dont_convert_int(self):
+        class A(object):
+            def __int__(self):
+                return 42
+        raises(TypeError, bytes, A())
+
+    def test_hex(self):
+        assert bytes('santa claus', 'ascii').hex() == "73616e746120636c617573"
+        assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex() == \
+               "73616e746120636c617573"
+        assert bytes(64).hex() == "00"*64
+
+    def test_format(self):
+        """
+        assert b'a%db' % 2 == b'a2b'
+        assert b'00%.2f'.__mod__((0.01234,)) == b'000.01'
+        assert b'%04X' % 10 == b'000A'
+        assert b'%c' % 48 == b'0'
+        assert b'%c' % b'a' == b'a'
+        """
+
+    def test_format_b(self):
+        """
+        assert b'%b' % b'abc' == b'abc'
+        assert b'%b' % u'はい'.encode('utf-8') == u'はい'.encode('utf-8')
+        raises(TypeError, 'b"%b" % 3.14')
+        raises(TypeError, 'b"%b" % "hello world"')
+        assert b'%b %b' % (b'a', bytearray(b'f f e')) == b'a f f e'
+        """
+
+    def test_getitem_error_message(self):
+        e = raises(TypeError, b'abc'.__getitem__, b'd')
+        assert str(e.value).startswith(
+            'byte indices must be integers or slices')
+
+    def test_constructor_typeerror(self):
+        raises(TypeError, bytes, b'', 'ascii')
+        raises(TypeError, bytes, '')
+
+    def test_constructor_subclass(self):
+        class Sub(bytes):
+            pass
+        class X:
+            def __bytes__(self):
+                return Sub(b'foo')
+        assert type(bytes(X())) is Sub
+
+    def test_constructor_subclass_2(self):
+        class Sub(bytes):
+            pass
+        class X(bytes):
+            def __bytes__(self):
+                return Sub(b'foo')
+        assert type(bytes(X())) is Sub
+
+    def test_constructor_subclass_3(self):
+        class Sub(bytes):
+            pass
+        class X(bytes):
+            def __bytes__(self):
+                return Sub(b'foo')
+        class Sub1(bytes):
+            pass
+        assert type(Sub1(X())) is Sub1
+        assert Sub1(X()) == b'foo'
+
+    def test_id(self):
+        a = b'abcabc'
+        id_b = id(str(a, 'latin1'))
+        id_a = id(a)
+        assert a is not str(a, 'latin1')
+        assert id_a != id_b

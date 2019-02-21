@@ -1,4 +1,5 @@
 import sys
+import __pypy__
 import _continuation
 
 __version__ = "0.4.13"
@@ -79,8 +80,8 @@ class greenlet(_continulet):
             # convert a "raise GreenletExit" into "return GreenletExit"
             if methodname == 'throw':
                 try:
-                    raise baseargs[0], baseargs[1]
-                except GreenletExit, e:
+                    raise __pypy__.normalize_exc(baseargs[0], baseargs[1])
+                except GreenletExit as e:
                     methodname = 'switch'
                     baseargs = (((e,), {}),)
                 except:
@@ -111,7 +112,7 @@ class greenlet(_continulet):
         else:
             return args
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self.__main or _continulet.is_pending(self)
 
     @property
@@ -126,7 +127,7 @@ class greenlet(_continulet):
             return None
         if self.__main:
             self = getcurrent()
-        f = _continulet.__reduce__(self)[2][0]
+        f = self._get_frame()
         if not f:
             return None
         return f.f_back.f_back.f_back   # go past start(), __switch(), switch()
@@ -188,7 +189,7 @@ def _greenlet_start(greenlet, args):
             if hasattr(_tls, 'trace'):
                 _run_trace_callback('switch')
             res = greenlet.run(*args, **kwds)
-        except GreenletExit, e:
+        except GreenletExit as e:
             res = e
         finally:
             _continuation.permute(greenlet, greenlet.parent)
@@ -202,8 +203,8 @@ def _greenlet_throw(greenlet, exc, value, tb):
         try:
             if hasattr(_tls, 'trace'):
                 _run_trace_callback('throw')
-            raise exc, value, tb
-        except GreenletExit, e:
+            raise __pypy__.normalize_exc(exc, value, tb)
+        except GreenletExit as e:
             res = e
         finally:
             _continuation.permute(greenlet, greenlet.parent)

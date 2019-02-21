@@ -102,9 +102,11 @@ class W_AbstractTupleObject(W_Root):
     def descr_repr(self, space):
         items = self.tolist()
         if len(items) == 1:
-            return space.newtext("(" + space.text_w(space.repr(items[0])) + ",)")
-        tmp = ", ".join([space.text_w(space.repr(item)) for item in items])
-        return space.newtext("(" + tmp + ")")
+            return space.newtext(
+                b"(" + space.utf8_w(space.repr(items[0])) + b",)")
+        tmp = b", ".join([space.utf8_w(space.repr(item))
+                          for item in items])
+        return space.newtext(b"(" + tmp + b")")
 
     def descr_hash(self, space):
         raise NotImplementedError
@@ -187,24 +189,30 @@ class W_AbstractTupleObject(W_Root):
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             return self._getslice(space, w_index)
-        index = space.getindex_w(w_index, space.w_IndexError, "tuple index")
+        index = space.getindex_w(w_index, space.w_IndexError, "tuple")
         return self.getitem(space, index)
 
     def _getslice(self, space, w_index):
         items = self.tolist()
         length = len(items)
         start, stop, step, slicelength = w_index.indices4(space, length)
+        if slicelength == 0:
+            subitems = []
+        elif step == 1:
+            assert 0 <= start <= stop
+            subitems = items[start:stop]
+        else:
+            subitems = self._getslice_advanced(items, start, step, slicelength)
+        return space.newtuple(subitems)
+
+    @staticmethod
+    def _getslice_advanced(items, start, step, slicelength):
         assert slicelength >= 0
         subitems = [None] * slicelength
         for i in range(slicelength):
             subitems[i] = items[start]
             start += step
-        return space.newtuple(subitems)
-
-    def descr_getslice(self, space, w_start, w_stop):
-        length = self.length()
-        start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-        return space.newtuple(self.tolist()[start:stop])
+        return subitems
 
     def descr_getnewargs(self, space):
         return space.newtuple([space.newtuple(self.tolist())])
@@ -258,7 +266,6 @@ If the argument is a tuple, the return value is the same object.""",
     __rmul__ = interp2app(W_AbstractTupleObject.descr_mul),
 
     __getitem__ = interp2app(W_AbstractTupleObject.descr_getitem),
-    __getslice__ = interp2app(W_AbstractTupleObject.descr_getslice),
 
     __getnewargs__ = interp2app(W_AbstractTupleObject.descr_getnewargs),
     count = interp2app(W_AbstractTupleObject.descr_count),

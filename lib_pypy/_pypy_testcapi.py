@@ -1,13 +1,15 @@
 import os, sys, imp
 import tempfile, binascii
+import importlib.machinery
 
 
-def get_hashed_dir(cfile):
+def _get_hashed_filename(cfile):
     with open(cfile,'r') as fid:
         content = fid.read()
     # from cffi's Verifier()
     key = '\x00'.join([sys.version[:3], content])
-    key += 'cpyext-gc-support-2'   # this branch requires recompilation!
+    # change the key to force recompilation
+    key += '2017-11-21'
     if sys.version_info >= (3,):
         key = key.encode('utf-8')
     k1 = hex(binascii.crc32(key[0::2]) & 0xffffffff)
@@ -21,26 +23,42 @@ def get_hashed_dir(cfile):
             username = os.environ['USERNAME']   #windows
         except KeyError:
             username = os.getuid()
-    output_dir = tempfile.gettempdir() + os.path.sep + 'tmp_%s_%s%s' % (
+    return tempfile.gettempdir() + os.path.sep + 'testcapi_%s_%s%s' % (
         username, k1, k2)
-    if not os.path.exists(output_dir):
+
+def get_hashed_dir(cfile):
+    hashed_fn = _get_hashed_filename(cfile)
+    try:
+        with open(hashed_fn) as f:
+            dirname = f.read(1024)
+    except IOError:
+        dirname = ''
+    tmpdir = tempfile.gettempdir()
+    if (not dirname or '/' in dirname or '\\' in dirname or '\x00' in dirname
+            or not os.path.isdir(os.path.join(tmpdir, dirname))):
+        dirname = binascii.hexlify(os.urandom(8))
+        if not isinstance(dirname, str):    # Python 3
+            dirname = dirname.decode('ascii')
+        dirname = 'testcapi_' + dirname
+    output_dir = os.path.join(tmpdir, dirname)
+    try:
         os.mkdir(output_dir)
+    except OSError:
+        pass
     return output_dir
 
 
 def _get_c_extension_suffix():
-    for ext, mod, typ in imp.get_suffixes():
-        if typ == imp.C_EXTENSION:
-            return ext
+    suffixes = importlib.machinery.EXTENSION_SUFFIXES
+    return suffixes[0] if suffixes else None
 
 
-def compile_shared(csource, modulename, output_dir=None):
+def compile_shared(csource, modulename, output_dir):
     """Compile '_testcapi.c' or '_ctypes_test.c' into an extension module,
     and import it.
     """
     thisdir = os.path.dirname(__file__)
-    if output_dir is None:
-        output_dir = tempfile.mkdtemp()
+    assert output_dir is not None
 
     from distutils.ccompiler import new_compiler
 
@@ -61,16 +79,15 @@ def compile_shared(csource, modulename, output_dir=None):
     # set link options
     output_filename = modulename + _get_c_extension_suffix()
     if sys.platform == 'win32':
-        # XXX pyconfig.h uses a pragma to link to the import library,
-        #     which is currently python27.lib
-        library = os.path.join(thisdir, '..', 'libs', 'python27')
+        libname = 'python{0[0]}{0[1]}'.format(sys.version_info)
+        library = os.path.join(thisdir, '..', 'lib', libname)
         if not os.path.exists(library + '.lib'):
             # For a local translation or nightly build
-            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'python27')
-        assert os.path.exists(library + '.lib'),'Could not find import library "%s"' % library
+            library = os.path.join(thisdir, '..', 'pypy', 'goal', libname)
+        assert os.path.exists(library + '.lib'), 'Could not find import library "%s"' % library
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST',  # needed for VC10
-                        '/EXPORT:init' + modulename]
+                        '/EXPORT:PyInit_' + modulename]
     else:
         libraries = []
         extra_ldargs = []
@@ -85,4 +102,16 @@ def compile_shared(csource, modulename, output_dir=None):
     # Now import the newly created library, it will replace the original
     # module in sys.modules
     fp, filename, description = imp.find_module(modulename, path=[output_dir])
-    imp.load_module(modulename, fp, filename, description)
+    with fp:
+        imp.load_module(modulename, fp, filename, description)
+
+    # If everything went fine up to now, write the name of this new
+    # directory to 'hashed_fn', for future processes (and to avoid a
+    # growing number of temporary directories that are not completely
+    # obvious to clean up on Windows)
+    hashed_fn = _get_hashed_filename(os.path.join(thisdir, csource))
+    try:
+        with open(hashed_fn, 'w') as f:
+            f.write(os.path.basename(output_dir))
+    except IOError:
+        pass

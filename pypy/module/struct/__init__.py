@@ -55,6 +55,7 @@ The variable struct.error is an exception raised on errors."""
         'pack_into': 'interp_struct.pack_into',
         'unpack': 'interp_struct.unpack',
         'unpack_from': 'interp_struct.unpack_from',
+        'iter_unpack': 'interp_struct.iter_unpack',
 
         'Struct': 'interp_struct.W_Struct',
         '_clearcache': 'interp_struct.clearcache',

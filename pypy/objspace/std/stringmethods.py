@@ -5,12 +5,10 @@ from rpython.rlib.objectmodel import specialize, newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstring import (
     find, rfind, count, endswith, replace, rsplit, split, startswith)
-from rpython.rlib.buffer import Buffer
-
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
-from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
-    normalize_simple_slice)
+from pypy.interpreter.unicodehelper import str_decode_utf8
+from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 
 
 class StringMethods(object):
@@ -29,29 +27,64 @@ class StringMethods(object):
         # the None means "no offset"; see bytearrayobject.py
         return (value, start, end, None)
 
+    @staticmethod
+    def descr_maketrans(space, w_type, w_from, w_to):
+        """B.maketrans(frm, to) -> translation table
+
+        Return a translation table (a bytes object of length 256) suitable
+        for use in the bytes or bytearray translate method where each byte
+        in frm is mapped to the byte at the same position in to.
+        The bytes objects frm and to must be of the same length.
+        """
+        from pypy.objspace.std.bytesobject import makebytesdata_w
+
+        base_table = [chr(i) for i in range(256)]
+        list_from = makebytesdata_w(space, w_from)
+        list_to = makebytesdata_w(space, w_to)
+
+        if len(list_from) != len(list_to):
+            raise oefmt(space.w_ValueError,
+                        "maketrans arguments must have same length")
+
+        for i in range(len(list_from)):
+            pos_from = ord(list_from[i])
+            char_to = list_to[i]
+            base_table[pos_from] = char_to
+
+        return space.newbytes(''.join(base_table))
+
     def _multi_chr(self, c):
         return c
+
+    @staticmethod
+    def _single_char(space, w_sub):
+        try:
+            char = space.int_w(w_sub)
+        except OperationError as e:
+            if e.match(space, space.w_OverflowError):
+                char = 256 # arbitrary value which will trigger the ValueError
+                # condition below
+            else:
+                raise
+        if not 0 <= char < 256:
+            raise oefmt(space.w_ValueError,
+                        "byte must be in range(0, 256)")
+        return chr(char)
 
     def descr_len(self, space):
         return space.newint(self._len())
 
-    #def descr_iter(self, space):
-    #    pass
+    def descr_iter(self, space):
+        from pypy.objspace.std.iterobject import W_StringIterObject
+        return W_StringIterObject(self, self._iter_getitem_result)
 
     def descr_contains(self, space, w_sub):
         value, start, end, _ = self._convert_idx_params(space, None, None)
+        other = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            other = self._op_val(space, w_sub)
-            return space.newbool(value.find(other, start, end) >= 0)
-
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        if isinstance(w_sub, W_BytesObject):
-            other = self._op_val(space, w_sub)
-            res = find(value, other, start, end)
+            res = value.find(other, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = find(value, buffer, start, end)
-
+            res = find(value, other, start, end)
         return space.newbool(res >= 0)
 
     def descr_add(self, space, w_other):
@@ -83,6 +116,9 @@ class StringMethods(object):
 
     descr_rmul = descr_mul
 
+    _KIND1 = "string"
+    _KIND2 = "string"
+
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             selfvalue = self._val(space)
@@ -97,25 +133,21 @@ class StringMethods(object):
                 ret = _descr_getslice_slowpath(selfvalue, start, step, sl)
                 return self._new_from_list(ret)
 
-        index = space.getindex_w(w_index, space.w_IndexError, "string index")
+        index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
         return self._getitem_result(space, index)
 
     def _getitem_result(self, space, index):
+        # Returns the result of 'self[index]', where index is an unwrapped int.
+        # Used by descr_getitem() and by descr_iter().
         selfvalue = self._val(space)
         try:
             character = selfvalue[index]
         except IndexError:
-            raise oefmt(space.w_IndexError, "string index out of range")
+            raise oefmt(space.w_IndexError, self._KIND1 + " index out of range")
+        from pypy.objspace.std.bytesobject import W_BytesObject
+        if isinstance(self, W_BytesObject):
+            return space.newint(ord(character))
         return self._new(character)
-
-    def descr_getslice(self, space, w_start, w_stop):
-        selfvalue = self._val(space)
-        start, stop = normalize_simple_slice(space, len(selfvalue), w_start,
-                                             w_stop)
-        if start == stop:
-            return self._empty()
-        else:
-            return self._sliced(space, selfvalue, start, stop, self)
 
     def descr_capitalize(self, space):
         value = self._val(space)
@@ -125,7 +157,7 @@ class StringMethods(object):
         builder = self._builder(len(value))
         builder.append(self._upper(value[0]))
         for i in range(1, len(value)):
-            builder.append(self._lower(value[i]))
+            builder.append(self._lower_in_str(value, i))
         return self._new(builder.build())
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
@@ -149,41 +181,31 @@ class StringMethods(object):
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
 
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            return space.newint(value.count(self._op_val(space, w_sub), start,
-                                            end))
-
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        if isinstance(w_sub, W_BytearrayObject):
-            res = count(value, w_sub.getdata(), start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = count(value, w_sub._value, start, end)
+            return space.newint(value.count(sub, start, end))
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = count(value, buffer, start, end)
-
-        assert res >= 0
+            res = count(value, sub, start, end)
+            assert res >= 0
         return space.newint(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
-            _get_encoding_and_errors, decode_object, unicode_from_string)
-        encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                    w_errors)
-
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        if (encoding is None and errors is None and
-            not isinstance(self, W_BytearrayObject)):
-            return unicode_from_string(space, self)
+            get_encoding_and_errors, decode_object)
+        encoding, errors = get_encoding_and_errors(space, w_encoding, w_errors)
+        if errors is None:
+            errors = 'strict'
+        if encoding is None:
+            encoding = 'utf8'
+        if encoding == 'utf8' or encoding == 'utf-8':
+            # fast path - do not call into app-level codecs.py
+            from pypy.module._codecs.interp_codecs import CodecState
+            state = space.fromcache(CodecState)
+            eh = state.decode_error_handler
+            s = space.charbuf_w(self)
+            ret, lgt, pos = str_decode_utf8(s, errors, True, eh)
+            return space.newtext(ret, lgt)
         return decode_object(space, self, encoding, errors)
-
-    def descr_encode(self, space, w_encoding=None, w_errors=None):
-        from pypy.objspace.std.unicodeobject import (
-            _get_encoding_and_errors, encode_object)
-        encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                    w_errors)
-        return encode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)
     def descr_expandtabs(self, space, tabsize=8):
@@ -238,19 +260,11 @@ class StringMethods(object):
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.find(self._op_val(space, w_sub), start, end)
-            return space.newint(res)
-
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        if isinstance(w_sub, W_BytearrayObject):
-            res = find(value, w_sub.getdata(), start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = find(value, w_sub._value, start, end)
+            res = value.find(sub, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = find(value, buffer, start, end)
+            res = find(value, sub, start, end)
         if ofs is not None and res >= 0:
             res -= ofs
         return space.newint(res)
@@ -258,19 +272,11 @@ class StringMethods(object):
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.rfind(self._op_val(space, w_sub), start, end)
-            return space.newint(res)
-
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        if isinstance(w_sub, W_BytearrayObject):
-            res = rfind(value, w_sub.getdata(), start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = rfind(value, w_sub._value, start, end)
+            res = value.rfind(sub, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = rfind(value, buffer, start, end)
+            res = rfind(value, sub, start, end)
         if ofs is not None and res >= 0:
             res -= ofs
         return space.newint(res)
@@ -278,21 +284,15 @@ class StringMethods(object):
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.find(self._op_val(space, w_sub), start, end)
-        elif isinstance(w_sub, W_BytearrayObject):
-            res = find(value, w_sub.getdata(), start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = find(value, w_sub._value, start, end)
+            res = value.find(sub, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = find(value, buffer, start, end)
+            res = find(value, sub, start, end)
 
         if res < 0:
             raise oefmt(space.w_ValueError,
-                        "substring not found in string.index")
+                        "substring not found in " + self._KIND2 + ".index")
         if ofs is not None:
             res -= ofs
         return space.newint(res)
@@ -300,21 +300,15 @@ class StringMethods(object):
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         value, start, end, ofs = self._convert_idx_params(space, w_start, w_end)
 
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.rfind(self._op_val(space, w_sub), start, end)
-        elif isinstance(w_sub, W_BytearrayObject):
-            res = rfind(value, w_sub.getdata(), start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = rfind(value, w_sub._value, start, end)
+            res = value.rfind(sub, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = rfind(value, buffer, start, end)
+            res = rfind(value, sub, start, end)
 
         if res < 0:
             raise oefmt(space.w_ValueError,
-                        "substring not found in string.rindex")
+                        "substring not found in " + self._KIND2 + ".rindex")
         if ofs is not None:
             res -= ofs
         return space.newint(res)
@@ -432,16 +426,17 @@ class StringMethods(object):
         unwrapped = newlist_hint(size)
         for i in range(size):
             w_s = list_w[i]
-            check_item = self._join_check_item(space, w_s)
-            if check_item == 1:
+            try:
+                next_string = self._op_val(space, w_s)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
                 raise oefmt(space.w_TypeError,
-                            "sequence item %d: expected string, %T found",
-                            i, w_s)
-            elif check_item == 2:
-                return self._join_autoconvert(space, list_w)
+                            "sequence item %d: expected %s, %T found",
+                            i, self._generic_name(), w_s)
             # XXX Maybe the extra copy here is okay? It was basically going to
             #     happen anyway, what with being placed into the builder
-            unwrapped.append(self._op_val(space, w_s))
+            unwrapped.append(next_string)
             prealloc_size += len(unwrapped[i])
 
         sb = self._builder(prealloc_size)
@@ -450,9 +445,6 @@ class StringMethods(object):
                 sb.append(value)
             sb.append(unwrapped[i])
         return self._new(sb.build())
-
-    def _join_autoconvert(self, space, list_w):
-        assert False, 'unreachable'
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_ljust(self, space, width, w_fillchar):
@@ -486,9 +478,14 @@ class StringMethods(object):
         value = self._val(space)
         builder = self._builder(len(value))
         for i in range(len(value)):
-            builder.append(self._lower(value[i]))
+            builder.append(self._lower_in_str(value, i))
         return self._new(builder.build())
 
+    def _lower_in_str(self, value, i):
+        # overridden in unicodeobject.py
+        return self._lower(value[i])
+        
+    # This is not used for W_UnicodeObject.
     def descr_partition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         value = self._val(space)
@@ -501,7 +498,7 @@ class StringMethods(object):
 
             pos = value.find(sub)
         else:
-            sub = _get_buffer(space, w_sub)
+            sub = space.readbuf_w(w_sub)
             sublen = sub.getlength()
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
@@ -531,7 +528,7 @@ class StringMethods(object):
 
             pos = value.rfind(sub)
         else:
-            sub = _get_buffer(space, w_sub)
+            sub = space.readbuf_w(w_sub)
             sublen = sub.getlength()
             if sublen == 0:
                 raise oefmt(space.w_ValueError, "empty separator")
@@ -596,7 +593,7 @@ class StringMethods(object):
 
         return self._newlist_unwrapped(space, res)
 
-    @unwrap_spec(keepends=bool)
+    @unwrap_spec(keepends=int)
     def descr_splitlines(self, space, keepends=False):
         value = self._val(space)
         length = len(value)
@@ -615,15 +612,28 @@ class StringMethods(object):
                 eol = pos
             strs.append(value[sol:eol])
         if pos < length:
+            # XXX is this code reachable?
             strs.append(value[pos:length])
         return self._newlist_unwrapped(space, strs)
 
+    def _generic_name(self):
+        return "bytes"
+
+    # This is overridden in unicodeobject, _startswith_tuple is not.
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
             return self._startswith_tuple(space, value, w_prefix, start, end)
-        return space.newbool(self._startswith(space, value, w_prefix, start,
-                                              end))
+        try:
+            res = self._startswith(space, value, w_prefix, start, end)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            wanted = self._generic_name()
+            raise oefmt(space.w_TypeError,
+                        "startswith first arg must be %s or a tuple of %s, "
+                        "not %T", wanted, wanted, w_prefix)
+        return space.newbool(res)
 
     def _startswith_tuple(self, space, value, w_prefix, start, end):
         for w_prefix in space.fixedview(w_prefix):
@@ -631,25 +641,28 @@ class StringMethods(object):
                 return space.w_True
         return space.w_False
 
+    # This is overridden in unicodeobject, _startswith_tuple is not.
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
-        if self._starts_ends_unicode:   # bug-to-bug compat
-            if len(prefix) == 0:
-                return True
-        else:
-            if start > len(value):
-                return False
+        if start > len(value):
+            return False
         return startswith(value, prefix, start, end)
 
-    _starts_ends_unicode = False  # bug-to-bug compat: this is for strings and
-                                  # bytearrays, but overridden for unicodes
-
+    # This is overridden in unicodeobject, _endswith_tuple is not.
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
             return self._endswith_tuple(space, value, w_suffix, start, end)
-        return space.newbool(self._endswith(space, value, w_suffix, start,
-                                            end))
+        try:
+            res = self._endswith(space, value, w_suffix, start, end)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            wanted = self._generic_name()
+            raise oefmt(space.w_TypeError,
+                        "endswith first arg must be %s or a tuple of %s, not "
+                        "%T", wanted, wanted, w_suffix)
+        return space.newbool(res)
 
     def _endswith_tuple(self, space, value, w_suffix, start, end):
         for w_suffix in space.fixedview(w_suffix):
@@ -657,20 +670,17 @@ class StringMethods(object):
                 return space.w_True
         return space.w_False
 
+    # This is overridden in unicodeobject, but _endswith_tuple is not.
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
-        if self._starts_ends_unicode:   # bug-to-bug compat
-            if len(prefix) == 0:
-                return True
-        else:
-            if start > len(value):
-                return False
+        if start > len(value):
+            return False
         return endswith(value, prefix, start, end)
 
     def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._val(space)
-        chars = self._op_val(space, w_chars, strict=name)
+        chars = self._op_val(space, w_chars)
 
         lpos = 0
         rpos = len(value)
@@ -725,7 +735,7 @@ class StringMethods(object):
         for i in range(len(selfvalue)):
             ch = selfvalue[i]
             if self._isupper(ch):
-                builder.append(self._lower(ch))
+                builder.append(self._lower_in_str(selfvalue, i))
             elif self._islower(ch):
                 builder.append(self._upper(ch))
             else:
@@ -742,19 +752,20 @@ class StringMethods(object):
     def title(self, value):
         builder = self._builder(len(value))
         previous_is_cased = False
-        for ch in value:
+        for i in range(len(value)):
+            ch = value[i]
             if not previous_is_cased:
                 builder.append(self._title(ch))
             else:
-                builder.append(self._lower(ch))
+                builder.append(self._lower_in_str(value, i))
             previous_is_cased = self._iscased(ch)
         return builder.build()
 
     DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])
 
     # for bytes and bytearray, overridden by unicode
-    @unwrap_spec(w_deletechars=WrappedDefault(''))
-    def descr_translate(self, space, w_table, w_deletechars):
+    @unwrap_spec(w_delete=WrappedDefault(''))
+    def descr_translate(self, space, w_table, w_delete):
         if space.is_w(w_table, space.w_None):
             table = self.DEFAULT_NOOP_TABLE
         else:
@@ -764,7 +775,7 @@ class StringMethods(object):
                             "translation table must be 256 characters long")
 
         string = self._val(space)
-        deletechars = self._op_val(space, w_deletechars)
+        deletechars = self._op_val(space, w_delete)
         if len(deletechars) == 0:
             buf = self._builder(len(string))
             for char in string:
@@ -811,12 +822,10 @@ class StringMethods(object):
     def descr_getnewargs(self, space):
         return space.newtuple([self._new(self._val(space))])
 
+
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops
 
 @specialize.argtype(0)
 def _descr_getslice_slowpath(selfvalue, start, step, sl):
     return [selfvalue[start + i*step] for i in range(sl)]
-
-def _get_buffer(space, w_obj):
-    return space.buffer_w(w_obj, space.BUF_SIMPLE).as_readbuf()

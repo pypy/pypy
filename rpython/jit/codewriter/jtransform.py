@@ -272,6 +272,9 @@ class Transformer(object):
     def rewrite_op_unlikely(self, op):
         return None   # "no real effect"
 
+    def rewrite_op_revdb_do_next_call(self, op):
+        return []    # ignored, only for revdb
+
     def rewrite_op_raw_malloc_usage(self, op):
         if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
             return   # the operation disappears
@@ -587,6 +590,23 @@ class Transformer(object):
                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
             descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
                 EffectInfo.OS_STREQ_NONNULL)
+            # XXX this is fairly ugly way of creating a constant,
+            #     however, callinfocollection has no better interface
+            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
+                                 op.result)
+            return [SpaceOperation('-live-', [], None), op1, None]
+        if (hints.get('promote_unicode') and
+            op.args[0].concretetype is not lltype.Void):
+            U = lltype.Ptr(rstr.UNICODE)
+            assert op.args[0].concretetype == U
+            self._register_extra_helper(EffectInfo.OS_UNIEQ_NONNULL,
+                                        "str.eq_nonnull",
+                                        [U, U],
+                                        lltype.Signed,
+                                        EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+            descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_UNIEQ_NONNULL)
             # XXX this is fairly ugly way of creating a constant,
             #     however, callinfocollection has no better interface
             c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
@@ -2162,6 +2182,11 @@ class Transformer(object):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_MATH_READ_TIMESTAMP,
+            extraeffect=EffectInfo.EF_CANNOT_RAISE)
+
+    def rewrite_op_ll_get_timestamp_unit(self, op):
+        op1 = self.prepare_builtin_call(op, "ll_get_timestamp_unit", [])
+        return self.handle_residual_call(op1,
             extraeffect=EffectInfo.EF_CANNOT_RAISE)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):

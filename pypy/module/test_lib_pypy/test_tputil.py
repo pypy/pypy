@@ -45,7 +45,7 @@ class AppTest_make_proxy:
         #tp.__getslice__(0, 1)
         tp[0:1]
         assert len(l) == 1
-        assert l[0].opname == '__getslice__'
+        assert l[0].opname == '__getitem__'
 
     def test_simple(self):
         from tputil import make_proxy

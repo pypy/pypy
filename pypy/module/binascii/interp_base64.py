@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error
+from pypy.module.binascii.interp_binascii import AsciiBufferUnwrapper
 from rpython.rlib.rarithmetic import ovfcheck
 
 # ____________________________________________________________
@@ -24,7 +25,7 @@ table_a2b_base64 = [
     -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
     -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
     -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,    
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
 ]
 def _transform(n):
     if n == -1:
@@ -34,8 +35,7 @@ def _transform(n):
 table_a2b_base64 = ''.join(map(_transform, table_a2b_base64))
 assert len(table_a2b_base64) == 256
 
-
-@unwrap_spec(ascii='bufferstr')
+@unwrap_spec(ascii=AsciiBufferUnwrapper)
 def a2b_base64(space, ascii):
     "Decode a line of base64 data."
 

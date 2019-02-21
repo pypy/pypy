@@ -3,15 +3,30 @@ class AppTestWarnings:
 
     def test_defaults(self):
         import _warnings
-        assert _warnings.once_registry == {}
-        assert _warnings.default_action == 'default'
-        assert "PendingDeprecationWarning" in str(_warnings.filters)
+        assert _warnings._onceregistry == {}
+        assert _warnings._defaultaction == 'default'
+        expected = [('ignore', None, DeprecationWarning, None, 0),
+                    ('ignore', None, PendingDeprecationWarning, None, 0),
+                    ('ignore', None, ImportWarning, None, 0),
+                    ('ignore', None, BytesWarning, None, 0),
+                    ('ignore', None, ResourceWarning, None, 0)]
+        assert expected == _warnings.filters
 
     def test_warn(self):
         import _warnings
         _warnings.warn("some message", DeprecationWarning)
         _warnings.warn("some message", Warning)
         _warnings.warn(("some message",1), Warning)
+
+    def test_use_builtin__warnings(self):
+        """Check that the stdlib warnings.py module manages to import our
+        _warnings module.  If something is missing, it doesn't, and silently
+        continues.  Then things don't reliably work: either the
+        functionality of the pure Python version is subtly different, or
+        more likely we get confusion because of a half-imported _warnings.
+        """
+        import warnings
+        assert not hasattr(warnings, '_filters_version')
 
     def test_lineno(self):
         import warnings, _warnings, sys
@@ -40,24 +55,28 @@ class AppTestWarnings:
 
     def test_show_source_line(self):
         import warnings
-        import sys, StringIO
+        import sys, io
         try:
             from test.warning_tests import inner
         except ImportError:
             skip('no test, -A on cpython?')
         # With showarning() missing, make sure that output is okay.
-        del warnings.showwarning
-
-        stderr = sys.stderr
+        saved = warnings.showwarning
         try:
-            sys.stderr = StringIO.StringIO()
-            inner('test message')
-            result = sys.stderr.getvalue()
-        finally:
-            sys.stderr = stderr
+            del warnings.showwarning
 
-        assert result.count('\n') == 2
-        assert '  warnings.warn(message, ' in result
+            stderr = sys.stderr
+            try:
+                sys.stderr = io.StringIO()
+                inner('test message')
+                result = sys.stderr.getvalue()
+            finally:
+                sys.stderr = stderr
+
+            assert result.count('\n') == 2
+            assert '  warnings.warn(message, ' in result
+        finally:
+            warnings.showwarning = saved
 
     def test_filename_none(self):
         import _warnings
@@ -66,22 +85,18 @@ class AppTestWarnings:
         globals()['__file__'] = None
         _warnings.warn('test', UserWarning)
 
-    def test_warn_unicode(self):
-        import _warnings, sys
-        old = sys.stderr
-        try:
-            class Grab:
-                def write(self, u):
-                    self.data.append(u)
-            sys.stderr = Grab()
-            sys.stderr.data = data = []
-            _warnings.warn_explicit("9238exbexn8", Warning,
-                                    "<string>", 1421, module_globals=globals())
-            assert isinstance(''.join(data), str)
-            _warnings.warn_explicit(u"\u1234\u5678", UserWarning,
-                                    "<str2>", 831, module_globals=globals())
-            assert isinstance(''.join(data), unicode)
-            assert ''.join(data).endswith(
-                             u'<str2>:831: UserWarning: \u1234\u5678\n')
-        finally:
-            sys.stderr = old
+    def test_bad_category(self):
+        import _warnings
+        raises(TypeError, _warnings.warn, "text", 123)
+        class Foo:
+            pass
+        raises(TypeError, _warnings.warn, "text", Foo)
+
+    def test_surrogate_in_filename(self):
+        import _warnings, __pypy__
+        for filename in ("nonascii\xe9\u20ac", "surrogate\udc80"):
+            try:
+                __pypy__.fsencode(filename)
+            except UnicodeEncodeError:
+                continue
+            _warnings.warn_explicit("text", UserWarning, filename, 1)

@@ -59,14 +59,14 @@ class AppTestProxyFunction(object):
             pass
         
         fun = self.get_proxy(f)
-        assert repr(fun).startswith("<function f")
+        assert repr(fun).startswith("<function test_function_repr.<locals>.f")
 
     def test_func_code(self):
         def f():
             pass
         
         fun = self.get_proxy(f)
-        assert fun.func_code is f.func_code
+        assert fun.__code__ is f.__code__
 
     def test_funct_prop_setter_del(self):
         def f():

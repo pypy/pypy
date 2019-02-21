@@ -18,7 +18,6 @@ PyAPI_DATA(PyTypeObject) PyFunction_Type;
 
 #define PyMethod_GET_FUNCTION(obj) PyMethod_Function((PyObject*)(obj))
 #define PyMethod_GET_SELF(obj) PyMethod_Self((PyObject*)(obj))
-#define PyMethod_GET_CLASS(obj) PyMethod_Class((PyObject*)(obj))
 
 #ifdef __cplusplus
 }

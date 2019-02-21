@@ -20,6 +20,11 @@ typedef struct {
 #define CO_VARKEYWORDS  0x0008
 #define CO_NESTED       0x0010
 #define CO_GENERATOR    0x0020
+  
+/* The CO_COROUTINE flag is set for coroutine functions (defined with
+   ``async def`` keywords) */
+#define CO_COROUTINE            0x0080
+#define CO_ITERABLE_COROUTINE   0x0100
 
 #define CO_FUTURE_DIVISION         0x02000
 #define CO_FUTURE_ABSOLUTE_IMPORT  0x04000

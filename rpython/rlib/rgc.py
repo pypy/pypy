@@ -13,11 +13,62 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 # General GC features
 
 collect = gc.collect
+enable = gc.enable
+disable = gc.disable
+isenabled = gc.isenabled
+
+def collect_step():
+    """
+    If the GC is incremental, run a single gc-collect-step.
+
+    Return an integer which encodes the starting and ending GC state. Use
+    rgc.{old_state,new_state,is_done} to decode it.
+
+    If the GC is not incremental, do a full collection and return a value on
+    which rgc.is_done() return True.
+    """
+    gc.collect()
+    return _encode_states(1, 0)
+
+def _encode_states(oldstate, newstate):
+    return oldstate << 8 | newstate
+
+def old_state(states):
+    return (states & 0xFF00) >> 8
+
+def new_state(states):
+    return states & 0xFF
+
+def is_done(states):
+    """
+    Return True if the return value of collect_step signals the end of a major
+    collection
+    """
+    old = old_state(states)
+    new = new_state(states)
+    return is_done__states(old, new)
+
+def is_done__states(oldstate, newstate):
+    "Like is_done, but takes oldstate and newstate explicitly"
+    # a collection is considered done when it ends up in the starting state
+    # (which is usually represented as 0). This logic works for incminimark,
+    # which is currently the only gc actually used and for which collect_step
+    # is implemented. In case we add more GC in the future, we might want to
+    # delegate this logic to the GC itself, but for now it is MUCH simpler to
+    # just write it in plain RPython.
+    return oldstate != 0 and newstate == 0
 
 def set_max_heap_size(nbytes):
     """Limit the heap size to n bytes.
     """
     pass
+
+def must_split_gc_address_space():
+    """Returns True if we have a "split GC address space", i.e. if
+    we are translating with an option that doesn't support taking raw
+    addresses inside GC objects and "hacking" at them.  This is
+    notably the case with --revdb."""
+    return False
 
 # for test purposes we allow objects to be pinned and use
 # the following list to keep track of the pinned objects
@@ -124,6 +175,44 @@ class CollectEntry(ExtRegistryEntry):
             args_v = hop.inputargs(lltype.Signed)
         return hop.genop('gc__collect', args_v, resulttype=hop.r_result)
 
+
+class EnableDisableEntry(ExtRegistryEntry):
+    _about_ = (gc.enable, gc.disable)
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        opname = self.instance.__name__
+        return hop.genop('gc__%s' % opname, hop.args_v, resulttype=hop.r_result)
+
+
+class IsEnabledEntry(ExtRegistryEntry):
+    _about_ = gc.isenabled
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.s_Bool
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc__isenabled', hop.args_v, resulttype=hop.r_result)
+
+
+class CollectStepEntry(ExtRegistryEntry):
+    _about_ = collect_step
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc__collect_step', hop.args_v, resulttype=hop.r_result)
+
+
 class SetMaxHeapSizeEntry(ExtRegistryEntry):
     _about_ = set_max_heap_size
 
@@ -146,6 +235,18 @@ def can_move(p):
     move any more.
     """
     return True
+
+class SplitAddrSpaceEntry(ExtRegistryEntry):
+    _about_ = must_split_gc_address_space
+ 
+    def compute_result_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        result = config.translation.split_gc_address_space
+        return self.bookkeeper.immutablevalue(result)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 class CanMoveEntry(ExtRegistryEntry):
     _about_ = can_move
@@ -280,18 +381,25 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO
-    if _contains_gcptr(TP.OF):
+
+    slowpath = False
+    if must_split_gc_address_space():
+        slowpath = True
+    elif _contains_gcptr(TP.OF):
         # perform a write barrier that copies necessary flags from
         # source to dest
         if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
                                                 source_start, dest_start,
                                                 length):
-            # if the write barrier is not supported, copy by hand
-            i = 0
-            while i < length:
-                copy_item(source, dest, i + source_start, i + dest_start)
-                i += 1
-            return
+            slowpath = True
+    if slowpath:
+        # if the write barrier is not supported, or if we translate with
+        # the option 'split_gc_address_space', then copy by hand
+        i = 0
+        while i < length:
+            copy_item(source, dest, i + source_start, i + dest_start)
+            i += 1
+        return
     source_addr = llmemory.cast_ptr_to_adr(source)
     dest_addr   = llmemory.cast_ptr_to_adr(dest)
     cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
@@ -325,6 +433,14 @@ def ll_shrink_array(p, smallerlength):
     field = getattr(p, TP._names[0])
     setattr(newp, TP._names[0], field)
 
+    if must_split_gc_address_space():
+        # do the copying element by element
+        i = 0
+        while i < smallerlength:
+            newp.chars[i] = p.chars[i]
+            i += 1
+        return newp
+
     ARRAY = getattr(TP, TP._arrayfld)
     offset = (llmemory.offsetof(TP, TP._arrayfld) +
               llmemory.itemoffsetof(ARRAY, 0))
@@ -345,9 +461,18 @@ def ll_arrayclear(p):
 
     length = len(p)
     ARRAY = lltype.typeOf(p).TO
-    offset = llmemory.itemoffsetof(ARRAY, 0)
-    dest_addr = llmemory.cast_ptr_to_adr(p) + offset
-    llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
+    if must_split_gc_address_space():
+        # do the clearing element by element
+        from rpython.rtyper.lltypesystem import rffi
+        ZERO = rffi.cast(ARRAY.OF, 0)
+        i = 0
+        while i < length:
+            p[i] = ZERO
+            i += 1
+    else:
+        offset = llmemory.itemoffsetof(ARRAY, 0)
+        dest_addr = llmemory.cast_ptr_to_adr(p) + offset
+        llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
     keepalive_until_here(p)
 
 
@@ -378,13 +503,12 @@ def must_be_light_finalizer(func):
 
 class FinalizerQueue(object):
     """A finalizer queue.  See pypy/doc/discussion/finalizer-order.rst.
-    Note: only works with the framework GCs (like minimark).  It is
-    ignored with Boehm or with refcounting (used by tests).
     """
     # Must be subclassed, and the subclass needs these attributes:
     #
     #    Class:
     #        the class (or base class) of finalized objects
+    #        --or-- None to handle low-level GCREFs directly
     #
     #    def finalizer_trigger(self):
     #        called to notify that new items have been put in the queue
@@ -397,11 +521,13 @@ class FinalizerQueue(object):
     def next_dead(self):
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
-            from rpython.rtyper.rclass import OBJECTPTR
-            from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+            from rpython.rtyper.lltypesystem.llmemory import GCREF
+            from rpython.rtyper.annlowlevel import cast_gcref_to_instance
             tag = FinalizerQueue._get_tag(self)
-            ptr = llop.gc_fq_next_dead(OBJECTPTR, tag)
-            return cast_base_ptr_to_instance(self.Class, ptr)
+            ptr = llop.gc_fq_next_dead(GCREF, tag)
+            if self.Class is not None:
+                ptr = cast_gcref_to_instance(self.Class, ptr)
+            return ptr
         try:
             return self._queue.popleft()
         except (AttributeError, IndexError):
@@ -410,14 +536,18 @@ class FinalizerQueue(object):
     @specialize.arg(0)
     @jit.dont_look_inside
     def register_finalizer(self, obj):
-        assert isinstance(obj, self.Class)
+        from rpython.rtyper.lltypesystem.llmemory import GCREF
+        if self.Class is None:
+            assert lltype.typeOf(obj) == GCREF
+        else:
+            assert isinstance(obj, self.Class)
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
-            from rpython.rtyper.rclass import OBJECTPTR
-            from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+            from rpython.rtyper.annlowlevel import cast_instance_to_gcref
             tag = FinalizerQueue._get_tag(self)
-            ptr = cast_instance_to_base_ptr(obj)
-            llop.gc_fq_register(lltype.Void, tag, ptr)
+            if self.Class is not None:
+                obj = cast_instance_to_gcref(obj)
+            llop.gc_fq_register(lltype.Void, tag, obj)
             return
         else:
             self._untranslated_register_finalizer(obj)
@@ -639,7 +769,10 @@ def get_rpy_memory_usage(gcref):
 def get_rpy_type_index(gcref):
     from rpython.rlib.rarithmetic import intmask
     Class = gcref._x.__class__
-    return intmask(id(Class))
+    i = intmask(id(Class))
+    if i < 0:
+        i = ~i    # always return a positive number, at least
+    return i
 
 def cast_gcref_to_int(gcref):
     # This is meant to be used on cast_instance_to_gcref results.
@@ -653,7 +786,7 @@ def cast_gcref_to_int(gcref):
 (TOTAL_MEMORY, TOTAL_ALLOCATED_MEMORY, TOTAL_MEMORY_PRESSURE,
  PEAK_MEMORY, PEAK_ALLOCATED_MEMORY, TOTAL_ARENA_MEMORY,
  TOTAL_RAWMALLOCED_MEMORY, PEAK_ARENA_MEMORY, PEAK_RAWMALLOCED_MEMORY,
- NURSERY_SIZE) = range(10)
+ NURSERY_SIZE, TOTAL_GC_TIME) = range(11)
 
 @not_rpython
 def get_stats(stat_no):
@@ -1273,6 +1406,11 @@ def resizable_list_supporting_raw_ptr(lst):
     return _ResizableListSupportingRawPtr(lst)
 
 def nonmoving_raw_ptr_for_resizable_list(lst):
+    if must_split_gc_address_space():
+        raise ValueError
+    return _nonmoving_raw_ptr_for_resizable_list(lst)
+
+def _nonmoving_raw_ptr_for_resizable_list(lst):
     assert isinstance(lst, _ResizableListSupportingRawPtr)
     return lst._nonmoving_raw_ptr_for_resizable_list()
 
@@ -1317,7 +1455,7 @@ class Entry(ExtRegistryEntry):
         return hop.inputarg(hop.args_r[0], 0)
 
 class Entry(ExtRegistryEntry):
-    _about_ = nonmoving_raw_ptr_for_resizable_list
+    _about_ = _nonmoving_raw_ptr_for_resizable_list
 
     def compute_result_annotation(self, s_list):
         from rpython.rtyper.lltypesystem import lltype, rffi

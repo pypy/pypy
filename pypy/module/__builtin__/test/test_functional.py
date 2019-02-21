@@ -1,17 +1,18 @@
 class AppTestMap:
     def test_trivial_map_one_seq(self):
-        assert map(lambda x: x+2, [1, 2, 3, 4]) == [3, 4, 5, 6]
+        assert list(map(lambda x: x+2, [1, 2, 3, 4])) == [3, 4, 5, 6]
 
     def test_trivial_map_one_seq_2(self):
-        assert map(str, [1, 2, 3, 4]) == ['1', '2', '3', '4']
+        assert list(map(str, [1, 2, 3, 4])) == ['1', '2', '3', '4']
 
     def test_trivial_map_two_seq(self):
-        assert map(lambda x,y: x+y,
-                             [1, 2, 3, 4],[1, 2, 3, 4]) == (
+        assert list(map(lambda x,y: x+y,
+                             [1, 2, 3, 4],[1, 2, 3, 4])) == (
                          [2, 4, 6, 8])
 
-    def test_trivial_map_sizes_dont_match_and_should(self):
-        raises(TypeError, map, lambda x,y: x+y, [1, 2, 3, 4], [1, 2, 3])
+    def test_trivial_map_sizes_dont_match(self):
+        assert list(map(lambda x,y: x+y, [1, 2, 3, 4], [1, 2, 3])) == (
+           [2, 4, 6])
 
     def test_trivial_map_no_arguments(self):
         raises(TypeError, map)
@@ -19,48 +20,34 @@ class AppTestMap:
     def test_trivial_map_no_function_no_seq(self):
         raises(TypeError, map, None)
 
-    def test_trivial_map_no_fuction_one_seq(self):
-        assert map(None, [1, 2, 3]) == [1, 2, 3]
-
-    def test_trivial_map_no_function(self):
-        assert map(None, [1,2,3], [4,5,6], [7,8], [1]) == (
-                         [(1, 4, 7, 1), (2, 5, 8, None), (3, 6, None, None)])
+    def test_trivial_map_no_fuction(self):
+        m = map(None, [1, 2, 3])    # Don't crash here...
+        raises(TypeError, next, m)  # ...but only on first item.
 
     def test_map_identity1(self):
         a = ['1', 2, 3, 'b', None]
         b = a[:]
-        assert map(lambda x: x, a) == a
-        assert a == b
-
-    def test_map_None(self):
-        a = ['1', 2, 3, 'b', None]
-        b = a[:]
-        assert map(None, a) == a
+        assert list(map(lambda x: x, a)) == a
         assert a == b
 
     def test_map_badoperation(self):
         a = ['1', 2, 3, 'b', None]
-        raises(TypeError, map, lambda x: x+1, a)
-
-    def test_map_multiply_identity(self):
-        a = ['1', 2, 3, 'b', None]
-        b = [ 2, 3, 4, 5, 6]
-        assert map(None, a, b) == [('1', 2), (2, 3), (3, 4), ('b', 5), (None, 6)]
+        raises(TypeError, list, map, lambda x: x+1, a)
 
     def test_map_add(self):
         a = [1, 2, 3, 4]
         b = [0, 1, 1, 1]
-        assert map(lambda x, y: x+y, a, b) == [1, 3, 4, 5]
+        assert list(map(lambda x, y: x+y, a, b)) == [1, 3, 4, 5]
 
     def test_map_first_item(self):
         a = [1, 2, 3, 4, 5]
-        b = []
-        assert map(lambda x, y: x, a, b) == a
+        b = [6, 7, 8, 9, 10]
+        assert list(map(lambda x, y: x, a, b)) == a
 
     def test_map_second_item(self):
         a = []
         b = [1, 2, 3, 4, 5]
-        assert map(lambda x, y: y, a, b) == b
+        assert list(map(lambda x, y: y, a, b)) == a
 
     def test_map_iterables(self):
         class A(object):
@@ -71,23 +58,64 @@ class AppTestMap:
         class B(object):
             def __init__(self, n):
                 self.n = n
-            def next(self):
+            def __next__(self):
                 self.n -= 1
                 if self.n == 0: raise StopIteration
                 return self.n
-        result = map(None, A(3), A(8))
+        result = map(lambda *x:x, A(3), A(8))
         # this also checks that B.next() is not called any more after it
         # raised StopIteration once
-        assert result == [(2, 7), (1, 6), (None, 5), (None, 4),
-                          (None, 3), (None, 2), (None, 1)]
+        assert list(result) == [(2, 7), (1, 6)]
+
+    def test_repr(self):
+        assert repr(map(1, [2])).startswith('<map object ')
+
+class AppTestMap2:
+
+    def test_map(self):
+        obj_list = [object(), object(), object()]
+        it = map(lambda *x:x, obj_list)
+        for x in obj_list:
+            assert next(it) == (x, )
+        raises(StopIteration, next, it)
+
+        it = map(lambda *x:x, [1, 2, 3], [4], [5, 6])
+        assert next(it) == (1, 4, 5)
+        raises(StopIteration, next, it)
+
+        it = map(lambda *x:x, [], [], [1], [])
+        raises(StopIteration, next, it)
+
+        it = map(str, [0, 1, 0, 1])
+        for x in ['0', '1', '0', '1']:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
+        import operator
+        it = map(operator.add, [1, 2, 3], [4, 5, 6])
+        for x in [5, 7, 9]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
+    def test_map_wrongargs(self):
+        # Duplicate python 2.4 behaviour for invalid arguments
+        it = map(0, [])
+        raises(StopIteration, next, it)
+        it = map(0, [0])
+        raises(TypeError, next, it)
+        raises(TypeError, map, None, 0)
+
+        raises(TypeError, map, None)
+        raises(TypeError, map, bool)
+        raises(TypeError, map, 42)
 
 
 class AppTestZip:
     def test_one_list(self):
-        assert zip([1,2,3]) == [(1,), (2,), (3,)]
+        assert list(zip([1,2,3])) == [(1,), (2,), (3,)]
 
     def test_three_lists(self):
-        assert zip([1,2,3], [1,2], [1,2,3]) == [(1,1,1), (2,2,2)]
+        assert list(zip([1,2,3], [1,2], [1,2,3])) == [(1,1,1), (2,2,2)]
 
     def test_bad_length_hint(self):
         class Foo(object):
@@ -96,134 +124,406 @@ class AppTestZip:
             def __iter__(self):
                 if False:
                     yield None
-        assert zip(Foo()) == []
+        assert list(zip(Foo())) == []
 
-
-class AppTestReduce:
-    def test_None(self):
-        raises(TypeError, reduce, lambda x, y: x+y, [1,2,3], None)
-
-    def test_sum(self):
-        assert reduce(lambda x, y: x+y, [1,2,3,4], 0) == 10
-        assert reduce(lambda x, y: x+y, [1,2,3,4]) == 10
-
-    def test_minus(self):
-        assert reduce(lambda x, y: x-y, [10, 2, 8]) == 0
-        assert reduce(lambda x, y: x-y, [2, 8], 10) == 0
+    def test_repr(self):
+        assert repr(zip([1,2,3], [1,2], [1,2,3])).startswith('<zip object ')
 
 
 class AppTestFilter:
     def test_None(self):
-        assert filter(None, ['a', 'b', 1, 0, None]) == ['a', 'b', 1]
+        assert list(filter(None, ['a', 'b', 1, 0, None])) == ['a', 'b', 1]
 
     def test_return_type(self):
         txt = "This is a test text"
-        assert filter(None, txt) == txt
+        assert list(filter(None, txt)) == list(txt)
         tup = ("a", None, 0, [], 1)
-        assert filter(None, tup) == ("a", 1)
+        assert list(filter(None, tup)) == ["a", 1]
 
     def test_function(self):
-        assert filter(lambda x: x != "a", "a small text") == " smll text"
-        assert filter(lambda x: x < 20, [3, 33, 5, 55]) == [3, 5]
+        assert list(filter(lambda x: x != "a", "a small text")) == list(" smll text")
+        assert list(filter(lambda x: x < 20, [3, 33, 5, 55])) == [3, 5]
 
-    def test_filter_tuple_calls_getitem(self):
-        class T(tuple):
-            def __getitem__(self, i):
-                return i * 10
-        assert filter(lambda x: x != 20, T("abcd")) == (0, 10, 30)
+class AppTestFilter2:
+    def test_filter(self):
+        it = filter(None, [])
+        raises(StopIteration, next, it)
+
+        it = filter(None, [1, 0, 2, 3, 0])
+        for x in [1, 2, 3]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
+        def is_odd(arg):
+            return (arg % 2 == 1)
+
+        it = filter(is_odd, [1, 2, 3, 4, 5, 6])
+        for x in [1, 3, 5]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
+    def test_filter_wrongargs(self):
+        it = filter(0, [1])
+        raises(TypeError, next, it)
+
+        raises(TypeError, filter, bool, None)
 
 
-class AppTestXRange:
-    def test_xrange(self):
-        x = xrange(2, 9, 3)
+class AppTestRange:
+    def test_range(self):
+        x = range(2, 9, 3)
         assert x[1] == 5
         assert len(x) == 3
         assert list(x) == [2, 5, 8]
-        # test again, to make sure that xrange() is not its own iterator
+        # test again, to make sure that range() is not its own iterator
         assert list(x) == [2, 5, 8]
 
-    def test_xrange_iter(self):
-        x = xrange(2, 9, 3)
+    def test_range_toofew(self):
+        raises(TypeError, range)
+
+    def test_range_toomany(self):
+        raises(TypeError, range,  1, 2, 3, 4)
+
+    def test_range_one(self):
+        assert list(range(1)) == [0]
+
+    def test_range_posstartisstop(self):
+        assert list(range(1, 1)) == []
+
+    def test_range_negstartisstop(self):
+        assert list(range(-1, -1)) == []
+
+    def test_range_zero(self):
+        assert list(range(0)) == []
+
+    def test_range_twoargs(self):
+        assert list(range(1, 2)) == [1]
+
+    def test_range_decreasingtwoargs(self):
+        assert list(range(3, 1)) == []
+
+    def test_range_negatives(self):
+        assert list(range(-3)) == []
+
+    def test_range_decreasing_negativestep(self):
+        assert list(range(5, -2, -1)) == [5, 4, 3, 2, 1, 0 , -1]
+
+    def test_range_posfencepost1(self):
+        assert list(range(1, 10, 3)) == [1, 4, 7]
+
+    def test_range_posfencepost2(self):
+        assert list(range(1, 11, 3)) == [1, 4, 7, 10]
+
+    def test_range_posfencepost3(self):
+        assert list(range(1, 12, 3)) == [1, 4, 7, 10]
+
+    def test_range_negfencepost1(self):
+        assert list(range(-1, -10, -3)) == [-1, -4, -7]
+
+    def test_range_negfencepost2(self):
+        assert list(range(-1, -11, -3)) == [-1, -4, -7, -10]
+
+    def test_range_negfencepost3(self):
+        assert list(range(-1, -12, -3)) == [-1, -4, -7, -10]
+
+    def test_range_decreasing_negativelargestep(self):
+        assert list(range(5, -2, -3)) == [5, 2, -1]
+
+    def test_range_increasing_positivelargestep(self):
+        assert list(range(-5, 2, 3)) == [-5, -2, 1]
+
+    def test_range_zerostep(self):
+        raises(ValueError, range, 1, 5, 0)
+
+    def test_range_wrong_type(self):
+        raises(TypeError, range, "42")
+
+    def test_range_iter(self):
+        x = range(2, 9, 3)
         it = iter(x)
         assert iter(it) is it
-        assert it.next() == 2
-        assert it.next() == 5
-        assert it.next() == 8
-        raises(StopIteration, it.next)
-        # test again, to make sure that xrange() is not its own iterator
-        assert iter(x).next() == 2
+        assert it.__next__() == 2
+        assert it.__next__() == 5
+        assert it.__next__() == 8
+        raises(StopIteration, it.__next__)
+        # test again, to make sure that range() is not its own iterator
+        assert iter(x).__next__() == 2
 
-    def test_xrange_object_with___int__(self):
+    def test_range_object_with___index__(self):
         class A(object):
-            def __int__(self):
+            def __index__(self):
                 return 5
 
-        assert list(xrange(A())) == [0, 1, 2, 3, 4]
-        assert list(xrange(0, A())) == [0, 1, 2, 3, 4]
-        assert list(xrange(0, 10, A())) == [0, 5]
+        assert list(range(A())) == [0, 1, 2, 3, 4]
+        assert list(range(0, A())) == [0, 1, 2, 3, 4]
+        assert list(range(0, 10, A())) == [0, 5]
 
-    def test_xrange_float(self):
-        exc = raises(TypeError, xrange, 0.1, 2.0, 1.1)
-        assert "integer" in str(exc.value)
+        class A2(object):
+            def __index__(self):
+                return 'quux'
+        raises(TypeError, range, A2())
 
-    def test_xrange_long(self):
+    def test_range_float(self):
+        raises(TypeError, range, 0.1)
+        raises(TypeError, range, 0.1, 0)
+        raises(TypeError, range, 0, 0.1)
+        raises(TypeError, range, 0.1, 0, 0)
+        raises(TypeError, range, 0, 0.1, 0)
+        raises(TypeError, range, 0, 0, 0.1)
+        raises(TypeError, range, 0.1, 2.0, 1.1)
+
+    def test_range_long(self):
         import sys
-        a = long(10 * sys.maxint)
-        raises(OverflowError, xrange, a)
-        raises(OverflowError, xrange, 0, a)
-        raises(OverflowError, xrange, 0, 1, a)
+        assert list(range(-2**100)) == []
+        assert list(range(0, -2**100)) == []
+        assert list(range(0, 2**100, -1)) == []
+        assert list(range(0, 2**100, -1)) == []
 
-    def test_xrange_reduce(self):
-        x = xrange(2, 9, 3)
+        a = 10 * sys.maxsize
+        assert range(a)[-1] == a-1
+        assert range(0, a)[-1] == a-1
+        assert range(0, 1, a)[-1] == 0
+        assert list(range(a, a+2)) == [a, a+1]
+        assert list(range(a+2, a, -1)) == [a+2, a+1]
+        assert list(range(a+4, a, -2)) == [a+4, a+2]
+        assert list(range(a, a*5, a)) == [a, 2*a, 3*a, 4*a]
+
+    def test_range_cases(self):
+        import sys
+        for start in [10, 10 * sys.maxsize]:
+            for stop in [start-4, start-1, start, start+1, start+4]:
+                for step in [1, 2, 3, 4]:
+                    lst = list(range(start, stop, step))
+                    expected = []
+                    a = start
+                    while a < stop:
+                        expected.append(a)
+                        a += step
+                    assert lst == expected
+                for step in [-1, -2, -3, -4]:
+                    lst = list(range(start, stop, step))
+                    expected = []
+                    a = start
+                    while a > stop:
+                        expected.append(a)
+                        a += step
+                    assert lst == expected
+
+    def test_range_contains(self):
+        assert 3 in range(5)
+        assert 3 not in range(3)
+        assert 3 not in range(4, 5)
+        assert 3 in range(1, 5, 2)
+        assert 3 not in range(0, 5, 2)
+        assert '3' not in range(5)
+
+    def test_range_count(self):
+        assert range(5).count(3) == 1
+        assert type(range(5).count(3)) is int
+        assert range(0, 5, 2).count(3) == 0
+        assert range(5).count(3.0) == 1
+        assert range(5).count('3') == 0
+
+    def test_range_getitem(self):
+        assert range(6)[3] == 3
+        assert range(6)[-1] == 5
+        raises(IndexError, range(6).__getitem__, 6)
+
+    def test_range_slice(self):
+        # range objects don't implement equality in 3.2, use the repr
+        assert repr(range(6)[2:5]) == 'range(2, 5)'
+        assert repr(range(6)[-1:-3:-2]) == 'range(5, 3, -2)'
+
+    def test_large_range(self):
+        import sys
+        def _range_len(x):
+            try:
+                length = len(x)
+            except OverflowError:
+                step = x[1] - x[0]
+                length = 1 + ((x[-1] - x[0]) // step)
+                return length
+            a = -sys.maxsize
+            b = sys.maxsize
+            expected_len = b - a
+            x = range(a, b)
+            assert a in x
+            assert b not in x
+            raises(OverflowError, len, x)
+            assert _range_len(x) == expected_len
+            assert x[0] == a
+            idx = sys.maxsize + 1
+            assert x[idx] == a + idx
+            assert a[idx:idx + 1][0] == a + idx
+            try:
+                x[-expected_len - 1]
+            except IndexError:
+                pass
+            else:
+                assert False, 'Expected IndexError'
+            try:
+                x[expected_len]
+            except IndexError:
+                pass
+            else:
+                assert False, 'Expected IndexError'
+
+    def test_range_index(self):
+        u = range(2)
+        assert u.index(0) == 0
+        assert u.index(1) == 1
+        raises(ValueError, u.index, 2)
+        raises(ValueError, u.index, object())
+        raises(TypeError, u.index)
+
+        assert range(1, 10, 3).index(4) == 1
+        assert range(1, -10, -3).index(-5) == 2
+
+        assert range(10**20).index(1) == 1
+        assert range(10**20).index(10**20 - 1) == 10**20 - 1
+
+        raises(ValueError, range(1, 2**100, 2).index, 2**87)
+        assert range(1, 2**100, 2).index(2**87+1) == 2**86
+
+        class AlwaysEqual(object):
+            def __eq__(self, other):
+                return True
+        always_equal = AlwaysEqual()
+        assert range(10).index(always_equal) == 0
+
+    def test_range_types(self):
+        assert 1.0 in range(3)
+        assert True in range(3)
+        assert 1+0j in range(3)
+
+        class C1:
+            def __eq__(self, other): return True
+        assert C1() in range(3)
+
+        # Objects are never coerced into other types for comparison.
+        class C2:
+            def __int__(self): return 1
+            def __index__(self): return 1
+        assert C2() not in range(3)
+        # ..except if explicitly told so.
+        assert int(C2()) in range(3)
+
+        # Check that the range.__contains__ optimization is only
+        # used for ints, not for instances of subclasses of int.
+        class C3(int):
+            def __eq__(self, other): return True
+        assert C3(11) in range(10)
+        assert C3(11) in list(range(10))
+
+    def test_range_reduce(self):
+        x = range(2, 9, 3)
         callable, args = x.__reduce__()
         y = callable(*args)
         assert list(y) == list(x)
 
-    def test_xrange_iter_reduce(self):
-        x = iter(xrange(2, 9, 3))
-        x.next()
+    def test_range_iter_reduce(self):
+        x = iter(range(2, 9, 3))
+        next(x)
         callable, args = x.__reduce__()
         y = callable(*args)
         assert list(y) == list(x)
 
-    def test_xrange_iter_reduce_one(self):
-        x = iter(xrange(2, 9))
-        x.next()
+    def test_range_iter_reduce_one(self):
+        x = iter(range(2, 9))
+        next(x)
         callable, args = x.__reduce__()
         y = callable(*args)
         assert list(y) == list(x)
 
-    def test_lib_python_xrange_optimization(self):
-        x = xrange(1)
+    def test_lib_python_range_optimization(self):
+        x = range(1)
         assert type(reversed(x)) == type(iter(x))
 
     def test_cpython_issue16029(self):
         import sys
-        M = min(sys.maxint, sys.maxsize)
-        x = xrange(0, M, M - 1)
-        assert x.__reduce__() == (xrange, (0, M, M - 1))
-        x = xrange(0, -M, 1 - M)
-        assert x.__reduce__() == (xrange, (0, -M - 1, 1 - M))
+        M = sys.maxsize
+        x = range(0, M, M - 1)
+        assert x.__reduce__() == (range, (0, M, M - 1))
+        x = range(0, -M, 1 - M)
+        assert x.__reduce__() == (range, (0, -M, 1 - M))
 
     def test_cpython_issue16030(self):
         import sys
-        M = min(sys.maxint, sys.maxsize)
-        x = xrange(0, M, M - 1)
-        assert repr(x) == 'xrange(0, %s, %s)' % (M, M - 1)
-        x = xrange(0, -M, 1 - M)
-        assert repr(x) == 'xrange(0, %s, %s)' % (-M - 1, 1 - M)
+        M = sys.maxsize
+        x = range(0, M, M - 1)
+        assert repr(x) == 'range(0, %s, %s)' % (M, M - 1), repr(x)
+        x = range(0, -M, 1 - M)
+        assert repr(x) == 'range(0, %s, %s)' % (-M, 1 - M), repr(x)
 
+    def test_range_attributes(self):
+        rangeobj = range(3, 4, 5)
+        assert rangeobj.start == 3
+        assert rangeobj.stop == 4
+        assert rangeobj.step == 5
+
+        raises(AttributeError, "rangeobj.start = 0")
+        raises(AttributeError, "rangeobj.stop = 10")
+        raises(AttributeError, "rangeobj.step = 1")
+        raises(AttributeError, "del rangeobj.start")
+        raises(AttributeError, "del rangeobj.stop")
+        raises(AttributeError, "del rangeobj.step")
+
+    def test_comparison(self):
+        test_ranges = [range(0), range(0, -1), range(1, 1, 3),
+                       range(1), range(5, 6), range(5, 6, 2),
+                       range(5, 7, 2), range(2), range(0, 4, 2),
+                       range(0, 5, 2), range(0, 6, 2)]
+        test_tuples = list(map(tuple, test_ranges))
+
+        # Check that equality of ranges matches equality of the corresponding
+        # tuples for each pair from the test lists above.
+        ranges_eq = [a == b for a in test_ranges for b in test_ranges]
+        tuples_eq = [a == b for a in test_tuples for b in test_tuples]
+        assert ranges_eq == tuples_eq
+
+        # Check that != correctly gives the logical negation of ==
+        ranges_ne = [a != b for a in test_ranges for b in test_ranges]
+        assert ranges_ne == [not x for x in ranges_eq]
+
+        # Equal ranges should have equal hashes.
+        for a in test_ranges:
+            for b in test_ranges:
+                if a == b:
+                    assert hash(a) == hash(b)
+
+        # Ranges are unequal to other types (even sequence types)
+        assert (range(0) == ()) is False
+        assert (() == range(0)) is False
+        assert (range(2) == [0, 1]) is False
+
+        # Huge integers aren't a problem.
+        assert range(0, 2**100 - 1, 2) == range(0, 2**100, 2)
+        assert hash(range(0, 2**100 - 1, 2)) == hash(range(0, 2**100, 2))
+        assert range(0, 2**100, 2) != range(0, 2**100 + 1, 2)
+        assert (range(2**200, 2**201 - 2**99, 2**100) ==
+                range(2**200, 2**201, 2**100))
+        assert (hash(range(2**200, 2**201 - 2**99, 2**100)) ==
+                hash(range(2**200, 2**201, 2**100)))
+        assert (range(2**200, 2**201, 2**100) !=
+                range(2**200, 2**201 + 1, 2**100))
+
+        # Order comparisons are not implemented for ranges.
+        raises(TypeError, "range(0) < range(0)")
+        raises(TypeError, "range(0) > range(0)")
+        raises(TypeError, "range(0) <= range(0)")
+        raises(TypeError, "range(0) >= range(0)")
 
 class AppTestReversed:
     def test_reversed(self):
+        assert isinstance(reversed, type)
         r = reversed("hello")
         assert iter(r) is r
-        assert r.next() == "o"
-        assert r.next() == "l"
-        assert r.next() == "l"
-        assert r.next() == "e"
-        assert r.next() == "h"
-        raises(StopIteration, r.next)
+        assert r.__next__() == "o"
+        assert r.__next__() == "l"
+        assert r.__next__() == "l"
+        assert r.__next__() == "e"
+        assert r.__next__() == "h"
+        raises(StopIteration, r.__next__)
         assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
         raises(TypeError, reversed, reversed("hello"))
 
@@ -267,17 +567,6 @@ class AppTestReversed:
         assert r.__length_hint__() == 0
 
 
-class AppTestApply:
-    def test_apply(self):
-        def f(*args, **kw):
-            return args, kw
-        args = (1,3)
-        kw = {'a': 1, 'b': 4}
-        assert apply(f) == ((), {})
-        assert apply(f, args) == (args, {})
-        assert apply(f, args, kw) == (args, kw)
-
-
 class AppTestAllAny:
     """
     These are copied directly and replicated from the Python 2.5 source code.
@@ -286,7 +575,7 @@ class AppTestAllAny:
     def test_all(self):
 
         class TestFailingBool(object):
-            def __nonzero__(self):
+            def __bool__(self):
                 raise RuntimeError
         class TestFailingIter(object):
             def __iter__(self):
@@ -308,7 +597,7 @@ class AppTestAllAny:
     def test_any(self):
 
         class TestFailingBool(object):
-            def __nonzero__(self):
+            def __bool__(self):
                 raise RuntimeError
         class TestFailingIter(object):
             def __iter__(self):
@@ -337,9 +626,15 @@ class AppTestMinMax:
         raises(TypeError, min, 1, 2, key=lambda x: x, bar=2)
         assert type(min(1, 1.0)) is int
         assert type(min(1.0, 1)) is float
-        assert type(min(1, 1.0, 1L)) is int
-        assert type(min(1.0, 1L, 1)) is float
-        assert type(min(1L, 1, 1.0)) is long
+        assert type(min(1, 1.0, 1)) is int
+        assert type(min(1.0, 1, 1)) is float
+        assert type(min(1, 1, 1.0)) is int
+        assert min([], default=-1) == -1
+        assert min([1, 2], default=-1) == 1
+        raises(TypeError, min, 0, 1, default=-1)
+        assert min([], default=None) == None
+        raises(TypeError, min, 1, default=0)
+        raises(TypeError, min, default=1)
 
     def test_max(self):
         assert max(1, 2) == 2
@@ -349,9 +644,19 @@ class AppTestMinMax:
         raises(TypeError, max, 1, 2, key=lambda x: x, bar=2)
         assert type(max(1, 1.0)) is int
         assert type(max(1.0, 1)) is float
-        assert type(max(1, 1.0, 1L)) is int
-        assert type(max(1.0, 1L, 1)) is float
-        assert type(max(1L, 1, 1.0)) is long
+        assert type(max(1, 1.0, 1)) is int
+        assert type(max(1.0, 1, 1)) is float
+        assert type(max(1, 1, 1.0)) is int
+        assert max([], default=-1) == -1
+        assert max([1, 2], default=3) == 2
+        raises(TypeError, min, 0, 1, default=-1)
+        assert max([], default=None) == None
+        raises(TypeError, max, 1, default=0)
+        raises(TypeError, max, default=1)
+
+    def test_max_list_and_key(self):
+        assert max(["100", "50", "30", "-200"], key=int) == "100"
+        assert max("100", "50", "30", "-200", key=int) == "100"
 
 
 try:
@@ -369,7 +674,7 @@ else:
                 elif n & 3 == 2:
                     lst.append(100)
                 return n * 2
-            return map(change, lst)
+            return list(map(change, lst))
         """)
         expected = []
         i = 0

@@ -2,9 +2,8 @@ import py
 from pypy.interpreter import executioncontext
 from pypy.interpreter.error import OperationError
 
-class Finished(OperationError):
-    def __init__(self):
-        OperationError.__init__(self, "exception_class", "exception_value")
+class Finished(Exception):
+    pass
 
 
 class TestExecutionContext:
@@ -37,6 +36,78 @@ class TestExecutionContext:
             pass
         assert i == 9
 
+    def test_action_queue(self):
+        events = []
+
+        class Action1(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('one')
+
+        class Action2(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('two')
+
+        space = self.space
+        a1 = Action1(space)
+        a2 = Action2(space)
+        a1.fire()
+        a2.fire()
+        space.appexec([], """():
+            n = 5
+            return n + 2
+        """)
+        assert events == ['one', 'two']
+        #
+        events[:] = []
+        a1.fire()
+        space.appexec([], """():
+            n = 5
+            return n + 2
+        """)
+        assert events == ['one']
+
+    def test_fire_inside_perform(self):
+        # test what happens if we call AsyncAction.fire() while we are in the
+        # middle of an AsyncAction.perform(). In particular, this happens when
+        # PyObjectDeallocAction.fire() is called by rawrefcount: see issue
+        # 2805
+        events = []
+
+        class Action1(executioncontext.AsyncAction):
+            _count = 0
+
+            def perform(self, ec, frame):
+                events.append('one')
+                if self._count == 0:
+                    # a1 is no longer in the queue, so it will be enqueued
+                    a1.fire()
+                    #
+                    # a2 is still in the queue, so the fire() is ignored and
+                    # it's performed in its normal order, i.e. BEFORE a3
+                    a2.fire()
+                self._count += 1
+
+        class Action2(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('two')
+
+        class Action3(executioncontext.AsyncAction):
+            def perform(self, ec, frame):
+                events.append('three')
+
+        space = self.space
+        a1 = Action1(space)
+        a2 = Action2(space)
+        a3 = Action3(space)
+        a1.fire()
+        a2.fire()
+        a3.fire()
+        space.appexec([], """():
+            pass
+        """)
+        assert events == ['one', 'two', 'three', 'one']
+
+
     def test_periodic_action(self):
         from pypy.interpreter.executioncontext import ActionFlag
 
@@ -67,25 +138,25 @@ class TestExecutionContext:
 
     def test_llprofile(self):
         l = []
-        
+
         def profile_func(space, w_arg, frame, event, w_aarg):
             assert w_arg is space.w_None
             l.append(event)
-        
+
         space = self.space
         space.getexecutioncontext().setllprofile(profile_func, space.w_None)
         space.appexec([], """():
         pass
         """)
         space.getexecutioncontext().setllprofile(None, None)
-        assert l == ['call', 'return', 'call', 'return']
+        assert l[-4:] == ['call', 'return', 'call', 'return']
 
     def test_llprofile_c_call(self):
         from pypy.interpreter.function import Function, Method
         l = []
         seen = []
         space = self.space
-        
+
         def profile_func(space, w_arg, frame, event, w_func):
             assert w_arg is space.w_None
             l.append(event)
@@ -102,14 +173,15 @@ class TestExecutionContext:
             return
             """ % snippet)
             space.getexecutioncontext().setllprofile(None, None)
-            assert l == ['call', 'return', 'call', 'c_call', 'c_return', 'return']
-            if isinstance(seen[0], Method):
+            assert l[-6:] == ['call', 'return', 'call', 'c_call', 'c_return', 'return']
+            if isinstance(seen[-1], Method):
+                w_class = space.type(seen[-1].w_instance)
                 found = 'method %s of %s' % (
-                    seen[0].w_function.name,
-                    seen[0].w_class.getname(space))
+                    seen[-1].w_function.name,
+                    w_class.getname(space))
             else:
-                assert isinstance(seen[0], Function)
-                found = 'builtin %s' % seen[0].name
+                assert isinstance(seen[-1], Function)
+                found = 'builtin %s' % seen[-1].name
             assert found == expected_c_call
 
         check_snippet('l = []; l.append(42)', 'method append of list')
@@ -118,10 +190,10 @@ class TestExecutionContext:
         check_snippet('max(1, 2, **{})', 'builtin max')
         check_snippet('args = (1, 2); max(*args, **{})', 'builtin max')
         check_snippet('abs(val=0)', 'builtin abs')
-        
+
     def test_llprofile_c_exception(self):
         l = []
-        
+
         def profile_func(space, w_arg, frame, event, w_aarg):
             assert w_arg is space.w_None
             l.append(event)
@@ -138,7 +210,7 @@ class TestExecutionContext:
             return
             """ % snippet)
             space.getexecutioncontext().setllprofile(None, None)
-            assert l == ['call', 'return', 'call', 'c_call', 'c_exception', 'return']
+            assert l[-6:] == ['call', 'return', 'call', 'c_call', 'c_exception', 'return']
 
         check_snippet('d = {}; d.__getitem__(42)')
 
@@ -192,8 +264,8 @@ class TestExecutionContext:
                 self.value = value
             def meth(self):
                 pass
-        MethodType = type(A.meth)
-        strangemeth = MethodType(A, 42, int)
+        MethodType = type(A(0).meth)
+        strangemeth = MethodType(A, 42)
         l = []
         def profile(frame, event, arg):
             l.append(event)
@@ -236,7 +308,7 @@ class TestExecutionContext:
         space = self.space
         w_res = space.appexec([], """():
         l = []
-        
+
         def profile(*args):
             l.append(sys.exc_info()[0])
 
@@ -253,45 +325,6 @@ class TestExecutionContext:
         finally:
             sys.setprofile(None)
         """)
-
-
-class AppTestDelNotBlocked:
-
-    def setup_method(self, meth):
-        if not self.runappdirect:
-            py.test.skip("test is meant for running with py.test -A")
-        from rpython.tool.udir import udir
-        tmpfile = udir.join('test_execution_context')
-        tmpfile.write("""
-import gc
-class X(object):
-    def __del__(self):
-        print "Called", self.num
-def f():
-    x1 = X(); x1.num = 1
-    x2 = X(); x2.num = 2
-    x1.next = x2
-f()
-gc.collect()
-gc.collect()
-""")
-        self.tmpfile = str(tmpfile)
-        self.w_tmpfile = self.space.wrap(self.tmpfile)
-
-    def test_del_not_blocked(self):
-        # test the behavior fixed in r71420: before, only one __del__
-        # would be called
-        import os, sys
-        print sys.executable, self.tmpfile
-        if sys.platform == "win32":
-            cmdformat = '"%s" "%s"'
-        else:
-            cmdformat = "'%s' '%s'"
-        g = os.popen(cmdformat % (sys.executable, self.tmpfile), 'r')
-        data = g.read()
-        g.close()
-        assert 'Called 1' in data
-        assert 'Called 2' in data
 
 
 class AppTestProfile:

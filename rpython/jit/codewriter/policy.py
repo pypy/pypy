@@ -11,9 +11,6 @@ class JitPolicy(object):
         self.supports_floats = False
         self.supports_longlong = False
         self.supports_singlefloats = False
-        if jithookiface is None:
-            from rpython.rlib.jit import JitHookInterface
-            jithookiface = JitHookInterface()
         self.jithookiface = jithookiface
 
     def set_supports_floats(self, flag):

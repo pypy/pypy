@@ -1,7 +1,9 @@
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import ovfcheck
+from pypy.module.binascii.interp_binascii import raise_Error
+from pypy.module.binascii.interp_binascii import AsciiBufferUnwrapper
 
 # ____________________________________________________________
 
@@ -38,16 +40,16 @@ def _char2value(space, c):
     elif c <= 'f':
         if c >= 'a':
             return ord(c) - (ord('a')-10)
-    raise oefmt(space.w_TypeError, "Non-hexadecimal digit found")
+    raise_Error(space, 'Non-hexadecimal digit found')
 _char2value._always_inline_ = True
 
-@unwrap_spec(hexstr='bufferstr')
+@unwrap_spec(hexstr=AsciiBufferUnwrapper)
 def unhexlify(space, hexstr):
     '''Binary data of hexadecimal representation.
 hexstr must contain an even number of hex digits (upper or lower case).
 This function is also available as "unhexlify()".'''
     if len(hexstr) & 1:
-        raise oefmt(space.w_TypeError, "Odd-length string")
+        raise_Error(space, 'Odd-length string')
     res = StringBuilder(len(hexstr) >> 1)
     for i in range(0, len(hexstr), 2):
         a = _char2value(space, hexstr[i])

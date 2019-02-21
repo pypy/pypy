@@ -15,15 +15,18 @@ class TestAstBuilder:
     def setup_class(cls):
         cls.parser = pyparse.PythonParser(cls.space)
 
-    def get_ast(self, source, p_mode="exec"):
-        info = pyparse.CompileInfo("<test>", p_mode,
-                                   consts.CO_FUTURE_WITH_STATEMENT)
+    def get_ast(self, source, p_mode=None, flags=None):
+        if p_mode is None:
+            p_mode = "exec"
+        if flags is None:
+            flags = consts.CO_FUTURE_WITH_STATEMENT
+        info = pyparse.CompileInfo("<test>", p_mode, flags)
         tree = self.parser.parse_source(source, info)
         ast_node = ast_from_node(self.space, tree, info)
         return ast_node
 
-    def get_first_expr(self, source):
-        mod = self.get_ast(source)
+    def get_first_expr(self, source, p_mode=None, flags=None):
+        mod = self.get_ast(source, p_mode, flags)
         assert len(mod.body) == 1
         expr = mod.body[0]
         assert isinstance(expr, ast.Expr)
@@ -59,33 +62,6 @@ class TestAstBuilder:
         assert len(mod.body) == 3
         for stmt in mod.body:
             assert isinstance(stmt, ast.Assign)
-
-    def test_print(self):
-        pri = self.get_first_stmt("print x")
-        assert isinstance(pri, ast.Print)
-        assert pri.dest is None
-        assert pri.nl
-        assert len(pri.values) == 1
-        assert isinstance(pri.values[0], ast.Name)
-        pri = self.get_first_stmt("print x, 34")
-        assert len(pri.values) == 2
-        assert isinstance(pri.values[0], ast.Name)
-        assert isinstance(pri.values[1], ast.Num)
-        pri = self.get_first_stmt("print")
-        assert pri.nl
-        assert pri.values is None
-        pri = self.get_first_stmt("print x,")
-        assert len(pri.values) == 1
-        assert not pri.nl
-        pri = self.get_first_stmt("print >> y, 4")
-        assert isinstance(pri.dest, ast.Name)
-        assert len(pri.values) == 1
-        assert isinstance(pri.values[0], ast.Num)
-        assert pri.nl
-        pri = self.get_first_stmt("print >> y")
-        assert isinstance(pri.dest, ast.Name)
-        assert pri.values is None
-        assert pri.nl
 
     def test_del(self):
         d = self.get_first_stmt("del x")
@@ -125,21 +101,14 @@ class TestAstBuilder:
 
     def test_raise(self):
         ra = self.get_first_stmt("raise")
-        assert ra.type is None
-        assert ra.inst is None
-        assert ra.tback is None
+        assert ra.exc is None
+        assert ra.cause is None
         ra = self.get_first_stmt("raise x")
-        assert isinstance(ra.type, ast.Name)
-        assert ra.inst is None
-        assert ra.tback is None
-        ra = self.get_first_stmt("raise x, 3")
-        assert isinstance(ra.type, ast.Name)
-        assert isinstance(ra.inst, ast.Num)
-        assert ra.tback is None
-        ra = self.get_first_stmt("raise x, 4, 'hi'")
-        assert isinstance(ra.type, ast.Name)
-        assert isinstance(ra.inst, ast.Num)
-        assert isinstance(ra.tback, ast.Str)
+        assert isinstance(ra.exc, ast.Name)
+        assert ra.cause is None
+        ra = self.get_first_stmt("raise x from 3")
+        assert isinstance(ra.exc, ast.Name)
+        assert isinstance(ra.cause, ast.Num)
 
     def test_import(self):
         im = self.get_first_stmt("import x")
@@ -225,20 +194,12 @@ class TestAstBuilder:
         glob = self.get_first_stmt("global x, y")
         assert glob.names == ["x", "y"]
 
-    def test_exec(self):
-        exc = self.get_first_stmt("exec x")
-        assert isinstance(exc, ast.Exec)
-        assert isinstance(exc.body, ast.Name)
-        assert exc.globals is None
-        assert exc.locals is None
-        exc = self.get_first_stmt("exec 'hi' in x")
-        assert isinstance(exc.body, ast.Str)
-        assert isinstance(exc.globals, ast.Name)
-        assert exc.locals is None
-        exc = self.get_first_stmt("exec 'hi' in x, 2")
-        assert isinstance(exc.body, ast.Str)
-        assert isinstance(exc.globals, ast.Name)
-        assert isinstance(exc.locals, ast.Num)
+    def test_nonlocal(self):
+        nonloc = self.get_first_stmt("nonlocal x")
+        assert isinstance(nonloc, ast.Nonlocal)
+        assert nonloc.names == ["x"]
+        nonloc = self.get_first_stmt("nonlocal x, y")
+        assert nonloc.names == ["x", "y"]
 
     def test_assert(self):
         asrt = self.get_first_stmt("assert x")
@@ -343,14 +304,17 @@ class TestAstBuilder:
         assert isinstance(fr.orelse[0].value, ast.Num)
 
     def test_try(self):
-        tr = self.get_first_stmt("try: x\nfinally: pass")
-        assert isinstance(tr, ast.TryFinally)
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "finally: pass")
+        assert isinstance(tr, ast.Try)
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         assert len(tr.finalbody) == 1
         assert isinstance(tr.finalbody[0], ast.Pass)
-        tr = self.get_first_stmt("try: x\nexcept: pass")
-        assert isinstance(tr, ast.TryExcept)
+        assert tr.orelse is None
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except: pass")
+        assert isinstance(tr, ast.Try)
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         assert len(tr.handlers) == 1
@@ -361,7 +325,9 @@ class TestAstBuilder:
         assert len(handler.body) == 1
         assert isinstance(handler.body[0], ast.Pass)
         assert tr.orelse is None
-        tr = self.get_first_stmt("try: x\nexcept Exception: pass")
+        assert tr.finalbody is None
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except Exception: pass")
         assert len(tr.handlers) == 1
         handler = tr.handlers[0]
         assert isinstance(handler.type, ast.Name)
@@ -369,94 +335,100 @@ class TestAstBuilder:
         assert handler.name is None
         assert len(handler.body) == 1
         assert tr.orelse is None
-        tr = self.get_first_stmt("try: x\nexcept Exception, e: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except Exception as e: pass")
         assert len(tr.handlers) == 1
         handler = tr.handlers[0]
         assert isinstance(handler.type, ast.Name)
-        assert isinstance(handler.name, ast.Name)
-        assert handler.name.ctx == ast.Store
-        assert handler.name.id == "e"
+        assert handler.type.id == "Exception"
+        assert handler.name == "e"
         assert len(handler.body) == 1
-        tr = self.get_first_stmt("try: x\nexcept: pass\nelse: 4")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except: pass" + "\n" +
+                                 "else: 4")
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         assert len(tr.handlers) == 1
         assert isinstance(tr.handlers[0].body[0], ast.Pass)
         assert len(tr.orelse) == 1
         assert isinstance(tr.orelse[0].value, ast.Num)
-        tr = self.get_first_stmt("try: x\nexcept Exc, a: 5\nexcept F: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except Exc as a: 5" + "\n" +
+                                 "except F: pass")
         assert len(tr.handlers) == 2
         h1, h2 = tr.handlers
         assert isinstance(h1.type, ast.Name)
-        assert isinstance(h1.name, ast.Name)
+        assert h1.name == "a"
         assert isinstance(h1.body[0].value, ast.Num)
         assert isinstance(h2.type, ast.Name)
         assert h2.name is None
         assert isinstance(h2.body[0], ast.Pass)
-        tr = self.get_first_stmt("try: x\nexcept Exc as a: 5\nexcept F: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except Exc as a: 5" + "\n" +
+                                 "except F: pass")
         assert len(tr.handlers) == 2
         h1, h2 = tr.handlers
         assert isinstance(h1.type, ast.Name)
-        assert isinstance(h1.name, ast.Name)
+        assert h1.name == "a"
         assert isinstance(h1.body[0].value, ast.Num)
         assert isinstance(h2.type, ast.Name)
         assert h2.name is None
         assert isinstance(h2.body[0], ast.Pass)
-        tr = self.get_first_stmt("try: x\nexcept: 4\nfinally: pass")
-        assert isinstance(tr, ast.TryFinally)
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except: 4" + "\n" +
+                                 "finally: pass")
+        assert isinstance(tr, ast.Try)
+        assert len(tr.finalbody) == 1
+        assert isinstance(tr.finalbody[0], ast.Pass)
+        assert len(tr.handlers) == 1
+        assert len(tr.handlers[0].body) == 1
+        assert isinstance(tr.handlers[0].body[0].value, ast.Num)
+        assert len(tr.body) == 1
+        assert isinstance(tr.body[0].value, ast.Name)
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except: 4" + "\n" +
+                                 "else: 'hi'" + "\n" +
+                                 "finally: pass")
+        assert isinstance(tr, ast.Try)
         assert len(tr.finalbody) == 1
         assert isinstance(tr.finalbody[0], ast.Pass)
         assert len(tr.body) == 1
-        exc = tr.body[0]
-        assert isinstance(exc, ast.TryExcept)
-        assert len(exc.handlers) == 1
-        assert len(exc.handlers[0].body) == 1
-        assert isinstance(exc.handlers[0].body[0].value, ast.Num)
-        assert len(exc.body) == 1
-        assert isinstance(exc.body[0].value, ast.Name)
-        tr = self.get_first_stmt("try: x\nexcept: 4\nelse: 'hi'\nfinally: pass")
-        assert isinstance(tr, ast.TryFinally)
-        assert len(tr.finalbody) == 1
-        assert isinstance(tr.finalbody[0], ast.Pass)
+        assert len(tr.orelse) == 1
+        assert isinstance(tr.orelse[0].value, ast.Str)
         assert len(tr.body) == 1
-        exc = tr.body[0]
-        assert isinstance(exc, ast.TryExcept)
-        assert len(exc.orelse) == 1
-        assert isinstance(exc.orelse[0].value, ast.Str)
-        assert len(exc.body) == 1
-        assert isinstance(exc.body[0].value, ast.Name)
-        assert len(exc.handlers) == 1
+        assert isinstance(tr.body[0].value, ast.Name)
+        assert len(tr.handlers) == 1
 
     def test_with(self):
         wi = self.get_first_stmt("with x: pass")
         assert isinstance(wi, ast.With)
-        assert isinstance(wi.context_expr, ast.Name)
+        assert len(wi.items) == 1
+        assert isinstance(wi.items[0], ast.withitem)
+        assert isinstance(wi.items[0].context_expr, ast.Name)
+        assert wi.items[0].optional_vars is None
         assert len(wi.body) == 1
-        assert wi.optional_vars is None
         wi = self.get_first_stmt("with x as y: pass")
-        assert isinstance(wi.context_expr, ast.Name)
+        assert isinstance(wi.items[0].context_expr, ast.Name)
         assert len(wi.body) == 1
-        assert isinstance(wi.optional_vars, ast.Name)
-        assert wi.optional_vars.ctx == ast.Store
+        assert isinstance(wi.items[0].optional_vars, ast.Name)
+        assert wi.items[0].optional_vars.ctx == ast.Store
         wi = self.get_first_stmt("with x as (y,): pass")
-        assert isinstance(wi.optional_vars, ast.Tuple)
-        assert len(wi.optional_vars.elts) == 1
-        assert wi.optional_vars.ctx == ast.Store
-        assert wi.optional_vars.elts[0].ctx == ast.Store
+        assert isinstance(wi.items[0].optional_vars, ast.Tuple)
+        assert len(wi.items[0].optional_vars.elts) == 1
+        assert wi.items[0].optional_vars.ctx == ast.Store
+        assert wi.items[0].optional_vars.elts[0].ctx == ast.Store
         input = "with x hi y: pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         wi = self.get_first_stmt("with x as y, b: pass")
         assert isinstance(wi, ast.With)
-        assert isinstance(wi.context_expr, ast.Name)
-        assert wi.context_expr.id == "x"
-        assert isinstance(wi.optional_vars, ast.Name)
-        assert wi.optional_vars.id == "y"
-        assert len(wi.body) == 1
-        wi = wi.body[0]
-        assert isinstance(wi, ast.With)
-        assert isinstance(wi.context_expr, ast.Name)
-        assert wi.context_expr.id == "b"
-        assert wi.optional_vars is None
+        assert len(wi.items) == 2
+        assert isinstance(wi.items[0].context_expr, ast.Name)
+        assert wi.items[0].context_expr.id == "x"
+        assert isinstance(wi.items[0].optional_vars, ast.Name)
+        assert wi.items[0].optional_vars.id == "y"
+        assert isinstance(wi.items[1].context_expr, ast.Name)
+        assert wi.items[1].context_expr.id == "b"
+        assert wi.items[1].optional_vars is None
         assert len(wi.body) == 1
         assert isinstance(wi.body[0], ast.Pass)
 
@@ -496,83 +468,107 @@ class TestAstBuilder:
         assert args.defaults is None
         assert args.kwarg is None
         assert args.vararg is None
+        assert func.returns is None
         args = self.get_first_stmt("def f(a, b): pass").args
         assert len(args.args) == 2
         a1, a2 = args.args
-        assert isinstance(a1, ast.Name)
-        assert a1.id == "a"
-        assert a1.ctx == ast.Param
-        assert isinstance(a2, ast.Name)
-        assert a2.id == "b"
-        assert a2.ctx == ast.Param
+        assert isinstance(a1, ast.arg)
+        assert a1.arg == "a"
+        assert isinstance(a2, ast.arg)
+        assert a2.arg == "b"
         assert args.vararg is None
         assert args.kwarg is None
         args = self.get_first_stmt("def f(a=b): pass").args
         assert len(args.args) == 1
         arg = args.args[0]
-        assert isinstance(arg, ast.Name)
-        assert arg.id == "a"
-        assert arg.ctx == ast.Param
+        assert isinstance(arg, ast.arg)
+        assert arg.arg == "a"
         assert len(args.defaults) == 1
         default = args.defaults[0]
         assert isinstance(default, ast.Name)
         assert default.id == "b"
         assert default.ctx == ast.Load
         args = self.get_first_stmt("def f(*a): pass").args
-        assert args.args is None
-        assert args.defaults is None
+        assert not args.args
+        assert not args.defaults
         assert args.kwarg is None
-        assert args.vararg == "a"
+        assert args.vararg.arg == "a"
         args = self.get_first_stmt("def f(**a): pass").args
-        assert args.args is None
-        assert args.defaults is None
+        assert not args.args
+        assert not args.defaults
         assert args.vararg is None
-        assert args.kwarg == "a"
-        args = self.get_first_stmt("def f((a, b)): pass").args
-        assert args.defaults is None
-        assert args.kwarg is None
-        assert args.vararg is None
-        assert len(args.args) == 1
-        tup = args.args[0]
-        assert isinstance(tup, ast.Tuple)
-        assert tup.ctx == ast.Store
-        assert len(tup.elts) == 2
-        e1, e2 = tup.elts
-        assert isinstance(e1, ast.Name)
-        assert e1.ctx == ast.Store
-        assert e1.id == "a"
-        assert isinstance(e2, ast.Name)
-        assert e2.ctx == ast.Store
-        assert e2.id == "b"
-        args = self.get_first_stmt("def f((a, (b, c))): pass").args
-        assert len(args.args) == 1
-        tup = args.args[0]
-        assert isinstance(tup, ast.Tuple)
-        assert len(tup.elts) == 2
-        tup2 = tup.elts[1]
-        assert isinstance(tup2, ast.Tuple)
-        assert tup2.ctx == ast.Store
-        for elt in tup2.elts:
-            assert isinstance(elt, ast.Name)
-            assert elt.ctx == ast.Store
-        assert tup2.elts[0].id == "b"
-        assert tup2.elts[1].id == "c"
+        assert args.kwarg.arg == "a"
         args = self.get_first_stmt("def f(a, b, c=d, *e, **f): pass").args
         assert len(args.args) == 3
         for arg in args.args:
-            assert isinstance(arg, ast.Name)
-            assert arg.ctx == ast.Param
+            assert isinstance(arg, ast.arg)
         assert len(args.defaults) == 1
         assert isinstance(args.defaults[0], ast.Name)
         assert args.defaults[0].ctx == ast.Load
-        assert args.vararg == "e"
-        assert args.kwarg == "f"
+        assert args.vararg.arg == "e"
+        assert args.kwarg.arg == "f"
         input = "def f(a=b, c): pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "non-default argument follows default argument"
-        input = "def f((x)=23): pass"
+
+    def test_kwonly_arguments(self):
+        fn = self.get_first_stmt("def f(a, b, c, *, kwarg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.kwonlyargs) == 1
+        assert isinstance(fn.args.kwonlyargs[0], ast.arg)
+        assert fn.args.kwonlyargs[0].arg == "kwarg"
+        assert fn.args.kw_defaults == [None]
+        fn = self.get_first_stmt("def f(a, b, c, *args, kwarg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.kwonlyargs) == 1
+        assert isinstance(fn.args.kwonlyargs[0], ast.arg)
+        assert fn.args.kwonlyargs[0].arg == "kwarg"
+        assert fn.args.kw_defaults == [None]
+        fn = self.get_first_stmt("def f(a, b, c, *, kwarg=2): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.kwonlyargs) == 1
+        assert isinstance(fn.args.kwonlyargs[0], ast.arg)
+        assert fn.args.kwonlyargs[0].arg == "kwarg"
+        assert len(fn.args.kw_defaults) == 1
+        assert isinstance(fn.args.kw_defaults[0], ast.Num)
+        input = "def f(p1, *, **k1):  pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "parenthesized arg with default"
+        assert exc.msg == "named arguments must follows bare *"
+
+    def test_function_annotation(self):
+        func = self.get_first_stmt("def f() -> X: pass")
+        assert isinstance(func.returns, ast.Name)
+        assert func.returns.id == "X"
+        assert func.returns.ctx == ast.Load
+        for stmt in "def f(x : 42): pass", "def f(x : 42=a): pass":
+            func = self.get_first_stmt(stmt)
+            assert isinstance(func.args.args[0].annotation, ast.Num)
+        assert isinstance(func.args.defaults[0], ast.Name)
+        func = self.get_first_stmt("def f(*x : 42): pass")
+        assert isinstance(func.args.vararg.annotation, ast.Num)
+        func = self.get_first_stmt("def f(**kw : 42): pass")
+        assert isinstance(func.args.kwarg.annotation, ast.Num)
+        func = self.get_first_stmt("def f(*, kw : 42=a): pass")
+        assert isinstance(func.args.kwonlyargs[0].annotation, ast.Num)
+
+    def test_lots_of_kwonly_arguments(self):
+        fundef = "def f("
+        for i in range(255):
+            fundef += "i%d, "%i
+        fundef += "*, key=100):\n pass\n"
+        py.test.raises(SyntaxError, self.get_first_stmt, fundef)
+
+        fundef2 = "def foo(i,*,"
+        for i in range(255):
+            fundef2 += "i%d, "%i
+        fundef2 += "lastarg):\n  pass\n"
+        py.test.raises(SyntaxError, self.get_first_stmt, fundef)
+
+        fundef3 = "def f(i,*,"
+        for i in range(253):
+            fundef3 += "i%d, "%i
+        fundef3 += "lastarg):\n  pass\n"
+        self.get_first_stmt(fundef3)
 
     def test_decorators(self):
         to_examine = (("def f(): pass", ast.FunctionDef),
@@ -610,8 +606,6 @@ class TestAstBuilder:
             assert dec.func.id == "dec"
             assert dec.args is None
             assert dec.keywords is None
-            assert dec.starargs is None
-            assert dec.kwargs is None
             definition = self.get_first_stmt("@dec(a, b)\n%s" % (stmt,))
             assert len(definition.decorator_list) == 1
             dec = definition.decorator_list[0]
@@ -619,8 +613,6 @@ class TestAstBuilder:
             assert dec.func.id == "dec"
             assert len(dec.args) == 2
             assert dec.keywords is None
-            assert dec.starargs is None
-            assert dec.kwargs is None
 
     def test_augassign(self):
         aug_assigns = (
@@ -629,6 +621,7 @@ class TestAstBuilder:
             ("/=", ast.Div),
             ("//=", ast.FloorDiv),
             ("%=", ast.Mod),
+            ("@=", ast.MatMult),
             ("<<=", ast.LShift),
             (">>=", ast.RShift),
             ("&=", ast.BitAnd),
@@ -663,6 +656,17 @@ class TestAstBuilder:
         assert len(tup.elts) == 1
         assert isinstance(tup.elts[0], ast.Name)
         assert tup.elts[0].ctx == ast.Store
+
+    def test_assign_starred(self):
+        assign = self.get_first_stmt("*a, b = x")
+        assert isinstance(assign, ast.Assign)
+        assert len(assign.targets) == 1
+        names = assign.targets[0]
+        assert len(names.elts) == 2
+        assert isinstance(names.elts[0], ast.Starred)
+        assert isinstance(names.elts[1], ast.Name)
+        assert isinstance(names.elts[0].value, ast.Name)
+        assert names.elts[0].value.id == "a"
 
     def test_name(self):
         name = self.get_first_expr("hi")
@@ -724,6 +728,29 @@ class TestAstBuilder:
             assert isinstance(elt, ast.Num)
             assert self.space.eq_w(elt.n, self.space.wrap(i))
 
+    def test_set_unpack(self):
+        s = self.get_first_expr("{*{1}}")
+        assert isinstance(s, ast.Set)
+        assert len(s.elts) == 1
+        sta0 = s.elts[0]
+        assert isinstance(sta0, ast.Starred)
+        s0 = sta0.value
+        assert isinstance(s0, ast.Set)
+        assert len(s0.elts) == 1
+        assert isinstance(s0.elts[0], ast.Num)
+        assert self.space.eq_w(s0.elts[0].n, self.space.wrap(1))
+        s = self.get_first_expr("{*{0, 1, 2, 3, 4, 5}}")
+        assert isinstance(s, ast.Set)
+        assert len(s.elts) == 1
+        sta0 = s.elts[0]
+        assert isinstance(sta0, ast.Starred)
+        s0 = sta0.value
+        assert isinstance(s0, ast.Set)
+        assert len(s0.elts) == 6
+        for i, elt in enumerate(s0.elts):
+            assert isinstance(elt, ast.Num)
+            assert self.space.eq_w(elt.n, self.space.wrap(i))
+
     def test_set_context(self):
         tup = self.get_ast("(a, b) = c").body[0].targets[0]
         assert all(elt.ctx == ast.Store for elt in tup.elts)
@@ -744,7 +771,6 @@ class TestAstBuilder:
             ("{x for x in z}", "set comprehension"),
             ("{x : x for x in z}", "dict comprehension"),
             ("'str'", "literal"),
-            ("u'str'", "literal"),
             ("b'bytes'", "literal"),
             ("()", "()"),
             ("23", "literal"),
@@ -752,7 +778,7 @@ class TestAstBuilder:
             ("{1, 2, 3}", "literal"),
             ("(x > 4)", "comparison"),
             ("(x if y else a)", "conditional expression"),
-            ("`x`", "repr")
+            ("...", "Ellipsis"),
         )
         test_contexts = (
             ("assign to", "%s = 23"),
@@ -782,15 +808,11 @@ class TestAstBuilder:
             "from x import y as %s",
             "for %s in x: pass",
         )
-        for name in ("None", "__debug__"):
+        for name in "__debug__",:
             for template in invalid:
                 input = template % (name,)
                 exc = py.test.raises(SyntaxError, self.get_ast, input).value
                 assert exc.msg == "cannot assign to %s" % (name,)
-        # This is ok.
-        self.get_ast("from None import x")
-        self.get_ast("from x import None as y")
-        self.get_ast("import None as x")
 
     def test_lambda(self):
         lam = self.get_first_expr("lambda x: expr")
@@ -799,13 +821,13 @@ class TestAstBuilder:
         assert isinstance(args, ast.arguments)
         assert args.vararg is None
         assert args.kwarg is None
-        assert args.defaults is None
+        assert not args.defaults
         assert len(args.args) == 1
-        assert isinstance(args.args[0], ast.Name)
+        assert isinstance(args.args[0], ast.arg)
         assert isinstance(lam.body, ast.Name)
         lam = self.get_first_expr("lambda: True")
         args = lam.args
-        assert args.args is None
+        assert not args.args
         lam = self.get_first_expr("lambda x=x: y")
         assert len(lam.args.args) == 1
         assert len(lam.args.defaults) == 1
@@ -851,7 +873,6 @@ class TestAstBuilder:
             ("<=", ast.LtE),
             ("==", ast.Eq),
             ("!=", ast.NotEq),
-            ("<>", ast.NotEq),
             ("in", ast.In),
             ("is", ast.Is),
             ("is not", ast.IsNot),
@@ -879,6 +900,20 @@ class TestAstBuilder:
             names = comp.left.id + "".join(n.id for n in comp.comparators)
             assert names == vars
 
+    def test_flufl(self):
+        source = "x <> y"
+        py.test.raises(SyntaxError, self.get_ast, source)
+        comp = self.get_first_expr(source,
+                                   flags=consts.CO_FUTURE_BARRY_AS_BDFL)
+        assert isinstance(comp, ast.Compare)
+        assert isinstance(comp.left, ast.Name)
+        assert comp.left.ctx == ast.Load
+        assert len(comp.ops) == 1
+        assert comp.ops[0] == ast.NotEq
+        assert len(comp.comparators) == 1
+        assert isinstance(comp.comparators[0], ast.Name)
+        assert comp.comparators[0].ctx == ast.Load
+
     def test_binop(self):
         binops = (
             ("|", ast.BitOr),
@@ -891,7 +926,8 @@ class TestAstBuilder:
             ("/", ast.Div),
             ("*", ast.Mult),
             ("//", ast.FloorDiv),
-            ("%", ast.Mod)
+            ("%", ast.Mod),
+            ("@", ast.MatMult)
         )
         for op, ast_type in binops:
             bin = self.get_first_expr("a %s b" % (op,))
@@ -915,6 +951,11 @@ class TestAstBuilder:
         assign = self.get_first_stmt("x = yield x")
         assert isinstance(assign, ast.Assign)
         assert isinstance(assign.value, ast.Yield)
+
+    def test_yield_from(self):
+        expr = self.get_first_expr("yield from x")
+        assert isinstance(expr, ast.YieldFrom)
+        assert isinstance(expr.value, ast.Name)
 
     def test_unaryop(self):
         unary_ops = (
@@ -942,8 +983,6 @@ class TestAstBuilder:
         assert isinstance(call, ast.Call)
         assert call.args is None
         assert call.keywords is None
-        assert call.starargs is None
-        assert call.kwargs is None
         assert isinstance(call.func, ast.Name)
         assert call.func.ctx == ast.Load
         call = self.get_first_expr("f(2, 3)")
@@ -951,8 +990,6 @@ class TestAstBuilder:
         assert isinstance(call.args[0], ast.Num)
         assert isinstance(call.args[1], ast.Num)
         assert call.keywords is None
-        assert call.starargs is None
-        assert call.kwargs is None
         call = self.get_first_expr("f(a=3)")
         assert call.args is None
         assert len(call.keywords) == 1
@@ -961,21 +998,20 @@ class TestAstBuilder:
         assert keyword.arg == "a"
         assert isinstance(keyword.value, ast.Num)
         call = self.get_first_expr("f(*a, **b)")
-        assert call.args is None
-        assert isinstance(call.starargs, ast.Name)
-        assert call.starargs.id == "a"
-        assert call.starargs.ctx == ast.Load
-        assert isinstance(call.kwargs, ast.Name)
-        assert call.kwargs.id == "b"
-        assert call.kwargs.ctx == ast.Load
+        assert isinstance(call.args[0], ast.Starred)
+        assert isinstance(call.keywords[0], ast.keyword)
+        assert call.args[0].value.id == "a"
+        assert call.args[0].ctx == ast.Load
+        assert call.keywords[0].value.id == "b"
         call = self.get_first_expr("f(a, b, x=4, *m, **f)")
-        assert len(call.args) == 2
+        assert len(call.args) == 3
         assert isinstance(call.args[0], ast.Name)
         assert isinstance(call.args[1], ast.Name)
-        assert len(call.keywords) == 1
+        assert isinstance(call.args[2], ast.Starred)
+        assert len(call.keywords) == 2
         assert call.keywords[0].arg == "x"
-        assert call.starargs.id == "m"
-        assert call.kwargs.id == "f"
+        assert call.args[2].value.id == "m"
+        assert call.keywords[1].value.id == "f"
         call = self.get_first_expr("f(x for x in y)")
         assert len(call.args) == 1
         assert isinstance(call.args[0], ast.GeneratorExp)
@@ -991,8 +1027,6 @@ class TestAstBuilder:
         assert exc.msg == "keyword can't be an expression"
         exc = py.test.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
         assert exc.msg == "keyword argument repeated"
-        exc = py.test.raises(SyntaxError, self.get_ast, "f(x, *a, b)").value
-        assert exc.msg == "only named arguments may follow *expression"
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")
@@ -1024,9 +1058,7 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[::]").slice
         assert slc.upper is None
         assert slc.lower is None
-        assert isinstance(slc.step, ast.Name)
-        assert slc.step.id == "None"
-        assert slc.step.ctx == ast.Load
+        assert slc.step is None
         slc = self.get_first_expr("x[1:]").slice
         assert isinstance(slc.lower, ast.Num)
         assert slc.upper is None
@@ -1034,7 +1066,7 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[1::]").slice
         assert isinstance(slc.lower, ast.Num)
         assert slc.upper is None
-        assert isinstance(slc.step, ast.Name)
+        assert slc.step is None
         slc = self.get_first_expr("x[:2]").slice
         assert slc.lower is None
         assert isinstance(slc.upper, ast.Num)
@@ -1042,7 +1074,7 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[:2:]").slice
         assert slc.lower is None
         assert isinstance(slc.upper, ast.Num)
-        assert isinstance(slc.step, ast.Name)
+        assert slc.step is None
         slc = self.get_first_expr("x[2:2]").slice
         assert isinstance(slc.lower, ast.Num)
         assert isinstance(slc.upper, ast.Num)
@@ -1050,7 +1082,7 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[2:2:]").slice
         assert isinstance(slc.lower, ast.Num)
         assert isinstance(slc.upper, ast.Num)
-        assert isinstance(slc.step, ast.Name)
+        assert slc.step is None
         slc = self.get_first_expr("x[::2]").slice
         assert slc.lower is None
         assert slc.upper is None
@@ -1066,8 +1098,6 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[1:2:3]").slice
         for field in (slc.lower, slc.upper, slc.step):
             assert isinstance(field, ast.Num)
-        sub = self.get_first_expr("x[...]")
-        assert isinstance(sub.slice, ast.Ellipsis)
         sub = self.get_first_expr("x[1,2,3]")
         slc = sub.slice
         assert isinstance(slc, ast.Index)
@@ -1083,10 +1113,11 @@ class TestAstBuilder:
         assert isinstance(complex_slc.upper, ast.Num)
         assert complex_slc.step is None
 
-    def test_repr(self):
-        rep = self.get_first_expr("`x`")
-        assert isinstance(rep, ast.Repr)
-        assert isinstance(rep.value, ast.Name)
+    def test_ellipsis(self):
+        e = self.get_first_expr("...")
+        assert isinstance(e, ast.Ellipsis)
+        sub = self.get_first_expr("x[...]")
+        assert isinstance(sub.slice.value, ast.Ellipsis)
 
     def test_string(self):
         space = self.space
@@ -1096,14 +1127,63 @@ class TestAstBuilder:
         s = self.get_first_expr("'hi' ' implicitly' ' extra'")
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap("hi implicitly extra"))
-        sentence = u"Die Männer ärgen sich!"
-        source = u"# coding: utf-7\nstuff = u'%s'" % (sentence,)
+        s = self.get_first_expr("b'hi' b' implicitly' b' extra'")
+        assert isinstance(s, ast.Bytes)
+        assert space.eq_w(s.s, space.newbytes("hi implicitly extra"))
+        py.test.raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
+        sentence = u"Die Männer ärgern sich!"
+        source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
         info = pyparse.CompileInfo("<test>", "exec")
         tree = self.parser.parse_source(source.encode("utf-7"), info)
         assert info.encoding == "utf-7"
         s = ast_from_node(space, tree, info).body[0].value
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(sentence))
+
+    def test_string_pep3120(self):
+        space = self.space
+        japan = u'日本'
+        source = u"foo = '%s'" % japan
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parser.parse_source(source.encode("utf-8"), info)
+        assert info.encoding == "utf-8"
+        s = ast_from_node(space, tree, info).body[0].value
+        assert isinstance(s, ast.Str)
+        assert space.eq_w(s.s, space.wrap(japan))
+
+    def test_name_pep3131(self):
+        assign = self.get_first_stmt("日本 = 32")
+        assert isinstance(assign, ast.Assign)
+        name = assign.targets[0]
+        assert isinstance(name, ast.Name)
+        assert name.id == u"日本".encode('utf-8')
+
+    def test_function_pep3131(self):
+        fn = self.get_first_stmt("def µ(µ='foo'): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        # µ normalized to NFKC
+        expected = u'\u03bc'.encode('utf-8')
+        assert fn.name == expected
+        assert fn.args.args[0].arg == expected
+
+    def test_import_pep3131(self):
+        im = self.get_first_stmt("from packageµ import modµ as µ")
+        assert isinstance(im, ast.ImportFrom)
+        expected = u'\u03bc'.encode('utf-8')
+        assert im.module == 'package' + expected
+        alias = im.names[0]
+        assert alias.name == 'mod' + expected
+        assert alias.asname == expected
+
+    def test_issue3574(self):
+        space = self.space
+        source = u'# coding: Latin-1\nu = "Ç"\n'
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parser.parse_source(source.encode("Latin-1"), info)
+        assert info.encoding == "iso-8859-1"
+        s = ast_from_node(space, tree, info).body[0].value
+        assert isinstance(s, ast.Str)
+        assert space.eq_w(s.s, space.wrap(u'Ç'))
 
     def test_string_bug(self):
         space = self.space
@@ -1113,8 +1193,7 @@ class TestAstBuilder:
         assert info.encoding == "utf8"
         s = ast_from_node(space, tree, info).body[0].value
         assert isinstance(s, ast.Str)
-        expected = ['x', ' ', chr(0xc3), chr(0xa9), ' ', '\n']
-        assert space.eq_w(s.s, space.wrap(''.join(expected)))
+        assert space.eq_w(s.s, space.wrap(u'x \xe9 \n'))
 
     def test_number(self):
         def get_num(s):
@@ -1126,25 +1205,17 @@ class TestAstBuilder:
         space = self.space
         assert space.eq_w(get_num("32"), space.wrap(32))
         assert space.eq_w(get_num("32.5"), space.wrap(32.5))
-        assert space.eq_w(get_num("32L"), space.newlong(32))
-        assert space.eq_w(get_num("32l"), space.newlong(32))
-        assert space.eq_w(get_num("0L"), space.newlong(0))
         assert space.eq_w(get_num("2"), space.wrap(2))
         assert space.eq_w(get_num("13j"), space.wrap(13j))
         assert space.eq_w(get_num("13J"), space.wrap(13J))
-        assert space.eq_w(get_num("053"), space.wrap(053))
-        assert space.eq_w(get_num("00053"), space.wrap(053))
+        assert space.eq_w(get_num("0o53"), space.wrap(053))
+        assert space.eq_w(get_num("0o0053"), space.wrap(053))
         for num in ("0x53", "0X53", "0x0000053", "0X00053"):
             assert space.eq_w(get_num(num), space.wrap(0x53))
         assert space.eq_w(get_num("0Xb0d2"), space.wrap(0xb0d2))
         assert space.eq_w(get_num("0X53"), space.wrap(0x53))
         assert space.eq_w(get_num("0"), space.wrap(0))
         assert space.eq_w(get_num("00000"), space.wrap(0))
-        assert space.eq_w(get_num("-3"), space.wrap(-3))
-        assert space.eq_w(get_num("-0"), space.wrap(0))
-        assert space.eq_w(get_num("-0xAAAAAAL"), space.wrap(-0xAAAAAAL))
-        n = get_num(str(-sys.maxint - 1))
-        assert space.isinstance_w(n, space.w_int)
         for num in ("0o53", "0O53", "0o0000053", "0O00053"):
             assert space.eq_w(get_num(num), space.wrap(053))
         for num in ("0b00101", "0B00101", "0b101", "0B101"):
@@ -1153,6 +1224,12 @@ class TestAstBuilder:
         py.test.raises(SyntaxError, self.get_ast, "0x")
         py.test.raises(SyntaxError, self.get_ast, "0b")
         py.test.raises(SyntaxError, self.get_ast, "0o")
+        py.test.raises(SyntaxError, self.get_ast, "32L")
+        py.test.raises(SyntaxError, self.get_ast, "32l")
+        py.test.raises(SyntaxError, self.get_ast, "0L")
+        py.test.raises(SyntaxError, self.get_ast, "-0xAAAAAAL")
+        py.test.raises(SyntaxError, self.get_ast, "053")
+        py.test.raises(SyntaxError, self.get_ast, "00053")
 
     def check_comprehension(self, brackets, ast_type):
         def brack(s):
@@ -1192,6 +1269,12 @@ class TestAstBuilder:
         if1, if2 = comps[0].ifs
         assert isinstance(if1, ast.Name)
         assert isinstance(if2, ast.Name)
+        gen = self.get_first_expr(brack("x for x in y or z"))
+        comp = gen.generators[0]
+        assert isinstance(comp.iter, ast.BoolOp)
+        assert len(comp.iter.values) == 2
+        assert isinstance(comp.iter.values[0], ast.Name)
+        assert isinstance(comp.iter.values[1], ast.Name)
 
     def test_genexp(self):
         self.check_comprehension("(%s)", ast.GeneratorExp)
@@ -1240,6 +1323,81 @@ class TestAstBuilder:
         if1, if2 = comps[0].ifs
         assert isinstance(if1, ast.Name)
         assert isinstance(if2, ast.Name)
+
+    def test_cpython_issue12983(self):
+        py.test.raises(SyntaxError, self.get_ast, r"""b'\x'""")
+        py.test.raises(SyntaxError, self.get_ast, r"""b'\x0'""")
+
+    def test_matmul(self):
+        mod = self.get_ast("a @ b")
+        assert isinstance(mod, ast.Module)
+        body = mod.body
+        assert len(body) == 1
+        expr = body[0].value
+        assert expr.op == ast.MatMult
+        assert isinstance(expr.left, ast.Name)
+        assert isinstance(expr.right, ast.Name)
+        # imatmul is tested earlier search for @=
+    
+    def test_asyncFunctionDef(self):
+        mod = self.get_ast("async def f():\n await something()")
+        assert isinstance(mod, ast.Module)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        expr = asyncdef.body[0]
+        assert isinstance(expr, ast.Expr)
+        exprvalue = expr.value
+        assert isinstance(exprvalue, ast.Await)
+        awaitvalue = exprvalue.value
+        assert isinstance(awaitvalue, ast.Call)
+        func = awaitvalue.func
+        assert isinstance(func, ast.Name)
+        assert func.id == 'something'
+        assert func.ctx == ast.Load
+    
+    def test_asyncFor(self):
+        mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2")
+        assert isinstance(mod, ast.Module)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        asyncfor = asyncdef.body[0]
+        assert isinstance(asyncfor, ast.AsyncFor)
+        assert isinstance(asyncfor.target, ast.Name)
+        assert isinstance(asyncfor.iter, ast.Name)
+        assert len(asyncfor.body) == 1
+        assert isinstance(asyncfor.body[0], ast.Expr)
+        assert isinstance(asyncfor.body[0].value, ast.Num)
+        assert len(asyncfor.orelse) == 1
+        assert isinstance(asyncfor.orelse[0], ast.Expr)
+        assert isinstance(asyncfor.orelse[0].value, ast.Num)
+    
+    def test_asyncWith(self):
+        mod = self.get_ast("async def f():\n async with a as b: 1")
+        assert isinstance(mod, ast.Module)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        asyncwith = asyncdef.body[0]
+        assert isinstance(asyncwith, ast.AsyncWith)
+        assert len(asyncwith.items) == 1
+        asyncitem = asyncwith.items[0]
+        assert isinstance(asyncitem, ast.withitem)
+        assert isinstance(asyncitem.context_expr, ast.Name)
+        assert isinstance(asyncitem.optional_vars, ast.Name)
+        assert len(asyncwith.body) == 1
+        assert isinstance(asyncwith.body[0], ast.Expr)
+        assert isinstance(asyncwith.body[0].value, ast.Num)
 
     def test_decode_error_in_string_literal(self):
         input = "u'\\x'"

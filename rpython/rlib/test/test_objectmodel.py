@@ -484,12 +484,6 @@ def test_enforceargs_int_float_promotion():
     # in RPython there is an implicit int->float promotion
     assert f(42) == 42
 
-def test_enforceargs_None_string():
-    @enforceargs(str, unicode)
-    def f(a, b):
-        return a, b
-    assert f(None, None) == (None, None)
-
 def test_enforceargs_complex_types():
     @enforceargs([int], {str: int})
     def f(a, b):
@@ -713,6 +707,15 @@ def test_rordereddict_move_to_end():
     assert d.items() == [('key2', 'val2'), ('key3', 'val3'), ('key1', 'val1')]
     move_to_end(d, 'key1', last=False)
     assert d.items() == [('key1', 'val1'), ('key2', 'val2'), ('key3', 'val3')]
+
+def test_r_dict_move_to_end():
+    d = r_dict(strange_key_eq, strange_key_hash)
+    d['1key'] = 'val1'
+    d['2key'] = 'val2'
+    d['3key'] = 'val3'
+    # does not crash, we can't check that it actually moves to end on CPython
+    move_to_end(d, '1key')
+    move_to_end(d, '1key', last=False)
 
 def test_import_from_mixin():
     class M:    # old-style

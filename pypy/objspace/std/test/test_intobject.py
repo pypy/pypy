@@ -1,12 +1,12 @@
 # encoding: utf-8
-import py
 import sys
+from pypy.interpreter.error import OperationError
 from pypy.objspace.std import intobject as iobj
-from rpython.rlib.rarithmetic import r_uint, is_valid_int
+from rpython.rlib.rarithmetic import r_uint, is_valid_int, intmask
 from rpython.rlib.rbigint import rbigint
 
-
 class TestW_IntObject:
+
     def _longshiftresult(self, x):
         """ calculate an overflowing shift """
         n = 1
@@ -76,7 +76,7 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_add(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(x + y))
 
     def test_sub(self):
@@ -92,7 +92,7 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_sub(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(sys.maxint - -1))
 
     def test_mul(self):
@@ -108,24 +108,8 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_mul(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(x * y))
-
-    def test_div(self):
-        space = self.space
-        for i in range(10):
-            res = i//3
-            f1 = iobj.W_IntObject(i)
-            f2 = iobj.W_IntObject(3)
-            result = f1.descr_div(space, f2)
-            assert result.intval == res
-        x = -sys.maxint-1
-        y = -1
-        f1 = iobj.W_IntObject(x)
-        f2 = iobj.W_IntObject(y)
-        v = f1.descr_div(space, f2)
-        assert space.isinstance_w(v, space.w_long)
-        assert space.bigint_w(v).eq(rbigint.fromlong(x / y))
 
     def test_mod(self):
         x = 1
@@ -151,7 +135,7 @@ class TestW_IntObject:
         f2 = iobj.W_IntObject(y)
         v = f1.descr_divmod(space, f2)
         w_q, w_r = space.fixedview(v, 2)
-        assert space.isinstance_w(w_q, space.w_long)
+        assert space.isinstance_w(w_q, space.w_int)
         expected = divmod(x, y)
         assert space.bigint_w(w_q).eq(rbigint.fromlong(expected[0]))
         # no overflow possible
@@ -167,7 +151,7 @@ class TestW_IntObject:
         v = f1.descr_pow(self.space, f2, f3)
         assert v.intval == pow(x, y, z)
         f1, f2, f3 = [iobj.W_IntObject(i) for i in (10, -1, 42)]
-        self.space.raises_w(self.space.w_TypeError,
+        self.space.raises_w(self.space.w_ValueError,
                             f1.descr_pow, self.space, f2, f3)
         f1, f2, f3 = [iobj.W_IntObject(i) for i in (10, 5, 0)]
         self.space.raises_w(self.space.w_ValueError,
@@ -183,8 +167,65 @@ class TestW_IntObject:
         assert v.intval == x ** y
         f1, f2 = [iobj.W_IntObject(i) for i in (10, 20)]
         v = f1.descr_pow(space, f2, space.w_None)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(pow(10, 20)))
+
+    try:
+        from hypothesis import given, strategies, example
+    except ImportError:
+        pass
+    else:
+        @given(
+           a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           b=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           c=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint))
+        @example(0, 0, -sys.maxint-1)
+        @example(0, 1, -sys.maxint-1)
+        @example(1, 0, -sys.maxint-1)
+        def test_hypot_pow(self, a, b, c):
+            if c == 0:
+                return
+            #
+            # "pow(a, b, c)": if b < 0, should get an app-level ValueError.
+            # Otherwise, should always work except if c == -maxint-1
+            if b < 0:
+                expected = "app-level ValueError"
+            elif b > 0 and c == -sys.maxint-1:
+                expected = OverflowError
+            else:
+                expected = pow(a, b, c)
+
+            try:
+                result = iobj._pow(self.space, a, b, c)
+            except OperationError as e:
+                assert ('ValueError: pow() 2nd argument cannot be negative '
+                        'when 3rd argument specified' == e.errorstr(self.space))
+                result = "app-level ValueError"
+            except OverflowError:
+                result = OverflowError
+            assert result == expected
+
+        @given(
+           a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           b=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint))
+        def test_hypot_pow_nomod(self, a, b):
+            # "a ** b": detect overflows and ValueErrors
+            if b < 0:
+                expected = ValueError
+            elif b > 128 and not (-1 <= a <= 1):
+                expected = OverflowError
+            else:
+                expected = a ** b
+                if expected != intmask(expected):
+                    expected = OverflowError
+
+            try:
+                result = iobj._pow(self.space, a, b, 0)
+            except ValueError:
+                result = ValueError
+            except OverflowError:
+                result = OverflowError
+            assert result == expected
 
     def test_neg(self):
         space = self.space
@@ -195,7 +236,7 @@ class TestW_IntObject:
         x = -sys.maxint-1
         f1 = iobj.W_IntObject(x)
         v = f1.descr_neg(space)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(-x))
 
     def test_pos(self):
@@ -221,7 +262,7 @@ class TestW_IntObject:
         x = -sys.maxint-1
         f1 = iobj.W_IntObject(x)
         v = f1.descr_abs(space)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(abs(x)))
 
     def test_invert(self):
@@ -242,7 +283,7 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(x)
         f2 = iobj.W_IntObject(y)
         v = f1.descr_lshift(space, f2)
-        assert space.isinstance_w(v, space.w_long)
+        assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(x << y))
 
     def test_rshift(self):
@@ -281,19 +322,6 @@ class TestW_IntObject:
         f1 = iobj.W_IntObject(1)
         result = f1.int(self.space)
         assert result == f1
-
-    def test_oct(self):
-        x = 012345
-        f1 = iobj.W_IntObject(x)
-        result = f1.descr_oct(self.space)
-        assert self.space.unwrap(result) == oct(x)
-
-    def test_hex(self):
-        x = 0x12345
-        f1 = iobj.W_IntObject(x)
-        result = f1.descr_hex(self.space)
-        assert self.space.unwrap(result) == hex(x)
-
 
 class AppTestInt(object):
     def test_hash(self):
@@ -336,10 +364,7 @@ class AppTestInt(object):
 
     def test_int_string(self):
         assert 42 == int("42")
-        assert 10000000000 == long("10000000000")
-
-    def test_int_unicode(self):
-        assert 42 == int(unicode('42'))
+        assert 10000000000 == int("10000000000")
 
     def test_int_float(self):
         assert 4 == int(4.2)
@@ -358,7 +383,7 @@ class AppTestInt(object):
 
     def test_int_largenums(self):
         import sys
-        for x in [-sys.maxint-1, -1, sys.maxint]:
+        for x in [-sys.maxsize-1, -1, sys.maxsize]:
             y = int(str(x))
             assert y == x
             assert type(y) is int
@@ -369,15 +394,15 @@ class AppTestInt(object):
 
     def test_overflow(self):
         import sys
-        n = sys.maxint + 1
-        assert isinstance(n, long)
+        n = sys.maxsize + 1
+        assert isinstance(n, int)
 
     def test_pow(self):
         assert pow(2, -10) == 1/1024.
 
     def test_int_w_long_arg(self):
-        assert int(10000000000) == 10000000000L
-        assert int("10000000000") == 10000000000l
+        assert int(10000000000) == 10000000000
+        assert int("10000000000") == 10000000000
         raises(ValueError, int, "10000000000JUNK")
         raises(ValueError, int, "10000000000JUNK", 10)
 
@@ -387,12 +412,10 @@ class AppTestInt(object):
             pass
         assert j(100) == 100
         assert isinstance(j(100),j)
-        assert j(100L) == 100
+        assert j(100) == 100
         assert j("100") == 100
         assert j("100",2) == 4
         assert isinstance(j("100",2),j)
-        raises(OverflowError,j,sys.maxint+1)
-        raises(OverflowError,j,str(sys.maxint+1))
 
     def test_int_subclass_ops(self):
         import sys
@@ -424,7 +447,7 @@ class AppTestInt(object):
         assert (5 +  j(100),  type(5 +  j(100))) == (     105, int)
         assert (5 -  j(100),  type(5 -  j(100))) == (     -95, int)
         assert (5 *  j(100),  type(5 *  j(100))) == (     500, int)
-        assert (5 << j(100),  type(5 << j(100))) == (5 << 100, long)
+        assert (5 << j(100),  type(5 << j(100))) == (5 << 100, int)
         assert (j(100) >> 2,  type(j(100) >> 2)) == (      25, int)
 
     def test_int_subclass_int(self):
@@ -435,17 +458,15 @@ class AppTestInt(object):
                 return '<instance of j>'
         class subint(int):
             pass
-        class sublong(long):
-            pass
-        value = 42L
+        value = 42
         assert int(j()) == 42
-        value = 4200000000000000000000000000000000L
-        assert int(j()) == 4200000000000000000000000000000000L
+        value = 4200000000000000000000000000000000
+        assert int(j()) == 4200000000000000000000000000000000
         value = subint(42)
         assert int(j()) == 42 and type(int(j())) is subint
-        value = sublong(4200000000000000000000000000000000L)
-        assert (int(j()) == 4200000000000000000000000000000000L
-                and type(int(j())) is sublong)
+        value = subint(4200000000000000000000000000000000)
+        assert (int(j()) == 4200000000000000000000000000000000
+                and type(int(j())) is subint)
         value = 42.0
         raises(TypeError, int, j())
         value = "foo"
@@ -466,16 +487,16 @@ class AppTestInt(object):
 
     def test_special_long(self):
         class a(object):
-            def __long__(self):
+            def __int__(self):
                 self.ar = True
                 return None
         inst = a()
-        raises(TypeError, long, inst)
+        raises(TypeError, int, inst)
         assert inst.ar == True
 
         class b(object):
             pass
-        raises((AttributeError,TypeError), long, b())
+        raises((AttributeError,TypeError), int, b())
 
     def test_just_trunc(self):
         class myint(object):
@@ -521,14 +542,6 @@ class AppTestInt(object):
     def test_getnewargs(self):
         assert  0 .__getnewargs__() == (0,)
 
-    def test_cmp(self):
-        skip("This is a 'wont fix' case")
-        # We don't have __cmp__, we consistently have __eq__ & the others
-        # instead.  In CPython some types have __cmp__ and some types have
-        # __eq__ & the others.
-        assert 1 .__cmp__
-        assert int .__cmp__
-
     def test_bit_length(self):
         for val, bits in [
             (0, 0),
@@ -546,7 +559,7 @@ class AppTestInt(object):
 
     def test_bit_length_max(self):
         import sys
-        val = -sys.maxint-1
+        val = -sys.maxsize-1
         bits = 32 if val == -2147483648 else 64
         assert val.bit_length() == bits
 
@@ -557,14 +570,14 @@ class AppTestInt(object):
 
     def test_int_error_msg(self):
         e = raises(TypeError, int, [])
-        assert str(e.value) == (
-            "int() argument must be a string or a number, not 'list'")
+        assert str(e.value) == ("int() argument must be a string, a bytes-"
+                                "like object or a number, not 'list'")
 
     def test_invalid_literal_message(self):
         import sys
         if '__pypy__' not in sys.builtin_module_names:
             skip('PyPy 2.x/CPython 3.4 only')
-        for value in b'  1j ', u'  1٢٣٤j ':
+        for value in b'  1j ', '  1٢٣٤j ':
             try:
                 int(value)
             except ValueError as e:
@@ -572,19 +585,72 @@ class AppTestInt(object):
             else:
                 assert False, value
 
-    def test_coerce(self):
-        assert 3 .__coerce__(4) == (3, 4)
-        assert 3 .__coerce__(4L) == NotImplemented
+    def test_int_error_msg_surrogate(self):
+        value = u'123\ud800'
+        e = raises(ValueError, int, value)
+        assert str(e.value) == "invalid literal for int() with base 10: %r" % value
+
+    def test_non_numeric_input_types(self):
+        # Test possible non-numeric types for the argument x, including
+        # subclasses of the explicitly documented accepted types.
+        class CustomStr(str): pass
+        class CustomBytes(bytes): pass
+        class CustomByteArray(bytearray): pass
+
+        factories = [
+            bytes,
+            bytearray,
+            lambda b: CustomStr(b.decode()),
+            CustomBytes,
+            CustomByteArray,
+            memoryview,
+        ]
+        try:
+            from array import array
+        except ImportError:
+            pass
+        else:
+            factories.append(lambda b: array('B', b))
+
+        for f in factories:
+            x = f(b'100')
+            assert int(x) == 100
+            if isinstance(x, (str, bytes, bytearray)):
+                assert int(x, 2) == 4
+            else:
+                try:
+                    int(x, 2)
+                except TypeError as e:
+                    assert "can't convert non-string" in str(e)
+                else:
+                    assert False, 'did not raise'
+            try:
+                int(f(b'A' * 0x10))
+            except ValueError as e:
+                assert "invalid literal" in str(e)
+            else:
+                assert False, 'did not raise'
 
     def test_fake_int_as_base(self):
         class MyInt(object):
             def __init__(self, x):
                 self.x = x
-            def __int__(self):
+            def __index__(self):
                 return self.x
 
         base = MyInt(24)
         assert int('10', base) == 24
+
+        class MyNonIndexable(object):
+            def __init__(self, x):
+                self.x = x
+            def __int__(self):
+                return self.x
+
+        base = MyNonIndexable(24)
+        e = raises(TypeError, int, '10', base)
+        assert str(e.value) == ("'MyNonIndexable' object cannot be interpreted "
+                                "as an integer")
 
     def test_truediv(self):
         import operator
@@ -613,6 +679,69 @@ class AppTestInt(object):
         assert type(x) is int
         assert str(x) == "0"
 
+    def test_binop_overflow(self):
+        x = int(2)
+        assert x.__lshift__(128) == 680564733841876926926749214863536422912
+
+    def test_rbinop_overflow(self):
+        x = int(321)
+        assert x.__rlshift__(333) == 1422567365923326114875084456308921708325401211889530744784729710809598337369906606315292749899759616
+
+    def test_ceil(self):
+        assert 8 .__ceil__() == 8
+
+    def test_floor(self):
+        assert 8 .__floor__() == 8
+
+    def test_deprecation_warning_1(self):
+        import warnings, _operator
+        class BadInt:
+            def __int__(self):
+                return True
+            def __index__(self):
+                return False
+        bad = BadInt()
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            n = int(bad)
+            m = _operator.index(bad)
+        assert n is True
+        assert m is False
+        assert len(log) == 2
+
+    def test_int_nonstr_with_base(self):
+        assert int(b'100', 2) == 4
+        assert int(bytearray(b'100'), 2) == 4
+        raises(TypeError, int, memoryview(b'100'), 2)
+
+    def test_from_bytes(self):
+        called = []
+        class X(int):
+            def __init__(self, val):
+                called.append(val)
+        x = X.from_bytes(b"", 'little')
+        assert type(x) is X and x == 0
+        assert called == [0]
+        x = X.from_bytes(b"*" * 100, 'little')
+        assert type(x) is X
+        expected = sum(256 ** i for i in range(100)) * ord('*')
+        assert x == expected
+        assert called == [0, expected]
+
+    def test_leading_zero_literal(self):
+        assert eval("00") == 0
+        raises(SyntaxError, eval, '07')
+        assert int("00", 0) == 0
+        raises(ValueError, int, '07', 0)
+        assert int("07", 10) == 7
+        raises(ValueError, int, '07777777777777777777777777777777777777', 0)
+        raises(ValueError, int, '00000000000000000000000000000000000007', 0)
+        raises(ValueError, int, '00000000000000000077777777777777777777', 0)
+
+    def test_some_rops(self):
+        b = 2 ** 31
+        x = -b
+        assert x.__rsub__(2) == (2 + b)
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
@@ -620,7 +749,7 @@ class AppTestIntShortcut(AppTestInt):
     def test_inplace(self):
         # ensure other inplace ops still work
         l = []
-        l += xrange(5)
+        l += range(5)
         assert l == list(range(5))
         a = 8.5
         a -= .5

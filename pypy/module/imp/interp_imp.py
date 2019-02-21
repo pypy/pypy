@@ -1,28 +1,17 @@
 from pypy.module.imp import importing
-from pypy.module._file.interp_file import W_File
 from rpython.rlib import streamio
-from rpython.rlib.streamio import StreamErrors
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.pycode import PyCode
+from pypy.module._io.interp_iobase import W_IOBase
 from pypy.interpreter.streamutil import wrap_streamerror
+from pypy.interpreter.error import OperationError
 
 
-def get_suffixes(space):
+def extension_suffixes(space):
     suffixes_w = []
-    if importing.has_so_extension(space):
-        suffixes_w.append(
-            space.newtuple([space.newtext(importing.get_so_extension(space)),
-                            space.newtext('rb'),
-                            space.newint(importing.C_EXTENSION)]))
-    suffixes_w.extend([
-        space.newtuple([space.newtext('.py'),
-                        space.newtext('U'),
-                        space.newint(importing.PY_SOURCE)]),
-        space.newtuple([space.newtext('.pyc'),
-                        space.newtext('rb'),
-                        space.newint(importing.PY_COMPILED)]),
-        ])
+    if 1:   #if space.config.objspace.usemodules.cpyext:
+        suffixes_w.append(space.newtext(importing.get_so_extension(space)))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
@@ -36,126 +25,61 @@ def get_magic(space):
     d = x & 0xff
     return space.newbytes(chr(a) + chr(b) + chr(c) + chr(d))
 
+def get_tag(space):
+    """get_tag() -> string
+    Return the magic tag for .pyc files."""
+    return space.newtext(importing.PYC_TAG)
+
 def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
         try:
             return streamio.open_file_as_stream(filename, filemode)
-        except StreamErrors as e:
+        except streamio.StreamErrors as e:
             # XXX this is not quite the correct place, but it will do for now.
             # XXX see the issue which I'm sure exists already but whose number
             # XXX I cannot find any more...
             raise wrap_streamerror(space, e)
     else:
-        return space.interp_w(W_File, w_file).stream
+        w_iobase = space.interp_w(W_IOBase, w_file)
+        # XXX: not all W_IOBase have a fileno method: in that case, we should
+        # probably raise a TypeError?
+        fd = space.int_w(space.call_method(w_iobase, 'fileno'))
+        return streamio.fdopen_as_stream(fd, filemode)
 
-def find_module(space, w_name, w_path=None):
-    name = space.text0_w(w_name)
-    if space.is_none(w_path):
-        w_path = None
-
-    find_info = importing.find_module(
-        space, name, w_name, name, w_path, use_loader=False)
-    if not find_info:
-        raise oefmt(space.w_ImportError, "No module named %s", name)
-
-    w_filename = space.newtext(find_info.filename)
-    stream = find_info.stream
-
-    if stream is not None:
-        fileobj = W_File(space)
-        fileobj.fdopenstream(
-            stream, stream.try_to_find_file_descriptor(),
-            find_info.filemode, w_filename)
-        w_fileobj = fileobj
-    else:
-        w_fileobj = space.w_None
-    w_import_info = space.newtuple(
-        [space.newtext(find_info.suffix),
-         space.newtext(find_info.filemode),
-         space.newint(find_info.modtype)])
-    return space.newtuple([w_fileobj, w_filename, w_import_info])
-
-def load_module(space, w_name, w_file, w_filename, w_info):
-    w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info, 3)
-
-    filename = space.fsencode_w(w_filename)
-    filemode = space.text_w(w_filemode)
-    if space.is_w(w_file, space.w_None):
-        stream = None
-    else:
-        stream = get_file(space, w_file, filename, filemode)
-
-    find_info = importing.FindInfo(
-        space.int_w(w_modtype),
-        filename,
-        stream,
-        space.text_w(w_suffix),
-        filemode)
-    return importing.load_module(
-        space, w_name, find_info, reuse=True)
-
-def load_source(space, w_modulename, w_filename, w_file=None):
-    filename = space.fsencode_w(w_filename)
-
-    stream = get_file(space, w_file, filename, 'U')
-
-    w_mod = Module(space, w_modulename)
-    importing._prepare_module(space, w_mod, filename, None)
-
-    w_mod = importing.load_source_module(
-        space, w_modulename, w_mod,
-        filename, stream.readall(), stream.try_to_find_file_descriptor())
-    if space.is_none(w_file):
-        stream.close()
-    return w_mod
-
-@unwrap_spec(filename='fsencode', check_afterwards=int)
-def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
-                         check_afterwards=False):
-    # the function 'imp._run_compiled_module' is a pypy-only extension
-    stream = get_file(space, w_file, filename, 'rb')
-
-    magic = importing._r_long(stream)
-    timestamp = importing._r_long(stream)
-
-    w_mod = importing.load_compiled_module(
-        space, w_modulename, w_module, filename, magic, timestamp,
-        stream.readall(), check_afterwards=check_afterwards)
-    if space.is_none(w_file):
-        stream.close()
-    return w_mod
-
-@unwrap_spec(filename='fsencode')
-def load_compiled(space, w_modulename, filename, w_file=None):
-    w_mod = Module(space, w_modulename)
-    importing._prepare_module(space, w_mod, filename, None)
-    return _run_compiled_module(space, w_modulename, filename, w_file, w_mod,
-                                check_afterwards=True)
-
-@unwrap_spec(filename='fsencode')
-def load_dynamic(space, w_modulename, filename, w_file=None):
+def create_dynamic(space, w_spec, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
-    return importing.load_c_extension(space, filename,
-                                      space.text_w(w_modulename))
+    from pypy.module.cpyext.api import create_extension_module
+    # NB. cpyext.api.create_extension_module() can also delegate to _cffi_backend
+    return create_extension_module(space, w_spec)
 
-def new_module(space, w_name):
-    return Module(space, w_name, add_package=False)
-
-def init_builtin(space, w_name):
+def create_builtin(space, w_spec):
+    w_name = space.getattr(w_spec, space.newtext("name"))
     name = space.text0_w(w_name)
-    if name not in space.builtin_modules:
-        return
-    if space.finditem(space.sys.get('modules'), w_name) is not None:
-        raise oefmt(space.w_ImportError,
-                    "cannot initialize a built-in module twice in PyPy")
-    return space.getbuiltinmodule(name)
+    # force_init is needed to make reload actually reload instead of just
+    # using the already-present module in sys.modules.
+
+    # If the module is already in sys.modules, it must be a reload, so
+    # we want to reuse (and reinitialize) the existing module object
+    reuse = space.finditem(space.sys.get('modules'), w_name) is not None
+    return space.getbuiltinmodule(name, force_init=True, reuse=reuse)
+
+def exec_dynamic(space, w_mod):
+    from pypy.module.cpyext.api import exec_extension_module
+    exec_extension_module(space, w_mod)
+
+def exec_builtin(space, w_mod):
+    return
 
 def init_frozen(space, w_name):
     return None
 
 def is_builtin(space, w_name):
-    name = space.text0_w(w_name)
+    try:
+        name = space.text0_w(w_name)
+    except OperationError:
+        return space.newint(0)
+
     if name not in space.builtin_modules:
         return space.newint(0)
     if space.finditem(space.sys.get('modules'), w_name) is not None:
@@ -164,6 +88,14 @@ def is_builtin(space, w_name):
 
 def is_frozen(space, w_name):
     return space.w_False
+
+def get_frozen_object(space, w_name):
+    raise oefmt(space.w_ImportError,
+                "No such frozen object named %R", w_name)
+
+def is_frozen_package(space, w_name):
+    raise oefmt(space.w_ImportError,
+                "No such frozen object named %R", w_name)
 
 #__________________________________________________________________
 
@@ -184,3 +116,10 @@ def release_lock(space):
 def reinit_lock(space):
     if space.config.objspace.usemodules.thread:
         importing.getimportlock(space).reinit_lock()
+
+@unwrap_spec(pathname='fsencode')
+def fix_co_filename(space, w_code, pathname):
+    code_w = space.interp_w(PyCode, w_code)
+    importing.update_code_filenames(space, code_w, pathname)
+
+

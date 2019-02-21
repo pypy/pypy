@@ -9,7 +9,7 @@ class PythonGrammar(parser.Grammar):
 
 def _get_python_grammar():
     here = os.path.dirname(__file__)
-    fp = open(os.path.join(here, "data", "Grammar2.7"))
+    fp = open(os.path.join(here, "data", "Grammar3.5"))
     try:
         gram_source = fp.read()
     finally:
@@ -19,9 +19,13 @@ def _get_python_grammar():
 
 
 python_grammar = _get_python_grammar()
-python_grammar_no_print = python_grammar.shared_copy()
-python_grammar_no_print.keyword_ids = python_grammar_no_print.keyword_ids.copy()
-del python_grammar_no_print.keyword_ids["print"]
+
+python_grammar_revdb = python_grammar.shared_copy()
+copied_token_ids = python_grammar.token_ids.copy()
+python_grammar_revdb.token_ids = copied_token_ids
+
+metavar_token_id = pytoken.python_tokens['REVDBMETAVAR']
+del python_grammar.token_ids[metavar_token_id]
 
 class _Tokens(object):
     pass
@@ -39,3 +43,11 @@ syms = _Symbols()
 syms._rev_lookup = rev_lookup # for debugging
 
 del _get_python_grammar, _Tokens, tok_name, sym_name, idx
+
+def choose_grammar(print_function, revdb):
+    assert print_function
+    if revdb:
+        return python_grammar_revdb
+    else:
+        return python_grammar
+

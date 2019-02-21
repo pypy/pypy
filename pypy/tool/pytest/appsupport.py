@@ -23,11 +23,11 @@ class AppCode(object):
         #    self.path = space.unwrap(space.getattr(self.w_file, space.wrap('__path__')))
         #except OperationError:
         #    self.path = space.unwrap(space.getattr(
-        self.path = py.path.local(space.str_w(self.w_file))
+        self.path = py.path.local(space.utf8_w(self.w_file))
         self.space = space
 
     def fullsource(self):
-        filename = self.space.str_w(self.w_file)
+        filename = self.space.utf8_w(self.w_file)
         source = py.code.Source(py.std.linecache.getlines(filename))
         if source.lines:
             return source
@@ -182,7 +182,7 @@ def build_pytest_assertion(space):
             try:
                 source = runner.statement
                 source = str(source).strip()
-            except py.error.ENOENT:
+            except (py.error.ENOENT, SyntaxError):
                 source = None
             from pypy import conftest
             if source and py.test.config._assertstate.mode != "off":
@@ -199,33 +199,31 @@ def build_pytest_assertion(space):
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
     w_init = space.wrap(gateway.interp2app_temp(my_init))
-    w_dict = space.newdict()
+    w_dict = space.getattr(w_BuiltinAssertionError, space.wrap('__dict__'))
+    w_dict = space.call_method(w_dict, 'copy')
+    # fixup __module__, since the new type will be is_heaptype() == True
+    w_dict.setitem_str('__module__', space.getattr(w_BuiltinAssertionError,
+                                                   space.wrap('__module__')))
     space.setitem(w_dict, space.wrap('__init__'), w_init)
     return space.call_function(w_metaclass,
                                space.wrap('AssertionError'),
                                space.newtuple([w_BuiltinAssertionError]),
                                w_dict)
 
-def _exc_info(space, err):
-    """Hack the fact that exc_info() isn't set until a app except
-    block catches it."""
-    err.normalize_exception(space)
-    frame = space.getexecutioncontext().gettopframe()
-    old = frame.last_exception
-    frame.last_exception = err
-    if not hasattr(space, '_w_ExceptionInfo'):
-        space._w_ExceptionInfo = space.appexec([], """():
-    class _ExceptionInfo(object):
-        def __init__(self):
-            import sys
-            self.type, self.value, self.traceback = sys.exc_info()
-
-    return _ExceptionInfo
-""")
-    try:
-        return space.call_function(space._w_ExceptionInfo)
-    finally:
-        frame.last_exception = old
+def _exc_info(space, operror):
+    """sys.exc_info() isn't set until a app except block catches it,
+    but we can directly copy the two lines of code from module/sys/vm.py."""
+    operror.normalize_exception(space)
+    return space.appexec([operror.w_type, operror.get_w_value(space),
+                          space.wrap(operror.get_traceback())], """(t, v, tb):
+        class _ExceptionInfo:
+            pass
+        e = _ExceptionInfo()
+        e.type = t
+        e.value = v
+        e.traceback = tb
+        return e
+    """)
 
 def pypyraises(space, w_ExpectedException, w_expr, __args__):
     """A built-in function providing the equivalent of py.test.raises()."""
@@ -250,8 +248,8 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
         #if filename.endswith("pyc"):
         #    filename = filename[:-1]
         try:
-            space.exec_(str(source), frame.get_w_globals(), w_locals,
-                        filename=filename)
+            space.exec_(unicode(source).encode('utf-8'), frame.get_w_globals(),
+                        w_locals, filename=filename)
         except OperationError as e:
             if e.match(space, w_ExpectedException):
                 return _exc_info(space, e)
@@ -273,6 +271,13 @@ def pypyskip(space, w_message):
     py.test.skip(msg)
 
 app_skip = gateway.interp2app_temp(pypyskip)
+
+def py3k_pypyskip(space, w_message): 
+    """skip a test at app-level. """ 
+    msg = space.unwrap(w_message) 
+    py.test.skip('[py3k] %s' % msg)
+
+app_py3k_skip = gateway.interp2app_temp(py3k_pypyskip)
 
 def raises_w(space, w_ExpectedException, *args, **kwds):
     try:

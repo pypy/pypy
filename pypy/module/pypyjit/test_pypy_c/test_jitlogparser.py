@@ -14,12 +14,12 @@ class TestLogParser(BaseTestPyPyC):
     def test(self):
         def fn_with_bridges(N):
             def is_prime(x):
-                for y in xrange(2, x):
+                for y in range(2, x):
                     if x % y == 0:
                         return False
                 return True
             result = 0
-            for x in xrange(N):
+            for x in range(N):
                 if x % 3 == 0:
                     result += 5
                 elif x % 5 == 0:
@@ -51,10 +51,12 @@ class TestLogParser(BaseTestPyPyC):
                 # do not care for _optimize_charset or _mk_bitmap
                 continue
             assert loop.count > 0
-            if ' is_prime, ' in loop.comment:
+            if 'is_prime' in loop.comment:
                 is_prime_loops.append(loop)
-            elif ' fn_with_bridges, ' in loop.comment:
+            elif 'fn_with_bridges' in loop.comment:
                 fn_with_bridges_loops.append(loop)
+            elif 'tuple.contains' in loop.comment:
+                pass
             else:
                 assert ' bridge ' in loop.comment
                 key = mangle_descr(loop.descr)

@@ -49,15 +49,14 @@ class AppTestRandom:
         rnd.seed(1234)
         state = rnd.getstate()
         s = repr(state)
-        assert len(s) == 7956
-        assert s.count('L') == 625
+        assert len(s) == 7331
 
     def test_seed(self):
         import _random, sys
         rnd = _random.Random()
         rnd.seed()
         different_nums = []
-        mask = sys.maxint * 2 + 1
+        mask = sys.maxsize * 2 + 1
         for obj in ["spam and eggs", 3.14, 1+2j, 'a', tuple('abc')]:
             nums = []
             for o in [obj, hash(obj) & mask, -(hash(obj) & mask)]:
@@ -74,10 +73,10 @@ class AppTestRandom:
     def test_seedargs(self):
         import _random
         rnd = _random.Random()
-        for arg in [None, 0, 0L, 1, 1L, -1, -1L, 10**20, -(10**20),
-                    3.14, 1+2j, 'a', tuple('abc'), 0xffffffffffL]:
+        for arg in [None, 0, 1, -1, 10**20, -(10**20),
+                    3.14, 1+2j, 'a', tuple('abc'), 0xffffffffff]:
             rnd.seed(arg)
-        for arg in [range(3), dict(one=1)]:
+        for arg in [[1, 2, 3], dict(one=1)]:
             raises(TypeError, rnd.seed, arg)
         raises(TypeError, rnd.seed, 1, 2)
         raises(TypeError, type(rnd), [])
@@ -92,19 +91,16 @@ class AppTestRandom:
         state2 = rnd.getstate()          # seed() to improve the resolution)
         assert state1 != state2
 
-    def test_jumpahead(self):
-        import sys
-        import _random
-        rnd = _random.Random()
-        rnd.jumpahead(100)
-        rnd.jumpahead(sys.maxint + 2)
-
     def test_randbits(self):
         import _random
         rnd = _random.Random()
-        for n in range(1, 10) + range(10, 1000, 15):
+        for n in range(1, 10):
             k = rnd.getrandbits(n)
             assert 0 <= k < 2 ** n
+        for n in range(10, 1000, 15):
+            k = rnd.getrandbits(n)
+            assert 0 <= k < 2 ** n
+        assert rnd.getrandbits(30) != 0 # Fails every 1e10 runs
 
     def test_subclass(self):
         import _random

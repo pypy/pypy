@@ -2,9 +2,9 @@
 
 import math
 import os
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated
 
-from pypy.interpreter.astcompiler import ast, misc, symtable
+from pypy.interpreter.astcompiler import ast, consts, misc, symtable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.miscutils import string_sort
@@ -138,24 +138,25 @@ class Block(object):
         return ''.join(code)
 
 
-def _make_index_dict_filter(syms, flag):
+def _make_index_dict_filter(syms, flag1, flag2):
     names = syms.keys()
     string_sort(names)   # return cell vars in alphabetical order
     i = 0
     result = {}
     for name in names:
         scope = syms[name]
-        if scope == flag:
+        if scope in (flag1, flag2):
             result[name] = i
             i += 1
     return result
 
 
-def _list_to_dict(l, offset=0):
+@specialize.argtype(0)
+def _iter_to_dict(iterable, offset=0):
     result = {}
     index = offset
-    for i in range(len(l)):
-        result[l[i]] = index
+    for item in iterable:
+        result[item] = index
         index += 1
     return result
 
@@ -171,13 +172,15 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.first_block = self.new_block()
         self.use_block(self.first_block)
         self.names = {}
-        self.var_names = _list_to_dict(scope.varnames)
+        self.var_names = _iter_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
-                                                 symtable.SCOPE_CELL)
+                                                 symtable.SCOPE_CELL,
+                                                 symtable.SCOPE_CELL_CLASS)
         string_sort(scope.free_vars)    # return free vars in alphabetical order
-        self.free_vars = _list_to_dict(scope.free_vars, len(self.cell_vars))
+        self.free_vars = _iter_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
         self.argcount = 0
+        self.kwonlyargcount = 0
         self.lineno_set = False
         self.lineno = 0
         self.add_none_to_final_return = True
@@ -401,9 +404,17 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             depth = self._do_stack_depth_walk(block)
             if block.auto_inserted_return and depth != 0:
-                os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
-                    self.compile_info.filename, self.name, self.first_lineno))
-                raise StackDepthComputationError   # fatal error
+                # This case occurs if this code object uses some
+                # construction for which the stack depth computation
+                # is wrong (too high).  If you get here while working
+                # on the astcompiler, then you should at first ignore
+                # the error, and comment out the 'raise' below.  Such
+                # an error is not really bad: it is just a bit
+                # wasteful.  For release-ready versions, though, we'd
+                # like not to be wasteful. :-)
+                os.write(2, "StackDepthComputationError(POS) in %s at %s:%s\n"
+                  % (self.compile_info.filename, self.name, self.first_lineno))
+                raise StackDepthComputationError   # would-be-nice-not-to-have
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth):
@@ -416,7 +427,16 @@ class PythonCodeMaker(ast.ASTVisitor):
              return 0
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
-            assert depth >= 0
+            if depth < 0:
+                # This is really a fatal error, don't comment out this
+                # 'raise'.  It means that the stack depth computation
+                # thinks there is a path that yields a negative stack
+                # depth, which means that it underestimates the space
+                # needed and it would crash when interpreting this
+                # code.
+                os.write(2, "StackDepthComputationError(NEG) in %s at %s:%s\n"
+                  % (self.compile_info.filename, self.name, self.first_lineno))
+                raise StackDepthComputationError   # really fatal error
             if depth >= self._max_depth:
                 self._max_depth = depth
             jump_op = instr.opcode
@@ -426,10 +446,16 @@ class PythonCodeMaker(ast.ASTVisitor):
                     target_depth -= 2
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
-                      jump_op == ops.SETUP_WITH):
-                    if jump_op == ops.SETUP_WITH:
-                        target_depth -= 1     # ignore the w_result just pushed
-                    target_depth += 3         # add [exc_type, exc, unroller]
+                      jump_op == ops.SETUP_WITH or
+                      jump_op == ops.SETUP_ASYNC_WITH):
+                    if jump_op == ops.SETUP_FINALLY:
+                        target_depth += 4
+                    elif jump_op == ops.SETUP_EXCEPT:
+                        target_depth += 4
+                    elif jump_op == ops.SETUP_WITH:
+                        target_depth += 3
+                    elif jump_op == ops.SETUP_ASYNC_WITH:
+                        target_depth += 3
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
                 elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
@@ -514,10 +540,13 @@ class PythonCodeMaker(ast.ASTVisitor):
         var_names = _list_from_dict(self.var_names)
         cell_names = _list_from_dict(self.cell_vars)
         free_names = _list_from_dict(self.free_vars, len(cell_names))
-        flags = self._get_code_flags() | self.compile_info.flags
+        flags = self._get_code_flags()
+        # (Only) inherit compilerflags in PyCF_MASK
+        flags |= (self.compile_info.flags & consts.PyCF_MASK)
         bytecode = ''.join([block.get_code() for block in blocks])
         return PyCode(self.space,
                       self.argcount,
+                      self.kwonlyargcount,
                       len(self.var_names),
                       stack_depth,
                       flags,
@@ -543,34 +572,31 @@ def _list_from_dict(d, offset=0):
 
 _static_opcode_stack_effects = {
     ops.NOP: 0,
-    ops.STOP_CODE: 0,
 
     ops.POP_TOP: -1,
     ops.ROT_TWO: 0,
     ops.ROT_THREE: 0,
-    ops.ROT_FOUR: 0,
     ops.DUP_TOP: 1,
+    ops.DUP_TOP_TWO: 2,
 
     ops.UNARY_POSITIVE: 0,
     ops.UNARY_NEGATIVE: 0,
     ops.UNARY_NOT: 0,
-    ops.UNARY_CONVERT: 0,
     ops.UNARY_INVERT: 0,
 
     ops.LIST_APPEND: -1,
     ops.SET_ADD: -1,
     ops.MAP_ADD: -2,
-    ops.STORE_MAP: -2,
 
     ops.BINARY_POWER: -1,
     ops.BINARY_MULTIPLY: -1,
-    ops.BINARY_DIVIDE: -1,
     ops.BINARY_MODULO: -1,
     ops.BINARY_ADD: -1,
     ops.BINARY_SUBTRACT: -1,
     ops.BINARY_SUBSCR: -1,
     ops.BINARY_FLOOR_DIVIDE: -1,
     ops.BINARY_TRUE_DIVIDE: -1,
+    ops.BINARY_MATRIX_MULTIPLY: -1,
     ops.BINARY_LSHIFT: -1,
     ops.BINARY_RSHIFT: -1,
     ops.BINARY_AND: -1,
@@ -582,27 +608,14 @@ _static_opcode_stack_effects = {
     ops.INPLACE_ADD: -1,
     ops.INPLACE_SUBTRACT: -1,
     ops.INPLACE_MULTIPLY: -1,
-    ops.INPLACE_DIVIDE: -1,
     ops.INPLACE_MODULO: -1,
     ops.INPLACE_POWER: -1,
+    ops.INPLACE_MATRIX_MULTIPLY: -1,
     ops.INPLACE_LSHIFT: -1,
     ops.INPLACE_RSHIFT: -1,
     ops.INPLACE_AND: -1,
     ops.INPLACE_OR: -1,
     ops.INPLACE_XOR: -1,
-
-    ops.SLICE+0: 0,
-    ops.SLICE+1: -1,
-    ops.SLICE+2: -1,
-    ops.SLICE+3: -2,
-    ops.STORE_SLICE+0: -2,
-    ops.STORE_SLICE+1: -3,
-    ops.STORE_SLICE+2: -3,
-    ops.STORE_SLICE+3: -4,
-    ops.DELETE_SLICE+0: -1,
-    ops.DELETE_SLICE+1: -2,
-    ops.DELETE_SLICE+2: -2,
-    ops.DELETE_SLICE+3: -3,
 
     ops.STORE_SUBSCR: -3,
     ops.DELETE_SUBSCR: -2,
@@ -614,26 +627,22 @@ _static_opcode_stack_effects = {
     ops.SETUP_LOOP: 0,
 
     ops.PRINT_EXPR: -1,
-    ops.PRINT_ITEM: -1,
-    ops.PRINT_NEWLINE: 0,
-    ops.PRINT_ITEM_TO: -2,
-    ops.PRINT_NEWLINE_TO: -1,
 
-    ops.WITH_CLEANUP: -1,
+    ops.WITH_CLEANUP_START: 0,
+    ops.WITH_CLEANUP_FINISH: -1,
+    ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
-    ops.END_FINALLY: -3,     # assume always 3: we pretend that SETUP_FINALLY
-                             # pushes 3.  In truth, it would only push 1 and
+    ops.POP_EXCEPT: -1,
+    ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
+                             # pushes 4.  In truth, it would only push 1 and
                              # the corresponding END_FINALLY only pops 1.
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
 
-    ops.LOAD_LOCALS: 1,
     ops.RETURN_VALUE: -1,
-    ops.EXEC_STMT: -3,
     ops.YIELD_VALUE: 0,
-    ops.BUILD_CLASS: -2,
-    ops.BUILD_MAP: 1,
+    ops.YIELD_FROM: -1,
     ops.COMPARE_OP: -1,
 
     ops.LOOKUP_METHOD: 1,
@@ -653,10 +662,19 @@ _static_opcode_stack_effects = {
     ops.LOAD_GLOBAL: 1,
     ops.STORE_GLOBAL: -1,
     ops.DELETE_GLOBAL: 0,
+    ops.DELETE_DEREF: 0,
 
     ops.LOAD_CLOSURE: 1,
     ops.LOAD_DEREF: 1,
     ops.STORE_DEREF: -1,
+    ops.DELETE_DEREF: 0,
+
+    ops.GET_AWAITABLE: 0,
+    ops.SETUP_ASYNC_WITH: 0,
+    ops.BEFORE_ASYNC_WITH: 1,
+    ops.GET_AITER: 0,
+    ops.GET_ANEXT: 1,
+    ops.GET_YIELD_FROM_ITER: 0,
 
     ops.LOAD_CONST: 1,
 
@@ -672,30 +690,52 @@ _static_opcode_stack_effects = {
     ops.POP_JUMP_IF_FALSE: -1,
     ops.JUMP_IF_NOT_DEBUG: 0,
 
+    # TODO
     ops.BUILD_LIST_FROM_ARG: 1,
+    ops.LOAD_REVDB_VAR: 1,
+
+    ops.LOAD_CLASSDEREF: 1,
 }
 
 
 def _compute_UNPACK_SEQUENCE(arg):
     return arg - 1
 
-def _compute_DUP_TOPX(arg):
-    return arg
+def _compute_UNPACK_EX(arg):
+    return (arg & 0xFF) + (arg >> 8)
 
 def _compute_BUILD_TUPLE(arg):
+    return 1 - arg
+
+def _compute_BUILD_TUPLE_UNPACK(arg):
     return 1 - arg
 
 def _compute_BUILD_LIST(arg):
     return 1 - arg
 
+def _compute_BUILD_LIST_UNPACK(arg):
+    return 1 - arg
+
 def _compute_BUILD_SET(arg):
     return 1 - arg
 
+def _compute_BUILD_SET_UNPACK(arg):
+    return 1 - arg
+
+def _compute_BUILD_MAP(arg):
+    return 1 - 2 * arg
+
+def _compute_BUILD_MAP_UNPACK(arg):
+    return 1 - arg
+
+def _compute_BUILD_MAP_UNPACK_WITH_CALL(arg):
+    return 1 - (arg & 0xFF)
+
 def _compute_MAKE_CLOSURE(arg):
-    return -arg - 1
+    return -2 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_MAKE_FUNCTION(arg):
-    return -arg
+    return -1 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_BUILD_SLICE(arg):
     if arg == 3:
@@ -707,7 +747,7 @@ def _compute_RAISE_VARARGS(arg):
     return -arg
 
 def _num_args(oparg):
-    return (oparg % 256) + 2 * (oparg / 256)
+    return (oparg % 256) + 2 * ((oparg // 256) % 256)
 
 def _compute_CALL_FUNCTION(arg):
     return -_num_args(arg)
@@ -723,6 +763,14 @@ def _compute_CALL_FUNCTION_VAR_KW(arg):
 
 def _compute_CALL_METHOD(arg):
     return -_num_args(arg) - 1
+
+def _compute_FORMAT_VALUE(arg):
+    if (arg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
+        return -1
+    return 0
+
+def _compute_BUILD_STRING(arg):
+    return 1 - arg
 
 
 _stack_effect_computers = {}
@@ -753,4 +801,8 @@ def _opcode_stack_effect(op, arg):
         try:
             return _static_opcode_stack_effects[op]
         except KeyError:
-            return _stack_effect_computers[op](arg)
+            try:
+                return _stack_effect_computers[op](arg)
+            except KeyError:
+                raise KeyError("Unknown stack effect for %s (%s)" %
+                               (ops.opname[op], op))

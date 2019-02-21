@@ -1,8 +1,7 @@
-from pypy.interpreter import module
 from pypy.module.cpyext.api import (
-    generic_cpy_call, cpython_api, PyObject, CONST_STRING, CANNOT_FAIL)
+    cpython_api, PyObject, CONST_STRING, CANNOT_FAIL, cts)
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode
 from pypy.module.imp import importing
@@ -23,7 +22,7 @@ def PyImport_Import(space, w_name):
         w_builtin = space.getitem(w_globals, space.newtext('__builtins__'))
     else:
         # No globals -- use standard builtins, and fake globals
-        w_builtin = space.getbuiltinmodule('__builtin__')
+        w_builtin = space.getbuiltinmodule('builtins')
         w_globals = space.newdict()
         space.setitem(w_globals, space.newtext("__builtins__"), w_builtin)
 
@@ -50,10 +49,34 @@ def PyImport_ImportModuleNoBlock(space, name):
         space.w_RuntimeWarning)
     return PyImport_Import(space, space.newtext(rffi.charp2str(name)))
 
+
+@cts.decl(
+    '''PyObject* PyImport_ImportModuleLevelObject(
+        PyObject *name, PyObject *given_globals, PyObject *locals,
+        PyObject *given_fromlist, int level)''')
+def PyImport_ImportModuleLevelObject(space, w_name, w_glob, w_loc, w_fromlist, level):
+    level = rffi.cast(lltype.Signed, level)
+    if w_glob is None:
+        w_glob = space.newdict()
+    else:
+        if level > 0 and not space.isinstance_w(w_glob, space.w_dict):
+            raise oefmt(space.w_TypeError, "globals must be a dict")
+    if w_fromlist is None:
+        w_fromlist = space.newlist([])
+    if w_name is None:
+        raise oefmt(space.w_ValueError, "Empty module name")
+    w_import = space.builtin.get('__import__')
+    if level < 0:
+        raise oefmt(space.w_ValueError, "level must be >= 0")
+    return space.call_function(
+        w_import, w_name, w_glob, w_loc, w_fromlist, space.newint(level))
+
+
 @cpython_api([PyObject], PyObject)
 def PyImport_ReloadModule(space, w_mod):
-    from pypy.module.imp.importing import reload
-    return reload(space, w_mod)
+    w_import = space.builtin.get('__import__')
+    w_imp = space.call_function(w_import, space.newtext('imp'))
+    return space.call_method(w_imp, 'reload', w_mod)
 
 @cpython_api([CONST_STRING], PyObject, result_borrowed=True)
 def PyImport_AddModule(space, name):
@@ -73,7 +96,7 @@ def PyImport_AddModule(space, name):
     w_mod = check_sys_modules_w(space, modulename)
     if not w_mod or space.is_w(w_mod, space.w_None):
         w_mod = Module(space, space.newtext(modulename))
-        space.setitem(space.sys.get('modules'), space.newtext(modulename), w_mod)
+    space.setitem(space.sys.get('modules'), space.newtext(modulename), w_mod)
     # return a borrowed ref --- assumes one copy in sys.modules
     return w_mod
 
@@ -122,8 +145,10 @@ def PyImport_ExecCodeModuleEx(space, name, w_code, pathname):
     else:
         pathname = code.co_filename
     w_mod = importing.add_module(space, w_name)
-    space.setattr(w_mod, space.newtext('__file__'), space.newtext(pathname))
-    return importing.exec_code_module(space, w_mod, code, w_name)
+    space.setattr(w_mod, space.newtext('__file__'), space.newfilename(pathname))
+    cpathname = importing.make_compiled_pathname(pathname)
+    importing.exec_code_module(space, w_mod, code, pathname, cpathname)
+    return w_mod
 
 @cpython_api([], lltype.Void, error=CANNOT_FAIL)
 def _PyImport_AcquireLock(space):

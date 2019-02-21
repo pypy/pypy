@@ -33,7 +33,8 @@ isearch_keymap = tuple(
      (r'\C-g', 'isearch-cancel'),
      (r'\<backspace>', 'isearch-backspace')])
 
-del c
+if 'c' in globals():
+    del c
 
 ISEARCH_DIRECTION_NONE = ''
 ISEARCH_DIRECTION_BACKWARDS = 'r'
@@ -229,7 +230,7 @@ class HistoricalReader(R):
         self.dirty = 1
 
     def get_item(self, i):
-        if i <> len(self.history):
+        if i != len(self.history):
             return self.transient_history.get(i, self.history[i])
         else:
             return self.transient_history.get(i, self.get_unicode())
@@ -252,7 +253,7 @@ class HistoricalReader(R):
             raise
 
     def get_prompt(self, lineno, cursor_on_line):
-        if cursor_on_line and self.isearch_direction <> ISEARCH_DIRECTION_NONE:
+        if cursor_on_line and self.isearch_direction != ISEARCH_DIRECTION_NONE:
             d = 'rf'[self.isearch_direction == ISEARCH_DIRECTION_FORWARDS]
             return "(%s-search `%s') "%(d, self.isearch_term)
         else:

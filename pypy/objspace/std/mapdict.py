@@ -4,6 +4,7 @@ from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
@@ -72,6 +73,7 @@ class AbstractAttribute(object):
     @jit.elidable
     def find_map_attr(self, name, index):
         # attr cache
+        assert isinstance(name, str)    # utf8-encoded
         space = self.space
         cache = space.fromcache(MapAttrCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
@@ -98,12 +100,13 @@ class AbstractAttribute(object):
                     cache.hits[name] = cache.hits.get(name, 0) + 1
                 return attr
         attr = self._find_map_attr(name, index)
-        cache.attrs[attr_hash] = self
-        cache.names[attr_hash] = name
-        cache.indexes[attr_hash] = index
-        cache.cached_attrs[attr_hash] = attr
-        if space.config.objspace.std.withmethodcachecounter:
-            cache.misses[name] = cache.misses.get(name, 0) + 1
+        if space._side_effects_ok():
+            cache.attrs[attr_hash] = self
+            cache.names[attr_hash] = name
+            cache.indexes[attr_hash] = index
+            cache.cached_attrs[attr_hash] = attr
+            if space.config.objspace.std.withmethodcachecounter:
+                cache.misses[name] = cache.misses.get(name, 0) + 1
         return attr
 
     def _find_map_attr(self, name, index):
@@ -430,7 +433,8 @@ class PlainAttribute(AbstractAttribute):
     def materialize_str_dict(self, space, obj, str_dict):
         new_obj = self.back.materialize_str_dict(space, obj, str_dict)
         if self.index == DICT:
-            str_dict[self.name] = obj._mapdict_read_storage(self.storageindex)
+            w_key = space.newtext(self.name)
+            str_dict[w_key] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -500,10 +504,8 @@ class BaseUserClassMapdict:
         self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def user_setup(self, space, w_subtype):
-        from pypy.module.__builtin__.interp_classobj import W_InstanceObject
         assert (not self.typedef.hasdict or
-                isinstance(w_subtype.terminator, NoDictTerminator) or
-                self.typedef is W_InstanceObject.typedef)
+                isinstance(w_subtype.terminator, NoDictTerminator))
         self._mapdict_init_empty(w_subtype.terminator)
 
 
@@ -768,7 +770,7 @@ class MapDictStrategy(DictStrategy):
 
     def switch_to_text_strategy(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
-        strategy = self.space.fromcache(BytesDictStrategy)
+        strategy = self.space.fromcache(UnicodeDictStrategy)
         str_dict = strategy.unerase(strategy.get_empty_storage())
         w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(str_dict)
@@ -994,6 +996,8 @@ def init_mapdict_cache(pycode):
 
 @jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None):
+    if not pycode.space._side_effects_ok():
+        return
     entry = pycode._mapdict_caches[nameindex]
     if entry is INVALID_CACHE_ENTRY:
         entry = CacheEntry()

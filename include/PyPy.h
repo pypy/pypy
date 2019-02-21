@@ -57,10 +57,9 @@ int pypy_execute_source(char *source);
 int pypy_execute_source_ptr(char *source, void* ptr);
 
 
-/* Windows hackery */
-#if defined(_MSC_VER)
-#  pragma comment(lib,"python27.lib")
-#endif
+/* The 3.x versions of PyPy don't include the Windows pragma to
+   automatically link python3?.lib.  This is apparently not commonly
+   done on Windows anyway. */
 
 
 #ifdef __cplusplus

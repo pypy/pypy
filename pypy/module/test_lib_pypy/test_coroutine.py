@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 from py.test import skip, raises
 
 skip('test needs to be updated')
@@ -14,7 +13,7 @@ class Test_Coroutine:
     def test_is_zombie(self):
         co = coroutine()
         def f():
-            print 'in coro'
+            print('in coro')
         assert not co.is_zombie
         co.bind(f)
         assert not co.is_zombie
@@ -28,7 +27,7 @@ class Test_Coroutine:
             def __del__(self):
                 res.append(self.is_zombie)
         def f():
-            print 'in coro'
+            print('in coro')
         co = MyCoroutine()
         co.bind(f)
         co.switch()
@@ -50,7 +49,7 @@ class Test_Coroutine:
                 res.append(self.is_zombie)
         main = coroutine.getcurrent()
         def f():
-            print 'in coro'
+            print('in coro')
             main.switch()
         co = MyCoroutine()
         co.bind(f)

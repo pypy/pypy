@@ -17,7 +17,7 @@ def test_interface_to_dump_rpy_heap_file(space):
     w_f = space.appexec([space.wrap(filename)], """(filename):
             import gc
             f = open(filename, 'wb')
-            f.write('X')
+            f.write(b'X')
             return f""")
     assert os.path.getsize(filename) == 0   # the 'X' was not flushed yet
     try:

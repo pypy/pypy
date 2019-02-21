@@ -4,7 +4,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.module import Module
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter.generator import GeneratorIterator
+from pypy.interpreter.generator import GeneratorIterator, Coroutine
 from rpython.rlib.objectmodel import instantiate
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.objspace.std.iterobject import W_SeqIterObject, W_ReverseSeqIterObject
@@ -27,7 +27,7 @@ def func_new(space):
     return fu
 
 def module_new(space, w_name, w_dict):
-    new_mod = Module(space, w_name, w_dict, add_package=False)
+    new_mod = Module(space, w_name, w_dict)
     return new_mod
 
 def method_new(space, __args__):
@@ -42,19 +42,6 @@ def dictiter_surrogate_new(space, w_lis):
     # simply create an iterator and that's it.
     return space.iter(w_lis)
 
-def seqiter_new(space, w_seq, w_index):
-    return W_SeqIterObject(w_seq, space.int_w(w_index))
-
-def reverseseqiter_new(space, w_seq, w_index):
-    w_rev = instantiate(W_ReverseSeqIterObject)
-    if space.is_w(w_seq, space.w_None):
-        w_rev.w_seq = None
-        w_rev.index = -1
-    else:
-        w_rev.w_seq = w_seq
-        w_rev.index = space.int_w(w_index)
-    return w_rev
-
 def frame_new(space):
     new_frame = instantiate(space.FrameClass)   # XXX fish
     return new_frame
@@ -67,10 +54,19 @@ def generator_new(space):
     new_generator = instantiate(GeneratorIterator)
     return new_generator
 
+def coroutine_new(space):
+    new_coroutine = instantiate(Coroutine)
+    return new_coroutine
+
+def longrangeiter_new(space, w_start, w_step, w_len, w_index):
+    from pypy.module.__builtin__.functional import W_LongRangeIterator
+    new_iter = W_LongRangeIterator(space, w_start, w_step, w_len, w_index)
+    return new_iter
+
 @unwrap_spec(current=int, remaining=int, step=int)
-def xrangeiter_new(space, current, remaining, step):
-    from pypy.module.__builtin__.functional import W_XRangeIterator
-    new_iter = W_XRangeIterator(space, current, remaining, step)
+def intrangeiter_new(space, current, remaining, step):
+    from pypy.module.__builtin__.functional import W_IntRangeIterator
+    new_iter = W_IntRangeIterator(space, current, remaining, step)
     return new_iter
 
 @unwrap_spec(identifier='text')
@@ -90,15 +86,6 @@ def builtin_function(space, identifier):
     except KeyError:
         raise oefmt(space.w_RuntimeError,
                     "cannot unpickle builtin function: %s", identifier)
-
-
-def enumerate_new(space, w_iter, w_index):
-    from pypy.module.__builtin__.functional import _make_enumerate
-    return _make_enumerate(space, w_iter, w_index)
-
-def reversed_new(space, w_seq, w_remaining):
-    from pypy.module.__builtin__.functional import _make_reversed
-    return _make_reversed(space, w_seq, w_remaining)
 
 
 # ___________________________________________________________________

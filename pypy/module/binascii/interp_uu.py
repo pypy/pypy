@@ -1,6 +1,7 @@
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error
+from pypy.module.binascii.interp_binascii import AsciiBufferUnwrapper
 
 # ____________________________________________________________
 
@@ -20,7 +21,7 @@ def _a2b_read(space, s, index):
 _a2b_read._always_inline_ = True
 
 
-@unwrap_spec(ascii='bufferstr')
+@unwrap_spec(ascii=AsciiBufferUnwrapper)
 def a2b_uu(space, ascii):
     "Decode a line of uuencoded data."
 

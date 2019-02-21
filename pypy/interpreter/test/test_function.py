@@ -1,3 +1,4 @@
+# encoding: utf-8
 import pytest, sys
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, descr_function_get
@@ -9,31 +10,113 @@ class AppTestFunctionIntrospection:
     def test_attributes(self):
         globals()['__name__'] = 'mymodulename'
         def f(): pass
-        assert hasattr(f, 'func_code')
-        assert f.func_defaults == None
-        f.func_defaults = None
-        assert f.func_defaults == None
-        assert f.func_dict == {}
-        assert type(f.func_globals) == dict
-        assert f.func_globals is f.__globals__
-        assert f.func_closure is None
-        assert f.func_doc == None
-        assert f.func_name == 'f'
+        assert hasattr(f, '__code__')
+        assert f.__defaults__ == None
+        f.__defaults__ = None
+        assert f.__defaults__ == None
+        assert f.__dict__ == {}
+        assert type(f.__globals__) == dict
+        assert f.__closure__ is None
+        assert f.__doc__ == None
+        assert f.__name__ == 'f'
         assert f.__module__ == 'mymodulename'
+
+    def test_qualname(self):
+        def f():
+            def g():
+                pass
+            return g
+        assert f.__qualname__ == 'test_qualname.<locals>.f'
+        assert f().__qualname__ == 'test_qualname.<locals>.f.<locals>.g'
+        f.__qualname__ = 'qualname'
+        assert f.__qualname__ == 'qualname'
+        raises(TypeError, "f.__qualname__ = b'name'")
+
+    def test_qualname_method(self):
+        class A:
+            def f(self):
+                pass
+        assert A.f.__qualname__ == 'test_qualname_method.<locals>.A.f'
+
+    def test_qualname_global(self):
+        def f():
+            global inner_global
+            def inner_global():
+                def inner_function2():
+                    pass
+                return inner_function2
+            return inner_global
+        assert f().__qualname__ == 'inner_global'
+        assert f()().__qualname__ == 'inner_global.<locals>.inner_function2'
+
+    def test_classmethod_reduce(self):
+        class X(object):
+            @classmethod
+            def y(cls):
+                pass
+
+        f, args = X.y.__reduce__()
+        assert f(*args) == X.y
+        # This is perhaps overly specific.  It's an attempt to be certain that
+        # pickle will actually work with this implementation.
+        assert f == getattr
+        assert args == (X, "y")
+
+    def test_annotations(self):
+        def f(): pass
+        ann = f.__annotations__
+        assert ann == {}
+        assert f.__annotations__ is ann
+        raises(TypeError, setattr, f, "__annotations__", 42)
+        del f.__annotations__
+        assert f.__annotations__ is not ann
+        f.__annotations__ = ann
+        assert f.__annotations__ is ann
+
+    def test_annotations_mangle(self): """
+        class X:
+            def foo(self, __a:5, b:6):
+                pass
+        assert X.foo.__annotations__ == {'_X__a': 5, 'b': 6}
+        """
+
+    def test_kwdefaults(self):
+        """
+        def f(*, kw=3): return kw
+        assert f.__kwdefaults__ == {"kw" : 3}
+        f.__kwdefaults__["kw"] = 4
+        assert f() == 4
+        f.__kwdefaults__ = {"kw" : 5}
+        assert f() == 5
+        del f.__kwdefaults__
+        assert f.__kwdefaults__ is None
+        raises(TypeError, f)
+        assert f(kw=42) == 42
+        def f(*, 日本=3): return kw
+        assert f.__kwdefaults__ == {"日本" : 3}
+        """
+
+    def test_kw_nonascii(self):
+        """
+        def f(日本: str=1):
+            return 日本
+        assert f.__annotations__ == {'日本': str}
+        assert f() == 1
+        assert f(日本='bar') == 'bar'
+        """
 
     def test_code_is_ok(self):
         def f(): pass
-        assert not hasattr(f.func_code, '__dict__')
+        assert not hasattr(f.__code__, '__dict__')
 
     def test_underunder_attributes(self):
         def f(): pass
         assert f.__name__ == 'f'
         assert f.__doc__ == None
-        assert f.__name__ == f.func_name
-        assert f.__doc__ == f.func_doc
-        assert f.__dict__ is f.func_dict
-        assert f.__code__ is f.func_code
-        assert f.__defaults__ is f.func_defaults
+        assert f.__dict__ == {}
+        assert f.__code__.co_name == 'f'
+        assert f.__defaults__ is None
+        assert f.__globals__ is globals()
         assert hasattr(f, '__class__')
 
     def test_classmethod(self):
@@ -42,21 +125,13 @@ class AppTestFunctionIntrospection:
         assert classmethod(f).__func__ is f
         assert staticmethod(f).__func__ is f
 
-    def test_write_doc(self):
+    def test_write___doc__(self):
         def f(): "hello"
         assert f.__doc__ == 'hello'
         f.__doc__ = 'good bye'
         assert f.__doc__ == 'good bye'
         del f.__doc__
         assert f.__doc__ == None
-
-    def test_write_func_doc(self):
-        def f(): "hello"
-        assert f.func_doc == 'hello'
-        f.func_doc = 'good bye'
-        assert f.func_doc == 'good bye'
-        del f.func_doc
-        assert f.func_doc == None
 
     def test_write_module(self):
         def f(): "hello"
@@ -68,7 +143,7 @@ class AppTestFunctionIntrospection:
     def test_new(self):
         def f(): return 42
         FuncType = type(f)
-        f2 = FuncType(f.func_code, f.func_globals, 'f2', None, None)
+        f2 = FuncType(f.__code__, f.__globals__, 'f2', None, None)
         assert f2() == 42
 
         def g(x):
@@ -76,7 +151,7 @@ class AppTestFunctionIntrospection:
                 return x
             return f
         f = g(42)
-        raises(TypeError, FuncType, f.func_code, f.func_globals, 'f2', None, None)
+        raises(TypeError, FuncType, f.__code__, f.__globals__, 'f2', None, None)
 
     def test_write_code(self):
         def f():
@@ -85,32 +160,39 @@ class AppTestFunctionIntrospection:
             return 41
         assert f() == 42
         assert g() == 41
-        raises(TypeError, "f.func_code = 1")
-        f.func_code = g.func_code
+        raises(TypeError, "f.__code__ = 1")
+        f.__code__ = g.__code__
         assert f() == 41
-        def h():
-            return f() # a closure
-        raises(ValueError, "f.func_code = h.func_code")
+        def get_h(f=f):
+            def h():
+                return f() # a closure
+            return h
+        h = get_h()
+        raises(ValueError, "f.__code__ = h.__code__")
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-        raises(TypeError, "dir.func_code = f.func_code")
-        raises(TypeError, "list.append.im_func.func_code = f.func_code")
+        raises(TypeError, "dir.__code__ = f.__code__")
+        raises(TypeError, "list.append.__code__ = f.__code__")
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
-        exec '''if 1:
+        exec('''if 1:
             __name__ = "foo"
             def f(): pass
             __name__ = "bar"
-            assert f.__module__ == "foo"''' in {}
+            assert f.__module__ == "foo"''')
 
-    def test_set_name(self):
-        def f(): pass
-        f.__name__ = 'g'
-        assert f.func_name == 'g'
-        raises(TypeError, "f.__name__ = u'g'")
+    def test_func_nonascii(self):
+        """
+        def 日本():
+            pass
+        assert repr(日本).startswith(
+            '<function test_func_nonascii.<locals>.日本 at ')
+        assert 日本.__name__ == '日本'
+        """
 
 
 class AppTestFunction:
@@ -199,8 +281,8 @@ class AppTestFunction:
         assert res[0] == 23
         assert res[1] == {'a': 'a', 'b': 'b'}
         error = raises(TypeError, lambda: func(42, **[]))
-        assert error.value.message == ('argument after ** must be a mapping, '
-                                       'not list')
+        assert ('argument after ** must be a mapping, not list' in
+                str(error.value))
 
     def test_default_arg(self):
         def func(arg1,arg2=42):
@@ -258,7 +340,6 @@ class AppTestFunction:
         assert meth() == obj
 
     def test_none_get_interaction(self):
-        skip("XXX issue #2083")
         assert type(None).__repr__(None) == 'None'
 
     def test_none_get_interaction_2(self):
@@ -297,27 +378,31 @@ class AppTestFunction:
         try:
             len()
         except TypeError as e:
-            assert "len() takes exactly 1 argument (0 given)" in e.message
+            msg = str(e)
+            msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
+            assert "len() missing 1 required positional argument: 'obj'" in msg
         else:
             assert 0, "did not raise"
 
         try:
             len(1, 2)
         except TypeError as e:
-            assert "len() takes exactly 1 argument (2 given)" in e.message
+            msg = str(e)
+            msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
+            assert "len() takes 1 positional argument but 2 were given" in msg
         else:
             assert 0, "did not raise"
 
     def test_unicode_docstring(self):
         def f():
-            u"hi"
-        assert f.__doc__ == u"hi"
-        assert type(f.__doc__) is unicode
+            "hi"
+        assert f.__doc__ == "hi"
+        assert type(f.__doc__) is str
 
     def test_issue1293(self):
         def f1(): "doc f1"
         def f2(): "doc f2"
-        f1.func_code = f2.func_code
+        f1.__code__ = f2.__code__
         assert f1.__doc__ == "doc f1"
 
     def test_subclassing(self):
@@ -332,14 +417,16 @@ class AppTestFunction:
         # But let's not test that.  Just test that (lambda:42) does not
         # have 42 as docstring.
         f = lambda: 42
-        assert f.func_doc is None
+        assert f.__doc__ is None
 
     @pytest.mark.skipif("config.option.runappdirect")
     def test_setstate_called_with_wrong_args(self):
         f = lambda: 42
         # not sure what it should raise, since CPython doesn't have setstate
         # on function types
-        raises(ValueError, type(f).__setstate__, f, (1, 2, 3))
+        FunctionType=  type(f)
+        if hasattr(FunctionType, '__setstate__'):
+            raises(ValueError, FunctionType.__setstate__, f, (1, 2, 3))
 
 class AppTestMethod:
     def setup_class(cls):
@@ -445,15 +532,20 @@ class AppTestMethod:
         class A(object):
             def f(self):
                 pass
-        assert repr(A.f) == "<unbound method A.f>"
-        assert repr(A().f).startswith("<bound method A.f of <")
+        assert repr(A().f).startswith("<bound method %s.f of <" %
+                                      A.__qualname__)
         assert repr(A().f).endswith(">>")
-        class B:
+
+    def test_method_repr_2(self):
+        class ClsA(object):
             def f(self):
                 pass
-        assert repr(B.f) == "<unbound method B.f>"
-        assert repr(B().f).startswith("<bound method B.f of <")
-        assert repr(A().f).endswith(">>")
+        class ClsB(ClsA):
+            pass
+        r = repr(ClsB().f)
+        assert "ClsA.f of <" in r
+        assert repr(type(ClsA.f)) == "<class 'function'>"
+        assert repr(type(ClsA().f)) == "<class 'method'>"
 
 
     def test_method_call(self):
@@ -466,85 +558,22 @@ class AppTestMethod:
         class A(object):
             def __call__(self, x):
                 return x
-        import new
-        im = new.instancemethod(A(), 3)
+        import types
+        im = types.MethodType(A(), 3)
         assert im() == 3
 
     def test_method_w_callable_call_function(self):
         class A(object):
             def __call__(self, x, y):
                 return x+y
-        import new
-        im = new.instancemethod(A(), 3)
-        assert map(im, [4]) == [7]
-
-    def test_unbound_typecheck(self):
-        class A(object):
-            def foo(self, *args):
-                return args
-        class B(A):
-            pass
-        class C(A):
-            pass
-
-        assert A.foo(A(), 42) == (42,)
-        assert A.foo(B(), 42) == (42,)
-        raises(TypeError, A.foo, 5)
-        raises(TypeError, B.foo, C())
-        try:
-            class Fun:
-                __metaclass__ = A.foo
-            assert 0  # should have raised
-        except TypeError:
-            pass
-        class Fun:
-            __metaclass__ = A().foo
-        assert Fun[:2] == ('Fun', ())
-
-    def test_unbound_abstract_typecheck(self):
-        import new
-        def f(*args):
-            return args
-        m = new.instancemethod(f, None, "foobar")
-        raises(TypeError, m)
-        raises(TypeError, m, None)
-        raises(TypeError, m, "egg")
-
-        m = new.instancemethod(f, None, (str, int))     # really obscure...
-        assert m(4) == (4,)
-        assert m("uh") == ("uh",)
-        raises(TypeError, m, [])
-
-        class MyBaseInst(object):
-            pass
-        class MyInst(MyBaseInst):
-            def __init__(self, myclass):
-                self.myclass = myclass
-            def __class__(self):
-                if self.myclass is None:
-                    raise AttributeError
-                return self.myclass
-            __class__ = property(__class__)
-        class MyClass(object):
-            pass
-        BBase = MyClass()
-        BSub1 = MyClass()
-        BSub2 = MyClass()
-        BBase.__bases__ = ()
-        BSub1.__bases__ = (BBase,)
-        BSub2.__bases__ = (BBase,)
-        x = MyInst(BSub1)
-        m = new.instancemethod(f, None, BSub1)
-        assert m(x) == (x,)
-        raises(TypeError, m, MyInst(BBase))
-        raises(TypeError, m, MyInst(BSub2))
-        raises(TypeError, m, MyInst(None))
-        raises(TypeError, m, MyInst(42))
+        import types
+        im = types.MethodType(A(), 3)
+        assert list(map(im, [4])) == [7]
 
     def test_invalid_creation(self):
-        import new
+        import types
         def f(): pass
-        raises(TypeError, new.instancemethod, f, None)
+        raises(TypeError, types.MethodType, f, None)
 
     def test_empty_arg_kwarg_call(self):
         def f():
@@ -609,15 +638,15 @@ class AppTestMethod:
         x = A.m
         assert x is not A.n
         assert id(x) != id(A.n)
-        assert x is not B.m
-        assert id(x) != id(B.m)
+        assert x is B.m
+        assert id(x) == id(B.m)
 
 
 class TestMethod:
     def setup_method(self, method):
         def c(self, bar):
             return bar
-        code = PyCode._from_code(self.space, c.func_code)
+        code = PyCode._from_code(self.space, c.__code__)
         self.fn = Function(self.space, code, self.space.newdict())
 
     def test_get(self):
@@ -644,7 +673,7 @@ class TestMethod:
         space = self.space
         # Create some function for this test only
         def m(self): return self
-        func = Function(space, PyCode._from_code(self.space, m.func_code),
+        func = Function(space, PyCode._from_code(self.space, m.__code__),
                         space.newdict())
         # Some shorthands
         obj1 = space.wrap(23)
@@ -664,25 +693,7 @@ class TestMethod:
         # Check method returned from unbound_method.__get__()
         w_meth3 = descr_function_get(space, func, space.w_None, space.type(obj2))
         meth3 = space.unwrap(w_meth3)
-        w_meth4 = meth3.descr_method_get(obj2, space.w_None)
-        meth4 = space.unwrap(w_meth4)
-        assert isinstance(meth4, Method)
-        assert meth4.call_args(args) == obj2
-        # Check method returned from unbound_method.__get__()
-        # --- with an incompatible class
-        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_text)
-        assert space.is_w(w_meth5, w_meth3)
-        # Same thing, with an old-style class
-        w_oldclass = space.call_function(
-            space.builtin.get('__metaclass__'),
-            space.wrap('OldClass'), space.newtuple([]), space.newdict())
-        w_meth6 = meth3.descr_method_get(space.wrap('hello'), w_oldclass)
-        assert space.is_w(w_meth6, w_meth3)
-        # Reverse order of old/new styles
-        w_meth7 = descr_function_get(space, func, space.w_None, w_oldclass)
-        meth7 = space.unwrap(w_meth7)
-        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_text)
-        assert space.is_w(w_meth8, w_meth7)
+        assert meth3 is func
 
 class TestShortcuts(object):
 
@@ -698,7 +709,7 @@ def f%s:
 """ % (args, args) in d
             f = d['f']
             res = f(*range(i))
-            code = PyCode._from_code(self.space, f.func_code)
+            code = PyCode._from_code(self.space, f.__code__)
             fn = Function(self.space, code, self.space.newdict())
 
             assert fn.code.fast_natural_arity == i|PyCode.FLATPYCALL
@@ -720,7 +731,7 @@ def f%s:
 
         def f(a):
             return a
-        code = PyCode._from_code(self.space, f.func_code)
+        code = PyCode._from_code(self.space, f.__code__)
         fn = Function(self.space, code, self.space.newdict())
 
         assert fn.code.fast_natural_arity == 1|PyCode.FLATPYCALL
@@ -747,7 +758,7 @@ def f%s:
 
         def f(self, a):
             return a
-        code = PyCode._from_code(self.space, f.func_code)
+        code = PyCode._from_code(self.space, f.__code__)
         fn = Function(self.space, code, self.space.newdict())
 
         assert fn.code.fast_natural_arity == 2|PyCode.FLATPYCALL
@@ -775,7 +786,7 @@ def f%s:
 
         def f(a, b):
             return a+b
-        code = PyCode._from_code(self.space, f.func_code)
+        code = PyCode._from_code(self.space, f.__code__)
         fn = Function(self.space, code, self.space.newdict(),
                       defs_w=[space.newint(1)])
 
@@ -804,7 +815,7 @@ def f%s:
 
         def f(self, a, b):
             return a+b
-        code = PyCode._from_code(self.space, f.func_code)
+        code = PyCode._from_code(self.space, f.__code__)
         fn = Function(self.space, code, self.space.newdict(),
                       defs_w=[space.newint(1)])
 
@@ -839,5 +850,7 @@ class TestFunction:
         app_g = gateway.interp2app_temp(g)
         space = self.space
         w_g = space.wrap(app_g)
-        w_defs = space.getattr(w_g, space.wrap("func_defaults"))
+        w_defs = space.getattr(w_g, space.wrap("__defaults__"))
         assert space.is_w(w_defs, space.w_None)
+        w_count = space.getattr(w_g, space.wrap("__defaults_count__"))
+        assert space.unwrap(w_count) == 1

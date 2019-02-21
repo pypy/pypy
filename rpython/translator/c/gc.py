@@ -94,7 +94,7 @@ class RefcountingInfo:
 
 class RefcountingGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import refcounting
         return refcounting.RefcountingGCTransformer(translator)
 
@@ -175,7 +175,7 @@ class BoehmInfo:
 
 class BoehmGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import boehm
         return boehm.BoehmGCTransformer(translator)
 
@@ -205,11 +205,15 @@ class BoehmGcPolicy(BasicGcPolicy):
             # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
             pre_include_bits += ["#define GC_REDIRECT_TO_LOCAL 1"]
 
+        hdr_flag = ''
+        if not getattr(self.db.gctransformer, 'NO_HEADER', False):
+            hdr_flag = '-DPYPY_BOEHM_WITH_HEADER'
+
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
             # The following define is required by the thread module,
             # See module/thread/test/test_rthread.py
-            compile_extra=['-DPYPY_USING_BOEHM_GC'],
+            compile_extra=['-DPYPY_USING_BOEHM_GC', hdr_flag],
             ))
 
         gct = self.db.gctransformer
@@ -240,12 +244,10 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield 'boehm_gc_startup_code();'
 
     def get_real_weakref_type(self):
-        from rpython.memory.gctransform import boehm
-        return boehm.WEAKLINK
+        return self.db.gctransformer.WEAKLINK
 
     def convert_weakref_to(self, ptarget):
-        from rpython.memory.gctransform import boehm
-        return boehm.convert_weakref_to(ptarget)
+        return self.db.gctransformer.convert_weakref_to(ptarget)
 
     def OP_GC__COLLECT(self, funcgen, op):
         return 'GC_gcollect();'
@@ -302,9 +304,9 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 class BasicFrameworkGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         if hasattr(self, 'transformerclass'):    # for rpython/memory tests
-            return self.transformerclass(translator)
+            return self.transformerclass(translator, gchooks=gchooks)
         raise NotImplementedError
 
     def struct_setup(self, structdefnode, rtti):
@@ -439,9 +441,9 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
 
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import shadowstack
-        return shadowstack.ShadowStackFrameworkGCTransformer(translator)
+        return shadowstack.ShadowStackFrameworkGCTransformer(translator, gchooks)
 
     def enter_roots_frame(self, funcgen, (c_gcdata, c_numcolors)):
         numcolors = c_numcolors.value
@@ -484,9 +486,9 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self, translator):
+    def gettransformer(self, translator, gchooks):
         from rpython.memory.gctransform import asmgcroot
-        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator)
+        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator, gchooks)
 
     def GC_KEEPALIVE(self, funcgen, v):
         return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)

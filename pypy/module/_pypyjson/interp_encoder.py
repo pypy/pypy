@@ -1,7 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import str_decode_utf_8
-from pypy.interpreter import unicodehelper
-
+from rpython.rlib.rutf8 import Utf8StringIterator
 
 HEX = '0123456789abcdef'
 
@@ -16,40 +14,19 @@ ESCAPE_BEFORE_SPACE = [ESCAPE_DICT.get(chr(_i), '\\u%04x' % _i)
                        for _i in range(32)]
 
 
-def raw_encode_basestring_ascii(space, w_string):
-    if space.isinstance_w(w_string, space.w_bytes):
-        s = space.bytes_w(w_string)
-        for i in range(len(s)):
-            c = s[i]
-            if c >= ' ' and c <= '~' and c != '"' and c != '\\':
-                pass
-            else:
-                first = i
-                break
-        else:
-            # the input is a string with only non-special ascii chars
-            return w_string
-
-        eh = unicodehelper.decode_error_handler(space)
-        u = str_decode_utf_8(
-                s, len(s), None, final=True, errorhandler=eh,
-                allow_surrogates=True)[0]
-        sb = StringBuilder(len(u))
-        sb.append_slice(s, 0, first)
-    else:
-        # We used to check if 'u' contains only safe characters, and return
-        # 'w_string' directly.  But this requires an extra pass over all
-        # characters, and the expected use case of this function, from
-        # json.encoder, will anyway re-encode a unicode result back to
-        # a string (with the ascii encoding).  This requires two passes
-        # over the characters.  So we may as well directly turn it into a
-        # string here --- only one pass.
-        u = space.unicode_w(w_string)
-        sb = StringBuilder(len(u))
-        first = 0
-
-    for i in range(first, len(u)):
+def raw_encode_basestring_ascii(space, w_unicode):
+    u = space.utf8_w(w_unicode)
+    for i in range(len(u)):
         c = ord(u[i])
+        if c < 32 or c > 126 or c == ord('\\') or c == ord('"'):
+            break
+    else:
+        # The unicode string 'u' contains only safe characters.
+        return w_unicode
+
+    sb = StringBuilder(len(u) + 20)
+
+    for c in Utf8StringIterator(u):
         if c <= ord('~'):
             if c == ord('"') or c == ord('\\'):
                 sb.append('\\')

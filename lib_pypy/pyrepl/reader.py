@@ -19,66 +19,74 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-import types, re
-from pyrepl import unicodedata_
+from __future__ import unicode_literals
+import re
+import unicodedata
 from pyrepl import commands
 from pyrepl import input
+try:
+    unicode
+except NameError:
+    unicode = str
+    unichr = chr
+
 
 _r_csi_seq = re.compile(r"\033\[[ -@]*[A-~]")
 
 def _make_unctrl_map():
     uc_map = {}
-    for c in map(unichr, range(256)):
-        if unicodedata_.category(c)[0] <> 'C':
-            uc_map[c] = c
-    for i in range(32):
-        c = unichr(i)
-        uc_map[c] = u'^' + unichr(ord('A') + i - 1)
-    uc_map['\t'] = '    ' # display TABs as 4 characters
-    uc_map['\177'] = u'^?'
     for i in range(256):
         c = unichr(i)
-        if not uc_map.has_key(c):
-            uc_map[c] = u'\\%03o'%i
+        if unicodedata.category(c)[0] != 'C':
+            uc_map[i] = c
+    for i in range(32):
+        uc_map[i] = '^' + unichr(ord('A') + i - 1)
+    uc_map[ord(b'\t')] = '    '  # display TABs as 4 characters
+    uc_map[ord(b'\177')] = unicode('^?')
+    for i in range(256):
+        if i not in uc_map:
+            uc_map[i] = unicode('\\%03o') % i
     return uc_map
 
-# disp_str proved to be a bottleneck for large inputs, so it's been
-# rewritten in C; it's not required though.
-try:
-    raise ImportError # currently it's borked by the unicode support
 
-    from _pyrepl_utils import disp_str, init_unctrl_map
-
-    init_unctrl_map(_make_unctrl_map())
-
-    del init_unctrl_map
-except ImportError:
-    def _my_unctrl(c, u=_make_unctrl_map()):
-        if c in u:
-            return u[c]
+def _my_unctrl(c, u=_make_unctrl_map()):
+    # takes an integer, returns a unicode
+    if c in u:
+        return u[c]
+    else:
+        if unicodedata.category(c).startswith('C'):
+            return r'\u%04x' % ord(c)
         else:
-            if unicodedata_.category(c).startswith('C'):
-                return '\u%04x'%(ord(c),)
-            else:
-                return c
+            return c
 
-    def disp_str(buffer, join=''.join, uc=_my_unctrl):
-        """ disp_str(buffer:string) -> (string, [int])
+if 'a'[0] == b'a':
+    # When running tests with python2, bytes characters are bytes.
+    def _my_unctrl(c, uc=_my_unctrl):
+        return uc(ord(c))
 
-        Return the string that should be the printed represenation of
-        |buffer| and a list detailing where the characters of |buffer|
-        get used up.  E.g.:
 
-        >>> disp_str(chr(3))
-        ('^C', [1, 0])
+def disp_str(buffer, join=''.join, uc=_my_unctrl):
+    """ disp_str(buffer:string) -> (string, [int])
 
-        the list always contains 0s or 1s at present; it could conceivably
-        go higher as and when unicode support happens."""
-        s = map(uc, buffer)
-        return (join(s),
-                map(ord, join(map(lambda x:'\001'+(len(x)-1)*'\000', s))))
+    Return the string that should be the printed represenation of
+    |buffer| and a list detailing where the characters of |buffer|
+    get used up.  E.g.:
 
-    del _my_unctrl
+    >>> disp_str(chr(3))
+    ('^C', [1, 0])
+
+    the list always contains 0s or 1s at present; it could conceivably
+    go higher as and when unicode support happens."""
+    # disp_str proved to be a bottleneck for large inputs,
+    # so it needs to be rewritten in C; it's not required though.
+    s = [uc(x) for x in buffer]
+    b = []  # XXX: bytearray
+    for x in s:
+        b.append(1)
+        b.extend([0] * (len(x) - 1))
+    return join(s), b
+
+del _my_unctrl
 
 del _make_unctrl_map
 
@@ -88,6 +96,7 @@ del _make_unctrl_map
  SYNTAX_WORD,
  SYNTAX_SYMBOL] = range(3)
 
+
 def make_default_syntax_table():
     # XXX perhaps should use some unicodedata here?
     st = {}
@@ -95,7 +104,7 @@ def make_default_syntax_table():
         st[c] = SYNTAX_SYMBOL
     for c in [a for a in map(unichr, range(256)) if a.isalnum()]:
         st[c] = SYNTAX_WORD
-    st[u'\n'] = st[u' '] = SYNTAX_WHITESPACE
+    st[unicode('\n')] = st[unicode(' ')] = SYNTAX_WHITESPACE
     return st
 
 default_keymap = tuple(
@@ -143,7 +152,7 @@ default_keymap = tuple(
      #(r'\M-\n', 'insert-nl'),
      ('\\\\', 'self-insert')] + \
     [(c, 'self-insert')
-     for c in map(chr, range(32, 127)) if c <> '\\'] + \
+     for c in map(chr, range(32, 127)) if c != '\\'] + \
     [(c, 'self-insert')
      for c in map(chr, range(128, 256)) if c.isalpha()] + \
     [(r'\<up>', 'up'),
@@ -157,12 +166,14 @@ default_keymap = tuple(
      (r'\<end>', 'end-of-line'),         # was 'end'
      (r'\<home>', 'beginning-of-line'),  # was 'home'
      (r'\<f1>', 'help'),
-     (r'\EOF', 'end'),  # the entries in the terminfo database for xterms
-     (r'\EOH', 'home'), # seem to be wrong.  this is a less than ideal
-                        # workaround
+     (r'\EOF', 'end'),   # the entries in the terminfo database for xterms
+     (r'\EOH', 'home'),  # seem to be wrong.  this is a less than ideal
+                         # workaround
      ])
 
-del c # from the listcomps
+if 'c' in globals():  # only on python 2.x
+    del c  # from the listcomps
+
 
 class Reader(object):
     """The Reader class implements the bare bones of a command reader,
@@ -229,6 +240,10 @@ feeling more loquacious than I am now."""
 
     def __init__(self, console):
         self.buffer = []
+        # Enable the use of `insert` without a `prepare` call - necessary to
+        # facilitate the tab completion hack implemented for
+        # <https://bugs.python.org/issue25660>.
+        self.pos = 0
         self.ps1 = "->> "
         self.ps2 = "/>> "
         self.ps3 = "|.. "
@@ -240,9 +255,9 @@ feeling more loquacious than I am now."""
         self.commands = {}
         self.msg = ''
         for v in vars(commands).values():
-            if  ( isinstance(v, type)
-                  and issubclass(v, commands.Command)
-                  and v.__name__[0].islower() ):
+            if (isinstance(v, type)
+                and issubclass(v, commands.Command)
+                and v.__name__[0].islower()):
                 self.commands[v.__name__] = v
                 self.commands[v.__name__.replace('_', '-')] = v
         self.syntax_table = make_default_syntax_table()
@@ -283,18 +298,18 @@ feeling more loquacious than I am now."""
             p -= ll + 1
             prompt, lp = self.process_prompt(prompt)
             l, l2 = disp_str(line)
-            wrapcount = (len(l) + lp) / w
+            wrapcount = (len(l) + lp) // w
             if wrapcount == 0:
                 screen.append(prompt + l)
-                screeninfo.append((lp, l2+[1]))
+                screeninfo.append((lp, l2 + [1]))
             else:
-                screen.append(prompt + l[:w-lp] + "\\")
-                screeninfo.append((lp, l2[:w-lp]))
-                for i in range(-lp + w, -lp + wrapcount*w, w):
-                    screen.append(l[i:i+w] +  "\\")
+                screen.append(prompt + l[:w - lp] + "\\")
+                screeninfo.append((lp, l2[:w - lp]))
+                for i in range(-lp + w, -lp + wrapcount * w, w):
+                    screen.append(l[i:i + w] + "\\")
                     screeninfo.append((0, l2[i:i + w]))
-                screen.append(l[wrapcount*w - lp:])
-                screeninfo.append((0, l2[wrapcount*w - lp:]+[1]))
+                screen.append(l[wrapcount * w - lp:])
+                screeninfo.append((0, l2[wrapcount * w - lp:] + [1]))
         self.screeninfo = screeninfo
         self.cxy = self.pos2xy(self.pos)
         if self.msg and self.msg_at_bottom:
@@ -347,7 +362,7 @@ feeling more loquacious than I am now."""
         st = self.syntax_table
         b = self.buffer
         p -= 1
-        while p >= 0 and st.get(b[p], SYNTAX_WORD) <> SYNTAX_WORD:
+        while p >= 0 and st.get(b[p], SYNTAX_WORD) != SYNTAX_WORD:
             p -= 1
         while p >= 0 and st.get(b[p], SYNTAX_WORD) == SYNTAX_WORD:
             p -= 1
@@ -363,7 +378,7 @@ feeling more loquacious than I am now."""
             p = self.pos
         st = self.syntax_table
         b = self.buffer
-        while p < len(b) and st.get(b[p], SYNTAX_WORD) <> SYNTAX_WORD:
+        while p < len(b) and st.get(b[p], SYNTAX_WORD) != SYNTAX_WORD:
             p += 1
         while p < len(b) and st.get(b[p], SYNTAX_WORD) == SYNTAX_WORD:
             p += 1
@@ -379,7 +394,7 @@ feeling more loquacious than I am now."""
             p = self.pos
         b = self.buffer
         p -= 1
-        while p >= 0 and b[p] <> '\n':
+        while p >= 0 and b[p] != '\n':
             p -= 1
         return p + 1
 
@@ -391,7 +406,7 @@ feeling more loquacious than I am now."""
         if p is None:
             p = self.pos
         b = self.buffer
-        while p < len(b) and b[p] <> '\n':
+        while p < len(b) and b[p] != '\n':
             p += 1
         return p
 
@@ -408,7 +423,7 @@ feeling more loquacious than I am now."""
         """Return what should be in the left-hand margin for line
         `lineno'."""
         if self.arg is not None and cursor_on_line:
-            return "(arg: %s) "%self.arg
+            return "(arg: %s) " % self.arg
         if "\n" in self.buffer:
             if lineno == 0:
                 res = self.ps2
@@ -521,15 +536,17 @@ feeling more loquacious than I am now."""
         # this call sets up self.cxy, so call it first.
         screen = self.calc_screen()
         self.console.refresh(screen, self.cxy)
-        self.dirty = 0 # forgot this for a while (blush)
+        self.dirty = 0  # forgot this for a while (blush)
 
     def do_cmd(self, cmd):
         #print cmd
-        if isinstance(cmd[0], str):
+        if isinstance(cmd[0], (str, unicode)):
             cmd = self.commands.get(cmd[0],
-                                    commands.invalid_command)(self, cmd)
+                                    commands.invalid_command)(self, *cmd)
         elif isinstance(cmd[0], type):
-            cmd = cmd[0](self, cmd)
+            cmd = cmd[0](self, *cmd)
+        else:
+            return  # nothing to do
 
         cmd.do()
 
@@ -559,7 +576,7 @@ feeling more loquacious than I am now."""
 
         while 1:
             event = self.console.get_event(block)
-            if not event: # can only happen if we're not blocking
+            if not event:  # can only happen if we're not blocking
                 return None
 
             translate = True
@@ -618,11 +635,12 @@ feeling more loquacious than I am now."""
     def get_buffer(self, encoding=None):
         if encoding is None:
             encoding = self.console.encoding
-        return u''.join(self.buffer).encode(self.console.encoding)
+        return self.get_unicode().encode(encoding)
 
     def get_unicode(self):
         """Return the current buffer as a unicode string."""
-        return u''.join(self.buffer)
+        return unicode('').join(self.buffer)
+
 
 def test():
     from pyrepl.unix_console import UnixConsole
@@ -634,5 +652,5 @@ def test():
     while reader.readline():
         pass
 
-if __name__=='__main__':
+if __name__ == '__main__':
     test()

@@ -20,8 +20,8 @@ class AppTestCMath:
         import math
         z = eval("-0j")
         assert z == -0j
-        assert math.copysign(1., z.real) == 1.
-        assert math.copysign(1., z.imag) == -1.
+        assert math.copysign(1., z.real) == -1.0
+        assert math.copysign(1., z.imag) == -1.0
 
     def test_sqrt(self):
         import cmath, math
@@ -89,6 +89,18 @@ class AppTestCMath:
         assert cmath.isnan(complex("inf+nanj"))
         assert cmath.isnan(complex("nan+infj"))
 
+    def test_isfinite(self):
+        import cmath
+        import math
+
+        real_vals = [
+            float('-inf'), -2.3, -0.0, 0.0, 2.3, float('inf'), float('nan')
+        ]
+        for x in real_vals:
+            for y in real_vals:
+                z = complex(x, y)
+                assert cmath.isfinite(z) == (math.isfinite(x) and math.isfinite(y))
+
     def test_user_defined_complex(self):
         import cmath
         class Foo(object):
@@ -104,6 +116,22 @@ class AppTestCMath:
             def __float__(self):
                 return 2.0
         assert cmath.polar(Foo()) == (2, 0)
+
+    def test_isclose(self):
+        import cmath
+        raises(ValueError, cmath.isclose, 2, 3, rel_tol=-0.5)
+        raises(ValueError, cmath.isclose, 2, 3, abs_tol=-0.5)
+        for z in [0.0, 1.0, 1j,
+                  complex("inf"), complex("infj"),
+                  complex("-inf"), complex("-infj")]:
+            assert cmath.isclose(z, z)
+        assert not cmath.isclose(complex("infj"), complex("-infj"))
+        assert cmath.isclose(1j, 1j+1e-12)
+        assert not cmath.isclose(1j, 1j+1e-12, rel_tol=1e-13)
+        assert not cmath.isclose(100000j, 100001j)
+        assert cmath.isclose(100000j, 100001j, rel_tol=1e-4)
+        assert cmath.isclose(100000j, 100001j, abs_tol=1.5)
+        assert not cmath.isclose(100000j, 100001j, abs_tol=0.5)
 
 
 def parse_testfile(fname):

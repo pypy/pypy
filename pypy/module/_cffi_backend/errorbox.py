@@ -22,14 +22,14 @@ RPY_EXTERN int _cffi_errorbox1(void)
 static DWORD WINAPI _cffi_bootstrap_dialog(LPVOID ignored)
 {
     Sleep(666);    /* may be interrupted if the whole process is closing */
-    MessageBoxA(NULL, (char *)_cffi_bootstrap_text,
-                "PyPy: Python-CFFI error",
+    MessageBoxW(NULL, (wchar_t *)_cffi_bootstrap_text,
+                L"PyPy: Python-CFFI error",
                 MB_OK | MB_ICONERROR);
     _cffi_bootstrap_text = NULL;
     return 0;
 }
 
-RPY_EXTERN void _cffi_errorbox(char *text)
+RPY_EXTERN void _cffi_errorbox(wchar_t *text)
 {
     /* Show a dialog box, but in a background thread, and
        never show multiple dialog boxes at once. */
@@ -48,17 +48,17 @@ if MESSAGEBOX:
     eci = ExternalCompilationInfo(
             separate_module_sources=[MODULE],
             post_include_bits=["RPY_EXTERN int _cffi_errorbox1(void);\n"
-                               "RPY_EXTERN void _cffi_errorbox(char *);\n"])
+                               "RPY_EXTERN void _cffi_errorbox(wchar_t *);\n"])
 
     cffi_errorbox1 = rffi.llexternal("_cffi_errorbox1", [],
                                      rffi.INT, compilation_info=eci)
-    cffi_errorbox = rffi.llexternal("_cffi_errorbox", [rffi.CCHARP],
+    cffi_errorbox = rffi.llexternal("_cffi_errorbox", [rffi.CWCHARP],
                                     lltype.Void, compilation_info=eci)
 
     class Message:
         def __init__(self, space):
             self.space = space
-            self.text_p = lltype.nullptr(rffi.CCHARP.TO)
+            self.text_p = lltype.nullptr(rffi.CWCHARP.TO)
 
         def start_error_capture(self):
             ok = cffi_errorbox1()
@@ -69,7 +69,10 @@ if MESSAGEBOX:
                 import sys
                 class FileLike:
                     def write(self, x):
-                        of.write(x)
+                        try:
+                            of.write(x)
+                        except:
+                            pass
                         self.buf += x
                 fl = FileLike()
                 fl.buf = ''
@@ -86,10 +89,10 @@ if MESSAGEBOX:
                 return
 
             w_text = self.space.call_function(w_done)
-            p = rffi.str2charp(self.space.bytes_w(w_text),
-                               track_allocation=False)
+            p = rffi.unicode2wcharp(self.space.realunicode_w(w_text),
+                                    track_allocation=False)
             if self.text_p:
-                rffi.free_charp(self.text_p, track_allocation=False)
+                rffi.free_wcharp(self.text_p, track_allocation=False)
             self.text_p = p      # keepalive
 
             cffi_errorbox(p)

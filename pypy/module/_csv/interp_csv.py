@@ -43,7 +43,7 @@ def _get_str(space, w_src, default, attrname):
     if w_src is None:
         return default
     try:
-        return space.text_w(w_src)
+        return space.realunicode_w(w_src)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             raise oefmt(space.w_TypeError, '"%s" must be a string', attrname)
@@ -53,21 +53,21 @@ def _get_char(space, w_src, default, name):
     if w_src is None:
         return default
     if space.is_w(w_src, space.w_None):
-        return '\0'
-    if not space.isinstance_w(w_src, space.w_text):
+        return u'\0'
+    if not space.isinstance_w(w_src, space.w_unicode):
         raise oefmt(space.w_TypeError, '"%s" must be string, not %T', name, w_src)
-    src = space.text_w(w_src)
+    src = space.realunicode_w(w_src)
     if len(src) == 1:
         return src[0]
     if len(src) == 0:
-        return '\0'
+        return u'\0'
     raise oefmt(space.w_TypeError, '"%s" must be a 1-character string', name)
 
 def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
                    w_escapechar, w_lineterminator, w_quotechar, w_quoting,
                    w_skipinitialspace, w_strict):
     if w_dialect is not None:
-        if space.isinstance_w(w_dialect, space.w_basestring):
+        if space.isinstance_w(w_dialect, space.w_unicode):
             w_module = space.getbuiltinmodule('_csv')
             w_dialect = space.call_method(w_module, 'get_dialect', w_dialect)
 
@@ -100,11 +100,11 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
             w_strict = _fetch(space, w_dialect, 'strict')
 
     dialect = W_Dialect()
-    dialect.delimiter = _get_char(space, w_delimiter, ',', 'delimiter')
+    dialect.delimiter = _get_char(space, w_delimiter, u',', 'delimiter')
     dialect.doublequote = _get_bool(space, w_doublequote, True)
-    dialect.escapechar = _get_char(space, w_escapechar, '\0', 'escapechar')
-    dialect.lineterminator = _get_str(space, w_lineterminator, '\r\n', 'lineterminator')
-    dialect.quotechar = _get_char(space, w_quotechar, '"', 'quotechar')
+    dialect.escapechar = _get_char(space, w_escapechar, u'\0', 'escapechar')
+    dialect.lineterminator = _get_str(space, w_lineterminator, u'\r\n', 'lineterminator')
+    dialect.quotechar = _get_char(space, w_quotechar, u'"', 'quotechar')
     tmp_quoting = _get_int(space, w_quoting, QUOTE_MINIMAL, 'quoting')
     dialect.skipinitialspace = _get_bool(space, w_skipinitialspace, False)
     dialect.strict = _get_bool(space, w_strict, False)
@@ -113,13 +113,13 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
     if not (0 <= tmp_quoting < 4):
         raise oefmt(space.w_TypeError, 'bad "quoting" value')
 
-    if dialect.delimiter == '\0':
+    if dialect.delimiter == u'\0':
         raise oefmt(space.w_TypeError,
                     '"delimiter" must be a 1-character string')
 
     if space.is_w(w_quotechar, space.w_None) and w_quoting is None:
         tmp_quoting = QUOTE_NONE
-    if tmp_quoting != QUOTE_NONE and dialect.quotechar == '\0':
+    if tmp_quoting != QUOTE_NONE and dialect.quotechar == u'\0':
         raise oefmt(space.w_TypeError,
                     "quotechar must be set if quoting enabled")
     dialect.quoting = tmp_quoting
@@ -154,12 +154,12 @@ def W_Dialect___new__(space, w_subtype, w_dialect = None,
 
 
 def _get_escapechar(space, dialect):
-    if dialect.escapechar == '\0':
+    if dialect.escapechar == u'\0':
         return space.w_None
     return space.newtext(dialect.escapechar)
 
 def _get_quotechar(space, dialect):
-    if dialect.quotechar == '\0':
+    if dialect.quotechar == u'\0':
         return space.w_None
     return space.newtext(dialect.quotechar)
 

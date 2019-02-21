@@ -1,3 +1,4 @@
+# coding: utf-8
 import py
 from py.test import raises
 from pypy.interpreter.error import OperationError
@@ -11,9 +12,13 @@ class TestW_StdObjSpace:
                           self.space.wrap,
                           self.space.wrap(0))
 
-    def test_str_w_non_str(self):
-        raises(OperationError,self.space.str_w,self.space.wrap(None))
-        raises(OperationError,self.space.str_w,self.space.wrap(0))
+    def test_utf8(self):
+        assert self.space.isinstance_w(self.space.newtext("abc"), self.space.w_unicode)
+        assert self.space.eq_w(self.space.newtext("üöä"), self.space.newtext(u"üöä"))
+
+    def test_text_w_non_str(self):
+        raises(OperationError,self.space.text_w,self.space.wrap(None))
+        raises(OperationError,self.space.text_w,self.space.wrap(0))
 
     def test_int_w_non_int(self):
         raises(OperationError,self.space.int_w,self.space.wrap(None))
@@ -38,13 +43,13 @@ class TestW_StdObjSpace:
 
     def test_fastpath_isinstance(self):
         from pypy.objspace.std.bytesobject import W_BytesObject
-        from pypy.objspace.std.intobject import W_IntObject
+        from pypy.objspace.std.intobject import W_AbstractIntObject
         from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
         from pypy.objspace.std.iterobject import W_SeqIterObject
 
         space = self.space
         assert space._get_interplevel_cls(space.w_bytes) is W_BytesObject
-        assert space._get_interplevel_cls(space.w_int) is W_IntObject
+        assert space._get_interplevel_cls(space.w_int) is W_AbstractIntObject
         class X(W_BytesObject):
             def __init__(self):
                 pass
@@ -74,3 +79,18 @@ class TestW_StdObjSpace:
         value = 200
         x = rffi.cast(rffi.UCHAR, r_uint(value))
         assert space.eq_w(space.wrap(value), space.wrap(x))
+
+    def test_wrap_string(self):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        w_x = self.space.wrap('foo')
+        assert isinstance(w_x, W_UnicodeObject)
+        assert w_x._utf8 == 'foo'
+        #
+        # calling space.wrap() on a byte string which is not ASCII should
+        # never happen. Howeven it might happen while the py3k port is not
+        # 100% complete. In the meantime, try to return something more or less
+        # sensible instead of crashing with an RPython UnicodeError.
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        w_x = self.space.wrap('foo\xF0')
+        assert isinstance(w_x, W_UnicodeObject)
+        assert w_x._utf8 == 'foo\xF0'

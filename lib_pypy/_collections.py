@@ -14,7 +14,7 @@ correctly thread-safe, like it is on CPython.
 #
 
 try:
-    from threading import _get_ident as _thread_ident
+    from _thread import _get_ident as _thread_ident
 except ImportError:
     def _thread_ident():
         return -1
@@ -380,7 +380,7 @@ class deque_iterator(object):
             raise RuntimeError("deque mutated during iteration")
         self._gen = itergen(deq.state, giveup)
 
-    def next(self):
+    def __next__(self):
         res = next(self._gen)
         self.counter -= 1
         return res
@@ -389,7 +389,8 @@ class deque_iterator(object):
         return self
 
 class defaultdict(dict):
-    
+    __slots__ = ["default_factory"]
+
     def __init__(self, *args, **kwds):
         if len(args) > 0:
             default_factory = args[0]
@@ -400,10 +401,10 @@ class defaultdict(dict):
             default_factory = None
         self.default_factory = default_factory
         super(defaultdict, self).__init__(*args, **kwds)
- 
+
     def __missing__(self, key):
         # from defaultdict docs
-        if self.default_factory is None: 
+        if self.default_factory is None:
             raise KeyError(key)
         self[key] = value = self.default_factory()
         return value
@@ -419,7 +420,7 @@ class defaultdict(dict):
 
     def copy(self):
         return type(self)(self.default_factory, self)
-    
+
     def __copy__(self):
         return self.copy()
 
@@ -435,5 +436,5 @@ class defaultdict(dict):
 
            This API is used by pickle.py and copy.py.
         """
-        return (type(self), (self.default_factory,), None, None, self.iteritems())
-
+        return (type(self), (self.default_factory,), None, None,
+                iter(self.items()))

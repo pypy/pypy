@@ -2,6 +2,7 @@ from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
 from rpython.rlib import rvmprof
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
@@ -45,8 +46,9 @@ class W_Continulet(W_Root):
         #
         global_state.origin = self
         self.sthread = sthread
+        saved_exception = pre_switch(sthread)
         h = sthread.new(new_stacklet_callback)
-        post_switch(sthread, h)
+        post_switch(sthread, h, saved_exception)
 
     def switch(self, w_to):
         sthread = self.sthread
@@ -82,8 +84,9 @@ class W_Continulet(W_Root):
             # double switch: the final destination is to.h
             global_state.destination = to
         #
+        saved_exception = pre_switch(sthread)
         h = sthread.switch(global_state.destination.h)
-        return post_switch(sthread, h)
+        return post_switch(sthread, h, saved_exception)
 
     @unwrap_spec(w_value = WrappedDefault(None),
                  w_to = WrappedDefault(None))
@@ -116,12 +119,27 @@ class W_Continulet(W_Root):
         return self.space.newbool(valid)
 
     def descr__reduce__(self):
+        raise oefmt(self.space.w_NotImplementedError,
+                    "continulet's pickle support is currently disabled")
         from pypy.module._continuation import interp_pickle
         return interp_pickle.reduce(self)
 
     def descr__setstate__(self, w_args):
+        # XXX: review direct calls to frame.run(), notably when
+        # unpickling generators (or coroutines!)
+        raise oefmt(self.space.w_NotImplementedError,
+                    "continulet's pickle support is currently disabled")
         from pypy.module._continuation import interp_pickle
         interp_pickle.setstate(self, w_args)
+
+    def descr_get_frame(self, space):
+        if self.sthread is None:
+            w_frame = space.w_False
+        elif self.sthread.is_empty_handle(self.h):
+            w_frame = space.w_None
+        else:
+            w_frame = self.bottomframe
+        return w_frame
 
 
 def W_Continulet___new__(space, w_subtype, __args__):
@@ -145,6 +163,7 @@ W_Continulet.typedef = TypeDef(
     is_pending  = interp2app(W_Continulet.descr_is_pending),
     __reduce__  = interp2app(W_Continulet.descr__reduce__),
     __setstate__= interp2app(W_Continulet.descr__setstate__),
+    _get_frame=interp2app(W_Continulet.descr_get_frame)
     )
 
 # ____________________________________________________________
@@ -171,7 +190,7 @@ class State:
                     raise TypeError(
                      "can\'t send non-None value to a just-started continulet")
                 return func(c, *args, **kwds)
-            return start.func_code
+            return start.__code__
         ''')
         self.entrypoint_pycode = space.interp_w(PyCode, w_code)
         self.entrypoint_pycode.hidden_applevel = True
@@ -237,7 +256,12 @@ def new_stacklet_callback(h, arg):
     global_state.destination = self
     return self.h
 
-def post_switch(sthread, h):
+def pre_switch(sthread):
+    saved_exception = sthread.ec.sys_exc_info()
+    sthread.ec.set_sys_exc_info(None)
+    return saved_exception
+
+def post_switch(sthread, h, saved_exception):
     origin = global_state.origin
     self = global_state.destination
     global_state.origin = None
@@ -246,6 +270,7 @@ def post_switch(sthread, h):
     #
     current = sthread.ec.topframeref
     sthread.ec.topframeref = self.bottomframe.f_backref
+    sthread.ec.set_sys_exc_info(saved_exception)
     self.bottomframe.f_backref = origin.bottomframe.f_backref
     origin.bottomframe.f_backref = current
     #

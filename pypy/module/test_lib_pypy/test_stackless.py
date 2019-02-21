@@ -4,7 +4,6 @@ These tests are supposed to run on the following platforms:
 2. CPython (with the stackless_new module in the path
 3. pypy-c
 """
-from __future__ import absolute_import
 from py.test import skip
 try:
     import stackless
@@ -18,7 +17,7 @@ SHOW_STRANGE = False
 
 def dprint(txt):
     if SHOW_STRANGE:
-        print txt
+        print(txt)
 
 class Test_Stackless:
 
@@ -88,11 +87,11 @@ class Test_Stackless:
     def test_send_counter(self):
         import random
 
-        numbers = range(20)
+        numbers = list(range(20))
         random.shuffle(numbers)
 
         def counter(n, ch):
-            for i in xrange(n):
+            for i in range(n):
                 stackless.schedule()
             ch.send(n)
 
@@ -112,12 +111,12 @@ class Test_Stackless:
     def test_receive_counter(self):
         import random
 
-        numbers = range(20)
+        numbers = list(range(20))
         random.shuffle(numbers)
 
         rlist = []
         def counter(n, ch):
-            for i in xrange(n):
+            for i in range(n):
                 stackless.schedule()
             ch.receive()
             rlist.append(n)

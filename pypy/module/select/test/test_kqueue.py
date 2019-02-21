@@ -24,6 +24,7 @@ class AppTestKqueue(object):
     def test_create_event(self):
         import select
         import sys
+        from operator import lt, le, gt, ge
 
         fd = sys.stderr.fileno()
         ev = select.kevent(fd)
@@ -36,12 +37,12 @@ class AppTestKqueue(object):
         assert ev.udata == 0
         assert ev == ev
         assert ev != other
-        assert cmp(ev, other) == -1
         assert ev < other
         assert other >= ev
-        raises(TypeError, cmp, ev, None)
-        raises(TypeError, cmp, ev, 1)
-        raises(TypeError, cmp, ev, "ev")
+        for op in lt, le, gt, ge:
+            raises(TypeError, op, ev, None)
+            raises(TypeError, op, ev, 1)
+            raises(TypeError, op, ev, "ev")
 
         ev = select.kevent(fd, select.KQ_FILTER_WRITE)
         assert ev.ident == fd
@@ -73,20 +74,16 @@ class AppTestKqueue(object):
         assert ev == ev
         assert ev != other
 
-        bignum = (sys.maxsize * 2 + 1) & 0xffffffff
-        fd = 2**31 - 1
-        ev = select.kevent(fd, 1, 2, bignum, sys.maxsize, bignum)
-        assert ev.ident == fd
+        bignum = sys.maxsize * 2 + 1
+        ev = select.kevent(bignum, 1, 2, 3, sys.maxsize, bignum)
+        assert ev.ident == bignum
         assert ev.filter == 1
         assert ev.flags == 2
-        assert ev.fflags == bignum
+        assert ev.fflags == 3
         assert ev.data == sys.maxsize
         assert ev.udata == bignum
         assert ev == ev
         assert ev != other
-
-        exc = raises(ValueError, select.kevent, fd + 1, 1, 2, bignum, sys.maxsize, bignum)
-        assert exc.value[0] == "file descriptor cannot be a negative integer (-1)"
 
     def test_queue_event(self):
         import errno
@@ -105,7 +102,10 @@ class AppTestKqueue(object):
         except socket.error as e:
             assert e.args[0] == errno.EINPROGRESS
         else:
-            assert False, "EINPROGRESS not raised"
+            #assert False, "EINPROGRESS not raised"
+            pass # FreeBSD doesn't raise an exception here
+            # (the above commented-out code is just like CPython's
+            # test_kqueue)
         server, addr = server_socket.accept()
 
         if sys.platform.startswith("darwin"):
@@ -132,10 +132,10 @@ class AppTestKqueue(object):
             (client.fileno(), select.KQ_FILTER_WRITE, flags),
             (server.fileno(), select.KQ_FILTER_WRITE, flags),
         ]
-        client.send("Hello!")
-        server.send("world!!!")
+        client.send(b"Hello!")
+        server.send(b"world!!!")
 
-        for i in xrange(10):
+        for i in range(10):
             events = kq1.control(None, 4, 1)
             if len(events) == 4:
                 break
@@ -177,15 +177,22 @@ class AppTestKqueue(object):
         kq = select.kqueue()
         a, b = socket.socketpair()
 
-        a.send('foo')
+        a.send(b'foo')
         event1 = select.kevent(a, select.KQ_FILTER_READ, select.KQ_EV_ADD | select.KQ_EV_ENABLE)
         event2 = select.kevent(b, select.KQ_FILTER_READ, select.KQ_EV_ADD | select.KQ_EV_ENABLE)
         r = kq.control([event1, event2], 1, 1)
         assert r
         assert r[0].flags & select.KQ_EV_ERROR == 0
         data = b.recv(r[0].data)
-        assert data == 'foo'
+        assert data == b'foo'
 
         a.close()
         b.close()
+        kq.close()
+
+    def test_non_inheritable(self):
+        import select, posix
+
+        kq = select.kqueue()
+        assert posix.get_inheritable(kq.fileno()) == False
         kq.close()

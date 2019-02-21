@@ -20,24 +20,26 @@ class AppTestBufferedReader:
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read() == "a\nb\nc"
+        assert f.read() == b"a\nb\nc"
         raises(ValueError, f.read, -2)
         f.close()
         #
-        raw = _io.FileIO(self.tmpfile)
+        raw = _io.FileIO(self.tmpfile, 'r+')
         f = _io.BufferedReader(raw)
         r = f.read(4)
-        assert r == "a\nb\n"
+        assert r == b"a\nb\n"
+        assert f.readable() is True
+        assert f.writable() is False
         f.close()
 
     def test_read_pieces(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read(3) == "a\nb"
-        assert f.read(3) == "\nc"
-        assert f.read(3) == ""
-        assert f.read(3) == ""
+        assert f.read(3) == b"a\nb"
+        assert f.read(3) == b"\nc"
+        assert f.read(3) == b""
+        assert f.read(3) == b""
         f.close()
 
     def test_slow_provider(self):
@@ -46,16 +48,16 @@ class AppTestBufferedReader:
             def readable(self):
                 return True
             def readinto(self, buf):
-                buf[:3] = "abc"
+                buf[:3] = b"abc"
                 return 3
         bufio = _io.BufferedReader(MockIO())
         r = bufio.read(5)
-        assert r == "abcab"
+        assert r == b"abcab"
 
     def test_read_past_eof(self):
         import _io
         class MockIO(_io._IOBase):
-            stack = ["abc", "d", "efg"]
+            stack = [b"abc", b"d", b"efg"]
             def readable(self):
                 return True
             def readinto(self, buf):
@@ -66,7 +68,24 @@ class AppTestBufferedReader:
                 else:
                     return 0
         bufio = _io.BufferedReader(MockIO())
-        assert bufio.read(9000) == "abcdefg"
+        assert bufio.read(9000) == b"abcdefg"
+
+    def test_valid_buffer(self):
+        import _io
+
+        class MockIO(_io._IOBase):
+            def readable(self):
+                return True
+
+            def readinto(self, buf):
+                # Check that `buf` is a valid memoryview object
+                assert buf.itemsize == 1
+                assert buf.strides == (1,)
+                assert buf.shape == (len(buf),)
+                return len(bytes(buf))
+
+        bufio = _io.BufferedReader(MockIO())
+        assert len(bufio.read(5)) == 5  # Note: PyPy zeros the buffer, CPython does not
 
     def test_buffering(self):
         import _io
@@ -108,10 +127,10 @@ class AppTestBufferedReader:
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read(2) == 'a\n'
-        assert f.peek().startswith('b\nc')
-        assert f.read(3) == 'b\nc'
-        assert f.peek() == ''
+        assert f.read(2) == b'a\n'
+        assert f.peek().startswith(b'b\nc')
+        assert f.read(3) == b'b\nc'
+        assert f.peek() == b''
 
     def test_read1(self):
         import _io
@@ -125,64 +144,123 @@ class AppTestBufferedReader:
         raw = RecordingFileIO(self.tmpfile)
         raw.nbreads = 0
         f = _io.BufferedReader(raw, buffer_size=3)
-        assert f.read(1) == 'a'
-        assert f.read1(1) == '\n'
+        assert f.read(1) == b'a'
+        assert f.read1(1) == b'\n'
         assert raw.nbreads == 1
-        assert f.read1(100) == 'b'
+        assert f.read1(100) == b'b'
         assert raw.nbreads == 1
-        assert f.read1(100) == '\nc'
+        assert f.read1(100) == b'\nc'
         assert raw.nbreads == 2
-        assert f.read1(100) == ''
+        assert f.read1(100) == b''
         assert raw.nbreads == 3
         f.close()
 
     def test_readinto(self):
         import _io
-        a1 = bytearray('x')
-        a = bytearray('x' * 9)
-        raw = _io.FileIO(self.tmpfile)
-        f = _io.BufferedReader(raw)
-        assert f.readinto(a1) == 1
-        assert a1 == 'a'
-        assert f.readinto(a) == 4
-        assert a == '\nb\ncxxxxx'
-        exc = raises(TypeError, f.readinto, u"hello")
-        assert str(exc.value) == "cannot use unicode as modifiable buffer"
-        exc = raises(TypeError, f.readinto, buffer(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not buffer"
-        exc = raises(TypeError, f.readinto, buffer(bytearray("hello")))
-        assert str(exc.value) == "must be read-write buffer, not buffer"
-        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not memoryview"
-        f.close()
+        for methodname in ["readinto", "readinto1"]:
+            a = bytearray(b'x' * 10)
+            raw = _io.FileIO(self.tmpfile)
+            f = _io.BufferedReader(raw)
+            readinto = getattr(f, methodname)
+            assert readinto(a) == 5
+            f.seek(0)
+            m = memoryview(bytearray(b"hello"))
+            assert readinto(m) == 5
+            #
+            exc = raises(TypeError, readinto, u"hello")
+            msg = str(exc.value)
+            # print(msg)
+            assert " read-write b" in msg and msg.endswith(", not str")
+            #
+            exc = raises(TypeError, readinto, memoryview(b"hello"))
+            msg = str(exc.value)
+            # print(msg)
+            assert " read-write b" in msg and msg.endswith(", not memoryview")
+            #
+            f.close()
+            assert a == b'a\nb\ncxxxxx'
 
-    def test_readinto_big(self):
+    def test_readinto_buffer_overflow(self):
         import _io
-        a1 = bytearray('x')
-        a = bytearray('x' * 199)
-        raw = _io.FileIO(self.bigtmpfile)
-        f = _io.BufferedReader(raw)
-        assert f.readinto(a1) == 1
-        assert a1 == 'a'
-        assert f.readinto(a) == 99
-        assert a == '\nb\nc' + 'a\nb\nc' * 19 + 'x' * 100
+        class BadReader(_io._BufferedIOBase):
+            def read(self, n=-1):
+                return b'x' * 10**6
+        bufio = BadReader()
+        b = bytearray(2)
+        raises(ValueError, bufio.readinto, b)
+
+    def test_readinto1(self):
+        import _io
+
+        class MockIO(_io._IOBase):
+            def readable(self):
+                return True
+
+            def readinto(self, buf):
+                buf[:3] = b"abc"
+                return 3
+
+            def writable(self):
+                return True
+
+            def write(self, b):
+                return len(b)
+
+            def seekable(self):
+                return True
+
+            def seek(self, pos, whence):
+                return 0
+
+        bufio = _io.BufferedReader(MockIO(), buffer_size=5)
+        buf = bytearray(10)
+        bufio.read(2)
+        n = bufio.readinto1(buf)
+        assert n == 4
+        assert buf[:n] == b'cabc'
+
+        # Yes, CPython's observable behavior depends on buffer_size!
+        bufio = _io.BufferedReader(MockIO(), buffer_size=20)
+        buf = bytearray(10)
+        bufio.read(2)
+        n = bufio.readinto1(buf)
+        assert n == 1
+        assert buf[:n] == b'c'
+
+        bufio = _io.BufferedReader(MockIO(), buffer_size=20)
+        buf = bytearray(2)
+        bufio.peek(3)
+        assert bufio.readinto1(buf) == 2
+        assert buf == b'ab'
+        n = bufio.readinto1(buf)
+        assert n == 1
+        assert buf[:n] == b'c'
+
+        bufio = _io.BufferedRandom(MockIO(), buffer_size=10)
+        buf = bytearray(20)
+        bufio.peek(3)
+        assert bufio.readinto1(buf) == 6
+        assert buf[:6] == b'abcabc'
+
+        bufio = _io.BufferedWriter(MockIO(), buffer_size=10)
+        raises(_io.UnsupportedOperation, bufio.readinto1, bytearray(10))
 
     def test_seek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read() == "a\nb\nc"
+        assert f.read() == b"a\nb\nc"
         f.seek(0)
-        assert f.read() == "a\nb\nc"
+        assert f.read() == b"a\nb\nc"
         f.seek(-2, 2)
-        assert f.read() == "\nc"
+        assert f.read() == b"\nc"
         f.close()
 
     def test_readlines(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.readlines() == ['a\n', 'b\n', 'c']
+        assert f.readlines() == [b'a\n', b'b\n', b'c']
 
     def test_detach(self):
         import _io
@@ -245,19 +323,68 @@ class AppTestBufferedReader:
                 if self.count < 3:
                     raise IOError(errno.EINTR, "interrupted")
                 else:
-                    buf[:3] = "abc"
+                    buf[:3] = b"abc"
                     return 3
         rawio = MockRawIO()
         bufio = _io.BufferedReader(rawio)
         r = bufio.read(4)
-        assert r == "abca"
+        assert r == b"abca"
         assert rawio.count == 4
+
+    def test_unseekable(self):
+        import _io
+        class Unseekable(_io.BytesIO):
+            def seekable(self):
+                return False
+            def seek(self, *args):
+                raise _io.UnsupportedOperation("not seekable")
+            def tell(self, *args):
+                raise _io.UnsupportedOperation("not seekable")
+        bufio = _io.BufferedReader(Unseekable(b"A" * 10))
+        raises(_io.UnsupportedOperation, bufio.tell)
+        raises(_io.UnsupportedOperation, bufio.seek, 0)
+        bufio.read(1)
+        raises(_io.UnsupportedOperation, bufio.seek, 0)
+        raises(_io.UnsupportedOperation, bufio.tell)
+
+    def test_bufio_write_through(self):
+        import _io as io
+        # Issue #21396: write_through=True doesn't force a flush()
+        # on the underlying binary buffered object.
+        flush_called, write_called = [], []
+        class BufferedWriter(io.BufferedWriter):
+            def flush(self, *args, **kwargs):
+                flush_called.append(True)
+                return super().flush(*args, **kwargs)
+            def write(self, *args, **kwargs):
+                write_called.append(True)
+                return super().write(*args, **kwargs)
+
+        rawio = io.BytesIO()
+        data = b"a"
+        bufio = BufferedWriter(rawio, len(data)*2)
+        textio = io.TextIOWrapper(bufio, encoding='ascii',
+                                  write_through=True)
+        # write to the buffered io but don't overflow the buffer
+        text = data.decode('ascii')
+        textio.write(text)
+
+        # buffer.flush is not called with write_through=True
+        assert not flush_called
+        # buffer.write *is* called with write_through=True
+        assert write_called
+        assert rawio.getvalue() == b"" # no flush
+
+        write_called = [] # reset
+        textio.write(text * 10) # total content is larger than bufio buffer
+        assert write_called
+        assert rawio.getvalue() == data * 11 # all flushed
 
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
 
     def test_readinto_small_parts(self):
-        import _io, os, thread, time
+        import _io, os, _thread, time
         read_fd, write_fd = os.pipe()
         raw = _io.FileIO(read_fd)
         f = _io.BufferedReader(raw)
@@ -266,9 +393,9 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
         def write_more():
             time.sleep(0.5)
             os.write(write_fd, b"fghij")
-        thread.start_new_thread(write_more, ())
+        _thread.start_new_thread(write_more, ())
         assert f.readinto(a) == 10
-        assert a == 'abcdefghij'
+        assert a == b'abcdefghij'
 
 
 class AppTestBufferedWriter:
@@ -277,29 +404,29 @@ class AppTestBufferedWriter:
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        if cls.runappdirect:
-            cls.w_readfile = tmpfile.read
-        else:
-            def readfile(space):
-                return space.wrap(tmpfile.read())
-            cls.w_readfile = cls.space.wrap(interp2app(readfile))
+
+    def w_readfile(self):
+        with open(self.tmpfile, 'rb') as f:
+            return f.read()
 
     def test_write(self):
         import _io
-        raw = _io.FileIO(self.tmpfile, 'w')
+        raw = _io.FileIO(self.tmpfile, 'w+')
         f = _io.BufferedWriter(raw)
-        f.write("ab")
-        f.write(u"cd")
+        f.write(b"abcd")
+        raises(TypeError, f.write, u"cd")
+        assert f.writable() is True
+        assert f.readable() is False
         f.close()
-        assert self.readfile() == "abcd"
+        assert self.readfile() == b"abcd"
 
     def test_largewrite(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'w')
         f = _io.BufferedWriter(raw)
-        f.write("abcd" * 5000)
+        f.write(b"abcd" * 5000)
         f.close()
-        assert self.readfile() == "abcd" * 5000
+        assert self.readfile() == b"abcd" * 5000
 
     def test_incomplete(self):
         import _io
@@ -310,34 +437,43 @@ class AppTestBufferedWriter:
         raises(ValueError, b.flush)
         raises(ValueError, b.close)
 
-    def test_deprecated_max_buffer_size(self):
-        import _io, warnings
-        raw = _io.FileIO(self.tmpfile, 'w')
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            f = _io.BufferedWriter(raw, max_buffer_size=8192)
-        f.close()
-        assert len(w) == 1
-        assert str(w[0].message) == "max_buffer_size is deprecated"
-        assert w[0].category is DeprecationWarning
-
     def test_check_several_writes(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'w')
         b = _io.BufferedWriter(raw, 13)
 
         for i in range(4):
-            assert b.write('x' * 10) == 10
+            assert b.write(b'x' * 10) == 10
         b.flush()
-        assert self.readfile() == 'x' * 40
+        assert self.readfile() == b'x' * 40
 
-    def test_destructor(self):
+    def test_destructor_1(self):
         import _io
 
         record = []
         class MyIO(_io.BufferedWriter):
             def __del__(self):
                 record.append(1)
+                # doesn't call the inherited __del__, so file not closed
+            def close(self):
+                record.append(2)
+                super(MyIO, self).close()
+            def flush(self):
+                record.append(3)
+                super(MyIO, self).flush()
+        raw = _io.FileIO(self.tmpfile, 'w')
+        MyIO(raw)
+        import gc; gc.collect()
+        assert record == [1]
+
+    def test_destructor_2(self):
+        import _io
+
+        record = []
+        class MyIO(_io.BufferedWriter):
+            def __del__(self):
+                record.append(1)
+                super(MyIO, self).__del__()
             def close(self):
                 record.append(2)
                 super(MyIO, self).close()
@@ -352,7 +488,7 @@ class AppTestBufferedWriter:
     def test_truncate(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'w+')
-        raw.write('x' * 20)
+        raw.write(b'x' * 20)
         b = _io.BufferedReader(raw)
         assert b.seek(8) == 8
         assert b.truncate() == 8
@@ -370,7 +506,7 @@ class AppTestBufferedWriter:
             closed = False
 
             def pop_written(self):
-                s = ''.join(self._write_stack)
+                s = b''.join(self._write_stack)
                 self._write_stack[:] = []
                 return s
 
@@ -404,11 +540,11 @@ class AppTestBufferedWriter:
         raw = MockNonBlockWriterIO()
         bufio = _io.BufferedWriter(raw, 8)
 
-        assert bufio.write("abcd") == 4
-        assert bufio.write("efghi") == 5
+        assert bufio.write(b"abcd") == 4
+        assert bufio.write(b"efghi") == 5
         # 1 byte will be written, the rest will be buffered
         raw.block_on(b"k")
-        assert bufio.write("jklmn") == 5
+        assert bufio.write(b"jklmn") == 5
 
         # 8 bytes will be written, 8 will be buffered and the rest will be lost
         raw.block_on(b"0")
@@ -419,12 +555,12 @@ class AppTestBufferedWriter:
         else:
             self.fail("BlockingIOError should have been raised")
         assert written == 16
-        assert raw.pop_written() == "abcdefghijklmnopqrwxyz"
+        assert raw.pop_written() == b"abcdefghijklmnopqrwxyz"
 
-        assert bufio.write("ABCDEFGHI") == 9
+        assert bufio.write(b"ABCDEFGHI") == 9
         s = raw.pop_written()
         # Previously buffered bytes were flushed
-        assert s.startswith("01234567A")
+        assert s.startswith(b"01234567A")
 
     def test_nonblock_pipe_write_bigbuf(self):
         self.test_nonblock_pipe_write(16*1024)
@@ -467,7 +603,7 @@ class AppTestBufferedWriter:
             try:
                 i = 0
                 while True:
-                    msg = chr(i % 26 + 97) * N
+                    msg = bytes([i % 26 + 97] * N)
                     sent.append(msg)
                     wf.write(msg)
                     i += 1
@@ -519,17 +655,17 @@ class AppTestBufferedWriter:
                 try:
                     return self._read_stack.pop(0)
                 except IndexError:
-                    return ""
+                    return b""
         # Inject some None's in there to simulate EWOULDBLOCK
         rawio = MockRawIO((b"abc", b"d", None, b"efg", None, None, None))
         bufio = _io.BufferedReader(rawio)
 
-        assert bufio.read(6) == "abcd"
-        assert bufio.read(1) == "e"
-        assert bufio.read() == "fg"
-        assert bufio.peek(1) == ""
+        assert bufio.read(6) == b"abcd"
+        assert bufio.read(1) == b"e"
+        assert bufio.read() == b"fg"
+        assert bufio.peek(1) == b""
         assert bufio.read() is None
-        assert bufio.read() == ""
+        assert bufio.read() == b""
 
     def test_write_interrupted(self):
         import _io, errno
@@ -546,23 +682,23 @@ class AppTestBufferedWriter:
                     return len(data)
         rawio = MockRawIO()
         bufio = _io.BufferedWriter(rawio)
-        assert bufio.write("test") == 4
+        assert bufio.write(b"test") == 4
         bufio.flush()
         assert rawio.count == 3
 
     def test_reentrant_write(self):
-        import thread  # Reentrant-safe is only enabled with threads
+        import _thread  # Reentrant-safe is only enabled with threads
         import _io, errno
         class MockRawIO(_io._RawIOBase):
             def writable(self):
                 return True
             def write(self, data):
-                bufio.write("something else")
+                bufio.write(b"something else")
                 return len(data)
 
         rawio = MockRawIO()
         bufio = _io.BufferedWriter(rawio)
-        bufio.write("test")
+        bufio.write(b"test")
         exc = raises(RuntimeError, bufio.flush)
         assert "reentrant" in str(exc.value)  # And not e.g. recursion limit.
 
@@ -593,18 +729,19 @@ class AppTestBufferedWriter:
         b.flush = bad_flush
         err = raises(IOError, b.close)  # exception not swallowed
         assert err.value.args == ('close',)
+        assert err.value.__context__.args == ('flush',)
         assert not b.closed
 
 class AppTestBufferedRWPair:
     def test_pair(self):
         import _io
-        pair = _io.BufferedRWPair(_io.BytesIO("abc"), _io.BytesIO())
+        pair = _io.BufferedRWPair(_io.BytesIO(b"abc"), _io.BytesIO())
         assert not pair.closed
         assert pair.readable()
         assert pair.writable()
         assert not pair.isatty()
-        assert pair.read() == "abc"
-        assert pair.write("abc") == 3
+        assert pair.read() == b"abc"
+        assert pair.write(b"abc") == 3
 
     def test_constructor_with_not_readable(self):
         import _io
@@ -659,6 +796,7 @@ class AppTestBufferedRWPair:
         pair = _io.BufferedRWPair(reader, writer)
         err = raises(NameError, pair.close)
         assert 'reader_non_existing' in str(err.value)
+        assert 'writer_non_existing' in str(err.value.__context__)
         assert not pair.closed
         assert not reader.closed
         assert not writer.closed
@@ -668,25 +806,25 @@ class AppTestBufferedRandom:
 
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
-        tmpfile.write("a\nb\nc", mode='wb')
+        tmpfile.write(b"a\nb\nc", mode='wb')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 
     def test_simple_read(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'rb+')
         f = _io.BufferedRandom(raw)
-        assert f.read(3) == 'a\nb'
-        f.write('xxxx')
+        assert f.read(3) == b'a\nb'
+        f.write(b'xxxx')
         f.seek(0)
-        assert f.read() == 'a\nbxxxx'
+        assert f.read() == b'a\nbxxxx'
 
     def test_simple_read_after_write(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'wb+')
         f = _io.BufferedRandom(raw)
-        f.write('abc')
+        f.write(b'abc')
         f.seek(0)
-        assert f.read() == 'abc'
+        assert f.read() == b'abc'
 
     def test_write_rewind_write(self):
         # Various combinations of reading / writing / seeking
@@ -713,7 +851,7 @@ class AppTestBufferedRandom:
                 expected = bytearray(b)
                 expected[j] = 2
                 expected[i] = 1
-                assert raw.getvalue() == str(expected)
+                assert raw.getvalue() == expected
 
     def test_interleaved_read_write(self):
         import _io as io
@@ -767,6 +905,20 @@ class AppTestBufferedRandom:
                 raises(TypeError, f.readline, 5.3)
 
 
+class AppTestMaxBuffer:
+
+    def w_check_max_buffer_size_removal(self, test):
+        import _io
+        raises(TypeError, test, _io.BytesIO(), 8, 12)
+
+    def test_max_buffer_size_removal(self):
+        import _io
+        self.check_max_buffer_size_removal(_io.BufferedWriter)
+        self.check_max_buffer_size_removal(_io.BufferedRandom)
+        self.check_max_buffer_size_removal (
+            lambda raw, *args: _io.BufferedRWPair(raw, raw, *args))
+
+
 class TestNonReentrantLock:
     spaceconfig = dict(usemodules=['thread'])
 
@@ -777,4 +929,3 @@ class TestNonReentrantLock:
         with lock:
             exc = py.test.raises(OperationError, "with lock: pass")
         assert exc.value.match(space, space.w_RuntimeError)
-

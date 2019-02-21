@@ -1,14 +1,15 @@
 from __future__ import absolute_import
 import sys
+import pytest
 
 import os
 if os.name != 'posix':
-    skip('resource.h only available on unix')
+    pytest.skip('resource.h only available on unix')
 
 try:
     from lib_pypy import resource
-except ImportError as e:
-    skip(str(e))
+except (ImportError, SyntaxError) as e:
+    pytest.skip(str(e))
 
 
 def test_getrusage():
@@ -34,15 +35,15 @@ def test_getrusage():
         if i < 2:
             expected_type = float
         else:
-            expected_type = (int, long)
+            expected_type = int
         assert isinstance(x[i], expected_type)
 
 def test_getrlimit():
     x = resource.getrlimit(resource.RLIMIT_CPU)
     assert isinstance(x, tuple)
     assert len(x) == 2
-    assert isinstance(x[0], (int, long))
-    assert isinstance(x[1], (int, long))
+    assert isinstance(x[0], int)
+    assert isinstance(x[1], int)
 
 def test_setrlimit():
     # minimal "does not crash" test

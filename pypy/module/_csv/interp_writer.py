@@ -1,4 +1,4 @@
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import UnicodeBuilder
 from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
@@ -35,16 +35,16 @@ class W_Writer(W_Root):
         space = self.space
         fields_w = space.listview(w_fields)
         dialect = self.dialect
-        rec = StringBuilder(80)
+        rec = UnicodeBuilder(80)
         #
         for field_index in range(len(fields_w)):
             w_field = fields_w[field_index]
             if space.is_w(w_field, space.w_None):
-                field = ""
+                field = u""
             elif space.isinstance_w(w_field, space.w_float):
-                field = space.text_w(space.repr(w_field))
+                field = space.realunicode_w(space.repr(w_field))
             else:
-                field = space.text_w(space.str(w_field))
+                field = space.realunicode_w(space.str(w_field))
             #
             if dialect.quoting == QUOTE_NONNUMERIC:
                 try:
@@ -98,7 +98,7 @@ class W_Writer(W_Root):
                             else:
                                 want_escape = True
                     if want_escape:
-                        if dialect.escapechar == '\0':
+                        if dialect.escapechar == u'\0':
                             raise self.error("need to escape, "
                                              "but no escapechar set")
                         rec.append(dialect.escapechar)

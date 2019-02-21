@@ -1,11 +1,11 @@
-#define PyDescr_COMMON \
-    PyObject_HEAD \
-    PyTypeObject *d_type; \
-    PyObject *d_name
-
 typedef struct {
-    PyDescr_COMMON;
+    PyObject_HEAD
+    PyTypeObject *d_type;
+    PyObject *d_name;
+    PyObject *d_qualname;
 } PyDescrObject;
+
+#define PyDescr_COMMON PyDescrObject d_common
 
 typedef struct {
     PyDescr_COMMON;

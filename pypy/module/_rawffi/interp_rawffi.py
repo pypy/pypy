@@ -7,9 +7,11 @@ from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 from rpython.rlib.clibffi import *
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rutf8
 from rpython.rlib.objectmodel import specialize
 import rpython.rlib.rposix as rposix
 
@@ -146,9 +148,14 @@ def got_libffi_error(space):
     raise oefmt(space.w_SystemError, "not supported by libffi")
 
 def wrap_dlopenerror(space, e, filename):
-    return oefmt(space.w_OSError,
-                 "Cannot load library %s: %s",
-                 filename, e.msg if e.msg else "unspecified error")
+    if e.msg:
+        # dlerror can return garbage messages under ll2ctypes (not
+        # we_are_translated()), so repr it to avoid potential problems
+        # converting to unicode later
+        msg = e.msg if we_are_translated() else repr(e.msg)
+    else:
+        msg = 'unspecified error'
+    return oefmt(space.w_OSError, 'Cannot load library %s: %8', filename, msg)
 
 
 class W_CDLL(W_Root):
@@ -335,6 +342,8 @@ class W_DataShape(W_Root):
 
 
 class W_DataInstance(W_Root):
+    fmt = 'B'
+    itemsize = 1
     def __init__(self, space, size, address=r_uint(0)):
         if address:
             self.ll_buffer = rffi.cast(rffi.VOIDP, address)
@@ -374,21 +383,12 @@ class W_DataInstance(W_Root):
     def buffer_w(self, space, flags):
         return SimpleView(RawFFIBuffer(self))
 
-    def readbuf_w(self, space):
-        return RawFFIBuffer(self)
-
-    def writebuf_w(self, space):
-        return RawFFIBuffer(self)
-
     def getrawsize(self):
         raise NotImplementedError("abstract base class")
 
 @specialize.arg(0)
 def unwrap_truncate_int(TP, space, w_arg):
-    if space.isinstance_w(w_arg, space.w_int):
-        return rffi.cast(TP, space.int_w(w_arg))
-    else:
-        return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
+    return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
 
 
 @specialize.arg(1)
@@ -409,20 +409,23 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         push_func(add_arg, argdesc, rffi.cast(rffi.LONGDOUBLE,
                                               space.float_w(w_arg)))
     elif letter == "c":
-        s = space.bytes_w(w_arg)
-        if len(s) != 1:
-            raise oefmt(space.w_TypeError,
-                        "Expected string of length one as character")
-        val = s[0]
+        if space.isinstance_w(w_arg, space.w_int):
+            val = space.byte_w(w_arg)
+        else:
+            s = space.bytes_w(w_arg)
+            if len(s) != 1:
+                raise oefmt(space.w_TypeError,
+                            "Expected bytes of length one as character")
+            val = s[0]
         push_func(add_arg, argdesc, val)
     elif letter == 'u':
-        s = space.unicode_w(w_arg)
-        if len(s) != 1:
+        s, lgt = space.utf8_len_w(w_arg)
+        if lgt != 1:
             raise oefmt(space.w_TypeError,
                         "Expected unicode string of length one as wide "
                         "character")
-        val = s[0]
-        push_func(add_arg, argdesc, val)
+        val = rutf8.codepoint_at_pos(s, 0)
+        push_func(add_arg, argdesc, rffi.cast(rffi.WCHAR_T, val))
     else:
         for c in unroll_letters_for_numbers:
             if letter == c:
@@ -447,7 +450,8 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             elif c == 'c':
                 return space.newbytes(func(add_arg, argdesc, ll_type))
             elif c == 'u':
-                return space.newunicode(func(add_arg, argdesc, ll_type))
+                return space.newutf8(rutf8.unichr_as_utf8(
+                    r_uint(ord(func(add_arg, argdesc, ll_type)))), 1)
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.newfloat(float(func(add_arg, argdesc, ll_type)))
             else:
@@ -595,10 +599,10 @@ def wcharp2unicode(space, address, maxlength=-1):
         return space.w_None
     wcharp_addr = rffi.cast(rffi.CWCHARP, address)
     if maxlength == -1:
-        s = rffi.wcharp2unicode(wcharp_addr)
+        s, lgt = rffi.wcharp2utf8(wcharp_addr)
     else:
-        s = rffi.wcharp2unicoden(wcharp_addr, maxlength)
-    return space.newunicode(s)
+        s, lgt = rffi.wcharp2utf8n(wcharp_addr, maxlength)
+    return space.newutf8(s, lgt)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def charp2rawstring(space, address, maxlength=-1):
@@ -611,20 +615,24 @@ def charp2rawstring(space, address, maxlength=-1):
 def wcharp2rawunicode(space, address, maxlength=-1):
     if maxlength == -1:
         return wcharp2unicode(space, address)
-    s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
-    return space.newunicode(s)
+    elif maxlength < 0:
+        maxlength = 0
+    s = rffi.wcharpsize2utf8(rffi.cast(rffi.CWCHARP, address), maxlength)
+    return space.newutf8(s, maxlength)
 
-@unwrap_spec(address=r_uint, newcontent='bufferstr')
-def rawstring2charp(space, address, newcontent):
+@unwrap_spec(address=r_uint, newcontent='bufferstr', offset=int, size=int)
+def rawstring2charp(space, address, newcontent, offset=0, size=-1):
     from rpython.rtyper.annlowlevel import llstr
     from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
     array = rffi.cast(rffi.CCHARP, address)
-    copy_string_to_raw(llstr(newcontent), array, 0, len(newcontent))
+    if size < 0:
+        size = len(newcontent) - offset
+    copy_string_to_raw(llstr(newcontent), array, offset, size)
 
 if _MS_WINDOWS:
     @unwrap_spec(code=int)
     def FormatError(space, code):
-        return space.newtext(rwin32.FormatError(code))
+        return space.newtext(rwin32.FormatErrorW(code))
 
     @unwrap_spec(hresult=int)
     def check_HRESULT(space, hresult):

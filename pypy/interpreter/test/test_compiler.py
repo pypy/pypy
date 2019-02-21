@@ -1,3 +1,4 @@
+# encoding: utf-8
 import __future__
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
@@ -5,8 +6,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 
-
-class BaseTestCompiler:
+class TestPythonAstCompiler:
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
 
@@ -30,7 +30,7 @@ class BaseTestCompiler:
     def test_compile_command(self):
         for mode in ('single', 'exec'):
             c0 = self.compiler.compile_command('\t # hello\n ', '?', mode, 0)
-            c1 = self.compiler.compile_command('print 6*7', '?', mode, 0)
+            c1 = self.compiler.compile_command('print(6*7)', '?', mode, 0)
             c2 = self.compiler.compile_command('if 1:\n  x\n', '?', mode, 0)
             c8 = self.compiler.compile_command('x = 5', '?', mode, 0)
             c9 = self.compiler.compile_command('x = 5 ', '?', mode, 0)
@@ -71,21 +71,21 @@ class BaseTestCompiler:
     def test_syntaxerror_attrs(self):
         w_args = self.space.appexec([], r"""():
             try:
-                exec 'if 1:\n  x\n y\n'
-            except SyntaxError, e:
+                exec('if 1:\n  x\n y\n')
+            except SyntaxError as e:
                 return e.args
         """)
         assert self.space.unwrap(w_args) == (
             'unindent does not match any outer indentation level',
-            ('<string>', 3, 0, ' y\n'))
+            ('<string>', 3, 2, ' y\n'))
 
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',
                                      '<hello>', 'exec', 0)
         flags = self.compiler.getcodeflags(code)
-        assert flags & __future__.division.compiler_flag
+        assert flags & __future__.division.compiler_flag == 0
         # check that we don't get more flags than the compiler can accept back
-        code2 = self.compiler.compile('print 6*7', '<hello>', 'exec', flags)
+        code2 = self.compiler.compile('print(6*7)', '<hello>', 'exec', flags)
         # check that the flag remains in force
         flags2 = self.compiler.getcodeflags(code2)
         assert flags == flags2
@@ -235,7 +235,7 @@ class BaseTestCompiler:
 
     def test_unicode_docstring(self):
         space = self.space
-        code = self.compiler.compile('u"hello"\n', '<hello>', 'exec', 0)
+        code = self.compiler.compile('"hello"\n', '<hello>', 'exec', 0)
         assert space.eq_w(code.co_consts_w[0], space.wrap("hello"))
         assert space.is_w(space.type(code.co_consts_w[0]), space.w_unicode)
 
@@ -268,10 +268,7 @@ class BaseTestCompiler:
 
     def test_return_in_generator(self):
         code = 'def f():\n return None\n yield 19\n'
-        e = py.test.raises(OperationError, self.compiler.compile, code, '', 'single', 0)
-        ex = e.value
-        ex.normalize_exception(self.space)
-        assert ex.match(self.space, self.space.w_SyntaxError)
+        self.compiler.compile(code, '', 'single', 0)
 
     def test_yield_in_finally(self):
         code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
@@ -346,6 +343,7 @@ class BaseTestCompiler:
             assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_globals_warnings(self):
+        # also tests some other constructions that give a warning
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
@@ -367,6 +365,18 @@ def wrong3():
     print x
     x = 2
     global x
+''', '''
+def wrong_listcomp():
+    return [(yield 42) for i in j]
+''', '''
+def wrong_gencomp():
+    return ((yield 42) for i in j)
+''', '''
+def wrong_dictcomp():
+    return {(yield 42):2 for i in j}
+''', '''
+def wrong_setcomp():
+    return {(yield 42) for i in j}
 '''):
 
             space.call_args(w_filterwarnings, filter_arg)
@@ -377,6 +387,66 @@ def wrong3():
             ex.normalize_exception(space)
             assert ex.match(space, space.w_SyntaxError)
 
+    def test_no_warning_run(self):
+        space = self.space
+        w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
+        w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
+        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+                               [space.wrap("<tmp>")])
+        for code in ['''
+def testing():
+    __class__ = 0
+    def f():
+        nonlocal __class__
+        __class__ = 42
+    f()
+    return __class__
+''', '''
+class Y:
+    class X:
+        nonlocal __class__
+        __class__ = 42
+    assert locals()['__class__'] == 42
+    # ^^^ but at the same place, reading '__class__' gives a NameError
+    # in CPython 3.5.2.  Looks like a bug to me
+def testing():
+    return 42
+''', '''
+class Y:
+    def f():
+        __class__
+    __class__ = 42
+def testing():
+    return Y.__dict__['__class__']
+''', '''
+class X:
+    foobar = 42
+    def f(self):
+        return __class__.__dict__['foobar']
+def testing():
+    return X().f()
+''',
+#--------XXX the following case is not implemented for now
+#'''
+#class X:
+#    foobar = 42
+#    def f(self):
+#        class Y:
+#            Xcls = __class__
+#        return Y.Xcls.__dict__['foobar']
+#def testing():
+#    return X().f()
+#'''
+        ]:
+            space.call_args(w_filterwarnings, filter_arg)
+            pycode = self.compiler.compile(code, '<tmp>', 'exec', 0)
+            space.call_method(w_mod, 'resetwarnings')
+            w_d = space.newdict()
+            pycode.exec_code(space, w_d, w_d)
+            w_res = space.call_function(
+                space.getitem(w_d, space.wrap('testing')))
+            assert space.unwrap(w_res) == 42
+
     def test_firstlineno(self):
         snippet = str(py.code.Source(r'''
             def f(): "line 2"
@@ -384,8 +454,8 @@ def wrong3():
                (4 and
                   5):
                 def g(): "line 6"
-            fline = f.func_code.co_firstlineno
-            gline = g.func_code.co_firstlineno
+            fline = f.__code__.co_firstlineno
+            gline = g.__code__.co_firstlineno
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
@@ -403,7 +473,7 @@ def wrong3():
             @foo       # line 4
             def f():   # line 5
                 pass   # line 6
-            fline = f.func_code.co_firstlineno
+            fline = f.__code__.co_firstlineno
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
@@ -423,7 +493,7 @@ def wrong3():
                     __NameError = NameError
                     try:
                         yield "found: " + __g
-                    except __NameError, __e:
+                    except __NameError as __e:
                         yield "not found: " + str(__e)
                     del __NameError
                     for __i in range(__self.__u * __n):
@@ -446,12 +516,15 @@ def wrong3():
         snippet = str(py.code.Source(r'''
             d = {}
             d[...] = 12
-            assert d.keys()[0] is Ellipsis
+            assert next(iter(d)) is Ellipsis
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
         w_d = space.newdict()
         space.exec_(code, w_d, w_d)
+        snip = "d[. . .]"
+        space.raises_w(space.w_SyntaxError, self.compiler.compile,
+                       snip, '<test>', 'exec', 0)
 
     def test_chained_access_augassign(self):
         snippet = str(py.code.Source(r'''
@@ -591,7 +664,7 @@ def test():
         w_d = space.newdict()
         space.exec_(code, w_d, w_d)
         w_res = space.getitem(w_d, space.wrap('res'))
-        assert space.str_w(w_res) == "global value"
+        assert space.text_w(w_res) == "global value"
 
     def test_method_and_var(self):
         space = self.space
@@ -612,20 +685,47 @@ def test():
         space.exec_(code, w_d, w_d)
         w_res = space.getitem(w_d, space.wrap('res'))
         assert space.eq_w(w_res, space.wrap("var"))
+    
+    def test_yield_from(self):
+        space = self.space
+        snippet = str(py.code.Source(r'''
+            def f():
+                def generator2():
+                    yield 8
+                def generator():
+                    yield from generator2()
+                return next(generator())
+            res = f()
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+        w_res = space.getitem(w_d, space.wrap('res'))
+        assert space.eq_w(w_res, space.wrap(8))
 
     def test_dont_inherit_flag(self):
+        # this test checks that compile() don't inherit the __future__ flags
+        # of the hosting code. However, in Python3 we don't have any
+        # meaningful __future__ flag to check that (they are all enabled). The
+        # only candidate could be barry_as_FLUFL, but it's not implemented yet
+        # (and not sure it'll ever be)
+        py.test.skip("we cannot actually check the result of this test (see comment)")
         space = self.space
         s1 = str(py.code.Source("""
             from __future__ import division
-            exec compile('x = 1/2', '?', 'exec', 0, 1)
+            exec(compile('x = 1/2', '?', 'exec', 0, 1))
         """))
         w_result = space.appexec([space.wrap(s1)], """(s1):
-            exec s1
-            return x
+            ns = {}
+            exec(s1, ns)
+            return ns['x']
         """)
         assert space.float_w(w_result) == 0
 
     def test_dont_inherit_across_import(self):
+        # see the comment for test_dont_inherit_flag
+        py.test.skip("we cannot actually check the result of this test (see comment)")
         from rpython.tool.udir import udir
         udir.join('test_dont_inherit_across_import.py').write('x = 1/2\n')
         space = self.space
@@ -653,7 +753,7 @@ def test():
         ex = e.value
         space = self.space
         assert ex.match(space, space.w_SyntaxError)
-        assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
+        assert 'hello_world' in space.text_w(space.str(ex.get_w_value(space)))
 
     def test_del_None(self):
         snippet = '''if 1:
@@ -662,15 +762,11 @@ def test():
             except NameError:
                 pass
         '''
-        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        e = py.test.raises(OperationError, self.compiler.compile,
+                snippet, '<tmp>', 'exec', 0)
+        ex = e.value
         space = self.space
-        w_d = space.newdict()
-        space.exec_(code, w_d, w_d)
-
-
-class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
-    def setup_method(self, method):
-        self.compiler = PythonAstCompiler(self.space, "2.5")
+        assert ex.match(space, space.w_SyntaxError)
 
     def test_from_future_import(self):
         source = """from __future__ import with_statement
@@ -722,58 +818,217 @@ with somtehing as stuff:
         else:
             py.test.fail("Did not raise")
 
+    def test_signature_kwargname(self):
+        from pypy.interpreter.pycode import cpython_code_signature
+        from pypy.interpreter.signature import Signature
 
-class TestECCompiler(BaseTestCompiler):
-    def setup_method(self, method):
-        self.compiler = self.space.getexecutioncontext().compiler
+        def find_func(code):
+            for w_const in code.co_consts_w:
+                if isinstance(w_const, PyCode):
+                    return w_const
+
+        snippet = 'def f(a, b, m=1, n=2, **kwargs): pass'
+        containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
+        co = find_func(containing_co)
+        sig = cpython_code_signature(co)
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', [])
+
+        snippet = 'def f(a, b, *, m=1, n=2, **kwargs): pass'
+        containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
+        co = find_func(containing_co)
+        sig = cpython_code_signature(co)
+        assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
 
 
-class AppTestCompiler:
+class AppTestCompiler(object):
+
     def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         cls.w_host_is_pypy = cls.space.wrap(
             '__pypy__' in sys.builtin_module_names)
 
+    def w_is_pypy(self):
+        import sys
+        return (not self.runappdirect) or '__pypy__' in sys.modules
+
     def test_bom_with_future(self):
-        s = '\xef\xbb\xbffrom __future__ import division\nx = 1/2'
+        s = b'\xef\xbb\xbffrom __future__ import division\nx = 1/2'
         ns = {}
-        exec s in ns
+        exec(s, ns)
         assert ns["x"] == .5
 
+    def test_noop_future_import(self):
+        code1 = compile("from __future__ import division", "<test>", "exec")
+        code2 = compile("", "<test>", "exec")
+        assert code1.co_flags == code2.co_flags
+
     def test_values_of_different_types(self):
-        exec "a = 0; b = 0L; c = 0.0; d = 0j"
-        assert type(a) is int
-        assert type(b) is long
-        assert type(c) is float
-        assert type(d) is complex
+        ns = {}
+        exec("a = 0; c = 0.0; d = 0j", ns)
+        assert type(ns['a']) is int
+        assert type(ns['c']) is float
+        assert type(ns['d']) is complex
 
     def test_values_of_different_types_in_tuples(self):
-        exec "a = ((0,),); b = ((0L,),); c = ((0.0,),); d = ((0j,),)"
-        assert type(a[0][0]) is int
-        assert type(b[0][0]) is long
-        assert type(c[0][0]) is float
-        assert type(d[0][0]) is complex
+        ns = {}
+        exec("a = ((0,),); c = ((0.0,),); d = ((0j,),)", ns)
+        assert type(ns['a'][0][0]) is int
+        assert type(ns['c'][0][0]) is float
+        assert type(ns['d'][0][0]) is complex
 
     def test_zeros_not_mixed(self):
-        import math
+        import math, sys
         code = compile("x = -0.0; y = 0.0", "<test>", "exec")
         consts = code.co_consts
-        x, y, z = consts
-        assert isinstance(x, float) and isinstance(y, float)
-        assert math.copysign(1, x) != math.copysign(1, y)
+        if self.is_pypy():
+            # Hard to test on CPython, since co_consts is randomly ordered
+            x, y, z = consts
+            assert isinstance(x, float) and isinstance(y, float)
+            assert math.copysign(1, x) != math.copysign(1, y)
         ns = {}
-        exec "z1, z2 = 0j, -0j" in ns
+        exec("z1, z2 = 0j, -0j", ns)
         assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)
         assert math.atan2(ns["z2"].imag, -1.) == math.atan2(-0., -1.)
 
     def test_zeros_not_mixed_in_tuples(self):
         import math
-        exec "a = (0.0, 0.0); b = (-0.0, 0.0); c = (-0.0, -0.0)"
-        assert math.copysign(1., a[0]) == 1.0
-        assert math.copysign(1., a[1]) == 1.0
-        assert math.copysign(1., b[0]) == -1.0
-        assert math.copysign(1., b[1]) == 1.0
-        assert math.copysign(1., c[0]) == -1.0
-        assert math.copysign(1., c[1]) == -1.0
+        ns = {}
+        exec("a = (0.0, 0.0); b = (-0.0, 0.0); c = (-0.0, -0.0)", ns)
+        assert math.copysign(1., ns['a'][0]) == 1.0
+        assert math.copysign(1., ns['a'][1]) == 1.0
+        assert math.copysign(1., ns['b'][0]) == -1.0
+        assert math.copysign(1., ns['b'][1]) == 1.0
+        assert math.copysign(1., ns['c'][0]) == -1.0
+        assert math.copysign(1., ns['c'][1]) == -1.0
+
+    def test_ellipsis_anywhere(self):
+        """
+        x = ...
+        assert x is Ellipsis
+        """
+
+    def test_keywordonly_syntax_errors(self):
+        cases = ("def f(p, *):\n  pass\n",
+                 "def f(p1, *, p1=100):\n  pass\n",
+                 "def f(p1, *k1, k1=100):\n  pass\n",
+                 "def f(p1, *, k1, k1=100):\n  pass\n",
+                 "def f(p1, *, **k1):\n  pass\n",
+                 "def f(p1, *, k1, **k1):\n  pass\n",
+                 "def f(p1, *, None, **k1):\n  pass\n",
+                 "def f(p, *, (k1, k2), **kw):\n  pass\n")
+        for case in cases:
+            raises(SyntaxError, compile, case, "<test>", "exec")
+
+    def test_barry_as_bdfl(self):
+        # from test_flufl.py :-)
+        import __future__
+        code = "from __future__ import barry_as_FLUFL; 2 {0} 3"
+        compile(code.format('<>'), '<BDFL test>', 'exec',
+                __future__.CO_FUTURE_BARRY_AS_BDFL)
+        raises(SyntaxError, compile, code.format('!='),
+               '<FLUFL test>', 'exec',
+               __future__.CO_FUTURE_BARRY_AS_BDFL)
+
+    def test_guido_as_bdfl(self):
+        # from test_flufl.py :-)
+        code = '2 {0} 3'
+        compile(code.format('!='), '<BDFL test>', 'exec')
+        raises(SyntaxError, compile, code.format('<>'),
+               '<FLUFL test>', 'exec')
+
+    def test_surrogate(self):
+        s = '\udcff'
+        raises(UnicodeEncodeError, compile, s, 'foo', 'exec')
+
+    def test_pep3131(self):
+        r"""
+        # XXX: the 4th name is currently mishandled by narrow builds
+        class T:
+            ä = 1
+            µ = 2 # this is a compatibility character
+            蟒 = 3
+            #x󠄀 = 4
+        assert getattr(T, '\xe4') == 1
+        assert getattr(T, '\u03bc') == 2
+        assert getattr(T, '\u87d2') == 3
+        #assert getattr(T, 'x\U000E0100') == 4
+        expected = ("['__dict__', '__doc__', '__module__', '__weakref__', "
+        #            "x󠄀", "'ä', 'μ', '蟒']")
+                    "'ä', 'μ', '蟒']")
+        assert expected in str(sorted(T.__dict__.keys()))
+        """
+
+    def test_unicode_identifier(self):
+        c = compile("# coding=latin-1\n\u00c6 = '\u00c6'", "dummy", "exec")
+        d = {}
+        exec(c, d)
+        assert d['\xc6'] == '\xc6'
+        c = compile("日本 = 8; 日本2 = 日本 + 1; del 日本;", "dummy", "exec")
+        exec(c, d)
+        assert '日本2' in d
+        assert d['日本2'] == 9
+        assert '日本' not in d
+
+        raises(SyntaxError, eval, b'\xff\x20')
+        raises(SyntaxError, eval, b'\xef\xbb\x20')
+
+    def test_import_nonascii(self):
+        c = compile('from os import 日本', '', 'exec')
+        assert ('日本',) in c.co_consts
+
+    def test_class_nonascii(self):
+        """
+        class 日本:
+            pass
+        assert 日本.__name__ == '日本'
+        assert 日本.__qualname__ == 'test_class_nonascii.<locals>.日本'
+        assert '日本' in repr(日本)
+        """
+
+    def test_cpython_issue2301(self):
+        try:
+            compile(b"# coding: utf7\nprint '+XnQ-'", "dummy", "exec")
+        except SyntaxError as v:
+            assert v.text ==  "print '\u5e74'\n"
+        else:
+            assert False, "Expected SyntaxError"
+
+    def test_invalid_utf8(self):
+        e = raises(SyntaxError, compile, b'\x80', "dummy", "exec")
+        assert str(e.value).startswith('Non-UTF-8 code')
+        assert 'but no encoding declared' in str(e.value)
+        e = raises(SyntaxError, compile, b'# coding: utf-8\n\x80',
+                   "dummy", "exec")
+        assert str(e.value).startswith('Non-UTF-8 code')
+        assert 'but no encoding declared' not in str(e.value)
+
+    def test_invalid_utf8_in_comments_or_strings(self):
+        import sys
+        compile(b"# coding: latin1\n#\xfd\n", "dummy", "exec")
+        raises(SyntaxError, compile, b"# coding: utf-8\n'\xfd'\n",
+               "dummy", "exec") #1
+        excinfo = raises(SyntaxError, compile, b'# coding: utf-8\nx=5\nb"\xfd"\n',
+               "dummy", "exec") #2
+        assert excinfo.value.lineno == 3
+        # the following example still fails on CPython 3.5.2, skip if -A
+        if '__pypy__' in sys.builtin_module_names:
+            raises(SyntaxError, compile, b"# coding: utf-8\n#\xfd\n",
+                   "dummy", "exec") #3
+
+    def test_cpython_issues_24022_25388(self):
+        from _ast import PyCF_ACCEPT_NULL_BYTES
+        raises(SyntaxError, compile, b'0000\x00\n00000000000\n\x00\n\x9e\n',
+               "dummy", "exec", PyCF_ACCEPT_NULL_BYTES)
+        raises(SyntaxError, compile, b"#\x00\n#\xfd\n", "dummy", "exec",
+               PyCF_ACCEPT_NULL_BYTES)
+        raises(SyntaxError, compile, b"#\x00\nx=5#\xfd\n", "dummy", "exec",
+               PyCF_ACCEPT_NULL_BYTES)
+
+    def test_correct_offset_in_many_bytes(self):
+        excinfo = raises(SyntaxError, compile, b'# coding: utf-8\nx = b"a" b"c" b"\xfd"\n',
+               "dummy", "exec")
+        assert excinfo.value.lineno == 2
+        assert excinfo.value.offset == 14
 
     def test_dict_and_set_literal_order(self):
         x = 1
@@ -813,27 +1068,67 @@ class AppTestCompiler:
         assert d['c1'] == tuple(sorted(d['c1']))
         assert d['r1'] == d['r2'] == d['c1']
 
+    def test_ast_equality(self):
+        import _ast
+        sample_code = [
+            ['<assign>', 'x = 5'],
+            ['<ifblock>', """if True:\n    pass\n"""],
+            ['<forblock>', """for n in [1, 2, 3]:\n    print(n)\n"""],
+            ['<deffunc>', """def foo():\n    pass\nfoo()\n"""],
+        ]
 
-##class TestPythonAstCompiler(BaseTestCompiler):
-##    def setup_method(self, method):
-##        self.compiler = PythonAstCompiler(self.space, "2.4")
+        for fname, code in sample_code:
+            co1 = compile(code, '%s1' % fname, 'exec')
+            ast = compile(code, '%s2' % fname, 'exec', _ast.PyCF_ONLY_AST)
+            assert type(ast) == _ast.Module
+            co2 = compile(ast, '%s3' % fname, 'exec')
+            assert co1 == co2
+            # the code object's filename comes from the second compilation step
+            assert co2.co_filename == '%s3' % fname
 
-##    def test_try_except_finally(self):
-##        py.test.skip("unsupported")
+    def test_invalid_ast(self):
+        import _ast
+        delete = _ast.Delete([])
+        delete.lineno = 0
+        delete.col_offset = 0
+        mod = _ast.Module([delete])
+        exc = raises(ValueError, compile, mod, 'filename', 'exec')
+        assert str(exc.value) == "empty targets on Delete"
+
+    def test_evaluate_argument_definition_order(self): """
+        lst = [1, 2, 3, 4]
+        def f(a=lst.pop(), b=lst.pop(), *, c=lst.pop(), d=lst.pop()):
+            return (a, b, c, d)
+        assert f('a') == ('a', 3, 2, 1), repr(f('a'))
+        assert f() == (4, 3, 2, 1), repr(f())
+        #
+        lst = [1, 2, 3, 4]
+        f = lambda a=lst.pop(), b=lst.pop(), *, c=lst.pop(), d=lst.pop(): (
+            a, b, c, d)
+        assert f('a') == ('a', 3, 2, 1), repr(f('a'))
+        assert f() == (4, 3, 2, 1), repr(f())
+        """
 
 
-class AppTestOptimizer:
+class AppTestOptimizer(object):
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
+    def w_is_pypy(self):
+        import sys
+        return not self.runappdirect or '__pypy__' in sys.modules
+
 
     def test_remove_ending(self):
         source = """def f():
             return 3
 """
-        exec source
-        code = f.func_code
-        import dis, sys, StringIO
-        s = StringIO.StringIO()
+        ns = {}
+        exec(source, ns)
+        code = ns['f'].__code__
+        import dis, sys
+        from io import StringIO
+        s = StringIO()
         so = sys.stdout
         sys.stdout = s
         try:
@@ -843,55 +1138,61 @@ class AppTestOptimizer:
         output = s.getvalue()
         assert output.count('LOAD_CONST') == 1
 
-    def test_none_constant(self):
+    def test_constant_name(self):
         import opcode
-        co = compile("def f(): return None", "<test>", "exec").co_consts[0]
-        if not self.runappdirect:  # This is a pypy optimization
-            assert "None" not in co.co_names
-        co = co.co_code
-        op = ord(co[0]) + (ord(co[1]) << 8)
-        assert op == opcode.opmap["LOAD_CONST"]
+        for name in "None", "True", "False":
+            snip = "def f(): return " + name
+            co = compile(snip, "<test>", "exec").co_consts[0]
+            if self.is_pypy():  # This is a pypy optimization
+                assert name not in co.co_names
+            co = co.co_code
+            op = co[0]
+            assert op == opcode.opmap["LOAD_CONST"]
 
     def test_tuple_constants(self):
         ns = {}
-        exec "x = (1, 0); y = (1L, 0L)" in ns
+        exec("x = (1, 0); y = (1, 0)", ns)
         assert isinstance(ns["x"][0], int)
-        assert isinstance(ns["y"][0], long)
+        assert isinstance(ns["y"][0], int)
+
+    def test_ellipsis_truth(self):
+        co = compile("if ...: x + 3\nelse: x + 4", "<test>", "exec")
+        assert 4 not in co.co_consts
 
     def test_division_folding(self):
         def code(source):
             return compile(source, "<test>", "exec")
         co = code("x = 10//4")
-        if self.runappdirect:
+        if not self.is_pypy():
             assert 2 in co.co_consts
         else:
             # PyPy is more precise
             assert len(co.co_consts) == 2
             assert co.co_consts[0] == 2
         co = code("x = 10/4")
-        assert len(co.co_consts) == 3
-        assert co.co_consts[:2] == (10, 4)
-        co = code("from __future__ import division\nx = 10/4")
-        if self.runappdirect:
+        if not self.is_pypy():
             assert 2.5 in co.co_consts
         else:
-            assert co.co_consts[2] == 2.5
+            assert len(co.co_consts) == 2
+            assert co.co_consts[0] == 2.5
 
     def test_tuple_folding(self):
         co = compile("x = (1, 2, 3)", "<test>", "exec")
-        if not self.runappdirect:
+        if self.is_pypy():
             # PyPy is more precise
             assert co.co_consts == ((1, 2, 3), None)
         else:
             assert (1, 2, 3) in co.co_consts
             assert None in co.co_consts
         co = compile("x = ()", "<test>", "exec")
-        assert set(co.co_consts) == set(((), None))
+        if self.is_pypy():
+            # CPython does not constant-fold the empty tuple
+            assert set(co.co_consts) == set(((), None))
 
     def test_unary_folding(self):
         def check_const(co, value):
             assert value in co.co_consts
-            if not self.runappdirect:
+            if self.is_pypy():
                 # This is a pypy optimization
                 assert co.co_consts[0] == value
         co = compile("x = -(3)", "<test>", "exec")
@@ -901,13 +1202,13 @@ class AppTestOptimizer:
         co = compile("x = +(-3)", "<test>", "exec")
         check_const(co, -3)
         co = compile("x = not None", "<test>", "exec")
-        if not self.runappdirect:
+        if self.is_pypy():
             # CPython does not have this optimization
             assert co.co_consts == (True, None)
 
     def test_folding_of_binops_on_constants(self):
         def disassemble(func):
-            from StringIO import StringIO
+            from io import StringIO
             import sys, dis
             f = StringIO()
             tmp = sys.stdout
@@ -939,7 +1240,7 @@ class AppTestOptimizer:
             ('a = 13 | 7', '(15)'),                 # binary or
             ):
             asm = dis_single(line)
-            print asm
+            print(asm)
             assert elem in asm, 'ELEMENT not in asm'
             assert 'BINARY_' not in asm, 'BINARY_in_asm'
 
@@ -958,15 +1259,16 @@ class AppTestOptimizer:
 
     def test_dis_stopcode(self):
         source = """def _f(a):
-                print a
+                print(a)
                 return 1
             """
+        ns = {}
+        exec(source, ns)
+        code = ns['_f'].__code__
 
-        exec source
-        code = _f.func_code
-
-        import StringIO, sys, dis
-        s = StringIO.StringIO()
+        import sys, dis
+        from io import StringIO
+        s = StringIO()
         save_stdout = sys.stdout
         sys.stdout = s
         try:
@@ -980,11 +1282,13 @@ class AppTestOptimizer:
         source = """def _f(a):
             return [x for x in a if None]
         """
-        exec source
-        code = _f.func_code
+        ns = {}
+        exec(source, ns)
+        code = ns['_f'].__code__
 
-        import StringIO, sys, dis
-        s = StringIO.StringIO()
+        import sys, dis
+        from io import StringIO
+        s = StringIO()
         out = sys.stdout
         sys.stdout = s
         try:
@@ -1009,14 +1313,18 @@ class AppTestOptimizer:
         assert isinstance(co.co_consts[i], frozenset)
 
     def test_call_method_kwargs(self):
+        if not self.is_pypy():
+            skip("CALL_METHOD exists only on pypy")
         source = """def _f(a):
             return a.f(a=a)
         """
-        exec source
-        code = _f.func_code
+        ns = {}
+        exec(source, ns)
+        code = ns['_f'].__code__
 
-        import StringIO, sys, dis
-        s = StringIO.StringIO()
+        import sys, dis
+        from io import StringIO
+        s = StringIO()
         out = sys.stdout
         sys.stdout = s
         try:
@@ -1028,8 +1336,9 @@ class AppTestOptimizer:
 
     def test_interned_strings(self):
         source = """x = ('foo_bar42', 5); y = 'foo_bar42'; z = x[0]"""
-        exec source
-        assert y is z
+        ns = {}
+        exec(source, ns)
+        assert ns['y'] is ns['z']
 
 
 class AppTestExceptions:
@@ -1039,7 +1348,7 @@ class AppTestExceptions:
          y
         """
         try:
-            exec source
+            exec(source)
         except IndentationError:
             pass
         else:
@@ -1052,7 +1361,7 @@ class AppTestExceptions:
          z
         """
         try:
-            exec source
+            exec(source)
         except IndentationError as e:
             assert e.msg == 'unindent does not match any outer indentation level'
         else:
@@ -1070,19 +1379,31 @@ class AppTestExceptions:
         else:
             raise Exception("DID NOT RAISE")
 
+    def test_taberror(self):
+        source = """if 1:
+        x
+    \ty
+        """
+        try:
+            exec(source)
+        except TabError as e:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
+
     def test_repr_vs_str(self):
         source1 = "x = (\n"
         source2 = "x = (\n\n"
         try:
-            exec source1
-        except SyntaxError as err1:
-            pass
+            exec(source1)
+        except SyntaxError as e:
+            err1 = e
         else:
             raise Exception("DID NOT RAISE")
         try:
-            exec source2
-        except SyntaxError as err2:
-            pass
+            exec(source2)
+        except SyntaxError as e:
+            err2 = e
         else:
             raise Exception("DID NOT RAISE")
         assert str(err1) != str(err2)
@@ -1091,23 +1412,29 @@ class AppTestExceptions:
         assert str(err3) == str(err1)
         assert repr(err3) == repr(err1)
 
+    def test_surrogate_filename(self):
+        fname = '\udcff'
+        co = compile("'dr cannon'", fname, 'exec')
+        assert co.co_filename == fname
+        try:
+            compile("'dr", fname, 'exec')
+        except SyntaxError as e:
+            assert e.filename == fname
+        else:
+            assert False, 'SyntaxError expected'
+
     def test_encoding(self):
         code = b'# -*- coding: badencoding -*-\npass\n'
-        raises(SyntaxError, compile, code, 'tmp', 'exec')
-        code = u"# -*- coding: utf-8 -*-\npass\n"
         raises(SyntaxError, compile, code, 'tmp', 'exec')
         code = 'u"\xc2\xa4"\n'
         assert eval(code) == u'\xc2\xa4'
         code = u'u"\xc2\xa4"\n'
         assert eval(code) == u'\xc2\xa4'
-        code = '# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
+        code = b'# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
         assert eval(code) == u'\xc2\xa4'
-        code = '# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
+        code = b'# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
         assert eval(code) == u'\xa4'
-        code = '# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
+        code = b'# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
         assert eval(code) == u'\xc2\u20ac'
-        import sys
-        if sys.version_info < (2, 7, 9):
-            skip()
-        code = 'u"""\\\n# -*- coding: utf-8 -*-\n\xc2\xa4"""\n'
-        assert eval(code) == u'# -*- coding: utf-8 -*-\n\xc2\xa4'
+        code = b'u"""\\\n# -*- coding: ascii -*-\n\xc2\xa4"""\n'
+        assert eval(code) == u'# -*- coding: ascii -*-\n\xa4'

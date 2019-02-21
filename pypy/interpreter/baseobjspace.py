@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types
+from rpython.rlib import jit, types, rutf8
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -80,7 +80,7 @@ class W_Root(object):
 
     def getname(self, space):
         try:
-            return space.text_w(space.getattr(self, space.newtext('__name__')))
+            return space.utf8_w(space.getattr(self, space.newtext('__name__')))
         except OperationError as e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
                 return '?'
@@ -107,8 +107,7 @@ class W_Root(object):
 
     def getrepr(self, space, info, moreinfo=''):
         addrstring = self.getaddrstring(space)
-        return space.newtext("<%s at 0x%s%s>" % (info, addrstring,
-                                                 moreinfo))
+        return space.newtext("<%s at 0x%s%s>" % (info, addrstring, moreinfo))
 
     def getslotvalue(self, index):
         raise NotImplementedError
@@ -232,58 +231,27 @@ class W_Root(object):
         return None
 
     def buffer_w(self, space, flags):
-        w_impl = space.lookup(self, '__buffer__')
-        if w_impl is None:
-            # cpyext types that may have only old buffer interface
-            w_impl = space.lookup(self, '__wbuffer__')
-        if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self,
-                                        space.newint(flags))
-            if (space.isinstance_w(w_result, space.w_buffer) or
-                    space.isinstance_w(w_result, space.w_memoryview)):
-                return w_result.buffer_w(space, flags)
-        raise BufferInterfaceNotFound
+        return self.__buffer_w(space, flags).buffer_w(space, flags)
 
-    def readbuf_w(self, space):
-        # cpyext types that may have old buffer protocol
-        w_impl = space.lookup(self, '__rbuffer__')
-        if w_impl is None:
-            w_impl = space.lookup(self, '__buffer__')
-        if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self,
-                                        space.newint(space.BUF_FULL_RO))
-            if (space.isinstance_w(w_result, space.w_buffer) or
-                    space.isinstance_w(w_result, space.w_memoryview)):
-                return w_result.readbuf_w(space)
-        raise BufferInterfaceNotFound
-
-    def writebuf_w(self, space):
-        # cpyext types that may have old buffer protocol
-        w_impl = space.lookup(self, '__wbuffer__')
-        if w_impl is None:
-            w_impl = space.lookup(self, '__buffer__')
-        if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self,
-                                        space.newint(space.BUF_FULL))
-            if (space.isinstance_w(w_result, space.w_buffer) or
-                    space.isinstance_w(w_result, space.w_memoryview)):
-                return w_result.writebuf_w(space)
-        raise BufferInterfaceNotFound
-
-    def charbuf_w(self, space):
+    def __buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
-                                        space.newint(space.BUF_FULL_RO))
-            if (space.isinstance_w(w_result, space.w_buffer) or
-                    space.isinstance_w(w_result, space.w_memoryview)):
-                return w_result.charbuf_w(space)
+                                                   space.newint(flags))
+            if space.isinstance_w(w_result, space.w_memoryview):
+                return w_result
         raise BufferInterfaceNotFound
 
-    def str_w(self, space):
-        self._typed_unwrap_error(space, "string")
+    def bytes_w(self, space):
+        self._typed_unwrap_error(space, "bytes")
 
-    def unicode_w(self, space):
+    def text_w(self, space):
+        self._typed_unwrap_error(space, "unicode")
+
+    def utf8_w(self, space):
+        self._typed_unwrap_error(space, "unicode")
+
+    def convert_to_w_unicode(self, space):
         self._typed_unwrap_error(space, "unicode")
 
     def bytearray_list_of_chars_w(self, space):
@@ -317,7 +285,7 @@ class W_Root(object):
         # W_FloatObject.rbigint_w raises w_TypeError raises
         w_obj = self
         if allow_conversion:
-            w_obj = space.long(self)
+            w_obj = space.int(self)
         return w_obj._bigint_w(space)
 
     def _bigint_w(self, space):
@@ -333,8 +301,15 @@ class W_Root(object):
             self._typed_unwrap_error(space, "integer")
         w_result = space.get_and_call_function(w_impl, self)
 
-        if (space.isinstance_w(w_result, space.w_int) or
-            space.isinstance_w(w_result, space.w_long)):
+        if space.is_w(space.type(w_result), space.w_int):
+            return w_result
+        if space.isinstance_w(w_result, space.w_int):
+            tp = space.type(w_result).name
+            space.warn(space.newtext(
+                "__int__ returned non-int (type %s).  "
+                "The ability to return an instance of a strict subclass of int "
+                "is deprecated, and may be removed in a future version of "
+                "Python." % (tp,)), space.w_DeprecationWarning)
             return w_result
         raise oefmt(space.w_TypeError,
                     "__int__ returned non-int (type '%T')", w_result)
@@ -430,6 +405,8 @@ class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://pypy.readthedocs.org/en/latest/objspace.html"""
 
+    reverse_debugging = False
+
     @not_rpython
     def __init__(self, config=None):
         "Basic initialization of objects."
@@ -441,6 +418,7 @@ class ObjSpace(object):
             from pypy.config.pypyoption import get_pypy_config
             config = get_pypy_config(translating=False)
         self.config = config
+        self.reverse_debugging = config.translation.reverse_debugger
 
         self.builtin_modules = {}
         self.reloading_modules = {}
@@ -458,6 +436,9 @@ class ObjSpace(object):
 
     def startup(self):
         # To be called before using the space
+        if self.reverse_debugging:
+            self._revdb_startup()
+
         self.threadlocals.enter_thread(self)
 
         # Initialize already imported builtin modules
@@ -476,12 +457,10 @@ class ObjSpace(object):
 
     def finish(self):
         self.wait_for_thread_shutdown()
-        w_exitfunc = self.sys.getdictvalue(self, 'exitfunc')
-        if w_exitfunc is not None:
-            try:
-                self.call_function(w_exitfunc)
-            except OperationError as e:
-                e.write_unraisable(self, 'sys.exitfunc == ', w_exitfunc)
+        w_atexit = self.getbuiltinmodule('atexit')
+        self.call_method(w_atexit, '_run_exitfuncs')
+        self.sys.finalizing = True
+        self.sys.flush_std_files(self)
         from pypy.interpreter.module import Module
         for w_mod in self.builtin_modules.values():
             if isinstance(w_mod, Module) and w_mod.startup_called:
@@ -592,52 +571,32 @@ class ObjSpace(object):
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
-    ALL_BUILTIN_MODULES = [
-        'posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-        'math', 'array', 'select',
-        '_random', '_sre', 'time', '_socket', 'errno',
-        'unicodedata',
-        'parser', 'fcntl', '_codecs', 'binascii'
-    ]
-
-    # These modules are treated like CPython treats built-in modules,
-    # i.e. they always shadow any xx.py.  The other modules are treated
-    # like CPython treats extension modules, and are loaded in sys.path
-    # order by the fake entry '.../lib_pypy/__extensions__'.
-    MODULES_THAT_ALWAYS_SHADOW = dict.fromkeys([
-        '__builtin__', '__pypy__', '_ast', '_codecs', '_sre', '_warnings',
-        '_weakref', 'errno', 'exceptions', 'gc', 'imp', 'marshal',
-        'posix', 'nt', 'pwd', 'signal', 'sys', 'thread', 'zipimport',
-    ], None)
-
     @not_rpython
     def make_builtins(self):
         "only for initializing the space."
 
         from pypy.module.exceptions import Module
-        w_name = self.newtext('exceptions')
+        w_name = self.newtext('__exceptions__')
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
+
+        from pypy.module.imp import Module
+        w_name = self.newtext('_imp')
+        mod = Module(self, w_name)
+        mod.install()
 
         from pypy.module.sys import Module
         w_name = self.newtext('sys')
         self.sys = Module(self, w_name)
         self.sys.install()
 
-        from pypy.module.imp import Module
-        w_name = self.newtext('imp')
-        mod = Module(self, w_name)
-        mod.install()
-
         from pypy.module.__builtin__ import Module
-        w_name = self.newtext('__builtin__')
+        w_name = self.newtext('builtins')
         self.builtin = Module(self, w_name)
-        w_builtin = self.wrap(self.builtin)
+        w_builtin = self.builtin
         w_builtin.install()
         self.setitem(self.builtin.w_dict, self.newtext('__builtins__'), w_builtin)
 
-        bootstrap_modules = set(('sys', 'imp', '__builtin__', 'exceptions'))
-        installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
 
@@ -648,13 +607,13 @@ class ObjSpace(object):
             self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
+        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
-                self.install_mixedmodule(mixedname, installed_builtin_modules)
+                self.install_mixedmodule(mixedname)
 
-        installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
-            [self.wrap(fn) for fn in installed_builtin_modules])
+            [self.newtext(name) for name in sorted(self.builtin_modules)])
 
         # force this value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
@@ -668,9 +627,15 @@ class ObjSpace(object):
     @not_rpython
     def export_builtin_exceptions(self):
         w_dic = self.exceptions_module.getdict(self)
-        w_keys = self.call_method(w_dic, "keys")
         exc_types_w = {}
-        for w_name in self.unpackiterable(w_keys):
+        w_iter = self.iter(w_dic)
+        while True:
+            try:
+                w_name = self.next(w_iter)
+            except OperationError as e:
+                if not e.match(self, self.w_StopIteration):
+                    raise
+                break
             name = self.text_w(w_name)
             if not name.startswith('__'):
                 excname = name
@@ -680,13 +645,8 @@ class ObjSpace(object):
         return exc_types_w
 
     @not_rpython
-    def install_mixedmodule(self, mixedname, installed_builtin_modules):
-        modname = self.setbuiltinmodule(mixedname)
-        if modname:
-            assert modname not in installed_builtin_modules, (
-                "duplicate interp-level module enabled for the "
-                "app-level module %r" % (modname,))
-            installed_builtin_modules.append(modname)
+    def install_mixedmodule(self, mixedname):
+        self.setbuiltinmodule(mixedname)
 
     @not_rpython
     def setup_builtin_modules(self):
@@ -697,8 +657,9 @@ class ObjSpace(object):
             from pypy.module.cpyext.state import State
             self.fromcache(State).build_api()
         self.getbuiltinmodule('sys')
-        self.getbuiltinmodule('imp')
-        self.getbuiltinmodule('__builtin__')
+        self.getbuiltinmodule('_imp')
+        self.getbuiltinmodule('_frozen_importlib')
+        self.getbuiltinmodule('builtins')
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
 
@@ -823,12 +784,12 @@ class ObjSpace(object):
 
     def setitem_str(self, w_obj, key, w_value):
         # key is a "text", i.e. a byte string (in python3 it
-        # represents a utf-8-encoded unicode)
+        # represents a valid utf-8-encoded unicode)
         return self.setitem(w_obj, self.newtext(key), w_value)
 
     def finditem_str(self, w_obj, key):
         # key is a "text", i.e. a byte string (in python3 it
-        # represents a utf-8-encoded unicode)
+        # represents a valid utf-8-encoded unicode)
         return self.finditem(w_obj, self.newtext(key))
 
     def finditem(self, w_obj, w_key):
@@ -860,32 +821,67 @@ class ObjSpace(object):
         else:
             return self.w_False
 
-    def new_interned_w_str(self, w_s):
-        assert isinstance(w_s, W_Root)   # and is not None
-        s = self.text_w(w_s)
+    def new_interned_w_str(self, w_u):
+        assert isinstance(w_u, W_Root)   # and is not None
+        u = self.utf8_w(w_u)
         if not we_are_translated():
-            assert type(s) is str
-        w_s1 = self.interned_strings.get(s)
-        if w_s1 is None:
-            w_s1 = w_s
-            self.interned_strings.set(s, w_s1)
-        return w_s1
+            assert type(u) is str
+        w_u1 = self.interned_strings.get(u)
+        if w_u1 is None:
+            w_u1 = w_u
+            if self._side_effects_ok():
+                self.interned_strings.set(u, w_u1)
+        return w_u1
 
     def new_interned_str(self, s):
-        # returns a "text" (ie str in python2 and unicode in python3)
+        # Assumes an identifier (utf-8 encoded str)
+        # returns a "text" object (ie str in python2 and unicode in python3)
         if not we_are_translated():
             assert type(s) is str
         w_s1 = self.interned_strings.get(s)
         if w_s1 is None:
             w_s1 = self.newtext(s)
-            self.interned_strings.set(s, w_s1)
+            if self._side_effects_ok():
+                self.interned_strings.set(s, w_s1)
         return w_s1
 
-    def is_interned_str(self, s):
+    def _revdb_startup(self):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import setup_revdb
+        setup_revdb(self)
+
+    def _revdb_standard_code(self):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import dbstate
+        return dbstate.standard_code
+
+    def _side_effects_ok(self):
+        # For the reverse debugger: we run compiled watchpoint
+        # expressions in a fast way that will crash if they have
+        # side-effects.  The obvious Python code with side-effects is
+        # documented "don't do that"; but some non-obvious side
+        # effects are also common, like interning strings (from
+        # unmarshalling the code object containing the watchpoint
+        # expression) to the two attribute caches in mapdict.py and
+        # typeobject.py.  For now, we have to identify such places
+        # that are not acceptable for "reasonable" read-only
+        # watchpoint expressions, and write:
+        #
+        #     if not space._side_effects_ok():
+        #         don't cache.
+        #
+        if self.reverse_debugging:
+            return self._revdb_standard_code()
+        return True
+
+    def get_interned_str(self, s):
+        """Assumes an identifier (utf-8 encoded str).  Returns None if
+        the identifier is not interned, or not a valid utf-8 string at all.
+        """
         # interface for marshal_impl
         if not we_are_translated():
             assert type(s) is str
-        return self.interned_strings.get(s) is not None
+        return self.interned_strings.get(s)   # may be None
 
     @specialize.arg(1)
     def descr_self_interp_w(self, RequiredClass, w_obj):
@@ -975,13 +971,15 @@ class ObjSpace(object):
                     raise
                 break  # done
             if idx == expected_length:
-                raise oefmt(self.w_ValueError, "too many values to unpack")
+                raise oefmt(self.w_ValueError,
+                            "too many values to unpack (expected %d)",
+                            expected_length)
             items[idx] = w_item
             idx += 1
         if idx < expected_length:
             raise oefmt(self.w_ValueError,
-                        "need more than %d value%s to unpack",
-                        idx, "" if idx == 1 else "s")
+                        "not enough values to unpack (expected %d, got %d)",
+                        expected_length, idx)
         return items
 
     def unpackiterable_unroll(self, w_iterable, expected_length):
@@ -1066,7 +1064,7 @@ class ObjSpace(object):
         """
         return None
 
-    def listview_unicode(self, w_list):
+    def listview_utf8(self, w_list):
         """ Return a list of unwrapped unicode out of a list of unicode. If the
         argument is not a list or does not contain only unicode, return None.
         May return None anyway.
@@ -1096,8 +1094,15 @@ class ObjSpace(object):
     def newlist_bytes(self, list_s):
         return self.newlist([self.newbytes(s) for s in list_s])
 
-    def newlist_unicode(self, list_u):
-        return self.newlist([self.newunicode(u) for u in list_u])
+    def newlist_utf8(self, list_u, is_ascii):
+        l_w = [None] * len(list_u)
+        for i, item in enumerate(list_u):
+            if not is_ascii:
+                length = rutf8.check_utf8(item, True)
+            else:
+                length = len(item)
+            l_w[i] = self.newutf8(item, length)
+        return self.newlist(l_w)
 
     def newlist_int(self, list_i):
         return self.newlist([self.newint(i) for i in list_i])
@@ -1113,19 +1118,14 @@ class ObjSpace(object):
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
         if self.is_w(w_exc_type, w_check_class):
-            return True   # fast path (also here to handle string exceptions)
-        try:
-            if self.isinstance_w(w_check_class, self.w_tuple):
-                for w_t in self.fixedview(w_check_class):
-                    if self.exception_match(w_exc_type, w_t):
-                        return True
-                else:
-                    return False
-            return self.exception_issubclass_w(w_exc_type, w_check_class)
-        except OperationError as e:
-            if e.match(self, self.w_TypeError):   # string exceptions maybe
+            return True   # fast path
+        if self.isinstance_w(w_check_class, self.w_tuple):
+            for w_t in self.fixedview(w_check_class):
+                if self.exception_match(w_exc_type, w_t):
+                    return True
+            else:
                 return False
-            raise
+        return self.exception_issubclass_w(w_exc_type, w_check_class)
 
     def call_obj_args(self, w_callable, w_obj, args):
         if not self.config.objspace.disable_call_speedhacks:
@@ -1154,15 +1154,10 @@ class ObjSpace(object):
             # start of hack for performance
             from pypy.interpreter.function import Function, Method
             if isinstance(w_func, Method):
-                w_inst = w_func.w_instance
-                if w_inst is not None:
-                    if nargs < 4:
-                        func = w_func.w_function
-                        if isinstance(func, Function):
-                            return func.funccall(w_inst, *args_w)
-                elif args_w and (
-                        self.abstract_isinstance_w(args_w[0], w_func.w_class)):
-                    w_func = w_func.w_function
+                if nargs < 4:
+                    func = w_func.w_function
+                    if isinstance(func, Function):
+                        return func.funccall(w_func.w_instance, *args_w)
 
             if isinstance(w_func, Function):
                 return w_func.funccall(*args_w)
@@ -1183,17 +1178,11 @@ class ObjSpace(object):
         if not self.config.objspace.disable_call_speedhacks:
             # start of hack for performance
             if isinstance(w_func, Method):
-                w_inst = w_func.w_instance
-                if w_inst is not None:
-                    w_func = w_func.w_function
-                    # reuse callable stack place for w_inst
-                    frame.settopvalue(w_inst, nargs)
-                    nargs += 1
-                    methodcall = True
-                elif nargs > 0 and (
-                    self.abstract_isinstance_w(frame.peekvalue(nargs-1),   #    :-(
-                                               w_func.w_class)):
-                    w_func = w_func.w_function
+                # reuse callable stack place for w_inst
+                frame.settopvalue(w_func.w_instance, nargs)
+                nargs += 1
+                methodcall = True
+                w_func = w_func.w_function
 
             if isinstance(w_func, Function):
                 return w_func.funccall_valuestack(
@@ -1231,33 +1220,14 @@ class ObjSpace(object):
                 return w_value
         return None
 
-    def is_oldstyle_instance(self, w_obj):
-        # xxx hack hack hack
-        from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-        return isinstance(w_obj, W_InstanceObject)
-
     def is_generator(self, w_obj):
         from pypy.interpreter.generator import GeneratorIterator
         return isinstance(w_obj, GeneratorIterator)
 
     def callable(self, w_obj):
-        if self.lookup(w_obj, "__call__") is not None:
-            if self.is_oldstyle_instance(w_obj):
-                # ugly old style class special treatment, but well ...
-                try:
-                    self.getattr(w_obj, self.newtext("__call__"))
-                    return self.w_True
-                except OperationError as e:
-                    if not e.match(self, self.w_AttributeError):
-                        raise
-                    return self.w_False
-            else:
-                return self.w_True
-        return self.w_False
+        return self.newbool(self.lookup(w_obj, "__call__") is not None)
 
     def issequence_w(self, w_obj):
-        if self.is_oldstyle_instance(w_obj):
-            return (self.findattr(w_obj, self.newtext('__getitem__')) is not None)
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
             return False
@@ -1267,20 +1237,17 @@ class ObjSpace(object):
             return (self.lookup(w_obj, '__getitem__') is not None)
 
     def ismapping_w(self, w_obj):
-        if self.is_oldstyle_instance(w_obj):
-            return (self.findattr(w_obj, self.newtext('__getitem__')) is not None)
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
             return True
         elif flag == 'S':
             return False
         else:
-            return (self.lookup(w_obj, '__getitem__') is not None and
-                    self.lookup(w_obj, '__getslice__') is None)
+            return self.lookup(w_obj, '__getitem__') is not None
 
     # The code below only works
     # for the simple case (new-style instance).
-    # These methods are patched with the full logic by the __builtin__
+    # These methods are patched with the full logic by the builtins
     # module when it is loaded
 
     def abstract_issubclass_w(self, w_cls1, w_cls2, allow_override=False):
@@ -1299,8 +1266,16 @@ class ObjSpace(object):
         # Equivalent to 'obj.__class__'.
         return self.type(w_obj)
 
-    # CPython rules allows old style classes or subclasses
-    # of BaseExceptions to be exceptions.
+    def isabstractmethod_w(self, w_obj):
+        try:
+            w_result = self.getattr(w_obj, self.newtext("__isabstractmethod__"))
+        except OperationError as e:
+            if e.match(self, self.w_AttributeError):
+                return False
+            raise
+        return self.is_true(w_result)
+
+    # CPython rules allows subclasses of BaseExceptions to be exceptions.
     # This is slightly less general than the case above, so we prefix
     # it with exception_
 
@@ -1457,7 +1432,7 @@ class ObjSpace(object):
             length = 1
         return start, stop, step, length
 
-    def getindex_w(self, w_obj, w_exception, objdescr=None, errmsg=None):
+    def getindex_w(self, w_obj, w_exception, objdescr=None):
         """Return w_obj.__index__() as an RPython int.
         If w_exception is None, silently clamp in case of overflow;
         else raise w_exception.
@@ -1467,10 +1442,9 @@ class ObjSpace(object):
         except OperationError as err:
             if objdescr is None or not err.match(self, self.w_TypeError):
                 raise
-            if errmsg is None:
-                errmsg = " must be an integer"
-            raise oefmt(self.w_TypeError, "%s%s, not %T",
-                        objdescr, errmsg, w_obj)
+            raise oefmt(self.w_TypeError,
+                        "%s indices must be integers or slices, not %T",
+                        objdescr, w_obj)
         try:
             # allow_conversion=False it's not really necessary because the
             # return type of __index__ is already checked by space.index(),
@@ -1491,6 +1465,18 @@ class ObjSpace(object):
                             w_obj)
         else:
             return index
+
+    def getslice(space, w_obj, w_start, w_stop):
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.getitem(w_obj, w_slice)
+
+    def setslice(space, w_obj, w_start, w_stop, w_sequence):
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.setitem(w_obj, w_slice, w_sequence)
+
+    def delslice(space, w_obj, w_start, w_stop):
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.delitem(w_obj, w_slice)
 
     def r_longlong_w(self, w_obj, allow_conversion=True):
         bigint = self.bigint_w(w_obj, allow_conversion)
@@ -1529,53 +1515,49 @@ class ObjSpace(object):
         if readonly and flags & self.BUF_WRITABLE == self.BUF_WRITABLE:
             raise oefmt(self.w_BufferError, "Object is not writable.")
 
+    def _try_buffer_w(self, w_obj, flags):
+        if not we_are_translated():
+            if w_obj.buffer_w.im_func != W_Root.buffer_w.im_func:
+                # when 'buffer_w()' is overridden in the subclass of
+                # W_Root, we need to specify __buffer="read" or
+                # __buffer="read-write" in the TypeDef.
+                assert type(w_obj).typedef.buffer is not None
+        return w_obj.buffer_w(self, flags)
+
     def buffer_w(self, w_obj, flags):
         # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
         try:
-            return w_obj.buffer_w(self, flags)
+            return self._try_buffer_w(w_obj, flags)
         except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
-                        "'%T' does not have the buffer interface", w_obj)
+                        "'%T' does not support the buffer interface", w_obj)
 
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_SIMPLE).as_readbuf()
-        except OperationError:
-            self._getarg_error("convertible to a buffer", w_obj)
+            return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
         except BufferInterfaceNotFound:
-            pass
-        try:
-            return w_obj.readbuf_w(self)
-        except BufferInterfaceNotFound:
-            self._getarg_error("convertible to a buffer", w_obj)
+            self._getarg_error("bytes-like object", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return w_obj.buffer_w(self, self.BUF_WRITABLE).as_writebuf()
-        except OperationError:
-            self._getarg_error("read-write buffer", w_obj)
-        except BufferInterfaceNotFound:
-            pass
-        try:
-            return w_obj.writebuf_w(self)
-        except BufferInterfaceNotFound:
-            self._getarg_error("read-write buffer", w_obj)
+            return self._try_buffer_w(w_obj, self.BUF_WRITABLE).as_writebuf()
+        except (BufferInterfaceNotFound, OperationError):
+            self._getarg_error("read-write bytes-like object", w_obj)
 
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
-        try:
-            return w_obj.charbuf_w(self)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "expected a character buffer object")
+        if self.isinstance_w(w_obj, self.w_bytes):  # XXX: is this shortcut useful?
+            return w_obj.bytes_w(self)
+        else:
+            return self.readbuf_w(w_obj).as_str()
 
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
-            e = oefmt(self.w_TypeError, "must be %s, not None", expected)
+            e = oefmt(self.w_TypeError, "a %s is required, not None", expected)
         else:
-            e = oefmt(self.w_TypeError, "must be %s, not %T", expected, w_obj)
+            e = oefmt(self.w_TypeError, "a %s is required, not %T", expected, w_obj)
         raise e
 
     @specialize.arg(1)
@@ -1585,65 +1567,42 @@ class ObjSpace(object):
                 return None
             code = 's*'
         if code == 's*':
+            # NOTE: 's*' is almost not used any more inside CPython 3.5.
+            # Try not to use it pointlessly: it accepts unicodes, which
+            # most API in CPython 3.x no longer do.
             if self.isinstance_w(w_obj, self.w_bytes):
-                return w_obj.readbuf_w(self)
+                return StringBuffer(w_obj.bytes_w(self))
             if self.isinstance_w(w_obj, self.w_unicode):
-                return self.str(w_obj).readbuf_w(self)
+                # NB. CPython forbids surrogates here
+                return StringBuffer(w_obj.text_w(self))
             try:
-                return self.readbuf_w(w_obj)
-            except OperationError as e:
-                if not e.match(self, self.w_TypeError):
-                    raise
-                self._getarg_error("string or buffer", w_obj)
-        elif code == 's#':
-            if self.isinstance_w(w_obj, self.w_bytes):
-                return w_obj.str_w(self)
-            if self.isinstance_w(w_obj, self.w_unicode):
-                return self.str(w_obj).str_w(self)
-            try:
-                return w_obj.readbuf_w(self).as_str()
+                return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
             except BufferInterfaceNotFound:
-                self._getarg_error("string or read-only buffer", w_obj)
+                self._getarg_error("bytes or buffer", w_obj)
+        elif code == 's#':
+            # NOTE: 's#' is almost not used any more inside CPython 3.5.
+            # Try not to use it pointlessly: it accepts unicodes, which
+            # most API in CPython 3.x no longer do.
+            if self.isinstance_w(w_obj, self.w_bytes):
+                return w_obj.bytes_w(self)
+            if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
+                return w_obj.text_w(self)                 # surrogates here
+            try:
+                return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_str()
+            except BufferInterfaceNotFound:
+                self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
             return self.writebuf_w(w_obj)
-        elif code == 't#':
-            try:
-                return w_obj.charbuf_w(self)
-            except BufferInterfaceNotFound:
-                self._getarg_error("string or read-only character buffer", w_obj)
+        elif code == 'y*':
+            return self.readbuf_w(w_obj)
+        elif code == 'y#':
+            return self.charbuf_w(w_obj)
         else:
             assert False
 
-    # XXX rename/replace with code more like CPython getargs for buffers
-    def bufferstr_w(self, w_obj):
-        # Directly returns an interp-level str.  Note that if w_obj is a
-        # unicode string, this is different from str_w(buffer(w_obj)):
-        # indeed, the latter returns a string with the raw bytes from
-        # the underlying unicode buffer, but bufferstr_w() just converts
-        # the unicode to an ascii string.  This inconsistency is kind of
-        # needed because CPython has the same issue.  (Well, it's
-        # unclear if there is any use at all for getting the bytes in
-        # the unicode buffer.)
-        try:
-            return self.bytes_w(w_obj)
-        except OperationError as e:
-            if not e.match(self, self.w_TypeError):
-                raise
-        try:
-            buf = w_obj.buffer_w(self, 0)
-        except BufferInterfaceNotFound:
-            pass
-        else:
-            return buf.as_str()
-        try:
-            buf = w_obj.readbuf_w(self)
-        except BufferInterfaceNotFound:
-            self._getarg_error("string or buffer", w_obj)
-        else:
-            return buf.as_str()
-
+        if self.isinstance_w(w_obj, self.w_unicode):
+            return w_obj.charbuf_w(self)
     def text_or_none_w(self, w_obj):
-        # return text_w(w_obj) or None
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
     @specialize.argtype(1)
@@ -1652,7 +1611,7 @@ class ObjSpace(object):
             (on PyPy2 this equals `str`) and returns a rpython byte string.
         """
         assert w_obj is not None
-        return w_obj.str_w(self)
+        return w_obj.bytes_w(self)
 
     @specialize.argtype(1)
     def text_w(self, w_obj):
@@ -1665,33 +1624,43 @@ class ObjSpace(object):
             an utf-8 encoded rpython string.
         """
         assert w_obj is not None
-        return w_obj.str_w(self)
+        if not self.isinstance_w(w_obj, self.w_unicode):
+            w_obj._typed_unwrap_error(self, "unicode")
+        return w_obj.text_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
     def str_w(self, w_obj):
-        """For tests only."""
-        return self.bytes_w(w_obj)
+        """
+        if w_obj is unicode, call utf8_w() (i.e., return the UTF-8-nosg
+        encoded string). Else, call bytes_w().
+
+        We should kill str_w completely and manually substitute it with
+        text_w/bytes_w at all call sites.  It remains for now for tests only.
+        """
+        XXX # deprecated, leaving in place for clear errors
+        if self.isinstance_w(w_obj, self.w_unicode):
+            # XXX lo text_w, but better to deprecate str_w than to fix this
+            return w_obj.text_w(self)
+        else:
+            return w_obj.bytes_w(self)
 
     def bytes0_w(self, w_obj):
         "Like bytes_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
-        result = w_obj.str_w(self)
+        result = self.bytes_w(w_obj)
         if '\x00' in result:
-            raise oefmt(self.w_TypeError,
+            raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
 
     def text0_w(self, w_obj):
         "Like text_w, but rejects strings with NUL bytes."
-        return self.bytes0_w(w_obj)
-
-    def fsencode_w(self, w_obj):
-        "Like text0_w, but unicodes are encoded with the filesystem encoding."
-        if self.isinstance_w(w_obj, self.w_unicode):
-            from pypy.module.sys.interp_encoding import getfilesystemencoding
-            w_obj = self.call_method(self.w_unicode, 'encode', w_obj,
-                                     getfilesystemencoding(self))
-        return self.bytes0_w(w_obj)
+        from rpython.rlib import rstring
+        result = self.text_w(w_obj)
+        if '\x00' in result:
+            raise oefmt(self.w_ValueError,
+                        "argument must be a string without NUL characters")
+        return rstring.assert_str0(result)
 
     def fsencode_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
@@ -1702,13 +1671,7 @@ class ObjSpace(object):
 
         Used for app-level code like "bytearray(b'abc')[0] = 42".
         """
-        if self.isinstance_w(w_obj, self.w_bytes):
-            string = self.bytes_w(w_obj)
-            if len(string) != 1:
-                raise oefmt(self.w_ValueError, "string must be of size 1")
-            return string[0]
-        value = self.getindex_w(w_obj, None, "",
-                                "an integer or string of size 1 is required")
+        value = self.getindex_w(w_obj, None)
         if not 0 <= value < 256:
             # this includes the OverflowError in case the long is too large
             raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
@@ -1734,6 +1697,7 @@ class ObjSpace(object):
     def int(self, w_obj):
         assert w_obj is not None
         return w_obj.int(self)
+    long = int
 
     @specialize.argtype(1)
     def uint_w(self, w_obj):
@@ -1758,38 +1722,97 @@ class ObjSpace(object):
         assert w_obj is not None
         return w_obj.float_w(self, allow_conversion)
 
-    def realtext_w(self, w_obj):
-        # Like bytes_w(), but only works if w_obj is really of type 'str'.
-        # On Python 3 this is the same as text_w().
-        if not self.isinstance_w(w_obj, self.w_bytes):
-            raise oefmt(self.w_TypeError, "argument must be a string")
-        return self.bytes_w(w_obj)
+    def utf8_w(self, w_obj):
+        return w_obj.utf8_w(self)
 
-    @specialize.argtype(1)
-    def unicode_w(self, w_obj):
-        assert w_obj is not None
-        return w_obj.unicode_w(self)
-
-    def unicode0_w(self, w_obj):
-        "Like unicode_w, but rejects strings with NUL bytes."
+    def utf8_0_w(self, w_obj):
+        "Like utf_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
-        result = w_obj.unicode_w(self)
-        if u'\x00' in result:
+        result = w_obj.utf8_w(self)
+        if '\x00' in result:
             raise oefmt(self.w_TypeError,
-                        "argument must be a unicode string without NUL "
+                        "argument must be a string without NUL "
                         "characters")
         return rstring.assert_str0(result)
 
+    def convert_to_w_unicode(self, w_obj):
+        return w_obj.convert_to_w_unicode(self)
+
     def realunicode_w(self, w_obj):
-        # Like unicode_w(), but only works if w_obj is really of type
-        # 'unicode'.  On Python 3 this is the same as unicode_w().
-        if not self.isinstance_w(w_obj, self.w_unicode):
+        from pypy.interpreter.unicodehelper import decode_utf8sp
+        utf8 = self.utf8_w(w_obj)
+        return decode_utf8sp(self, utf8)[0].decode('utf8')
+
+    def utf8_0_w(self, w_obj):
+        "Like utf8_w, but rejects strings with NUL bytes."
+        from rpython.rlib import rstring
+        result = w_obj.utf8_w(self)
+        if '\x00' in result:
+            raise oefmt(self.w_ValueError,
+                        "argument must be a utf8 string without NUL "
+                        "characters")
+        return rstring.assert_str0(result)
+
+    realtext_w = text_w         # Python 2 compatibility
+
+    def fsencode(space, w_obj):
+        from pypy.interpreter.unicodehelper import fsencode
+        return fsencode(space, w_obj)
+
+    def fsdecode(space, w_obj):
+        from pypy.interpreter.unicodehelper import fsdecode
+        return fsdecode(space, w_obj)
+
+    def fsencode_w(self, w_obj):
+        if self.isinstance_w(w_obj, self.w_unicode):
+            w_obj = self.fsencode(w_obj)
+        return self.bytesbuf0_w(w_obj)
+
+    def convert_arg_to_w_unicode(self, w_obj, strict=None):
+        # XXX why convert_to_w_unicode does something slightly different?
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        # for z_translation tests
+        if hasattr(self, 'is_fake_objspace'): return self.newtext("foobar")
+        return W_UnicodeObject.convert_arg_to_w_unicode(self, w_obj, strict)
+
+    def utf8_len_w(self, w_obj):
+        w_obj = self.convert_arg_to_w_unicode(w_obj)
+        return w_obj._utf8, w_obj._len()
+
+    def realutf8_w(self, w_obj):
+        # Like utf8_w(), but only works if w_obj is really of type
+        # 'unicode'.  On Python 3 this is the same as utf8_w().
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        # for z_translation tests
+        if hasattr(self, 'is_fake_objspace'): return self.newtext("foobar")
+        if not isinstance(w_obj, W_UnicodeObject):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
-        return self.unicode_w(w_obj)
+        return self.utf8_w(w_obj)
+
+    def bytesbuf0_w(self, w_obj):
+        # Like bytes0_w(), but also accept a read-only buffer.
+        from rpython.rlib import rstring
+        try:
+            result = self.bytes_w(w_obj)
+        except OperationError as e:
+            if not e.match(self, self.w_TypeError):
+                raise
+            result = self.buffer_w(w_obj, self.BUF_FULL_RO).as_str()
+        if '\x00' in result:
+            raise oefmt(self.w_ValueError,
+                        "argument must be a string without NUL characters")
+        return rstring.assert_str0(result)
+
+    def fsdecode_w(self, w_obj):
+        if self.isinstance_w(w_obj, self.w_bytes):
+            w_obj = self.fsdecode(w_obj)
+        return self.utf8_w(w_obj)
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
-        # This is here mostly just for gateway.int_unwrapping_space_method().
+        # For cases where you need to accept bools and ints and nothing
+        # else.  Note that saying 'bool' in unwrap_spec() doesn't call
+        # this, but the general is_true(),  accepting any object.
         return bool(self.int_w(w_obj))
 
     @specialize.argtype(1)
@@ -1909,8 +1932,7 @@ class ObjSpace(object):
         # not os.close().  It's likely designed for 'select'.  It's irregular
         # in the sense that it expects either a real int/long or an object
         # with a fileno(), but not an object with an __int__().
-        if (not self.isinstance_w(w_fd, self.w_int) and
-            not self.isinstance_w(w_fd, self.w_long)):
+        if not self.isinstance_w(w_fd, self.w_int):
             try:
                 w_fileno = self.getattr(w_fd, self.newtext("fileno"))
             except OperationError as e:
@@ -1920,62 +1942,22 @@ class ObjSpace(object):
                                 "method.")
                 raise
             w_fd = self.call_function(w_fileno)
-            if (not self.isinstance_w(w_fd, self.w_int) and
-                not self.isinstance_w(w_fd, self.w_long)):
+            if not self.isinstance_w(w_fd, self.w_int):
                 raise oefmt(self.w_TypeError,
                             "fileno() returned a non-integer")
-        try:
-            fd = self.c_int_w(w_fd)
-        except OperationError as e:
-            if e.match(self, self.w_OverflowError):
-                fd = -1
-            else:
-                raise
+        fd = self.c_int_w(w_fd)  # Can raise w_OverflowError
         if fd < 0:
             raise oefmt(self.w_ValueError,
                 "file descriptor cannot be a negative integer (%d)", fd)
         return fd
 
     def warn(self, w_msg, w_warningcls, stacklevel=2):
-        self.appexec([w_msg, w_warningcls, self.newint(stacklevel)],
-                     """(msg, warningcls, stacklevel):
-            import _warnings
-            _warnings.warn(msg, warningcls, stacklevel=stacklevel)
-        """)
+        from pypy.module._warnings.interp_warnings import do_warn
 
-    def resource_warning(self, w_msg, w_tb):
-        self.appexec([w_msg, w_tb],
-                     """(msg, tb):
-            import sys
-            print >> sys.stderr, msg
-            if tb:
-                print >> sys.stderr, "Created at (most recent call last):"
-                print >> sys.stderr, tb
-        """)
-
-    def format_traceback(self):
-        # we need to disable track_resources before calling the traceback
-        # module. Else, it tries to open more files to format the traceback,
-        # the file constructor will call space.format_traceback etc., in an
-        # inifite recursion
-        flag = self.sys.track_resources
-        self.sys.track_resources = False
-        try:
-            return self.appexec([],
-                         """():
-                import sys, traceback
-                # the "1" is because we don't want to show THIS code
-                # object in the traceback
-                try:
-                    f = sys._getframe(1)
-                except ValueError:
-                    # this happens if you call format_traceback at the very beginning
-                    # of startup, when there is no bottom code object
-                    return '<no stacktrace available>'
-                return "".join(traceback.format_stack(f))
-            """)
-        finally:
-            self.sys.track_resources = flag
+        # 'w_warningcls' must a Warning subclass
+        if not we_are_translated():
+            assert self.issubtype_w(w_warningcls, self.w_Warning)
+        do_warn(self, w_msg, w_warningcls, stacklevel - 1)
 
 
 class AppExecCache(SpaceCache):
@@ -2006,16 +1988,11 @@ ObjSpace.MethodTable = [
     ('getitem',         'getitem',   2, ['__getitem__']),
     ('setitem',         'setitem',   3, ['__setitem__']),
     ('delitem',         'delitem',   2, ['__delitem__']),
-    ('getslice',        'getslice',  3, ['__getslice__']),
-    ('setslice',        'setslice',  4, ['__setslice__']),
-    ('delslice',        'delslice',  3, ['__delslice__']),
     ('trunc',           'trunc',     1, ['__trunc__']),
     ('pos',             'pos',       1, ['__pos__']),
     ('neg',             'neg',       1, ['__neg__']),
-    ('nonzero',         'truth',     1, ['__nonzero__']),
+    ('nonzero',         'truth',     1, ['__bool__']),
     ('abs',             'abs',       1, ['__abs__']),
-    ('hex',             'hex',       1, ['__hex__']),
-    ('oct',             'oct',       1, ['__oct__']),
     ('ord',             'ord',       1, []),
     ('invert',          '~',         1, ['__invert__']),
     ('add',             '+',         2, ['__add__', '__radd__']),
@@ -2032,10 +2009,10 @@ ObjSpace.MethodTable = [
     ('and_',            '&',         2, ['__and__', '__rand__']),
     ('or_',             '|',         2, ['__or__', '__ror__']),
     ('xor',             '^',         2, ['__xor__', '__rxor__']),
+    ('matmul',          '@',         2, ['__matmul__', '__rmatmul__']),
     ('int',             'int',       1, ['__int__']),
     ('index',           'index',     1, ['__index__']),
     ('float',           'float',     1, ['__float__']),
-    ('long',            'long',      1, ['__long__']),
     ('inplace_add',     '+=',        2, ['__iadd__']),
     ('inplace_sub',     '-=',        2, ['__isub__']),
     ('inplace_mul',     '*=',        2, ['__imul__']),
@@ -2049,17 +2026,16 @@ ObjSpace.MethodTable = [
     ('inplace_and',     '&=',        2, ['__iand__']),
     ('inplace_or',      '|=',        2, ['__ior__']),
     ('inplace_xor',     '^=',        2, ['__ixor__']),
+    ('inplace_matmul',  '@=',        2, ['__imatmul__']),
     ('lt',              '<',         2, ['__lt__', '__gt__']),
     ('le',              '<=',        2, ['__le__', '__ge__']),
     ('eq',              '==',        2, ['__eq__', '__eq__']),
     ('ne',              '!=',        2, ['__ne__', '__ne__']),
     ('gt',              '>',         2, ['__gt__', '__lt__']),
     ('ge',              '>=',        2, ['__ge__', '__le__']),
-    ('cmp',             'cmp',       2, ['__cmp__']),   # rich cmps preferred
-    ('coerce',          'coerce',    2, ['__coerce__', '__coerce__']),
     ('contains',        'contains',  2, ['__contains__']),
     ('iter',            'iter',      1, ['__iter__']),
-    ('next',            'next',      1, ['next']),
+    ('next',            'next',      1, ['__next__']),
 #    ('call',            'call',      3, ['__call__']),
     ('get',             'get',       3, ['__get__']),
     ('set',             'set',       3, ['__set__']),
@@ -2067,7 +2043,7 @@ ObjSpace.MethodTable = [
 ]
 
 ObjSpace.BuiltinModuleTable = [
-    '__builtin__',
+    'builtins',
     'sys',
 ]
 
@@ -2085,11 +2061,15 @@ ObjSpace.ExceptionTable = [
     'AttributeError',
     'BaseException',
     'BufferError',
+    'BytesWarning',
+    'BlockingIOError',
     'DeprecationWarning',
     'EOFError',
     'EnvironmentError',
     'Exception',
     'FloatingPointError',
+    'FutureWarning',
+    'GeneratorExit',
     'IOError',
     'ImportError',
     'ImportWarning',
@@ -2104,20 +2084,24 @@ ObjSpace.ExceptionTable = [
     'OSError',
     'OverflowError',
     'ReferenceError',
+    'ResourceWarning',
+    'RecursionError',
     'RuntimeError',
-    'StandardError',
     'StopIteration',
     'SyntaxError',
+    'SyntaxWarning',
     'SystemError',
     'SystemExit',
     'TabError',
     'TypeError',
     'UnboundLocalError',
     'UnicodeDecodeError',
-    'UnicodeError',
     'UnicodeEncodeError',
+    'UnicodeError',
     'UnicodeTranslateError',
+    'UnicodeWarning',
     'ValueError',
+    'Warning',
     'ZeroDivisionError',
     'RuntimeWarning',
     'PendingDeprecationWarning',
@@ -2145,12 +2129,12 @@ if sys.platform.startswith("win"):
 
 ObjSpace.IrregularOpTable = [
     'wrap',
-    'str_w',
+    'bytes_w',
     'int_w',
     'float_w',
     'uint_w',
     'bigint_w',
-    'unicode_w',
+    'utf8_w',
     'unwrap',
     'is_true',
     'is_w',

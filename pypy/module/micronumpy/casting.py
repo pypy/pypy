@@ -322,8 +322,6 @@ def scalar2dtype(space, w_obj):
     if space.isinstance_w(w_obj, space.w_bool):
         return bool_dtype
     elif space.isinstance_w(w_obj, space.w_int):
-        return long_dtype
-    elif space.isinstance_w(w_obj, space.w_long):
         try:
             space.int_w(w_obj)
         except OperationError as e:

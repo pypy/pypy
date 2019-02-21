@@ -1,139 +1,216 @@
+# -*- encoding: utf-8 -*-
 import py
 import sys
+try:
+    from hypothesis import given, strategies, settings, example
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+    
+from rpython.rlib import rutf8
 from pypy.interpreter.error import OperationError
 
 
 class TestUnicodeObject:
-    def test_comparison_warning(self):
-        warnings = []
-        def my_warn(msg, warningscls):
-            warnings.append(msg)
-            prev_warn(msg, warningscls)
-        space = self.space
-        prev_warn = space.warn
-        try:
-            space.warn = my_warn
-            space.appexec([], """():
-                chr(128) == unichr(128)
-                chr(128) != unichr(128)
-                chr(127) == unichr(127) # no warnings
-            """)
-        finally:
-            space.warn = prev_warn
-        assert len(warnings) == 2
+    spaceconfig = dict(usemodules=('unicodedata',))
+
+    def test_unicode_to_decimal_w(self, space):
+        from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+        w_s = space.wrap(u"\N{EM SPACE}-3\N{EN SPACE}")
+        s2 = unicode_to_decimal_w(space, w_s)
+        assert s2 == " -3 "
+
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
+    def test_unicode_to_decimal_w_wide(self, space):
+        from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+        w_s = space.wrap(u'\U0001D7CF\U0001D7CE') # 𝟏𝟎
+        s2 = unicode_to_decimal_w(space, w_s)
+        assert s2 == "10"
 
     def test_listview_unicode(self):
-        w_str = self.space.wrap(u'abcd')
-        assert self.space.listview_unicode(w_str) == list(u"abcd")
+        w_str = self.space.newutf8('abcd', 4)
+        assert self.space.listview_utf8(w_str) == list("abcd")
 
     def test_new_shortcut(self):
         space = self.space
-        w_uni = self.space.wrap(u'abcd')
+        w_uni = self.space.newutf8('abcd', 4)
         w_new = space.call_method(
                 space.w_unicode, "__new__", space.w_unicode, w_uni)
         assert w_new is w_uni
 
+    def test_fast_iter(self):
+        space = self.space
+        w_uni = space.newutf8(u"aä".encode("utf-8"), 2)
+        old_index_storage = w_uni._index_storage
+        w_iter = space.iter(w_uni)
+        w_char1 = w_iter.descr_next(space)
+        w_char2 = w_iter.descr_next(space)
+        py.test.raises(OperationError, w_iter.descr_next, space)
+        assert w_uni._index_storage is old_index_storage
+        assert space.eq_w(w_char1, w_uni._getitem_result(space, 0))
+        assert space.eq_w(w_char2, w_uni._getitem_result(space, 1))
 
-try:
-    from hypothesis import given, strategies
-except ImportError:
-    pass
-else:
-    @given(u=strategies.text(),
-           start=strategies.integers(min_value=0, max_value=10),
-           len1=strategies.integers(min_value=-1, max_value=10))
-    def test_hypo_index_find(u, start, len1, space):
-        if start + len1 < 0:
-            return   # skip this case
-        v = u[start : start + len1]
-        w_u = space.wrap(u)
-        w_v = space.wrap(v)
-        expected = u.find(v, start, start + len1)
-        try:
-            w_index = space.call_method(w_u, 'index', w_v,
+
+    if HAS_HYPOTHESIS:
+        @given(strategies.text(), strategies.integers(min_value=0, max_value=10),
+                                  strategies.integers(min_value=-1, max_value=10))
+        def test_hypo_index_find(self, u, start, len1):
+            if start + len1 < 0:
+                return   # skip this case
+            v = u[start : start + len1]
+            space = self.space
+            w_u = space.newutf8(u.encode('utf8'), len(u))
+            w_v = space.newutf8(v.encode('utf8'), len(v))
+            expected = u.find(v, start, start + len1)
+            try:
+                w_index = space.call_method(w_u, 'index', w_v,
+                                            space.newint(start),
+                                            space.newint(start + len1))
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                assert expected == -1
+            else:
+                assert space.int_w(w_index) == expected >= 0
+
+            w_index = space.call_method(w_u, 'find', w_v,
                                         space.newint(start),
                                         space.newint(start + len1))
-        except OperationError as e:
-            if not e.match(space, space.w_ValueError):
-                raise
-            assert expected == -1
-        else:
-            assert space.int_w(w_index) == expected >= 0
+            assert space.int_w(w_index) == expected
+            rexpected = u.rfind(v, start, start + len1)
+            try:
+                w_index = space.call_method(w_u, 'rindex', w_v,
+                                            space.newint(start),
+                                            space.newint(start + len1))
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                assert rexpected == -1
+            else:
+                assert space.int_w(w_index) == rexpected >= 0
 
-        w_index = space.call_method(w_u, 'find', w_v,
-                                    space.newint(start),
-                                    space.newint(start + len1))
-        assert space.int_w(w_index) == expected
-
-        rexpected = u.rfind(v, start, start + len1)
-        try:
-            w_index = space.call_method(w_u, 'rindex', w_v,
+            w_index = space.call_method(w_u, 'rfind', w_v,
                                         space.newint(start),
                                         space.newint(start + len1))
-        except OperationError as e:
-            if not e.match(space, space.w_ValueError):
-                raise
-            assert rexpected == -1
-        else:
-            assert space.int_w(w_index) == rexpected >= 0
+            assert space.int_w(w_index) == rexpected
 
-        w_index = space.call_method(w_u, 'rfind', w_v,
-                                    space.newint(start),
-                                    space.newint(start + len1))
-        assert space.int_w(w_index) == rexpected
+            expected = u.startswith(v, start)
+            w_res = space.call_method(w_u, 'startswith', w_v,
+                                      space.newint(start))
+            assert w_res is space.newbool(expected)
 
-        expected = u.startswith(v, start)
-        w_res = space.call_method(w_u, 'startswith', w_v,
-                                  space.newint(start))
-        assert w_res is space.newbool(expected)
+            expected = u.startswith(v, start, start + len1)
+            w_res = space.call_method(w_u, 'startswith', w_v,
+                                      space.newint(start),
+                                      space.newint(start + len1))
+            assert w_res is space.newbool(expected)
 
-        expected = u.startswith(v, start, start + len1)
-        w_res = space.call_method(w_u, 'startswith', w_v,
-                                  space.newint(start),
-                                  space.newint(start + len1))
-        assert w_res is space.newbool(expected)
+            expected = u.endswith(v, start)
+            w_res = space.call_method(w_u, 'endswith', w_v,
+                                      space.newint(start))
+            assert w_res is space.newbool(expected)
 
-        expected = u.endswith(v, start)
-        w_res = space.call_method(w_u, 'endswith', w_v,
-                                  space.newint(start))
-        assert w_res is space.newbool(expected)
+            expected = u.endswith(v, start, start + len1)
+            w_res = space.call_method(w_u, 'endswith', w_v,
+                                      space.newint(start),
+                                      space.newint(start + len1))
+            assert w_res is space.newbool(expected)
 
-        expected = u.endswith(v, start, start + len1)
-        w_res = space.call_method(w_u, 'endswith', w_v,
-                                  space.newint(start),
-                                  space.newint(start + len1))
-        assert w_res is space.newbool(expected)
+
+        @given(u=strategies.text(),
+               start=strategies.integers(min_value=0, max_value=10),
+               len1=strategies.integers(min_value=-1, max_value=10))
+        def test_hypo_index_find(self, u, start, len1):
+            space = self.space
+            if start + len1 < 0:
+                return   # skip this case
+            v = u[start : start + len1]
+            w_u = space.wrap(u)
+            w_v = space.wrap(v)
+            expected = u.find(v, start, start + len1)
+            try:
+                w_index = space.call_method(w_u, 'index', w_v,
+                                            space.newint(start),
+                                            space.newint(start + len1))
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                assert expected == -1
+            else:
+                assert space.int_w(w_index) == expected >= 0
+
+            w_index = space.call_method(w_u, 'find', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+            assert space.int_w(w_index) == expected
+
+            rexpected = u.rfind(v, start, start + len1)
+            try:
+                w_index = space.call_method(w_u, 'rindex', w_v,
+                                            space.newint(start),
+                                            space.newint(start + len1))
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                assert rexpected == -1
+            else:
+                assert space.int_w(w_index) == rexpected >= 0
+
+            w_index = space.call_method(w_u, 'rfind', w_v,
+                                        space.newint(start),
+                                        space.newint(start + len1))
+            assert space.int_w(w_index) == rexpected
+
+            expected = u.startswith(v, start)
+            if expected and start > len(u):
+                expected = False # python2 vs. python3
+            w_res = space.call_method(w_u, 'startswith', w_v,
+                                      space.newint(start))
+            assert w_res is space.newbool(expected)
+
+            expected = u.startswith(v, start, start + len1)
+            if ((expected and start > len(u)) or 
+                    (start > 0 and start + len1 ==0)): 
+                expected = False # python2 vs. python3
+            w_res = space.call_method(w_u, 'startswith', w_v,
+                                      space.newint(start),
+                                      space.newint(start + len1))
+            assert w_res is space.newbool(expected)
+
+            expected = u.endswith(v, start)
+            if expected and start > len(u):
+                expected = False # python2 vs. python3
+            w_res = space.call_method(w_u, 'endswith', w_v,
+                                      space.newint(start))
+            assert w_res is space.newbool(expected)
+
+            expected = u.endswith(v, start, start + len1)
+            if ((expected and start > len(u)) or 
+                    (start > 0 and start + len1 ==0)): 
+                expected = False # python2 vs. python3
+            w_res = space.call_method(w_u, 'endswith', w_v,
+                                      space.newint(start),
+                                      space.newint(start + len1))
+            assert w_res is space.newbool(expected)
 
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
-        assert u'a' == 'a'
-        assert 'a' == u'a'
-        assert not u'a' == 'b'
-        assert not 'a'  == u'b'
-        assert u'a' != 'b'
-        assert 'a'  != u'b'
-        assert not (u'a' == 5)
-        assert u'a' != 5
-        assert u'a' < 5 or u'a' > 5
-
-        s = chr(128)
-        u = unichr(128)
-        assert not s == u # UnicodeWarning
-        assert s != u
-        assert not u == s
-        assert u != s
+        assert type('a') != type(b'a')
+        assert 'a' != b'a'
+        assert b'a' != 'a'
+        assert not ('a' == 5)
+        assert 'a' != 5
+        raises(TypeError, "'a' < 5")
 
 
 class AppTestUnicodeString:
     spaceconfig = dict(usemodules=('unicodedata',))
 
     def test_addition(self):
-        def check(a, b):
-            assert a == b
-            assert type(a) == type(b)
-        check(u'a' + 'b', u'ab')
-        check('a' + u'b', u'ab')
+        import operator
+        assert 'a' + 'b' == 'ab'
+        raises(TypeError, operator.add, b'a', 'b')
 
     def test_getitem(self):
         assert u'abc'[2] == 'c'
@@ -144,86 +221,75 @@ class AppTestUnicodeString:
         def check(a, b):
             assert a == b
             assert type(a) == type(b)
-        check(', '.join([u'a']), u'a')
-        check(', '.join(['a', u'b']), u'a, b')
-        check(u', '.join(['a', 'b']), u'a, b')
-        try:
-            u''.join([u'a', 2, 3])
-        except TypeError as e:
-            assert 'sequence item 1' in str(e)
-        else:
-            raise Exception("DID NOT RAISE")
-
-    if sys.version_info >= (2,3):
-        def test_contains_ex(self):
-            assert u'' in 'abc'
-            assert u'bc' in 'abc'
-            assert 'bc' in 'abc'
-        pass   # workaround for inspect.py bug in some Python 2.4s
+        check(', '.join(['a']), 'a')
+        raises(TypeError, ','.join, [b'a'])
+        exc = raises(TypeError, ''.join, ['a', 2, 3])
+        assert 'sequence item 1' in str(exc.value)
 
     def test_contains(self):
-        assert u'a' in 'abc'
-        assert 'a' in u'abc'
-        raises(UnicodeDecodeError, "u'\xe2' in 'g\xe2teau'")
+        assert '' in 'abc'
+        assert 'a' in 'abc'
+        assert 'bc' in 'abc'
+        assert '\xe2' in 'g\xe2teau'
 
     def test_splitlines(self):
-        assert u''.splitlines() == []
-        assert u''.splitlines(1) == []
-        assert u'\n'.splitlines() == [u'']
-        assert u'a'.splitlines() == [u'a']
-        assert u'one\ntwo'.splitlines() == [u'one', u'two']
-        assert u'\ntwo\nthree'.splitlines() == [u'', u'two', u'three']
-        assert u'\n\n'.splitlines() == [u'', u'']
-        assert u'a\nb\nc'.splitlines(1) == [u'a\n', u'b\n', u'c']
-        assert u'\na\nb\n'.splitlines(1) == [u'\n', u'a\n', u'b\n']
-        assert ((u'a' + '\xc2\x85'.decode('utf8') + u'b\n').splitlines() ==
+        assert ''.splitlines() == []
+        assert ''.splitlines(1) == []
+        assert '\n'.splitlines() == ['']
+        assert 'a'.splitlines() == ['a']
+        assert 'one\ntwo'.splitlines() == ['one', 'two']
+        assert '\ntwo\nthree'.splitlines() == ['', 'two', 'three']
+        assert '\n\n'.splitlines() == ['', '']
+        assert 'a\nb\nc'.splitlines(1) == ['a\n', 'b\n', 'c']
+        assert '\na\nb\n'.splitlines(1) == ['\n', 'a\n', 'b\n']
+        assert ((u'a' + b'\xc2\x85'.decode('utf8') + u'b\n').splitlines() ==
                 ['a', 'b'])
 
     def test_zfill(self):
-        assert u'123'.zfill(2) == u'123'
-        assert u'123'.zfill(3) == u'123'
-        assert u'123'.zfill(4) == u'0123'
-        assert u'123'.zfill(6) == u'000123'
-        assert u'+123'.zfill(2) == u'+123'
-        assert u'+123'.zfill(3) == u'+123'
-        assert u'+123'.zfill(4) == u'+123'
-        assert u'+123'.zfill(5) == u'+0123'
-        assert u'+123'.zfill(6) == u'+00123'
-        assert u'-123'.zfill(3) == u'-123'
-        assert u'-123'.zfill(4) == u'-123'
-        assert u'-123'.zfill(5) == u'-0123'
-        assert u''.zfill(3) == u'000'
-        assert u'34'.zfill(1) == u'34'
-        assert u'34'.zfill(4) == u'0034'
+        assert '123'.zfill(2) == '123'
+        assert '123'.zfill(3) == '123'
+        assert '123'.zfill(4) == '0123'
+        assert '123'.zfill(6) == '000123'
+        assert '+123'.zfill(2) == '+123'
+        assert '+123'.zfill(3) == '+123'
+        assert '+123'.zfill(4) == '+123'
+        assert '+123'.zfill(5) == '+0123'
+        assert '+123'.zfill(6) == '+00123'
+        assert '-123'.zfill(3) == '-123'
+        assert '-123'.zfill(4) == '-123'
+        assert '-123'.zfill(5) == '-0123'
+        assert ''.zfill(3) == '000'
+        assert '34'.zfill(1) == '34'
+        assert '34'.zfill(4) == '0034'
 
     def test_split(self):
-        assert u"".split() == []
-        assert u"".split(u'x') == ['']
-        assert u" ".split() == []
-        assert u"a".split() == [u'a']
-        assert u"a".split(u"a", 1) == [u'', u'']
-        assert u" ".split(u" ", 1) == [u'', u'']
-        assert u"aa".split(u"a", 2) == [u'', u'', u'']
-        assert u" a ".split() == [u'a']
-        assert u"a b c".split() == [u'a',u'b',u'c']
-        assert u'this is the split function'.split() == [u'this', u'is', u'the', u'split', u'function']
-        assert u'a|b|c|d'.split(u'|') == [u'a', u'b', u'c', u'd']
-        assert 'a|b|c|d'.split(u'|') == [u'a', u'b', u'c', u'd']
-        assert u'a|b|c|d'.split('|') == [u'a', u'b', u'c', u'd']
-        assert u'a|b|c|d'.split(u'|', 2) == [u'a', u'b', u'c|d']
-        assert u'a b c d'.split(None, 1) == [u'a', u'b c d']
-        assert u'a b c d'.split(None, 2) == [u'a', u'b', u'c d']
-        assert u'a b c d'.split(None, 3) == [u'a', u'b', u'c', u'd']
-        assert u'a b c d'.split(None, 4) == [u'a', u'b', u'c', u'd']
-        assert u'a b c d'.split(None, 0) == [u'a b c d']
-        assert u'a  b  c  d'.split(None, 2) == [u'a', u'b', u'c  d']
-        assert u'a b c d '.split() == [u'a', u'b', u'c', u'd']
-        assert u'a//b//c//d'.split(u'//') == [u'a', u'b', u'c', u'd']
-        assert u'endcase test'.split(u'test') == [u'endcase ', u'']
-        raises(ValueError, u'abc'.split, '')
-        raises(ValueError, u'abc'.split, u'')
-        raises(ValueError, 'abc'.split, u'')
-        assert u'   a b c d'.split(None, 0) == [u'a b c d']
+        assert "".split() == []
+        assert "".split('x') == ['']
+        assert " ".split() == []
+        assert "a".split() == ['a']
+        assert "a".split("a", 1) == ['', '']
+        assert " ".split(" ", 1) == ['', '']
+        assert "aa".split("a", 2) == ['', '', '']
+        assert " a ".split() == ['a']
+        assert "a b c".split() == ['a','b','c']
+        assert 'this is the split function'.split() == ['this', 'is', 'the', 'split', 'function']
+        assert 'a|b|c|d'.split('|') == ['a', 'b', 'c', 'd']
+        assert 'a|b|c|d'.split('|') == ['a', 'b', 'c', 'd']
+        assert 'a|b|c|d'.split('|') == ['a', 'b', 'c', 'd']
+        assert 'a|b|c|d'.split('|', 2) == ['a', 'b', 'c|d']
+        assert 'a b c d'.split(None, 1) == ['a', 'b c d']
+        assert 'a b c d'.split(None, 2) == ['a', 'b', 'c d']
+        assert 'a b c d'.split(None, 3) == ['a', 'b', 'c', 'd']
+        assert 'a b c d'.split(None, 4) == ['a', 'b', 'c', 'd']
+        assert 'a b c d'.split(None, 0) == ['a b c d']
+        assert 'a  b  c  d'.split(None, 2) == ['a', 'b', 'c  d']
+        assert 'a b c d '.split() == ['a', 'b', 'c', 'd']
+        assert 'a//b//c//d'.split('//') == ['a', 'b', 'c', 'd']
+        assert 'endcase test'.split('test') == ['endcase ', '']
+        raises(ValueError, 'abc'.split, '')
+        raises(ValueError, 'abc'.split, '')
+        raises(ValueError, 'abc'.split, '')
+        assert '   a b c d'.split(None, 0) == ['a b c d']
         assert u'a\nb\u1680c'.split() == [u'a', u'b', u'c']
 
     def test_rsplit(self):
@@ -256,24 +322,6 @@ class AppTestUnicodeString:
         assert u''.rsplit('aaa') == [u'']
         assert u'a\nb\u1680c'.rsplit() == [u'a', u'b', u'c']
 
-    def test_split_rsplit_str_unicode(self):
-        x = 'abc'.split(u'b')
-        assert x == [u'a', u'c']
-        assert map(type, x) == [unicode, unicode]
-        x = 'abc'.rsplit(u'b')
-        assert x == [u'a', u'c']
-        assert map(type, x) == [unicode, unicode]
-        x = 'abc'.split(u'\u4321')
-        assert x == [u'abc']
-        assert map(type, x) == [unicode]
-        x = 'abc'.rsplit(u'\u4321')
-        assert x == [u'abc']
-        assert map(type, x) == [unicode]
-        raises(UnicodeDecodeError, '\x80'.split, u'a')
-        raises(UnicodeDecodeError, '\x80'.split, u'')
-        raises(UnicodeDecodeError, '\x80'.rsplit, u'a')
-        raises(UnicodeDecodeError, '\x80'.rsplit, u'')
-
     def test_center(self):
         s=u"a b"
         assert s.center(0) == u"a b"
@@ -293,15 +341,20 @@ class AppTestUnicodeString:
         assert u'abc'.center(5, u'*') == u'*abc*'    # Python 2.4
         assert u'abc'.center(5, '*') == u'*abc*'     # Python 2.4
         raises(TypeError, u'abc'.center, 4, u'cba')
+        assert 'x'.center(2, u'\U0010FFFF') == u'x\U0010FFFF'
 
     def test_title(self):
-        assert u"brown fox".title() == u"Brown Fox"
-        assert u"!brown fox".title() == u"!Brown Fox"
-        assert u"bROWN fOX".title() == u"Brown Fox"
-        assert u"Brown Fox".title() == u"Brown Fox"
-        assert u"bro!wn fox".title() == u"Bro!Wn Fox"
+        assert "brown fox".title() == "Brown Fox"
+        assert "!brown fox".title() == "!Brown Fox"
+        assert "bROWN fOX".title() == "Brown Fox"
+        assert "Brown Fox".title() == "Brown Fox"
+        assert "bro!wn fox".title() == "Bro!Wn Fox"
+        assert u'A\u03a3 \u1fa1xy'.title() == u'A\u03c2 \u1fa9xy'
+        assert u'A\u03a3A'.title() == u'A\u03c3a'
         assert u"brow\u4321n fox".title() == u"Brow\u4321N Fox"
         assert u'\ud800'.title() == u'\ud800'
+        assert (chr(0x345) + u'abc').title() == u'\u0399abc'
+        assert (chr(0x345) + u'ABC').title() == u'\u0399abc'
 
     def test_istitle(self):
         assert u"".istitle() == False
@@ -323,8 +376,18 @@ class AppTestUnicodeString:
     def test_islower_isupper_with_titlecase(self):
         # \u01c5 is a char which is neither lowercase nor uppercase, but
         # titlecase
-        assert not u'\u01c5abc'.islower()
-        assert not u'\u01c5ABC'.isupper()
+        assert not '\u01c5abc'.islower()
+        assert not '\u01c5ABC'.isupper()
+
+    def test_islower(self):
+        assert u'\u2177'.islower()
+
+    def test_isidentifier(self):
+        assert "".isidentifier() is False
+        assert "a4".isidentifier() is True
+        assert "_var".isidentifier() is True
+        assert "_!var".isidentifier() is False
+        assert "3abc".isidentifier() is False
 
     def test_lower_upper(self):
         assert u'a'.lower() == u'a'
@@ -339,6 +402,7 @@ class AppTestUnicodeString:
         assert u'\ud800'.upper() == u'\ud800'
 
     def test_capitalize(self):
+        assert u'A\u0345\u03a3'.capitalize() == u'A\u0345\u03c2'
         assert u"brown fox".capitalize() == u"Brown fox"
         assert u' hello '.capitalize() == u' hello '
         assert u'Hello '.capitalize() == u'Hello '
@@ -348,7 +412,7 @@ class AppTestUnicodeString:
         # check that titlecased chars are lowered correctly
         # \u1ffc is the titlecased char
         assert (u'\u1ff3\u1ff3\u1ffc\u1ffc'.capitalize() ==
-                u'\u1ffc\u1ff3\u1ff3\u1ff3')
+                u'\u03a9\u0399\u1ff3\u1ff3\u1ff3')
         # check with cased non-letter chars
         assert (u'\u24c5\u24ce\u24c9\u24bd\u24c4\u24c3'.capitalize() ==
                 u'\u24c5\u24e8\u24e3\u24d7\u24de\u24dd')
@@ -357,8 +421,30 @@ class AppTestUnicodeString:
         assert u'\u2160\u2161\u2162'.capitalize() == u'\u2160\u2171\u2172'
         assert u'\u2170\u2171\u2172'.capitalize() == u'\u2160\u2171\u2172'
         # check with Ll chars with no upper - nothing changes here
-        assert (u'\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
-                u'\u019b\u1d00\u1d86\u0221\u1fb7')
+        assert ('\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
+                '\u019b\u1d00\u1d86\u0221\u1fb7')
+        # cpython issue 17252 for i_dot
+        assert u'h\u0130'.capitalize() == u'H\u0069\u0307'
+
+    def test_changed_in_unicodedata_version_8(self):
+        assert u'\u025C'.upper() == u'\uA7AB'
+
+    def test_isprintable(self):
+        assert "".isprintable()
+        assert " ".isprintable()
+        assert "abcdefg".isprintable()
+        assert not "abcdefg\n".isprintable()
+        # some defined Unicode character
+        assert "\u0374".isprintable()
+        # undefined character
+        assert not "\u0378".isprintable()
+        # single surrogate character
+        assert not "\ud800".isprintable()
+
+    @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
+    def test_isprintable_wide(self):
+        assert '\U0001F46F'.isprintable()  # Since unicode 6.0
+        assert not '\U000E0020'.isprintable()
         assert u'\ud800'.capitalize() == u'\ud800'
         assert u'xx\ud800'.capitalize() == u'Xx\ud800'
 
@@ -391,16 +477,15 @@ class AppTestUnicodeString:
         raises(TypeError, u'abc'.ljust, 6, u'')
 
     def test_replace(self):
-        assert u'one!two!three!'.replace(u'!', '@', 1) == u'one@two!three!'
-        assert u'one!two!three!'.replace('!', u'') == u'onetwothree'
-        assert u'one!two!three!'.replace(u'!', u'@', 2) == u'one@two@three!'
-        assert u'one!two!three!'.replace('!', '@', 3) == u'one@two@three@'
-        assert u'one!two!three!'.replace(u'!', '@', 4) == u'one@two@three@'
-        assert u'one!two!three!'.replace('!', u'@', 0) == u'one!two!three!'
-        assert u'one!two!three!'.replace(u'!', u'@') == u'one@two@three@'
-        assert u'one!two!three!'.replace('x', '@') == u'one!two!three!'
-        assert u'one!two!three!'.replace(u'x', '@', 2) == u'one!two!three!'
-        assert u'abc'.replace('', u'-') == u'-a-b-c-'
+        assert 'one!two!three!'.replace('!', '@', 1) == 'one@two!three!'
+        assert 'one!two!three!'.replace('!', '') == 'onetwothree'
+        assert 'one!two!three!'.replace('!', '@', 2) == 'one@two@three!'
+        assert 'one!two!three!'.replace('!', '@', 3) == 'one@two@three@'
+        assert 'one!two!three!'.replace('!', '@', 4) == 'one@two@three@'
+        assert 'one!two!three!'.replace('!', '@', 0) == 'one!two!three!'
+        assert 'one!two!three!'.replace('!', '@') == 'one@two@three@'
+        assert 'one!two!three!'.replace('x', '@') == 'one!two!three!'
+        assert 'one!two!three!'.replace('x', '@', 2) == 'one!two!three!'
         assert u'\u1234'.replace(u'', '-') == u'-\u1234-'
         assert u'\u0234\u5678'.replace('', u'-') == u'-\u0234-\u5678-'
         assert u'\u0234\u5678'.replace('', u'-', 0) == u'\u0234\u5678'
@@ -411,233 +496,258 @@ class AppTestUnicodeString:
         assert u'\u0234\u5678'.replace('', u'-', 700) == u'-\u0234-\u5678-'
         assert u'\u0234\u5678'.replace('', u'-', -1) == u'-\u0234-\u5678-'
         assert u'\u0234\u5678'.replace('', u'-', -42) == u'-\u0234-\u5678-'
-        assert u'abc'.replace(u'', u'-', 3) == u'-a-b-c'
-        assert u'abc'.replace('', '-', 0) == u'abc'
-        assert u''.replace(u'', '') == u''
-        assert u''.replace('', u'a') == u'a'
-        assert u'abc'.replace(u'ab', u'--', 0) == u'abc'
-        assert u'abc'.replace('xy', '--') == u'abc'
-        assert u'123'.replace(u'123', '') == u''
-        assert u'123123'.replace('123', u'') == u''
-        assert u'123x123'.replace(u'123', u'') == u'x'
-
-    def test_replace_buffer(self):
-        assert u'one!two!three'.replace(buffer('!'), buffer('@')) == u'one@two@three'
+        assert 'abc'.replace('', '-') == '-a-b-c-'
+        assert 'abc'.replace('', '-', 3) == '-a-b-c'
+        assert 'abc'.replace('', '-', 0) == 'abc'
+        assert ''.replace('', '') == ''
+        assert ''.replace('', 'a') == 'a'
+        assert 'abc'.replace('ab', '--', 0) == 'abc'
+        assert 'abc'.replace('xy', '--') == 'abc'
+        assert '123'.replace('123', '') == ''
+        assert '123123'.replace('123', '') == ''
+        assert '123x123'.replace('123', '') == 'x'
 
     def test_replace_overflow(self):
         import sys
-        if sys.maxint > 2**31-1:
+        if sys.maxsize > 2**31-1:
             skip("Wrong platform")
-        s = u"a" * (2**16)
-        raises(OverflowError, s.replace, u"", s)
+        s = "a" * (2**16)
+        raises(OverflowError, s.replace, "", s)
 
     def test_strip(self):
-        s = u" a b "
-        assert s.strip() == u"a b"
-        assert s.rstrip() == u" a b"
-        assert s.lstrip() == u"a b "
-        assert u'xyzzyhelloxyzzy'.strip(u'xyz') == u'hello'
-        assert u'xyzzyhelloxyzzy'.lstrip('xyz') == u'helloxyzzy'
-        assert u'xyzzyhelloxyzzy'.rstrip(u'xyz') == u'xyzzyhello'
-        exc = raises(TypeError, s.strip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, unicode or str'
-        exc = raises(TypeError, s.rstrip, buffer(' '))
-        assert str(exc.value) == 'rstrip arg must be None, unicode or str'
-        exc = raises(TypeError, s.lstrip, buffer(' '))
-        assert str(exc.value) == 'lstrip arg must be None, unicode or str'
-
-    def test_strip_str_unicode(self):
-        x = "--abc--".strip(u"-")
-        assert (x, type(x)) == (u"abc", unicode)
-        x = "--abc--".lstrip(u"-")
-        assert (x, type(x)) == (u"abc--", unicode)
-        x = "--abc--".rstrip(u"-")
-        assert (x, type(x)) == (u"--abc", unicode)
-        raises(UnicodeDecodeError, "\x80".strip, u"")
-        raises(UnicodeDecodeError, "\x80".lstrip, u"")
-        raises(UnicodeDecodeError, "\x80".rstrip, u"")
+        s = " a b "
+        assert s.strip() == "a b"
+        assert s.rstrip() == " a b"
+        assert s.lstrip() == "a b "
+        assert 'xyzzyhelloxyzzy'.strip('xyz') == 'hello'
+        assert 'xyzzyhelloxyzzy'.lstrip('xyz') == 'helloxyzzy'
+        assert 'xyzzyhelloxyzzy'.rstrip('xyz') == 'xyzzyhello'
 
     def test_long_from_unicode(self):
-        assert long(u'12345678901234567890') == 12345678901234567890
-        assert int(u'12345678901234567890') == 12345678901234567890
-        assert long(u'123', 7) == 66
+        assert int('12345678901234567890') == 12345678901234567890
+        assert int('123', 7) == 66
 
     def test_int_from_unicode(self):
-        assert int(u'12345') == 12345
+        assert int('12345') == 12345
 
     def test_float_from_unicode(self):
-        assert float(u'123.456e89') == float('123.456e89')
+        assert float('123.456e89') == float('123.456e89')
 
     def test_repr_16bits(self):
         # this used to fail when run on a CPython host with 16-bit unicodes
-        s = repr(u'\U00101234')
-        assert s == "u'\\U00101234'"
+        s = repr('\U00101234')
+        assert s == "'\\U00101234'"
 
     def test_repr(self):
-        for ustr in [u"", u"a", u"'", u"\'", u"\"", u"\t", u"\\", u'',
-                     u'a', u'"', u'\'', u'\"', u'\t', u'\\', u"'''\"",
-                     unichr(19), unichr(2), u'\u1234', u'\U00101234']:
+        for ustr in ["", "a", "'", "\'", "\"", "\t", "\\", '',
+                     'a', '"', '\'', '\"', '\t', '\\', "'''\"",
+                     chr(19), chr(2), '\u1234', '\U00101234']:
             assert eval(repr(ustr)) == ustr
 
     def test_getnewargs(self):
-        class X(unicode):
+        class X(str):
             pass
-        x = X(u"foo\u1234")
+        x = X("foo\u1234")
         a = x.__getnewargs__()
-        assert a == (u"foo\u1234",)
-        assert type(a[0]) is unicode
+        assert a == ("foo\u1234",)
+        assert type(a[0]) is str
 
     def test_call_unicode(self):
-        assert unicode() == u''
-        assert unicode(None) == u'None'
-        assert unicode(123) == u'123'
-        assert unicode([2, 3]) == u'[2, 3]'
-        class U(unicode):
+        assert str() == ''
+        assert str(None) == 'None'
+        assert str(123) == '123'
+        assert str(object=123) == '123'
+        assert str([2, 3]) == '[2, 3]'
+        assert str(errors='strict') == ''
+        class U(str):
             pass
-        assert unicode(U()).__class__ is unicode
-        assert U(u'test') == u'test'
-        assert U(u'test').__class__ is U
+        assert str(U()).__class__ is str
+        assert U().__str__().__class__ is str
+        assert U('test') == 'test'
+        assert U('test').__class__ is U
+        assert U(errors='strict') == U('')
 
     def test_call_unicode_2(self):
         class X(object):
-            def __unicode__(self):
-                return u'x'
-        raises(TypeError, unicode, X(), 'ascii')
+            def __bytes__(self):
+                return b'x'
+        raises(TypeError, str, X(), 'ascii')
 
     def test_startswith(self):
-        assert u'ab'.startswith(u'ab') is True
-        assert u'ab'.startswith(u'a') is True
-        assert u'ab'.startswith(u'') is True
-        assert u'x'.startswith(u'a') is False
-        assert u'x'.startswith(u'x') is True
-        assert u''.startswith(u'') is True
-        assert u''.startswith(u'a') is False
-        assert u'x'.startswith(u'xx') is False
-        assert u'y'.startswith(u'xx') is False
+        assert 'ab'.startswith('ab') is True
+        assert 'ab'.startswith('a') is True
+        assert 'ab'.startswith('') is True
+        assert 'x'.startswith('a') is False
+        assert 'x'.startswith('x') is True
+        assert ''.startswith('') is True
+        assert ''.startswith('a') is False
+        assert 'x'.startswith('xx') is False
+        assert 'y'.startswith('xx') is False
         assert u'\u1234\u5678\u4321'.startswith(u'\u1234') is True
         assert u'\u1234\u5678\u4321'.startswith(u'\u1234\u4321') is False
-        assert u'\u1234'.startswith(u'', 1, 0) is True
+        assert u'\u1234'.startswith(u'') is True
 
     def test_startswith_more(self):
-        assert u'ab'.startswith(u'a', 0) is True
-        assert u'ab'.startswith(u'a', 1) is False
-        assert u'ab'.startswith(u'b', 1) is True
-        assert u'abc'.startswith(u'bc', 1, 2) is False
-        assert u'abc'.startswith(u'c', -1, 4) is True
+        assert 'ab'.startswith('a', 0) is True
+        assert 'ab'.startswith('a', 1) is False
+        assert 'ab'.startswith('b', 1) is True
+        assert 'abc'.startswith('bc', 1, 2) is False
+        assert 'abc'.startswith('c', -1, 4) is True
+        try:
+            'hello'.startswith(['o'])
+        except TypeError as e:
+            msg = str(e)
+            assert 'str' in msg
+            assert 'tuple' in msg
+        else:
+            assert False, 'Expected TypeError'
 
     def test_startswith_too_large(self):
         assert u'ab'.startswith(u'b', 1) is True
         assert u'ab'.startswith(u'', 2) is True
-        assert u'ab'.startswith(u'', 3) is True   # not False
+        assert u'ab'.startswith(u'', 3) is False
         assert u'ab'.endswith(u'b', 1) is True
         assert u'ab'.endswith(u'', 2) is True
-        assert u'ab'.endswith(u'', 3) is True   # not False
+        assert u'ab'.endswith(u'', 3) is False
 
     def test_startswith_tuples(self):
-        assert u'hello'.startswith((u'he', u'ha'))
-        assert not u'hello'.startswith((u'lo', u'llo'))
-        assert u'hello'.startswith((u'hellox', u'hello'))
-        assert not u'hello'.startswith(())
-        assert u'helloworld'.startswith((u'hellowo', u'rld', u'lowo'), 3)
-        assert not u'helloworld'.startswith((u'hellowo', u'ello', u'rld'), 3)
-        assert u'hello'.startswith((u'lo', u'he'), 0, -1)
-        assert not u'hello'.startswith((u'he', u'hel'), 0, 1)
-        assert u'hello'.startswith((u'he', u'hel'), 0, 2)
-        raises(TypeError, u'hello'.startswith, (42,))
+        assert 'hello'.startswith(('he', 'ha'))
+        assert not 'hello'.startswith(('lo', 'llo'))
+        assert 'hello'.startswith(('hellox', 'hello'))
+        assert not 'hello'.startswith(())
+        assert 'helloworld'.startswith(('hellowo', 'rld', 'lowo'), 3)
+        assert not 'helloworld'.startswith(('hellowo', 'ello', 'rld'), 3)
+        assert 'hello'.startswith(('lo', 'he'), 0, -1)
+        assert not 'hello'.startswith(('he', 'hel'), 0, 1)
+        assert 'hello'.startswith(('he', 'hel'), 0, 2)
+        raises(TypeError, 'hello'.startswith, (42,))
 
     def test_startswith_endswith_convert(self):
-        assert 'hello'.startswith((u'he\u1111', u'he'))
-        assert not 'hello'.startswith((u'lo\u1111', u'llo'))
-        assert 'hello'.startswith((u'hellox\u1111', u'hello'))
-        assert not 'hello'.startswith((u'lo', u'he\u1111'), 0, -1)
-        assert not 'hello'.endswith((u'he\u1111', u'he'))
-        assert 'hello'.endswith((u'\u1111lo', u'llo'))
-        assert 'hello'.endswith((u'\u1111hellox', u'hello'))
+        assert 'hello'.startswith(('he\u1111', 'he'))
+        assert not 'hello'.startswith(('lo\u1111', 'llo'))
+        assert 'hello'.startswith(('hellox\u1111', 'hello'))
+        assert not 'hello'.startswith(('lo', 'he\u1111'), 0, -1)
+        assert not 'hello'.endswith(('he\u1111', 'he'))
+        assert 'hello'.endswith(('\u1111lo', 'llo'))
+        assert 'hello'.endswith(('\u1111hellox', 'hello'))
 
     def test_endswith(self):
-        assert u'ab'.endswith(u'ab') is True
-        assert u'ab'.endswith(u'b') is True
-        assert u'ab'.endswith(u'') is True
-        assert u'x'.endswith(u'a') is False
-        assert u'x'.endswith(u'x') is True
-        assert u''.endswith(u'') is True
-        assert u''.endswith(u'a') is False
-        assert u'x'.endswith(u'xx') is False
-        assert u'y'.endswith(u'xx') is False
+        assert 'ab'.endswith('ab') is True
+        assert 'ab'.endswith('b') is True
+        assert 'ab'.endswith('') is True
+        assert 'x'.endswith('a') is False
+        assert 'x'.endswith('x') is True
+        assert ''.endswith('') is True
+        assert ''.endswith('a') is False
+        assert 'x'.endswith('xx') is False
+        assert 'y'.endswith('xx') is False
+        assert 'x'.endswith('', 1, 0) is False
+        assert ''.endswith('', 1, 9223372036854775808) is False
+
 
     def test_endswith_more(self):
-        assert u'abc'.endswith(u'ab', 0, 2) is True
-        assert u'abc'.endswith(u'bc', 1) is True
-        assert u'abc'.endswith(u'bc', 2) is False
-        assert u'abc'.endswith(u'b', -3, -1) is True
+        assert 'abc'.endswith('ab', 0, 2) is True
+        assert 'abc'.endswith('bc', 1) is True
+        assert 'abc'.endswith('bc', 2) is False
+        assert 'abc'.endswith('b', -3, -1) is True
+        try:
+            'hello'.endswith(['o'])
+        except TypeError as e:
+            msg = str(e)
+            assert 'str' in msg
+            assert 'tuple' in msg
+        else:
+            assert False, 'Expected TypeError'
 
     def test_endswith_tuple(self):
-        assert not u'hello'.endswith((u'he', u'ha'))
-        assert u'hello'.endswith((u'lo', u'llo'))
-        assert u'hello'.endswith((u'hellox', u'hello'))
-        assert not u'hello'.endswith(())
-        assert u'helloworld'.endswith((u'hellowo', u'rld', u'lowo'), 3)
-        assert not u'helloworld'.endswith((u'hellowo', u'ello', u'rld'), 3, -1)
-        assert u'hello'.endswith((u'hell', u'ell'), 0, -1)
-        assert not u'hello'.endswith((u'he', u'hel'), 0, 1)
-        assert u'hello'.endswith((u'he', u'hell'), 0, 4)
-        raises(TypeError, u'hello'.endswith, (42,))
+        assert not 'hello'.endswith(('he', 'ha'))
+        assert 'hello'.endswith(('lo', 'llo'))
+        assert 'hello'.endswith(('hellox', 'hello'))
+        assert not 'hello'.endswith(())
+        assert 'helloworld'.endswith(('hellowo', 'rld', 'lowo'), 3)
+        assert not 'helloworld'.endswith(('hellowo', 'ello', 'rld'), 3, -1)
+        assert 'hello'.endswith(('hell', 'ell'), 0, -1)
+        assert not 'hello'.endswith(('he', 'hel'), 0, 1)
+        assert 'hello'.endswith(('he', 'hell'), 0, 4)
+        raises(TypeError, 'hello'.endswith, (42,))
 
     def test_expandtabs(self):
-        assert u'abc\rab\tdef\ng\thi'.expandtabs() ==    u'abc\rab      def\ng       hi'
-        assert u'abc\rab\tdef\ng\thi'.expandtabs(8) ==   u'abc\rab      def\ng       hi'
-        assert u'abc\rab\tdef\ng\thi'.expandtabs(4) ==   u'abc\rab  def\ng   hi'
-        assert u'abc\r\nab\tdef\ng\thi'.expandtabs(4) == u'abc\r\nab  def\ng   hi'
-        assert u'abc\rab\tdef\ng\thi'.expandtabs() ==    u'abc\rab      def\ng       hi'
-        assert u'abc\rab\tdef\ng\thi'.expandtabs(8) ==   u'abc\rab      def\ng       hi'
-        assert u'abc\r\nab\r\ndef\ng\r\nhi'.expandtabs(4) == u'abc\r\nab\r\ndef\ng\r\nhi'
+        assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'
+        assert 'abc\rab\tdef\ng\thi'.expandtabs(8) ==   'abc\rab      def\ng       hi'
+        assert 'abc\rab\tdef\ng\thi'.expandtabs(4) ==   'abc\rab  def\ng   hi'
+        assert 'abc\r\nab\tdef\ng\thi'.expandtabs(4) == 'abc\r\nab  def\ng   hi'
+        assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'
+        assert 'abc\rab\tdef\ng\thi'.expandtabs(8) ==   'abc\rab      def\ng       hi'
+        assert 'abc\r\nab\r\ndef\ng\r\nhi'.expandtabs(4) == 'abc\r\nab\r\ndef\ng\r\nhi'
 
-        s = u'xy\t'
+        s = 'xy\t'
         assert s.expandtabs() =='xy      '
 
-        s = u'\txy\t'
+        s = '\txy\t'
         assert s.expandtabs() =='        xy      '
         assert s.expandtabs(1) ==' xy '
         assert s.expandtabs(2) =='  xy  '
         assert s.expandtabs(3) =='   xy '
 
-        assert u'xy'.expandtabs() =='xy'
-        assert u''.expandtabs() ==''
+        assert 'xy'.expandtabs() =='xy'
+        assert ''.expandtabs() ==''
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
-        if sys.maxint > (1 << 32):
+        if sys.maxsize > (1 << 32):
             skip("Wrong platform")
-        raises((OverflowError, MemoryError), u't\tt\t'.expandtabs, sys.maxint)
+        raises((OverflowError, MemoryError), 't\tt\t'.expandtabs, sys.maxsize)
 
     def test_expandtabs_0(self):
         assert u'x\ty'.expandtabs(0) == u'xy'
         assert u'x\ty'.expandtabs(-42) == u'xy'
 
     def test_translate(self):
-        assert u'bbbc' == u'abababc'.translate({ord('a'):None})
-        assert u'iiic' == u'abababc'.translate({ord('a'):None, ord('b'):ord('i')})
-        assert u'iiix' == u'abababc'.translate({ord('a'):None, ord('b'):ord('i'), ord('c'):u'x'})
-        assert u'<i><i><i>c' == u'abababc'.translate({ord('a'):None, ord('b'):u'<i>'})
-        assert u'c' == u'abababc'.translate({ord('a'):None, ord('b'):u''})
-        assert u'xyyx' == u'xzx'.translate({ord('z'):u'yy'})
-        assert u'abcd' == u'ab\0d'.translate(u'c')
-        assert u'abcd' == u'abcd'.translate(u'')
+        import sys
+        assert 'bbbc' == 'abababc'.translate({ord('a'):None})
+        assert 'iiic' == 'abababc'.translate({ord('a'):None, ord('b'):ord('i')})
+        assert 'iiix' == 'abababc'.translate({ord('a'):None, ord('b'):ord('i'), ord('c'):'x'})
+        assert '<i><i><i>c' == 'abababc'.translate({ord('a'):None, ord('b'):'<i>'})
+        assert 'c' == 'abababc'.translate({ord('a'):None, ord('b'):''})
+        assert 'xyyx' == 'xzx'.translate({ord('z'):'yy'})
+        assert 'abcd' == 'ab\0d'.translate('c')
+        assert 'abcd' == 'abcd'.translate('')
+        assert 'abababc'.translate({ord('a'): ''}) == 'bbbc'
 
-        raises(TypeError, u'hello'.translate)
-        raises(TypeError, u'abababc'.translate, {ord('a'):''})
+        raises(TypeError, 'hello'.translate)
+        raises(ValueError, "\xff".translate, {0xff: sys.maxunicode+1})
+
+    def test_maketrans(self):
+        assert 'abababc' == 'abababc'.translate({'b': '<i>'})
+        tbl = str.maketrans({'a': None, 'b': '<i>'})
+        assert '<i><i><i>c' == 'abababc'.translate(tbl)
+        tbl = str.maketrans('abc', 'xyz', 'd')
+        assert 'xyzzy' == 'abdcdcbdddd'.translate(tbl)
+        tbl = str.maketrans({'\xe9': 'a'})
+        assert "[\xe9]".translate(tbl) == "[a]"
+
+        raises(TypeError, str.maketrans)
+        raises(ValueError, str.maketrans, 'abc', 'defg')
+        raises(TypeError, str.maketrans, 2, 'def')
+        raises(TypeError, str.maketrans, 'abc', 2)
+        raises(TypeError, str.maketrans, 'abc', 'def', 2)
+        raises(ValueError, str.maketrans, {'xy': 2})
+        raises(TypeError, str.maketrans, {(1,): 2})
+
+        raises(TypeError, 'hello'.translate)
+        raises(TypeError, 'abababc'.translate, 'abc', 'xyz')
 
     def test_unicode_from_encoded_object(self):
-        assert unicode('x', 'utf-8') == u'x'
-        assert unicode('x', 'utf-8', 'strict') == u'x'
+        assert str(b'x', 'utf-8') == 'x'
+        assert str(b'x', 'utf-8', 'strict') == 'x'
 
     def test_unicode_startswith_tuple(self):
-        assert u'xxx'.startswith(('x', 'y', 'z'), 0)
-        assert u'xxx'.endswith(('x', 'y', 'z'), 0)
+        assert 'xxx'.startswith(('x', 'y', 'z'), 0)
+        assert 'xxx'.endswith(('x', 'y', 'z'), 0)
 
     def test_missing_cases(self):
         # some random cases, which are discovered to not be tested during annotation
-        assert u'xxx'[1:1] == u''
+        assert 'xxx'[1:1] == ''
 
     # these tests test lots of encodings, so they really belong to the _codecs
     # module. however, they test useful unicode methods too
@@ -645,89 +755,111 @@ class AppTestUnicodeString:
 
     def test_codecs_utf7(self):
         utfTests = [
-            (u'A\u2262\u0391.', 'A+ImIDkQ.'),             # RFC2152 example
-            (u'Hi Mom -\u263a-!', 'Hi Mom -+Jjo--!'),     # RFC2152 example
-            (u'\u65E5\u672C\u8A9E', '+ZeVnLIqe-'),        # RFC2152 example
-            (u'Item 3 is \u00a31.', 'Item 3 is +AKM-1.'), # RFC2152 example
-            (u'+', '+-'),
-            (u'+-', '+--'),
-            (u'+?', '+-?'),
-            (u'\?', '+AFw?'),
-            (u'+?', '+-?'),
-            (ur'\\?', '+AFwAXA?'),
-            (ur'\\\?', '+AFwAXABc?'),
-            (ur'++--', '+-+---'),
+            ('A\u2262\u0391.', b'A+ImIDkQ.'),             # RFC2152 example
+            ('Hi Mom -\u263a-!', b'Hi Mom -+Jjo--!'),     # RFC2152 example
+            ('\u65E5\u672C\u8A9E', b'+ZeVnLIqe-'),        # RFC2152 example
+            ('Item 3 is \u00a31.', b'Item 3 is +AKM-1.'), # RFC2152 example
+            ('+', b'+-'),
+            ('+-', b'+--'),
+            ('+?', b'+-?'),
+            ('\?', b'+AFw?'),
+            ('+?', b'+-?'),
+            (r'\\?', b'+AFwAXA?'),
+            (r'\\\?', b'+AFwAXABc?'),
+            (r'++--', b'+-+---'),
         ]
 
         for (x, y) in utfTests:
             assert x.encode('utf-7') == y
 
         # surrogates are supported
-        assert unicode('+3ADYAA-', 'utf-7') == u'\udc00\ud800'
+        assert str(b'+3ADYAA-', 'utf-7') == '\udc00\ud800'
 
-        assert unicode('+AB', 'utf-7', 'replace') == u'\ufffd'
+        assert str(b'+AB', 'utf-7', 'replace') == '\ufffd'
 
     def test_codecs_utf8(self):
-        assert u''.encode('utf-8') == ''
-        assert u'\u20ac'.encode('utf-8') == '\xe2\x82\xac'
-        assert u'\ud800\udc02'.encode('utf-8') == '\xf0\x90\x80\x82'
-        assert u'\ud84d\udc56'.encode('utf-8') == '\xf0\xa3\x91\x96'
-        assert u'\ud800\udc02'.encode('uTf-8') == '\xf0\x90\x80\x82'
-        assert u'\ud84d\udc56'.encode('Utf8') == '\xf0\xa3\x91\x96'
-        assert u'\ud800'.encode('utf-8') == '\xed\xa0\x80'
-        assert u'\udc00'.encode('utf-8') == '\xed\xb0\x80'
-        assert (u'\ud800\udc02'*1000).encode('utf-8') == '\xf0\x90\x80\x82'*1000
+        import sys
+        assert ''.encode('utf-8') == b''
+        assert '\u20ac'.encode('utf-8') == b'\xe2\x82\xac'
+        raises(UnicodeEncodeError, '\ud800'.encode, 'utf-8')
+        raises(UnicodeEncodeError, '\udc00'.encode, 'utf-8')
+        raises(UnicodeEncodeError, '\udc00!'.encode, 'utf-8')
+        if sys.maxunicode > 0xFFFF and len(chr(0x10000)) == 1:
+            raises(UnicodeEncodeError, '\ud800\udc02'.encode, 'utf-8')
+            raises(UnicodeEncodeError, '\ud84d\udc56'.encode, 'utf-8')
+            raises(UnicodeEncodeError, ('\ud800\udc02'*1000).encode, 'utf-8')
+        else:
+            assert '\ud800\udc02'.encode('utf-8') == b'\xf0\x90\x80\x82'
+            assert '\ud84d\udc56'.encode('utf-8') == b'\xf0\xa3\x91\x96'
+            assert ('\ud800\udc02'*1000).encode('utf-8') == b'\xf0\x90\x80\x82'*1000
         assert (
-            u'\u6b63\u78ba\u306b\u8a00\u3046\u3068\u7ffb\u8a33\u306f'
-            u'\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002\u4e00'
-            u'\u90e8\u306f\u30c9\u30a4\u30c4\u8a9e\u3067\u3059\u304c'
-            u'\u3001\u3042\u3068\u306f\u3067\u305f\u3089\u3081\u3067'
-            u'\u3059\u3002\u5b9f\u969b\u306b\u306f\u300cWenn ist das'
-            u' Nunstuck git und'.encode('utf-8') == 
-            '\xe6\xad\xa3\xe7\xa2\xba\xe3\x81\xab\xe8\xa8\x80\xe3\x81'
-            '\x86\xe3\x81\xa8\xe7\xbf\xbb\xe8\xa8\xb3\xe3\x81\xaf\xe3'
-            '\x81\x95\xe3\x82\x8c\xe3\x81\xa6\xe3\x81\x84\xe3\x81\xbe'
-            '\xe3\x81\x9b\xe3\x82\x93\xe3\x80\x82\xe4\xb8\x80\xe9\x83'
-            '\xa8\xe3\x81\xaf\xe3\x83\x89\xe3\x82\xa4\xe3\x83\x84\xe8'
-            '\xaa\x9e\xe3\x81\xa7\xe3\x81\x99\xe3\x81\x8c\xe3\x80\x81'
-            '\xe3\x81\x82\xe3\x81\xa8\xe3\x81\xaf\xe3\x81\xa7\xe3\x81'
-            '\x9f\xe3\x82\x89\xe3\x82\x81\xe3\x81\xa7\xe3\x81\x99\xe3'
-            '\x80\x82\xe5\xae\x9f\xe9\x9a\x9b\xe3\x81\xab\xe3\x81\xaf'
-            '\xe3\x80\x8cWenn ist das Nunstuck git und'
+            '\u6b63\u78ba\u306b\u8a00\u3046\u3068\u7ffb\u8a33\u306f'
+            '\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002\u4e00'
+            '\u90e8\u306f\u30c9\u30a4\u30c4\u8a9e\u3067\u3059\u304c'
+            '\u3001\u3042\u3068\u306f\u3067\u305f\u3089\u3081\u3067'
+            '\u3059\u3002\u5b9f\u969b\u306b\u306f\u300cWenn ist das'
+            ' Nunstuck git und'.encode('utf-8') ==
+            b'\xe6\xad\xa3\xe7\xa2\xba\xe3\x81\xab\xe8\xa8\x80\xe3\x81'
+            b'\x86\xe3\x81\xa8\xe7\xbf\xbb\xe8\xa8\xb3\xe3\x81\xaf\xe3'
+            b'\x81\x95\xe3\x82\x8c\xe3\x81\xa6\xe3\x81\x84\xe3\x81\xbe'
+            b'\xe3\x81\x9b\xe3\x82\x93\xe3\x80\x82\xe4\xb8\x80\xe9\x83'
+            b'\xa8\xe3\x81\xaf\xe3\x83\x89\xe3\x82\xa4\xe3\x83\x84\xe8'
+            b'\xaa\x9e\xe3\x81\xa7\xe3\x81\x99\xe3\x81\x8c\xe3\x80\x81'
+            b'\xe3\x81\x82\xe3\x81\xa8\xe3\x81\xaf\xe3\x81\xa7\xe3\x81'
+            b'\x9f\xe3\x82\x89\xe3\x82\x81\xe3\x81\xa7\xe3\x81\x99\xe3'
+            b'\x80\x82\xe5\xae\x9f\xe9\x9a\x9b\xe3\x81\xab\xe3\x81\xaf'
+            b'\xe3\x80\x8cWenn ist das Nunstuck git und'
         )
 
         # UTF-8 specific decoding tests
-        assert unicode('\xf0\xa3\x91\x96', 'utf-8') == u'\U00023456' 
-        assert unicode('\xf0\x90\x80\x82', 'utf-8') == u'\U00010002' 
-        assert unicode('\xe2\x82\xac', 'utf-8') == u'\u20ac' 
+        assert str(b'\xf0\xa3\x91\x96', 'utf-8') == '\U00023456'
+        assert str(b'\xf0\x90\x80\x82', 'utf-8') == '\U00010002'
+        assert str(b'\xe2\x82\xac', 'utf-8') == '\u20ac'
+        # Invalid Continuation Bytes, EOF
+        raises(UnicodeDecodeError, b'\xc4\x00'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xe2\x82'.decode, 'utf-8')
+        # Non-Canonical Forms
+        raises(UnicodeDecodeError, b'\xc0\x80'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xc1\xbf'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xe0\x9f\xbf'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xf0\x8f\x8f\x84'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xf5\x80\x81\x82'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xf4\x90\x80\x80'.decode, 'utf-8')
+        # CESU-8
+        raises(UnicodeDecodeError, b'\xed\xa0\xbc\xed\xb2\xb1'.decode, 'utf-8')
 
     def test_codecs_errors(self):
         # Error handling (encoding)
-        raises(UnicodeError, u'Andr\202 x'.encode, 'ascii')
-        raises(UnicodeError, u'Andr\202 x'.encode, 'ascii','strict')
-        assert u'Andr\202 x'.encode('ascii','ignore') == "Andr x"
-        assert u'Andr\202 x'.encode('ascii','replace') == "Andr? x"
+        raises(UnicodeError, 'Andr\202 x'.encode, 'ascii')
+        raises(UnicodeError, 'Andr\202 x'.encode, 'ascii','strict')
+        assert 'Andr\202 x'.encode('ascii','ignore') == b"Andr x"
+        assert 'Andr\202 x'.encode('ascii','replace') == b"Andr? x"
 
         # Error handling (decoding)
-        raises(UnicodeError, unicode, 'Andr\202 x', 'ascii')
-        raises(UnicodeError, unicode, 'Andr\202 x', 'ascii','strict')
-        assert unicode('Andr\202 x','ascii','ignore') == u"Andr x"
-        assert unicode('Andr\202 x','ascii','replace') == u'Andr\uFFFD x'
+        raises(UnicodeError, str, b'Andr\202 x', 'ascii')
+        raises(UnicodeError, str, b'Andr\202 x', 'ascii','strict')
+        assert str(b'Andr\202 x','ascii','ignore') == "Andr x"
+        assert str(b'Andr\202 x','ascii','replace') == 'Andr\uFFFD x'
 
         # Error handling (unknown character names)
-        assert "\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
+        assert b"\\N{foo}xx".decode("unicode-escape", "ignore") == "xx"
 
         # Error handling (truncated escape sequence)
-        raises(UnicodeError, "\\".decode, "unicode-escape")
+        raises(UnicodeError, b"\\".decode, "unicode-escape")
 
-        raises(UnicodeError, "\xc2".decode, "utf-8")
-        assert '\xe1\x80'.decode('utf-8', 'replace') == u"\ufffd"
+        raises(UnicodeError, b"\xc2".decode, "utf-8")
+        assert b'\xe1\x80'.decode('utf-8', 'replace') == "\ufffd"
 
-    def test_repr_bug(self):
-        assert (repr(u'\U00090418\u027d\U000582b9\u54c3\U000fcb6e') == 
-                "u'\\U00090418\\u027d\\U000582b9\\u54c3\\U000fcb6e'")
-        assert (repr(u'\n') == 
-                "u'\\n'")
+    def test_repr_printable(self):
+        # PEP 3138: __repr__ respects printable characters.
+        x = '\u027d'
+        y = "'\u027d'"
+        assert (repr(x) == y)
+        x = '\U00090418\u027d\U000582b9\u54c3\U000fcb6e'
+        y = "'\\U00090418\u027d\\U000582b9\u54c3\\U000fcb6e'"
+        assert (repr(x) == y)
+        assert (repr('\n') ==
+                "'\\n'")
 
 
     def test_partition(self):
@@ -758,77 +890,59 @@ class AppTestUnicodeString:
         raises(ValueError, S.rpartition, u'')
         raises(TypeError, S.rpartition, None)
 
-    def test_partition_str_unicode(self):
-        x = 'abbbd'.rpartition(u'bb')
-        assert x == (u'ab', u'bb', u'd')
-        assert map(type, x) == [unicode, unicode, unicode]
-        raises(UnicodeDecodeError, '\x80'.partition, u'')
-        raises(UnicodeDecodeError, '\x80'.rpartition, u'')
-
     def test_mul(self):
         zero = 0
-        assert type(u'' * zero) == type(zero * u'') == unicode
-        assert u'' * zero == zero * u'' == u''
-        assert u'x' * zero == zero * u'x' == u''
-        assert type(u'x' * zero) == type(zero * u'x') == unicode
-        assert u'123' * zero == zero * u'123' == u''
-        assert type(u'123' * zero) == type(zero * u'123') == unicode
+        assert type('' * zero) == type(zero * '') is str
+        assert '' * zero == zero * '' == ''
+        assert 'x' * zero == zero * 'x' == ''
+        assert type('x' * zero) == type(zero * 'x') is str
+        assert '123' * zero == zero * '123' == ''
+        assert type('123' * zero) == type(zero * '123') is str
         for i in range(10):
-            u = u'123' * i
+            u = '123' * i
             assert len(u) == 3*i
             for j in range(0, i, 3):
-                assert u[j+0] == u'1'
-                assert u[j+1] == u'2'
-                assert u[j+2] == u'3'
-            assert u'123' * i == i * u'123'
+                assert u[j+0] == '1'
+                assert u[j+1] == '2'
+                assert u[j+2] == '3'
+            assert '123' * i == i * '123'
 
     def test_index(self):
-        assert u"rrarrrrrrrrra".index(u'a', 4, None) == 12
-        assert u"rrarrrrrrrrra".index(u'a', None, 6) == 2
+        assert "rrarrrrrrrrra".index('a', 4, None) == 12
+        assert "rrarrrrrrrrra".index('a', None, 6) == 2
         assert u"\u1234\u4321\u5678".index(u'\u5678', 1) == 2
 
     def test_rindex(self):
-        from sys import maxint
-        assert u'abcdefghiabc'.rindex(u'') == 12
-        assert u'abcdefghiabc'.rindex(u'def') == 3
-        assert u'abcdefghiabc'.rindex(u'abc') == 9
-        assert u'abcdefghiabc'.rindex(u'abc', 0, -1) == 0
-        assert u'abcdefghiabc'.rindex(u'abc', -4*maxint, 4*maxint) == 9
-        assert u'rrarrrrrrrrra'.rindex(u'a', 4, None) == 12
+        from sys import maxsize
+        assert 'abcdefghiabc'.rindex('') == 12
+        assert 'abcdefghiabc'.rindex('def') == 3
+        assert 'abcdefghiabc'.rindex('abc') == 9
+        assert 'abcdefghiabc'.rindex('abc', 0, -1) == 0
+        assert 'abcdefghiabc'.rindex('abc', -4*maxsize, 4*maxsize) == 9
+        assert 'rrarrrrrrrrra'.rindex('a', 4, None) == 12
         assert u"\u1234\u5678".rindex(u'\u5678') == 1
 
-        raises(ValueError, u'abcdefghiabc'.rindex, u'hib')
-        raises(ValueError, u'defghiabc'.rindex, u'def', 1)
-        raises(ValueError, u'defghiabc'.rindex, u'abc', 0, -1)
-        raises(ValueError, u'abcdefghi'.rindex, u'ghi', 0, 8)
-        raises(ValueError, u'abcdefghi'.rindex, u'ghi', 0, -1)
-        raises(TypeError, u'abcdefghijklmn'.rindex, u'abc', 0, 0.0)
-        raises(TypeError, u'abcdefghijklmn'.rindex, u'abc', -10.0, 30)
+        raises(ValueError, 'abcdefghiabc'.rindex, 'hib')
+        raises(ValueError, 'defghiabc'.rindex, 'def', 1)
+        raises(ValueError, 'defghiabc'.rindex, 'abc', 0, -1)
+        raises(ValueError, 'abcdefghi'.rindex, 'ghi', 0, 8)
+        raises(ValueError, 'abcdefghi'.rindex, 'ghi', 0, -1)
+        raises(TypeError, 'abcdefghijklmn'.rindex, 'abc', 0, 0.0)
+        raises(TypeError, 'abcdefghijklmn'.rindex, 'abc', -10.0, 30)
 
     def test_rfind(self):
-        assert u'abcdefghiabc'.rfind(u'abc') == 9
-        assert u'abcdefghiabc'.rfind(u'') == 12
-        assert u'abcdefghiabc'.rfind(u'abcd') == 0
-        assert u'abcdefghiabc'.rfind(u'abcz') == -1
+        assert 'abcdefghiabc'.rfind('abc') == 9
+        assert 'abcdefghiabc'.rfind('') == 12
+        assert 'abcdefghiabc'.rfind('abcd') == 0
+        assert 'abcdefghiabc'.rfind('abcz') == -1
         assert u"\u1234\u5678".rfind(u'\u5678') == 1
 
     def test_rfind_corner_case(self):
-        assert u'abc'.rfind('', 4) == -1
+        assert 'abc'.rfind('', 4) == -1
 
-    def test_find_index_str_unicode(self):
-        assert u'abcdefghiabc'.find(u'bc') == 1
-        assert u'ab\u0105b\u0107'.find('b', 2) == 3
-        assert u'ab\u0105b\u0107'.find('b', 0, 1) == -1
-        assert 'abcdefghiabc'.rfind(u'abc') == 9
-        raises(UnicodeDecodeError, '\x80'.find, u'')
-        raises(UnicodeDecodeError, '\x80'.rfind, u'')
-        assert 'abcdefghiabc'.index(u'bc') == 1
-        assert 'abcdefghiabc'.rindex(u'abc') == 9
-        raises(UnicodeDecodeError, '\x80'.index, u'')
-        raises(UnicodeDecodeError, '\x80'.rindex, u'')
-        assert u"\u1234\u5678".find(u'\u5678') == 1
-
-    def test_count(self):
+    def test_count_unicode(self):
+        assert u'aaa'.count(u'', 10) == 0
+        assert u'aaa'.count(u'', 3) == 1
         assert u"".count(u"x") ==0
         assert u"".count(u"") ==1
         assert u"Python".count(u"") ==7
@@ -841,32 +955,16 @@ class AppTestUnicodeString:
         assert u'aaa'.count(u'a', 0, -10) == 0
         assert u'ababa'.count(u'aba') == 1
 
-    def test_count_str_unicode(self):
-        assert 'aaa'.count(u'a') == 3
-        assert 'aaa'.count(u'b') == 0
-        assert 'aaa'.count(u'a', -1) == 1
-        assert 'aaa'.count(u'a', -10) == 3
-        assert 'aaa'.count(u'a', 0, -1) == 2
-        assert 'aaa'.count(u'a', 0, -10) == 0
-        assert 'ababa'.count(u'aba') == 1
-        raises(UnicodeDecodeError, '\x80'.count, u'')
-
     def test_swapcase(self):
-        assert u'\xe4\xc4\xdf'.swapcase() == u'\xc4\xe4\xdf'
-        assert u'\ud800'.swapcase() == u'\ud800'
-
-    def test_buffer(self):
-        buf = buffer(u'XY')
-        assert str(buf) in ['X\x00Y\x00',
-                            '\x00X\x00Y',
-                            'X\x00\x00\x00Y\x00\x00\x00',
-                            '\x00\x00\x00X\x00\x00\x00Y']
+        assert '\xe4\xc4\xdf'.swapcase() == '\xc4\xe4SS'
+        # sigma-little becomes sigma-little-final
+        assert u'A\u0345\u03a3'.swapcase() == u'a\u0399\u03c2'
+        # but not if the previous codepoint is 0-width
+        assert u'\u0345\u03a3'.swapcase() == u'\u0399\u03c3'
 
     def test_call_special_methods(self):
         # xxx not completely clear if these are implementation details or not
-        assert 'abc'.__add__(u'def') == u'abcdef'
-        assert u'abc'.__add__(u'def') == u'abcdef'
-        assert u'abc'.__add__('def') == u'abcdef'
+        assert 'abc'.__add__('def') == 'abcdef'
         assert u'abc'.__rmod__(u'%s') == u'abc'
         ret = u'abc'.__rmod__('%s')
         raises(AttributeError, "u'abc'.__radd__(u'def')")
@@ -879,15 +977,11 @@ class AppTestUnicodeString:
             assert value == expected
 
         def _test_concat(t1, t2):
-            tprecedent = str
-            if issubclass(t1, unicode) or issubclass(t2, unicode):
-                tprecedent = unicode
-
             class SubclassB(t2):
                 def __add__(self, other):
                     return SubclassB(t2(self) + t2(other))
             check(SubclassB('py') + SubclassB('thon'), SubclassB('python'))
-            check(t1('python') + SubclassB('3'), tprecedent('python3'))
+            check(t1('python') + SubclassB('3'), str('python3'))
             check(SubclassB('py') + t1('py'), SubclassB('pypy'))
 
             class SubclassC(t2):
@@ -895,7 +989,7 @@ class AppTestUnicodeString:
                     return SubclassC(t2(other) + t2(self))
             check(SubclassC('stack') + SubclassC('less'), t2('stackless'))
             check(t1('iron') + SubclassC('python'), SubclassC('ironpython'))
-            check(SubclassC('tiny') + t1('py'), tprecedent('tinypy'))
+            check(SubclassC('tiny') + t1('py'), str('tinypy'))
 
             class SubclassD(t2):
                 def __add__(self, other):
@@ -908,23 +1002,18 @@ class AppTestUnicodeString:
             check(SubclassD('dun') + t1('der'), SubclassD('dunder'))
 
         _test_concat(str, str)
-        _test_concat(unicode, unicode)
-        # the following two cases are really there to emulate a CPython bug.
-        _test_concat(str, unicode)   # uses hack in add__String_Unicode()
-        _test_concat(unicode, str)   # uses hack in descroperation.binop_impl()
 
     def test_returns_subclass(self):
-        class X(unicode):
+        class X(str):
             pass
 
-        class Y(object):
-            def __unicode__(self):
+        class Y(str):
+            def __str__(self):
                 return X("stuff")
 
-        assert unicode(Y()).__class__ is X
+        assert str(Y()).__class__ is X
 
     def test_getslice(self):
-        assert u'123456'.__getslice__(1, 5) == u'2345'
         s = u"\u0105b\u0107"
         assert s[:] == u"\u0105b\u0107"
         assert s[1:] == u"b\u0107"
@@ -942,86 +1031,99 @@ class AppTestUnicodeString:
         assert s[slice(3)] == u"\u0105b\u0107"
         assert s[slice(1, 3)] == u"b\u0107"
         assert s[slice(2)] == u"\u0105b"
-        assert s[slice(1,2)] == u"b"
-        assert s[slice(-2,3)] == u"b\u0107"
+        assert s[slice(1, 2)] == u"b"
+        assert s[slice(-2, 3)] == u"b\u0107"
         assert s[slice(-1)] == u"\u0105b"
-        assert s[slice(-2,2)] == u"b"
-        assert s[slice(1,-1)] == u"b"
-        assert s[slice(-2,-1)] == u"b"
+        assert s[slice(-2, 2)] == u"b"
+        assert s[slice(1, -1)] == u"b"
+        assert s[slice(-2, -1)] == u"b"
         assert u"abcde"[::2] == u"ace"
         assert u"\u0105\u0106\u0107abcd"[::2] == u"\u0105\u0107bd"
 
+    def test_iter(self):
+        foo = "\u1111\u2222\u3333"
+        assert hasattr(foo, '__iter__')
+        iter = foo.__iter__()
+        assert next(iter) == '\u1111'
+        assert next(iter) == '\u2222'
+
     def test_no_len_on_str_iter(self):
-        iterable = u"hello"
+        iterable = "hello"
         raises(TypeError, len, iter(iterable))
 
     def test_encode_raw_unicode_escape(self):
-        u = unicode('\\', 'raw_unicode_escape')
-        assert u == u'\\'
+        u = str(b'\\', 'raw_unicode_escape')
+        assert u == '\\'
+        s = '\u05d1\u05d3\u05d9\u05e7\u05d4'.encode('raw_unicode_escape')
+        assert s == b'\\u05d1\\u05d3\\u05d9\\u05e7\\u05d4'
 
     def test_decode_from_buffer(self):
-        buf = buffer('character buffers are decoded to unicode')
-        u = unicode(buf, 'utf-8', 'strict')
-        assert u == u'character buffers are decoded to unicode'
+        buf = b'character buffers are decoded to unicode'
+        u = str(buf, 'utf-8', 'strict')
+        assert u == 'character buffers are decoded to unicode'
 
-    def test_unicode_conversion_with__unicode__(self):
-        class A(unicode):
-            def __unicode__(self):
+    def test_unicode_conversion_with__str__(self):
+        class A(str):
+            def __str__(self):
                 return "foo"
-        class B(unicode):
+        class B(str):
             pass
         a = A('bar')
         assert a == 'bar'
-        assert unicode(a) == 'foo'
+        assert str(a) == 'foo'
         b = B('bar')
         assert b == 'bar'
-        assert unicode(b) == 'bar'
+        assert str(b) == 'bar'
 
     def test_unicode_conversion_with__str__(self):
         # new-style classes
         class A(object):
             def __str__(self):
-                return u'\u1234'
-        s = unicode(A())
-        assert type(s) is unicode
-        assert s == u'\u1234'
+                return '\u1234'
+        s = str(A())
+        assert type(s) is str
+        assert s == '\u1234'
         # with old-style classes, it's different, but it should work as well
         class A:
             def __str__(self):
-                return u'\u1234'
-        s = unicode(A())
-        assert type(s) is unicode
-        assert s == u'\u1234'
+                return '\u1234'
+        s = str(A())
+        assert type(s) is str
+        assert s == '\u1234'
 
-    def test_formatting_unicode__str__(self):
+    def test_formatting_uchr(self):
+        assert '%c' % '\U00021483' == '\U00021483'
+
+    def test_formatting_unicode__str__0(self):
+        assert '%.2s' % "a\xe9\u20ac" == 'a\xe9'
         class A:
             def __init__(self, num):
                 self.num = num
             def __str__(self):
-                return unichr(self.num)
+                return chr(self.num)
 
         s = '%s' % A(111)    # this is ASCII
-        assert type(s) is unicode
+        assert type(s) is str
         assert s == chr(111)
 
         s = '%s' % A(0x1234)    # this is not ASCII
-        assert type(s) is unicode
-        assert s == u'\u1234'
+        assert type(s) is str
+        assert s == '\u1234'
 
         # now the same with a new-style class...
         class A(object):
             def __init__(self, num):
                 self.num = num
             def __str__(self):
-                return unichr(self.num)
+                return chr(self.num)
 
         s = '%s' % A(111)    # this is ASCII
-        assert type(s) is unicode
+        assert type(s) is str
         assert s == chr(111)
 
         s = '%s' % A(0x1234)    # this is not ASCII
-        assert type(s) is unicode
-        assert s == u'\u1234'
+        assert type(s) is str
+        assert s == '\u1234'
 
     def test_formatting_unicode__str__2(self):
         class A:
@@ -1030,19 +1132,12 @@ class AppTestUnicodeString:
 
         class B:
             def __str__(self):
-                return 'foo'
-
-            def __unicode__(self):
-                return u'bar'
+                return 'bar'
 
         a = A()
         b = B()
         s = '%s %s' % (a, b)
-        assert s == u'baz bar'
-
-        skip("but this case here is completely insane")
-        s = '%s %s' % (b, a)
-        assert s == u'foo baz'
+        assert s == 'baz bar'
 
     def test_formatting_unicode__str__3(self):
         # "bah" is all I can say
@@ -1056,38 +1151,47 @@ class AppTestUnicodeString:
                 return u'\u1234'
         '%s' % X()
 
+    def test_formatting_unicode__str__4(self):
+        # from lib-python/3/test/test_tokenize
+        fmt = "%(token)-13.13r %(start)s"
+        vals = {"token" : u"Örter", "start": "(1, 0)"}
+        expected = u"'Örter'       (1, 0)"
+        s = fmt % vals
+        assert s == expected, "\ns       = '%s'\nexpected= '%s'" %(s, expected)
+
+    def test_format_repeat(self):
+        assert format(u"abc", u"z<5") == u"abczz"
+        assert format(u"abc", u"\u2007<5") == u"abc\u2007\u2007"
+        #CPython2 raises UnicodeEncodeError
+        assert format(123, u"\u2007<5") == u"123\u2007\u2007"
+
+    def test_formatting_unicode__repr__(self):
+        # Printable character
+        assert '%r' % chr(0xe9) == "'\xe9'"
+
+    def test_formatting_not_tuple(self):
+        class mydict(dict):
+            pass
+        assert 'xxx' % mydict() == 'xxx'
+        assert 'xxx' % b'foo' == 'xxx'   # b'foo' considered as a mapping(!)
+        assert 'xxx' % bytearray() == 'xxx'   # same
+        assert 'xxx' % [] == 'xxx'       # [] considered as a mapping(!)
+        raises(TypeError, "'xxx' % 'foo'")
+        raises(TypeError, "'xxx' % 53")
+
     def test_str_subclass(self):
         class Foo9(str):
-            def __unicode__(self):
-                return u"world"
-        assert unicode(Foo9("hello")) == u"world"
-
-    def test_class_with_both_str_and_unicode(self):
-        class A(object):
             def __str__(self):
-                return 'foo'
-
-            def __unicode__(self):
-                return u'bar'
-
-        assert unicode(A()) == u'bar'
-
-        class A:
-            def __str__(self):
-                return 'foo'
-
-            def __unicode__(self):
-                return u'bar'
-
-        assert unicode(A()) == u'bar'
+                return "world"
+        assert str(Foo9("hello")) == "world"
 
     def test_format_unicode_subclass(self):
-        class U(unicode):
-            def __unicode__(self):
-                return u'__unicode__ overridden'
-        u = U(u'xxx')
-        assert repr("%s" % u) == "u'__unicode__ overridden'"
-        assert repr("{}".format(u)) == "'__unicode__ overridden'"
+        class U(str):
+            def __str__(self):
+                return '__str__ overridden'
+        u = U('xxx')
+        assert repr("%s" % u) == "'__str__ overridden'"
+        assert repr("{}".format(u)) == "'__str__ overridden'"
 
     def test_format_c_overflow(self):
         import sys
@@ -1095,54 +1199,130 @@ class AppTestUnicodeString:
         raises(OverflowError, u'{0:c}'.format, sys.maxunicode + 1)
 
     def test_replace_with_buffer(self):
-        assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'
-        assert u'abc'.replace(buffer('b'), u'e') == u'aec'
-        assert u'abc'.replace(u'b', buffer('e')) == u'aec'
+        raises(TypeError, 'abc'.replace, b'b', b'e')
 
     def test_unicode_subclass(self):
-        class S(unicode):
+        class S(str):
             pass
 
-        a = S(u'hello \u1234')
-        b = unicode(a)
-        assert type(b) is unicode
-        assert b == u'hello \u1234'
+        a = S('hello \u1234')
+        b = str(a)
+        assert type(b) is str
+        assert b == 'hello \u1234'
 
-        assert u'%s' % S(u'mar\xe7') == u'mar\xe7'
+        assert '%s' % S('mar\xe7') == 'mar\xe7'
+
+    def test_format_new(self):
+        assert '0{0}1{b}2'.format('A', b='B') == '0A1B2'
+
+    def test_format_map(self):
+        assert '0{a}1'.format_map({'a': 'A'}) == '0A1'
+
+    def test_format_map_positional(self):
+        raises(ValueError, '{}'.format_map, {})
 
     def test_isdecimal(self):
-        assert u'0'.isdecimal()
-        assert not u''.isdecimal()
-        assert not u'a'.isdecimal()
-        assert not u'\u2460'.isdecimal() # CIRCLED DIGIT ONE
+        assert '0'.isdecimal()
+        assert not ''.isdecimal()
+        assert not 'a'.isdecimal()
+        assert not '\u2460'.isdecimal() # CIRCLED DIGIT ONE
 
     def test_isnumeric(self):
-        assert u'0'.isnumeric()
-        assert not u''.isnumeric()
-        assert not u'a'.isnumeric()
-        assert u'\u2460'.isnumeric() # CIRCLED DIGIT ONE
+        assert '0'.isnumeric()
+        assert not ''.isnumeric()
+        assert not 'a'.isnumeric()
+        assert '\u2460'.isnumeric() # CIRCLED DIGIT ONE
 
-    def test_replace_str_unicode(self):
-        res = 'one!two!three!'.replace(u'!', u'@', 1)
-        assert res == u'one@two!three!'
-        assert type(res) == unicode
-        raises(UnicodeDecodeError, '\x80'.replace, 'a', u'b')
-        raises(UnicodeDecodeError, '\x80'.replace, u'a', 'b')
+    def test_replace_autoconvert(self):
+        res = 'one!two!three!'.replace('!', '@', 1)
+        assert res == 'one@two!three!'
+        assert type(res) == str
 
     def test_join_subclass(self):
-        class UnicodeSubclass(unicode):
-            pass
         class StrSubclass(str):
             pass
+        class BytesSubclass(bytes):
+            pass
 
-        s1 = UnicodeSubclass(u'a')
-        assert u''.join([s1]) is not s1
-        s2 = StrSubclass(u'a')
-        assert u''.join([s2]) is not s2
+        s1 = StrSubclass('a')
+        assert ''.join([s1]) is not s1
+        s2 = BytesSubclass(b'a')
+        assert b''.join([s2]) is not s2
 
     def test_encoding_and_errors_cant_be_none(self):
-        raises(TypeError, "''.decode(None)")
+        raises(TypeError, "b''.decode(None)")
         raises(TypeError, "u''.encode(None)")
-        raises(TypeError, "unicode('', encoding=None)")
+        raises(TypeError, "str(b'', encoding=None)")
         raises(TypeError, 'u"".encode("utf-8", None)')
 
+    def test_encode_wrong_errors(self):
+        assert ''.encode(errors='some_wrong_name') == b''
+
+    def test_casefold(self):
+        assert u'hello'.casefold() == u'hello'
+        assert u'hELlo'.casefold() == u'hello'
+        assert u'ß'.casefold() == u'ss'
+        assert u'ﬁ'.casefold() == u'fi'
+        assert u'\u03a3'.casefold() == u'\u03c3'
+        assert u'A\u0345\u03a3'.casefold() == u'a\u03b9\u03c3'
+        assert u'\u00b5'.casefold() == u'\u03bc'
+
+    def test_lower_3a3(self):
+        # Special case for GREEK CAPITAL LETTER SIGMA U+03A3
+        assert u'\u03a3'.lower() == u'\u03c3'
+        assert u'\u0345\u03a3'.lower() == u'\u0345\u03c3'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u0345\u03a3a'.lower() == u'a\u0345\u03c3a'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
+        assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
+
+    def test_encode_wrong_errors(self):
+        assert ''.encode(errors='some_wrong_name') == b''
+
+    def test_casefold(self):
+        assert u'hello'.casefold() == u'hello'
+        assert u'hELlo'.casefold() == u'hello'
+        assert u'ß'.casefold() == u'ss'
+        assert u'ﬁ'.casefold() == u'fi'
+        assert u'\u03a3'.casefold() == u'\u03c3'
+        assert u'A\u0345\u03a3'.casefold() == u'a\u03b9\u03c3'
+        assert u'\u00b5'.casefold() == u'\u03bc'
+
+    def test_lower_3a3(self):
+        # Special case for GREEK CAPITAL LETTER SIGMA U+03A3
+        assert u'\u03a3'.lower() == u'\u03c3'
+        assert u'\u0345\u03a3'.lower() == u'\u0345\u03c3'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u0345\u03a3a'.lower() == u'a\u0345\u03c3a'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
+        assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
+
+    def test_unicode_constructor_misc(self):
+        x = u'foo'
+        x += u'bar'
+        assert str(x) is x
+        #
+        class U(str):
+            def __str__(self):
+                return u'BOK'
+        u = U(x)
+        assert str(u) == u'BOK'
+        #
+        class U2(str):
+            pass
+        z = U2(u'foobaz')
+        assert type(str(z)) is str
+        assert str(z) == u'foobaz'
+        #
+        assert str(encoding='supposedly_the_encoding') == u''
+        assert str(errors='supposedly_the_error') == u''
+        e = raises(TypeError, str, u'', 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding str is not supported'
+        e = raises(TypeError, str, u'', errors='supposedly_the_error')
+        assert str(e.value) == 'decoding str is not supported'
+        e = raises(TypeError, str, u, 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding str is not supported'
+        e = raises(TypeError, str, z, 'supposedly_the_encoding')
+        assert str(e.value) == 'decoding str is not supported'

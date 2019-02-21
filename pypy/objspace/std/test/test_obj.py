@@ -3,25 +3,24 @@ from pypy.conftest import option
 
 class AppTestObject:
 
+    spaceconfig = {'usemodules': ['itertools']}
+
     def setup_class(cls):
         from pypy.interpreter import gateway
         import sys
 
-        cpython_behavior = (not option.runappdirect
-                            or not hasattr(sys, 'pypy_translation_info'))
-
         space = cls.space
-        cls.w_cpython_behavior = space.wrap(cpython_behavior)
+        cls.w_cpython_behavior = space.wrap(not option.runappdirect)
         cls.w_cpython_version = space.wrap(tuple(sys.version_info))
         cls.w_appdirect = space.wrap(option.runappdirect)
         cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):
-            return space.wrap(space.unicode_w(w_obj))
+            return space.newutf8(space.utf8_w(w_obj), w_obj._length)
         cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
-        def w_unwrap_wrap_str(space, w_obj):
-            return space.wrap(space.str_w(w_obj))
-        cls.w_unwrap_wrap_str = space.wrap(gateway.interp2app(w_unwrap_wrap_str))
+        def w_unwrap_wrap_bytes(space, w_obj):
+            return space.newbytes(space.bytes_w(w_obj))
+        cls.w_unwrap_wrap_bytes = space.wrap(gateway.interp2app(w_unwrap_wrap_bytes))
 
     def test_hash_builtin(self):
         if not self.cpython_behavior:
@@ -30,14 +29,14 @@ class AppTestObject:
             skip("on CPython >= 2.7, id != hash")
         import sys
         o = object()
-        assert (hash(o) & sys.maxint) == (id(o) & sys.maxint)
+        assert (hash(o) & sys.maxsize) == (id(o) & sys.maxsize)
 
     def test_hash_method(self):
         o = object()
         assert hash(o) == o.__hash__()
 
     def test_hash_list(self):
-        l = range(5)
+        l = list(range(5))
         raises(TypeError, hash, l)
 
     def test_no_getnewargs(self):
@@ -50,7 +49,7 @@ class AppTestObject:
             pass
         x = X()
         if self.cpython_behavior and self.cpython_version < (2, 7):
-            assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
+            assert (hash(x) & sys.maxsize) == (id(x) & sys.maxsize)
         assert hash(x) == object.__hash__(x)
 
     def test_reduce_recursion_bug(self):
@@ -60,22 +59,96 @@ class AppTestObject:
         s = X().__reduce__()
         assert s[-1] == ':-)'
 
+    def test_getnewargs_ex(self):
+        class NamedInt(int):
+            def __new__(cls, name, **kwargs):
+                if len(kwargs) == 0:
+                    raise TypeError("name and value must be specified")
+                self = int.__new__(cls, kwargs['value'])
+                self._name = name
+                return self
+            def __getnewargs_ex__(self):
+                return (self._name,), dict(value=int(self))
+        import copyreg
+        assert NamedInt("Name", value=42).__reduce__(4) == (
+            copyreg.__newobj_ex__,
+            (NamedInt, ('Name',), dict(value=42)),
+            dict(_name='Name'), None, None)
+
+    def test_reduce_ex_does_getattr(self):
+        seen = []
+        class X:
+            def __getattribute__(self, name):
+                seen.append(name)
+                return object.__getattribute__(self, name)
+        X().__reduce_ex__(2)
+        # it is the case at least on CPython 3.5.2, like PyPy:
+        assert '__reduce__' in seen
+        # but these methods, which are also called, are not looked up
+        # with getattr:
+        assert '__getnewargs__' not in seen
+        assert '__getnewargs_ex__' not in seen
+
+    def test_reduce_ex_errors(self):
+        # cf. lib-python/3/test/test_descr.py::PicklingTests.test_reduce()
+        args = (-101, "spam")
+        kwargs = {'bacon': -201, 'fish': -301}
+
+        class C2:
+            def __getnewargs__(self):
+                return "bad args"
+        excinfo = raises(TypeError, C2().__reduce_ex__, 4)
+        assert str(excinfo.value) == \
+            "__getnewargs__ should return a tuple, not 'str'"
+
+        class C4:
+            def __getnewargs_ex__(self):
+                return (args, "bad dict")
+        excinfo = raises(TypeError, C4().__reduce_ex__, 4)
+        assert str(excinfo.value) == ("second item of the tuple "
+            "returned by __getnewargs_ex__ must be a dict, not 'str'")
+
+        class C5:
+            def __getnewargs_ex__(self):
+                return ("bad tuple", kwargs)
+        excinfo = raises(TypeError, C5().__reduce_ex__, 4)
+        assert str(excinfo.value) == ("first item of the tuple "
+            "returned by __getnewargs_ex__ must be a tuple, not 'str'")
+
+        class C6:
+            def __getnewargs_ex__(self):
+                return ()
+        excinfo = raises(ValueError, C6().__reduce_ex__, 4)
+        assert str(excinfo.value) == \
+            "__getnewargs_ex__ should return a tuple of length 2, not 0"
+
+        class C7:
+            def __getnewargs_ex__(self):
+                return "bad args"
+        excinfo = raises(TypeError, C7().__reduce_ex__, 4)
+        assert str(excinfo.value) == \
+            "__getnewargs_ex__ should return a tuple, not 'str'"
+
+
+    def test_reduce_state_empty_dict(self):
+        class X(object):
+            pass
+        assert X().__reduce_ex__(2)[2] is None
+
     def test_default_format(self):
         class x(object):
             def __str__(self):
                 return "Pickle"
-            def __unicode__(self):
-                return u"Cheese"
         res = format(x())
         assert res == "Pickle"
         assert isinstance(res, str)
-        res = format(x(), u"")
-        assert res == u"Cheese"
-        assert isinstance(res, unicode)
-        del x.__unicode__
-        res = format(x(), u"")
-        assert res == u"Pickle"
-        assert isinstance(res, unicode)
+
+    def test_format(self):
+        class B:
+            pass
+        excinfo = raises(TypeError, format, B(), 's')
+        assert 'B.__format__' in str(excinfo.value)
+
 
     def test_subclasshook(self):
         class x(object):
@@ -99,13 +172,7 @@ class AppTestObject:
             def __init__(self):
                 super(B, self).__init__(a=3)
 
-        #-- pypy doesn't raise the DeprecationWarning
-        #with warnings.catch_warnings(record=True) as log:
-        #    warnings.simplefilter("always", DeprecationWarning)
-        #    B()
-        #assert len(log) == 1
-        #assert log[0].message.args == ("object.__init__() takes no parameters",)
-        #assert type(log[0].message) is DeprecationWarning
+        raises(TypeError, B)
 
     def test_object_str(self):
         # obscure case: __str__() must delegate to __repr__() without adding
@@ -115,6 +182,16 @@ class AppTestObject:
                 return 123456
         assert A().__str__() == 123456
 
+    def test_object_dir(self):
+        class A(object):
+            a_var = None
+
+        assert hasattr(object, '__dir__')
+        obj = A()
+        obj_items = dir(obj)
+        assert obj_items == sorted(obj_items)
+        assert obj_items == sorted(object.__dir__(obj))
+
 
     def test_is_on_primitives(self):
         if self.cpython_apptest:
@@ -123,14 +200,12 @@ class AppTestObject:
         x = 1000000
         assert x + 1 is int(str(x + 1))
         assert 1 is not 1.0
-        assert 1 is not 1l
-        assert 1l is not 1.0
         assert 1.1 is 1.1
         assert 0.0 is not -0.0
         for x in range(10):
             assert x + 0.1 is x + 0.1
         for x in range(10):
-            assert x + 1L is x + 1L
+            assert x + 1 is x + 1
         for x in range(10):
             assert x+1j is x+1j
             assert 1+x*1j is 1+x*1j
@@ -142,16 +217,16 @@ class AppTestObject:
             skip("cannot run this test as apptest")
         l = ["a"]
         assert l[0] is l[0]
-        u = u"a"
+        u = "a"
         assert self.unwrap_wrap_unicode(u) is u
-        s = "a"
-        assert self.unwrap_wrap_str(s) is s
+        s = b"a"
+        assert self.unwrap_wrap_bytes(s) is s
 
     def test_is_on_subclasses(self):
-        for typ in [int, long, float, complex, str, unicode]:
+        for typ in [int, float, complex, str]:
             class mytyp(typ):
                 pass
-            if not self.cpython_apptest and typ not in (str, unicode):
+            if not self.cpython_apptest and typ is not str:
                 assert typ(42) is typ(42)
             assert mytyp(42) is not mytyp(42)
             assert mytyp(42) is not typ(42)
@@ -173,14 +248,13 @@ class AppTestObject:
         if self.cpython_apptest:
             skip("cpython behaves differently")
         assert id(1) == (1 << 4) + 1
-        assert id(1l) == (1 << 4) + 3
         class myint(int):
             pass
         assert id(myint(1)) != id(1)
 
         assert id(1.0) & 7 == 5
         assert id(-0.0) != id(0.0)
-        assert hex(id(2.0)) == '0x40000000000000005L'
+        assert hex(id(2.0)) == '0x40000000000000005'
         assert id(0.0) == 5
 
     def test_id_on_strs(self):
@@ -188,13 +262,14 @@ class AppTestObject:
             skip("cannot run this test as apptest")
         for u in [u"", u"a", u"aa"]:
             assert id(self.unwrap_wrap_unicode(u)) == id(u)
-            s = str(u)
-            assert id(self.unwrap_wrap_str(s)) == id(s)
+            s = u.encode()
+            assert id(self.unwrap_wrap_bytes(s)) == id(s)
         #
-        assert id('') == (256 << 4) | 11     # always
+        assert id(b'') == (256 << 4) | 11     # always
         assert id(u'') == (257 << 4) | 11
-        assert id('a') == (ord('a') << 4) | 11
-        assert id(u'\u1234') == ((~0x1234) << 4) | 11
+        assert id(b'a') == (ord('a') << 4) | 11
+        # we no longer cache unicodes <128
+        # assert id(u'\u1234') == ((~0x1234) << 4) | 11
 
     def test_id_of_tuples(self):
         l = []
@@ -214,13 +289,12 @@ class AppTestObject:
 
     def test_identity_vs_id_primitives(self):
         import sys
-        l = range(-10, 10, 2)
+        l = list(range(-10, 10, 2))
         for i in [0, 1, 3]:
             l.append(float(i))
             l.append(i + 0.1)
-            l.append(long(i))
-            l.append(i + sys.maxint)
-            l.append(i - sys.maxint)
+            l.append(i + sys.maxsize)
+            l.append(i - sys.maxsize)
             l.append(i + 1j)
             l.append(i - 1j)
             l.append(1 + i * 1j)
@@ -247,15 +321,15 @@ class AppTestObject:
         l = []
         def add(s, u):
             l.append(s)
-            l.append(self.unwrap_wrap_str(s))
+            l.append(self.unwrap_wrap_bytes(s))
             l.append(s[:1] + s[1:])
             l.append(u)
             l.append(self.unwrap_wrap_unicode(u))
             l.append(u[:1] + u[1:])
         for i in range(3, 18):
-            add(str(i), unicode(i))
-        add("s", u"s")
-        add("", u"")
+            add(str(i).encode(), str(i))
+        add(b"s", u"s")
+        add(b"", u"")
 
         for i, a in enumerate(l):
             for b in l[i:]:
@@ -264,7 +338,7 @@ class AppTestObject:
                     assert a == b
 
     def test_identity_bug(self):
-        x = 0x4000000000000000L
+        x = 0x4000000000000000
         y = 2j
         assert id(x) != id(y)
 
@@ -274,6 +348,17 @@ class AppTestObject:
         y += 2
         assert object.__hash__(x) == object.__hash__(y)
 
+    def test_richcompare(self):
+        o = object()
+        o2 = object()
+        assert o.__eq__(o) is True
+        assert o.__eq__(o2) is NotImplemented
+        assert o.__ne__(o) is False
+        assert o.__ne__(o2) is NotImplemented
+        assert o.__le__(o2) is NotImplemented
+        assert o.__lt__(o2) is NotImplemented
+        assert o.__ge__(o2) is NotImplemented
+        assert o.__gt__(o2) is NotImplemented
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace

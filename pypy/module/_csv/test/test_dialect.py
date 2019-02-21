@@ -90,11 +90,17 @@ class AppTestDialect(object):
         exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter="")
         assert exc_info.value.args[0] == '"delimiter" must be a 1-character string'
 
-        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=u",")
-        assert exc_info.value.args[0] == '"delimiter" must be string, not unicode'
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=b",")
+        assert exc_info.value.args[0] == '"delimiter" must be string, not bytes'
 
         exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=4)
         assert exc_info.value.args[0] == '"delimiter" must be string, not int'
+
+    def test_quotechar(self):
+        import _csv
+
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', quotechar=4)
+        assert exc_info.value.args[0] == '"quotechar" must be string, not int'
 
     def test_line_terminator(self):
         # lineterminator can be the empty string

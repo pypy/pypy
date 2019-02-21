@@ -65,6 +65,17 @@ class AppTestJitHook(object):
             if i != 1:
                 offset[op] = i
 
+        oplist_no_descrs = parse("""
+        [i1, i2, p2]
+        i3 = int_add(i1, i2)
+        debug_merge_point(0, 0, 0, 0, 0, ConstPtr(ptr0))
+        guard_nonnull(p2) []
+        guard_true(i3) []
+        """, namespace={'ptr0': code_gcref}).operations
+        for op in oplist_no_descrs:
+            if op.is_guard():
+                op.setdescr(None)
+
         class FailDescr(BasicFailDescr):
             def get_jitcounter_hash(self):
                 from rpython.rlib.rarithmetic import r_uint
@@ -86,18 +97,23 @@ class AppTestJitHook(object):
 
         def interp_on_compile():
             di_loop.oplist = cls.oplist
-            pypy_hooks.after_compile(di_loop)
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.after_compile(di_loop)
 
         def interp_on_compile_bridge():
-            pypy_hooks.after_compile_bridge(di_bridge)
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.after_compile_bridge(di_bridge)
 
         def interp_on_optimize():
-            di_loop_optimize.oplist = cls.oplist
-            pypy_hooks.before_compile(di_loop_optimize)
+            if pypy_hooks.are_hooks_enabled():
+                di_loop_optimize.oplist = cls.oplist
+                pypy_hooks.before_compile(di_loop_optimize)
 
         def interp_on_abort():
-            pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
-                                greenkey, 'blah', Logger(MockSD), [])
+            if pypy_hooks.are_hooks_enabled():
+                pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
+                                    greenkey, 'blah', Logger(MockSD),
+                                    cls.oplist_no_descrs)
 
         space = cls.space
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
@@ -107,10 +123,12 @@ class AppTestJitHook(object):
         cls.w_dmp_num = space.wrap(rop.DEBUG_MERGE_POINT)
         cls.w_on_optimize = space.wrap(interp2app(interp_on_optimize))
         cls.orig_oplist = oplist
+        cls.orig_oplist_no_descrs = oplist_no_descrs
         cls.w_sorted_keys = space.wrap(sorted(Counters.counter_names))
 
     def setup_method(self, meth):
         self.__class__.oplist = self.orig_oplist[:]
+        self.__class__.oplist_no_descrs = self.orig_oplist_no_descrs[:]
 
     def test_on_compile(self):
         import pypyjit
@@ -138,8 +156,8 @@ class AppTestJitHook(object):
         int_add = info.operations[0]
         dmp = info.operations[1]
         assert isinstance(dmp, pypyjit.DebugMergePoint)
-        assert dmp.pycode is self.f.func_code
-        assert dmp.greenkey == (self.f.func_code, 0, False)
+        assert dmp.pycode is self.f.__code__
+        assert dmp.greenkey == (self.f.__code__, 0, False)
         assert dmp.call_depth == 0
         assert dmp.call_id == 0
         assert dmp.offset == -1
@@ -147,7 +165,7 @@ class AppTestJitHook(object):
         assert int_add.offset == 0
         self.on_compile_bridge()
         expected = ('<JitLoopInfo pypyjit, 4 operations, starting at '
-                    '<(%s, 0, False)>>' % repr(self.f.func_code))
+                    '<(%s, 0, False)>>' % repr(self.f.__code__))
         assert repr(all[0]) == expected
         assert len(all) == 2
         pypyjit.set_compile_hook(None)
@@ -155,13 +173,14 @@ class AppTestJitHook(object):
         assert len(all) == 2
 
     def test_on_compile_exception(self):
-        import pypyjit, sys, cStringIO
+        import pypyjit, sys
+        from io import StringIO
 
         def hook(*args):
             1/0
 
         pypyjit.set_compile_hook(hook)
-        s = cStringIO.StringIO()
+        s = StringIO()
         prev = sys.stderr
         sys.stderr = s
         try:
@@ -219,7 +238,12 @@ class AppTestJitHook(object):
 
         pypyjit.set_abort_hook(hook)
         self.on_abort()
-        assert l == [('pypyjit', 'ABORT_TOO_LONG', [])]
+        assert len(l) == 1
+        name, reason, ops = l[0]
+        assert name == 'pypyjit'
+        assert reason == 'ABORT_TOO_LONG'
+        assert len(ops) == 4
+        assert ops[2].hash == 0
 
     def test_creation(self):
         from pypyjit import ResOperation
@@ -234,9 +258,9 @@ class AppTestJitHook(object):
         def f():
             pass
 
-        op = DebugMergePoint("debug_merge_point", 'repr', 'pypyjit', 2, 3, (f.func_code, 0, 0))
+        op = DebugMergePoint("debug_merge_point", 'repr', 'pypyjit', 2, 3, (f.__code__, 0, 0))
         assert op.bytecode_no == 0
-        assert op.pycode is f.func_code
+        assert op.pycode is f.__code__
         assert repr(op) == 'repr'
         assert op.jitdriver_name == 'pypyjit'
         assert op.name == 'debug_merge_point'

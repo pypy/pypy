@@ -57,6 +57,16 @@ class AppTestEpoll(object):
         assert ep.closed
         raises(ValueError, ep.fileno)
 
+    def test_with(self):
+        import select
+
+        ep = select.epoll(16)
+        assert ep.fileno() > 0
+        with ep:
+            assert not ep.closed
+        assert ep.closed
+        raises(ValueError, ep.__enter__)
+
     def test_badcreate(self):
         import select
 
@@ -151,8 +161,8 @@ class AppTestEpoll(object):
         then = time.time()
         assert not events
 
-        client.send("Hello!")
-        server.send("world!!!")
+        client.send(b"Hello!")
+        server.send(b"world!!!")
 
         now = time.time()
         events = ep.poll(1, 4)
@@ -208,4 +218,11 @@ class AppTestEpoll(object):
 
         ep = select.epoll()
         ep.close()
+        ep.close()
+
+    def test_non_inheritable(self):
+        import select, posix
+
+        ep = select.epoll()
+        assert posix.get_inheritable(ep.fileno()) == False
         ep.close()

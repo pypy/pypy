@@ -1,10 +1,12 @@
+# encoding: utf-8
 from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
 import os
 
 
 class AppTestFileIO:
-    spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
+    spaceconfig = dict(usemodules=['_io', 'array'] +
+                                  (['fcntl'] if os.name != 'nt' else []))
 
     def setup_method(self, meth):
         tmpfile = udir.join('tmpfile')
@@ -25,6 +27,8 @@ class AppTestFileIO:
         assert f.name.endswith('tmpfile')
         assert f.mode == 'ab'
         assert f.closefd is True
+        assert f._blksize >= 1024
+        assert f._blksize % 1024 == 0
         f.close()
 
     def test_invalid_fd(self):
@@ -44,7 +48,7 @@ class AppTestFileIO:
     def test_open_fd(self):
         import _io
         os = self.posix
-        fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
+        fd = os.open(self.tmpfile, os.O_RDONLY, 0o666)
         f = _io.FileIO(fd, "rb", closefd=False)
         assert f.fileno() == fd
         assert f.closefd is False
@@ -60,38 +64,51 @@ class AppTestFileIO:
             raises(IOError, _io.FileIO, fd, "rb")
             os.close(fd)
 
+    def test_open_non_existent_unicode(self):
+        import _io
+        import os
+        path = os.path.join(self.tmpdir, '_pypy-日本')
+        try:
+            os.fsencode(path)
+        except UnicodeEncodeError:
+            import sys
+            skip("can't run this test with %s as filesystem encoding" %
+                 sys.getfilesystemencoding())
+        exc = raises(IOError, _io.FileIO, path)
+        expected = "[Errno 2] No such file or directory: %r" % path
+        assert str(exc.value) == expected
+
     def test_readline(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
-        assert f.readline() == 'a\n'
-        assert f.readline() == 'b\n'
-        assert f.readline() == 'c'
-        assert f.readline() == ''
+        assert f.readline() == b'a\n'
+        assert f.readline() == b'b\n'
+        assert f.readline() == b'c'
+        assert f.readline() == b''
         f.close()
 
     def test_readlines(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
-        assert f.readlines() == ["a\n", "b\n", "c"]
+        assert f.readlines() == [b"a\n", b"b\n", b"c"]
         f.seek(0)
-        assert f.readlines(3) == ["a\n", "b\n"]
+        assert f.readlines(3) == [b"a\n", b"b\n"]
         f.close()
 
     def test_readall(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
-        assert f.readall() == "a\nb\nc"
+        assert f.readall() == b"a\nb\nc"
         f.close()
 
     def test_write(self):
         import _io
         filename = self.tmpfile + '_w'
         f = _io.FileIO(filename, 'wb')
-        f.write("te")
-        f.write(u"st")
+        f.write(b"test")
         # try without flushing
         f2 = _io.FileIO(filename, 'rb')
-        assert f2.read() == "test"
+        assert f2.read() == b"test"
         f.close()
         f2.close()
 
@@ -99,9 +116,9 @@ class AppTestFileIO:
         import _io
         filename = self.tmpfile + '_w'
         f = _io.FileIO(filename, 'wb')
-        f.writelines(["line1\n", "line2", "line3"])
+        f.writelines([b"line1\n", b"line2", b"line3"])
         f2 = _io.FileIO(filename, 'rb')
-        assert f2.read() == "line1\nline2line3"
+        assert f2.read() == b"line1\nline2line3"
         f.close()
         f2.close()
 
@@ -138,33 +155,47 @@ class AppTestFileIO:
 
     def test_readinto(self):
         import _io
-        a = bytearray('x' * 10)
+        a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
         assert f.readinto(a) == 5
-        exc = raises(TypeError, f.readinto, u"hello")
-        assert str(exc.value) == "cannot use unicode as modifiable buffer"
-        exc = raises(TypeError, f.readinto, buffer(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not buffer"
-        exc = raises(TypeError, f.readinto, buffer(bytearray("hello")))
-        assert str(exc.value) == "must be read-write buffer, not buffer"
-        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not memoryview"
-        f.close()
-        assert a == 'a\nb\ncxxxxx'
+        f.seek(0)
+        m = memoryview(bytearray(b"helloworld"))
+        assert f.readinto(m) == 5
         #
-        a = bytearray('x' * 10)
+        exc = raises(TypeError, f.readinto, u"hello")
+        msg = str(exc.value)
+        # print(msg)
+        assert " read-write b" in msg and msg.endswith(", not str")
+        #
+        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
+        msg = str(exc.value)
+        # print(msg)
+        assert " read-write b" in msg and msg.endswith(", not memoryview")
+        #
+        f.close()
+        assert a == b'a\nb\ncxxxxx'
+        #
+        a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
         f.truncate(3)
         assert f.readinto(a) == 3
         f.close()
-        assert a == 'a\nbxxxxxxx'
+        assert a == b'a\nbxxxxxxx'
 
     def test_readinto_optimized(self):
         import _io
-        a = bytearray('x' * 1024)
+        a = bytearray(b'x' * 1024)
         f = _io.FileIO(self.bigfile, 'r+')
         assert f.readinto(a) == 1000
-        assert a == 'a' * 1000 + 'x' * 24
+        assert a == b'a' * 1000 + b'x' * 24
+
+    def test_readinto_array(self):
+        import _io, array
+        buffer = array.array('i', [0]*10)
+        m = memoryview(buffer)
+        f = _io.FileIO(self.tmpfile, 'r+')
+        assert f.readinto(m[1:9]) == 5
+        assert buffer[1] in (0x610a620a, 0x0a620a61)
 
     def test_nonblocking_read(self):
         try:
@@ -179,18 +210,18 @@ class AppTestFileIO:
         # Read from stream sould return None
         assert f.read() is None
         assert f.read(10) is None
-        a = bytearray('x' * 10)
+        a = bytearray(b'x' * 10)
         assert f.readinto(a) is None
-        a2 = bytearray('x' * 1024)
+        a2 = bytearray(b'x' * 1024)
         assert f.readinto(a2) is None
 
     def test_repr(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'r')
-        assert repr(f) == ("<_io.FileIO name=%r mode='%s'>"
+        assert repr(f) == ("<_io.FileIO name=%r mode='%s' closefd=True>"
                            % (f.name, f.mode))
         del f.name
-        assert repr(f) == ("<_io.FileIO fd=%r mode='%s'>"
+        assert repr(f) == ("<_io.FileIO fd=%r mode='%s' closefd=True>"
                            % (f.fileno(), f.mode))
         f.close()
         assert repr(f) == "<_io.FileIO [closed]>"
@@ -223,7 +254,7 @@ class AppTestFileIO:
         # Test that the file is closed despite failed flush
         # and that flush() is called before file closed.
         import _io, os
-        fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
+        fd = os.open(self.tmpfile, os.O_RDONLY, 0o666)
         f = _io.FileIO(fd, 'r', closefd=False)
         closed = []
         def bad_flush():
@@ -235,6 +266,84 @@ class AppTestFileIO:
         assert closed         # flush() called
         assert not closed[0]  # flush() called before file closed
         os.close(fd)
+
+    def test_open_exclusive(self):
+        # XXX: should raise FileExistsError
+        FileExistsError = OSError
+
+        import _io
+        filename = self.tmpfile + '_x1'
+        raises(ValueError, _io.FileIO, filename, 'xw')
+        with _io.FileIO(filename, 'x') as f:
+            assert f.mode == 'xb'
+        raises(FileExistsError, _io.FileIO, filename, 'x')
+
+    def test_non_inheritable(self):
+        import _io
+        os = self.posix
+        f = _io.FileIO(self.tmpfile, 'r')
+        assert os.get_inheritable(f.fileno()) == False
+        f.close()
+
+    def test_FileIO_fd_does_not_change_inheritable(self):
+        import _io
+        os = self.posix
+        fd1, fd2 = os.pipe()
+        os.set_inheritable(fd1, True)
+        os.set_inheritable(fd2, False)
+        f1 = _io.FileIO(fd1, 'r')
+        f2 = _io.FileIO(fd2, 'w')
+        assert os.get_inheritable(fd1) == True
+        assert os.get_inheritable(fd2) == False
+        f1.close()
+        f2.close()
+
+    def test_close_upon_reinit(self):
+        import _io
+        os = self.posix
+        f = _io.FileIO(self.tmpfile, 'r')
+        fd1 = f.fileno()
+        f.__init__(self.tmpfile, 'w')
+        fd2 = f.fileno()
+        if fd1 != fd2:
+            raises(OSError, os.close, fd1)
+
+    def test_opener_negative(self):
+        import _io
+        def opener(*args):
+            return -1
+        raises(ValueError, _io.FileIO, "foo", 'r', opener=opener)
+
+    def test_seek_bom(self):
+        # The BOM is not written again when seeking manually
+        import _io
+        filename = self.tmpfile + '_x3'
+        for charset in ('utf-8-sig', 'utf-16', 'utf-32'):
+            with _io.open(filename, 'w', encoding=charset) as f:
+                f.write('aaa')
+                pos = f.tell()
+            with _io.open(filename, 'r+', encoding=charset) as f:
+                f.seek(pos)
+                f.write('zzz')
+                f.seek(0)
+                f.write('bbb')
+            with _io.open(filename, 'rb') as f:
+                assert f.read() == 'bbbzzz'.encode(charset)
+
+    def test_seek_append_bom(self):
+        # Same test, but first seek to the start and then to the end
+        import _io, os
+        filename = self.tmpfile + '_x3'
+        for charset in ('utf-8-sig', 'utf-16', 'utf-32'):
+            with _io.open(filename, 'w', encoding=charset) as f:
+                f.write('aaa')
+            with _io.open(filename, 'a', encoding=charset) as f:
+                f.seek(0)
+                f.seek(0, os.SEEK_END)
+                f.write('xxx')
+            with _io.open(filename, 'rb') as f:
+                assert f.read() == 'aaaxxx'.encode(charset)
+
 
 def test_flush_at_exit():
     from pypy import conftest

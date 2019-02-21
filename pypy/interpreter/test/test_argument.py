@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import py
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
-        ArgErrMultipleValues, ArgErrCount, ArgErrCountMethod)
+        ArgErrMultipleValues, ArgErrMissing, ArgErrTooMany, ArgErrTooManyMethod)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 
@@ -26,12 +26,12 @@ class TestSignature(object):
         assert sig.has_kwarg()
         assert sig.scope_length() == 4
         assert sig.getallvarnames() == ["a", "b", "c", "c"]
-        sig = Signature(["a", "b", "c"], "d", "c")
+        sig = Signature(["a", "b", "c"], "d", "c", ["kwonly"])
         assert sig.num_argnames() == 3
         assert sig.has_vararg()
         assert sig.has_kwarg()
-        assert sig.scope_length() == 5
-        assert sig.getallvarnames() == ["a", "b", "c", "d", "c"]
+        assert sig.scope_length() == 6
+        assert sig.getallvarnames() == ["a", "b", "c", "d", "kwonly", "c"]
 
     def test_eq(self):
         sig1 = Signature(["a", "b", "c"], "d", "c")
@@ -40,11 +40,12 @@ class TestSignature(object):
 
 
     def test_find_argname(self):
-        sig = Signature(["a", "b", "c"], None, None)
+        sig = Signature(["a", "b", "c"], None, None, ["kwonly"])
         assert sig.find_argname("a") == 0
         assert sig.find_argname("b") == 1
         assert sig.find_argname("c") == 2
         assert sig.find_argname("d") == -1
+        assert sig.find_argname("kwonly") == 3
 
 class dummy_wrapped_dict(dict):
     def __nonzero__(self):
@@ -54,6 +55,9 @@ class kwargsdict(dict):
     pass
 
 class DummySpace(object):
+    class sys:
+        defaultencoding = 'utf-8'
+
     def newtuple(self, items):
         return tuple(items)
 
@@ -91,14 +95,15 @@ class DummySpace(object):
     def getitem(self, obj, key):
         return obj[key]
 
-    def wrap(self, obj):
+    def wrap(self, obj, lgt=-1):
         return obj
     newtext = wrap
 
-    def str_w(self, s):
-        return str(s)
     def text_w(self, s):
-        return self.str_w(s)
+        return self.utf8_w(s)
+
+    def utf8_w(self, s):
+        return s
 
     def len(self, x):
         return len(x)
@@ -340,13 +345,14 @@ class TestArgumentsNormal(object):
     def test_unwrap_error(self):
         space = DummySpace()
         valuedummy = object()
-        def str_w(w):
+        def utf8_w(w):
             if w is None:
                 raise OperationError(TypeError, None)
             if w is valuedummy:
                 raise OperationError(ValueError, None)
-            return str(w)
-        space.str_w = str_w
+            return bytes(w, 'utf-8')
+        space.utf8_w = utf8_w
+        space.text_w = utf8_w
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
@@ -385,16 +391,16 @@ class TestArgumentsNormal(object):
         calls = []
 
         def _match_signature(w_firstarg, scope_w, signature,
-                             defaults_w=None, blindargs=0):
+                             defaults_w=None, w_kw_defs=None, blindargs=0):
             defaults_w = [] if defaults_w is None else defaults_w
             calls.append((w_firstarg, scope_w, signature.argnames, signature.has_vararg(),
-                          signature.has_kwarg(), defaults_w, blindargs))
+                          signature.has_kwarg(), defaults_w, w_kw_defs, blindargs))
         args._match_signature = _match_signature
 
         scope_w = args.parse_obj(None, "foo", Signature(["a", "b"], None, None))
         assert len(calls) == 1
         assert calls[0] == (None, [None, None], ["a", "b"], False, False,
-                            [], 0)
+                            [], None, 0)
         assert calls[0][1] is scope_w
         calls = []
 
@@ -402,7 +408,7 @@ class TestArgumentsNormal(object):
                                  blindargs=1)
         assert len(calls) == 1
         assert calls[0] == (None, [None, None, None], ["a", "b"], True, False,
-                            [], 1)
+                            [], None, 1)
         calls = []
 
         scope_w = args.parse_obj(None, "foo", Signature(["a", "b"], "args", "kw"),
@@ -410,7 +416,7 @@ class TestArgumentsNormal(object):
         assert len(calls) == 1
         assert calls[0] == (None, [None, None, None, None], ["a", "b"],
                             True, True,
-                            ["x", "y"], 0)
+                            ["x", "y"], None, 0)
         calls = []
 
         scope_w = args.parse_obj("obj", "foo", Signature(["a", "b"], "args", "kw"),
@@ -418,7 +424,7 @@ class TestArgumentsNormal(object):
         assert len(calls) == 1
         assert calls[0] == ("obj", [None, None, None, None], ["a", "b"],
                             True, True,
-                            ["x", "y"], 1)
+                            ["x", "y"], None, 1)
 
         class FakeArgErr(ArgErr):
 
@@ -443,17 +449,17 @@ class TestArgumentsNormal(object):
         calls = []
 
         def _match_signature(w_firstarg, scope_w, signature,
-                             defaults_w=None, blindargs=0):
+                             defaults_w=None, w_kw_defs=None, blindargs=0):
             defaults_w = [] if defaults_w is None else defaults_w
             calls.append((w_firstarg, scope_w, signature.argnames, signature.has_vararg(),
-                          signature.has_kwarg(), defaults_w, blindargs))
+                          signature.has_kwarg(), defaults_w, w_kw_defs, blindargs))
         args._match_signature = _match_signature
 
         scope_w = [None, None]
         args.parse_into_scope(None, scope_w, "foo", Signature(["a", "b"], None, None))
         assert len(calls) == 1
         assert calls[0] == (None, scope_w, ["a", "b"], False, False,
-                            [], 0)
+                            [], None, 0)
         assert calls[0][1] is scope_w
         calls = []
 
@@ -463,7 +469,7 @@ class TestArgumentsNormal(object):
         assert len(calls) == 1
         assert calls[0] == (None, scope_w, ["a", "b"],
                             True, True,
-                            ["x", "y"], 0)
+                            ["x", "y"], None, 0)
         calls = []
 
         scope_w = [None, None, None, None]
@@ -473,7 +479,7 @@ class TestArgumentsNormal(object):
         assert len(calls) == 1
         assert calls[0] == ("obj", scope_w, ["a", "b"],
                             True, True,
-                            ["x", "y"], 0)
+                            ["x", "y"], None, 0)
 
         class FakeArgErr(ArgErr):
 
@@ -570,123 +576,171 @@ class TestArgumentsNormal(object):
 
 class TestErrorHandling(object):
     def test_missing_args(self):
-        # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
-        # defaults_w, missing_args
-        sig = Signature([], None, None)
-        err = ArgErrCount(1, 0, sig, None, 0)
+        err = ArgErrMissing(['a'], True)
         s = err.getmsg()
-        assert s == "takes no arguments (1 given)"
+        assert s == "missing 1 required positional argument: 'a'"
 
-        sig = Signature(['a'], None, None)
-        err = ArgErrCount(0, 0, sig, [], 1)
+        err = ArgErrMissing(['a', 'b'], True)
         s = err.getmsg()
-        assert s == "takes exactly 1 argument (0 given)"
+        assert s == "missing 2 required positional arguments: 'a' and 'b'"
 
-        sig = Signature(['self', 'b'], None, None)
-        err = ArgErrCount(3, 0, sig, [], 0)
+        err = ArgErrMissing(['a', 'b', 'c'], True)
         s = err.getmsg()
-        assert s == "takes exactly 2 arguments (3 given)"
-        sig = Signature(['a', 'b'], None, None)
-        err = ArgErrCount(3, 0, sig, [], 0)
-        s = err.getmsg()
-        assert s == "takes exactly 2 arguments (3 given)"
-        err = ArgErrCount(3, 0, sig, ['a'], 0)
-        s = err.getmsg()
-        assert s == "takes at most 2 arguments (3 given)"
+        assert s == "missing 3 required positional arguments: 'a', 'b', and 'c'"
 
-        sig = Signature(['a', 'b'], '*', None)
-        err = ArgErrCount(1, 0, sig, [], 1)
+        err = ArgErrMissing(['a'], False)
         s = err.getmsg()
-        assert s == "takes at least 2 arguments (1 given)"
-        err = ArgErrCount(0, 1, sig, ['a'], 1)
-        s = err.getmsg()
-        assert s == "takes at least 1 non-keyword argument (0 given)"
+        assert s == "missing 1 required keyword-only argument: 'a'"
 
-        sig = Signature(['a'], None, '**')
-        err = ArgErrCount(2, 1, sig, [], 0)
+    def test_too_many(self):
+        sig0 = Signature([], None, None)
+        err = ArgErrTooMany(sig0, 0, 1, 0)
         s = err.getmsg()
-        assert s == "takes exactly 1 non-keyword argument (2 given)"
-        err = ArgErrCount(0, 1, sig, [], 1)
-        s = err.getmsg()
-        assert s == "takes exactly 1 non-keyword argument (0 given)"
+        assert s == "takes 0 positional arguments but 1 was given"
 
-        sig = Signature(['a'], '*', '**')
-        err = ArgErrCount(0, 1, sig, [], 1)
+        err = ArgErrTooMany(sig0, 0, 2, 0)
         s = err.getmsg()
-        assert s == "takes at least 1 non-keyword argument (0 given)"
+        assert s == "takes 0 positional arguments but 2 were given"
 
-        sig = Signature(['a'], None, '**')
-        err = ArgErrCount(2, 1, sig, ['a'], 0)
+        sig1 = Signature(['a'], None, None)
+        err = ArgErrTooMany(sig1, 0, 2, 0)
         s = err.getmsg()
-        assert s == "takes at most 1 non-keyword argument (2 given)"
+        assert s == "takes 1 positional argument but 2 were given"
 
-    def test_missing_args_method(self):
-        # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
-        # defaults_w, missing_args
-        sig = Signature([], None, None)
-        err = ArgErrCountMethod(1, 0, sig, None, 0)
+        sig2 = Signature(['a', 'b'], None, None)
+        err = ArgErrTooMany(sig2, 0, 3, 0)
         s = err.getmsg()
-        assert s == "takes no arguments (1 given). Did you forget 'self' in the function definition?"
+        assert s == "takes 2 positional arguments but 3 were given"
 
-        sig = Signature(['a'], None, None)
-        err = ArgErrCountMethod(0, 0, sig, [], 1)
+        err = ArgErrTooMany(sig2, 1, 3, 0)
         s = err.getmsg()
-        assert s == "takes exactly 1 argument (0 given)"
+        assert s == "takes from 1 to 2 positional arguments but 3 were given"
 
-        sig = Signature(['self', 'b'], None, None)
-        err = ArgErrCountMethod(3, 0, sig, [], 0)
+        err = ArgErrTooMany(sig0, 0, 1, 1)
         s = err.getmsg()
-        assert s == "takes exactly 2 arguments (3 given)"
-        sig = Signature(['a', 'b'], None, None)
-        err = ArgErrCountMethod(3, 0, sig, [], 0)
-        s = err.getmsg()
-        assert s == "takes exactly 2 arguments (3 given). Did you forget 'self' in the function definition?"
-        err = ArgErrCountMethod(3, 0, sig, ['a'], 0)
-        s = err.getmsg()
-        assert s == "takes at most 2 arguments (3 given). Did you forget 'self' in the function definition?"
+        assert s == "takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given"
 
-        sig = Signature(['a', 'b'], '*', None)
-        err = ArgErrCountMethod(1, 0, sig, [], 1)
+        err = ArgErrTooMany(sig0, 0, 2, 1)
         s = err.getmsg()
-        assert s == "takes at least 2 arguments (1 given)"
-        err = ArgErrCountMethod(0, 1, sig, ['a'], 1)
-        s = err.getmsg()
-        assert s == "takes at least 1 non-keyword argument (0 given)"
+        assert s == "takes 0 positional arguments but 2 positional arguments (and 1 keyword-only argument) were given"
 
-        sig = Signature(['a'], None, '**')
-        err = ArgErrCountMethod(2, 1, sig, [], 0)
+        err = ArgErrTooMany(sig0, 0, 1, 2)
         s = err.getmsg()
-        assert s == "takes exactly 1 non-keyword argument (2 given). Did you forget 'self' in the function definition?"
-        err = ArgErrCountMethod(0, 1, sig, [], 1)
-        s = err.getmsg()
-        assert s == "takes exactly 1 non-keyword argument (0 given)"
+        assert s == "takes 0 positional arguments but 1 positional argument (and 2 keyword-only arguments) were given"
 
-        sig = Signature(['a'], '*', '**')
-        err = ArgErrCountMethod(0, 1, sig, [], 1)
+    def test_too_many_method(self):
+        sig0 = Signature([], None, None)
+        err = ArgErrTooManyMethod(sig0, 0, 1, 0)
         s = err.getmsg()
-        assert s == "takes at least 1 non-keyword argument (0 given)"
+        assert s == "takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?"
 
-        sig = Signature(['a'], None, '**')
-        err = ArgErrCountMethod(2, 1, sig, ['a'], 0)
+        err = ArgErrTooManyMethod(sig0, 0, 2, 0)
         s = err.getmsg()
-        assert s == "takes at most 1 non-keyword argument (2 given). Did you forget 'self' in the function definition?"
+        assert s == "takes 0 positional arguments but 2 were given"
+
+        sig1 = Signature(['self'], None, None)
+        err = ArgErrTooManyMethod(sig1, 0, 2, 0)
+        s = err.getmsg()
+        assert s == "takes 1 positional argument but 2 were given"
+
+        sig1 = Signature(['a'], None, None)
+        err = ArgErrTooManyMethod(sig1, 0, 2, 0)
+        s = err.getmsg()
+        assert s == "takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?"
+
+        sig2 = Signature(['a', 'b'], None, None)
+        err = ArgErrTooManyMethod(sig2, 0, 3, 0)
+        s = err.getmsg()
+        assert s == "takes 2 positional arguments but 3 were given. Did you forget 'self' in the function definition?"
+
+        err = ArgErrTooManyMethod(sig2, 1, 3, 0)
+        s = err.getmsg()
+        assert s == "takes from 1 to 2 positional arguments but 3 were given. Did you forget 'self' in the function definition?"
+
+        err = ArgErrTooManyMethod(sig0, 0, 1, 1)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given. Did you forget 'self' in the function definition?"
+
+        err = ArgErrTooManyMethod(sig0, 0, 2, 1)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 2 positional arguments (and 1 keyword-only argument) were given"
+
+        err = ArgErrTooManyMethod(sig0, 0, 1, 2)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 1 positional argument (and 2 keyword-only arguments) were given. Did you forget 'self' in the function definition?"
 
     def test_bad_type_for_star(self):
         space = self.space
         try:
             Arguments(space, [], w_stararg=space.wrap(42))
         except OperationError as e:
-            msg = space.str_w(space.str(e.get_w_value(space)))
+            msg = space.text_w(space.str(e.get_w_value(space)))
             assert msg == "argument after * must be an iterable, not int"
         else:
             assert 0, "did not raise"
         try:
             Arguments(space, [], w_starstararg=space.wrap(42))
         except OperationError as e:
-            msg = space.str_w(space.str(e.get_w_value(space)))
+            msg = space.text_w(space.str(e.get_w_value(space)))
             assert msg == "argument after ** must be a mapping, not int"
         else:
             assert 0, "did not raise"
+
+    def test_dont_count_default_arguments(self):
+        space = self.space
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c): pass
+            try:
+                f1(4)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 1 was given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c=8): pass
+            try:
+                f1(4)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 1 was given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(a, b, *, c): pass
+            try:
+                f1(4, 5, 6)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 2 positional arguments but 3 were given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c): pass
+            try:
+                f1(6, c=7)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c, d=8, e=9): pass
+            try:
+                f1(6, 2, c=7, d=8)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 2 positional arguments (and 2 keyword-only arguments) were given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c, d=8, e=9, **kwds): pass
+            try:
+                f1(6, 2, c=7, d=8, morestuff=9)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 2 positional arguments (and 2 keyword-only arguments) were given'
 
     def test_unknown_keywords(self):
         space = DummySpace()
@@ -710,33 +764,41 @@ class TestErrorHandling(object):
                                 [0, 3, 2],
                                 [unichr(0x1234), u'b', u'c'])
         s = err.getmsg()
-        assert s == "got an unexpected keyword argument '\xe1\x88\xb4'"
+        assert s == "got an unexpected keyword argument '%s'" % unichr(0x1234).encode('utf-8')
 
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')
         s = err.getmsg()
-        assert s == "got multiple values for keyword argument 'bla'"
+        assert s == "got multiple values for argument 'bla'"
 
 class AppTestArgument:
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
-        assert exc.value.message == "<lambda>() takes at least 1 non-keyword argument (0 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'a'"
         exc = raises(TypeError, (lambda: 0), b=3)
-        assert exc.value.message == "<lambda>() takes no arguments (1 given)"
+        assert str(exc.value) == "<lambda>() got an unexpected keyword argument 'b'"
         exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
-        assert exc.value.message == "<lambda>() takes exactly 2 arguments (4 given)"
+        assert str(exc.value) == "<lambda>() got multiple values for argument 'a'"
         exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
-        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
+        assert str(exc.value) == "<lambda>() got multiple values for argument 'a'"
+        exc = raises(TypeError, (lambda a, **kw: 0), 1, 2, 3)
+        assert str(exc.value) == "<lambda>() takes 1 positional argument but 3 were given"
         exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
-        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
+        assert str(exc.value) == "<lambda>() takes from 1 to 2 positional arguments but 3 were given"
         exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), 1)
-        assert exc.value.message == "<lambda>() takes at least 2 arguments (1 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
         exc = raises(TypeError, (lambda a, b, **kw: 0), 1)
-        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (1 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
         exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), a=1)
-        assert exc.value.message == "<lambda>() takes at least 2 non-keyword arguments (0 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
-        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
+        exc = raises(TypeError, '(lambda *, a: 0)()')
+        assert str(exc.value) == "<lambda>() missing 1 required keyword-only argument: 'a'"
+        exc = raises(TypeError, '(lambda *, a=1, b: 0)(a=1)')
+        assert str(exc.value) == "<lambda>() missing 1 required keyword-only argument: 'b'"
+        exc = raises(TypeError, '(lambda *, kw: 0)(1, kw=3)')
+        assert str(exc.value) == "<lambda>() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given"
 
     @py.test.mark.skipif("config.option.runappdirect")
     def test_error_message_method(self):
@@ -746,21 +808,21 @@ class AppTestArgument:
             def f1(a):
                 pass
         exc = raises(TypeError, lambda : A().f0())
-        assert exc.value.message == "f0() takes no arguments (1 given). Did you forget 'self' in the function definition?"
+        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?"
         exc = raises(TypeError, lambda : A().f1(1))
-        assert exc.value.message == "f1() takes exactly 1 argument (2 given). Did you forget 'self' in the function definition?"
+        assert exc.value.args[0] == "f1() takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?"
         def f0():
             pass
         exc = raises(TypeError, f0, 1)
         # does not contain the warning about missing self
-        assert exc.value.message == "f0() takes no arguments (1 given)"
+        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given"
 
     @py.test.mark.skipif("config.option.runappdirect")
     def test_error_message_module_function(self):
-        import operator # use repeat because it's defined at applevel
-        exc = raises(TypeError, lambda : operator.repeat(1, 2, 3))
+        import operator # use countOf because it's defined at applevel
+        exc = raises(TypeError, lambda : operator.countOf(1, 2, 3))
         # does not contain the warning about missing self
-        assert exc.value.message == "repeat() takes exactly 2 arguments (3 given)"
+        assert exc.value.args[0] == "countOf() takes 2 positional arguments but 3 were given"
 
     @py.test.mark.skipif("config.option.runappdirect")
     def test_error_message_bound_method(self):
@@ -771,19 +833,20 @@ class AppTestArgument:
                 pass
         m0 = A().f0
         exc = raises(TypeError, lambda : m0())
-        assert exc.value.message == "f0() takes no arguments (1 given). Did you forget 'self' in the function definition?"
+        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?"
         m1 = A().f1
         exc = raises(TypeError, lambda : m1(1))
-        assert exc.value.message == "f1() takes exactly 1 argument (2 given). Did you forget 'self' in the function definition?"
+        assert exc.value.args[0] == "f1() takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?"
 
 
     def test_unicode_keywords(self):
         def f(**kwargs):
-            assert kwargs[u"美"] == 42
-        f(**{u"美" : 42})
+            assert kwargs["美"] == 42
+        f(**{"美" : 42})
+        #
         def f(x): pass
-        e = raises(TypeError, "f(**{u'ü' : 19})")
-        assert "?" in str(e.value)
+        e = raises(TypeError, "f(**{'ü' : 19})")
+        assert e.value.args[0] == "f() got an unexpected keyword argument 'ü'"
 
     def test_starstarargs_dict_subclass(self):
         def f(**kwargs):
@@ -814,6 +877,36 @@ class AppTestArgument:
             assert str(e) == "myerror"
         else:
             assert False, "Expected TypeError"
+
+    def test_call_iter_dont_eat_typeerror(self):
+        # same as test_cpython_issue4806, not only for generators
+        # (only for 3.x, on CPython 2.7 this case still eats the
+        # TypeError and replaces it with "argument after * ...")
+        class X:
+            def __iter__(self):
+                raise TypeError("myerror")
+        def f():
+            pass
+        e = raises(TypeError, "f(*42)")
+        assert str(e.value).endswith(
+            "argument after * must be an iterable, not int")
+        e = raises(TypeError, "f(*X())")
+        assert str(e.value) == "myerror"
+
+    def test_keyword_arg_after_keywords_dict(self):
+        """
+        def f(x, y):
+            return (x, y)
+        assert f(**{'x': 5}, y=6) == (5, 6)
+        """
+
+    def test_error_message_kwargs(self):
+        def f(x, y):
+            pass
+        e = raises(TypeError, "f(y=2, **{3: 5}, x=6)")
+        assert "keywords must be strings" in str(e.value)
+        e = raises(TypeError, "f(y=2, **{'x': 5}, x=6)")
+        assert "got multiple values for keyword argument 'x'" in str(e.value)
 
     def test_dict_subclass_with_weird_getitem(self):
         # issue 2435: bug-to-bug compatibility with cpython. for a subclass of

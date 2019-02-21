@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN,
+    DTSF_ADD_DOT_0, INFINITY, NAN,
     float_as_rbigint_ratio, formatd, isfinite)
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
@@ -19,9 +19,19 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.objspace.std import newformat
-from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.intobject import HASH_BITS, HASH_MODULUS, W_IntObject
+from pypy.objspace.std.longobject import (
+    W_AbstractLongObject, newlong_from_float)
+from rpython.rlib.rarithmetic import (
+    LONG_BIT, intmask, ovfcheck_float_to_int, r_uint)
 from pypy.objspace.std.util import wrap_parsestringerror
 
+HASH_INF  = 314159
+HASH_NAN  = 0
+
+# Here 0.30103 is an upper bound for log10(2)
+NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
+NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
 def float2string(x, code, precision):
     # we special-case explicitly inf and nan here
@@ -119,7 +129,7 @@ def make_compare_func(opname):
     def _compare(self, space, w_other):
         if isinstance(w_other, W_FloatObject):
             return space.newbool(op(self.floatval, w_other.floatval))
-        if space.isinstance_w(w_other, space.w_int):
+        if isinstance(w_other, W_IntObject):
             f1 = self.floatval
             i2 = space.int_w(w_other)
             # (double-)floats have always at least 48 bits of precision
@@ -129,7 +139,7 @@ def make_compare_func(opname):
                 f2 = float(i2)
                 res = op(f1, f2)
             return space.newbool(res)
-        if space.isinstance_w(w_other, space.w_long):
+        if isinstance(w_other, W_AbstractLongObject):
             return space.newbool(do_compare_bigint(self.floatval,
                                                    space.bigint_w(w_other)))
         return space.w_NotImplemented
@@ -197,7 +207,8 @@ class W_FloatObject(W_Root):
             try:
                 return rfloat.string_to_float(string)
             except ParseStringError as e:
-                raise wrap_parsestringerror(space, e, w_source)
+                raise oefmt(space.w_ValueError,
+                            "could not convert string to float: %R", w_source)
 
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
@@ -214,9 +225,9 @@ class W_FloatObject(W_Root):
                 value = space.charbuf_w(w_value)
             except OperationError as e:
                 if e.match(space, space.w_TypeError):
-                    raise oefmt(
-                        space.w_TypeError,
-                        "float() argument must be a string or a number")
+                    raise oefmt(space.w_TypeError,
+                                "float() argument must be a string or a "
+                                "number, not '%T'", w_value)
                 raise
             value = _string_to_float(space, w_value, value)
         w_obj = space.allocate_instance(W_FloatObject, w_floattype)
@@ -235,6 +246,15 @@ class W_FloatObject(W_Root):
     @staticmethod
     @unwrap_spec(s='text')
     def descr_fromhex(space, w_cls, s):
+        """float.fromhex(string) -> float
+
+        Create a floating-point number from a hexadecimal string.
+        >>> float.fromhex('0x1.ffffp10')
+        2047.984375
+        >>> float.fromhex('-0x1p-1074')
+        -5e-324
+
+        """
         length = len(s)
         i = 0
         value = 0.0
@@ -379,31 +399,23 @@ class W_FloatObject(W_Root):
         if isinstance(w_obj, W_FloatObject):
             return w_obj
         if space.isinstance_w(w_obj, space.w_int):
-            return W_FloatObject(float(space.int_w(w_obj)))
-        if space.isinstance_w(w_obj, space.w_long):
             return W_FloatObject(space.float_w(w_obj))
+
+    def descr___round__(self, space, w_ndigits=None):
+        return _round_float(space, self, w_ndigits)
 
     def descr_repr(self, space):
         return space.newtext(float2string(self.floatval, 'r', 0))
-
-    def descr_str(self, space):
-        return space.newtext(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
+    descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
         h = _hash_float(space, self.floatval)
-        h -= (h == -1)
         return space.newint(h)
 
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
 
-    def descr_coerce(self, space, w_other):
-        w_other = self._to_float(space, w_other)
-        if w_other is None:
-            return space.w_NotImplemented
-        return space.newtuple([self, w_other])
-
-    def descr_nonzero(self, space):
+    def descr_bool(self, space):
         return space.newbool(self.floatval != 0.0)
 
     def descr_float(self, space):
@@ -412,21 +424,11 @@ class W_FloatObject(W_Root):
         a = self.floatval
         return W_FloatObject(a)
 
-    def descr_long(self, space):
-        try:
-            return W_LongObject.fromfloat(space, self.floatval)
-        except OverflowError:
-            raise oefmt(space.w_OverflowError,
-                        "cannot convert float infinity to integer")
-        except ValueError:
-            raise oefmt(space.w_ValueError,
-                        "cannot convert float NaN to integer")
-
     def descr_trunc(self, space):
         try:
             value = ovfcheck_float_to_int(self.floatval)
         except OverflowError:
-            return self.descr_long(space)
+            return newlong_from_float(space, self.floatval)
         else:
             return space.newint(value)
 
@@ -569,8 +571,10 @@ class W_FloatObject(W_Root):
         try:
             result = _pow(space, x, y)
         except PowDomainError:
-            raise oefmt(space.w_ValueError, "negative number cannot be raised "
-                                            "to a fractional power")
+            # Negative numbers raised to fractional powers become complex
+            return space.pow(space.newcomplex(x, 0.0),
+                             space.newcomplex(y, 0.0),
+                             w_third_arg)
         return W_FloatObject(result)
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))
@@ -596,6 +600,20 @@ class W_FloatObject(W_Root):
         return space.newbool(math.floor(v) == v)
 
     def descr_as_integer_ratio(self, space):
+        """float.as_integer_ratio() -> (int, int)
+
+        Return a pair of integers, whose ratio is exactly equal to the
+        original float and with a positive denominator.  Raise
+        OverflowError on infinities and a ValueError on NaNs.
+
+        >>> (10.0).as_integer_ratio()
+        (10, 1)
+        >>> (0.0).as_integer_ratio()
+        (0, 1)
+        >>> (-.25).as_integer_ratio()
+        (-1, 4)
+
+        """
         value = self.floatval
         try:
             num, den = float_as_rbigint_ratio(value)
@@ -612,6 +630,17 @@ class W_FloatObject(W_Root):
         return space.newtuple([space.int(w_num), space.int(w_den)])
 
     def descr_hex(self, space):
+        """float.hex() -> string
+
+        Return a hexadecimal representation of a floating-point
+        number.
+
+        >>> (-0.1).hex()
+        '-0x1.999999999999ap-4'
+        >>> 3.14159.hex()
+        '0x1.921f9f01b866ep+1'
+
+        """
         TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
         value = self.floatval
         if not isfinite(value):
@@ -652,16 +681,15 @@ W_FloatObject.typedef = TypeDef("float",
 Convert a string or number to a floating point number, if possible.''',
     __new__ = interp2app(W_FloatObject.descr__new__),
     __getformat__ = interp2app(W_FloatObject.descr___getformat__, as_classmethod=True),
+    __round__ = interp2app(W_FloatObject.descr___round__),
     fromhex = interp2app(W_FloatObject.descr_fromhex, as_classmethod=True),
     __repr__ = interp2app(W_FloatObject.descr_repr),
     __str__ = interp2app(W_FloatObject.descr_str),
     __hash__ = interp2app(W_FloatObject.descr_hash),
     __format__ = interp2app(W_FloatObject.descr_format),
-    __coerce__ = interp2app(W_FloatObject.descr_coerce),
-    __nonzero__ = interp2app(W_FloatObject.descr_nonzero),
+    __bool__ = interp2app(W_FloatObject.descr_bool),
     __int__ = interp2app(W_FloatObject.descr_trunc),
     __float__ = interp2app(W_FloatObject.descr_float),
-    __long__ = interp2app(W_FloatObject.descr_long),
     __trunc__ = interp2app(W_FloatObject.descr_trunc),
     __neg__ = interp2app(W_FloatObject.descr_neg),
     __pos__ = interp2app(W_FloatObject.descr_pos),
@@ -681,8 +709,6 @@ Convert a string or number to a floating point number, if possible.''',
     __rsub__ = interp2app(W_FloatObject.descr_rsub),
     __mul__ = interp2app(W_FloatObject.descr_mul),
     __rmul__ = interp2app(W_FloatObject.descr_rmul),
-    __div__ = interp2app(W_FloatObject.descr_div),
-    __rdiv__ = interp2app(W_FloatObject.descr_rdiv),
     __truediv__ = interp2app(W_FloatObject.descr_div),
     __rtruediv__ = interp2app(W_FloatObject.descr_rdiv),
     __floordiv__ = interp2app(W_FloatObject.descr_floordiv),
@@ -704,49 +730,37 @@ Convert a string or number to a floating point number, if possible.''',
 
 
 def _hash_float(space, v):
-    if math.isnan(v):
-        return 0
+    if not isfinite(v):
+        if math.isinf(v):
+            return HASH_INF if v > 0 else -HASH_INF
+        return HASH_NAN
 
-    # This is designed so that Python numbers of different types
-    # that compare equal hash to the same value; otherwise comparisons
-    # of mapping keys will turn out weird.
-    fractpart, intpart = math.modf(v)
+    m, e = math.frexp(v)
 
-    if fractpart == 0.0:
-        # This must return the same hash as an equal int or long.
-        try:
-            x = ovfcheck_float_to_int(intpart)
-            # Fits in a C long == a Python int, so is its own hash.
-            return x
-        except OverflowError:
-            # Convert to long and use its hash.
-            try:
-                w_lval = W_LongObject.fromfloat(space, v)
-            except (OverflowError, ValueError):
-                # can't convert to long int -- arbitrary
-                if v < 0:
-                    return -271828
-                else:
-                    return 314159
-            return space.int_w(space.hash(w_lval))
+    sign = 1
+    if m < 0:
+        sign = -1
+        m = -m
 
-    # The fractional part is non-zero, so we don't have to worry about
-    # making this match the hash of some other type.
-    # Use frexp to get at the bits in the double.
-    # Since the VAX D double format has 56 mantissa bits, which is the
-    # most of any double format in use, each of these parts may have as
-    # many as (but no more than) 56 significant bits.
-    # So, assuming sizeof(long) >= 4, each part can be broken into two
-    # longs; frexp and multiplication are used to do that.
-    # Also, since the Cray double format has 15 exponent bits, which is
-    # the most of any double format in use, shifting the exponent field
-    # left by 15 won't overflow a long (again assuming sizeof(long) >= 4).
+    # process 28 bits at a time;  this should work well both for binary
+    # and hexadecimal floating point.
+    x = r_uint(0)
+    while m:
+        x = ((x << 28) & HASH_MODULUS) | x >> (HASH_BITS - 28)
+        m *= 268435456.0  # 2**28
+        e -= 28
+        y = r_uint(m)  # pull out integer part
+        m -= y
+        x += y
+        if x >= HASH_MODULUS:
+            x -= HASH_MODULUS
 
-    v, expo = math.frexp(v)
-    v *= 2147483648.0  # 2**31
-    hipart = int(v)    # take the top 32 bits
-    v = (v - hipart) * 2147483648.0 # get the next 32 bits
-    x = intmask(hipart + int(v) + (expo << 15))
+    # adjust for the exponent;  first reduce it modulo HASH_BITS
+    e = e % HASH_BITS if e >= 0 else HASH_BITS - 1 - ((-1 - e) % HASH_BITS)
+    x = ((x << e) & HASH_MODULUS) | x >> (HASH_BITS - e)
+
+    x = intmask(intmask(x) * sign)
+    x -= (x == -1)
     return x
 
 
@@ -874,3 +888,38 @@ def _pow(space, x, y):
     if negate_result:
         z = -z
     return z
+
+
+def _round_float(space, w_float, w_ndigits=None):
+    # Algorithm copied directly from CPython
+    x = w_float.floatval
+
+    if w_ndigits is None:
+        # single-argument round: round to nearest integer
+        rounded = rfloat.round_away(x)
+        if math.fabs(x - rounded) == 0.5:
+            # halfway case: round to even
+            rounded = 2.0 * rfloat.round_away(x / 2.0)
+        return newlong_from_float(space, rounded)
+
+    # interpret 2nd argument as a Py_ssize_t; clip on overflow
+    ndigits = space.getindex_w(w_ndigits, None)
+
+    # nans and infinities round to themselves
+    if not rfloat.isfinite(x):
+        return space.newfloat(x)
+
+    # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
+    # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
+    # rounds to +-0.0
+    if ndigits > NDIGITS_MAX:
+        return space.newfloat(x)
+    elif ndigits < NDIGITS_MIN:
+        # return 0.0, but with sign of x
+        return space.newfloat(0.0 * x)
+
+    # finite x, and ndigits is not unreasonably large
+    z = rfloat.round_double(x, ndigits, half_even=True)
+    if math.isinf(z):
+        raise oefmt(space.w_OverflowError, "overflow occurred during round")
+    return space.newfloat(z)

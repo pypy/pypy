@@ -1,9 +1,9 @@
-from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
-from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.interpreter.buffer import SimpleView
 
 from rpython.rlib.buffer import RawBuffer
@@ -42,20 +42,39 @@ class LLBuffer(RawBuffer):
         copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
 
 
-# Override the typedef to narrow down the interface that's exposed to app-level
-
-class MiniBuffer(W_Buffer):
+class MiniBuffer(W_Root):
     def __init__(self, buffer, keepalive=None):
-        W_Buffer.__init__(self, buffer)
+        self.buffer = buffer
         self.keepalive = keepalive
 
-    def descr_setitem(self, space, w_index, w_obj):
-        try:
-            W_Buffer.descr_setitem(self, space, w_index, w_obj)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                e.w_type = space.w_ValueError
-            raise
+    def buffer_w(self, space, flags):
+        return SimpleView(self.buffer)
+
+    def descr_len(self, space):
+        return space.newint(self.buffer.getlength())
+
+    def descr_getitem(self, space, w_index):
+        start, stop, step, size = space.decode_index4(w_index,
+                                                      self.buffer.getlength())
+        if step == 0:
+            return space.newbytes(self.buffer.getitem(start))
+        res = self.buffer.getslice(start, stop, step, size)
+        return space.newbytes(res)
+
+    def descr_setitem(self, space, w_index, w_newstring):
+        start, stop, step, size = space.decode_index4(w_index,
+                                                      self.buffer.getlength())
+        if step not in (0, 1):
+            raise oefmt(space.w_NotImplementedError, "")
+        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO).as_readbuf()
+        if value.getlength() != size:
+            raise oefmt(space.w_ValueError,
+                        "cannot modify size of memoryview object")
+        if step == 0:  # index only
+            self.buffer.setitem(start, value.getitem(0))
+        elif step == 1:
+            self.buffer.setslice(start, value.as_str())
+
 
     def _comparison_helper(self, space, w_other, mode):
         if space.isinstance_w(w_other, space.w_unicode):
@@ -66,7 +85,7 @@ class MiniBuffer(W_Buffer):
             if e.async(space):
                 raise
             return space.w_NotImplemented
-        my_buf = self.buf
+        my_buf = self.buffer
         my_len = len(my_buf)
         other_len = len(other_buf)
         if other_len != my_len:
@@ -137,7 +156,7 @@ def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
     return MiniBuffer(LLBuffer(ptr, size), w_cdata)
 
 MiniBuffer.typedef = TypeDef(
-    "_cffi_backend.buffer",
+    "_cffi_backend.buffer", None, None, "read-write",
     __new__ = interp2app(MiniBuffer___new__),
     __len__ = interp2app(MiniBuffer.descr_len),
     __getitem__ = interp2app(MiniBuffer.descr_getitem),
@@ -149,7 +168,6 @@ MiniBuffer.typedef = TypeDef(
     __gt__ = interp2app(MiniBuffer.descr_gt),
     __ge__ = interp2app(MiniBuffer.descr_ge),
     __weakref__ = make_weakref_descr(MiniBuffer),
-    __str__ = interp2app(MiniBuffer.descr_str),
     __doc__ = """ffi.buffer(cdata[, byte_size]):
 Return a read-write buffer object that references the raw C data
 pointed to by the given 'cdata'.  The 'cdata' must be a pointer or an

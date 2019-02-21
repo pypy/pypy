@@ -32,29 +32,30 @@ class AppTestFcntl:
 
         f = open(self.tmp + "b", "w+")
 
-        fcntl.fcntl(f, 1, 0)
+        original = fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
-        fcntl.fcntl(F(long(f.fileno())), 1)
+        fcntl.fcntl(F(int(f.fileno())), 1)
         raises(TypeError, fcntl.fcntl, "foo")
         raises(TypeError, fcntl.fcntl, f, "foo")
         exc = raises(TypeError, fcntl.fcntl, F("foo"), 1)
         assert str(exc.value) == 'fileno() returned a non-integer'
-        exc = raises(ValueError, fcntl.fcntl, 2147483647 + 1, 1, 0)
-        assert str(exc.value) == 'file descriptor cannot be a negative integer (-1)'
-        exc = raises(ValueError, fcntl.fcntl, F(2147483647 + 1), 1, 0)
-        assert str(exc.value) == 'file descriptor cannot be a negative integer (-1)'
-        exc = raises(ValueError, fcntl.fcntl, -2147483648 - 1, 1, 0)
-        assert str(exc.value) == 'file descriptor cannot be a negative integer (-1)'
-        exc = raises(ValueError, fcntl.fcntl, F(-2147483648 - 1), 1, 0)
-        assert str(exc.value) == 'file descriptor cannot be a negative integer (-1)'
+        exc = raises(OverflowError, fcntl.fcntl, 2147483647 + 1, 1, 0)
+        exc = raises(OverflowError, fcntl.fcntl, F(2147483647 + 1), 1, 0)
+        exc = raises(OverflowError, fcntl.fcntl, -2147483648 - 1, 1, 0)
+        exc = raises(OverflowError, fcntl.fcntl, F(-2147483648 - 1), 1, 0)
         raises(ValueError, fcntl.fcntl, -1, 1, 0)
         raises(ValueError, fcntl.fcntl, F(-1), 1, 0)
-        raises(ValueError, fcntl.fcntl, F(long(-1)), 1, 0)
-        assert fcntl.fcntl(f, 1, 0) == 0
-        assert fcntl.fcntl(f, 2, "foo") == "foo"
-        assert fcntl.fcntl(f, 2, buffer("foo")) == "foo"
-        exc = raises(TypeError, fcntl.fcntl, f, 2, memoryview("foo"))
-        assert 'integer' in str(exc.value)
+        raises(ValueError, fcntl.fcntl, F(int(-1)), 1, 0)
+        assert fcntl.fcntl(f, 1, 0) == original
+        assert fcntl.fcntl(f, 2, "foo") == b"foo"
+        assert fcntl.fcntl(f, 2, b"foo") == b"foo"
+
+        # This is supposed to work I think, but CPython 3.5 refuses it
+        # for reasons I don't understand:
+        #     >>> _testcapi.getargs_s_hash(memoryview(b"foo"))
+        #     TypeError: must be read-only bytes-like object, not memoryview
+        #
+        # assert fcntl.fcntl(f, 2, memoryview(b"foo")) == b"foo"
 
         try:
             os.O_LARGEFILE
@@ -208,7 +209,7 @@ class AppTestFcntl:
         raises(TypeError, fcntl.ioctl, "foo")
         raises(TypeError, fcntl.ioctl, 0, "foo")
         #raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, float(0))
-        raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, 1, "foo")
+        raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, 1, "foo", "bar")
 
         child_pid, mfd = pty.fork()
         if child_pid == 0:
@@ -231,21 +232,17 @@ class AppTestFcntl:
             assert buf.tostring() == expected
 
             buf = array.array('i', [0])
-            res = fcntl.ioctl(mfd, TIOCGPGRP, buffer(buf))
-            assert res == expected
-            assert buf.tostring() == '\x00' * 4
+            res = fcntl.ioctl(mfd, TIOCGPGRP, memoryview(buf))
+            assert res == 0
+            assert buf.tostring() == expected
 
-            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, memoryview('abc'))
-            assert 'integer' in str(exc.value)
-            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, buffer(buf), False)
-            assert str(exc.value) == "ioctl requires a file or file descriptor, an integer and optionally an integer or buffer argument"
-            exc = raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, memoryview('abc'), False)
-            assert str(exc.value) == "ioctl requires a file or file descriptor, an integer and optionally an integer or buffer argument"
+            raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, (), False)
 
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, False)
             assert res == expected
 
-            raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, "\x00\x00", True)
+            # xxx this fails on CPython 3.5, that's a minor bug
+            #raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, "\x00\x00", True)
 
             res = fcntl.ioctl(mfd, TIOCGPGRP, "\x00\x00\x00\x00")
             assert res == expected
@@ -280,7 +277,7 @@ class AppTestFcntl:
         try:
             if termios.TIOCSWINSZ < 0:
                 set_winsz_opcode_maybe_neg = termios.TIOCSWINSZ
-                set_winsz_opcode_pos = termios.TIOCSWINSZ & 0xffffffffL
+                set_winsz_opcode_pos = termios.TIOCSWINSZ & 0xffffffff
             else:
                 set_winsz_opcode_pos = termios.TIOCSWINSZ
                 set_winsz_opcode_maybe_neg, = struct.unpack("i",
@@ -300,7 +297,7 @@ class AppTestFcntl:
                for plat in ('darwin', 'openbsd', 'freebsd')):
             skip("Mac OS doesn't have any large flag in fcntl.h")
         import fcntl, sys
-        if sys.maxint == 2147483647:
+        if sys.maxsize == 2147483647:
             assert fcntl.DN_MULTISHOT == -2147483648
         else:
             assert fcntl.DN_MULTISHOT == 2147483648

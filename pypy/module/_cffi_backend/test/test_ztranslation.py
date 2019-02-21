@@ -6,7 +6,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module._cffi_backend import misc
 from pypy.module._cffi_backend import embedding
 
-
 def test_checkmodule():
     # prepare_file_argument() is not working without translating the _file
     # module too

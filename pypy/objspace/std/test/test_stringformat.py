@@ -45,7 +45,7 @@ class AppTestStringObjectWithDict:
             def __getitem__(self, key):
                 return key
         assert '%(key)s'%MyMapping2() == 'key'
-        assert u'%(key)s'%MyMapping2() == u'key'
+        #assert u'%(key)s'%MyMapping2() == u'key'  # no py3k
 
 
 class AppTestStringObject:
@@ -78,10 +78,16 @@ class AppTestStringObject:
         raises(TypeError, '%d'.__mod__, s)
 
     def test_format_float(self):
-        f = 23.456
-        assert '23' == '%d' % f
-        assert '17' == '%x' % f
-        assert '23.456' == '%s' % f
+        f = -23.456
+        assert '-23' == '%d' % f
+        assert '-23' == '%i' % f
+        assert '-23' == '%u' % f
+        e = raises(TypeError, "'%x' % f")
+        assert str(e.value).startswith("%x format:")
+        e = raises(TypeError, "'%X' % f")
+        assert str(e.value).startswith("%X format:")
+        raises(TypeError, "'%o' % f")
+        assert '-23.456' == '%s' % f
         # for 'r' use a float that has an exact decimal rep:
         g = 23.125
         assert '23.125' == '%r' % g
@@ -102,40 +108,31 @@ class AppTestStringObject:
         assert '0x0' == '%#x' % z
         assert '23' == '%s' % n
         assert '23' == '%r' % n
-        assert ('%d' % (-sys.maxint-1,) == '-' + str(sys.maxint+1)
-                                        == '-%d' % (sys.maxint+1,))
+        assert ('%d' % (-sys.maxsize-1,) == '-' + str(sys.maxsize+1)
+                                         == '-%d' % (sys.maxsize+1,))
         n = 28
         m = 8
         assert '1C' == '%X' % n
         assert '0X1C' == '%#X' % n
         assert '10' == '%o' % m
-        assert '010' == '%#o' % m
-        assert '-010' == '%#o' % -m
+        assert '0o10' == '%#o' % m
+        assert '-0o10' == '%#o' % -m
         assert '0' == '%o' % z
-        assert '0' == '%#o' % z
+        assert '0o0' == '%#o' % z
 
         n = 23
         f = 5
         assert '-0x017' == '%#06x' % -n
-        assert '' == '%.0o' % z
-        assert '0' == '%#.0o' % z
+        assert '0' == '%.0o' % z
+        assert '0o0' == '%#.0o' % z
         assert '5' == '%.0o' % f
-        assert '05' == '%#.0o' % f
+        assert '0o5' == '%#.0o' % f
         assert '000' == '%.3o' % z
-        assert '000' == '%#.3o' % z
+        assert '0o000' == '%#.3o' % z
         assert '005' == '%.3o' % f
-        assert '005' == '%#.3o' % f
+        assert '0o005' == '%#.3o' % f
         assert '27' == '%.2o' % n
-        assert '027' == '%#.2o' % n
-
-    def test_format_long(self):
-        l = 4800000000L
-        assert '%d' % l == '4800000000'
-
-        class SubLong(long):
-            pass
-        sl = SubLong(l)
-        assert '%d' % sl == '4800000000'
+        assert '0o27' == '%#.2o' % n
 
     def test_format_subclass_with_str(self):
         class SubInt2(int):
@@ -229,40 +226,41 @@ class AppTestStringObject:
         e = 'e'
         assert '%c' % A == 'A'
         assert '%c' % e == 'e'
-        raises(OverflowError, '%c'.__mod__, (256,))
+        #raises(OverflowError, '%c'.__mod__, (256,)) # py2
+        assert '%c' % 256 == '\u0100'                # py3k
         raises(OverflowError, '%c'.__mod__, (-1,))
-        raises(OverflowError, u'%c'.__mod__, (sys.maxunicode+1,))
+        raises(OverflowError, '%c'.__mod__, (sys.maxunicode+1,))
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
+        raises(TypeError, '%c'.__mod__, b'A')
 
-    def test_broken_unicode(self):
-        raises(UnicodeDecodeError, 'Názov: %s'.__mod__, u'Jerry')
-
-    def test___int__(self):
+    def test___int__index__(self):
         class MyInt(object):
             def __init__(self, x):
                 self.x = x
             def __int__(self):
                 return self.x
-        x = MyInt(65)
-        assert '%c' % x == 'A'
+        x = MyInt(33)
+        raises(TypeError, "'%c' % x")
+        MyInt.__index__ = lambda self: self.x * 2
+        assert '%c' % x == 'B'
 
-    def test_format_retry_with_long_if_int_fails(self):
-        class IntFails(object):
-            def __int__(self):
+    def test_index_fails(self):
+        class IndexFails(object):
+            def __index__(self):
                 raise Exception
-            def __long__(self):
-                return 0L
 
-        x = "%x" % IntFails()
-        assert x == '0'
+        exc = raises(TypeError, "%x".__mod__, IndexFails())
+        expected = "%x format: an integer is required, not IndexFails"
+        assert str(exc.value) == expected
+        raises(TypeError, "%c".__mod__, IndexFails())
 
     def test_formatting_huge_precision(self):
         prec = 2**31
         format_string = "%.{}f".format(prec)
         exc = raises(ValueError, "format_string % 2.34")
-        assert str(exc.value) == 'prec too big'
+        assert str(exc.value) == 'precision too big'
         raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
     def test_formatting_huge_width(self):
@@ -277,14 +275,15 @@ class AppTestWidthPrec:
         assert "%3s" % a == '  a'
         assert "%-3s"% a == 'a  '
 
-    def test_prec_cornercase(self):
+    def test_prec_zero(self):
         z = 0
-        assert "%.0x" % z == ''
-        assert "%.x" % z == ''
-        assert "%.0d" % z == ''
-        assert "%.i" % z == ''
-        assert "%.0o" % z == ''
-        assert "%.o" % z == ''
+        assert "%.0x" % z == '0'
+        assert "%.0X" % z == '0'
+        assert "%.x" % z == '0'
+        assert "%.0d" % z == '0'
+        assert "%.i" % z == '0'
+        assert "%.0o" % z == '0'
+        assert "%.o" % z == '0'
 
     def test_prec_string(self):
         a = 'a'
@@ -351,24 +350,10 @@ class AppTestWidthPrec:
 
 
 class AppTestUnicodeObject:
-    def test_unicode_convert(self):
-        u = u"x"
-        assert isinstance("%s" % u, unicode)
-
-    def test_unicode_nonascii(self):
-        """
-        Interpolating a unicode string with non-ascii characters in it into
-        a string format should decode the format string as ascii and return
-        unicode.
-        """
-        u = u'\x80'
-        result = "%s" % u
-        assert isinstance(result, unicode)
-        assert result == u
-
+    
     def test_unicode_d(self):
         t = 3
-        assert u"%.1d" % t == '3'
+        assert "%.1d" % t == '3'
 
     def test_unicode_overflow(self):
         skip("nicely passes on top of CPython but requires > 2GB of RAM")
@@ -376,8 +361,8 @@ class AppTestUnicodeObject:
         raises((OverflowError, MemoryError), 'u"%.*d" % (sys.maxint, 1)')
 
     def test_unicode_format_a(self):
-        ten = 10L
-        assert u'%x' % ten == 'a'
+        ten = 10
+        assert '%x' % ten == 'a'
 
     def test_long_no_overflow(self):
         big = 0x1234567890987654321
@@ -389,13 +374,17 @@ class AppTestUnicodeObject:
 
     def test_invalid_char(self):
         f = 4
-        raises(ValueError, 'u"%\u1234" % (f,)')
+        raises(ValueError, '"%\u1234" % (f,)')
+
+    def test_invalid_b_with_unicode(self):
+        raises(ValueError, '"%b" % b"A"')
+        raises(ValueError, '"%b" % 42')
 
     def test_formatting_huge_precision(self):
         prec = 2**31
         format_string = u"%.{}f".format(prec)
         exc = raises(ValueError, "format_string % 2.34")
-        assert str(exc.value) == 'prec too big'
+        assert str(exc.value) == 'precision too big'
         raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
     def test_formatting_huge_width(self):
@@ -403,3 +392,118 @@ class AppTestUnicodeObject:
         format_string = u"%{}f".format(sys.maxsize + 1)
         exc = raises(ValueError, "format_string % 2.34")
         assert str(exc.value) == 'width too big'
+
+    def test_ascii(self):
+        assert "<%a>" % "test" == "<'test'>"
+        assert "<%a>" % "\t\x80" == "<'\\t\\x80'>"
+        assert repr("\xe9") == "'\xe9'"
+        assert "<%r>" % "\xe9" == "<'\xe9'>"
+        assert "<%a>" % "\xe9" == "<'\\xe9'>"
+
+
+class AppTestBytes:
+
+    def test_ascii_bytes(self):
+        assert b"<%a>" % b"test" == b"<b'test'>"
+        assert b"<%a>" % b"\t\x80" == b"<b'\\t\\x80'>"
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert b"<%a>" % b"\xe9" == b"<b'\\xe9'>"
+        assert b"<%a>" % "foo" == b"<'foo'>"
+        assert b"<%a>" % "\u1234" == b"<'\\u1234'>"
+        assert b"<%a>" % 3.14 == b"<3.14>"
+
+    def test_r_compat_bytes(self):
+        assert b"<%r>" % b"test" == b"<b'test'>"
+        assert b"<%r>" % b"\t\x80" == b"<b'\\t\\x80'>"
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert b"<%r>" % b"\xe9" == b"<b'\\xe9'>"
+        assert b"<%r>" % "foo" == b"<'foo'>"
+        assert b"<%r>" % "\u1234" == b"<'\\u1234'>"
+
+    def test_numeric_bytes(self):
+        assert b"<%4x>" % 10 == b"<   a>"
+        assert b"<%#4x>" % 10 == b"< 0xa>"
+        assert b"<%04X>" % 10 == b"<000A>"
+
+    def test_char_bytes(self):
+        assert b"<%c>" % 48 == b"<0>"
+        assert b"<%c>" % b"?" == b"<?>"
+        raises(TypeError, 'b"<%c>" % "?"')
+        assert b"<%c>" % bytearray(b"?") == b"<?>"
+        class X:
+            def __bytes__(self):
+                return b'5'
+        raises(TypeError, 'b"<%c>" % X()')
+
+    def test_bytes_bytes(self):
+        assert b"<%b>" % b"123" == b"<123>"
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert b"<%b>" % Foo() == b"<123>"
+        raises(TypeError, 'b"<%b>" % 42')
+        raises(TypeError, 'b"<%b>" % "?"')
+
+    def test_s_compat_bytes(self):
+        assert b"<%s>" % b"123" == b"<123>"
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert b"<%s>" % Foo() == b"<123>"
+        raises(TypeError, 'b"<%s>" % 42')
+        raises(TypeError, 'b"<%s>" % "?"')
+
+
+class AppTestBytearray:
+
+    def test_ascii_bytes(self):
+        assert bytearray(b"<%a>") % b"test" == bytearray(b"<b'test'>")
+        assert bytearray(b"<%a>") % b"\t\x80" == bytearray(b"<b'\\t\\x80'>")
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert bytearray(b"<%a>") % b"\xe9" == bytearray(b"<b'\\xe9'>")
+        assert bytearray(b"<%a>") % "foo" == bytearray(b"<'foo'>")
+        assert bytearray(b"<%a>") % "\u1234" == bytearray(b"<'\\u1234'>")
+
+    def test_bytearray_not_modified(self):
+        b1 = bytearray(b"<%a>")
+        b2 = b1 % b"test"
+        assert b1 == bytearray(b"<%a>")
+        assert b2 == bytearray(b"<b'test'>")
+
+    def test_r_compat_bytes(self):
+        assert bytearray(b"<%r>") % b"test" == bytearray(b"<b'test'>")
+        assert bytearray(b"<%r>") % b"\t\x80" == bytearray(b"<b'\\t\\x80'>")
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert bytearray(b"<%r>") % b"\xe9" == bytearray(b"<b'\\xe9'>")
+        assert bytearray(b"<%r>") % "foo" == bytearray(b"<'foo'>")
+        assert bytearray(b"<%r>") % "\u1234" == bytearray(b"<'\\u1234'>")
+
+    def test_numeric_bytes(self):
+        assert bytearray(b"<%4x>") % 10 == bytearray(b"<   a>")
+        assert bytearray(b"<%#4x>") % 10 == bytearray(b"< 0xa>")
+        assert bytearray(b"<%04X>") % 10 == bytearray(b"<000A>")
+
+    def test_char_bytes(self):
+        assert bytearray(b"<%c>") % 48 == bytearray(b"<0>")
+        assert bytearray(b"<%c>") % b"?" == bytearray(b"<?>")
+        raises(TypeError, 'bytearray(b"<%c>") % "?"')
+        assert bytearray(b"<%c>") % bytearray(b"?") == bytearray(b"<?>")
+        raises(TypeError, 'bytearray(b"<%c>") % memoryview(b"X")')
+
+    def test_bytes_bytes(self):
+        assert bytearray(b"<%b>") % b"123" == bytearray(b"<123>")
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert bytearray(b"<%b>") % Foo() == bytearray(b"<123>")
+        raises(TypeError, 'bytearray(b"<%b>") % 42')
+        raises(TypeError, 'bytearray(b"<%b>") % "?"')
+
+    def test_s_compat_bytes(self):
+        assert bytearray(b"<%s>") % b"123" == bytearray(b"<123>")
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert bytearray(b"<%s>") % Foo() == bytearray(b"<123>")
+        raises(TypeError, 'bytearray(b"<%s>") % 42')
+        raises(TypeError, 'bytearray(b"<%s>") % "?"')

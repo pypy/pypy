@@ -7,27 +7,22 @@ import pypy.module.imp.importing
 
 class Module(MixedModule):
     """Built-in functions, exceptions, and other objects."""
+    applevel_name = 'builtins'
 
     appleveldefs = {
-        'execfile'      : 'app_io.execfile',
-        'raw_input'     : 'app_io.raw_input',
         'input'         : 'app_io.input',
         'print'         : 'app_io.print_',
 
-        'apply'         : 'app_functional.apply',
         'sorted'        : 'app_functional.sorted',
         'any'           : 'app_functional.any',
         'all'           : 'app_functional.all',
         'sum'           : 'app_functional.sum',
-        'map'           : 'app_functional.map',
-        'reduce'        : 'app_functional.reduce',
-        'filter'        : 'app_functional.filter',
-        'zip'           : 'app_functional.zip',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
         'bin'           : 'app_operation.bin',
-
+        'oct'           : 'app_operation.oct',
+        'hex'           : 'app_operation.hex',
     }
 
     interpleveldefs = {
@@ -36,31 +31,20 @@ class Module(MixedModule):
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',
-        'bytes'         : '(space.w_bytes)',
-
-        'file'          : 'state.get(space).w_file',
-        'open'          : 'state.get(space).w_file',
-
-        # default __metaclass__: old-style class
-        '__metaclass__' : 'interp_classobj.W_ClassObject',
+        'open'          : 'state.get(space).w_open',
 
         # interp-level function definitions
         'abs'           : 'operation.abs',
+        'ascii'         : 'operation.ascii',
         'chr'           : 'operation.chr',
-        'unichr'        : 'operation.unichr',
         'len'           : 'operation.len',
         'ord'           : 'operation.ord',
         'pow'           : 'operation.pow',
         'repr'          : 'operation.repr',
         'hash'          : 'operation.hash',
-        'oct'           : 'operation.oct',
-        'hex'           : 'operation.hex',
         'round'         : 'operation.round',
-        'cmp'           : 'operation.cmp',
-        'coerce'        : 'operation.coerce',
         'divmod'        : 'operation.divmod',
         'format'        : 'operation.format',
-        '_issubtype'    : 'operation._issubtype',
         'issubclass'    : 'abstractinst.app_issubclass',
         'isinstance'    : 'abstractinst.app_isinstance',
         'getattr'       : 'operation.getattr',
@@ -70,21 +54,23 @@ class Module(MixedModule):
         'iter'          : 'operation.iter',
         'next'          : 'operation.next',
         'id'            : 'operation.id',
-        'intern'        : 'operation.intern',
         'callable'      : 'operation.callable',
 
         'compile'       : 'compiling.compile',
         'eval'          : 'compiling.eval',
+        'exec'          : 'compiling.exec_',
+        '__build_class__': 'compiling.build_class',
 
         '__import__'    : 'pypy.module.imp.importing.importhook',
-        'reload'        : 'pypy.module.imp.importing.reload',
 
-        'range'         : 'functional.range_int',
-        'xrange'        : 'functional.W_XRange',
+        'range'         : 'functional.W_Range',
         'enumerate'     : 'functional.W_Enumerate',
+        'map'           : 'functional.W_Map',
+        'filter'        : 'functional.W_Filter',
+        'zip'           : 'functional.W_Zip',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
-        'reversed'      : 'functional.reversed',
+        'reversed'      : 'functional.W_ReversedIterator',
         'super'         : 'descriptor.W_Super',
         'staticmethod'  : 'pypy.interpreter.function.StaticMethod',
         'classmethod'   : 'pypy.interpreter.function.ClassMethod',
@@ -126,7 +112,3 @@ class Module(MixedModule):
         space.abstract_issubclass_w = ab.abstract_issubclass_w.__get__(space)
         space.abstract_isclass_w = ab.abstract_isclass_w.__get__(space)
         space.abstract_getclass = ab.abstract_getclass.__get__(space)
-        space.exception_is_valid_class_w = ab.exception_is_valid_class_w.__get__(space)
-        space.exception_is_valid_obj_as_class_w = ab.exception_is_valid_obj_as_class_w.__get__(space)
-        space.exception_getclass = ab.exception_getclass.__get__(space)
-        space.exception_issubclass_w = ab.exception_issubclass_w.__get__(space)

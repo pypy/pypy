@@ -243,7 +243,7 @@ class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
         fields = []
         for row in self.uniquerows:
             fields.append((row.attrname, row.fntype))
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'immutable': True, 'static_immutable': True}}
         return Ptr(Struct('specfunc', *fields, **kwds))
 
     def create_specfunc(self):
@@ -414,7 +414,8 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         if self.s_pbc.can_be_None:
             self.descriptions.insert(0, None)
         POINTER_TABLE = Array(self.pointer_repr.lowleveltype,
-                              hints={'nolength': True, 'immutable': True})
+                              hints={'nolength': True, 'immutable': True,
+                                     'static_immutable': True})
         pointer_table = malloc(POINTER_TABLE, len(self.descriptions),
                                immortal=True)
         for i, desc in enumerate(self.descriptions):
@@ -564,7 +565,8 @@ def conversion_table(r_from, r_to):
     if r_to in r_from._conversion_tables:
         return r_from._conversion_tables[r_to]
     else:
-        t = malloc(Array(Char, hints={'nolength': True, 'immutable': True}),
+        t = malloc(Array(Char, hints={'nolength': True, 'immutable': True,
+                                      'static_immutable': True}),
                    len(r_from.descriptions), immortal=True)
         l = []
         for i, d in enumerate(r_from.descriptions):
@@ -664,7 +666,7 @@ class MultipleUnrelatedFrozenPBCRepr(MultipleFrozenPBCReprBase):
     """For a SomePBC of frozen PBCs that have no common access set.
     The only possible operation on such a thing is comparison with 'is'."""
     lowleveltype = llmemory.Address
-    EMPTY = Struct('pbc', hints={'immutable': True})
+    EMPTY = Struct('pbc', hints={'immutable': True, 'static_immutable': True})
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
@@ -725,7 +727,7 @@ class MultipleFrozenPBCRepr(MultipleFrozenPBCReprBase):
 
     def _setup_repr(self):
         llfields = self._setup_repr_fields()
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'immutable': True, 'static_immutable': True}}
         self.pbc_type.become(Struct('pbc', *llfields, **kwds))
 
     def create_instance(self):
@@ -999,7 +1001,7 @@ class ClassesPBCRepr(Repr):
                 classdef.has_no_attrs()):
                 # special case for instanciating simple built-in
                 # exceptions: always return the same prebuilt instance,
-                # and ignore any arguments passed to the contructor.
+                # and ignore any arguments passed to the constructor.
                 r_instance = rclass.getinstancerepr(hop.rtyper, classdef)
                 example = r_instance.get_reusable_prebuilt_instance()
                 hop.exception_cannot_occur()
@@ -1134,6 +1136,8 @@ class MethodsPBCRepr(Repr):
         self.lowleveltype = self.r_im_self.lowleveltype
 
     def convert_const(self, method):
+        if method is None:
+            return nullptr(self.lowleveltype.TO)
         if getattr(method, 'im_func', None) is None:
             raise TyperError("not a bound method: %r" % method)
         return self.r_im_self.convert_const(method.im_self)
@@ -1192,3 +1196,9 @@ class MethodsPBCRepr(Repr):
 
         # now hop2 looks like simple_call(function, self, args...)
         return hop2.dispatch()
+
+class __extend__(pairtype(MethodsPBCRepr, MethodsPBCRepr)):
+    def convert_from_to((r_mpbc1, r_mpbc2), v, llops):
+        if r_mpbc1.lowleveltype == r_mpbc2.lowleveltype:
+            return v
+        return NotImplemented

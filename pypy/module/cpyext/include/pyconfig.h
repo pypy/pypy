@@ -21,23 +21,37 @@ extern "C" {
 /* PyPy supposes Py_UNICODE == wchar_t */
 #define HAVE_USABLE_WCHAR_T 1
 #ifndef _WIN32
-#define Py_UNICODE_SIZE 4
-#define Py_UNICODE_WIDE
+#define SIZEOF_WCHAR_T 4
 #else
-#define Py_UNICODE_SIZE 2
+#define SIZEOF_WCHAR_T 2
+#endif
+
+#ifndef _WIN32
+#define VA_LIST_IS_ARRAY
 #endif
 
 #ifndef Py_BUILD_CORE /* not building the core - must be an ext */
-#    if defined(_MSC_VER) && !defined(_CFFI_)
-     /* So MSVC users need not specify the .lib file in
-      * their Makefile (other compilers are generally
-      * taken care of by distutils.) */
-#        ifdef _DEBUG
-#            error("debug first with cpython")    
-#            pragma comment(lib,"python27.lib")
-#        else
-#            pragma comment(lib,"python27.lib")
-#        endif /* _DEBUG */
+#  if defined(_MSC_VER) && !defined(_CFFI_)
+   /* So MSVC users need not specify the .lib file in
+    * their Makefile (other compilers are generally
+    * taken care of by distutils.) 
+    */
+#    ifdef _DEBUG
+#      error("debug first with cpython")    
+#            pragma comment(lib,"python35.lib")
+#    else
+#            pragma comment(lib,"python35.lib")
+#    endif /* _DEBUG */
+#    define HAVE_COPYSIGN 1
+#    define copysign _copysign
+#    ifdef MS_WIN64
+       typedef __int64 ssize_t;
+#    else
+       typedef _W64 int ssize_t;
+#    endif
+#define HAVE_SSIZE_T 1
+
+
 #    endif
 #endif /* _MSC_VER */
 

@@ -5,15 +5,6 @@ from pypy.conftest import option
 class AppTestArrayModule(AppTestCpythonExtensionBase):
     enable_leak_checking = True
 
-    def setup_class(cls):
-        from rpython.tool.udir import udir
-        AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        if option.runappdirect:
-            cls.w_udir = str(udir)
-        else:
-            cls.w_udir = cls.space.wrap(str(udir))
-
-
     def test_basic(self):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3])
@@ -68,15 +59,14 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         import sys
         module = self.import_module(name='array')
         arr = module.array('i', [1, 2, 3, 4])
-        buf = buffer(arr)
-        exc = raises(TypeError, "buf[1] = '1'")
-        assert str(exc.value) == "buffer is read-only"
+        buf = memoryview(arr)
+        exc = raises(TypeError, "buf[1] = 1")
+        assert str(exc.value) == "cannot modify read-only memory"
         if sys.byteorder == 'big':
-            expected = '\0\0\0\x01' '\0\0\0\x02' '\0\0\0\x03' '\0\0\0\x04'
+            expected = b'\0\0\0\x01\0\0\0\x02\0\0\0\x03\0\0\0\x04'
         else:
-            expected = '\x01\0\0\0' '\x02\0\0\0' '\x03\0\0\0' '\x04\0\0\0'
-        assert str(buf) == expected
-        assert str(buffer('') + arr) == expected
+            expected = b'\x01\0\0\0\x02\0\0\0\x03\0\0\0\x04\0\0\0'
+        assert bytes(buf) == expected
 
     def test_releasebuffer(self):
         module = self.import_module(name='array')
@@ -95,15 +85,13 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         self.debug_collect()
         assert module.get_releasebuffer_cnt() == 1
 
-    def test_pickle(self):
-        import pickle
+    def test_0d_view(self):
         module = self.import_module(name='array')
-        arr = module.array('i', [1,2,3,4])
-        s = pickle.dumps(arr)
-        # pypy exports __dict__ on cpyext objects, so the pickle picks up the {} state value
-        #assert s == "carray\n_reconstruct\np0\n(S'i'\np1\n(lp2\nI1\naI2\naI3\naI4\natp3\nRp4\n."
-        rra = pickle.loads(s) # rra is arr backwards
-        #assert arr.tolist() == rra.tolist()
+        arr = module.array('B', b'\0\0\0\x01')
+        buf = memoryview(arr).cast('i', shape=())
+        assert bytes(buf) == b'\0\0\0\x01'
+        assert buf.shape == ()
+        assert buf.strides == ()
 
     def test_binop_mul_impl(self):
         # check that rmul is called
@@ -128,6 +116,15 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert not module.same_dealloc(arr, module.array('i', [2]))
         assert module.same_dealloc(arr, A())
 
+    def test_string_buf(self):
+        module = self.import_module(name='array')
+        arr = module.array('u', '123')
+        view = memoryview(arr)
+        assert view.itemsize == 4
+        assert module.write_buffer_len(arr) == 12
+        assert len(module.readbuffer_as_string(arr)) == 12
+        assert len(module.readbuffer_as_string(view)) == 12
+
     def test_subclass(self):
         import struct
         module = self.import_module(name='array')
@@ -145,30 +142,49 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         # Not really part of array, refactor
         import struct
         module = self.import_module(name='array')
-        val = module.readbuffer_as_string('abcd')
-        assert val == 'abcd'
-        val = module.readbuffer_as_string(u'\u03a3')
-        assert val is not None
+        val = module.readbuffer_as_string(b'abcd')
+        assert val == b'abcd'
 
     def test_readinto(self):
         module = self.import_module(name='array')
-        a = module.array('c')
-        a.fromstring('0123456789')
+        a = module.array('B')
+        a.fromstring(b'0123456789')
         filename = self.udir + "/_test_file"
         f = open(filename, 'w+b')
-        f.write('foobar')
+        f.write(b'foobar')
         f.seek(0)
         n = f.readinto(a)
         f.close()
         assert n == 6
         assert len(a) == 10
-        assert a.tostring() == 'foobar6789'
+        assert a.tostring() == b'foobar6789'
 
     def test_iowrite(self):
         module = self.import_module(name='array')
         from io import BytesIO
-        a = module.array('c')
-        a.fromstring('0123456789')
+        a = module.array('B')
+        a.fromstring(b'0123456789')
         fd = BytesIO()
         # only test that it works
         fd.write(a)
+
+    def test_getitem_via_PySequence_GetItem(self):
+        module = self.import_module(name='array')
+        a = module.array('i', range(10))
+        # call via tp_as_mapping.mp_subscript
+        assert 5 == a[-5]
+        # PySequence_ITEM used to call space.getitem() which
+        # prefers tp_as_mapping.mp_subscript over tp_as_sequence.sq_item
+        # Now fixed so this test raises (array_item does not add len(a),
+        # array_subscr does)
+        raises(IndexError, module.getitem, a, -5)
+
+    def test_subclass_with_attribute(self):
+        module = self.import_module(name='array')
+        class Sub(module.array):
+            def addattrib(self):
+                print('called addattrib')
+                self.attrib = True
+        import gc
+        module.subclass_with_attribute(Sub, "addattrib", "attrib", gc.collect)
+        assert Sub.__module__ == __name__

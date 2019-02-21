@@ -4,11 +4,14 @@ import sys
 from rpython.rlib import rfloat
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
 class State:
     def __init__(self, space):
         self.w_e = space.newfloat(math.e)
         self.w_pi = space.newfloat(math.pi)
+        self.w_inf = space.newfloat(rfloat.INFINITY)
+        self.w_nan = space.newfloat(rfloat.NAN)
 def get(space):
     return space.fromcache(State)
 
@@ -54,6 +57,9 @@ def math2(space, f, w_x, w_snd):
 
 def trunc(space, w_x):
     """Truncate x."""
+    w_descr = space.lookup(w_x, '__trunc__')
+    if w_descr is not None:
+        return space.get_and_call_function(w_descr, w_x)
     return space.trunc(w_x)
 
 def copysign(space, w_x, w_y):
@@ -70,6 +76,12 @@ def isinf(space, w_x):
 def isnan(space, w_x):
     """Return True if x is not a number."""
     return space.newbool(math.isnan(_get_double(space, w_x)))
+
+def isfinite(space, w_x):
+    """isfinite(x) -> bool
+
+    Return True if x is neither an infinity nor a NaN, and False otherwise."""
+    return space.newbool(rfloat.isfinite(_get_double(space, w_x)))
 
 def pow(space, w_x, w_y):
     """pow(x,y)
@@ -89,8 +101,7 @@ def ldexp(space, w_x,  w_i):
     """ldexp(x, i) -> x * (2**i)
     """
     x = _get_double(space, w_x)
-    if (space.isinstance_w(w_i, space.w_int) or
-        space.isinstance_w(w_i, space.w_long)):
+    if space.isinstance_w(w_i, space.w_int):
         try:
             exp = space.int_w(w_i)
         except OperationError as e:
@@ -141,11 +152,15 @@ def fabs(space, w_x):
 def floor(space, w_x):
     """floor(x)
 
-       Return the floor of x as a float.
+       Return the floor of x as an int.
        This is the largest integral value <= x.
     """
+    from pypy.objspace.std.longobject import newlong_from_float
+    w_descr = space.lookup(w_x, '__floor__')
+    if w_descr is not None:
+        return space.get_and_call_function(w_descr, w_x)
     x = _get_double(space, w_x)
-    return space.newfloat(math.floor(x))
+    return newlong_from_float(space, math.floor(x))
 
 def sqrt(space, w_x):
     """sqrt(x)
@@ -174,14 +189,21 @@ def degrees(space, w_x):
 def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
     try:
-        if space.isinstance_w(w_x, space.w_long):
+        try:
+            x = _get_double(space, w_x)
+        except OperationError as e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+            if not space.isinstance_w(w_x, space.w_int):
+                raise
             # special case to support log(extremely-large-long)
             num = space.bigint_w(w_x)
             result = num.log(base)
         else:
-            x = _get_double(space, w_x)
             if base == 10.0:
                 result = math.log10(x)
+            elif base == 2.0:
+                result = rfloat.log2(x)
             else:
                 result = math.log(x)
                 if base != 0.0:
@@ -206,6 +228,11 @@ def log(space, w_x, w_base=None):
             return math1(space, math.log, w_base)
     return _log_any(space, w_x, base)
 
+def log2(space, w_x):
+    """log2(x) -> the base 2 logarithm of x.
+    """
+    return _log_any(space, w_x, 2.0)
+
 def log10(space, w_x):
     """log10(x) -> the base 10 logarithm of x.
     """
@@ -228,10 +255,14 @@ def atan(space, w_x):
 def ceil(space, w_x):
     """ceil(x)
 
-       Return the ceiling of x as a float.
+       Return the ceiling of x as an int.
        This is the smallest integral value >= x.
     """
-    return math1(space, math.ceil, w_x)
+    from pypy.objspace.std.longobject import newlong_from_float
+    w_descr = space.lookup(w_x, '__ceil__')
+    if w_descr is not None:
+        return space.get_and_call_function(w_descr, w_x)
+    return newlong_from_float(space, math1_w(space, math.ceil, w_x))
 
 def sinh(space, w_x):
     """sinh(x)
@@ -362,7 +393,13 @@ def fsum(space, w_iterable):
 
 def log1p(space, w_x):
     """Find log(x + 1)."""
-    return math1(space, rfloat.log1p, w_x)
+    try:
+        return math1(space, rfloat.log1p, w_x)
+    except OperationError as e:
+        # Python 2.x (and thus ll_math) raises a OverflowError improperly.
+        if not e.match(space, space.w_OverflowError):
+            raise
+        raise oefmt(space.w_ValueError, "math domain error")
 
 def acosh(space, w_x):
     """Inverse hyperbolic cosine"""
@@ -396,3 +433,53 @@ def lgamma(space, w_x):
     """Compute the natural logarithm of the gamma function for x."""
     return math1(space, rfloat.lgamma, w_x)
 
+@unwrap_spec(w_rel_tol=WrappedDefault(1e-09), w_abs_tol=WrappedDefault(0.0))
+def isclose(space, w_a, w_b, __kwonly__, w_rel_tol, w_abs_tol):
+    """isclose(a, b, *, rel_tol=1e-09, abs_tol=0.0) -> bool
+
+Determine whether two floating point numbers are close in value.
+
+   rel_tol
+       maximum difference for being considered "close", relative to the
+       magnitude of the input values
+   abs_tol
+       maximum difference for being considered "close", regardless of the
+       magnitude of the input values
+
+Return True if a is close in value to b, and False otherwise.
+
+For the values to be considered close, the difference between them
+must be smaller than at least one of the tolerances.
+
+-inf, inf and NaN behave similarly to the IEEE 754 Standard.  That
+is, NaN is not close to anything, even itself.  inf and -inf are
+only close to themselves."""
+    a = _get_double(space, w_a)
+    b = _get_double(space, w_b)
+    rel_tol = _get_double(space, w_rel_tol)
+    abs_tol = _get_double(space, w_abs_tol)
+    #
+    # sanity check on the inputs
+    if rel_tol < 0.0 or abs_tol < 0.0:
+        raise oefmt(space.w_ValueError, "tolerances must be non-negative")
+    #
+    # short circuit exact equality -- needed to catch two infinities of
+    # the same sign. And perhaps speeds things up a bit sometimes.
+    if a == b:
+        return space.w_True
+    #
+    # This catches the case of two infinities of opposite sign, or
+    # one infinity and one finite number. Two infinities of opposite
+    # sign would otherwise have an infinite relative tolerance.
+    # Two infinities of the same sign are caught by the equality check
+    # above.
+    if math.isinf(a) or math.isinf(b):
+        return space.w_False
+    #
+    # now do the regular computation
+    # this is essentially the "weak" test from the Boost library
+    diff = math.fabs(b - a)
+    result = ((diff <= math.fabs(rel_tol * b) or
+               diff <= math.fabs(rel_tol * a)) or
+              diff <= abs_tol)
+    return space.newbool(result)

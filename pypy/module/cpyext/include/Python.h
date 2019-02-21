@@ -75,13 +75,20 @@
 
 #include "pypy_macros.h"
 
+#define PyExc_EnvironmentError PyExc_OSError
+#define PyExc_IOError PyExc_OSError
+// TODO: fix windows support
+// #define PyExc_WindowsError PyExc_OSError
+
 #include "patchlevel.h"
 #include "pyconfig.h"
 
 #include "object.h"
+#include "typeslots.h"
 #include "abstract.h"
 #include "pymath.h"
 #include "pyport.h"
+#include "pymacro.h"
 #include "warnings.h"
 
 #include <stdarg.h>
@@ -98,16 +105,16 @@
 #include "funcobject.h"
 #include "code.h"
 
+#include "moduleobject.h"
 #include "modsupport.h"
 #include "pythonrun.h"
 #include "pyerrors.h"
 #include "sysmodule.h"
 #include "bytearrayobject.h"
-#include "stringobject.h"
 #include "descrobject.h"
 #include "tupleobject.h"
 #include "dictobject.h"
-#include "intobject.h"
+#include "longobject.h"
 #include "listobject.h"
 #include "longobject.h"
 #include "unicodeobject.h"
@@ -116,17 +123,17 @@
 #include "memoryobject.h"
 #include "eval.h"
 #include "pymem.h"
-#include "pycobject.h"
 #include "pycapsule.h"
-#include "bufferobject.h"
 #include "bytesobject.h"
 #include "sliceobject.h"
+#include "genobject.h"
 #include "datetime.h"
 #include "pystate.h"
 #include "fileobject.h"
 #include "pysignals.h"
 #include "pythread.h"
 #include "traceback.h"
+#include "pylifecycle.h"
 
 /* Missing definitions */
 #include "missing.h"

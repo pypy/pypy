@@ -11,9 +11,6 @@ from rpython.rlib import jit
 
 from pypy.interpreter.baseobjspace import ObjSpace as BaseObjSpace
 from pypy.interpreter.error import OperationError
-from pypy.module.__builtin__.interp_classobj import W_ClassObject
-from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-
 
 def _get_bases(space, w_cls):
     """Returns 'cls.__bases__'.  Returns None if there is
@@ -52,10 +49,6 @@ def abstract_getclass(space, w_obj):
 
 def p_recursive_isinstance_w(space, w_inst, w_cls):
     # Copied straight from CPython 2.7.  Does not handle 'cls' being a tuple.
-    if (isinstance(w_cls, W_ClassObject) and
-        isinstance(w_inst, W_InstanceObject)):
-        return w_inst.w_class.is_subclass_of(w_cls)
-
     if space.isinstance_w(w_cls, space.w_type):
         return p_recursive_isinstance_type_w(space, w_inst, w_cls)
 
@@ -64,8 +57,8 @@ def p_recursive_isinstance_w(space, w_inst, w_cls):
     try:
         w_abstractclass = space.getattr(w_inst, space.newtext('__class__'))
     except OperationError as e:
-        if e.async(space):      # ignore most exceptions
-            raise
+        if not e.match(space, space.w_AttributeError):
+            raise       # propagate other errors
         return False
     else:
         return p_abstract_issubclass_w(space, w_abstractclass, w_cls)
@@ -79,8 +72,8 @@ def p_recursive_isinstance_type_w(space, w_inst, w_type):
     try:
         w_abstractclass = space.getattr(w_inst, space.newtext('__class__'))
     except OperationError as e:
-        if e.async(space):      # ignore most exceptions
-            raise
+        if not e.match(space, space.w_AttributeError):
+            raise       # propagate other errors
     else:
         if w_abstractclass is not space.type(w_inst):
             if space.isinstance_w(w_abstractclass, space.w_type):
@@ -159,10 +152,6 @@ def p_recursive_issubclass_w(space, w_derived, w_cls):
         space.isinstance_w(w_derived, space.w_type)):
         return space.issubtype_w(w_derived, w_cls)
     #
-    if (isinstance(w_derived, W_ClassObject) and
-        isinstance(w_cls, W_ClassObject)):
-        return w_derived.is_subclass_of(w_cls)
-    #
     check_class(space, w_derived, "issubclass() arg 1 must be a class")
     check_class(space, w_cls, "issubclass() arg 2 must be a class"
                               " or tuple of classes")
@@ -204,27 +193,15 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple,
 # Exception helpers
 
 def exception_is_valid_obj_as_class_w(space, w_obj):
-    if isinstance(w_obj, W_ClassObject):
-        return True
     return BaseObjSpace.exception_is_valid_obj_as_class_w(space, w_obj)
 
 def exception_is_valid_class_w(space, w_cls):
-    if isinstance(w_cls, W_ClassObject):
-        return True
     return BaseObjSpace.exception_is_valid_class_w(space, w_cls)
 
 def exception_getclass(space, w_obj):
-    if isinstance(w_obj, W_InstanceObject):
-        return w_obj.w_class
     return BaseObjSpace.exception_getclass(space, w_obj)
 
 def exception_issubclass_w(space, w_cls1, w_cls2):
-    if isinstance(w_cls1, W_ClassObject):
-        if isinstance(w_cls2, W_ClassObject):
-            return w_cls1.is_subclass_of(w_cls2)
-        return False
-    if isinstance(w_cls2, W_ClassObject):
-        return False
     return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
 
 # ____________________________________________________________

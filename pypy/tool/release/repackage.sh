@@ -1,8 +1,8 @@
 # Edit these appropriately before running this script
 pmaj=2  # python main version
 pmin=7  # python minor version
-maj=5
-min=8
+maj=7
+min=0
 rev=0
 branchname=release-pypy$pmaj.$pmin-$maj.x # ==OR== release-$maj.x  # ==OR== release-$maj.$min.x
 tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
@@ -13,7 +13,7 @@ echo checking hg log -r $tagname
 hg log -r $tagname || exit 1
 hgrev=`hg id -r $tagname -i`
 
-rel=pypy$pmaj-v$maj.$min.$rev
+rel=pypy$pmaj.$pmin-v$maj.$min.$rev
 # The script should be run in an empty in the pypy tree, i.e. pypy/tmp
 if [ "`ls . | wc -l`" != "0" ]
 then
@@ -23,7 +23,7 @@ fi
 
 # Download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket
-for plat in linux linux64 linux-armhf-raspbian linux-armel osx64 s390x
+for plat in linux linux64 osx64 s390x # linux-armhf-raspbian linux-armel
   do
     echo downloading package for $plat
     if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2

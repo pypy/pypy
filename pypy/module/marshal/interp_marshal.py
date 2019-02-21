@@ -2,28 +2,32 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rstackovf
-from pypy.module._file.interp_file import W_File
 from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 
+#
+# Write Python objects to files and read them back.  This is primarily
+# intended for writing and reading compiled Python code, even though
+# dicts, lists, sets and frozensets, not commonly seen in code
+# objects, are supported.  Version 3 of this protocol properly
+# supports circular links and sharing.  The previous version is called
+# "2", like in Python 2.7, although it is not always compatible
+# between CPython 2.7 and CPython 3.4.  Version 4 adds small
+# optimizations in compactness.
+#
+# XXX: before py3k, there was logic to do efficiently dump()/load() on
+# a file object.  The corresponding logic is gone from CPython 3.x, so
+# I don't feel bad about killing it here too.
+#
 
-Py_MARSHAL_VERSION = 2
+Py_MARSHAL_VERSION = 4
+
 
 @unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dump(space, w_data, w_f, w_version):
     """Write the 'data' object into the open file 'f'."""
-    # special case real files for performance
-    if isinstance(w_f, W_File):
-        writer = DirectStreamWriter(space, w_f)
-    else:
-        writer = FileWriter(space, w_f)
-    try:
-        # note: bound methods are currently not supported,
-        # so we have to pass the instance in, instead.
-        ##m = Marshaller(space, writer.write, space.int_w(w_version))
-        m = Marshaller(space, writer, space.int_w(w_version))
-        m.dump_w_obj(w_data)
-    finally:
-        writer.finished()
+    # same implementation as CPython 3.x.
+    w_string = dumps(space, w_data, w_version)
+    space.call_method(w_f, 'write', w_string)
 
 @unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dumps(space, w_data, w_version):
@@ -35,11 +39,7 @@ by dump(data, file)."""
 
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
-    # special case real files for performance
-    if isinstance(w_f, W_File):
-        reader = DirectStreamReader(space, w_f)
-    else:
-        reader = FileReader(space, w_f)
+    reader = FileReader(space, w_f)
     try:
         u = Unmarshaller(space, reader)
         return u.load_w_obj()
@@ -71,22 +71,6 @@ class AbstractReaderWriter(object):
     def write(self, data):
         raise NotImplementedError("Purely abstract method")
 
-class FileWriter(AbstractReaderWriter):
-    def __init__(self, space, w_f):
-        AbstractReaderWriter.__init__(self, space)
-        try:
-            self.func = space.getattr(w_f, space.newtext('write'))
-            # XXX how to check if it is callable?
-        except OperationError as e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            raise oefmt(space.w_TypeError,
-                        "marshal.dump() 2nd arg must be file-like object")
-
-    def write(self, data):
-        space = self.space
-        space.call_function(self.func, space.newbytes(data))
-
 
 class FileReader(AbstractReaderWriter):
     def __init__(self, space, w_f):
@@ -104,30 +88,14 @@ class FileReader(AbstractReaderWriter):
         space = self.space
         w_ret = space.call_function(self.func, space.newint(n))
         ret = space.bytes_w(w_ret)
-        if len(ret) != n:
+        if len(ret) < n:
             self.raise_eof()
+        if len(ret) > n:
+            raise oefmt(space.w_ValueError,
+                        "read() returned too much data: "
+                        "%d bytes requested, %d returned",
+                        n, len(ret))
         return ret
-
-
-class StreamReaderWriter(AbstractReaderWriter):
-    def __init__(self, space, file):
-        AbstractReaderWriter.__init__(self, space)
-        self.file = file
-        file.lock()
-
-    def finished(self):
-        self.file.unlock()
-
-class DirectStreamWriter(StreamReaderWriter):
-    def write(self, data):
-        self.file.direct_write_str(data)
-
-class DirectStreamReader(StreamReaderWriter):
-    def read(self, n):
-        data = self.file.direct_read(n)
-        if len(data) < n:
-            self.raise_eof()
-        return data
 
 
 class _Base(object):
@@ -160,7 +128,15 @@ class Marshaller(_Base):
         ## self.put = putfunc
         self.writer = writer
         self.version = version
-        self.stringtable = {}
+        self.all_refs = {}
+        # all_refs = {w_obj: index} for all w_obj that are of a
+        # "reasonably sharable" type.  CPython checks the refcount of
+        # any object to know if it is sharable, independently of its
+        # type.  We can't do that.  We could do a two-pass marshaller.
+        # For now we simply add to this list all objects that marshal to
+        # more than a few fixed-sized bytes, minus ones like code
+        # objects that never appear more than once except in complete
+        # corner cases.
 
     ## currently we cannot use a put that is a bound method
     ## from outside. Same holds for get.
@@ -231,10 +207,13 @@ class Marshaller(_Base):
             rstackovf.check_stack_overflow()
             self._overflow()
 
-    def put_tuple_w(self, typecode, lst_w):
+    def put_tuple_w(self, typecode, lst_w, single_byte_size=False):
         self.start(typecode)
         lng = len(lst_w)
-        self.put_int(lng)
+        if single_byte_size:
+            self.put(chr(lng))
+        else:
+            self.put_int(lng)
         idx = 0
         while idx < lng:
             w_obj = lst_w[idx]
@@ -325,19 +304,35 @@ class StringMarshaller(Marshaller):
 
 
 def invalid_typecode(space, u, tc):
-    u.raise_exc("bad marshal data (unknown type code)")
+    u.raise_exc("bad marshal data (unknown type code %d)" % (ord(tc),))
 
 
+def _make_unmarshall_and_save_ref(func):
+    def unmarshall_save_ref(space, u, tc):
+        index = len(u.refs_w)
+        u.refs_w.append(None)
+        w_obj = func(space, u, tc)
+        u.refs_w[index] = w_obj
+        return w_obj
+    return unmarshall_save_ref
 
-class Unmarshaller(_Base):
+def _make_unmarshaller_dispatch():
     _dispatch = [invalid_typecode] * 256
     for tc, func in get_unmarshallers():
         _dispatch[ord(tc)] = func
+    for tc, func in get_unmarshallers():
+        if tc < '\x80' and _dispatch[ord(tc) + 0x80] is invalid_typecode:
+            _dispatch[ord(tc) + 0x80] = _make_unmarshall_and_save_ref(func)
+    return _dispatch
+
+
+class Unmarshaller(_Base):
+    _dispatch = _make_unmarshaller_dispatch()
 
     def __init__(self, space, reader):
         self.space = space
         self.reader = reader
-        self.stringtable_w = []
+        self.refs_w = []
 
     def get(self, n):
         assert n >= 0
@@ -346,6 +341,10 @@ class Unmarshaller(_Base):
     def get1(self):
         # the [0] is used to convince the annotator to return a char
         return self.get(1)[0]
+
+    def save_ref(self, typecode, w_obj):
+        if typecode >= '\x80':
+            self.refs_w.append(w_obj)
 
     def atom_str(self, typecode):
         self.start(typecode)
@@ -417,8 +416,11 @@ class Unmarshaller(_Base):
             self._overflow()
 
     # inlined version to save a recursion level
-    def get_tuple_w(self):
-        lng = self.get_lng()
+    def get_tuple_w(self, single_byte_size=False):
+        if single_byte_size:
+            lng = ord(self.get1())
+        else:
+            lng = self.get_lng()
         res_w = [None] * lng
         idx = 0
         space = self.space
@@ -434,9 +436,6 @@ class Unmarshaller(_Base):
             raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return res_w
 
-    def get_list_w(self):
-        return self.get_tuple_w()[:]
-
     def _overflow(self):
         self.raise_exc('object too deeply nested to unmarshal')
 
@@ -445,9 +444,9 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str):
         Unmarshaller.__init__(self, space, None)
-        self.bufstr = space.getarg_w('s#', w_str)
+        self.buf = space.readbuf_w(w_str)
         self.bufpos = 0
-        self.limit = len(self.bufstr)
+        self.limit = self.buf.getlength()
 
     def raise_eof(self):
         space = self.space
@@ -459,14 +458,14 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        return self.bufstr[pos : newpos]
+        return self.buf.getslice(pos, newpos, 1, newpos - pos)
 
     def get1(self):
         pos = self.bufpos
         if pos >= self.limit:
             self.raise_eof()
         self.bufpos = pos + 1
-        return self.bufstr[pos]
+        return self.buf.getitem(pos)
 
     def get_int(self):
         pos = self.bufpos
@@ -474,10 +473,10 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        a = ord(self.bufstr[pos])
-        b = ord(self.bufstr[pos+1])
-        c = ord(self.bufstr[pos+2])
-        d = ord(self.bufstr[pos+3])
+        a = ord(self.buf.getitem(pos))
+        b = ord(self.buf.getitem(pos+1))
+        c = ord(self.buf.getitem(pos+2))
+        d = ord(self.buf.getitem(pos+3))
         if d & 0x80:
             d -= 0x100
         x = a | (b<<8) | (c<<16) | (d<<24)
@@ -489,10 +488,10 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        a = ord(self.bufstr[pos])
-        b = ord(self.bufstr[pos+1])
-        c = ord(self.bufstr[pos+2])
-        d = ord(self.bufstr[pos+3])
+        a = ord(self.buf.getitem(pos))
+        b = ord(self.buf.getitem(pos+1))
+        c = ord(self.buf.getitem(pos+2))
+        d = ord(self.buf.getitem(pos+3))
         x = a | (b<<8) | (c<<16) | (d<<24)
         if x >= 0:
             return x

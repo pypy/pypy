@@ -31,7 +31,7 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_borrow_destroy", "METH_NOARGS",
              """
-                PyObject *i = PyInt_FromLong(42);
+                PyObject *i = PyLong_FromLong(42);
                 PyObject *j;
                 PyObject *t1 = PyTuple_Pack(1, i);
                 PyObject *t2 = PyTuple_Pack(1, i);
@@ -41,7 +41,7 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
                 PyTuple_GetItem(t2, 0);
                 Py_DECREF(t2);
 
-                j = PyInt_FromLong(PyInt_AsLong(i));
+                j = PyLong_FromLong(PyLong_AsLong(i));
                 Py_DECREF(t1);
                 return j;
              """),
@@ -49,8 +49,6 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
         assert module.test_borrow_destroy() == 42
 
     def test_double_borrow(self):
-        if self.runappdirect:
-            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("run", "METH_NOARGS",
              """

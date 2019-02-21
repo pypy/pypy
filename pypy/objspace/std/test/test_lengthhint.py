@@ -41,7 +41,7 @@ class TestLengthHint:
         space = self.space
         w_iterkeys, w_mutate = space.fixedview(space.appexec([], """():
             d = dict.fromkeys(%r)
-            return d.iterkeys(), d.popitem
+            return d.keys(), d.popitem
         """ % self.ITEMS), 2)
         self._test_length_hint(w_iterkeys, w_mutate)
 
@@ -49,7 +49,7 @@ class TestLengthHint:
         space = self.space
         w_itervalues, w_mutate = space.fixedview(space.appexec([], """():
             d = dict.fromkeys(%r)
-            return d.itervalues(), d.popitem
+            return d.values(), d.popitem
         """ % self.ITEMS), 2)
         self._test_length_hint(w_itervalues, w_mutate)
 
@@ -67,11 +67,20 @@ class TestLengthHint:
     def test_list(self):
         self._test_length_hint(self.space.wrap(self.ITEMS))
 
+    def test_bytes(self):
+        self._test_length_hint(self.space.newbytes('P' * self.SIZE))
+
+    def test_bytearray(self):
+        space = self.space
+        w_bytearray = space.call_function(space.w_bytearray,
+                                          space.newbytes('P' * self.SIZE))
+        self._test_length_hint(w_bytearray)
+
     def test_str(self):
         self._test_length_hint(self.space.wrap('P' * self.SIZE))
 
     def test_unicode(self):
-        self._test_length_hint(self.space.wrap(u'Y' * self.SIZE))
+        self._test_length_hint(self.space.newutf8('Y' * self.SIZE, self.SIZE))
 
     def test_tuple(self):
         self._test_length_hint(self.space.wrap(tuple(self.ITEMS)))
@@ -102,11 +111,11 @@ class TestLengthHint:
             space.call_method(w_reversed, '__length_hint__')) == self.SIZE
         self._test_length_hint(w_reversed)
 
-    def test_xrange(self):
+    def test_range(self):
         space = self.space
-        w_xrange = space.call_method(space.builtin, 'xrange',
+        w_range = space.call_method(space.builtin, 'range',
                                      space.newint(self.SIZE))
-        self._test_length_hint(w_xrange)
+        self._test_length_hint(w_range)
 
     def test_itertools_repeat(self):
         space = self.space

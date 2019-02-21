@@ -23,17 +23,24 @@ class ExecutionContext(object):
     # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
     #     over the place as well as w_tracefunc
 
-    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?']
+    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?',
+                          'w_coroutine_wrapper_fn?']
 
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
+        # this is exposed to app-level as 'sys.exc_info()'.  At any point in
+        # time it is the exception caught by the topmost 'except ... as e:'
+        # app-level block.
+        self.sys_exc_operror = None
         self.w_tracefunc = None
         self.is_tracing = 0
         self.compiler = space.createcompiler()
         self.profilefunc = None
         self.w_profilefuncarg = None
         self.thread_disappeared = False   # might be set to True after os.fork()
+        self.w_coroutine_wrapper_fn = None
+        self.in_coroutine_wrapper = False
 
     @staticmethod
     def _mark_thread_disappeared(space):
@@ -64,6 +71,8 @@ class ExecutionContext(object):
         return frame
 
     def enter(self, frame):
+        if self.space.reverse_debugging:
+            self._revdb_enter(frame)
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -84,6 +93,8 @@ class ExecutionContext(object):
                 # be accessed also later
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
+            if self.space.reverse_debugging:
+                self._revdb_leave(got_exception)
 
     # ________________________________________________________________
 
@@ -153,6 +164,8 @@ class ExecutionContext(object):
         Like bytecode_trace() but doesn't invoke any other events besides the
         trace function.
         """
+        if self.space.reverse_debugging:
+            self._revdb_potential_stop_point(frame)
         if (frame.get_w_f_trace() is None or self.is_tracing or
             self.gettrace() is None):
             return
@@ -220,35 +233,17 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
-    @jit.dont_look_inside
-    @specialize.arg(1)
-    def sys_exc_info(self, for_hidden=False):
+    def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
-
-        Ignores exceptions within hidden frames unless for_hidden=True
-        is specified.
 
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
-        return self.gettopframe()._exc_info_unroll(self.space, for_hidden)
+        return self.sys_exc_operror
 
     def set_sys_exc_info(self, operror):
-        frame = self.gettopframe_nohidden()
-        if frame:     # else, the exception goes nowhere and is lost
-            frame.last_exception = operror
-
-    def clear_sys_exc_info(self):
-        # Find the frame out of which sys_exc_info() would return its result,
-        # and hack this frame's last_exception to become the cleared
-        # OperationError (which is different from None!).
-        frame = self.gettopframe_nohidden()
-        while frame:
-            if frame.last_exception is not None:
-                frame.last_exception = get_cleared_operation_error(self.space)
-                break
-            frame = self.getnextframe_nohidden(frame)
+        self.sys_exc_operror = operror
 
     @jit.dont_look_inside
     def settrace(self, w_func):
@@ -321,6 +316,7 @@ class ExecutionContext(object):
 
         if w_callback is not None and event != "leaveframe":
             if operr is not None:
+                operr.normalize_exception(space)
                 w_value = operr.get_w_value(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
                                         operr.get_w_traceback(space)])
@@ -359,7 +355,6 @@ class ExecutionContext(object):
                     event == 'c_exception'):
                 return
 
-            last_exception = frame.last_exception
             if event == 'leaveframe':
                 event = 'return'
 
@@ -375,7 +370,6 @@ class ExecutionContext(object):
                     raise
 
             finally:
-                frame.last_exception = last_exception
                 self.is_tracing -= 1
 
     def checksignals(self):
@@ -384,6 +378,21 @@ class ExecutionContext(object):
         (i.e. call the signal handlers)."""
         if self.space.check_signal_action is not None:
             self.space.check_signal_action.perform(self, None)
+
+    def _revdb_enter(self, frame):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import enter_call
+        enter_call(self.topframeref(), frame)
+
+    def _revdb_leave(self, got_exception):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import leave_call
+        leave_call(self.topframeref(), got_exception)
+
+    def _revdb_potential_stop_point(self, frame):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import potential_stop_point
+        potential_stop_point(frame)
 
     def _freeze_(self):
         raise Exception("ExecutionContext instances should not be seen during"
@@ -404,7 +413,7 @@ class AbstractActionFlag(object):
         self._periodic_actions = []
         self._nonperiodic_actions = []
         self.has_bytecode_counter = False
-        self.fired_actions = None
+        self._fired_actions_reset()
         # the default value is not 100, unlike CPython 2.7, but a much
         # larger value, because we use a technique that not only allows
         # but actually *forces* another thread to run whenever the counter
@@ -416,12 +425,27 @@ class AbstractActionFlag(object):
         """Request for the action to be run before the next opcode."""
         if not action._fired:
             action._fired = True
-            if self.fired_actions is None:
-                self.fired_actions = []
-            self.fired_actions.append(action)
+            self._fired_actions_append(action)
             # set the ticker to -1 in order to force action_dispatcher()
             # to run at the next possible bytecode
             self.reset_ticker(-1)
+
+    def _fired_actions_reset(self):
+        # linked list of actions. We cannot use a normal RPython list because
+        # we want AsyncAction.fire() to be marked as @rgc.collect: this way,
+        # we can call it from e.g. GcHooks or cpyext's dealloc_trigger.
+        self._fired_actions_first = None
+        self._fired_actions_last = None
+
+    @rgc.no_collect
+    def _fired_actions_append(self, action):
+        assert action._next is None
+        if self._fired_actions_first is None:
+            self._fired_actions_first = action
+            self._fired_actions_last = action
+        else:
+            self._fired_actions_last._next = action
+            self._fired_actions_last = action
 
     @not_rpython
     def register_periodic_action(self, action, use_bytecode_counter):
@@ -467,19 +491,26 @@ class AbstractActionFlag(object):
                 action.perform(ec, frame)
 
             # nonperiodic actions
-            list = self.fired_actions
-            if list is not None:
-                self.fired_actions = None
+            action = self._fired_actions_first
+            if action:
+                self._fired_actions_reset()
                 # NB. in case there are several actions, we reset each
                 # 'action._fired' to false only when we're about to call
                 # 'action.perform()'.  This means that if
                 # 'action.fire()' happens to be called any time before
                 # the corresponding perform(), the fire() has no
                 # effect---which is the effect we want, because
-                # perform() will be called anyway.
-                for action in list:
+                # perform() will be called anyway.  All such pending
+                # actions with _fired == True are still inside the old
+                # chained list.  As soon as we reset _fired to False,
+                # we also reset _next to None and we are ready for
+                # another fire().
+                while action is not None:
+                    next_action = action._next
+                    action._next = None
                     action._fired = False
                     action.perform(ec, frame)
+                    action = next_action
 
         self.action_dispatcher = action_dispatcher
 
@@ -512,10 +543,12 @@ class AsyncAction(object):
     to occur between two opcodes, not at a completely random time.
     """
     _fired = False
+    _next = None
 
     def __init__(self, space):
         self.space = space
 
+    @rgc.no_collect
     def fire(self):
         """Request for the action to be run before the next opcode.
         The action must have been registered at space initalization time."""
@@ -590,9 +623,14 @@ class UserDelAction(AsyncAction):
             if self.gc_disabled(w_obj):
                 return
             try:
-                space.get_and_call_function(w_del, w_obj)
+                w_impl = space.get(w_del, w_obj)
             except Exception as e:
                 report_error(space, e, "method __del__ of ", w_obj)
+            else:
+                try:
+                    space.call_function(w_impl)
+                except Exception as e:
+                    report_error(space, e, '', w_impl)
 
         # Call the RPython-level _finalize_() method.
         try:

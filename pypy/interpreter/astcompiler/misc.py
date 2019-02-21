@@ -20,7 +20,7 @@ def syntax_warning(space, msg, fn, lineno, offset):
     If the user has set this warning to raise an error, a SyntaxError will be
     raised."""
     w_msg = space.newtext(msg)
-    w_filename = space.newtext(fn)
+    w_filename = space.newfilename(fn)
     w_lineno = space.newint(lineno)
     w_offset = space.newint(offset)
     _emit_syntax_warning(space, w_msg, w_filename, w_lineno, w_offset)
@@ -110,9 +110,23 @@ def mangle(name, klass):
 
 def intern_if_common_string(space, w_const):
     # only intern identifier-like strings
-    if not space.is_w(space.type(w_const), space.w_text):
-        return w_const
-    for c in space.text_w(w_const):
-        if not (c.isalnum() or c == '_'):
-            return w_const
-    return space.new_interned_w_str(w_const)
+    from pypy.objspace.std.unicodeobject import _isidentifier
+    if (space.is_w(space.type(w_const), space.w_unicode) and
+        _isidentifier(space.utf8_w(w_const))):
+        return space.new_interned_w_str(w_const)
+    return w_const
+
+
+def new_identifier(space, name):
+    # Check whether there are non-ASCII characters in the identifier; if
+    # so, normalize to NFKC
+    for c in name:
+        if ord(c) > 0x80:
+            break
+    else:
+        return name
+
+    from pypy.module.unicodedata.interp_ucd import ucd
+    w_name = space.newtext(name)
+    w_id = space.call_method(ucd, 'normalize', space.newtext('NFKC'), w_name)
+    return space.text_w(w_id)

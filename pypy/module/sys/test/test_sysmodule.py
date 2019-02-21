@@ -1,4 +1,5 @@
 # -*- coding: iso-8859-1 -*-
+import codecs
 import sys
 
 def test_stdin_exists(space):
@@ -9,11 +10,54 @@ def test_stdout_exists(space):
     space.sys.get('stdout')
     space.sys.get('__stdout__')
 
+def test_stdout_flush_at_shutdown(space):
+    w_sys = space.sys
+    w_read = space.appexec([], """():
+        import sys
+        from io import BytesIO, TextIOWrapper
+        class BadWrite(BytesIO):
+            def write(self, data):
+                raise IOError
+        buf = BytesIO()
+        def read():
+            buf.seek(0)
+            return buf.read()
+        sys.stdout = TextIOWrapper(BadWrite())
+        sys.stderr = TextIOWrapper(buf)
+        return read""")
+
+    try:
+        space.call_method(w_sys.get('stdout'), 'write', space.wrap('x'))
+        # called at shtudown
+        w_sys.flush_std_files(space)
+
+        msg = space.bytes_w(space.call_function(w_read))
+        assert 'Exception ignored in:' in msg and '\nOSError' in msg
+    finally:
+        space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
+        space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
+
+def test_stdio_missing_at_shutdown(space):
+    w_sys = space.sys
+
+    try:
+        space.delattr(w_sys, space.wrap('stdout'))
+        space.delattr(w_sys, space.wrap('stderr'))
+        # called at shtudown
+        w_sys.flush_std_files(space)
+    finally:
+        space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
+        space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
+
 class AppTestAppSysTests:
+    spaceconfig = {
+        "usemodules": ["thread"],
+    }
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
-        cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
+        filesystemenc = codecs.lookup(sys.getfilesystemencoding()).name
+        cls.w_filesystemenc = cls.space.wrap(filesystemenc)
 
     def test_sys_in_modules(self):
         import sys
@@ -25,47 +69,53 @@ class AppTestAppSysTests:
     def test_builtin_in_modules(self):
         import sys
         modules = sys.modules
-        assert '__builtin__' in modules, ( "An entry for __builtin__ "
-                                                    "is not in sys.modules.")
-        import __builtin__
-        builtin2 = sys.modules['__builtin__']
-        assert __builtin__ is builtin2, ( "import __builtin__ "
-                                            "is not sys.modules[__builtin__].")
+        assert 'builtins' in modules, ( "An entry for builtins "
+                                       "is not in sys.modules.")
+        import builtins
+        builtin2 = sys.modules['builtins']
+        assert builtins is builtin2, ( "import builtins "
+                                       "is not sys.modules[builtins].")
     def test_builtin_module_names(self):
         import sys
         names = sys.builtin_module_names
         assert 'sys' in names, (
-                        "sys is not listed as a builtin module.")
-        assert '__builtin__' in names, (
-                        "__builtin__ is not listed as a builtin module.")
+            "sys is not listed as a builtin module.")
+        assert 'builtins' in names, (
+            "builtins is not listed as a builtin module.")
+        assert 'exceptions' not in names, (
+            "exceptions module shouldn't exist")
 
     def test_sys_exc_info(self):
         try:
             raise Exception
-        except Exception as e:
+        except Exception as exc:
+            e = exc
             import sys
             exc_type,exc_val,tb = sys.exc_info()
         try:
-            raise Exception   # 5 lines below the previous one
-        except Exception as e2:
+            raise Exception   # 6 lines below the previous one
+        except Exception as exc:
+            e2 = exc
             exc_type2,exc_val2,tb2 = sys.exc_info()
         assert exc_type ==Exception
         assert exc_val ==e
         assert exc_type2 ==Exception
         assert exc_val2 ==e2
-        assert tb2.tb_lineno - tb.tb_lineno == 5
+        assert tb2.tb_lineno - tb.tb_lineno == 6
 
     def test_dynamic_attributes(self):
         try:
             raise Exception
-        except Exception as e:
+        except Exception as exc:
+            e = exc
             import sys
             exc_type = sys.exc_type
             exc_val = sys.exc_value
             tb = sys.exc_traceback
         try:
-            raise Exception   # 7 lines below the previous one
-        except Exception as e2:
+            raise Exception   # 8 lines below the previous one
+        except Exception as exc:
+            e2 = exc
             exc_type2 = sys.exc_type
             exc_val2 = sys.exc_value
             tb2 = sys.exc_traceback
@@ -73,7 +123,7 @@ class AppTestAppSysTests:
         assert exc_val ==e
         assert exc_type2 ==Exception
         assert exc_val2 ==e2
-        assert tb2.tb_lineno - tb.tb_lineno == 7
+        assert tb2.tb_lineno - tb.tb_lineno == 8
 
     def test_exc_info_normalization(self):
         import sys
@@ -86,21 +136,23 @@ class AppTestAppSysTests:
             raise AssertionError("ZeroDivisionError not caught")
 
     def test_io(self):
-        import sys
-        assert isinstance(sys.__stdout__, file)
-        assert isinstance(sys.__stderr__, file)
-        assert isinstance(sys.__stdin__, file)
+        import sys, io
+        assert isinstance(sys.__stdout__, io.IOBase)
+        assert isinstance(sys.__stderr__, io.IOBase)
+        assert isinstance(sys.__stdin__, io.IOBase)
+        assert sys.__stderr__.errors == 'backslashreplace'
 
         #assert sys.__stdin__.name == "<stdin>"
         #assert sys.__stdout__.name == "<stdout>"
         #assert sys.__stderr__.name == "<stderr>"
 
-        if self.appdirect and not isinstance(sys.stdin, file):
+        if self.appdirect and not isinstance(sys.stdin, io.IOBase):
             return
 
-        assert isinstance(sys.stdout, file)
-        assert isinstance(sys.stderr, file)
-        assert isinstance(sys.stdin, file)
+        assert isinstance(sys.stdout, io.IOBase)
+        assert isinstance(sys.stderr, io.IOBase)
+        assert isinstance(sys.stdin, io.IOBase)
+        assert sys.stderr.errors == 'backslashreplace'
 
     def test_getfilesystemencoding(self):
         import sys
@@ -121,9 +173,9 @@ class AppTestAppSysTests:
         assert isinstance(fi.radix, int)
         assert isinstance(fi.rounds, int)
 
-    def test_long_info(self):
+    def test_int_info(self):
         import sys
-        li = sys.long_info
+        li = sys.int_info
         assert isinstance(li.bits_per_digit, int)
         assert isinstance(li.sizeof_digit, int)
 
@@ -141,33 +193,79 @@ class AppTestAppSysTests:
         exc = raises(SystemExit, sys.exit, (1, 2, 3))
         assert exc.value.code == (1, 2, 3)
 
+    def test_hash_info(self):
+        import sys
+        li = sys.hash_info
+        assert isinstance(li.width, int)
+        assert isinstance(li.modulus, int)
+        assert isinstance(li.inf, int)
+        assert isinstance(li.nan, int)
+        assert isinstance(li.imag, int)
+        assert isinstance(li.algorithm, str)
+
+    def test_sys_exit(self):
+        import sys
+        exc = raises(SystemExit, sys.exit)
+        assert exc.value.code is None
+
+        exc = raises(SystemExit, sys.exit, 0)
+        assert exc.value.code == 0
+
+        exc = raises(SystemExit, sys.exit, 1)
+        assert exc.value.code == 1
+
+        exc = raises(SystemExit, sys.exit, (1, 2, 3))
+        assert exc.value.code == (1, 2, 3)
+
+    def test_sys_thread_info(self):
+        import sys
+        info = sys.thread_info
+        assert isinstance(info.name, str)
+        assert isinstance(info.lock, (str, type(None)))
+        assert isinstance(info.version, (str, type(None)))
+
 
 class AppTestSysModulePortedFromCPython:
+    spaceconfig = {
+        "usemodules": ["struct"],
+    }
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_original_displayhook(self):
-        import sys, cStringIO, __builtin__
+        import sys, _io, builtins
         savestdout = sys.stdout
-        out = cStringIO.StringIO()
+        out = _io.StringIO()
         sys.stdout = out
 
         dh = sys.__displayhook__
 
         raises(TypeError, dh)
-        if hasattr(__builtin__, "_"):
-            del __builtin__._
+        if hasattr(builtins, "_"):
+            del builtins._
 
         dh(None)
         assert out.getvalue() == ""
-        assert not hasattr(__builtin__, "_")
+        assert not hasattr(builtins, "_")
         dh("hello")
         assert out.getvalue() == "'hello'\n"
-        assert __builtin__._ == "hello"
+        assert builtins._ == "hello"
 
         del sys.stdout
         raises(RuntimeError, dh, 42)
+
+        sys.stdout = savestdout
+
+    def test_original_displayhook_unencodable(self):
+        import sys, _io
+        out = _io.BytesIO()
+        savestdout = sys.stdout
+        sys.stdout = _io.TextIOWrapper(out, encoding='ascii')
+
+        sys.__displayhook__("a=\xe9 b=\uDC80 c=\U00010000 d=\U0010FFFF")
+        assert (out.getvalue() ==
+                b"'a=\\xe9 b=\\udc80 c=\\U00010000 d=\\U0010ffff'")
 
         sys.stdout = savestdout
 
@@ -190,9 +288,9 @@ class AppTestSysModulePortedFromCPython:
         sys.displayhook = olddisplayhook
 
     def test_original_excepthook(self):
-        import sys, cStringIO
+        import sys, _io
         savestderr = sys.stderr
-        err = cStringIO.StringIO()
+        err = _io.StringIO()
         sys.stderr = err
 
         eh = sys.__excepthook__
@@ -202,16 +300,21 @@ class AppTestSysModulePortedFromCPython:
             raise ValueError(42)
         except ValueError as exc:
             eh(*sys.exc_info())
+        assert err.getvalue().endswith("ValueError: 42\n")
+
+        eh(1, '1', 1)
+        expected = ("TypeError: print_exception(): Exception expected for "
+                    "value, str found")
+        assert expected in err.getvalue()
 
         sys.stderr = savestderr
-        assert err.getvalue().endswith("ValueError: 42\n")
 
     def test_excepthook_failsafe_path(self):
         import traceback
         original_print_exception = traceback.print_exception
-        import sys, cStringIO
+        import sys, _io
         savestderr = sys.stderr
-        err = cStringIO.StringIO()
+        err = _io.StringIO()
         sys.stderr = err
         try:
             traceback.print_exception = "foo"
@@ -240,8 +343,7 @@ class AppTestSysModulePortedFromCPython:
             def getvalue(self):
                 return ''.join(self.output)
 
-        for input, expectedoutput in [(u"\u013a", "\xe5"),
-                                      (u"\u1111", "\\u1111")]:
+        for input in ("\u013a", "\u1111"):
             err = MyStringIO()
             err.encoding = 'iso-8859-2'
             sys.stderr = err
@@ -253,56 +355,34 @@ class AppTestSysModulePortedFromCPython:
                 eh(*sys.exc_info())
 
             sys.stderr = savestderr
-            print repr(err.getvalue())
-            assert err.getvalue().endswith("ValueError: %s\n" % expectedoutput)
+            print(ascii(err.getvalue()))
+            assert err.getvalue().endswith("ValueError: %s\n" % input)
+
+    def test_excepthook_flushes_stdout(self): r"""
+        import sys, io
+        savestdout = sys.stdout
+        out = io.StringIO()
+        sys.stdout = out
+
+        eh = sys.__excepthook__
+
+        try:
+            raise ValueError(42)
+        except ValueError as exc:
+            print("hello")     # with end-of-line
+            eh(*sys.exc_info())
+        try:
+            raise ValueError(42)
+        except ValueError as exc:
+            print(123, 456, end="")     # no end-of-line here
+            eh(*sys.exc_info())
+
+        sys.stdout = savestdout
+        assert out.getvalue() == 'hello\n123 456'   # no final \n added in 3.x
+        """
 
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
-
-    def test_exc_clear(self):
-        import sys
-        raises(TypeError, sys.exc_clear, 42)
-
-        # Verify that exc_info is present and matches exc, then clear it, and
-        # check that it worked.
-        def clear_check(exc):
-            typ, value, traceback = sys.exc_info()
-            assert typ is not None
-            assert value is exc
-            assert traceback is not None
-
-            sys.exc_clear()
-
-            typ, value, traceback = sys.exc_info()
-            assert typ is None
-            assert value is None
-            assert traceback is None
-
-        def clear():
-            try:
-                raise ValueError(42)
-            except ValueError as exc:
-                clear_check(exc)
-
-        # Raise an exception and check that it can be cleared
-        clear()
-
-        # Verify that a frame currently handling an exception is
-        # unaffected by calling exc_clear in a nested frame.
-        try:
-            raise ValueError(13)
-        except ValueError as exc:
-            typ1, value1, traceback1 = sys.exc_info()
-            clear()
-            typ2, value2, traceback2 = sys.exc_info()
-
-            assert typ1 is typ2
-            assert value1 is exc
-            assert value1 is value2
-            assert traceback1 is traceback2
-
-        # Check that an exception can be cleared outside of an except block
-        clear_check(exc)
 
     def test_exit(self):
         import sys
@@ -365,25 +445,6 @@ class AppTestSysModulePortedFromCPython:
         # can't check more than the type, as the user might have changed it
         assert isinstance(sys.getdefaultencoding(), str)
 
-    def test_setdefaultencoding(self):
-        import sys
-        if self.appdirect:
-            skip("not worth running appdirect")
-
-        encoding = sys.getdefaultencoding()
-        try:
-            sys.setdefaultencoding("ascii")
-            assert sys.getdefaultencoding() == 'ascii'
-            raises(UnicodeDecodeError, unicode, '\x80')
-
-            sys.setdefaultencoding("latin-1")
-            assert sys.getdefaultencoding() == 'latin-1'
-            assert unicode('\x80') == u'\u0080'
-
-        finally:
-            sys.setdefaultencoding(encoding)
-
-
     # testing sys.settrace() is done in test_trace.py
     # testing sys.setprofile() is done in test_profile.py
 
@@ -394,6 +455,15 @@ class AppTestSysModulePortedFromCPython:
         for n in 0, 100, 120, orig: # orig last to restore starting state
             sys.setcheckinterval(n)
             assert sys.getcheckinterval() == n
+
+    def test_setswitchinterval(self):
+        import sys
+        raises(TypeError, sys.setswitchinterval)
+        orig = sys.getswitchinterval()
+        for n in 1e-6, 0.1, orig: # orig last to restore starting state
+            sys.setswitchinterval(n)
+            assert sys.getswitchinterval() == n
+        raises(ValueError, sys.setswitchinterval, 0.0)
 
     def test_recursionlimit(self):
         import sys
@@ -498,16 +568,15 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.argv, list)
         assert sys.byteorder in ("little", "big")
         assert isinstance(sys.builtin_module_names, tuple)
-        assert isinstance(sys.copyright, basestring)
-        #assert isinstance(sys.exec_prefix, basestring) -- not present!
-        #assert isinstance(sys.executable, basestring) -- not present!
+        assert isinstance(sys.copyright, str)
+        #assert isinstance(sys.exec_prefix, str) -- not present!
+        #assert isinstance(sys.executable, str)
         assert isinstance(sys.hexversion, int)
-        assert isinstance(sys.maxint, int)
         assert isinstance(sys.maxsize, int)
         assert isinstance(sys.maxunicode, int)
-        assert isinstance(sys.platform, basestring)
-        #assert isinstance(sys.prefix, basestring) -- not present!
-        assert isinstance(sys.version, basestring)
+        assert isinstance(sys.platform, str)
+        #assert isinstance(sys.prefix, str) -- not present!
+        assert isinstance(sys.version, str)
         assert isinstance(sys.warnoptions, list)
         vi = sys.version_info
         if '__pypy__' in sys.builtin_module_names:
@@ -519,8 +588,81 @@ class AppTestSysModulePortedFromCPython:
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
 
+    def test_implementation(self):
+        import sys
+        assert sys.implementation.name == 'pypy'
+
+        # This test applies to all implementations equally.
+        levels = {'alpha': 0xA, 'beta': 0xB, 'candidate': 0xC, 'final': 0xF}
+
+        assert sys.implementation.version
+        assert sys.implementation.hexversion
+        assert sys.implementation.cache_tag
+
+        version = sys.implementation.version
+        assert version[:2] == (version.major, version.minor)
+
+        hexversion = (version.major << 24 | version.minor << 16 |
+                      version.micro << 8 | levels[version.releaselevel] << 4 |
+                      version.serial << 0)
+        assert sys.implementation.hexversion == hexversion
+
+        # PEP 421 requires that .name be lower case.
+        assert sys.implementation.name == sys.implementation.name.lower()
+
+        ns1 = type(sys.implementation)(x=1, y=2, w=3)
+        assert repr(ns1) == "namespace(w=3, x=1, y=2)"
+
+    def test_simplenamespace(self):
+        import sys
+        SimpleNamespace = type(sys.implementation)
+        ns = SimpleNamespace(x=1, y=2, w=3)
+        #
+        ns.z = 4
+        assert ns.__dict__ == dict(x=1, y=2, w=3, z=4)
+        #
+        raises(AttributeError, "del ns.spam")
+        del ns.y
+        #
+        assert ns == SimpleNamespace(z=4, x=1, w=3)
+        assert (ns != SimpleNamespace(z=4, x=1, w=3)) is False
+        assert (ns == SimpleNamespace(z=4, x=2, w=3)) is False
+        assert ns != SimpleNamespace(z=4, x=2, w=3)
+        #
+        class Foo(SimpleNamespace):
+            pass
+        assert ns == Foo(z=4, x=1, w=3)
+        assert (ns != Foo(z=4, x=1, w=3)) is False
+        assert (ns == Foo(z=4, x=2, w=3)) is False
+        assert ns != Foo(z=4, x=2, w=3)
+        #
+        class Other:
+            def __init__(self, x, z, w):
+                self.x = x
+                self.z = z
+                self.w = w
+        assert (ns == Other(z=4, x=1, w=3)) is False
+        assert ns != Other(z=4, x=1, w=3)
+        assert (Foo(z=4, x=1, w=3) == Other(z=4, x=1, w=3)) is False
+        assert Foo(z=4, x=1, w=3) != Other(z=4, x=1, w=3)
+        #
+        class Fake:
+            __class__ = SimpleNamespace
+        assert isinstance(Fake(), SimpleNamespace)
+        assert not issubclass(Fake, SimpleNamespace)
+        assert (Fake() == SimpleNamespace()) is False
+        assert SimpleNamespace() != Fake()
+
+    def test_pickle_simplenamespace(self):
+        import pickle, sys
+        SimpleNamespace = type(sys.implementation)
+        ns = SimpleNamespace(x=1, y=2, w=3)
+        copy = pickle.loads(pickle.dumps(ns))
+        assert copy == ns
+
     def test_reload_doesnt_override_sys_executable(self):
         import sys
+        from imp import reload
         if not hasattr(sys, 'executable'):    # if not translated
             sys.executable = 'from_test_sysmodule'
         previous = sys.executable
@@ -582,30 +724,18 @@ class AppTestSysModulePortedFromCPython:
         if hgid != '':
             assert hgid in sys.version
 
-    def test_trace_exec_execfile(self):
-        import sys
-        found = []
-        def do_tracing(f, *args):
-            print f.f_code.co_filename, f.f_lineno, args
-            if f.f_code.co_filename == 'foobar':
-                found.append(args[0])
-            return do_tracing
-        co = compile("execfile('this-file-does-not-exist!')",
-                     'foobar', 'exec')
-        sys.settrace(do_tracing)
-        try:
-            exec co in {}
-        except IOError:
-            pass
-        sys.settrace(None)
-        assert found == ['call', 'line', 'exception', 'return']
-
     def test_float_repr_style(self):
         import sys
 
         # If this ever actually becomes a compilation option this test should
         # be changed.
         assert sys.float_repr_style == "short"
+
+    def test_is_finalizing(self):
+        import sys
+        assert not sys.is_finalizing()
+        # xxx should also test when it is True, but maybe not worth the effort
+
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):
@@ -630,7 +760,7 @@ class AppTestSysSettracePortedFromCpython(object):
             tracer = Tracer()
             func(tracer.trace)
             sys.settrace(None)
-            compare_events(func.func_code.co_firstlineno,
+            compare_events(func.__code__.co_firstlineno,
                            tracer.events, func.events)
 
 
@@ -664,7 +794,7 @@ class AppTestSysSettracePortedFromCpython(object):
 class AppTestCurrentFrames:
     def test_current_frames(self):
         try:
-            import thread
+            import _thread
         except ImportError:
             pass
         else:
@@ -674,7 +804,7 @@ class AppTestCurrentFrames:
         def f():
             return sys._current_frames()
         frames = f()
-        assert frames.keys() == [0]
+        assert list(frames) == [0]
         assert frames[0].f_code.co_name in ('f', '?')
 
 
@@ -686,23 +816,23 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
     def test_current_frames(self):
         import sys
         import time
-        import thread
+        import _thread
 
         # XXX workaround for now: to prevent deadlocks, call
         # sys._current_frames() once before starting threads.
         # This is an issue in non-translated versions only.
         sys._current_frames()
 
-        thread_id = thread.get_ident()
+        thread_id = _thread.get_ident()
         def other_thread():
-            #print "thread started"
+            #print("thread started")
             lock2.release()
             lock1.acquire()
-        lock1 = thread.allocate_lock()
-        lock2 = thread.allocate_lock()
+        lock1 = _thread.allocate_lock()
+        lock2 = _thread.allocate_lock()
         lock1.acquire()
         lock2.acquire()
-        thread.start_new_thread(other_thread, ())
+        _thread.start_new_thread(other_thread, ())
 
         def f():
             lock2.acquire()
@@ -716,6 +846,24 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         assert len(frames) == 1
         _, other_frame = frames.popitem()
         assert other_frame.f_code.co_name in ('other_thread', '?')
+
+    def test_intern(self):
+        from sys import intern
+        raises(TypeError, intern)
+        raises(TypeError, intern, 1)
+        class S(str):
+            pass
+        raises(TypeError, intern, S("hello"))
+        s = "never interned before"
+        s2 = intern(s)
+        assert s == s2
+        s3 = s.swapcase()
+        assert s3 != s2
+        s4 = s3.swapcase()
+        assert intern(s4) is s2
+        s5 = "\ud800"
+        # previously failed
+        assert intern(s5) == s5
 
 
 class AppTestSysExcInfoDirect:
@@ -823,12 +971,15 @@ class AppTestSysExcInfoDirect:
     def test_call_in_subfunction(self):
         import sys
         def g():
-            # this case is not optimized, because we need to search the
-            # frame chain.  it's probably not worth the complications
+            # new in PyPy3: this case is optimized as well, now that we
+            # don't need to search the frame chain.  This can be
+            # regarded as an advantage of the PyPy3 sys_exc_info stored
+            # on the ExecutionContext: although it forces the exception
+            # itself more often, it forces frames less often.
             return sys.exc_info()[1]
         e = KeyError("boom")
         try:
             raise e
         except:
             assert g() is e
-    test_call_in_subfunction.expected = 'n'
+    test_call_in_subfunction.expected = 'y'

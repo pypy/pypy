@@ -16,7 +16,7 @@ class TestAlloc(BaseTestPyPyC):
                     N = %(size)d
                     part_a = 'a' * N
                     part_b = 'b' * N
-                    for i in xrange(20):
+                    for i in range(20):
                         ao = '%%s%%s' %% (part_a, part_b)
                     def main():
                         return 42

@@ -55,7 +55,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     base_module_name = module_name.split('.')[-1]
     sources = []
     if w_extra_source is not None:
-        sources.append(space.str_w(w_extra_source))
+        sources.append(space.text_w(w_extra_source))
     kwargs = {}
     if w_extra_compile_args is not None:
         kwargs['extra_compile_args'] = space.unwrap(w_extra_compile_args)
@@ -89,7 +89,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
 
 
 class AppTestRecompiler:
-    spaceconfig = dict(usemodules=['_cffi_backend', 'imp'])
+    spaceconfig = dict(usemodules=['_cffi_backend', 'imp', 'cpyext', 'struct'])
 
     def setup_class(cls):
         if cls.runappdirect:
@@ -100,6 +100,7 @@ class AppTestRecompiler:
 
     def setup_method(self, meth):
         self._w_modules = self.space.appexec([], """():
+            import cpyext      # ignore stuff there in the leakfinder
             import sys
             return set(sys.modules)
         """)
@@ -111,7 +112,7 @@ class AppTestRecompiler:
             del self.space._cleanup_ffi
         self.space.appexec([self._w_modules], """(old_modules):
             import sys
-            for key in sys.modules.keys():
+            for key in list(sys.modules.keys()):
                 if key not in old_modules:
                     del sys.modules[key]
         """)
@@ -928,13 +929,13 @@ class AppTestRecompiler:
         # but we can get its address
         p = ffi.addressof(lib, 'globvar')
         assert ffi.typeof(p) == ffi.typeof('opaque_t *')
-        assert ffi.string(ffi.cast("char *", p), 8) == "hello"
+        assert ffi.string(ffi.cast("char *", p), 8) == b"hello"
 
     def test_constant_of_value_unknown_to_the_compiler(self):
         extra_c_source = self.udir + self.os_sep + (
             'extra_test_constant_of_value_unknown_to_the_compiler.c')
-        with open(extra_c_source, 'w') as f:
-            f.write('const int external_foo = 42;\n')
+        with open(extra_c_source, 'wb') as f:
+            f.write(b'const int external_foo = 42;\n')
         ffi, lib = self.prepare(
             "const int external_foo;",
             'test_constant_of_value_unknown_to_the_compiler',
@@ -1085,7 +1086,7 @@ class AppTestRecompiler:
         #
         @ffi.callback("int *(*)(void)")
         def get_my_value():
-            return values + it.next()
+            return values + next(it)
         lib.get_my_value = get_my_value
         #
         values[0] = 41
@@ -1429,7 +1430,7 @@ class AppTestRecompiler:
                 def getvalue(self):
                     if self._result is None:
                         os.close(self._wr)
-                        self._result = os.read(self._rd, 4096)
+                        self._result = os.read(self._rd, 4096).decode()
                         os.close(self._rd)
                         # xxx hack away these lines
                         while self._result.startswith('[platform:execute]'):
@@ -1500,11 +1501,11 @@ class AppTestRecompiler:
         baz1 = ffi.def_extern()(baz)
         assert baz1 is baz
         seen = []
-        baz(40L, 4L)
-        res = lib.baz(50L, 8L)
+        baz(40, 4)
+        res = lib.baz(50, 8)
         assert res is None
-        assert seen == [("Baz", 40L, 4L), ("Baz", 50, 8)]
-        assert type(seen[0][1]) is type(seen[0][2]) is long
+        assert seen == [("Baz", 40, 4), ("Baz", 50, 8)]
+        assert type(seen[0][1]) is type(seen[0][2]) is int
         assert type(seen[1][1]) is type(seen[1][2]) is int
 
         @ffi.def_extern(name="bok")
@@ -2050,7 +2051,7 @@ class AppTestRecompiler:
                 return s;
             }
         """, packed=True, min_version=(1, 8, 3))
-        assert lib.f().y == chr(40)
+        assert ord(lib.f().y) == 40
         assert lib.f().x == 200
         e = raises(NotImplementedError, lib.g, 0)
         assert str(e.value) == (
@@ -2107,3 +2108,36 @@ class AppTestRecompiler:
         else:
             assert lib.__loader__ is None
             assert lib.__spec__ is None
+
+    def test_release(self):
+        ffi, lib = self.prepare("", "test_release", "")
+        p = ffi.new("int[]", 123)
+        ffi.release(p)
+        # here, reading p[0] might give garbage or segfault...
+        ffi.release(p)   # no effect
+
+    def test_release_new_allocator(self):
+        ffi, lib = self.prepare("struct ab { int a, b; };",
+                                "test_release_new_allocator",
+                                "struct ab { int a, b; };")
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", b"X" * size)
+        def myfree(raw):
+            seen.append(raw)
+        alloc2 = ffi.new_allocator(alloc=myalloc, free=myfree)
+        p = alloc2("int[]", 15)
+        assert seen == [15 * 4]
+        ffi.release(p)
+        assert seen == [15 * 4, p]
+        ffi.release(p)    # no effect
+        assert seen == [15 * 4, p]
+        #
+        del seen[:]
+        p = alloc2("struct ab *")
+        assert seen == [2 * 4]
+        ffi.release(p)
+        assert seen == [2 * 4, p]
+        ffi.release(p)    # no effect
+        assert seen == [2 * 4, p]

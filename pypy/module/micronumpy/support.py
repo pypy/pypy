@@ -24,7 +24,7 @@ def issequence_w(space, w_obj):
     from pypy.module.micronumpy.base import W_NDimArray
     return (space.isinstance_w(w_obj, space.w_tuple) or
            space.isinstance_w(w_obj, space.w_list) or
-           space.isinstance_w(w_obj, space.w_buffer) or
+           space.isinstance_w(w_obj, space.w_memoryview) or
            isinstance(w_obj, W_NDimArray))
 
 

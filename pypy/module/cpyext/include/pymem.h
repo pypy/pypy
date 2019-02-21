@@ -7,13 +7,22 @@
 extern "C" {
 #endif
 
-#define PyMem_MALLOC(n)		malloc((n) ? (n) : 1)
-#define PyMem_REALLOC(p, n)	realloc((p), (n) ? (n) : 1)
-#define PyMem_FREE		free
+#ifndef Py_LIMITED_API
+PyAPI_FUNC(void *) PyMem_RawMalloc(size_t size);
+PyAPI_FUNC(void *) PyMem_RawCalloc(size_t nelem, size_t elsize);
+PyAPI_FUNC(void *) PyMem_RawRealloc(void *ptr, size_t new_size);
+PyAPI_FUNC(void) PyMem_RawFree(void *ptr);
+#endif
 
-PyAPI_FUNC(void *) PyMem_Malloc(size_t);
-#define PyMem_Free  PyMem_FREE
-#define PyMem_Realloc  PyMem_REALLOC
+PyAPI_FUNC(void *) PyMem_Malloc(size_t size);
+PyAPI_FUNC(void *) PyMem_Calloc(size_t nelem, size_t elsize);
+PyAPI_FUNC(void *) PyMem_Realloc(void *ptr, size_t new_size);
+PyAPI_FUNC(void) PyMem_Free(void *ptr);
+
+#define PyMem_MALLOC(n)         PyMem_Malloc(n)
+#define PyMem_REALLOC(p, n)     PyMem_Realloc(p, n)
+#define PyMem_FREE(p)           PyMem_Free(p)
+
 
 /*
  * Type-oriented memory interface

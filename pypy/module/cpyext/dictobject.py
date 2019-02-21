@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.classdict import ClassDictStrategy
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t,
+    cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t, cts,
     Py_ssize_tP, CONST_STRING, PyObjectFields, cpython_struct,
     bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
@@ -155,6 +155,15 @@ def PyDict_Clear(space, w_obj):
     """Empty an existing dictionary of all key-value pairs."""
     space.call_method(space.w_dict, "clear", w_obj)
 
+@cts.decl("""PyObject *
+    PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *defaultobj)""")
+def PyDict_SetDefault(space, w_dict, w_key, w_defaultobj):
+    if not PyDict_Check(space, w_dict):
+        PyErr_BadInternalCall(space)
+    else:
+        return space.call_method(
+            space.w_dict, "setdefault", w_dict, w_key, w_defaultobj)
+
 @cpython_api([PyObject], PyObject)
 def PyDict_Copy(space, w_obj):
     """Return a new dictionary that contains the same key-value pairs as p.
@@ -198,19 +207,19 @@ def PyDict_Update(space, w_obj, w_other):
 def PyDict_Keys(space, w_obj):
     """Return a PyListObject containing all the keys from the dictionary,
     as in the dictionary method dict.keys()."""
-    return space.call_method(space.w_dict, "keys", w_obj)
+    return space.call_function(space.w_list, space.call_method(space.w_dict, "keys", w_obj))
 
 @cpython_api([PyObject], PyObject)
 def PyDict_Values(space, w_obj):
     """Return a PyListObject containing all the values from the
     dictionary p, as in the dictionary method dict.values()."""
-    return space.call_method(space.w_dict, "values", w_obj)
+    return space.call_function(space.w_list, space.call_method(space.w_dict, "values", w_obj))
 
 @cpython_api([PyObject], PyObject)
 def PyDict_Items(space, w_obj):
     """Return a PyListObject containing all the items from the
     dictionary, as in the dictionary method dict.items()."""
-    return space.call_method(space.w_dict, "items", w_obj)
+    return space.call_function(space.w_list, space.call_method(space.w_dict, "items", w_obj))
 
 @cpython_api([PyObject, Py_ssize_tP, PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
@@ -244,8 +253,8 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     Py_ssize_t pos = 0;
 
     while (PyDict_Next(self->dict, &pos, &key, &value)) {
-        int i = PyInt_AS_LONG(value) + 1;
-        PyObject *o = PyInt_FromLong(i);
+        int i = PyLong_AS_LONG(value) + 1;
+        PyObject *o = PyLong_FromLong(i);
         if (o == NULL)
             return -1;
         if (PyDict_SetItem(self->dict, key, o) < 0) {
@@ -264,12 +273,10 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     py_dict = rffi.cast(PyDictObject, py_obj)
     if pos == 0:
         # Store the current keys in the PyDictObject.
-        from pypy.objspace.std.listobject import W_ListObject
         decref(space, py_dict.c__tmpkeys)
-        w_keys = space.call_method(space.w_dict, "keys", w_dict)
+        w_keyview = space.call_method(space.w_dict, "keys", w_dict)
         # w_keys must use the object strategy in order to keep the keys alive
-        if not isinstance(w_keys, W_ListObject):
-            return 0     # XXX should not call keys() above
+        w_keys = space.newlist(space.listview(w_keyview))
         w_keys.switch_to_object_strategy()
         py_dict.c__tmpkeys = create_ref(space, w_keys)
         incref(space, py_dict.c__tmpkeys)
@@ -291,42 +298,11 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         pvalue[0] = as_pyobj(space, w_value)
     return 1
 
-@specialize.memo()
-def make_frozendict(space):
-    if space not in _frozendict_cache:
-        _frozendict_cache[space] = _make_frozendict(space)
-        _frozendict_cache[space].flag_map_or_seq = 'M'
-    return _frozendict_cache[space]
-
-_frozendict_cache = {}
-def _make_frozendict(space):
-    return space.appexec([], '''():
-    import _abcoll
-    class FrozenDict(_abcoll.Mapping):
-        def __init__(self, *args, **kwargs):
-            self._d = dict(*args, **kwargs)
-        def __iter__(self):
-            return iter(self._d)
-        def __len__(self):
-            return len(self._d)
-        def __getitem__(self, key):
-            return self._d[key]
-    return FrozenDict''')
-
-@cpython_api([PyObject], PyObject)
-def PyDictProxy_New(space, w_dict):
-    w_frozendict = make_frozendict(space)
-    return space.call_function(w_frozendict, w_dict)
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDictProxy_Check(space, w_obj):
-    w_typ = make_frozendict(space)
-    #print 'check', w_typ, space.type(w_obj)
-    return space.isinstance_w(w_obj, w_typ)
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyDictProxy_CheckExact(space, w_obj):
-    w_typ = make_frozendict(space)
-    #print 'exact', w_typ, w_obj
-    return space.is_w(space.type(w_obj), w_typ)
+def _PyDict_HasOnlyStringKeys(space, w_dict):
+    keys_w = space.unpackiterable(w_dict)
+    for w_key in keys_w:
+        if not space.isinstance_w(w_key, space.w_unicode):
+            return 0
+    return 1
 

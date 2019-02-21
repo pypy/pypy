@@ -1,8 +1,8 @@
 # NOT_RPYTHON
-
 from _structseq import structseqtype, structseqfield
 
 # XXX we need a way to access the current module's globals more directly...
+import errno
 import sys
 if 'posix' in sys.builtin_module_names:
     import posix
@@ -16,10 +16,10 @@ else:
 error = OSError
 
 
-class stat_result:
-    __metaclass__ = structseqtype
+class stat_result(metaclass=structseqtype):
 
-    name = osname + ".stat_result"
+    name = "os.stat_result"
+    __module__ = "os"
 
     st_mode  = structseqfield(0, "protection bits")
     st_ino   = structseqfield(1, "inode")
@@ -37,10 +37,9 @@ class stat_result:
 
     # further fields, not accessible by index (the numbers are still needed
     # but not visible because they are no longer consecutive)
-
-    st_atime = structseqfield(15, "time of last access")
-    st_mtime = structseqfield(16, "time of last modification")
-    st_ctime = structseqfield(17, "time of last status change")
+    st_atime = structseqfield(11, "time of last access")
+    st_mtime = structseqfield(12, "time of last modification")
+    st_ctime = structseqfield(13, "time of last change")
 
     if "st_blksize" in posix._statfields:
         st_blksize = structseqfield(20, "blocksize for filesystem I/O")
@@ -62,11 +61,26 @@ class stat_result:
         if self.st_ctime is None:
             self.__dict__['st_ctime'] = self[9]
 
+    @property
+    def st_atime_ns(self):
+        "time of last access in nanoseconds"
+        return int(self[7]) * 1000000000 + self.nsec_atime
 
-class statvfs_result:
-    __metaclass__ = structseqtype
+    @property
+    def st_mtime_ns(self):
+        "time of last modification in nanoseconds"
+        return int(self[8]) * 1000000000 + self.nsec_mtime
 
-    name = osname + ".statvfs_result"
+    @property
+    def st_ctime_ns(self):
+        "time of last change in nanoseconds"
+        return int(self[9]) * 1000000000 + self.nsec_ctime
+
+
+class statvfs_result(metaclass=structseqtype):
+
+    name = "os.statvfs_result"
+    __module__ = "os"
 
     f_bsize = structseqfield(0)
     f_frsize = structseqfield(1)
@@ -79,133 +93,40 @@ class statvfs_result:
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
 
-# Capture file.fdopen at import time, as some code replaces
-# __builtins__.file with a custom function.
-_fdopen = file.fdopen
+
+class uname_result(metaclass=structseqtype):
+
+    name = osname + ".uname_result"    # and NOT "os.uname_result"
+
+    sysname  = structseqfield(0, "operating system name")
+    nodename = structseqfield(1, "name of machine on network "
+                              "(implementation-defined")
+    release  = structseqfield(2, "operating system release")
+    version  = structseqfield(3, "operating system version")
+    machine  = structseqfield(4, "hardware identifier")
+
+class terminal_size(metaclass=structseqtype):
+
+    name = "os.terminal_size"
+    __module__ = "os"
+
+    columns  = structseqfield(0, "width of the terminal window in characters")
+    lines = structseqfield(1, "height of the terminal window in characters")
+
+
+class times_result(metaclass=structseqtype):
+
+    name = "posix.times_result"
+    __module__ = "posix"
+
+    user = structseqfield(0, "user time")
+    system = structseqfield(1, "system time")
+    children_user = structseqfield(2, "user time of children")
+    children_system = structseqfield(3, "system time of children")
+    elapsed = structseqfield(4, "elapsed time since an arbitray point in the past")
+
 
 if osname == 'posix':
-    # POSIX: we want to check the file descriptor when fdopen() is called,
-    # not later when we read or write data.  So we call fstat(), letting
-    # it raise if fd is invalid.
-     def fdopen(fd, mode='r', buffering=-1):
-        """fdopen(fd [, mode='r' [, buffering]]) -> file_object
-
-        Return an open file object connected to a file descriptor."""
-        try:
-            posix.fstat(fd)
-        except OSError as e:
-            raise IOError(e.errno, e.message)
-        return _fdopen(fd, mode, buffering)
-
-else:
-     def fdopen(fd, mode='r', buffering=-1):
-        """fdopen(fd [, mode='r' [, buffering]]) -> file_object
-
-        Return an open file object connected to a file descriptor."""
-        return _fdopen(fd, mode, buffering)
-
-def tmpfile():
-    """Create a temporary file.
-
-    The data in the file is freed when you
-    close the file, or automatically by the OS when the program ends."""
-    import tempfile
-    f = tempfile.TemporaryFile()
-    if osname == 'nt':
-        f = f.file     # on NT, with the 2.4 stdlib of CPython,
-                       # we get a _TemporaryFileWrapper for no good reason
-    return f
-
-
-def tmpnam():
-    """Return an absolute pathname of a file that did not exist at the
-    time the call is made."""
-    from warnings import warn
-    warn(RuntimeWarning("tmpnam is a potential security risk to your program"))
-
-    import tempfile
-    return tempfile.mktemp()
-
-def tempnam(dir=None, prefix=None):
-    """Return an absolute pathname of a file that did not exist at the
-    time the call is made.  The directory and a prefix may be specified
-    as strings; they may be omitted or None if not needed."""
-    from warnings import warn
-    warn(RuntimeWarning("tempnam is a potential security risk to your program"))
-
-    import tempfile
-    return tempfile.mktemp('', prefix or 'tmp', dir)
-
-
-# Implement popen() for platforms which have os.fork()
-if osname == 'posix':
-
-    class popenfile(file):
-        _childpid = None
-
-        def close(self):
-            import os
-            super(popenfile, self).close()
-            pid = self._childpid
-            if pid is not None:
-                self._childpid = None
-                sts = os.waitpid(pid, 0)[1]
-                if sts != 0:
-                    return sts
-        __del__ = close     # as in CPython, __del__ may call os.waitpid()
-
-    def popen(command, mode='r', bufsize=-1):
-        """popen(command [, mode='r' [, bufsize]]) -> pipe
-
-        Open a pipe to/from a command returning a file object."""
-
-        import os
-        import gc
-
-        def try_close(fd):
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-
-        if not mode.startswith('r') and not mode.startswith('w'):
-            raise ValueError("invalid mode %r" % (mode,))
-        read_end, write_end = os.pipe()
-        try:
-            gc.disable_finalizers()
-            try:
-                childpid = os.fork()
-                if childpid == 0:
-                    # in the child
-                    try:
-                        if mode.startswith('r'):
-                            os.dup2(write_end, 1)
-                            os.close(read_end)
-                        else:
-                            os.dup2(read_end, 0)
-                            os.close(write_end)
-                        cmd = ['/bin/sh', '-c', command]
-                        os.execvp(cmd[0], cmd)
-                    finally:
-                        os._exit(1)
-            finally:
-                gc.enable_finalizers()
-
-            if mode.startswith('r'):
-                os.close(write_end)
-                fd = read_end
-            else:
-                os.close(read_end)
-                fd = write_end
-            g = popenfile.fdopen(fd, mode, bufsize)
-            g._childpid = childpid
-            return g
-
-        except Exception as e:
-            try_close(write_end)
-            try_close(read_end)
-            raise e     # bare 'raise' does not work here :-(
-
     def wait():
         """ wait() -> (pid, status)
 
@@ -229,114 +150,16 @@ if osname == 'posix':
         from _pypy_wait import wait4
         return wait4(pid, options)
 
-else:
-    # Windows implementations
+    def urandom(n):
+        """urandom(n) -> str
 
-    # Supply os.popen() based on subprocess
-    def popen(cmd, mode="r", bufsize=-1):
-        """popen(command [, mode='r' [, bufsize]]) -> pipe
+        Return a string of n random bytes suitable for cryptographic use.
 
-        Open a pipe to/from a command returning a file object."""
-
-        cmd = _makecmd_string(cmd)
-
-        if not mode.startswith('r') and not mode.startswith('w'):
-            raise ValueError("invalid mode %r" % (mode,))
-
-        univ_nl = ('b' not in mode)
-
-        import subprocess
-
-        if mode.startswith('r'):
-            proc = subprocess.Popen(cmd,
-                                    shell=True,
-                                    stdout=subprocess.PIPE,
-                                    bufsize=bufsize,
-                                    universal_newlines=univ_nl)
-            return _wrap_close(proc.stdout, proc)
-        else:
-            proc = subprocess.Popen(cmd,
-                                    shell=True,
-                                    stdin=subprocess.PIPE,
-                                    bufsize=bufsize,
-                                    universal_newlines=univ_nl)
-            return _wrap_close(proc.stdin, proc)
-
-    def popen2(cmd, mode="t", bufsize=-1):
-        ""
-
-        cmd = _makecmd_string(cmd)
-
-        if mode not in ('b', 't'):
-            raise ValueError("invalid mode %r" % (mode,))
-
-        import subprocess
-        p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE,
-                             universal_newlines=(mode =='t'))
-        return (_wrap_close(p.stdin, p), _wrap_close(p.stdout, p))
-
-    def popen3(cmd, mode="t", bufsize=-1):
-        ""
-
-        cmd = _makecmd_string(cmd)
-
-        if mode not in ('b', 't'):
-            raise ValueError("invalid mode %r" % (mode,))
-
-        import subprocess
-        p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE,
-                             universal_newlines=(mode =='t'))
-        return (_wrap_close(p.stdin, p), _wrap_close(p.stdout, p),
-                _wrap_close(p.stderr, p))
-
-    def popen4(cmd, mode="t", bufsize=-1):
-        ""
-
-        cmd = _makecmd_string(cmd)
-
-        if mode not in ('b', 't'):
-            raise ValueError("invalid mode %r" % (mode,))
-
-        import subprocess
-        p = subprocess.Popen(cmd, shell=True, bufsize=bufsize,
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT,
-                             universal_newlines=(mode =='t'))
-        return (_wrap_close(p.stdin, p), _wrap_close(p.stdout, p))
-
-    # helper for making popen cmd a string object
-    def _makecmd_string(cmd):
-        if isinstance(cmd, unicode):
-            cmd = cmd.encode('ascii')
-
-        if not isinstance(cmd, str):
-            raise TypeError("invalid cmd type (%s, expected string)" %
-                            (type(cmd),))
-        return cmd
-
-    # A proxy for a file whose close waits for the process
-    class _wrap_close(object):
-        def __init__(self, stream, proc):
-            self._stream = stream
-            self._proc = proc
-        def close(self):
-            self._stream.close()
-            return self._proc.wait() or None    # 0 => None
-        __del__ = close
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *k):
-            self.close()
-
-        def __getattr__(self, name):
-            return getattr(self._stream, name)
-        def __iter__(self):
-            return iter(self._stream)
+        """
+        try:
+            with open('/dev/urandom', 'rb', buffering=0) as fd:
+                return fd.read(n)
+        except OSError as e:
+            if e.errno in (errno.ENOENT, errno.ENXIO, errno.ENODEV, errno.EACCES):
+                raise NotImplementedError("/dev/urandom (or equivalent) not found")
+            raise

@@ -612,6 +612,7 @@ r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
 r_longlonglong = build_int('r_longlonglong', True, 128)
+r_ulonglonglong = build_int('r_ulonglonglong', False, 128)
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
@@ -728,7 +729,9 @@ def int_force_ge_zero(n):
     """ The JIT special-cases this too. """
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
-    return llop.int_force_ge_zero(lltype.Signed, n)
+    n = llop.int_force_ge_zero(lltype.Signed, n)
+    assert n >= 0
+    return n
 
 def int_c_div(x, y):
     """Return the result of the C-style 'x / y'.  This differs from the
@@ -840,10 +843,35 @@ else:
         return z
 
 
+@specialize.memo()
+def check_support_int128():
+    from rpython.rtyper.lltypesystem import rffi
+    return hasattr(rffi, '__INT128_T')
+
+def mulmod(a, b, c):
+    """Computes (a * b) % c.
+    Assumes c > 0, and returns a nonnegative result.
+    """
+    assert c > 0
+    if LONG_BIT < LONGLONG_BIT:
+        a = r_longlong(a)
+        b = r_longlong(b)
+        return intmask((a * b) % c)
+    elif check_support_int128():
+        a = r_longlonglong(a)
+        b = r_longlonglong(b)
+        return intmask((a * b) % c)
+    else:
+        from rpython.rlib.rbigint import rbigint
+        a = rbigint.fromlong(a)
+        b = rbigint.fromlong(b)
+        return a.mul(b).int_mod(c).toint()
+
+
 # String parsing support
 # ---------------------------
 
-def string_to_int(s, base=10, allow_underscores=False):
+def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
@@ -853,7 +881,8 @@ def string_to_int(s, base=10, allow_underscores=False):
         NumberStringParser, ParseStringOverflowError, strip_spaces)
     s = literal = strip_spaces(s)
     p = NumberStringParser(s, literal, base, 'int',
-                           allow_underscores=allow_underscores)
+                           allow_underscores=allow_underscores,
+                           no_implicit_octal=no_implicit_octal)
     base = p.base
     result = 0
     while True:

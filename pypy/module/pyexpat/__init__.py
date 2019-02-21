@@ -7,10 +7,24 @@ class ErrorsModule(MixedModule):
 
     def setup_after_space_initialization(self):
         from pypy.module.pyexpat import interp_pyexpat
+        space = self.space
+        # Three mappings for errors: the module contains errors
+        # message by symbol (errors.XML_ERROR_SYNTAX == 'syntax error'),
+        # codes is a dict mapping messages to numeric codes
+        # (errors.codes['syntax error'] == 2), and messages is a dict
+        # mapping numeric codes to messages (messages[2] == 'syntax error').
+        w_codes = space.newdict()
+        w_messages = space.newdict()
         for name in interp_pyexpat.xml_error_list:
-            self.space.setattr(self, self.space.newtext(name),
-                    interp_pyexpat.ErrorString(self.space,
-                    getattr(interp_pyexpat, name)))
+            w_name = space.newtext(name)
+            num = getattr(interp_pyexpat, name)
+            w_num = space.newint(num)
+            w_message = interp_pyexpat.ErrorString(space, num)
+            space.setattr(self, w_name, w_message)
+            space.setitem(w_codes, w_message, w_num)
+            space.setitem(w_messages, w_num, w_message)
+        space.setattr(self, space.newtext("codes"), w_codes)
+        space.setattr(self, space.newtext("messages"), w_messages)
 
 class ModelModule(MixedModule):
     "Definition of pyexpat.model module."
@@ -49,7 +63,7 @@ class Module(MixedModule):
     for name in ['XML_PARAM_ENTITY_PARSING_NEVER',
                  'XML_PARAM_ENTITY_PARSING_UNLESS_STANDALONE',
                  'XML_PARAM_ENTITY_PARSING_ALWAYS']:
-        interpleveldefs[name] = 'space.wrap(interp_pyexpat.%s)' % (name,)
+        interpleveldefs[name] = 'space.newint(interp_pyexpat.%s)' % (name,)
 
     def __init__(self, space, w_name):
         "NOT_RPYTHON"

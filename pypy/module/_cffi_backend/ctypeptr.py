@@ -2,6 +2,8 @@
 Pointers.
 """
 
+import os
+
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.annlowlevel import llstr
@@ -56,7 +58,7 @@ class W_CTypePtrOrArray(W_CType):
 
     def _convert_array_from_listview(self, cdata, lst_w):
         space = self.space
-        if self.length >= 0 and len(lst_w) > self.length:
+        if not self._within_bounds(len(lst_w), self.length):
             raise oefmt(space.w_IndexError,
                         "too many initializers for '%s' (got %d)",
                         self.name, len(lst_w))
@@ -69,13 +71,13 @@ class W_CTypePtrOrArray(W_CType):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
-                pass
+            if self.ctitem.pack_list_of_items(cdata, w_ob, self.length):
+                pass    # fast path
             else:
                 self._convert_array_from_listview(cdata, space.listview(w_ob))
         elif self.accept_str:
             if not space.isinstance_w(w_ob, space.w_bytes):
-                raise self._convert_error("str or list or tuple", w_ob)
+                raise self._convert_error("bytes or list or tuple", w_ob)
             s = space.bytes_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
@@ -91,25 +93,21 @@ class W_CTypePtrOrArray(W_CType):
             from pypy.module._cffi_backend import wchar_helper
             if not space.isinstance_w(w_ob, space.w_unicode):
                 raise self._convert_error("unicode or list or tuple", w_ob)
-            s = space.unicode_w(w_ob)
+            w_u = space.convert_arg_to_w_unicode(w_ob)
+            s = w_u._utf8
             if self.ctitem.size == 2:
-                n = wchar_helper.unicode_size_as_char16(s)
+                n = wchar_helper.utf8_size_as_char16(s)
             else:
-                n = wchar_helper.unicode_size_as_char32(s)
+                n = w_u._len()
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer unicode string is too long for '%s' "
                             "(got %d characters)", self.name, n)
             add_final_zero = (n != self.length)
             if self.ctitem.size == 2:
-                try:
-                    wchar_helper.unicode_to_char16(s, cdata, n, add_final_zero)
-                except wchar_helper.OutOfRange as e:
-                    raise oefmt(self.space.w_ValueError,
-                                "unicode character ouf of range for "
-                                "conversion to char16_t: %s", hex(e.ordinal))
+                wchar_helper.utf8_to_char16(s, cdata, n, add_final_zero)
             else:
-                wchar_helper.unicode_to_char32(s, cdata, n, add_final_zero)
+                wchar_helper.utf8_to_char32(s, cdata, n, add_final_zero)
         else:
             raise self._convert_error("list or tuple", w_ob)
 
@@ -301,8 +299,8 @@ class W_CTypePointer(W_CTypePtrBase):
         return W_CTypePtrBase.cast(self, w_ob)
 
     def prepare_file(self, w_ob):
-        from pypy.module._file.interp_file import W_File
-        if isinstance(w_ob, W_File):
+        from pypy.module._io.interp_iobase import W_IOBase
+        if isinstance(w_ob, W_IOBase):
             return prepare_file_argument(self.space, w_ob)
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
@@ -315,9 +313,7 @@ class W_CTypePointer(W_CTypePtrBase):
             if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
                 self._must_be_string_of_zero_or_one(value)
             keepalives[i] = value
-            buf, buf_flag = rffi.get_nonmovingbuffer_final_null(value)
-            rffi.cast(rffi.CCHARPP, cdata)[0] = buf
-            return ord(buf_flag)    # 4, 5 or 6
+            return misc.write_string_as_charp(cdata, value)
         #
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
@@ -328,11 +324,11 @@ class W_CTypePointer(W_CTypePtrBase):
             length = len(s) + 1
         elif space.isinstance_w(w_init, space.w_unicode):
             from pypy.module._cffi_backend import wchar_helper
-            u = space.unicode_w(w_init)
+            w_u = space.convert_arg_to_w_unicode(w_init)
             if self.ctitem.size == 2:
-                length = wchar_helper.unicode_size_as_char16(u)
+                length = wchar_helper.utf8_size_as_char16(w_u._utf8)
             else:
-                length = wchar_helper.unicode_size_as_char32(u)
+                length = w_u._len()
             length += 1
         elif self.is_file:
             result = self.prepare_file(w_init)
@@ -437,13 +433,17 @@ class CffiFileObj(object):
 
 
 def prepare_file_argument(space, w_fileobj):
-    w_fileobj.direct_flush()
+    from pypy.module._io.interp_iobase import W_IOBase
+    assert isinstance(w_fileobj, W_IOBase)
+    space.call_method(w_fileobj, "flush")
     if w_fileobj.cffi_fileobj is None:
-        fd = w_fileobj.direct_fileno()
+        fd = space.int_w(space.call_method(w_fileobj, "fileno"))
         if fd < 0:
             raise oefmt(space.w_ValueError, "file has no OS file descriptor")
+        fd = os.dup(fd)
+        mode = space.text_w(space.getattr(w_fileobj, space.newtext("mode")))
         try:
-            w_fileobj.cffi_fileobj = CffiFileObj(fd, w_fileobj.mode)
+            w_fileobj.cffi_fileobj = CffiFileObj(fd, mode)
         except OSError as e:
             raise wrap_oserror(space, e)
     return rffi.cast(rffi.CCHARP, w_fileobj.cffi_fileobj.llf)

@@ -1,21 +1,27 @@
 # NOT_RPYTHON
 
-from _structseq import structseqtype, structseqfield
+from _structseq import structseqtype, structseqfield, SimpleNamespace
+import time
 
-class struct_time:
-    __metaclass__ = structseqtype
+class struct_time(metaclass=structseqtype):
     __module__ = 'time'
     name = 'time.struct_time'
 
-    tm_year   = structseqfield(0)
-    tm_mon    = structseqfield(1)
-    tm_mday   = structseqfield(2)
-    tm_hour   = structseqfield(3)
-    tm_min    = structseqfield(4)
-    tm_sec    = structseqfield(5)
-    tm_wday   = structseqfield(6)
-    tm_yday   = structseqfield(7)
-    tm_isdst  = structseqfield(8)
+    n_sequence_fields = 9
+
+    tm_year   = structseqfield(0, "year, for example, 1993")
+    tm_mon    = structseqfield(1, "month of year, range [1, 12]")
+    tm_mday   = structseqfield(2, "day of month, range [1, 31]")
+    tm_hour   = structseqfield(3, "hours, range [0, 23]")
+    tm_min    = structseqfield(4, "minutes, range [0, 59]")
+    tm_sec    = structseqfield(5, "seconds, range [0, 61])")
+    tm_wday   = structseqfield(6, "day of week, range [0, 6], Monday is 0")
+    tm_yday   = structseqfield(7, "day of year, range [1, 366]")
+    tm_isdst  = structseqfield(8, "1 if summer time is in effect, 0 if not"
+                                  ", and -1 if unknown")
+    tm_zone   = structseqfield(9, "abbreviation of timezone name")
+    tm_gmtoff = structseqfield(10,"offset from UTC in seconds")
+
 
 def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     """strptime(string, format) -> struct_time
@@ -25,7 +31,28 @@ def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     (same as strftime())."""
 
     import _strptime     # from the CPython standard library
-    return _strptime._strptime(string, format)[0]
+    return _strptime._strptime_time(string, format)
+
+def get_clock_info(name):
+    info = SimpleNamespace()
+    info.implementation = ""
+    info.monotonic = 0
+    info.adjustable = 0
+    info.resolution = 1.0
+
+    if name == "time":
+        time.time(info)
+    elif name == "monotonic" and hasattr(time, "monotonic"):
+        time.monotonic(info)
+    elif name == "clock":
+        time.clock(info)
+    elif name == "perf_counter":
+        time.perf_counter(info)
+    elif name == "process_time":
+        time.process_time(info)
+    else:
+        raise ValueError("unknown clock")
+    return info
 
 __doc__ = """This module provides various functions to manipulate time values.
 

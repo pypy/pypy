@@ -5,73 +5,61 @@ New for PyPy - Could be incorporated into CPython regression tests.
 from rpython.tool.udir import udir
 
 
-def test_file(space):
-    fn = udir.join('test_exec_file')
-    fn.write('abc=1\ncba=2\n')
-    space.appexec([space.wrap(str(fn))], '''
-        (filename):
-            fo = open(filename, 'r')
-            g = {}
-            exec fo in g
-            assert 'abc' in g
-            assert 'cba' in g
-    ''')
+class AppTestExecStmt: 
 
-
-class AppTestExecStmt:
     def test_string(self):
         g = {}
         l = {}
-        exec "a = 3" in g, l
+        exec("a = 3", g, l)
         assert l['a'] == 3
 
     def test_localfill(self):
         g = {}
-        exec "a = 3" in g
+        exec("a = 3", g)
         assert g['a'] == 3
 
     def test_builtinsupply(self):
         g = {}
-        exec "pass" in g
-        assert g.has_key('__builtins__')
+        exec("pass", g)
+        assert '__builtins__' in g
 
     def test_invalidglobal(self):
         def f():
-            exec 'pass' in 1
-        raises(TypeError,f)
+            exec('pass', 1)
+        raises(TypeError, f)
 
     def test_invalidlocal(self):
         def f():
-            exec 'pass' in {}, 2
-        raises(TypeError,f)
+            exec('pass', {}, 2)
+        raises(TypeError, f)
 
     def test_codeobject(self):
         co = compile("a = 3", '<string>', 'exec')
         g = {}
         l = {}
-        exec co in g, l
+        exec(co, g, l)
         assert l['a'] == 3
 
     def test_implicit(self):
         a = 4
-        exec "a = 3"
+        exec("a = 3")
         assert a == 3
 
     def test_tuplelocals(self):
         g = {}
         l = {}
-        exec ("a = 3", g, l)
+        exec("a = 3", g, l)
         assert l['a'] == 3
 
     def test_tupleglobals(self):
         g = {}
-        exec ("a = 3", g)
+        exec("a = 3", g)
         assert g['a'] == 3
 
     def test_exceptionfallthrough(self):
         def f():
-            exec 'raise TypeError' in {}
-        raises(TypeError,f)
+            exec('raise TypeError', {})
+        raises(TypeError, f)
 
     def test_global_stmt(self):
         g = {}
@@ -79,41 +67,24 @@ class AppTestExecStmt:
         co = compile("global a; a=5", '', 'exec')
         #import dis
         #dis.dis(co)
-        exec co in g, l
+        exec(co, g, l)
         assert l == {}
         assert g['a'] == 5
 
     def test_specialcase_free_load(self):
-        exec """if 1:
+        exec("""if 1:
             def f():
-                exec 'a=3'
+                exec('a=3')
                 return a
-            x = f()\n"""
-        assert x == 3
+            raises(NameError, f)\n""")
 
     def test_specialcase_free_load2(self):
-        exec """if 1:
+        exec("""if 1:
             def f(a):
-                exec 'a=3'
+                exec('a=3')
                 return a
-            x = f(4)\n"""
-        assert x == 3
-
-    def test_specialcase_globals_and_exec(self):
-        d = {}
-        exec """if 1:
-            b = 2
-            c = 3 
-            d = 4 
-            def f(a):
-                global b
-                exec 'd=42 ; b=7'
-                return a,b,c,d
-            #import dis
-            #dis.dis(f)
-            res = f(3)\n""" in d
-        r = d['res']
-        assert r == (3,2,3,42)
+            x = f(4)\n""")
+        assert eval("x") == 3
 
     def test_nested_names_are_not_confused(self):
         def get_nested_class():
@@ -133,52 +104,28 @@ class AppTestExecStmt:
         assert t.test() == 'var'
         assert t.method_and_var() == 'method'
 
-    def test_import_star_shadows_global(self):
-        d = {'platform' : 3}
-        exec """if 1:
-            def f():
-                from sys import *
-                return platform
-            res = f()\n""" in d
-        import sys
-        assert d['res'] == sys.platform
-
-    def test_import_global_takes_precendence(self):
-        d = {'platform' : 3}
-        exec """if 1:
-            def f():
-                global platform
-                from sys import *
-                return platform
-            res = f()\n""" in d
-        import sys
-        assert d['platform'] == 3
-
     def test_exec_load_name(self):
         d = {'x': 2}
-        exec """if 1:
+        exec("""if 1:
             def f():
                 save = x 
-                exec "x=3"
+                exec("x=3")
                 return x,save
-        \n""" in d
+        \n""", d)
         res = d['f']()
-        assert res == (3, 2)
+        assert res == (2, 2)
 
     def test_space_bug(self):
         d = {}
-        exec "x=5 " in d
+        exec("x=5 ", d)
         assert d['x'] == 5
 
     def test_synerr(self):
         def x():
-            exec "1 2"
+            exec("1 2")
         raises(SyntaxError, x)
 
     def test_mapping_as_locals(self):
-        import sys
-        if sys.version_info < (2,5) or not hasattr(sys, 'pypy_objspaceclass'):
-            skip("need CPython 2.5 or PyPy for non-dictionaries in exec statements")
         class M(object):
             def __getitem__(self, key):
                 return key
@@ -188,14 +135,19 @@ class AppTestExecStmt:
                 assert key == '__builtins__'
         m = M()
         m.result = {}
-        exec "x=m" in {}, m
+        exec("x=m", {}, m)
         assert m.result == {'x': 'm'}
-        exec "y=n" in m   # NOTE: this doesn't work in CPython 2.4
-        assert m.result == {'x': 'm', 'y': 'n'}
+        try:
+            exec("y=n", m)
+        except TypeError:
+            pass
+        else:
+            assert False, 'Expected TypeError'
+        raises(TypeError, eval, "m", m)
 
     def test_filename(self):
         try:
-            exec "'unmatched_quote"
+            exec("'unmatched_quote")
         except SyntaxError as msg:
             assert msg.filename == '<string>'
         try:
@@ -205,9 +157,9 @@ class AppTestExecStmt:
 
     def test_exec_and_name_lookups(self):
         ns = {}
-        exec """def f():
-            exec 'x=1' in locals()
-            return x""" in ns
+        exec("""def f():
+            exec('x=1', globals())
+            return x\n""", ns)
 
         f = ns['f']
 
@@ -219,11 +171,13 @@ class AppTestExecStmt:
         assert res == 1
 
     def test_exec_unicode(self):
-        # 's' is a string
-        s = "x = u'\xd0\xb9\xd1\x86\xd1\x83\xd0\xba\xd0\xb5\xd0\xbd'"
+        # 's' is a bytes string
+        s = b"x = '\xd0\xb9\xd1\x86\xd1\x83\xd0\xba\xd0\xb5\xd0\xbd'"
         # 'u' is a unicode
         u = s.decode('utf-8')
-        exec u
+        ns = {}
+        exec(u, ns)
+        x = ns['x']
         assert len(x) == 6
         assert ord(x[0]) == 0x0439
         assert ord(x[1]) == 0x0446
@@ -233,40 +187,23 @@ class AppTestExecStmt:
         assert ord(x[5]) == 0x043d
 
     def test_eval_unicode(self):
-        u = "u'%s'" % unichr(0x1234)
+        u = "'%s'" % chr(0x1234)
         v = eval(u)
-        assert v == unichr(0x1234)
+        assert v == chr(0x1234)
 
-    def test_compile_unicode(self):
-        s = "x = u'\xd0\xb9\xd1\x86\xd1\x83\xd0\xba\xd0\xb5\xd0\xbd'"
-        u = s.decode('utf-8')
-        c = compile(u, '<input>', 'exec')
-        exec c
+    def test_compile_bytes(self):
+        s = b"x = '\xd0\xb9\xd1\x86\xd1\x83\xd0\xba\xd0\xb5\xd0\xbd'"
+        c = compile(s, '<input>', 'exec')
+        ns = {}
+        exec(c, ns)
+        x = ns['x']
         assert len(x) == 6
         assert ord(x[0]) == 0x0439
 
-    def test_nested_qualified_exec(self):
-        import sys
-        if sys.version_info < (2, 7, 9):
-            skip()
-        code = ["""
-def g():
-    def f():
-        if True:
-            exec "" in {}, {}
-        """, """
-def g():
-    def f():
-        if True:
-            exec("", {}, {})
-        """]
-        for c in code:
-            compile(c, "<code>", "exec")
-
-    def test_exec_tuple(self):
-        # note: this is VERY different than testing exec("a = 42", d), because
-        # this specific case is handled specially by the AST compiler
+    def test_issue3297(self):
+        c = compile("a, b = '\U0001010F', '\\U0001010F'", "dummy", "exec")
         d = {}
-        x = ("a = 42", d)
-        exec x
-        assert d['a'] == 42
+        exec(c, d)
+        assert d['a'] == d['b']
+        assert len(d['a']) == len(d['b'])
+        assert ascii(d['a']) == ascii(d['b'])

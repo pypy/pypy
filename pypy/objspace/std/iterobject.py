@@ -30,12 +30,19 @@ class W_AbstractSeqIterObject(W_Root):
         raise NotImplementedError
 
     def descr_reduce(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod = space.getbuiltinmodule('_pickle_support')
-        mod = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('seqiter_new')
-        tup = [self.w_seq, space.newint(self.index)]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        w_seq = self.w_seq
+        if w_seq is None:
+            return _empty_iterable(space)
+        w_callable = space.builtin.get('iter')
+        items = [w_callable, space.newtuple([w_seq]), space.newint(self.index)]
+        return space.newtuple(items)
+
+    def descr_setstate(self, space, w_state):
+        index = space.int_w(w_state)
+        if self.w_seq is not None:
+            if index < 0:
+                index = 0
+            self.index = index
 
     def descr_length_hint(self, space):
         return self.getlength(space)
@@ -49,9 +56,10 @@ Get an iterator from an object.  In the first form, the argument must
 supply its own iterator, or be a sequence.
 In the second form, the callable is called until it returns the sentinel.''',
     __iter__ = interp2app(W_AbstractSeqIterObject.descr_iter),
-    next = interpindirect2app(W_AbstractSeqIterObject.descr_next),
+    __next__ = interpindirect2app(W_AbstractSeqIterObject.descr_next),
     __reduce__ = interp2app(W_AbstractSeqIterObject.descr_reduce),
     __length_hint__ = interp2app(W_AbstractSeqIterObject.descr_length_hint),
+    __setstate__ = interp2app(W_AbstractSeqIterObject.descr_setstate),
 )
 W_AbstractSeqIterObject.typedef.acceptable_as_base_class = False
 
@@ -92,6 +100,34 @@ class W_FastListIterObject(W_AbstractSeqIterObject):
         return w_item
 
 
+class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
+    """Sequence iterator specialized for unicode objects."""
+
+    def __init__(self, w_seq):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        W_AbstractSeqIterObject.__init__(self, w_seq)
+        assert isinstance(w_seq, W_UnicodeObject)
+        self.byteindex = 0
+
+    def descr_next(self, space):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        from rpython.rlib import rutf8
+        w_seq = self.w_seq
+        if w_seq is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        assert isinstance(w_seq, W_UnicodeObject)
+        index = self.index
+        if index == w_seq._length:
+            self.w_seq = None
+            raise OperationError(space.w_StopIteration, space.w_None)
+        start = self.byteindex
+        end = rutf8.next_codepoint_pos(w_seq._utf8, start)
+        w_res = W_UnicodeObject(w_seq._utf8[start:end], 1)
+        self.byteindex = end
+        self.index += 1
+        return w_res
+
+
 class W_FastTupleIterObject(W_AbstractSeqIterObject):
     """Sequence iterator specialized for tuples, accessing directly
     their RPython-level list of wrapped objects.
@@ -114,19 +150,50 @@ class W_FastTupleIterObject(W_AbstractSeqIterObject):
         return w_item
 
 
+class W_StringIterObject(W_AbstractSeqIterObject):
+    """Sequence iterator specialized for string-like objects, used
+    for bytes.__iter__() or str.__iter__() or bytearray.__iter__().
+    Needed because otherwise these methods would call the possibly
+    overridden __getitem__() method, which they must not.
+    """
+    def __init__(self, w_seq, getitem_fn):
+        W_AbstractSeqIterObject.__init__(self, w_seq)
+        self.getitem_fn = getitem_fn
+
+    def descr_next(self, space):
+        if self.w_seq is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        index = self.index
+        try:
+            w_item = self.getitem_fn(self.w_seq, space, index)
+        except OperationError as e:
+            self.w_seq = None
+            if not e.match(space, space.w_IndexError):
+                raise
+            raise OperationError(space.w_StopIteration, space.w_None)
+        self.index = index + 1
+        return w_item
+
+
 class W_ReverseSeqIterObject(W_Root):
     def __init__(self, space, w_seq, index=-1):
         self.w_seq = w_seq
         self.index = space.len_w(w_seq) + index
 
     def descr_reduce(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod = space.getbuiltinmodule('_pickle_support')
-        mod = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('reverseseqiter_new')
-        w_seq = space.w_None if self.w_seq is None else self.w_seq
-        tup = [w_seq, space.newint(self.index)]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        w_seq = self.w_seq
+        if w_seq is None:
+            return _empty_iterable(space)
+        w_callable = space.builtin.get('reversed')
+        items = [w_callable, space.newtuple([w_seq]), space.newint(self.index)]
+        return space.newtuple(items)
+
+    def descr_setstate(self, space, w_state):
+        index = space.int_w(w_state)
+        if self.w_seq is not None:
+            length = space.int_w(space.len(self.w_seq))
+            if index >= length: index = length-1
+            self.index = index
 
     def descr_length_hint(self, space):
         length = self.index + 1
@@ -161,8 +228,14 @@ class W_ReverseSeqIterObject(W_Root):
 W_ReverseSeqIterObject.typedef = TypeDef(
     "reversesequenceiterator",
     __iter__ = interp2app(W_ReverseSeqIterObject.descr_iter),
-    next = interp2app(W_ReverseSeqIterObject.descr_next),
+    __next__ = interp2app(W_ReverseSeqIterObject.descr_next),
     __reduce__ = interp2app(W_ReverseSeqIterObject.descr_reduce),
+    __setstate__ = interp2app(W_ReverseSeqIterObject.descr_setstate),
     __length_hint__ = interp2app(W_ReverseSeqIterObject.descr_length_hint),
 )
 W_ReverseSeqIterObject.typedef.acceptable_as_base_class = False
+
+
+def _empty_iterable(space):
+    w_callable = space.builtin.get('iter')
+    return space.newtuple([w_callable, space.newtuple([space.newtuple([])])])

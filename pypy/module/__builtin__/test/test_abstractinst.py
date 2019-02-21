@@ -135,6 +135,14 @@ class AppTestAbstractInst:
         raises(TypeError, isinstance, x, BBase)
         assert not isinstance(x, BSub2)
 
+        class BadClass:
+            @property
+            def __class__(self):
+                raise RuntimeError
+        raises(RuntimeError, isinstance, BadClass(), bool)
+        # test another code path
+        raises(RuntimeError, isinstance, BadClass(), Foo)
+
     def test_abstract_issubclass(self):
         class MyBaseInst(object):
             pass
@@ -195,11 +203,13 @@ class AppTestAbstractInst:
                 """Implement issubclass(sub, cls)."""
                 candidates = cls.__dict__.get("__subclass__", set()) | set([cls])
                 return any(c in candidates for c in sub.mro())
-        class Integer:
 
-            __metaclass__ = ABC
+        # Equivalent to::
+        #     class Integer(metaclass=ABC):
+        #         __subclass__ = set([int])
+        # But with a syntax compatible with 2.x
+        Integer = ABC('Integer', (), dict(__subclass__=set([int])))
 
-            __subclass__ = set([int])
         assert issubclass(int, Integer)
         assert issubclass(int, (Integer,))
 

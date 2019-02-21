@@ -4,7 +4,7 @@ from pypy.interpreter import gateway, module, error
 
 class TestInterpreter: 
 
-    def codetest(self, source, functionname, args):
+    def codetest(self, source, functionname, args, kwargs={}):
         """Compile and run the given code string, and then call its function
         named by 'functionname' with arguments 'args'."""
         space = self.space
@@ -22,10 +22,11 @@ class TestInterpreter:
         code = space.unwrap(w_code)
         code.exec_code(space, w_glob, w_glob)
 
-        wrappedargs = [w(a) for a in args]
+        wrappedargs = w(args)
+        wrappedkwargs = w(kwargs)
         wrappedfunc = space.getitem(w_glob, w(functionname))
         try:
-            w_output = space.call_function(wrappedfunc, *wrappedargs)
+            w_output = space.call(wrappedfunc, wrappedargs, wrappedkwargs)
         except error.OperationError as e:
             #e.print_detailed_traceback(space)
             return '<<<%s>>>' % e.errorstr(space)
@@ -37,7 +38,7 @@ class TestInterpreter:
                 def f():
                     try:
                         raise Exception()
-                    except Exception, e:
+                    except Exception as e:
                         return 1
                     return 2
             ''', 'f', [])
@@ -47,8 +48,8 @@ class TestInterpreter:
         x = self.codetest('''
             def f():
                 try:
-                    raise Exception, 1
-                except Exception, e:
+                    raise Exception(1)
+                except Exception as e:
                     return e.args[0]
             ''', 'f', [])
         assert x == 1
@@ -72,8 +73,7 @@ class TestInterpreter:
                 raise 1
             ''', 'f', [])
         assert "TypeError:" in x
-        assert ("exceptions must be old-style classes "
-                "or derived from BaseException") in x
+        assert "exceptions must derive from BaseException" in x
 
     def test_except2(self):
         x = self.codetest('''
@@ -82,7 +82,7 @@ class TestInterpreter:
                     z = 0
                     try:
                         "x"+1
-                    except TypeError, e:
+                    except TypeError as e:
                         z = 5
                         raise e
                 except TypeError:
@@ -96,7 +96,7 @@ class TestInterpreter:
                     z = 0
                     try:
                         z = 1//v
-                    except ZeroDivisionError, e:
+                    except ZeroDivisionError as e:
                         z = "infinite result"
                     return z
                 '''
@@ -182,14 +182,10 @@ class TestInterpreter:
                 r = [
                     f(n, *[]),
                     f(n),
-                    apply(f, (n,)),
-                    apply(f, [n]),
                     f(*(n,)),
                     f(*[n]),
                     f(n=n),
                     f(**{'n': n}),
-                    apply(f, (n,), {}),
-                    apply(f, [n], {}),
                     f(*(n,), **{}),
                     f(*[n], **{}),
                     f(n, **{}),
@@ -202,7 +198,7 @@ class TestInterpreter:
                     ]
                 return r
             '''
-        assert self.codetest(code, 'f38', [117]) == [234]*19
+        assert self.codetest(code, 'f38', [117]) == [234]*15
 
     def test_star_arg(self):
         code = ''' 
@@ -217,6 +213,15 @@ class TestInterpreter:
         assert self.codetest(code, 'g', [12, [3,4]]) == (3,4)
         assert self.codetest(code, 'g', [12, {}]) ==    ()
         assert self.codetest(code, 'g', [12, {3:1}]) == (3,)
+
+    def test_star_arg_after_keyword_arg(self):
+        code = '''
+            def f(a, b):
+                return a - b
+            def g(a, b):
+                return f(b=b, *(a,))
+        '''
+        assert self.codetest(code, 'g', [40, 2]) == 38
 
     def test_closure(self):
         code = '''
@@ -239,6 +244,129 @@ class TestInterpreter:
                 return os.name
             '''
         assert self.codetest(code, 'f', []) == os.name
+
+    def test_kwonlyargs_with_kwarg(self):
+        code = """ def f():
+            def g(a, *arg, c, **kw):
+                return [a, arg, c, kw]
+            return g(1, 2, 3, c=4, d=5)
+        """
+        exp = [1, (2, 3), 4, {"d" : 5}]
+        assert self.codetest(code, "f", []) == exp
+
+    def test_kwonlyargs_default_parameters(self):
+        code = """ def f(a, b, c=3, d=4):
+            return a, b, c, d
+        """
+        assert self.codetest(code, "f", [1, 2]) == (1, 2, 3, 4)
+
+    def test_kwonlyargs_order(self):
+        code = """ def f(a, b, *, c, d):
+            return a, b, c, d
+        """
+        assert self.codetest(code, "f", [1, 2], {"d" : 4, "c" : 3}) == (1, 2, 3, 4)
+
+    def test_build_set_unpack(self):
+        code = """ def f():
+            return {*range(4), 4, *(5, 6, 7)}
+        """
+        space = self.space
+        res = self.codetest(code, "f", [])
+        l_res = space.call_function(space.w_list, res)
+        assert space.unwrap(l_res) == [0, 1, 2, 3, 4, 5, 6, 7]
+
+    def test_build_set_unpack_exception(self):
+        code = """ if 1:
+        def g():
+            yield 1
+            yield 2
+            raise TypeError
+        def f():
+            try:
+                {*g(), 1, 2}
+            except TypeError:
+                return True
+            return False
+        """
+        assert self.codetest(code, "f", [])
+
+    def test_build_tuple_unpack(self):
+        code = """ def f():
+            return (*range(4), 4)
+        """
+        assert self.codetest(code, "f", []) == (0, 1, 2, 3, 4)
+
+    def test_build_list_unpack(self):
+        code = """ def f():
+            return [*range(4), 4]
+        """
+        assert self.codetest(code, "f", []) == [0, 1, 2, 3, 4]
+    
+    def test_build_map_unpack(self):
+        code = """
+        def f():
+            return {'x': 1, **{'y': 2}}
+        def g():
+            return {**()}
+        """
+        assert self.codetest(code, "f", []) == {'x': 1, 'y': 2}
+        res = self.codetest(code, 'g', [])
+        assert "TypeError:" in res
+        assert "'tuple' object is not a mapping" in res
+
+    def test_build_map_unpack_with_call(self):
+        code = """
+        def f(a,b,c,d):
+            return a+b,c+d
+        def g1():
+            return f(**{'a': 1, 'c': 3}, **{'b': 2, 'd': 4})
+        def g2():
+            return f(**{'a': 1, 'c': 3}, **[])
+        def g3():
+            return f(**{'a': 1, 'c': 3}, **{1: 3})
+        def g4():
+            return f(**{'a': 1, 'c': 3}, **{'a': 2})
+        """
+        assert self.codetest(code, "g1", []) == (3, 7)
+        resg2 = self.codetest(code, 'g2', [])
+        assert "TypeError:" in resg2
+        assert "argument after ** must be a mapping, not list" in resg2
+        resg3 = self.codetest(code, 'g3', [])
+        assert "TypeError:" in resg3
+        assert "keywords must be strings" in resg3
+        resg4 = self.codetest(code, 'g4', [])
+        assert "TypeError:" in resg4
+        assert "got multiple values for keyword argument 'a'" in resg4
+
+try:
+    from hypothesis import given, strategies
+except ImportError:
+    pass
+else:
+    class TestHypothesisInterpreter(TestInterpreter): 
+        @given(strategies.lists(strategies.one_of(strategies.none(),
+                                     strategies.lists(strategies.none()))))
+        def test_build_map_order(self, shape):
+            value = [10]
+            def build_expr(shape):
+                if shape is None:
+                    value[0] += 1
+                    return '0: %d' % value[0]
+                else:
+                    return '**{%s}' % (', '.join(
+                        [build_expr(shape1) for shape1 in shape]),)
+
+            expr = build_expr(shape)[2:]
+            code = """
+            def f():
+                return %s
+            """ % (expr, )
+            res = self.codetest(code, 'f', [])
+            if value[0] == 10:
+                expected = {}
+            else:
+                expected = {0: value[0]}
+            assert res == expected, "got %r for %r" % (res, expr)
 
 
 class AppTestInterpreter: 
@@ -265,7 +393,7 @@ class AppTestInterpreter:
         out = Out()
         try:
             sys.stdout = out
-            print 10
+            print(10)
             assert out.args == ['10','\n']
         finally:
             sys.stdout = save
@@ -281,20 +409,22 @@ class AppTestInterpreter:
                 self.data.append((type(x), x))
         sys.stdout = out = Out()
         try:
-            print unichr(0xa2)
-            assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
+            print(chr(0xa2))
+            assert out.data == [(str, chr(0xa2)), (str, "\n")]
             out.data = []
             out.encoding = "cp424"     # ignored!
-            print unichr(0xa2)
-            assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
+            print(chr(0xa2))
+            assert out.data == [(str, chr(0xa2)), (str, "\n")]
             del out.data[:]
             del out.encoding
-            print u"foo\t", u"bar\n", u"trick", u"baz\n"  # softspace handling
-            assert out.data == [(unicode, "foo\t"),
-                                (unicode, "bar\n"),
-                                (unicode, "trick"),
+            print("foo\t", "bar\n", "trick", "baz\n")
+            assert out.data == [(str, "foo\t"),
                                 (str, " "),
-                                (unicode, "baz\n"),
+                                (str, "bar\n"),
+                                (str, " "),
+                                (str, "trick"),
+                                (str, " "),
+                                (str, "baz\n"),
                                 (str, "\n")]
         finally:
             sys.stdout = save
@@ -304,7 +434,7 @@ class AppTestInterpreter:
 
         class A(object):
             def __getattribute__(self, name):
-                print "seeing", name
+                print("seeing", name)
             def __str__(self):
                 return 'A!!'
         save = sys.stdout
@@ -317,7 +447,7 @@ class AppTestInterpreter:
         try:
             a = A()
             assert out.data == []
-            print a
+            print(a)
             assert out.data == [(str, 'A!!'),
                                 (str, '\n')]
         finally:
@@ -331,77 +461,58 @@ class AppTestInterpreter:
         def f(): f()
         try:
             f()
-        except RuntimeError as e:
+        except RecursionError as e:
             assert str(e) == "maximum recursion depth exceeded"
         else:
             assert 0, "should have raised!"
 
-    def test_with_statement_and_sys_clear(self):
-        import sys
-        class CM(object):
-            def __enter__(self):
-                return self
-            def __exit__(self, exc_type, exc_value, tb):
-                sys.exc_clear()
-        try:
-            with CM():
-                1 / 0
-            raise AssertionError("should not be reached")
-        except ZeroDivisionError:
-            pass
+    def test_kwonlyargs_mixed_args(self):
+        """
+        def mixedargs_sum(a, b=0, *args, k1, k2=0):
+            return a + b + k1 + k2 + sum(args)
+        assert mixedargs_sum.__code__.co_varnames == ("a", "b", "k1", "k2", "args")
+        assert mixedargs_sum(1, k1=2) == 1 + 2
+        """
 
-    def test_sys_clear_while_handling_exception(self):
-        import sys
-        def f():
-            try:
-                some_missing_name
-            except NameError:
-                g()
-                assert sys.exc_info()[0] is NameError
-        def g():
-            assert sys.exc_info()[0] is NameError
-            try:
-                1 / 0
-            except ZeroDivisionError:
-                assert sys.exc_info()[0] is ZeroDivisionError
-                sys.exc_clear()
-                assert sys.exc_info()[0] is None
-                h()
-                assert sys.exc_info()[0] is None
-        def h():
-            assert sys.exc_info()[0] is None
-        f()
+    def test_kwonlyargs_lambda(self):
+        """
+        l = lambda x, y, *, k=20: x+y+k
+        assert l(1, 2) == 1 + 2 + 20
+        assert l(1, 2, k=10) == 1 + 2 + 10
+        """
 
-    def test_sys_clear_while_handling_exception_nested(self):
-        import sys
-        def f():
-            try:
-                some_missing_name
-            except NameError:
-                g()
-                assert sys.exc_info()[0] is NameError
-        def g():
-            assert sys.exc_info()[0] is NameError
-            try:
-                1 / 0
-            except ZeroDivisionError:
-                assert sys.exc_info()[0] is ZeroDivisionError
-                h1()
-                assert sys.exc_info()[0] is None
-                h()
-                assert sys.exc_info()[0] is None
-        def h():
-            assert sys.exc_info()[0] is None
-        def h1():
-            sys.exc_clear()
-        f()
+    def test_kwonlyarg_mangling(self):
+        """
+        class X:
+            def f(self, *, __a=42):
+                return __a
+        assert X().f() == 42
+        """
 
-    def test_sys_clear_reraise(self):
-        import sys
-        def f():
-            try:
-                1 / 0
-            except ZeroDivisionError:
-                sys.exc_clear()
-                raise
+    def test_kwonlyarg_required(self):
+        """
+        def f(*, a=5, b):
+            return (a, b)
+        assert f(b=10) == (5, 10)
+        assert f(a=7, b=12) == (7, 12)
         raises(TypeError, f)
+        raises(TypeError, f, 1)
+        raises(TypeError, f, 1, 1)
+        raises(TypeError, f, a=1)
+        raises(TypeError, f, 1, a=1)
+        raises(TypeError, f, 1, b=1)
+        """
+
+    def test_extended_unpacking_short(self):
+        """
+        class Seq:
+            def __getitem__(self, i):
+                if i >= 0 and i < 3: return i
+                raise IndexError
+        try:
+            a, *b, c, d, e = Seq()
+        except ValueError as e:
+            assert str(e) == "not enough values to unpack (expected at least 4, got 3)"
+        else:
+            assert False, "Expected ValueError"
+            """

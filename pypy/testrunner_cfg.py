@@ -5,7 +5,9 @@ DIRS_SPLIT = [
     'translator/c', 'rlib',
     'memory/test', 'jit/metainterp',
     'jit/backend/arm', 'jit/backend/x86',
-    'jit/backend/zarch',
+    'jit/backend/zarch', 'module/cpyext/test',
+    # python3 slowness ...
+    'module/_cffi_backend/test', 'module/__pypy__/test',
 ]
 
 def collect_one_testdir(testdirs, reldir, tests):

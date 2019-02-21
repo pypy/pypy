@@ -44,7 +44,9 @@ class AppTestTraceBackAttributes:
         # but not to objects without a dict, obviously
         dictdescr = type.__dict__['__dict__']
         raises(TypeError, dictdescr.__get__, 5)
-        raises(TypeError, dictdescr.__set__, 5, d)
+        # TypeError on CPython because descr applies only to its
+        # __objclass__
+        raises((AttributeError, TypeError), dictdescr.__set__, 5, d)
 
     def test_descr_member_descriptor(self):
         class X(object):
@@ -52,12 +54,13 @@ class AppTestTraceBackAttributes:
         member = X.x
         assert member.__name__ == 'x'
         assert member.__objclass__ is X
-        raises((TypeError, AttributeError), "member.__name__ = 'x'")
-        raises((TypeError, AttributeError), "member.__objclass__ = X")
+        raises(AttributeError, "member.__name__ = 'x'")
+        raises(AttributeError, "member.__objclass__ = X")
 
     def test_descr_getsetproperty(self):
         from types import FrameType
         assert FrameType.f_lineno.__name__ == 'f_lineno'
+        assert FrameType.f_lineno.__qualname__ == 'frame.f_lineno'
         assert FrameType.f_lineno.__objclass__ is FrameType
         class A(object):
             pass
@@ -119,7 +122,7 @@ class TestTypeDef:
                             x = X()
                             import __pypy__
                             irepr = __pypy__.internal_repr(x)
-                            print irepr
+                            print(irepr)
                             %s
                             %s
                             %s
@@ -179,7 +182,7 @@ class TestTypeDef:
         self.space.appexec([w_obj], """(obj):
             assert type(obj).__hash__ is None
             err = raises(TypeError, hash, obj)
-            assert err.value.message == "'some_type' objects are unhashable"
+            assert str(err.value) == "'some_type' objects are unhashable"
             """)
 
     def test_destructor(self):
@@ -197,7 +200,7 @@ class TestTypeDef:
         w_seen = space.newlist([])
         W_Level1(space)
         gc.collect(); gc.collect()
-        assert space.str_w(space.repr(w_seen)) == "[]"  # not called yet
+        assert space.text_w(space.repr(w_seen)) == "[]"  # not called yet
         ec = space.getexecutioncontext()
         self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [1]   # called by user_del_action
@@ -361,26 +364,30 @@ class TestTypeDef:
 
 class AppTestTypeDef:
 
+    spaceconfig = dict(usemodules=['array'])
+
     def setup_class(cls):
         path = udir.join('AppTestTypeDef.txt')
         path.write('hello world\n')
         cls.w_path = cls.space.wrap(str(path))
 
     def test_destructor(self):
-        import gc, os
+        import gc, array
         seen = []
-        class MyFile(file):
+        class MyArray(array.array):
             def __del__(self):
+                # here we check that we can still access the array, i.e. that
+                # the interp-level __del__ has not been called yet
                 seen.append(10)
-                seen.append(os.lseek(self.fileno(), 2, 0))
-        f = MyFile(self.path, 'r')
-        fd = f.fileno()
-        seen.append(os.lseek(fd, 5, 0))
-        del f
+                seen.append(self[0])
+        a = MyArray('i')
+        a.append(42)
+        seen.append(a[0])
+        del a
         gc.collect(); gc.collect(); gc.collect()
         lst = seen[:]
-        assert lst == [5, 10, 2]
-        raises(OSError, os.lseek, fd, 7, 0)
+        print(lst)
+        assert lst == [42, 10, 42]
 
     def test_method_attrs(self):
         import sys
@@ -391,10 +398,10 @@ class AppTestTypeDef:
         class B(A):
             pass
 
-        bm = B().m
-        assert bm.__func__ is bm.im_func
-        assert bm.__self__ is bm.im_self
-        assert bm.im_class is B
+        obj = B()
+        bm = obj.m
+        assert bm.__func__ is A.m
+        assert bm.__self__ is obj
         assert bm.__doc__ == "aaa"
         assert bm.x == 3
         assert type(bm).__doc__ == "instancemethod(function, instance, class)\n\nCreate an instance method object."
@@ -407,13 +414,6 @@ class AppTestTypeDef:
         # differs from .im_class in case the method is
         # defined in some parent class of l's actual class
 
-    def test_classmethod_im_class(self):
-        class Foo(object):
-            @classmethod
-            def bar(cls):
-                pass
-        assert Foo.bar.im_class is type
-
     def test_func_closure(self):
         x = 2
         def f():
@@ -423,3 +423,10 @@ class AppTestTypeDef:
     def test_get_with_none_arg(self):
         raises(TypeError, type.__dict__['__mro__'].__get__, None)
         raises(TypeError, type.__dict__['__mro__'].__get__, None, None)
+
+    def test_builtin_readonly_property(self):
+        import sys
+        x = lambda: 5
+        e = raises(AttributeError, 'x.__globals__ = {}')
+        if '__pypy__' in sys.builtin_module_names:
+            assert str(e.value) == "readonly attribute '__globals__'"

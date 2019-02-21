@@ -1,9 +1,10 @@
-import sys
+import sys, errno
 from rpython.rlib import rsocket, rweaklist
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
-    RSocketError
+    RSocketError, SOMAXCONN
 )
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -12,12 +13,13 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import (
-    GetSetProperty, TypeDef, make_weakref_descr
-)
+    GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
+    make_weakref_descr)
 
 
 # XXX Hack to separate rpython and pypy
 def addr_as_object(addr, fd, space):
+    from rpython.rlib import _rsocket_rffi as _c
     if isinstance(addr, rsocket.INETAddress):
         return space.newtuple([space.newtext(addr.get_host()),
                                space.newint(addr.get_port())])
@@ -31,15 +33,19 @@ def addr_as_object(addr, fd, space):
                                space.newint(addr.get_protocol()),
                                space.newint(addr.get_pkttype()),
                                space.newint(addr.get_hatype()),
-                               space.newtext(addr.get_haddr())])
+                               space.newbytes(addr.get_haddr())])
     elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
-        return space.newtext(addr.get_path())
+        path = addr.get_path()
+        if _c.linux and len(path) > 0 and path[0] == '\x00':
+            # Linux abstract namespace
+            return space.newbytes(path)
+        else:
+            return space.newfilename(path)
     elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
         return space.newtuple([space.newint(addr.get_pid()),
                                space.newint(addr.get_groups())])
     # If we don't know the address family, don't raise an
     # exception -- return it as a tuple.
-    from rpython.rlib import _rsocket_rffi as _c
     a = addr.lock()
     family = rffi.cast(lltype.Signed, a.c_sa_family)
     datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
@@ -79,11 +85,35 @@ def fill_from_object(addr, space, w_address):
     else:
         raise NotImplementedError
 
+def idna_converter(space, w_host):
+    # Converts w_host to a byte string.  Similar to encode_idna()
+    # but accepts more types and refuses NULL bytes.
+    if space.isinstance_w(w_host, space.w_unicode):
+        try:
+            w_s = space.encode_unicode_object(w_host, 'ascii', None)
+        except OperationError as e:
+            if not e.match(space, space.w_UnicodeEncodeError):
+                raise
+            w_s = space.encode_unicode_object(w_host, 'idna', None)
+        s = space.bytes_w(w_s)
+    elif space.isinstance_w(w_host, space.w_bytes):
+        s = space.bytes_w(w_host)
+    elif space.isinstance_w(w_host, space.w_bytearray):
+        s = space.charbuf_w(w_host)
+    else:
+        raise oefmt(space.w_TypeError,
+                    "string or unicode text buffer expected, not %T", w_host)
+    if '\x00' in s:
+        raise oefmt(space.w_TypeError,
+                    "host name must not contain null character")
+    return s
+
+
 # XXX Hack to seperate rpython and pypy
 def addr_from_object(family, fd, space, w_address):
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
-        host = space.text_w(w_host)
+        host = idna_converter(space, w_host)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
         return rsocket.INETAddress(host, port)
@@ -93,7 +123,7 @@ def addr_from_object(family, fd, space, w_address):
             raise oefmt(space.w_TypeError,
                         "AF_INET6 address must be a tuple of length 2 "
                         "to 4, not %d", len(pieces_w))
-        host = space.text_w(pieces_w[0])
+        host = idna_converter(space, pieces_w[0])
         port = space.int_w(pieces_w[1])
         port = make_ushort_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
@@ -103,7 +133,13 @@ def addr_from_object(family, fd, space, w_address):
         flowinfo = make_unsigned_flowinfo(space, flowinfo)
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
-        return rsocket.UNIXAddress(space.text_w(w_address))
+        # Not using space.fsencode_w since Linux allows embedded NULs.
+        if space.isinstance_w(w_address, space.w_unicode):
+            w_address = space.fsencode(w_address)
+        elif space.isinstance_w(w_address, space.w_bytearray):
+            w_address = space.newbytes(space.charbuf_w(w_address))
+        bytelike = space.bytes_w(w_address) # getarg_w('y*', w_address)
+        return rsocket.UNIXAddress(bytelike)
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
         return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
@@ -151,23 +187,39 @@ def ipaddr_from_object(space, w_sockaddr):
 
 
 class W_Socket(W_Root):
-    w_tb = None  # String representation of the traceback at creation time
-
-    def __init__(self, space, sock):
+    def __init__(self, space, sock=None):
         self.space = space
-        self.sock = sock
-        register_socket(space, sock)
-        if self.space.sys.track_resources:
-            self.w_tb = self.space.format_traceback()
+        if sock is None:
+            self.sock = RSocket.empty_rsocket()
+        else:
+            register_socket(space, sock)
+            self.sock = sock
             self.register_finalizer(space)
 
+    @unwrap_spec(family=int, type=int, proto=int,
+                 w_fileno=WrappedDefault(None))
+    def descr_init(self, space, family=AF_INET, type=SOCK_STREAM, proto=0,
+                   w_fileno=None):
+        try:
+            if not space.is_w(w_fileno, space.w_None):
+                sock = RSocket(family, type, proto,
+                               fd=space.c_filedescriptor_w(w_fileno))
+            else:
+                sock = RSocket(family, type, proto, inheritable=False)
+            W_Socket.__init__(self, space, sock)
+        except SocketError as e:
+            raise converted_error(space, e)
+
     def _finalize_(self):
-        is_open = self.sock.fd >= 0
-        if is_open and self.space.sys.track_resources:
-            w_repr = self.space.repr(self)
-            str_repr = self.space.text_w(w_repr)
-            w_msg = self.space.newtext("WARNING: unclosed " + str_repr)
-            self.space.resource_warning(w_msg, self.w_tb)
+        sock = self.sock
+        if sock.fd != rsocket.INVALID_SOCKET:
+            try:
+                self._dealloc_warn()
+            finally:
+                try:
+                    sock.close()
+                except SocketError:
+                    pass
 
     def get_type_w(self, space):
         return space.newint(self.sock.type)
@@ -178,28 +230,38 @@ class W_Socket(W_Root):
     def get_family_w(self, space):
         return space.newint(self.sock.family)
 
+    def _dealloc_warn(self):
+        space = self.space
+        try:
+            msg = (b"unclosed %s" %
+                   space.utf8_w(space.repr(self)))
+            space.warn(space.newtext(msg), space.w_ResourceWarning)
+        except OperationError as e:
+            # Spurious errors can appear at shutdown
+            if e.match(space, space.w_Warning):
+                e.write_unraisable(space, '', self)
+
     def descr_repr(self, space):
         fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
         return space.newtext("<socket object, fd=%d, family=%d,"
-                          " type=%d, protocol=%d>" %
+                             " type=%d, proto=%d>" %
                           (fd, self.sock.family,
                            self.sock.type, self.sock.proto))
 
-    def accept_w(self, space):
-        """accept() -> (socket object, address info)
+    def _accept_w(self, space):
+        """_accept() -> (socket object, address info)
 
-        Wait for an incoming connection.  Return a new socket representing the
-        connection, and the address of the client.  For IP sockets, the address
-        info is a pair (hostaddr, port).
+        Wait for an incoming connection.  Return a new socket file descriptor
+        representing the connection, and the address of the client.
+        For IP sockets, the address info is a pair (hostaddr, port).
         """
-        try:
-            fd, addr = self.sock.accept()
-            sock = rsocket.make_socket(
-                fd, self.sock.family, self.sock.type, self.sock.proto)
-            return space.newtuple([W_Socket(space, sock),
-                                   addr_as_object(addr, sock.fd, space)])
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                fd, addr = self.sock.accept(inheritable=False)
+                return space.newtuple([space.newint(fd),
+                                       addr_as_object(addr, fd, space)])
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
 
     # convert an Address into an app-level object
     def addr_as_object(self, space, address):
@@ -241,10 +303,12 @@ class W_Socket(W_Root):
         Connect the socket to a remote address.  For IP sockets, the address
         is a pair (host, port).
         """
-        try:
-            self.sock.connect(self.addr_from_object(space, w_addr))
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                self.sock.connect(self.addr_from_object(space, w_addr))
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
 
     def connect_ex_w(self, space, w_addr):
         """connect_ex(address) -> errno
@@ -256,15 +320,12 @@ class W_Socket(W_Root):
             addr = self.addr_from_object(space, w_addr)
         except SocketError as e:
             raise converted_error(space, e)
-        error = self.sock.connect_ex(addr)
+        while True:
+            error = self.sock.connect_ex(addr)
+            if error != errno.EINTR:
+                break
+            space.getexecutioncontext().checksignals()
         return space.newint(error)
-
-    def dup_w(self, space):
-        try:
-            sock = self.sock.dup()
-            return W_Socket(space, sock)
-        except SocketError as e:
-            raise converted_error(space, e)
 
     def fileno_w(self, space):
         """fileno() -> integer
@@ -272,6 +333,15 @@ class W_Socket(W_Root):
         Return the integer file descriptor of the socket.
         """
         return space.newint(intmask(self.sock.fd))
+
+    def detach_w(self, space):
+        """detach()
+
+        Close the socket object without closing the underlying file descriptor.
+        The object cannot be used after this call, but the file descriptor
+        can be reused for other purposes.  The file descriptor is returned."""
+        fd = self.sock.detach()
+        return space.newint(intmask(fd))
 
     def getpeername_w(self, space):
         """getpeername() -> address info
@@ -326,27 +396,20 @@ class W_Socket(W_Root):
         return space.newfloat(timeout)
 
     @unwrap_spec(backlog="c_int")
-    def listen_w(self, space, backlog):
+    def listen_w(self, space, backlog=min(SOMAXCONN, 128)):
         """listen(backlog)
 
         Enable a server to accept connections.  The backlog argument must be at
-        least 1; it specifies the number of unaccepted connection that the system
-        will allow before refusing new connections.
+        least 0 (if it is lower, it is set to 0); it specifies the number of
+        unaccepted connection that the system will allow before refusing new
+        connections. If not specified, a default reasonable value is chosen.
         """
+        if backlog < 0:
+            backlog = 0
         try:
             self.sock.listen(backlog)
         except SocketError as e:
             raise converted_error(space, e)
-
-    @unwrap_spec(w_mode = WrappedDefault("r"),
-                 w_buffsize = WrappedDefault(-1))
-    def makefile_w(self, space, w_mode=None, w_buffsize=None):
-        """makefile([mode[, buffersize]]) -> file object
-
-        Return a regular file object corresponding to the socket.
-        The mode and buffersize arguments are as for the built-in open() function.
-        """
-        return app_makefile(space, self, w_mode, w_buffsize)
 
     @unwrap_spec(buffersize='nonnegint', flags=int)
     def recv_w(self, space, buffersize, flags=0):
@@ -357,10 +420,12 @@ class W_Socket(W_Root):
         at least one byte is available or until the remote end is closed.  When
         the remote end is closed and all data is read, return the empty string.
         """
-        try:
-            data = self.sock.recv(buffersize, flags)
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                data = self.sock.recv(buffersize, flags)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
         return space.newbytes(data)
 
     @unwrap_spec(buffersize='nonnegint', flags=int)
@@ -369,15 +434,63 @@ class W_Socket(W_Root):
 
         Like recv(buffersize, flags) but also return the sender's address info.
         """
-        try:
-            data, addr = self.sock.recvfrom(buffersize, flags)
-            if addr:
-                w_addr = addr_as_object(addr, self.sock.fd, space)
-            else:
-                w_addr = space.w_None
-            return space.newtuple([space.newbytes(data), w_addr])
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                data, addr = self.sock.recvfrom(buffersize, flags)
+                if addr:
+                    w_addr = addr_as_object(addr, self.sock.fd, space)
+                else:
+                    w_addr = space.w_None
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+        return space.newtuple([space.newbytes(data), w_addr])
+
+    @unwrap_spec(message_size=int, ancbufsize=int, flags=int)
+    def recvmsg_w(self, space, message_size, ancbufsize=0, flags=0):
+        """
+        recvmsg(message_size[, ancbufsize[, flags]]) -> (message, ancillary, flags, address)
+        Receive normal data (up to bufsize bytes) and ancillary data from the socket.
+        The ancbufsize argument sets the size in bytes of the internal buffer used to receive the ancillary data;
+        it defaults to 0, meaning that no ancillary data will be received.
+        Appropriate buffer sizes for ancillary data can be calculated using CMSG_SPACE() or CMSG_LEN(),
+        and items which do not fit into the buffer might be truncated or discarded.
+        The flags argument defaults to 0 and has the same meaning as for recv().
+        The ancdata item is a list of zero or more tuples (cmsg_level, cmsg_type, cmsg_data):
+        cmsg_level and cmsg_type are integers specifying the protocol level and protocol-specific type respectively,
+        and cmsg_data is a bytes object holding the associated data.
+
+        :param space: Non useable parameter. It represents the object space.
+        :param message_size: Maximum size of the message to be received
+        :param ancbufsize:  Maximum size of the ancillary data to be received
+        :param flags: Receive flag. For more details, please check the Unix manual
+        :return: a tuple consisting of the message, the ancillary data, return flag and the address.
+        """
+        if message_size < 0:
+            raise oefmt(space.w_ValueError, "negative buffer size in recvmsg()")
+        if ancbufsize < 0:
+            raise oefmt(space.w_ValueError, "invalid ancillary data buffer length")
+        while True:
+            try:
+                recvtup = self.sock.recvmsg(message_size, ancbufsize, flags)
+                w_message = space.newbytes(recvtup[0])
+                anclist = []
+                for l in recvtup[1]:
+                    tup = space.newtuple([space.newint(l[0]), space.newint(l[1]), space.newbytes(l[2])])
+                    anclist.append(tup)
+
+                w_anc = space.newlist(anclist)
+
+                w_flag = space.newint(recvtup[2])
+                if (recvtup[3] is not None):
+                    w_address = addr_as_object(recvtup[3], self.sock.fd, space)
+                else:
+                    w_address = space.w_None
+                rettup = space.newtuple([w_message, w_anc, w_flag, w_address])
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+        return rettup
 
     @unwrap_spec(data='bufferstr', flags=int)
     def send_w(self, space, data, flags=0):
@@ -387,10 +500,12 @@ class W_Socket(W_Root):
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy.
         """
-        try:
-            count = self.sock.send(data, flags)
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                count = self.sock.send(data, flags)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
         return space.newint(count)
 
     @unwrap_spec(data='bufferstr', flags=int)
@@ -408,13 +523,13 @@ class W_Socket(W_Root):
         except SocketError as e:
             raise converted_error(space, e)
 
-    @unwrap_spec(data='bufferstr')
-    def sendto_w(self, space, data, w_param2, w_param3=None):
+    def sendto_w(self, space, w_data, w_param2, w_param3=None):
         """sendto(data[, flags], address) -> count
 
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
+        data = space.charbuf_w(w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0
@@ -423,14 +538,77 @@ class W_Socket(W_Root):
             # 3 args version
             flags = space.int_w(w_param2)
             w_addr = w_param3
-        try:
-            addr = self.addr_from_object(space, w_addr)
-            count = self.sock.sendto(data, len(data), flags, addr)
-        except SocketError as e:
-            raise converted_error(space, e)
+        while True:
+            try:
+                addr = self.addr_from_object(space, w_addr)
+                count = self.sock.sendto(data, len(data), flags, addr)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
         return space.newint(count)
 
-    @unwrap_spec(flag=bool)
+    @unwrap_spec(flags=int)
+    def sendmsg_w(self, space, w_data, w_ancillary=None, flags=0 ,w_address=None):
+        """
+        sendmsg(data[,ancillary[,flags[,address]]]) -> bytes_sent
+        Send normal and ancillary data to the socket, gathering the non-ancillary data
+        from a series of buffers and concatenating it into a single message.
+        The ancdata argument specifies the ancillary data (control messages) as an iterable of zero or more tuples
+        (cmsg_level, cmsg_type, cmsg_data), where cmsg_level and cmsg_type are integers specifying the protocol level
+        and protocol-specific type respectively, and cmsg_data is a bytes-like object holding the associated data.
+        :param space: Represents the object space.
+        :param w_data: The message(s). needs to be a bytes like object
+        :param w_ancillary: needs to be a sequence object Can remain unspecified.
+        :param w_flags: needs to be an integer. Can remain unspecified.
+        :param w_address: needs to be a bytes-like object Can remain unspecified.
+        :return: Bytes sent from the message
+        """
+        # Get the flag and address from the object space
+        while True:
+            try:
+                address = None
+                if not space.is_none(w_address):
+                    address = self.addr_from_object(space, w_address)
+
+                # find data's type in the ObjectSpace and get a list of string out of it.
+                data = []
+                data_iter = space.unpackiterable(w_data)
+                for i in data_iter:
+                    data.append(space.readbuf_w(i).as_str())
+
+                # find the ancillary's type in the ObjectSpace and get a list of tuples out of it.
+                ancillary = []
+                if w_ancillary is not None:
+                    anc_iter = space.unpackiterable(w_ancillary)
+                    for w_i in anc_iter:
+                        if not space.isinstance_w(w_i, space.w_tuple):
+                            raise oefmt(space.w_TypeError, "[sendmsg() ancillary data items]() argument must be sequence")
+                        if space.len_w(w_i) == 3:
+                            intemtup = space.unpackiterable(w_i)
+                            level = space.int_w(intemtup[0])
+                            type = space.int_w(intemtup[1])
+                            cont = space.readbuf_w(intemtup[2]).as_str()
+                            tup = (level, type, cont)
+                            ancillary.append(tup)
+                        else:
+                            raise oefmt(space.w_TypeError,
+                                        "[sendmsg() ancillary data items]() argument must be sequence of length 3")
+
+                count = self.sock.sendmsg(data, ancillary, flags, address)
+                if count < 0:
+                    if (count == -1000):
+                        raise oefmt(space.w_OSError, "sending multiple control messages not supported")
+                    if (count == -1001):
+                        raise oefmt(space.w_OSError, "ancillary data item too large")
+                    if (count == -1002):
+                        raise oefmt(space.w_OSError, "too much ancillary data")
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+
+        return space.newint(count)
+
+    @unwrap_spec(flag=int)
     def setblocking_w(self, flag):
         """setblocking(flag)
 
@@ -438,7 +616,7 @@ class W_Socket(W_Root):
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        self.sock.setblocking(flag)
+        self.sock.setblocking(bool(flag))
 
     @unwrap_spec(level=int, optname=int)
     def setsockopt_w(self, space, level, optname, w_optval):
@@ -489,14 +667,21 @@ class W_Socket(W_Root):
 
         See recv() for documentation about the flags.
         """
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         lgt = rwbuffer.getlength()
-        if nbytes == 0 or nbytes > lgt:
+        if nbytes < 0:
+            raise oefmt(space.w_ValueError, "negative buffersize in recv_into")
+        if nbytes == 0:
             nbytes = lgt
-        try:
-            return space.newint(self.sock.recvinto(rwbuffer, nbytes, flags))
-        except SocketError as e:
-            raise converted_error(space, e)
+        if lgt < nbytes:
+            raise oefmt(space.w_ValueError, "buffer too small for requested bytes")
+        while True:
+            try:
+                nbytes_read = self.sock.recvinto(rwbuffer, nbytes, flags)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+        return space.newint(nbytes_read)
 
     @unwrap_spec(nbytes=int, flags=int)
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
@@ -504,22 +689,27 @@ class W_Socket(W_Root):
 
         Like recv_into(buffer[, nbytes[, flags]]) but also return the sender's address info.
         """
-        rwbuffer = space.getarg_w('w*', w_buffer)
+        rwbuffer = space.writebuf_w(w_buffer)
         lgt = rwbuffer.getlength()
         if nbytes == 0:
             nbytes = lgt
         elif nbytes > lgt:
             raise oefmt(space.w_ValueError,
                         "nbytes is greater than the length of the buffer")
-        try:
-            readlgt, addr = self.sock.recvfrom_into(rwbuffer, nbytes, flags)
-            if addr:
+        while True:
+            try:
+                readlgt, addr = self.sock.recvfrom_into(rwbuffer, nbytes, flags)
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+        if addr:
+            try:
                 w_addr = addr_as_object(addr, self.sock.fd, space)
-            else:
-                w_addr = space.w_None
-            return space.newtuple([space.newint(readlgt), w_addr])
-        except SocketError as e:
-            raise converted_error(space, e)
+            except SocketError as e:
+                raise converted_error(space, e)
+        else:
+            w_addr = space.w_None
+        return space.newtuple([space.newint(readlgt), w_addr])
 
     @unwrap_spec(cmd=int)
     def ioctl_w(self, space, cmd, w_option):
@@ -598,30 +788,6 @@ class W_Socket(W_Root):
             return
         self.close_w(space)
 
-app_makefile = gateway.applevel(r'''
-def makefile(self, mode="r", buffersize=-1):
-    """makefile([mode[, buffersize]]) -> file object
-
-    Return a regular file object corresponding to the socket.
-    The mode and buffersize arguments are as for the built-in open() function.
-    """
-    import os
-    newfd = os.dup(self.fileno())
-    return os.fdopen(newfd, mode, buffersize)
-''', filename =__file__).interphook('makefile')
-
-@unwrap_spec(family=int, type=int, proto=int)
-def newsocket(space, w_subtype, family=AF_INET,
-              type=SOCK_STREAM, proto=0):
-    self = space.allocate_instance(W_Socket, w_subtype)
-    try:
-        sock = RSocket(family, type, proto)
-    except SocketError as e:
-        raise converted_error(space, e)
-    W_Socket.__init__(self, space, sock)
-    return self
-descr_socket_new = interp2app(newsocket)
-
 
 # ____________________________________________________________
 # Automatic shutdown()/close()
@@ -667,8 +833,7 @@ def close_all_sockets(space):
 
 class SocketAPI:
     def __init__(self, space):
-        self.w_error = space.new_exception_class(
-            "_socket.error", space.w_IOError)
+        self.w_error = space.w_OSError
         self.w_herror = space.new_exception_class(
             "_socket.herror", self.w_error)
         self.w_gaierror = space.new_exception_class(
@@ -688,15 +853,21 @@ class SocketAPI:
 def get_error(space, name):
     return space.fromcache(SocketAPI).get_exception(name)
 
-def converted_error(space, e):
-    message = e.get_msg()
+@specialize.arg(2)
+def converted_error(space, e, eintr_retry=False):
+    message, lgt = e.get_msg_utf8()
     w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
+        if e.errno == errno.EINTR:
+            space.getexecutioncontext().checksignals()
+            if eintr_retry:
+                return       # only return None if eintr_retry==True
         w_exception = space.call_function(w_exception_class, space.newint(e.errno),
-                                      space.newtext(message))
+                                      space.newtext(message, lgt))
     else:
-        w_exception = space.call_function(w_exception_class, space.newtext(message))
-    return OperationError(w_exception_class, w_exception)
+        w_exception = space.call_function(w_exception_class,
+                                          space.newtext(message, lgt))
+    raise OperationError(w_exception_class, w_exception)
 
 def explicit_socket_error(space, msg):
     w_exception_class = space.fromcache(SocketAPI).w_error
@@ -707,17 +878,16 @@ def explicit_socket_error(space, msg):
 # ____________________________________________________________
 
 socketmethodnames = """
-accept bind close connect connect_ex dup fileno
-getpeername getsockname getsockopt gettimeout listen makefile
+_accept bind close connect connect_ex fileno detach
+getpeername getsockname getsockopt gettimeout listen
 recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into
 """.split()
-# Remove non-implemented methods
-for name in ('dup',):
-    if not hasattr(RSocket, name):
-        socketmethodnames.remove(name)
 if hasattr(rsocket._c, 'WSAIoctl'):
     socketmethodnames.append('ioctl')
+if rsocket._c.HAVE_SENDMSG:
+    socketmethodnames.append('sendmsg')
+    socketmethodnames.append('recvmsg')
 
 socketmethods = {}
 for methodname in socketmethodnames:
@@ -738,32 +908,32 @@ A socket object represents one endpoint of a network connection.
 
 Methods of socket objects (keyword arguments not allowed):
 
-accept() -- accept a connection, returning new socket and client address
+_accept() -- accept a connection, returning new socket fd and client address
 bind(addr) -- bind the socket to a local address
 close() -- close the socket
 connect(addr) -- connect the socket to a remote address
 connect_ex(addr) -- connect, return an error code instead of an exception
-dup() -- return a new socket object identical to the current one [*]
 fileno() -- return underlying file descriptor
 getpeername() -- return remote address [*]
 getsockname() -- return local address
 getsockopt(level, optname[, buflen]) -- get socket options
 gettimeout() -- return timeout or None
 listen(n) -- start listening for incoming connections
-makefile([mode, [bufsize]]) -- return a file object for the socket [*]
 recv(buflen[, flags]) -- receive data
 recvfrom(buflen[, flags]) -- receive data and sender's address
 sendall(data[, flags]) -- send all data
 send(data[, flags]) -- send data, may not send all of it
 sendto(data[, flags], addr) -- send data to a given address
+sendmsg(messages[, ancillary[, flags[, address]]]) -- send data and ancillary payload in a packet. May specifiy flags or the address
+recvmsg(message_size,[ ancillary_size,[ flags]]) -- receive data and ancillary payload. Return a tup of message, ancdata, flags and address
 setblocking(0 | 1) -- set or clear the blocking I/O flag
 setsockopt(level, optname, value) -- set socket options
 settimeout(None | float) -- set or clear the timeout
 shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
-    __new__ = descr_socket_new,
-    __weakref__ = make_weakref_descr(W_Socket),
+    __new__ = generic_new_descr(W_Socket),
+    __init__ = interp2app(W_Socket.descr_init),
     __repr__ = interp2app(W_Socket.descr_repr),
     type = GetSetProperty(W_Socket.get_type_w),
     proto = GetSetProperty(W_Socket.get_proto_w),

@@ -10,7 +10,7 @@ class TestDicts(BaseTestPyPyC):
                 pass
             a = A()
             a.x = 1
-            for s in sys.modules.keys() * 1000:
+            for s in list(sys.modules.keys()) * 1000:
                 d.get(s)  # force pending setfields etc.
                 inc = a.x # ID: look
                 d[s] = d.get(s, 0) + inc
@@ -20,7 +20,7 @@ class TestDicts(BaseTestPyPyC):
         assert log.result % 1000 == 0
         loop, = log.loops_by_filename(self.filepath)
         ops = loop.ops_by_id('look')
-        assert log.opnames(ops) == []
+        assert log.opnames(ops) == ['guard_nonnull_class']
 
     def test_identitydict(self):
         def fn(n):
@@ -64,11 +64,19 @@ class TestDicts(BaseTestPyPyC):
             i8 = int_lt(i5, i7)
             guard_true(i8, descr=...)
             guard_not_invalidated(descr=...)
-            p10 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
+            p109 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
+            i80 = strlen(p109)
+            p86 = call_r(ConstClass(str_decode_utf_8), p109, i80, ConstPtr(ptr82), 1, ConstClass(raise_unicode_exception_decode), 1, descr=<Callr 8 ririii EF=4>)
+            guard_no_exception(descr=...)
+            p10 = getfield_gc_r(p86, descr=<FieldP tuple2.item0 8 pure>)
             guard_nonnull(p10, descr=...)
-            i99 = strhash(p10)
-            i12 = cond_call_value_i(i99, ConstClass(_ll_strhash__rpy_stringPtr), p10, descr=<Calli . r EF=2>)
+
+            i99 = unicodehash(p10)
+            # NOTE: with siphash24, notably on unicodes, computing the hash
+            # may raise MemoryError
+            i12 = cond_call_value_i(i99, ConstClass(_ll_strhash__rpy_unicodePtr), p10, descr=<Calli . r EF=5>)
+            guard_no_exception(descr=...)
             p13 = new(descr=...)
             p15 = new_array_clear(16, descr=<ArrayU 1>)
             {{{
@@ -87,7 +95,7 @@ class TestDicts(BaseTestPyPyC):
             call_n(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<Callv 0 rrrii EF=5>)
             setfield_gc(p20, i5, descr=<FieldS .*W_IntObject.inst_intval .* pure>)
             guard_no_exception(descr=...)
-            i98 = strhash(p10)
+            i98 = unicodehash(p10)
             i23 = call_i(ConstClass(ll_call_lookup_function), p13, p10, i12, 0, descr=<Calli . rrii EF=5 OS=4>)
             guard_no_exception(descr=...)
             i27 = int_lt(i23, 0)
@@ -115,7 +123,7 @@ class TestOtherContainers(BaseTestPyPyC):
             while i < n:
                 z = list(())
                 z.append(1)
-                i += z[-1] / len(z)
+                i += z[-1] // len(z)
             return i
 
         log = self.run(main, [1000])
@@ -247,7 +255,7 @@ class TestOtherContainers(BaseTestPyPyC):
                 n -= 1
 
         log = self.run(main, [1000])
-        assert log.result == main(1000)
+        assert log.result == None
         loop, = log.loops_by_filename(self.filepath)
         ops = loop.ops_by_id('getitem', include_guard_not_invalidated=False)
         assert log.opnames(ops) == []

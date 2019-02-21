@@ -16,7 +16,8 @@ class AppTestPYTHONIFY:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_finding_classes(self):
@@ -35,8 +36,6 @@ class AppTestPYTHONIFY:
         res = example01_class.staticAddOneToInt(1)
         assert res == 2
 
-        res = example01_class.staticAddOneToInt(1L)
-        assert res == 2
         res = example01_class.staticAddOneToInt(1, 2)
         assert res == 4
         res = example01_class.staticAddOneToInt(-1)
@@ -107,7 +106,7 @@ class AppTestPYTHONIFY:
         res = instance.addToStringValue("-12")   # TODO: this leaks
         assert res == "30"
 
-        res = instance.staticAddOneToInt(1L)
+        res = instance.staticAddOneToInt(1)
         assert res == 2
 
         instance.__destruct__()
@@ -317,7 +316,7 @@ class AppTestPYTHONIFY:
 
        _cppyy.gbl.example01.fresh = _cppyy.gbl.installableAddOneToInt
 
-       e =  _cppyy.gbl.example01(0)
+       e = _cppyy.gbl.example01(0)
        assert 2 == e.fresh(1)
        assert 3 == e.fresh(2)
 
@@ -377,13 +376,13 @@ class AppTestPYTHONIFY_UI:
 
         import _cppyy
 
-        def example01a_pythonize(pyclass):
-            assert pyclass.__name__ == 'example01a'
-            def getitem(self, idx):
-                return self.addDataToInt(idx)
-            pyclass.__getitem__ = getitem
+        def example01a_pythonize(pyclass, name):
+            if name == 'example01a':
+                def getitem(self, idx):
+                    return self.addDataToInt(idx)
+                pyclass.__getitem__ = getitem
 
-        _cppyy.add_pythonization('example01a', example01a_pythonize)
+        _cppyy.add_pythonization(example01a_pythonize)
 
         e = _cppyy.gbl.example01a(1)
 

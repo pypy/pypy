@@ -3,7 +3,7 @@ import pytest
 
 
 class AppTestArray(object):
-    spaceconfig = {'usemodules': ['array', 'struct', '_rawffi', 'binascii']}
+    spaceconfig = {'usemodules': ['array', 'struct', 'binascii']}
 
     def setup_class(cls):
         cls.w_array = cls.space.appexec([], """():
@@ -15,14 +15,13 @@ class AppTestArray(object):
         cls.w_maxint = cls.space.wrap(sys.maxint)
 
     def test_ctor(self):
-        assert len(self.array('c')) == 0
         assert len(self.array('i')) == 0
 
         raises(TypeError, self.array, 'hi')
         raises(TypeError, self.array, 1)
-        raises(ValueError, self.array, 'q')
+        raises(ValueError, self.array, 'x')
 
-        a = self.array('c')
+        a = self.array('u')
         raises(TypeError, a.append, 7)
         raises(TypeError, a.append, 'hi')
         a.append('h')
@@ -30,30 +29,11 @@ class AppTestArray(object):
         assert type(a[0]) is str
         assert len(a) == 1
 
-        a = self.array('u')
-        raises(TypeError, a.append, 7)
-        raises(TypeError, a.append, u'hi')
-        a.append(u'h')
-        assert a[0] == u'h'
-        assert type(a[0]) is unicode
-        assert len(a) == 1
-
-        a = self.array('c', ('a', 'b', 'c'))
-        assert a[0] == 'a'
-        assert a[1] == 'b'
-        assert a[2] == 'c'
-        assert len(a) == 3
-
-        b = self.array('c', a)
-        assert len(b) == 3
-        assert a == b
-        raises(TypeError, self.array, 'i', a)
-
         a = self.array('i', (1, 2, 3))
         b = self.array('h', (1, 2, 3))
         assert a == b
 
-        for tc in 'bhilBHILfd':
+        for tc in 'bhilBHILQqfd':
             assert self.array(tc).typecode == tc
             raises(TypeError, self.array, tc, None)
 
@@ -77,9 +57,9 @@ class AppTestArray(object):
                            ('h', (-32768, 30535, 32767),  int),
                            ('H', (     0, 56783, 65535),  int),
                            ('i', (-32768, 30535, 32767),  int),
-                           ('I', (     0, 56783, 65535), long),
+                           ('I', (     0, 56783, 65535), int),
                            ('l', (-2 ** 32 // 2, 34, 2 ** 32 // 2 - 1),  int),
-                           ('L', (0, 3523532, 2 ** 32 - 1), long),
+                           ('L', (0, 3523532, 2 ** 32 - 1), int),
                            ):
             a = self.array(tc, ok)
             assert len(a) == len(ok)
@@ -108,7 +88,7 @@ class AppTestArray(object):
                 except OverflowError:
                     pass
 
-        for tc in 'BHIL':
+        for tc in 'BHILQ':
             a = self.array(tc)
             itembits = a.itemsize * 8
             vals = [0, 2 ** itembits - 1]
@@ -135,13 +115,15 @@ class AppTestArray(object):
             assert len(a) == len(values)
 
     def test_itemsize(self):
-        for t in 'cbB':
+        for t in 'bB':
             assert(self.array(t).itemsize >= 1)
         for t in 'uhHiI':
             assert(self.array(t).itemsize >= 2)
         for t in 'lLf':
             assert(self.array(t).itemsize >= 4)
         for t in 'd':
+            assert(self.array(t).itemsize >= 8)
+        for t in 'Qq':
             assert(self.array(t).itemsize >= 8)
 
         inttypes = 'bhil'
@@ -168,21 +150,19 @@ class AppTestArray(object):
         assert str(excinfo.value) == "array item must be integer"
 
     def test_fromstring(self):
-        import sys
-
-        a = self.array('c')
+        a = self.array('b')
         a.fromstring('Hi!')
-        assert a[0] == 'H' and a[1] == 'i' and a[2] == '!' and len(a) == 3
-        a = self.array('c')
-        a.fromstring(buffer('xyz'))
-        exc = raises(TypeError, a.fromstring, memoryview('xyz'))
-        assert str(exc.value) == "must be string or read-only buffer, not memoryview"
-        assert a[0] == 'x' and a[1] == 'y' and a[2] == 'z' and len(a) == 3
-        a = self.array('c')
+        assert len(a) == 3
+        assert a[0] == ord(b'H') and a[1] == ord(b'i') and a[2] == ord(b'!')
+        a = self.array('b')
+        a.fromstring(memoryview(b'xyz'))
+        assert len(a) == 3
+        assert a[0] == ord(b'x') and a[1] == ord(b'y') and a[2] == ord(b'z')
+        a = self.array('b')
         a.fromstring('')
         assert not len(a)
 
-        for t in 'bBhHiIlLfd':
+        for t in 'bBhHiIlLfdQq':
             a = self.array(t)
             a.fromstring('\x00' * a.itemsize * 2)
             assert len(a) == 2 and a[0] == 0 and a[1] == 0
@@ -193,8 +173,44 @@ class AppTestArray(object):
                 raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize + 1))
             b = self.array(t, b'\x00' * a.itemsize * 2)
             assert len(b) == 2 and b[0] == 0 and b[1] == 0
-            if sys.version_info >= (2, 7, 11):
-                raises(ValueError, a.fromstring, a)
+
+    def test_frombytes(self):
+        import sys
+        for t in 'bBhHiIlLfd':
+            a = self.array(t)
+            a.frombytes(b'\x00' * a.itemsize * 2)
+            assert len(a) == 2 and a[0] == 0 and a[1] == 0
+            if a.itemsize > 1:
+                raises(ValueError, a.frombytes, b'\x00' * (a.itemsize - 1))
+                raises(ValueError, a.frombytes, b'\x00' * (a.itemsize + 1))
+                raises(ValueError, a.frombytes, b'\x00' * (2 * a.itemsize - 1))
+                raises(ValueError, a.frombytes, b'\x00' * (2 * a.itemsize + 1))
+            b = self.array(t, b'\x00' * a.itemsize * 2)
+            assert len(b) == 2 and b[0] == 0 and b[1] == 0
+            if t in 'bB':
+                old_items = a.tolist()
+                try:
+                    a.frombytes(a)
+                except BufferError:
+                    # CPython behavior:
+                    # "cannot resize an array that is exporting buffers"
+                    # This is the general error we get when we try to
+                    # resize the array while a buffer to that array is
+                    # alive.
+                    assert a.tolist() == old_items
+                else:
+                    # PyPy behavior: we can't reasonably implement that.
+                    # It's harder to crash PyPy in this case, but not
+                    # impossible, because of get_raw_address().  Too
+                    # bad I suppose.
+                    assert a.tolist() == old_items * 2
+            else:
+                if '__pypy__' in sys.modules:
+                    old_items = a.tolist()
+                    a.frombytes(a)
+                    assert a.tolist() == old_items * 2
+                else:
+                    raises(TypeError, a.frombytes, a)
 
     def test_fromfile(self):
         def myfile(c, s):
@@ -217,10 +233,27 @@ class AppTestArray(object):
         a.fromfile(myfile(b'\x01', 20), 2)
         assert len(a) == 2 and a[0] == 257 and a[1] == 257
 
-        for i in (0, 1):
-            a = self.array('h')
-            raises(EOFError, a.fromfile, myfile(b'\x01', 2 + i), 2)
-            assert len(a) == 1 and a[0] == 257
+        a = self.array('h')
+        raises(EOFError, a.fromfile, myfile(b'\x01', 2), 2)
+        assert len(a) == 1 and a[0] == 257
+
+        a = self.array('h')
+        raises(ValueError, a.fromfile, myfile(b'\x01', 3), 2)
+        # ValueError: bytes length not a multiple of item size
+        assert len(a) == 0
+
+    def test_fromfile_no_warning(self):
+        import warnings
+        # check that fromfile defers to frombytes, not fromstring
+        class FakeF(object):
+            def read(self, n):
+                return b"a" * n
+        a = self.array('b')
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            a.fromfile(FakeF(), 4)
+            assert len(w) == 0
 
     def test_fromlist(self):
         a = self.array('b')
@@ -317,11 +350,6 @@ class AppTestArray(object):
         raises(TypeError, "a[1:3] = self.array('I', [5, 6])")
         raises(TypeError, "a[1:3] = [5, 6]")
 
-        a = self.array('i', [1, 2, 3])
-        assert a.__getslice__(1, 2) == a[1:2]
-        a.__setslice__(1, 2, self.array('i', (7,)))
-        assert a[0] == 1 and a[1] == 7 and a[2] == 3
-
     def test_resizingslice(self):
         a = self.array('i', [1, 2, 3])
         a[1:2] = self.array('i', [7, 8, 9])
@@ -378,23 +406,22 @@ class AppTestArray(object):
         assert type(l) is list and len(l) == 3
         assert a[0] == 1 and a[1] == 2 and a[2] == 3
 
-        b = self.array('i', a.tostring())
+        b = self.array('i', a.tobytes())
         assert len(b) == 3 and b[0] == 1 and b[1] == 2 and b[2] == 3
 
-        assert self.array('c', ('h', 'i')).tostring() == 'hi'
         a = self.array('i', [0, 0, 0])
-        assert a.tostring() == '\x00' * 3 * a.itemsize
-        s = self.array('i', [1, 2, 3]).tostring()
-        assert '\x00' in s
-        assert '\x01' in s
-        assert '\x02' in s
-        assert '\x03' in s
+        assert a.tobytes() == b'\x00' * 3 * a.itemsize
+        s = self.array('i', [1, 2, 3]).tobytes()
+        assert 0x00 in s
+        assert 0x01 in s
+        assert 0x02 in s
+        assert 0x03 in s
         a = self.array('i', s)
         assert a[0] == 1 and a[1] == 2 and a[2] == 3
 
         from struct import unpack
         values = (-129, 128, -128, 127, 0, 255, -1, 256, -32760, 32760)
-        s = self.array('i', values).tostring()
+        s = self.array('i', values).tobytes()
         fmt = 'i' * len(values)
         a = unpack(fmt, s)
         assert a == values
@@ -404,18 +431,18 @@ class AppTestArray(object):
                                ('hilHILfd', (32760, 30123, 3422, 23244))):
             for tc in tcodes:
                 values += ((2 ** self.array(tc).itemsize) // 2 - 1, )
-                s = self.array(tc, values).tostring()
+                s = self.array(tc, values).tobytes()
                 a = unpack(tc * len(values), s)
                 assert a == values
 
-        f = open(self.tempfile, 'w')
-        self.array('c', ('h', 'i')).tofile(f)
+        f = open(self.tempfile, 'wb')
+        self.array('b', (ord('h'), ord('i'))).tofile(f)
         f.close()
-        assert open(self.tempfile, 'r').readline() == 'hi'
+        assert open(self.tempfile, 'rb').readline() == b'hi'
 
-        a = self.array('c')
-        a.fromfile(open(self.tempfile, 'r'), 2)
-        assert repr(a) == "array('c', 'hi')"
+        a = self.array('b')
+        a.fromfile(open(self.tempfile, 'rb'), 2)
+        assert repr(a) == "array('b', [104, 105])"
 
         raises(ValueError, self.array('i').tounicode)
         assert self.array('u', u'hello').tounicode() == u'hello'
@@ -425,24 +452,44 @@ class AppTestArray(object):
         assert a.tostring() == b''
 
     def test_buffer(self):
-        a = self.array('h', 'Hi')
-        buf = buffer(a)
-        assert buf[1] == 'i'
+        a = self.array('h', b'Hi')
+        buf = memoryview(a)
+        assert buf[0] == 26952
+        raises(IndexError, 'buf[1]')
+        assert buf.tobytes() == b'Hi'
+        assert buf.tolist() == [26952]
+        assert buf.format == 'h'
+        assert buf.itemsize == 2
+        assert buf.shape == (1,)
+        assert buf.ndim == 1
+        assert buf.strides == (2,)
+        assert not buf.readonly
 
     def test_buffer_write(self):
-        a = self.array('c', 'hello')
-        buf = buffer(a)
-        exc = raises(TypeError, "buf[3] = 'L'")
-        assert str(exc.value) == "buffer is read-only"
+        a = self.array('b', b'hello')
+        buf = memoryview(a)
+        try:
+            buf[3] = b'L'
+        except TypeError:
+            skip("memoryview(array) returns a read-only buffer on CPython")
+        assert a.tostring() == b'helLo'
 
     def test_buffer_keepalive(self):
-        buf = buffer(self.array('c', 'text'))
-        assert buf[2] == 'x'
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("CPython: cannot resize an array that is exporting buffers")
+        buf = memoryview(self.array('b', b'text'))
+        assert buf[2] == ord('x')
         #
-        a = self.array('c', 'foobarbaz')
-        buf = buffer(a)
-        a.fromstring('some extra text')
-        assert buf[:] == 'foobarbazsome extra text'
+        a = self.array('b', b'foobarbaz')
+        buf = memoryview(a)
+        a.fromstring(b'some extra text')
+        assert buf[:] == b'foobarbazsome extra text'
+
+    def test_memview_multi_tobytes(self):
+        a = self.array('i', list(b"abcdef"))
+        m = memoryview(a)
+        assert m.tobytes() == a.tobytes()
 
     def test_list_methods(self):
         assert repr(self.array('i')) == "array('i')"
@@ -496,8 +543,7 @@ class AppTestArray(object):
             pass
 
         for v1, v2, tt in (([1, 2, 3], [1, 3, 2], 'bhilBHIL'),
-                         ('abc', 'acb', 'c'),
-                         (u'abc', u'acb', 'u')):
+                         ('abc', 'acb', 'u')):
             for t in tt:
                 a = self.array(t, v1)
                 b = self.array(t, v1)
@@ -556,18 +602,18 @@ class AppTestArray(object):
     def test_reduce(self):
         import pickle
         a = self.array('i', [1, 2, 3])
-        s = pickle.dumps(a, 1)
+        s = pickle.dumps(a)
         b = pickle.loads(s)
         assert a == b
 
         a = self.array('l')
-        s = pickle.dumps(a, 1)
+        s = pickle.dumps(a)
         b = pickle.loads(s)
         assert len(b) == 0 and b.typecode == 'l'
 
         a = self.array('i', [1, 2, 4])
         i = iter(a)
-        #raises(TypeError, pickle.dumps, i, 1)
+        #raises(TypeError, pickle.dumps, i)
 
     def test_copy_swap(self):
         a = self.array('i', [1, 2, 3])
@@ -588,6 +634,12 @@ class AppTestArray(object):
             assert a[0] == 1
             assert a[1] == 2
             assert a[2] == 3
+
+    def test_deepcopy(self):
+        a = self.array('u', u'\x01\u263a\x00\ufeff')
+        from copy import deepcopy
+        b = deepcopy(a)
+        assert a == b
 
     def test_addmul(self):
         a = self.array('i', [1, 2, 3])
@@ -677,9 +729,6 @@ class AppTestArray(object):
         del a[1:3]
         assert repr(a) == "array('i', [1, 4, 5])"
 
-        a.__delslice__(0, 2)
-        assert repr(a) == "array('i', [5])"
-
         a = self.array('i', [1, 2, 3, 4, 5])
         del a[3:1]
         assert repr(a) == "array('i', [1, 2, 3, 4, 5])"
@@ -714,7 +763,7 @@ class AppTestArray(object):
             def __len__(self):
                 return 3
 
-            def next(self):
+            def __next__(self):
                 self.n -= 1
                 if self.n < 0:
                     raise StopIteration
@@ -734,9 +783,14 @@ class AppTestArray(object):
         assert repr(a) == "array('i', [4, 3, 2, 1, 0])"
 
     def test_type(self):
-        for t in 'bBhHiIlLfdcu':
+        for t in 'bBhHiIlLfduQq':
             assert type(self.array(t)) is self.array
             assert isinstance(self.array(t), self.array)
+
+    def test_iterable(self):
+        import collections
+        for t in 'bBhHiIlLfduQq':
+            assert isinstance(self.array(t), collections.Iterable)
 
     def test_subclass(self):
         assert len(self.array('b')) == 0
@@ -791,16 +845,15 @@ class AppTestArray(object):
                 self.append(7)
 
             def fromstring(self, lst):
-                self.append('8')
+                self.append(8)
 
             def fromunicode(self, lst):
-                self.append(u'9')
+                self.append('9')
 
             def extend(self, lst):
                 self.append(10)
 
-        assert repr(mya('c', 'hi')) == "array('c', 'hi')"
-        assert repr(mya('u', u'hi')) == "array('u', u'hi')"
+        assert repr(mya('u', 'hi')) == "array('u', 'hi')"
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
@@ -808,13 +861,13 @@ class AppTestArray(object):
         a.fromlist([1, 2, 3])
         assert repr(a) == "array('i', [7])"
 
-        a = mya('c')
-        a.fromstring('hi')
-        assert repr(a) == "array('c', '8')"
+        a = mya('b')
+        a.fromstring(b'hi')
+        assert repr(a) == "array('b', [8])"
 
         a = mya('u')
-        a.fromunicode(u'hi')
-        assert repr(a) == "array('u', u'9')"
+        a.fromunicode('hi')
+        assert repr(a) == "array('u', '9')"
 
         a = mya('i')
         a.extend([1, 2, 3])
@@ -825,18 +878,17 @@ class AppTestArray(object):
             def tolist(self):
                 return 'list'
 
-            def tostring(self):
+            def tobytes(self):
                 return 'str'
 
             def tounicode(self):
                 return 'unicode'
 
         assert mya('i', [1, 2, 3]).tolist() == 'list'
-        assert mya('c', 'hi').tostring() == 'str'
-        assert mya('u', u'hi').tounicode() == 'unicode'
+        assert mya('u', 'hi').tobytes() == 'str'
+        assert mya('u', 'hi').tounicode() == 'unicode'
 
-        assert repr(mya('c', 'hi')) == "array('c', 'hi')"
-        assert repr(mya('u', u'hi')) == "array('u', u'hi')"
+        assert repr(mya('u', 'hi')) == "array('u', 'hi')"
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
@@ -844,23 +896,11 @@ class AppTestArray(object):
         a = self.array('u', u'\x01\u263a\x00\ufeff')
         b = self.array('u', u'\x01\u263a\x00\ufeff')
         b.byteswap()
-        assert a != b
-
-    def test_unicode_ord_positive(self):
-        import sys
-        if sys.maxunicode == 0xffff:
-            skip("test for 32-bit unicodes")
-        a = self.array('u', b'\xff\xff\xff\xff')
-        assert len(a) == 1
-        assert repr(a[0]) == "u'\Uffffffff'"
-        if sys.maxint == 2147483647:
-            assert ord(a[0]) == -1
-        else:
-            assert ord(a[0]) == 4294967295
+        raises(ValueError, "a != b")
 
     def test_weakref(self):
         import weakref
-        a = self.array('c', 'Hi!')
+        a = self.array('u', 'Hi!')
         r = weakref.ref(a)
         assert r() is a
 
@@ -942,7 +982,7 @@ class AppTestArray(object):
             raises(TypeError, a.__setitem__, Silly())
             raises(TypeError, a.__setitem__, OldSilly())
 
-        a = array('c', 'hi')
+        a = array('u', 'hi')
         a[0] = 'b'
         assert a[0] == 'b'
 
@@ -950,15 +990,18 @@ class AppTestArray(object):
         a[0] = u'b'
         assert a[0] == u'b'
 
+    def test_bytearray(self):
+        a = self.array('u', 'hi')
+        b = self.array('u')
+        b.frombytes(bytearray(a.tobytes()))
+        assert a == b
+        assert self.array('u', bytearray(a.tobytes())) == a
 
     def test_buffer_info(self):
-        a = self.array('c', 'Hi!')
+        a = self.array('b', b'Hi!')
         bi = a.buffer_info()
         assert bi[0] != 0
         assert bi[1] == 3
-        import _rawffi
-        data = _rawffi.charp2string(bi[0])
-        assert data[0:3] == 'Hi!'
 
     def test_array_reverse_slice_assign_self(self):
         a = self.array('b', range(4))
@@ -1025,5 +1068,152 @@ class AppTestArray(object):
         raises(TypeError, "a[MyInt(0)]")
         raises(TypeError, "a[MyInt(0):MyInt(5)]")
 
-    def test_fresh_array_buffer_str(self):
-        assert str(buffer(self.array('i'))) == ''
+    def test_fresh_array_buffer_bytes(self):
+        assert bytes(memoryview(self.array('i'))) == b''
+
+    def test_mview_slice_aswritebuf(self):
+        import struct
+        a = self.array('B', b'abcdef')
+        view = memoryview(a)[1:5]
+        struct.pack_into('>H', view, 1, 0x1234)
+        assert a.tobytes() == b'ab\x12\x34ef'
+
+
+class AppTestArrayReconstructor:
+    spaceconfig = dict(usemodules=('array', 'struct'))
+
+    def test_error(self):
+        import array
+        array_reconstructor = array._array_reconstructor
+        UNKNOWN_FORMAT = -1
+        raises(TypeError, array_reconstructor,
+               "", "b", 0, b"")
+        raises(TypeError, array_reconstructor,
+               str, "b", 0, b"")
+        raises(TypeError, array_reconstructor,
+               array.array, "b", '', b"")
+        raises(TypeError, array_reconstructor,
+               array.array, "b", 0, "")
+        raises(ValueError, array_reconstructor,
+               array.array, "?", 0, b"")
+        raises(ValueError, array_reconstructor,
+               array.array, "b", UNKNOWN_FORMAT, b"")
+        raises(ValueError, array_reconstructor,
+               array.array, "b", 22, b"")
+        raises(ValueError, array_reconstructor,
+               array.array, "d", 16, b"a")
+
+    def test_numbers(self):
+        import array, struct
+        array_reconstructor = array._array_reconstructor
+        UNSIGNED_INT8 = 0
+        SIGNED_INT8 = 1
+        UNSIGNED_INT16_LE = 2
+        UNSIGNED_INT16_BE = 3
+        SIGNED_INT16_LE = 4
+        SIGNED_INT16_BE = 5
+        UNSIGNED_INT32_LE = 6
+        UNSIGNED_INT32_BE = 7
+        SIGNED_INT32_LE = 8
+        SIGNED_INT32_BE = 9
+        UNSIGNED_INT64_LE = 10
+        UNSIGNED_INT64_BE = 11
+        SIGNED_INT64_LE = 12
+        SIGNED_INT64_BE = 13
+        IEEE_754_FLOAT_LE = 14
+        IEEE_754_FLOAT_BE = 15
+        IEEE_754_DOUBLE_LE = 16
+        IEEE_754_DOUBLE_BE = 17
+        testcases = (
+            (['B', 'H', 'I', 'L'], UNSIGNED_INT8, '=BBBB',
+             [0x80, 0x7f, 0, 0xff]),
+            (['b', 'h', 'i', 'l'], SIGNED_INT8, '=bbb',
+             [-0x80, 0x7f, 0]),
+            (['H', 'I', 'L'], UNSIGNED_INT16_LE, '<HHHH',
+             [0x8000, 0x7fff, 0, 0xffff]),
+            (['H', 'I', 'L'], UNSIGNED_INT16_BE, '>HHHH',
+             [0x8000, 0x7fff, 0, 0xffff]),
+            (['h', 'i', 'l'], SIGNED_INT16_LE, '<hhh',
+             [-0x8000, 0x7fff, 0]),
+            (['h', 'i', 'l'], SIGNED_INT16_BE, '>hhh',
+             [-0x8000, 0x7fff, 0]),
+            (['I', 'L'], UNSIGNED_INT32_LE, '<IIII',
+             [1<<31, (1<<31)-1, 0, (1<<32)-1]),
+            (['I', 'L'], UNSIGNED_INT32_BE, '>IIII',
+             [1<<31, (1<<31)-1, 0, (1<<32)-1]),
+            (['i', 'l'], SIGNED_INT32_LE, '<iii',
+             [-1<<31, (1<<31)-1, 0]),
+            (['i', 'l'], SIGNED_INT32_BE, '>iii',
+             [-1<<31, (1<<31)-1, 0]),
+            (['L'], UNSIGNED_INT64_LE, '<QQQQ',
+             [1<<31, (1<<31)-1, 0, (1<<32)-1]),
+            (['L'], UNSIGNED_INT64_BE, '>QQQQ',
+             [1<<31, (1<<31)-1, 0, (1<<32)-1]),
+            (['l'], SIGNED_INT64_LE, '<qqq',
+             [-1<<31, (1<<31)-1, 0]),
+            (['l'], SIGNED_INT64_BE, '>qqq',
+             [-1<<31, (1<<31)-1, 0]),
+            # The following tests for INT64 will raise an OverflowError
+            # when run on a 32-bit machine. The tests are simply skipped
+            # in that case.
+            (['L'], UNSIGNED_INT64_LE, '<QQQQ',
+             [1<<63, (1<<63)-1, 0, (1<<64)-1]),
+            (['L'], UNSIGNED_INT64_BE, '>QQQQ',
+             [1<<63, (1<<63)-1, 0, (1<<64)-1]),
+            (['l'], SIGNED_INT64_LE, '<qqq',
+             [-1<<63, (1<<63)-1, 0]),
+            (['l'], SIGNED_INT64_BE, '>qqq',
+             [-1<<63, (1<<63)-1, 0]),
+            (['f'], IEEE_754_FLOAT_LE, '<ffff',
+             [16711938.0, float('inf'), float('-inf'), -0.0]),
+            (['f'], IEEE_754_FLOAT_BE, '>ffff',
+             [16711938.0, float('inf'), float('-inf'), -0.0]),
+            (['d'], IEEE_754_DOUBLE_LE, '<dddd',
+             [9006104071832581.0, float('inf'), float('-inf'), -0.0]),
+            (['d'], IEEE_754_DOUBLE_BE, '>dddd',
+             [9006104071832581.0, float('inf'), float('-inf'), -0.0])
+        )
+        for testcase in testcases:
+            valid_typecodes, mformat_code, struct_fmt, values = testcase
+            arraystr = struct.pack(struct_fmt, *values)
+            for typecode in valid_typecodes:
+                try:
+                    a = array.array(typecode, values)
+                except OverflowError:
+                    continue  # Skip this test case.
+                b = array_reconstructor(
+                    array.array, typecode, mformat_code, arraystr)
+                assert a == b
+
+    def test_unicode(self):
+        import array
+        array_reconstructor = array._array_reconstructor
+        UTF16_LE = 18
+        UTF16_BE = 19
+        UTF32_LE = 20
+        UTF32_BE = 21
+        teststr = "Bonne Journ\xe9e \U0002030a\U00020347"
+        testcases = (
+            (UTF16_LE, "UTF-16-LE"),
+            (UTF16_BE, "UTF-16-BE"),
+            (UTF32_LE, "UTF-32-LE"),
+            (UTF32_BE, "UTF-32-BE")
+        )
+        for testcase in testcases:
+            mformat_code, encoding = testcase
+            a = array.array('u', teststr)
+            b = array_reconstructor(
+                array.array, 'u', mformat_code, teststr.encode(encoding))
+            assert a == b
+
+    def test_iterate_iterator(self):
+        import array
+        it = iter(array.array('b'))
+        assert list(it) == []
+        assert list(iter(it)) == []
+
+    def test_array_cannot_use_str(self):
+        import array
+        e = raises(TypeError, array.array, 'i', 'abcd')
+        assert str(e.value) == ("cannot use a str to initialize an array"
+                                " with typecode 'i'")

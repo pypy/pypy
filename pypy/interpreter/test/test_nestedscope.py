@@ -53,16 +53,15 @@ class AppTestNestedScope:
             return g()
         outer_locals, inner_locals = f()
         assert inner_locals == {'i':3, 'x':3}
-        keys = outer_locals.keys()
-        keys.sort()
+        keys = sorted(outer_locals.keys())
         assert keys == ['h', 'x']
 
     def test_lambda_in_genexpr(self):
-        assert eval('map(apply, (lambda: t for t in range(10)))') == range(10)
+        assert [x() for x in (lambda: x for x in range(10))] == list(range(10))
 
     def test_cell_repr(self):
         import re
-        from repr import repr as r # Don't shadow builtin repr
+        from reprlib import repr as r # Don't shadow builtin repr
 
         def get_cell():
             x = 42
@@ -71,7 +70,7 @@ class AppTestNestedScope:
             return inner
         x = get_cell().__closure__[0]
         assert re.match(r'<cell at 0x[0-9A-Fa-f]+: int object at 0x[0-9A-Fa-f]+>', repr(x))
-        assert re.match(r'<cell at.*\.\.\..*>', r(x))
+        assert re.match(r'<cell at 0x.*\.\.\..*>', r(x))
 
         def get_cell():
             if False:
@@ -89,7 +88,7 @@ class AppTestNestedScope:
             return f
 
         g = f(10)
-        assert g.func_closure[0].cell_contents == 10
+        assert g.__closure__[0].cell_contents == 10
 
     def test_empty_cell_contents(self):
 
@@ -100,19 +99,30 @@ class AppTestNestedScope:
             x = 1
 
         g = f()
-        raises(ValueError, "g.func_closure[0].cell_contents")
+        raises(ValueError, "g.__closure__[0].cell_contents")
 
     def test_compare_cells(self):
         def f(n):
             if n:
-                x = 42
+                x = n
             def f(y):
                 return x + y
             return f
 
-        g0 = f(0).func_closure[0]
-        g1 = f(1).func_closure[0]
-        assert cmp(g0, g1) == -1
+        empty_cell_1 = f(0).__closure__[0]
+        empty_cell_2 = f(0).__closure__[0]
+        g1 = f(1).__closure__[0]
+        g2 = f(2).__closure__[0]
+        assert g1 < g2
+        assert g1 <= g2
+        assert g2 > g1
+        assert g2 >= g1
+        assert not g1 == g2
+        assert g1 != g2
+        #
+        assert empty_cell_1 == empty_cell_2
+        assert not empty_cell_1 != empty_cell_2
+        assert empty_cell_1 < g1
 
     def test_leaking_class_locals(self):
         def f(x):
@@ -134,3 +144,27 @@ class AppTestNestedScope:
                 return x
             return m
         assert f()() == 12
+
+
+    def test_unbound_local_after_del(self):
+        """
+        # #4617: It is now legal to delete a cell variable.
+        # The following functions must obviously compile,
+        # and give the correct error when accessing the deleted name.
+        def errorInOuter():
+            y = 1
+            del y
+            print(y)
+            def inner():
+                return y
+
+        def errorInInner():
+            def inner():
+                return y
+            y = 1
+            del y
+            inner()
+
+        raises(UnboundLocalError, "errorInOuter()")
+        raises(NameError, "errorInInner()")
+        """

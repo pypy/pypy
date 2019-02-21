@@ -2,8 +2,6 @@
 This code was Ported from CPython's sha512module.c
 """
 
-import struct
-
 SHA_BLOCKSIZE = 128
 SHA_DIGESTSIZE = 64
 
@@ -32,10 +30,10 @@ def sha_transform(sha_info):
     W = []
 
     d = sha_info['data']
-    for i in xrange(0,16):
+    for i in range(0,16):
         W.append( (d[8*i]<<56) + (d[8*i+1]<<48) + (d[8*i+2]<<40) + (d[8*i+3]<<32) + (d[8*i+4]<<24) + (d[8*i+5]<<16) + (d[8*i+6]<<8) + d[8*i+7])
 
-    for i in xrange(16,80):
+    for i in range(16,80):
         W.append( (Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16]) & 0xffffffffffffffff )
 
     ss = sha_info['digest'][:]
@@ -151,15 +149,9 @@ def sha384_init():
     sha_info['digestsize'] = 48
     return sha_info
 
-def getbuf(s):
-    if isinstance(s, str):
-        return s
-    elif isinstance(s, unicode):
-        return str(s)
-    else:
-        return buffer(s)
-
 def sha_update(sha_info, buffer):
+    if isinstance(buffer, str):
+        raise TypeError("Unicode strings must be encoded before hashing")
     count = len(buffer)
     buffer_idx = 0
     clo = (sha_info['count_lo'] + (count << 3)) & 0xffffffff
@@ -175,8 +167,7 @@ def sha_update(sha_info, buffer):
             i = count
 
         # copy buffer
-        for x in enumerate(buffer[buffer_idx:buffer_idx+i]):
-            sha_info['data'][sha_info['local']+x[0]] = struct.unpack('B', x[1])[0]
+        sha_info['data'][sha_info['local']:sha_info['local']+i] = buffer[buffer_idx:buffer_idx+i]
 
         count -= i
         buffer_idx += i
@@ -190,14 +181,14 @@ def sha_update(sha_info, buffer):
 
     while count >= SHA_BLOCKSIZE:
         # copy buffer
-        sha_info['data'] = [struct.unpack('B',c)[0] for c in buffer[buffer_idx:buffer_idx + SHA_BLOCKSIZE]]
+        sha_info['data'] = list(buffer[buffer_idx:buffer_idx + SHA_BLOCKSIZE])
         count -= SHA_BLOCKSIZE
         buffer_idx += SHA_BLOCKSIZE
         sha_transform(sha_info)
 
     # copy buffer
     pos = sha_info['local']
-    sha_info['data'][pos:pos+count] = [struct.unpack('B',c)[0] for c in buffer[buffer_idx:buffer_idx + count]]
+    sha_info['data'][pos:pos+count] = buffer[buffer_idx:buffer_idx + count]
     sha_info['local'] = count
 
 def sha_final(sha_info):
@@ -238,25 +229,26 @@ def sha_final(sha_info):
     dig = []
     for i in sha_info['digest']:
         dig.extend([ ((i>>56) & 0xff), ((i>>48) & 0xff), ((i>>40) & 0xff), ((i>>32) & 0xff), ((i>>24) & 0xff), ((i>>16) & 0xff), ((i>>8) & 0xff), (i & 0xff) ])
-    return ''.join([chr(i) for i in dig])
+    return bytes(dig)
 
 class sha512(object):
     digest_size = digestsize = SHA_DIGESTSIZE
     block_size = SHA_BLOCKSIZE
 
     def __init__(self, s=None):
+        self.name = 'sha512'
         self._sha = sha_init()
         if s:
-            sha_update(self._sha, getbuf(s))
+            sha_update(self._sha, s)
 
     def update(self, s):
-        sha_update(self._sha, getbuf(s))
+        sha_update(self._sha, s)
 
     def digest(self):
         return sha_final(self._sha.copy())[:self._sha['digestsize']]
 
     def hexdigest(self):
-        return ''.join(['%.2x' % ord(i) for i in self.digest()])
+        return ''.join(['%.2x' % i for i in self.digest()])
 
     def copy(self):
         new = sha512.__new__(sha512)
@@ -267,9 +259,10 @@ class sha384(sha512):
     digest_size = digestsize = 48
 
     def __init__(self, s=None):
+        self.name = 'sha384'
         self._sha = sha384_init()
         if s:
-            sha_update(self._sha, getbuf(s))
+            sha_update(self._sha, s)
 
     def copy(self):
         new = sha384.__new__(sha384)
@@ -279,7 +272,7 @@ class sha384(sha512):
 def test():
     import _sha512
 
-    a_str = "just a test string"
+    a_str = b"just a test string"
 
     assert _sha512.sha512().hexdigest() == sha512().hexdigest()
     assert _sha512.sha512(a_str).hexdigest() == sha512(a_str).hexdigest()

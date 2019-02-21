@@ -1,26 +1,24 @@
 class AppTestTime:
     spaceconfig = {
-        "usemodules": ['time', 'struct', 'binascii'],
+        "usemodules": ['time', 'struct', 'binascii', 'signal'],
     }
 
     def test_attributes(self):
         import time
-        assert isinstance(time.accept2dyear, int)
         assert isinstance(time.altzone, int)
         assert isinstance(time.daylight, int)
         assert isinstance(time.timezone, int)
         assert isinstance(time.tzname, tuple)
         assert isinstance(time.__doc__, str)
+        assert isinstance(time._STRUCT_TM_ITEMS, int)
 
     def test_sleep(self):
-        import sys
-        import os
         import time
         raises(TypeError, time.sleep, "foo")
         time.sleep(0.12345)
-        raises(IOError, time.sleep, -1.0)
-        raises(IOError, time.sleep, float('nan'))
-        raises(IOError, time.sleep, float('inf'))
+        raises(ValueError, time.sleep, -1.0)
+        raises((ValueError, OverflowError), time.sleep, float('nan'))
+        raises(OverflowError, time.sleep, float('inf'))
 
     def test_clock(self):
         import time
@@ -36,6 +34,27 @@ class AppTestTime:
         t2 = time.time()
         assert t1 != t2       # the resolution should be at least 0.01 secs
 
+    def test_clock_realtime(self):
+        import time
+        if not hasattr(time, 'clock_gettime'):
+            skip("need time.clock_gettime()")
+        t1 = time.clock_gettime(time.CLOCK_REALTIME)
+        assert isinstance(t1, float)
+        time.sleep(time.clock_getres(time.CLOCK_REALTIME))
+        t2 = time.clock_gettime(time.CLOCK_REALTIME)
+        assert t1 != t2
+
+    def test_clock_monotonic(self):
+        import time
+        if not (hasattr(time, 'clock_gettime') and
+                hasattr(time, 'CLOCK_MONOTONIC')):
+            skip("need time.clock_gettime()/CLOCK_MONOTONIC")
+        t1 = time.clock_gettime(time.CLOCK_MONOTONIC)
+        assert isinstance(t1, float)
+        time.sleep(time.clock_getres(time.CLOCK_MONOTONIC))
+        t2 = time.clock_gettime(time.CLOCK_MONOTONIC)
+        assert t1 < t2
+
     def test_ctime(self):
         import time
         raises(TypeError, time.ctime, "foo")
@@ -44,8 +63,17 @@ class AppTestTime:
         res = time.ctime(0)
         assert isinstance(res, str)
         time.ctime(time.time())
-        raises(ValueError, time.ctime, 1E200)
+        raises(OverflowError, time.ctime, 1E200)
         raises(OverflowError, time.ctime, 10**900)
+        for year in [-100, 100, 1000, 2000, 10000]:
+            try:
+                testval = time.mktime((year, 1, 10) + (0,)*6)
+            except (ValueError, OverflowError):
+                # If mktime fails, ctime will fail too.  This may happen
+                # on some platforms.
+                pass
+            else:
+                assert time.ctime(testval)[20:] == str(year)
 
     def test_gmtime(self):
         import time
@@ -61,8 +89,8 @@ class AppTestTime:
         assert 0 <= (t1 - t0) < 1.2
         t = time.time()
         assert time.gmtime(t) == time.gmtime(t)
-        raises(ValueError, time.gmtime, 2**64)
-        raises(ValueError, time.gmtime, -2**64)
+        raises(OverflowError, time.gmtime, 2**64)
+        raises(OverflowError, time.gmtime, -2**64)
 
     def test_localtime(self):
         import time
@@ -79,7 +107,7 @@ class AppTestTime:
         t = time.time()
         assert time.localtime(t) == time.localtime(t)
         if os.name == 'nt':
-            raises(ValueError, time.localtime, -1)
+            raises(OSError, time.localtime, -1)
         else:
             time.localtime(-1)
 
@@ -94,25 +122,21 @@ class AppTestTime:
         assert isinstance(res, float)
 
         ltime = time.localtime()
-        time.accept2dyear == 0
         ltime = list(ltime)
-        ltime[0] = 1899
-        raises(ValueError, time.mktime, tuple(ltime))
-        time.accept2dyear == 1
-
-        ltime = list(ltime)
-        ltime[0] = 67
-        ltime = tuple(ltime)
-        if os.name != "nt" and sys.maxint < 1<<32:   # time_t may be 64bit
-            raises(OverflowError, time.mktime, ltime)
-
-        ltime = list(ltime)
+        ltime[0] = -1
+        if os.name == "posix":
+            time.mktime(tuple(ltime))  # Does not crash anymore
+        else:
+            raises(OverflowError, time.mktime, tuple(ltime))
         ltime[0] = 100
-        raises(ValueError, time.mktime, tuple(ltime))
+        if os.name == "posix":
+            time.mktime(tuple(ltime))  # Does not crash anymore
+        else:
+            raises(OverflowError, time.mktime, tuple(ltime))
 
         t = time.time()
-        assert long(time.mktime(time.localtime(t))) == long(t)
-        assert long(time.mktime(time.gmtime(t))) - time.timezone == long(t)
+        assert int(time.mktime(time.localtime(t))) == int(t)
+        assert int(time.mktime(time.gmtime(t))) - time.timezone == int(t)
         ltime = time.localtime()
         assert time.mktime(tuple(ltime)) == time.mktime(ltime)
         if os.name != 'nt':
@@ -134,6 +158,7 @@ class AppTestTime:
         raises(TypeError, time.asctime, (1, 2))
         raises(TypeError, time.asctime, (1, 2, 3, 4, 5, 6, 'f', 8, 9))
         raises(TypeError, time.asctime, "foo")
+        raises(ValueError, time.asctime, (1900, -1, 1, 0, 0, 0, 0, 1, -1))
         res = time.asctime()
         assert isinstance(res, str)
         time.asctime(time.localtime())
@@ -148,16 +173,17 @@ class AppTestTime:
         except ValueError:
             pass  # some OS (ie POSIXes besides Linux) reject year > 9999
 
-    def test_accept2dyear_access(self):
+    def test_asctime_large_year(self):
         import time
-
-        accept2dyear = time.accept2dyear
-        del time.accept2dyear
-        try:
-            # with year >= 1900 this shouldn't need to access accept2dyear
-            assert time.asctime((2000,) + (0,) * 8).split()[-1] == '2000'
-        finally:
-            time.accept2dyear = accept2dyear
+        assert time.asctime((12345,) +
+                              (0,) * 8) == 'Mon Jan  1 00:00:00 12345'
+        assert time.asctime((123456789,) +
+                              (0,) * 8) == 'Mon Jan  1 00:00:00 123456789'
+        sizeof_int = 4
+        bigyear = (1 << 8 * sizeof_int - 1) - 1
+        asc = time.asctime((bigyear, 6, 1) + (0,)*6)
+        assert asc[-len(str(bigyear)):] == str(bigyear)
+        raises(OverflowError, time.asctime, (bigyear + 1,) + (0,)*8)
 
     def test_struct_time(self):
         import time
@@ -230,7 +256,25 @@ class AppTestTime:
             # rely on it.
             if org_TZ is not None:
                 os.environ['TZ'] = org_TZ
-            elif os.environ.has_key('TZ'):
+            elif 'TZ' in os.environ:
+                del os.environ['TZ']
+            time.tzset()
+
+    def test_localtime_timezone(self):
+        import os, time
+        if not os.name == "posix":
+            skip("tzset available only under Unix")
+        org_TZ = os.environ.get('TZ', None)
+        try:
+            os.environ['TZ'] = 'Europe/Kiev'
+            time.tzset()
+            localtm = time.localtime(0)
+            assert localtm.tm_zone == "MSK"
+            assert localtm.tm_gmtoff == 10800
+        finally:
+            if org_TZ is not None:
+                os.environ['TZ'] = org_TZ
+            elif 'TZ' in os.environ:
                 del os.environ['TZ']
             time.tzset()
 
@@ -249,20 +293,26 @@ class AppTestTime:
         raises(TypeError, time.strftime, ())
         raises(TypeError, time.strftime, (1,))
         raises(TypeError, time.strftime, range(8))
-        exp = '2000 01 01 00 00 00 1 001'
-        assert time.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
 
         # Guard against invalid/non-supported format string
         # so that Python don't crash (Windows crashes when the format string
         # input to [w]strftime is not kosher.
         if os.name == 'nt':
             raises(ValueError, time.strftime, '%f')
+            return
         elif sys.platform == 'darwin' or 'bsd' in sys.platform:
             # darwin strips % of unknown format codes
             # http://bugs.python.org/issue9811
             assert time.strftime('%f') == 'f'
+
+            # Darwin always use four digits for %Y, Linux uses as many as needed.
+            expected_year = '0000'
         else:
             assert time.strftime('%f') == '%f'
+            expected_year = '0'
+
+        expected_formatted_date = expected_year + ' 01 01 00 00 00 1 001'
+        assert time.strftime("%Y %m %d %H %M %S %w %j", (0,) * 9) == expected_formatted_date
 
     def test_strftime_ext(self):
         import time
@@ -282,10 +332,9 @@ class AppTestTime:
         # of the time tuple.
 
         # check year
-        raises(ValueError, time.strftime, '', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
-        if time.accept2dyear:
-            raises(ValueError, time.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
-            raises(ValueError, time.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
+        time.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
+        time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
+
         # check month
         raises(ValueError, time.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
         # check day of month
@@ -309,8 +358,8 @@ class AppTestTime:
         # check day of the year
         raises(ValueError, time.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 367, -1))
         # check daylight savings flag
-        raises(ValueError, time.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
-        raises(ValueError, time.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
+        time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
+        time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     def test_strptime(self):
         import time
@@ -323,7 +372,7 @@ class AppTestTime:
                           'j', 'm', 'M', 'p', 'S',
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
             format = ' %' + directive
-            print format
+            print(format)
             time.strptime(time.strftime(format, tt), format)
 
     def test_pickle(self):
@@ -333,3 +382,61 @@ class AppTestTime:
         new = pickle.loads(pickle.dumps(now))
         assert new == now
         assert type(new) is type(now)
+
+    def test_monotonic(self):
+        import time
+        t1 = time.monotonic()
+        assert isinstance(t1, float)
+        time.sleep(0.02)
+        t2 = time.monotonic()
+        assert t1 < t2
+
+    def test_perf_counter(self):
+        import time
+        assert isinstance(time.perf_counter(), float)
+
+    def test_process_time(self):
+        import time
+        t1 = time.process_time()
+        assert isinstance(t1, float)
+        time.sleep(0.1)
+        t2 = time.process_time()
+        # process_time() should not include time spent during sleep
+        assert (t2 - t1) < 0.05
+
+    def test_get_clock_info(self):
+        import time
+        clocks = ['clock', 'perf_counter', 'process_time', 'time']
+        if hasattr(time, 'monotonic'):
+            clocks.append('monotonic')
+        for name in clocks:
+            info = time.get_clock_info(name)
+            assert isinstance(info.implementation, str)
+            assert info.implementation != ''
+            assert isinstance(info.monotonic, bool)
+            assert isinstance(info.resolution, float)
+            assert info.resolution > 0.0
+            assert info.resolution <= 1.0
+            assert isinstance(info.adjustable, bool)
+
+    def test_pep475_retry_sleep(self):
+        import time
+        import _signal as signal
+        if not hasattr(signal, 'SIGALRM'):
+            skip("SIGALRM available only under Unix")
+        signalled = []
+
+        def foo(*args):
+            signalled.append("ALARM")
+
+        signal.signal(signal.SIGALRM, foo)
+        try:
+            t1 = time.time()
+            signal.alarm(1)
+            time.sleep(3.0)
+            t2 = time.time()
+        finally:
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+        assert signalled != []
+        assert t2 - t1 > 2.99

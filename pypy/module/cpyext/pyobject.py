@@ -60,10 +60,10 @@ def add_direct_pyobj_storage(cls):
 
     def _cpyext_attach_pyobj(self, space, py_obj):
         self._cpy_ref = py_obj
-        rawrefcount.create_link_pyobj(self, py_obj)
+        rawrefcount.create_link_pypy(self, py_obj)
     cls._cpyext_attach_pyobj = _cpyext_attach_pyobj
 
-add_direct_pyobj_storage(W_BaseCPyObject)
+add_direct_pyobj_storage(W_BaseCPyObject) 
 add_direct_pyobj_storage(W_TypeObject)
 add_direct_pyobj_storage(W_NoneObject)
 add_direct_pyobj_storage(W_BoolObject)
@@ -128,9 +128,6 @@ class BaseCpyTypedescr(object):
                             w_type)
             raise
         track_reference(space, obj, w_obj)
-        if w_type.flag_cpytype:
-            assert isinstance(w_obj, W_BaseCPyObject)
-            w_obj._cpy_ref = obj
         return w_obj
 
 typedescr_cache = {}
@@ -264,6 +261,7 @@ def from_ref(space, ref):
     if w_obj is not None:
         if w_obj is not w_marker_deallocating:
             return w_obj
+        type_name = rffi.charp2str(cts.cast('char*', ref.c_ob_type.c_tp_name))
         fatalerror(
             "*** Invalid usage of a dying CPython object ***\n"
             "\n"
@@ -278,7 +276,8 @@ def from_ref(space, ref):
             "freed, making that reference point to garbage.\n"
             ">>> PyPy could contain some workaround to still work if\n"
             "you are lucky, but it is not done so far; better fix the bug in\n"
-            "the CPython extension.")
+            "the CPython extension.\n"
+            ">>> This object is of type '%s'" % (type_name,))
 
     # This reference is not yet a real interpreter object.
     # Realize it.
@@ -359,7 +358,8 @@ def make_ref(space, w_obj, w_userdata=None, immortal=False):
     same PyObject for the same W_Root; for example, integers.
     """
     assert not is_pyobj(w_obj)
-    if w_obj is not None and space.type(w_obj) is space.w_int:
+    if False and w_obj is not None and space.type(w_obj) is space.w_int:
+        # XXX: adapt for pypy3
         state = space.fromcache(State)
         intval = space.int_w(w_obj)
         return state.ccall("PyInt_FromLong", intval)
@@ -419,8 +419,19 @@ def write_w_marker_deallocating(space):
     if we_are_translated():
         llptr = cast_instance_to_base_ptr(w_marker_deallocating)
         state = space.fromcache(State)
-        state.C.set_marker(rffi.cast(Py_ssize_t, llptr))
+        state.C.set_marker(llptr)
 
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)
+
+@cpython_api([PyObject], lltype.Void)
+def Py_IncRef(space, obj):
+    # used only ifdef PYPY_DEBUG_REFCOUNT
+    if obj:
+        incref(space, obj)
+
+@cpython_api([PyObject], lltype.Void)
+def Py_DecRef(space, obj):
+    # used only ifdef PYPY_DEBUG_REFCOUNT
+    decref(space, obj)

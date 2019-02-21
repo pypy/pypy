@@ -204,6 +204,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
 
     # XXX this function's interface is a mess.
     # We try to emulate the behavior of Python >= 2.5 w.r.t. mutate_flag
+    IOCTL_BUFSZ = 1024 # like cpython
 
     fd = space.c_filedescriptor_w(w_fd)
     op = rffi.cast(rffi.INT, op)        # C long => C int
@@ -211,20 +212,25 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     try:
         rwbuffer = space.writebuf_w(w_arg)
     except OperationError as e:
-        if not e.match(space, space.w_TypeError):
+        if not (e.match(space, space.w_TypeError) or
+                e.match(space, space.w_BufferError)):
             raise
     else:
         arg = rwbuffer.as_str()
         ll_arg = rffi.str2charp(arg)
+        to_alloc = max(IOCTL_BUFSZ, len(arg))
         try:
-            rv = ioctl_str(fd, op, ll_arg)
-            if rv < 0:
-                raise _get_error(space, "ioctl")
-            arg = rffi.charpsize2str(ll_arg, len(arg))
-            if mutate_flag != 0:
-                rwbuffer.setslice(0, arg)
-                return space.newint(rv)
-            return space.newbytes(arg)
+            with rffi.scoped_alloc_buffer(to_alloc) as buf:
+                rffi.c_memcpy(rffi.cast(rffi.VOIDP, buf.raw),
+                              rffi.cast(rffi.VOIDP, ll_arg), len(arg))
+                rv = ioctl_str(fd, op, buf.raw)
+                if rv < 0:
+                    raise _get_error(space, "ioctl")
+                arg = rffi.charpsize2str(buf.raw, len(arg))
+                if mutate_flag != 0:
+                    rwbuffer.setslice(0, arg)
+                    return space.newint(rv)
+                return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
@@ -240,11 +246,15 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
             raise
     else:
         ll_arg = rffi.str2charp(arg)
+        to_alloc = max(IOCTL_BUFSZ, len(arg))
         try:
-            rv = ioctl_str(fd, op, ll_arg)
-            if rv < 0:
-                raise _get_error(space, "ioctl")
-            arg = rffi.charpsize2str(ll_arg, len(arg))
+            with rffi.scoped_alloc_buffer(to_alloc) as buf:
+                rffi.c_memcpy(rffi.cast(rffi.VOIDP, buf.raw),
+                              rffi.cast(rffi.VOIDP, ll_arg), len(arg))
+                rv = ioctl_str(fd, op, buf.raw)
+                if rv < 0:
+                    raise _get_error(space, "ioctl")
+                arg = rffi.charpsize2str(buf.raw, len(arg))
             return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')

@@ -102,7 +102,7 @@ time <rpython:initialization-time>` in order to let the annotator only see rathe
 program flows with homogeneous name-value assignments on
 function invocations.
 
-.. _how-to guide for descriptors: http://users.rcn.com/python/download/Descriptor.htm
+.. _how-to guide for descriptors: https://docs.python.org/3/howto/descriptor.html
 
 
 Bytecode Interpreter Implementation Classes
@@ -156,7 +156,7 @@ of source code and don't contain execution state or references to the execution
 environment found in `Frames`.  Frames and Functions have references
 to a code object. Here is a list of Code attributes:
 
-* ``co_flags`` flags if this code object has nested scopes/generators
+* ``co_flags`` flags if this code object has nested scopes/generators/etc.
 * ``co_stacksize`` the maximum depth the stack can reach while executing the code
 * ``co_code`` the actual bytecode string
 

@@ -6,12 +6,9 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.runicode import MAXUNICODE
-from rpython.rlib.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
-from rpython.rlib.runicode import code_to_unichr, ord_accepts_surrogate
-import sys
+from rpython.rlib.rarithmetic import r_longlong, r_uint
+from rpython.rlib.unicodedata import unicodedb_8_0_0, unicodedb_3_2_0
+from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8
 
 
 # Contants for Hangul characters
@@ -30,54 +27,24 @@ SCount = (LCount*NCount)
 # unicode code point.
 
 
-if MAXUNICODE > 0xFFFF:
-    # Target is wide build
-    def unichr_to_code_w(space, w_unichr):
-        if not space.isinstance_w(w_unichr, space.w_unicode):
-            raise oefmt(
-                space.w_TypeError, 'argument 1 must be unicode, not %T',
-                w_unichr)
+# Target is wide build
+def unichr_to_code_w(space, w_unichr):
+    if not space.isinstance_w(w_unichr, space.w_unicode):
+        raise oefmt(
+            space.w_TypeError, 'argument 1 must be unicode, not %T',
+            w_unichr)
 
-        if not we_are_translated() and sys.maxunicode == 0xFFFF:
-            # Host CPython is narrow build, accept surrogates
-            try:
-                return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except TypeError:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-        else:
-            if not space.len_w(w_unichr) == 1:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-            return space.int_w(space.ord(w_unichr))
-
-else:
-    # Target is narrow build
-    def unichr_to_code_w(space, w_unichr):
-        if not space.isinstance_w(w_unichr, space.w_unicode):
-            raise oefmt(
-                space.w_TypeError, 'argument 1 must be unicode, not %T',
-                w_unichr)
-
-        if not we_are_translated() and sys.maxunicode > 0xFFFF:
-            # Host CPython is wide build, forbid surrogates
-            if not space.len_w(w_unichr) == 1:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-            return space.int_w(space.ord(w_unichr))
-
-        else:
-            # Accept surrogates
-            try:
-                return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except TypeError:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
+    if not space.len_w(w_unichr) == 1:
+        raise oefmt(space.w_TypeError,
+                    "need a single Unicode character as parameter")
+    return space.int_w(space.ord(w_unichr))
 
 
 class UCD(W_Root):
     def __init__(self, unicodedb):
-        self._lookup = unicodedb.lookup
+        self._unicodedb = unicodedb
+        self._lookup = unicodedb.lookup_with_alias
+        self._lookup_named_sequence = unicodedb.lookup_named_sequence
         self._name = unicodedb.name
         self._decimal = unicodedb.decimal
         self._digit = unicodedb.digit
@@ -106,11 +73,18 @@ class UCD(W_Root):
     @unwrap_spec(name='text')
     def lookup(self, space, name):
         try:
-            code = self._lookup(name.upper())
+            code = self._lookup(name.upper(), with_named_sequence=True)
         except KeyError:
             msg = space.mod(space.newtext("undefined character name '%s'"), space.newtext(name))
             raise OperationError(space.w_KeyError, msg)
-        return space.newunicode(code_to_unichr(code))
+
+        # The code may be a named sequence
+        sequence = self._lookup_named_sequence(code)
+        if sequence is not None:
+            # named sequences only contain UCS2 codes, no surrogates &co.
+            return space.newutf8(sequence.encode('utf-8'), len(sequence))
+
+        return space.newutf8(unichr_as_utf8(r_uint(code)), 1)
 
     def name(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
@@ -313,7 +287,10 @@ class UCD(W_Root):
         return self.build(space, result, stop=next_insert)
 
     def build(self, space, r, stop):
-        return space.newunicode(u''.join([unichr(i) for i in r[:stop]]))
+        builder = Utf8StringBuilder(stop * 3)
+        for i in range(stop):
+            builder.append_code(r[i])
+        return space.newutf8(builder.build(), stop)
 
 
 methods = {}
@@ -331,5 +308,5 @@ UCD.typedef = TypeDef("unicodedata.UCD",
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_5_2_0 = UCD(unicodedb_5_2_0)
-ucd = ucd_5_2_0
+ucd_8_0_0 = UCD(unicodedb_8_0_0)
+ucd = ucd_8_0_0
