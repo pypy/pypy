@@ -739,6 +739,7 @@ class PyFrame(W_Root):
         delta_iblock = min_delta_iblock = 0    # see below for comment
         addr = min_addr
         while addr < max_addr:
+            assert addr & 1 == 0
             op = ord(code[addr])
 
             if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
@@ -749,10 +750,7 @@ class PyFrame(W_Root):
                 if delta_iblock < min_delta_iblock:
                     min_delta_iblock = delta_iblock
 
-            if op >= HAVE_ARGUMENT:
-                addr += 3
-            else:
-                addr += 1
+            addr += 2
 
         # 'min_delta_iblock' is <= 0; its absolute value is the number of
         # blocks we exit.  'go_iblock' is the delta number of blocks
