@@ -12,7 +12,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    getbufferproc, ssizessizeobjargproc)
+    getbufferproc, ssizessizeobjargproc, destructor)
 from pypy.module.cpyext.pyobject import make_ref, from_ref, as_pyobj, decref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
@@ -438,6 +438,16 @@ class wrap_getbuffer(W_PyCWrapperObject):
             fq.register_finalizer(buf)
             return buf.wrap(space)
 
+class wrap_del(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(destructor, func)
+        res = generic_cpy_call(space, func_target, w_self)
+        if res == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.w_None
+
 def get_richcmp_func(OP_CONST):
     class wrap_richcmp(W_PyCWrapperObject):
         def call(self, space, w_self, __args__):
@@ -832,8 +842,21 @@ def make_tp_descr_set(space, typedef, name, attr):
         return 0
     return slot_tp_descr_set
 
+@slot_factory('tp_finalize')
+def make_tp_finalize(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    new_fn = w_type.lookup('__del__')
+    if new_fn is None:
+        return
 
-missing_wrappers = ['wrap_indexargfunc', 'wrap_del']
+    @slot_function([PyObject], lltype.Void)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_tp_finalize(space, w_self):
+        args = Arguments(space, [])
+        return space.call_args(w_self, args)
+    return slot_tp_finalize
+
+missing_wrappers = ['wrap_indexargfunc']
 for name in missing_wrappers:
     assert name not in globals()
     class missing_wrapper(W_PyCWrapperObject):
@@ -848,7 +871,6 @@ def make_missing_slot(space, typedef, name, attr):
 
 missing_builtin_slots = [
     'tp_print', 'tp_compare', 'tp_getattr', 'tp_setattr', 'tp_setattro',
-    'tp_finalize',
     'tp_richcompare', 'tp_del', 'tp_as_buffer.c_bf_getwritebuffer',
     'tp_as_number.c_nb_bool', 'tp_as_number.c_nb_coerce',
     'tp_as_number.c_nb_inplace_add', 'tp_as_number.c_nb_inplace_subtract',
