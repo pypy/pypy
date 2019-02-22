@@ -5,11 +5,14 @@ import platform
 from cffi import FFI
 
 IS_ARM = platform.machine().startswith('arm')
+IS_WIN = sys.platform == 'win32'
 if IS_ARM:
     # XXX Choose neon accelaration
-    define_macros = []
+    extra_compile_args = []
+elif IS_WIN:
+    extra_compile_args = ['/arch:SSE2']
 else:
-    define_macros = [('__SSE2__', '1')]
+    extra_compile_args = ['-msse2']
     
     
 
@@ -82,7 +85,7 @@ blake2b_ffi.set_source(
     sources=[os.path.join(_libdir, 'blake2b.c'),
             ],
     include_dirs=[_libdir],
-    define_macros=define_macros,
+    extra_compile_args=extra_compile_args,
 )
 
 def _replace_b2s(src):
@@ -98,7 +101,7 @@ blake2s_ffi.set_source(
     sources=[os.path.join(_libdir, 'blake2s.c'),
             ],
     include_dirs=[_libdir],
-    define_macros=define_macros,
+    extra_compile_args=extra_compile_args,
 )
 
 if __name__ == '__main__':
