@@ -1053,7 +1053,7 @@ class AppTestCompiler(object):
         assert d['c1'] == tuple(sorted(d['c1']))
         assert d['r1'] == d['r2'] == d['c1']
 
-    def test_ast_equality(self):
+    def test_code_equality(self):
         import _ast
         sample_code = [
             ['<assign>', 'x = 5'],
