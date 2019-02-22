@@ -87,7 +87,7 @@ class Local(W_Root):
         Local.__init__(local, space, __args__)
         return local
 
-Local.typedef = TypeDef("thread._local",
+Local.typedef = TypeDef("_thread._local",
                         __doc__ = "Thread-local data",
                         __new__ = interp2app(Local.descr_local__new__.im_func),
                         __dict__ = GetSetProperty(descr_get_dict, cls=Local),
