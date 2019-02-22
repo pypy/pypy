@@ -329,11 +329,13 @@ class StdObjSpace(ObjSpace):
         return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_text(self, list_t):
-        return self.newlist_utf8([decode_utf8sp(self, s)[0] for s in list_t])
+        return self.newlist_utf8([decode_utf8sp(self, s)[0] for s in list_t], False)
 
-    def newlist_utf8(self, list_u, is_ascii=True):
-        # TODO ignoring is_ascii, is that correct?
-        return W_ListObject.newlist_utf8(self, list_u)
+    def newlist_utf8(self, list_u, is_ascii):
+        if is_ascii:
+            return W_ListObject.newlist_utf8(self, list_u)
+        return ObjSpace.newlist_utf8(self, list_u, False)
+
 
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
