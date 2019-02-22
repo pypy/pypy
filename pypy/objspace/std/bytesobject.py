@@ -603,7 +603,7 @@ class W_BytesObject(W_AbstractBytesObject):
             w_format_spec = space.str(w_format_spec)
         spec = space.bytes_w(w_format_spec)
         formatter = newformat.str_formatter(space, spec)
-        return formatter.format_string(self._value)
+        return formatter.format_string(self)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=False)

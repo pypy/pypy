@@ -325,7 +325,7 @@ class W_UnicodeObject(W_Root):
         formatter = newformat.unicode_formatter(space, spec)
         self2 = unicode_from_object(space, self)
         assert isinstance(self2, W_UnicodeObject)
-        return formatter.format_string(self2._utf8)
+        return formatter.format_string(self2)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)

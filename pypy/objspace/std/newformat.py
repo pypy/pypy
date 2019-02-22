@@ -566,8 +566,12 @@ def make_formatting_class(for_unicode):
             raise oefmt(self.space.w_ValueError,
                         "unknown presentation for %s: '%s'", tp, self._type)
 
-        def format_string(self, string):
+        def format_string(self, w_string):
             space = self.space
+            if for_unicode:
+                string = space.utf8_w(w_string)
+            else:
+                string = space.bytes_w(w_string)
             if self._parse_spec("s", "<"):
                 return self.wrap(string)
             if self._type != "s":
@@ -583,7 +587,7 @@ def make_formatting_class(for_unicode):
                 raise oefmt(space.w_ValueError,
                             "'=' alignment not allowed in string format "
                             "specifier")
-            length = len(string)
+            length = space.len_w(w_string)
             precision = self._precision
             if precision != -1 and length >= precision:
                 assert precision >= 0
