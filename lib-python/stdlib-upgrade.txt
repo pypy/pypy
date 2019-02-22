@@ -11,7 +11,7 @@ Process for upgrading the stdlib to a new cpython version
 2. upgrade the files there
    2a. remove lib-python/2.7/ or lib-python/3/
    2b. copy the files from the cpython repo
-   2c. copy _ctypes_test.c to lib_pypy/
+   2c. copy _ctypes_test.c and _testcapimodule.c to lib_pypy/
    2d. hg add lib-python/2.7/ or lib-python/3/
    2e. hg remove --after
    2f. show copied files in cpython repo by running `hg diff --git -r v<old> -r v<new> Lib | grep '^copy \(from\|to\)'`
