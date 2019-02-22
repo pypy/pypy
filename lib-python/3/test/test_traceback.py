@@ -351,7 +351,8 @@ class TracebackFormatTests(unittest.TestCase):
 
         # Check the recursion count is roughly as expected
         rec_limit = sys.getrecursionlimit()
-        self.assertIn(int(re.search(r"\d+", actual[-2]).group()), range(rec_limit-60, rec_limit))
+        # PyPy's recursion limit is a lot less precise
+        self.assertIn(int(re.search(r"\d+", actual[-2]).group()), range(rec_limit-100, 2*rec_limit))
 
         # Check a known (limited) number of recursive invocations
         def g(count=10):
