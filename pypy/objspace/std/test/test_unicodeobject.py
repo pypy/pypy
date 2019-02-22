@@ -1276,3 +1276,6 @@ class AppTestUnicodeString:
         assert str(e.value) == 'decoding Unicode is not supported'
         e = raises(TypeError, unicode, z, 'supposedly_the_encoding')
         assert str(e.value) == 'decoding Unicode is not supported'
+
+    def test_newlist_utf8_non_ascii(self):
+        'ä'.split("\n")[0] # does not crash
