@@ -610,7 +610,7 @@ def make_formatting_class(for_unicode):
                 raise oefmt(space.w_ValueError,
                             "'=' alignment not allowed in string format "
                             "specifier")
-            length = len(string)
+            length = space.len_w(w_string)
             precision = self._precision
             if precision != -1 and length >= precision:
                 assert precision >= 0
