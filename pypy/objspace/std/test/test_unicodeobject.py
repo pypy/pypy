@@ -1345,3 +1345,6 @@ class AppTestUnicodeString:
         assert next(it3) == u"e"
         assert next(it3) == u"f"
 
+
+    def test_newlist_utf8_non_ascii(self):
+        'ä'.split("\n")[0] # does not crash
