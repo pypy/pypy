@@ -471,6 +471,9 @@ def _convert_const(space, w_a):
     if space.is_w(w_type, space.w_unicode):
         # unicodes are supposed to compare by value
         return w_a
+    if space.is_w(w_type, space.w_bytes):
+        # bytes too
+        return w_a
     if isinstance(w_a, PyCode):
         # for code objects we use the logic recursively
         return w_a

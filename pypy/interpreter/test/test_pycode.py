@@ -45,6 +45,7 @@ def test_strong_const_equal(space):
         space.newfrozenset(),
         space.newtuple([]),
         space.newutf8(s, len(s)),
+        space.newbytes(s),
     ]
     for w_a in values:
         assert _code_const_eq(space, w_a, w_a)
@@ -69,3 +70,5 @@ def test_strong_const_equal(space):
         s2 = 'Python' + str(11)
         assert _code_const_eq(space, space.newutf8(s1, len(s1)),
                               space.newutf8(s2, len(s2)))
+        assert _code_const_eq(space, space.newbytes(s1),
+                              space.newbytes(s2))
