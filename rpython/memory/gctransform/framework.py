@@ -518,6 +518,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.rawrefcount_cyclic_garbage_remove_ptr = getfn(
                 GCClass.rawrefcount_cyclic_garbage_remove, [s_gc],
                 annmodel.s_None, inline = True)
+            self.rawrefcount_next_garbage_ptr = getfn(
+                GCClass.rawrefcount_next_garbage, [s_gc],
+                SomeAddress(), inline = True)
 
         if GCClass.can_usually_pin_objects:
             self.pin_ptr = getfn(GCClass.pin,
@@ -1425,6 +1428,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.rawrefcount_cyclic_garbage_remove_ptr,
                    self.c_const_gc])
+
+    def gct_gc_rawrefcount_next_garbage(self, hop):
+        assert hop.spaceop.result.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_next_garbage_ptr, self.c_const_gc],
+                  resultvar=hop.spaceop.result)
 
     def _set_into_gc_array_part(self, op):
         if op.opname == 'setarrayitem':

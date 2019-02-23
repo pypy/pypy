@@ -3217,6 +3217,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         gchdr.c_gc_next = next
         next.c_gc_prev = gchdr
 
+    def rawrefcount_next_garbage(self):
+        return llmemory.NULL
+
+
     def rrc_invoke_callback(self):
         if self.rrc_enabled and (self.rrc_dealloc_pending.non_empty() or
                                  self.rrc_pyobj_isolate_list.c_gc_next <>

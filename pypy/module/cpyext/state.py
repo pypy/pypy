@@ -78,7 +78,9 @@ class State:
         if not self.space.config.translating:
             def dealloc_trigger():
                 from pypy.module.cpyext.pyobject import PyObject, decref, \
-                    incref, cts, finalize
+                    incref, cts, finalize, from_ref
+                w_list = space.getattr(space.builtin_modules['gc'],
+                                       space.newtext('garbage'))
                 print 'dealloc_trigger...'
                 while True:
                     ob = rawrefcount.next_dead(PyObject)
@@ -113,6 +115,12 @@ class State:
                     if adr_int == llmemory.cast_adr_to_int(
                             llmemory.cast_ptr_to_adr(head)):
                         rawrefcount.cyclic_garbage_remove()
+                while True:
+                    py_obj = rawrefcount.next_garbage(PyObject)
+                    if not py_obj:
+                        break
+                    w_obj = from_ref(space, py_obj)
+                    w_list.append(w_obj)
                 print 'dealloc_trigger DONE'
                 return "RETRY"
             def tp_traverse(pyobj_ptr, callback, args):
@@ -274,7 +282,12 @@ class CNamespace:
 
 
 def _rawrefcount_perform(space):
-    from pypy.module.cpyext.pyobject import PyObject, incref, decref, finalize
+    from pypy.module.cpyext.pyobject import (PyObject, incref, decref,
+                                             finalize, from_ref)
+
+    w_list = space.getattr(space.builtin_modules['gc'],
+                           space.newtext('garbage'))
+
     while True:
         py_obj = rawrefcount.next_dead(PyObject)
         if not py_obj:
@@ -291,17 +304,22 @@ def _rawrefcount_perform(space):
         py_obj = rawrefcount.cyclic_garbage_head(PyObject)
         if not py_obj:
             break
-
         pyobj = rffi.cast(PyObject, py_obj)
         adr_int = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(pyobj))
         if pyobj.c_ob_type.c_tp_clear:
             incref(space, py_obj)
             pyobj.c_ob_type.c_tp_clear(pyobj)
             decref(space, py_obj)
-
         head = rawrefcount.cyclic_garbage_head(PyObject)
         if adr_int == llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(head)):
             rawrefcount.cyclic_garbage_remove()
+
+    while True:
+        py_obj = rawrefcount.next_garbage(PyObject)
+        if not py_obj:
+            break
+        w_obj = from_ref(space, py_obj)
+        w_list.append(w_obj)
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.
