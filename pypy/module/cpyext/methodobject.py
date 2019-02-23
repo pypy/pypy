@@ -100,7 +100,7 @@ class W_PyCFunctionObject(W_Root):
 
     def call_o(self, space, w_self, __args__):
         func = self.ml.c_ml_meth
-        w_o = __args__.arguments_w[0]        
+        w_o = __args__.arguments_w[0]
         return generic_cpy_call(space, func, w_self, w_o)
 
     def call_varargs(self, space, w_self, __args__):

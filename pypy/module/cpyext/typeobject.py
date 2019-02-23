@@ -131,21 +131,48 @@ def init_memberdescrobject(space):
                    basestruct=cts.gettype('PyMemberDescrObject'),
                    attach=memberdescr_attach,
                    realize=memberdescr_realize,
+                   dealloc=descr_dealloc,
                    )
     make_typedescr(W_GetSetPropertyEx.typedef,
                    basestruct=cts.gettype('PyGetSetDescrObject'),
                    attach=getsetdescr_attach,
+                   dealloc=descr_dealloc,
                    )
     make_typedescr(W_PyCClassMethodObject.typedef,
                    basestruct=cts.gettype('PyMethodDescrObject'),
                    attach=methoddescr_attach,
                    realize=classmethoddescr_realize,
+                   dealloc=descr_dealloc,
                    )
     make_typedescr(W_PyCMethodObject.typedef,
                    basestruct=cts.gettype('PyMethodDescrObject'),
                    attach=methoddescr_attach,
                    realize=methoddescr_realize,
+                   dealloc=descr_dealloc,
                    )
+
+def init_descr(space, py_obj, w_type, c_name):
+    """Initialises the common fields in a PyDescrObject
+
+    Arguments:
+        py_obj: PyObject* pointer to a PyDescrObject
+        w_type: W_TypeObject
+        c_name: char*
+    """
+    from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
+    py_descr = cts.cast('PyDescrObject*', py_obj)
+    py_descr.c_d_type = cts.cast(
+        'PyTypeObject*', make_ref(space, w_type))
+    py_descr.c_d_name = make_ref(
+        space, PyUnicode_FromString(space, c_name))
+
+@slot_function([PyObject], lltype.Void)
+def descr_dealloc(space, py_obj):
+    from pypy.module.cpyext.object import _dealloc
+    py_descr = cts.cast('PyDescrObject*', py_obj)
+    decref(space, py_descr.c_d_type)
+    decref(space, py_descr.c_d_name)
+    _dealloc(space, py_obj)
 
 def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     """
@@ -153,9 +180,9 @@ def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     object. The values must not be modified.
     """
     py_memberdescr = cts.cast('PyMemberDescrObject*', py_obj)
-    # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_MemberDescr)
     py_memberdescr.c_d_member = w_obj.member
+    init_descr(space, py_obj, w_obj.w_type, w_obj.member.c_name)
 
 def memberdescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called?
@@ -178,15 +205,15 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
         w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
         # now w_obj.getset is py_getsetdef, which was freshly allocated
         # XXX how is this ever released?
-    # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
+    init_descr(space, py_obj, w_obj.w_type, w_obj.getset.c_name)
 
 def methoddescr_attach(space, py_obj, w_obj, w_userdata=None):
     py_methoddescr = cts.cast('PyMethodDescrObject*', py_obj)
-    # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_PyCFunctionObject)
     py_methoddescr.c_d_method = w_obj.ml
+    init_descr(space, py_obj, w_obj.w_objclass, w_obj.ml.c_ml_name)
 
 def classmethoddescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called?
@@ -205,6 +232,7 @@ def methoddescr_realize(space, obj):
     w_obj.__init__(space, method, w_type)
     track_reference(space, obj, w_obj)
     return w_obj
+
 
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
