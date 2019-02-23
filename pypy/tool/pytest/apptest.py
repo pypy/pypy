@@ -147,7 +147,7 @@ def run_with_python(python_, target_, usemodules, **definitions):
             # They may be extension modules on CPython
             name = None
             for name in missing.copy():
-                if name == 'cpyext':
+                if name in ['cpyext', '_cffi_backend']:
                     missing.remove(name)
                     continue
                 try:
