@@ -147,8 +147,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
     def test_cython_fake_classmethod(self):
         module = self.import_module(name='foo')
-        print(module.fooType.fake_classmeth)
-        print(type(module.fooType.fake_classmeth))
+
+        # Check that objects are printable
+        print(module.fooType.fake_classmeth)  # bound method on the class
+        print(module.fooType.__dict__['fake_classmeth']) # raw descriptor
+
         assert module.fooType.fake_classmeth() is module.fooType
 
     def test_new(self):
@@ -422,7 +425,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             pass
         obj = Sub()
         assert module.hack_tp_dict(obj, "b") == 2
-        
+
 
     def test_tp_descr_get(self):
         module = self.import_extension('foo', [
