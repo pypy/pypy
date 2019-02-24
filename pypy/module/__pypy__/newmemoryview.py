@@ -6,33 +6,6 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.objspace.std.memoryobject import BufferViewND
 
-pep3118_size_map = {
-    # from struct documentation https://docs.python.org/3/library/struct.html
-    'x': 1, #padding
-    '?': 1,
-    'c': 1,
-    'b': 1,
-    'B': 1,
-    'h': 2,
-    'H': 2,
-    'i': 4,
-    'I': 4,
-    'l': 4,
-    'L': 4,
-    'q': 8,
-    'Q': 8,
-    'e': 2,
-    'f': 4,
-    'd': 8,
-    # pep 3118 extensions
-    # https://www.python.org/dev/peps/pep-3118/#additions-to-the-struct-string-syntax
-    'g': 16, # long double - is this platform dependent?
-    'Zf': 8,
-    'Zd':16,
-    'Zg':32,
-    # Unhandled: 's', 'w' (UCS-4), 'c' (usc-1), 'u' (usc-2), 'O' (PyObject*),
-}
-
 @unwrap_spec(itemsize=int, format='text')
 def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
     '''
