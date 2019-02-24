@@ -19,7 +19,7 @@ try:
 except ImportError:
     pass
 else:
-    if __version__[:2] < '3.6':
+    if __version__[:3] < '3.6':
         s = settings(deadline=None)
         settings.register_profile('default', s)
     else:
