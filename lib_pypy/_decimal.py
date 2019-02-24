@@ -1295,6 +1295,13 @@ class Context(object):
             raise RuntimeError("Invalid error flag", trapped)
 
     def create_decimal(self, num="0"):
+        """Creates a new Decimal instance but using self as context.
+
+        This method implements the to-number operation of the
+        IBM Decimal specification."""
+
+        if isinstance(num, str) and (num != num.strip() or '_' in num):
+            num = '' # empty string triggers ConversionSyntax
         return Decimal._from_object(num, self, exact=False)
 
     def create_decimal_from_float(self, f):
