@@ -59,14 +59,20 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
                   "shape %s and strides %s exceed object size %d",
                   shape, strides, nbytes)
     view = space.buffer_w(w_obj, 0)
-    return space.newmemoryview(FormatBufferViewND(view, format, ndim, shape, strides))
+    return space.newmemoryview(FormatBufferViewND(view, itemsize, format, ndim,
+                                                  shape, strides))
 
 class FormatBufferViewND(BufferViewND):
     _immutable_ = True
-    _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides', 'format']
-    def __init__(self, parent, format, ndim, shape, strides):
+    _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides',
+               'format', 'itemsize']
+    def __init__(self, parent, itemsize, format, ndim, shape, strides):
         BufferViewND.__init__(self, parent, ndim, shape, strides)
-        self.format = format 
+        self.format = format
+        self.itemsize = itemsize
 
     def getformat(self):
         return self.format
+
+    def getitemsize(self):
+        return self.itemsize

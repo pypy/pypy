@@ -13,5 +13,4 @@ class AppTestMinimal:
                           strides=(6, 2))
         assert m.strides == (6, 2)
         assert m.format == 'T{<h:a}'
-        
- 
+        assert m.itemsize == 2
