@@ -43,7 +43,7 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.view.get_raw_address())
         # not used in PyPy to keep something alive,
         # but some c-extensions check the type without checking for NULL
-        view.c_obj = make_ref(space.w_None)
+        view.c_obj = make_ref(space, space.w_None)
         rffi.setintfield(view, 'c_readonly', w_obj.view.readonly)
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
