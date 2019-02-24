@@ -110,6 +110,7 @@ class Module(MixedModule):
         'side_effects_ok'           : 'interp_magic.side_effects_ok',
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
         'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
+        'newmemoryview'             : 'newmemoryview.newmemoryview',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

@@ -309,3 +309,86 @@ def PyBuffer_isContiguous(suboffsets, ndim, shape, strides, itemsize, fort):
         return (_IsCContiguous(ndim, shape, strides, itemsize) or
                 _IsFortranContiguous(ndim, shape, strides, itemsize))
     return 0
+
+
+class IndirectView(BufferView):
+    """Base class for views into another BufferView"""
+    _immutable_ = True
+    _attrs_ = ['readonly', 'parent']
+
+    def getlength(self):
+        return self.parent.getlength()
+
+    def as_str(self):
+        return self.parent.as_str()
+
+    def as_str_and_offset_maybe(self):
+        return self.parent.as_str_and_offset_maybe()
+
+    def getbytes(self, start, size):
+        return self.parent.getbytes(start, size)
+
+    def setbytes(self, start, string):
+        self.parent.setbytes(start, string)
+
+    def get_raw_address(self):
+        return self.parent.get_raw_address()
+
+    def as_readbuf(self):
+        return self.parent.as_readbuf()
+
+    def as_writebuf(self):
+        return self.parent.as_writebuf()
+
+class BufferView1D(IndirectView):
+    _immutable_ = True
+    _attrs_ = ['readonly', 'parent', 'format', 'itemsize']
+
+    def __init__(self, parent, format, itemsize):
+        self.parent = parent
+        self.readonly = parent.readonly
+        self.format = format
+        self.itemsize = itemsize
+
+    def getformat(self):
+        return self.format
+
+    def getitemsize(self):
+        return self.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength() // self.itemsize]
+
+    def getstrides(self):
+        return [self.itemsize]
+
+class BufferViewND(IndirectView):
+    _immutable_ = True
+    _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides']
+
+    def __init__(self, parent, ndim, shape, strides):
+        assert parent.getndim() == 1
+        assert len(shape) == len(strides) == ndim
+        self.parent = parent
+        self.readonly = parent.readonly
+        self.ndim = ndim
+        self.shape = shape
+        self.strides = strides
+
+    def getformat(self):
+        return self.parent.getformat()
+
+    def getitemsize(self):
+        return self.parent.getitemsize()
+
+    def getndim(self):
+        return self.ndim
+
+    def getshape(self):
+        return self.shape
+
+    def getstrides(self):
+        return self.strides

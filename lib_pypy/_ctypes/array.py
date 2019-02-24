@@ -4,6 +4,7 @@ import _rawffi
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject, as_ffi_pointer
+import sys, __pypy__
 
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
@@ -241,6 +242,21 @@ class Array(_CData):
     def _as_ffi_pointer_(self, ffitype):
         return as_ffi_pointer(self, ffitype)
 
+    def __buffer__(self, flags):
+        shape = []
+        obj = self
+        while 1:
+            shape.append(obj._length_)
+            try:
+                obj[0]._length_
+            except AttributeError:
+                break
+            obj = obj[0]
+        
+        fmt = get_format_str(obj._type_)
+        itemsize = len(buffer(obj[0]))
+        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
+
 ARRAY_CACHE = {}
 
 def create_array_type(base, length):
@@ -260,3 +276,25 @@ def create_array_type(base, length):
         cls = ArrayMeta(name, (Array,), tpdict)
         ARRAY_CACHE[key] = cls
         return cls
+
+byteorder = {'little': '>', 'big': '<'}
+swappedorder = {'little': '<', 'big': '>'}
+
+def get_format_str(typ):
+    if hasattr(typ, '_fields_'):
+        if hasattr(typ, '_swappedbytes_'):
+            bo = swappedorder[sys.byteorder]
+        else:
+            bo = byteorder[sys.byteorder]
+        flds = []
+        for name, obj in typ._fields_:
+            flds.append(bo)
+            flds.append(get_format_str(obj))
+            flds.append(':')
+            flds.append(name)
+            flds.append(':')
+        return 'T{' + ''.join(flds) + '}'
+    elif hasattr(typ, '_type_'):
+        return typ._type_
+    else:
+        raise ValueError('cannot get format string for %r' % typ)
