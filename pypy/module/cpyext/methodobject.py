@@ -62,7 +62,7 @@ class W_PyCFunctionObject(W_Root):
 
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
-        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP,self.ml.c_ml_name))
+        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP, self.ml.c_ml_name))
         self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         self.w_self = w_self
         self.w_module = w_module

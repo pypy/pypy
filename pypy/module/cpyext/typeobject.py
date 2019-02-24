@@ -151,7 +151,7 @@ def init_memberdescrobject(space):
                    dealloc=descr_dealloc,
                    )
 
-def init_descr(space, py_obj, w_type, c_name):
+def init_descr(space, py_obj, w_type, name):
     """Initialises the common fields in a PyDescrObject
 
     Arguments:
@@ -159,12 +159,10 @@ def init_descr(space, py_obj, w_type, c_name):
         w_type: W_TypeObject
         c_name: char*
     """
-    from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
     py_descr = cts.cast('PyDescrObject*', py_obj)
     py_descr.c_d_type = cts.cast(
         'PyTypeObject*', make_ref(space, w_type))
-    py_descr.c_d_name = make_ref(
-        space, PyUnicode_FromString(space, c_name))
+    py_descr.c_d_name = make_ref(space, space.newtext(name))
 
 @slot_function([PyObject], lltype.Void)
 def descr_dealloc(space, py_obj):
@@ -182,7 +180,7 @@ def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     py_memberdescr = cts.cast('PyMemberDescrObject*', py_obj)
     assert isinstance(w_obj, W_MemberDescr)
     py_memberdescr.c_d_member = w_obj.member
-    init_descr(space, py_obj, w_obj.w_type, w_obj.member.c_name)
+    init_descr(space, py_obj, w_obj.w_type, w_obj.name)
 
 def memberdescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called?
@@ -207,13 +205,13 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
         # XXX how is this ever released?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
-    init_descr(space, py_obj, w_obj.w_type, w_obj.getset.c_name)
+    init_descr(space, py_obj, w_obj.w_type, w_obj.name)
 
 def methoddescr_attach(space, py_obj, w_obj, w_userdata=None):
     py_methoddescr = cts.cast('PyMethodDescrObject*', py_obj)
     assert isinstance(w_obj, W_PyCFunctionObject)
     py_methoddescr.c_d_method = w_obj.ml
-    init_descr(space, py_obj, w_obj.w_objclass, w_obj.ml.c_ml_name)
+    init_descr(space, py_obj, w_obj.w_objclass, w_obj.name)
 
 def classmethoddescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called?
