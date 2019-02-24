@@ -252,7 +252,7 @@ class fakearenaaddress(llmemory.fakeaddress):
 
     def _cast_to_int(self, symbolic=False):
         assert not symbolic
-        return self.arena._getid() + self.offset
+        return rffi.cast(lltype.Signed, self.arena._getid() + self.offset)
 
 
 def getfakearenaaddress(addr):
