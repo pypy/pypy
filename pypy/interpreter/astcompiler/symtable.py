@@ -451,6 +451,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
             target.walkabout(self)
         if assign.value is not None:
             assign.value.walkabout(self)
+        if assign.annotation is not None:
+            assign.annotation.walkabout(self)
 
     def visit_ClassDef(self, clsdef):
         self.note_symbol(clsdef.name, SYM_ASSIGNED)

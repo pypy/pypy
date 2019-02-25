@@ -156,3 +156,13 @@ a: int
         """
         c = compile(s, "f", "exec")
         assert c.co_firstlineno == 3
+
+    def test_scoping(self):
+        exec("""if 1:
+            def f(classvar):
+                class C:
+                    cls: classvar = 23
+                assert C.__annotations__ == {"cls": "abc"}
+
+            f("abc")
+        """)
