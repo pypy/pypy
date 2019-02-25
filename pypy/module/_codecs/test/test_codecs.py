@@ -59,6 +59,10 @@ class AppTestCodecs:
         assert str(UnicodeDecodeError(
             "ascii", b"g\xfcrk", 1, 3, "ouch")) == "'ascii' codec can't decode bytes in position 1-2: ouch"
 
+    def test_unicodedecodeerror_utf8(self):
+        error = raises(UnicodeDecodeError, b'\xf6'.decode, "utf-8").value
+        assert str(error) == "'utf-8' codec can't decode byte 0xf6 in position 0: invalid start byte"
+
     def test_unicodetranslateerror(self):
         import sys
         assert str(UnicodeTranslateError(
