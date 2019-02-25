@@ -2125,11 +2125,7 @@ class GenericTaskTests(test_utils.TestCase):
         # module non-importable.  This is a simple test that will
         # fail on systems where C modules were successfully compiled
         # (hence the test for _functools), but _asyncio somehow didn't.
-        try:
-            import _functools
-        except ImportError:
-            pass
-        else:
+        if hasattr(futures, '_CFuture'):
             try:
                 import _asyncio
             except ImportError:
