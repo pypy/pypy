@@ -431,7 +431,7 @@ class W_UnicodeObject(W_Root):
                 codes = unicodedb.tolower_full(ch)
             for c in codes:
                 builder.append_code(c)
-            previous_is_cased = unicodedb.iscased(codes[-1])
+            previous_is_cased = unicodedb.iscased(ch)
             i += 1
         return self.from_utf8builder(builder)
 

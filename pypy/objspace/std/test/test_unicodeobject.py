@@ -1,12 +1,11 @@
 # -*- encoding: utf-8 -*-
 import py
-import sys
 try:
     from hypothesis import given, strategies, settings, example
     HAS_HYPOTHESIS = True
 except ImportError:
     HAS_HYPOTHESIS = False
-    
+
 from rpython.rlib import rutf8
 from pypy.interpreter.error import OperationError
 
@@ -355,6 +354,9 @@ class AppTestUnicodeString:
         assert u'\ud800'.title() == u'\ud800'
         assert (chr(0x345) + u'abc').title() == u'\u0399abc'
         assert (chr(0x345) + u'ABC').title() == u'\u0399abc'
+
+    def test_title_bug(self):
+        assert (chr(496) + "abc").title() == 'J̌abc'
 
     def test_istitle(self):
         assert u"".istitle() == False
