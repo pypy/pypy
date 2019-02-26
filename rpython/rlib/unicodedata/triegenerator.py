@@ -132,11 +132,12 @@ def name_of_node(charnode):
             stridx = parentstr & ((1<<%(STRIDXBITS)d)-1)
             strlen = ord(_stringtable[stridx])
             substring = _stringtable[stridx+1:stridx+1+strlen]
-            res.insert(0, substring)
+            res.append(substring)
 
         prevnode = charnode // 3
         charnode = parent
 
+    res.reverse()
     return ''.join(res)
 
 """ % globals()
@@ -217,18 +218,21 @@ def build_compression_tree(outfile, ucdata):
     function = ["def lookup_charcode(code):",
                 "    res = -1"]
     ranges = collapse_ranges(findranges(reversedict))
+    prefix = ""
     for low, high in ranges:
         if high - low <= MINLIST:
             for code in range(low, high + 1):
                 if code in reversedict:
                     function.append(
-                        "    if code == %d: res = %s" %
-                        (code, reversedict[code].index))
+                        "    %sif code == %d: res = %s" %
+                        (prefix, code, reversedict[code].index))
+                    prefix = "el"
             continue
 
         function.append(
-            "    if %d <= code <= %d: res = _charnames_%d[code-%d]" % (
-            low, high, low, low))
+            "    %sif %d <= code <= %d: res = _charnames_%d[code-%d]" % (
+            prefix, low, high, low, low))
+        prefix = "el"
 
         print >> outfile, "_charnames_%d = [" % (low,)
         for code in range(low, high + 1):
