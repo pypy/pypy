@@ -73,7 +73,7 @@ PyDict_Check, PyDict_CheckExact = build_type_checkers_flags("Dict")
              result_borrowed=True)
 def PyDict_GetItem(space, w_dict, w_key):
     if not isinstance(w_dict, W_DictMultiObject):
-        raise PyErr_BadInternalCall(space)
+        return None
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
@@ -83,14 +83,14 @@ def PyDict_GetItem(space, w_dict, w_key):
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_SetItem(space, w_dict, w_key, w_obj):
     if not isinstance(w_dict, W_DictMultiObject):
-        raise PyErr_BadInternalCall(space)
+        PyErr_BadInternalCall(space)
     w_dict.setitem(w_key, w_obj)
     return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_DelItem(space, w_dict, w_key):
     if not isinstance(w_dict, W_DictMultiObject):
-        raise PyErr_BadInternalCall(space)
+        PyErr_BadInternalCall(space)
     w_dict.descr_delitem(space, w_key)
     return 0
 
@@ -98,7 +98,7 @@ def PyDict_DelItem(space, w_dict, w_key):
 def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
     w_key = space.newtext(rffi.charp2str(key_ptr))
     if not isinstance(w_dict, W_DictMultiObject):
-        raise PyErr_BadInternalCall(space)
+        PyErr_BadInternalCall(space)
     w_dict.setitem(w_key, w_obj)
     return 0
 
@@ -109,7 +109,7 @@ def PyDict_GetItemString(space, w_dict, key):
     char*, rather than a PyObject*."""
     w_key = space.newtext(rffi.charp2str(key))
     if not isinstance(w_dict, W_DictMultiObject):
-        raise PyErr_BadInternalCall(space)
+        return None
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.

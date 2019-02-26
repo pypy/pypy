@@ -153,6 +153,7 @@ def prev_codepoint_pos(code, pos):
     """Gives the position of the previous codepoint.
     'pos' must not be zero.
     """
+    assert pos != 0
     pos -= 1
     if pos >= len(code):     # for the case where pos - 1 == len(code):
         assert pos >= 0
@@ -810,6 +811,18 @@ class Utf8StringIterator(object):
             return (ordch1 << 18) + (ordch2 << 12) + (ordch3 << 6) + ordch4 - (
                    (0xF0   << 18) + (0x80   << 12) + (0x80   << 6) + 0x80     )
         assert False, "unreachable"
+
+class Utf8StringPosIterator(object):
+    def __init__(self, utf8s):
+        self.it = Utf8StringIterator(utf8s)
+
+    def __iter__(self):
+        return self
+
+    @always_inline
+    def next(self):
+        pos = self.it.get_pos()
+        return (self.it.next(), pos)
 
 
 def decode_latin_1(s):
