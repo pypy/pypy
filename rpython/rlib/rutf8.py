@@ -819,7 +819,6 @@ class Utf8StringPosIterator(object):
     def __iter__(self):
         return self
 
-    @always_inline
     def next(self):
         pos = self.it.get_pos()
         return (self.it.next(), pos)
