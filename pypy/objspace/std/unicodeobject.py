@@ -395,73 +395,70 @@ class W_UnicodeObject(W_Root):
     def descr_swapcase(self, space):
         value = self._utf8
         builder = rutf8.Utf8StringBuilder(len(value))
-        i = 0
-        for ch in rutf8.Utf8StringIterator(value):
+        for ch, pos in rutf8.Utf8StringPosIterator(value):
             if unicodedb.isupper(ch):
-                codes = self._lower_char(ch, value, i)
+                codes = self._lower_char(ch, value, pos)
             elif unicodedb.islower(ch):
                 codes = unicodedb.toupper_full(ch)
             else:
                 codes = [ch,]
             for c in codes:
                 builder.append_code(c)
-            i += 1
         return self.from_utf8builder(builder)
 
     def descr_title(self, space):
         if len(self._utf8) == 0:
             return self
-        return self.title_unicode(self._utf8)
+        return self.title_unicode()
 
     @jit.elidable
-    def title_unicode(self, value):
-        input = self._utf8
-        builder = rutf8.Utf8StringBuilder(len(input))
+    def title_unicode(self):
+        value = self._utf8
+        builder = rutf8.Utf8StringBuilder(len(value))
         previous_is_cased = False
-        i = 0
-        for ch in rutf8.Utf8StringIterator(input):
+        for ch, pos in rutf8.Utf8StringPosIterator(value):
             if previous_is_cased:
-                codes = self._lower_char(ch, value, i)
+                codes = self._lower_char(ch, value, pos)
             else:
                 codes = unicodedb.totitle_full(ch)
             for c in codes:
                 builder.append_code(c)
             previous_is_cased = unicodedb.iscased(ch)
-            i += 1
         return self.from_utf8builder(builder)
 
-    def _lower_char(self, ch, value, i):
+    def _lower_char(self, ch, value, bytepos):
         if ch == 0x3a3:
-            return [self._handle_capital_sigma(value, i), ]
+            return [self._handle_capital_sigma(value, bytepos), ]
         else:
             return unicodedb.tolower_full(ch)
 
-    def _handle_capital_sigma(self, value, i):
+    def _handle_capital_sigma(self, value, bytepos):
         # U+03A3 is in the Final_Sigma context when, it is found like this:
         #\p{cased} \p{case-ignorable}* U+03A3 not(\p{case-ignorable}* \p{cased})
         # where \p{xxx} is a character with property xxx.
 
-        # TODO: find a better way for utf8 -> codepoints
-        value = [ch for ch in rutf8.Utf8StringIterator(value)]
-        j = i - 1
         final_sigma = False
-        while j >= 0:
-            ch = value[j]
-            if unicodedb.iscaseignorable(ch):
-                j -= 1
-                continue
-            final_sigma = unicodedb.iscased(ch)
-            break
-        if final_sigma:
-            j = i + 1
-            length = len(value)
-            while j < length:
-                ch = value[j]
+        if bytepos > 0:
+            j = rutf8.prev_codepoint_pos(value, bytepos)
+            while j >= 0:
+                ch = rutf8.codepoint_at_pos(value, j)
                 if unicodedb.iscaseignorable(ch):
-                    j += 1
+                    if j == 0:
+                        break
+                    j = rutf8.prev_codepoint_pos(value, j)
                     continue
-                final_sigma = not unicodedb.iscased(ch)
+                final_sigma = unicodedb.iscased(ch)
                 break
+            if final_sigma and bytepos < len(value):
+                j = rutf8.next_codepoint_pos(value, bytepos)
+                length = len(value)
+                while j < length:
+                    ch = rutf8.codepoint_at_pos(value, j)
+                    if unicodedb.iscaseignorable(ch):
+                        j = rutf8.next_codepoint_pos(value, j)
+                        continue
+                    final_sigma = not unicodedb.iscased(ch)
+                    break
         if final_sigma:
             return 0x3C2
         else:
@@ -597,12 +594,10 @@ class W_UnicodeObject(W_Root):
     def descr_lower(self, space):
         value = self._utf8
         builder = rutf8.Utf8StringBuilder(len(value))
-        i = 0
-        for ch in rutf8.Utf8StringIterator(value):
-            codes = self._lower_char(ch, value, i)
+        for ch, pos in rutf8.Utf8StringPosIterator(value):
+            codes = self._lower_char(ch, value, pos)
             for c in codes:
                 builder.append_code(c)
-            i += 1
         return self.from_utf8builder(builder)
 
     def descr_isdecimal(self, space):
@@ -879,18 +874,16 @@ class W_UnicodeObject(W_Root):
 
         value = self._utf8
         builder = rutf8.Utf8StringBuilder(len(value))
-        it = rutf8.Utf8StringIterator(value)
-        uchar = it.next()
+        it = rutf8.Utf8StringPosIterator(value)
+        uchar, _ = it.next()
         codes = unicodedb.toupper_full(uchar)
         # can sometimes give more than one, like for omega-with-Ypogegrammeni, 8179
         for c in codes:
             builder.append_code(c)
-        i = 1
-        for ch in it:
-            codes = self._lower_char(ch, value, i)
+        for ch, pos in it:
+            codes = self._lower_char(ch, value, pos)
             for c in codes:
                 builder.append_code(c)
-            i += 1
         return self.from_utf8builder(builder)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
