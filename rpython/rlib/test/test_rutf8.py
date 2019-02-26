@@ -212,3 +212,16 @@ def test_utf8_iterator(arg):
     for c in u:
         l.append(unichr(c))
     assert list(arg) == l
+
+@given(strategies.text())
+def test_utf8_iterator_pos(arg):
+    utf8s = arg.encode('utf8')
+    u = rutf8.Utf8StringPosIterator(utf8s)
+    l = []
+    i = 0
+    for c, pos in u:
+        l.append(unichr(c))
+        assert c == rutf8.codepoint_at_pos(utf8s, pos)
+        assert pos == i
+        i = rutf8.next_codepoint_pos(utf8s, i)
+    assert list(arg) == l
