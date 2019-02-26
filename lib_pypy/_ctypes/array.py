@@ -254,7 +254,7 @@ class Array(_CData):
             obj = obj[0]
         
         fmt = get_format_str(obj._type_)
-        itemsize = len(buffer(obj[0]))
+        itemsize = len(memoryview(obj[0]))
         return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
 
 ARRAY_CACHE = {}
@@ -288,8 +288,12 @@ def get_format_str(typ):
             bo = byteorder[sys.byteorder]
         flds = []
         for name, obj in typ._fields_:
-            flds.append(bo)
-            flds.append(get_format_str(obj))
+            ch = get_format_str(obj)
+            if (ch) == 'B':
+                flds.append(byteorder[sys.byteorder])
+            else:
+                flds.append(bo)
+            flds.append(ch)
             flds.append(':')
             flds.append(name)
             flds.append(':')
