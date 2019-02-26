@@ -1273,8 +1273,6 @@ def rename(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
-        assert isinstance(path1, unicode)
-        assert isinstance(path2, unicode)
         if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
 
@@ -1285,8 +1283,6 @@ def replace(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
-        assert isinstance(path1, unicode)
-        assert isinstance(path2, unicode)
         ret = win32traits.MoveFileEx(path1, path2,
                      win32traits.MOVEFILE_REPLACE_EXISTING)
         if not ret:
