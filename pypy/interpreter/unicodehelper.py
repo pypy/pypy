@@ -161,7 +161,7 @@ def check_utf8_or_raise(space, string, start=0, end=-1):
     try:
         return rutf8.check_utf8(string, True, start, end)
     except rutf8.CheckError as e:
-        decode_error_handler(space)('strict', 'utf8',
+        decode_error_handler(space)('strict', 'utf-8',
                                     'unexpected end of data', string,
                                     e.pos, e.pos + 1)
 
@@ -251,7 +251,7 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
                     uchr = rutf8.codepoint_at_pos(s, pos)
                     if 0xDC00 <= uchr <= 0xDFFF:
                         delta += 1
-            res, newindex, rettype = errorhandler(errors, 'utf8',
+            res, newindex, rettype = errorhandler(errors, 'utf-8',
                         'surrogates not allowed', s, upos, upos + delta)
             if rettype == 'u':
                 for cp in rutf8.Utf8StringIterator(res):
