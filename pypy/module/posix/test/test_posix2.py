@@ -10,6 +10,7 @@ from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
+from rpython.rlib.objectmodel import we_are_translated
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
 # py3k os.open uses subprocess, requiring the following per platform
@@ -291,6 +292,7 @@ class AppTestPosix:
                 assert 0
 
     def test_functions_raise_error(self):
+        import sys
         def ex(func, *args):
             try:
                 func(*args)
@@ -308,10 +310,12 @@ class AppTestPosix:
         ex(self.posix.write, UNUSEDFD, b"x")
         ex(self.posix.close, UNUSEDFD)
         #UMPF cpython raises IOError ex(self.posix.ftruncate, UNUSEDFD, 123)
-        ex(self.posix.fstat, UNUSEDFD)
-        ex(self.posix.stat, "qweqwehello")
-        # how can getcwd() raise?
-        ex(self.posix.dup, UNUSEDFD)
+        if sys.platform == 'win32' and not we_are_translated():
+            # XXX kills the host interpreter untranslated
+            ex(self.posix.fstat, UNUSEDFD)
+            ex(self.posix.stat, "qweqwehello")
+            # how can getcwd() raise?
+            ex(self.posix.dup, UNUSEDFD)
 
     def test_getcwd(self):
         os, posix = self.os, self.posix
@@ -594,7 +598,6 @@ class AppTestPosix:
         # using startfile in app_startfile creates global state
         test_popen.dont_track_allocations = True
         test_popen_with.dont_track_allocations = True
-        test_popen_child_fds.dont_track_allocations = True
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -1073,8 +1076,10 @@ class AppTestPosix:
         os.closerange(start, stop)
         for fd in fds:
             os.close(fd)     # should not have been closed
-        for fd in range(start, stop):
-            raises(OSError, os.fstat, fd)   # should have been closed
+        if sys.platform == 'win32' and not we_are_translated():
+            # XXX kills the host interpreter untranslated
+            for fd in range(start, stop):
+                raises(OSError, os.fstat, fd)   # should have been closed
 
     if hasattr(os, 'chown'):
         def test_chown(self):
@@ -1455,6 +1460,11 @@ class AppTestPosix:
         fname = self.path2 + 'rename.txt'
         with open(fname, "w") as f:
             f.write("this is a rename test")
+        str_name = str(self.pdir) + '/test_rename.txt'
+        os.rename(self.path, str_name)
+        with open(str_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(str_name, fname)
         unicode_name = str(self.udir) + u'/test\u03be.txt'
         os.rename(fname, unicode_name)
         with open(unicode_name) as f:

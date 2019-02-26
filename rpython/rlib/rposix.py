@@ -109,9 +109,6 @@ if os.name == 'nt':
             wchar_t const* file,
             unsigned int line,
             uintptr_t pReserved) {
-                wprintf(L"Invalid parameter detected in function %s."
-                            L" File: %s Line: %d\\n", function, file, line);
-                wprintf(L"Expression: %s\\n", expression);
         }
 
         RPY_EXTERN void* enter_suppress_iph(void)
