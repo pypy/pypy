@@ -8,12 +8,14 @@ from rpython.rlib.rarithmetic import r_longlong
 import unicodedb_5_2_0 as base_mod
 version = '3.2.0'
 
+#____________________________________________________________
+# output from build_compression_tree
 
 def trie_lookup(name):
     raise KeyError
+def lookup_charcode(code):
+    raise KeyError
 
-_names = {
-}
 _names_corrected = {
 9190: None,
 65794: None,
