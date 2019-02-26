@@ -76,7 +76,9 @@ def trie_lookup(name):
     charnode = 0
     while 0 <= charnode < 0xffff: # 16bit number, 0xffff = None
         charnode *= 3
-        leftright, parentstr, codepoint = _charnodes[charnode:charnode+3]
+        leftright = _charnodes[charnode]
+        parentstr = _charnodes[charnode + 1]
+        codepoint = _charnodes[charnode + 2]
 
         if leftright < 0:
             # XXX assumes msb is sign
@@ -109,7 +111,9 @@ def name_of_node(charnode):
     prevnode = -1
     while 0 <= charnode < 0xffff: # 16bit number, 0xffff = None
         charnode *= 3
-        leftright, parentstr, codepoint = _charnodes[charnode:charnode+3]
+        leftright = _charnodes[charnode]
+        parentstr = _charnodes[charnode + 1]
+        codepoint = _charnodes[charnode + 2]
 
         if leftright < 0:
             # XXX assumes msg is sign
