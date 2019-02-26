@@ -8,6 +8,8 @@ from rpython.rlib.rarithmetic import r_longlong
 base_mod = None
 version = '5.2.0'
 
+#____________________________________________________________
+# output from build_compression_tree
 
 def trie_lookup(name):
     charnode = 0
@@ -28,7 +30,7 @@ def trie_lookup(name):
         else:
             parent = (parentstr & 0x7fffffff) >> 16
         stridx = parentstr & ((1 << 16) - 1)
-        
+
         strlen = ord(_stringtable[stridx])
         substring = _stringtable[stridx+1:stridx+1+strlen]
 
@@ -71,7 +73,7 @@ def name_of_node(charnode):
         charnode = parent
 
     return ''.join(res)
-    
+
 
 _stringtable = (
 '\x01 '
@@ -114597,7 +114599,10 @@ def lookup_charcode(code):
     if res == -1: raise KeyError, code
     return name_of_node(res)
 
+# end output from build_compression_tree
+#____________________________________________________________
 # the following dictionary is used by modules that take this as a base
+# only used by generate_unicodedb, not after translation
 _orig_names = {
 'AC CURRENT': 9190,
 'ACCOUNT OF': 8448,
@@ -136813,7 +136818,7 @@ def lookup(name, with_named_sequence=False):
         code = trie_lookup(name)
     else:
         try:
-            code = _code_by_name[name]
+            code = trie_lookup(name)
         except KeyError:
             if name not in _code_by_name_corrected:
                 code = base_mod.trie_lookup(name)
@@ -136842,7 +136847,7 @@ def name(code):
         return lookup_charcode(code)
     else:
         try:
-            return _names[code]
+            return lookup_charcode(code)
         except KeyError:
             if code not in _names_corrected:
                 return base_mod.lookup_charcode(code)
