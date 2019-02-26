@@ -398,10 +398,7 @@ class W_UnicodeObject(W_Root):
         i = 0
         for ch in rutf8.Utf8StringIterator(value):
             if unicodedb.isupper(ch):
-                if ch == 0x3a3:
-                    codes = [self._handle_capital_sigma(value, i),]
-                else: 
-                    codes = unicodedb.tolower_full(ch)
+                codes = self._lower_char(ch, value, i)
             elif unicodedb.islower(ch):
                 codes = unicodedb.toupper_full(ch)
             else:
@@ -423,17 +420,21 @@ class W_UnicodeObject(W_Root):
         previous_is_cased = False
         i = 0
         for ch in rutf8.Utf8StringIterator(input):
-            if ch == 0x3a3:
-                codes = [self._handle_capital_sigma(input, i),]
-            elif not previous_is_cased:
-                codes = unicodedb.totitle_full(ch)
+            if previous_is_cased:
+                codes = self._lower_char(ch, value, i)
             else:
-                codes = unicodedb.tolower_full(ch)
+                codes = unicodedb.totitle_full(ch)
             for c in codes:
                 builder.append_code(c)
             previous_is_cased = unicodedb.iscased(ch)
             i += 1
         return self.from_utf8builder(builder)
+
+    def _lower_char(self, ch, value, i):
+        if ch == 0x3a3:
+            return [self._handle_capital_sigma(value, i), ]
+        else:
+            return unicodedb.tolower_full(ch)
 
     def _handle_capital_sigma(self, value, i):
         # U+03A3 is in the Final_Sigma context when, it is found like this:
@@ -598,10 +599,7 @@ class W_UnicodeObject(W_Root):
         builder = rutf8.Utf8StringBuilder(len(value))
         i = 0
         for ch in rutf8.Utf8StringIterator(value):
-            if ch == 0x3a3:
-                codes = [self._handle_capital_sigma(value, i),]
-            else:
-                codes = unicodedb.tolower_full(ch)
+            codes = self._lower_char(ch, value, i)
             for c in codes:
                 builder.append_code(c)
             i += 1
@@ -889,10 +887,7 @@ class W_UnicodeObject(W_Root):
             builder.append_code(c)
         i = 1
         for ch in it:
-            if ch == 0x3a3:
-                codes = [self._handle_capital_sigma(value, i),]
-            else: 
-                codes = unicodedb.tolower_full(ch)
+            codes = self._lower_char(ch, value, i)
             for c in codes:
                 builder.append_code(c)
             i += 1

@@ -1279,6 +1279,26 @@ class AppTestUnicodeString:
         assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
         assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
 
+    def test_title_3a3(self):
+        # Special case for GREEK CAPITAL LETTER SIGMA U+03A3
+        assert u'\u03a3abc'.title() == u'\u03a3abc'
+        assert u'\u03a3'.title() == u'Σ'
+        assert u'\u0345\u03a3'.title() == u'Ισ'
+        assert u'A\u0345\u03a3'.title() == u'Aͅς'
+        assert u'A\u0345\u03a3a'.title() == u'Aͅσa'
+        assert u'A\u0345\u03a3'.title() == u'Aͅς'
+        assert u'A\u03a3\u0345'.title() == u'Aςͅ'
+        assert u'\u03a3\u0345 '.title() == u'Σͅ '
+
+        assert u'ääää \u03a3'.title() == u'Ääää Σ'
+        assert u'ääää \u0345\u03a3'.title() == u'Ääää Ισ'
+        assert u'ääää A\u0345\u03a3'.title() == u'Ääää Aͅς'
+        assert u'ääää A\u0345\u03a3a'.title() == u'Ääää Aͅσa'
+        assert u'ääää A\u0345\u03a3'.title() == u'Ääää Aͅς'
+        assert u'ääää A\u03a3\u0345'.title() == u'Ääää Aςͅ'
+        assert u'ääää \u03a3\u0345 '.title() == u'Ääää Σͅ '
+
+
     def test_unicode_constructor_misc(self):
         x = u'foo'
         x += u'bar'
