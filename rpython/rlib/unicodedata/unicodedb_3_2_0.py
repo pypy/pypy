@@ -8,8 +8,14 @@ from rpython.rlib.rarithmetic import r_longlong
 import unicodedb_5_2_0 as base_mod
 version = '3.2.0'
 
-_names = {
-}
+#____________________________________________________________
+# output from build_compression_tree
+
+def trie_lookup(name):
+    raise KeyError
+def lookup_charcode(code):
+    raise KeyError
+
 _names_corrected = {
 9190: None,
 65794: None,
@@ -8369,8 +8375,6 @@ _names_corrected = {
 11038: None,
 11825: None,
 983048: None,
-}
-_code_by_name = {
 }
 _code_by_name_corrected = {
 'AC CURRENT': None,
@@ -16798,7 +16802,7 @@ def lookup(name, with_named_sequence=False):
         code = trie_lookup(name)
     else:
         try:
-            code = _code_by_name[name]
+            code = trie_lookup(name)
         except KeyError:
             if name not in _code_by_name_corrected:
                 code = base_mod.trie_lookup(name)
@@ -16827,7 +16831,7 @@ def name(code):
         return lookup_charcode(code)
     else:
         try:
-            return _names[code]
+            return lookup_charcode(code)
         except KeyError:
             if code not in _names_corrected:
                 return base_mod.lookup_charcode(code)
