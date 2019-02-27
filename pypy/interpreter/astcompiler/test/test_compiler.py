@@ -1204,3 +1204,17 @@ class TestOptimizations:
             source = 'def f(): %s' % source
             counts = self.count_instructions(source)
             assert ops.BINARY_POWER not in counts
+
+    def test_constant_tuples(self):
+        source = """def f():
+            return ((u"a", 1), 2)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+        # also for bytes
+        source = """def f():
+            return ((b"a", 5), 5, 7, 8)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
