@@ -3,8 +3,26 @@
 #
 
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.objspace.std.memoryobject import BufferViewND
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.typedef import TypeDef, generic_new_descr
+
+class W_Bufferable(W_Root):
+    def __init__(self, space):
+        pass
+
+    def descr_buffer(self, space, w_flags):
+        if self is W_Bufferable:
+            raise oefmt(space.w_ValueError, "override __buffer__ in a subclass")
+        return space.call_method(self, '__buffer__', w_flags)
+
+W_Bufferable.typedef = TypeDef("Bufferable",
+    __doc__ = """a helper class for a app-level class (like _ctypes.Array)
+that want to support tp_as_buffer.bf_getbuffer via a __buffer__ method""",
+    __new__ = generic_new_descr(W_Bufferable),
+    __buffer__ = interp2app(W_Bufferable.descr_buffer),
+)
 
 @unwrap_spec(itemsize=int, format='text')
 def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):

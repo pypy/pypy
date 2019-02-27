@@ -277,8 +277,8 @@ def create_array_type(base, length):
         ARRAY_CACHE[key] = cls
         return cls
 
-byteorder = {'little': '>', 'big': '<'}
-swappedorder = {'little': '<', 'big': '>'}
+byteorder = {'little': '<', 'big': '>'}
+swappedorder = {'little': '>', 'big': '<'}
 
 def get_format_str(typ):
     if hasattr(typ, '_fields_'):

@@ -62,10 +62,17 @@ class OsModule(MixedModule):
 class PyPyDateTime(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
-        'dateinterop': 'interp_pypydatetime.W_DateTime_Date',
-        'timeinterop'    : 'interp_pypydatetime.W_DateTime_Time',
-        'deltainterop'   : 'interp_pypydatetime.W_DateTime_Delta',
+        'dateinterop'  : 'interp_pypydatetime.W_DateTime_Date',
+        'timeinterop'  : 'interp_pypydatetime.W_DateTime_Time',
+        'deltainterop' : 'interp_pypydatetime.W_DateTime_Delta',
     }
+
+class PyPyBufferable(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'bufferable': 'interp_buffer.W_Bufferable',
+    }
+        
 
 class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
@@ -110,7 +117,7 @@ class Module(MixedModule):
         'side_effects_ok'           : 'interp_magic.side_effects_ok',
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
         'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
-        'newmemoryview'             : 'newmemoryview.newmemoryview',
+        'newmemoryview'             : 'interp_buffer.newmemoryview',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
@@ -122,6 +129,7 @@ class Module(MixedModule):
         "intop": IntOpModule,
         "os": OsModule,
         '_pypydatetime': PyPyDateTime,
+        'bufferable': PyPyBufferable,
     }
 
     def setup_after_space_initialization(self):
