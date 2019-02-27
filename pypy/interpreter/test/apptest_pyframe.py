@@ -13,7 +13,7 @@ def test_f_globals():
     import sys
     f = sys._getframe()
     assert f.f_globals is globals()
-    pytest.raises(TypeError, "f.f_globals = globals()")
+    pytest.raises(AttributeError, "f.f_globals = globals()")
 
 def test_f_builtins():
     import sys, builtins
