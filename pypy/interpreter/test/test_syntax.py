@@ -78,28 +78,26 @@ INVALID = splitcases("""
 
     def f():
         (i for i in x) = 10
-    
+
     async def foo(a=await something()):
         pass
-    
-    async def foo():
-        [i async for i in els]
-    
+
     async def foo():
         await
-    
+
     def foo():
         await something()
-    
-    async def foo():
-        yield
-    
+
     async def foo():
         yield from []
-    
+
     async def foo():
         await await fut
-    
+
+    async def foo():
+        yield
+        return 42
+
 """)
 
 
@@ -772,6 +770,33 @@ pass
         code = 'Python = "\u1e54\xfd\u0163\u0125\xf2\xf1" +'
         exc = raises(SyntaxError, compile, code, 'foo', 'exec')
         assert exc.value.offset in (19, 20) # pypy, cpython
+
+    def test_empty_tuple_target(self): """
+        def f(n):
+            () = ()
+            ((), ()) = [[], []]
+            del ()
+            del ((), ())
+            [] = {}
+            ([], ()) = [[], ()]
+            [[], ()] = ((), [])
+            del []
+            del [[], ()]
+            for () in [(), []]: pass
+            for [] in ([],): pass
+            class Zen:
+                def __enter__(self): return ()
+                def __exit__(self, *args): pass
+            with Zen() as (): pass
+            () = [2, 3] * n
+        f(0)
+        try:
+            f(5)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("should have raised")
+        """
 
 
 if __name__ == '__main__':

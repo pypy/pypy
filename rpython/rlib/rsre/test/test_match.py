@@ -1,6 +1,7 @@
 import re, random, py
-from rpython.rlib.rsre import rsre_core, rsre_char
+from rpython.rlib.rsre import rsre_char
 from rpython.rlib.rsre.rpy import get_code, VERSION
+from rpython.rlib.rsre.test.support import match, fullmatch, Position as P
 
 
 def get_code_and_re(regexp):
@@ -16,234 +17,234 @@ class TestMatch:
 
     def test_or(self):
         r = get_code(r"a|bc|def")
-        assert rsre_core.match(r, "a")
-        assert rsre_core.match(r, "bc")
-        assert rsre_core.match(r, "def")
-        assert not rsre_core.match(r, "ghij")
+        assert match(r, "a")
+        assert match(r, "bc")
+        assert match(r, "def")
+        assert not match(r, "ghij")
 
     def test_any(self):
         r = get_code(r"ab.cd")
-        assert rsre_core.match(r, "abXcdef")
-        assert not rsre_core.match(r, "ab\ncdef")
-        assert not rsre_core.match(r, "abXcDef")
+        assert match(r, "abXcdef")
+        assert not match(r, "ab\ncdef")
+        assert not match(r, "abXcDef")
 
     def test_any_repetition(self):
         r = get_code(r"ab.*cd")
-        assert rsre_core.match(r, "abXXXXcdef")
-        assert rsre_core.match(r, "abcdef")
-        assert not rsre_core.match(r, "abX\nXcdef")
-        assert not rsre_core.match(r, "abXXXXcDef")
+        assert match(r, "abXXXXcdef")
+        assert match(r, "abcdef")
+        assert not match(r, "abX\nXcdef")
+        assert not match(r, "abXXXXcDef")
 
     def test_any_all(self):
         r = get_code(r"(?s)ab.cd")
-        assert rsre_core.match(r, "abXcdef")
-        assert rsre_core.match(r, "ab\ncdef")
-        assert not rsre_core.match(r, "ab\ncDef")
+        assert match(r, "abXcdef")
+        assert match(r, "ab\ncdef")
+        assert not match(r, "ab\ncDef")
 
     def test_any_all_repetition(self):
         r = get_code(r"(?s)ab.*cd")
-        assert rsre_core.match(r, "abXXXXcdef")
-        assert rsre_core.match(r, "abcdef")
-        assert rsre_core.match(r, "abX\nXcdef")
-        assert not rsre_core.match(r, "abX\nXcDef")
+        assert match(r, "abXXXXcdef")
+        assert match(r, "abcdef")
+        assert match(r, "abX\nXcdef")
+        assert not match(r, "abX\nXcDef")
 
     def test_assert(self):
         r = get_code(r"abc(?=def)(.)")
-        res = rsre_core.match(r, "abcdefghi")
-        assert res is not None and res.get_mark(1) == 4
-        assert not rsre_core.match(r, "abcdeFghi")
+        res = match(r, "abcdefghi")
+        assert res is not None and res.get_mark(1) == P(4)
+        assert not match(r, "abcdeFghi")
 
     def test_assert_not(self):
         r = get_code(r"abc(?!def)(.)")
-        res = rsre_core.match(r, "abcdeFghi")
-        assert res is not None and res.get_mark(1) == 4
-        assert not rsre_core.match(r, "abcdefghi")
+        res = match(r, "abcdeFghi")
+        assert res is not None and res.get_mark(1) == P(4)
+        assert not match(r, "abcdefghi")
 
     def test_lookbehind(self):
         r = get_code(r"([a-z]*)(?<=de)")
-        assert rsre_core.match(r, "ade")
-        res = rsre_core.match(r, "adefg")
-        assert res is not None and res.get_mark(1) == 3
-        assert not rsre_core.match(r, "abc")
-        assert not rsre_core.match(r, "X")
-        assert not rsre_core.match(r, "eX")
+        assert match(r, "ade")
+        res = match(r, "adefg")
+        assert res is not None and res.get_mark(1) == P(3)
+        assert not match(r, "abc")
+        assert not match(r, "X")
+        assert not match(r, "eX")
 
     def test_negative_lookbehind(self):
         def found(s):
-            res = rsre_core.match(r, s)
+            res = match(r, s)
             assert res is not None
             return res.get_mark(1)
         r = get_code(r"([a-z]*)(?<!dd)")
-        assert found("ade") == 3
-        assert found("adefg") == 5
-        assert found("abcdd") == 4
-        assert found("abddd") == 3
-        assert found("adddd") == 2
-        assert found("ddddd") == 1
-        assert found("abXde") == 2
+        assert found("ade") == P(3)
+        assert found("adefg") == P(5)
+        assert found("abcdd") == P(4)
+        assert found("abddd") == P(3)
+        assert found("adddd") == P(2)
+        assert found("ddddd") == P(1)
+        assert found("abXde") == P(2)
 
     def test_at(self):
         r = get_code(r"abc$")
-        assert rsre_core.match(r, "abc")
-        assert not rsre_core.match(r, "abcd")
-        assert not rsre_core.match(r, "ab")
+        assert match(r, "abc")
+        assert not match(r, "abcd")
+        assert not match(r, "ab")
 
     def test_repeated_set(self):
         r = get_code(r"[a0x]+f")
-        assert rsre_core.match(r, "a0af")
-        assert not rsre_core.match(r, "a0yaf")
+        assert match(r, "a0af")
+        assert not match(r, "a0yaf")
 
     def test_category(self):
         r = get_code(r"[\sx]")
-        assert rsre_core.match(r, "x")
-        assert rsre_core.match(r, " ")
-        assert not rsre_core.match(r, "n")
+        assert match(r, "x")
+        assert match(r, " ")
+        assert not match(r, "n")
 
     def test_groupref(self):
         r = get_code(r"(xx+)\1+$")     # match non-prime numbers of x
-        assert not rsre_core.match(r, "xx")
-        assert not rsre_core.match(r, "xxx")
-        assert     rsre_core.match(r, "xxxx")
-        assert not rsre_core.match(r, "xxxxx")
-        assert     rsre_core.match(r, "xxxxxx")
-        assert not rsre_core.match(r, "xxxxxxx")
-        assert     rsre_core.match(r, "xxxxxxxx")
-        assert     rsre_core.match(r, "xxxxxxxxx")
+        assert not match(r, "xx")
+        assert not match(r, "xxx")
+        assert     match(r, "xxxx")
+        assert not match(r, "xxxxx")
+        assert     match(r, "xxxxxx")
+        assert not match(r, "xxxxxxx")
+        assert     match(r, "xxxxxxxx")
+        assert     match(r, "xxxxxxxxx")
 
     def test_groupref_ignore(self):
         r = get_code(r"(?i)(xx+)\1+$")     # match non-prime numbers of x
-        assert not rsre_core.match(r, "xX")
-        assert not rsre_core.match(r, "xxX")
-        assert     rsre_core.match(r, "Xxxx")
-        assert not rsre_core.match(r, "xxxXx")
-        assert     rsre_core.match(r, "xXxxxx")
-        assert not rsre_core.match(r, "xxxXxxx")
-        assert     rsre_core.match(r, "xxxxxxXx")
-        assert     rsre_core.match(r, "xxxXxxxxx")
+        assert not match(r, "xX")
+        assert not match(r, "xxX")
+        assert     match(r, "Xxxx")
+        assert not match(r, "xxxXx")
+        assert     match(r, "xXxxxx")
+        assert not match(r, "xxxXxxx")
+        assert     match(r, "xxxxxxXx")
+        assert     match(r, "xxxXxxxxx")
 
     def test_groupref_exists(self):
         r = get_code(r"((a)|(b))c(?(2)d)$")
-        assert not rsre_core.match(r, "ac")
-        assert     rsre_core.match(r, "acd")
-        assert     rsre_core.match(r, "bc")
-        assert not rsre_core.match(r, "bcd")
+        assert not match(r, "ac")
+        assert     match(r, "acd")
+        assert     match(r, "bc")
+        assert not match(r, "bcd")
         #
         r = get_code(r"((a)|(b))c(?(2)d|e)$")
-        assert not rsre_core.match(r, "ac")
-        assert     rsre_core.match(r, "acd")
-        assert not rsre_core.match(r, "ace")
-        assert not rsre_core.match(r, "bc")
-        assert not rsre_core.match(r, "bcd")
-        assert     rsre_core.match(r, "bce")
+        assert not match(r, "ac")
+        assert     match(r, "acd")
+        assert not match(r, "ace")
+        assert not match(r, "bc")
+        assert not match(r, "bcd")
+        assert     match(r, "bce")
 
     def test_in_ignore(self):
         r = get_code(r"(?i)[a-f]")
-        assert rsre_core.match(r, "b")
-        assert rsre_core.match(r, "C")
-        assert not rsre_core.match(r, "g")
+        assert match(r, "b")
+        assert match(r, "C")
+        assert not match(r, "g")
         r = get_code(r"(?i)[a-f]+$")
-        assert rsre_core.match(r, "bCdEf")
-        assert not rsre_core.match(r, "g")
-        assert not rsre_core.match(r, "aaagaaa")
+        assert match(r, "bCdEf")
+        assert not match(r, "g")
+        assert not match(r, "aaagaaa")
 
     def test_not_literal(self):
         r = get_code(r"[^a]")
-        assert rsre_core.match(r, "A")
-        assert not rsre_core.match(r, "a")
+        assert match(r, "A")
+        assert not match(r, "a")
         r = get_code(r"[^a]+$")
-        assert rsre_core.match(r, "Bx123")
-        assert not rsre_core.match(r, "--a--")
+        assert match(r, "Bx123")
+        assert not match(r, "--a--")
 
     def test_not_literal_ignore(self):
         r = get_code(r"(?i)[^a]")
-        assert rsre_core.match(r, "G")
-        assert not rsre_core.match(r, "a")
-        assert not rsre_core.match(r, "A")
+        assert match(r, "G")
+        assert not match(r, "a")
+        assert not match(r, "A")
         r = get_code(r"(?i)[^a]+$")
-        assert rsre_core.match(r, "Gx123")
-        assert not rsre_core.match(r, "--A--")
+        assert match(r, "Gx123")
+        assert not match(r, "--A--")
 
     def test_repeated_single_character_pattern(self):
         r = get_code(r"foo(?:(?<=foo)x)+$")
-        assert rsre_core.match(r, "foox")
+        assert match(r, "foox")
 
     def test_flatten_marks(self):
         r = get_code(r"a(b)c((d)(e))+$")
-        res = rsre_core.match(r, "abcdedede")
-        assert res.flatten_marks() == [0, 9, 1, 2, 7, 9, 7, 8, 8, 9]
-        assert res.flatten_marks() == [0, 9, 1, 2, 7, 9, 7, 8, 8, 9]
+        res = match(r, "abcdedede")
+        assert res.flatten_marks() == map(P, [0, 9, 1, 2, 7, 9, 7, 8, 8, 9])
+        assert res.flatten_marks() == map(P, [0, 9, 1, 2, 7, 9, 7, 8, 8, 9])
 
     def test_bug1(self):
         # REPEAT_ONE inside REPEAT
         r = get_code(r"(?:.+)?B")
-        assert rsre_core.match(r, "AB") is not None
+        assert match(r, "AB") is not None
         r = get_code(r"(?:AA+?)+B")
-        assert rsre_core.match(r, "AAAB") is not None
+        assert match(r, "AAAB") is not None
         r = get_code(r"(?:AA+)+?B")
-        assert rsre_core.match(r, "AAAB") is not None
+        assert match(r, "AAAB") is not None
         r = get_code(r"(?:AA+?)+?B")
-        assert rsre_core.match(r, "AAAB") is not None
+        assert match(r, "AAAB") is not None
         # REPEAT inside REPEAT
         r = get_code(r"(?:(?:xy)+)?B")
-        assert rsre_core.match(r, "xyB") is not None
+        assert match(r, "xyB") is not None
         r = get_code(r"(?:xy(?:xy)+?)+B")
-        assert rsre_core.match(r, "xyxyxyB") is not None
+        assert match(r, "xyxyxyB") is not None
         r = get_code(r"(?:xy(?:xy)+)+?B")
-        assert rsre_core.match(r, "xyxyxyB") is not None
+        assert match(r, "xyxyxyB") is not None
         r = get_code(r"(?:xy(?:xy)+?)+?B")
-        assert rsre_core.match(r, "xyxyxyB") is not None
+        assert match(r, "xyxyxyB") is not None
 
     def test_assert_group(self):
         r = get_code(r"abc(?=(..)f)(.)")
-        res = rsre_core.match(r, "abcdefghi")
+        res = match(r, "abcdefghi")
         assert res is not None
-        assert res.span(2) == (3, 4)
-        assert res.span(1) == (3, 5)
+        assert res.span(2) == (P(3), P(4))
+        assert res.span(1) == (P(3), P(5))
 
     def test_assert_not_group(self):
         r = get_code(r"abc(?!(de)f)(.)")
-        res = rsre_core.match(r, "abcdeFghi")
+        res = match(r, "abcdeFghi")
         assert res is not None
-        assert res.span(2) == (3, 4)
+        assert res.span(2) == (P(3), P(4))
         # this I definitely classify as Horrendously Implementation Dependent.
         # CPython answers (3, 5).
         assert res.span(1) == (-1, -1)
 
     def test_match_start(self):
         r = get_code(r"^ab")
-        assert     rsre_core.match(r, "abc")
-        assert not rsre_core.match(r, "xxxabc", start=3)
-        assert not rsre_core.match(r, "xx\nabc", start=3)
+        assert     match(r, "abc")
+        assert not match(r, "xxxabc", start=3)
+        assert not match(r, "xx\nabc", start=3)
         #
         r = get_code(r"(?m)^ab")
-        assert     rsre_core.match(r, "abc")
-        assert not rsre_core.match(r, "xxxabc", start=3)
-        assert     rsre_core.match(r, "xx\nabc", start=3)
+        assert     match(r, "abc")
+        assert not match(r, "xxxabc", start=3)
+        assert     match(r, "xx\nabc", start=3)
 
     def test_match_end(self):
         r = get_code("ab")
-        assert     rsre_core.match(r, "abc")
-        assert     rsre_core.match(r, "abc", end=333)
-        assert     rsre_core.match(r, "abc", end=3)
-        assert     rsre_core.match(r, "abc", end=2)
-        assert not rsre_core.match(r, "abc", end=1)
-        assert not rsre_core.match(r, "abc", end=0)
-        assert not rsre_core.match(r, "abc", end=-1)
+        assert     match(r, "abc")
+        assert     match(r, "abc", end=333)
+        assert     match(r, "abc", end=3)
+        assert     match(r, "abc", end=2)
+        assert not match(r, "abc", end=1)
+        assert not match(r, "abc", end=0)
+        assert not match(r, "abc", end=-1)
 
     def test_match_bug1(self):
         r = get_code(r'(x??)?$')
-        assert rsre_core.match(r, "x")
+        assert match(r, "x")
 
     def test_match_bug2(self):
         r = get_code(r'(x??)??$')
-        assert rsre_core.match(r, "x")
+        assert match(r, "x")
 
     def test_match_bug3(self):
         if VERSION == "2.7.5":
             py.test.skip("pattern fails to compile with exactly 2.7.5 "
                          "(works on 2.7.3 and on 2.7.trunk though)")
         r = get_code(r'([ax]*?x*)?$')
-        assert rsre_core.match(r, "aaxaa")
+        assert match(r, "aaxaa")
 
     def test_bigcharset(self):
         for i in range(100):
@@ -252,10 +253,10 @@ class TestMatch:
             pattern = u'[%s]' % (u''.join(chars),)
             r = get_code(pattern)
             for c in chars:
-                assert rsre_core.match(r, c)
+                assert match(r, c)
             for i in range(200):
                 c = unichr(random.randrange(0x0, 0xD000))
-                res = rsre_core.match(r, c)
+                res = match(r, c)
                 if c in chars:
                     assert res is not None
                 else:
@@ -264,41 +265,41 @@ class TestMatch:
     def test_simple_match_1(self):
         r = get_code(r"ab*bbbbbbbc")
         print r
-        match = rsre_core.match(r, "abbbbbbbbbcdef")
-        assert match
-        assert match.match_end == 11
+        m = match(r, "abbbbbbbbbcdef")
+        assert m
+        assert m.match_end == P(11)
 
     def test_empty_maxuntil(self):
         r = get_code("\\{\\{((?:.*?)+)\\}\\}")
-        match = rsre_core.match(r, "{{a}}{{b}}")
-        assert match.group(1) == "a"
+        m = match(r, "{{a}}{{b}}")
+        assert m.group(1) == "a"
 
     def test_fullmatch_1(self):
         r = get_code(r"ab*c")
-        assert not rsre_core.fullmatch(r, "abbbcdef")
-        assert rsre_core.fullmatch(r, "abbbc")
+        assert not fullmatch(r, "abbbcdef")
+        assert fullmatch(r, "abbbc")
 
     def test_fullmatch_2(self):
         r = get_code(r"a(b*?)")
-        match = rsre_core.fullmatch(r, "abbb")
+        match = fullmatch(r, "abbb")
         assert match.group(1) == "bbb"
-        assert not rsre_core.fullmatch(r, "abbbc")
+        assert not fullmatch(r, "abbbc")
 
     def test_fullmatch_3(self):
         r = get_code(r"a((bp)*?)c")
-        match = rsre_core.fullmatch(r, "abpbpbpc")
+        match = fullmatch(r, "abpbpbpc")
         assert match.group(1) == "bpbpbp"
 
     def test_fullmatch_4(self):
         r = get_code(r"a((bp)*)c")
-        match = rsre_core.fullmatch(r, "abpbpbpc")
+        match = fullmatch(r, "abpbpbpc")
         assert match.group(1) == "bpbpbp"
 
     def test_fullmatch_assertion(self):
         r = get_code(r"(?=a).b")
-        assert rsre_core.fullmatch(r, "ab")
+        assert fullmatch(r, "ab")
         r = get_code(r"(?!a)..")
-        assert not rsre_core.fullmatch(r, "ab")
+        assert not fullmatch(r, "ab")
 
     def test_range_ignore(self):
         from rpython.rlib.unicodedata import unicodedb
@@ -307,4 +308,4 @@ class TestMatch:
         r = get_code(u"[\U00010428-\U0001044f]", re.I)
         assert r.pattern.count(27) == 1       # OPCODE_RANGE
         r.pattern[r.pattern.index(27)] = 32   # => OPCODE_RANGE_IGNORE
-        assert rsre_core.match(r, u"\U00010428")
+        assert match(r, u"\U00010428")

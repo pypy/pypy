@@ -267,9 +267,9 @@ class W_MemoryView(W_Root):
 
     def descr_repr(self, space):
         if self.view is None:
-            return self.getrepr(space, u'released memory')
+            return self.getrepr(space, 'released memory')
         else:
-            return self.getrepr(space, u'memory')
+            return self.getrepr(space, 'memory')
 
     def descr_hash(self, space):
         if self._hash == -1:

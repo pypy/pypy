@@ -277,6 +277,11 @@ class SampleCallbacksTestCase(unittest.TestCase):
         self.assertEqual(check.first, 0xdeadbeef)
         self.assertEqual(check.second, 0xcafebabe)
         self.assertEqual(check.third, 0x0bad1dea)
+        # See issue #29565.
+        # Ensure that the original struct is unchanged.
+        self.assertEqual(s.first, check.first)
+        self.assertEqual(s.second, check.second)
+        self.assertEqual(s.third, check.third)
 
 ################################################################
 

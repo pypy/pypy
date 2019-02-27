@@ -57,7 +57,7 @@ class TestGenerators(BaseTestPyPyC):
             jump(..., descr=...)
             """)
         assert loop.match_by_id("subtract", """
-            setfield_gc(p7, 38, descr=<.*last_instr .*>)     # XXX bad, kill me
+            setfield_gc(..., descr=<.*last_instr .*>)     # XXX bad, kill me
             i2 = int_sub_ovf(i1, 42)
             guard_no_overflow(descr=...)
             """)

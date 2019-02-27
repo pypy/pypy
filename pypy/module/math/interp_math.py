@@ -10,6 +10,7 @@ class State:
     def __init__(self, space):
         self.w_e = space.newfloat(math.e)
         self.w_pi = space.newfloat(math.pi)
+        self.w_tau = space.newfloat(math.pi * 2.0)
         self.w_inf = space.newfloat(rfloat.INFINITY)
         self.w_nan = space.newfloat(rfloat.NAN)
 def get(space):

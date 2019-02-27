@@ -14,6 +14,7 @@ from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rutf8 import CheckError, check_utf8, surrogate_in_utf8
 
 class MutableCell(W_Root):
     def unwrap_cell(self, space):
@@ -177,6 +178,15 @@ class W_TypeObject(W_Root):
                  overridetypedef=None, force_new_layout=False,
                  is_heaptype=True):
         self.space = space
+        try:
+            check_utf8(name, False)
+        except CheckError as e:
+            raise OperationError(space.w_UnicodeEncodeError,
+                 space.newtuple([space.newtext('utf8'),
+                                 space.newtext(name),
+                                 space.newint(e.pos),
+                                 space.newint(e.pos + 1),
+                                 space.newtext('surrogates not allowed')]))
         self.name = name
         self.qualname = None
         self.bases_w = bases_w
@@ -204,7 +214,7 @@ class W_TypeObject(W_Root):
             w_qualname = self.dict_w.pop('__qualname__', None)
             if w_qualname is not None:
                 if space.isinstance_w(w_qualname, space.w_unicode):
-                    self.qualname = space.unicode_w(w_qualname)
+                    self.qualname = space.utf8_w(w_qualname)
                 elif not self.flag_cpytype:
                     raise oefmt(space.w_TypeError,
                                 "type __qualname__ must be a str, not %T",
@@ -579,7 +589,7 @@ class W_TypeObject(W_Root):
                 result = self.name[dot+1:]
             else:
                 result = self.name
-        return result.decode('utf-8')
+        return result
 
     def getqualname(self, space):
         return self.qualname
@@ -723,9 +733,9 @@ class W_TypeObject(W_Root):
         if w_mod is None or not space.isinstance_w(w_mod, space.w_text):
             mod = None
         else:
-            mod = space.unicode_w(w_mod)
-        if mod is not None and mod != u'builtins':
-            return space.newunicode(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
+            mod = space.utf8_w(w_mod)
+        if mod is not None and mod != b'builtins':
+            return space.newtext(b"<class '%s.%s'>" % (mod, self.getqualname(space)))
         else:
             return space.newtext("<class '%s'>" % (self.name,))
 
@@ -753,20 +763,35 @@ class W_TypeObject(W_Root):
         return space.newbool(not space.is_w(self, w_other))
 
 
-def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
+def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
+    if len(__args__.arguments_w) not in (1, 3):
+        if space.is_w(w_typetype, space.w_type):
+            raise oefmt(space.w_TypeError,
+                        "type.__new__() takes 1 or 3 arguments")
+        else:
+            raise oefmt(space.w_TypeError,
+                        "%N.__new__() takes exactly 3 arguments (1 given)",
+                        w_typetype)
+
+    w_name = __args__.arguments_w[0]
+
     w_typetype = _precheck_for_new(space, w_typetype)
 
-    # special case for type(x)
-    if (space.is_w(space.type(w_typetype), space.w_type) and
-        w_bases is None and w_dict is None):
-        return space.type(w_name)
-    return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
+    # special case for type(x), but not Metaclass(x)
+    if len(__args__.arguments_w) == 1:
+        if space.is_w(w_typetype, space.w_type):
+            return space.type(w_name)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "%N.__new__() takes exactly 3 arguments (1 given)",
+                        w_typetype)
+    w_bases = __args__.arguments_w[1]
+    w_dict = __args__.arguments_w[2]
+    return _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__)
 
 
 def _check_new_args(space, w_name, w_bases, w_dict):
-    if w_bases is None or w_dict is None:
-        raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
     if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
                     "type() argument 1 must be string, not %T", w_name)
@@ -778,7 +803,7 @@ def _check_new_args(space, w_name, w_bases, w_dict):
                     "type() argument 3 must be dict, not %T", w_dict)
 
 
-def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
+def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
     _check_new_args(space, w_name, w_bases, w_dict)
@@ -791,20 +816,44 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
             return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
         w_typetype = w_winner
 
-    name = space.text_w(w_name) # NB. CPython forbids surrogates here
-    assert isinstance(name, str)
+    name = space.text_w(w_name) 
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
+    pos = surrogate_in_utf8(name)
+    if pos >= 0:
+        raise oefmt(space.w_ValueError, "can't encode character %s in position "
+                    "%d, surrogates not allowed", name[pos], pos)
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
         key = space.text_w(w_key)
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
+
+    # store the w_type in __classcell__
+    w_classcell = dict_w.get("__classcell__", None)
+    if w_classcell:
+        _store_type_in_classcell(space, w_type, w_classcell, dict_w)
+
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
                           dict_w, is_heaptype=True)
+
+
     w_type.ready()
+
+    _set_names(space, w_type)
+    _init_subclass(space, w_type, __args__)
     return w_type
+
+def _store_type_in_classcell(space, w_type, w_classcell, dict_w):
+    from pypy.interpreter.nestedscope import Cell
+    if isinstance(w_classcell, Cell):
+        w_classcell.set(w_type)
+    else:
+        raise oefmt(space.w_TypeError,
+                    "__classcell__ must be a nonlocal cell, not %T",
+                    w_classcell)
+    del dict_w['__classcell__']
 
 def _calculate_metaclass(space, w_metaclass, bases_w):
     """Determine the most derived metatype"""
@@ -826,11 +875,28 @@ def _precheck_for_new(space, w_type):
         raise oefmt(space.w_TypeError, "X is not a type object (%T)", w_type)
     return w_type
 
+def _set_names(space, w_type):
+    for key, w_value in w_type.dict_w.iteritems():
+        w_meth = space.lookup(w_value, '__set_name__')
+        if w_meth is not None:
+            try:
+                space.get_and_call_function(w_meth, w_value, w_type, space.newtext(key))
+            except OperationError as e:
+                e2 = oefmt(space.w_RuntimeError,
+                           "Error calling __set_name__ on '%T' instance '%s' in '%N'",
+                           w_value, key, w_type)
+                e2.chain_exceptions_from_cause(space, e)
+                raise e2
+
+def _init_subclass(space, w_type, __args__):
+    # bit of a mess, but I didn't feel like implementing the super logic
+    w_super = space.getattr(space.builtin, space.newtext("super"))
+    w_func = space.getattr(space.call_function(w_super, w_type, w_type),
+                           space.newtext("__init_subclass__"))
+    args = __args__.replace_arguments([])
+    space.call_args(w_func, args)
 
 def descr__init__(space, w_type, __args__):
-    if __args__.keywords:
-        raise oefmt(space.w_TypeError,
-                    "type.__init__() takes no keyword arguments")
     if len(__args__.arguments_w) not in (1, 3):
         raise oefmt(space.w_TypeError,
                     "type.__init__() takes 1 or 3 arguments")
@@ -846,7 +912,7 @@ def _check(space, w_type, msg="descriptor is for 'type'"):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newunicode(w_type.getname(space))
+    return space.newtext(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -859,17 +925,25 @@ def descr_set__name__(space, w_type, w_value):
     name = space.text_w(w_value)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
+    pos = surrogate_in_utf8(name)
+    if pos >= 0:
+        raise oefmt(space.w_ValueError, "can't encode character %s in position "
+                    "%d, surrogates not allowed", name[pos], pos)
     w_type.name = name
 
 def descr_get__qualname__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newunicode(w_type.getqualname(space))
+    return space.newtext(w_type.getqualname(space))
 
 def descr_set__qualname__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__qualname__", w_type)
-    w_type.qualname = space.unicode_w(w_value)
+    if not space.isinstance_w(w_value, space.w_text):
+        raise oefmt(space.w_TypeError,
+                    "can only assign string to %N.__name__, not '%T'",
+                    w_type, w_value)
+    w_type.qualname = space.utf8_w(w_value)
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
@@ -1158,9 +1232,10 @@ def slot_w(space, w_name):
     if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
             "__slots__ items must be strings, not '%T'", w_name)
-    if not _isidentifier(space.unicode_w(w_name)):
+    s = space.utf8_w(w_name)
+    if not _isidentifier(s):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
-    return w_name.text_w(space)
+    return s
 
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     from pypy.interpreter.miscutils import string_sort
@@ -1306,6 +1381,7 @@ def ensure_common_attributes(w_self):
     w_self.mro_w = []      # temporarily
     w_self.hasmro = False
     compute_mro(w_self)
+    ensure_classmethod_init_subclass(w_self)
 
 def ensure_static_new(w_self):
     # special-case __new__, as in CPython:
@@ -1314,6 +1390,12 @@ def ensure_static_new(w_self):
         w_new = w_self.dict_w['__new__']
         if isinstance(w_new, Function):
             w_self.dict_w['__new__'] = StaticMethod(w_new)
+
+def ensure_classmethod_init_subclass(w_self):
+    if '__init_subclass__' in w_self.dict_w:
+        w_init_subclass = w_self.dict_w['__init_subclass__']
+        if isinstance(w_init_subclass, Function):
+            w_self.dict_w['__init_subclass__'] = ClassMethod(w_init_subclass)
 
 def ensure_module_attr(w_self):
     # initialize __module__ in the dict (user-defined types only)
@@ -1453,8 +1535,8 @@ def mro_error(space, orderlists):
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
     # Can't use oefmt() here, since names is a list of unicodes
-    raise OperationError(space.w_TypeError, space.newunicode(
-        u"cycle among base classes: " + u' < '.join(names)))
+    raise OperationError(space.w_TypeError, space.newtext(
+        "cycle among base classes: " + ' < '.join(names)))
 
 
 class TypeCache(SpaceCache):
@@ -1499,6 +1581,8 @@ class TypeCache(SpaceCache):
             for name in rawdict:
                 w_obj = dict_w[name]
                 if isinstance(w_obj, ClassMethod):
+                    w_obj = w_obj.w_function
+                if isinstance(w_obj, StaticMethod):
                     w_obj = w_obj.w_function
                 if isinstance(w_obj, FunctionWithFixedCode):
                     qualname = (w_type.getqualname(space).encode('utf-8')

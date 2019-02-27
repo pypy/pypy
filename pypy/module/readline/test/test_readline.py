@@ -1,11 +1,25 @@
 # -*- coding: utf-8 -*-
+import sys
+import pytest
+
+def setup_module(mod):
+    try:
+        import curses
+        curses.setupterm()
+    except:
+        pytest.skip("Cannot test this here")
+
 
 class AppTestReadline:
-    spaceconfig = dict(usemodules={
-        'unicodedata', 'termios', 'select', 'signal', 'fcntl',
+    spaceconfig = dict(usemodules=[
+        'unicodedata', 'select', 'signal', 
         '_minimal_curses', 'faulthandler', '_socket', 'binascii',
         '_posixsubprocess',
-    })
+    ])
+    if sys.platform == 'win32':
+        pass
+    else:
+        spaceconfig['usemodules'] += ['fcntl', 'termios']
 
     def test_nonascii_history(self):
         import os, readline

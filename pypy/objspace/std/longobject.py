@@ -234,22 +234,16 @@ class W_LongObject(W_AbstractLongObject):
     descr_gt = _make_descr_cmp('gt')
     descr_ge = _make_descr_cmp('ge')
 
-    def _make_generic_descr_binop_noncommutative(opname):
-        methname = opname + '_' if opname in ('and', 'or') else opname
-        descr_rname = 'descr_r' + opname
-        op = getattr(rbigint, methname)
+    def descr_sub(self, space, w_other):
+        if isinstance(w_other, W_IntObject):
+            return W_LongObject(self.num.int_sub(w_other.int_w(space)))
+        elif not isinstance(w_other, W_AbstractLongObject):
+            return space.w_NotImplemented
+        return W_LongObject(self.num.sub(w_other.asbigint()))
 
-        @func_renamer('descr_' + opname)
-        @delegate_other
-        def descr_binop(self, space, w_other):
-            return W_LongObject(op(self.num, w_other.asbigint()))
-
-        @func_renamer(descr_rname)
-        @delegate_other
-        def descr_rbinop(self, space, w_other):
-            return W_LongObject(op(w_other.asbigint(), self.num))
-
-        return descr_binop, descr_rbinop
+    @delegate_other
+    def descr_rsub(self, space, w_other):
+        return W_LongObject(w_other.asbigint().sub(self.num))
 
     def _make_generic_descr_binop(opname):
         if opname not in COMMUTATIVE_OPS:
@@ -281,28 +275,23 @@ class W_LongObject(W_AbstractLongObject):
         return descr_binop, descr_rbinop
 
     descr_add, descr_radd = _make_generic_descr_binop('add')
-    descr_sub, descr_rsub = _make_generic_descr_binop_noncommutative('sub')
+
     descr_mul, descr_rmul = _make_generic_descr_binop('mul')
     descr_and, descr_rand = _make_generic_descr_binop('and')
     descr_or, descr_ror = _make_generic_descr_binop('or')
     descr_xor, descr_rxor = _make_generic_descr_binop('xor')
 
-    def _make_descr_binop(func, int_func=None):
+    def _make_descr_binop(func, int_func):
         opname = func.__name__[1:]
 
-        if int_func:
-            @func_renamer('descr_' + opname)
-            def descr_binop(self, space, w_other):
-                if isinstance(w_other, W_IntObject):
-                    return int_func(self, space, w_other.int_w(space))
-                elif not isinstance(w_other, W_AbstractLongObject):
-                    return space.w_NotImplemented
-                return func(self, space, w_other)
-        else:
-            @delegate_other
-            @func_renamer('descr_' + opname)
-            def descr_binop(self, space, w_other):
-                return func(self, space, w_other)
+        @func_renamer('descr_' + opname)
+        def descr_binop(self, space, w_other):
+            if isinstance(w_other, W_IntObject):
+                return int_func(self, space, w_other.int_w(space))
+            elif not isinstance(w_other, W_AbstractLongObject):
+                return space.w_NotImplemented
+            return func(self, space, w_other)
+
         @delegate_other
         @func_renamer('descr_r' + opname)
         def descr_rbinop(self, space, w_other):
@@ -322,10 +311,10 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_OverflowError, "shift count too large")
         return W_LongObject(self.num.lshift(shift))
 
-    def _int_lshift(self, space, w_other):
-        if w_other < 0:
+    def _int_lshift(self, space, other):
+        if other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
-        return W_LongObject(self.num.lshift(w_other))
+        return W_LongObject(self.num.lshift(other))
 
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift, _int_lshift)
 
@@ -338,11 +327,11 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_OverflowError, "shift count too large")
         return newlong(space, self.num.rshift(shift))
 
-    def _int_rshift(self, space, w_other):
-        if w_other < 0:
+    def _int_rshift(self, space, other):
+        if other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
 
-        return newlong(space, self.num.rshift(w_other))
+        return newlong(space, self.num.rshift(other))
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, _int_rshift)
 
     def _floordiv(self, space, w_other):
@@ -353,14 +342,14 @@ class W_LongObject(W_AbstractLongObject):
                         "long division or modulo by zero")
         return newlong(space, z)
 
-    def _floordiv(self, space, w_other):
+    def _int_floordiv(self, space, other):
         try:
-            z = self.num.floordiv(w_other.asbigint())
+            z = self.num.int_floordiv(other)
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "integer division or modulo by zero")
         return newlong(space, z)
-    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
+    descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv, _int_floordiv)
 
     def _mod(self, space, w_other):
         try:
@@ -370,9 +359,9 @@ class W_LongObject(W_AbstractLongObject):
                         "integer division or modulo by zero")
         return newlong(space, z)
 
-    def _int_mod(self, space, w_other):
+    def _int_mod(self, space, other):
         try:
-            z = self.num.int_mod(w_other)
+            z = self.num.int_mod(other)
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
@@ -386,7 +375,16 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError,
                         "integer division or modulo by zero")
         return space.newtuple([newlong(space, div), newlong(space, mod)])
-    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
+
+    def _int_divmod(self, space, other):
+        try:
+            div, mod = self.num.int_divmod(other)
+        except ZeroDivisionError:
+            raise oefmt(space.w_ZeroDivisionError,
+                        "long division or modulo by zero")
+        return space.newtuple([newlong(space, div), newlong(space, mod)])
+
+    descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
 
 
 def _hash_long(space, v):

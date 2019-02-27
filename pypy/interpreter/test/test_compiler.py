@@ -664,7 +664,7 @@ def test():
         w_d = space.newdict()
         space.exec_(code, w_d, w_d)
         w_res = space.getitem(w_d, space.wrap('res'))
-        assert space.str_w(w_res) == "global value"
+        assert space.text_w(w_res) == "global value"
 
     def test_method_and_var(self):
         space = self.space
@@ -753,7 +753,7 @@ def test():
         ex = e.value
         space = self.space
         assert ex.match(space, space.w_SyntaxError)
-        assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
+        assert 'hello_world' in space.text_w(space.str(ex.get_w_value(space)))
 
     def test_del_None(self):
         snippet = '''if 1:
@@ -782,21 +782,6 @@ with somtehing as stuff:
         code = self.compiler.compile(source, '<filename2>', 'exec', 0)
         assert isinstance(code, PyCode)
         assert code.co_filename == '<filename2>'
-
-    def test_with_empty_tuple(self):
-        source = py.code.Source("""
-        from __future__ import with_statement
-
-        with x as ():
-            pass
-        """)
-        try:
-            self.compiler.compile(str(source), '<filename>', 'exec', 0)
-        except OperationError as e:
-            if not e.match(self.space, self.space.w_SyntaxError):
-                raise
-        else:
-            py.test.fail("Did not raise")
 
     def test_assign_to_yield(self):
         code = 'def f(): (yield bar) += y'
@@ -1068,7 +1053,7 @@ class AppTestCompiler(object):
         assert d['c1'] == tuple(sorted(d['c1']))
         assert d['r1'] == d['r2'] == d['c1']
 
-    def test_ast_equality(self):
+    def test_code_equality(self):
         import _ast
         sample_code = [
             ['<assign>', 'x = 5'],
@@ -1107,6 +1092,94 @@ class AppTestCompiler(object):
             a, b, c, d)
         assert f('a') == ('a', 3, 2, 1), repr(f('a'))
         assert f() == (4, 3, 2, 1), repr(f())
+        """
+
+    # the following couple of tests are from test_super.py in the stdlib
+
+    def test_classcell(self):
+        """
+        test_class = None
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                nonlocal test_class
+                self = super().__new__(cls, name, bases, namespace)
+                test_class = self.f()
+                return self
+        class A(metaclass=Meta):
+            @staticmethod
+            def f():
+                return __class__
+        assert test_class is A
+        """
+
+    def test_classcell_missing(self):
+        """
+        # Some metaclasses may not pass the original namespace to type.__new__
+        # We test that case here by forcibly deleting __classcell__
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                namespace.pop('__classcell__', None)
+                return super().__new__(cls, name, bases, namespace)
+
+        class WithClassRef(metaclass=Meta):
+            def f(self):
+                return __class__
+
+        # Check __class__ still gets set despite the warning
+        assert WithClassRef().f() is WithClassRef
+        """
+
+    def test_classcell_overwrite(self):
+        """
+        # Overwriting __classcell__ with nonsense is explicitly prohibited
+        class Meta(type):
+            def __new__(cls, name, bases, namespace, cell):
+                namespace['__classcell__'] = cell
+                return super().__new__(cls, name, bases, namespace)
+
+        raises(TypeError, '''if 1:
+            class A(metaclass=Meta, cell=object()):
+                pass
+        ''')
+        """
+
+    def test_classcell_wrong_cell(self):
+        """
+        # Pointing the cell reference at the wrong class is prohibited
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                cls = super().__new__(cls, name, bases, namespace)
+                B = type("B", (), namespace)
+                return cls
+
+        # works, no __class__
+        class A(metaclass=Meta):
+            pass
+
+        raises(TypeError, '''if 1:
+            class A(metaclass=Meta):
+                def f(self):
+                    return __class__
+        ''')
+
+        """
+
+    def test_class_mro(self):
+        """
+        test_class = None
+
+        class Meta(type):
+            def mro(self):
+                # self.f() doesn't work yet...
+                self.__dict__["f"]()
+                return super().mro()
+
+        class A(metaclass=Meta):
+            def f():
+                nonlocal test_class
+                test_class = __class__
+
+        assert test_class is A
         """
 
 
@@ -1438,3 +1511,5 @@ class AppTestExceptions:
         assert eval(code) == u'\xc2\u20ac'
         code = b'u"""\\\n# -*- coding: ascii -*-\n\xc2\xa4"""\n'
         assert eval(code) == u'# -*- coding: ascii -*-\n\xa4'
+
+

@@ -3,6 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
     CONST_STRING, ADDR, CANNOT_FAIL, INTP_real)
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers_flags("Long")
@@ -199,7 +200,9 @@ def PyLong_FromUnicode(space, u, length, base):
     string, length gives the number of characters, and base is the radix
     for the conversion.  The radix must be in the range [2, 36]; if it is
     out of range, ValueError will be raised."""
-    w_value = space.newunicode(rffi.wcharpsize2unicode(u, length))
+    if length < 0:
+        length = 0
+    w_value = space.newutf8(wcharpsize2utf8(space, u, length), length)
     return PyLong_FromUnicodeObject(space, w_value, base)
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)

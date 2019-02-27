@@ -596,6 +596,23 @@ class Transformer(object):
             op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
                                  op.result)
             return [SpaceOperation('-live-', [], None), op1, None]
+        if (hints.get('promote_unicode') and
+            op.args[0].concretetype is not lltype.Void):
+            U = lltype.Ptr(rstr.UNICODE)
+            assert op.args[0].concretetype == U
+            self._register_extra_helper(EffectInfo.OS_UNIEQ_NONNULL,
+                                        "str.eq_nonnull",
+                                        [U, U],
+                                        lltype.Signed,
+                                        EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+            descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_UNIEQ_NONNULL)
+            # XXX this is fairly ugly way of creating a constant,
+            #     however, callinfocollection has no better interface
+            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
+                                 op.result)
+            return [SpaceOperation('-live-', [], None), op1, None]
         if hints.get('force_virtualizable'):
             return SpaceOperation('hint_force_virtualizable', [op.args[0]], None)
         if hints.get('force_no_const'):   # for tests only

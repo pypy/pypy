@@ -292,7 +292,7 @@ constructor:
     ...
     ... Non-example text.
     ...
-    ...     >>> print('another\example')
+    ...     >>> print('another\\example')
     ...     another
     ...     example
     ... '''
@@ -1878,7 +1878,6 @@ if not hasattr(sys, 'gettrace') or not sys.gettrace():
         To demonstrate this, we'll create a fake standard input that
         captures our debugger input:
 
-          >>> import tempfile
           >>> real_stdin = sys.stdin
           >>> sys.stdin = _FakeInput([
           ...    'print(x)',  # print data defined by the example
@@ -1919,7 +1918,7 @@ if not hasattr(sys, 'gettrace') or not sys.gettrace():
           ... finally:
           ...     sys.stdin = real_stdin
           --Return--
-          > <doctest test.test_doctest.test_pdb_set_trace[8]>(3)calls_set_trace()->None
+          > <doctest test.test_doctest.test_pdb_set_trace[7]>(3)calls_set_trace()->None
           -> import pdb; pdb.set_trace()
           (Pdb) print(y)
           2
@@ -2800,7 +2799,6 @@ text files).
     ...         _ = f.write("       'abc def'\n")
     ...         _ = f.write("\n")
     ...         _ = f.write('   \"\"\"\n')
-    ...     import shutil
     ...     rc1, out1, err1 = script_helper.assert_python_failure(
     ...             '-m', 'doctest', fn, fn2)
     ...     rc2, out2, err2 = script_helper.assert_python_ok(
@@ -2944,11 +2942,10 @@ Invalid doctest option:
 def test_main():
     # Check the doctest cases in doctest itself:
     ret = support.run_doctest(doctest, verbosity=True)
+
     # Check the doctest cases defined here:
     from test import test_doctest
     support.run_doctest(test_doctest, verbosity=True)
-
-import sys, re, io
 
 def test_coverage(coverdir):
     trace = support.import_module('trace')

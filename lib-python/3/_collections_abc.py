@@ -9,9 +9,10 @@ Unit tests are in test_collections.
 from abc import ABCMeta, abstractmethod
 import sys
 
-__all__ = ["Awaitable", "Coroutine", "AsyncIterable", "AsyncIterator",
-           "Hashable", "Iterable", "Iterator", "Generator",
-           "Sized", "Container", "Callable",
+__all__ = ["Awaitable", "Coroutine",
+           "AsyncIterable", "AsyncIterator", "AsyncGenerator",
+           "Hashable", "Iterable", "Iterator", "Generator", "Reversible",
+           "Sized", "Container", "Callable", "Collection",
            "Set", "MutableSet",
            "Mapping", "MutableMapping",
            "MappingView", "KeysView", "ItemsView", "ValuesView",
@@ -59,9 +60,28 @@ _coro = _coro()
 coroutine = type(_coro)
 _coro.close()  # Prevent ResourceWarning
 del _coro
+## asynchronous generator ##
+## This should be reverted, once async generators are supported.
+## Temporary fix.
+#async def _ag(): yield
+#_ag = _ag()
+#async_generator = type(_ag)
+#del _ag
 
 
 ### ONE-TRICK PONIES ###
+
+def _check_methods(C, *methods):
+    mro = C.__mro__
+    for method in methods:
+        for B in mro:
+            if method in B.__dict__:
+                if B.__dict__[method] is None:
+                    return NotImplemented
+                break
+        else:
+            return NotImplemented
+    return True
 
 class Hashable(metaclass=ABCMeta):
 
@@ -74,11 +94,7 @@ class Hashable(metaclass=ABCMeta):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Hashable:
-            for B in C.__mro__:
-                if "__hash__" in B.__dict__:
-                    if B.__dict__["__hash__"]:
-                        return True
-                    break
+            return _check_methods(C, "__hash__")
         return NotImplemented
 
 
@@ -93,11 +109,7 @@ class Awaitable(metaclass=ABCMeta):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Awaitable:
-            for B in C.__mro__:
-                if "__await__" in B.__dict__:
-                    if B.__dict__["__await__"]:
-                        return True
-                    break
+            return _check_methods(C, "__await__")
         return NotImplemented
 
 
@@ -138,14 +150,7 @@ class Coroutine(Awaitable):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Coroutine:
-            mro = C.__mro__
-            for method in ('__await__', 'send', 'throw', 'close'):
-                for base in mro:
-                    if method in base.__dict__:
-                        break
-                else:
-                    return NotImplemented
-            return True
+            return _check_methods(C, '__await__', 'send', 'throw', 'close')
         return NotImplemented
 
 
@@ -163,8 +168,7 @@ class AsyncIterable(metaclass=ABCMeta):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is AsyncIterable:
-            if any("__aiter__" in B.__dict__ for B in C.__mro__):
-                return True
+            return _check_methods(C, "__aiter__")
         return NotImplemented
 
 
@@ -183,10 +187,59 @@ class AsyncIterator(AsyncIterable):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is AsyncIterator:
-            if (any("__anext__" in B.__dict__ for B in C.__mro__) and
-                any("__aiter__" in B.__dict__ for B in C.__mro__)):
-                return True
+            return _check_methods(C, "__anext__", "__aiter__")
         return NotImplemented
+
+
+class AsyncGenerator(AsyncIterator):
+
+    __slots__ = ()
+
+    async def __anext__(self):
+        """Return the next item from the asynchronous generator.
+        When exhausted, raise StopAsyncIteration.
+        """
+        return await self.asend(None)
+
+    @abstractmethod
+    async def asend(self, value):
+        """Send a value into the asynchronous generator.
+        Return next yielded value or raise StopAsyncIteration.
+        """
+        raise StopAsyncIteration
+
+    @abstractmethod
+    async def athrow(self, typ, val=None, tb=None):
+        """Raise an exception in the asynchronous generator.
+        Return next yielded value or raise StopAsyncIteration.
+        """
+        if val is None:
+            if tb is None:
+                raise typ
+            val = typ()
+        if tb is not None:
+            val = val.with_traceback(tb)
+        raise val
+
+    async def aclose(self):
+        """Raise GeneratorExit inside coroutine.
+        """
+        try:
+            await self.athrow(GeneratorExit)
+        except (GeneratorExit, StopAsyncIteration):
+            pass
+        else:
+            raise RuntimeError("asynchronous generator ignored GeneratorExit")
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is AsyncGenerator:
+            return _check_methods(C, '__aiter__', '__anext__',
+                                  'asend', 'athrow', 'aclose')
+        return NotImplemented
+
+
+# AsyncGenerator.register(async_generator)
 
 
 class Iterable(metaclass=ABCMeta):
@@ -201,8 +254,7 @@ class Iterable(metaclass=ABCMeta):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Iterable:
-            if any("__iter__" in B.__dict__ for B in C.__mro__):
-                return True
+            return _check_methods(C, "__iter__")
         return NotImplemented
 
 
@@ -221,9 +273,7 @@ class Iterator(Iterable):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Iterator:
-            if (any("__next__" in B.__dict__ for B in C.__mro__) and
-                any("__iter__" in B.__dict__ for B in C.__mro__)):
-                return True
+            return _check_methods(C, '__iter__', '__next__')
         return NotImplemented
 
 Iterator.register(bytes_iterator)
@@ -240,6 +290,22 @@ Iterator.register(set_iterator)
 Iterator.register(str_iterator)
 Iterator.register(tuple_iterator)
 Iterator.register(zip_iterator)
+
+
+class Reversible(Iterable):
+
+    __slots__ = ()
+
+    @abstractmethod
+    def __reversed__(self):
+        while False:
+            yield None
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Reversible:
+            return _check_methods(C, "__reversed__", "__iter__")
+        return NotImplemented
 
 
 class Generator(Iterator):
@@ -285,16 +351,9 @@ class Generator(Iterator):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Generator:
-            mro = C.__mro__
-            for method in ('__iter__', '__next__', 'send', 'throw', 'close'):
-                for base in mro:
-                    if method in base.__dict__:
-                        break
-                else:
-                    return NotImplemented
-            return True
+            return _check_methods(C, '__iter__', '__next__',
+                                  'send', 'throw', 'close')
         return NotImplemented
-
 
 Generator.register(generator)
 
@@ -310,8 +369,7 @@ class Sized(metaclass=ABCMeta):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Sized:
-            if any("__len__" in B.__dict__ for B in C.__mro__):
-                return True
+            return _check_methods(C, "__len__")
         return NotImplemented
 
 
@@ -326,10 +384,18 @@ class Container(metaclass=ABCMeta):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Container:
-            if any("__contains__" in B.__dict__ for B in C.__mro__):
-                return True
+            return _check_methods(C, "__contains__")
         return NotImplemented
 
+class Collection(Sized, Iterable, Container):
+
+    __slots__ = ()
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Collection:
+            return _check_methods(C,  "__len__", "__iter__", "__contains__")
+        return NotImplemented
 
 class Callable(metaclass=ABCMeta):
 
@@ -342,15 +408,14 @@ class Callable(metaclass=ABCMeta):
     @classmethod
     def __subclasshook__(cls, C):
         if cls is Callable:
-            if any("__call__" in B.__dict__ for B in C.__mro__):
-                return True
+            return _check_methods(C, "__call__")
         return NotImplemented
 
 
 ### SETS ###
 
 
-class Set(Sized, Iterable, Container):
+class Set(Collection):
 
     """A set is a finite, iterable container.
 
@@ -575,7 +640,7 @@ MutableSet.register(set)
 ### MAPPINGS ###
 
 
-class Mapping(Sized, Iterable, Container):
+class Mapping(Collection):
 
     __slots__ = ()
 
@@ -622,6 +687,8 @@ class Mapping(Sized, Iterable, Container):
         if not isinstance(other, Mapping):
             return NotImplemented
         return dict(self.items()) == dict(other.items())
+
+    __reversed__ = None
 
 Mapping.register(mappingproxy)
 
@@ -672,7 +739,7 @@ class ItemsView(MappingView, Set):
         except KeyError:
             return False
         else:
-            return v == value
+            return v is value or v == value
 
     def __iter__(self):
         for key in self._mapping:
@@ -687,7 +754,8 @@ class ValuesView(MappingView):
 
     def __contains__(self, value):
         for key in self._mapping:
-            if value == self._mapping[key]:
+            v = self._mapping[key]
+            if v is value or v == value:
                 return True
         return False
 
@@ -796,7 +864,7 @@ MutableMapping.register(dict)
 ### SEQUENCES ###
 
 
-class Sequence(Sized, Iterable, Container):
+class Sequence(Reversible, Collection):
 
     """All the operations on a read-only sequence.
 
@@ -822,7 +890,7 @@ class Sequence(Sized, Iterable, Container):
 
     def __contains__(self, value):
         for v in self:
-            if v == value:
+            if v is value or v == value:
                 return True
         return False
 

@@ -7,7 +7,7 @@ from weakref import proxy
 import io
 import _pyio as pyio
 
-from test.support import TESTFN, run_unittest, gc_collect
+from test.support import TESTFN, gc_collect
 from collections import UserList
 
 class AutoFileTests:
@@ -140,7 +140,7 @@ class OtherFileTests:
 
     def testModeStrings(self):
         # check invalid mode strings
-        for mode in ("", "aU", "wU+"):
+        for mode in ("", "aU", "wU+", "U+", "+U", "rU+"):
             try:
                 f = self.open(TESTFN, mode)
             except ValueError:

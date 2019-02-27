@@ -121,7 +121,7 @@ def_op('WITH_CLEANUP_FINISH', 82)
 
 def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
-
+def_op('SETUP_ANNOTATIONS', 85)
 def_op('YIELD_VALUE', 86)
 def_op('POP_BLOCK', 87)
 def_op('END_FINALLY', 88)
@@ -171,6 +171,7 @@ def_op('STORE_FAST', 125)       # Local variable number
 haslocal.append(125)
 def_op('DELETE_FAST', 126)      # Local variable number
 haslocal.append(126)
+name_op('STORE_ANNOTATION', 127) # Index in name list
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
 def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
@@ -215,6 +216,7 @@ def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
 
 def_op('FORMAT_VALUE', 155)   # in CPython 3.6, but available in PyPy from 3.5
+def_op('BUILD_CONST_KEY_MAP', 156)
 def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
 
 # pypy modification, experimental bytecode

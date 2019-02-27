@@ -708,7 +708,9 @@ class BufferingInputStream(Stream):
                     assert stop >= 0
                     chunks.append(self.buf[:stop])
                     break
-                chunks.append(self.buf)
+                buf = self.buf
+                assert buf is not None
+                chunks.append(buf)
             return ''.join(chunks)
 
     def readline(self):

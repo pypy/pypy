@@ -1,6 +1,5 @@
 import mailcap
 import os
-import shutil
 import copy
 import test.support
 import unittest
@@ -123,7 +122,7 @@ class HelperFunctionTest(unittest.TestCase):
             (["echo foo", "audio/*", "foo.txt"], "echo foo"),
             (["echo %s", "audio/*", "foo.txt"], "echo foo.txt"),
             (["echo %t", "audio/*", "foo.txt"], "echo audio/*"),
-            (["echo \%t", "audio/*", "foo.txt"], "echo %t"),
+            (["echo \\%t", "audio/*", "foo.txt"], "echo %t"),
             (["echo foo", "audio/*", "foo.txt", plist], "echo foo"),
             (["echo %{total}", "audio/*", "foo.txt", plist], "echo 3")
         ]

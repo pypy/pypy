@@ -10,6 +10,7 @@ import codecs
 import itertools
 import operator
 import struct
+import string
 import sys
 import unittest
 import warnings
@@ -463,6 +464,13 @@ class UnicodeTest(string_tests.CommonTest,
         self.checkraises(TypeError, ' ', 'join', ['1', '2', '3', bytes()])
         self.checkraises(TypeError, ' ', 'join', [1, 2, 3])
         self.checkraises(TypeError, ' ', 'join', ['1', '2', 3])
+
+    @unittest.skipIf(sys.maxsize > 2**32,
+        'needs too much memory on a 64-bit platform')
+    def test_join_overflow(self):
+        size = int(sys.maxsize**0.5) + 1
+        seq = ('A' * size,) * size
+        self.assertRaises(OverflowError, ''.join, seq)
 
     def test_replace(self):
         string_tests.CommonTest.test_replace(self)
@@ -986,6 +994,19 @@ class UnicodeTest(string_tests.CommonTest,
             def __format__(self, format_spec):
                 return int.__format__(self * 2, format_spec)
 
+        class M:
+            def __init__(self, x):
+                self.x = x
+            def __repr__(self):
+                return 'M(' + self.x + ')'
+            __str__ = None
+
+        class N:
+            def __init__(self, x):
+                self.x = x
+            def __repr__(self):
+                return 'N(' + self.x + ')'
+            __format__ = None
 
         self.assertEqual(''.format(), '')
         self.assertEqual('abc'.format(), 'abc')
@@ -1199,6 +1220,16 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertRaises(ValueError, "{[}".format, 42)
 
         self.assertEqual("0x{:0{:d}X}".format(0x0,16), "0x0000000000000000")
+
+        # Blocking fallback
+        m = M('data')
+        self.assertEqual("{!r}".format(m), 'M(data)')
+        self.assertRaises(TypeError, "{!s}".format, m)
+        self.assertRaises(TypeError, "{}".format, m)
+        n = N('data')
+        self.assertEqual("{!r}".format(n), 'N(data)')
+        self.assertEqual("{!s}".format(n), 'N(data)')
+        self.assertRaises(TypeError, "{}".format, n)
 
     def test_format_map(self):
         self.assertEqual(''.format_map({}), '')
@@ -1417,6 +1448,15 @@ class UnicodeTest(string_tests.CommonTest,
         with self.assertRaises(ValueError):
             result = format_string % 2.34
 
+    def test_issue28598_strsubclass_rhs(self):
+        # A subclass of str with an __rmod__ method should be able to hook
+        # into the % operator
+        class SubclassedStr(str):
+            def __rmod__(self, other):
+                return 'Success, self.__rmod__({!r}) was called'.format(other)
+        self.assertEqual('lhs %% %r' % SubclassedStr('rhs'),
+                         "Success, self.__rmod__('lhs %% %r') was called")
+
     @support.cpython_only
     def test_formatting_huge_precision_c_limits(self):
         from _testcapi import INT_MAX
@@ -1541,7 +1581,7 @@ class UnicodeTest(string_tests.CommonTest,
             ('+', b'+-'),
             ('+-', b'+--'),
             ('+?', b'+-?'),
-            ('\?', b'+AFw?'),
+            (r'\?', b'+AFw?'),
             ('+?', b'+-?'),
             (r'\\?', b'+AFwAXA?'),
             (r'\\\?', b'+AFwAXABc?'),
@@ -2425,7 +2465,7 @@ class CAPITest(unittest.TestCase):
         # non-ascii format, ascii argument: ensure that PyUnicode_FromFormatV()
         # raises an error
         self.assertRaisesRegex(ValueError,
-            '^PyUnicode_FromFormatV\(\) expects an ASCII-encoded format '
+            r'^PyUnicode_FromFormatV\(\) expects an ASCII-encoded format '
             'string, got a non-ASCII byte: 0xe9$',
             PyUnicode_FromFormat, b'unicode\xe9=%s', 'ascii')
 
@@ -2796,7 +2836,6 @@ class CAPITest(unittest.TestCase):
                 self.assertEqual(getargs_s_hash(s), chr(k).encode() * (i + 1))
                 # Check that the second call returns the same result
                 self.assertEqual(getargs_s_hash(s), chr(k).encode() * (i + 1))
-
 
 class StringModuleTest(unittest.TestCase):
     def test_formatter_parser(self):

@@ -13,7 +13,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_COROUTINE, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY,
-    CO_ITERABLE_COROUTINE)
+    CO_ITERABLE_COROUTINE, CO_ASYNC_GENERATOR)
 from pypy.tool import dis3
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
@@ -39,7 +39,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 112 # bump it by 16
+pypy_incremental_magic = 160 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -206,7 +206,7 @@ class PyCode(eval.Code):
         self.co_filename = '<builtin>/%s' % (basename,)
         self.w_filename = self.space.newfilename(self.co_filename)
 
-    co_names = property(lambda self: [self.space.str_w(w_name) for w_name in self.co_names_w]) # for trace
+    co_names = property(lambda self: [self.space.text_w(w_name) for w_name in self.co_names_w]) # for trace
 
     def signature(self):
         return self._signature
@@ -216,6 +216,7 @@ class PyCode(eval.Code):
         """
         Hack to initialize the code object from a real (CPython) one.
         """
+        raise TypeError("assert reinterpretation for applevel tests is broken on PyPy3!")
         assert isinstance(code, types.CodeType)
         newconsts_w = [None] * len(code.co_consts)
         num = 0
@@ -301,11 +302,7 @@ class PyCode(eval.Code):
                 w_co.remove_docstrings(space)
 
     def exec_host_bytecode(self, w_globals, w_locals):
-        if sys.version_info < (2, 7):
-            raise Exception("PyPy no longer supports Python 2.6 or lower")
-        frame = self.space.FrameClass(self.space, self, w_globals, None)
-        frame.setdictscope(w_locals)
-        return frame.run()
+        raise Exception("no longer supported after the switch to wordcode!")
 
     def dump(self):
         """NOT_RPYTHON: A dis.dis() dump of the code object."""
@@ -353,7 +350,7 @@ class PyCode(eval.Code):
                 return space.w_False
 
         for i in range(len(self.co_consts_w)):
-            if not space.eq_w(self.co_consts_w[i], w_other.co_consts_w[i]):
+            if not _code_const_eq(space, self.co_consts_w[i], w_other.co_consts_w[i]):
                 return space.w_False
 
         return space.w_True
@@ -452,8 +449,43 @@ class PyCode(eval.Code):
     def repr(self, space):
         space = self.space
         # co_name should be an identifier
-        name = self.co_name.decode('utf-8')
-        fn = space.unicode_w(self.w_filename)
-        return space.newunicode(u'<code object %s at 0x%s, file "%s", line %d>' % (
-            name, unicode(self.getaddrstring(space)), fn,
+        name = self.co_name
+        fn = space.utf8_w(self.w_filename)
+        return space.newtext(b'<code object %s at 0x%s, file "%s", line %d>' % (
+            name, self.getaddrstring(space), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))
+
+def _code_const_eq(space, w_a, w_b):
+    # this is a mess! CPython has complicated logic for this. essentially this
+    # is supposed to be a "strong" equal, that takes types and signs of numbers
+    # into account, quite similar to how PyPy's 'is' behaves, but recursively
+    # in tuples and frozensets as well. Since PyPy already implements these
+    # rules correctly for ints, floats, bools, complex in 'is' and 'id', just
+    # use those.
+    return space.eq_w(_convert_const(space, w_a), _convert_const(space, w_b))
+
+def _convert_const(space, w_a):
+    # use id to convert constants. for tuples and frozensets use tuples and
+    # frozensets of converted contents.
+    w_type = space.type(w_a)
+    if space.is_w(w_type, space.w_unicode):
+        # unicodes are supposed to compare by value
+        return w_a
+    if space.is_w(w_type, space.w_bytes):
+        # bytes too
+        return w_a
+    if isinstance(w_a, PyCode):
+        # for code objects we use the logic recursively
+        return w_a
+    # for tuples and frozensets convert recursively
+    if space.is_w(w_type, space.w_tuple):
+        elements_w = [_convert_const(space, w_x)
+                for w_x in space.unpackiterable(w_a)]
+        return space.newtuple(elements_w)
+    if space.is_w(w_type, space.w_frozenset):
+        elements_w = [_convert_const(space, w_x)
+                for w_x in space.unpackiterable(w_a)]
+        return space.newfrozenset(elements_w)
+    # use id for the rest
+    return space.id(w_a)
+

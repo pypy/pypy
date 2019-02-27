@@ -614,6 +614,44 @@ class TestAstBuilder:
             assert len(dec.args) == 2
             assert dec.keywords is None
 
+    def test_annassign(self):
+        simple = self.get_first_stmt('a: int')
+        assert isinstance(simple, ast.AnnAssign)
+        assert isinstance(simple.target, ast.Name)
+        assert simple.target.ctx == ast.Store
+        assert isinstance(simple.annotation, ast.Name)
+        assert simple.value == None
+        assert simple.simple == 1
+
+        with_value = self.get_first_stmt('x: str = "test"')
+        assert isinstance(with_value, ast.AnnAssign)
+        assert isinstance(with_value.value, ast.Str)
+        assert self.space.eq_w(with_value.value.s, self.space.wrap("test"))
+
+        not_simple = self.get_first_stmt('(a): int')
+        assert isinstance(not_simple, ast.AnnAssign)
+        assert isinstance(not_simple.target, ast.Name)
+        assert not_simple.target.ctx == ast.Store
+        assert not_simple.simple == 0
+
+        attrs = self.get_first_stmt('a.b.c: int')
+        assert isinstance(attrs, ast.AnnAssign)
+        assert isinstance(attrs.target, ast.Attribute)
+
+        subscript = self.get_first_stmt('a[0:2]: int')
+        assert isinstance(subscript, ast.AnnAssign)
+        assert isinstance(subscript.target, ast.Subscript)
+
+        exc_tuple = py.test.raises(SyntaxError, self.get_ast, 'a, b: int').value
+        assert exc_tuple.msg == "only single target (not tuple) can be annotated"
+
+        exc_list = py.test.raises(SyntaxError, self.get_ast, '[]: int').value
+        assert exc_list.msg == "only single target (not list) can be annotated"
+
+        exc_bad_target = py.test.raises(SyntaxError, self.get_ast, '{}: int').value
+        assert exc_bad_target.msg == "illegal target for annoation"
+
+
     def test_augassign(self):
         aug_assigns = (
             ("+=", ast.Add),
@@ -772,7 +810,6 @@ class TestAstBuilder:
             ("{x : x for x in z}", "dict comprehension"),
             ("'str'", "literal"),
             ("b'bytes'", "literal"),
-            ("()", "()"),
             ("23", "literal"),
             ("{}", "literal"),
             ("{1, 2, 3}", "literal"),
@@ -902,7 +939,7 @@ class TestAstBuilder:
 
     def test_flufl(self):
         source = "x <> y"
-        raises(SyntaxError, self.get_ast, source)
+        py.test.raises(SyntaxError, self.get_ast, source)
         comp = self.get_first_expr(source,
                                    flags=consts.CO_FUTURE_BARRY_AS_BDFL)
         assert isinstance(comp, ast.Compare)
@@ -1130,7 +1167,7 @@ class TestAstBuilder:
         s = self.get_first_expr("b'hi' b' implicitly' b' extra'")
         assert isinstance(s, ast.Bytes)
         assert space.eq_w(s.s, space.newbytes("hi implicitly extra"))
-        raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
+        py.test.raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
         sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
         info = pyparse.CompileInfo("<test>", "exec")
@@ -1325,8 +1362,8 @@ class TestAstBuilder:
         assert isinstance(if2, ast.Name)
 
     def test_cpython_issue12983(self):
-        raises(SyntaxError, self.get_ast, r"""b'\x'""")
-        raises(SyntaxError, self.get_ast, r"""b'\x0'""")
+        py.test.raises(SyntaxError, self.get_ast, r"""b'\x'""")
+        py.test.raises(SyntaxError, self.get_ast, r"""b'\x0'""")
 
     def test_matmul(self):
         mod = self.get_ast("a @ b")
@@ -1398,6 +1435,29 @@ class TestAstBuilder:
         assert len(asyncwith.body) == 1
         assert isinstance(asyncwith.body[0], ast.Expr)
         assert isinstance(asyncwith.body[0].value, ast.Num)
+
+    def test_asyncYield(self):
+        mod = self.get_ast("async def f():\n yield 5")
+        assert isinstance(mod, ast.Module)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        expr = asyncdef.body[0]
+        assert isinstance(expr, ast.Expr)
+        assert isinstance(expr.value, ast.Yield)
+        assert isinstance(expr.value.value, ast.Num)
+
+    def test_asyncComp(self):
+        mod = self.get_ast("async def f():\n [i async for b in c]")
+        asyncdef = mod.body[0]
+        expr = asyncdef.body[0]
+        comp = expr.value.generators[0]
+        assert comp.target.id == 'b'
+        assert comp.iter.id == 'c'
+        assert comp.is_async is True
 
     def test_decode_error_in_string_literal(self):
         input = "u'\\x'"

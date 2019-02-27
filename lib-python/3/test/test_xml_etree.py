@@ -18,8 +18,7 @@ import weakref
 
 from itertools import product
 from test import support
-from test.support import impl_detail
-from test.support import TESTFN, findfile, import_fresh_module, gc_collect, swap_attr
+from test.support import TESTFN, findfile, import_fresh_module, gc_collect, impl_detail, swap_attr
 
 # pyET is the pure-Python implementation.
 #
@@ -92,14 +91,16 @@ ENTITY_XML = """\
 
 
 class ModuleTest(unittest.TestCase):
-    # TODO: this should be removed once we get rid of the global module vars
-
     def test_sanity(self):
         # Import sanity.
 
         from xml.etree import ElementTree
         from xml.etree import ElementInclude
         from xml.etree import ElementPath
+
+    def test_all(self):
+        names = ("xml.etree.ElementTree", "_elementtree")
+        support.check__all__(self, ET, names, blacklist=("HTML_EMPTY",))
 
 
 def serialize(elem, to_string=True, encoding='unicode', **options):
@@ -183,10 +184,12 @@ class ElementTreeTest(unittest.TestCase):
 
         def check_element(element):
             self.assertTrue(ET.iselement(element), msg="not an element")
-            self.assertTrue(hasattr(element, "tag"), msg="no tag member")
-            self.assertTrue(hasattr(element, "attrib"), msg="no attrib member")
-            self.assertTrue(hasattr(element, "text"), msg="no text member")
-            self.assertTrue(hasattr(element, "tail"), msg="no tail member")
+            direlem = dir(element)
+            for attr in 'tag', 'attrib', 'text', 'tail':
+                self.assertTrue(hasattr(element, attr),
+                        msg='no %s member' % attr)
+                self.assertIn(attr, direlem,
+                        msg='no %s visible by dir' % attr)
 
             check_string(element.tag)
             check_mapping(element.attrib)
@@ -1877,17 +1880,6 @@ class BadElementTest(ElementTestCase, unittest.TestCase):
         with swap_attr(e, 'tag', e):
             with self.assertRaises(RuntimeError):
                 repr(e)  # Should not crash
-
-    def test_bad_find_returns_none(self):
-        # This behavior is the one we get historically when the C
-        # extension module is enabled.  With the Python version, it
-        # raised a TypeError instead.  There are projects out there
-        # that depend on the non-raising behavior, of course.
-        e = ET.Element('foo')
-        assert e.find('') is None
-        assert e.findall('') == []
-        assert e.findtext('') is None
-        assert e.findtext('', default="default.") == "default."
 
 class MutatingElementPath(str):
     def __new__(cls, elem, *args):

@@ -55,7 +55,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     base_module_name = module_name.split('.')[-1]
     sources = []
     if w_extra_source is not None:
-        sources.append(space.str_w(w_extra_source))
+        sources.append(space.text_w(w_extra_source))
     kwargs = {}
     if w_extra_compile_args is not None:
         kwargs['extra_compile_args'] = space.unwrap(w_extra_compile_args)

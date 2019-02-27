@@ -463,10 +463,10 @@ class AppTestInt(object):
         value = 4200000000000000000000000000000000
         assert int(j()) == 4200000000000000000000000000000000
         value = subint(42)
-        assert int(j()) == 42 and type(int(j())) is subint
+        assert int(j()) == 42 and type(int(j())) is int
         value = subint(4200000000000000000000000000000000)
         assert (int(j()) == 4200000000000000000000000000000000
-                and type(int(j())) is subint)
+                and type(int(j())) is int)
         value = 42.0
         raises(TypeError, int, j())
         value = "foo"
@@ -531,7 +531,7 @@ class AppTestInt(object):
                     return True
             n = int(TruncReturnsNonInt())
             assert n == 1
-            assert type(n) is bool
+            assert type(n) is int
 
     def test_int_before_string(self):
         class Integral(str):
@@ -588,7 +588,7 @@ class AppTestInt(object):
     def test_int_error_msg_surrogate(self):
         value = u'123\ud800'
         e = raises(ValueError, int, value)
-        assert str(e.value) == "invalid literal for int() with base 10: %r" % value
+        assert str(e.value) == u"invalid literal for int() with base 10: %r" % value
 
     def test_non_numeric_input_types(self):
         # Test possible non-numeric types for the argument x, including
@@ -705,7 +705,7 @@ class AppTestInt(object):
             warnings.simplefilter("always", DeprecationWarning)
             n = int(bad)
             m = _operator.index(bad)
-        assert n is True
+        assert n == 1 and type(n) is int
         assert m is False
         assert len(log) == 2
 
@@ -737,6 +737,11 @@ class AppTestInt(object):
         raises(ValueError, int, '07777777777777777777777777777777777777', 0)
         raises(ValueError, int, '00000000000000000000000000000000000007', 0)
         raises(ValueError, int, '00000000000000000077777777777777777777', 0)
+
+    def test_some_rops(self):
+        b = 2 ** 31
+        x = -b
+        assert x.__rsub__(2) == (2 + b)
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}

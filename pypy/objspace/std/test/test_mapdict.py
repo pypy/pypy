@@ -920,7 +920,7 @@ class AppTestWithMapDictAndCounters(object):
         #
         def check(space, w_func, name):
             w_code = space.getattr(w_func, space.wrap('__code__'))
-            nameindex = map(space.str_w, w_code.co_names_w).index(name)
+            nameindex = map(space.text_w, w_code.co_names_w).index(name)
             entry = w_code._mapdict_caches[nameindex]
             entry.failure_counter = 0
             entry.success_counter = 0

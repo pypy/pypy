@@ -318,6 +318,14 @@ def f(x):
         x = g.lookup_role('x')
         assert x == symtable.SYM_GLOBAL
 
+    def test_global_after_assignment(self):
+        src = ("def f():\n"
+               "    x = 1\n"
+               "    global x\n")
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.lineno == 3
+        assert exc.msg == "name 'x' is assigned to before global declaration"
+
     def test_nonlocal(self):
         src = """
 x = 1
@@ -396,6 +404,14 @@ def f(x):
         assert exc.msg == "name 'x' is parameter and nonlocal"
         assert exc.lineno == 4
 
+    def test_nonlocal_after_assignment(self):
+        src = ("def f():\n"
+               "    x = 1\n"
+               "    nonlocal x\n")
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.lineno == 3
+        assert exc.msg == "name 'x' is assigned to before nonlocal declaration"
+
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized
         assert not self.class_scope("class x: pass").can_be_optimized
@@ -469,6 +485,48 @@ def f(x):
     def test_tmpnames(self):
         scp = self.mod_scope("with x: pass")
         assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
+
+    def test_annotation_global(self):
+        src_global = ("def f():\n"
+                      "    x: int\n"
+                      "    global x\n")
+        exc_global = py.test.raises(SyntaxError, self.func_scope, src_global).value
+        assert exc_global.msg == "annotated name 'x' can't be global"
+        assert exc_global.lineno == 3
+
+    def test_annotation_global2(self):
+        src_global = ("def f():\n"
+                      "    global x\n"
+                      "    x: int\n")
+        exc_global = py.test.raises(SyntaxError, self.func_scope, src_global).value
+        assert exc_global.msg == "annotated name 'x' can't be global"
+        assert exc_global.lineno == 3
+
+    def test_annotation_nonlocal(self):
+        src_nonlocal = ("def f():\n"
+                        "    x: int\n"
+                        "    nonlocal x\n")
+        exc_nonlocal = py.test.raises(SyntaxError, self.func_scope, src_nonlocal).value
+        assert exc_nonlocal.msg == "annotated name 'x' can't be nonlocal"
+        assert exc_nonlocal.lineno == 3
+
+    def test_annotation_assignment(self):
+        scp = self.mod_scope("x: int = 1")
+        assert scp.contains_annotated == True
+
+        scp2 = self.mod_scope("x = 1")
+        assert scp2.contains_annotated == False
+
+        fscp = self.func_scope("def f(): x: int")
+        assert fscp.contains_annotated == False
+        assert fscp.lookup("x") == symtable.SCOPE_LOCAL
+
+    def test_nonsimple_annotation(self):
+        fscp = self.func_scope("def f(): implicit_global[0]: int")
+        assert fscp.lookup("implicit_global") == symtable.SCOPE_GLOBAL_IMPLICIT
+
+        fscp = self.func_scope("def f(): (implicit_global): int")
+        assert fscp.lookup("implicit_global") == symtable.SCOPE_UNKNOWN
 
     def test_issue13343(self):
         scp = self.mod_scope("lambda *, k1=x, k2: None")

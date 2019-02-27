@@ -713,6 +713,13 @@ class MmapTests(unittest.TestCase):
         gc_collect()
         self.assertIs(wr(), None)
 
+    def test_write_returning_the_number_of_bytes_written(self):
+        mm = mmap.mmap(-1, 16)
+        self.assertEqual(mm.write(b""), 0)
+        self.assertEqual(mm.write(b"x"), 1)
+        self.assertEqual(mm.write(b"yz"), 2)
+        self.assertEqual(mm.write(b"python"), 6)
+
     @unittest.skipIf(os.name == 'nt', 'cannot resize anonymous mmaps on Windows')
     def test_resize_past_pos(self):
         m = mmap.mmap(-1, 8192)

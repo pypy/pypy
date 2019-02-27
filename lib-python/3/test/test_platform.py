@@ -33,6 +33,7 @@ class PlatformTest(unittest.TestCase):
                 'import platform; print(platform.architecture())']
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             return p.communicate()
+
         real = os.path.realpath(sys.executable)
         link = os.path.abspath(support.TESTFN)
         os.symlink(real, link)
@@ -101,7 +102,7 @@ class PlatformTest(unittest.TestCase):
              ('CPython', '2.4.3', '', '', 'truncation', '', 'GCC')),
             ):
             # branch and revision are not "parsed", but fetched
-            # from sys._mercurial.  Ignore them
+            # from sys._git.  Ignore them
             (name, version, branch, revision, buildno, builddate, compiler) \
                    = platform._sys_version(input)
             self.assertEqual(
@@ -262,7 +263,7 @@ class PlatformTest(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 'ignore',
-                'dist\(\) and linux_distribution\(\) '
+                r'dist\(\) and linux_distribution\(\) '
                 'functions are deprecated .*',
                 PendingDeprecationWarning,
             )
@@ -338,7 +339,7 @@ class PlatformTest(unittest.TestCase):
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
                         'ignore',
-                        'dist\(\) and linux_distribution\(\) '
+                        r'dist\(\) and linux_distribution\(\) '
                         'functions are deprecated .*',
                         PendingDeprecationWarning,
                     )

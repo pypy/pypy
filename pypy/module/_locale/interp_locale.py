@@ -41,8 +41,9 @@ def _w_copy_grouping(space, text):
 
 def charp2uni(space, s):
     "Convert a char* pointer to unicode according to the current locale"
-    # XXX use mbstowcs()
-    return space.newtext(rffi.charp2str(s))
+    w_val = space.newbytes(rffi.charp2str(s))
+    return space.call_function(space.w_unicode, w_val, space.newtext('utf-8'),
+                               space.newtext('surrogateescape'))
 
 def localeconv(space):
     "() -> dict. Returns numeric and monetary locale-specific parameters."
@@ -95,10 +96,11 @@ _wcscoll = rlocale.external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 def strcoll(space, w_s1, w_s2):
     "string,string -> int. Compares two strings according to the locale."
 
-    s1, s2 = space.unicode_w(w_s1), space.unicode_w(w_s2)
+    s1, l1 = space.utf8_len_w(w_s1)
+    s2, l2 = space.utf8_len_w(w_s2)
 
-    s1_c = rffi.unicode2wcharp(s1)
-    s2_c = rffi.unicode2wcharp(s2)
+    s1_c = rffi.utf82wcharp(s1, l1)
+    s2_c = rffi.utf82wcharp(s2, l2)
     try:
         result = _wcscoll(s1_c, s2_c)
     finally:
@@ -145,9 +147,11 @@ if rlocale.HAVE_LANGINFO:
         Return the value for the locale information associated with key."""
 
         try:
-            return space.newtext(rlocale.nl_langinfo(key))
+            w_val = space.newbytes(rlocale.nl_langinfo(key))
         except ValueError:
             raise oefmt(space.w_ValueError, "unsupported langinfo constant")
+        return space.call_function(space.w_unicode, w_val,
+             space.newtext('utf-8'), space.newtext('surrogateescape'))
 
 #___________________________________________________________________
 # HAVE_LIBINTL dependence

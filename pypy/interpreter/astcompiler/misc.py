@@ -68,10 +68,14 @@ class ForbiddenNameAssignment(Exception):
         self.node = node
 
 
-def check_forbidden_name(name, node=None):
+def check_forbidden_name(space, name, node=None):
     """Raise an error if the name cannot be assigned to."""
     if name in ("None", "__debug__"):
         raise ForbiddenNameAssignment(name, node)
+    if name in ("async", "await"):
+        space.warn(space.newtext(
+            "'async' and 'await' will become reserved keywords"
+            " in Python 3.7"), space.w_DeprecationWarning)
     # XXX Warn about using True and False
 
 
@@ -112,7 +116,7 @@ def intern_if_common_string(space, w_const):
     # only intern identifier-like strings
     from pypy.objspace.std.unicodeobject import _isidentifier
     if (space.is_w(space.type(w_const), space.w_unicode) and
-        _isidentifier(space.unicode_w(w_const))):
+        _isidentifier(space.utf8_w(w_const))):
         return space.new_interned_w_str(w_const)
     return w_const
 

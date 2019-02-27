@@ -695,7 +695,7 @@ class VectorRegallocMixin(object):
                 if not candidate_to_spill:
                     raise NoVariableToSpill
                 reg = xrm.reg_bindings[candidate_to_spill]
-                xrm._spill_var(candidate_to_spill, forbidden_vars, None)
+                xrm._spill_var(forbidden_vars, reg)
                 xrm.free_regs.append(reg)
             loc = xrm.free_regs.pop()
             self.assembler.mov(selected_reg, loc)

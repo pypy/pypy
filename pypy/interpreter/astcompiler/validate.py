@@ -11,11 +11,16 @@ def validate_ast(space, node):
 
 
 class ValidationError(Exception):
+    # Will be seen as a ValueError
     def __init__(self, message):
         self.message = message
 
     def __str__(self):
         return self.message
+
+class ValidationTypeError(ValidationError):
+    # Will be seen as a TypeError
+    pass
 
 
 def expr_context_name(ctx):
@@ -91,6 +96,28 @@ class __extend__(ast.Attribute):
 
     def check_context(self, visitor, ctx):
         _check_context(ctx, self.ctx)
+
+
+# Recursive function to validate a Constant value.
+def validate_constant(space, w_obj):
+    if space.is_w(w_obj, space.w_None):
+        return
+    if space.is_w(w_obj, space.w_Ellipsis):
+        return
+    w_type = space.type(w_obj)
+    if w_type in (space.w_int,
+                  space.w_float,
+                  space.w_complex,
+                  space.w_bool,
+                  space.w_unicode,
+                  space.w_bytes):
+        return
+    if w_type in (space.w_tuple, space.w_frozenset):
+        for w_item in space.unpackiterable(w_obj):
+            validate_constant(space, w_item)
+        return
+    raise ValidationTypeError("got an invalid type in Constant: %s" %
+                              space.type(w_obj).name)
 
 
 class AstValidator(ast.ASTVisitor):
@@ -212,6 +239,12 @@ class AstValidator(ast.ASTVisitor):
         self._validate_exprs(node.targets, ast.Store)
         self._validate_expr(node.value)
 
+    def visit_AnnAssign(self, node):
+        self._validate_expr(node.target, ast.Store)
+        self._validate_expr(node.annotation)
+        if node.value:
+            self._validate_expr(node.value)
+
     def visit_AugAssign(self, node):
         self._validate_expr(node.target, ast.Store)
         self._validate_expr(node.value)
@@ -288,8 +321,8 @@ class AstValidator(ast.ASTVisitor):
         self._validate_nonempty_seq(node.names, "names", "Import")
 
     def visit_ImportFrom(self, node):
-        if node.level < -1:
-            raise ValidationError("ImportFrom level less than -1")
+        if node.level < 0:
+            raise ValidationError("Negative ImportFrom level")
         self._validate_nonempty_seq(node.names, "names", "ImportFrom")
 
     def visit_Global(self, node):
@@ -317,6 +350,9 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_Ellipsis(self, node):
         pass
+
+    def visit_Constant(self, node):
+        validate_constant(self.space, node.value)
 
     def visit_BoolOp(self, node):
         if self._len(node.values) < 2:

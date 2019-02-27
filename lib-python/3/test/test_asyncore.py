@@ -11,6 +11,9 @@ import struct
 from test import support
 from io import BytesIO
 
+if support.PGO:
+    raise unittest.SkipTest("test is not helpful for PGO")
+
 try:
     import threading
 except ImportError:
@@ -92,7 +95,9 @@ def bind_af_aware(sock, addr):
     if HAS_UNIX_SOCKETS and sock.family == socket.AF_UNIX:
         # Make sure the path doesn't exist.
         support.unlink(addr)
-    sock.bind(addr)
+        support.bind_unix_socket(sock, addr)
+    else:
+        sock.bind(addr)
 
 
 class HelperFunctionTests(unittest.TestCase):
@@ -655,6 +660,9 @@ class BaseTestAPI:
         # tenuously supported and rarely used.
         if HAS_UNIX_SOCKETS and self.family == socket.AF_UNIX:
             self.skipTest("Not applicable to AF_UNIX sockets.")
+
+        if sys.platform == "darwin" and self.use_poll:
+            self.skipTest("poll may fail on macOS; see issue #28087")
 
         class TestClient(BaseClient):
             def handle_expt(self):

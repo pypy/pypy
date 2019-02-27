@@ -56,7 +56,10 @@ class FileEncoder(object):
         return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
-        return self.space.unicode0_w(self.w_obj)
+        ret = self.space.realunicode_w(self.w_obj)
+        if u'\x00' in ret:
+            raise oefmt(self.space.w_ValueError, "embedded null character")
+        return ret
 
 class FileDecoder(object):
     is_unicode = False
@@ -69,7 +72,10 @@ class FileDecoder(object):
         return self.space.bytesbuf0_w(self.w_obj)
 
     def as_unicode(self):
-        return self.space.fsdecode_w(self.w_obj)
+        ret = self.space.fsdecode_w(self.w_obj)
+        if u'\x00' in ret:
+            raise oefmt(self.space.w_ValueError, "embedded null character")
+        return ret
 
 @specialize.memo()
 def make_dispatch_function(func, tag, allow_fd_fn=None):
@@ -85,7 +91,7 @@ def make_dispatch_function(func, tag, allow_fd_fn=None):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.bytesbuf0_w(w_fname)
+            fname = FileDecoder(space, w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -136,27 +142,32 @@ class Path(object):
 
 @specialize.arg(2)
 def _unwrap_path(space, w_value, allow_fd=True):
-    if space.is_none(w_value):
-        raise oefmt(space.w_TypeError,
-            "can't specify None for path argument")
+    # equivalent of posixmodule.c:path_converter() in CPython
+    if allow_fd:
+        allowed_types = "string, bytes, os.PathLike or integer"
+    else:
+        allowed_types = "string, bytes or os.PathLike"
     if _WIN32:
         try:
-            path_u = space.unicode0_w(w_value)
+            path_u = space.utf8_0_w(w_value)
             return Path(-1, None, path_u, w_value)
         except OperationError:
             pass
     try:
-        path_b = space.fsencode_w(w_value)
+        path_b = space.fsencode_w(w_value, allowed_types=allowed_types)
         return Path(-1, path_b, None, w_value)
     except OperationError as e:
-        if not e.match(space, space.w_TypeError):
+        if not allow_fd or not e.match(space, space.w_TypeError):
             raise
-        if allow_fd:
-            fd = unwrap_fd(space, w_value, "string, bytes or integer")
-            return Path(fd, None, None, w_value)
-    raise oefmt(space.w_TypeError,
-                "illegal type for path parameter (expected "
-                "string or bytes, got %T)", w_value)
+        # File descriptor case
+        try:
+            space.index(w_value)
+        except OperationError:
+            raise oefmt(space.w_TypeError,
+                        "illegal type for path parameter (should be "
+                        "%s, not %T)", allowed_types, w_value)
+        fd = unwrap_fd(space, w_value, allowed_types)
+        return Path(fd, None, None, w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
@@ -192,7 +203,7 @@ def _unwrap_dirfd(space, w_value):
     if space.is_none(w_value):
         return DEFAULT_DIR_FD
     else:
-        return unwrap_fd(space, w_value)
+        return unwrap_fd(space, w_value, allowed_types="integer or None")
 
 class _DirFD(Unwrapper):
     def unwrap(self, space, w_value):
@@ -216,6 +227,9 @@ def argument_unavailable(space, funcname, arg):
             "%s: %s unavailable on this platform", funcname, arg)
 
 _open_inhcache = rposix.SetNonInheritableCache()
+
+def u2utf8(space, u_str):
+    return space.newutf8(u_str.encode('utf-8'), len(u_str))
 
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0777,
@@ -567,6 +581,8 @@ If newval is True, future calls to stat() return floats, if it is False,
 future calls return ints.
 If newval is omitted, return the current setting.
 """
+    space.warn(space.newtext("stat_float_times() is deprecated"),
+               space.w_DeprecationWarning)
     state = space.fromcache(StatState)
 
     if newval == -1:
@@ -706,8 +722,9 @@ def system(space, command):
     else:
         return space.newint(rc)
 
-@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def unlink(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(path=path_or_fd(allow_fd=False),
+             dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def unlink(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """unlink(path, *, dir_fd=None)
 
 Remove a file (same as remove()).
@@ -718,15 +735,16 @@ dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
         if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
-            path = space.fsencode_w(w_path)
-            rposix.unlinkat(path, dir_fd, removedir=False)
+            rposix.unlinkat(space.fsencode_w(path.w_path),
+                            dir_fd, removedir=False)
         else:
-            dispatch_filename(rposix.unlink)(space, w_path)
+            call_rposix(rposix.unlink, path)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
-@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def remove(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(path=path_or_fd(allow_fd=False),
+             dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def remove(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """remove(path, *, dir_fd=None)
 
 Remove a file (same as unlink()).
@@ -737,12 +755,12 @@ dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
         if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
-            path = space.fsencode_w(w_path)
-            rposix.unlinkat(path, dir_fd, removedir=False)
+            rposix.unlinkat(space.fsencode_w(path.w_path),
+                            dir_fd, removedir=False)
         else:
-            dispatch_filename(rposix.unlink)(space, w_path)
+            call_rposix(rposix.unlink, path)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
 def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
@@ -750,7 +768,7 @@ def _getfullpathname(space, w_path):
         if space.isinstance_w(w_path, space.w_unicode):
             path = FileEncoder(space, w_path)
             fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.newunicode(fullpath)
+            w_fullpath = u2utf8(space, fullpath)
         else:
             path = space.bytesbuf0_w(w_path)
             fullpath = rposix.getfullpathname(path)
@@ -777,7 +795,7 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
         else:
-            return space.newunicode(cur)
+            return u2utf8(space, cur)
 else:
     def getcwd(space):
         """Return the current working directory as a string."""
@@ -838,7 +856,8 @@ dir_fd may not be implemented on your platform.
 def strerror(space, code):
     """Translate an error code to a message string."""
     try:
-        return space.newunicode(_strerror(code))
+        # _strerror returns utf8, lgt
+        return space.newtext(*_strerror(code))
     except ValueError:
         raise oefmt(space.w_ValueError, "strerror() argument out of range")
 
@@ -885,7 +904,7 @@ if _WIN32:
         # started through main() instead of wmain()
         rwin32._wgetenv(u"")
         for key, value in rwin32._wenviron_items():
-            space.setitem(w_env, space.newunicode(key), space.newunicode(value))
+            space.setitem(w_env, space.newtext(key), space.newtext(value))
 
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
@@ -935,7 +954,7 @@ On some platforms, path may also be specified as an open file descriptor;
   the file descriptor must refer to a directory.
   If this functionality is unavailable, using it raises NotImplementedError."""
     if space.is_none(w_path):
-        w_path = space.newunicode(u".")
+        w_path = space.newtext(".")
     if space.isinstance_w(w_path, space.w_bytes):
         # XXX CPython doesn't follow this path either if w_path is,
         # for example, a memoryview or another buffer type
@@ -968,7 +987,7 @@ On some platforms, path may also be specified as an open file descriptor;
     result_w = [None] * len_result
     for i in range(len_result):
         if _WIN32:
-            result_w[i] = space.newunicode(result[i])
+            result_w[i] = space.newtext(result[i])
         else:
             result_w[i] = space.newfilename(result[i])
     return space.newlist(result_w)
@@ -1088,9 +1107,9 @@ def fchmod(space, fd, mode):
             wrap_oserror(space, e, eintr_retry=True)
 
 @unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
-        dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
+             dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
 def rename(space, w_src, w_dst, __kwonly__,
-        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
+           src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
 Rename a file or directory.
@@ -2258,7 +2277,7 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
-        path = space.unicode_w(w_path)
+        path = space.utf8_w(w_path)
         try:
             result = nt._getfinalpathname(path)
         except nt.LLNotImplemented as e:
@@ -2266,7 +2285,7 @@ if _WIN32:
                                  space.newtext(e.msg))
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        return space.newunicode(result)
+        return space.newtext(result)
 
 
 def chflags():
@@ -2575,3 +2594,35 @@ def sched_yield(space):
             wrap_oserror(space, e, eintr_retry=True)
         else:
             return space.newint(res)
+
+def fspath(space, w_path):
+    """
+    Return the file system path representation of the object.
+
+    If the object is str or bytes, then allow it to pass through as-is. If the
+    object defines __fspath__(), then return the result of that method. All other
+    types raise a TypeError.
+    """
+    if (space.isinstance_w(w_path, space.w_text) or
+        space.isinstance_w(w_path, space.w_bytes)):
+        return w_path
+
+    w_fspath_method = space.lookup(w_path, '__fspath__')
+    if w_fspath_method is None:
+        raise oefmt(
+            space.w_TypeError,
+            'expected str, bytes or os.PathLike object, not %T',
+            w_path
+        )
+
+    w_result = space.get_and_call_function(w_fspath_method, w_path)
+    if (space.isinstance_w(w_result, space.w_text) or
+        space.isinstance_w(w_result, space.w_bytes)):
+        return w_result
+
+    raise oefmt(
+        space.w_TypeError,
+        'expected %T.__fspath__() to return str or bytes, not %T',
+        w_path,
+        w_result
+    )

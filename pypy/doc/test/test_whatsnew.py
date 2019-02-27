@@ -89,7 +89,7 @@ def test_whatsnew():
     startrev, documented = parse_doc(last_whatsnew)
     merged, branch = get_merged_branches(ROOT, startrev, '')
     merged.discard('default')
-    merged.discard('py3.5')
+    merged.discard('py3.6')
     merged.discard('')
     not_documented = merged.difference(documented)
     not_merged = documented.difference(merged)
@@ -100,7 +100,7 @@ def test_whatsnew():
     print '\n'.join(not_merged)
     print
     assert not not_documented
-    if branch == 'py3.5':
+    if branch == 'py3.6':
         assert not not_merged
     else:
         assert branch in documented, 'Please document this branch before merging: %s' % branch

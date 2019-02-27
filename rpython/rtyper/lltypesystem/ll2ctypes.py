@@ -175,7 +175,16 @@ def _setup_ctypes_cache():
                 if res >= (1 << 127):
                     res -= 1 << 128
                 return res
+        class c_uint128(ctypes.Array):   # based on 2 ulongs
+            _type_ = ctypes.c_uint64
+            _length_ = 2
+            @property
+            def value(self):
+                res = self[0] | (self[1] << 64)
+                return res
+
         _ctypes_cache[rffi.__INT128_T] = c_int128
+        _ctypes_cache[rffi.__UINT128_T] = c_uint128
 
     # for unicode strings, do not use ctypes.c_wchar because ctypes
     # automatically converts arrays into unicode strings.

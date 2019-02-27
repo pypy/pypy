@@ -111,7 +111,7 @@ class TestString(BaseTestPyPyC):
             i19 = int_sub(i6, i87)
 
             i23 = unicodegetitem(ConstPtr(ptr92), i19)
-            p25 = newunicode(1)
+            p25 = newtext(1)
             unicodesetitem(p25, 0, i23)
             p97 = call_r(ConstClass(_rpy_unicode_to_decimal_w), p25, descr=<Callr . r EF=5>)
             guard_no_exception(descr=...)
@@ -250,8 +250,11 @@ class TestString(BaseTestPyPyC):
         p80 = call_r(ConstClass(ll_char_mul__Char_Signed), 120, i53, descr=<Callr . ii EF=3>)
         guard_no_exception(descr=...)
         guard_not_invalidated(descr=...)
-        p53 = call_r(ConstClass(fast_str_decode_ascii), p80, descr=<Callr . r EF=4>)
+        i59 = call_i(ConstClass(first_non_ascii_char), p80, descr=<Calli . r EF=4>)
         guard_no_exception(descr=...)
+        i61 = int_lt(i59, 0)
+        guard_true(i61, descr=...)
+        i62 = strlen(p80)
         --TICK--
         jump(..., descr=...)
         """)

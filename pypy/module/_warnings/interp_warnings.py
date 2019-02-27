@@ -1,3 +1,6 @@
+
+from rpython.rlib import rutf8
+
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 
@@ -244,10 +247,10 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     w_stderr = space.sys.get("stderr")
 
     # Print "filename:lineno: category: text\n"
-    message = u"%s:%d: %s: %s\n" % (space.unicode_w(w_filename), lineno,
-                                    space.unicode_w(w_name),
-                                    space.unicode_w(w_text))
-    space.call_method(w_stderr, "write", space.newunicode(message))
+    message = b"%s:%d: %s: %s\n" % (space.utf8_w(w_filename), lineno,
+                                    space.utf8_w(w_name),
+                                    space.utf8_w(w_text))
+    space.call_method(w_stderr, "write", space.newtext(message))
 
     # Print "  source_line\n"
     if not w_sourceline:
@@ -264,24 +267,24 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
 
     if not w_sourceline:
         return
-    line = space.unicode_w(w_sourceline)
+    line = space.utf8_w(w_sourceline)
     if not line:
         return
 
-    message = u"\n"
+    message = "\n"
     for i in range(len(line)):
         c = line[i]
-        if c not in u' \t\014':
-            message = u"  %s\n" % (line[i:],)
+        if c not in ' \t\014':
+            message = "  %s\n" % (line[i:],)
             break
-    space.call_method(w_stderr, "write", space.newunicode(message))
+    space.call_method(w_stderr, "write", space.newtext(message))
 
-def do_warn(space, w_message, w_category, stacklevel):
+def do_warn(space, w_message, w_category, stacklevel, w_source=None):
     context_w = setup_context(space, stacklevel)
-    do_warn_explicit(space, w_category, w_message, context_w)
+    do_warn_explicit(space, w_category, w_message, context_w, w_source=w_source)
 
 def do_warn_explicit(space, w_category, w_message, context_w,
-                     w_sourceline=None):
+                     w_sourceline=None, w_source=None):
     w_filename, lineno, w_module, w_registry = context_w
 
     # normalize module
@@ -342,19 +345,32 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     if warned:
         # Already warned for this module
         return
-    w_show_fxn = get_warnings_attr(space, "showwarning")
-    if w_show_fxn is None:
+
+    w_show_fn = get_warnings_attr(space, "_showwarnmsg")
+    if w_show_fn is None:
         show_warning(space, w_filename, lineno, w_text, w_category,
                      w_sourceline)
-    else:
-        space.call_function(
-            w_show_fxn, w_message, w_category, w_filename, w_lineno)
+        return
+
+    if not space.is_true(space.callable(w_show_fn)):
+        raise oefmt(space.w_TypeError,
+                    "warnings._showwarnmsg() must be set to a callable")
+    w_message_cls = get_warnings_attr(space, "WarningMessage")
+    if w_message_cls is None:
+        raise oefmt(space.w_RuntimeError,
+                    "unable to get warnings.WarningMessage")
+    w_source = w_source or space.w_None
+    w_msg = space.call_function(
+        w_message_cls, w_message, w_category,
+        w_filename, w_lineno, space.w_None, space.w_None, w_source)
+    space.call_function(w_show_fn, w_msg)
+
 
 @unwrap_spec(stacklevel=int)
-def warn(space, w_message, w_category=None, stacklevel=1):
+def warn(space, w_message, w_category=None, stacklevel=1, w_source=None):
     "Issue a warning, or maybe ignore it or raise an exception."
     w_category = get_category(space, w_message, w_category);
-    do_warn(space, w_message, w_category, stacklevel)
+    do_warn(space, w_message, w_category, stacklevel, w_source)
 
 
 def get_source_line(space, w_globals, lineno):
@@ -394,14 +410,15 @@ def get_source_line(space, w_globals, lineno):
              w_registry = WrappedDefault(None),
              w_module_globals = WrappedDefault(None))
 def warn_explicit(space, w_message, w_category, w_filename, lineno,
-                  w_module=None, w_registry=None, w_module_globals=None):
+                  w_module=None, w_registry=None, w_module_globals=None,
+                  w_source=None):
     "Low-level inferface to warnings functionality."
 
     w_source_line = get_source_line(space, w_module_globals, lineno)
 
     do_warn_explicit(space, w_category, w_message,
                      (w_filename, lineno, w_module, w_registry),
-                     w_source_line)
+                     w_source_line, w_source)
 
 def filters_mutated(space):
     space.fromcache(State).filters_mutated(space)

@@ -122,6 +122,21 @@ class TestReadline(unittest.TestCase):
                                               TERM='xterm-256color')
         self.assertEqual(stdout, b'')
 
+    auto_history_script = """\
+import readline
+readline.set_auto_history({})
+input()
+print("History length:", readline.get_current_history_length())
+"""
+
+    def test_auto_history_enabled(self):
+        output = run_pty(self.auto_history_script.format(True))
+        self.assertIn(b"History length: 1\r\n", output)
+
+    def test_auto_history_disabled(self):
+        output = run_pty(self.auto_history_script.format(False))
+        self.assertIn(b"History length: 0\r\n", output)
+
     @unittest.skipIf(not hasattr(readline,
                                  'set_completion_display_matches_hook'),
                      "function not reimplemented in pypy")

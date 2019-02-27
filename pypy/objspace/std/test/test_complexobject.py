@@ -370,6 +370,46 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(real=float2(17.), imag=float2(23.)), 17+23j)
         raises(TypeError, complex, float2(None))
 
+    def test_complex_string_underscores(self):
+        valid = [
+            '1_00_00j',
+            '1_00_00.5j',
+            '1_00_00e5_1j',
+            '.1_4j',
+            '(1_2.5+3_3j)',
+            '(.5_6j)',
+        ]
+        for s in valid:
+            assert complex(s) == complex(s.replace("_", ""))
+            assert eval(s) == eval(s.replace("_", ""))
+
+        invalid = [
+            # Trailing underscores:
+            '1.4j_',
+            # Multiple consecutive underscores:
+            '0.1__4j',
+            '1e1__0j',
+            # Underscore right before a dot:
+            '1_.4j',
+            # Underscore right after a dot:
+            '1._4j',
+            '._5j',
+            # Underscore right after a sign:
+            '1.0e+_1j',
+            # Underscore right before j:
+            '1.4e5_j',
+            # Underscore right before e:
+            '1.4_e1j',
+            # Underscore right after e:
+            '1.4e_1j',
+            # Complex cases with parens:
+            '(1+1.5_j_)',
+            '(1+1.5_j)',
+        ]
+        for s in invalid:
+            raises(ValueError, complex, s)
+            raises(SyntaxError, eval, s)
+
     @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
     def test_constructor_unicode(self):
         b1 = '\N{MATHEMATICAL BOLD DIGIT ONE}' # 𝟏

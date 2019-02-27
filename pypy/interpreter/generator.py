@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock, SApplicationException, Yield
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
-from rpython.rlib import jit, rgc
+from rpython.rlib import jit, rgc, rweakref
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint
 
@@ -38,14 +38,12 @@ class GeneratorOrCoroutine(W_Root):
         # 'qualname' is a unicode string
         if self._qualname is not None:
             return self._qualname
-        return self.get_name().decode('utf-8')
+        return self.get_name()
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
-        return space.newunicode(u"<%s object %s at 0x%s>" %
-                          (unicode(self.KIND),
-                           self.get_qualname(),
-                           unicode(addrstring)))
+        return space.newtext("<%s object %s at 0x%s>" %
+                          (self.KIND, self.get_qualname(), addrstring))
 
     def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator/coroutine,
@@ -80,6 +78,8 @@ return next yielded value or raise StopIteration."""
             # execute_frame() if the frame is actually finished
             if isinstance(w_arg_or_err, SApplicationException):
                 operr = w_arg_or_err.operr
+            elif isinstance(self, AsyncGenerator):
+                operr = OperationError(space.w_StopAsyncIteration, space.w_None)
             else:
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
@@ -90,10 +90,15 @@ return next yielded value or raise StopIteration."""
         # if the frame is now marked as finished, it was RETURNed from
         if frame.frame_finished_execution:
             self.frame_is_finished()
-            if space.is_w(w_result, space.w_None):
-                raise OperationError(space.w_StopIteration, space.w_None)
+            if isinstance(self, AsyncGenerator):
+                assert space.is_w(w_result, space.w_None), (
+                    "getting non-None here should be forbidden by the bytecode")
+                raise OperationError(space.w_StopAsyncIteration, space.w_None)
             else:
-                raise stopiteration_value(space, w_result)
+                if space.is_w(w_result, space.w_None):
+                    raise OperationError(space.w_StopIteration, space.w_None)
+                else:
+                    raise stopiteration_value(space, w_result)
         else:
             return w_result     # YIELDed
 
@@ -127,6 +132,9 @@ return next yielded value or raise StopIteration."""
             try:
                 if e.match(space, space.w_StopIteration):
                     self._leak_stopiteration(e)
+                elif (isinstance(self, AsyncGenerator) and
+                      e.match(space, space.w_StopAsyncIteration)):
+                    self._leak_stopasynciteration(e)
             finally:
                 self.frame_is_finished()
             raise
@@ -156,16 +164,20 @@ return next yielded value or raise StopIteration."""
             # Normal case: the call above raises Yield.
             # We reach this point if the iterable is exhausted.
             last_instr = jit.promote(frame.last_instr)
+            assert last_instr & 1 == 0
             assert last_instr >= 0
-            return r_uint(last_instr + 1)
+            return r_uint(last_instr + 2)
 
         if isinstance(w_arg_or_err, SApplicationException):
             return frame.handle_generator_error(w_arg_or_err.operr)
 
         last_instr = jit.promote(frame.last_instr)
         if last_instr != -1:
+            assert last_instr & 1 == 0
             frame.pushvalue(w_arg_or_err)
-        return r_uint(last_instr + 1)
+            return r_uint(last_instr + 2)
+        else:
+            return r_uint(0)
 
     def next_yield_from(self, frame, w_yf, w_inputvalue_or_err):
         """Fetch the next item of the current 'yield from', push it on
@@ -176,6 +188,8 @@ return next yielded value or raise StopIteration."""
         try:
             if isinstance(w_yf, GeneratorOrCoroutine):
                 w_retval = w_yf.send_ex(w_inputvalue_or_err)
+            elif isinstance(w_yf, AsyncGenASend):   # performance only
+                w_retval = w_yf.do_send(w_inputvalue_or_err)
             elif space.is_w(w_inputvalue_or_err, space.w_None):
                 w_retval = space.next(w_yf)
             else:
@@ -183,7 +197,6 @@ return next yielded value or raise StopIteration."""
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
-            e.normalize_exception(space)
             frame._report_stopiteration_sometimes(w_yf, e)
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
@@ -206,18 +219,24 @@ return next yielded value or raise StopIteration."""
         space = self.space
         if self.pycode.co_flags & (consts.CO_FUTURE_GENERATOR_STOP |
                                    consts.CO_COROUTINE |
-                                   consts.CO_ITERABLE_COROUTINE):
+                                   consts.CO_ITERABLE_COROUTINE |
+                                   consts.CO_ASYNC_GENERATOR):
             e2 = OperationError(space.w_RuntimeError,
                                 space.newtext("%s raised StopIteration" %
                                               self.KIND))
-            e2.chain_exceptions(space, e)
-            e2.set_cause(space, e.get_w_value(space))
-            e2.record_context(space, space.getexecutioncontext())
+            e2.chain_exceptions_from_cause(space, e)
             raise e2
         else:
-            space.warn(space.newunicode(u"generator '%s' raised StopIteration"
+            space.warn(space.newtext("generator '%s' raised StopIteration"
                                         % self.get_qualname()),
-                       space.w_PendingDeprecationWarning)
+                       space.w_DeprecationWarning)
+
+    def _leak_stopasynciteration(self, e):
+        space = self.space
+        e2 = OperationError(space.w_RuntimeError,
+                   space.newtext("async generator raised StopAsyncIteration"))
+        e2.chain_exceptions_from_cause(space, e)
+        raise e2
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """throw(typ[,val[,tb]]) -> raise exception in generator/coroutine,
@@ -308,11 +327,11 @@ return next yielded value or raise StopIteration."""
                         "__name__ must be set to a string object")
 
     def descr__qualname__(self, space):
-        return space.newunicode(self.get_qualname())
+        return space.newtext(self.get_qualname())
 
     def descr_set__qualname__(self, space, w_name):
         try:
-            self._qualname = space.unicode_w(w_name)
+            self._qualname = space.utf8_w(w_name)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
@@ -341,6 +360,7 @@ return next yielded value or raise StopIteration."""
 class GeneratorIterator(GeneratorOrCoroutine):
     "An iterator created by a generator."
     KIND = "generator"
+    KIND_U = u"generator"
 
     def descr__iter__(self):
         """Implement iter(self)."""
@@ -389,6 +409,7 @@ class GeneratorIterator(GeneratorOrCoroutine):
 class Coroutine(GeneratorOrCoroutine):
     "A coroutine object."
     KIND = "coroutine"
+    KIND_U = u"coroutine"
 
     def descr__await__(self, space):
         return CoroutineWrapper(self)
@@ -399,8 +420,8 @@ class Coroutine(GeneratorOrCoroutine):
            self.frame is not None and \
            self.frame.last_instr == -1:
             space = self.space
-            msg = u"coroutine '%s' was never awaited" % self.get_qualname()
-            space.warn(space.newunicode(msg), space.w_RuntimeWarning)
+            msg = "coroutine '%s' was never awaited" % self.get_qualname()
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
         GeneratorOrCoroutine._finalize_(self)
 
 
@@ -456,7 +477,7 @@ def stopiteration_value(space, w_value):
 def gen_close_iter(space, w_yf):
     # This helper function is used by close() and throw() to
     # close a subiterator being delegated to by yield-from.
-    if isinstance(w_yf, GeneratorIterator):
+    if isinstance(w_yf, GeneratorIterator) or isinstance(w_yf, Coroutine):
         w_yf.descr_close()
     else:
         try:
@@ -554,3 +575,202 @@ def should_not_inline(pycode):
         if op >= HAVE_ARGUMENT:
             i += 2
     return count_yields >= 2
+
+
+# ------------------------------------------------
+# Python 3.6 async generators
+
+
+class AsyncGenerator(GeneratorOrCoroutine):
+    "An async generator (i.e. a coroutine with a 'yield')"
+    KIND = "async generator"
+    KIND_U = u"async_generator"
+
+    def __init__(self, frame, name=None, qualname=None):
+        self.hooks_inited = False
+        GeneratorOrCoroutine.__init__(self, frame, name, qualname)
+
+    def init_hooks(self):
+        if self.hooks_inited:
+            return
+        self.hooks_inited = True
+
+        self.w_finalizer = self.space.appexec([], '''():
+            import sys
+            hooks = sys.get_asyncgen_hooks()
+            return hooks.finalizer''')
+
+    def _finalize_(self):
+        if self.frame is not None and self.frame.lastblock is not None:
+            if self.w_finalizer is not self.space.w_None:
+                # XXX: this is a hack to resurrect the weakref that was cleared
+                # before running _finalize_()
+                if self.space.config.translation.rweakref:
+                    self.frame.f_generator_wref = rweakref.ref(self)
+                try:
+                    self.space.call_function(self.w_finalizer, self)
+                except OperationError as e:
+                    e.write_unraisable(self.space, "async generator finalizer")
+                return
+        GeneratorOrCoroutine._finalize_(self)
+
+    def descr__aiter__(self):
+        """Return an asynchronous iterator."""
+        return self
+
+    def descr__anext__(self):
+        self.init_hooks()
+        return AsyncGenASend(self, self.space.w_None)
+
+    def descr_asend(self, w_arg):
+        self.init_hooks()
+        return AsyncGenASend(self, w_arg)
+
+    def descr_athrow(self, w_type, w_val=None, w_tb=None):
+        self.init_hooks()
+        return AsyncGenAThrow(self, w_type, w_val, w_tb)
+
+    def descr_aclose(self):
+        self.init_hooks()
+        return AsyncGenAThrow(self, None, None, None)
+
+
+class AsyncGenValueWrapper(W_Root):
+    def __init__(self, w_value):
+        self.w_value = w_value
+
+
+class AsyncGenABase(W_Root):
+    ST_INIT = 0
+    ST_ITER = 1
+    ST_CLOSED = 2
+
+    state = ST_INIT
+
+    def __init__(self, async_gen):
+        self.space = async_gen.space
+        self.async_gen = async_gen
+
+    def descr__iter__(self):
+        return self
+
+    def descr__next__(self):
+        return self.do_send(self.space.w_None)
+
+    def descr_send(self, w_arg):
+        return self.do_send(w_arg)
+
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
+        space = self.space
+        if self.state == self.ST_CLOSED:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        try:
+            w_value = self.async_gen.throw(w_type, w_val, w_tb)
+            return self.unwrap_value(w_value)
+        except OperationError as e:
+            self.state = self.ST_CLOSED
+            raise
+
+    def descr_close(self):
+        self.state = self.ST_CLOSED
+
+    def unwrap_value(self, w_value):
+        if isinstance(w_value, AsyncGenValueWrapper):
+            w_value = self.space.call_function(self.space.w_StopIteration,
+                                               w_value.w_value)
+            raise OperationError(self.space.w_StopIteration, w_value)
+        else:
+            return w_value
+
+
+class AsyncGenASend(AsyncGenABase):
+
+    def __init__(self, async_gen, w_value_to_send):
+        AsyncGenABase.__init__(self, async_gen)
+        self.w_value_to_send = w_value_to_send
+
+    def do_send(self, w_arg_or_err):
+        space = self.space
+        if self.state == self.ST_CLOSED:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+        # We think that the code should look like this:
+        #if self.w_value_to_send is not None:
+        #    if not space.is_w(w_arg_or_err, space.w_None):
+        #        raise ...
+        #    w_arg_or_err = self.w_value_to_send
+        #    self.w_value_to_send = None
+
+        # But instead, CPython's logic is this, which we think is
+        # giving nonsense results for 'g.asend(42).send(43)':
+        if self.state == self.ST_INIT:
+            if space.is_w(w_arg_or_err, space.w_None):
+                w_arg_or_err = self.w_value_to_send
+            self.state = self.ST_ITER
+
+        try:
+            w_value = self.async_gen.send_ex(w_arg_or_err)
+            return self.unwrap_value(w_value)
+        except OperationError as e:
+            self.state = self.ST_CLOSED
+            raise
+
+
+class AsyncGenAThrow(AsyncGenABase):
+
+    def __init__(self, async_gen, w_exc_type, w_exc_value, w_exc_tb):
+        AsyncGenABase.__init__(self, async_gen)
+        self.w_exc_type = w_exc_type
+        self.w_exc_value = w_exc_value
+        self.w_exc_tb = w_exc_tb
+
+    def do_send(self, w_arg_or_err):
+        # XXX FAR MORE COMPLICATED IN CPYTHON
+        space = self.space
+        if self.state == self.ST_CLOSED:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+        if self.state == self.ST_INIT:
+            if not space.is_w(w_arg_or_err, space.w_None):
+                raise OperationError(space.w_RuntimeError, space.newtext(
+                    "can't send non-None value to a just-started coroutine"))
+            self.state = self.ST_ITER
+            throwing = True
+        else:
+            throwing = False
+
+        try:
+            if throwing:
+                if self.w_exc_type is None:
+                    # TODO: add equivalent to CPython's o->agt_gen->ag_closed = 1;
+                    w_value = self.async_gen.throw(space.w_GeneratorExit,
+                                                   None, None)
+                    if w_value is not None and isinstance(w_value, AsyncGenValueWrapper):
+                        raise oefmt(space.w_RuntimeError,
+                                    "async generator ignored GeneratorExit")
+                else:
+                    w_value = self.async_gen.throw(self.w_exc_type,
+                                                   self.w_exc_value,
+                                                   self.w_exc_tb)
+            else:
+                w_value = self.async_gen.send_ex(w_arg_or_err)
+            return self.unwrap_value(w_value)
+        except OperationError as e:
+            if e.match(space, space.w_StopAsyncIteration):
+                self.state = self.ST_CLOSED
+                if self.w_exc_type is None:
+                    # When aclose() is called we don't want to propagate
+                    # StopAsyncIteration; just raise StopIteration, signalling
+                    # that 'aclose()' is done.
+                    raise OperationError(space.w_StopIteration, space.w_None)
+            if e.match(space, space.w_GeneratorExit):
+                self.state = self.ST_CLOSED
+                # Ignore this error.
+                raise OperationError(space.w_StopIteration, space.w_None)
+            raise
+
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
+        if self.state == self.ST_INIT:
+            raise OperationError(self.space.w_RuntimeError,
+                self.space.newtext("can't do async_generator.athrow().throw()"))
+        return AsyncGenABase.descr_throw(self, w_type, w_val, w_tb)

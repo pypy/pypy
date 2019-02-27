@@ -21,6 +21,10 @@ class W_Dialect(W_Root):
         "strict",
     ]
 
+    def reduce_ex_w(self, space, w_protocol):
+        raise OperationError(space.w_TypeError,
+                             space.newtext("can't pickle _csv.Dialect objects"))
+
 def _fetch(space, w_dialect, name):
     return space.findattr(w_dialect, space.newtext(name))
 
@@ -43,7 +47,7 @@ def _get_str(space, w_src, default, attrname):
     if w_src is None:
         return default
     try:
-        return space.unicode_w(w_src)
+        return space.realunicode_w(w_src)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             raise oefmt(space.w_TypeError, '"%s" must be a string', attrname)
@@ -56,7 +60,7 @@ def _get_char(space, w_src, default, name):
         return u'\0'
     if not space.isinstance_w(w_src, space.w_unicode):
         raise oefmt(space.w_TypeError, '"%s" must be string, not %T', name, w_src)
-    src = space.unicode_w(w_src)
+    src = space.realunicode_w(w_src)
     if len(src) == 1:
         return src[0]
     if len(src) == 0:
@@ -156,25 +160,26 @@ def W_Dialect___new__(space, w_subtype, w_dialect = None,
 def _get_escapechar(space, dialect):
     if dialect.escapechar == u'\0':
         return space.w_None
-    return space.newunicode(dialect.escapechar)
+    return space.newtext(dialect.escapechar)
 
 def _get_quotechar(space, dialect):
     if dialect.quotechar == u'\0':
         return space.w_None
-    return space.newunicode(dialect.quotechar)
+    return space.newtext(dialect.quotechar)
 
 
 W_Dialect.typedef = TypeDef(
         '_csv.Dialect',
         __new__ = interp2app(W_Dialect___new__),
+        __reduce_ex__ = interp2app(W_Dialect.reduce_ex_w),
 
         delimiter        = interp_attrproperty('delimiter', W_Dialect,
-            wrapfn='newunicode'),
+            wrapfn='newtext'),
         doublequote      = interp_attrproperty('doublequote', W_Dialect,
             wrapfn='newbool'),
         escapechar       = GetSetProperty(_get_escapechar, cls=W_Dialect),
         lineterminator   = interp_attrproperty('lineterminator', W_Dialect,
-            wrapfn='newunicode'),
+            wrapfn='newtext'),
         quotechar        = GetSetProperty(_get_quotechar, cls=W_Dialect),
         quoting          = interp_attrproperty('quoting', W_Dialect,
             wrapfn='newint'),

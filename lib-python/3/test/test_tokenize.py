@@ -4,6 +4,8 @@ from tokenize import (tokenize, _tokenize, untokenize, NUMBER, NAME, OP,
                      open as tokenize_open, Untokenizer)
 from io import BytesIO
 from unittest import TestCase, mock
+from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
+                               INVALID_UNDERSCORE_LITERALS)
 import os
 import token
 
@@ -24,8 +26,7 @@ class TokenizeTest(TestCase):
             if type == ENDMARKER:
                 break
             type = tok_name[type]
-            result.append("    %(type)-10.10s %(token)-13.13r %(start)s %(end)s" %
-                          locals())
+            result.append(f"    {type:10} {token!r:13} {start} {end}")
         self.assertEqual(result,
                          ["    ENCODING   'utf-8'       (0, 0) (0, 0)"] +
                          expected.rstrip().splitlines())
@@ -132,18 +133,18 @@ def k(x):
         self.check_tokenize("x = 0xfffffffffff", """\
     NAME       'x'           (1, 0) (1, 1)
     OP         '='           (1, 2) (1, 3)
-    NUMBER     '0xffffffffff (1, 4) (1, 17)
+    NUMBER     '0xfffffffffff' (1, 4) (1, 17)
     """)
         self.check_tokenize("x = 123141242151251616110", """\
     NAME       'x'           (1, 0) (1, 1)
     OP         '='           (1, 2) (1, 3)
-    NUMBER     '123141242151 (1, 4) (1, 25)
+    NUMBER     '123141242151251616110' (1, 4) (1, 25)
     """)
         self.check_tokenize("x = -15921590215012591", """\
     NAME       'x'           (1, 0) (1, 1)
     OP         '='           (1, 2) (1, 3)
     OP         '-'           (1, 4) (1, 5)
-    NUMBER     '159215902150 (1, 5) (1, 22)
+    NUMBER     '15921590215012591' (1, 5) (1, 22)
     """)
 
     def test_float(self):
@@ -185,6 +186,21 @@ def k(x):
     OP         '='           (1, 2) (1, 3)
     NUMBER     '3.14e159'    (1, 4) (1, 12)
     """)
+
+    def test_underscore_literals(self):
+        def number_token(s):
+            f = BytesIO(s.encode('utf-8'))
+            for toktype, token, start, end, line in tokenize(f.readline):
+                if toktype == NUMBER:
+                    return token
+            return 'invalid token'
+        for lit in VALID_UNDERSCORE_LITERALS:
+            if '(' in lit:
+                # this won't work with compound complex inputs
+                continue
+            self.assertEqual(number_token(lit), lit)
+        for lit in INVALID_UNDERSCORE_LITERALS:
+            self.assertNotEqual(number_token(lit), lit)
 
     def test_string(self):
         # String literals
@@ -306,6 +322,50 @@ def k(x):
     STRING     'Rb"abc"'     (1, 20) (1, 27)
     OP         '+'           (1, 28) (1, 29)
     STRING     'RB"abc"'     (1, 30) (1, 37)
+    """)
+        # Check 0, 1, and 2 character string prefixes.
+        self.check_tokenize(r'"a\
+de\
+fg"', """\
+    STRING     '"a\\\\\\nde\\\\\\nfg"\' (1, 0) (3, 3)
+    """)
+        self.check_tokenize(r'u"a\
+de"', """\
+    STRING     'u"a\\\\\\nde"\'  (1, 0) (2, 3)
+    """)
+        self.check_tokenize(r'rb"a\
+d"', """\
+    STRING     'rb"a\\\\\\nd"\'  (1, 0) (2, 2)
+    """)
+        self.check_tokenize(r'"""a\
+b"""', """\
+    STRING     '\"\""a\\\\\\nb\"\""' (1, 0) (2, 4)
+    """)
+        self.check_tokenize(r'u"""a\
+b"""', """\
+    STRING     'u\"\""a\\\\\\nb\"\""' (1, 0) (2, 4)
+    """)
+        self.check_tokenize(r'rb"""a\
+b\
+c"""', """\
+    STRING     'rb"\""a\\\\\\nb\\\\\\nc"\""' (1, 0) (3, 4)
+    """)
+        self.check_tokenize('f"abc"', """\
+    STRING     'f"abc"'      (1, 0) (1, 6)
+    """)
+        self.check_tokenize('fR"a{b}c"', """\
+    STRING     'fR"a{b}c"'   (1, 0) (1, 9)
+    """)
+        self.check_tokenize('f"""abc"""', """\
+    STRING     'f\"\"\"abc\"\"\"'  (1, 0) (1, 10)
+    """)
+        self.check_tokenize(r'f"abc\
+def"', """\
+    STRING     'f"abc\\\\\\ndef"' (1, 0) (2, 4)
+    """)
+        self.check_tokenize(r'Rf"abc\
+def"', """\
+    STRING     'Rf"abc\\\\\\ndef"' (1, 0) (2, 4)
     """)
 
     def test_function(self):
@@ -505,7 +565,7 @@ def k(x):
         # Methods
         self.check_tokenize("@staticmethod\ndef foo(x,y): pass", """\
     OP         '@'           (1, 0) (1, 1)
-    NAME       'staticmethod (1, 1) (1, 13)
+    NAME       'staticmethod' (1, 1) (1, 13)
     NEWLINE    '\\n'          (1, 13) (1, 14)
     NAME       'def'         (2, 0) (2, 3)
     NAME       'foo'         (2, 4) (2, 7)
@@ -1488,10 +1548,10 @@ class TestRoundtrip(TestCase):
 
         # Tokenize is broken on test_pep3131.py because regular expressions are
         # broken on the obscure unicode identifiers in it. *sigh*
-        # With roundtrip extended to test the 5-tuple mode of  untokenize,
+        # With roundtrip extended to test the 5-tuple mode of untokenize,
         # 7 more testfiles fail.  Remove them also until the failure is diagnosed.
 
-        testfiles.remove(os.path.join(tempdir, "test_pep3131.py"))
+        testfiles.remove(os.path.join(tempdir, "test_unicode_identifiers.py"))
         for f in ('buffer', 'builtin', 'fileio', 'inspect', 'os', 'platform', 'sys'):
             testfiles.remove(os.path.join(tempdir, "test_%s.py") % f)
 

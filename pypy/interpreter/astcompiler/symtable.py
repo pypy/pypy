@@ -12,6 +12,7 @@ SYM_ASSIGNED = 2  # (DEF_LOCAL in CPython3). Or deleted actually.
 SYM_PARAM = 2 << 1
 SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
+SYM_ANNOTATED = 2 << 4
 SYM_BOUND = (SYM_PARAM | SYM_ASSIGNED)
 
 # codegen.py actually deals with these:
@@ -27,6 +28,7 @@ SCOPE_CELL_CLASS = 6     # for "__class__" inside class bodies only
 class Scope(object):
 
     can_be_optimized = False
+    is_coroutine = False
 
     def __init__(self, name, lineno=0, col_offset=0):
         self.lineno = lineno
@@ -44,6 +46,7 @@ class Scope(object):
         self.child_has_free = False
         self.nested = False
         self.doc_removable = False
+        self.contains_annotated = False
         self._in_try_body_depth = 0
 
     def lookup(self, name):
@@ -139,7 +142,7 @@ class Scope(object):
                 self.free_vars.append(name)
             free[name] = None
             self.has_free = True
-        elif flags & SYM_BOUND:
+        elif flags & (SYM_BOUND | SYM_ANNOTATED):
             self.symbols[name] = SCOPE_LOCAL
             local[name] = None
             try:
@@ -256,14 +259,13 @@ class FunctionScope(Scope):
             self.has_yield_inside_try = True
 
     def note_await(self, await_node):
-        if self.name == '<genexpr>':
-            msg = "'await' expressions in comprehensions are not supported"
-        else:
-            msg = "'await' outside async function"
-        raise SyntaxError(msg, await_node.lineno, await_node.col_offset)
+        self.is_coroutine = True
 
     def note_return(self, ret):
         if ret.value:
+            if self.is_coroutine and self.is_generator:
+                raise SyntaxError("'return' with value in async generator",
+                                  ret.lineno, ret.col_offset)
             self.return_with_value = True
             self.ret = ret
 
@@ -298,20 +300,13 @@ class FunctionScope(Scope):
 
 class AsyncFunctionScope(FunctionScope):
 
-    def note_yield(self, yield_node):
-        raise SyntaxError("'yield' inside async function", yield_node.lineno,
-                          yield_node.col_offset)
+    def __init__(self, name, lineno, col_offset):
+        FunctionScope.__init__(self, name, lineno, col_offset)
+        self.is_coroutine = True
 
     def note_yieldFrom(self, yield_node):
         raise SyntaxError("'yield from' inside async function", yield_node.lineno,
                           yield_node.col_offset)
-
-    def note_await(self, await_node):
-        # Compatibility with CPython 3.5: set the CO_GENERATOR flag in
-        # addition to the CO_COROUTINE flag if the function uses the
-        # "await" keyword.  Don't do it if the function does not.  In
-        # that case, CO_GENERATOR is ignored anyway.
-        self.is_generator = True
 
 
 class ClassScope(Scope):
@@ -428,6 +423,37 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.scope.note_return(ret)
         ast.GenericASTVisitor.visit_Return(self, ret)
 
+    def visit_AnnAssign(self, assign):
+        # __annotations__ is not setup or used in functions.
+        if not isinstance(self.scope, FunctionScope):
+            self.scope.contains_annotated = True
+        target = assign.target
+        if isinstance(target, ast.Name):
+            name = target.id
+            old_role = self.scope.lookup_role(name)
+            if assign.simple:
+                if old_role & SYM_GLOBAL:
+                    raise SyntaxError(
+                        "annotated name '%s' can't be global" % name,
+                        assign.lineno, assign.col_offset)
+                if old_role & SYM_NONLOCAL:
+                    raise SyntaxError(
+                        "annotated name '%s' can't be nonlocal" % name,
+                        assign.lineno, assign.col_offset)
+            scope = SYM_BLANK
+            if assign.simple:
+                scope |= SYM_ANNOTATED
+            if assign.value:
+                scope |= SYM_USED
+            if scope:
+                self.note_symbol(name, scope)
+        else:
+            target.walkabout(self)
+        if assign.value is not None:
+            assign.value.walkabout(self)
+        if assign.annotation is not None:
+            assign.annotation.walkabout(self)
+
     def visit_ClassDef(self, clsdef):
         self.note_symbol(clsdef.name, SYM_ASSIGNED)
         self.visit_sequence(clsdef.bases)
@@ -493,16 +519,17 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 msg = "name '%s' is nonlocal and global" % (name,)
                 raise SyntaxError(msg, glob.lineno, glob.col_offset)
 
-            if old_role & (SYM_USED | SYM_ASSIGNED):
+            if old_role & (SYM_USED | SYM_ASSIGNED | SYM_ANNOTATED):
                 if old_role & SYM_ASSIGNED:
                     msg = "name '%s' is assigned to before global declaration"\
+                        % (name,)
+                elif old_role & SYM_ANNOTATED:
+                    msg = "annotated name '%s' can't be global" \
                         % (name,)
                 else:
                     msg = "name '%s' is used prior to global declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg,
-                                    self.compile_info.filename,
-                                    glob.lineno, glob.col_offset)
+                raise SyntaxError(msg, glob.lineno, glob.col_offset)
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Nonlocal(self, nonl):
@@ -515,6 +542,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 msg = "name '%s' is parameter and nonlocal" % (name,)
             if isinstance(self.scope, ModuleScope):
                 msg = "nonlocal declaration not allowed at module level"
+            if old_role & SYM_ANNOTATED:
+                msg = "annotated name '%s' can't be nonlocal" \
+                    % (name,)
             if msg is not "":
                 raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
 
@@ -527,9 +557,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 else:
                     msg = "name '%s' is used prior to nonlocal declaration" % \
                         (name,)
-                misc.syntax_warning(self.space, msg,
-                                    self.compile_info.filename,
-                                    nonl.lineno, nonl.col_offset)
+                raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
 
             self.note_symbol(name, SYM_NONLOCAL)
 
@@ -544,6 +572,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
         lamb.body.walkabout(self)
         self.pop_scope()
 
+    def visit_comprehension(self, comp):
+        ast.GenericASTVisitor.visit_comprehension(self, comp)
+        if comp.is_async:
+            self.scope.note_await(comp)
+
     def _visit_comprehension(self, node, comps, *consider):
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
@@ -551,6 +584,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         new_scope = FunctionScope("<genexpr>", node.lineno, node.col_offset)
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
+        new_scope.is_coroutine |= outer.is_async
         outer.target.walkabout(self)
         self.visit_sequence(outer.ifs)
         self.visit_sequence(comps[1:])
@@ -564,6 +598,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                    "unexpectedly (http://bugs.python.org/issue10544)")
             misc.syntax_warning(self.space, msg, self.compile_info.filename,
                                 node.lineno, node.col_offset)
+        new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
 
     def visit_ListComp(self, listcomp):
         self._visit_comprehension(listcomp, listcomp.generators, listcomp.elt)

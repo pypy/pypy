@@ -1,6 +1,3 @@
-# This test file is from CPython 3.6 rev. 30341d5c1423, with a few
-# changes
-
 import ast
 import types
 import decimal
@@ -414,7 +411,7 @@ f'{a * x()}'"""
 
         # lambda doesn't work without parens, because the colon
         #  makes the parser think it's a format_spec
-        self.assertAllRaise(SyntaxError, 'unexpected EOF while parsing|invalid syntax',
+        self.assertAllRaise(SyntaxError, '',
                             ["f'{lambda x:x}'",
                              ])
 
@@ -748,11 +745,11 @@ f'{a * x()}'"""
 
     def test_errors(self):
         # see issue 26287
-        self.assertAllRaise(TypeError, 'unsupported|non-empty format string',
+        self.assertAllRaise(TypeError, 'unsupported',
                             [r"f'{(lambda: 0):x}'",
                              r"f'{(0,):x}'",
                              ])
-        self.assertAllRaise(ValueError, 'Unknown format code|unknown presentation',
+        self.assertAllRaise(ValueError, 'Unknown format code',
                             [r"f'{1000:j}'",
                              r"f'{1000:j}'",
                             ])

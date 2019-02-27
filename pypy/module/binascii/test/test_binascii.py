@@ -121,16 +121,22 @@ class AppTestBinascii(object):
         raises(UnicodeEncodeError, self.binascii.a2b_base64, u"caf\xe9")
 
     def test_b2a_base64(self):
-        for input, expected in [
-            (b"", b""),
-            (b"b", b"Yg=="),
-            (b"i\xb7\x1d", b"abcd"),
-            (b"i\xb7\x1dy", b"abcdeQ=="),
-            (b"i\xb7\x1dy\xf8", b"abcdefg="),
-            (b"i\xb7\x1dy\xf8!", b"abcdefgh"),
-            (b"i\xb7\x1d" * 345, b"abcd" * 345),
-            ]:
-            assert self.binascii.b2a_base64(input) == expected + b'\n'
+        for newline in (True, False, None):
+            for input, expected in [
+                (b"", b""),
+                (b"b", b"Yg=="),
+                (b"i\xb7\x1d", b"abcd"),
+                (b"i\xb7\x1dy", b"abcdeQ=="),
+                (b"i\xb7\x1dy\xf8", b"abcdefg="),
+                (b"i\xb7\x1dy\xf8!", b"abcdefgh"),
+                (b"i\xb7\x1d" * 345, b"abcd" * 345),
+                ]:
+                kwargs = {}
+                if isinstance(newline, bool):
+                    kwargs['newline'] = newline
+                if newline is not False:
+                    expected += b'\n'
+                assert self.binascii.b2a_base64(input, **kwargs) == expected
 
     def test_a2b_qp(self):
         for input, expected in [

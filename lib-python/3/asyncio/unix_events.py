@@ -419,7 +419,8 @@ class _UnixReadPipeTransport(transports.ReadTransport):
     if compat.PY34:
         def __del__(self):
             if self._pipe is not None:
-                warnings.warn("unclosed transport %r" % self, ResourceWarning)
+                warnings.warn("unclosed transport %r" % self, ResourceWarning,
+                              source=self)
                 self._pipe.close()
 
     def _fatal_error(self, exc, message='Fatal error on pipe transport'):
@@ -619,7 +620,8 @@ class _UnixWritePipeTransport(transports._FlowControlMixin,
     if compat.PY34:
         def __del__(self):
             if self._pipe is not None:
-                warnings.warn("unclosed transport %r" % self, ResourceWarning)
+                warnings.warn("unclosed transport %r" % self, ResourceWarning,
+                              source=self)
                 self._pipe.close()
 
     def abort(self):

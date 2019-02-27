@@ -87,7 +87,7 @@ class JSONEncoder(object):
     """
     item_separator = ', '
     key_separator = ': '
-    def __init__(self, skipkeys=False, ensure_ascii=True,
+    def __init__(self, *, skipkeys=False, ensure_ascii=True,
             check_circular=True, allow_nan=True, sort_keys=False,
             indent=None, separators=None, default=None):
         """Constructor for JSONEncoder, with sensible defaults.
@@ -171,7 +171,8 @@ class JSONEncoder(object):
                 return JSONEncoder.default(self, o)
 
         """
-        raise TypeError(repr(o) + " is not JSON serializable")
+        raise TypeError("Object of type '%s' is not JSON serializable" %
+                        o.__class__.__name__)
 
     def encode(self, o):
         """Return a JSON string representation of a Python data structure.

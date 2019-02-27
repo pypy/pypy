@@ -84,7 +84,7 @@ class AppTestC(object):
                     path = None
                 else:
                     import ctypes.util
-                    path = ctypes.util.find_library(space.str_w(w_name))
+                    path = ctypes.util.find_library(space.text_w(w_name))
                 return space.appexec([space.wrap(path), w_is_global],
                 """(path, is_global):
                     import _cffi_backend

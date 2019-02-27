@@ -133,7 +133,7 @@ class W_PyCFunctionObject(W_Root):
 
     def call_o(self, space, w_self, __args__):
         func = self.ml.c_ml_meth
-        w_o = __args__.arguments_w[0]        
+        w_o = __args__.arguments_w[0]
         return generic_cpy_call(space, func, w_self, w_o)
 
     def call_varargs(self, space, w_self, __args__):
@@ -254,8 +254,8 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
 
     def descr_method_repr(self):
         return self.getrepr(
-            self.space, u"built-in method '%s' of '%s' object" %
-            (self.name.decode('utf-8'), self.w_objclass.getname(self.space)))
+            self.space, "built-in method '%s' of '%s' object" %
+            (self.name, self.w_objclass.getname(self.space)))
 
 
 class W_PyCWrapperObject(W_Root):

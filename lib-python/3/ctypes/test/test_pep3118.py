@@ -1,6 +1,6 @@
 import unittest
 from ctypes import *
-import re, struct, sys
+import re, sys
 from ctypes.test import xfail
 
 if sys.byteorder == "little":

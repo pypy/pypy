@@ -205,15 +205,30 @@ class W_FloatObject(W_Root):
     def descr__new__(space, w_floattype, w_x):
         def _string_to_float(space, w_source, string):
             try:
-                return rfloat.string_to_float(string)
-            except ParseStringError as e:
-                raise oefmt(space.w_ValueError,
-                            "could not convert string to float: %R", w_source)
+                string = _remove_underscores(string)
+            except ValueError:
+                pass
+            else:
+                try:
+                    return rfloat.string_to_float(string)
+                except ParseStringError as e:
+                    pass
+            raise oefmt(space.w_ValueError,
+                        "could not convert string to float: %R", w_source)
 
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
             w_obj = space.float(w_value)
-            if space.is_w(w_floattype, space.w_float):
+            w_obj_type = space.type(w_obj)
+            if not space.is_w(w_obj_type, space.w_float):
+                space.warn(space.newtext(
+                    "%s.__float__ returned non-float (type %s).  "
+                    "The ability to return an instance of a strict subclass "
+                    "of float is deprecated, and may be removed "
+                    "in a future version of Python." %
+                    (space.type(w_value).name, w_obj_type.name)),
+                    space.w_DeprecationWarning)
+            elif space.is_w(w_floattype, space.w_float):
                 return w_obj
             value = space.float_w(w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
@@ -619,10 +634,10 @@ class W_FloatObject(W_Root):
             num, den = float_as_rbigint_ratio(value)
         except OverflowError:
             raise oefmt(space.w_OverflowError,
-                        "cannot pass infinity to as_integer_ratio()")
+                        "cannot convert Infinity to integer ratio")
         except ValueError:
             raise oefmt(space.w_ValueError,
-                        "cannot pass nan to as_integer_ratio()")
+                        "cannot convert NaN to integer ratio")
 
         w_num = space.newlong_from_rbigint(num)
         w_den = space.newlong_from_rbigint(den)
@@ -727,6 +742,26 @@ Convert a string or number to a floating point number, if possible.''',
     as_integer_ratio = interp2app(W_FloatObject.descr_as_integer_ratio),
     hex = interp2app(W_FloatObject.descr_hex),
 )
+
+def _remove_underscores(string):
+    i = 0
+    prev = '?'
+    res = []
+    for i in range(len(string)):
+        c = string[i]
+        if c == '_':
+            # undercores can only come after digits
+            if not ord('0') <= ord(prev) <= ord('9'):
+                raise ValueError
+        else:
+            res.append(c)
+            # undercores can only come before digits
+            if prev == '_' and not ord('0') <= ord(c) <= ord('9'):
+                raise ValueError
+        prev = c
+    if prev == "_": # not allowed at end
+        raise ValueError
+    return "".join(res)
 
 
 def _hash_float(space, v):

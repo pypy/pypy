@@ -65,7 +65,9 @@ CERT_REQUIRED = 2
 
 for name in dir(lib):
     if name.startswith('SSL_OP'):
-        globals()[name[4:]] = getattr(lib, name)
+        value = getattr(lib, name)
+        if value != 0:
+            globals()[name[4:]] = getattr(lib, name)
 
 OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 
@@ -84,6 +86,8 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1 = 3
     PROTOCOL_TLSv1_1 = 4
     PROTOCOL_TLSv1_2 = 5
+PROTOCOL_TLS_CLIENT = 0x10
+PROTOCOL_TLS_SERVER = 0x11
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
@@ -688,6 +692,29 @@ class _SSLSocket(object):
                 return None
             return _str_with_len(out[0], outlen[0])
 
+    @property
+    def session(self):
+        "Get / set SSLSession."
+        return SSLSession(self)
+
+    @session.setter
+    def session(self, value):
+        if not isinstance(value, SSLSession):
+            raise TypeError("Value is not a SSLSession.")
+        if self.ctx.ctx != value._ctx.ctx:
+            raise ValueError("Session refers to a different SSLContext.")
+        if self.socket_type != SSL_CLIENT:
+            raise ValueError("Cannot set session for server-side SSLSocket.")
+        if self.handshake_done:
+            raise ValueError("Cannot set session after handshake.")
+        if not lib.SSL_set_session(self.ssl, value._session):
+            raise pyssl_error(self, 0)
+
+    @property
+    def session_reused(self):
+        "Was the client session reused during handshake?"
+        return bool(lib.SSL_session_reused(self.ssl))
+
 
 def _fs_decode(name):
     return name.decode(sys.getfilesystemencoding())
@@ -714,6 +741,43 @@ def cipher_to_tuple(cipher):
     bits = lib.SSL_CIPHER_get_bits(cipher, ffi.NULL)
     return (cipher_name, cipher_protocol, bits)
 
+
+class SSLSession(object):
+    def __new__(cls, ssl):
+        self = object.__new__(cls)
+        session = lib.SSL_get1_session(ssl.ssl)
+        if not session:
+            return None
+        self._session = ffi.gc(session, lib.SSL_SESSION_free)
+        self._ctx = ssl.ctx
+        return self
+
+    def __eq__(self, other):
+        if not isinstance(other, SSLSession):
+            return NotImplemented;
+        return self.id == other.id
+
+    @property
+    def id(self):
+        lenp = ffi.new("unsigned int*")
+        id = lib.SSL_SESSION_get_id(self._session, lenp)
+        return ffi.unpack(id, lenp[0])
+
+    @property
+    def time(self):
+        return lib.SSL_SESSION_get_time(self._session)
+
+    @property
+    def timeout(self):
+        return lib.SSL_SESSION_get_timeout(self._session)
+
+    @property
+    def has_ticket(self):
+        return bool(lib.SSL_SESSION_has_ticket(self._session))
+
+    @property
+    def ticket_lifetime_hint(self):
+        return lib.SSL_SESSION_get_ticket_lifetime_hint(self._session)
 
 
 SSL_CTX_STATS_NAMES = """
@@ -746,6 +810,10 @@ class _SSLContext(object):
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
             method = lib.SSLv23_method()
+        elif protocol == PROTOCOL_TLS_CLIENT:
+            method = lib.SSLv23_client_method()
+        elif protocol == PROTOCOL_TLS_SERVER:
+            method = lib.SSLv23_server_method()
         else:
             raise ValueError("invalid protocol version")
 
@@ -754,17 +822,40 @@ class _SSLContext(object):
             raise ssl_error("failed to allocate SSL context")
         self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
 
+        # Don't check host name by default
         self._check_hostname = False
+        if protocol == PROTOCOL_TLS_CLIENT:
+            self._check_hostname = True
+            self.verify_mode = CERT_REQUIRED
+        else:
+            self._check_hostname = False
+            self.verify_mode = CERT_NONE
 
         # Defaults
-        lib.SSL_CTX_set_verify(self.ctx, lib.SSL_VERIFY_NONE, ffi.NULL)
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if not lib.Cryptography_HAS_SSL2 or protocol != PROTOCOL_SSLv2:
             options |= lib.SSL_OP_NO_SSLv2
         if protocol != PROTOCOL_SSLv3:
             options |= lib.SSL_OP_NO_SSLv3
+        # Minimal security flags for server and client side context.
+        # Client sockets ignore server-side parameters.
+        options |= lib.SSL_OP_NO_COMPRESSION
+        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
+        options |= lib.SSL_OP_SINGLE_DH_USE
+        options |= lib.SSL_OP_SINGLE_ECDH_USE
         lib.SSL_CTX_set_options(self.ctx, options)
         lib.SSL_CTX_set_session_id_context(self.ctx, b"Python", len(b"Python"))
+
+        # A bare minimum cipher list without completely broken cipher suites.
+        # It's far from perfect but gives users a better head start.
+        if lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
+            # SSLv2 needs MD5
+            default_ciphers = b"HIGH:!aNULL:!eNULL"
+        else:
+            default_ciphers = b"HIGH:!aNULL:!eNULL:!MD5"
+        if not lib.SSL_CTX_set_cipher_list(ctx, default_ciphers):
+            lib.ERR_clear_error()
+            raise SSLError("No cipher can be selected.")
 
         if HAS_ECDH:
             # Allow automatic ECDH curve selection (on
@@ -825,7 +916,9 @@ class _SSLContext(object):
         if mode == lib.SSL_VERIFY_NONE and self.check_hostname:
             raise ValueError("Cannot set verify_mode to CERT_NONE when " \
                              "check_hostname is enabled.")
-        lib.SSL_CTX_set_verify(self.ctx, mode, ffi.NULL);
+        # Keep current verify cb
+        verify_cb = lib.SSL_CTX_get_verify_callback(self.ctx)
+        lib.SSL_CTX_set_verify(self.ctx, mode, verify_cb)
 
     @property
     def verify_flags(self):

@@ -133,6 +133,24 @@ class AppTestCMath:
         assert cmath.isclose(100000j, 100001j, abs_tol=1.5)
         assert not cmath.isclose(100000j, 100001j, abs_tol=0.5)
 
+    def test_infinity_and_nan_constants(self):
+        import cmath, math
+        assert cmath.inf.real == math.inf
+        assert cmath.inf.imag == 0.0
+        assert cmath.infj.real == 0.0
+        assert cmath.infj.imag == math.inf
+
+        assert math.isnan(cmath.nan.real)
+        assert cmath.nan.imag == 0.0
+        assert cmath.nanj.real == 0.0
+        assert math.isnan(cmath.nanj.imag)
+
+        # Check consistency with reprs.
+        assert repr(cmath.inf) == "inf"
+        assert repr(cmath.infj) == "infj"
+        assert repr(cmath.nan) == "nan"
+        assert repr(cmath.nanj) == "nanj"
+
 
 def parse_testfile(fname):
     """Parse a file with test values
@@ -209,7 +227,7 @@ def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
 def test_specific_values():
     #if not float.__getformat__("double").startswith("IEEE"):
     #    return
-    
+
     import rpython
     # too fragile...
     fname = os.path.join(os.path.dirname(rpython.rlib.__file__), 'test', 'rcomplex_testcases.txt')

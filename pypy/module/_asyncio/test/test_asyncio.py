@@ -1,10 +1,16 @@
+import sys
+
 class AppTestAsyncIO(object):
     """These tests are based on the async-await syntax of Python 3.5."""
     
     spaceconfig = dict(usemodules=["select","_socket","thread","signal",
                                    "struct","_multiprocessing","array",
-                                   "_posixsubprocess","fcntl",
+                                   "_posixsubprocess",
                                    "unicodedata"])
+    if sys.platform == 'win32':
+        pass
+    else:
+        spaceconfig['usemodules'].append('fcntl')
     
     def test_gil_issue(self):
         # the problem occured at await asyncio.open_connection

@@ -34,8 +34,6 @@ class PyUnpicklerTests(AbstractUnpickleTests):
 
     unpickler = pickle._Unpickler
     bad_stack_errors = (IndexError,)
-    bad_mark_errors = (IndexError, pickle.UnpicklingError,
-                       TypeError, AttributeError, EOFError)
     truncated_errors = (pickle.UnpicklingError, EOFError,
                         AttributeError, ValueError,
                         struct.error, IndexError, ImportError)
@@ -70,8 +68,6 @@ class InMemoryPickleTests(AbstractPickleTests, AbstractUnpickleTests,
     pickler = pickle._Pickler
     unpickler = pickle._Unpickler
     bad_stack_errors = (pickle.UnpicklingError, IndexError)
-    bad_mark_errors = (pickle.UnpicklingError, IndexError,
-                       TypeError, AttributeError, EOFError)
     truncated_errors = (pickle.UnpicklingError, EOFError,
                         AttributeError, ValueError,
                         struct.error, IndexError, ImportError)
@@ -143,9 +139,7 @@ if has_c_implementation:
     class CUnpicklerTests(PyUnpicklerTests):
         unpickler = _pickle.Unpickler
         bad_stack_errors = (pickle.UnpicklingError,)
-        bad_mark_errors = (EOFError,)
-        truncated_errors = (pickle.UnpicklingError, EOFError,
-                            AttributeError, ValueError)
+        truncated_errors = (pickle.UnpicklingError,)
 
     class CPicklerTests(PyPicklerTests):
         pickler = _pickle.Pickler
@@ -341,6 +335,9 @@ class CompatPickleTests(unittest.TestCase):
                 if (module2, name2) == ('exceptions', 'OSError'):
                     attr = getattribute(module3, name3)
                     self.assertTrue(issubclass(attr, OSError))
+                elif (module2, name2) == ('exceptions', 'ImportError'):
+                    attr = getattribute(module3, name3)
+                    self.assertTrue(issubclass(attr, ImportError))
                 else:
                     module, name = mapping(module2, name2)
                     if module3[:1] != '_':
@@ -407,6 +404,11 @@ class CompatPickleTests(unittest.TestCase):
                 if exc is not OSError and issubclass(exc, OSError):
                     self.assertEqual(reverse_mapping('builtins', name),
                                      ('exceptions', 'OSError'))
+                elif exc is not ImportError and issubclass(exc, ImportError):
+                    self.assertEqual(reverse_mapping('builtins', name),
+                                     ('exceptions', 'ImportError'))
+                    self.assertEqual(mapping('exceptions', name),
+                                     ('exceptions', name))
                 else:
                     self.assertEqual(reverse_mapping('builtins', name),
                                      ('exceptions', name))

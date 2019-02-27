@@ -5,6 +5,7 @@ import unittest
 from test import support
 from test.support import bigmemtest, _4G
 import os
+import pathlib
 import io
 import struct
 import array
@@ -66,6 +67,18 @@ class TestGzip(BaseTest):
 
         # Test multiple close() calls.
         f.close()
+
+    def test_write_read_with_pathlike_file(self):
+        filename = pathlib.Path(self.filename)
+        with gzip.GzipFile(filename, 'w') as f:
+            f.write(data1 * 50)
+        self.assertIsInstance(f.name, str)
+        with gzip.GzipFile(filename, 'a') as f:
+            f.write(data1)
+        with gzip.GzipFile(filename) as f:
+            d = f.read()
+        self.assertEqual(d, data1 * 51)
+        self.assertIsInstance(f.name, str)
 
     # The following test_write_xy methods test that write accepts
     # the corresponding bytes-like object type as input
@@ -434,12 +447,12 @@ class TestGzip(BaseTest):
 
     def test_decompress_limited(self):
         """Decompressed data buffering should be limited"""
-        bomb = gzip.compress(bytes(int(2e6)), compresslevel=9)
+        bomb = gzip.compress(b'\0' * int(2e6), compresslevel=9)
         self.assertLess(len(bomb), io.DEFAULT_BUFFER_SIZE)
 
         bomb = io.BytesIO(bomb)
         decomp = gzip.GzipFile(fileobj=bomb)
-        self.assertEqual(bytes(1), decomp.read(1))
+        self.assertEqual(decomp.read(1), b'\0')
         max_decomp = 1 + io.DEFAULT_BUFFER_SIZE
         self.assertLessEqual(decomp._buffer.raw.tell(), max_decomp,
             "Excessive amount of data was decompressed")
@@ -520,6 +533,15 @@ class TestOpen(BaseTest):
         with open(self.filename, "rb") as f:
             file_data = gzip.decompress(f.read())
             self.assertEqual(file_data, uncompressed)
+
+    def test_pathlike_file(self):
+        filename = pathlib.Path(self.filename)
+        with gzip.open(filename, "wb") as f:
+            f.write(data1 * 50)
+        with gzip.open(filename, "ab") as f:
+            f.write(data1)
+        with gzip.open(filename) as f:
+            self.assertEqual(f.read(), data1 * 51)
 
     def test_implicit_binary_modes(self):
         # Test implicit binary modes (no "b" or "t" in mode string).

@@ -186,25 +186,31 @@ class W_BytearrayObject(W_Root):
         return new_bytearray(space, w_bytearraytype, [])
 
     def descr_reduce(self, space):
+        from pypy.interpreter.unicodehelper import str_decode_latin_1
+
         assert isinstance(self, W_BytearrayObject)
         w_dict = self.getdict(space)
         if w_dict is None:
             w_dict = space.w_None
+        s, _, lgt = str_decode_latin_1(''.join(self.getdata()), 'strict',
+            True, None)
         return space.newtuple([
             space.type(self), space.newtuple([
-                space.newunicode(''.join(self.getdata()).decode('latin-1')),
-                space.newtext('latin-1')]),
+                space.newutf8(s, lgt), space.newtext('latin-1')]),
             w_dict])
 
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):
         if not space.is_w(space.type(w_hexstring), space.w_unicode):
             raise oefmt(space.w_TypeError, "must be str, not %T", w_hexstring)
-        hexstring = space.unicode_w(w_hexstring)
+        hexstring = space.utf8_w(w_hexstring)
         data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
-        return new_bytearray(space, space.w_bytearray, data)
+        w_result = new_bytearray(space, space.w_bytearray, data)
+        if w_bytearraytype is not space.w_bytearray:
+            w_result = space.call_function(w_bytearraytype, w_result)
+        return w_result
 
     @unwrap_spec(encoding='text_or_none', errors='text_or_none')
     def descr_init(self, space, w_source=None, encoding=None, errors=None):

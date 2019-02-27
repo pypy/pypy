@@ -16,7 +16,7 @@ class AppTestObject:
         cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):
-            return space.wrap(space.unicode_w(w_obj))
+            return space.newutf8(space.utf8_w(w_obj), w_obj._length)
         cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
         def w_unwrap_wrap_bytes(space, w_obj):
             return space.newbytes(space.bytes_w(w_obj))
@@ -70,10 +70,11 @@ class AppTestObject:
             def __getnewargs_ex__(self):
                 return (self._name,), dict(value=int(self))
         import copyreg
-        assert NamedInt("Name", value=42).__reduce__(4) == (
-            copyreg.__newobj_ex__,
-            (NamedInt, ('Name',), dict(value=42)),
-            dict(_name='Name'), None, None)
+        for protocol in [2, 3, 4]:
+            assert NamedInt("Name", value=42).__reduce__(protocol) == (
+                copyreg.__newobj_ex__,
+                (NamedInt, ('Name',), dict(value=42)),
+                dict(_name='Name'), None, None)
 
     def test_reduce_ex_does_getattr(self):
         seen = []
@@ -268,7 +269,8 @@ class AppTestObject:
         assert id(b'') == (256 << 4) | 11     # always
         assert id(u'') == (257 << 4) | 11
         assert id(b'a') == (ord('a') << 4) | 11
-        assert id(u'\u1234') == ((~0x1234) << 4) | 11
+        # we no longer cache unicodes <128
+        # assert id(u'\u1234') == ((~0x1234) << 4) | 11
 
     def test_id_of_tuples(self):
         l = []
@@ -358,6 +360,11 @@ class AppTestObject:
         assert o.__lt__(o2) is NotImplemented
         assert o.__ge__(o2) is NotImplemented
         assert o.__gt__(o2) is NotImplemented
+
+    def test_init_subclass(self):
+        object().__init_subclass__() # does not crash
+        object.__init_subclass__() # does not crash
+        raises(TypeError, object.__init_subclass__, 1)
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace

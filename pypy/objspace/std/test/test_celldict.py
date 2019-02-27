@@ -58,6 +58,35 @@ class TestCellDict(object):
         v3 = strategy.version
         assert v2 is v3
 
+    def test_module_no_cell_interface(self):
+        # uses real space, too hard to fake
+        from pypy.interpreter.mixedmodule import MixedModule
+        class M(MixedModule):
+            interpleveldefs = {}
+            appleveldefs = {}
+        w_mod = M(self.space, None)
+        assert isinstance(w_mod.w_dict, W_ModuleDictObject)
+
+        key = "a"
+        value1 = self.space.newint(1)
+        w_mod.setdictvalue(self.space, key, value1)
+
+        strategy = w_mod.w_dict.get_strategy()
+        storage = strategy.unerase(w_mod.w_dict.dstorage)
+        assert self.space.is_w(storage["a"], value1)
+
+        value2 = self.space.newint(5)
+        w_mod.setdictvalue_dont_introduce_cell(key, value2)
+        assert self.space.is_w(storage["a"], value2)
+
+    def test___import__not_a_cell(self):
+        # _frozen_importlib overrides __import__, which used to introduce a
+        # cell
+        w_dict = self.space.builtin.w_dict
+        storage = w_dict.get_strategy().unerase(w_dict.dstorage)
+        assert "Cell" not in repr(storage['__import__'])
+
+
 class AppTestModuleDict(object):
 
     def setup_class(cls):
@@ -173,3 +202,4 @@ class AppTestCellDict(object):
         d[o] = 'baz'
         assert set(d) == set(['foo', 'λ', o])
         assert "ObjectDictStrategy" in __pypy__.internal_repr(d)
+

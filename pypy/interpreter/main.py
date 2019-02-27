@@ -13,6 +13,8 @@ def ensure__main__(space):
             raise
     mainmodule = module.Module(space, w_main)
     space.setitem(w_modules, w_main, mainmodule)
+    w_annotations = space.newdict()
+    space.setitem_str(mainmodule.w_dict, '__annotations__', w_annotations)
     return mainmodule
 
 

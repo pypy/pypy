@@ -230,7 +230,7 @@ def PyObject_Unicode(space, w_obj):
     the Python expression unicode(o).  Called by the unicode() built-in
     function."""
     if w_obj is None:
-        return space.newunicode(u"<NULL>")
+        return space.newutf8("<NULL>", 6)
     return space.call_function(space.w_unicode, w_obj)
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)

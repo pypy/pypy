@@ -55,8 +55,7 @@ def b64encode(s, altchars=None):
     alternative alphabet for the '+' and '/' characters.  This allows an
     application to e.g. generate url or filesystem safe Base64 strings.
     """
-    # Strip off the trailing newline
-    encoded = binascii.b2a_base64(s)[:-1]
+    encoded = binascii.b2a_base64(s, newline=False)
     if altchars is not None:
         assert len(altchars) == 2, repr(altchars)
         return encoded.translate(bytes.maketrans(b'+/', altchars))
@@ -156,7 +155,7 @@ def b32encode(s):
     leftover = len(s) % 5
     # Pad the last quantum with zero bits if necessary
     if leftover:
-        s = s + bytes(5 - leftover)  # Don't use += !
+        s = s + b'\0' * (5 - leftover)  # Don't use += !
     encoded = bytearray()
     from_bytes = int.from_bytes
     b32tab2 = _b32tab2
@@ -542,7 +541,8 @@ def encodebytes(s):
 def encodestring(s):
     """Legacy alias of encodebytes()."""
     import warnings
-    warnings.warn("encodestring() is a deprecated alias, use encodebytes()",
+    warnings.warn("encodestring() is a deprecated alias since 3.1, "
+                  "use encodebytes()",
                   DeprecationWarning, 2)
     return encodebytes(s)
 
@@ -555,7 +555,8 @@ def decodebytes(s):
 def decodestring(s):
     """Legacy alias of decodebytes()."""
     import warnings
-    warnings.warn("decodestring() is a deprecated alias, use decodebytes()",
+    warnings.warn("decodestring() is a deprecated alias since Python 3.1, "
+                  "use decodebytes()",
                   DeprecationWarning, 2)
     return decodebytes(s)
 

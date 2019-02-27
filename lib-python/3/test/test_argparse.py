@@ -1943,6 +1943,23 @@ class TestAddSubparsers(TestCase):
               ++foo       foo help
             '''))
 
+    def test_help_non_breaking_spaces(self):
+        parser = ErrorRaisingArgumentParser(
+            prog='PROG', description='main description')
+        parser.add_argument(
+            "--non-breaking", action='store_false',
+            help='help message containing non-breaking spaces shall not '
+            'wrap\N{NO-BREAK SPACE}at non-breaking spaces')
+        self.assertEqual(parser.format_help(), textwrap.dedent('''\
+            usage: PROG [-h] [--non-breaking]
+
+            main description
+
+            optional arguments:
+              -h, --help      show this help message and exit
+              --non-breaking  help message containing non-breaking spaces shall not
+                              wrap\N{NO-BREAK SPACE}at non-breaking spaces
+        '''))
 
     def test_help_alternate_prefix_chars(self):
         parser = self._get_parser(prefix_chars='+:/')
@@ -4510,6 +4527,21 @@ class TestStrings(TestCase):
     def test_namespace(self):
         ns = argparse.Namespace(foo=42, bar='spam')
         string = "Namespace(bar='spam', foo=42)"
+        self.assertStringEqual(ns, string)
+
+    def test_namespace_starkwargs_notidentifier(self):
+        ns = argparse.Namespace(**{'"': 'quote'})
+        string = """Namespace(**{'"': 'quote'})"""
+        self.assertStringEqual(ns, string)
+
+    def test_namespace_kwargs_and_starkwargs_notidentifier(self):
+        ns = argparse.Namespace(a=1, **{'"': 'quote'})
+        string = """Namespace(a=1, **{'"': 'quote'})"""
+        self.assertStringEqual(ns, string)
+
+    def test_namespace_starkwargs_identifier(self):
+        ns = argparse.Namespace(**{'valid': True})
+        string = "Namespace(valid=True)"
         self.assertStringEqual(ns, string)
 
     def test_parser(self):

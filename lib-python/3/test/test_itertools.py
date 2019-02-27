@@ -4,7 +4,6 @@ from itertools import *
 import weakref
 from decimal import Decimal
 from fractions import Fraction
-import sys
 import operator
 import random
 import copy
@@ -647,26 +646,60 @@ class TestBasicOps(unittest.TestCase):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             self.pickletest(proto, cycle('abc'))
 
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            # test with partial consumed input iterable
+            it = iter('abcde')
+            c = cycle(it)
+            _ = [next(c) for i in range(2)]      # consume 2 of 5 inputs
+            p = pickle.dumps(c, proto)
+            d = pickle.loads(p)                  # rebuild the cycle object
+            self.assertEqual(take(20, d), list('cdeabcdeabcdeabcdeab'))
+
+            # test with completely consumed input iterable
+            it = iter('abcde')
+            c = cycle(it)
+            _ = [next(c) for i in range(7)]      # consume 7 of 5 inputs
+            p = pickle.dumps(c, proto)
+            d = pickle.loads(p)                  # rebuild the cycle object
+            self.assertEqual(take(20, d), list('cdeabcdeabcdeabcdeab'))
+
     @support.impl_detail("XXX cycle.__reduce__ and __setstate__ differ"
                          " on PyPy (but could be fixed if important)")
     def test_cycle_setstate(self):
+        # Verify both modes for restoring state
+
+        # Mode 0 is efficient.  It uses an incompletely consumed input
+        # iterator to build a cycle object and then passes in state with
+        # a list of previously consumed values.  There is no data
+        # overlap between the two.
+        c = cycle('defg')
+        c.__setstate__((list('abc'), 0))
+        self.assertEqual(take(20, c), list('defgabcdefgabcdefgab'))
+
+        # Mode 1 is inefficient.  It starts with a cycle object built
+        # from an iterator over the remaining elements in a partial
+        # cycle and then passes in state with all of the previously
+        # seen values (this overlaps values included in the iterator).
+        c = cycle('defg')
+        c.__setstate__((list('abcdefg'), 1))
+        self.assertEqual(take(20, c), list('defgabcdefgabcdefgab'))
+
+        # The first argument to setstate needs to be a tuple
+        with self.assertRaises(TypeError):
+            cycle('defg').__setstate__([list('abcdefg'), 0])
+
+        # The first argument in the setstate tuple must be a list
+        with self.assertRaises(TypeError):
+            c = cycle('defg')
+            c.__setstate__((tuple('defg'), 0))
+        take(20, c)
+
+        # The second argument in the setstate tuple must be an int
+        with self.assertRaises(TypeError):
+            cycle('defg').__setstate__((list('abcdefg'), 'x'))
+
         self.assertRaises(TypeError, cycle('').__setstate__, ())
-        self.assertRaises(TypeError, cycle('').__setstate__, [])
-        self.assertRaises(TypeError, cycle('').__setstate__, 0)
         self.assertRaises(TypeError, cycle('').__setstate__, ([],))
-        self.assertRaises(TypeError, cycle('').__setstate__, ((), 0))
-        it = cycle('abc')
-        it.__setstate__((['de', 'fg'], 0))
-        self.assertEqual(list(islice(it, 15)),
-                         ['a', 'b', 'c', 'de', 'fg',
-                          'a', 'b', 'c', 'de', 'fg',
-                          'a', 'b', 'c', 'de', 'fg'])
-        it = cycle('abc')
-        it.__setstate__((['de', 'fg'], 1))
-        self.assertEqual(list(islice(it, 15)),
-                         ['a', 'b', 'c', 'de', 'fg',
-                          'de', 'fg', 'de', 'fg', 'de',
-                          'fg', 'de', 'fg', 'de', 'fg'])
 
     def test_groupby(self):
         # Check whether it accepts arguments correctly

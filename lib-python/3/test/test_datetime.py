@@ -25,9 +25,16 @@ test_classes = []
 for module, suffix in zip(test_modules, test_suffixes):
     if module is None:
         continue
+    test_classes = []
     for name, cls in module.__dict__.items():
-        if not (isinstance(cls, type) and issubclass(cls, unittest.TestCase)):
+        if not isinstance(cls, type):
             continue
+        if issubclass(cls, unittest.TestCase):
+            test_classes.append(cls)
+        elif issubclass(cls, unittest.TestSuite):
+            suit = cls()
+            test_classes.extend(type(test) for test in suit)
+    for cls in test_classes:
         cls.__name__ = name + suffix
         @classmethod
         def setUpClass(cls_, module=module):
@@ -41,7 +48,6 @@ for module, suffix in zip(test_modules, test_suffixes):
             sys.modules.update(cls_._save_sys_modules)
         cls.setUpClass = setUpClass
         cls.tearDownClass = tearDownClass
-        test_classes.append(cls)
 
 def test_main():
     run_unittest(*test_classes)

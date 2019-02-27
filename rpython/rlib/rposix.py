@@ -109,9 +109,6 @@ if os.name == 'nt':
             wchar_t const* file,
             unsigned int line,
             uintptr_t pReserved) {
-                wprintf(L"Invalid parameter detected in function %s."
-                            L" File: %s Line: %d\\n", function, file, line);
-                wprintf(L"Expression: %s\\n", expression);
         }
 
         RPY_EXTERN void* enter_suppress_iph(void)
@@ -254,7 +251,7 @@ else:
                 'sched.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
-    if sys.platform.startswith('linux'):
+    if sys.platform.startswith('linux') or sys.platform.startswith('gnu'):
         includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd') or sys.platform.startswith('openbsd'):
         includes.append('sys/ttycom.h')
@@ -1273,6 +1270,8 @@ def rename(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
+        assert isinstance(path1, unicode)
+        assert isinstance(path2, unicode)
         if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
 
@@ -1283,6 +1282,8 @@ def replace(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
+        assert isinstance(path1, unicode)
+        assert isinstance(path2, unicode)
         ret = win32traits.MoveFileEx(path1, path2,
                      win32traits.MOVEFILE_REPLACE_EXISTING)
         if not ret:

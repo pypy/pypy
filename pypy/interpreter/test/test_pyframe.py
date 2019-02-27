@@ -22,6 +22,61 @@ class AppTestPyFrame:
 
     # test for the presence of the attributes, not functionality
 
+    def test_set_lineno_jump_out_of_block(self):
+        import sys
+        class JumpTracer:
+            def __init__(self, function):
+                self.function = function
+                self.jumpFrom = function.jump[0]
+                self.jumpTo = function.jump[1]
+                self.done = False
+
+            def trace(self, frame, event, arg):
+                if not self.done and frame.f_code == self.function.__code__:
+                    firstLine = frame.f_code.co_firstlineno
+                    if event == 'line' and frame.f_lineno == firstLine + self.jumpFrom:
+                        # Cope with non-integer self.jumpTo (because of
+                        # no_jump_to_non_integers below).
+                        try:
+                            frame.f_lineno = firstLine + self.jumpTo
+                        except TypeError:
+                            frame.f_lineno = self.jumpTo
+                        self.done = True
+                return self.trace
+
+        def run_test(func):
+            tracer = JumpTracer(func)
+            sys.settrace(tracer.trace)
+            output = []
+            func(output)
+            sys.settrace(None)
+            assert func.output == output
+
+        # copied from cpython test suite
+        def jump_out_of_block_forwards(output):
+            for i in 1, 2:
+                output.append(2)
+                for j in [3]:  # Also tests jumping over a block
+                    output.append(4)
+            output.append(5)
+
+        jump_out_of_block_forwards.jump = (3, 5)
+        jump_out_of_block_forwards.output = [2, 5]
+        #run_test(jump_out_of_block_forwards)
+
+        def jump_out_of_block_backwards(output):
+            output.append(1)
+            for i in [1]:
+                output.append(3)
+                for j in [2]:  # Also tests jumping over a block
+                    output.append(5)
+                output.append(6)
+            output.append(7)
+
+        jump_out_of_block_backwards.jump = (6, 1)
+        jump_out_of_block_backwards.output = [1, 3, 5, 1, 3, 5, 6, 7]
+        run_test(jump_out_of_block_backwards)
+
     def test_f_back_hidden(self):
         if not hasattr(self, 'call_further'):
             skip("not for runappdirect testing")

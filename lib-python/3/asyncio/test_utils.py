@@ -119,10 +119,10 @@ class SSLWSGIServerMixin:
                                 'test', 'test_asyncio')
         keyfile = os.path.join(here, 'ssl_key.pem')
         certfile = os.path.join(here, 'ssl_cert.pem')
-        ssock = ssl.wrap_socket(request,
-                                keyfile=keyfile,
-                                certfile=certfile,
-                                server_side=True)
+        context = ssl.SSLContext()
+        context.load_cert_chain(certfile, keyfile)
+
+        ssock = context.wrap_socket(request, server_side=True)
         try:
             self.RequestHandlerClass(ssock, client_address, self)
             ssock.close()
@@ -449,12 +449,15 @@ class TestCase(unittest.TestCase):
         self.set_event_loop(loop)
         return loop
 
+    def unpatch_get_running_loop(self):
+        events._get_running_loop = self._get_running_loop
+
     def setUp(self):
         self._get_running_loop = events._get_running_loop
         events._get_running_loop = lambda: None
 
     def tearDown(self):
-        events._get_running_loop = self._get_running_loop
+        self.unpatch_get_running_loop()
 
         events.set_event_loop(None)
 
