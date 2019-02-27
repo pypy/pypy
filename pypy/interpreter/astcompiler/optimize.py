@@ -57,6 +57,12 @@ class __extend__(ast.Str):
         return self.s
 
 
+class __extend__(ast.Bytes):
+
+    def as_constant(self):
+        return self.s
+
+
 class __extend__(ast.Ellipsis):
 
     def as_constant_truth(self, space):
