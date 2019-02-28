@@ -13,11 +13,11 @@ class W_Bufferable(W_Root):
         pass
 
     def descr_buffer(self, space, w_flags):
-        if self is W_Bufferable:
+        if type(self) is W_Bufferable:
             raise oefmt(space.w_ValueError, "override __buffer__ in a subclass")
         return space.call_method(self, '__buffer__', w_flags)
 
-W_Bufferable.typedef = TypeDef("Bufferable",
+W_Bufferable.typedef = TypeDef("Bufferable", None, None, 'read-write',
     __doc__ = """a helper class for a app-level class (like _ctypes.Array)
 that want to support tp_as_buffer.bf_getbuffer via a __buffer__ method""",
     __new__ = generic_new_descr(W_Bufferable),

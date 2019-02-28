@@ -47,6 +47,8 @@ class TestMemoryViewObject(BaseApiTest):
         py_obj = make_ref(space, w_obj)
         assert py_obj.c_ob_type.c_tp_as_buffer
         assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
+        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getreadbuffer
+        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getwritebuffer
          
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
