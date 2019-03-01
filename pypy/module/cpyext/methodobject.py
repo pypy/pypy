@@ -46,15 +46,15 @@ def cfunction_dealloc(space, py_obj):
     _dealloc(space, py_obj)
 
 def w_kwargs_from_args(space, __args__):
-    w_kwargs = None
-    if __args__.keywords:
-        # CCC: we should probably have a @jit.look_inside_iff if the
-        # keyword count is constant, as we do in Arguments.unpack
-        w_kwargs = space.newdict()
-        for i in range(len(__args__.keywords)):
-            key = __args__.keywords[i]
-            w_obj = __args__.keywords_w[i]
-            space.setitem(w_kwargs, space.newtext(key), w_obj)
+    if __args__.keywords is None:
+        return None
+    # CCC: we should probably have a @jit.look_inside_iff if the
+    # keyword count is constant, as we do in Arguments.unpack
+    w_kwargs = space.newdict()
+    for i in range(len(__args__.keywords)):
+        key = __args__.keywords[i]
+        w_obj = __args__.keywords_w[i]
+        space.setitem(w_kwargs, space.newtext(key), w_obj)
     return w_kwargs
 
 class W_PyCFunctionObject(W_Root):
