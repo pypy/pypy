@@ -1,17 +1,17 @@
 import os, py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.memory.gc.incminimark import IncrementalMiniMarkGC
+from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as IncMiniMark
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest
-from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-PYOBJ_HDR = IncrementalMiniMarkGC.PYOBJ_HDR
-PYOBJ_HDR_PTR = IncrementalMiniMarkGC.PYOBJ_HDR_PTR
-RAWREFCOUNT_VISIT = IncrementalMiniMarkGC.RAWREFCOUNT_VISIT
-PYOBJ_GC_HDR = IncrementalMiniMarkGC.PYOBJ_GC_HDR
-PYOBJ_GC_HDR_PTR = IncrementalMiniMarkGC.PYOBJ_GC_HDR_PTR
-RAWREFCOUNT_FINALIZER_MODERN = \
-    IncrementalMiniMarkGC.RAWREFCOUNT_FINALIZER_MODERN
-RAWREFCOUNT_FINALIZER_NONE = IncrementalMiniMarkGC.RAWREFCOUNT_FINALIZER_NONE
+from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT
+
+PYOBJ_HDR = IncMiniMark.PYOBJ_HDR
+PYOBJ_HDR_PTR = IncMiniMark.PYOBJ_HDR_PTR
+RAWREFCOUNT_VISIT = IncMiniMark.RAWREFCOUNT_VISIT
+PYOBJ_GC_HDR = IncMiniMark.PYOBJ_GC_HDR
+PYOBJ_GC_HDR_PTR = IncMiniMark.PYOBJ_GC_HDR_PTR
+RAWREFCOUNT_FINALIZER_MODERN = IncMiniMark.RAWREFCOUNT_FINALIZER_MODERN
+RAWREFCOUNT_FINALIZER_LEGACY = IncMiniMark.RAWREFCOUNT_FINALIZER_LEGACY
+RAWREFCOUNT_FINALIZER_NONE = IncMiniMark.RAWREFCOUNT_FINALIZER_NONE
 
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('S',
@@ -21,7 +21,7 @@ S.become(lltype.GcStruct('S',
 
 
 class TestRawRefCount(BaseDirectGCTest):
-    GCClass = IncrementalMiniMarkGC
+    GCClass = IncMiniMark
 
     def setup_method(self, method):
         BaseDirectGCTest.setup_method(self, method)
@@ -448,13 +448,14 @@ class TestRawRefCount(BaseDirectGCTest):
 
         class NodeInfo:
             def __init__(self, type, alive, ext_refcnt, finalizer, resurrect,
-                         delete):
+                         delete, garbage):
                 self.type = type
                 self.alive = alive
                 self.ext_refcnt = ext_refcnt
                 self.finalizer = finalizer
                 self.resurrect = resurrect
                 self.delete = delete
+                self.garbage = garbage
 
         path = os.path.join(self.dot_dir, file)
         g = pydot.graph_from_dot_file(path)[0]
@@ -475,8 +476,9 @@ class TestRawRefCount(BaseDirectGCTest):
                 finalizers = True
             resurrect = attr['resurrect'] if 'resurrect' in attr else None
             delete = attr['delete'] if 'delete' in attr else None
+            garbage = True if 'garbage' in attr else False
             info = NodeInfo(type, alive, ext_refcnt, finalizer, resurrect,
-                            delete)
+                            delete, garbage)
             if type == "C":
                 r, raddr, check_alive = self._rawrefcount_pyobj()
                 r.c_ob_refcnt += ext_refcnt
@@ -526,6 +528,8 @@ class TestRawRefCount(BaseDirectGCTest):
                         nodes[resurrect].info.ext_refcnt += 1
                     if delete is not None:
                         self._rawrefcount_add_delete(n.r, nodes[delete].r)
+                elif n.info.finalizer == "legacy":
+                    self.pyobj_finalizer[index] = RAWREFCOUNT_FINALIZER_LEGACY
                 else:
                     self.pyobj_finalizer[index] = RAWREFCOUNT_FINALIZER_NONE
 
@@ -545,6 +549,8 @@ class TestRawRefCount(BaseDirectGCTest):
             self.gc.rrc_tp_traverse(source.r, append, None)
             assert len(dests_target) == 0
 
+        garbage_pypy = []
+        garbage_pyobj = []
         def cleanup():
             # do cleanup after collection (clear all dead pyobjects)
             def finalize_modern(pyobj):
@@ -621,6 +627,13 @@ class TestRawRefCount(BaseDirectGCTest):
                     self.gc.rawrefcount_cyclic_garbage_remove()
                     next_dead = self.gc.rawrefcount_cyclic_garbage_head()
 
+            next = self.gc.rawrefcount_next_garbage_pypy()
+            while next <> lltype.nullptr(llmemory.GCREF.TO):
+                garbage_pypy.append(next)
+            next = self.gc.rawrefcount_next_garbage_pyobj()
+            while next <> llmemory.NULL:
+                garbage_pyobj.append(next)
+
         # do a collection to find cyclic isolates and clean them, if there are
         # no finalizers
         self.gc.collect()
@@ -649,3 +662,16 @@ class TestRawRefCount(BaseDirectGCTest):
                     py.test.raises(RuntimeError, "n.p.x")  # dead
                 else:
                     py.test.raises(RuntimeError, "n.r.c_ob_refcnt")  # dead
+
+        # check if unreachable objects in cyclic structures with legacy
+        # finalizers and all otherwise unreachable objects reachable from them
+        # have been added to the garbage list
+        for name in nodes:
+            n = nodes[name]
+            if n.info.alive:
+                if n.info.type == "C":
+                    assert n.info.garbage != (n.raddr not in garbage_pyobj)
+                else:
+                    assert n.info.garbage != (n.pref not in garbage_pypy)
+            else:
+                assert not n.info.garbage

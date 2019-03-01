@@ -3217,7 +3217,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
         gchdr.c_gc_next = next
         next.c_gc_prev = gchdr
 
-    def rawrefcount_next_garbage(self):
+    def rawrefcount_next_garbage_pypy(self):
+        # return the next pypy object which is only reachable from garbage
+        # pyobjects, probably need two more colors for this. one for marking
+        # so that they stay alive during sweep, one for marking, so they do not
+        # get returned here again
+        return lltype.nullptr(llmemory.GCREF.TO)
+
+    def rawrefcount_next_garbage_pyobj(self):
+        # implement st objects in this list still remain in the set of
+        # all pyobjs, because references could still change and cause them
+        # to live again. also keep in mind, that state will create references
+        # to pyobjs in this list and might increment the refcount.
+
+        # use create_link_pyobj on the result to create gc objects for pyobjects
+        #p = W_Root(42)
+        #p.pyobj = ob
         return llmemory.NULL
 
 

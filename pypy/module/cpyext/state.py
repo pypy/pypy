@@ -77,6 +77,7 @@ class State:
         space = self.space
         if not self.space.config.translating:
             def dealloc_trigger():
+                from pypy.interpreter.baseobjspace import W_Root
                 from pypy.module.cpyext.pyobject import PyObject, decref, \
                     incref, cts, finalize, from_ref
                 w_list = space.getattr(space.builtin_modules['gc'],
@@ -116,10 +117,15 @@ class State:
                             llmemory.cast_ptr_to_adr(head)):
                         rawrefcount.cyclic_garbage_remove()
                 while True:
-                    py_obj = rawrefcount.next_garbage(PyObject)
+                    w_obj = rawrefcount.next_garbage_pypy(W_Root)
                     if not py_obj:
                         break
-                    w_obj = from_ref(space, py_obj)
+                    w_list.append(w_obj)
+                while True:
+                    w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
+                    if not py_obj:
+                        break
+                    w_obj = from_ref(space, w_pyobj)
                     w_list.append(w_obj)
                 print 'dealloc_trigger DONE'
                 return "RETRY"
@@ -282,6 +288,7 @@ class CNamespace:
 
 
 def _rawrefcount_perform(space):
+    from pypy.interpreter.baseobjspace import W_Root
     from pypy.module.cpyext.pyobject import (PyObject, incref, decref,
                                              finalize, from_ref)
 
@@ -315,10 +322,15 @@ def _rawrefcount_perform(space):
             rawrefcount.cyclic_garbage_remove()
 
     while True:
-        py_obj = rawrefcount.next_garbage(PyObject)
+        w_obj = rawrefcount.next_garbage_pypy(W_Root)
         if not py_obj:
             break
-        w_obj = from_ref(space, py_obj)
+        w_list.append(w_obj)
+    while True:
+        w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
+        if not py_obj:
+            break
+        w_obj = from_ref(space, w_pyobj)
         w_list.append(w_obj)
 
 class PyObjDeallocAction(executioncontext.AsyncAction):

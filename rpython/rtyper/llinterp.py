@@ -995,8 +995,10 @@ class LLFrame(object):
     def op_gc_rawrefcount_cyclic_garbage_remove(self, *args):
         raise NotImplementedError("gc_rawrefcount_cyclic_garbage_remove")
 
-    def op_gc_rawrefcount_next_garbage(self, *args):
-        raise NotImplementedError("gc_rawrefcount_next_garbage")
+    def op_gc_rawrefcount_next_garbage_pypy(self, *args):
+        raise NotImplementedError("gc_rawrefcount_next_garbage_pypy")
+    def op_gc_rawrefcount_next_garbage_pyobj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_next_garbage_pyobj")
 
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")

@@ -146,7 +146,11 @@ def next_cyclic_isolate(OB_PTR_TYPE):
     return lltype.nullptr(OB_PTR_TYPE.TO)
 
 @not_rpython
-def next_garbage(OB_PTR_TYPE):
+def next_garbage_pypy(Class):
+    return lltype.nullptr(llmemory.GCREF.TO)
+
+@not_rpython
+def next_garbage_pyobj(OB_PTR_TYPE):
     return lltype.nullptr(OB_PTR_TYPE.TO)
 
 @not_rpython
@@ -372,7 +376,7 @@ class Entry(ExtRegistryEntry):
 
 class Entry(ExtRegistryEntry):
     _about_ = (next_dead, cyclic_garbage_head, next_cyclic_isolate,
-               next_garbage)
+               next_garbage_pyobj)
 
     def compute_result_annotation(self, s_OB_PTR_TYPE):
         from rpython.rtyper.llannotation import lltype_to_annotation
@@ -386,11 +390,26 @@ class Entry(ExtRegistryEntry):
             name = 'gc_rawrefcount_cyclic_garbage_head'
         elif self.instance is next_cyclic_isolate:
             name = 'gc_rawrefcount_next_cyclic_isolate'
-        elif self.instance is next_garbage:
-            name = 'gc_rawrefcount_next_garbage'
+        elif self.instance is next_garbage_pyobj:
+            name = 'gc_rawrefcount_next_garbage_pyobj'
         hop.exception_cannot_occur()
         v_ob = hop.genop(name, [], resulttype = llmemory.Address)
         return _spec_ob(hop, v_ob)
+
+class Entry(ExtRegistryEntry):
+    _about_ = next_garbage_pypy
+
+    def compute_result_annotation(self, s_Class):
+        from rpython.annotator import model as annmodel
+        assert s_Class.is_constant()
+        classdef = self.bookkeeper.getuniqueclassdef(s_Class.const)
+        return annmodel.SomeInstance(classdef, can_be_None=True)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_p = hop.genop('gc_rawrefcount_next_garbage_pypy', [],
+                        resulttype = llmemory.GCREF)
+        return _spec_p(hop, v_p)
 
 class Entry(ExtRegistryEntry):
     _about_ = cyclic_garbage_remove

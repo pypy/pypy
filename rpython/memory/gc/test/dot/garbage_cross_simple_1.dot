@@ -1,0 +1,10 @@
+digraph G {
+    "a" [type=C, alive=y, garbage=y, finalizer=legacy];
+    "b" [type=B, alive=y, garbage=y];
+    "c" [type=P, alive=y, garbage=y];
+    "d" [type=P, alive=y, rooted=y];
+    "a" -> "b";
+    "b" -> "a";
+    "b" -> "c";
+    "c" -> "d";
+}
