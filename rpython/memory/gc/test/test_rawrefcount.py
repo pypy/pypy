@@ -627,12 +627,16 @@ class TestRawRefCount(BaseDirectGCTest):
                     self.gc.rawrefcount_cyclic_garbage_remove()
                     next_dead = self.gc.rawrefcount_cyclic_garbage_head()
 
-            next = self.gc.rawrefcount_next_garbage_pypy()
-            while next <> lltype.nullptr(llmemory.GCREF.TO):
-                garbage_pypy.append(next)
-            next = self.gc.rawrefcount_next_garbage_pyobj()
+            next_garbage = self.gc.rawrefcount_next_garbage_pypy()
+            while next_garbage <> lltype.nullptr(llmemory.GCREF.TO):
+                garbage_pypy.append(next_garbage)
+                next_garbage = self.gc.rawrefcount_next_garbage_pypy()
+            last_pyobj = llmemory.NULL
+            next = self.gc.rawrefcount_next_garbage_pyobj(last_pyobj)
             while next <> llmemory.NULL:
                 garbage_pyobj.append(next)
+                next = self.gc.rawrefcount_next_garbage_pyobj(last_pyobj)
+                last_pyobj = next
 
         # do a collection to find cyclic isolates and clean them, if there are
         # no finalizers

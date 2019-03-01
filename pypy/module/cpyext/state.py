@@ -13,7 +13,6 @@ import sys
 # context.
 ExecutionContext.cpyext_operror = None
 
-
 class State:
     def __init__(self, space):
         self.space = space
@@ -80,8 +79,6 @@ class State:
                 from pypy.interpreter.baseobjspace import W_Root
                 from pypy.module.cpyext.pyobject import PyObject, decref, \
                     incref, cts, finalize, from_ref
-                w_list = space.getattr(space.builtin_modules['gc'],
-                                       space.newtext('garbage'))
                 print 'dealloc_trigger...'
                 while True:
                     ob = rawrefcount.next_dead(PyObject)
@@ -116,17 +113,23 @@ class State:
                     if adr_int == llmemory.cast_adr_to_int(
                             llmemory.cast_ptr_to_adr(head)):
                         rawrefcount.cyclic_garbage_remove()
+                w_list = space.newlist([])
                 while True:
                     w_obj = rawrefcount.next_garbage_pypy(W_Root)
                     if not py_obj:
                         break
                     w_list.append(w_obj)
+                last_py_obj = lltype.nullptr(PyObject.TO)
                 while True:
-                    w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
-                    if not py_obj:
+                    w_pyobj = rawrefcount.next_garbage_pyobj(PyObject,
+                                                             last_py_obj)
+                    if not w_pyobj:
                         break
                     w_obj = from_ref(space, w_pyobj)
                     w_list.append(w_obj)
+                    last_py_obj = w_pyobj
+                space.setattr(space.builtin_modules['gc'],
+                              space.newtext('garbage'), w_list)
                 print 'dealloc_trigger DONE'
                 return "RETRY"
             def tp_traverse(pyobj_ptr, callback, args):
@@ -292,9 +295,6 @@ def _rawrefcount_perform(space):
     from pypy.module.cpyext.pyobject import (PyObject, incref, decref,
                                              finalize, from_ref)
 
-    w_list = space.getattr(space.builtin_modules['gc'],
-                           space.newtext('garbage'))
-
     while True:
         py_obj = rawrefcount.next_dead(PyObject)
         if not py_obj:
@@ -321,17 +321,22 @@ def _rawrefcount_perform(space):
         if adr_int == llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(head)):
             rawrefcount.cyclic_garbage_remove()
 
+    w_list = space.newlist([])
     while True:
         w_obj = rawrefcount.next_garbage_pypy(W_Root)
         if not py_obj:
             break
         w_list.append(w_obj)
+    last_py_obj = lltype.nullptr(PyObject.TO)
     while True:
-        w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
-        if not py_obj:
+        w_pyobj = rawrefcount.next_garbage_pyobj(PyObject, last_py_obj)
+        if not w_pyobj:
             break
         w_obj = from_ref(space, w_pyobj)
         w_list.append(w_obj)
+        last_py_obj = w_pyobj
+    space.setattr(space.builtin_modules['gc'], space.newtext('garbage'),
+                  w_list)
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.

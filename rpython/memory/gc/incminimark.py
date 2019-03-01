@@ -3063,6 +3063,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     rrc_enabled = False
 
+    # The default state. Here cyclic garbage with legacy finalizers is marked.
+    RAWREFCOUNT_STATE_DEFAULT = 0
+
+    # The state in which cyclic garbage with legacy finalizers is traced.
+    # Do not mark objects during this state, because we remove the flag
+    # during tracing and we do not want to trace those objects again. Also
+    # during this phase no new objects can be marked, as we are only building
+    # the list of cyclic garbage.
+    RAWREFCOUNT_STATE_GARBAGE = 1
+
     _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
     PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
                               ('c_ob_refcnt', lltype.Signed),
@@ -3128,6 +3138,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_pyobj_as_gc = pyobj_as_gc
             self.rrc_finalizer_type = finalizer_type
             self.rrc_enabled = True
+            self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
 
     def check_no_more_rawrefcount_state(self):
         "NOT_RPYTHON: for tests"
@@ -3218,21 +3229,24 @@ class IncrementalMiniMarkGC(MovingGCBase):
         next.c_gc_prev = gchdr
 
     def rawrefcount_next_garbage_pypy(self):
+        if self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT:
+            self.rrc_state = self.RAWREFCOUNT_STATE_GARBAGE
+
         # return the next pypy object which is only reachable from garbage
         # pyobjects, probably need two more colors for this. one for marking
         # so that they stay alive during sweep, one for marking, so they do not
         # get returned here again
-        return lltype.nullptr(llmemory.GCREF.TO)
+        result = lltype.nullptr(llmemory.GCREF.TO)
 
-    def rawrefcount_next_garbage_pyobj(self):
+        if result == lltype.nullptr(llmemory.GCREF.TO):
+            self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
+        return result
+
+    def rawrefcount_next_garbage_pyobj(self, curr_pyobj):
         # implement st objects in this list still remain in the set of
         # all pyobjs, because references could still change and cause them
         # to live again. also keep in mind, that state will create references
         # to pyobjs in this list and might increment the refcount.
-
-        # use create_link_pyobj on the result to create gc objects for pyobjects
-        #p = W_Root(42)
-        #p.pyobj = ob
         return llmemory.NULL
 
 
