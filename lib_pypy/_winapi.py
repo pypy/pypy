@@ -33,7 +33,7 @@ _INVALID_HANDLE_VALUE = _int2handle(-1)
 
 def CreatePipe(attributes, size):
     handles = _ffi.new("HANDLE[2]")
-
+    
     res = _kernel32.CreatePipe(handles, handles + 1, NULL, size)
 
     if not res:
@@ -204,11 +204,13 @@ _MAX_PATH = 260
 ERROR_SUCCESS           = 0
 ERROR_NETNAME_DELETED   = 64
 ERROR_BROKEN_PIPE       = 109
+ERROR_PIPE_BUSY         = 231 
 ERROR_MORE_DATA         = 234
 ERROR_PIPE_CONNECTED    = 535
 ERROR_OPERATION_ABORTED = 995
 ERROR_IO_INCOMPLETE     = 996
 ERROR_IO_PENDING        = 997
+
 
 PIPE_ACCESS_INBOUND = 0x00000001
 PIPE_ACCESS_OUTBOUND = 0x00000002
