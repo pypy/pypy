@@ -113,6 +113,7 @@ class State:
                     if adr_int == llmemory.cast_adr_to_int(
                             llmemory.cast_ptr_to_adr(head)):
                         rawrefcount.cyclic_garbage_remove()
+                rawrefcount.begin_garbage()
                 w_list = space.newlist([])
                 while True:
                     w_obj = rawrefcount.next_garbage_pypy(W_Root)
@@ -130,6 +131,7 @@ class State:
                     last_py_obj = w_pyobj
                 space.setattr(space.builtin_modules['gc'],
                               space.newtext('garbage'), w_list)
+                rawrefcount.end_garbage()
                 print 'dealloc_trigger DONE'
                 return "RETRY"
             def tp_traverse(pyobj_ptr, callback, args):
@@ -321,6 +323,7 @@ def _rawrefcount_perform(space):
         if adr_int == llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(head)):
             rawrefcount.cyclic_garbage_remove()
 
+    rawrefcount.begin_garbage()
     w_list = space.newlist([])
     while True:
         w_obj = rawrefcount.next_garbage_pypy(W_Root)
@@ -337,6 +340,7 @@ def _rawrefcount_perform(space):
         last_py_obj = w_pyobj
     space.setattr(space.builtin_modules['gc'], space.newtext('garbage'),
                   w_list)
+    rawrefcount.end_garbage()
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.

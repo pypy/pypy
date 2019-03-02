@@ -146,6 +146,14 @@ def next_cyclic_isolate(OB_PTR_TYPE):
     return lltype.nullptr(OB_PTR_TYPE.TO)
 
 @not_rpython
+def begin_garbage():
+    pass
+
+@not_rpython
+def end_garbage():
+    pass
+
+@not_rpython
 def next_garbage_pypy(Class):
     return None
 
@@ -426,14 +434,20 @@ class Entry(ExtRegistryEntry):
         return _spec_p(hop, v_p)
 
 class Entry(ExtRegistryEntry):
-    _about_ = cyclic_garbage_remove
+    _about_ = (cyclic_garbage_remove, begin_garbage, end_garbage)
 
     def compute_result_annotation(self):
         pass
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        hop.genop('gc_rawrefcount_cyclic_garbage_remove', [])
+        if self.instance is cyclic_garbage_remove:
+            name = 'gc_rawrefcount_cyclic_garbage_remove'
+        elif self.instance is begin_garbage:
+            name = 'gc_rawrefcount_begin_garbage'
+        elif self.instance is end_garbage:
+            name = 'gc_rawrefcount_end_garbage'
+        hop.genop(name, [])
 
 src_dir = py.path.local(__file__).dirpath() / 'src'
 boehm_eci = ExternalCompilationInfo(

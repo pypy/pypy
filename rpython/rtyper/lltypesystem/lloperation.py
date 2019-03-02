@@ -532,6 +532,8 @@ LL_OPERATIONS = {
     'gc_rawrefcount_next_cyclic_isolate':   LLOp(),
     'gc_rawrefcount_cyclic_garbage_head':   LLOp(sideeffects=False),
     'gc_rawrefcount_cyclic_garbage_remove': LLOp(),
+    'gc_rawrefcount_begin_garbage':         LLOp(),
+    'gc_rawrefcount_end_garbage':           LLOp(),
     'gc_rawrefcount_next_garbage_pypy':     LLOp(),
     'gc_rawrefcount_next_garbage_pyobj':    LLOp(),
 

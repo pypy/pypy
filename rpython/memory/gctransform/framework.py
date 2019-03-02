@@ -518,6 +518,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.rawrefcount_cyclic_garbage_remove_ptr = getfn(
                 GCClass.rawrefcount_cyclic_garbage_remove, [s_gc],
                 annmodel.s_None, inline = True)
+            self.rawrefcount_begin_garbage_ptr = getfn(
+                GCClass.rawrefcount_begin_garbage, [s_gc], annmodel.s_None,
+                inline = True)
+            self.rawrefcount_end_garbage_ptr = getfn(
+                GCClass.rawrefcount_end_garbage, [s_gc], annmodel.s_None,
+                inline = True)
             self.rawrefcount_next_garbage_pypy_ptr = getfn(
                 GCClass.rawrefcount_next_garbage_pypy, [s_gc],
                 s_gcref, inline = True)
@@ -1431,6 +1437,14 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.rawrefcount_cyclic_garbage_remove_ptr,
                    self.c_const_gc])
+
+    def gct_gc_rawrefcount_begin_garbage(self, hop):
+        hop.genop("direct_call",
+                  [self.rawrefcount_begin_garbage_ptr, self.c_const_gc])
+
+    def gct_gc_rawrefcount_end_garbage(self, hop):
+        hop.genop("direct_call",
+                  [self.rawrefcount_end_garbage_ptr, self.c_const_gc])
 
     def gct_gc_rawrefcount_next_garbage_pypy(self, hop):
         assert hop.spaceop.result.concretetype == llmemory.GCREF
