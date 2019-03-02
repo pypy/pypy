@@ -124,12 +124,15 @@ def test_swapped_bytes():
             ms.n = 0xff00
             return repr(ba[:])
 
+        nstruct = dostruct(Native)
         if sys.byteorder == 'little':
-            assert dostruct(Native) == dostruct(Little)
-            assert dostruct(Native) != dostruct(Big)
+            assert nstruct == dostruct(Little)
+            assert nstruct != dostruct(Big)
+            assert Big._fields_[0][1] is not i
         else:
-            assert dostruct(Native) == dostruct(Big)
-            assert dostruct(Native) != dostruct(Little)
+            assert nstruct == dostruct(Big)
+            assert nstruct != dostruct(Little)
+            assert Little._fields_[0][1] is not i
 
 def test_from_buffer_copy():
     from array import array

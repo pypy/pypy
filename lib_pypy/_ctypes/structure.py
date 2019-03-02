@@ -176,6 +176,11 @@ def struct_setattr(self, name, value):
 class StructOrUnionMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
+        if hasattr(res, '_swappedbytes_') and '_fields_' in typedict:
+            # Activate the stdlib ctypes._swapped_meta.__setattr__ to convert fields
+            tmp = res._fields_
+            delattr(res, '_fields_')
+            setattr(res, '_fields_', tmp)
         if "_abstract_" in typedict:
             return res
         cls = cls or (object,)
@@ -254,17 +259,7 @@ class StructOrUnion(_CData):
                                          or cls is union.Union):
             raise TypeError("abstract class")
         if hasattr(cls, '_swappedbytes_'):
-            fields = [None] * len(cls._fields_)
-            for i in range(len(cls._fields_)):
-                if cls._fields_[i][1] == cls._fields_[i][1].__dict__.get('__ctype_be__', None):
-                    swapped = cls._fields_[i][1].__dict__.get('__ctype_le__', cls._fields_[i][1])
-                else:
-                    swapped = cls._fields_[i][1].__dict__.get('__ctype_be__', cls._fields_[i][1])
-                if len(cls._fields_[i]) < 3:
-                    fields[i] = (cls._fields_[i][0], swapped)
-                else:
-                    fields[i] = (cls._fields_[i][0], swapped, cls._fields_[i][2])
-            names_and_fields(cls, fields, _CData, cls.__dict__.get('_anonymous_', None))
+            names_and_fields(cls, cls._fields_, _CData, cls.__dict__.get('_anonymous_', None))
         self = super(_CData, cls).__new__(cls)
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
