@@ -138,6 +138,9 @@ class PythonAstCompiler(PyCodeCompiler):
     def validate_ast(self, node):
         try:
             validate.validate_ast(self.space, node)
+        except validate.ValidationTypeError as e:
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.newtext(e.message))
         except validate.ValidationError as e:
             raise OperationError(self.space.w_ValueError,
                                  self.space.newtext(e.message))

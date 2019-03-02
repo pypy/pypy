@@ -86,6 +86,9 @@ class TinyObjSpace(object):
     def str_w(self, w_str):
         return w_str
 
+    def utf8_w(self, w_utf8):
+        return w_utf8
+
     def bytes_w(self, w_bytes):
         return w_bytes
 
@@ -100,6 +103,9 @@ class TinyObjSpace(object):
 
     def newbytes(self, obj):
         return bytes(obj)
+
+    def newutf8(self, obj, lgth):
+        return obj
 
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)

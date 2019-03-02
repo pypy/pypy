@@ -4,7 +4,7 @@ Contents are subject to revision at any time, without notice.
 
 Help => About IDLE: diplay About Idle dialog
 
-<to be moved here from aboutDialog.py>
+<to be moved here from help_about.py>
 
 
 Help => IDLE Help: Display help.html with proper formatting.
@@ -25,15 +25,14 @@ copy_strip - Copy idle.html to help.html, rstripping each line.
 show_idlehelp - Create HelpWindow.  Called in EditorWindow.help_dialog.
 """
 from html.parser import HTMLParser
-from os.path import abspath, dirname, isdir, isfile, join
+from os.path import abspath, dirname, isfile, join
 from platform import python_version
-from tkinter import Tk, Toplevel, Frame, Text, Scrollbar, Menu, Menubutton
-from tkinter import font as tkfont
-from idlelib.configHandler import idleConf
 
-use_ttk = False # until available to import
-if use_ttk:
-    from tkinter.ttk import Menubutton
+from tkinter import Toplevel, Frame, Text, Menu
+from tkinter.ttk import Menubutton, Scrollbar
+from tkinter import font as tkfont
+
+from idlelib.config import idleConf
 
 ## About IDLE ##
 
@@ -197,15 +196,18 @@ class HelpFrame(Frame):
     "Display html text, scrollbar, and toc."
     def __init__(self, parent, filename):
         Frame.__init__(self, parent)
-        text = HelpText(self, filename)
+        # keep references to widgets for test access.
+        self.text = text = HelpText(self, filename)
         self['background'] = text['background']
-        scroll = Scrollbar(self, command=text.yview)
+        self.toc = toc = self.toc_menu(text)
+        self.scroll = scroll = Scrollbar(self, command=text.yview)
         text['yscrollcommand'] = scroll.set
+
         self.rowconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)  # text
-        self.toc_menu(text).grid(column=0, row=0, sticky='nw')
-        text.grid(column=1, row=0, sticky='nsew')
-        scroll.grid(column=2, row=0, sticky='ns')
+        toc.grid(row=0, column=0, sticky='nw')
+        text.grid(row=0, column=1, sticky='nsew')
+        scroll.grid(row=0, column=2, sticky='ns')
 
     def toc_menu(self, text):
         "Create table of contents as drop-down menu."
@@ -258,7 +260,7 @@ def copy_strip():
          open(dst, 'wb') as out:
         for line in inn:
             out.write(line.rstrip() + b'\n')
-    print('idle.html copied to help.html')
+    print(f'{src} copied to {dst}')
 
 def show_idlehelp(parent):
     "Create HelpWindow; called from Idle Help event handler."
@@ -269,5 +271,8 @@ def show_idlehelp(parent):
     HelpWindow(parent, filename, 'IDLE Help (%s)' % python_version())
 
 if __name__ == '__main__':
+    from unittest import main
+    main('idlelib.idle_test.test_help', verbosity=2, exit=False)
+
     from idlelib.idle_test.htest import run
     run(show_idlehelp)

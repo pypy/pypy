@@ -83,8 +83,10 @@ corresponding Unix manual entries for more information on calls."""
         'symlink': 'interp_posix.symlink',
 
         'scandir': 'interp_scandir.scandir',
+        'DirEntry': 'interp_scandir.W_DirEntry',
         'get_inheritable': 'interp_posix.get_inheritable',
         'set_inheritable': 'interp_posix.set_inheritable',
+        'fspath': 'interp_posix.fspath',
     }
 
     if hasattr(os, 'chown'):

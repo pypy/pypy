@@ -1,4 +1,5 @@
 # coding: utf-8
+from rpython.rlib import rutf8
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import unicodehelper
@@ -91,9 +92,11 @@ def parsestr(space, encoding, s):
         if encoding is None:
             substr = s[ps:q]
         else:
+            unicodehelper.check_utf8_or_raise(space, s, ps, q)
             substr = decode_unicode_utf8(space, s, ps, q)
-        v = unicodehelper.decode_unicode_escape(space, substr)
-        return space.newunicode(v)
+        r = unicodehelper.decode_unicode_escape(space, substr)
+        v, length, pos = r
+        return space.newutf8(v, length)
 
     assert 0 <= ps <= q
     substr = s[ps : q]
@@ -111,10 +114,12 @@ def parsestr(space, encoding, s):
         elif saw_f:
             return W_FString(substr, rawmode)
         else:
-            v = unicodehelper.decode_utf8(space, substr)
-            return space.newunicode(v)
+            v = unicodehelper.str_decode_utf8(substr, 'strict', True, None)
+            return space.newtext(*v)
 
-    v = PyString_DecodeEscape(space, substr, 'strict', encoding)
+    v, first_escape_error_char = PyString_DecodeEscape(
+        space, substr, 'strict', encoding)
+
     return space.newbytes(v)
 
 def decode_unicode_utf8(space, s, ps, q):
@@ -135,15 +140,12 @@ def decode_unicode_utf8(space, s, ps, q):
                 # the backslash we just wrote, we emit "\u005c"
                 # instead.
                 lis.append("u005c")
-        if ord(s[ps]) & 0x80: # XXX inefficient
-            w, ps = decode_utf8(space, s, ps, end)
-            for c in w:
-                # The equivalent of %08x, which is not supported by RPython.
-                # 7 zeroes are enough for the unicode range, and the
-                # result still fits in 32-bit.
-                hexa = hex(ord(c) + 0x10000000)
-                lis.append('\\U0')
-                lis.append(hexa[3:])  # Skip 0x and the leading 1
+        if ord(s[ps]) & 0x80:
+            cp = rutf8.codepoint_at_pos(s, ps)
+            hexa = hex(cp + 0x10000000)
+            lis.append('\\U0')
+            lis.append(hexa[3:])  # Skip 0x and the leading 1
+            ps = rutf8.next_codepoint_pos(s, ps)
         else:
             lis.append(s[ps])
             ps += 1
@@ -158,6 +160,7 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
     builder = StringBuilder(len(s))
     ps = 0
     end = len(s)
+    first_escape_error_char = ''
     while ps < end:
         if s[ps] != '\\':
             # note that the C code has a label here.
@@ -237,11 +240,20 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
             builder.append('\\')
             ps -= 1
             assert ps >= 0
+            if first_escape_error_char == '':
+                first_escape_error_char = ch
             continue
             # an arbitry number of unescaped UTF-8 bytes may follow.
 
     buf = builder.build()
-    return buf
+
+    if first_escape_error_char != '':
+        space.warn(
+            space.newtext("invalid escape sequence '\\%s'"
+                          % first_escape_error_char),
+            space.w_DeprecationWarning)
+
+    return buf, first_escape_error_char
 
 
 def isxdigit(ch):
@@ -250,20 +262,29 @@ def isxdigit(ch):
             ch >= 'A' and ch <= 'F')
 
 
-def decode_utf8(space, s, ps, end):
+def check_utf8(space, s, ps, end):
     assert ps >= 0
     pt = ps
     # while (s < end && *s != '\\') s++; */ /* inefficient for u".."
     while ps < end and ord(s[ps]) & 0x80:
         ps += 1
-    u = unicodehelper.decode_utf8(space, s[pt:ps])
-    return u, ps
+    try:
+        rutf8.check_utf8(s, True, pt, ps)
+    except rutf8.CheckError as e:
+        lgt, flag = rutf8.check_utf8(s, True, pt, e.pos)
+        unicodehelper.decode_error_handler(space)('strict', 'utf8',
+            'invalid utf-8', s, pt + lgt, pt + lgt + 1)
+    return s[pt:ps]
 
 def decode_utf8_recode(space, s, ps, end, recode_encoding):
-    u, ps = decode_utf8(space, s, ps, end)
-    w_v = unicodehelper.encode(space, space.newunicode(u), recode_encoding)
+    p = ps
+    while p < end and ord(s[p]) & 0x80:
+        p += 1
+    lgt = unicodehelper.check_utf8_or_raise(space, s, ps, p)
+    w_v = unicodehelper.encode(space, space.newutf8(s[ps:p], lgt),
+                               recode_encoding)
     v = space.bytes_w(w_v)
-    return v, ps
+    return v, p
 
 def raise_app_valueerror(space, msg):
     raise OperationError(space.w_ValueError, space.newtext(msg))

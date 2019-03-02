@@ -40,6 +40,10 @@ class Module(MixedModule):
     interpleveldefs = {
         'pi': 'space.newfloat(interp_cmath.pi)',
         'e':  'space.newfloat(interp_cmath.e)',
+        'inf':  'space.newfloat(interp_cmath.inf)',
+        'nan':  'space.newfloat(interp_cmath.nan)',
+        'infj':  'space.newcomplex(0.0, interp_cmath.inf)',
+        'nanj':  'space.newcomplex(0.0, interp_cmath.nan)',
         'isclose': 'interp_cmath.isclose',
     }
     interpleveldefs.update(dict([(name, 'interp_cmath.wrapped_' + name)

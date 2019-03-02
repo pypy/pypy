@@ -50,9 +50,13 @@ import copy
 import re
 
 try:
-    import grp, pwd
+    import pwd
 except ImportError:
-    grp = pwd = None
+    pwd = None
+try:
+    import grp
+except ImportError:
+    grp = None
 
 # os.symlink on Windows prior to 6.0 raises NotImplementedError
 symlink_exception = (AttributeError, NotImplementedError)
@@ -64,7 +68,10 @@ except NameError:
     pass
 
 # from tarfile import *
-__all__ = ["TarFile", "TarInfo", "is_tarfile", "TarError"]
+__all__ = ["TarFile", "TarInfo", "is_tarfile", "TarError", "ReadError",
+           "CompressionError", "StreamError", "ExtractError", "HeaderError",
+           "ENCODING", "USTAR_FORMAT", "GNU_FORMAT", "PAX_FORMAT",
+           "DEFAULT_FORMAT", "open"]
 
 #---------------------------------------------------------
 # tar constants
@@ -141,7 +148,7 @@ PAX_NUMBER_FIELDS = {
 #---------------------------------------------------------
 # initialization
 #---------------------------------------------------------
-if os.name in ("nt", "ce"):
+if os.name == "nt":
     ENCODING = "utf-8"
 else:
     ENCODING = sys.getfilesystemencoding()
@@ -225,21 +232,21 @@ def calc_chksums(buf):
     signed_chksum = 256 + sum(struct.unpack_from("148b8x356b", buf))
     return unsigned_chksum, signed_chksum
 
-def copyfileobj(src, dst, length=None, exception=OSError):
+def copyfileobj(src, dst, length=None, exception=OSError, bufsize=None):
     """Copy length bytes from fileobj src to fileobj dst.
        If length is None, copy the entire content.
     """
+    bufsize = bufsize or 16 * 1024
     if length == 0:
         return
     if length is None:
-        shutil.copyfileobj(src, dst)
+        shutil.copyfileobj(src, dst, bufsize)
         return
 
-    BUFSIZE = 16 * 1024
-    blocks, remainder = divmod(length, BUFSIZE)
+    blocks, remainder = divmod(length, bufsize)
     for b in range(blocks):
-        buf = src.read(BUFSIZE)
-        if len(buf) < BUFSIZE:
+        buf = src.read(bufsize)
+        if len(buf) < bufsize:
             raise exception("unexpected end of data")
         dst.write(buf)
 
@@ -1400,7 +1407,8 @@ class TarFile(object):
 
     def __init__(self, name=None, mode="r", fileobj=None, format=None,
             tarinfo=None, dereference=None, ignore_zeros=None, encoding=None,
-            errors="surrogateescape", pax_headers=None, debug=None, errorlevel=None):
+            errors="surrogateescape", pax_headers=None, debug=None,
+            errorlevel=None, copybufsize=None):
         """Open an (uncompressed) tar archive `name'. `mode' is either 'r' to
            read from an existing archive, 'a' to append data to an existing
            file or 'w' to create a new file overwriting an existing one. `mode'
@@ -1456,6 +1464,7 @@ class TarFile(object):
             self.errorlevel = errorlevel
 
         # Init datastructures.
+        self.copybufsize = copybufsize
         self.closed = False
         self.members = []       # list of members as TarInfo objects
         self._loaded = False    # flag if all members have been read
@@ -1557,7 +1566,7 @@ class TarFile(object):
                     saved_pos = fileobj.tell()
                 try:
                     return func(name, "r", fileobj, **kwargs)
-                except (ReadError, CompressionError) as e:
+                except (ReadError, CompressionError):
                     if fileobj is not None:
                         fileobj.seek(saved_pos)
                     continue
@@ -1962,10 +1971,10 @@ class TarFile(object):
         buf = tarinfo.tobuf(self.format, self.encoding, self.errors)
         self.fileobj.write(buf)
         self.offset += len(buf)
-
+        bufsize=self.copybufsize
         # If there's data to follow, append it.
         if fileobj is not None:
-            copyfileobj(fileobj, self.fileobj, tarinfo.size)
+            copyfileobj(fileobj, self.fileobj, tarinfo.size, bufsize=bufsize)
             blocks, remainder = divmod(tarinfo.size, BLOCKSIZE)
             if remainder > 0:
                 self.fileobj.write(NUL * (BLOCKSIZE - remainder))
@@ -2147,15 +2156,16 @@ class TarFile(object):
         """
         source = self.fileobj
         source.seek(tarinfo.offset_data)
+        bufsize = self.copybufsize
         with bltn_open(targetpath, "wb") as target:
             if tarinfo.sparse is not None:
                 for offset, size in tarinfo.sparse:
                     target.seek(offset)
-                    copyfileobj(source, target, size, ReadError)
+                    copyfileobj(source, target, size, ReadError, bufsize)
                 target.seek(tarinfo.size)
                 target.truncate()
             else:
-                copyfileobj(source, target, tarinfo.size, ReadError)
+                copyfileobj(source, target, tarinfo.size, ReadError, bufsize)
 
     def makeunknown(self, tarinfo, targetpath):
         """Make a file from a TarInfo object with an unknown type
@@ -2213,28 +2223,31 @@ class TarFile(object):
 
     def chown(self, tarinfo, targetpath, numeric_owner):
         """Set owner of targetpath according to tarinfo. If numeric_owner
-           is True, use .gid/.uid instead of .gname/.uname.
+           is True, use .gid/.uid instead of .gname/.uname. If numeric_owner
+           is False, fall back to .gid/.uid when the search based on name
+           fails.
         """
-        if pwd and hasattr(os, "geteuid") and os.geteuid() == 0:
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
             # We have to be root to do so.
-            if numeric_owner:
-                g = tarinfo.gid
-                u = tarinfo.uid
-            else:
+            g = tarinfo.gid
+            u = tarinfo.uid
+            if not numeric_owner:
                 try:
-                    g = grp.getgrnam(tarinfo.gname)[2]
+                    if grp:
+                        g = grp.getgrnam(tarinfo.gname)[2]
                 except KeyError:
-                    g = tarinfo.gid
+                    pass
                 try:
-                    u = pwd.getpwnam(tarinfo.uname)[2]
+                    if pwd:
+                        u = pwd.getpwnam(tarinfo.uname)[2]
                 except KeyError:
-                    u = tarinfo.uid
+                    pass
             try:
                 if tarinfo.issym() and hasattr(os, "lchown"):
                     os.lchown(targetpath, u, g)
                 else:
                     os.chown(targetpath, u, g)
-            except OSError as e:
+            except OSError:
                 raise ExtractError("could not change owner")
 
     def chmod(self, tarinfo, targetpath):
@@ -2243,7 +2256,7 @@ class TarFile(object):
         if hasattr(os, 'chmod'):
             try:
                 os.chmod(targetpath, tarinfo.mode)
-            except OSError as e:
+            except OSError:
                 raise ExtractError("could not change mode")
 
     def utime(self, tarinfo, targetpath):
@@ -2253,7 +2266,7 @@ class TarFile(object):
             return
         try:
             os.utime(targetpath, (tarinfo.mtime, tarinfo.mtime))
-        except OSError as e:
+        except OSError:
             raise ExtractError("could not change modification time")
 
     #--------------------------------------------------------------------------
@@ -2376,9 +2389,32 @@ class TarFile(object):
         """Provide an iterator object.
         """
         if self._loaded:
-            return iter(self.members)
-        else:
-            return TarIter(self)
+            yield from self.members
+            return
+
+        # Yield items using TarFile's next() method.
+        # When all members have been read, set TarFile as _loaded.
+        index = 0
+        # Fix for SF #1100429: Under rare circumstances it can
+        # happen that getmembers() is called during iteration,
+        # which will have already exhausted the next() method.
+        if self.firstmember is not None:
+            tarinfo = self.next()
+            index += 1
+            yield tarinfo
+
+        while True:
+            if index < len(self.members):
+                tarinfo = self.members[index]
+            elif not self._loaded:
+                tarinfo = self.next()
+                if not tarinfo:
+                    self._loaded = True
+                    return
+            else:
+                return
+            index += 1
+            yield tarinfo
 
     def _dbg(self, level, msg):
         """Write debugging output to sys.stderr.
@@ -2399,45 +2435,6 @@ class TarFile(object):
             if not self._extfileobj:
                 self.fileobj.close()
             self.closed = True
-# class TarFile
-
-class TarIter:
-    """Iterator Class.
-
-       for tarinfo in TarFile(...):
-           suite...
-    """
-
-    def __init__(self, tarfile):
-        """Construct a TarIter object.
-        """
-        self.tarfile = tarfile
-        self.index = 0
-    def __iter__(self):
-        """Return iterator object.
-        """
-        return self
-    def __next__(self):
-        """Return the next item using TarFile's next() method.
-           When all members have been read, set TarFile as _loaded.
-        """
-        # Fix for SF #1100429: Under rare circumstances it can
-        # happen that getmembers() is called during iteration,
-        # which will cause TarIter to stop prematurely.
-
-        if self.index == 0 and self.tarfile.firstmember is not None:
-            tarinfo = self.tarfile.next()
-        elif self.index < len(self.tarfile.members):
-            tarinfo = self.tarfile.members[self.index]
-        elif not self.tarfile._loaded:
-            tarinfo = self.tarfile.next()
-            if not tarinfo:
-                self.tarfile._loaded = True
-                raise StopIteration
-        else:
-            raise StopIteration
-        self.index += 1
-        return tarinfo
 
 #--------------------
 # exported functions

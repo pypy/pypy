@@ -116,10 +116,17 @@ class AppTestSrePattern:
         assert ['', 'a', 'l', 'a', 'lla'] == re.split("b(a)", "balballa")
         assert ['', 'a', None, 'l', 'u', None, 'lla'] == (
             re.split("b([ua]|(s))", "balbulla"))
+        assert ['Hello \udce2\udc9c\udc93', ''] == re.split(r'\r\n|\r|\n',
+                    'Hello \udce2\udc9c\udc93\n')
 
     def test_weakref(self):
         import re, _weakref
         _weakref.ref(re.compile(r""))
+
+    def test_match_compat(self):
+        import re
+        res = re.match(r'(a)|(b)', 'b').start(1)
+        assert res == -1
 
     def test_pattern_check(self):
         import _sre
@@ -140,6 +147,33 @@ class AppTestSrePattern:
         r = re.compile(r'f(o"\d)', re.IGNORECASE|re.DOTALL|re.VERBOSE)
         assert repr(r) == (
             r"""re.compile('f(o"\\d)', re.IGNORECASE|re.DOTALL|re.VERBOSE)""")
+
+    def test_pattern_compare(self):
+        import re
+        pattern1 = re.compile('abc', re.IGNORECASE)
+
+        # equal to itself
+        assert pattern1 == pattern1
+        assert not(pattern1 != pattern1)
+        # equal
+        re.purge()
+        pattern2 = re.compile('abc', re.IGNORECASE)
+        assert hash(pattern2) == hash(pattern1)
+        assert pattern2 == pattern1
+
+        # not equal: different pattern
+        re.purge()
+        pattern3 = re.compile('XYZ', re.IGNORECASE)
+        # warranty that hash values are different
+        assert pattern3 != pattern1
+
+        # not equal: different flag (flags=0)
+        re.purge()
+        pattern4 = re.compile('abc')
+        assert pattern4 != pattern1
+
+        # only == and != comparison operators are supported
+        raises(TypeError, "pattern1 < pattern2")
 
 
 class AppTestSreMatch:
@@ -234,6 +268,19 @@ class AppTestSreMatch:
         assert re.match("(foo)", "foo").group(1) == "foo"
         exc = raises(IndexError, re.match("", "").group, sys.maxsize + 1)
         assert str(exc.value) == "no such group"
+
+    def test_group_takes_index(self):
+        import re
+        class Index:
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+        assert re.match("(foo)", "foo").group(Index(1)) == "foo"
+
+    def test_getitem(self):
+        import re
+        assert re.match("(foo)bar", "foobar")[1] == "foo"
 
     def test_expand(self):
         import re

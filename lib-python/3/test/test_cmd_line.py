@@ -8,7 +8,7 @@ import shutil
 import sys
 import subprocess
 import tempfile
-from test.support import script_helper
+from test.support import script_helper, is_android
 from test.support.script_helper import (spawn_python, kill_python, assert_python_ok,
     assert_python_failure)
 
@@ -43,7 +43,7 @@ class CmdLineTest(unittest.TestCase):
 
     def test_version(self):
         version = ('Python %d.%d' % sys.version_info[:2]).encode("ascii")
-        for switch in '-V', '--version':
+        for switch in '-V', '--version', '-VV':
             rc, out, err = assert_python_ok(switch)
             self.assertFalse(err.startswith(version))
             self.assertTrue(out.startswith(version))
@@ -178,15 +178,16 @@ class CmdLineTest(unittest.TestCase):
         if not stdout.startswith(pattern):
             raise AssertionError("%a doesn't start with %a" % (stdout, pattern))
 
-    @unittest.skipUnless(sys.platform == 'darwin', 'test specific to Mac OS X')
-    def test_osx_utf8(self):
+    @unittest.skipUnless((sys.platform == 'darwin' or
+                is_android), 'test specific to Mac OS X and Android')
+    def test_osx_android_utf8(self):
         def check_output(text):
             decoded = text.decode('utf-8', 'surrogateescape')
             expected = ascii(decoded).encode('ascii') + b'\n'
 
             env = os.environ.copy()
             # C locale gives ASCII locale encoding, but Python uses UTF-8
-            # to parse the command line arguments on Mac OS X
+            # to parse the command line arguments on Mac OS X and Android.
             env['LC_ALL'] = 'C'
 
             p = subprocess.Popen(
@@ -348,8 +349,9 @@ class CmdLineTest(unittest.TestCase):
             test.support.SuppressCrashReport().__enter__()
             sys.stdout.write('x')
             os.close(sys.stdout.fileno())"""
-        rc, out, err = assert_python_ok('-c', code)
+        rc, out, err = assert_python_failure('-c', code)
         self.assertEqual(b'', out)
+        self.assertEqual(120, rc)
         self.assertRegex(err.decode('ascii', 'ignore'),
                          'Exception ignored in.*\nOSError: .*')
 

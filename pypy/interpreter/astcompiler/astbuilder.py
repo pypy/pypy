@@ -58,6 +58,7 @@ class ASTBuilder(object):
         self.space = space
         self.compile_info = compile_info
         self.root_node = n
+        # used in f-strings
         self.recursive_parser = recursive_parser
 
     def build_ast(self):
@@ -125,7 +126,7 @@ class ASTBuilder(object):
 
     def check_forbidden_name(self, name, node):
         try:
-            misc.check_forbidden_name(name)
+            misc.check_forbidden_name(self.space, name)
         except misc.ForbiddenNameAssignment as e:
             self.error("cannot assign to %s" % (e.name,), node)
 
@@ -135,7 +136,7 @@ class ASTBuilder(object):
     def set_context(self, expr, ctx):
         """Set the context of an expression to Store or Del if possible."""
         try:
-            expr.set_context(ctx)
+            expr.set_context(self.space, ctx)
         except ast.UnacceptableExpressionContext as e:
             self.error_ast(e.msg, e.node)
         except misc.ForbiddenNameAssignment as e:
@@ -737,6 +738,7 @@ class ASTBuilder(object):
             raise AssertionError("unknown statment type")
 
     def handle_expr_stmt(self, stmt):
+        from pypy.interpreter.pyparser.parser import AbstractNonterminal
         if stmt.num_children() == 1:
             expression = self.handle_testlist(stmt.get_child(0))
             return ast.Expr(expression, stmt.get_lineno(), stmt.get_column())
@@ -754,6 +756,44 @@ class ASTBuilder(object):
             operator = augassign_operator_map[op_str]
             return ast.AugAssign(target_expr, operator, value_expr,
                                  stmt.get_lineno(), stmt.get_column())
+        elif stmt.get_child(1).type == syms.annassign:
+            # Variable annotation (PEP 526), which may or may not include assignment.
+            target = stmt.get_child(0)
+            target_expr = self.handle_testlist(target)
+            simple = 0
+            # target is a name, nothing funky
+            if isinstance(target_expr, ast.Name):
+                # The PEP demands that `(x): T` be treated differently than `x: T`
+                # however, the parser does not easily expose the wrapping parens, which are a no-op
+                # they are elided by handle_testlist if they existed.
+                # so here we walk down the parse tree until we hit a terminal, and check whether it's
+                # a left paren
+                simple_test = target.get_child(0)
+                while isinstance(simple_test, AbstractNonterminal):
+                    simple_test = simple_test.get_child(0)
+                if simple_test.type != tokens.LPAR:
+                    simple = 1
+            # subscripts are allowed with nothing special
+            elif isinstance(target_expr, ast.Subscript):
+                pass
+            # attributes are also fine here
+            elif isinstance(target_expr, ast.Attribute):
+                pass
+            # tuples and lists get special error messages
+            elif isinstance(target_expr, ast.Tuple):
+                self.error("only single target (not tuple) can be annotated", target)
+            elif isinstance(target_expr, ast.List):
+                self.error("only single target (not list) can be annotated", target)
+            # and everything else gets a generic error
+            else:
+                self.error("illegal target for annoation", target)
+            self.set_context(target_expr, ast.Store)
+            second = stmt.get_child(1)
+            annotation = self.handle_expr(second.get_child(1))
+            value_expr = None
+            if second.num_children() == 4:
+                value_expr = self.handle_expr(second.get_child(-1))
+            return ast.AnnAssign(target_expr, annotation, value_expr, simple, stmt.get_lineno(), stmt.get_column())
         else:
             # Normal assignment.
             targets = []
@@ -1283,8 +1323,9 @@ class ASTBuilder(object):
         current_for = comp_node
         while True:
             count += 1
-            if current_for.num_children() == 5:
-                current_iter = current_for.get_child(4)
+            is_async = current_for.get_child(0).type == tokens.ASYNC
+            if current_for.num_children() == 5 + is_async:
+                current_iter = current_for.get_child(4 + is_async)
             else:
                 return count
             while True:
@@ -1315,12 +1356,13 @@ class ASTBuilder(object):
         fors_count = self.count_comp_fors(comp_node)
         comps = []
         for i in range(fors_count):
-            for_node = comp_node.get_child(1)
+            is_async = comp_node.get_child(0).type == tokens.ASYNC
+            for_node = comp_node.get_child(1 + is_async)
             for_targets = self.handle_exprlist(for_node, ast.Store)
-            expr = self.handle_expr(comp_node.get_child(3))
+            expr = self.handle_expr(comp_node.get_child(3 + is_async))
             assert isinstance(expr, ast.expr)
             if for_node.num_children() == 1:
-                comp = ast.comprehension(for_targets[0], expr, None)
+                comp = ast.comprehension(for_targets[0], expr, None, is_async)
             else:
                 # Modified in python2.7, see http://bugs.python.org/issue6704
                 # Fixing unamed tuple location
@@ -1329,9 +1371,9 @@ class ASTBuilder(object):
                 col = expr_node.col_offset
                 line = expr_node.lineno
                 target = ast.Tuple(for_targets, ast.Store, line, col)
-                comp = ast.comprehension(target, expr, None)
-            if comp_node.num_children() == 5:
-                comp_node = comp_iter = comp_node.get_child(4)
+                comp = ast.comprehension(target, expr, None, is_async)
+            if comp_node.num_children() == 5 + is_async:
+                comp_node = comp_iter = comp_node.get_child(4 + is_async)
                 assert comp_iter.type == syms.comp_iter
                 ifs_count = self.count_comp_ifs(comp_iter)
                 if ifs_count:

@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rutf8 import Utf8StringIterator
 from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
@@ -31,7 +32,7 @@ class W_Reader(W_Root):
         msg = u'line %d: %s' % (self.line_num, msg)
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.newtext('Error'))
-        raise OperationError(w_error, space.newunicode(msg))
+        raise OperationError(w_error, space.newtext(msg))
 
     def add_char(self, field_builder, c):
         assert field_builder is not None
@@ -44,9 +45,9 @@ class W_Reader(W_Root):
         field = field_builder.build()
         if self.numeric_field:
             self.numeric_field = False
-            w_obj = space.call_function(space.w_float, space.newunicode(field))
+            w_obj = space.call_function(space.w_float, space.newtext(field))
         else:
-            w_obj = space.newunicode(field)
+            w_obj = space.newtext(field)
         self.fields_w.append(w_obj)
 
     def next_w(self):
@@ -76,13 +77,15 @@ class W_Reader(W_Root):
             if space.isinstance_w(w_line, space.w_bytes):
                 raise self.error(u"iterator should return strings, not bytes "
                                  u"(did you open the file in text mode?")
-            line = space.unicode_w(w_line)
-            for c in line:
-                if c == u'\0':
+            line = space.utf8_w(w_line)
+            for c in Utf8StringIterator(line):
+                # XXX rewrite this to use c (as int) not unichr(c)
+                c = unichr(c)
+                if c == '\0':
                     raise self.error(u"line contains NULL byte")
 
                 if state == START_RECORD:
-                    if c == u'\n' or c == u'\r':
+                    if c == b'\n' or c == b'\r':
                         state = EAT_CRNL
                         continue
                     # normal character - handle as START_FIELD

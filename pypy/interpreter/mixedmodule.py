@@ -130,7 +130,7 @@ class MixedModule(Module):
                     bltin.w_module = self.w_name
                     func._builtinversion_ = bltin
                     bltin.name = name
-                    bltin.qualname = bltin.name.decode('utf-8')
+                    bltin.qualname = bltin.name
                 w_value = bltin
             space.setitem(self.w_dict, w_name, w_value)
             return w_value
@@ -196,6 +196,15 @@ class MixedModule(Module):
     @classmethod
     def get__doc__(cls, space):
         return space.newtext_or_none(cls.__doc__)
+
+    def setdictvalue_dont_introduce_cell(self, name, w_value):
+        """ unofficial interface in MixedModules to override an existing value
+        in the module but without introducing a cell (in the sense of
+        celldict.py) for it. Should be used sparingly, since it will trigger a
+        JIT recompile of all code that uses this module."""
+        from pypy.objspace.std.celldict import remove_cell
+        self.setdictvalue(self.space, name, w_value)
+        remove_cell(self.w_dict, self.space, name)
 
 
 @not_rpython

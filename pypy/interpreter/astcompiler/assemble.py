@@ -21,6 +21,8 @@ class Instruction(object):
     def __init__(self, opcode, arg=0):
         self.opcode = opcode
         self.arg = arg
+        if opcode < ops.HAVE_ARGUMENT:
+            assert arg == 0
         self.lineno = 0
         self.has_jump = False
 
@@ -28,9 +30,33 @@ class Instruction(object):
         """Return the size of bytes of this instruction when it is
         encoded.
         """
-        if self.opcode >= ops.HAVE_ARGUMENT:
-            return (6 if self.arg > 0xFFFF else 3)
-        return 1
+        if self.arg <= 0xff:
+            return 2
+        if self.arg <= 0xffff:
+            return 4
+        if self.arg <= 0xffffff:
+            return 6
+        return 8
+
+    def encode(self, code):
+        opcode = self.opcode
+
+        arg = self.arg
+        size = self.size()
+        if size == 8:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 24) & 0xff))
+            assert ((arg >> 24) & 0xff) == (arg >> 24)
+        if size >= 6:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 16) & 0xff))
+        if size >= 4:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 8) & 0xff))
+        if size >= 2:
+            code.append(chr(opcode))
+            code.append(chr(arg & 0xff))
+
 
     def jump_to(self, target, absolute=False):
         """Indicate the target this jump instruction.
@@ -121,20 +147,9 @@ class Block(object):
         """Encode the instructions in this block into bytecode."""
         code = []
         for instr in self.instructions:
-            opcode = instr.opcode
-            if opcode >= ops.HAVE_ARGUMENT:
-                arg = instr.arg
-                if instr.arg > 0xFFFF:
-                    ext = arg >> 16
-                    code.append(chr(ops.EXTENDED_ARG))
-                    code.append(chr(ext & 0xFF))
-                    code.append(chr(ext >> 8))
-                    arg &= 0xFFFF
-                code.append(chr(opcode))
-                code.append(chr(arg & 0xFF))
-                code.append(chr(arg >> 8))
-            else:
-                code.append(chr(opcode))
+            instr.encode(code)
+        assert len(code) == self.code_size()
+        assert len(code) & 1 == 0
         return ''.join(code)
 
 
@@ -184,6 +199,13 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.lineno_set = False
         self.lineno = 0
         self.add_none_to_final_return = True
+
+    def _check_consistency(self, blocks):
+        current_off = 0
+        for block in blocks:
+            assert block.offset == current_off
+            for instr in block.instructions:
+                current_off += instr.size()
 
     def new_block(self):
         return Block()
@@ -315,14 +337,12 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
-        last_extended_arg_count = 0
         # The reason for this loop is extended jumps.  EXTENDED_ARG
-        # extends the bytecode size, so it might invalidate the offsets
-        # we've already given.  Thus we have to loop until the number of
-        # extended args is stable.  Any extended jump at all is
-        # extremely rare, so performance is not too concerning.
+        # extends the bytecode size, so it might invalidate the offsets we've
+        # already given.  Thus we have to loop until the size of all jump
+        # instructions is stable. Any extended jump at all is extremely rare,
+        # so performance should not be too concerning.
         while True:
-            extended_arg_count = 0
             offset = 0
             force_redo = False
             # Calculate the code offset of each block.
@@ -332,7 +352,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             for block in blocks:
                 offset = block.offset
                 for instr in block.instructions:
-                    offset += instr.size()
+                    size = instr.size()
+                    offset += size
                     if instr.has_jump:
                         target, absolute = instr.jump
                         op = instr.opcode
@@ -351,22 +372,21 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     instr.opcode = ops.RETURN_VALUE
                                     instr.arg = 0
                                     instr.has_jump = False
-                                    # The size of the code changed,
+                                    # The size of the code maybe have changed,
                                     # we have to trigger another pass
-                                    force_redo = True
+                                    if instr.size() != size:
+                                        force_redo = True
                                     continue
                         if absolute:
                             jump_arg = target.offset
                         else:
                             jump_arg = target.offset - offset
                         instr.arg = jump_arg
-                        if jump_arg > 0xFFFF:
-                            extended_arg_count += 1
-            if (extended_arg_count == last_extended_arg_count and
-                not force_redo):
-                break
-            else:
-                last_extended_arg_count = extended_arg_count
+                        if instr.size() != size:
+                            force_redo = True
+            if not force_redo:
+                self._check_consistency(blocks)
+                return
 
     def _build_consts_array(self):
         """Turn the applevel constants dictionary into a list."""
@@ -690,6 +710,9 @@ _static_opcode_stack_effects = {
     ops.POP_JUMP_IF_FALSE: -1,
     ops.JUMP_IF_NOT_DEBUG: 0,
 
+    ops.SETUP_ANNOTATIONS: 0,
+    ops.STORE_ANNOTATION: -1,
+
     # TODO
     ops.BUILD_LIST_FROM_ARG: 1,
     ops.LOAD_REVDB_VAR: 1,
@@ -735,7 +758,7 @@ def _compute_MAKE_CLOSURE(arg):
     return -2 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_MAKE_FUNCTION(arg):
-    return -1 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
+    return -1 - bool(arg & 0x01) - bool(arg & 0x02) - bool(arg & 0x04) - bool(arg & 0x08)
 
 def _compute_BUILD_SLICE(arg):
     if arg == 3:
@@ -771,6 +794,9 @@ def _compute_FORMAT_VALUE(arg):
 
 def _compute_BUILD_STRING(arg):
     return 1 - arg
+
+def _compute_BUILD_CONST_KEY_MAP(arg):
+    return  -arg
 
 
 _stack_effect_computers = {}

@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.classdict import ClassDictStrategy
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t, cts,
@@ -71,68 +72,59 @@ PyDict_Check, PyDict_CheckExact = build_type_checkers_flags("Dict")
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
 def PyDict_GetItem(space, w_dict, w_key):
-    try:
-        w_res = space.getitem(w_dict, w_key)
-    except:
+    if not isinstance(w_dict, W_DictMultiObject):
         return None
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
     # XXX this is wrong with IntMutableCell.  Hope it works...
-    return w_res
+    return w_dict.getitem(w_key)
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_SetItem(space, w_dict, w_key, w_obj):
-    if PyDict_Check(space, w_dict):
-        space.setitem(w_dict, w_key, w_obj)
-        return 0
-    else:
+    if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
+    w_dict.setitem(w_key, w_obj)
+    return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_DelItem(space, w_dict, w_key):
-    if PyDict_Check(space, w_dict):
-        space.delitem(w_dict, w_key)
-        return 0
-    else:
+    if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
+    w_dict.descr_delitem(space, w_key)
+    return 0
 
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
-    if PyDict_Check(space, w_dict):
-        key = rffi.charp2str(key_ptr)
-        space.setitem_str(w_dict, key, w_obj)
-        return 0
-    else:
+    w_key = space.newtext(rffi.charp2str(key_ptr))
+    if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
+    w_dict.setitem(w_key, w_obj)
+    return 0
 
 @cpython_api([PyObject, CONST_STRING], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
 def PyDict_GetItemString(space, w_dict, key):
     """This is the same as PyDict_GetItem(), but key is specified as a
     char*, rather than a PyObject*."""
-    try:
-        w_res = space.finditem_str(w_dict, rffi.charp2str(key))
-    except:
-        w_res = None
+    w_key = space.newtext(rffi.charp2str(key))
+    if not isinstance(w_dict, W_DictMultiObject):
+        return None
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
     # XXX this is wrong with IntMutableCell.  Hope it works...
-    return w_res
+    return w_dict.getitem(w_key)
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
 def PyDict_DelItemString(space, w_dict, key_ptr):
     """Remove the entry in dictionary p which has a key specified by the string
     key.  Return 0 on success or -1 on failure."""
-    if PyDict_Check(space, w_dict):
-        key = rffi.charp2str(key_ptr)
-        # our dicts dont have a standardized interface, so we need
-        # to go through the space
-        space.delitem(w_dict, space.newtext(key))
-        return 0
-    else:
-        PyErr_BadInternalCall(space)
+    w_key = space.newtext(rffi.charp2str(key_ptr))
+    if not isinstance(w_dict, W_DictMultiObject):
+        raise PyErr_BadInternalCall(space)
+    w_dict.descr_delitem(space, w_key)
+    return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyDict_Size(space, w_obj):
@@ -191,7 +183,7 @@ def PyDict_Merge(space, w_a, w_b, override):
     """
     override = rffi.cast(lltype.Signed, override)
     w_keys = space.call_method(w_b, "keys")
-    for w_key  in space.iteriterable(w_keys):
+    for w_key in space.iteriterable(w_keys):
         if not _has_val(space, w_a, w_key) or override != 0:
             space.setitem(w_a, w_key, space.getitem(w_b, w_key))
     return 0

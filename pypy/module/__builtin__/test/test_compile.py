@@ -39,6 +39,13 @@ class AppTestCompile:
         except SyntaxError as e:
             assert e.lineno == 1
 
+    def test_incorrect_escape_deprecation_bytes(self):
+        import warnings
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter('always', category=DeprecationWarning)
+            compile(r"b'\}'", '', 'exec')
+        assert len(l) == 1
+
     def test_unicode_encoding(self):
         code = "# -*- coding: utf-8 -*-\npass\n"
         compile(code, "tmp", "exec")

@@ -241,9 +241,8 @@ class TestSupport(unittest.TestCase):
 
     def test_check_syntax_error(self):
         support.check_syntax_error(self, "def class", lineno=1, offset=9)
-        self.assertRaises(AssertionError, support.check_syntax_error, self, "1")
-        #with self.assertRaises(AssertionError):
-            #support.check_syntax_error(self, "x=1")
+        with self.assertRaises(AssertionError):
+            support.check_syntax_error(self, "x=1")
 
     def test_CleanImport(self):
         import importlib
@@ -326,6 +325,28 @@ class TestSupport(unittest.TestCase):
         missing_items = support.detect_api_mismatch(
                 self.OtherClass, self.RefClass, ignore=ignore)
         self.assertEqual(set(), missing_items)
+
+    def test_check__all__(self):
+        extra = {'tempdir'}
+        blacklist = {'template'}
+        support.check__all__(self,
+                             tempfile,
+                             extra=extra,
+                             blacklist=blacklist)
+
+        extra = {'TextTestResult', 'installHandler'}
+        blacklist = {'load_tests', "TestProgram", "BaseTestSuite"}
+
+        support.check__all__(self,
+                             unittest,
+                             ("unittest.result", "unittest.case",
+                              "unittest.suite", "unittest.loader",
+                              "unittest.main", "unittest.runner",
+                              "unittest.signals"),
+                             extra=extra,
+                             blacklist=blacklist)
+
+        self.assertRaises(AssertionError, support.check__all__, self, unittest)
 
     # XXX -follows a list of untested API
     # make_legacy_pyc

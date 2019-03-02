@@ -15,7 +15,7 @@ class __extend__(ast.AST):
     def as_node_list(self, space):
         raise AssertionError("only for expressions")
 
-    def set_context(self, ctx):
+    def set_context(self, space, ctx):
         raise AssertionError("should only be on expressions")
 
 
@@ -27,7 +27,7 @@ class __extend__(ast.expr):
     def as_node_list(self, space):
         return None
 
-    def set_context(self, ctx):
+    def set_context(self, space, ctx):
         d = self._description
         if d is None:
             d = "%r" % (self,)
@@ -43,32 +43,32 @@ class __extend__(ast.List):
     def as_node_list(self, space):
         return self.elts
 
-    def set_context(self, ctx):
+    def set_context(self, space, ctx):
         if self.elts:
             for elt in self.elts:
-                elt.set_context(ctx)
+                elt.set_context(space, ctx)
         self.ctx = ctx
 
 
 class __extend__(ast.Attribute):
 
-    def set_context(self, ctx):
+    def set_context(self, space, ctx):
         if ctx == ast.Store:
-            misc.check_forbidden_name(self.attr, self)
+            misc.check_forbidden_name(space, self.attr, self)
         self.ctx = ctx
 
 
 class __extend__(ast.Subscript):
 
-    def set_context(self, ctx):
+    def set_context(self, space, ctx):
         self.ctx = ctx
 
 
 class __extend__(ast.Name):
 
-    def set_context(self, ctx):
+    def set_context(self, space, ctx):
         if ctx == ast.Store:
-            misc.check_forbidden_name(self.id, self)
+            misc.check_forbidden_name(space, self.id, self)
         self.ctx = ctx
 
 
@@ -79,14 +79,11 @@ class __extend__(ast.Tuple):
     def as_node_list(self, space):
         return self.elts
 
-    def set_context(self, ctx):
+    def set_context(self, space, ctx):
         if self.elts:
             for elt in self.elts:
-                elt.set_context(ctx)
-            self.ctx = ctx
-        else:
-            # Assignment to () raises an error.
-            ast.expr.set_context(self, ctx)
+                elt.set_context(space, ctx)
+        self.ctx = ctx
 
 class __extend__(ast.Lambda):
 
@@ -128,7 +125,7 @@ class __extend__(ast.DictComp):
     _description = "dict comprehension"
 
 
-class __extend__(ast.Dict, ast.Set, ast.Str, ast.Bytes, ast.Num, ast.Const):
+class __extend__(ast.Dict, ast.Set, ast.Str, ast.Bytes, ast.Num, ast.Constant):
 
     _description = "literal"
 
@@ -141,27 +138,27 @@ class __extend__(ast.Starred):
 
     _description = "starred expression"
 
-    def set_context(self, ctx):
+    def set_context(self, space, ctx):
         self.ctx = ctx
-        self.value.set_context(ctx)
+        self.value.set_context(space, ctx)
 
 class __extend__(ast.IfExp):
 
     _description = "conditional expression"
 
 
-class __extend__(ast.Const):
+class __extend__(ast.Constant):
 
     constant = True
 
     def as_node_list(self, space):
         try:
-            values_w = space.unpackiterable(self.obj)
+            values_w = space.unpackiterable(self.value)
         except OperationError:
             return None
         line = self.lineno
         column = self.col_offset
-        return [ast.Const(w_obj, line, column) for w_obj in values_w]
+        return [ast.Constant(w_obj, line, column) for w_obj in values_w]
 
 
 class __extend__(ast.Str):

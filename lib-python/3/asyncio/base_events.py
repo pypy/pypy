@@ -57,7 +57,7 @@ _FATAL_ERROR_IGNORE = (BrokenPipeError,
 
 def _format_handle(handle):
     cb = handle._callback
-    if inspect.ismethod(cb) and isinstance(cb.__self__, tasks.Task):
+    if isinstance(getattr(cb, '__self__', None), tasks.Task):
         # format the task
         return repr(cb.__self__)
     else:
@@ -505,7 +505,8 @@ class BaseEventLoop(events.AbstractEventLoop):
     if compat.PY34:
         def __del__(self):
             if not self.is_closed():
-                warnings.warn("unclosed event loop %r" % self, ResourceWarning)
+                warnings.warn("unclosed event loop %r" % self, ResourceWarning,
+                              source=self)
                 if not self.is_running():
                     self.close()
 

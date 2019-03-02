@@ -234,6 +234,7 @@ class Decimal(object):
 
     @classmethod
     def _from_str(cls, value, context, exact=True, strip=True):
+        value = value.replace("_", "")
         s = str.encode(value, 'ascii', '_decimal_encode')
         if b'\0' in s:
             s = b''  # empty string triggers ConversionSyntax.
@@ -447,6 +448,36 @@ class Decimal(object):
                 coeff = ()
 
         return DecimalTuple(sign, coeff, expt)
+
+    def as_integer_ratio(self):
+        "Convert a Decimal to its exact integer ratio representation"
+        if _mpdec.mpd_isspecial(self._mpd):
+            if _mpdec.mpd_isnan(self._mpd):
+                raise ValueError("cannot convert NaN to integer ratio")
+            else:
+                raise OverflowError("cannot convert Infinity to integer ratio")
+
+        context = getcontext()
+        tmp = Decimal._new_empty()
+        with _CatchStatus(context) as (ctx, status_ptr):
+            _mpdec.mpd_qcopy(tmp._mpd, self._mpd, status_ptr)
+        exp = tmp._mpd.exp if tmp else 0
+        tmp._mpd.exp = 0
+
+        # context and rounding are unused here: the conversion is exact
+        numerator = tmp._to_int(_mpdec.MPD_ROUND_FLOOR)
+
+        exponent = 10 ** abs(exp)
+        if exp >= 0:
+            numerator *= exponent
+            denominator = 1
+        else:
+            denominator = exponent
+            gcd = _math.gcd(numerator, denominator)
+            numerator //= gcd
+            denominator //= gcd
+
+        return numerator, denominator
 
     def _convert_for_comparison(self, other, op):
         if isinstance(other, Decimal):
@@ -1264,6 +1295,13 @@ class Context(object):
             raise RuntimeError("Invalid error flag", trapped)
 
     def create_decimal(self, num="0"):
+        """Creates a new Decimal instance but using self as context.
+
+        This method implements the to-number operation of the
+        IBM Decimal specification."""
+
+        if isinstance(num, str) and (num != num.strip() or '_' in num):
+            num = '' # empty string triggers ConversionSyntax
         return Decimal._from_object(num, self, exact=False)
 
     def create_decimal_from_float(self, f):

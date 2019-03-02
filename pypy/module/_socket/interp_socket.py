@@ -233,9 +233,9 @@ class W_Socket(W_Root):
     def _dealloc_warn(self):
         space = self.space
         try:
-            msg = (u"unclosed %s" %
-                   space.unicode_w(space.repr(self)))
-            space.warn(space.newunicode(msg), space.w_ResourceWarning)
+            msg = (b"unclosed %s" %
+                   space.utf8_w(space.repr(self)))
+            space.warn(space.newtext(msg), space.w_ResourceWarning)
         except OperationError as e:
             # Spurious errors can appear at shutdown
             if e.match(space, space.w_Warning):
@@ -292,9 +292,8 @@ class W_Socket(W_Root):
         """
         try:
             self.sock.close()
-        except SocketError:
-            # cpython doesn't return any errors on close
-            pass
+        except SocketError as e:
+            raise converted_error(space, e)
         self.may_unregister_rpython_finalizer(space)
 
     def connect_w(self, space, w_addr):
@@ -609,14 +608,17 @@ class W_Socket(W_Root):
         return space.newint(count)
 
     @unwrap_spec(flag=int)
-    def setblocking_w(self, flag):
+    def setblocking_w(self, space, flag):
         """setblocking(flag)
 
         Set the socket to blocking (flag is true) or non-blocking (false).
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        self.sock.setblocking(bool(flag))
+        try:
+            self.sock.setblocking(bool(flag))
+        except SocketError as e:
+            raise converted_error(space, e)
 
     @unwrap_spec(level=int, optname=int)
     def setsockopt_w(self, space, level, optname, w_optval):
@@ -655,7 +657,10 @@ class W_Socket(W_Root):
             timeout = space.float_w(w_timeout)
             if timeout < 0.0:
                 raise oefmt(space.w_ValueError, "Timeout value out of range")
-        self.sock.settimeout(timeout)
+        try:
+            self.sock.settimeout(timeout)
+        except SocketError as e:
+            raise converted_error(space, e)
 
     @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
@@ -855,7 +860,7 @@ def get_error(space, name):
 
 @specialize.arg(2)
 def converted_error(space, e, eintr_retry=False):
-    message = e.get_msg_unicode()
+    message, lgt = e.get_msg_utf8()
     w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
         if e.errno == errno.EINTR:
@@ -863,9 +868,10 @@ def converted_error(space, e, eintr_retry=False):
             if eintr_retry:
                 return       # only return None if eintr_retry==True
         w_exception = space.call_function(w_exception_class, space.newint(e.errno),
-                                      space.newunicode(message))
+                                      space.newtext(message, lgt))
     else:
-        w_exception = space.call_function(w_exception_class, space.newunicode(message))
+        w_exception = space.call_function(w_exception_class,
+                                          space.newtext(message, lgt))
     raise OperationError(w_exception_class, w_exception)
 
 def explicit_socket_error(space, msg):

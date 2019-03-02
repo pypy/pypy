@@ -19,11 +19,12 @@ release.
 Until we can work with downstream providers to distribute builds with PyPy, we
 have made packages for some common packages `available as wheels`_.
 
-The GC `hooks`_ , which can be used to gain more insights into its
+The `GC hooks`_ , which can be used to gain more insights into its
 performance, has been improved and it is now possible to manually manage the
 GC by using a combination of ``gc.disable`` and ``gc.collect_step``. See the
 `GC blog post`_.
 
+.. _`GC hooks`: http://doc.pypy.org/en/latest/gc_info.html#semi-manual-gc-management
 
 We updated the `cffi`_ module included in PyPy to version 1.12, and the
 `cppyy`_ backend to 1.4. Please use these to wrap your C and C++ code,
@@ -39,7 +40,7 @@ compatibility and c-extension support.
 
 The utf8 branch that changes internal representation of unicode to utf8 did not
 make it into the release, so there is still more goodness coming.
-You can download the v6.0 releases here:
+You can download the v7.0 releases here:
 
     http://pypy.org/download.html
 
@@ -49,7 +50,7 @@ direct consulting work.
 
 We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
-and `RPython`_ documentation improvements, tweaking popular `modules`_ to run
+and `RPython`_ documentation improvements, tweaking popular modules to run
 on pypy, or general `help`_ with making RPython's JIT even better.
 
 .. _`PyPy`: index.html

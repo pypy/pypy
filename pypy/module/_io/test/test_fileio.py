@@ -87,6 +87,15 @@ class AppTestFileIO:
         assert f.readline() == b''
         f.close()
 
+    def test_support_fspath(self):
+        import _io
+        class P(object):
+            def __fspath__(x):
+                return self.tmpfile
+        f = _io.FileIO(P(), 'rb')
+        assert f.readline() == b'a\n'
+        f.close()
+
     def test_readlines(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')

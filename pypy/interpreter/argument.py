@@ -596,6 +596,10 @@ class ArgErrUnknownKwds(ArgErr):
                         except IndexError:
                             name = '?'
                         else:
+                            w_enc = space.newtext(space.sys.defaultencoding)
+                            w_err = space.newtext("replace")
+                            w_name = space.call_method(w_name, "encode", w_enc,
+                                                       w_err)
                             name = space.text_w(w_name)
                     break
         self.kwd_name = name

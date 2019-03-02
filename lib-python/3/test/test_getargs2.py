@@ -5,10 +5,6 @@ from test import support
 # Skip this test if the _testcapi module isn't available.
 support.import_module('_testcapi')
 from _testcapi import getargs_keywords, getargs_keyword_only
-try:
-    from _testcapi import getargs_L, getargs_K
-except ImportError:
-    getargs_L = None # PY_LONG_LONG not available
 
 # > How about the following counterproposal. This also changes some of
 # > the other format codes to be a little more regular.
@@ -309,7 +305,6 @@ class Signed_TestCase(unittest.TestCase):
         self.assertRaises(OverflowError, getargs_n, VERY_LARGE)
 
 
-@unittest.skipIf(getargs_L is None, 'PY_LONG_LONG is not available')
 class LongLong_TestCase(unittest.TestCase):
     def test_L(self):
         from _testcapi import getargs_L
@@ -365,7 +360,8 @@ class Float_TestCase(unittest.TestCase):
         self.assertEqual(getargs_f(FloatSubclass(7.5)), 7.5)
         self.assertEqual(getargs_f(FloatSubclass2(7.5)), 7.5)
         self.assertRaises(TypeError, getargs_f, BadFloat())
-        self.assertEqual(getargs_f(BadFloat2()), 4.25)
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(getargs_f(BadFloat2()), 4.25)
         self.assertEqual(getargs_f(BadFloat3(7.5)), 7.5)
 
         for x in (FLT_MIN, -FLT_MIN, FLT_MAX, -FLT_MAX, INF, -INF):
@@ -390,7 +386,8 @@ class Float_TestCase(unittest.TestCase):
         self.assertEqual(getargs_d(FloatSubclass(7.5)), 7.5)
         self.assertEqual(getargs_d(FloatSubclass2(7.5)), 7.5)
         self.assertRaises(TypeError, getargs_d, BadFloat())
-        self.assertEqual(getargs_d(BadFloat2()), 4.25)
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(getargs_d(BadFloat2()), 4.25)
         self.assertEqual(getargs_d(BadFloat3(7.5)), 7.5)
 
         for x in (DBL_MIN, -DBL_MIN, DBL_MAX, -DBL_MAX, INF, -INF):
@@ -474,7 +471,7 @@ class Tuple_TestCase(unittest.TestCase):
 
         ret = get_args(*TupleSubclass([1, 2]))
         self.assertEqual(ret, (1, 2))
-        self.assertIsInstance(ret, tuple)
+        self.assertIs(type(ret), tuple)
 
         ret = get_args()
         self.assertIn(ret, ((), None))
@@ -512,7 +509,7 @@ class Keywords_TestCase(unittest.TestCase):
 
         ret = get_kwargs(**DictSubclass({'a': 1, 'b': 2}))
         self.assertEqual(ret, {'a': 1, 'b': 2})
-        self.assertIsInstance(ret, dict)
+        self.assertIs(type(ret), dict)
 
         ret = get_kwargs()
         self.assertIn(ret, ({}, None))
@@ -628,20 +625,20 @@ class KeywordOnly_TestCase(unittest.TestCase):
             )
         # required arg missing
         with self.assertRaisesRegex(TypeError,
-            "Required argument 'required' \(pos 1\) not found"):
+            r"Required argument 'required' \(pos 1\) not found"):
             getargs_keyword_only(optional=2)
 
         with self.assertRaisesRegex(TypeError,
-            "Required argument 'required' \(pos 1\) not found"):
+            r"Required argument 'required' \(pos 1\) not found"):
             getargs_keyword_only(keyword_only=3)
 
     def test_too_many_args(self):
         with self.assertRaisesRegex(TypeError,
-            "Function takes at most 2 positional arguments \(3 given\)"):
+            r"Function takes at most 2 positional arguments \(3 given\)"):
             getargs_keyword_only(1, 2, 3)
 
         with self.assertRaisesRegex(TypeError,
-            "function takes at most 3 arguments \(4 given\)"):
+            r"function takes at most 3 arguments \(4 given\)"):
             getargs_keyword_only(1, 2, 3, keyword_only=5)
 
     def test_invalid_keyword(self):
@@ -654,6 +651,39 @@ class KeywordOnly_TestCase(unittest.TestCase):
         with self.assertRaisesRegex(TypeError,
             "'\udc80' is an invalid keyword argument for this function"):
             getargs_keyword_only(1, 2, **{'\uDC80': 10})
+
+
+class PositionalOnlyAndKeywords_TestCase(unittest.TestCase):
+    from _testcapi import getargs_positional_only_and_keywords as getargs
+
+    def test_positional_args(self):
+        # using all possible positional args
+        self.assertEqual(self.getargs(1, 2, 3), (1, 2, 3))
+
+    def test_mixed_args(self):
+        # positional and keyword args
+        self.assertEqual(self.getargs(1, 2, keyword=3), (1, 2, 3))
+
+    def test_optional_args(self):
+        # missing optional args
+        self.assertEqual(self.getargs(1, 2), (1, 2, -1))
+        self.assertEqual(self.getargs(1, keyword=3), (1, -1, 3))
+
+    def test_required_args(self):
+        self.assertEqual(self.getargs(1), (1, -1, -1))
+        # required positional arg missing
+        with self.assertRaisesRegex(TypeError,
+            r"Function takes at least 1 positional arguments \(0 given\)"):
+            self.getargs()
+
+        with self.assertRaisesRegex(TypeError,
+            r"Function takes at least 1 positional arguments \(0 given\)"):
+            self.getargs(keyword=3)
+
+    def test_empty_keyword(self):
+        with self.assertRaisesRegex(TypeError,
+            "'' is an invalid keyword argument for this function"):
+            self.getargs(1, 2, **{'': 666})
 
 
 class Bytes_TestCase(unittest.TestCase):
@@ -822,10 +852,10 @@ class String_TestCase(unittest.TestCase):
         self.assertEqual(getargs_es_hash('abc\xe9', 'latin1', buf), b'abc\xe9')
         self.assertEqual(buf, bytearray(b'abc\xe9\x00'))
         buf = bytearray(b'x'*4)
-        self.assertRaises(TypeError, getargs_es_hash, 'abc\xe9', 'latin1', buf)
+        self.assertRaises(ValueError, getargs_es_hash, 'abc\xe9', 'latin1', buf)
         self.assertEqual(buf, bytearray(b'x'*4))
         buf = bytearray()
-        self.assertRaises(TypeError, getargs_es_hash, 'abc\xe9', 'latin1', buf)
+        self.assertRaises(ValueError, getargs_es_hash, 'abc\xe9', 'latin1', buf)
 
     def test_et_hash(self):
         from _testcapi import getargs_et_hash
@@ -848,10 +878,10 @@ class String_TestCase(unittest.TestCase):
         self.assertEqual(getargs_et_hash('abc\xe9', 'latin1', buf), b'abc\xe9')
         self.assertEqual(buf, bytearray(b'abc\xe9\x00'))
         buf = bytearray(b'x'*4)
-        self.assertRaises(TypeError, getargs_et_hash, 'abc\xe9', 'latin1', buf)
+        self.assertRaises(ValueError, getargs_et_hash, 'abc\xe9', 'latin1', buf)
         self.assertEqual(buf, bytearray(b'x'*4))
         buf = bytearray()
-        self.assertRaises(TypeError, getargs_et_hash, 'abc\xe9', 'latin1', buf)
+        self.assertRaises(ValueError, getargs_et_hash, 'abc\xe9', 'latin1', buf)
 
     def test_u(self):
         from _testcapi import getargs_u

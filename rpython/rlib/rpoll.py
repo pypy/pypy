@@ -30,6 +30,8 @@ class PollError(Exception):
         return _c.socket_strerror_str(self.errno)
     def get_msg_unicode(self):
         return _c.socket_strerror_unicode(self.errno)
+    def get_msg_utf8(self):
+        return _c.socket_strerror_utf8(self.errno)
 
 class SelectError(Exception):
     def __init__(self, errno):
@@ -38,6 +40,8 @@ class SelectError(Exception):
         return _c.socket_strerror_str(self.errno)
     def get_msg_unicode(self):
         return _c.socket_strerror_unicode(self.errno)
+    def get_msg_utf8(self):
+        return _c.socket_strerror_utf8(self.errno)
 
 # ____________________________________________________________
 # poll() for POSIX systems

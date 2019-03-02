@@ -1,4 +1,4 @@
-import test.support, unittest
+import unittest
 
 class PowTest(unittest.TestCase):
 
@@ -57,9 +57,6 @@ class PowTest(unittest.TestCase):
                         )
 
     def test_powint(self):
-        self.powtest(int)
-
-    def test_powlong(self):
         self.powtest(int)
 
     def test_powfloat(self):

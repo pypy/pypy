@@ -25,7 +25,6 @@ from pypy.tool import stdlib_opcode
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 SETUP_ASYNC_WITH POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
-HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
 class FrameDebugData(object):
     """ A small object that holds debug data for tracing
@@ -246,7 +245,8 @@ class PyFrame(W_Root):
 
     def _is_generator_or_coroutine(self):
         return (self.getcode().co_flags & (pycode.CO_COROUTINE |
-                                           pycode.CO_GENERATOR)) != 0
+                                           pycode.CO_GENERATOR |
+                                           pycode.CO_ASYNC_GENERATOR)) != 0
 
     def run(self, name=None, qualname=None):
         """Start this frame's execution."""
@@ -280,16 +280,24 @@ class PyFrame(W_Root):
 
     def initialize_as_generator(self, name, qualname):
         space = self.space
-        if self.getcode().co_flags & pycode.CO_COROUTINE:
+        flags = self.getcode().co_flags
+        if flags & pycode.CO_COROUTINE:
             from pypy.interpreter.generator import Coroutine
             gen = Coroutine(self, name, qualname)
             ec = space.getexecutioncontext()
             w_wrapper = ec.w_coroutine_wrapper_fn
-        else:
+        elif flags & pycode.CO_ASYNC_GENERATOR:
+            from pypy.interpreter.generator import AsyncGenerator
+            gen = AsyncGenerator(self, name, qualname)
+            ec = None
+            w_wrapper = None
+        elif flags & pycode.CO_GENERATOR:
             from pypy.interpreter.generator import GeneratorIterator
             gen = GeneratorIterator(self, name, qualname)
             ec = None
             w_wrapper = None
+        else:
+            raise AssertionError("bad co_flags")
 
         if space.config.translation.rweakref:
             self.f_generator_wref = rweakref.ref(gen)
@@ -682,6 +690,7 @@ class PyFrame(W_Root):
         endblock = [-1]     # current finally/except block stack
         addr = 0
         while addr < len(code):
+            assert addr & 1 == 0
             op = ord(code[addr])
             if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
                       SETUP_ASYNC_WITH):
@@ -704,10 +713,7 @@ class PyFrame(W_Root):
             if addr == self.last_instr:
                 f_lasti_handler_addr = endblock[-1]
 
-            if op >= HAVE_ARGUMENT:
-                addr += 3
-            else:
-                addr += 1
+            addr += 2
 
         if len(blockstack) != 0 or len(endblock) != 1:
             raise oefmt(space.w_SystemError,
@@ -732,6 +738,7 @@ class PyFrame(W_Root):
         delta_iblock = min_delta_iblock = 0    # see below for comment
         addr = min_addr
         while addr < max_addr:
+            assert addr & 1 == 0
             op = ord(code[addr])
 
             if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
@@ -742,10 +749,7 @@ class PyFrame(W_Root):
                 if delta_iblock < min_delta_iblock:
                     min_delta_iblock = delta_iblock
 
-            if op >= HAVE_ARGUMENT:
-                addr += 3
-            else:
-                addr += 1
+            addr += 2
 
         # 'min_delta_iblock' is <= 0; its absolute value is the number of
         # blocks we exit.  'go_iblock' is the delta number of blocks
@@ -765,6 +769,7 @@ class PyFrame(W_Root):
             block.cleanupstack(self)
 
         self.getorcreatedebug().f_lineno = new_lineno
+        assert new_lasti & 1 == 0
         self.last_instr = new_lasti
 
     def get_last_lineno(self):

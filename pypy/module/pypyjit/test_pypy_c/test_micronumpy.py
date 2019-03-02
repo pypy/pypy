@@ -1,12 +1,14 @@
 import py
 import sys
+import platform
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
 def no_vector_backend():
-    import platform
     if platform.machine().startswith('x86'):
         from rpython.jit.backend.x86.detect_feature import detect_sse4_2
+        if sys.maxsize < 2**31:
+            return True    
         return not detect_sse4_2()
     if platform.machine().startswith('ppc'):
         from rpython.jit.backend.ppc.detect_feature import detect_vsx

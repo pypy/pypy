@@ -87,6 +87,7 @@ class Module(MixedModule):
 
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding',
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
+        'getfilesystemencodeerrors': 'interp_encoding.getfilesystemencodeerrors',
 
         'float_info'            : 'system.get_float_info(space)',
         'int_info'              : 'system.get_int_info(space)',
@@ -115,6 +116,8 @@ class Module(MixedModule):
         'flags'                 : 'app.null_sysflags',
         '_xoptions'             : 'app.null__xoptions',
         'implementation'        : 'app.implementation',
+        'get_asyncgen_hooks'    : 'app.get_asyncgen_hooks',
+        'set_asyncgen_hooks'    : 'app.set_asyncgen_hooks',
 
         # these six attributes are here only during tests;
         # they are removed before translation

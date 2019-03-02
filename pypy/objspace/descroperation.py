@@ -619,7 +619,8 @@ def _make_comparison_impl(symbol, specialnames):
         #
         # if we arrived here, they are unorderable
         raise oefmt(space.w_TypeError,
-                    "unorderable types: %T %s %T", w_obj1, symbol, w_obj2)
+                    "'%s' not supported between instances of '%T' and '%T'",
+                    symbol, w_obj1, w_obj2)
 
     return func_with_new_name(comparison_impl, 'comparison_%s_impl'%left.strip('_'))
 

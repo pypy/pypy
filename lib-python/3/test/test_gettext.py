@@ -1,6 +1,5 @@
 import os
 import base64
-import shutil
 import gettext
 import unittest
 
@@ -525,6 +524,12 @@ class GettextCacheTestCase(GettextBaseTest):
 
         self.assertEqual(len(gettext._translations), 2)
         self.assertEqual(t.__class__, DummyGNUTranslations)
+
+
+class MiscTestCase(unittest.TestCase):
+    def test__all__(self):
+        blacklist = {'c2py', 'ENOENT'}
+        support.check__all__(self, gettext, blacklist=blacklist)
 
 
 def test_main():

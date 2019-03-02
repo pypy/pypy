@@ -1,33 +1,30 @@
 """A Future class similar to the one in PEP 3148."""
 
-__all__ = ['CancelledError', 'TimeoutError',
-           'InvalidStateError',
-           'Future', 'wrap_future', 'isfuture',
-           ]
+__all__ = ['CancelledError', 'TimeoutError', 'InvalidStateError',
+           'Future', 'wrap_future', 'isfuture']
 
-import concurrent.futures._base
+import concurrent.futures
 import logging
-import reprlib
 import sys
 import traceback
 
+from . import base_futures
 from . import compat
 from . import events
 
-# States for Future.
-_PENDING = 'PENDING'
-_CANCELLED = 'CANCELLED'
-_FINISHED = 'FINISHED'
 
-Error = concurrent.futures._base.Error
-CancelledError = concurrent.futures.CancelledError
-TimeoutError = concurrent.futures.TimeoutError
+CancelledError = base_futures.CancelledError
+InvalidStateError = base_futures.InvalidStateError
+TimeoutError = base_futures.TimeoutError
+isfuture = base_futures.isfuture
+
+
+_PENDING = base_futures._PENDING
+_CANCELLED = base_futures._CANCELLED
+_FINISHED = base_futures._FINISHED
+
 
 STACK_DEBUG = logging.DEBUG - 1  # heavy-duty debugging
-
-
-class InvalidStateError(Error):
-    """The operation is not allowed in this state."""
 
 
 class _TracebackLogger:
@@ -173,45 +170,10 @@ class Future:
         if self._loop.get_debug():
             self._source_traceback = traceback.extract_stack(sys._getframe(1))
 
-    def __format_callbacks(self):
-        cb = self._callbacks
-        size = len(cb)
-        if not size:
-            cb = ''
-
-        def format_cb(callback):
-            return events._format_callback_source(callback, ())
-
-        if size == 1:
-            cb = format_cb(cb[0])
-        elif size == 2:
-            cb = '{}, {}'.format(format_cb(cb[0]), format_cb(cb[1]))
-        elif size > 2:
-            cb = '{}, <{} more>, {}'.format(format_cb(cb[0]),
-                                            size-2,
-                                            format_cb(cb[-1]))
-        return 'cb=[%s]' % cb
-
-    def _repr_info(self):
-        info = [self._state.lower()]
-        if self._state == _FINISHED:
-            if self._exception is not None:
-                info.append('exception={!r}'.format(self._exception))
-            else:
-                # use reprlib to limit the length of the output, especially
-                # for very long strings
-                result = reprlib.repr(self._result)
-                info.append('result={}'.format(result))
-        if self._callbacks:
-            info.append(self.__format_callbacks())
-        if self._source_traceback:
-            frame = self._source_traceback[-1]
-            info.append('created at %s:%s' % (frame[0], frame[1]))
-        return info
+    _repr_info = base_futures._future_repr_info
 
     def __repr__(self):
-        info = self._repr_info()
-        return '<%s %s>' % (self.__class__.__name__, ' '.join(info))
+        return '<%s %s>' % (self.__class__.__name__, ' '.join(self._repr_info()))
 
     # On Python 3.3 and older, objects with a destructor part of a reference
     # cycle are never destroyed. It's not more the case on Python 3.4 thanks
@@ -385,6 +347,10 @@ class Future:
         __await__ = __iter__ # make compatible with 'await' expression
 
 
+# Needed for testing purposes.
+_PyFuture = Future
+
+
 def _set_result_unless_cancelled(fut, result):
     """Helper setting the result only if the future was not cancelled."""
     if fut.cancelled():
@@ -477,3 +443,12 @@ def wrap_future(future, *, loop=None):
     new_future = loop.create_future()
     _chain_future(future, new_future)
     return new_future
+
+
+try:
+    import _asyncio
+except ImportError:
+    pass
+else:
+    # _CFuture is needed for tests.
+    Future = _CFuture = _asyncio.Future

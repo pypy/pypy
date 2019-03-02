@@ -5,7 +5,7 @@ from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.rutf8 import MAXUNICODE
 from rpython.rlib.objectmodel import specialize
 
 
@@ -57,16 +57,22 @@ class __extend__(ast.Str):
         return self.s
 
 
+class __extend__(ast.Bytes):
+
+    def as_constant(self):
+        return self.s
+
+
 class __extend__(ast.Ellipsis):
 
     def as_constant_truth(self, space):
         return True
 
 
-class __extend__(ast.Const):
+class __extend__(ast.Constant):
 
     def as_constant(self):
-        return self.obj
+        return self.value
 
 class __extend__(ast.NameConstant):
 
@@ -208,7 +214,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                     else:
                         if self.space.int_w(w_len) > 20:
                             return binop
-                    return ast.Const(w_const, binop.lineno, binop.col_offset)
+                    return ast.Constant(w_const, binop.lineno, binop.col_offset)
         return binop
 
     def visit_UnaryOp(self, unary):
@@ -229,7 +235,7 @@ class OptimizingVisitor(ast.ASTVisitor):
             except OperationError:
                 pass
             else:
-                return ast.Const(w_const, unary.lineno, unary.col_offset)
+                return ast.Constant(w_const, unary.lineno, unary.col_offset)
         elif op == ast.Not:
             compare = unary.operand
             if isinstance(compare, ast.Compare) and len(compare.ops) == 1:
@@ -265,7 +271,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         w_const = rep.value.as_constant()
         if w_const is not None:
             w_repr = self.space.repr(w_const)
-            return ast.Const(w_repr, rep.lineno, rep.col_offset)
+            return ast.Constant(w_repr, rep.lineno, rep.col_offset)
         return rep
 
     def visit_Name(self, name):
@@ -282,11 +288,14 @@ class OptimizingVisitor(ast.ASTVisitor):
         elif iden == "False":
             w_const = space.w_False
         if w_const is not None:
-            return ast.Const(w_const, name.lineno, name.col_offset)
+            return ast.NameConstant(w_const, name.lineno, name.col_offset)
         return name
 
     def visit_Tuple(self, tup):
         """Try to turn tuple building into a constant."""
+        if tup.ctx != ast.Load:
+            return tup   # Don't do the rest for assignment or delete targets.
+                         # It would replace Tuple([]) with Constant('()')!
         if tup.elts:
             consts_w = [None]*len(tup.elts)
             for i in range(len(tup.elts)):
@@ -303,7 +312,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         else:
             consts_w = []
         w_consts = self.space.newtuple(consts_w)
-        return ast.Const(w_consts, tup.lineno, tup.col_offset)
+        return ast.Constant(w_consts, tup.lineno, tup.col_offset)
 
     def visit_Subscript(self, subs):
         if subs.ctx == ast.Load:
@@ -326,7 +335,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                     # produce compatible pycs.
                     if (self.space.isinstance_w(w_obj, self.space.w_unicode) and
                         self.space.isinstance_w(w_const, self.space.w_unicode)):
-                        #unistr = self.space.unicode_w(w_const)
+                        #unistr = self.space.utf8_w(w_const)
                         #if len(unistr) == 1:
                         #    ch = ord(unistr[0])
                         #else:
@@ -340,6 +349,6 @@ class OptimizingVisitor(ast.ASTVisitor):
                         # See test_const_fold_unicode_subscr
                         return subs
 
-                    return ast.Const(w_const, subs.lineno, subs.col_offset)
+                    return ast.Constant(w_const, subs.lineno, subs.col_offset)
 
         return subs

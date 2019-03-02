@@ -3,7 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 
 from rpython.rlib import jit
-from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.rutf8 import MAXUNICODE
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import oefmt
@@ -149,23 +149,21 @@ def exc_info_direct(space, frame):
     p = frame.last_instr
     if (ord(co[p]) == stdlib_opcode.CALL_FUNCTION or
         ord(co[p]) == stdlib_opcode.CALL_METHOD):
-        if ord(co[p+3]) == stdlib_opcode.LOAD_CONST:
-            lo = ord(co[p+4])
-            hi = ord(co[p+5])
-            w_constant = frame.getconstant_w((hi * 256) | lo)
-            if ord(co[p+6]) == stdlib_opcode.BINARY_SUBSCR:
+        if ord(co[p + 2]) == stdlib_opcode.LOAD_CONST:
+            lo = ord(co[p + 3])
+            w_constant = frame.getconstant_w(lo)
+            if ord(co[p + 4]) == stdlib_opcode.BINARY_SUBSCR:
                 if space.isinstance_w(w_constant, space.w_int):
                     constant = space.int_w(w_constant)
                     if -3 <= constant <= 1 and constant != -1:
                         need_all_three_args = False
-            elif (ord(co[p+6]) == stdlib_opcode.LOAD_CONST and
-                  ord(co[p+9]) == stdlib_opcode.BUILD_SLICE and
-                  ord(co[p+12]) == stdlib_opcode.BINARY_SUBSCR):
+            elif (ord(co[p + 4]) == stdlib_opcode.LOAD_CONST and
+                  ord(co[p + 6]) == stdlib_opcode.BUILD_SLICE and
+                  ord(co[p + 8]) == stdlib_opcode.BINARY_SUBSCR):
                 if (space.is_w(w_constant, space.w_None) or
                     space.isinstance_w(w_constant, space.w_int)):
-                    lo = ord(co[p+7])
-                    hi = ord(co[p+8])
-                    w_constant = frame.getconstant_w((hi * 256) | lo)
+                    lo = ord(co[p + 5])
+                    w_constant = frame.getconstant_w(lo)
                     if space.isinstance_w(w_constant, space.w_int):
                         if space.int_w(w_constant) <= 2:
                             need_all_three_args = False
@@ -234,7 +232,7 @@ class windows_version_info(metaclass=structseqtype):
     service_pack_minor = structseqfield(11, "Service Pack minor version number")
     suite_mask = structseqfield(12, "Bit mask identifying available product suites")
     product_type = structseqfield(13, "System product type")
-    _platform_version = structseqfield(14, "Diagnostic version number")
+    platform_version = structseqfield(14, "Diagnostic version number")
 ''')
 
 

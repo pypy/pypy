@@ -1,6 +1,7 @@
 """Tests for events.py."""
 
 import collections.abc
+import concurrent.futures
 import functools
 import gc
 import io
@@ -55,6 +56,15 @@ def osx_tiger():
     version = platform.mac_ver()[0]
     version = tuple(map(int, version.split('.')))
     return version < (10, 5)
+
+
+def _test_get_event_loop_new_process__sub_proc():
+    async def doit():
+        return 'hello'
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(doit())
 
 
 ONLYCERT = data_file('ssl_cert.pem')
@@ -908,15 +918,9 @@ class EventLoopTestsMixin:
         server = self.loop.run_until_complete(f)
         self.assertEqual(len(server.sockets), 1)
         sock = server.sockets[0]
-        try:
-            self.assertFalse(
-                sock.getsockopt(
-                    socket.SOL_SOCKET, socket.SO_REUSEPORT))
-        except OSError:
-            raise unittest.SkipTest(
-                "Python's socket module was compiled using modern headers "
-                "thus defining SO_REUSEPORT but this process is running "
-                "under an older kernel that does not support SO_REUSEPORT.")
+        self.assertFalse(
+            sock.getsockopt(
+                socket.SOL_SOCKET, socket.SO_REUSEPORT))
         server.close()
 
         test_utils.run_briefly(self.loop)
@@ -2186,6 +2190,18 @@ else:
         def tearDown(self):
             asyncio.set_child_watcher(None)
             super().tearDown()
+
+        def test_get_event_loop_new_process(self):
+            async def main():
+                pool = concurrent.futures.ProcessPoolExecutor()
+                return await self.loop.run_in_executor(
+                    pool, _test_get_event_loop_new_process__sub_proc)
+
+            self.unpatch_get_running_loop()
+
+            self.assertEqual(
+                self.loop.run_until_complete(main()),
+                'hello')
 
     if hasattr(selectors, 'KqueueSelector'):
         class KqueueEventLoopTests(UnixEventLoopTestsMixin,

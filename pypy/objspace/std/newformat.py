@@ -5,12 +5,11 @@ import sys
 import string
 
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import rstring, runicode, rlocale, rfloat, jit
+from rpython.rlib import rstring, rlocale, rfloat, jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import formatd
 from rpython.rlib.rarithmetic import r_uint, intmask
 from pypy.interpreter.signature import Signature
-
 
 @specialize.argtype(1)
 @jit.look_inside_iff(lambda space, s, start, end:
@@ -51,7 +50,8 @@ def make_template_formatting_class(for_unicode):
 
         if for_unicode:
             def wrap(self, u):
-                return self.space.newunicode(u)
+                lgt = rutf8.check_utf8(u, True)
+                return self.space.newutf8(u, lgt)
         else:
             def wrap(self, s):
                 return self.space.newbytes(s)
@@ -60,7 +60,6 @@ def make_template_formatting_class(for_unicode):
 
         def __init__(self, space, template):
             self.space = space
-            self.empty = u"" if self.is_unicode else ""
             self.template = template
 
         def build(self, args, w_kwargs):
@@ -72,10 +71,7 @@ def make_template_formatting_class(for_unicode):
 
         def _build_string(self, start, end, level):
             space = self.space
-            if self.is_unicode:
-                out = rstring.UnicodeBuilder()
-            else:
-                out = rstring.StringBuilder()
+            out = rstring.StringBuilder()
             if not level:
                 raise oefmt(space.w_ValueError, "Recursion depth exceeded")
             level -= 1
@@ -221,7 +217,7 @@ def make_template_formatting_class(for_unicode):
             if index == -1:
                 kwarg = name[:i]
                 if self.is_unicode:
-                    w_kwarg = space.newunicode(kwarg)
+                    w_kwarg = space.newtext(kwarg)
                 else:
                     w_kwarg = space.newbytes(kwarg)
                 w_arg = space.getitem(self.w_kwargs, w_kwarg)
@@ -353,7 +349,7 @@ def make_template_formatting_class(for_unicode):
                         w_conversion])
                     self.parser_list_w.append(w_entry)
                     self.last_end = end + 1
-                return self.empty
+                return ""
             #
             w_obj = self._get_argument(name)
             if conversion is not None:
@@ -361,7 +357,7 @@ def make_template_formatting_class(for_unicode):
             if recursive:
                 spec = self._build_string(spec_start, end, level)
             w_rendered = self.space.format(w_obj, self.wrap(spec))
-            unwrapper = "unicode_w" if self.is_unicode else "bytes_w"
+            unwrapper = "utf8_w" if self.is_unicode else "bytes_w"
             to_interp = getattr(self.space, unwrapper)
             return to_interp(w_rendered)
 
@@ -388,8 +384,10 @@ unicode_template_formatter = make_template_formatting_class(for_unicode=True)
 def format_method(space, w_string, args, w_kwargs, is_unicode):
     if is_unicode:
         template = unicode_template_formatter(space,
-                                              space.unicode_w(w_string))
-        return space.newunicode(template.build(args, w_kwargs))
+                                              space.utf8_w(w_string))
+        r = template.build(args, w_kwargs)
+        lgt = rutf8.check_utf8(r, True)
+        return space.newutf8(r, lgt)
     else:
         template = str_template_formatter(space, space.bytes_w(w_string))
         return space.newbytes(template.build(args, w_kwargs))
@@ -425,7 +423,8 @@ def make_formatting_class(for_unicode):
 
         if for_unicode:
             def wrap(self, u):
-                return self.space.newunicode(u)
+                lgt = rutf8.check_utf8(u, True)
+                return self.space.newutf8(u, lgt)
         else:
             def wrap(self, s):
                 return self.space.newbytes(s)
@@ -435,7 +434,6 @@ def make_formatting_class(for_unicode):
 
         def __init__(self, space, spec):
             self.space = space
-            self.empty = u"" if self.is_unicode else ""
             self.spec = spec
 
         def _is_alignment(self, c):
@@ -455,7 +453,7 @@ def make_formatting_class(for_unicode):
             self._align = default_align
             self._alternate = False
             self._sign = "\0"
-            self._thousands_sep = False
+            self._thousands_sep = "\0"
             self._precision = -1
             the_type = default_type
             spec = self.spec
@@ -465,11 +463,16 @@ def make_formatting_class(for_unicode):
             i = 0
             got_align = True
             got_fill_char = False
-            if length - i >= 2 and self._is_alignment(spec[i + 1]):
-                self._align = spec[i + 1]
-                self._fill_char = spec[i]
+            # The single character could be utf8-encoded unicode
+            if self.is_unicode:
+                after_i = rutf8.next_codepoint_pos(spec, i)
+            else:
+                after_i = i + 1
+            if length - i >= 2 and self._is_alignment(spec[after_i]):
+                self._align = spec[after_i]
+                self._fill_char = spec[i:after_i]
                 got_fill_char = True
-                i += 2
+                i = after_i + 1
             elif length - i >= 1 and self._is_alignment(spec[i]):
                 self._align = spec[i]
                 i += 1
@@ -488,8 +491,17 @@ def make_formatting_class(for_unicode):
                 i += 1
             self._width, i = _parse_int(self.space, spec, i, length)
             if length != i and spec[i] == ",":
-                self._thousands_sep = True
+                self._thousands_sep = ","
                 i += 1
+            if length != i and spec[i] == "_":
+                if self._thousands_sep != "\0":
+                    raise oefmt(
+                        space.w_ValueError, "Cannot specify both ',' and '_'.")
+                self._thousands_sep = "_"
+                i += 1
+                if length != i and spec[i] == ",":
+                    raise oefmt(
+                        space.w_ValueError, "Cannot specify both ',' and '_'.")
             if length != i and spec[i] == ".":
                 i += 1
                 self._precision, i = _parse_int(self.space, spec, i, length)
@@ -501,15 +513,16 @@ def make_formatting_class(for_unicode):
                 presentation_type = spec[i]
                 if self.is_unicode:
                     try:
-                        the_type = spec[i].encode("ascii")[0]
-                    except UnicodeEncodeError:
+                        rutf8.check_utf8(spec[i], True)
+                        the_type = spec[i][0]
+                    except rutf8.CheckError:
                         raise oefmt(space.w_ValueError,
                                     "invalid presentation type")
                 else:
                     the_type = presentation_type
                 i += 1
             self._type = the_type
-            if self._thousands_sep:
+            if self._thousands_sep != "\0":
                 tp = self._type
                 if (tp == "d" or
                     tp == "e" or
@@ -522,8 +535,15 @@ def make_formatting_class(for_unicode):
                     tp == "\0"):
                     # ok
                     pass
+                elif self._thousands_sep == "_" and (
+                        tp == "b" or
+                        tp == "o" or
+                        tp == "x" or
+                        tp == "X"):
+                    pass # ok
                 else:
-                    raise oefmt(space.w_ValueError, "invalid type with ','")
+                    raise oefmt(space.w_ValueError,
+                                "invalid type with ',' or '_'")
             return False
 
         def _calc_padding(self, string, length):
@@ -547,8 +567,9 @@ def make_formatting_class(for_unicode):
             return total
 
         def _lit(self, s):
+            assert len(s) == 1
             if self.is_unicode:
-                return s.decode("latin-1")
+                return rutf8.unichr_as_utf8(ord(s[0]))
             else:
                 return s
 
@@ -561,23 +582,23 @@ def make_formatting_class(for_unicode):
 
         def _builder(self):
             if self.is_unicode:
-                return rstring.UnicodeBuilder()
+                return rutf8.Utf8StringBuilder()
             else:
                 return rstring.StringBuilder()
 
-        def _unknown_presentation(self, tp):
+        def _unknown_presentation(self, w_val):
             raise oefmt(self.space.w_ValueError,
-                        "unknown presentation for %s: '%s'", tp, self._type)
+                        "Unknown format code %s for object of type '%T'", self._type, w_val)
 
         def format_string(self, w_string):
             space = self.space
             if not space.is_w(space.type(w_string), space.w_unicode):
                 w_string = space.str(w_string)
-            string = space.unicode_w(w_string)
+            string = space.utf8_w(w_string)
             if self._parse_spec("s", "<"):
                 return self.wrap(string)
             if self._type != "s":
-                self._unknown_presentation("string")
+                self._unknown_presentation(w_string)
             if self._sign != "\0":
                 raise oefmt(space.w_ValueError,
                             "Sign not allowed in string format specifier")
@@ -589,7 +610,7 @@ def make_formatting_class(for_unicode):
                 raise oefmt(space.w_ValueError,
                             "'=' alignment not allowed in string format "
                             "specifier")
-            length = len(string)
+            length = space.len_w(w_string)
             precision = self._precision
             if precision != -1 and length >= precision:
                 assert precision >= 0
@@ -601,17 +622,20 @@ def make_formatting_class(for_unicode):
         def _get_locale(self, tp):
             if tp == "n":
                 dec, thousands, grouping = rlocale.numeric_formatting()
-            elif self._thousands_sep:
+            elif self._thousands_sep != "\0":
+                thousands = self._thousands_sep
                 dec = "."
-                thousands = ","
                 grouping = "\3"
+                if tp in "boxX":
+                    assert self._thousands_sep == "_"
+                    grouping = "\4"
             else:
                 dec = "."
                 thousands = ""
                 grouping = "\xFF"    # special value to mean 'stop'
             if self.is_unicode:
-                self._loc_dec = dec.decode("latin-1")
-                self._loc_thousands = thousands.decode("latin-1")
+                self._loc_dec = rutf8.decode_latin_1(dec)
+                self._loc_thousands = rutf8.decode_latin_1(thousands)
             else:
                 self._loc_dec = dec
                 self._loc_thousands = thousands
@@ -730,7 +754,7 @@ def make_formatting_class(for_unicode):
                 ts = self._loc_thousands if need_separator else None
                 self._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
             buf.reverse()
-            self._grouped_digits = self.empty.join(buf)
+            self._grouped_digits = "".join(buf)
 
         def _upcase_string(self, s):
             buf = []
@@ -739,19 +763,16 @@ def make_formatting_class(for_unicode):
                 if ord("a") <= index <= ord("z"):
                     c = chr(index - 32)
                 buf.append(c)
-            return self.empty.join(buf)
+            return "".join(buf)
 
 
         def _fill_number(self, spec, num, to_digits, to_prefix, fill_char,
                          to_remainder, upper, grouped_digits=None):
             out = self._builder()
             if spec.n_lpadding:
-                out.append_multiple_char(fill_char[0], spec.n_lpadding)
+                out.append_multiple_char(fill_char, spec.n_lpadding)
             if spec.n_sign:
-                if self.is_unicode:
-                    sign = spec.sign.decode("latin-1")
-                else:
-                    sign = spec.sign
+                sign = self._lit(spec.sign)
                 out.append(sign)
             if spec.n_prefix:
                 pref = num[to_prefix:to_prefix + spec.n_prefix]
@@ -759,7 +780,7 @@ def make_formatting_class(for_unicode):
                     pref = self._upcase_string(pref)
                 out.append(pref)
             if spec.n_spadding:
-                out.append_multiple_char(fill_char[0], spec.n_spadding)
+                out.append_multiple_char(fill_char, spec.n_spadding)
             if spec.n_digits != 0:
                 if self._loc_thousands:
                     if grouped_digits is not None:
@@ -779,7 +800,7 @@ def make_formatting_class(for_unicode):
             if spec.n_remainder:
                 out.append(num[to_remainder:])
             if spec.n_rpadding:
-                out.append_multiple_char(fill_char[0], spec.n_rpadding)
+                out.append_multiple_char(fill_char, spec.n_rpadding)
             #if complex, need to call twice - just retun the buffer
             return out.build()
 
@@ -799,13 +820,13 @@ def make_formatting_class(for_unicode):
                                 "Alternate form (#) not allowed "
                                 "with 'c' presentation type")
                 value = space.int_w(w_num)
-                max_char = runicode.MAXUNICODE if self.is_unicode else 0xFF
+                max_char = 0x10FFFF if self.is_unicode else 0xFF
                 if not (0 <= value <= max_char):
                     raise oefmt(space.w_OverflowError,
                                 "%%c arg not in range(%s)",
                                 hex(max_char))
                 if self.is_unicode:
-                    result = runicode.UNICHR(value)
+                    result = rutf8.unichr_as_utf8(value)
                 else:
                     result = chr(value)
                 n_digits = 1
@@ -861,14 +882,14 @@ def make_formatting_class(for_unicode):
                 prefix = "0x"
             as_str = value.format(LONG_DIGITS[:base], prefix)
             if self.is_unicode:
-                return as_str.decode("latin-1")
+                return rutf8.decode_latin_1(as_str)
             return as_str
 
         def _int_to_base(self, base, value):
             if base == 10:
                 s = str(value)
                 if self.is_unicode:
-                    return s.decode("latin-1")
+                    return rutf8.decode_latin_1(s)
                 return s
             # This part is slow.
             negative = value < 0
@@ -909,7 +930,7 @@ def make_formatting_class(for_unicode):
                 i -= 1
                 buf[i] = "-"
             assert i >= 0
-            return self.empty.join(buf[i:])
+            return "".join(buf[i:])
 
         def format_int_or_long(self, w_num, kind):
             space = self.space
@@ -936,7 +957,7 @@ def make_formatting_class(for_unicode):
                 w_float = space.float(w_num)
                 return self._format_float(w_float)
             else:
-                self._unknown_presentation("int" if kind == INT_KIND else "long")
+                self._unknown_presentation(w_num)
 
         def _parse_number(self, s, i):
             """Determine if s has a decimal point, and the index of the first #
@@ -993,7 +1014,7 @@ def make_formatting_class(for_unicode):
             have_dec_point, to_remainder = self._parse_number(result, to_number)
             n_remainder = len(result) - to_remainder
             if self.is_unicode:
-                digits = result.decode("latin-1")
+                digits = rutf8.decode_latin_1(result)
             else:
                 digits = result
             spec = self._calc_num_width(0, sign, to_number, n_digits,
@@ -1019,7 +1040,7 @@ def make_formatting_class(for_unicode):
                 tp == "n" or
                 tp == "%"):
                 return self._format_float(w_float)
-            self._unknown_presentation("float")
+            self._unknown_presentation(w_float)
 
         def _format_complex(self, w_complex):
             flags = 0
@@ -1097,8 +1118,8 @@ def make_formatting_class(for_unicode):
                                                                to_imag_number)
 
             if self.is_unicode:
-                re_num = re_num.decode("latin-1")
-                im_num = im_num.decode("latin-1")
+                re_num = rutf8.decode_latin_1(re_num)
+                im_num = rutf8.decode_latin_1(im_num)
 
             #set remainder, in CPython _parse_number sets this
             #using n_re_digits causes tests to fail
@@ -1127,7 +1148,7 @@ def make_formatting_class(for_unicode):
             self._fill_char = tmp_fill_char
 
             #compute L and R padding - stored in self._left_pad and self._right_pad
-            self._calc_padding(self.empty, re_spec.n_total + im_spec.n_total + 1 +
+            self._calc_padding("", re_spec.n_total + im_spec.n_total + 1 +
                                            add_parens * 2)
 
             out = self._builder()
@@ -1178,7 +1199,7 @@ def make_formatting_class(for_unicode):
                 tp == "G" or
                 tp == "n"):
                 return self._format_complex(w_complex)
-            self._unknown_presentation("complex")
+            self._unknown_presentation(w_complex)
     return Formatter
 
 unicode_formatter = make_formatting_class(for_unicode=True)
@@ -1186,5 +1207,5 @@ unicode_formatter = make_formatting_class(for_unicode=True)
 
 @specialize.arg(2)
 def run_formatter(space, w_format_spec, meth, *args):
-    formatter = unicode_formatter(space, space.unicode_w(w_format_spec))
+    formatter = unicode_formatter(space, space.utf8_w(w_format_spec))
     return getattr(formatter, meth)(*args)

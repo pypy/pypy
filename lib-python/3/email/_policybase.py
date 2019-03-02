@@ -154,6 +154,9 @@ class Policy(_PolicyBase, metaclass=abc.ABCMeta):
                            them. This is used when the message is being
                            serialized by a generator. Default: True.
 
+    message_factory     -- the class to use to create new message objects.
+                           If the value is None, the default is Message.
+
     """
 
     raise_on_defect = False
@@ -161,6 +164,7 @@ class Policy(_PolicyBase, metaclass=abc.ABCMeta):
     cte_type = '8bit'
     max_line_length = 78
     mangle_from_ = False
+    message_factory = None
 
     def handle_defect(self, obj, defect):
         """Based on policy, either raise defect or call register_defect.

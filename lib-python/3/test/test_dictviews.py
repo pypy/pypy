@@ -1,4 +1,5 @@
 from test import support
+import collections
 import copy
 import pickle
 import unittest
@@ -246,6 +247,27 @@ class DictSetTest(unittest.TestCase):
                 pickle.dumps, d.values(), proto)
             self.assertRaises((TypeError, pickle.PicklingError),
                 pickle.dumps, d.items(), proto)
+
+    def test_abc_registry(self):
+        d = dict(a=1)
+
+        self.assertIsInstance(d.keys(), collections.KeysView)
+        self.assertIsInstance(d.keys(), collections.MappingView)
+        self.assertIsInstance(d.keys(), collections.Set)
+        self.assertIsInstance(d.keys(), collections.Sized)
+        self.assertIsInstance(d.keys(), collections.Iterable)
+        self.assertIsInstance(d.keys(), collections.Container)
+
+        self.assertIsInstance(d.values(), collections.ValuesView)
+        self.assertIsInstance(d.values(), collections.MappingView)
+        self.assertIsInstance(d.values(), collections.Sized)
+
+        self.assertIsInstance(d.items(), collections.ItemsView)
+        self.assertIsInstance(d.items(), collections.MappingView)
+        self.assertIsInstance(d.items(), collections.Set)
+        self.assertIsInstance(d.items(), collections.Sized)
+        self.assertIsInstance(d.items(), collections.Iterable)
+        self.assertIsInstance(d.items(), collections.Container)
 
 
 if __name__ == "__main__":

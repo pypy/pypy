@@ -306,13 +306,24 @@ class MockTest(unittest.TestCase):
 
 
     def test_calls_equal_with_any(self):
-        call1 = mock.call(mock.MagicMock())
-        call2 = mock.call(mock.ANY)
-
         # Check that equality and non-equality is consistent even when
         # comparing with mock.ANY
+        mm = mock.MagicMock()
+        self.assertTrue(mm == mm)
+        self.assertFalse(mm != mm)
+        self.assertFalse(mm == mock.MagicMock())
+        self.assertTrue(mm != mock.MagicMock())
+        self.assertTrue(mm == mock.ANY)
+        self.assertFalse(mm != mock.ANY)
+        self.assertTrue(mock.ANY == mm)
+        self.assertFalse(mock.ANY != mm)
+
+        call1 = mock.call(mock.MagicMock())
+        call2 = mock.call(mock.ANY)
         self.assertTrue(call1 == call2)
         self.assertFalse(call1 != call2)
+        self.assertTrue(call2 == call1)
+        self.assertFalse(call2 != call1)
 
 
     def test_assert_called_with(self):
@@ -1239,6 +1250,27 @@ class MockTest(unittest.TestCase):
         with self.assertRaises(AssertionError):
             m.hello.assert_not_called()
 
+    def test_assert_called(self):
+        m = Mock()
+        with self.assertRaises(AssertionError):
+            m.hello.assert_called()
+        m.hello()
+        m.hello.assert_called()
+
+        m.hello()
+        m.hello.assert_called()
+
+    def test_assert_called_once(self):
+        m = Mock()
+        with self.assertRaises(AssertionError):
+            m.hello.assert_called_once()
+        m.hello()
+        m.hello.assert_called_once()
+
+        m.hello()
+        with self.assertRaises(AssertionError):
+            m.hello.assert_called_once()
+
     #Issue21256 printout of keyword args should be in deterministic order
     def test_sorted_call_signature(self):
         m = Mock()
@@ -1255,6 +1287,24 @@ class MockTest(unittest.TestCase):
         m.index(132,"hello")
         self.assertEqual(m.method_calls[0], c)
         self.assertEqual(m.method_calls[1], i)
+
+    def test_reset_return_sideeffect(self):
+        m = Mock(return_value=10, side_effect=[2,3])
+        m.reset_mock(return_value=True, side_effect=True)
+        self.assertIsInstance(m.return_value, Mock)
+        self.assertEqual(m.side_effect, None)
+
+    def test_reset_return(self):
+        m = Mock(return_value=10, side_effect=[2,3])
+        m.reset_mock(return_value=True)
+        self.assertIsInstance(m.return_value, Mock)
+        self.assertNotEqual(m.side_effect, None)
+
+    def test_reset_sideeffect(self):
+        m = Mock(return_value=10, side_effect=[2,3])
+        m.reset_mock(side_effect=True)
+        self.assertEqual(m.return_value, 10)
+        self.assertEqual(m.side_effect, None)
 
     def test_mock_add_spec(self):
         class _One(object):

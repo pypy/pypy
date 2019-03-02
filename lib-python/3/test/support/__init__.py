@@ -26,6 +26,7 @@ import sys
 import sysconfig
 import tempfile
 import time
+import types
 import unittest
 import urllib.error
 import warnings
@@ -89,11 +90,13 @@ __all__ = [
     "bigmemtest", "bigaddrspacetest", "cpython_only", "get_attribute",
     "requires_IEEE_754", "skip_unless_xattr", "requires_zlib",
     "anticipate_failure", "load_package_tests", "detect_api_mismatch",
-     "requires_multiprocessing_queue",
+    "check__all__", "requires_android_level", "requires_multiprocessing_queue",
     # sys
-    "is_jython", "check_impl_detail",
+    "is_jython", "is_android", "check_impl_detail", "unix_shell",
+    "setswitchinterval", "android_not_root",
     # network
     "HOST", "IPV6_ENABLED", "find_unused_port", "bind_port", "open_urlresource",
+    "bind_unix_socket",
     # processes
     'temp_umask', "reap_children",
     # logging
@@ -104,7 +107,7 @@ __all__ = [
     "check_warnings", "check_no_resource_warning", "EnvironmentVarGuard",
     "run_with_locale", "swap_item",
     "swap_attr", "Matcher", "set_memlimit", "SuppressCrashReport", "sortdict",
-    "run_with_tz",
+    "run_with_tz", "PGO", "missing_compiler_executable",
     ]
 
 class Error(Exception):
@@ -706,6 +709,15 @@ def bind_port(sock, host=HOST):
     port = sock.getsockname()[1]
     return port
 
+def bind_unix_socket(sock, addr):
+    """Bind a unix socket, raising SkipTest if PermissionError is raised."""
+    assert sock.family == socket.AF_UNIX
+    try:
+        sock.bind(addr)
+    except PermissionError:
+        sock.close()
+        raise unittest.SkipTest('cannot bind AF_UNIX sockets')
+
 def _is_ipv6_enabled():
     """Check whether IPv6 is enabled on this host."""
     if socket.has_ipv6:
@@ -764,6 +776,15 @@ requires_bz2 = unittest.skipUnless(bz2, 'requires bz2')
 requires_lzma = unittest.skipUnless(lzma, 'requires lzma')
 
 is_jython = sys.platform.startswith('java')
+
+_ANDROID_API_LEVEL = sysconfig.get_config_var('ANDROID_API_LEVEL')
+is_android = (_ANDROID_API_LEVEL is not None and _ANDROID_API_LEVEL > 0)
+android_not_root = (is_android and os.geteuid() != 0)
+
+if sys.platform != 'win32':
+    unix_shell = '/system/bin/sh' if is_android else '/bin/sh'
+else:
+    unix_shell = None
 
 # Filename used for testing
 if os.name == 'java':
@@ -834,7 +855,7 @@ TESTFN_ENCODING = sys.getfilesystemencoding()
 # encoded by the filesystem encoding (in strict mode). It can be None if we
 # cannot generate such filename.
 TESTFN_UNENCODABLE = None
-if os.name in ('nt', 'ce'):
+if os.name == 'nt':
     # skip win32s (0) or Windows 9x/ME (1)
     if sys.getwindowsversion().platform >= 2:
         # Different kinds of characters from various languages to minimize the
@@ -900,6 +921,10 @@ else:
 
 # Save the initial cwd
 SAVEDCWD = os.getcwd()
+
+# Set by libregrtest/main.py so we can skip tests that are not
+# useful for PGO
+PGO = False
 
 @contextlib.contextmanager
 def temp_dir(path=None, quiet=False):
@@ -1753,6 +1778,13 @@ def requires_resource(resource):
     else:
         return unittest.skip("resource {0!r} is not enabled".format(resource))
 
+def requires_android_level(level, reason):
+    if is_android and _ANDROID_API_LEVEL < level:
+        return unittest.skip('%s at Android API level %d' %
+                             (reason, _ANDROID_API_LEVEL))
+    else:
+        return _id
+
 def cpython_only(test):
     """
     Decorator for tests only applicable on CPython.
@@ -2130,10 +2162,18 @@ def strip_python_stderr(stderr):
 requires_type_collecting = unittest.skipIf(hasattr(sys, 'getcounts'),
                         'types are immortal if COUNT_ALLOCS is defined')
 
+requires_type_collecting = unittest.skipIf(hasattr(sys, 'getcounts'),
+                        'types are immortal if COUNT_ALLOCS is defined')
+
 def args_from_interpreter_flags():
     """Return a list of command-line arguments reproducing the current
     settings in sys.flags and sys.warnoptions."""
     return subprocess._args_from_interpreter_flags()
+
+def optim_args_from_interpreter_flags():
+    """Return a list of command-line arguments reproducing the current
+    optimization settings in sys.flags."""
+    return subprocess._optim_args_from_interpreter_flags()
 
 #============================================================
 # Support for assertions about logging.
@@ -2241,7 +2281,7 @@ def can_xattr():
                     os.setxattr(fp.fileno(), b"user.test", b"")
                     # Kernels < 2.6.39 don't respect setxattr flags.
                     kernel_version = platform.release()
-                    m = re.match("2.6.(\d{1,2})", kernel_version)
+                    m = re.match(r"2.6.(\d{1,2})", kernel_version)
                     can = m is None or int(m.group(1)) >= 39
                 except OSError:
                     can = False
@@ -2284,6 +2324,65 @@ def detect_api_mismatch(ref_api, other_api, *, ignore=()):
     missing_items = set(m for m in missing_items
                         if not m.startswith('_') or m.endswith('__'))
     return missing_items
+
+
+def check__all__(test_case, module, name_of_module=None, extra=(),
+                 blacklist=()):
+    """Assert that the __all__ variable of 'module' contains all public names.
+
+    The module's public names (its API) are detected automatically based on
+    whether they match the public name convention and were defined in
+    'module'.
+
+    The 'name_of_module' argument can specify (as a string or tuple thereof)
+    what module(s) an API could be defined in in order to be detected as a
+    public API. One case for this is when 'module' imports part of its public
+    API from other modules, possibly a C backend (like 'csv' and its '_csv').
+
+    The 'extra' argument can be a set of names that wouldn't otherwise be
+    automatically detected as "public", like objects without a proper
+    '__module__' attriubute. If provided, it will be added to the
+    automatically detected ones.
+
+    The 'blacklist' argument can be a set of names that must not be treated
+    as part of the public API even though their names indicate otherwise.
+
+    Usage:
+        import bar
+        import foo
+        import unittest
+        from test import support
+
+        class MiscTestCase(unittest.TestCase):
+            def test__all__(self):
+                support.check__all__(self, foo)
+
+        class OtherTestCase(unittest.TestCase):
+            def test__all__(self):
+                extra = {'BAR_CONST', 'FOO_CONST'}
+                blacklist = {'baz'}  # Undocumented name.
+                # bar imports part of its API from _bar.
+                support.check__all__(self, bar, ('bar', '_bar'),
+                                     extra=extra, blacklist=blacklist)
+
+    """
+
+    if name_of_module is None:
+        name_of_module = (module.__name__, )
+    elif isinstance(name_of_module, str):
+        name_of_module = (name_of_module, )
+
+    expected = set(extra)
+
+    for name in dir(module):
+        if name.startswith('_') or name in blacklist:
+            continue
+        obj = getattr(module, name)
+        if (getattr(obj, '__module__', None) in name_of_module or
+                (not hasattr(obj, '__module__') and
+                 not isinstance(obj, types.ModuleType))):
+            expected.add(name)
+    test_case.assertCountEqual(module.__all__, expected)
 
 
 class SuppressCrashReport:
@@ -2447,3 +2546,43 @@ def check_free_after_iterating(test, iter, cls, args=()):
     # The sequence should be deallocated just after the end of iterating
     gc_collect()
     test.assertTrue(done)
+
+
+def missing_compiler_executable(cmd_names=[]):
+    """Check if the compiler components used to build the interpreter exist.
+
+    Check for the existence of the compiler executables whose names are listed
+    in 'cmd_names' or all the compiler executables when 'cmd_names' is empty
+    and return the first missing executable or None when none is found
+    missing.
+
+    """
+    from distutils import ccompiler, sysconfig, spawn
+    compiler = ccompiler.new_compiler()
+    sysconfig.customize_compiler(compiler)
+    for name in compiler.executables:
+        if cmd_names and name not in cmd_names:
+            continue
+        cmd = getattr(compiler, name)
+        if cmd_names:
+            assert cmd is not None, \
+                    "the '%s' executable is not configured" % name
+        elif cmd is None:
+            continue
+        if spawn.find_executable(cmd[0]) is None:
+            return cmd[0]
+
+
+_is_android_emulator = None
+def setswitchinterval(interval):
+    # Setting a very low gil interval on the Android emulator causes python
+    # to hang (issue #26939).
+    minimum_interval = 1e-5
+    if is_android and interval < minimum_interval:
+        global _is_android_emulator
+        if _is_android_emulator is None:
+            _is_android_emulator = (subprocess.check_output(
+                               ['getprop', 'ro.kernel.qemu']).strip() == b'1')
+        if _is_android_emulator:
+            interval = minimum_interval
+    return sys.setswitchinterval(interval)

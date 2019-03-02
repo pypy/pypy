@@ -1,10 +1,9 @@
 import dis
 import re
 import sys
-from io import StringIO
+import textwrap
 import unittest
-from math import copysign
-from test.support import cpython_only, impl_detail
+from test.support import cpython_only
 
 from test.bytecode_helper import BytecodeTestCase
 
@@ -31,22 +30,25 @@ class TestTranforms(BytecodeTestCase):
 
     def test_global_as_constant(self):
         # LOAD_GLOBAL None/True/False  -->  LOAD_CONST None/True/False
-        def f(x):
-            None
-            None
+        def f():
+            x = None
+            x = None
             return x
-        def g(x):
-            True
+        def g():
+            x = True
             return x
-        def h(x):
-            False
+        def h():
+            x = False
             return x
+
         for func, elem in ((f, None), (g, True), (h, False)):
             self.assertNotInBytecode(func, 'LOAD_GLOBAL')
             self.assertInBytecode(func, 'LOAD_CONST', elem)
+
         def f():
             'Adding a docstring made this test fail in Py2.5.0'
             return None
+
         self.assertNotInBytecode(f, 'LOAD_GLOBAL')
         self.assertInBytecode(f, 'LOAD_CONST', None)
 
@@ -76,19 +78,15 @@ class TestTranforms(BytecodeTestCase):
             self.assertNotInBytecode(code, 'UNPACK_TUPLE')
 
     def test_folding_of_tuples_of_constants(self):
+        # On CPython, "a,b,c=1,2,3" turns into "a,b,c=<constant (1,2,3)>"
+        # but on PyPy, it turns into "a=1;b=2;c=3".
         for line, elem in (
             ('a = 1,2,3', (1, 2, 3)),
             ('("a","b","c")', ('a', 'b', 'c')),
-            ('a,b,c = 1,2,3', (1, 2, 3)),
             ('(None, 1, None)', (None, 1, None)),
             ('((1, 2), 3, 4)', ((1, 2), 3, 4)),
             ):
             code = compile(line,'','single')
-            if line == 'a,b,c = 1,2,3' and impl_detail(pypy=True):
-                # On CPython, "a,b,c=1,2,3" turns into
-                # "a,b,c=<constant (1,2,3)>"
-                # but on PyPy, it turns into "a=1;b=2;c=3".
-                continue
             self.assertInBytecode(code, 'LOAD_CONST', elem)
             self.assertNotInBytecode(code, 'BUILD_TUPLE')
 

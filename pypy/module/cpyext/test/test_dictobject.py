@@ -1,4 +1,5 @@
 import py
+from pytest import raises
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP, PyTypeObjectPtr
@@ -331,3 +332,67 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         assert module.dict_delitem(d, 'a') == 0
         r = module.dict_next({'a': 1, 'b': 2})
         assert r == 2
+
+    def test_subclassing(self):
+        module = self.import_extension('foo', [
+            ("dict_setitem", "METH_VARARGS",
+             """
+             PyObject *d, *key, *value;
+             if (!PyArg_ParseTuple(args, "OOO", &d, &key, &value)) {
+                return NULL;
+             }
+             if (PyDict_SetItem(d, key, value) < 0) {
+                return NULL;
+             }
+             Py_RETURN_NONE;
+             """),
+            ("dict_delitem", "METH_VARARGS",
+             """
+             PyObject *d, *key;
+             if (!PyArg_ParseTuple(args, "OO", &d, &key)) {
+                return NULL;
+             }
+             if (PyDict_DelItem(d, key) < 0) {
+                return NULL;
+             }
+             Py_RETURN_NONE;
+             """),
+            ("dict_getitem", "METH_VARARGS",
+             """
+             PyObject *d, *key, *result;
+             if (!PyArg_ParseTuple(args, "OO", &d, &key)) {
+                return NULL;
+             }
+             result = PyDict_GetItem(d, key);
+             Py_XINCREF(result);
+             return result;
+             """),
+        ])
+
+        class mydict(dict):
+            def __setitem__(self, key, value):
+                dict.__setitem__(self, key, 42)
+
+            def __delitem__(self, key):
+                dict.__setitem__(self, key, None)
+        d = {}
+        module.dict_setitem(d, 1, 2)
+        assert d[1] == 2
+        d = mydict()
+        d[1] = 2
+        assert d[1] == 42
+        module.dict_setitem(d, 2, 3)
+        assert d[2] == 3
+        del d[2]
+        assert d[2] is None
+        module.dict_delitem(d, 2)
+        assert 2 not in d
+
+        class mydict2(dict):
+            def __getitem__(self, key):
+                return 42
+
+        d = mydict2()
+        d[1] = 2
+        assert d[1] == 42
+        assert module.dict_getitem(d, 1) == 2

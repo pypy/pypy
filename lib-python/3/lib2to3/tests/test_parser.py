@@ -8,7 +8,7 @@ test_grammar.py files from both Python 2 and Python 3.
 
 # Testing imports
 from . import support
-from .support import driver, test_dir
+from .support import driver
 from test.support import verbose
 
 # Python imports
@@ -131,6 +131,24 @@ class TestAsyncAwait(GrammarTest):
     def test_await_expr(self):
         self.validate("""async def foo():
                              await x
+                      """)
+
+        self.validate("""async def foo():
+                             [i async for i in b]
+                      """)
+
+        self.validate("""async def foo():
+                             {i for i in b
+                                async for i in a if await i
+                                  for b in i}
+                      """)
+
+        self.validate("""async def foo():
+                             [await i for i in b if await c]
+                      """)
+
+        self.validate("""async def foo():
+                             [ i for i in b if c]
                       """)
 
         self.validate("""async def foo():
@@ -271,6 +289,36 @@ class TestFunctionAnnotations(GrammarTest):
                         *g:6, h:7, i=8, j:9=10, **k:11) -> 12: pass"""
         self.validate(s)
 
+
+# Adapted from Python 3's Lib/test/test_grammar.py:GrammarTests.test_var_annot
+class TestVarAnnotations(GrammarTest):
+    def test_1(self):
+        self.validate("var1: int = 5")
+
+    def test_2(self):
+        self.validate("var2: [int, str]")
+
+    def test_3(self):
+        self.validate("def f():\n"
+                      "    st: str = 'Hello'\n"
+                      "    a.b: int = (1, 2)\n"
+                      "    return st\n")
+
+    def test_4(self):
+        self.validate("def fbad():\n"
+                      "    x: int\n"
+                      "    print(x)\n")
+
+    def test_5(self):
+        self.validate("class C:\n"
+                      "    x: int\n"
+                      "    s: str = 'attr'\n"
+                      "    z = 2\n"
+                      "    def __init__(self, x):\n"
+                      "        self.x: int = x\n")
+
+    def test_6(self):
+        self.validate("lst: List[int] = []")
 
 class TestExcept(GrammarTest):
     def test_new(self):

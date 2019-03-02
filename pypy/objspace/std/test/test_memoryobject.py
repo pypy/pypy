@@ -307,7 +307,7 @@ class MockBuffer(BufferView):
         self.w_arr = w_arr
         self.arr = []
         self.ndim = space.int_w(w_dim)
-        self.format = space.str_w(w_fmt)
+        self.format = space.text_w(w_fmt)
         self.itemsize = space.int_w(w_itemsize)
         self.strides = []
         for w_i in w_strides.getitems_unroll():

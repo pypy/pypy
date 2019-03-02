@@ -1,11 +1,11 @@
 import os
-import io
 import sys
 from test.support import TESTFN, rmtree, unlink, captured_stdout
+from test.support.script_helper import assert_python_ok, assert_python_failure
 import unittest
 
 import trace
-from trace import CoverageResults, Trace
+from trace import Trace
 
 from test.tracedmodules import testmod
 
@@ -365,51 +365,27 @@ class Test_Ignore(unittest.TestCase):
         # Matched before.
         self.assertTrue(ignore.names(jn('bar', 'baz.py'), 'baz'))
 
+class TestCommandLine(unittest.TestCase):
 
-class TestDeprecatedMethods(unittest.TestCase):
+    def test_failures(self):
+        _errors = (
+            (b'filename is missing: required with the main options', '-l', '-T'),
+            (b'cannot specify both --listfuncs and (--trace or --count)', '-lc'),
+            (b'argument -R/--no-report: not allowed with argument -r/--report', '-rR'),
+            (b'must specify one of --trace, --count, --report, --listfuncs, or --trackcalls', '-g'),
+            (b'-r/--report requires -f/--file', '-r'),
+            (b'--summary can only be used with --count or --report', '-sT'),
+            (b'unrecognized arguments: -y', '-y'))
+        for message, *args in _errors:
+            *_, stderr = assert_python_failure('-m', 'trace', *args)
+            self.assertIn(message, stderr)
 
-    def test_deprecated_usage(self):
-        sio = io.StringIO()
-        with self.assertWarns(DeprecationWarning):
-            trace.usage(sio)
-        self.assertIn('Usage:', sio.getvalue())
-
-    def test_deprecated_Ignore(self):
-        with self.assertWarns(DeprecationWarning):
-            trace.Ignore()
-
-    def test_deprecated_modname(self):
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual("spam", trace.modname("spam"))
-
-    def test_deprecated_fullmodname(self):
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual("spam", trace.fullmodname("spam"))
-
-    def test_deprecated_find_lines_from_code(self):
-        with self.assertWarns(DeprecationWarning):
-            def foo():
-                pass
-            trace.find_lines_from_code(foo.__code__, ["eggs"])
-
-    def test_deprecated_find_lines(self):
-        with self.assertWarns(DeprecationWarning):
-            def foo():
-                pass
-            trace.find_lines(foo.__code__, ["eggs"])
-
-    def test_deprecated_find_strings(self):
+    def test_listfuncs_flag_success(self):
         with open(TESTFN, 'w') as fd:
             self.addCleanup(unlink, TESTFN)
-        with self.assertWarns(DeprecationWarning):
-            trace.find_strings(fd.name)
-
-    def test_deprecated_find_executable_linenos(self):
-        with open(TESTFN, 'w') as fd:
-            self.addCleanup(unlink, TESTFN)
-        with self.assertWarns(DeprecationWarning):
-            trace.find_executable_linenos(fd.name)
-
+            fd.write("a = 1\n")
+            status, stdout, stderr = assert_python_ok('-m', 'trace', '-l', TESTFN)
+            self.assertIn(b'functions called:', stdout)
 
 if __name__ == '__main__':
     unittest.main()

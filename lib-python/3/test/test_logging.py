@@ -1,4 +1,4 @@
-# Copyright 2001-2016 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2017 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -16,7 +16,7 @@
 
 """Test harness for the logging module. Run all tests.
 
-Copyright (C) 2001-2016 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2017 Vinay Sajip. All Rights Reserved.
 """
 
 import logging
@@ -26,6 +26,7 @@ import logging.config
 import codecs
 import configparser
 import datetime
+import pathlib
 import pickle
 import io
 import gc
@@ -326,6 +327,18 @@ class BuiltinLevelsTest(BaseTest):
         self.assertEqual(logging.getLevelName(40), 'ERROR')
         self.assertEqual(logging.getLevelName(50), 'CRITICAL')
 
+    def test_issue27935(self):
+        fatal = logging.getLevelName('FATAL')
+        self.assertEqual(fatal, logging.FATAL)
+
+    def test_regression_29220(self):
+        """See issue #29220 for more information."""
+        logging.addLevelName(logging.INFO, '')
+        self.addCleanup(logging.addLevelName, logging.INFO, 'INFO')
+        self.assertEqual(logging.getLevelName(logging.INFO), '')
+        self.assertEqual(logging.getLevelName(logging.NOTSET), 'NOTSET')
+        self.assertEqual(logging.getLevelName('NOTSET'), logging.NOTSET)
+
 class BasicFilterTest(BaseTest):
 
     """Test the bundled Filter class."""
@@ -592,6 +605,29 @@ class HandlerTest(BaseTest):
         h = logging.handlers.BufferingHandler(1)
         self.assertFalse(h.shouldFlush(r))
         h.close()
+
+    def test_path_objects(self):
+        """
+        Test that Path objects are accepted as filename arguments to handlers.
+
+        See Issue #27493.
+        """
+        fd, fn = tempfile.mkstemp()
+        os.close(fd)
+        os.unlink(fn)
+        pfn = pathlib.Path(fn)
+        cases = (
+                    (logging.FileHandler, (pfn, 'w')),
+                    (logging.handlers.RotatingFileHandler, (pfn, 'a')),
+                    (logging.handlers.TimedRotatingFileHandler, (pfn, 'h')),
+                )
+        if sys.platform in ('linux', 'darwin'):
+            cases += ((logging.handlers.WatchedFileHandler, (pfn, 'w')),)
+        for cls, args in cases:
+            h = cls(*args)
+            self.assertTrue(os.path.exists(fn))
+            h.close()
+            os.unlink(fn)
 
     @unittest.skipIf(os.name == 'nt', 'WatchedFileHandler not appropriate for Windows.')
     @unittest.skipUnless(threading, 'Threading required for this test.')
@@ -976,7 +1012,7 @@ class MemoryHandlerTest(BaseTest):
     def setUp(self):
         BaseTest.setUp(self)
         self.mem_hdlr = logging.handlers.MemoryHandler(10, logging.WARNING,
-                                                        self.root_hdlr)
+                                                       self.root_hdlr)
         self.mem_logger = logging.getLogger('mem')
         self.mem_logger.propagate = 0
         self.mem_logger.addHandler(self.mem_hdlr)
@@ -1012,6 +1048,36 @@ class MemoryHandlerTest(BaseTest):
 
         self.mem_logger.debug(self.next_message())
         self.assert_log_lines(lines)
+
+    def test_flush_on_close(self):
+        """
+        Test that the flush-on-close configuration works as expected.
+        """
+        self.mem_logger.debug(self.next_message())
+        self.assert_log_lines([])
+        self.mem_logger.info(self.next_message())
+        self.assert_log_lines([])
+        self.mem_logger.removeHandler(self.mem_hdlr)
+        # Default behaviour is to flush on close. Check that it happens.
+        self.mem_hdlr.close()
+        lines = [
+            ('DEBUG', '1'),
+            ('INFO', '2'),
+        ]
+        self.assert_log_lines(lines)
+        # Now configure for flushing not to be done on close.
+        self.mem_hdlr = logging.handlers.MemoryHandler(10, logging.WARNING,
+                                                       self.root_hdlr,
+                                                       False)
+        self.mem_logger.addHandler(self.mem_hdlr)
+        self.mem_logger.debug(self.next_message())
+        self.assert_log_lines(lines)  # no change
+        self.mem_logger.info(self.next_message())
+        self.assert_log_lines(lines)  # no change
+        self.mem_logger.removeHandler(self.mem_hdlr)
+        self.mem_hdlr.close()
+        # assert that no new lines have been added
+        self.assert_log_lines(lines)  # no change
 
 
 class ExceptionFormatter(logging.Formatter):
@@ -1400,9 +1466,17 @@ class SocketHandlerTest(BaseTest):
         """Set up a TCP server to receive log messages, and a SocketHandler
         pointing to that server's address and port."""
         BaseTest.setUp(self)
-        self.server = server = self.server_class(self.address,
-                                                 self.handle_socket, 0.01)
-        server.start()
+        # Issue #29177: deal with errors that happen during setup
+        self.server = self.sock_hdlr = self.server_exception = None
+        try:
+            self.server = server = self.server_class(self.address,
+                                                     self.handle_socket, 0.01)
+            server.start()
+            # Uncomment next line to test error recovery in setUp()
+            # raise OSError('dummy error raised')
+        except OSError as e:
+            self.server_exception = e
+            return
         server.ready.wait()
         hcls = logging.handlers.SocketHandler
         if isinstance(server.server_address, tuple):
@@ -1417,9 +1491,11 @@ class SocketHandlerTest(BaseTest):
     def tearDown(self):
         """Shutdown the TCP server."""
         try:
-            self.server.stop(2.0)
-            self.root_logger.removeHandler(self.sock_hdlr)
-            self.sock_hdlr.close()
+            if self.server:
+                self.server.stop(2.0)
+            if self.sock_hdlr:
+                self.root_logger.removeHandler(self.sock_hdlr)
+                self.sock_hdlr.close()
         finally:
             BaseTest.tearDown(self)
 
@@ -1440,6 +1516,8 @@ class SocketHandlerTest(BaseTest):
 
     def test_output(self):
         # The log message sent to the SocketHandler is properly received.
+        if self.server_exception:
+            self.skipTest(self.server_exception)
         logger = logging.getLogger("tcp")
         logger.error("spam")
         self.handled.acquire()
@@ -1448,6 +1526,8 @@ class SocketHandlerTest(BaseTest):
         self.assertEqual(self.log_output, "spam\neggs\n")
 
     def test_noserver(self):
+        if self.server_exception:
+            self.skipTest(self.server_exception)
         # Avoid timing-related failures due to SocketHandler's own hard-wired
         # one-second timeout on socket.create_connection() (issue #16264).
         self.sock_hdlr.retryStart = 2.5
@@ -1488,7 +1568,7 @@ class UnixSocketHandlerTest(SocketHandlerTest):
 
     def tearDown(self):
         SocketHandlerTest.tearDown(self)
-        os.remove(self.address)
+        support.unlink(self.address)
 
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class DatagramHandlerTest(BaseTest):
@@ -1503,9 +1583,17 @@ class DatagramHandlerTest(BaseTest):
         """Set up a UDP server to receive log messages, and a DatagramHandler
         pointing to that server's address and port."""
         BaseTest.setUp(self)
-        self.server = server = self.server_class(self.address,
-                                                 self.handle_datagram, 0.01)
-        server.start()
+        # Issue #29177: deal with errors that happen during setup
+        self.server = self.sock_hdlr = self.server_exception = None
+        try:
+            self.server = server = self.server_class(self.address,
+                                                     self.handle_datagram, 0.01)
+            server.start()
+            # Uncomment next line to test error recovery in setUp()
+            # raise OSError('dummy error raised')
+        except OSError as e:
+            self.server_exception = e
+            return
         server.ready.wait()
         hcls = logging.handlers.DatagramHandler
         if isinstance(server.server_address, tuple):
@@ -1520,9 +1608,11 @@ class DatagramHandlerTest(BaseTest):
     def tearDown(self):
         """Shutdown the UDP server."""
         try:
-            self.server.stop(2.0)
-            self.root_logger.removeHandler(self.sock_hdlr)
-            self.sock_hdlr.close()
+            if self.server:
+                self.server.stop(2.0)
+            if self.sock_hdlr:
+                self.root_logger.removeHandler(self.sock_hdlr)
+                self.sock_hdlr.close()
         finally:
             BaseTest.tearDown(self)
 
@@ -1536,6 +1626,8 @@ class DatagramHandlerTest(BaseTest):
 
     def test_output(self):
         # The log message sent to the DatagramHandler is properly received.
+        if self.server_exception:
+            self.skipTest(self.server_exception)
         logger = logging.getLogger("udp")
         logger.error("spam")
         self.handled.wait()
@@ -1560,7 +1652,7 @@ class UnixDatagramHandlerTest(DatagramHandlerTest):
 
     def tearDown(self):
         DatagramHandlerTest.tearDown(self)
-        os.remove(self.address)
+        support.unlink(self.address)
 
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class SysLogHandlerTest(BaseTest):
@@ -1575,9 +1667,17 @@ class SysLogHandlerTest(BaseTest):
         """Set up a UDP server to receive log messages, and a SysLogHandler
         pointing to that server's address and port."""
         BaseTest.setUp(self)
-        self.server = server = self.server_class(self.address,
-                                                 self.handle_datagram, 0.01)
-        server.start()
+        # Issue #29177: deal with errors that happen during setup
+        self.server = self.sl_hdlr = self.server_exception = None
+        try:
+            self.server = server = self.server_class(self.address,
+                                                     self.handle_datagram, 0.01)
+            server.start()
+            # Uncomment next line to test error recovery in setUp()
+            # raise OSError('dummy error raised')
+        except OSError as e:
+            self.server_exception = e
+            return
         server.ready.wait()
         hcls = logging.handlers.SysLogHandler
         if isinstance(server.server_address, tuple):
@@ -1590,11 +1690,13 @@ class SysLogHandlerTest(BaseTest):
         self.handled = threading.Event()
 
     def tearDown(self):
-        """Shutdown the UDP server."""
+        """Shutdown the server."""
         try:
-            self.server.stop(2.0)
-            self.root_logger.removeHandler(self.sl_hdlr)
-            self.sl_hdlr.close()
+            if self.server:
+                self.server.stop(2.0)
+            if self.sl_hdlr:
+                self.root_logger.removeHandler(self.sl_hdlr)
+                self.sl_hdlr.close()
         finally:
             BaseTest.tearDown(self)
 
@@ -1603,6 +1705,8 @@ class SysLogHandlerTest(BaseTest):
         self.handled.set()
 
     def test_output(self):
+        if self.server_exception:
+            self.skipTest(self.server_exception)
         # The log message sent to the SysLogHandler is properly received.
         logger = logging.getLogger("slh")
         logger.error("sp\xe4m")
@@ -1635,7 +1739,7 @@ class UnixSysLogHandlerTest(SysLogHandlerTest):
 
     def tearDown(self):
         SysLogHandlerTest.tearDown(self)
-        os.remove(self.address)
+        support.unlink(self.address)
 
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class HTTPHandlerTest(BaseTest):
@@ -4260,6 +4364,17 @@ class NTEventLogHandlerTest(BaseTest):
         msg = 'Record not found in event log, went back %d records' % GO_BACK
         self.assertTrue(found, msg=msg)
 
+
+class MiscTestCase(unittest.TestCase):
+    def test__all__(self):
+        blacklist = {'logThreads', 'logMultiprocessing',
+                     'logProcesses', 'currentframe',
+                     'PercentStyle', 'StrFormatStyle', 'StringTemplateStyle',
+                     'Filterer', 'PlaceHolder', 'Manager', 'RootLogger',
+                     'root', 'threading'}
+        support.check__all__(self, logging, blacklist=blacklist)
+
+
 # Set the locale to the platform-dependent default.  I have no idea
 # why the test does this, but in any case we save the current locale
 # first and restore it at the end.
@@ -4277,6 +4392,7 @@ def test_main():
         ExceptionTest, SysLogHandlerTest, HTTPHandlerTest,
         NTEventLogHandlerTest, TimedRotatingFileHandlerTest,
         UnixSocketHandlerTest, UnixDatagramHandlerTest, UnixSysLogHandlerTest,
+        MiscTestCase
     ]
     if hasattr(logging.handlers, 'QueueListener'):
         tests.append(QueueListenerTest)

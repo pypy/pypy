@@ -439,6 +439,11 @@ class AppTestBytesArray:
         raises(ValueError, bytearray.fromhex, '12   \x00   34')
         raises(ValueError, bytearray.fromhex, '\u1234')
 
+    def test_fromhex_subclass(self):
+        class Sub(bytearray):
+            pass
+        assert type(Sub.fromhex("abcd")) is Sub
+
     def test_extend(self):
         b = bytearray(b'abc')
         b.extend(bytearray(b'def'))

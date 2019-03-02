@@ -43,12 +43,12 @@ class OrderedDict(dict):
                             len(args))
         if args:
             other = args[0]
-            if hasattr(other, 'items'):
-                for key, value in other.items():
-                    self[key] = value
-            elif hasattr(other, "keys"):
+            if hasattr(other, "keys"):
                 for key in other.keys():
                     self[key] = other[key]
+            elif hasattr(other, 'items'):
+                for key, value in other.items():
+                    self[key] = value
             else:
                 for key, value in other:
                     self[key] = value

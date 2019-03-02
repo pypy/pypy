@@ -48,3 +48,7 @@ def getfilesystemencoding(space):
     if space.sys.filesystemencoding is None:
         return space.newtext(base_encoding)
     return space.newtext(space.sys.filesystemencoding)
+
+
+def getfilesystemencodeerrors(space):
+    return space.newtext('surrogateescape')

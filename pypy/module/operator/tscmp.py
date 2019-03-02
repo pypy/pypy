@@ -41,6 +41,9 @@ def compare_digest(space, w_a, w_b):
     Note: If a and b are of different lengths, or if an error occurs, a
     timing attack could theoretically reveal information about the types
     and lengths of a and b--but not their values.
+
+    XXX note that here the strings have to have the same length as UTF8,
+    not only as unicode. Not sure how to do better
     """
     if (space.isinstance_w(w_a, space.w_unicode) and
         space.isinstance_w(w_b, space.w_unicode)):
@@ -59,7 +62,10 @@ def compare_digest(space, w_a, w_b):
 def compare_digest_buffer(space, w_a, w_b):
     a = space.charbuf_w(w_a)
     b = space.charbuf_w(w_b)
+    return space.newbool(_compare_two_strings(a, b))
+
+def _compare_two_strings(a, b):
     with rffi.scoped_nonmovingbuffer(a) as a_buf:
         with rffi.scoped_nonmovingbuffer(b) as b_buf:
             result = pypy_tscmp(a_buf, b_buf, len(a), len(b))
-    return space.newbool(rffi.cast(lltype.Bool, result))
+    return rffi.cast(lltype.Bool, result)

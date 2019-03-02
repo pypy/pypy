@@ -130,7 +130,7 @@ def test_aton_ntoa():
     assert space.bytes_w(w_p) == packed
     w_ip = space.appexec([w_socket, w_p],
                          "(_socket, p): return _socket.inet_ntoa(p)")
-    assert space.unicode_w(w_ip) == ip
+    assert space.utf8_w(w_ip) == ip
 
 def test_pton_ntop_ipv4():
     if not hasattr(socket, 'inet_pton'):
@@ -209,6 +209,17 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.newbytes(host), space.wrap('smtp')],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == socket.getaddrinfo(host, 'smtp')
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap(u'\uD800')], '''
+
+       (_socket, host, port):
+            try:
+                info = _socket.getaddrinfo(host, port)
+            except Exception as e:
+                return e.reason == 'surrogates not allowed'
+            return -1
+        ''')
+    assert space.unwrap(w_l) == True
+
 
 def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
@@ -221,7 +232,7 @@ def test_unknown_addr_as_object():
     w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
     assert space.isinstance_w(w_obj, space.w_tuple)
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
-    assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
+    assert space.text_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 
 def test_addr_raw_packet():
     from pypy.module._socket.interp_socket import addr_as_object
@@ -395,13 +406,18 @@ class AppTestSocket:
         if os.name != 'nt':
             raises(OSError, os.close, fileno)
 
-    def test_socket_close_error(self):
-        import _socket, os
-        if os.name == 'nt':
-            skip("Windows sockets are not files")
+    def test_socket_close_exception(self):
+        import errno, _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        os.close(s.fileno())
-        s.close()
+        _socket.socket(fileno=s.fileno()).close()
+        e = raises(OSError, s.close)
+        assert e.value.errno in (errno.EBADF, errno.ENOTSOCK)
+
+    def test_setblocking_invalidfd(self):
+        import errno, _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        _socket.socket(fileno=s.fileno()).close()
+        raises(OSError, s.setblocking, False)
 
     def test_socket_connect(self):
         import _socket, os
@@ -729,7 +745,7 @@ class AppTestNetlink:
     def setup_class(cls):
         if not hasattr(os, 'getpid'):
             pytest.skip("AF_NETLINK needs os.getpid()")
-        
+
         if cls.runappdirect:
             import _socket
             w_ok = hasattr(_socket, 'AF_NETLINK')

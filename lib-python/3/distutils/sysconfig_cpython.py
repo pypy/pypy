@@ -70,7 +70,7 @@ def get_python_version():
     leaving off the patchlevel.  Sample return values could be '1.5'
     or '2.2'.
     """
-    return sys.version[:3]
+    return '%d.%d' % sys.version_info[:2]
 
 
 def get_python_inc(plat_specific=0, prefix=None):
@@ -242,6 +242,8 @@ def get_makefile_filename():
         return os.path.join(_sys_home or project_base, "Makefile")
     lib_dir = get_python_lib(plat_specific=0, standard_lib=1)
     config_file = 'config-{}{}'.format(get_python_version(), build_flags)
+    if hasattr(sys.implementation, '_multiarch'):
+        config_file += '-%s' % sys.implementation._multiarch
     return os.path.join(lib_dir, config_file, 'Makefile')
 
 
@@ -273,10 +275,9 @@ def parse_config_h(fp, g=None):
                 g[m.group(1)] = 0
     return g
 
-
 # Regexes needed for parsing Makefile (and similar syntaxes,
 # like old-style Setup files).
-_variable_rx = re.compile("([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
+_variable_rx = re.compile(r"([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
 _findvar1_rx = re.compile(r"\$\(([A-Za-z][A-Za-z0-9_]*)\)")
 _findvar2_rx = re.compile(r"\${([A-Za-z][A-Za-z0-9_]*)}")
 
@@ -410,43 +411,22 @@ def expand_makefile_vars(s, vars):
             break
     return s
 
-
 _config_vars = None
 
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
-    g = {}
-    # load the installed Makefile:
-    try:
-        filename = get_makefile_filename()
-        parse_makefile(filename, g)
-    except OSError as msg:
-        my_msg = "invalid Python installation: unable to open %s" % filename
-        if hasattr(msg, "strerror"):
-            my_msg = my_msg + " (%s)" % msg.strerror
-
-        raise DistutilsPlatformError(my_msg)
-
-    # load the installed pyconfig.h:
-    try:
-        filename = get_config_h_filename()
-        with open(filename) as file:
-            parse_config_h(file, g)
-    except OSError as msg:
-        my_msg = "invalid Python installation: unable to open %s" % filename
-        if hasattr(msg, "strerror"):
-            my_msg = my_msg + " (%s)" % msg.strerror
-
-        raise DistutilsPlatformError(my_msg)
-
-    # On AIX, there are wrong paths to the linker scripts in the Makefile
-    # -- these paths are relative to the Python source, but when installed
-    # the scripts are in another directory.
-    if python_build:
-        g['LDSHARED'] = g['BLDSHARED']
-
+    # _sysconfigdata is generated at build time, see the sysconfig module
+    name = os.environ.get('_PYTHON_SYSCONFIGDATA_NAME',
+        '_sysconfigdata_{abi}_{platform}_{multiarch}'.format(
+        abi=sys.abiflags,
+        platform=sys.platform,
+        multiarch=getattr(sys.implementation, '_multiarch', ''),
+    ))
+    _temp = __import__(name, globals(), locals(), ['build_time_vars'], 0)
+    build_time_vars = _temp.build_time_vars
     global _config_vars
-    _config_vars = g
+    _config_vars = {}
+    _config_vars.update(build_time_vars)
 
 
 def _init_nt():

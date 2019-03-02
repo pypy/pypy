@@ -183,4 +183,48 @@ class AppTestScandir(object):
     def test_repr(self):
         posix = self.posix
         d = next(posix.scandir(self.dir1))
+        assert isinstance(d, posix.DirEntry)
         assert repr(d) == "<DirEntry 'file1'>"
+
+    def test_fspath(self):
+        posix = self.posix
+        d = next(posix.scandir(self.dir1))
+        assert self.posix.fspath(d).endswith('dir1/file1')
+
+    def test_resource_warning(self):
+        posix = self.posix
+        import warnings, gc
+        iterator = posix.scandir(self.dir1)
+        next(iterator)
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            del iterator
+            gc.collect()
+        assert isinstance(l[0].message, ResourceWarning)
+        #
+        iterator = posix.scandir(self.dir1)
+        next(iterator)
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            iterator.close()
+            del iterator
+            gc.collect()
+        assert len(l) == 0
+
+    def test_context_manager(self):
+        posix = self.posix
+        import warnings, gc
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            with posix.scandir(self.dir1) as iterator:
+                next(iterator)
+            del iterator
+            gc.collect()
+        assert not l
+
+    def test_lstat(self):
+        posix = self.posix
+        d = next(posix.scandir(self.dir1))
+        with open(d) as fp:
+            length = len(fp.read())
+        assert posix.lstat(d).st_size == length

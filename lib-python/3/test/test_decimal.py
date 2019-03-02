@@ -554,6 +554,10 @@ class ExplicitConstructionTest(unittest.TestCase):
         self.assertEqual(str(Decimal('  -7.89')), '-7.89')
         self.assertEqual(str(Decimal("  3.45679  ")), '3.45679')
 
+        # underscores
+        self.assertEqual(str(Decimal('1_3.3e4_0')), '1.33E+41')
+        self.assertEqual(str(Decimal('1_0_0_0')), '1000')
+
         # unicode whitespace
         for lead in ["", ' ', '\u00a0', '\u205f']:
             for trail in ["", ' ', '\u00a0', '\u205f']:
@@ -577,6 +581,9 @@ class ExplicitConstructionTest(unittest.TestCase):
 
             # embedded NUL
             self.assertRaises(InvalidOperation, Decimal, "12\u00003")
+
+            # underscores don't prevent errors
+            self.assertRaises(InvalidOperation, Decimal, "1_2_\u00003")
 
     @cpython_only
     def test_from_legacy_strings(self):
@@ -772,6 +779,9 @@ class ExplicitConstructionTest(unittest.TestCase):
         self.assertRaises(InvalidOperation, nc.create_decimal, "xyz")
         self.assertRaises(ValueError, nc.create_decimal, (1, "xyz", -25))
         self.assertRaises(TypeError, nc.create_decimal, "1234", "5678")
+        # no whitespace and underscore stripping is done with this method
+        self.assertRaises(InvalidOperation, nc.create_decimal, " 1234")
+        self.assertRaises(InvalidOperation, nc.create_decimal, "12_34")
 
         # too many NaN payload digits
         nc.prec = 3
@@ -2046,6 +2056,39 @@ class UsabilityTest(unittest.TestCase):
         self.assertEqual(d.as_tuple(), (0, (0,), 'F'))
         d = Decimal( (1, (0, 2, 7, 1), 'F') )
         self.assertEqual(d.as_tuple(), (1, (0,), 'F'))
+
+    def test_as_integer_ratio(self):
+        Decimal = self.decimal.Decimal
+
+        # exceptional cases
+        self.assertRaises(OverflowError,
+                          Decimal.as_integer_ratio, Decimal('inf'))
+        self.assertRaises(OverflowError,
+                          Decimal.as_integer_ratio, Decimal('-inf'))
+        self.assertRaises(ValueError,
+                          Decimal.as_integer_ratio, Decimal('-nan'))
+        self.assertRaises(ValueError,
+                          Decimal.as_integer_ratio, Decimal('snan123'))
+
+        for exp in range(-4, 2):
+            for coeff in range(1000):
+                for sign in '+', '-':
+                    d = Decimal('%s%dE%d' % (sign, coeff, exp))
+                    pq = d.as_integer_ratio()
+                    p, q = pq
+
+                    # check return type
+                    self.assertIsInstance(pq, tuple)
+                    self.assertIsInstance(p, int)
+                    self.assertIsInstance(q, int)
+
+                    # check normalization:  q should be positive;
+                    # p should be relatively prime to q.
+                    self.assertGreater(q, 0)
+                    self.assertEqual(math.gcd(p, q), 1)
+
+                    # check that p/q actually gives the correct value
+                    self.assertEqual(Decimal(p) / Decimal(q), d)
 
     def test_subclassing(self):
         # Different behaviours when subclassing Decimal

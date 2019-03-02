@@ -130,7 +130,8 @@ class ASTNodeVisitor(ASDLVisitor):
     def get_value_converter(self, field, value):
         if field.type in self.data.simple_types:
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
-        elif field.type in ("object", "singleton", "string", "bytes"):
+        elif field.type in ("object", "singleton", "constant",
+                            "string", "bytes"):
             return value
         elif field.type == "bool":
             return "space.newbool(%s)" % (value,)
@@ -155,7 +156,7 @@ class ASTNodeVisitor(ASDLVisitor):
     def get_value_extractor(self, field, value):
         if field.type in self.data.simple_types:
             return "%s.from_object(space, %s)" % (field.type, value)
-        elif field.type in ("object","singleton"):
+        elif field.type in ("object", "singleton", "constant"):
             return value
         elif field.type in ("string","bytes"):
             return "check_string(space, %s)" % (value,)
@@ -164,7 +165,7 @@ class ASTNodeVisitor(ASDLVisitor):
                 return "space.text_or_none_w(%s)" % (value,)
             return "space.text_w(%s)" % (value,)
         elif field.type in ("int",):
-            return "space.int_w(%s)" % (value,)
+            return "obj_to_int(space, %s, %s)" % (value, field.opt)
         elif field.type in ("bool",):
             return "space.bool_w(%s)" % (value,)
         else:
@@ -455,6 +456,14 @@ def get_field(space, w_node, name, optional):
                 "required field \"%s\" missing from %T", name, w_node)
         w_obj = space.w_None
     return w_obj
+
+def obj_to_int(space, w_value, optional):
+    if optional and space.is_w(w_value, space.w_None):
+        return 0
+    if not space.isinstance_w(w_value, space.w_long):
+        raise oefmt(space.w_ValueError,
+                    "invalid integer value: %R", w_value)
+    return space.int_w(w_value)
 
 
 class AST(object):

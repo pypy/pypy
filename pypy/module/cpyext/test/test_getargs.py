@@ -213,3 +213,25 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             ''', PY_SSIZE_T_CLEAN=True)
         assert type(charbuf(b'12345')) is bytes
         assert charbuf(b'12345') == b'12345'
+
+    def test_getargs_keywords(self):
+        # taken from lib-python/3/test_getargs2.py
+        module = self.import_extension('foo', [
+            ("getargs_keywords", "METH_KEYWORDS | METH_VARARGS",
+            '''
+            static char *keywords[] = {"arg1","arg2","arg3","arg4","arg5", NULL};
+            static char *fmt="(ii)i|(i(ii))(iii)i";
+            int int_args[10]={-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+
+            if (!PyArg_ParseTupleAndKeywords(args, kwargs, fmt, keywords,
+                &int_args[0], &int_args[1], &int_args[2], &int_args[3],
+                &int_args[4], &int_args[5], &int_args[6], &int_args[7],
+                &int_args[8], &int_args[9]))
+                return NULL;
+            return Py_BuildValue("iiiiiiiiii",
+                int_args[0], int_args[1], int_args[2], int_args[3], int_args[4],
+                int_args[5], int_args[6], int_args[7], int_args[8], int_args[9]
+                );
+            ''')])
+        raises(TypeError, module.getargs_keywords, (1,2), 3, (4,(5,6)), (7,8,9), **{'\uDC80': 10})
+

@@ -39,7 +39,11 @@ Small refactorings in the Python parser.
 
 .. branch: fix-readme-typo
 
-.. branch: avoid_shell_injection_in_shutil
+.. branch: py3.6-wordcode
+
+implement new wordcode instruction encoding on the 3.6 branch
+
+.. branch: socket_default_timeout_blockingness
 
 Backport CPython fix for possible shell injection issue in `distutils.spawn`,
 https://bugs.python.org/issue34540

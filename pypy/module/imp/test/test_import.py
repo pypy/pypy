@@ -794,7 +794,7 @@ def _testfile(space, magic, mtime, co=None):
     f.write(_getlong(mtime))
     if co:
         # marshal the code object with the PyPy marshal impl
-        pyco = PyCode._from_code(space, co)
+        pyco = space.createcompiler().compile(co, '?', 'exec', 0)
         w_marshal = space.getbuiltinmodule('marshal')
         w_marshaled_code = space.call_method(w_marshal, 'dumps', pyco)
         marshaled_code = space.bytes_w(w_marshaled_code)
@@ -815,7 +815,7 @@ class TestPycStuff:
     def test_read_compiled_module(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
@@ -835,7 +835,7 @@ class TestPycStuff:
     def test_load_compiled_module(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -860,7 +860,7 @@ class TestPycStuff:
     def test_load_compiled_module_nopathname(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -878,7 +878,7 @@ class TestPycStuff:
         finally:
             stream.close()
         filename = space.getattr(w_ret, space.wrap('__file__'))
-        assert space.str_w(filename) == u'?'
+        assert space.text_w(filename) == u'?'
 
     def test_parse_source_module(self):
         space = self.space
@@ -937,7 +937,7 @@ class TestPycStuff:
                     continue
                 pathname = "whatever"
                 mtime = 12345
-                co = compile('x = 42', '?', 'exec')
+                co = 'x = 42'
                 cpathname = _testfile(space1, importing.get_pyc_magic(space1),
                                       mtime, co)
                 w_modulename = space2.wrap('somemodule')

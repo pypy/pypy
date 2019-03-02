@@ -6,6 +6,7 @@ from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, generic_new_descr)
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
+from pypy.module.posix import interp_posix
 
 
 class Cache:
@@ -25,7 +26,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if not (space.isinstance_w(w_file, space.w_unicode) or
             space.isinstance_w(w_file, space.w_bytes) or
             space.isinstance_w(w_file, space.w_int)):
-        raise oefmt(space.w_TypeError, "invalid file: %R", w_file)
+        w_file = interp_posix.fspath(space, w_file)
 
     reading = writing = creating = appending = updating = text = binary = universal = False
 
@@ -68,18 +69,18 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         rawmode += "+"
 
     if universal:
-        if writing or appending:
+        if writing or appending or creating or updating:
             raise oefmt(space.w_ValueError,
-                        "can't use U and writing mode at once")
+                        "mode U cannot be combined with 'x', 'w', 'a', or '+'")
         space.warn(space.newtext("'U' mode is deprecated ('r' has the same "
                               "effect in Python 3.x)"),
                    space.w_DeprecationWarning)
     if text and binary:
         raise oefmt(space.w_ValueError,
                     "can't have text and binary mode at once")
-    if reading + writing + creating + appending > 1:
+    if creating + reading + writing + appending > 1:
         raise oefmt(space.w_ValueError,
-                    "must have exactly one of read/write/create/append mode")
+                    "must have exactly one of create/read/write/append mode")
     if binary and encoding is not None:
         raise oefmt(space.w_ValueError,
                     "binary mode doesn't take an encoding argument")

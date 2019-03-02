@@ -492,6 +492,8 @@ class W_Range(W_Root):
             pass
         else:
             if self.promote_step:
+                if start == 0:
+                    return W_IntRangeOneArgIterator(space, stop)
                 return W_IntRangeStepOneIterator(space, start, stop)
             return W_IntRangeIterator(space, start, length, step)
         return W_LongRangeIterator(space, self.w_start, self.w_step,
@@ -694,6 +696,29 @@ class W_IntRangeStepOneIterator(W_IntRangeIterator):
             item = self.current
             self.current = item + 1
             return space.newint(item)
+        raise OperationError(space.w_StopIteration, space.w_None)
+
+    def get_remaining(self, space):
+        return space.newint(self.stop - self.current)
+
+
+class W_IntRangeOneArgIterator(W_IntRangeIterator):
+    """ iterator for range(integer). useful because the jit knows that its
+    values are always >= 0 """
+
+    _immutable_fields_ = ['stop']
+
+    def __init__(self, space, stop):
+        self.current = 0
+        self.stop = stop
+        self.step = 1
+
+    def next(self, space):
+        current = self.current
+        assert current >= 0
+        if current < self.stop:
+            self.current = current + 1
+            return space.newint(current)
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def get_remaining(self, space):

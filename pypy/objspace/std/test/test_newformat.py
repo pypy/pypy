@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 """Test unicode/str's format method"""
 from __future__ import with_statement
 
@@ -222,6 +223,8 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
         d = {u"\u1000": u"foo"}
         assert u"{\u1000}".format(**d) == u"foo"
 
+    def test_padding_utf8_bug(self):
+        assert format(chr(228), "3") == chr(228) + u"  "
 
 class AppTestBoolFormat:
     def test_str_format(self):
@@ -246,12 +249,18 @@ class BaseIntegralFormattingTest:
     def test_invalid(self):
         raises(ValueError, format, self.i(8), "s")
         raises(ValueError, format, self.i(8), ".3")
+        raises(ValueError, format, self.i(3), '_,')
+        raises(ValueError, format, self.i(3), ',_')
+        raises(ValueError, format, self.i(3), '_,d')
+        raises(ValueError, format, self.i(3), ',_d')
+
 
     def test_c(self):
         a = self.i(ord("a"))
         assert format(a, "c") == "a"
         raises(ValueError, format, a, "-c")
         raises(ValueError, format, a, ",c")
+        raises(ValueError, format, a, "_c")
         raises(ValueError, format, a, "#c")
         assert format(a, "3c") == "  a"
         assert format(a, "<3c") == "a  "
@@ -262,6 +271,8 @@ class BaseIntegralFormattingTest:
     def test_binary(self):
         assert format(self.i(2), "b") == "10"
         assert format(self.i(2), "#b") == "0b10"
+        assert format(12345, '_b') == '11_0000_0011_1001'
+        raises(ValueError, format, self.i(1234567890), ',b')
 
     def test_octal(self):
         assert format(self.i(8), "o") == "10"
@@ -270,6 +281,8 @@ class BaseIntegralFormattingTest:
         assert format(self.i(-8), "#o") == "-0o10"
         assert format(self.i(8), "+o") == "+10"
         assert format(self.i(8), "+#o") == "+0o10"
+        raises(ValueError, format, self.i(1234567890), ',o')
+        assert format(self.i(1234567890), '_o'), '111_4540_1322'
 
     def test_hex(self):
         assert format(self.i(16), "x") == "10"
@@ -278,6 +291,10 @@ class BaseIntegralFormattingTest:
         assert format(self.i(10), "#x") == "0xa"
         assert format(self.i(10), "X") == "A"
         assert format(self.i(10), "#X") == "0XA"
+        raises(ValueError, format, 1234567890, ',x')
+        assert format(1234567890, '_x') == '4996_02d2'
+        assert format(1234567890, '_X') == '4996_02D2'
+
 
     def test_padding(self):
         assert format(self.i(6), "3") == "  6"
@@ -310,6 +327,14 @@ class BaseIntegralFormattingTest:
         assert format(self.i(1234), "0=10,") == "00,001,234"
         assert format(self.i(1234), "010,") == "00,001,234"
 
+    def test_thousands_separator_underscore(self):
+        assert format(self.i(123), "_") == "123"
+        assert format(self.i(12345), "_") == "12_345"
+        assert format(self.i(123456789), "_") == "123_456_789"
+        assert format(self.i(12345), "7_") == " 12_345"
+        assert format(self.i(12345), "<7_") == "12_345 "
+        assert format(self.i(1234), "0=10_") == "00_001_234"
+        assert format(self.i(1234), "010_") == "00_001_234"
 
 class AppTestIntFormatting(BaseIntegralFormattingTest):
     def setup_class(cls):
@@ -341,6 +366,9 @@ class AppTestFloatFormatting:
 
     def test_digit_separator(self):
         assert format(-1234., "012,f") == "-1,234.000000"
+
+    def test_digit_separator_underscore(self):
+        assert format(-1234., "012_f") == "-1_234.000000"
 
     def test_locale(self):
         import locale
@@ -455,3 +483,11 @@ class AppTestInternalMethods:
         assert isinstance(first, str)
         for x, y in l:
             assert isinstance(y, str)
+
+    def test_unknown_presentation_error_message(self):
+        class x(int):
+            pass
+
+        excinfo = raises(ValueError, "{:j}".format, x(1))
+        print(excinfo.value)
+        assert str(excinfo.value) == "Unknown format code j for object of type 'x'"

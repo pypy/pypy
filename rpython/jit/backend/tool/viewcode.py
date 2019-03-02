@@ -223,7 +223,7 @@ class CodeRange(object):
             addr = addrs[-1]
             final = '\tjmp' in line
             yield i, addr, final
-        if self.fallthrough and '\tret' not in line:
+        if self.fallthrough and '\tret' not in line and "\tjmp    r11" not in line:
             yield len(lines), self.addr + len(self.data), True
 
 

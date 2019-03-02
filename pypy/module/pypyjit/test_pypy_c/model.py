@@ -253,7 +253,6 @@ class InvalidMatch(Exception):
 
 
 class OpMatcher(object):
-    DUMMY = 1000
 
     def __init__(self, ops, id=None):
         self.ops = ops
@@ -285,12 +284,11 @@ class OpMatcher(object):
         if line.strip() == 'guard_not_invalidated?':
             return 'guard_not_invalidated', None, [], '...', False
         if line.strip() == 'dummy_get_utf8?':
-            cls.DUMMY += 1
-            return ('getfield_gc_r',
-                    'p%d' % cls.DUMMY,
-                    ['ConstPtr(ptr%d)' % cls.DUMMY],
-                    '<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .>',
-                    False)
+            # this is because unicode used to generate dummy getfield_gc_r
+            # of the _utf8 field.  Nowadays it no longer does.  This line
+            # is equivalent to a comment now.
+            return None
+
         # find the resvar, if any
         if ' = ' in line:
             resvar, _, line = line.partition(' = ')

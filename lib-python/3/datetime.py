@@ -155,12 +155,26 @@ def _build_struct_time(y, m, d, hh, mm, ss, dstflag):
     dnum = _days_before_month(y, m) + d
     return _time.struct_time((y, m, d, hh, mm, ss, wday, dnum, dstflag))
 
-def _format_time(hh, mm, ss, us):
-    # Skip trailing microseconds when us==0.
-    result = "%02d:%02d:%02d" % (hh, mm, ss)
-    if us:
-        result += ".%06d" % us
-    return result
+def _format_time(hh, mm, ss, us, timespec='auto'):
+    specs = {
+        'hours': '{:02d}',
+        'minutes': '{:02d}:{:02d}',
+        'seconds': '{:02d}:{:02d}:{:02d}',
+        'milliseconds': '{:02d}:{:02d}:{:02d}.{:03d}',
+        'microseconds': '{:02d}:{:02d}:{:02d}.{:06d}'
+    }
+
+    if timespec == 'auto':
+        # Skip trailing microseconds when us==0.
+        timespec = 'microseconds' if us else 'seconds'
+    elif timespec == 'milliseconds':
+        us //= 1000
+    try:
+        fmt = specs[timespec]
+    except KeyError:
+        raise ValueError('Unknown timespec value')
+    else:
+        return fmt.format(hh, mm, ss, us)
 
 # Correctly substitute for %z and %Z escapes in strftime formats.
 def _wrap_strftime(object, format, timetuple):
@@ -239,11 +253,11 @@ def _check_utc_offset(name, offset):
     if not isinstance(offset, timedelta):
         raise TypeError("tzinfo.%s() must return None "
                         "or timedelta, not '%s'" % (name, type(offset)))
-    if offset % timedelta(minutes=1) or offset.microseconds:
+    if offset.microseconds:
         raise ValueError("tzinfo.%s() must return a whole number "
-                         "of minutes, got %s" % (name, offset))
+                         "of seconds, got %s" % (name, offset))
     if not -timedelta(1) < offset < timedelta(1):
-        raise ValueError("%s()=%s, must be must be strictly between "
+        raise ValueError("%s()=%s, must be strictly between "
                          "-timedelta(hours=24) and timedelta(hours=24)" %
                          (name, offset))
 
@@ -277,7 +291,7 @@ def _check_date_fields(year, month, day):
         raise ValueError('day must be in 1..%d' % dim, day)
     return year, month, day
 
-def _check_time_fields(hour, minute, second, microsecond):
+def _check_time_fields(hour, minute, second, microsecond, fold):
     hour = _check_int_field(hour)
     minute = _check_int_field(minute)
     second = _check_int_field(second)
@@ -290,7 +304,9 @@ def _check_time_fields(hour, minute, second, microsecond):
         raise ValueError('second must be in 0..59', second)
     if not 0 <= microsecond <= 999999:
         raise ValueError('microsecond must be in 0..999999', microsecond)
-    return hour, minute, second, microsecond
+    if fold not in (0, 1):
+        raise ValueError('fold must be either 0 or 1', fold)
+    return hour, minute, second, microsecond, fold
 
 def _check_tzinfo_arg(tz):
     if tz is not None and not isinstance(tz, tzinfo):
@@ -939,6 +955,7 @@ date.min = date(1, 1, 1)
 date.max = date(9999, 12, 31)
 date.resolution = timedelta(days=1)
 
+
 class tzinfo:
     """Abstract base class for time zone info classes.
 
@@ -1035,11 +1052,11 @@ class time(timeinterop):
     dst()
 
     Properties (readonly):
-    hour, minute, second, microsecond, tzinfo
+    hour, minute, second, microsecond, tzinfo, fold
     """
-    __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo', '_hashcode'
+    __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo', '_hashcode', '_fold'
 
-    def __new__(cls, hour=0, minute=0, second=0, microsecond=0, tzinfo=None):
+    def __new__(cls, hour=0, minute=0, second=0, microsecond=0, tzinfo=None, *, fold=0):
         """Constructor.
 
         Arguments:
@@ -1047,15 +1064,16 @@ class time(timeinterop):
         hour, minute (required)
         second, microsecond (default to zero)
         tzinfo (default to None)
+        fold (keyword only, default to zero)
         """
-        if isinstance(hour, bytes) and len(hour) == 6 and hour[0] < 24:
+        if isinstance(hour, bytes) and len(hour) == 6 and hour[0]&0x7F < 24:
             # Pickle support
             self = timeinterop.__new__(cls)
             self.__setstate(hour, minute or None)
             self._hashcode = -1
             return self
-        hour, minute, second, microsecond = _check_time_fields(
-            hour, minute, second, microsecond)
+        hour, minute, second, microsecond, fold = _check_time_fields(
+            hour, minute, second, microsecond, fold)
         _check_tzinfo_arg(tzinfo)
         self = timeinterop.__new__(cls)
         self._hour = hour
@@ -1064,6 +1082,7 @@ class time(timeinterop):
         self._microsecond = microsecond
         self._tzinfo = tzinfo
         self._hashcode = -1
+        self._fold = fold
         return self
 
     # Read-only field accessors
@@ -1091,6 +1110,10 @@ class time(timeinterop):
     def tzinfo(self):
         """timezone info object"""
         return self._tzinfo
+
+    @property
+    def fold(self):
+        return self._fold
 
     # Standard conversions, __hash__ (and helpers)
 
@@ -1157,6 +1180,8 @@ class time(timeinterop):
     def __hash__(self):
         """Hash."""
         if self._hashcode == -1:
+            if self.fold:  # XXX: (PyPy) check this
+                self = self.replace(fold=0)
             # PyPy: uses an algo that, like _datetimemodule.c and
             # unlike the pure Python version, always relies on the
             # nondeterministic hash on strings.  Well, if we have no
@@ -1185,10 +1210,11 @@ class time(timeinterop):
             else:
                 sign = "+"
             hh, mm = divmod(off, timedelta(hours=1))
-            assert not mm % timedelta(minutes=1), "whole minute"
-            mm //= timedelta(minutes=1)
+            mm, ss = divmod(mm, timedelta(minutes=1))
             assert 0 <= hh < 24
             off = "%s%02d%s%02d" % (sign, hh, sep, mm)
+            if ss:
+                off += ':%02d' % ss.seconds
         return off
 
     def __repr__(self):
@@ -1205,16 +1231,22 @@ class time(timeinterop):
         if self._tzinfo is not None:
             assert s[-1:] == ")"
             s = s[:-1] + ", tzinfo=%r" % self._tzinfo + ")"
+        if self._fold:
+            assert s[-1:] == ")"
+            s = s[:-1] + ", fold=1)"
         return s
 
-    def isoformat(self):
+    def isoformat(self, timespec='auto'):
         """Return the time formatted according to ISO.
 
-        This is 'HH:MM:SS.mmmmmm+zz:zz', or 'HH:MM:SS+zz:zz' if
-        self.microsecond == 0.
+        The full format is 'HH:MM:SS.mmmmmm+zz:zz'. By default, the fractional
+        part is omitted if self.microsecond == 0.
+
+        The optional argument timespec specifies the number of additional
+        terms of the time to include.
         """
         s = _format_time(self._hour, self._minute, self._second,
-                         self._microsecond)
+                          self._microsecond, timespec)
         tz = self._tzstr()
         if tz:
             s += tz
@@ -1280,7 +1312,7 @@ class time(timeinterop):
         return offset
 
     def replace(self, hour=None, minute=None, second=None, microsecond=None,
-                tzinfo=True):
+                tzinfo=True, *, fold=None):
         """Return a new time with new values for the specified fields."""
         if hour is None:
             hour = self.hour
@@ -1292,15 +1324,20 @@ class time(timeinterop):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
+        if fold is None:
+            fold = self._fold
         return time.__new__(type(self),
                             hour, minute, second, microsecond, tzinfo)
 
     # Pickle support.
 
-    def _getstate(self):
+    def _getstate(self, protocol=3):
         us2, us3 = divmod(self._microsecond, 256)
         us1, us2 = divmod(us2, 256)
-        basestate = bytes([self._hour, self._minute, self._second,
+        h = self._hour
+        if self._fold and protocol > 3:
+            h += 128
+        basestate = bytes([h, self._minute, self._second,
                            us1, us2, us3])
         if self._tzinfo is None:
             return (basestate,)
@@ -1310,12 +1347,21 @@ class time(timeinterop):
     def __setstate(self, string, tzinfo):
         if tzinfo is not None and not isinstance(tzinfo, _tzinfo_class):
             raise TypeError("bad tzinfo state arg")
-        self._hour, self._minute, self._second, us1, us2, us3 = string
+        h, self._minute, self._second, us1, us2, us3 = string
+        if h > 127:
+            self._fold = 1
+            self._hour = h - 128
+        else:
+            self._fold = 0
+            self._hour = h
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
         self._tzinfo = tzinfo
 
+    def __reduce_ex__(self, protocol):
+        return (time, self._getstate(protocol))
+
     def __reduce__(self):
-        return (time, self._getstate())
+        return self.__reduce_ex__(2)
 
 _time_class = time  # so functions w/ args named "time" can get at the class
 
@@ -1332,16 +1378,16 @@ class datetime(date):
     __slots__ = date.__slots__ + time.__slots__
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
-                microsecond=0, tzinfo=None):
-        if isinstance(year, bytes) and len(year) == 10 and 1 <= year[2] <= 12:
+                microsecond=0, tzinfo=None, *, fold=0):
+        if isinstance(year, bytes) and len(year) == 10 and 1 <= year[2]&0x7F <= 12:
             # Pickle support
             self = dateinterop.__new__(cls)
             self.__setstate(year, month)
             self._hashcode = -1
             return self
         year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond = _check_time_fields(
-            hour, minute, second, microsecond)
+        hour, minute, second, microsecond, fold = _check_time_fields(
+            hour, minute, second, microsecond, fold)
         _check_tzinfo_arg(tzinfo)
         self = dateinterop.__new__(cls)
         self._year = int(year)
@@ -1353,6 +1399,7 @@ class datetime(date):
         self._microsecond = int(microsecond)
         self._tzinfo = tzinfo
         self._hashcode = -1
+        self._fold = fold
         return self
 
     # Read-only field accessors
@@ -1381,6 +1428,10 @@ class datetime(date):
         """timezone info object"""
         return self._tzinfo
 
+    @property
+    def fold(self):
+        return self._fold
+
     @classmethod
     def _fromtimestamp(cls, t, utc, tz):
         """Construct a datetime from a POSIX timestamp (like time.time()).
@@ -1399,7 +1450,23 @@ class datetime(date):
         converter = _time.gmtime if utc else _time.localtime
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(t)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
-        return cls(y, m, d, hh, mm, ss, us, tz)
+        result = cls(y, m, d, hh, mm, ss, us, tz)
+        if tz is None:
+            # As of version 2015f max fold in IANA database is
+            # 23 hours at 1969-09-30 13:00:00 in Kwajalein.
+            # Let's probe 24 hours in the past to detect a transition:
+            max_fold_seconds = 24 * 3600
+            y, m, d, hh, mm, ss = converter(t - max_fold_seconds)[:6]
+            probe1 = cls(y, m, d, hh, mm, ss, us, tz)
+            trans = result - probe1 - timedelta(0, max_fold_seconds)
+            if trans.days < 0:
+                y, m, d, hh, mm, ss = converter(t + trans // timedelta(0, 1))[:6]
+                probe2 = cls(y, m, d, hh, mm, ss, us, tz)
+                if probe2 == result:
+                    result._fold = 1
+        else:
+            result = tz.fromutc(result)
+        return result
 
     @classmethod
     def fromtimestamp(cls, t, tz=None):
@@ -1409,10 +1476,7 @@ class datetime(date):
         """
         _check_tzinfo_arg(tz)
 
-        result = cls._fromtimestamp(t, tz is not None, tz)
-        if tz is not None:
-            result = tz.fromutc(result)
-        return result
+        return cls._fromtimestamp(t, tz is not None, tz)
 
     @classmethod
     def utcfromtimestamp(cls, t):
@@ -1432,15 +1496,17 @@ class datetime(date):
         return cls.utcfromtimestamp(t)
 
     @classmethod
-    def combine(cls, date, time):
+    def combine(cls, date, time, tzinfo=True):
         "Construct a datetime from a given date and a given time."
         if not isinstance(date, _date_class):
             raise TypeError("date argument must be a date instance")
         if not isinstance(time, _time_class):
             raise TypeError("time argument must be a time instance")
+        if tzinfo is True:
+            tzinfo = time.tzinfo
         return cls(date.year, date.month, date.day,
                    time.hour, time.minute, time.second, time.microsecond,
-                   time.tzinfo)
+                   tzinfo, fold=time.fold)
 
     def timetuple(self):
         "Return local time tuple compatible with time.localtime()."
@@ -1455,12 +1521,46 @@ class datetime(date):
                                   self.hour, self.minute, self.second,
                                   dst)
 
+    def _mktime(self):
+        """Return integer POSIX timestamp."""
+        epoch = datetime(1970, 1, 1)
+        max_fold_seconds = 24 * 3600
+        t = (self - epoch) // timedelta(0, 1)
+        def local(u):
+            y, m, d, hh, mm, ss = _time.localtime(u)[:6]
+            return (datetime(y, m, d, hh, mm, ss) - epoch) // timedelta(0, 1)
+
+        # Our goal is to solve t = local(u) for u.
+        a = local(t) - t
+        u1 = t - a
+        t1 = local(u1)
+        if t1 == t:
+            # We found one solution, but it may not be the one we need.
+            # Look for an earlier solution (if `fold` is 0), or a
+            # later one (if `fold` is 1).
+            u2 = u1 + (-max_fold_seconds, max_fold_seconds)[self.fold]
+            b = local(u2) - u2
+            if a == b:
+                return u1
+        else:
+            b = t1 - u1
+            assert a != b
+        u2 = t - b
+        t2 = local(u2)
+        if t2 == t:
+            return u2
+        if t1 == t:
+            return u1
+        # We have found both offsets a and b, but neither t - a nor t - b is
+        # a solution.  This means t is in the gap.
+        return (max, min)[self.fold](u1, u2)
+
+
     def timestamp(self):
         "Return POSIX timestamp as float"
         if self._tzinfo is None:
-            return _time.mktime((self.year, self.month, self.day,
-                                 self.hour, self.minute, self.second,
-                                 -1, -1, -1)) + self.microsecond / 1e6
+            s = self._mktime()
+            return s + self.microsecond / 1e6
         else:
             return (self - _EPOCH).total_seconds()
 
@@ -1479,15 +1579,16 @@ class datetime(date):
 
     def time(self):
         "Return the time part, with tzinfo None."
-        return time(self.hour, self.minute, self.second, self.microsecond)
+        return time(self.hour, self.minute, self.second, self.microsecond, fold=self.fold)
 
     def timetz(self):
         "Return the time part, with same tzinfo."
         return time(self.hour, self.minute, self.second, self.microsecond,
-                    self._tzinfo)
+                    self._tzinfo, fold=self.fold)
 
     def replace(self, year=None, month=None, day=None, hour=None,
-                minute=None, second=None, microsecond=None, tzinfo=True):
+                minute=None, second=None, microsecond=None, tzinfo=True,
+                *, fold=None):
         """Return a new datetime with new values for the specified fields."""
         if year is None:
             year = self.year
@@ -1505,47 +1606,46 @@ class datetime(date):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
+        if fold is None:
+            fold = self.fold
         # PyPy fix: returns type(self)() instead of datetime()
         return datetime.__new__(type(self), year, month, day, hour, minute,
                                 second, microsecond, tzinfo)
 
+    def _local_timezone(self):
+        if self.tzinfo is None:
+            ts = self._mktime()
+        else:
+            ts = (self - _EPOCH) // timedelta(seconds=1)
+        localtm = _time.localtime(ts)
+        local = datetime(*localtm[:6])
+        try:
+            # Extract TZ data if available
+            gmtoff = localtm.tm_gmtoff
+            zone = localtm.tm_zone
+        except AttributeError:
+            delta = local - datetime(*_time.gmtime(ts)[:6])
+            zone = _time.strftime('%Z', localtm)
+            tz = timezone(delta, zone)
+        else:
+            tz = timezone(timedelta(seconds=gmtoff), zone)
+        return tz
+
     def astimezone(self, tz=None):
         if tz is None:
-            if self.tzinfo is None:
-                raise ValueError("astimezone() requires an aware datetime")
-            ts = (self - _EPOCH) // timedelta(seconds=1)
-            localtm = _time.localtime(ts)
-            local = datetime(*localtm[:6])
-            try:
-                # Extract TZ data if available
-                gmtoff = localtm.tm_gmtoff
-                zone = localtm.tm_zone
-            except AttributeError:
-                # Compute UTC offset and compare with the value implied
-                # by tm_isdst.  If the values match, use the zone name
-                # implied by tm_isdst.
-                delta = local - datetime(*_time.gmtime(ts)[:6])
-                dst = _time.daylight and localtm.tm_isdst > 0
-                gmtoff = -(_time.altzone if dst else _time.timezone)
-                if delta == timedelta(seconds=gmtoff):
-                    tz = timezone(delta, _time.tzname[dst])
-                else:
-                    tz = timezone(delta)
-            else:
-                tz = timezone(timedelta(seconds=gmtoff), zone)
-
+            tz = self._local_timezone()
         elif not isinstance(tz, tzinfo):
             raise TypeError("tz argument must be an instance of tzinfo")
 
         mytz = self.tzinfo
         if mytz is None:
-            raise ValueError("astimezone() requires an aware datetime")
+            mytz = self._local_timezone()
 
         if tz is mytz:
             return self
 
         # Convert self to UTC, and attach the new time zone object.
-        myoffset = self.utcoffset()
+        myoffset = mytz.utcoffset(self)
         if myoffset is None:
             raise ValueError("astimezone() requires an aware datetime")
         utc = (self - myoffset).replace(tzinfo=tz)
@@ -1565,21 +1665,25 @@ class datetime(date):
             self._hour, self._minute, self._second,
             self._year)
 
-    def isoformat(self, sep='T'):
+    def isoformat(self, sep='T', timespec='auto'):
         """Return the time formatted according to ISO.
 
-        This is 'YYYY-MM-DD HH:MM:SS.mmmmmm', or 'YYYY-MM-DD HH:MM:SS' if
-        self.microsecond == 0.
+        The full format looks like 'YYYY-MM-DD HH:MM:SS.mmmmmm'.
+        By default, the fractional part is omitted if self.microsecond == 0.
 
         If self.tzinfo is not None, the UTC offset is also attached, giving
-        'YYYY-MM-DD HH:MM:SS.mmmmmm+HH:MM' or 'YYYY-MM-DD HH:MM:SS+HH:MM'.
+        giving a full format of 'YYYY-MM-DD HH:MM:SS.mmmmmm+HH:MM'.
 
         Optional argument sep specifies the separator between date and
         time, default 'T'.
+
+        The optional argument timespec specifies the number of additional
+        terms of the time to include.
         """
         s = ("%04d-%02d-%02d%c" % (self._year, self._month, self._day, sep) +
              _format_time(self._hour, self._minute, self._second,
-                          self._microsecond))
+                          self._microsecond, timespec))
+
         off = self.utcoffset()
         if off is not None:
             if off.days < 0:
@@ -1588,9 +1692,11 @@ class datetime(date):
             else:
                 sign = "+"
             hh, mm = divmod(off, timedelta(hours=1))
-            assert not mm % timedelta(minutes=1), "whole minute"
-            mm //= timedelta(minutes=1)
+            mm, ss = divmod(mm, timedelta(minutes=1))
             s += "%s%02d:%02d" % (sign, hh, mm)
+            if ss:
+                assert not ss.microseconds
+                s += ":%02d" % ss.seconds
         return s
 
     def __repr__(self):
@@ -1607,6 +1713,9 @@ class datetime(date):
         if self._tzinfo is not None:
             assert s[-1:] == ")"
             s = s[:-1] + ", tzinfo=%r" % self._tzinfo + ")"
+        if self._fold:
+            assert s[-1:] == ")"
+            s = s[:-1] + ", fold=1)"
         return s
 
     def __str__(self):
@@ -1709,6 +1818,12 @@ class datetime(date):
         else:
             myoff = self.utcoffset()
             otoff = other.utcoffset()
+            # Assume that allow_mixed means that we are called from __eq__
+            if allow_mixed:
+                if myoff != self.replace(fold=not self.fold).utcoffset():
+                    return 2
+                if otoff != other.replace(fold=not other.fold).utcoffset():
+                    return 2
             base_compare = myoff == otoff
 
         if base_compare:
@@ -1779,9 +1894,13 @@ class datetime(date):
 
     def __hash__(self):
         if self._hashcode == -1:
-            tzoff = self.utcoffset()
+            if self.fold:
+                t = self.replace(fold=0)
+            else:
+                t = self
+            tzoff = t.utcoffset()
             if tzoff is None:
-                self._hashcode = hash(self._getstate()[0])
+                self._hashcode = hash(t._getstate()[0])
             else:
                 # PyPy: uses an algo that relies on the hash of strings,
                 # giving a nondeterministic result.  CPython doesn't do
@@ -1797,11 +1916,14 @@ class datetime(date):
 
     # Pickle support.
 
-    def _getstate(self):
+    def _getstate(self, protocol=3):
         yhi, ylo = divmod(self._year, 256)
         us2, us3 = divmod(self._microsecond, 256)
         us1, us2 = divmod(us2, 256)
-        basestate = bytes([yhi, ylo, self._month, self._day,
+        m = self._month
+        if self._fold and protocol > 3:
+            m += 128
+        basestate = bytes([yhi, ylo, m, self._day,
                            self._hour, self._minute, self._second,
                            us1, us2, us3])
         if self._tzinfo is None:
@@ -1812,14 +1934,23 @@ class datetime(date):
     def __setstate(self, string, tzinfo):
         if tzinfo is not None and not isinstance(tzinfo, _tzinfo_class):
             raise TypeError("bad tzinfo state arg")
-        (yhi, ylo, self._month, self._day, self._hour,
+        (yhi, ylo, m, self._day, self._hour,
          self._minute, self._second, us1, us2, us3) = string
+        if m > 127:
+            self._fold = 1
+            self._month = m - 128
+        else:
+            self._fold = 0
+            self._month = m
         self._year = yhi * 256 + ylo
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
         self._tzinfo = tzinfo
 
+    def __reduce_ex__(self, protocol):
+        return (self.__class__, self._getstate(protocol))
+
     def __reduce__(self):
-        return (self.__class__, self._getstate())
+        return self.__reduce_ex__(2)
 
 
 datetime.min = datetime(1, 1, 1)
@@ -1939,6 +2070,8 @@ class timezone(tzinfo):
 
     @staticmethod
     def _name_from_offset(delta):
+        if not delta:
+            return 'UTC'
         if delta < timedelta(0):
             sign = '-'
             delta = -delta

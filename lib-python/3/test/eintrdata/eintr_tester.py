@@ -9,7 +9,7 @@ sub-second periodicity (contrarily to signal()).
 """
 
 import contextlib
-import io
+import faulthandler
 import os
 import select
 import signal
@@ -20,6 +20,7 @@ import time
 import unittest
 
 from test import support
+android_not_root = support.android_not_root
 
 @contextlib.contextmanager
 def kill_on_error(proc):
@@ -50,6 +51,10 @@ class EINTRBaseTest(unittest.TestCase):
         signal.setitimer(signal.ITIMER_REAL, cls.signal_delay,
                          cls.signal_period)
 
+        # Issue #25277: Use faulthandler to try to debug a hang on FreeBSD
+        if hasattr(faulthandler, 'dump_traceback_later'):
+            faulthandler.dump_traceback_later(10 * 60, exit=True)
+
     @classmethod
     def stop_alarm(cls):
         signal.setitimer(signal.ITIMER_REAL, 0, 0)
@@ -58,6 +63,8 @@ class EINTRBaseTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.stop_alarm()
         signal.signal(signal.SIGALRM, cls.orig_handler)
+        if hasattr(faulthandler, 'cancel_dump_traceback_later'):
+            faulthandler.cancel_dump_traceback_later()
 
     def subprocess(self, *args, **kw):
         cmd_args = (sys.executable, '-c') + args
@@ -77,6 +84,9 @@ class OSEINTRTest(EINTRBaseTest):
         processes = [self.new_sleep_process() for _ in range(num)]
         for _ in range(num):
             wait_func()
+        # Call the Popen method to avoid a ResourceWarning
+        for proc in processes:
+            proc.wait()
 
     def test_wait(self):
         self._test_wait_multiple(os.wait)
@@ -88,6 +98,8 @@ class OSEINTRTest(EINTRBaseTest):
     def _test_wait_single(self, wait_func):
         proc = self.new_sleep_process()
         wait_func(proc.pid)
+        # Call the Popen method to avoid a ResourceWarning
+        proc.wait()
 
     def test_waitpid(self):
         self._test_wait_single(lambda pid: os.waitpid(pid, 0))
@@ -300,6 +312,7 @@ class SocketEINTRTest(EINTRBaseTest):
     # https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=203162
     @support.requires_freebsd_version(10, 3)
     @unittest.skipUnless(hasattr(os, 'mkfifo'), 'needs mkfifo()')
+    @unittest.skipIf(android_not_root, "mkfifo not allowed, non root user")
     def _test_open(self, do_open_close_reader, do_open_close_writer):
         filename = support.TESTFN
 
@@ -424,6 +437,8 @@ class SelectEINTRTest(EINTRBaseTest):
         self.stop_alarm()
         self.assertGreaterEqual(dt, self.sleep_time)
 
+    @unittest.skipIf(sys.platform == "darwin",
+                     "poll may fail on macOS; see issue #28087")
     @unittest.skipUnless(hasattr(select, 'poll'), 'need select.poll')
     def test_poll(self):
         poller = select.poll()

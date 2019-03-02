@@ -48,8 +48,8 @@ class W_MyObject(W_Root):
         return NonConstant("foobar")
     bytes_w = text_w
 
-    def unicode_w(self, space):
-        return NonConstant(u"foobar")
+    def utf8_w(self, space):
+        return NonConstant("foobar")
 
     def int_w(self, space, allow_conversion=True):
         return NonConstant(-42)
@@ -68,6 +68,15 @@ class W_MyListObj(W_MyObject):
     def append(self, w_other):
         pass
 
+class W_UnicodeOjbect(W_MyObject):
+    _length = 21
+    _utf8 = 'foobar'
+    def _index_to_byte(self, at):
+        return NonConstant(42)
+    def _len(self):
+        return self._length
+    
+
 class W_MyType(W_MyObject):
     name = "foobar"
     flag_map_or_seq = '?'
@@ -82,7 +91,7 @@ class W_MyType(W_MyObject):
         return w_some_obj()
 
     def getname(self, space):
-        return self.name.decode('utf-8')
+        return self.name
 
 def w_some_obj():
     if NonConstant(False):
@@ -215,11 +224,12 @@ class FakeObjSpace(ObjSpace):
     def newbytes(self, x):
         return w_some_obj()
 
-    def newunicode(self, x):
+    def newutf8(self, x, l):
         return w_some_obj()
 
-    def newtext(self, x):
-        return w_some_obj()
+    @specialize.argtype(1)
+    def newtext(self, x, lgt=-1):
+        return W_UnicodeOjbect()
     newtext_or_none = newtext
     newfilename = newtext
 

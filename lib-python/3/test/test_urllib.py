@@ -247,11 +247,12 @@ class ProxyTests(unittest.TestCase):
     def test_proxy_bypass_environment_host_match(self):
         bypass = urllib.request.proxy_bypass_environment
         self.env.set('NO_PROXY',
-            'localhost, anotherdomain.com, newdomain.com:1234')
+                     'localhost, anotherdomain.com, newdomain.com:1234, .d.o.t')
         self.assertTrue(bypass('localhost'))
         self.assertTrue(bypass('LocalHost'))                 # MixedCase
         self.assertTrue(bypass('LOCALHOST'))                 # UPPERCASE
         self.assertTrue(bypass('newdomain.com:1234'))
+        self.assertTrue(bypass('foo.d.o.t'))                 # issue 29142
         self.assertTrue(bypass('anotherdomain.com:8888'))
         self.assertTrue(bypass('www.newdomain.com:1234'))
         self.assertFalse(bypass('prelocalhost'))
@@ -469,10 +470,11 @@ Connection: close
     @unittest.skipUnless(ssl, "ssl module required")
     def test_cafile_and_context(self):
         context = ssl.create_default_context()
-        with self.assertRaises(ValueError):
-            urllib.request.urlopen(
-                "https://localhost", cafile="/nonexistent/path", context=context
-            )
+        with support.check_warnings(('', DeprecationWarning)):
+            with self.assertRaises(ValueError):
+                urllib.request.urlopen(
+                    "https://localhost", cafile="/nonexistent/path", context=context
+                )
 
 class urlopen_DataTests(unittest.TestCase):
     """Test urlopen() opening a data URL."""
@@ -729,7 +731,7 @@ FF
 
 
 class QuotingTests(unittest.TestCase):
-    """Tests for urllib.quote() and urllib.quote_plus()
+    r"""Tests for urllib.quote() and urllib.quote_plus()
 
     According to RFC 2396 (Uniform Resource Identifiers), to escape a
     character you write it as '%' + <2 character US-ASCII hex value>.
@@ -804,7 +806,7 @@ class QuotingTests(unittest.TestCase):
         # Make sure all characters that should be quoted are by default sans
         # space (separate test for that).
         should_quote = [chr(num) for num in range(32)] # For 0x00 - 0x1F
-        should_quote.append('<>#%"{}|\^[]`')
+        should_quote.append(r'<>#%"{}|\^[]`')
         should_quote.append(chr(127)) # For 0x7F
         should_quote = ''.join(should_quote)
         for char in should_quote:

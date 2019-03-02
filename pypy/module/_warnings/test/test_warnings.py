@@ -42,6 +42,13 @@ class AppTestWarnings:
         _warnings.warn_explicit("some message", Warning,
                                 "<string>", 1, module_globals=globals())
 
+    def test_with_source(self):
+        import warnings, _warnings
+        source = []
+        with warnings.catch_warnings(record=True) as w:
+            _warnings.warn("some message", Warning, source=source)
+        assert w[0].source is source
+
     def test_default_action(self):
         import warnings, _warnings
         warnings.defaultaction = 'ignore'
