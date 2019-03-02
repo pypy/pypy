@@ -14,3 +14,19 @@ class AppTestMinimal:
         assert m.strides == (6, 2)
         assert m.format == 'T{<h:a}'
         assert m.itemsize == 2
+
+    def test_bufferable(self):
+        from __pypy__ import bufferable, newmemoryview
+        class B(bufferable.bufferable):
+            def __init__(self):
+                self.data = bytearray('abc')
+
+            def __buffer__(self, flags):
+                return newmemoryview(memoryview(self.data), 1, 'B')
+
+
+        obj = B()
+        buf = buffer(obj)
+        v = obj.data[2]
+        assert ord(buf[2]) == v
+

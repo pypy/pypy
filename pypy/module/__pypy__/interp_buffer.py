@@ -17,6 +17,10 @@ class W_Bufferable(W_Root):
             raise oefmt(space.w_ValueError, "override __buffer__ in a subclass")
         return space.call_method(self, '__buffer__', w_flags)
 
+    def readbuf_w(self, space):
+        mv = space.call_method(self, '__buffer__', space.newint(0))
+        return mv.buffer_w(space, 0).as_readbuf()
+
 W_Bufferable.typedef = TypeDef("Bufferable", None, None, 'read-write',
     __doc__ = """a helper class for a app-level class (like _ctypes.Array)
 that want to support tp_as_buffer.bf_getbuffer via a __buffer__ method""",
