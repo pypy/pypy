@@ -10,9 +10,9 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatErrorW(errcode)
     w_errcode = space.newint(errcode)
-    raise OperationError(space.w_WindowsError,
-                         space.newtuple([w_errcode, space.newtext(message),
-                                        space.w_None, w_errcode]))
+    w_t = space.newtuple([w_errcode, space.newtext(*message),
+                                        space.w_None, w_errcode])
+    raise OperationError(space.w_WindowsError, w_t)
 
 class W_HKEY(W_Root):
     def __init__(self, space, hkey):
