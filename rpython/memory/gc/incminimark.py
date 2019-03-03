@@ -3137,18 +3137,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_dealloc_pending = self.AddressStack()
             self.rrc_tp_traverse = tp_traverse
             self.rrc_pyobj_list = self._pygchdr(pyobj_list)
-            self.rrc_pyobj_old_list = \
-                lltype.malloc(self.PYOBJ_GC_HDR, flavor='raw', immortal=True)
-            self.rrc_pyobj_old_list.c_gc_next = self.rrc_pyobj_old_list
-            self.rrc_pyobj_old_list.c_gc_prev = self.rrc_pyobj_old_list
-            self.rrc_pyobj_isolate_list = \
-                lltype.malloc(self.PYOBJ_GC_HDR, flavor='raw', immortal=True)
-            self.rrc_pyobj_isolate_list.c_gc_next = self.rrc_pyobj_isolate_list
-            self.rrc_pyobj_isolate_list.c_gc_prev = self.rrc_pyobj_isolate_list
-            self.rrc_pyobj_garbage_list = \
-                lltype.malloc(self.PYOBJ_GC_HDR, flavor='raw', immortal=True)
-            self.rrc_pyobj_garbage_list.c_gc_next = self.rrc_pyobj_garbage_list
-            self.rrc_pyobj_garbage_list.c_gc_prev = self.rrc_pyobj_garbage_list
+            self.rrc_pyobj_old_list = self._rrc_gc_list_new()
+            self.rrc_pyobj_isolate_list = self._rrc_gc_list_new()
+            self.rrc_pyobj_dead_list = self._rrc_gc_list_new()
+            self.rrc_pyobj_garbage_list = self._rrc_gc_list_new()
             self.rrc_gc_as_pyobj = gc_as_pyobj
             self.rrc_pyobj_as_gc = pyobj_as_gc
             self.rrc_finalizer_type = finalizer_type
@@ -3224,14 +3216,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.NULL
 
     def rawrefcount_cyclic_garbage_head(self):
-        if not self._rrc_gc_list_is_empty(self.rrc_pyobj_garbage_list):
+        if not self._rrc_gc_list_is_empty(self.rrc_pyobj_dead_list):
             return llmemory.cast_ptr_to_adr(
-                self.rrc_gc_as_pyobj(self.rrc_pyobj_garbage_list.c_gc_next))
+                self.rrc_gc_as_pyobj(self.rrc_pyobj_dead_list.c_gc_next))
         else:
             return llmemory.NULL
 
     def rawrefcount_cyclic_garbage_remove(self):
-        gchdr = self.rrc_pyobj_garbage_list.c_gc_next
+        gchdr = self.rrc_pyobj_dead_list.c_gc_next
         # remove from old list
         next = gchdr.c_gc_next
         next.c_gc_prev = gchdr.c_gc_prev
@@ -3254,25 +3246,40 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
 
     def rawrefcount_next_garbage_pypy(self):
-        # return the next pypy object which is only reachable from garbage
-        # pyobjects, probably need two more colors for this. one for marking
-        # so that they stay alive during sweep, one for marking, so they do not
-        # get returned here again
-        return lltype.nullptr(llmemory.GCREF.TO)
+        # We assume that next_garbage_pypy is always called before
+        # next_garbage_pyobj. As pypy objects can only be in garbage, if there
+        # is at least one pyobj in garbage, we can use this optimization.
+        if self._rrc_gc_list_is_empty(self.rrc_pyobj_garbage_list):
+            return lltype.nullptr(llmemory.GCREF.TO)
+        else:
+            # TODO: return the next pypy object which is marked with GCFLAG_GARBAGE and
+            #       remove the flag from this object. We can safely assume that objects
+            #       do not move, as this can only happen to old objects.
+            return lltype.nullptr(llmemory.GCREF.TO)
 
-    def rawrefcount_next_garbage_pyobj(self, curr_pyobj):
-        # implement st objects in this list still remain in the set of
-        # all pyobjs, because references could still change and cause them
-        # to live again. also keep in mind, that state will create references
-        # to pyobjs in this list and might increment the refcount.
-        return llmemory.NULL
+    def rawrefcount_next_garbage_pyobj(self):
+        if self._rrc_gc_list_is_empty(self.rrc_pyobj_garbage_list):
+            return llmemory.NULL
+        else:
+            # rrc_pyobj_garbage_list is not a real list, it just points to
+            # the first (c_gc_next) and last (c_gc_prev) pyobject in the list
+            # of live objects that are garbage, so just fix the references
+            list = self.rrc_pyobj_garbage_list
+            gchdr = list.c_gc_next
+            if list.c_gc_prev == gchdr:
+                list.c_gc_next = list # reached end of list, reset it
+            else:
+                list.c_gc_next = gchdr.c_gc_next # move pointer foward
+            return llmemory.cast_ptr_to_adr(self.rrc_gc_as_pyobj(gchdr))
 
     def rrc_invoke_callback(self):
         if self.rrc_enabled and (self.rrc_dealloc_pending.non_empty() or
-                                 self.rrc_pyobj_isolate_list.c_gc_next <>
-                                 self.rrc_pyobj_isolate_list or
-                                 self.rrc_pyobj_garbage_list.c_gc_next <>
-                                 self.rrc_pyobj_garbage_list):
+                                 not self._rrc_gc_list_is_empty(
+                                     self.rrc_pyobj_isolate_list) or
+                                 not self._rrc_gc_list_is_empty(
+                                     self.rrc_pyobj_dead_list) or
+                                 not self._rrc_gc_list_is_empty(
+                                     self.rrc_pyobj_garbage_list)):
             self.rrc_dealloc_trigger_callback()
 
     def rrc_minor_collection_trace(self):
@@ -3392,7 +3399,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._rrc_collect_rawrefcount_roots(self.rrc_pyobj_list)
             # mark all objects reachable from rawrefcounted roots
             self._rrc_mark_rawrefcount()
-            self._rrc_mark_garbage() # handle legacy finalizers
+            self.rrc_state = self.RAWREFCOUNT_STATE_MARKING
+            if self._rrc_find_garbage(): # handle legacy finalizers
+                self._rrc_mark_garbage()
+            self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
             use_cylicrc = not self._rrc_find_finalizer() # modern finalizers
         else:
             use_cylicrc = False # don't sweep any objects in cyclic isolates
@@ -3450,7 +3460,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT:
             if not self._rrc_gc_list_is_empty(self.rrc_pyobj_old_list):
                 self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
-                                        self.rrc_pyobj_garbage_list)
+                                        self.rrc_pyobj_dead_list)
 
     def _rrc_major_free(self, pyobject, surviving_list, surviving_dict):
         # The pyobject survives if the corresponding obj survives.
@@ -3553,11 +3563,65 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # now all rawrefcounted objects, which are alive, have a cyclic
         # refcount > 0 or are marked
 
+    def _rrc_find_garbage(self):
+        found_garbage = False
+        gchdr = self.rrc_pyobj_old_list.c_gc_next
+        while gchdr <> self.rrc_pyobj_old_list:
+            next_old = gchdr.c_gc_next
+            garbage = self.rrc_finalizer_type(gchdr) == \
+                      self.RAWREFCOUNT_FINALIZER_LEGACY
+            if garbage:
+                self._rrc_move_to_garbage(gchdr)
+                found_garbage = True
+            gchdr = next_old
+        return found_garbage
+
     def _rrc_mark_garbage(self):
-        self.rrc_state = self.RAWREFCOUNT_STATE_MARKING
-        # TODO: move all pyobjs to sublist of pyobj_list and reset cyclic refcount
-        # TODO: mark all pypy-objects with special flag and mark them visited
-        self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
+        found_garbage = True
+        #
+        while found_garbage:
+            found_garbage = False
+            gchdr = self.rrc_pyobj_old_list.c_gc_next
+            while gchdr <> self.rrc_pyobj_old_list:
+                next_old = gchdr.c_gc_next
+                alive = (gchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT) > 0
+                pyobj = self.rrc_gc_as_pyobj(gchdr)
+                if pyobj.c_ob_pypy_link <> 0:
+                    intobj = pyobj.c_ob_pypy_link
+                    obj = llmemory.cast_int_to_adr(intobj)
+                    if not alive and self.header(obj).tid & (
+                            GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
+                        # add fake refcount, to mark it as live
+                        gchdr.c_gc_refs += 1 << self.RAWREFCOUNT_REFS_SHIFT
+                        alive = True
+                if alive:
+                    self._rrc_move_to_garbage(gchdr)
+                    found_garbage = True
+                gchdr = next_old
+
+    def _rrc_move_to_garbage(self, gchdr):
+        pyobj = self.rrc_gc_as_pyobj(gchdr)
+        # remove from old list
+        next = gchdr.c_gc_next
+        next.c_gc_prev = gchdr.c_gc_prev
+        gchdr.c_gc_prev.c_gc_next = next
+        # add to beginning of pyobj_list
+        self._rrc_gc_list_add(self.rrc_pyobj_list, gchdr)
+        # set as new beginning (and optionally end) of
+        # pyobj_garbage_list (not a real list, just pointers to
+        # begin and end)
+        if self._rrc_gc_list_is_empty(self.rrc_pyobj_garbage_list):
+            self.rrc_pyobj_garbage_list.c_gc_prev = gchdr
+        self.rrc_pyobj_garbage_list.c_gc_next = gchdr
+        # mark referenced objects alive (so objects in the old list
+        # will be detected as garbage, as they should have a cyclic
+        # refcount of zero or an unmarked linked pypy object)
+        self._rrc_traverse(pyobj, 1)
+        if pyobj.c_ob_pypy_link <> 0:
+            intobj = pyobj.c_ob_pypy_link
+            obj = llmemory.cast_int_to_adr(intobj)
+            self.objects_to_trace.append(obj)
+            self.visit_all_objects()
 
     def _rrc_check_finalizer(self):
         # Check, if the cyclic isolate from the last collection cycle
@@ -3576,7 +3640,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                     self.rrc_pyobj_list)
         else:
             self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
-                                    self.rrc_pyobj_garbage_list)
+                                    self.rrc_pyobj_dead_list)
 
     def _rrc_find_finalizer(self):
         found_finalizer = False
@@ -3618,6 +3682,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_tp_traverse(pyobj, callback_ptr, self_ptr)
         else:
             self.rrc_tp_traverse(pyobj, self._rrc_visit_action, None)
+
+    def _rrc_gc_list_new(self):
+        list = lltype.malloc(self.PYOBJ_GC_HDR, flavor='raw', immortal=True)
+        self._rrc_gc_list_init(list)
+        return list
 
     def _rrc_gc_list_init(self, pygclist):
         pygclist.c_gc_next = pygclist

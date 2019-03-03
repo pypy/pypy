@@ -120,15 +120,12 @@ class State:
                     if not py_obj:
                         break
                     w_list.append(w_obj)
-                last_py_obj = lltype.nullptr(PyObject.TO)
                 while True:
-                    w_pyobj = rawrefcount.next_garbage_pyobj(PyObject,
-                                                             last_py_obj)
+                    w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
                     if not w_pyobj:
                         break
                     w_obj = from_ref(space, w_pyobj)
                     w_list.append(w_obj)
-                    last_py_obj = w_pyobj
                 space.setattr(space.builtin_modules['gc'],
                               space.newtext('garbage'), w_list)
                 rawrefcount.end_garbage()
@@ -330,14 +327,12 @@ def _rawrefcount_perform(space):
         if not py_obj:
             break
         w_list.append(w_obj)
-    last_py_obj = lltype.nullptr(PyObject.TO)
     while True:
-        w_pyobj = rawrefcount.next_garbage_pyobj(PyObject, last_py_obj)
+        w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
         if not w_pyobj:
             break
         w_obj = from_ref(space, w_pyobj)
         w_list.append(w_obj)
-        last_py_obj = w_pyobj
     space.setattr(space.builtin_modules['gc'], space.newtext('garbage'),
                   w_list)
     rawrefcount.end_garbage()

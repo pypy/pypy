@@ -51,7 +51,7 @@ class TestRawRefCount(BaseDirectGCTest):
             if pyobj in self.pyobjs and \
                     self.pyobj_finalizer.has_key(self.pyobjs.index(pyobj)):
                 # TODO: improve test, so that NONE is returned, if finalizer
-                #       has already been called
+                #       has already been called (only for modern)
                 return self.pyobj_finalizer[self.pyobjs.index(pyobj)]
             else:
                 return RAWREFCOUNT_FINALIZER_NONE
@@ -472,7 +472,7 @@ class TestRawRefCount(BaseDirectGCTest):
             rooted = attr['rooted'] == "y" if 'rooted' in attr else False
             ext_refcnt = int(attr['ext_refcnt']) if 'ext_refcnt' in attr else 0
             finalizer = attr['finalizer'] if 'finalizer' in attr else None
-            if finalizer <> None:
+            if finalizer == "modern":
                 finalizers = True
             resurrect = attr['resurrect'] if 'resurrect' in attr else None
             delete = attr['delete'] if 'delete' in attr else None
@@ -632,12 +632,10 @@ class TestRawRefCount(BaseDirectGCTest):
             while next_garbage <> lltype.nullptr(llmemory.GCREF.TO):
                 garbage_pypy.append(next_garbage)
                 next_garbage = self.gc.rawrefcount_next_garbage_pypy()
-            last_pyobj = llmemory.NULL
-            next = self.gc.rawrefcount_next_garbage_pyobj(last_pyobj)
+            next = self.gc.rawrefcount_next_garbage_pyobj()
             while next <> llmemory.NULL:
                 garbage_pyobj.append(next)
-                next = self.gc.rawrefcount_next_garbage_pyobj(last_pyobj)
-                last_pyobj = next
+                next = self.gc.rawrefcount_next_garbage_pyobj()
             self.gc.rawrefcount_end_garbage()
 
         # do a collection to find cyclic isolates and clean them, if there are

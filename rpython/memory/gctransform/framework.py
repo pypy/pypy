@@ -528,8 +528,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 GCClass.rawrefcount_next_garbage_pypy, [s_gc],
                 s_gcref, inline = True)
             self.rawrefcount_next_garbage_pyobj_ptr = getfn(
-                GCClass.rawrefcount_next_garbage_pyobj, [s_gc, SomeAddress()],
-                SomeAddress(), inline = True)
+                GCClass.rawrefcount_next_garbage_pyobj, [s_gc], SomeAddress(),
+                inline = True)
 
         if GCClass.can_usually_pin_objects:
             self.pin_ptr = getfn(GCClass.pin,
@@ -1453,12 +1453,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=hop.spaceop.result)
 
     def gct_gc_rawrefcount_next_garbage_pyobj(self, hop):
-        [v_pyobject] = hop.spaceop.args
-        assert v_pyobject.concretetype == llmemory.Address
         assert hop.spaceop.result.concretetype == llmemory.Address
         hop.genop("direct_call",
-                  [self.rawrefcount_next_garbage_pyobj_ptr, self.c_const_gc,
-                   v_pyobject],
+                  [self.rawrefcount_next_garbage_pyobj_ptr, self.c_const_gc],
                   resultvar=hop.spaceop.result)
 
     def _set_into_gc_array_part(self, op):

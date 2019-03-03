@@ -53,14 +53,15 @@ Py_ssize_t
 _PyPy_finalizer_type(PyGC_Head *gc)
 {
     PyObject *op = FROM_GC(gc);
-    if (!_PyGCHead_FINALIZED(gc) &&
+    if (Py_TYPE(op)->tp_del != NULL) {
+        return 2; // legacy (has priority over modern)
+    } else if (!_PyGCHead_FINALIZED(gc) &&
         PyType_HasFeature(Py_TYPE(op), Py_TPFLAGS_HAVE_FINALIZE) &&
         Py_TYPE(op)->tp_finalize != NULL) {
-        return 1;
+        return 1; // modern
     } else {
-        return 0;
+        return 0; // no finalizer
     }
-    // TODO: legacy finalizer (tp_del)
 }
 
 void
