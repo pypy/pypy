@@ -8,11 +8,14 @@ IS_ARM = platform.machine().startswith('arm')
 IS_WIN = sys.platform == 'win32'
 if IS_ARM:
     # XXX Choose neon accelaration
+    define_macros = []
     extra_compile_args = []
 elif IS_WIN:
-    extra_compile_args = ['/arch:SSE2']
+    extra_compile_args = []
+    define_macros = [('__SSE2__', '1')]
 else:
     extra_compile_args = ['-msse2']
+    define_macros = []
     
     
 
@@ -86,6 +89,7 @@ blake2b_ffi.set_source(
             ],
     include_dirs=[_libdir],
     extra_compile_args=extra_compile_args,
+    define_macros=define_macros,
 )
 
 def _replace_b2s(src):
@@ -102,6 +106,7 @@ blake2s_ffi.set_source(
             ],
     include_dirs=[_libdir],
     extra_compile_args=extra_compile_args,
+    define_macros=define_macros,
 )
 
 if __name__ == '__main__':
