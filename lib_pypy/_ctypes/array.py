@@ -4,7 +4,7 @@ import _rawffi
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject, as_ffi_pointer
-import sys, __pypy__
+import sys, __pypy__, struct
 
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
@@ -252,9 +252,12 @@ class Array(_CData):
             except AttributeError:
                 break
             obj = obj[0]
-        
+
         fmt = get_format_str(obj._type_)
-        itemsize = len(memoryview(obj[0]))
+        try:
+            itemsize = struct.calcsize(fmt[1:])
+        except:
+            itemsize = len(memoryview(obj[0]))
         return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
 
 ARRAY_CACHE = {}
@@ -288,7 +291,8 @@ def get_format_str(typ):
             bo = byteorder[sys.byteorder]
         flds = []
         for name, obj in typ._fields_:
-            ch = get_format_str(obj)
+            # Trim off the leading '<' or '>'
+            ch = get_format_str(obj)[1:]
             if (ch) == 'B':
                 flds.append(byteorder[sys.byteorder])
             else:
@@ -299,6 +303,7 @@ def get_format_str(typ):
             flds.append(':')
         return 'T{' + ''.join(flds) + '}'
     elif hasattr(typ, '_type_'):
-        return typ._type_
+        ch = typ._type_
+        return byteorder[sys.byteorder] + ch
     else:
         raise ValueError('cannot get format string for %r' % typ)

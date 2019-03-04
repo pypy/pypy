@@ -2,9 +2,9 @@ import sys
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
-from _ctypes.array import Array
+from _ctypes.array import Array, get_format_str
 from _ctypes.pointer import _Pointer
-import inspect
+import inspect, __pypy__
 
 
 def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
@@ -299,6 +299,10 @@ class StructOrUnion(_CData):
     def _to_ffi_param(self):
         return self._buffer
 
+    def __buffer__(self, flags):
+        fmt = get_format_str(self)
+        itemsize = type(self)._sizeofinstances() 
+        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt)
 
 class StructureMeta(StructOrUnionMeta):
     _is_union = False
