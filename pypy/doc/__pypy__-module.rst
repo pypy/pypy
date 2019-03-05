@@ -18,8 +18,17 @@ Generally available functionality
  - ``bytebuffer(length)``: return a new read-write buffer of the given length.
    It works like a simplified array of characters (actually, depending on the
    configuration the ``array`` module internally uses this).
+
  - ``attach_gdb()``: start a GDB at the interpreter-level (or a PDB before translation).
 
+ - ``newmemoryview(buffer, itemsize, format, shape=None, strides=None)``:
+   create a `memoryview` instance with the data from ``buffer`` and the
+   specified itemsize, format, and optional shape and strides.
+
+ - ``bufferable``: a base class that must override the
+   ``__buffer__(self, flags)`` method. This method should return a memoryview
+   instance of the class instance. It is called by the C-API's ``tp_as_buffer.
+   bf_getbuffer``.
 
 Transparent Proxy Functionality
 -------------------------------

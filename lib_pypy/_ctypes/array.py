@@ -249,7 +249,7 @@ class Array(_CData):
             shape.append(obj._length_)
             try:
                 obj[0]._length_
-            except AttributeError:
+            except (AttributeError, IndexError):
                 break
             obj = obj[0]
 
@@ -257,7 +257,7 @@ class Array(_CData):
         try:
             itemsize = struct.calcsize(fmt[1:])
         except:
-            itemsize = len(memoryview(obj[0]))
+            itemsize = len(buffer(obj[0]))
         return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
 
 ARRAY_CACHE = {}
