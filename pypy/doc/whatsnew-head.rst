@@ -37,7 +37,7 @@ Implement rlib.jit.promote_unicode to complement promote_string
 
 Use utf8 internally to represent unicode, with the goal of never using rpython-level unicode
 
-.. branch: newmemoryview
+.. branch: newmemoryview-app-level
 
 Since _ctypes is implemented in pure python over libffi, add interfaces and
 methods to support the buffer interface from python. Specifically, add a
