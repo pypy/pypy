@@ -226,3 +226,7 @@ class AppTestTuple(AppTestCpythonExtensionBase):
             raises(SystemError, module.set_after_use, s)
         else:
             module.set_after_use(s)
+
+    def test_torch(self):
+        module = self.import_module('THPSize')
+        module.Size()
