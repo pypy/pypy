@@ -130,6 +130,15 @@ class TestInstrBuilder(object):
     @settings(max_examples=20)
     @given(rd=st.sampled_from(r.registers),
            rn=st.sampled_from(r.registers),
+           imm=st.integers(min_value=0, max_value=(1<<12)-1))
+    def test_ADD_ri(self, rd, rn, imm):
+        cb = CodeBuilder()
+        cb.ADD_ri(rd.value, rn.value, imm)
+        assert cb.hexdump() == assemble("ADD %r, %r, %d" % (rd, rn, imm))
+
+    @settings(max_examples=20)
+    @given(rd=st.sampled_from(r.registers),
+           rn=st.sampled_from(r.registers),
            ofs=st.integers(min_value=0, max_value=4095))
     def test_SUB_ri(self, rd, rn, ofs):
         cb = CodeBuilder()

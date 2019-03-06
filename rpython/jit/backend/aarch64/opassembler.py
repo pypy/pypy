@@ -23,9 +23,9 @@ class ResOpAssembler(BaseAssembler):
         else:
             s = 0
         if l0.is_imm():
-            self.mc.ADD_ri(res.value, l1.value, imm=l0.value, s=s)
+            self.mc.ADD_ri(res.value, l1.value, l0.value)
         elif l1.is_imm():
-            self.mc.ADD_ri(res.value, l0.value, imm=l1.value, s=s)
+            self.mc.ADD_ri(res.value, l0.value, l1.value)
         else:
             self.mc.ADD_rr(res.value, l0.value, l1.value)
 

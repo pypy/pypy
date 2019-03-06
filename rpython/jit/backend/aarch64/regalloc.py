@@ -148,6 +148,22 @@ class CoreRegisterManager(ARMRegisterManager):
                 continue
             return free_regs[i]
 
+DEFAULT_IMM_SIZE = 4096
+
+def check_imm_arg(arg, size=DEFAULT_IMM_SIZE, allow_zero=True):
+    i = arg
+    if allow_zero:
+        lower_bound = i >= 0
+    else:
+        lower_bound = i > 0
+    return i <= size and lower_bound
+
+def check_imm_box(arg, size=DEFAULT_IMM_SIZE, allow_zero=True):
+    if isinstance(arg, ConstInt):
+        return check_imm_arg(arg.getint(), size, allow_zero)
+    return False
+
+
 class Regalloc(BaseRegalloc):
 
     def __init__(self, assembler):
@@ -280,15 +296,23 @@ class Regalloc(BaseRegalloc):
         return [base_loc, value_loc]
 
     def prepare_op_int_add(self, op):
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        boxes = op.getarglist()
+        a0, a1 = boxes
         # XXX support immediates
-        l0 = self.make_sure_var_in_reg(arg0, op.getarglist())
-        l1 = self.make_sure_var_in_reg(arg1, op.getarglist())
+        imm_a0 = check_imm_box(a0)
+        imm_a1 = check_imm_box(a1)
+        if not imm_a0 and imm_a1:
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.convert_to_imm(a1)
+        elif imm_a0 and not imm_a1:
+            l0 = self.convert_to_imm(a0)
+            l1 = self.make_sure_var_in_reg(a1, boxes)
+        else:
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.make_sure_var_in_reg(a1, boxes)
         self.possibly_free_vars_for_op(op)
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
-
 
     def prepare_int_cmp(self, op, res_in_cc):
         boxes = op.getarglist()
