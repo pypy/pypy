@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.udir import udir
 
-PC_OFFSET = 8
+PC_OFFSET = 0 # XXX
 
 class AbstractAarch64Builder(object):
     def write32(self, word):
@@ -121,8 +121,10 @@ class AbstractAarch64Builder(object):
         target_ofs = ofs - (pos + PC_OFFSET)
         assert -(1 << (26 + 2)) < target_ofs < 1<<(26 + 2)
         if target_ofs < 0:
-            target_ofs = 1<<25 | (~target_ofs)
-        self.write32((base << 26) | (target_ofs >> 2))
+            target_ofs = (1 << 26) - (-target_ofs >> 2)
+        else:
+            target_ofs = target_ofs >> 2
+        self.write32((base << 26) | target_ofs)
 
     def B_ofs_cond(self, ofs, cond):
         base = 0b01010100

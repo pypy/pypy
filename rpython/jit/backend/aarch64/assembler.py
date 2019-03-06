@@ -151,9 +151,8 @@ class AssemblerARM64(ResOpAssembler):
         # XXX add special case if ignored_regs are a block at the start of regs
         if not ignored_regs:  # we want to push a contiguous block of regs
             assert base_ofs < 0x100
-            mc.ADD_ri(r.ip0.value, r.fp.value, base_ofs)
-            # should explode the test
-            #mc.STM(r.ip.value, [reg.value for reg in regs])
+            for i, reg in enumerate(regs):
+                mc.STR_ri(reg.value, r.fp.value, base_ofs + i * WORD)
         else:
             for reg in ignored_regs:
                 assert not reg.is_vfp_reg()  # sanity check
@@ -195,22 +194,10 @@ class AssemblerARM64(ResOpAssembler):
         # _call_header_with_stack_check().  The LEA in _call_footer below
         # throws away most of the frame, including all the PUSHes that we
         # did just above.
-        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        assert ofs <= 0x100
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        assert ofs2 <= 0x100
-        # store the gcmap
-        mc.LDR_ri(r.ip0.value, r.sp.value, 0)
-        mc.STR_ri(r.ip0.value, r.fp.value, ofs2)
-        # store the descr
-        mc.LDR_ri(r.ip0.value, r.sp.value, WORD)
-        mc.STR_ri(r.ip0.value, r.fp.value, ofs)
 
         # set return value
         mc.MOV_rr(r.x0.value, r.fp.value)
-        # move the stack
-        mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
-        #
+
         self.gen_func_epilog(mc)
         rawstart = mc.materialize(self.cpu, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
@@ -240,7 +227,6 @@ class AssemblerARM64(ResOpAssembler):
     def generate_quick_failure(self, guardtok):
         startpos = self.mc.currpos()
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
-        self.mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
         self.load_from_gc_table(r.ip0.value, faildescrindex)
         self.store_reg(self.mc, r.ip0, r.fp, WORD)
         self.push_gcmap(self.mc, gcmap=guardtok.gcmap, ofs=0)
@@ -270,8 +256,8 @@ class AssemblerARM64(ResOpAssembler):
         self.setup_gcrefs_list(allgcrefs)
 
     def patch_gcref_table(self, looptoken, rawstart):
-	# the gc table is at the start of the machine code
-	self.gc_table_addr = rawstart
+        # the gc table is at the start of the machine code
+        self.gc_table_addr = rawstart
         tracer = self.cpu.gc_ll_descr.make_gcref_tracer(rawstart,
                                                         self._allgcrefs)
         gcreftracers = self.get_asmmemmgr_gcreftracers(looptoken)
