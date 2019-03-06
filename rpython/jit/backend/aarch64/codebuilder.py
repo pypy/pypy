@@ -153,7 +153,7 @@ class AbstractAarch64Builder(object):
         value = value >> 16
         shift = 16
         while value:
-            self.MOVK_r_u16(r, (value >> 16) & 0xFFFF, shift)
+            self.MOVK_r_u16(r, value & 0xFFFF, shift)
             shift += 16
             value >>= 16
 

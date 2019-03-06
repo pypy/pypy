@@ -5,7 +5,8 @@ from rpython.jit.backend.aarch64.codebuilder import InstrBuilder
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
 from rpython.jit.backend.aarch64.regalloc import (Regalloc,
-    operations as regalloc_operations, guard_operations, comp_operations)
+    operations as regalloc_operations, guard_operations, comp_operations,
+    CoreRegisterManager)
 #    CoreRegisterManager, check_imm_arg, VFPRegisterManager,
 #from rpython.jit.backend.arm import callbuilder
 from rpython.jit.backend.aarch64 import registers as r
@@ -28,6 +29,10 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rjitlog import rjitlog as jl
 
 class AssemblerARM64(ResOpAssembler):
+    def __init__(self, cpu, translate_support_code=False):
+        ResOpAssembler.__init__(self, cpu, translate_support_code)
+        self.failure_recovery_code = [0, 0, 0, 0]
+
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
@@ -114,7 +119,6 @@ class AssemblerARM64(ResOpAssembler):
 
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
-        self.failure_recovery_code = [0, 0, 0, 0]
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         if we_are_translated():
             self.debug = False
@@ -136,12 +140,43 @@ class AssemblerARM64(ResOpAssembler):
         self.mc = None
         self.pending_guards = None
 
+    def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
+                                   callee_only=False):
+        # Push general purpose registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if callee_only:
+            regs = CoreRegisterManager.save_around_call_regs
+        else:
+            regs = CoreRegisterManager.all_regs
+        # XXX add special case if ignored_regs are a block at the start of regs
+        if not ignored_regs:  # we want to push a contiguous block of regs
+            assert base_ofs < 0x100
+            mc.ADD_ri(r.ip0.value, r.fp.value, base_ofs)
+            # should explode the test
+            #mc.STM(r.ip.value, [reg.value for reg in regs])
+        else:
+            for reg in ignored_regs:
+                assert not reg.is_vfp_reg()  # sanity check
+            # we can have holes in the list of regs
+            for i, gpr in enumerate(regs):
+                if gpr in ignored_regs:
+                    continue
+                self.store_reg(mc, gpr, r.fp, base_ofs + i * WORD)
+
+        if withfloats:
+            # Push VFP regs
+            regs = VFPRegisterManager.all_regs
+            ofs = len(CoreRegisterManager.all_regs) * WORD
+            assert check_imm_arg(ofs+base_ofs)
+            mc.ADD_ri(r.ip.value, r.fp.value, imm=ofs+base_ofs)
+            mc.VSTM(r.ip.value, [vfpr.value for vfpr in regs])
+
     def _build_failure_recovery(self, exc, withfloats=False):
-        return # XXX
         mc = InstrBuilder()
         self._push_all_regs_to_jitframe(mc, [], withfloats)
 
         if exc:
+            return # fix later
             XXX
             # We might have an exception pending.  Load it into r4
             # (this is a register saved across calls)
@@ -161,20 +196,20 @@ class AssemblerARM64(ResOpAssembler):
         # throws away most of the frame, including all the PUSHes that we
         # did just above.
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        assert check_imm_arg(abs(ofs))
+        assert ofs <= 0x100
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        assert check_imm_arg(abs(ofs2))
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        assert ofs2 <= 0x100
         # store the gcmap
-        mc.POP([r.ip.value])
-        mc.STR_ri(r.ip.value, r.fp.value, imm=ofs2)
+        mc.LDR_ri(r.ip0.value, r.sp.value, 0)
+        mc.STR_ri(r.ip0.value, r.fp.value, ofs2)
         # store the descr
-        mc.POP([r.ip.value])
-        mc.STR_ri(r.ip.value, r.fp.value, imm=ofs)
+        mc.LDR_ri(r.ip0.value, r.sp.value, WORD)
+        mc.STR_ri(r.ip0.value, r.fp.value, ofs)
 
         # set return value
-        assert check_imm_arg(base_ofs)
-        mc.MOV_rr(r.r0.value, r.fp.value)
+        mc.MOV_rr(r.x0.value, r.fp.value)
+        # move the stack
+        mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
         #
         self.gen_func_epilog(mc)
         rawstart = mc.materialize(self.cpu, [])
@@ -434,7 +469,7 @@ class AssemblerARM64(ResOpAssembler):
         if loc.is_core_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value)
         elif loc.is_stack():
-            self.mc.STR_ri(r.fp.value, prev_loc.value, loc.value)
+            self.mc.STR_ri(prev_loc.value, r.fp.value, loc.value)
         else:
             XXX
 
