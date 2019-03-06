@@ -2,8 +2,12 @@
 from rpython.jit.metainterp.history import (AbstractFailDescr, ConstInt,
                                             INT, FLOAT, REF)
 from rpython.jit.backend.aarch64 import registers as r
-from rpython.jit.backend.arm import conditions as c # yes, arm, not aarch64
+from rpython.jit.backend.arm import conditions as c
+from rpython.jit.backend.aarch64.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+from rpython.jit.metainterp.history import TargetToken
+
 
 class ResOpAssembler(BaseAssembler):
     def emit_op_int_add(self, op, arglocs):
@@ -34,7 +38,13 @@ class ResOpAssembler(BaseAssembler):
         else:
             self.mc.CMP_rr(l0.value, l1.value)
 
-    emit_comp_op_int_le = emit_int_comp_op
+    def emit_comp_op_int_lt(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs)
+        return c.LT
+
+    def emit_comp_op_int_le(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs)
+        return c.LE
 
     def emit_op_increment_debug_counter(self, op, arglocs):
         return # XXXX
@@ -43,8 +53,51 @@ class ResOpAssembler(BaseAssembler):
         self.mc.ADD_ri(value_loc.value, value_loc.value, 1)
         self.mc.STR_ri(value_loc.value, base_loc.value, 0)
 
+    def build_guard_token(self, op, frame_depth, arglocs, offset, fcond):
+        descr = op.getdescr()
+        assert isinstance(descr, AbstractFailDescr)
+
+        gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        faildescrindex = self.get_gcref_from_faildescr(descr)
+        token = GuardToken(self.cpu, gcmap, descr,
+                                    failargs=op.getfailargs(),
+                                    fail_locs=arglocs,
+                                    guard_opnum=op.getopnum(),
+                                    frame_depth=frame_depth,
+                                    faildescrindex=faildescrindex)
+        token.fcond = fcond
+        return token
+
+    def _emit_guard(self, op, fcond, arglocs, is_guard_not_invalidated=False):
+        pos = self.mc.currpos()
+        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos,
+                                       fcond)
+        token.offset = pos
+        self.pending_guards.append(token)
+        assert token.guard_not_invalidated() == is_guard_not_invalidated
+        # For all guards that are not GUARD_NOT_INVALIDATED we emit a
+        # breakpoint to ensure the location is patched correctly. In the case
+        # of GUARD_NOT_INVALIDATED we use just a NOP, because it is only
+        # eventually patched at a later point.
+        if is_guard_not_invalidated:
+            self.mc.NOP()
+        else:
+            self.mc.BRK()
+
+    def emit_guard_op_guard_true(self, guard_op, fcond, arglocs):
+        self._emit_guard(guard_op, fcond, arglocs)
+
     def emit_op_label(self, op, arglocs):
         pass
+
+    def emit_op_jump(self, op, arglocs):
+        target_token = op.getdescr()
+        assert isinstance(target_token, TargetToken)
+        target = target_token._ll_loop_code
+        if target_token in self.target_tokens_currently_compiling:
+            self.mc.B_ofs(target)
+        else:
+            self.mc.B(target)
 
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()

@@ -11,6 +11,9 @@ class CodeBuilder(codebuilder.InstrBuilder):
     def writechar(self, char):
         self.buffer.append(char)
 
+    def currpos(self):
+        return 0
+
     def hexdump(self):
         return ''.join(self.buffer)
 
@@ -123,6 +126,15 @@ class TestInstrBuilder(object):
         cb = CodeBuilder()
         cb.ADD_rr(rd.value, rn.value, rm.value)
         assert cb.hexdump() == assemble("ADD %r, %r, %r" % (rd, rn, rm))
+
+    @settings(max_examples=20)
+    @given(rd=st.sampled_from(r.registers),
+           rn=st.sampled_from(r.registers),
+           ofs=st.integers(min_value=0, max_value=4095))
+    def test_SUB_ri(self, rd, rn, ofs):
+        cb = CodeBuilder()
+        cb.SUB_ri(rd.value, rn.value, ofs)
+        assert cb.hexdump() == assemble("SUB %r, %r, %d" % (rd, rn, ofs))
 
     @settings(max_examples=20)
     @given(rn=st.sampled_from(r.registers),

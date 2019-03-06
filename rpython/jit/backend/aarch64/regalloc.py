@@ -12,6 +12,8 @@ from rpython.jit.backend.llsupport.regalloc import FrameManager, \
         get_scale
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.jit.backend.aarch64 import registers as r
+from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
+from rpython.jit.backend.aarch64.locations import imm
 
 
 class TempInt(TempVar):
@@ -363,10 +365,53 @@ class Regalloc(BaseRegalloc):
         return locs
 
     def prepare_guard_op_guard_true(self, op, prevop):
-        arglocs = self.assembler.dispatch_comparison(prevop)
-        xxx
+        fcond = self.assembler.dispatch_comparison(prevop)
+        # result is in CC
+
+        arglocs = [None] * (len(op.getfailargs()) + 1)
+        arglocs[0] = imm(self.frame_manager.get_frame_depth())
+        failargs = op.getfailargs()
+        for i in range(len(failargs)):
+            if failargs[i]:
+                arglocs[i + 1] = self.loc(failargs[i])
+        return arglocs, fcond
 
     prepare_op_nursery_ptr_increment = prepare_op_int_add
+
+    def prepare_op_jump(self, op):
+        assert self.jump_target_descr is None
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        self.jump_target_descr = descr
+        arglocs = descr._arm_arglocs
+
+        # get temporary locs
+        tmploc = r.ip0
+        vfptmploc = None # XXX r.vfp_ip
+
+        # Part about non-floats
+        src_locations1 = []
+        dst_locations1 = []
+        # Part about floats
+        src_locations2 = []
+        dst_locations2 = []
+
+        # Build the four lists
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            src_loc = self.loc(box)
+            dst_loc = arglocs[i]
+            if box.type != FLOAT:
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+        self.assembler.check_frame_before_jump(self.jump_target_descr)
+        remap_frame_layout_mixed(self.assembler,
+                                 src_locations1, dst_locations1, tmploc,
+                                 src_locations2, dst_locations2, vfptmploc)
+        return []
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None):
         if var.type == FLOAT:

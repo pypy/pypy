@@ -1,11 +1,14 @@
 
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.jit.backend.aarch64.assembler import AssemblerARM64
+from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 
 class CPU_ARM64(AbstractLLCPU):
     """ARM 64"""
     backend_name = "aarch64"
+    frame_reg = r.fp
+    all_reg_indexes = range(len(r.all_regs))
 
     IS_64_BIT = True
 

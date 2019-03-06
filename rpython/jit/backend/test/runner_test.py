@@ -185,6 +185,11 @@ class BaseBackendTest(Runner):
         """, namespace={'targettoken': targettoken,
                         'fdescr': BasicFailDescr(2)})
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        print "ONE"
+        deadframe = self.cpu.execute_token(looptoken, 10)
+        print "TWO"
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2

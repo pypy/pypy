@@ -47,7 +47,6 @@ class RegisterLocation(AssemblerLocation):
         return True
 
     def as_key(self):       # 0 <= as_key <= 30, 31 being zero register
-        xxx
         return self.value
 
 class VFPRegisterLocation(RegisterLocation):
@@ -64,7 +63,6 @@ class VFPRegisterLocation(RegisterLocation):
         return True
 
     def as_key(self):            # 40 <= as_key <= 71
-        xxx
         return self.value + 40
 
     def is_float(self):
@@ -110,7 +108,6 @@ class StackLocation(AssemblerLocation):
         return True
 
     def as_key(self):                # an aligned word + 10000
-        XXX
         return self.position + 10000
 
     def is_float(self):
@@ -127,7 +124,10 @@ class ZeroRegister(AssemblerLocation):
         return "xzr"
 
     def as_key(self):
-        return 31
+        raise ValueError("should never make it to jump")
+
+def imm(i):
+    return ImmLocation(i)
 
 def get_fp_offset(base_ofs, position):
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)

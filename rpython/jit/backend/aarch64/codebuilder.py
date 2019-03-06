@@ -7,6 +7,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.udir import udir
 
+PC_OFFSET = 8
 
 class AbstractAarch64Builder(object):
     def write32(self, word):
@@ -70,6 +71,11 @@ class AbstractAarch64Builder(object):
         self.write32((base << 22) | (constant << 10) |
                      (rn << 5) | rd)
 
+    def SUB_ri(self, rd, rn, constant):
+        base = 0b1101000100
+        assert 0 <= constant < 4096
+        self.write32((base << 22) | (constant << 10) | (rn << 5) | rd)
+
     def LDP_rri(self, reg1, reg2, rn, offset):
         base = 0b1010100101
         assert -512 <= offset < 512
@@ -108,6 +114,34 @@ class AbstractAarch64Builder(object):
         base = 0b11101011000
         self.write32((base << 21) | (rm << 16) | (rn << 5) | 0b11111)
 
+    def B_ofs(self, ofs):
+        base = 0b000101
+        assert ofs & 0x3 == 0
+        pos = self.currpos()
+        target_ofs = ofs - (pos + PC_OFFSET)
+        assert -(1 << (26 + 2)) < target_ofs < 1<<(26 + 2)
+        if target_ofs < 0:
+            target_ofs = 1<<25 | (~target_ofs)
+        self.write32((base << 26) | (target_ofs >> 2))
+
+    def B_ofs_cond(self, ofs, cond):
+        base = 0b01010100
+        assert ofs & 0x3 == 0
+        assert -1 << 10 < ofs < 1 << 10
+        imm = ofs >> 2
+        if imm < 0:
+            xxx
+        self.write32((base << 24) | (imm << 5) | cond)
+
+    def BL(self, target):
+        target = rffi.cast(lltype.Signed, target)
+        self.gen_load_int(r.ip0.value, target)
+        self.BR(r.ip0.value)
+
+    def BR(self, reg):
+        base = 0b1101011000011111000000
+        self.write32((base << 10) | (reg << 5))
+
     def BRK(self):
         self.write32(0b11010100001 << 21)
 
@@ -116,9 +150,12 @@ class AbstractAarch64Builder(object):
         register"""
         # XXX optimize!
         self.MOVZ_r_u16(r, value & 0xFFFF, 0)
-        self.MOVK_r_u16(r, (value >> 16) & 0xFFFF, 16)
-        self.MOVK_r_u16(r, (value >> 32) & 0xFFFF, 32)
-        self.MOVK_r_u16(r, (value >> 48) & 0xFFFF, 48)
+        value = value >> 16
+        shift = 16
+        while value:
+            self.MOVK_r_u16(r, (value >> 16) & 0xFFFF, shift)
+            shift += 16
+            value >>= 16
 
 
 class InstrBuilder(BlockBuilderMixin, AbstractAarch64Builder):

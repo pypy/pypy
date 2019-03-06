@@ -9,6 +9,7 @@ from rpython.jit.backend.aarch64.regalloc import (Regalloc,
 #    CoreRegisterManager, check_imm_arg, VFPRegisterManager,
 #from rpython.jit.backend.arm import callbuilder
 from rpython.jit.backend.aarch64 import registers as r
+from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.assembler import BaseAssembler
 from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_size
@@ -113,6 +114,7 @@ class AssemblerARM64(ResOpAssembler):
 
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
+        self.failure_recovery_code = [0, 0, 0, 0]
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         if we_are_translated():
             self.debug = False
@@ -135,7 +137,48 @@ class AssemblerARM64(ResOpAssembler):
         self.pending_guards = None
 
     def _build_failure_recovery(self, exc, withfloats=False):
-        pass # XXX
+        return # XXX
+        mc = InstrBuilder()
+        self._push_all_regs_to_jitframe(mc, [], withfloats)
+
+        if exc:
+            XXX
+            # We might have an exception pending.  Load it into r4
+            # (this is a register saved across calls)
+            mc.gen_load_int(r.r5.value, self.cpu.pos_exc_value())
+            mc.LDR_ri(r.r4.value, r.r5.value)
+            # clear the exc flags
+            mc.gen_load_int(r.r6.value, 0)
+            mc.STR_ri(r.r6.value, r.r5.value) # pos_exc_value is still in r5
+            mc.gen_load_int(r.r5.value, self.cpu.pos_exception())
+            mc.STR_ri(r.r6.value, r.r5.value)
+            # save r4 into 'jf_guard_exc'
+            offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            assert check_imm_arg(abs(offset))
+            mc.STR_ri(r.r4.value, r.fp.value, imm=offset)
+        # now we return from the complete frame, which starts from
+        # _call_header_with_stack_check().  The LEA in _call_footer below
+        # throws away most of the frame, including all the PUSHes that we
+        # did just above.
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        assert check_imm_arg(abs(ofs))
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        assert check_imm_arg(abs(ofs2))
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        # store the gcmap
+        mc.POP([r.ip.value])
+        mc.STR_ri(r.ip.value, r.fp.value, imm=ofs2)
+        # store the descr
+        mc.POP([r.ip.value])
+        mc.STR_ri(r.ip.value, r.fp.value, imm=ofs)
+
+        # set return value
+        assert check_imm_arg(base_ofs)
+        mc.MOV_rr(r.r0.value, r.fp.value)
+        #
+        self.gen_func_epilog(mc)
+        rawstart = mc.materialize(self.cpu, [])
+        self.failure_recovery_code[exc + 2 * withfloats] = rawstart
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         pass # XXX
@@ -159,8 +202,25 @@ class AssemblerARM64(ResOpAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
 
+    def generate_quick_failure(self, guardtok):
+        startpos = self.mc.currpos()
+        faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
+        self.mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
+        self.load_from_gc_table(r.ip0.value, faildescrindex)
+        self.store_reg(self.mc, r.ip0, r.fp, WORD)
+        self.push_gcmap(self.mc, gcmap=guardtok.gcmap, ofs=0)
+        self.mc.BL(target)
+        return startpos
+
+    def push_gcmap(self, mc, gcmap, ofs):
+        ptr = rffi.cast(lltype.Signed, gcmap)
+        mc.gen_load_int(r.ip0.value, ptr)
+        self.store_reg(mc, r.ip0, r.fp, ofs)
+
     def write_pending_failure_recoveries(self):
-        pass # XXX
+        for tok in self.pending_guards:
+            #generate the exit stub and the encoded representation
+            tok.pos_recovery_stub = self.generate_quick_failure(tok)
 
     def reserve_gcref_table(self, allgcrefs):
         gcref_table_size = len(allgcrefs) * WORD
@@ -200,8 +260,25 @@ class AssemblerARM64(ResOpAssembler):
         #    self.codemap.get_final_bytecode(res, size))
         return res
 
-    def process_pending_guards(self, rawstart):
-        pass
+    def process_pending_guards(self, block_start):
+        clt = self.current_clt
+        for tok in self.pending_guards:
+            descr = tok.faildescr
+            assert isinstance(descr, AbstractFailDescr)
+            failure_recovery_pos = block_start + tok.pos_recovery_stub
+            descr.adr_jump_offset = failure_recovery_pos
+            relative_offset = tok.pos_recovery_stub - tok.offset
+            guard_pos = block_start + tok.offset
+            if not tok.guard_not_invalidated():
+                # patch the guard jump to the stub
+                # overwrite the generate BRK with a B_offs to the pos of the
+                # stub
+                mc = InstrBuilder()
+                mc.B_ofs_cond(relative_offset, c.get_opposite_of(tok.fcond))
+                mc.copy_to_raw_memory(guard_pos)
+            else:
+                XX
+                clt.invalidate_positions.append((guard_pos, relative_offset))
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
@@ -277,10 +354,11 @@ class AssemblerARM64(ResOpAssembler):
             elif not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
                 regalloc.prepare_force_spill(op)
             elif i < len(operations) - 1 and regalloc.next_op_can_accept_cc(operations, i):
-                arglocs = guard_operations[operations[i + 1].getopnum()](
-                    regalloc, operations[i + 1], op)
+                guard_op = operations[i + 1]
+                guard_num = guard_op.getopnum()
+                arglocs, fcond = guard_operations[guard_num](regalloc, guard_op, op)
                 if arglocs is not None:
-                    xxx
+                    asm_guard_operations[guard_num](self, guard_op, fcond, arglocs)
                 regalloc.next_instruction() # advance one more
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op)
@@ -302,8 +380,7 @@ class AssemblerARM64(ResOpAssembler):
         opnum = op.getopnum()
         arglocs = comp_operations[opnum](self._regalloc, op, True)
         assert arglocs is not None
-        asm_comp_operations[opnum](self, op, arglocs)
-        return arglocs
+        return asm_comp_operations[opnum](self, op, arglocs)
 
     # regalloc support
     def load(self, loc, value):
@@ -352,6 +429,14 @@ class AssemblerARM64(ResOpAssembler):
         # self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=helper)
         # if save_helper:
         #     self.mc.POP([helper.value], cond=cond)
+
+    def _mov_reg_to_loc(self, prev_loc, loc):
+        if loc.is_core_reg():
+            self.mc.MOV_rr(loc.value, prev_loc.value)
+        elif loc.is_stack():
+            self.mc.STR_ri(r.fp.value, prev_loc.value, loc.value)
+        else:
+            XXX
 
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""
@@ -420,6 +505,18 @@ class AssemblerARM64(ResOpAssembler):
         #    mc.gen_load_int(r.ip1, ofs)
         #    mc.STR_rr(source.value, base.value, r.ip1)
 
+    def check_frame_before_jump(self, target_token):
+        if target_token in self.target_tokens_currently_compiling:
+            return
+        if target_token._arm_clt is self.current_clt:
+            return
+        # We can have a frame coming from god knows where that's
+        # passed to a jump to another loop. Make sure it has the
+        # correct depth
+        expected_size = target_token._arm_clt.frame_info.jfi_frame_depth
+        self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
+                                expected_size=expected_size)
+
 
 def not_implemented(msg):
     msg = '[ARM/asm] %s\n' % msg
@@ -436,7 +533,12 @@ def notimplemented_comp_op(self, op, arglocs):
     print "[ARM/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
+def notimplemented_guard_op(self, op, fcond, arglocs):
+    print "[ARM/asm] %s not implemented" % op.getopname()
+    raise NotImplementedError(op)
+
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
+asm_guard_operations = [notimplemented_guard_op] * (rop._LAST + 1)
 asm_comp_operations = [notimplemented_comp_op] * (rop._LAST + 1)
 asm_extra_operations = {}
 
@@ -449,6 +551,10 @@ for name, value in ResOpAssembler.__dict__.iteritems():
         opname = name[len('emit_op_'):]
         num = getattr(rop, opname.upper())
         asm_operations[num] = value
+    elif name.startswith('emit_guard_op_'):
+        opname = name[len('emit_guard_op_'):]
+        num = getattr(rop, opname.upper())
+        asm_guard_operations[num] = value
     elif name.startswith('emit_comp_op_'):
         opname = name[len('emit_comp_op_'):]
         num = getattr(rop, opname.upper())
