@@ -137,7 +137,7 @@ class AbstractAarch64Builder(object):
 
     def BL(self, target):
         target = rffi.cast(lltype.Signed, target)
-        self.gen_load_int(r.ip0.value, target)
+        self.gen_load_int_full(r.ip0.value, target)
         self.BR(r.ip0.value)
 
     def BR(self, reg):
@@ -146,6 +146,12 @@ class AbstractAarch64Builder(object):
 
     def BRK(self):
         self.write32(0b11010100001 << 21)
+
+    def gen_load_int_full(self, r, value):
+        self.MOVZ_r_u16(r, value & 0xFFFF, 0)
+        self.MOVK_r_u16(r, (value >> 16) & 0xFFFF, 16)
+        self.MOVK_r_u16(r, (value >> 32) & 0xFFFF, 32)
+        self.MOVK_r_u16(r, (value >> 48) & 0xFFFF, 48)
 
     def gen_load_int(self, r, value):
         """r is the register number, value is the value to be loaded to the

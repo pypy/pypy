@@ -117,6 +117,89 @@ class AssemblerARM64(ResOpAssembler):
         return AsmInfo(ops_offset, rawstart + loop_head,
                        size_excluding_failure_stuff - loop_head)
 
+    def assemble_bridge(self, logger, faildescr, inputargs, operations,
+                        original_loop_token, log):
+        if not we_are_translated():
+            # Arguments should be unique
+            assert len(set(inputargs)) == len(inputargs)
+
+        self.setup(original_loop_token)
+        #self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
+        descr_number = compute_unique_id(faildescr)
+        if log:
+            operations = self._inject_debugging_code(faildescr, operations,
+                                                     'b', descr_number)
+
+        assert isinstance(faildescr, AbstractFailDescr)
+
+        arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
+
+        regalloc = Regalloc(assembler=self)
+        allgcrefs = []
+        operations = regalloc.prepare_bridge(inputargs, arglocs,
+                                             operations,
+                                             allgcrefs,
+                                             self.current_clt.frame_info)
+        self.reserve_gcref_table(allgcrefs)
+        startpos = self.mc.get_relative_pos()
+
+        self._check_frame_depth(self.mc, regalloc.get_gcmap())
+
+        bridgestartpos = self.mc.get_relative_pos()
+        frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
+
+        codeendpos = self.mc.get_relative_pos()
+
+        self.write_pending_failure_recoveries()
+
+        fullsize = self.mc.get_relative_pos()
+        rawstart = self.materialize_loop(original_loop_token)
+
+        self.patch_gcref_table(original_loop_token, rawstart)
+        self.process_pending_guards(rawstart)
+
+        debug_start("jit-backend-addr")
+        debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
+                    (r_uint(descr_number), r_uint(rawstart + startpos),
+                        r_uint(rawstart + codeendpos)))
+        debug_print("       gc table: 0x%x" % r_uint(rawstart))
+        debug_print("    jump target: 0x%x" % r_uint(rawstart + startpos))
+        debug_print("         resops: 0x%x" % r_uint(rawstart + bridgestartpos))
+        debug_print("       failures: 0x%x" % r_uint(rawstart + codeendpos))
+        debug_print("            end: 0x%x" % r_uint(rawstart + fullsize))
+        debug_stop("jit-backend-addr")
+
+        # patch the jump from original guard
+        self.patch_trace(faildescr, original_loop_token,
+                                    rawstart + startpos, regalloc)
+
+        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
+                                rawstart)
+        if not we_are_translated():
+            if log:
+                self.mc._dump_trace(rawstart, 'bridge.asm')
+
+        ops_offset = self.mc.ops_offset
+        frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
+                          frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        self.fixup_target_tokens(rawstart)
+        self.update_frame_depth(frame_depth)
+
+        if logger:
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
+        self.teardown()
+
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
+
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
         assert self.memcpy_addr != 0, 'setup_once() not called?'
@@ -220,6 +303,9 @@ class AssemblerARM64(ResOpAssembler):
     def _check_frame_depth_debug(self, mc):
         pass
 
+    def _check_frame_depth(self, mc, gcmap):
+        pass # XXX
+
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
@@ -264,6 +350,9 @@ class AssemblerARM64(ResOpAssembler):
         gcreftracers.append(tracer)    # keepalive
         self.teardown_gcrefs_list()
 
+    def patch_stack_checks(self, framedepth, rawstart):
+        pass # XXX
+
     def load_from_gc_table(self, regnum, index):
         address_in_buffer = index * WORD   # at the start of the buffer
         p_location = self.mc.get_relative_pos(break_basic_block=False)
@@ -280,6 +369,14 @@ class AssemblerARM64(ResOpAssembler):
         #self.cpu.codemap.register_codemap(
         #    self.codemap.get_final_bytecode(res, size))
         return res
+
+    def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
+        b = InstrBuilder()
+        patch_addr = faildescr.adr_jump_offset
+        assert patch_addr != 0
+        b.BL(bridge_addr)
+        b.copy_to_raw_memory(patch_addr)
+        faildescr.adr_jump_offset = 0
 
     def process_pending_guards(self, block_start):
         clt = self.current_clt

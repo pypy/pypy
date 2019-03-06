@@ -2,6 +2,7 @@
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.jit.backend.aarch64.assembler import AssemblerARM64
 from rpython.jit.backend.aarch64 import registers as r
+from rpython.jit.backend.aarch64.regalloc import VFPRegisterManager
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 
 class CPU_ARM64(AbstractLLCPU):
@@ -9,6 +10,9 @@ class CPU_ARM64(AbstractLLCPU):
     backend_name = "aarch64"
     frame_reg = r.fp
     all_reg_indexes = range(len(r.all_regs))
+    gen_regs = r.all_regs
+    float_regs = VFPRegisterManager.all_regs
+
 
     IS_64_BIT = True
 
@@ -22,6 +26,14 @@ class CPU_ARM64(AbstractLLCPU):
 
     def setup_once(self):
         self.assembler.setup_once()
+
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True, logger=None):
+        clt = original_loop_token.compiled_loop_token
+        clt.compiling_a_bridge()
+        return self.assembler.assemble_bridge(logger, faildescr, inputargs,
+                                              operations,
+                                              original_loop_token, log=log)
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)

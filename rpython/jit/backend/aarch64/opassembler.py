@@ -120,7 +120,7 @@ class ResOpAssembler(BaseAssembler):
         if target_token in self.target_tokens_currently_compiling:
             self.mc.B_ofs(target)
         else:
-            self.mc.B(target)
+            self.mc.BL(target)
 
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()

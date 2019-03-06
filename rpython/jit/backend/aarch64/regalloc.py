@@ -1,6 +1,7 @@
 
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.aarch64 import locations
+from rpython.jit.backend.aarch64.arch import WORD, JITFRAME_FIXED_SIZE
 
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat,
                                             ConstPtr,
@@ -14,6 +15,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
 from rpython.jit.backend.aarch64.locations import imm
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+
 
 
 class TempInt(TempVar):
@@ -449,6 +452,64 @@ class Regalloc(BaseRegalloc):
     def _check_invariants(self):
         self.rm._check_invariants()
         self.vfprm._check_invariants()
+
+    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs,
+                       frame_info):
+        operations = self._prepare(inputargs, operations, allgcrefs)
+        self._update_bindings(arglocs, inputargs)
+        return operations
+
+    def _update_bindings(self, locs, inputargs):
+        used = {}
+        i = 0
+        for loc in locs:
+            if loc is None:
+                loc = r.fp
+            arg = inputargs[i]
+            i += 1
+            if loc.is_core_reg():
+                self.rm.reg_bindings[arg] = loc
+                used[loc] = None
+            elif loc.is_vfp_reg():
+                self.vfprm.reg_bindings[arg] = loc
+                used[loc] = None
+            else:
+                assert loc.is_stack()
+                self.frame_manager.bind(arg, loc)
+
+        # XXX combine with x86 code and move to llsupport
+        self.rm.free_regs = []
+        for reg in self.rm.all_regs:
+            if reg not in used:
+                self.rm.free_regs.append(reg)
+        self.vfprm.free_regs = []
+        for reg in self.vfprm.all_regs:
+            if reg not in used:
+                self.vfprm.free_regs.append(reg)
+        # note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op args, which is a non-resizable list
+        self.possibly_free_vars(list(inputargs))
+        self.fm.finish_binding()
+        self._check_invariants()
+
+    def get_gcmap(self, forbidden_regs=[], noregs=False):
+        frame_depth = self.fm.get_frame_depth()
+        gcmap = allocate_gcmap(self.assembler,
+                        frame_depth, JITFRAME_FIXED_SIZE)
+        for box, loc in self.rm.reg_bindings.iteritems():
+            if loc in forbidden_regs:
+                continue
+            if box.type == REF and self.rm.is_still_alive(box):
+                assert not noregs
+                assert loc.is_core_reg()
+                val = loc.value
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        for box, loc in self.fm.bindings.iteritems():
+            if box.type == REF and self.rm.is_still_alive(box):
+                assert loc.is_stack()
+                val = loc.position + JITFRAME_FIXED_SIZE
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        return gcmap
 
     def get_final_frame_depth(self):
         return self.frame_manager.get_frame_depth()
