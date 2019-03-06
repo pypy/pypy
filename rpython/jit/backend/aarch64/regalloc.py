@@ -298,7 +298,6 @@ class Regalloc(BaseRegalloc):
     def prepare_op_int_add(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes
-        # XXX support immediates
         imm_a0 = check_imm_box(a0)
         imm_a1 = check_imm_box(a1)
         if not imm_a0 and imm_a1:
@@ -313,6 +312,8 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_vars_for_op(op)
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
+
+    prepare_op_int_sub = prepare_op_int_add
 
     def prepare_int_cmp(self, op, res_in_cc):
         boxes = op.getarglist()

@@ -13,6 +13,29 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_int_add(self, op, arglocs):
         return self.int_add_impl(op, arglocs)
 
+    def int_sub_impl(self, op, arglocs, flags=0):
+        l0, l1, res = arglocs
+        if flags:
+            xxx
+            s = 1
+        else:
+            s = 0
+        if l0.is_imm():
+            value = l0.getint()
+            assert value >= 0
+            # reverse substract ftw
+            XX
+            self.mc.RSB_ri(res.value, l1.value, value)
+        elif l1.is_imm():
+            value = l1.getint()
+            assert value >= 0
+            self.mc.SUB_ri(res.value, l0.value, value)
+        else:
+            self.mc.SUB_rr(res.value, l0.value, l1.value)
+
+    def emit_op_int_sub(self, op, arglocs):
+        self.int_sub_impl(op, arglocs)
+
     emit_op_nursery_ptr_increment = emit_op_int_add
 
     def int_add_impl(self, op, arglocs, ovfcheck=False):
