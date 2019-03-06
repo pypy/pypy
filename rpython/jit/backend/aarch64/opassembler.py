@@ -110,6 +110,20 @@ class ResOpAssembler(BaseAssembler):
     def emit_guard_op_guard_true(self, guard_op, fcond, arglocs):
         self._emit_guard(guard_op, fcond, arglocs)
 
+    def emit_guard_op_guard_false(self, guard_op, fcond, arglocs):
+        self._emit_guard(guard_op, c.get_opposite_of(fcond), arglocs)
+
+    def load_condition_into_cc(self, loc):
+        if not loc.is_core_reg():
+            assert loc.is_stack()
+            self.regalloc_mov(loc, r.ip0)
+            loc = r.ip0
+        self.mc.CMP_ri(loc.value, 0)
+
+    def emit_op_guard_false(self, op, arglocs):
+        self.load_condition_into_cc(arglocs[1])
+        self._emit_guard(op, c.NE, arglocs)
+
     def emit_op_label(self, op, arglocs):
         pass
 

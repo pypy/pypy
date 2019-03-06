@@ -114,6 +114,11 @@ class AbstractAarch64Builder(object):
         base = 0b11101011000
         self.write32((base << 21) | (rm << 16) | (rn << 5) | 0b11111)
 
+    def CMP_ri(self, rn, imm):
+        base = 0b1111000100
+        assert 0 <= imm <= 4095
+        self.write32((base << 22) | (imm << 10) | (rn << 5) | 0b11111)
+
     def B_ofs(self, ofs):
         base = 0b000101
         assert ofs & 0x3 == 0

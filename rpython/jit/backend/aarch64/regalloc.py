@@ -392,17 +392,25 @@ class Regalloc(BaseRegalloc):
             locs = []
         return locs
 
-    def prepare_guard_op_guard_true(self, op, prevop):
+    def guard_impl(self, op, prevop):
         fcond = self.assembler.dispatch_comparison(prevop)
         # result is in CC
+        return self._guard_impl(op), fcond
 
+    def _guard_impl(self, op):
         arglocs = [None] * (len(op.getfailargs()) + 1)
         arglocs[0] = imm(self.frame_manager.get_frame_depth())
         failargs = op.getfailargs()
         for i in range(len(failargs)):
             if failargs[i]:
                 arglocs[i + 1] = self.loc(failargs[i])
-        return arglocs, fcond
+        return arglocs
+
+    prepare_guard_op_guard_true = guard_impl
+    prepare_guard_op_guard_false = guard_impl
+
+    prepare_op_guard_true = _guard_impl
+    prepare_op_guard_false = _guard_impl
 
     prepare_op_nursery_ptr_increment = prepare_op_int_add
 
