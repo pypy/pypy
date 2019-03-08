@@ -672,10 +672,15 @@ class TestRawRefCount(BaseDirectGCTest):
         # have been added to the garbage list
         for name in nodes:
             n = nodes[name]
+            garbage = n.info.garbage
             if n.info.alive:
                 if n.info.type == "C":
-                    assert n.info.garbage != (n.raddr not in garbage_pyobj)
+                    assert garbage != (n.raddr not in garbage_pyobj), \
+                        "PyObject should " + ("" if garbage else "not ") + \
+                        "be in garbage"
                 else:
-                    assert n.info.garbage != (n.pref not in garbage_pypy)
+                    assert garbage != (n.pref not in garbage_pypy), \
+                        "Object should " + ("" if garbage else "not ") + \
+                        "be in garbage"
             else:
-                assert not n.info.garbage
+                assert not garbage, "Object is dead, but should be in garbage"

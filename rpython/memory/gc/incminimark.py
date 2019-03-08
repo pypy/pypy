@@ -3141,6 +3141,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_pyobj_isolate_list = self._rrc_gc_list_new()
             self.rrc_pyobj_dead_list = self._rrc_gc_list_new()
             self.rrc_pyobj_garbage_list = self._rrc_gc_list_new()
+            self.rrc_garbage_to_trace = self.AddressStack()
             self.rrc_gc_as_pyobj = gc_as_pyobj
             self.rrc_pyobj_as_gc = pyobj_as_gc
             self.rrc_finalizer_type = finalizer_type
@@ -3246,15 +3247,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
 
     def rawrefcount_next_garbage_pypy(self):
-        # We assume that next_garbage_pypy is always called before
-        # next_garbage_pyobj. As pypy objects can only be in garbage, if there
-        # is at least one pyobj in garbage, we can use this optimization.
-        if self._rrc_gc_list_is_empty(self.rrc_pyobj_garbage_list):
-            return lltype.nullptr(llmemory.GCREF.TO)
+        if self.rrc_garbage_to_trace.non_empty():
+            # remove one object from the wavefront and move the wavefront
+            obj = self.rrc_garbage_to_trace.pop()
+            if self._rrc_garbage_visit(obj):
+                return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+            else:
+                return lltype.nullptr(llmemory.GCREF.TO)
         else:
-            # TODO: return the next pypy object which is marked with GCFLAG_GARBAGE and
-            #       remove the flag from this object. We can safely assume that objects
-            #       do not move, as this can only happen to old objects.
             return lltype.nullptr(llmemory.GCREF.TO)
 
     def rawrefcount_next_garbage_pyobj(self):
@@ -3620,8 +3620,27 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if pyobj.c_ob_pypy_link <> 0:
             intobj = pyobj.c_ob_pypy_link
             obj = llmemory.cast_int_to_adr(intobj)
+            self.rrc_garbage_to_trace.append(obj)
             self.objects_to_trace.append(obj)
             self.visit_all_objects()
+
+    def _rrc_collect_obj(self, obj, ignored):
+        llop.debug_nonnull_pointer(lltype.Void, obj)
+        self.rrc_garbage_to_trace.append(obj)
+    _rrc_collect_obj._always_inline_ = True
+
+    def _rrc_collect_ref_rec(self, root, ignored):
+        self._rrc_collect_obj(root.address[0], None)
+
+    def _rrc_garbage_visit(self, obj):
+        # If GCFLAG_GARBAGE is set, remove the flag and trace the object
+        hdr = self.header(obj)
+        if not (hdr.tid & GCFLAG_GARBAGE):
+            return False
+        hdr.tid &= ~GCFLAG_GARBAGE
+        if self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
+            self.trace(obj, self._rrc_collect_ref_rec, None)
+        return True
 
     def _rrc_check_finalizer(self):
         # Check, if the cyclic isolate from the last collection cycle

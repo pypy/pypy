@@ -3,8 +3,12 @@ digraph G {
     "b" [type=B, alive=y, garbage=y];
     "c" [type=P, alive=y, garbage=y];
     "d" [type=P, alive=y, rooted=y];
+    "e" [type=C, alive=y, garbage=y];
+    "f" [type=C, alive=y, ext_refcnt=1];
     "a" -> "b";
     "b" -> "a";
     "b" -> "c";
     "c" -> "d";
+    "a" -> "e";
+    "a" -> "f";
 }
