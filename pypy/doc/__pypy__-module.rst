@@ -13,7 +13,6 @@ CPython are written in C. Not available in CPython, and so must be used inside a
 ``if platform.python_implementation == 'PyPy'`` block or otherwise hidden from
 the CPython interpreter.
 
-
 Generally available functionality
 ---------------------------------
 
@@ -29,17 +28,10 @@ Generally available functionality
    create a `memoryview` instance with the data from ``buffer`` and the
    specified itemsize, format, and optional shape and strides.
 
- - ``bufferable``: a base class that must override the
-   ``__buffer__(self, flags)`` method. This method should return a memoryview
+ - ``bufferable``: a base class that provides a ``__buffer__(self, flags)``
+   method for subclasses to override. This method should return a memoryview
    instance of the class instance. It is called by the C-API's ``tp_as_buffer.
    bf_getbuffer``.
-   
-  - ``debug_stop``
-  - ``debug_print``
-  - ``debug_print_once``
-  - ``debug_flush``
-  - ``debug_read_timestamp``
-  - ``debug_get_timestamp_unit``
 
   - ``builtinify(func)``: To implement at app-level modules that are, in CPython,
     implemented in C: this decorator protects a function from being ever bound
@@ -136,6 +128,59 @@ copy, string building.
   - ``builders.StringBuilder``
   - ``builders.UnicodeBuilder``
 
+Interacting with the PyPy debug log
+------------------------------------
+
+The following functions can be used to write your own content to the
+:ref:`PYPYLOG <pypylog>`.
+
+  - ``debug_start(category, timestamp=False)``: open a new section; if
+    ``timestamp`` is ``True``, also return the timestamp which was written to
+    the log.
+
+  - ``debug_stop(category, timestamp=False)``: close a section opened by
+    ``debug_start``.
+
+  - ``debug_print(...)``: print arbitrary text to the log.
+
+  - ``debug_print_once(category, ...)``: equivalent to ``debug_start`` +
+    ``debug_print`` + ``debug_stop``.
+
+  - ``debug_flush``: flush the log.
+
+  - ``debug_read_timestamp()``: read the timestamp from the same timer used by
+    the log.
+
+  - ``debug_get_timestamp_unit()``: get the unit of the value returned by
+    ``debug_read_timestamp()``.
+
+
+Depending on the architecture and operating system, PyPy uses different ways
+to read timestamps, so the timestamps used in the log file are expressed in
+varying units. It is possible to know which by calling
+``debug_get_timestamp_unit()``, which can be one of the following values:
+
+``tsc``
+    The default on ``x86`` machines: timestamps are expressed in CPU ticks, as
+    read by the `Time Stamp Counter`_.
+
+``ns``
+    Timestamps are expressed in nanoseconds.
+
+``QueryPerformanceCounter``
+    On Windows, in case for some reason ``tsc`` is not available: timestamps
+    are read using the win API ``QueryPerformanceCounter()``.
+
+
+Unfortunately, there does not seem to be a reliable standard way for
+converting ``tsc`` ticks into nanoseconds, although in practice on modern CPUs
+it is enough to divide the ticks by the maximum nominal frequency of the CPU.
+For this reason, PyPy gives the raw value, and leaves the job of doing the
+conversion to external libraries.
+
+.. _`Time Stamp Counter`: https://en.wikipedia.org/wiki/Time_Stamp_Counter    
+    
+   
 Transparent Proxy Functionality
 -------------------------------
 
