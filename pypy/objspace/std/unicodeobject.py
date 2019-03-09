@@ -41,7 +41,7 @@ class W_UnicodeObject(W_Root):
         if not we_are_translated():
             try:
                 # best effort, too expensive to handle surrogates
-                ulength = len(utf8str.decode('utf8'))
+                ulength = rutf8.codepoints_in_utf(utf8str)
             except:
                 ulength = length 
             assert ulength == length
