@@ -796,6 +796,10 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         update_all_slots(space, w_type, pto)
     else:
         update_all_slots_builtin(space, w_type, pto)
+
+    if space.is_w(w_type, space.w_tuple):
+        pto.c_tp_new = state.C.tuple_new
+
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
         base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
