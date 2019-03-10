@@ -2,8 +2,15 @@ import _rawffi
 from _rawffi import alt as _ffi
 import sys
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+try:
+    from __pypy__ import builtinify
+except ImportError:
+    builtinify = lambda f: f
+
+try:
+    from __pypy__.bufferable import bufferable
+except ImportError:
+    bufferable = object
 
 keepalive_key = str # XXX fix this when provided with test
 
@@ -64,7 +71,7 @@ class _CDataMeta(type):
         'resbuffer' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
         """
-        res = object.__new__(self)
+        res = bufferable.__new__(self)
         res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
         if base is not None:
@@ -148,7 +155,7 @@ class CArgObject(object):
     def __ne__(self, other):
         return self._obj != other
 
-class _CData(object, metaclass=_CDataMeta):
+class _CData(bufferable, metaclass=_CDataMeta):
     """ The most basic object for all ctypes types
     """
     _objects = None

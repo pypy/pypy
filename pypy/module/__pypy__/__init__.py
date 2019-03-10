@@ -62,10 +62,17 @@ class OsModule(MixedModule):
 class PyPyDateTime(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
-        'dateinterop': 'interp_pypydatetime.W_DateTime_Date',
-        'timeinterop'    : 'interp_pypydatetime.W_DateTime_Time',
-        'deltainterop'   : 'interp_pypydatetime.W_DateTime_Delta',
+        'dateinterop'  : 'interp_pypydatetime.W_DateTime_Date',
+        'timeinterop'  : 'interp_pypydatetime.W_DateTime_Time',
+        'deltainterop' : 'interp_pypydatetime.W_DateTime_Delta',
     }
+
+class PyPyBufferable(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'bufferable': 'interp_buffer.W_Bufferable',
+    }
+        
 
 class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
@@ -111,6 +118,7 @@ class Module(MixedModule):
         'fsencode'                  : 'interp_magic.fsencode',
         'fsdecode'                  : 'interp_magic.fsdecode',
         'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
+        'newmemoryview'             : 'interp_buffer.newmemoryview',
     }
 
     submodules = {
@@ -120,6 +128,7 @@ class Module(MixedModule):
         "intop": IntOpModule,
         "os": OsModule,
         '_pypydatetime': PyPyDateTime,
+        'bufferable': PyPyBufferable,
     }
 
     def setup_after_space_initialization(self):

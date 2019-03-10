@@ -30,6 +30,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
 #from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import FdValidator
 from rpython.rlib.unroll import unrolling_iterable
@@ -731,6 +732,7 @@ def build_exported_objects():
         'PyMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
+        'PyBufferable_Type': 'space.gettypeobject(W_Bufferable.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
