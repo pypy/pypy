@@ -13,7 +13,6 @@ CPython are written in C. Not available in CPython, and so must be used inside a
 ``if platform.python_implementation == 'PyPy'`` block or otherwise hidden from
 the CPython interpreter.
 
-
 Generally available functionality
 ---------------------------------
 
@@ -25,13 +24,14 @@ Generally available functionality
 
   - ``attach_gdb()``: start a GDB at the interpreter-level (or a PDB before translation).
 
-  - ``identity_dict(object)``: A dictionary that considers keys by object identity.
-    Distinct objects will have separate entries even if they compare equal.
-    All objects can be used as keys, even non-hashable ones --- but avoid using
-    immutable objects like integers: two int objects 42 may or may not be
-    internally the same object.
+ - ``newmemoryview(buffer, itemsize, format, shape=None, strides=None)``:
+   create a `memoryview` instance with the data from ``buffer`` and the
+   specified itemsize, format, and optional shape and strides.
 
-  - ``set_debug``
+ - ``bufferable``: a base class that provides a ``__buffer__(self, flags)``
+   method for subclasses to override. This method should return a memoryview
+   instance of the class instance. It is called by the C-API's ``tp_as_buffer.
+   bf_getbuffer``.
 
   - ``builtinify(func)``: To implement at app-level modules that are, in CPython,
     implemented in C: this decorator protects a function from being ever bound

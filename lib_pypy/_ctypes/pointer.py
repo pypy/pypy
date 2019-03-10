@@ -7,8 +7,7 @@ from _ctypes.basics import sizeof, byref, as_ffi_pointer
 from _ctypes.array import Array, array_get_slice_params, array_slice_getitem,\
      array_slice_setitem
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+from __pypy__ import builtinify, newmemoryview
 
 # This cache maps types to pointers to them.
 _pointer_type_cache = {}
@@ -135,6 +134,9 @@ class _Pointer(_CData):
     def _as_ffi_pointer_(self, ffitype):
         return as_ffi_pointer(self, ffitype)
 
+    def __buffer__(self, flags):
+        mv = memoryview(self.getcontents())
+        return newmemoryview(mv, mv.itemsize, '&' + mv.format, mv.shape)
 
 def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
