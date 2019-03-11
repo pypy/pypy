@@ -14,6 +14,13 @@ two different interpreters:
 The interpreters are based on much the same codebase, thus the double
 release.
 
+This release, coming fast on the heels of 7.0 in February, finally merges the
+internal refactoring of unicode representation as UTF-8. Removing the
+conversions from strings to unicode internally lead to a nice speed bump.
+
+We also improved the ability to use the buffer protocol with ctype structures
+and arrays.
+
 Until we can work with downstream providers to distribute builds with PyPy, we
 have made packages for some common packages `available as wheels`_.
 

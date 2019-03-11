@@ -1073,10 +1073,6 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
 
 def encode_object(space, w_object, encoding, errors):
     w_encoder = None
-    if encoding is None:
-        # Get the encoder functions as a wrapped object.
-        # This lookup is cached.
-        w_encoder = space.sys.get_w_default_encoder()
     if errors is None or errors == 'strict':
         if ((encoding is None and space.sys.defaultencoding == 'ascii') or
              encoding == 'ascii'):
@@ -1101,14 +1097,18 @@ def encode_object(space, w_object, encoding, errors):
             if rutf8.has_surrogates(utf8):
                 utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
             return space.newbytes(utf8)
+    if encoding is None:
+        # Get the encoder functions as a wrapped object.
+        # This lookup is cached.
+        w_encoder = space.sys.get_w_default_encoder()
     if w_encoder is None:
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
     if errors is None:
-        w_errors = space.newtext('strict')
+        w_restuple = space.call_function(w_encoder, w_object)
     else:
         w_errors = space.newtext(errors)
-    w_restuple = space.call_function(w_encoder, w_object, w_errors)
+        w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.newint(0))
     if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
@@ -1118,9 +1118,9 @@ def encode_object(space, w_object, encoding, errors):
 
 
 def decode_object(space, w_obj, encoding, errors):
-    if encoding is None:
-        encoding = getdefaultencoding(space)
     if errors is None or errors == 'strict':
+        if encoding is None:
+            encoding = getdefaultencoding(space)
         if encoding == 'ascii':
             s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
@@ -1133,14 +1133,19 @@ def decode_object(space, w_obj, encoding, errors):
                 s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
-    w_codecs = space.getbuiltinmodule("_codecs")
-    w_decode = space.getattr(w_codecs, space.newtext("decode"))
+    w_decoder = None
+    if encoding is None:
+        # Get the decoder functions as a wrapped object.
+        # This lookup is cached.
+        w_decoder = space.sys.get_w_default_decoder()
+    if w_decoder is None:
+        from pypy.module._codecs.interp_codecs import lookup_codec
+        w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
     if errors is None:
-        w_retval = space.call_function(w_decode, w_obj, space.newtext(encoding))
+        w_retval = space.call_function(w_decoder, w_obj)
     else:
-        w_retval = space.call_function(w_decode, w_obj, space.newtext(encoding),
-                                       space.newtext(errors))
-    return w_retval
+        w_retval = space.call_function(w_decoder, w_obj, space.newtext(errors))
+    return space.getitem(w_retval, space.newint(0))
 
 
 def unicode_from_encoded_object(space, w_obj, encoding, errors):
