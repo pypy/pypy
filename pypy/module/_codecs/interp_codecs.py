@@ -526,7 +526,10 @@ def _wrap_codec_error(space, operr, action, encoding):
 
 def _call_codec(space, w_coder, w_obj, action, encoding, errors):
     try:
-        w_res = space.call_function(w_coder, w_obj, space.newtext(errors))
+        if errors:
+            w_res = space.call_function(w_coder, w_obj, space.newtext(errors))
+        else:
+            w_res = space.call_function(w_coder, w_obj)
     except OperationError as operr:
         raise _wrap_codec_error(space, operr, action, encoding)
     if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
@@ -634,15 +637,11 @@ def lookup_text_codec(space, action, encoding):
     return codec_info
 
 def encode_text(space, w_obj, encoding, errors):
-    if errors is None:
-        errors = 'strict'
     w_encoder = space.getitem(
         lookup_text_codec(space, "codecs.encode()", encoding), space.newint(0))
     return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
 
 def decode_text(space, w_obj, encoding, errors):
-    if errors is None:
-        errors = 'strict'
     w_decoder = space.getitem(
         lookup_text_codec(space, "codecs.decode()", encoding), space.newint(1))
     return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
