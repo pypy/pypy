@@ -3441,6 +3441,15 @@ def test_struct_array_no_length():
     assert p.a[1] == 20
     assert p.a[2] == 30
     assert p.a[3] == 0
+    #
+    # struct of struct of varsized array
+    BStruct2 = new_struct_type("bar")
+    complete_struct_or_union(BStruct2, [('head', BInt),
+                                        ('tail', BStruct)])
+    for i in range(2):   # try to detect heap overwrites
+        p = newp(new_pointer_type(BStruct2), [100, [200, list(range(50))]])
+        assert p.tail.y[49] == 49
+
 
 def test_struct_array_no_length_explicit_position():
     BInt = new_primitive_type("int")
