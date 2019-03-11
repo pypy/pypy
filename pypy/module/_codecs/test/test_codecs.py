@@ -457,6 +457,20 @@ class AppTestPartialEvaluation:
         raises(TypeError, b"hello".decode, "test.mytestenc")
         raises(TypeError, u"hello".encode, "test.mytestenc")
 
+    def test_one_arg_encoder(self):
+        import _codecs
+        def search_function(encoding):
+            def encode_one(u):
+                return (b'foo', len(u))
+            def decode_one(u):
+                return (u'foo', len(u))
+            if encoding == 'onearg':
+                return (encode_one, decode_one, None, None)
+            return None
+        _codecs.register(search_function)
+        assert u"hello".encode("onearg") == 'foo'
+        assert b"hello".decode("onearg") == 'foo'
+
     def test_cpytest_decode(self):
         import codecs
         assert codecs.decode(b'\xe4\xf6\xfc', 'latin-1') == u'\xe4\xf6\xfc'
@@ -519,7 +533,7 @@ class AppTestPartialEvaluation:
         import _codecs, array
         assert _codecs.readbuffer_encode(array.array('c', 'spam')) == ('spam', 4)
         exc = raises(TypeError, _codecs.charbuffer_encode, array.array('c', 'spam'))
-        assert str(exc.value) == "must be string or read-only character buffer, not array.array"
+        assert "must be string or read-only character buffer, not array.array" in str(exc.value)
         assert _codecs.readbuffer_encode(u"test") == ('test', 4)
         assert _codecs.charbuffer_encode(u"test") == ('test', 4)
 
