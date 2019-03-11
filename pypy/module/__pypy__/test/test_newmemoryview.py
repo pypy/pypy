@@ -19,7 +19,7 @@ class AppTestMinimal:
         from __pypy__ import bufferable, newmemoryview
         class B(bufferable.bufferable):
             def __init__(self):
-                self.data = bytearray('abc')
+                self.data = bytearray(b'abc')
 
             def __buffer__(self, flags):
                 return newmemoryview(memoryview(self.data), 1, 'B')
