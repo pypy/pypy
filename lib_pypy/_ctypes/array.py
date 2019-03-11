@@ -257,7 +257,7 @@ class Array(_CData):
         try:
             itemsize = struct.calcsize(fmt[1:])
         except:
-            itemsize = len(buffer(obj[0]))
+            itemsize = sizeof(obj[0])
         return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
 
 ARRAY_CACHE = {}
