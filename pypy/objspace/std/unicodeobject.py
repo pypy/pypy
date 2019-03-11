@@ -1209,7 +1209,7 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
 
 
 def encode_object(space, w_object, encoding, errors):
-    from pypy.module._codecs.interp_codecs import encode_text, CodecState
+    from pypy.module._codecs.interp_codecs import encode_text
     if errors is None or errors == 'strict':
         utf8 = space.utf8_w(w_object)
         if encoding is None or encoding == 'utf-8':
@@ -1242,10 +1242,9 @@ def encode_object(space, w_object, encoding, errors):
     return w_retval
 
 
-def decode_object(space, w_obj, encoding, errors='strict'):
-    assert errors is not None
+def decode_object(space, w_obj, encoding, errors=None):
     assert encoding is not None
-    if errors == 'strict':
+    if errors == 'strict' or errors is None:
         if encoding == 'ascii':
             s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
@@ -1266,8 +1265,6 @@ def decode_object(space, w_obj, encoding, errors='strict'):
 
 
 def unicode_from_encoded_object(space, w_obj, encoding, errors):
-    if errors is None:
-        errors = 'strict'
     if encoding is None:
         encoding = getdefaultencoding(space)
     w_retval = decode_object(space, w_obj, encoding, errors)

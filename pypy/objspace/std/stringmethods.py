@@ -193,8 +193,6 @@ class StringMethods(object):
         from pypy.objspace.std.unicodeobject import (
             get_encoding_and_errors, decode_object)
         encoding, errors = get_encoding_and_errors(space, w_encoding, w_errors)
-        if errors is None:
-            errors = 'strict'
         if encoding is None:
             encoding = 'utf8'
         if encoding == 'utf8' or encoding == 'utf-8':
