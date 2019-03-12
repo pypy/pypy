@@ -362,6 +362,8 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
     valid so we're trying to either raise or pack stuff with error handler.
     The key difference is that this is call_may_force
     """
+    if errors is None:
+        errors = 'strict'
     slen = len(s)
     res = StringBuilder(slen)
     pos = 0

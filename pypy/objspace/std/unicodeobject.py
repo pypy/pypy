@@ -41,9 +41,9 @@ class W_UnicodeObject(W_Root):
         if not we_are_translated():
             try:
                 # best effort, too expensive to handle surrogates
-                ulength = len(utf8str.decode('utf8'))
+                ulength = rutf8.codepoints_in_utf(utf8str)
             except:
-                ulength = length 
+                ulength = length
             assert ulength == length
 
 
@@ -135,7 +135,7 @@ class W_UnicodeObject(W_Root):
         if strict:
             raise oefmt(space.w_TypeError,
                 "%s arg must be None, unicode or str", strict)
-        return unicode_from_encoded_object(space, w_other, 'utf8', "strict")
+        return decode_object(space, w_other, 'utf8', "strict")
 
     def convert_to_w_unicode(self, space):
         return self
@@ -203,8 +203,7 @@ class W_UnicodeObject(W_Root):
                 if space.isinstance_w(w_object, space.w_unicode):
                     raise oefmt(space.w_TypeError,
                             "decoding str is not supported")
-                w_value = unicode_from_encoded_object(space, w_object,
-                                                  encoding, errors)
+                w_value = decode_object(space, w_object, encoding, errors)
         if space.is_w(w_unicodetype, space.w_unicode):
             return w_value
 
@@ -649,7 +648,7 @@ class W_UnicodeObject(W_Root):
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
         value = self._utf8
-        if (start > 0 and not space.is_none(w_end) and 
+        if (start > 0 and not space.is_none(w_end) and
                                 space.getindex_w(w_end, None) == 0):
             return space.w_False
         if space.isinstance_w(w_prefix, space.w_tuple):
@@ -674,7 +673,7 @@ class W_UnicodeObject(W_Root):
         start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
         value = self._utf8
         # match cpython behaviour
-        if (start > 0 and not space.is_none(w_end) and 
+        if (start > 0 and not space.is_none(w_end) and
                                 space.getindex_w(w_end, None) == 0):
             return space.w_False
         if space.isinstance_w(w_suffix, space.w_tuple):
@@ -1207,11 +1206,11 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
     errors = None if w_errors is None else space.text_w(w_errors)
     return encoding, errors
 
-
-def encode_object(space, w_object, encoding, errors):
-    from pypy.module._codecs.interp_codecs import encode_text, CodecState
+def encode_object(space, w_obj, encoding, errors):
+    from pypy.module._codecs.interp_codecs import encode
     if errors is None or errors == 'strict':
-        utf8 = space.utf8_w(w_object)
+        # fast paths
+        utf8 = space.utf8_w(w_obj)
         if encoding is None or encoding == 'utf-8':
             try:
                 rutf8.check_utf8(utf8, False)
@@ -1230,22 +1229,12 @@ def encode_object(space, w_object, encoding, errors):
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(utf8)
-    if encoding is None:
-        encoding = space.sys.defaultencoding
-    w_retval = encode_text(space, w_object, encoding, errors)
-    if not space.isinstance_w(w_retval, space.w_bytes):
-        raise oefmt(space.w_TypeError,
-                    "'%s' encoder returned '%T' instead of 'bytes'; "
-                    "use codecs.encode() to encode to arbitrary types",
-                    encoding,
-                    w_retval)
-    return w_retval
+    return encode(space, w_obj, encoding, errors)
 
 
-def decode_object(space, w_obj, encoding, errors='strict'):
-    assert errors is not None
-    assert encoding is not None
-    if errors == 'strict':
+def decode_object(space, w_obj, encoding, errors=None):
+    if errors == 'strict' or errors is None:
+        # fast paths
         if encoding == 'ascii':
             s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
@@ -1254,29 +1243,8 @@ def decode_object(space, w_obj, encoding, errors='strict'):
             s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
-    from pypy.module._codecs.interp_codecs import decode_text
-    w_retval = decode_text(space, w_obj, encoding, errors)
-    if not isinstance(w_retval, W_UnicodeObject):
-        raise oefmt(space.w_TypeError,
-                    "'%s' decoder returned '%T' instead of 'str'; "
-                    "use codecs.decode() to decode to arbitrary types",
-                    encoding,
-                    w_retval)
-    return w_retval
-
-
-def unicode_from_encoded_object(space, w_obj, encoding, errors):
-    if errors is None:
-        errors = 'strict'
-    if encoding is None:
-        encoding = getdefaultencoding(space)
-    w_retval = decode_object(space, w_obj, encoding, errors)
-    if not isinstance(w_retval, W_UnicodeObject):
-        raise oefmt(space.w_TypeError,
-                    "decoder did not return a str object (type '%T')",
-                    w_retval)
-    return w_retval
-
+    from pypy.module._codecs.interp_codecs import decode
+    return decode(space, w_obj, encoding, errors)
 
 def unicode_from_object(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):
@@ -1284,6 +1252,7 @@ def unicode_from_object(space, w_obj):
     if space.lookup(w_obj, "__str__") is not None:
         return space.str(w_obj)
     return space.repr(w_obj)
+
 def ascii_from_object(space, w_obj):
     """Implements builtins.ascii()"""
     # repr is guaranteed to be unicode
@@ -1295,7 +1264,7 @@ def unicode_from_string(space, w_bytes):
     # this is a performance and bootstrapping hack
     encoding = getdefaultencoding(space)
     if encoding != 'ascii':
-        return unicode_from_encoded_object(space, w_bytes, encoding, "strict")
+        return decode_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
     unicodehelper.check_ascii_or_raise(space, s)
     return W_UnicodeObject(s, len(s))
@@ -1900,7 +1869,7 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
     utf8 = space.utf8_w(w_unistr)
-    lgt =  space.len_w(w_unistr) 
+    lgt =  space.len_w(w_unistr)
     result = StringBuilder(lgt)
     pos = 0
     for uchr in rutf8.Utf8StringIterator(utf8):
@@ -1923,7 +1892,7 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
             raise OperationError(space.w_UnicodeEncodeError,
                                  space.newtuple([w_encoding, w_unistr,
                                                  w_start, w_end,
-                                                 w_reason]))            
+                                                 w_reason]))
         result.append(c)
         pos += 1
     return result.build()
