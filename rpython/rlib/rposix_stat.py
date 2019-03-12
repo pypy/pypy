@@ -686,7 +686,7 @@ if _WIN32:
         # the "reparse points" is missing
         win32traits = make_win32_traits(traits)
 
-        hFile = win32traits.CreateFile(path,
+        hFile = win32traits.CreateFile(traits.as_str0(path),
             win32traits.FILE_READ_ATTRIBUTES,
             0,
             lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),

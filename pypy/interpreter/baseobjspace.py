@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types
+from rpython.rlib import jit, types, rutf8
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -283,7 +283,10 @@ class W_Root(object):
     def str_w(self, space):
         self._typed_unwrap_error(space, "string")
 
-    def unicode_w(self, space):
+    def utf8_w(self, space):
+        self._typed_unwrap_error(space, "unicode")
+
+    def convert_to_w_unicode(self, space):
         self._typed_unwrap_error(space, "unicode")
 
     def bytearray_list_of_chars_w(self, space):
@@ -1104,7 +1107,7 @@ class ObjSpace(object):
         """
         return None
 
-    def listview_unicode(self, w_list):
+    def listview_utf8(self, w_list):
         """ Return a list of unwrapped unicode out of a list of unicode. If the
         argument is not a list or does not contain only unicode, return None.
         May return None anyway.
@@ -1134,8 +1137,15 @@ class ObjSpace(object):
     def newlist_bytes(self, list_s):
         return self.newlist([self.newbytes(s) for s in list_s])
 
-    def newlist_unicode(self, list_u):
-        return self.newlist([self.newunicode(u) for u in list_u])
+    def newlist_utf8(self, list_u, is_ascii):
+        l_w = [None] * len(list_u)
+        for i, item in enumerate(list_u):
+            if not is_ascii:
+                length = rutf8.check_utf8(item, True)
+            else:
+                length = len(item)
+            l_w[i] = self.newutf8(item, length)
+        return self.newlist(l_w)
 
     def newlist_int(self, list_i):
         return self.newlist([self.newint(i) for i in list_i])
@@ -1662,6 +1672,8 @@ class ObjSpace(object):
         # needed because CPython has the same issue.  (Well, it's
         # unclear if there is any use at all for getting the bytes in
         # the unicode buffer.)
+        if self.isinstance_w(w_obj, self.w_unicode):
+            return w_obj.charbuf_w(self)
         try:
             return self.bytes_w(w_obj)
         except OperationError as e:
@@ -1803,27 +1815,38 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError, "argument must be a string")
         return self.bytes_w(w_obj)
 
-    @specialize.argtype(1)
-    def unicode_w(self, w_obj):
-        assert w_obj is not None
-        return w_obj.unicode_w(self)
+    def utf8_w(self, w_obj):
+        return w_obj.utf8_w(self)
+
+    def convert_to_w_unicode(self, w_obj):
+        return w_obj.convert_to_w_unicode(self)
 
     def unicode0_w(self, w_obj):
         "Like unicode_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
-        result = w_obj.unicode_w(self)
+        result = w_obj.utf8_w(self).decode('utf8')
         if u'\x00' in result:
             raise oefmt(self.w_TypeError,
                         "argument must be a unicode string without NUL "
                         "characters")
         return rstring.assert_str0(result)
 
-    def realunicode_w(self, w_obj):
-        # Like unicode_w(), but only works if w_obj is really of type
-        # 'unicode'.  On Python 3 this is the same as unicode_w().
+    def convert_arg_to_w_unicode(self, w_obj, strict=None):
+        # XXX why convert_to_w_unicode does something slightly different?
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        assert not hasattr(self, 'is_fake_objspace')
+        return W_UnicodeObject.convert_arg_to_w_unicode(self, w_obj, strict)
+
+    def utf8_len_w(self, w_obj):
+        w_obj = self.convert_arg_to_w_unicode(w_obj)
+        return w_obj._utf8, w_obj._len()
+
+    def realutf8_w(self, w_obj):
+        # Like utf8_w(), but only works if w_obj is really of type
+        # 'unicode'.  On Python 3 this is the same as utf8_w().
         if not self.isinstance_w(w_obj, self.w_unicode):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
-        return self.unicode_w(w_obj)
+        return self.utf8_w(w_obj)
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
@@ -2188,7 +2211,7 @@ ObjSpace.IrregularOpTable = [
     'float_w',
     'uint_w',
     'bigint_w',
-    'unicode_w',
+    'utf8_w',
     'unwrap',
     'is_true',
     'is_w',

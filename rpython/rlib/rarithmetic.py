@@ -612,6 +612,7 @@ r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
 r_longlonglong = build_int('r_longlonglong', True, 128)
+r_ulonglonglong = build_int('r_ulonglonglong', False, 128)
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
@@ -728,7 +729,9 @@ def int_force_ge_zero(n):
     """ The JIT special-cases this too. """
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
-    return llop.int_force_ge_zero(lltype.Signed, n)
+    n = llop.int_force_ge_zero(lltype.Signed, n)
+    assert n >= 0
+    return n
 
 def int_c_div(x, y):
     """Return the result of the C-style 'x / y'.  This differs from the

@@ -90,7 +90,9 @@ Contributors
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
+  Stefan Beyer
   Jeremy Thurgood
+  Andrew Lawrence
   Greg Price
   Ivan Sichmann Freitas
   Dario Bertini
@@ -101,7 +103,6 @@ Contributors
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
-  Stefan Beyer
   William Leslie
   Paweł Piotr Przeradowski
   marky1991
@@ -119,6 +120,7 @@ Contributors
   Wanja Saatkamp
   Mike Blume
   Gerald Klix
+  Julian Berman
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
@@ -141,6 +143,7 @@ Contributors
   Anton Gulenko
   Sergey Matyunin
   Andrew Chambers
+  Łukasz Langa
   Nicolas Chauvat
   Andrew Durdin
   Ben Young
@@ -263,7 +266,6 @@ Contributors
   Bobby Impollonia
   Roberto De Ioris
   Jeong YunWon
-  andrewjlawrence
   Christopher Armstrong
   Aaron Tubbs
   Vasantha Ganesh K
@@ -295,7 +297,6 @@ Contributors
   Ben Darnell
   Juan Francisco Cantero Hurtado
   Godefroid Chappelle
-  Julian Berman
   Stephan Busemann
   Dan Colish
   timo

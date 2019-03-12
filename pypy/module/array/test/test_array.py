@@ -589,6 +589,12 @@ class AppTestArray(object):
             assert a[1] == 2
             assert a[2] == 3
 
+    def test_deepcopy(self):
+        a = self.array('u', u'\x01\u263a\x00\ufeff')
+        from copy import deepcopy
+        b = deepcopy(a)
+        assert a == b
+
     def test_addmul(self):
         a = self.array('i', [1, 2, 3])
         assert repr(a + a) == "array('i', [1, 2, 3, 1, 2, 3])"
@@ -845,18 +851,6 @@ class AppTestArray(object):
         b = self.array('u', u'\x01\u263a\x00\ufeff')
         b.byteswap()
         assert a != b
-
-    def test_unicode_ord_positive(self):
-        import sys
-        if sys.maxunicode == 0xffff:
-            skip("test for 32-bit unicodes")
-        a = self.array('u', b'\xff\xff\xff\xff')
-        assert len(a) == 1
-        assert repr(a[0]) == "u'\Uffffffff'"
-        if sys.maxint == 2147483647:
-            assert ord(a[0]) == -1
-        else:
-            assert ord(a[0]) == 4294967295
 
     def test_weakref(self):
         import weakref

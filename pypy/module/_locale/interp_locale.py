@@ -133,10 +133,11 @@ def strcoll(space, w_s1, w_s2):
             rffi.free_charp(s1_c)
             rffi.free_charp(s2_c)
 
-    s1, s2 = space.unicode_w(w_s1), space.unicode_w(w_s2)
+    s1, l1 = space.utf8_len_w(w_s1)
+    s2, l2 = space.utf8_len_w(w_s2)
 
-    s1_c = rffi.unicode2wcharp(s1)
-    s2_c = rffi.unicode2wcharp(s2)
+    s1_c = rffi.utf82wcharp(s1, l1)
+    s2_c = rffi.utf82wcharp(s2, l2)
     try:
         result = _wcscoll(s1_c, s2_c)
     finally:

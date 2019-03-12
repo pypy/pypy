@@ -1,7 +1,7 @@
 ==========================
-What's new in PyPy2.7 7.0+
+What's new in PyPy2.7 7.1+
 ==========================
 
-.. this is a revision shortly after release-pypy-7.0.0
-.. startrev: 481c69f7d81f
+.. this is a revision shortly after release-pypy-7.1.0
+.. startrev: 78914a03cf95
 

@@ -1191,14 +1191,14 @@ if _POSIX:
 
 inet_ntoa = external('inet_ntoa', [in_addr], rffi.CCHARP)
 
-if _POSIX:
-    inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
-                                       rffi.VOIDP], rffi.INT,
-                         save_err=SAVE_ERR)
 
-    inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
-                                       socklen_t], CCHARP,
-                         save_err=SAVE_ERR)
+inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
+                                   rffi.VOIDP], rffi.INT,
+                     save_err=SAVE_ERR)
+
+inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
+                                   socklen_t], CCHARP,
+                     save_err=SAVE_ERR)
 
 inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
 socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
@@ -1270,7 +1270,8 @@ getservbyport = external('getservbyport', [rffi.INT, rffi.CCHARP], lltype.Ptr(cC
 getprotobyname = external('getprotobyname', [rffi.CCHARP], lltype.Ptr(cConfig.protoent))
 
 if _POSIX:
-    fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT)
+    fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT,
+                     save_err=SAVE_ERR)
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT,
@@ -1282,7 +1283,7 @@ if _POSIX:
 if _WIN32:
     ioctlsocket = external('ioctlsocket',
                            [socketfd_type, rffi.LONG, rffi.ULONGP],
-                           rffi.INT)
+                           rffi.INT, save_err=SAVE_ERR)
 
 select = external('select',
                   [rffi.INT, fd_set, fd_set,
@@ -1369,8 +1370,15 @@ if WIN32:
         return rwin32.FormatError(errno)
 
     def socket_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)
+        return rwin32.FormatErrorW(errno)[0]
+
     def gai_strerror_unicode(errno):
+        return rwin32.FormatErrorW(errno)[0]
+
+    def socket_strerror_utf8(errno):
+        return rwin32.FormatErrorW(errno)
+
+    def gai_strerror_utf8(errno):
         return rwin32.FormatErrorW(errno)
 
     # WinSock does not use a bitmask in select, and uses
@@ -1386,7 +1394,16 @@ else:
 
     def socket_strerror_unicode(errno):
         return socket_strerror_str(errno).decode('latin-1')
+
     def gai_strerror_unicode(errno):
         return gai_strerror_str(errno).decode('latin-1')
+
+    def socket_strerror_utf8(errno):
+        msg = socket_strerror_str(errno)
+        return msg, len(msg)
+
+    def gai_strerror_utf8(errno):
+        msg = gai_strerror_str(errno)
+        return msg, len(msg)
 
     MAX_FD_SIZE = FD_SETSIZE

@@ -254,7 +254,7 @@ else:
                 'sched.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
-    if sys.platform.startswith('linux'):
+    if sys.platform.startswith('linux') or sys.platform.startswith('gnu'):
         includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd') or sys.platform.startswith('openbsd'):
         includes.append('sys/ttycom.h')

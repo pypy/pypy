@@ -1567,12 +1567,13 @@ class _SSLContext(W_Root):
                 cadata = space.bufferstr_w(w_cadata)
             else:
                 ca_file_type = SSL_FILETYPE_PEM
-                try:
-                    cadata = space.unicode_w(w_cadata).encode('ascii')
-                except UnicodeEncodeError:
+                w_uni = space.convert_arg_to_w_unicode(w_cadata)
+                if not w_uni.is_ascii():
                     raise oefmt(space.w_TypeError,
                                 "cadata should be a ASCII string or a "
                                 "bytes-like object")
+                cadata = space.utf8_w(w_uni)
+
         if cafile is None and capath is None and cadata is None:
             raise oefmt(space.w_TypeError,
                         "cafile and capath cannot be both omitted")

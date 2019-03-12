@@ -165,8 +165,8 @@ _ExpandEnvironmentStringsW = external(
     rwin32.DWORD,
     save_err=rffi.RFFI_SAVE_LASTERROR)
 
-def ExpandEnvironmentStrings(source):
-    with rffi.scoped_unicode2wcharp(source) as src_buf:
+def ExpandEnvironmentStrings(source, unicode_len):
+    with rffi.scoped_utf82wcharp(source, unicode_len) as src_buf:
         size = _ExpandEnvironmentStringsW(src_buf,
                                           lltype.nullptr(rffi.CWCHARP.TO), 0)
         if size == 0:
@@ -176,4 +176,5 @@ def ExpandEnvironmentStrings(source):
             if _ExpandEnvironmentStringsW(src_buf,
                                           dest_buf.raw, size) == 0:
                 raise rwin32.lastSavedWindowsError("ExpandEnvironmentStrings")
-            return dest_buf.str(size - 1) # remove trailing \0
+            res = dest_buf.str(size-1) # remove trailing \0
+            return res.encode('utf8'), len(res)

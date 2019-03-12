@@ -62,7 +62,7 @@ class TinyObjSpace(object):
                         py.test.skip("no module __pypy__ on top of CPython")
                 continue
             if info is None:
-                py.test.skip("cannot runappdirect this test on top of CPython")
+                continue
             if ('translation.' + key) in info:
                 key = 'translation.' + key
             has = info.get(key, None)
@@ -112,6 +112,9 @@ class TinyObjSpace(object):
 
     def newbytes(self, obj):
         return bytes(obj)
+
+    def newutf8(self, obj, lgth):
+        return obj
 
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)

@@ -46,15 +46,15 @@ def cfunction_dealloc(space, py_obj):
     _dealloc(space, py_obj)
 
 def w_kwargs_from_args(space, __args__):
-    w_kwargs = None
-    if __args__.keywords:
-        # CCC: we should probably have a @jit.look_inside_iff if the
-        # keyword count is constant, as we do in Arguments.unpack
-        w_kwargs = space.newdict()
-        for i in range(len(__args__.keywords)):
-            key = __args__.keywords[i]
-            w_obj = __args__.keywords_w[i]
-            space.setitem(w_kwargs, space.newtext(key), w_obj)
+    if __args__.keywords is None:
+        return None
+    # CCC: we should probably have a @jit.look_inside_iff if the
+    # keyword count is constant, as we do in Arguments.unpack
+    w_kwargs = space.newdict()
+    for i in range(len(__args__.keywords)):
+        key = __args__.keywords[i]
+        w_obj = __args__.keywords_w[i]
+        space.setitem(w_kwargs, space.newtext(key), w_obj)
     return w_kwargs
 
 class W_PyCFunctionObject(W_Root):
@@ -62,7 +62,7 @@ class W_PyCFunctionObject(W_Root):
 
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
-        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP,self.ml.c_ml_name))
+        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP, self.ml.c_ml_name))
         self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         self.w_self = w_self
         self.w_module = w_module
@@ -100,7 +100,7 @@ class W_PyCFunctionObject(W_Root):
 
     def call_o(self, space, w_self, __args__):
         func = self.ml.c_ml_meth
-        w_o = __args__.arguments_w[0]        
+        w_o = __args__.arguments_w[0]
         return generic_cpy_call(space, func, w_self, w_o)
 
     def call_varargs(self, space, w_self, __args__):

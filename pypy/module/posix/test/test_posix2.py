@@ -1189,6 +1189,11 @@ class AppTestPosix:
         os = self.posix
         with open(self.path, "w") as f:
             f.write("this is a rename test")
+        str_name = str(self.pdir) + '/test_rename.txt'
+        os.rename(self.path, str_name)
+        with open(str_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(str_name, self.path)
         unicode_name = str(self.udir) + u'/test\u03be.txt'
         os.rename(self.path, unicode_name)
         with open(unicode_name) as f:

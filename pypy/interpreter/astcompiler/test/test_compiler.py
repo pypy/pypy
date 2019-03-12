@@ -975,9 +975,6 @@ class TestCompilerRevDB(BaseTestCompiler):
 
 class AppTestCompiler:
 
-    def setup_class(cls):
-        cls.w_maxunicode = cls.space.wrap(sys.maxunicode)
-
     def test_docstring_not_loaded(self):
         import StringIO, dis, sys
         ns = {}
@@ -1027,7 +1024,7 @@ class AppTestCompiler:
         import sys
         d = {}
         exec '# -*- coding: utf-8 -*-\n\nu = u"\xf0\x9f\x92\x8b"' in d
-        if sys.maxunicode > 65535 and self.maxunicode > 65535:
+        if sys.maxunicode > 65535:
             expected_length = 1
         else:
             expected_length = 2
@@ -1207,3 +1204,17 @@ class TestOptimizations:
             source = 'def f(): %s' % source
             counts = self.count_instructions(source)
             assert ops.BINARY_POWER not in counts
+
+    def test_constant_tuples(self):
+        source = """def f():
+            return ((u"a", 1), 2)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+        # also for bytes
+        source = """def f():
+            return ((b"a", 5), 5, 7, 8)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
