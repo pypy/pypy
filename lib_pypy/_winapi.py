@@ -18,12 +18,17 @@ NULL = _ffi.NULL
 
 # Now the _subprocess module implementation
 
+PermissionErrors = [5]
+
 def _WinError():
     code, message = _ffi.getwinerror()
-    raise WindowsError(code, message)
+    if code in PermissionErrors:
+        excep = PermissionError(code, message)
+    else:
+        excep = WindowsError(code, message)
+    raise excep
 
 def _int2handle(val):
-
     return _ffi.cast("HANDLE", val)
 
 def _handle2int(handle):
@@ -45,7 +50,7 @@ def CreateNamedPipe(*args):
     handle = _kernel32.CreateNamedPipeW(*args)
     if handle == INVALID_HANDLE_VALUE:
         raise _WinError()
-    return handle
+    return _handle2int(handle)
 
 def CreateFile(*args):
     handle = _kernel32.CreateFileW(*args)

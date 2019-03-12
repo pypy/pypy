@@ -23,9 +23,9 @@ import _winapi
 
 #
 # Error Codes
-#	
+#
 ERROR_PIPE_BUSY = 231
-
+ERROR_NETNAME_DELETED = 64
 #
 # Status Codes
 #
@@ -42,6 +42,10 @@ def _int2dword(int2cast):
 def _int2handle(val):
     return _ffi.cast("HANDLE", val)
 
+
+def _handle2int(handle):
+    return int(_ffi.cast("intptr_t", handle))
+
 from enum import Enum
 class OverlappedType(Enum):
     TYPE_NONE = 0 
@@ -57,30 +61,30 @@ class OverlappedType(Enum):
     TYPE_TRANSMIT_FILE = 10
 
 class Overlapped(object):
-    def __init__(self, handle):
+    def __init__(self, event):
         self.overlapped = _ffi.new('OVERLAPPED[1]')
-        self.handle = handle
-        ### I can't see these buffers being used.
-        ### it is possible that we could delete them.
-        self.readbuffer = None
-        self.writebuffer = None
-
+        self.handle = _ffi.NULL
         self.allocated_buffer = None
         self.user_buffer = None
-        self.pending = 0
-        self.completed = 0
+
         self.type = OverlappedType.TYPE_NONE
-        self.overlapped[0].hEvent = \
-                _kernel32.CreateEventW(NULL, True, False, NULL)
+        if event == INVALID_HANDLE_VALUE or not event: 
+            event = _kernel32.CreateEventW(NULL, True, False, NULL)
+            if event == _winapi.NULL:
+                raise _winapi._WinError()
+        
+        if event:
+            self.overlapped[0].hEvent = event
+                
         if self.overlapped[0].hEvent == _ffi.NULL: 
              raise _winapi._WinError()
-        self.address = _ffi.addressof(self.overlapped[0])
 
     def __del__(self):
         bytes = _ffi.new("DWORD[1]",[0])
         olderr = _kernel32.GetLastError()
-        hascompletedio = HasOverlappedIoCompleted(self.overlapped[0])
-        if not hascompletedio and self.type != TYPE_NOT_STARTED:
+        hascompletedio = HasOverlappedIoCompleted(self.overlapped[0])      
+        if not hascompletedio and self.type != OverlappedType.TYPE_NOT_STARTED:
+            
             wait = _kernel32.CancelIoEx(self.handle, self.overlapped)
             ret = self.GetOverlappedResult(wait)
             err = _winapi.ERROR_SUCCESS
@@ -90,8 +94,7 @@ class Overlapped(object):
                err != _winapi.ERROR_NOT_FOUND and \
                err != _winapi.ERROR_OPERATION_ABORTED:
                raise _winapi._WinError()
-        
-        if self.overlapped[0].hEvent:
+        if self.overlapped[0].hEvent != 0:
             _winapi.CloseHandle(self.overlapped[0].hEvent)
 
     @property
@@ -100,19 +103,23 @@ class Overlapped(object):
 
     def GetOverlappedResult(self, wait):
         transferred = _ffi.new('DWORD[1]', [0])
+        
+        if self.type == OverlappedType.TYPE_NONE:
+            return _ffi.NULL
+        
+        if self.type == OverlappedType.TYPE_NOT_STARTED:
+            return _ffi.NULL
+
         res = _kernel32.GetOverlappedResult(self.handle, self.overlapped, transferred, wait != 0)
         if res:
             err = _winapi.ERROR_SUCCESS
         else:
             err = _kernel32.GetLastError()
-        if err in (_winapi.ERROR_SUCCESS, _winapi.ERROR_MORE_DATA, _winapi.ERROR_OPERATION_ABORTED):
-            self.completed = 1
-            self.pending = 0
-        elif err == _winapi.ERROR_IO_INCOMPLETE:
-            pass
-        else:
-            self.pending = 0
-            raise _winapi._WinError()
+
+        if err != _winapi.ERROR_SUCCESS and err != _winapi.ERROR_MORE_DATA:
+            if not (err == _winapi.ERROR_BROKEN_PIPE and (self.type == TYPE_READ or self.type == TYPE_READINTO)):
+                raise _winapi.WinError()
+
         if self.type == OverlappedType.TYPE_READ:
             return _ffi.unpack(self.allocated_buffer, transferred[0])
         else:
@@ -123,13 +130,14 @@ class Overlapped(object):
         return None
 
     def cancel(self):
-        result = true
-        if self.type == OverlappedType.TYPE_NOT_STARTED or OverlappedType.TYPE_WAIT_NAMED_PIPE_AND_CONNECT:
+        result = True
+        if self.type == OverlappedType.TYPE_NOT_STARTED or self.type == OverlappedType.TYPE_WAIT_NAMED_PIPE_AND_CONNECT:
             return None
-        if not _kernel32.HasOverlappedIoCompleted(self.overlapped):
+        if not HasOverlappedIoCompleted(self.overlapped[0]):
             ### If we are to support xp we will need to dynamically load the below method
-            _kernel32.CancelIoEx(self.handle, self.overlapped)        
-        return result
+            result = _kernel32.CancelIoEx(self.handle, self.overlapped)
+        if (not result and _winapi.GetLastError() != _winapi.ERROR_NOT_FOUND):
+            raise _winapi._WinError()
      
     def WSARecv(self ,handle, size, flags):
         handle = _int2handle(handle)
@@ -138,7 +146,7 @@ class Overlapped(object):
             raise _winapi._WinError()
         
         self.type = OverlappedType.TYPE_READ
-        self.handle = handle
+        self.handle = _int2handle(handle)
         self.allocated_buffer = _ffi.new("CHAR[]", max(1,size))
         return self.do_WSARecv(handle, self.allocated_buffer, size, flags)
 
@@ -170,19 +178,18 @@ class Overlapped(object):
     def getresult(self, wait=False):
         return self.GetOverlappedResult(wait)
     
-    def ConnectNamedPipe(self, handle, overlapped=False):
-        if overlapped:
-            ov = Overlapped(handle)
-        else:
-            ov = Overlapped(None)
+    def ConnectNamedPipe(self, handle):
+        if self.type != OverlappedType.TYPE_NONE:
+            raise _winapi._WinError()
         self.type  = OverlappedType.TYPE_CONNECT_NAMED_PIPE
-    
-        success = _kernel32.ConnectNamedPipe(handle, ov.overlapped)
+        self.handle = _int2handle(handle)
+        success = _kernel32.ConnectNamedPipe(self.handle, self.overlapped)
         
-        if overlapped and err == _winapi.ERROR_IO_PENDING:
-            ov.pending = 1
+        if success:
+            err = _winapi.ERROR_SUCCESS
+        else:
+            err = _kernel32.GetLastError()       
         
-        err = _kernel32.GetLastError()
         if err == _winapi.ERROR_IO_PENDING | _winapi.ERROR_SUCCESS:
             return False
         elif err == _winapi.ERROR_PIPE_CONNECTED:
@@ -193,9 +200,9 @@ class Overlapped(object):
     
     def ReadFile(self, handle, size):
         self.type = OverlappedType.TYPE_READ
-        self.handle = handle
+        self.handle = _int2handle(handle)
         self.allocated_buffer = _ffi.new("CHAR[]", max(1,size))
-        return self.do_ReadFile(handle, self.allocated_buffer, size)
+        return self.do_ReadFile(self.handle, self.allocated_buffer, size)
     
     def do_ReadFile(self, handle, buf, size):
         nread = _ffi.new('DWORD[1]', [0])
@@ -204,7 +211,7 @@ class Overlapped(object):
              err = _winapi.ERROR_SUCCESS
         else:
              err = _kernel32.GetLastError()
-        
+           
         if err == _winapi.ERROR_BROKEN_PIPE:
             mark_as_completed(self.overlapped)
             raise _winapi._WinError()
@@ -213,17 +220,26 @@ class Overlapped(object):
         else:
            self.type = OverlappedType.TYPE_NOT_STARTED
            raise _winapi._WinError()
-         
+    
+    @property
+    def pending(self):
+        return (not HasOverlappedIoCompleted(self.overlapped[0]) and
+                self.type != OverlappedType.TYPE_NOT_STARTED)
+    
+    @property
+    def address(self):
+        return _ffi.addressof(self.overlapped[0])
 
-def mark_as_completed(overlapped):
-    overlapped[0].Internal = 0
-    if overlapped[0].hEvent != _ffi.NULL:
-        SetEvent(overlapped[0].hEvent)
 
 def SetEvent(handle):
     ret = _kernel32.SetEvent(handle)
     if not ret:
        raise _winapi._WinError()
+
+def mark_as_completed(overlapped):
+    overlapped[0].Internal = 0
+    if overlapped[0].hEvent != _ffi.NULL:
+        SetEvent(overlapped[0].hEvent) 
 
 def CreateEvent(eventattributes, manualreset, initialstate, name):
     event = _kernel32.CreateEventW(NULL, manualreset, initialstate, _Z(name))
@@ -245,13 +261,16 @@ def CreateIoCompletionPort(handle, existingcompletionport, completionkey, number
     
     return result
 
+def PostQueuedCompletionStatus(completionport, ms):
+    raise _winapi._WinError()
+
 def GetQueuedCompletionStatus(completionport, milliseconds):
     numberofbytes = _ffi.new('DWORD[1]', [0])
-    completionkey  = _ffi.new('ULONG **')
+    completionkey  = _ffi.new('ULONG**', _ffi.NULL)
 
     if completionport is None:
         raise _winapi._WinError()
-    overlapped = _ffi.new("OVERLAPPED **")
+    overlapped = _ffi.new("OVERLAPPED**")
     overlapped[0] = _ffi.NULL
     result = _kernel32.GetQueuedCompletionStatus(completionport, 
                                                  numberofbytes,
@@ -268,12 +287,11 @@ def GetQueuedCompletionStatus(completionport, milliseconds):
             return None
         return SetFromWindowsErr(err)
 
-    return (err, numberofbytes, completionkey[0], overlapped[0])
+    return (err, numberofbytes, completionkey[0], _ffi.addressof(overlapped[0][0]))
 
 @_ffi.callback("void(void*, bool)")
 def post_to_queue_callback(lpparameter, timerorwaitfired):
     pdata = _ffi.cast("PostCallbackData *", lpparameter)
-
     _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timerorwaitfired, _ffi.cast("ULONG_PTR",0), pdata.Overlapped)
 
 
@@ -293,8 +311,8 @@ def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
 
 def ConnectPipe(address):
     err = _winapi.ERROR_PIPE_BUSY
-    
-    handle = _kernel32.CreateFileW(address, 
+    waddress = _ffi.new("wchar_t[]", address)
+    handle = _kernel32.CreateFileW(waddress, 
                             _winapi.GENERIC_READ | _winapi.GENERIC_WRITE,
                             0,
                             _ffi.NULL,
@@ -303,16 +321,17 @@ def ConnectPipe(address):
                             _ffi.NULL)
     err = _kernel32.GetLastError()
     
-    if handle == INVALID_HANDLE_VALUE:
+    if handle == INVALID_HANDLE_VALUE or err == _winapi.ERROR_PIPE_BUSY:
         raise _winapi._WinError()
         
-    return handle
+    return _handle2int(handle)
 
 
 # In CPython this function converts a windows error into a python object
 # Not sure what we should do here.
 def SetFromWindowsErr(error):
     return error
+
 
 def HasOverlappedIoCompleted(overlapped):
     return (overlapped.Internal != STATUS_PENDING)

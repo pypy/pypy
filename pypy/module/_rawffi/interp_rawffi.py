@@ -632,7 +632,7 @@ def rawstring2charp(space, address, newcontent, offset=0, size=-1):
 if _MS_WINDOWS:
     @unwrap_spec(code=int)
     def FormatError(space, code):
-        return space.newtext(rwin32.FormatErrorW(code))
+        return space.newtext(*rwin32.FormatErrorW(code))
 
     @unwrap_spec(hresult=int)
     def check_HRESULT(space, hresult):
