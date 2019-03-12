@@ -591,6 +591,7 @@ def readbuffer_encode(space, w_data, errors='strict'):
 
 @unwrap_spec(encoding='text_or_none', errors='text_or_none')
 def decode(space, w_obj, encoding=None, errors=None):
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
     """decode(obj, [encoding[,errors]]) -> object
 
     Decodes obj using the codec registered for encoding. encoding defaults
@@ -604,7 +605,7 @@ def decode(space, w_obj, encoding=None, errors=None):
         encoding = space.sys.defaultencoding
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
     w_retval = _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
-    if not space.isinstance_w(w_retval, space.w_unicode):
+    if not isinstance(w_retval, W_UnicodeObject):
         raise oefmt(space.w_TypeError,
                     "'%s' decoder returned '%T' instead of 'str'; "
                     "use codecs.decode() to decode to arbitrary types",
