@@ -304,7 +304,7 @@ def backslashreplace_errors(space, w_exc):
         while pos < end:
             oc = ord(obj[pos])
             raw_unicode_escape_helper(builder, oc)
-            pos += 1 
+            pos += 1
         return space.newtuple([space.newtext(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
@@ -561,8 +561,8 @@ def lookup_error(space, errors):
     return w_err_handler
 
 
-@unwrap_spec(errors='text')
-def encode(space, w_obj, w_encoding=None, errors='strict'):
+@unwrap_spec(encoding='text_or_none', errors='text_or_none')
+def encode(space, w_obj, encoding=None, errors=None):
     """encode(obj, [encoding[,errors]]) -> object
 
     Encodes obj using the codec registered for encoding. encoding defaults
@@ -572,20 +572,25 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     'xmlcharrefreplace' as well as any other name registered with
     codecs.register_error that can handle ValueErrors.
     """
-    if w_encoding is None:
+    if encoding is None:
         encoding = space.sys.defaultencoding
-    else:
-        encoding = space.text_w(w_encoding)
     w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
-    return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
+    w_retval =  _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
+    if not space.isinstance_w(w_retval, space.w_bytes):
+        raise oefmt(space.w_TypeError,
+                    "'%s' encoder returned '%T' instead of 'bytes'; "
+                    "use codecs.encode() to encode to arbitrary types",
+                    encoding,
+                    w_retval)
+    return w_retval
 
 @unwrap_spec(errors='text_or_none')
 def readbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('s#', w_data)
     return space.newtuple([space.newbytes(s), space.newint(len(s))])
 
-@unwrap_spec(errors='text')
-def decode(space, w_obj, w_encoding=None, errors='strict'):
+@unwrap_spec(encoding='text_or_none', errors='text_or_none')
+def decode(space, w_obj, encoding=None, errors=None):
     """decode(obj, [encoding[,errors]]) -> object
 
     Decodes obj using the codec registered for encoding. encoding defaults
@@ -595,12 +600,17 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     as well as any other name registered with codecs.register_error that is
     able to handle ValueErrors.
     """
-    if w_encoding is None:
+    if encoding is None:
         encoding = space.sys.defaultencoding
-    else:
-        encoding = space.text_w(w_encoding)
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
-    return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
+    w_retval = _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
+    if not space.isinstance_w(w_retval, space.w_unicode):
+        raise oefmt(space.w_TypeError,
+                    "'%s' decoder returned '%T' instead of 'str'; "
+                    "use codecs.decode() to decode to arbitrary types",
+                    encoding,
+                    w_retval)
+    return w_retval
 
 @unwrap_spec(errors='text')
 def register_error(space, errors, w_handler):
@@ -635,16 +645,6 @@ def lookup_text_codec(space, action, encoding):
                     "'%s' is not a text encoding; "
                     "use %s to handle arbitrary codecs", encoding, action)
     return codec_info
-
-def encode_text(space, w_obj, encoding, errors):
-    w_encoder = space.getitem(
-        lookup_text_codec(space, "codecs.encode()", encoding), space.newint(0))
-    return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
-
-def decode_text(space, w_obj, encoding, errors):
-    w_decoder = space.getitem(
-        lookup_text_codec(space, "codecs.decode()", encoding), space.newint(1))
-    return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 # ____________________________________________________________
 
@@ -735,7 +735,7 @@ def utf_8_encode(space, w_obj, errors="strict"):
         result = unicodehelper.utf8_encode_utf_8(utf8, errors,
                      state.encode_error_handler, allow_surrogates=False)
     except unicodehelper.ErrorHandlerError as e:
-        raise oefmt(space.w_IndexError, 
+        raise oefmt(space.w_IndexError,
                    "position %d from error handler invalid, already encoded %d",
                     e.new,e.old)
 
