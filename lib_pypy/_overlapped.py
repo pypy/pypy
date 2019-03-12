@@ -64,8 +64,8 @@ class Overlapped(object):
     def __init__(self, event):
         self.overlapped = _ffi.new('OVERLAPPED[1]')
         self.handle = _ffi.NULL
-        self.allocated_buffer = None
-        self.user_buffer = None
+        self.read_buffer = None
+        self.write_buffer = None
 
         self.type = OverlappedType.TYPE_NONE
         if event == INVALID_HANDLE_VALUE or not event: 
@@ -121,7 +121,7 @@ class Overlapped(object):
                 raise _winapi.WinError()
 
         if self.type == OverlappedType.TYPE_READ:
-            return _ffi.unpack(self.allocated_buffer, transferred[0])
+            return _ffi.unpack(self.read_buffer, transferred[0])
         else:
             return transferred[0]
 
@@ -147,8 +147,8 @@ class Overlapped(object):
         
         self.type = OverlappedType.TYPE_READ
         self.handle = _int2handle(handle)
-        self.allocated_buffer = _ffi.new("CHAR[]", max(1,size))
-        return self.do_WSARecv(handle, self.allocated_buffer, size, flags)
+        self.read_buffer = _ffi.new("CHAR[]", max(1,size))
+        return self.do_WSARecv(handle, self.read_buffer, size, flags)
 
     def do_WSARecv(self, handle, allocatedbuffer, size, flags):
         nread = _ffi.new("LPDWORD")
@@ -201,8 +201,8 @@ class Overlapped(object):
     def ReadFile(self, handle, size):
         self.type = OverlappedType.TYPE_READ
         self.handle = _int2handle(handle)
-        self.allocated_buffer = _ffi.new("CHAR[]", max(1,size))
-        return self.do_ReadFile(self.handle, self.allocated_buffer, size)
+        self.read_buffer = _ffi.new("CHAR[]", max(1,size))
+        return self.do_ReadFile(self.handle, self.read_buffer, size)
     
     def do_ReadFile(self, handle, buf, size):
         nread = _ffi.new('DWORD[1]', [0])
@@ -220,6 +220,32 @@ class Overlapped(object):
         else:
            self.type = OverlappedType.TYPE_NOT_STARTED
            raise _winapi._WinError()
+
+    def WriteFile(self, handle, buffer):
+        self.handle = _int2handle(handle)
+        self.write_buffer = buffer
+        written = _ffi.new('DWORD[1]', [0])
+
+        # Check if we have already performed some IO
+        if self.type != OverlappedType.TYPE_NONE:
+            raise _winapi._WinError()
+
+        self.type = OverlappedType.TYPE_WRITE
+        
+        ret = _kernel32.WriteFile(self.handle, self.write_buffer, len(self.write_buffer), written, self.overlapped)
+        
+        if ret:
+            err = _winapi.ERROR_SUCCESS
+        else:
+            err = _winapi.GetLastError()
+
+        self.error = err
+
+        if err == _winapi.ERROR_SUCCESS or err == _winapi.ERROR_IO_PENDING:
+            return None
+        else:
+            self.type = OverlappedType.TYPE_NOT_STARTED
+            raise _winapi.WinError()
     
     @property
     def pending(self):
@@ -326,6 +352,14 @@ def ConnectPipe(address):
         
     return _handle2int(handle)
 
+#def UnregisterWaitEx(handle, event):
+#    waithandle = _int2handle(handle)
+#    waitevent = _int2handle(event)
+#   
+#    ret = _kernel32.UnregisterWaitEx(handle, event)
+#    
+#    if not ret:
+#        raise _winapi.WinError()
 
 # In CPython this function converts a windows error into a python object
 # Not sure what we should do here.

@@ -18,14 +18,10 @@ NULL = _ffi.NULL
 
 # Now the _subprocess module implementation
 
-PermissionErrors = [5]
 
 def _WinError():
     code, message = _ffi.getwinerror()
-    if code in PermissionErrors:
-        excep = PermissionError(code, message)
-    else:
-        excep = WindowsError(code, message)
+    excep = WindowsError(None, message, None ,code)
     raise excep
 
 def _int2handle(val):
