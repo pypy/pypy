@@ -14,6 +14,8 @@ class OrderedDict(dict):
     cases but is nonsensical in other cases.  This is officially
     forbidden by the CPython docs, so we forbid it explicitly for now.
     '''
+    __module__ = 'collections'
+
     def __init__(*args, **kwds):
         '''Initialize an ordered dictionary.  The signature is the same as
         regular dictionaries, but keyword arguments are not recommended because
