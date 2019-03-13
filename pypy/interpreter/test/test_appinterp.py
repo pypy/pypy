@@ -129,6 +129,7 @@ class TestMixedModule:
                     assert name in module.__dict__
         """)
         assert space.is_true(w_module.call('somefunc'))
+        assert Module.get_applevel_name() == 'demomixedmod'
 
     def test_whacking_at_loaders(self):
         """Some MixedModules change 'self.loaders' in __init__(), but doing

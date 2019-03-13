@@ -79,8 +79,7 @@ class MixedModule(Module):
         if cls.applevel_name is not None:
             return cls.applevel_name
         else:
-            pkgroot = cls.__module__
-            return pkgroot.split('.')[-1]
+            return cls.__module__.split('.')[-2]
 
     def get(self, name):
         space = self.space
