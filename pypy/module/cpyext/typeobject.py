@@ -797,6 +797,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     else:
         update_all_slots_builtin(space, w_type, pto)
 
+    # XXX generlize this pattern for various slot functions implemented in C
     if space.is_w(w_type, space.w_tuple):
         pto.c_tp_new = state.C.tuple_new
 
