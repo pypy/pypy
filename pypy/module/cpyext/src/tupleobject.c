@@ -89,3 +89,48 @@ _PyPy_tuple_dealloc(register PyObject *_op)
 done:
     Py_TRASHCAN_SAFE_END(op)
 }
+
+static PyObject *
+tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+
+PyObject *
+tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    PyObject *arg = NULL;
+    static char *kwlist[] = {"sequence", 0};
+
+    if (type != &PyTuple_Type)
+        return tuple_subtype_new(type, args, kwds);
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:tuple", kwlist, &arg))
+        return NULL;
+
+    if (arg == NULL)
+        return PyTuple_New(0);
+    else
+        return PySequence_Tuple(arg);
+}
+
+static PyObject *
+tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    PyObject *tmp, *newobj, *item;
+    Py_ssize_t i, n;
+
+    assert(PyType_IsSubtype(type, &PyTuple_Type));
+    tmp = tuple_new(&PyTuple_Type, args, kwds);
+    if (tmp == NULL)
+        return NULL;
+    assert(PyTuple_Check(tmp));
+    newobj = type->tp_alloc(type, n = PyTuple_GET_SIZE(tmp));
+    if (newobj == NULL)
+        return NULL;
+    for (i = 0; i < n; i++) {
+        item = PyTuple_GET_ITEM(tmp, i);
+        Py_INCREF(item);
+        PyTuple_SET_ITEM(newobj, i, item);
+    }
+    Py_DECREF(tmp);
+    return newobj;
+}
+
+

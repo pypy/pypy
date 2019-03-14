@@ -26,7 +26,7 @@ class AppTestMinimal:
 
 
         obj = B()
-        buf = buffer(obj)
+        buf = memoryview(obj)
         v = obj.data[2]
-        assert ord(buf[2]) == v
+        assert buf[2] == v
 

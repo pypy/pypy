@@ -708,7 +708,9 @@ class AppTestPartialEvaluation:
             return None
         _codecs.register(search_function)
         assert u"hello".encode("onearg") == b'foo'
-        assert b"hello".decode("onearg") == 'foo'
+        assert b"hello".decode("onearg") == u'foo'
+        assert _codecs.encode(u"hello", "onearg") == b'foo'
+        assert _codecs.decode(b"hello", "onearg") == u'foo'
 
     def test_cpytest_decode(self):
         import codecs
