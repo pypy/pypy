@@ -231,7 +231,6 @@ class AppTestTuple(AppTestCpythonExtensionBase):
         # issue 2968: creating a subclass of tuple in C led to recursion
         # since the default tp_new needs to build a w_obj, but that needs
         # to call space.len_w, which needs to call tp_new.
-        module = self.import_module('THPSize')
         module = self.import_extension('foo', [
             ("get_size", "METH_NOARGS",
              """
@@ -265,5 +264,6 @@ class AppTestTuple(AppTestCpythonExtensionBase):
             ''')
         SZ = module.get_size()
         s = SZ((1, 2, 3))
+        assert len(s) == 3
         assert len(s) == 3
 
