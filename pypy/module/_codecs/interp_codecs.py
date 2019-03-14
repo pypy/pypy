@@ -306,8 +306,8 @@ def lookup_error(space, errors):
     return w_err_handler
 
 
-@unwrap_spec(errors='text')
-def encode(space, w_obj, w_encoding=None, errors='strict'):
+@unwrap_spec(encoding='text_or_none', errors='text_or_none')
+def encode(space, w_obj, encoding=None, errors=None):
     """encode(obj, [encoding[,errors]]) -> object
 
     Encodes obj using the codec registered for encoding. encoding defaults
@@ -317,13 +317,19 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     'xmlcharrefreplace' as well as any other name registered with
     codecs.register_error that can handle ValueErrors.
     """
-    if w_encoding is None:
+    if encoding is None:
         encoding = space.sys.defaultencoding
-    else:
-        encoding = space.text_w(w_encoding)
     w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
-    w_res = space.call_function(w_encoder, w_obj, space.newtext(errors))
-    return space.getitem(w_res, space.newint(0))
+    if errors:
+        w_res = space.call_function(w_encoder, w_obj, space.newtext(errors))
+    else:
+        w_res = space.call_function(w_encoder, w_obj)
+    w_retval = space.getitem(w_res, space.newint(0))
+    if not space.isinstance_w(w_retval, space.w_bytes):
+        raise oefmt(space.w_TypeError,
+                    "encoder did not return an string object (type '%T')",
+                    w_retval)
+    return w_retval
 
 @unwrap_spec(errors='text_or_none')
 def readbuffer_encode(space, w_data, errors='strict'):
@@ -335,8 +341,8 @@ def charbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('t#', w_data)
     return space.newtuple([space.newbytes(s), space.newint(len(s))])
 
-@unwrap_spec(errors='text')
-def decode(space, w_obj, w_encoding=None, errors='strict'):
+@unwrap_spec(encoding='text_or_none', errors='text_or_none')
+def decode(space, w_obj, encoding=None, errors=None):
     """decode(obj, [encoding[,errors]]) -> object
 
     Decodes obj using the codec registered for encoding. encoding defaults
@@ -346,19 +352,17 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     as well as any other name registered with codecs.register_error that is
     able to handle ValueErrors.
     """
-    if w_encoding is None:
+    if encoding is None:
         encoding = space.sys.defaultencoding
-    else:
-        encoding = space.text_w(w_encoding)
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
-    if space.is_true(w_decoder):
+    if errors:
         w_res = space.call_function(w_decoder, w_obj, space.newtext(errors))
-        if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
-            raise oefmt(space.w_TypeError,
-                        "encoder must return a tuple (object, integer)")
-        return space.getitem(w_res, space.newint(0))
     else:
-        assert 0, "XXX, what to do here?"
+        w_res = space.call_function(w_decoder, w_obj)
+    if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
+        raise oefmt(space.w_TypeError,
+                    "encoder must return a tuple (object, integer)")
+    return space.getitem(w_res, space.newint(0))
 
 @unwrap_spec(errors='text')
 def register_error(space, errors, w_handler):
