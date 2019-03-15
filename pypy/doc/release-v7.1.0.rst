@@ -24,7 +24,7 @@ and arrays.
 Until we can work with downstream providers to distribute builds with PyPy, we
 have made packages for some common packages `available as wheels`_.
 
-The `CFFI`_ backend has been updated to version 1.12.2. We reccomend using CFFI
+The `CFFI`_ backend has been updated to version 1.12.2. We recommend using CFFI
 rather than c-extensions to interact with C, and `cppyy`_ for interacting with
 C++ code.
 
