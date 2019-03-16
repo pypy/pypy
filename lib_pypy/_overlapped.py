@@ -24,6 +24,7 @@ import _winapi
 #
 # Error Codes
 #
+ERROR_IO_PENDING = 997
 ERROR_PIPE_BUSY = 231
 ERROR_NETNAME_DELETED = 64
 #
@@ -68,13 +69,15 @@ class Overlapped(object):
         self.write_buffer = None
 
         self.type = OverlappedType.TYPE_NONE
-        if event == INVALID_HANDLE_VALUE or not event: 
+        if event == _int2handle(INVALID_HANDLE_VALUE) or not event: 
             event = _kernel32.CreateEventW(NULL, True, False, NULL)
             if event == _winapi.NULL:
                 raise _winapi._WinError()
         
         if event:
             self.overlapped[0].hEvent = event
+        else:
+            raise _winapi._WinError()
                 
         if self.overlapped[0].hEvent == _ffi.NULL: 
              raise _winapi._WinError()
@@ -254,7 +257,7 @@ class Overlapped(object):
     
     @property
     def address(self):
-        return _ffi.addressof(self.overlapped[0])
+        return self.overlapped
 
 
 def SetEvent(handle):
@@ -292,7 +295,7 @@ def PostQueuedCompletionStatus(completionport, ms):
 
 def GetQueuedCompletionStatus(completionport, milliseconds):
     numberofbytes = _ffi.new('DWORD[1]', [0])
-    completionkey  = _ffi.new('ULONG**', _ffi.NULL)
+    completionkey  = _ffi.new('ULONG**')
 
     if completionport is None:
         raise _winapi._WinError()
@@ -313,27 +316,32 @@ def GetQueuedCompletionStatus(completionport, milliseconds):
             return None
         return SetFromWindowsErr(err)
 
-    return (err, numberofbytes, completionkey[0], _ffi.addressof(overlapped[0][0]))
+    return (err, numberofbytes, _handle2int(completionkey[0]), _ffi.addressof(overlapped[0][0]))
 
-@_ffi.callback("void(void*, bool)")
+@_ffi.callback("void(void*, int)")
 def post_to_queue_callback(lpparameter, timerorwaitfired):
     pdata = _ffi.cast("PostCallbackData *", lpparameter)
-    _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timerorwaitfired, _ffi.cast("ULONG_PTR",0), pdata.Overlapped)
+    ret = _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timerorwaitfired, _ffi.cast("ULONG_PTR",0), pdata.Overlapped)
+    result = False
+#    if not ret:
+#         err = _winapi._WinError()
 
 
 def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
-    data = _ffi.new('PostCallbackData[1]')
-    newwaitobject = _ffi.new("HANDLE[1]")
+    data = _ffi.new('PostCallbackData*')
+    newwaitobject = _ffi.new("HANDLE*")
     data[0].hCompletionPort = completionport
-    data[0].Overlapped = _ffi.new("OVERLAPPED *",ovaddress[0])
-    success = _kernel32.RegisterWaitForSingleObject(newwaitobject,
-                                                    object,
-                                                    _ffi.cast("WAITORTIMERCALLBACK",post_to_queue_callback),
-                                                    data,
-                                                    miliseconds, 
-                                                    _kernel32.WT_EXECUTEINWAITTHREAD | _kernel32.WT_EXECUTEONLYONCE)
+    data[0].Overlapped = ovaddress
+    ret = _kernel32.RegisterWaitForSingleObject(newwaitobject,
+                                                object,
+                                                _ffi.cast("WAITORTIMERCALLBACK",post_to_queue_callback),
+                                                data,
+                                                miliseconds, 
+                                                _kernel32.WT_EXECUTEINWAITTHREAD | _kernel32.WT_EXECUTEONLYONCE)
+    if not ret:
+        raise _winapi._WinError()
     
-    return newwaitobject
+    return _handle2int(newwaitobject[0])
 
 def ConnectPipe(address):
     err = _winapi.ERROR_PIPE_BUSY
@@ -352,14 +360,22 @@ def ConnectPipe(address):
         
     return _handle2int(handle)
 
-#def UnregisterWaitEx(handle, event):
-#    waithandle = _int2handle(handle)
-#    waitevent = _int2handle(event)
-#   
-#    ret = _kernel32.UnregisterWaitEx(handle, event)
-#    
-#    if not ret:
-#        raise _winapi.WinError()
+def UnregisterWaitEx(handle, event):
+    waithandle = _int2handle(handle)
+    waitevent = _int2handle(event)
+    
+    ret = _kernel32.UnregisterWaitEx(waithandle, waitevent)
+    
+    if not ret:
+        raise _winapi._WinError()
+
+def UnregisterWait(handle):
+    handle = _int2handle(handle)
+    
+    ret = _kernel32.UnregisterWait(handle)
+    
+    if not ret:
+        raise _winapi._WinError()
 
 # In CPython this function converts a windows error into a python object
 # Not sure what we should do here.
