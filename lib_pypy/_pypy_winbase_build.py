@@ -121,6 +121,7 @@ BOOL WINAPI CreateProcessW(wchar_t *, wchar_t *, void *,
                            void *, BOOL, DWORD, wchar_t *,
                            wchar_t *, LPSTARTUPINFO, LPPROCESS_INFORMATION);
 DWORD WINAPI WaitForSingleObject(HANDLE, DWORD);
+DWORD WaitForMultipleObjects(DWORD, HANDLE*, BOOL, DWORD);
 BOOL WINAPI GetExitCodeProcess(HANDLE, LPDWORD);
 BOOL WINAPI TerminateProcess(HANDLE, UINT);
 HANDLE WINAPI GetStdHandle(DWORD);
@@ -138,6 +139,7 @@ typedef struct _PostCallbackData {
 
 typedef VOID (WINAPI *WAITORTIMERCALLBACK) (PVOID, BOOL);  
 BOOL WINAPI RegisterWaitForSingleObject(PHANDLE, HANDLE, WAITORTIMERCALLBACK, PVOID, ULONG, ULONG);
+
 BOOL WINAPI PostQueuedCompletionStatus(HANDLE,  DWORD, ULONG_PTR, LPOVERLAPPED);
 BOOL WINAPI UnregisterWaitEx(HANDLE, HANDLE);
 BOOL WINAPI UnregisterWait(HANDLE);

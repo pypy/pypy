@@ -81,11 +81,10 @@ class Overlapped(object):
 
     def __del__(self):
         # do this somehow else
-        xxx
         err = _kernel32.GetLastError()
         bytes = _ffi.new('DWORD[1]')
-        o = overlapped[0]
-        if overlapped[0].pending:
+        o = self.overlapped[0]
+        if self.pending:
             if _kernel32.CancelIoEx(o.handle, o.overlapped) & \
                 self.GetOverlappedResult(o.handle, o.overlapped, _ffi.addressof(bytes), True):
                 # The operation is no longer pending, nothing to do
@@ -112,8 +111,8 @@ class Overlapped(object):
         else:
             self.pending = 0
             raise _WinError()
-        if self.completed and self.read_buffer:
-            if transferred != len(self.read_buffer):
+        if self.completed and self.readbuffer:
+            if transferred != len(self.readbuffer):
                 raise _WinError()
         return transferred[0], err
 
@@ -127,6 +126,7 @@ class Overlapped(object):
 
  
 def ConnectNamedPipe(handle, overlapped=False):
+    handle = _int2handle(handle)
     if overlapped:
         ov = Overlapped(handle)
     else:
@@ -219,6 +219,18 @@ def WaitForSingleObject(handle, milliseconds):
 
     return res
 
+def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
+    if len(handle_sequence) > MAXIMUM_WAIT_OBJECTS:
+        return None
+    
+    # CPython makes the wait interruptible by ctrl-c. We need to add this in at some point
+    res = _kernel32.WaitForMultipleObjects(len(handle_sequence), handle_sequence, waitflag, milliseconds)
+
+    if res == WAIT_FAILED:
+        raise _WinError()
+    return int(res)
+
+
 def GetExitCodeProcess(handle):
     # CPython: the first argument is expected to be an integer.
     code = _ffi.new("DWORD[1]")
@@ -262,6 +274,7 @@ def GetModuleFileName(module):
         raise _WinError()
     return _ffi.string(buf)
 
+
 # #define macros from WinBase.h and elsewhere
 STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
@@ -274,6 +287,7 @@ INFINITE = 0xffffffff
 WAIT_OBJECT_0 = 0
 WAIT_ABANDONED_0 = 0x80
 WAIT_TIMEOUT = 0x102
+WAIT_FAILED = 0xFFFFFFFF
 CREATE_NEW_CONSOLE = 0x010
 CREATE_NEW_PROCESS_GROUP = 0x200
 CREATE_UNICODE_ENVIRONMENT = 0x400
@@ -332,3 +346,4 @@ OPEN_EXISTING     = 3
 OPEN_ALWAYS       = 4
 TRUNCATE_EXISTING = 5
 
+MAXIMUM_WAIT_OBJECTS = 64

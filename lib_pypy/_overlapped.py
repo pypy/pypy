@@ -62,11 +62,12 @@ class OverlappedType(Enum):
     TYPE_TRANSMIT_FILE = 10
 
 class Overlapped(object):
-    def __init__(self, event):
+    def __init__(self, event=_ffi.NULL):
         self.overlapped = _ffi.new('OVERLAPPED[1]')
         self.handle = _ffi.NULL
         self.read_buffer = None
         self.write_buffer = None
+        self.error = 0
 
         self.type = OverlappedType.TYPE_NONE
         if event == _int2handle(INVALID_HANDLE_VALUE) or not event: 
@@ -93,6 +94,7 @@ class Overlapped(object):
             err = _winapi.ERROR_SUCCESS
             if not ret:
                 err = _kernel32.GetLastError()
+                self.error = err
             if err != _winapi.ERROR_SUCCESS and \
                err != _winapi.ERROR_NOT_FOUND and \
                err != _winapi.ERROR_OPERATION_ABORTED:
@@ -118,10 +120,11 @@ class Overlapped(object):
             err = _winapi.ERROR_SUCCESS
         else:
             err = _kernel32.GetLastError()
+            self.error = err
 
         if err != _winapi.ERROR_SUCCESS and err != _winapi.ERROR_MORE_DATA:
             if not (err == _winapi.ERROR_BROKEN_PIPE and (self.type == TYPE_READ or self.type == TYPE_READINTO)):
-                raise _winapi.WinError()
+                raise _winapi._WinError()
 
         if self.type == OverlappedType.TYPE_READ:
             return _ffi.unpack(self.read_buffer, transferred[0])
@@ -191,7 +194,8 @@ class Overlapped(object):
         if success:
             err = _winapi.ERROR_SUCCESS
         else:
-            err = _kernel32.GetLastError()       
+            err = _kernel32.GetLastError()    
+            self.error = err
         
         if err == _winapi.ERROR_IO_PENDING | _winapi.ERROR_SUCCESS:
             return False
@@ -214,6 +218,7 @@ class Overlapped(object):
              err = _winapi.ERROR_SUCCESS
         else:
              err = _kernel32.GetLastError()
+             self.error = err
            
         if err == _winapi.ERROR_BROKEN_PIPE:
             mark_as_completed(self.overlapped)
