@@ -27,6 +27,9 @@ import _winapi
 ERROR_IO_PENDING = 997
 ERROR_PIPE_BUSY = 231
 ERROR_NETNAME_DELETED = 64
+
+SOCKET_ERROR = -1
+
 #
 # Status Codes
 #
@@ -167,7 +170,7 @@ class Overlapped(object):
         wsabuff[0].buf = allocatedbuffer
 
         result = _winsock2.WSARecv(handle, wsabuff, _int2dword(1), nread, pflags, self.overlapped, _ffi.NULL)
-        if result < 0:
+        if result == SOCKET_ERROR:
             self.error = _kernel32.GetLastError()
         else:
             self.error = _winapi.ERROR_SUCCESS            
@@ -176,6 +179,34 @@ class Overlapped(object):
             mark_as_completed(self.overlapped)
             raise _winapi._WinError()
         elif self.error in [_winapi.ERROR_SUCCESS, _winapi.ERROR_MORE_DATA, _winapi.ERROR_IO_PENDING] :
+            return None
+        else:
+            self.type = OverlappedType.TYPE_NOT_STARTED
+            raise _winapi._WinError()
+
+    def WSASend(self ,handle, bufobj, flags):
+        handle = _int2handle(handle)
+
+        if self.type != OverlappedType.TYPE_NONE:
+            raise _winapi._WinError() 
+        self.write_buffer = bufobj
+        self.type = OverlappedType.TYPE_WRITE
+        self.handle = handle
+
+        wsabuff = _ffi.new("WSABUF[1]")
+        wsabuff[0].len = len(bufobj)
+        wsabuff[0].buf = _ffi.new("CHAR[]", bufobj)
+        nwritten = _ffi.new("LPDWORD")
+        
+
+        result = _winsock2.WSASend(handle, wsabuff, _int2dword(1), nwritten, flags, self.overlapped, _ffi.NULL)
+        
+        if result == SOCKET_ERROR:
+            self.error = _kernel32.GetLastError()
+        else:
+            self.error = _winapi.ERROR_SUCCESS
+
+        if self.error in [_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING]:
             return None
         else:
             self.type = OverlappedType.TYPE_NOT_STARTED
