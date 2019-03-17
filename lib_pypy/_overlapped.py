@@ -115,17 +115,21 @@ def initiailize_function_ptrs():
                              WSAID_ACCEPTEX, _ffi.sizeof(WSAID_ACCEPTEX[0]), _accept_ex,       \
                              _ffi.sizeof(_accept_ex[0]), dwBytes, _ffi.NULL, _ffi.NULL)
     if result == INVALID_SOCKET:
+        _winsock2.closesocket(s)
         raise _winapi._WinError()
 
     result = _winsock2.WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER,    \
                              WSAID_CONNECTEX, _ffi.sizeof(WSAID_CONNECTEX[0]), _connect_ex,       \
                              _ffi.sizeof(_connect_ex[0]), dwBytes, _ffi.NULL, _ffi.NULL)
     if result == INVALID_SOCKET:
+        _winsock2.closesocket(s)
         raise _winapi._WinError()
 
     result = _winsock2.WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER,    \
                              WSAID_DISCONNECTEX, _ffi.sizeof(WSAID_DISCONNECTEX[0]), _disconnect_ex,       \
                              _ffi.sizeof(_disconnect_ex[0]), dwBytes, _ffi.NULL, _ffi.NULL)
+    
+    _winsock2.closesocket(s)
     if result == INVALID_SOCKET:
         raise _winapi._WinError()
 
@@ -317,8 +321,9 @@ class Overlapped(object):
              err = _winapi.ERROR_SUCCESS
         else:
              err = _kernel32.GetLastError()
-             self.error = err
-           
+             
+        self.error = err
+        
         if err == _winapi.ERROR_BROKEN_PIPE:
             mark_as_completed(self.overlapped)
             raise _winapi._WinError()
@@ -342,19 +347,52 @@ class Overlapped(object):
         ret = _kernel32.WriteFile(self.handle, self.write_buffer, len(self.write_buffer), written, self.overlapped)
         
         if ret:
-            err = _winapi.ERROR_SUCCESS
+            self.error = _winapi.ERROR_SUCCESS
         else:
-            err = _winapi.GetLastError()
+            self.error = _winapi.GetLastError()
 
-        self.error = err
-
-        if err == _winapi.ERROR_SUCCESS or err == _winapi.ERROR_IO_PENDING:
+        if self.error == _winapi.ERROR_SUCCESS or self.error == _winapi.ERROR_IO_PENDING:
             return None
         else:
             self.type = OverlappedType.TYPE_NOT_STARTED
             raise _winapi.WinError()
     
     def AcceptEx(self, listensocket, acceptsocket):
+        listensocket = _int2handle(listensocket)
+        acceptsocket = _int2handle(acceptsocket)
+        bytesreceived = _ffi.new("DWORD[1]")
+        
+        if self.type != OverlappedType.TYPE_NONE:
+            raise _winapi._WinError()
+        
+        size = _ffi.sizeof("struct sockaddr_in6") + 16
+        buf = _ffi.new("CHAR[]", size*2)
+        if not buf:
+            return None
+        
+        self.type = OverlappedType.TYPE_ACCEPT
+        self.handle = listensocket
+        self.read_buffer = buf
+        
+        res = _accept_ex[0](listensocket, acceptsocket, buf, \
+            0, size, size, bytesreceived, self.overlapped)
+        
+        if res:
+            self.error = _winapi.ERROR_SUCCESS
+        else:
+            self.error = _kernel32.GetLastError()
+
+        if self.error == _winapi.ERROR_SUCCESS or self.error == _winapi.ERROR_IO_PENDING:
+            return None
+        else:
+            self.type = OverlappedType.TYPE_NOT_STARTED
+            raise _winapi.WinError()
+
+    def DisconnectEx(self, socket, flags):
+        xxx
+        return None
+
+    def ConnectEx(self, socket, flags):
         xxx
         return None
 

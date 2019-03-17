@@ -164,6 +164,7 @@ typedef struct _WSABUF {
 
 typedef HANDLE SOCKET;
 SOCKET __stdcall socket(int, int, int);
+int closesocket(SOCKET);
 typedef BOOL (__stdcall * LPFN_DISCONNECTEX) (SOCKET, LPOVERLAPPED, DWORD, DWORD);
 typedef VOID (*LPOVERLAPPED_COMPLETION_ROUTINE) (DWORD, DWORD, LPVOID);
 
@@ -181,6 +182,36 @@ typedef struct _GUID {
   WORD  Data3;
   BYTE  Data4[8];
 } GUID;
+
+typedef USHORT ADDRESS_FAMILY;
+
+typedef struct in6_addr {
+  union {
+    UCHAR  Byte[16];
+    USHORT Word[8];
+  } u;
+} IN6_ADDR, *PIN6_ADDR, *LPIN6_ADDR;
+
+typedef struct {
+  union {
+    struct {
+      ULONG  Zone : 28;
+      ULONG  Level : 4;
+    };
+    ULONG  Value;
+  };
+} SCOPE_ID, *PSCOPE_ID;
+
+typedef struct sockaddr_in6 {
+  ADDRESS_FAMILY sin6_family;
+  USHORT         sin6_port;
+  ULONG          sin6_flowinfo;
+  IN6_ADDR       sin6_addr;
+  union {
+    ULONG    sin6_scope_id;
+    SCOPE_ID sin6_scope_struct;
+  };
+} SOCKADDR_IN6_LH, *PSOCKADDR_IN6_LH, *LPSOCKADDR_IN6_LH;
 
 """)
 
