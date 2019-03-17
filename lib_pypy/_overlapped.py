@@ -111,6 +111,8 @@ _disconnect_ex = _ffi.new("DisconnectExPtr*")
 
 
 def initiailize_function_ptrs():
+    ## importing socket ensures that WSAStartup() is called
+    import _socket
     s = _winsock2.socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
     dwBytes = _ffi.new("DWORD[1]", [0])
     if s == INVALID_SOCKET:
