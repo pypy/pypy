@@ -52,12 +52,26 @@ WSAID_ACCEPTEX[0].Data2 = 0xcbac
 WSAID_ACCEPTEX[0].Data3 = 0x11cf
 WSAID_ACCEPTEX[0].Data4 = [0x95,0xca,0x00,0x80,0x5f,0x48,0xa1,0x92]
 
+
+WSAID_CONNECTEX  = _ffi.new("GUID[1]")
+WSAID_CONNECTEX[0].Data1 = 0x25a207b9
+WSAID_CONNECTEX[0].Data2 = 0xddf3
+WSAID_CONNECTEX[0].Data3 = 0x4660
+WSAID_CONNECTEX[0].Data4 = [0x8e,0xe9,0x76,0xe5,0x8c,0x74,0x06,0x3e]
+
+WSAID_DISCONNECTEX  = _ffi.new("GUID[1]")
+WSAID_DISCONNECTEX[0].Data1 = 0x7fda2e11
+WSAID_DISCONNECTEX[0].Data2 = 0x8630
+WSAID_DISCONNECTEX[0].Data3 = 0x436f
+WSAID_DISCONNECTEX[0].Data4 = [0xa0,0x31,0xf5,0x36,0xa6,0xee,0xc1,0x57]
+
 SIO_GET_EXTENSION_FUNCTION_POINTER = _WSAIORW(IOC_WS2,6)
+
+SO_UPDATE_ACCEPT_CONTEXT = 0x700B
 
 # Status Codes
 STATUS_PENDING = 0x00000103
 
-DisconnectEx = _ffi.NULL
 
 def _int2intptr(int2cast):
     return _ffi.cast("ULONG_PTR", int2cast)
@@ -86,13 +100,37 @@ class OverlappedType(Enum):
     TYPE_WAIT_NAMED_PIPE_AND_CONNECT = 9
     TYPE_TRANSMIT_FILE = 10
 
-_accept_ex = _ffi.new("AcceptExPtr[1]")
+_accept_ex = _ffi.new("AcceptExPtr*")
+_connect_ex = _ffi.new("ConnectExPtr*")
+_disconnect_ex = _ffi.new("DisconnectExPtr*")
+
 
 def initiailize_function_ptrs():
     s = _winsock2.socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+    dwBytes = _ffi.new("DWORD[1]", [0])
     if s == INVALID_SOCKET:
         raise _winapi._WinError()
 
+    result = _winsock2.WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER,    \
+                             WSAID_ACCEPTEX, _ffi.sizeof(WSAID_ACCEPTEX[0]), _accept_ex,       \
+                             _ffi.sizeof(_accept_ex[0]), dwBytes, _ffi.NULL, _ffi.NULL)
+    if result == INVALID_SOCKET:
+        raise _winapi._WinError()
+
+    result = _winsock2.WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER,    \
+                             WSAID_CONNECTEX, _ffi.sizeof(WSAID_CONNECTEX[0]), _connect_ex,       \
+                             _ffi.sizeof(_connect_ex[0]), dwBytes, _ffi.NULL, _ffi.NULL)
+    if result == INVALID_SOCKET:
+        raise _winapi._WinError()
+
+    result = _winsock2.WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER,    \
+                             WSAID_DISCONNECTEX, _ffi.sizeof(WSAID_DISCONNECTEX[0]), _disconnect_ex,       \
+                             _ffi.sizeof(_disconnect_ex[0]), dwBytes, _ffi.NULL, _ffi.NULL)
+    if result == INVALID_SOCKET:
+        raise _winapi._WinError()
+
+
+initiailize_function_ptrs()
 
 
 class Overlapped(object):
@@ -316,6 +354,10 @@ class Overlapped(object):
             self.type = OverlappedType.TYPE_NOT_STARTED
             raise _winapi.WinError()
     
+    def AcceptEx(self, listensocket, acceptsocket):
+        xxx
+        return None
+
     @property
     def pending(self):
         return (not HasOverlappedIoCompleted(self.overlapped[0]) and
@@ -324,8 +366,6 @@ class Overlapped(object):
     @property
     def address(self):
         return self.overlapped
-
-    AcceptEx = None
 
 def SetEvent(handle):
     ret = _kernel32.SetEvent(handle)
