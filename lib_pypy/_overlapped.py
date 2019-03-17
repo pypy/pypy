@@ -15,6 +15,8 @@ _kernel32 = _ffi.dlopen('kernel32')
 
 _winsock2 = _ffi.dlopen('Ws2_32')
 
+_mswsock = _ffi.dlopen('Mswsock')
+
 GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
@@ -30,9 +32,29 @@ ERROR_NETNAME_DELETED = 64
 
 SOCKET_ERROR = -1
 
-#
+AF_INET = 2
+SOCK_STREAM = 1
+IPPROTO_TCP = 6
+
+INVALID_SOCKET = -1
+
+IOC_OUT = 0x40000000
+IOC_IN = 0x80000000
+IOC_INOUT = IOC_IN | IOC_OUT
+IOC_WS2 = 0x08000000
+
+def _WSAIORW(x, y):
+    return IOC_INOUT | x | y
+
+WSAID_ACCEPTEX  = _ffi.new("GUID[1]")
+WSAID_ACCEPTEX[0].Data1 = 0xb5367df1
+WSAID_ACCEPTEX[0].Data2 = 0xcbac
+WSAID_ACCEPTEX[0].Data3 = 0x11cf
+WSAID_ACCEPTEX[0].Data4 = [0x95,0xca,0x00,0x80,0x5f,0x48,0xa1,0x92]
+
+SIO_GET_EXTENSION_FUNCTION_POINTER = _WSAIORW(IOC_WS2,6)
+
 # Status Codes
-#
 STATUS_PENDING = 0x00000103
 
 DisconnectEx = _ffi.NULL
@@ -63,6 +85,15 @@ class OverlappedType(Enum):
     TYPE_CONNECT_NAMED_PIPE = 8
     TYPE_WAIT_NAMED_PIPE_AND_CONNECT = 9
     TYPE_TRANSMIT_FILE = 10
+
+_accept_ex = _ffi.new("AcceptExPtr[1]")
+
+def initiailize_function_ptrs():
+    s = _winsock2.socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+    if s == INVALID_SOCKET:
+        raise _winapi._WinError()
+
+
 
 class Overlapped(object):
     def __init__(self, event=_ffi.NULL):
@@ -198,7 +229,6 @@ class Overlapped(object):
         wsabuff[0].buf = _ffi.new("CHAR[]", bufobj)
         nwritten = _ffi.new("LPDWORD")
         
-
         result = _winsock2.WSASend(handle, wsabuff, _int2dword(1), nwritten, flags, self.overlapped, _ffi.NULL)
         
         if result == SOCKET_ERROR:
@@ -295,6 +325,7 @@ class Overlapped(object):
     def address(self):
         return self.overlapped
 
+    AcceptEx = None
 
 def SetEvent(handle):
     ret = _kernel32.SetEvent(handle)
