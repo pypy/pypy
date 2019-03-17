@@ -33,6 +33,8 @@ ERROR_NETNAME_DELETED = 64
 SOCKET_ERROR = -1
 
 AF_INET = 2
+AF_INET6 = 23  
+
 SOCK_STREAM = 1
 IPPROTO_TCP = 6
 
@@ -68,6 +70,9 @@ WSAID_DISCONNECTEX[0].Data4 = [0xa0,0x31,0xf5,0x36,0xa6,0xee,0xc1,0x57]
 SIO_GET_EXTENSION_FUNCTION_POINTER = _WSAIORW(IOC_WS2,6)
 
 SO_UPDATE_ACCEPT_CONTEXT = 0x700B
+SO_UPDATE_CONNECT_CONTEXT = 0x7010
+INADDR_ANY   = 0x00000000
+in6addr_any = _ffi.new("struct in6_addr[1]")
 
 # Status Codes
 STATUS_PENDING = 0x00000103
@@ -392,9 +397,36 @@ class Overlapped(object):
         xxx
         return None
 
-    def ConnectEx(self, socket, flags):
-        xxx
-        return None
+    def ConnectEx(self, socket, addressobj):
+        socket = _int2handle(socket)
+
+        if self.type != OverlappedType.TYPE_NONE:
+            raise _winapi._WinError()
+
+        address = _ffi.new("struct sockaddr_in6*")
+        length = _ffi.sizeof("struct sockaddr_in6")
+        
+        address, length = parse_address(addressobj, _ffi.cast("SOCKADDR*",address), length)
+        
+        if length < 0:
+            return None
+        
+        self.type = OverlappedType.TYPE_CONNECT
+        self.handle = socket
+        
+        res = _connect_ex[0](socket, address, length, \
+            _ffi.NULL, 0, _ffi.NULL, self.overlapped)
+        
+        if res:
+            self.error = _winapi.ERROR_SUCCESS
+        else:
+            self.error = _kernel32.GetLastError()
+
+        if self.error == _winapi.ERROR_SUCCESS or self.error == _winapi.ERROR_IO_PENDING:
+            return None
+        else:
+            self.type = OverlappedType.TYPE_NOT_STARTED
+            raise _winapi.WinError()
 
     @property
     def pending(self):
@@ -522,14 +554,61 @@ def UnregisterWait(handle):
     if not ret:
         raise _winapi._WinError()
 
+def BindLocal(socket, family):
+    socket = _int2handle(socket)
+    if family == AF_INET:
+        addr = _ffi.new("struct sockaddr_in*")
+        addr[0].sin_family = AF_INET
+        addr[0].sin_port = 0
+        addr[0].sin_addr.S_un.S_addr = INADDR_ANY
+        paddr = _ffi.cast("PSOCKADDR", addr)
+        result = _winsock2.bind(socket, paddr, _ffi.sizeof("struct sockaddr_in"))
+    elif family == AF_INET6:
+        addr = _ffi.new("struct sockaddr_in6*")
+        addr.sin6_family = AF_INET6
+        addr.sin6_port = 0
+        addr.sin6_addr = in6addr_any[0]
+        result = _winsock2.bind(socket, _ffi.cast("PSOCKADDR", addr), _ffi.sizeof("struct sockaddr_in"))
+    else:
+        raise ValueError()
+    
+    if result == SOCKET_ERROR:
+        raise _winapi._WinError()
+
+
 # In CPython this function converts a windows error into a python object
 # Not sure what we should do here.
 def SetFromWindowsErr(error):
     return error
 
-
 def HasOverlappedIoCompleted(overlapped):
     return (overlapped.Internal != STATUS_PENDING)
+
+def parse_address(addressobj, address, length):
+    lengthptr = _ffi.new("INT*")
+    lengthptr[0] = length
+    if len(addressobj) == 2:
+        host,port = addressobj
+        address[0].sa_family = AF_INET
+        result = _winsock2.WSAStringToAddressW(host, AF_INET, _ffi.NULL, address, lengthptr)
+        if result < 0:
+            raise _winapi.WinError()
+        _ffi.cast("SOCKADDR_IN*",address)[0].sin_port = _winsock2.htons(port)
+        return address, lengthptr[0]
+    elif len(addressobj) == 4:
+        host, port, flowinfo, scopeid = addressobj
+        address.sa_family = AF_INET6
+        result = _winsock2.WSAStringToAddressW(host, AF_INET6, _ffi.NULL, address, lengthptr)
+        address.sin6_port = _winsock2.htons(port)
+        address.sin6_flowinfo = flowinfo
+        address.sin6_scopeid = scopeid
+        return address, lengthptr[0]
+    else:
+        return -1
+
+
+
+
 
 
 

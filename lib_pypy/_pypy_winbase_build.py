@@ -165,6 +165,8 @@ typedef struct _WSABUF {
 typedef HANDLE SOCKET;
 SOCKET __stdcall socket(int, int, int);
 int closesocket(SOCKET);
+
+
 typedef BOOL (__stdcall * LPFN_DISCONNECTEX) (SOCKET, LPOVERLAPPED, DWORD, DWORD);
 typedef VOID (*LPOVERLAPPED_COMPLETION_ROUTINE) (DWORD, DWORD, LPVOID);
 
@@ -172,9 +174,6 @@ int __stdcall WSARecv(SOCKET, LPWSABUF, DWORD, LPDWORD, LPDWORD, LPOVERLAPPED, L
 int __stdcall WSASend(SOCKET, LPWSABUF, DWORD, LPDWORD, DWORD, LPOVERLAPPED,  LPOVERLAPPED_COMPLETION_ROUTINE);
 int __stdcall WSAIoctl(SOCKET, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPOVERLAPPED, LPOVERLAPPED_COMPLETION_ROUTINE);
 
-typedef BOOL (WINAPI* AcceptExPtr)(SOCKET, SOCKET, PVOID, DWORD, DWORD, DWORD, LPDWORD, LPOVERLAPPED);  
-typedef BOOL (WINAPI *ConnectExPtr)(SOCKET, const struct sockaddr *, int, PVOID, DWORD, LPDWORD, LPOVERLAPPED);
-typedef BOOL (WINAPI *DisconnectExPtr)(SOCKET, LPOVERLAPPED, DWORD, DWORD);
 
 typedef struct _GUID {
   DWORD Data1;
@@ -213,6 +212,75 @@ typedef struct sockaddr_in6 {
   };
 } SOCKADDR_IN6_LH, *PSOCKADDR_IN6_LH, *LPSOCKADDR_IN6_LH;
 
+typedef struct in_addr {
+  union {
+    struct {
+      UCHAR s_b1;
+      UCHAR s_b2;
+      UCHAR s_b3;
+      UCHAR s_b4;
+    } S_un_b;
+    struct {
+      USHORT s_w1;
+      USHORT s_w2;
+    } S_un_w;
+    ULONG S_addr;
+  } S_un;
+} INADDR, *PINADDR;
+
+typedef struct sockaddr_in {
+  SHORT          sin_family;
+  USHORT         sin_port;
+  INADDR         sin_addr;
+  CHAR           sin_zero[8];
+} SOCKADDR_IN, *PSOCKADDR_IN, *LPSOCKADDR_IN;
+
+typedef struct sockaddr {
+    USHORT  sa_family;
+    CHAR    sa_data[14];
+} SOCKADDR, *PSOCKADDR, *LPSOCKADDR;
+
+int bind(SOCKET, const PSOCKADDR, int);
+
+#define MAX_PROTOCOL_CHAIN 7
+
+typedef struct _WSAPROTOCOLCHAIN {
+  int   ChainLen;
+  DWORD ChainEntries[MAX_PROTOCOL_CHAIN];
+} WSAPROTOCOLCHAIN, *LPWSAPROTOCOLCHAIN;
+
+#define WSAPROTOCOL_LEN  255
+
+typedef struct _WSAPROTOCOL_INFOW {
+  DWORD            dwServiceFlags1;
+  DWORD            dwServiceFlags2;
+  DWORD            dwServiceFlags3;
+  DWORD            dwServiceFlags4;
+  DWORD            dwProviderFlags;
+  GUID             ProviderId;
+  DWORD            dwCatalogEntryId;
+  WSAPROTOCOLCHAIN ProtocolChain;
+  int              iVersion;
+  int              iAddressFamily;
+  int              iMaxSockAddr;
+  int              iMinSockAddr;
+  int              iSocketType;
+  int              iProtocol;
+  int              iProtocolMaxOffset;
+  int              iNetworkByteOrder;
+  int              iSecurityScheme;
+  DWORD            dwMessageSize;
+  DWORD            dwProviderReserved;
+  WCHAR            szProtocol[WSAPROTOCOL_LEN + 1];
+} WSAPROTOCOL_INFOW, *LPWSAPROTOCOL_INFOW;
+
+int __stdcall WSAStringToAddressW(LPWSTR, int, LPWSAPROTOCOL_INFOW, LPSOCKADDR, int* );
+
+typedef BOOL (WINAPI* AcceptExPtr)(SOCKET, SOCKET, PVOID, DWORD, DWORD, DWORD, LPDWORD, LPOVERLAPPED);  
+typedef BOOL (WINAPI *ConnectExPtr)(SOCKET, const PSOCKADDR, int, PVOID, DWORD, LPDWORD, LPOVERLAPPED);
+typedef BOOL (WINAPI *DisconnectExPtr)(SOCKET, LPOVERLAPPED, DWORD, DWORD);
+
+USHORT htons(USHORT);
 """)
 
 if __name__ == "__main__":
