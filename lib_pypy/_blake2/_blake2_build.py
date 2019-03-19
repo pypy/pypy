@@ -13,8 +13,11 @@ if IS_ARM:
 elif IS_WIN:
     extra_compile_args = []
     define_macros = [('__SSE2__', '1')]
-else:
+elif platform.machine().startswith('x86'):
     extra_compile_args = ['-msse2']
+    define_macros = []
+else:
+    extra_compile_args = []
     define_macros = []
     
     
