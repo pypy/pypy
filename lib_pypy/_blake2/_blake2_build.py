@@ -82,11 +82,11 @@ void* addressof_node_offset(blake_param *S) {
 
 _libdir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'impl'))
 if BLAKE2_USE_SSE:
-    sourcesB=[os.path.join(_libdir, 'blake2b.c'), ],
-    sourcesS=[os.path.join(_libdir, 'blake2s.c'), ],
+    sourcesB=[os.path.join(_libdir, 'blake2b.c'), ]
+    sourcesS=[os.path.join(_libdir, 'blake2s.c'), ]
 else:    
-    sourcesB=[os.path.join(_libdir, 'blake2b-ref.c'), ],
-    sourcesS=[os.path.join(_libdir, 'blake2s-ref.c'), ],
+    sourcesB=[os.path.join(_libdir, 'blake2b-ref.c'), ]
+    sourcesS=[os.path.join(_libdir, 'blake2s-ref.c'), ]
 
 blake2b_ffi = FFI()
 blake2b_ffi.cdef(blake_cdef)
