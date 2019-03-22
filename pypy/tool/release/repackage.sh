@@ -5,7 +5,7 @@ maj=7
 min=1
 rev=0
 branchname=release-pypy$pmaj.$pmin-v$maj.x # ==OR== release-v$maj.x  # ==OR== release-v$maj.$min.x
-tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
+tagname=release-canditate-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
 
 echo checking hg log -r $branchname
 hg log -r $branchname || exit 1
