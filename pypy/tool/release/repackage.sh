@@ -5,7 +5,8 @@ maj=7
 min=1
 rev=0
 branchname=release-pypy$pmaj.$pmin-v$maj.x # ==OR== release-v$maj.x  # ==OR== release-v$maj.$min.x
-tagname=release-canditate-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
+tagname=release-candidate-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
+# tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
 
 echo checking hg log -r $branchname
 hg log -r $branchname || exit 1
@@ -23,6 +24,7 @@ fi
 
 # Download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket
+actual_ver=xxxxxxxxxxxxxxx
 for plat in linux linux64 osx64 s390x # linux-armhf-raspbian linux-armel
   do
     echo downloading package for $plat
@@ -49,11 +51,30 @@ for plat in linux linux64 osx64 s390x # linux-armhf-raspbian linux-armel
         plat_final=linux32
     fi
     mv pypy-c-jit-*-$plat $rel-$plat_final
+    if [ $plat_final == linux64 ]
+    then
+        if [ $pmaj == 3 ]
+        then 
+            exe=pypy3
+        else
+            exe=pypy
+        fi
+        # TODO: programatically figure out which platform to use
+        actual_ver=`$rel-$plat_final/bin/$exe -c "import sys; print('.'.join([str(x) for x in sys.pypy_version_info[:2]]))"`
+    fi
     echo packaging $plat_final
     tar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
     rm -rf $rel-$plat_final
   done
-
+if [ "$actual_ver" != "$maj.$min" ]
+then
+    echo xxxxxxxxxxxxxxxxxxxxxx
+    echo version mismatch, expected $maj.$min, got $actual_ver
+    echo xxxxxxxxxxxxxxxxxxxxxx
+    exit -1
+    rm -rf $rel-$plat_final
+    continue
+fi
 plat=win32
 if wget http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.zip
 then
