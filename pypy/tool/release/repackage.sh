@@ -1,9 +1,12 @@
 # Edit these appropriately before running this script
-pmaj=2  # python main version
+pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
+exe=pypy3 # pypy3 or pypy
 maj=7
 min=1
 rev=0
+
+
 branchname=release-pypy$pmaj.$pmin-v$maj.x # ==OR== release-v$maj.x  # ==OR== release-v$maj.$min.x
 tagname=release-candidate-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
 # tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
@@ -51,15 +54,9 @@ for plat in linux linux64 osx64 s390x # linux-armhf-raspbian linux-armel
         plat_final=linux32
     fi
     mv pypy-c-jit-*-$plat $rel-$plat_final
+    # TODO: automate the platform choice or move it to the head of the file
     if [ $plat_final == linux64 ]
     then
-        if [ $pmaj == 3 ]
-        then 
-            exe=pypy3
-        else
-            exe=pypy
-        fi
-        # TODO: programatically figure out which platform to use
         actual_ver=`$rel-$plat_final/bin/$exe -c "import sys; print('.'.join([str(x) for x in sys.pypy_version_info[:2]]))"`
     fi
     echo packaging $plat_final
