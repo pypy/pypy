@@ -356,3 +356,11 @@ class AppTestZlib(object):
         compressor = self.zlib.compressobj()
         compressor.flush()
         raises(ValueError, compressor.copy)
+
+    def test_double_flush(self):
+        import zlib
+        x = b'x\x9cK\xcb\xcf\x07\x00\x02\x82\x01E'  # 'foo'
+        dco = zlib.decompressobj()
+        dco.decompress(x)
+        dco.flush()
+        raises(self.zlib.error, dco.flush)
