@@ -1,34 +1,11 @@
 ==========================
-What's new in PyPy2.7 7.0+
+What's new in PyPy2.7 7.1+
 ==========================
 
-.. this is a revision shortly after release-pypy-7.0.0
-.. startrev: 481c69f7d81f
+.. this is a revision shortly after release-pypy-7.1.0
+.. startrev: d3aefbf6dae7
 
-.. branch: zlib-copying-third-time-a-charm
+.. branch: Twirrim/minor-typo-fix-1553456951526
 
-Make sure zlib decompressobjs have their streams deallocated immediately
-on flush.
+Fix typo
 
-.. branch: zlib-copying-redux
-
-Fix calling copy on already-flushed compressobjs.
-
-
-
-.. branch: math-improvements
-
-Improve performance of long operations where one of the operands fits into
-an int.
-
-.. branch: regalloc-playground
-
-Improve register allocation in the JIT.
-
-.. branch: promote-unicode
-
-Implement rlib.jit.promote_unicode to complement promote_string
-
-.. branch: unicode-utf8
-
-Use utf8 internally to represent unicode, with the goal of never using rpython-level unicode

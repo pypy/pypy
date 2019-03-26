@@ -696,6 +696,22 @@ class AppTestPartialEvaluation:
         exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
         assert exc.value == to_raise
 
+    def test_one_arg_encoder(self):
+        import _codecs
+        def search_function(encoding):
+            def encode_one(u):
+                return (b'foo', len(u))
+            def decode_one(u):
+                return (u'foo', len(u))
+            if encoding == 'onearg':
+                return (encode_one, decode_one, None, None)
+            return None
+        _codecs.register(search_function)
+        assert u"hello".encode("onearg") == b'foo'
+        assert b"hello".decode("onearg") == u'foo'
+        assert _codecs.encode(u"hello", "onearg") == b'foo'
+        assert _codecs.decode(b"hello", "onearg") == u'foo'
+
     def test_cpytest_decode(self):
         import codecs
         assert codecs.decode(b'\xe4\xf6\xfc', 'latin-1') == '\xe4\xf6\xfc'

@@ -203,7 +203,7 @@ The attributes for ``GcMinorStats`` are:
 
 ``duration``
     The total time spent inside minor collections since the last hook
-    call. See below for more information on the unit.
+    call, in seconds.
 
 ``duration_min``
     The duration of the fastest minor collection since the last hook call.
@@ -265,30 +265,6 @@ because all the GC work is done inside ``gc-collect-step``:
 ``gc-collect-done`` is used only to give additional stats, but doesn't do any
 actual work.
 
-A note about the ``duration`` field: depending on the architecture and
-operating system, PyPy uses different ways to read timestamps, so ``duration``
-is expressed in varying units. It is possible to know which by calling
-``__pypy__.debug_get_timestamp_unit()``, which can be one of the following
-values:
-
-``tsc``
-    The default on ``x86`` machines: timestamps are expressed in CPU ticks, as
-    read by the `Time Stamp Counter`_.
-
-``ns``
-    Timestamps are expressed in nanoseconds.
-
-``QueryPerformanceCounter``
-    On Windows, in case for some reason ``tsc`` is not available: timestamps
-    are read using the win API ``QueryPerformanceCounter()``.
-
-
-Unfortunately, there does not seem to be a reliable standard way for
-converting ``tsc`` ticks into nanoseconds, although in practice on modern CPUs
-it is enough to divide the ticks by the maximum nominal frequency of the CPU.
-For this reason, PyPy gives the raw value, and leaves the job of doing the
-conversion to external libraries.
-
 Here is an example of GC hooks in use::
 
     import sys
@@ -321,8 +297,6 @@ Here is an example of GC hooks in use::
         lst = [lst, 1, 2, 3]
 
 
-.. _`Time Stamp Counter`: https://en.wikipedia.org/wiki/Time_Stamp_Counter    
-    
 .. _minimark-environment-variables:
 
 Environment variables

@@ -43,6 +43,18 @@ win_errors = [
     "WSAGETASYNCBUFLE", "WSAEDESTADDRREQ", "WSAECONNREFUSED", "WSAENETRESET",
     "WSAN", "WSAEDQUOT"]
 
+# The following constants were added to errno.h in VS2010 but have
+# preferred WSA equivalents, so errno.EADDRINUSE == errno.WSAEADDRINUSE.
+win_errors_override = [
+    "WSAEADDRINUSE", "WSAEADDRNOTAVAI", "WSAEAFNOSUPPORT", "WSAEALREADY",
+    "WSAECONNABORTED", "WSAECONNREFUSED", "WSAECONNRESET", "WSAEDESTADDRREQ",
+    "WSAEHOSTUNREACH", "WSAEINPROGRESS", "WSAEISCONN", "WSAELOOP",
+    "WSAEMSGSIZE", "WSAENETDOWN", "WSAENETRESET", "WSAENETUNREACH",
+    "WSAENOBUFS", "WSAENOPROTOOPT", "WSAENOTCONN", "WSAENOTSOCK",
+    "WSAEOPNOTSUPP", "WSAEPROTONOSUPPORT", "WSAEPROTOTYPE", "WSAETIMEDOUT",
+    "WSAEWOULDBLOCK",
+    ]
+
 more_errors = [
     "ENOMEDIUM", "EMEDIUMTYPE", "ECANCELED", "ENOKEY", "EKEYEXPIRED",
     "EKEYREVOKED", "EKEYREJECTED", "EOWNERDEAD", "ENOTRECOVERABLE", "ERFKILL",
@@ -80,7 +92,8 @@ for name in win_errors:
     assert name.startswith('WSA')
     code = config[name]
     if code is not None:
-        if name[3:] in errors and name[3:] not in name2code:
+        if name[3:] in errors and (name in win_errors_override or 
+                                   name[3:] not in name2code):
             # errno.EFOO = <WSAEFOO>
             name2code[name[3:]] = code
         # errno.WSABAR = <WSABAR>
