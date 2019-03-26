@@ -1,14 +1,16 @@
+# -*- encoding: utf-8 -*-
+
 class AppTestBuilders(object):
     spaceconfig = dict(usemodules=['__pypy__'])
 
     def test_simple(self):
         from __pypy__.builders import UnicodeBuilder
         b = UnicodeBuilder()
-        b.append(u"abc")
+        b.append(u"abcä")
         b.append(u"123")
         b.append(u"1")
         s = b.build()
-        assert s == u"abc1231"
+        assert s == u"abcä1231"
         assert type(s) is unicode
         assert b.build() == s
         b.append(u"123")
