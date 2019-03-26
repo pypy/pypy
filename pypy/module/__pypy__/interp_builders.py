@@ -64,9 +64,12 @@ class W_UnicodeBuilder(W_Root):
         return W_UnicodeBuilder(space, 3 * size)
 
     def descr_append(self, space, w_s):
-        w_unicode = W_UnicodeObject.convert_arg_to_w_unicode(space, w_s)
-        s = space.utf8_w(w_unicode)
-        self.builder.append(s)
+        if isinstance(w_s, W_UnicodeObject):
+            self.builder.append_utf8(w_s._utf8, w_s._len())
+        else:
+            w_unicode = W_UnicodeObject.convert_arg_to_w_unicode(space, w_s)
+            s = space.utf8_w(w_unicode)
+            self.builder.append(s)
 
     @unwrap_spec(start=int, end=int)
     def descr_append_slice(self, space, w_s, start, end):

@@ -495,6 +495,9 @@ Miscellaneous
 * SyntaxError_ s try harder to give details about the cause of the failure, so
   the error messages are not the same as in CPython
 
+* Dictionaries and sets are ordered on PyPy.  On CPython < 3.6 they are not;
+  on CPython >= 3.6 dictionaries (but not sets) are ordered.
+
 
 .. _extension-modules:
 
