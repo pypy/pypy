@@ -1220,22 +1220,27 @@ class TestOptimizations:
 
 
 class TestHugeStackDepths:
-    def test_list(self):
+    def run_and_check_stacksize(self, source):
         space = self.space
-        source = "a = [" + ",".join([str(i) for i in range(200)]) + "]\n"
-        code = compile_with_astcompiler(source, 'exec', space)
+        code = compile_with_astcompiler("a = " + source, 'exec', space)
         assert code.co_stacksize < 100
         w_dict = space.newdict()
         code.exec_code(space, w_dict, w_dict)
-        assert space.unwrap(space.getitem(w_dict, space.newtext("a"))) == range(200)
+        return space.getitem(w_dict, space.newtext("a"))
+
+    def test_tuple(self):
+        source = "(" + ",".join([str(i) for i in range(200)]) + ")\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == tuple(range(200))
+
+    def test_list(self):
+        source = "a = [" + ",".join([str(i) for i in range(200)]) + "]\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == range(200)
 
     def test_set(self):
-        space = self.space
         source = "a = {" + ",".join([str(i) for i in range(200)]) + "}\n"
-        code = compile_with_astcompiler(source, 'exec', space)
-        assert code.co_stacksize < 100
-        w_dict = space.newdict()
-        code.exec_code(space, w_dict, w_dict)
+        w_res = self.run_and_check_stacksize(source)
+        space = self.space
         assert [space.int_w(w_x)
-                    for w_x in space.unpackiterable(space.getitem(w_dict, space.newtext("a")))] == range(200)
-
+                    for w_x in space.unpackiterable(w_res)] == range(200)
