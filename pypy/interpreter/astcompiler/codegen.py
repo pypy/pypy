@@ -912,6 +912,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elt_count = len(tup.elts) if tup.elts is not None else 0
         if tup.ctx == ast.Store:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
+        if tup.ctx == ast.Load and elt_count > MAX_STACKDEPTH_CONTAINERS:
+            # we need a complete hack to build a new tuple from the list
+            # ().__class__(l)
+            empty_index = self.add_const(self.space.newtuple([]))
+            self.emit_op_arg(ops.LOAD_CONST, empty_index)
+            self.emit_op_name(ops.LOAD_ATTR, self.names, '__class__')
+
+            self.emit_op_arg(ops.BUILD_LIST, 0)
+            for element in tup.elts:
+                element.walkabout(self)
+                self.emit_op_arg(ops.LIST_APPEND, 1)
+
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+            return
         self.visit_sequence(tup.elts)
         if tup.ctx == ast.Load:
             self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
