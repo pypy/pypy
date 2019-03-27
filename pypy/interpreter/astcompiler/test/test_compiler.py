@@ -1229,6 +1229,17 @@ class TestHugeStackDepths:
         code.exec_code(space, w_dict, w_dict)
         assert space.unwrap(space.getitem(w_dict, space.newtext("a"))) == range(200)
 
+    def test_list_unpacking(self):
+        space = self.space
+        source = "[" + ",".join(['b%d' % i for i in range(200)]) + "] = a\n"
+        code = compile_with_astcompiler(source, 'exec', space)
+        assert code.co_stacksize == 200   # xxx remains big
+        w_dict = space.newdict()
+        space.setitem(w_dict, space.newtext("a"), space.wrap(range(42, 242)))
+        code.exec_code(space, w_dict, w_dict)
+        assert space.unwrap(space.getitem(w_dict, space.newtext("b0"))) == 42
+        assert space.unwrap(space.getitem(w_dict, space.newtext("b199"))) == 241
+
     def test_set(self):
         space = self.space
         source = "a = {" + ",".join([str(i) for i in range(200)]) + "}\n"

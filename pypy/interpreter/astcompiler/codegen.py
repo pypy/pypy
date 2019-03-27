@@ -921,7 +921,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elt_count = len(l.elts) if l.elts is not None else 0
         if l.ctx == ast.Store:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        if elt_count > MAX_STACKDEPTH_CONTAINERS:
+        if elt_count > MAX_STACKDEPTH_CONTAINERS and l.ctx == ast.Load:
             # pushing all the elements would make the stack depth gigantic.
             # build the list incrementally instead
             self.emit_op_arg(ops.BUILD_LIST, 0)
