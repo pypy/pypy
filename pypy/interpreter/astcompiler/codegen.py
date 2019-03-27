@@ -21,6 +21,7 @@ def compile_ast(space, module, info):
     symbols = symtable.SymtableBuilder(space, module, info)
     return TopLevelCodeGenerator(space, module, symbols, info).assemble()
 
+MAX_STACKDEPTH_CONTAINERS = 100
 
 name_ops_default = misc.dict_to_switch({
     ast.Load: ops.LOAD_NAME,
@@ -1222,10 +1223,31 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
-    def _visit_starunpack(self, node, elts, single_op, inner_op, outer_op):
+    def _visit_starunpack(self, node, elts, single_op, inner_op, outer_op, add_op):
         elt_count = len(elts) if elts else 0
         seen_star = 0
         elt_subitems = 0
+        contains_starred = False
+        for i in range(elt_count):
+            elt = elts[i]
+            if isinstance(elt, ast.Starred):
+                contains_starred = True
+                break
+        if elt_count > MAX_STACKDEPTH_CONTAINERS and not contains_starred:
+            tuplecase = False
+            if add_op == -1: # tuples
+                self.emit_op_arg(ops.BUILD_LIST, 0)
+                add_op = ops.LIST_APPEND
+                tuplecase = True
+            else:
+                self.emit_op_arg(single_op, 0)
+            for elt in elts:
+                elt.walkabout(self)
+                self.emit_op_arg(add_op, 1)
+            if tuplecase:
+                self.emit_op_arg(ops.BUILD_TUPLE_UNPACK, 1)
+            return
+
         for i in range(elt_count):
             elt = elts[i]
             is_starred = isinstance(elt, ast.Starred)
@@ -1279,7 +1301,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if tup.ctx == ast.Store:
             self._visit_assignment(tup, tup.elts, tup.ctx)
         elif tup.ctx == ast.Load:
-            self._visit_starunpack(tup, tup.elts, ops.BUILD_TUPLE, ops.BUILD_TUPLE, ops.BUILD_TUPLE_UNPACK)
+            self._visit_starunpack(tup, tup.elts, ops.BUILD_TUPLE, ops.BUILD_TUPLE, ops.BUILD_TUPLE_UNPACK, -1)
         else:
             self.visit_sequence(tup.elts)
 
@@ -1288,7 +1310,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if l.ctx == ast.Store:
             self._visit_assignment(l, l.elts, l.ctx)
         elif l.ctx == ast.Load:
-            self._visit_starunpack(l, l.elts, ops.BUILD_LIST, ops.BUILD_TUPLE, ops.BUILD_LIST_UNPACK)
+            self._visit_starunpack(
+                l, l.elts, ops.BUILD_LIST, ops.BUILD_TUPLE, ops.BUILD_LIST_UNPACK, ops.LIST_APPEND)
         else:
             self.visit_sequence(l.elts)
 
@@ -1343,7 +1366,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             is_unpacking = False
 
     def visit_Set(self, s):
-        self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK)
+        self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK, ops.SET_ADD)
 
     def visit_Name(self, name):
         self.update_position(name.lineno)
