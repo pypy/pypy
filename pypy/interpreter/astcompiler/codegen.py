@@ -1225,8 +1225,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _visit_starunpack(self, node, elts, single_op, inner_op, outer_op, add_op):
         elt_count = len(elts) if elts else 0
-        seen_star = 0
-        elt_subitems = 0
         contains_starred = False
         for i in range(elt_count):
             elt = elts[i]
@@ -1248,6 +1246,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op_arg(ops.BUILD_TUPLE_UNPACK, 1)
             return
 
+        seen_star = 0
+        elt_subitems = 0
         for i in range(elt_count):
             elt = elts[i]
             is_starred = isinstance(elt, ast.Starred)
