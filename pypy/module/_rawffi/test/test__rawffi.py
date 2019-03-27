@@ -1229,6 +1229,23 @@ class AppTestFfi:
         lib = _rawffi.CDLL(self.lib_name)
         assert lib.name == self.lib_name
 
+    def test_wcharp2rawunicode(self):
+        import _rawffi
+        A = _rawffi.Array('i')
+        arg = A(1)
+        arg[0] = 0x1234
+        u = _rawffi.wcharp2rawunicode(arg.itemaddress(0))
+        assert u == u'\u1234'
+        u = _rawffi.wcharp2rawunicode(arg.itemaddress(0), 1)
+        assert u == u'\u1234'
+        arg[0] = -1
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        arg[0] = 0x110000
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        arg.free()
+
 
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])

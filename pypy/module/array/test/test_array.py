@@ -847,10 +847,15 @@ class AppTestArray(object):
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
     def test_unicode_outofrange(self):
-        a = self.array('u', u'\x01\u263a\x00\ufeff')
-        b = self.array('u', u'\x01\u263a\x00\ufeff')
+        input_unicode = u'\x01\u263a\x00\ufeff'
+        a = self.array('u', input_unicode)
+        b = self.array('u', input_unicode)
         b.byteswap()
         assert a != b
+        assert str(a) == "array('u', %r)" % (input_unicode,)
+        assert str(b) == "array('u', <character out of range>)"
+        assert a.tounicode() == input_unicode
+        raises(ValueError, b.tounicode)   # doesn't work
 
     def test_weakref(self):
         import weakref
