@@ -52,7 +52,7 @@ def CreateFile(*args):
     handle = _kernel32.CreateFileW(*args)
     if handle == INVALID_HANDLE_VALUE:
         raise _WinError()
-    return handle
+    return _handle2int(handle)
 
 def SetNamedPipeHandleState(namedpipe, mode, max_collection_count, collect_data_timeout):
     d0 = _ffi.new('DWORD[1]', [mode])

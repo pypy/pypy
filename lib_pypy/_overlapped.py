@@ -206,7 +206,7 @@ class Overlapped(object):
             self.error = err
 
         if err != _winapi.ERROR_SUCCESS and err != _winapi.ERROR_MORE_DATA:
-            if not (err == _winapi.ERROR_BROKEN_PIPE and (self.type == TYPE_READ or self.type == TYPE_READINTO)):
+            if not (err == _winapi.ERROR_BROKEN_PIPE and (self.type in [OverlappedType.TYPE_READ, OverlappedType.TYPE_READINTO])):
                 raise _winapi._WinError()
 
         if self.type == OverlappedType.TYPE_READ:
@@ -502,8 +502,6 @@ def post_to_queue_callback(lpparameter, timerorwaitfired):
     pdata = _ffi.cast("PostCallbackData *", lpparameter)
     ret = _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timerorwaitfired, _ffi.cast("ULONG_PTR",0), pdata.Overlapped)
     result = False
-#    if not ret:
-#         err = _winapi._WinError()
 
 
 def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
@@ -512,7 +510,7 @@ def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
     data[0].hCompletionPort = completionport
     data[0].Overlapped = ovaddress
     ret = _kernel32.RegisterWaitForSingleObject(newwaitobject,
-                                                object,
+                                                _int2handle(object),
                                                 _ffi.cast("WAITORTIMERCALLBACK",post_to_queue_callback),
                                                 data,
                                                 miliseconds, 
