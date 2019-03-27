@@ -721,7 +721,8 @@ class W_ArrayBase(W_Root):
             except OperationError as e:
                 if not e.match(space, space.w_ValueError):
                     raise
-                r = '<character out of range>'
+                w_exc_value = e.get_w_value(space)
+                r = "<%s>" % (space.str_w(w_exc_value),)
             else:
                 r = space.text_w(space.repr(w_unicode))
             s = "array('%s', %s)" % (self.typecode, r)

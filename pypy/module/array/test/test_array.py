@@ -853,7 +853,8 @@ class AppTestArray(object):
         b.byteswap()
         assert a != b
         assert str(a) == "array('u', %r)" % (input_unicode,)
-        assert str(b) == "array('u', <character out of range>)"
+        assert str(b) == ("array('u', <character U+1000000 is not in"
+                          " range [U+0000; U+10ffff]>)")
         assert a.tounicode() == input_unicode
         raises(ValueError, b.tounicode)   # doesn't work
 
