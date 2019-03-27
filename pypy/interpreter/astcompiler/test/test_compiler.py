@@ -1603,4 +1603,3 @@ class TestHugeStackDepths:
         space = self.space
         assert [space.int_w(w_x)
                     for w_x in space.unpackiterable(w_res)] == range(200)
-
