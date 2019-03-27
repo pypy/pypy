@@ -1218,3 +1218,24 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert ops.BUILD_TUPLE not in counts
 
+
+class TestHugeStackDepths:
+    def test_list(self):
+        space = self.space
+        source = "a = [" + ",".join([str(i) for i in range(200)]) + "]\n"
+        code = compile_with_astcompiler(source, 'exec', space)
+        assert code.co_stacksize < 100
+        w_dict = space.newdict()
+        code.exec_code(space, w_dict, w_dict)
+        assert space.unwrap(space.getitem(w_dict, space.newtext("a"))) == range(200)
+
+    def test_set(self):
+        space = self.space
+        source = "a = {" + ",".join([str(i) for i in range(200)]) + "}\n"
+        code = compile_with_astcompiler(source, 'exec', space)
+        assert code.co_stacksize < 100
+        w_dict = space.newdict()
+        code.exec_code(space, w_dict, w_dict)
+        assert [space.int_w(w_x)
+                    for w_x in space.unpackiterable(space.getitem(w_dict, space.newtext("a")))] == range(200)
+
