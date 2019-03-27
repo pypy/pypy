@@ -722,7 +722,7 @@ class W_ArrayBase(W_Root):
                 if not e.match(space, space.w_ValueError):
                     raise
                 w_exc_value = e.get_w_value(space)
-                r = "<%s>" % (space.str_w(w_exc_value),)
+                r = "<%s>" % (space.text_w(w_exc_value),)
             else:
                 r = space.text_w(space.repr(w_unicode))
             s = "array('%s', %s)" % (self.typecode, r)
