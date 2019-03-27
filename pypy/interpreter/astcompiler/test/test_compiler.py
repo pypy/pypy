@@ -1099,13 +1099,22 @@ class TestCompiler(BaseTestCompiler):
                 return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3], 4)
+
+    def test_unpacking_while_building(self):
         func = """def f():
             b = [4,5,6]
-            c = 7
-            a = [*b, c]
+            a = (*b, 7)
+            return a
+        """
+        yield self.st, func, "f()", (4, 5, 6, 7)
+
+        func = """def f():
+            b = [4,5,6]
+            a = [*b, 7]
             return a
         """
         yield self.st, func, "f()", [4, 5, 6, 7]
+
 
     def test_extended_unpacking_fail(self):
         exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
@@ -1542,6 +1551,31 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert ops.BUILD_TUPLE not in counts
 
+    def test_constant_tuples_star(self):
+        source = """def f(a, c):
+            return (u"a", 1, *a, 3, 5, 3, *c)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f(a, c, d):
+            return (u"a", 1, *a, c, 1, *d, 1, 2, 3)
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+
+    def test_constant_list_star(self):
+        source = """def f(a, c):
+            return [u"a", 1, *a, 3, 5, 3, *c]
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f(a, c, d):
+            return [u"a", 1, *a, c, 1, *d, 1, 2, 3]
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
 
 
 class TestHugeStackDepths:

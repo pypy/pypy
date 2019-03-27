@@ -302,6 +302,9 @@ class OptimizingVisitor(ast.ASTVisitor):
                 node = tup.elts[i]
                 w_const = node.as_constant()
                 if w_const is None:
+                    new_elts = self._optimize_constant_star_unpacks(tup.elts)
+                    if new_elts is not None:
+                        return ast.Tuple(new_elts, ast.Load, tup.lineno, tup.col_offset)
                     return tup
                 consts_w[i] = w_const
             # intern the string constants packed into the tuple here,
@@ -313,6 +316,62 @@ class OptimizingVisitor(ast.ASTVisitor):
             consts_w = []
         w_consts = self.space.newtuple(consts_w)
         return ast.Constant(w_consts, tup.lineno, tup.col_offset)
+
+    def _make_starred_tuple_const(self, consts_w, firstelt):
+        w_consts = self.space.newtuple(consts_w)
+        return ast.Starred(ast.Constant(
+                    w_consts, firstelt.lineno, firstelt.col_offset),
+                ast.Load, firstelt.lineno, firstelt.col_offset)
+
+    def _optimize_constant_star_unpacks(self, elts):
+        # turn (1, 2, 3, *a) into (*(1, 2, 3), *a) with a constant (1, 2, 3)
+        # or similarly, for lists
+        contains_starred = False
+        for i in range(len(elts)):
+            elt = elts[i]
+            if isinstance(elt, ast.Starred):
+                contains_starred = True
+                break
+        if not contains_starred:
+            return None
+        new_elts = []
+        changed = False
+        const_since_last_star_w = []
+        after_last_star_index = 0
+        for i in range(len(elts)):
+            elt = elts[i]
+            if isinstance(elt, ast.Starred):
+                if const_since_last_star_w is not None:
+                    firstelt = elts[after_last_star_index]
+                    new_elts.append(self._make_starred_tuple_const(
+                        const_since_last_star_w, firstelt))
+                    changed = True
+                const_since_last_star_w = []
+                after_last_star_index = i + 1
+                new_elts.append(elt)
+            elif const_since_last_star_w is not None:
+                w_const = elt.as_constant()
+                if w_const is None:
+                    new_elts.extend(elts[after_last_star_index:i + 1])
+                    const_since_last_star_w = None
+                else:
+                    const_since_last_star_w.append(w_const)
+            else:
+                new_elts.append(elt)
+        if after_last_star_index != len(elts) and const_since_last_star_w is not None:
+            firstelt = elts[after_last_star_index]
+            new_elts.append(self._make_starred_tuple_const(
+                const_since_last_star_w, firstelt))
+            changed = True
+        if changed:
+            return new_elts
+
+    def visit_List(self, l):
+        if l.ctx == ast.Load and l.elts:
+            new_elts = self._optimize_constant_star_unpacks(l.elts)
+            if new_elts:
+                return ast.List(new_elts, ast.Load, l.lineno, l.col_offset)
+        return l
 
     def visit_Subscript(self, subs):
         if subs.ctx == ast.Load:
