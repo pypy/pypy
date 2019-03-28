@@ -207,7 +207,7 @@ class Overlapped(object):
 
         if err != _winapi.ERROR_SUCCESS and err != _winapi.ERROR_MORE_DATA:
             if not (err == _winapi.ERROR_BROKEN_PIPE and (self.type in [OverlappedType.TYPE_READ, OverlappedType.TYPE_READINTO])):
-                raise _winapi._WinError()
+                SetFromWindowsErr(err)
 
         if self.type == OverlappedType.TYPE_READ:
             return _ffi.unpack(self.read_buffer, transferred[0])
@@ -578,8 +578,16 @@ def BindLocal(socket, family):
 
 # In CPython this function converts a windows error into a python object
 # Not sure what we should do here.
-def SetFromWindowsErr(error):
-    return error
+def SetFromWindowsErr(err):
+    if err == _winapi.ERROR_CONNECTION_REFUSED:
+        type = ConnectionRefusedError;
+    elif err == _winapi.ERROR_CONNECTION_ABORTED:
+        type = ConnectionAbortedError;
+    else:
+        type = WindowsError;
+
+    return _winapi._WinError(type);
+
 
 def HasOverlappedIoCompleted(overlapped):
     return (overlapped.Internal != STATUS_PENDING)

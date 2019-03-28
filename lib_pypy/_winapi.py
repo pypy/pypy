@@ -19,9 +19,9 @@ NULL = _ffi.NULL
 # Now the _subprocess module implementation
 
 
-def _WinError():
+def _WinError(type=WindowsError):
     code, message = _ffi.getwinerror()
-    excep = WindowsError(None, message, None ,code)
+    excep = type(None, message, None ,code)
     raise excep
 
 def _int2handle(val):
@@ -303,7 +303,7 @@ ERROR_PIPE_CONNECTED    = 535
 ERROR_OPERATION_ABORTED = 995
 ERROR_IO_INCOMPLETE     = 996
 ERROR_IO_PENDING        = 997
-
+ERROR_CONNECTION_REFUSED = 1225
 
 PIPE_ACCESS_INBOUND = 0x00000001
 PIPE_ACCESS_OUTBOUND = 0x00000002
