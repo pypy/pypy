@@ -1322,6 +1322,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         is_unpacking = False
         all_constant_keys_w = None
         if d.values:
+            unpacking_anywhere = False
+            for key in d.keys:
+                if key is None:
+                    unpacking_anywhere = True
+                    break
+            if not unpacking_anywhere and len(d.keys) > MAX_STACKDEPTH_CONTAINERS:
+                # do it in a small amount of stack
+                self.emit_op_arg(ops.BUILD_MAP, 0)
+                for i in range(len(d.values)):
+                    d.values[i].walkabout(self)
+                    key = d.keys[i]
+                    assert key is not None
+                    key.walkabout(self)
+                    self.emit_op_arg(ops.MAP_ADD, 1)
+                return
             if len(d.keys) < 0xffff:
                 all_constant_keys_w = []
                 for key in d.keys:

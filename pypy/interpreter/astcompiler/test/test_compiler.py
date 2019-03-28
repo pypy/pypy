@@ -1593,13 +1593,18 @@ class TestHugeStackDepths:
         assert self.space.unwrap(w_res) == tuple(range(200))
 
     def test_list(self):
-        source = "a = [" + ",".join([str(i) for i in range(200)]) + "]\n"
+        source = "[" + ",".join([str(i) for i in range(200)]) + "]\n"
         w_res = self.run_and_check_stacksize(source)
         assert self.space.unwrap(w_res) == range(200)
 
     def test_set(self):
-        source = "a = {" + ",".join([str(i) for i in range(200)]) + "}\n"
+        source = "{" + ",".join([str(i) for i in range(200)]) + "}\n"
         w_res = self.run_and_check_stacksize(source)
         space = self.space
         assert [space.int_w(w_x)
                     for w_x in space.unpackiterable(w_res)] == range(200)
+
+    def test_dict(self):
+        source = "{" + ",".join(['%s: None' % (i, ) for i in range(200)]) + "}\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == dict.fromkeys(range(200))
