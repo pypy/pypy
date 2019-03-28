@@ -109,6 +109,35 @@ class BasicTests:
         self.check_trace_count(1)
         self.check_simple_loop(int_mul=1)
 
+    @py.test.mark.xfail
+    def test_rutf8(self):
+        from rpython.rlib import rutf8, jit
+        class U(object):
+            def __init__(self, u, l):
+                self.u = u
+                self.l = l
+                self._index_storage = rutf8.null_storage()
+
+            def _get_index_storage(self):
+                return jit.conditional_call_elidable(self._index_storage,
+                            U._compute_index_storage, self)
+
+            def _compute_index_storage(self):
+                storage = rutf8.create_utf8_index_storage(self.u, self.l)
+                self._index_storage = storage
+                return storage
+
+        def m(a):
+            return f(a)
+        def f(a):
+            x = str(a)
+            u = U(x, len(x))
+            st = u._get_index_storage()
+            return st[0].baseindex
+
+        self.interp_operations(m, [123232])
+
+
     def test_loop_variant_mul_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
