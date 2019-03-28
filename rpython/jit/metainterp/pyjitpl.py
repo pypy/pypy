@@ -287,8 +287,19 @@ class MIFrame(object):
         from rpython.rtyper.lltypesystem import llmemory
         if self.metainterp.heapcache.is_class_known(box):
             return
-        self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
-        self.metainterp.heapcache.class_now_known(box)
+        if isinstance(clsbox, Const):
+            self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
+            self.metainterp.heapcache.class_now_known(box)
+            self.metainterp.heapcache.nullity_now_known(box)
+        elif have_debug_prints():
+            if len(self.metainterp.framestack) >= 2:
+                # caller of ll_record_exact_class
+                name = self.metainterp.framestack[-2].jitcode.name
+            else:
+                name = self.jitcode.name
+            loc = self.metainterp.jitdriver_sd.warmstate.get_location_str(self.greenkey)
+            debug_print("record_exact_class with non-constant second argument, ignored",
+                    name, loc)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
