@@ -318,7 +318,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         return ast.Constant(w_consts, tup.lineno, tup.col_offset)
 
     def _make_starred_tuple_const(self, consts_w, firstelt):
-        w_consts = self.space.newtuple(consts_w)
+        w_consts = self.space.newtuple(consts_w[:])
         return ast.Starred(ast.Constant(
                     w_consts, firstelt.lineno, firstelt.col_offset),
                 ast.Load, firstelt.lineno, firstelt.col_offset)
