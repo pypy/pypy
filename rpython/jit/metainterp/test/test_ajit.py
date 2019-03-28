@@ -109,7 +109,6 @@ class BasicTests:
         self.check_trace_count(1)
         self.check_simple_loop(int_mul=1)
 
-    @py.test.mark.xfail
     def test_rutf8(self):
         from rpython.rlib import rutf8, jit
         class U(object):
@@ -133,7 +132,8 @@ class BasicTests:
             x = str(a)
             u = U(x, len(x))
             st = u._get_index_storage()
-            return st[0].baseindex
+            return rutf8.codepoint_index_at_byte_position(
+                u.u, st, 1)
 
         self.interp_operations(m, [123232])
 
