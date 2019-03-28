@@ -1023,7 +1023,7 @@ def make_string_mappings(strtype):
 def wcharpsize2utf8(w, size):
     """ Helper to convert WCHARP pointer to utf8 in one go.
     Equivalent to wcharpsize2unicode().encode("utf8")
-    Raises ValueError if characters are outside range(0x110000)!
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
     """
     from rpython.rlib import rutf8
 
@@ -1033,6 +1033,9 @@ def wcharpsize2utf8(w, size):
     return s.build()
 
 def wcharp2utf8(w):
+    """
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
+    """
     from rpython.rlib import rutf8
 
     s = rutf8.Utf8StringBuilder()
@@ -1043,6 +1046,9 @@ def wcharp2utf8(w):
     return s.build(), i
 
 def wcharp2utf8n(w, maxlen):
+    """
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
+    """
     from rpython.rlib import rutf8
 
     s = rutf8.Utf8StringBuilder(maxlen)
