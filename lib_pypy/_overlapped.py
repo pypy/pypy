@@ -225,7 +225,7 @@ class Overlapped(object):
         if not HasOverlappedIoCompleted(self.overlapped[0]):
             ### If we are to support xp we will need to dynamically load the below method
             result = _kernel32.CancelIoEx(self.handle, self.overlapped)
-        if (not result and _winapi.GetLastError() != _winapi.ERROR_NOT_FOUND):
+        if (not result and _kernel32.GetLastError() != _winapi.ERROR_NOT_FOUND):
             raise _winapi._WinError()
      
     def WSARecv(self ,handle, size, flags):
@@ -356,7 +356,7 @@ class Overlapped(object):
         if ret:
             self.error = _winapi.ERROR_SUCCESS
         else:
-            self.error = _winapi.GetLastError()
+            self.error = _kernel32.GetLastError()
 
         if self.error == _winapi.ERROR_SUCCESS or self.error == _winapi.ERROR_IO_PENDING:
             return None
