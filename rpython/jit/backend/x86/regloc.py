@@ -4,7 +4,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import specialize, instantiate
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.jit.metainterp.history import FLOAT, INT
 from rpython.jit.codewriter import longlong
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -355,7 +355,8 @@ X86_64_SCRATCH_REG = r11
 # without an xmm scratch reg.
 X86_64_XMM_SCRATCH_REG = xmm15
 
-unrolling_location_codes = unrolling_iterable(list("rbsmajix"))
+# note: 'r' is after 'i' in this list, for _binaryop()
+unrolling_location_codes = unrolling_iterable(list("irbsmajx"))
 
 @specialize.arg(1)
 def _rx86_getattr(obj, methname):
@@ -372,9 +373,7 @@ _missing_binary_insn._dont_inline_ = True
 class LocationCodeBuilder(object):
     _mixin_ = True
 
-    _reuse_scratch_register = False   # for now, this is always False
-    _scratch_register_known = False   # for now, this is always False
-    _scratch_register_value = 0
+    _scratch_register_value = -1    # -1 means 'unknown'
 
     def _binaryop(name):
 
@@ -383,7 +382,7 @@ class LocationCodeBuilder(object):
             val2 = loc2.value_i()
             if name == 'MOV' and isinstance(loc1, RegLoc):
                 self.MOV_ri(loc1.value, val2)
-                return
+                return True
             code1 = loc1.location_code()
             if code1 == 'j':
                 checkvalue = loc1.value_j()
@@ -402,10 +401,11 @@ class LocationCodeBuilder(object):
                 self.MOV_ri(freereg.value, val2)
                 INSN(self, loc1, freereg)
                 self.POP_r(freereg.value)
+                return True
             else:
                 # For this case, we should not need the scratch register more than here.
                 self._load_scratch(val2)
-                INSN(self, loc1, X86_64_SCRATCH_REG)
+                return False
 
         def invoke(self, codes, val1, val2):
             methname = name + "_" + codes
@@ -433,15 +433,15 @@ class LocationCodeBuilder(object):
             code1 = loc1.location_code()
             code2 = loc2.location_code()
 
-            # You can pass in the scratch register as a location, but you
-            # must be careful not to combine it with location types that
-            # might need to use the scratch register themselves.
-            if loc2 is X86_64_SCRATCH_REG:
-                if code1 == 'j':
-                    assert (name.startswith("MOV") and
-                            rx86.fits_in_32bits(loc1.value_j()))
-            if loc1 is X86_64_SCRATCH_REG and not name.startswith("MOV"):
-                assert code2 not in ('j', 'i')
+            # You cannot pass in the scratch register as a location,
+            # except with a MOV instruction.
+            if name.startswith('MOV'):
+                if loc2 is X86_64_SCRATCH_REG:
+                    assert code1 != 'j' and code1 != 'm' and code1 != 'a'
+                if loc1 is X86_64_SCRATCH_REG:
+                    self.forget_scratch_register()
+            elif loc1 is X86_64_SCRATCH_REG or loc2 is X86_64_SCRATCH_REG:
+                raise AssertionError("%s with scratch reg specified" % name)
 
             for possible_code2 in unrolling_location_codes:
                 if not has_implementation_for('?', possible_code2):
@@ -451,8 +451,14 @@ class LocationCodeBuilder(object):
                     #
                     # Fake out certain operations for x86_64
                     if self.WORD == 8 and possible_code2 == 'i' and not rx86.fits_in_32bits(val2):
-                        insn_with_64_bit_immediate(self, loc1, loc2)
-                        return
+                        if insn_with_64_bit_immediate(self, loc1, loc2):
+                            return      # done
+                        loc2 = X86_64_SCRATCH_REG
+                        code2 = 'r'
+                        # NB. unrolling_location_codes contains 'r'
+                        # after 'i', so that it will be found after
+                        # this iteration
+                        continue
                     #
                     # Regular case
                     for possible_code1 in unrolling_location_codes:
@@ -487,6 +493,9 @@ class LocationCodeBuilder(object):
 
     def _unaryop(name):
         def INSN(self, loc):
+            if loc is X86_64_SCRATCH_REG:
+                raise AssertionError("%s with scratch reg specified" % name)
+
             code = loc.location_code()
             for possible_code in unrolling_location_codes:
                 if code == possible_code:
@@ -532,6 +541,9 @@ class LocationCodeBuilder(object):
                     else:
                         methname = name + "_" + possible_code
                         _rx86_getattr(self, methname)(val)
+            # This is for CALL and JMP, so it's correct to forget
+            # the value of the R11 register here.
+            self.forget_scratch_register()
 
         return func_with_new_name(INSN, "INSN_" + name)
 
@@ -540,16 +552,18 @@ class LocationCodeBuilder(object):
         # If we are within a "reuse_scratch_register" block, we remember the
         # last value we loaded to the scratch register and encode the address
         # as an offset from that if we can
-        if self._scratch_register_known:
-            offset = addr - self._scratch_register_value
+        if self._scratch_register_value != -1:
+            offset = r_uint(addr) - r_uint(self._scratch_register_value)
+            offset = intmask(offset)
             if rx86.fits_in_32bits(offset):
+                #print '_addr_as_reg_offset(%x) [REUSED r11+%d]' % (
+                #    addr, offset)
                 return (X86_64_SCRATCH_REG.value, offset)
+            #print '_addr_as_reg_offset(%x) [too far]' % (addr,)
             # else: fall through
-
-        if self._reuse_scratch_register:
-            self._scratch_register_known = True
-            self._scratch_register_value = addr
-
+        #else:
+        #    print '_addr_as_reg_offset(%x) [new]' % (addr,)
+        self._scratch_register_value = addr
         self.MOV_ri(X86_64_SCRATCH_REG.value, addr)
         return (X86_64_SCRATCH_REG.value, 0)
 
@@ -557,12 +571,10 @@ class LocationCodeBuilder(object):
         # For cases where an AddressLoc has the location_code 'm', but
         # where the static offset does not fit in 32-bits.  We have to fall
         # back to the X86_64_SCRATCH_REG.  Returns a new location encoded
-        # as mode 'm' too.  These are all possibly rare cases; don't try
-        # to reuse a past value of the scratch register at all.
-        self._scratch_register_known = False
-        self.MOV_ri(X86_64_SCRATCH_REG.value, static_offset)
-        self.LEA_ra(X86_64_SCRATCH_REG.value,
-                    (basereg, X86_64_SCRATCH_REG.value, 0, 0))
+        # as mode 'm' too.  These are all possibly rare cases.
+        reg, ofs = self._addr_as_reg_offset(static_offset)
+        self.forget_scratch_register()
+        self.LEA_ra(X86_64_SCRATCH_REG.value, (basereg, reg, 0, ofs))
         return (X86_64_SCRATCH_REG.value, 0)
 
     def _fix_static_offset_64_a(self, (basereg, scalereg,
@@ -570,37 +582,58 @@ class LocationCodeBuilder(object):
         # For cases where an AddressLoc has the location_code 'a', but
         # where the static offset does not fit in 32-bits.  We have to fall
         # back to the X86_64_SCRATCH_REG.  In one case it is even more
-        # annoying.  These are all possibly rare cases; don't try to reuse a
-        # past value of the scratch register at all.
-        self._scratch_register_known = False
-        self.MOV_ri(X86_64_SCRATCH_REG.value, static_offset)
+        # annoying.  These are all possibly rare cases.
+        reg, ofs = self._addr_as_reg_offset(static_offset)
         #
         if basereg != rx86.NO_BASE_REGISTER:
-            self.LEA_ra(X86_64_SCRATCH_REG.value,
-                        (basereg, X86_64_SCRATCH_REG.value, 0, 0))
-        return (X86_64_SCRATCH_REG.value, scalereg, scale, 0)
+            self.forget_scratch_register()
+            self.LEA_ra(X86_64_SCRATCH_REG.value, (basereg, reg, 0, ofs))
+            reg = X86_64_SCRATCH_REG.value
+            ofs = 0
+        return (reg, scalereg, scale, ofs)
 
     def _load_scratch(self, value):
-        if (self._scratch_register_known
-            and value == self._scratch_register_value):
-            return
-        if self._reuse_scratch_register:
-            self._scratch_register_known = True
-            self._scratch_register_value = value
+        if self._scratch_register_value != -1:
+            if self._scratch_register_value == value:
+                #print '_load_scratch(%x) [REUSED]' % (value,)
+                return
+            offset = r_uint(value) - r_uint(self._scratch_register_value)
+            offset = intmask(offset)
+            if rx86.fits_in_32bits(offset):
+                #print '_load_scratch(%x) [LEA r11+%d]' % (value, offset)
+                #global COUNT_
+                #try:
+                #    COUNT_ += 1
+                #except NameError:
+                #    COUNT_ = 1
+                #if COUNT_ % 182 == 0:
+                #    import pdb;pdb.set_trace()
+                self.LEA_rm(X86_64_SCRATCH_REG.value,
+                    (X86_64_SCRATCH_REG.value, offset))
+                self._scratch_register_value = value
+                return
+            #print '_load_scratch(%x) [too far]' % (value,)
+        #else:
+        #    print '_load_scratch(%x) [new]' % (value,)
+        self._scratch_register_value = value
         self.MOV_ri(X86_64_SCRATCH_REG.value, value)
 
-    def begin_reuse_scratch_register(self):
-        # --NEVER CALLED (only from a specific test)--
-        # Flag the beginning of a block where it is okay to reuse the value
-        # of the scratch register. In theory we shouldn't have to do this if
-        # we were careful to mark all possible targets of a jump or call, and
-        # "forget" the value of the scratch register at those positions, but
-        # for now this seems safer.
-        self._reuse_scratch_register = True
+    def forget_scratch_register(self):
+        self._scratch_register_value = -1
 
-    def end_reuse_scratch_register(self):
-        self._reuse_scratch_register = False
-        self._scratch_register_known = False
+    def get_scratch_register_known_value(self):
+        return self._scratch_register_value
+
+    def restore_scratch_register_known_value(self, saved_value):
+        self._scratch_register_value = saved_value
+
+    def load_scratch_if_known(self, saved_value):
+        if saved_value != -1:
+            assert IS_X86_64
+            self._load_scratch(saved_value)
+
+    def trap(self):
+        self.INT3()
 
     def _vector_size_choose(name):
         def invoke(self, suffix, val1, val2):
@@ -641,6 +674,7 @@ class LocationCodeBuilder(object):
     SUB = _binaryop('SUB')
     IMUL = _binaryop('IMUL')
     NEG = _unaryop('NEG')
+    MUL = _unaryop('MUL')
 
     CMP = _binaryop('CMP')
     CMP16 = _binaryop('CMP16')

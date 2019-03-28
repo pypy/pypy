@@ -24,7 +24,7 @@ class AppTestDeprecations(BaseNumpyAppTest):
                 # boolean indexing matches the dims in index
                 # to the first index.ndims in arr, not implemented in pypy yet
                 raises(IndexError, arr.__getitem__, index)
-                raises(TypeError, arr.__getitem__, (slice(None), index))
+                raises(IndexError, arr.__getitem__, (slice(None), index))
             else:
                 raises(np.VisibleDeprecationWarning, arr.__getitem__, index)
                 raises(np.VisibleDeprecationWarning, arr.__getitem__, (slice(None), index))

@@ -26,6 +26,8 @@ def longfloat():
 def int():
     return model.SomeInteger()
 
+def int_nonneg():
+    return model.SomeInteger(nonneg=True)
 
 def bool():
     return model.SomeBool()
@@ -76,8 +78,8 @@ def dict(keytype, valuetype):
     return model.SomeDict(dictdef)
 
 
-def instance(cls):
-    return lambda bookkeeper: model.SomeInstance(bookkeeper.getuniqueclassdef(cls))
+def instance(cls, can_be_None=False):
+    return lambda bookkeeper: model.SomeInstance(bookkeeper.getuniqueclassdef(cls), can_be_None=can_be_None)
 
 
 class SelfTypeMarker(object):

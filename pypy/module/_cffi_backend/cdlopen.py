@@ -1,34 +1,30 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
+from rpython.rlib.rdynload import DLLHANDLE, dlsym, dlclose
 
 from pypy.interpreter.error import oefmt
-from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from pypy.module._cffi_backend.parse_c_type import (
     _CFFI_OPCODE_T, GLOBAL_S, CDL_INTCONST_S, STRUCT_UNION_S, FIELD_S,
     ENUM_S, TYPENAME_S, ll_set_cdl_realize_global_int)
 from pypy.module._cffi_backend.realize_c_type import getop
 from pypy.module._cffi_backend.lib_obj import W_LibObject
-from pypy.module._cffi_backend import cffi_opcode, cffi1_module
-
+from pypy.module._cffi_backend import cffi_opcode, cffi1_module, misc
 
 class W_DlOpenLibObject(W_LibObject):
 
-    def __init__(self, ffi, filename, flags):
-        with rffi.scoped_str2charp(filename) as ll_libname:
-            if filename is None:
-                filename = "<None>"
-            try:
-                handle = dlopen(ll_libname, flags)
-            except DLOpenError, e:
-                raise wrap_dlopenerror(ffi.space, e, filename)
-        W_LibObject.__init__(self, ffi, filename)
+    def __init__(self, ffi, w_filename, flags):
+        space = ffi.space
+        fname, handle = misc.dlopen_w(space, w_filename, flags)
+        W_LibObject.__init__(self, ffi, fname)
         self.libhandle = handle
+        self.register_finalizer(space)
 
-    def __del__(self):
-        if self.libhandle:
-            dlclose(self.libhandle)
+    def _finalize_(self):
+        h = self.libhandle
+        if h != rffi.cast(DLLHANDLE, 0):
+            self.libhandle = rffi.cast(DLLHANDLE, 0)
+            dlclose(h)
 
     def cdlopen_fetch(self, name):
         if not self.libhandle:
@@ -50,8 +46,8 @@ class W_DlOpenLibObject(W_LibObject):
         self.libhandle = rffi.cast(DLLHANDLE, 0)
 
         if not libhandle:
-            raise oefmt(self.ffi.w_FFIError, "library '%s' is already closed",
-                        self.libname)
+            return
+        self.may_unregister_rpython_finalizer(self.ffi.space)
 
         # Clear the dict to force further accesses to do cdlopen_fetch()
         # again, and fail because the library was closed.  Note that the
@@ -151,7 +147,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         p = rffi.ptradd(p, llmemory.raw_malloc_usage(n * rffi.sizeof(GLOBAL_S)))
         nintconsts = rffi.cast(rffi.CArrayPtr(CDL_INTCONST_S), p)
         for i in range(n):
-            decoder = StringDecoder(ffi, space.str_w(globals_w[i * 2]))
+            decoder = StringDecoder(ffi, space.bytes_w(globals_w[i * 2]))
             nglobs[i].c_type_op = decoder.next_opcode()
             nglobs[i].c_name = decoder.next_name()
             op = getop(nglobs[i].c_type_op)
@@ -181,7 +177,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
             # 'desc' is the tuple of strings (desc_struct, desc_field_1, ..)
             desc = space.fixedview(struct_unions_w[i])
             nf1 = len(desc) - 1
-            decoder = StringDecoder(ffi, space.str_w(desc[0]))
+            decoder = StringDecoder(ffi, space.bytes_w(desc[0]))
             rffi.setintfield(nstructs[i], 'c_type_index', decoder.next_4bytes())
             flags = decoder.next_4bytes()
             rffi.setintfield(nstructs[i], 'c_flags', flags)
@@ -198,7 +194,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
                 rffi.setintfield(nstructs[i], 'c_first_field_index', nf)
                 rffi.setintfield(nstructs[i], 'c_num_fields', nf1)
             for j in range(nf1):
-                decoder = StringDecoder(ffi, space.str_w(desc[j + 1]))
+                decoder = StringDecoder(ffi, space.bytes_w(desc[j + 1]))
                 # this 'decoder' is for one of the other strings beyond
                 # the first one, describing one field each
                 type_op = decoder.next_opcode()
@@ -222,7 +218,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         n = len(enums_w)
         nenums = allocate_array(ffi, ENUM_S, n)
         for i in range(n):
-            decoder = StringDecoder(ffi, space.str_w(enums_w[i]))
+            decoder = StringDecoder(ffi, space.bytes_w(enums_w[i]))
             rffi.setintfield(nenums[i], 'c_type_index', decoder.next_4bytes())
             rffi.setintfield(nenums[i], 'c_type_prim', decoder.next_4bytes())
             nenums[i].c_name = decoder.next_name()
@@ -237,7 +233,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         n = len(typenames_w)
         ntypenames = allocate_array(ffi, TYPENAME_S, n)
         for i in range(n):
-            decoder = StringDecoder(ffi, space.str_w(typenames_w[i]))
+            decoder = StringDecoder(ffi, space.bytes_w(typenames_w[i]))
             rffi.setintfield(ntypenames[i],'c_type_index',decoder.next_4bytes())
             ntypenames[i].c_name = decoder.next_name()
         ffi.ctxobj.ctx.c_typenames = ntypenames

@@ -25,7 +25,7 @@ class Test_DescrOperation:
             pass
         return Base, Sub""")
         w_base, w_sub = space.unpackiterable(w_tup)
-        assert space.is_true(space.issubtype(w_sub, w_base))
+        assert space.issubtype_w(w_sub, w_base)
         w_inst = space.call_function(w_sub)
         assert space.isinstance_w(w_inst, w_base)
 
@@ -149,7 +149,7 @@ class AppTest_Descroperation:
             def __setslice__(self, start, stop, sequence):
                 ops.append((start, stop, sequence))
             def __setitem__(self, key, value):
-                raise AssertionError, key
+                raise AssertionError(key)
             def __len__(self):
                 return 100
 
@@ -174,7 +174,7 @@ class AppTest_Descroperation:
             def __delslice__(self, start, stop):
                 ops.append((start, stop))
             def __delitem__(self, key):
-                raise AssertionError, key
+                raise AssertionError(key)
             def __len__(self):
                 return 100
 
@@ -315,7 +315,8 @@ class AppTest_Descroperation:
                 assert operate(A()) == "world" * n
             assert type(operate(A())) is str
             answer = 42
-            raises(TypeError, operate, A())
+            excinfo = raises(TypeError, operate, A())
+            assert "returned non-string (type 'int')" in str(excinfo.value)
 
     def test_missing_getattribute(self):
         class X(object):
@@ -582,7 +583,7 @@ class AppTest_Descroperation:
     def test_mod_failure(self):
         try:
             [] % 3
-        except TypeError, e:
+        except TypeError as e:
             assert '%' in str(e)
         else:
             assert False, "did not raise"
@@ -811,3 +812,8 @@ class AppTest_Descroperation:
         class A(object):
             d = D()
         raises(AttributeError, "A().d = 5")
+
+    def test_not_subscriptable_error_gives_keys(self):
+        d = {'key1': {'key2': {'key3': None}}}
+        excinfo = raises(TypeError, "d['key1']['key2']['key3']['key4']['key5']")
+        assert "key4" in str(excinfo.value)

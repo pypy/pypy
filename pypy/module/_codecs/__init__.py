@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from rpython.rlib import runicode
+from rpython.rlib.objectmodel import not_rpython
 from pypy.module._codecs import interp_codecs
 
 class Module(MixedModule):
@@ -86,10 +86,10 @@ Copyright (c) Corporation for National Research Initiatives.
          'unicode_internal_encode'   :  'interp_codecs.unicode_internal_encode',
     }
 
+    @not_rpython
     def __init__(self, space, *args):
-        "NOT_RPYTHON"
-
         # mbcs codec is Windows specific, and based on rffi.
+        from rpython.rlib import runicode
         if (hasattr(runicode, 'str_decode_mbcs')):
             self.interpleveldefs['mbcs_encode'] = 'interp_codecs.mbcs_encode'
             self.interpleveldefs['mbcs_decode'] = 'interp_codecs.mbcs_decode'

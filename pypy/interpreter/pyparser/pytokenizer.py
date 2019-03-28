@@ -1,4 +1,5 @@
 from pypy.interpreter.pyparser import automata
+from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
 from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError
@@ -73,14 +74,14 @@ def generate_tokens(lines, flags):
         logical line; continuation lines are included.
     """
     token_list = []
-    lnum = parenlev = continued = 0
+    lnum = continued = 0
     namechars = NAMECHARS
     numchars = NUMCHARS
     contstr, needcont = '', 0
     contline = None
     indents = [0]
     last_comment = ''
-    parenlevstart = (0, 0, "")
+    parenstack = []
 
     # make the annotator happy
     endDFA = DUMMY_DFA
@@ -91,18 +92,19 @@ def generate_tokens(lines, flags):
     strstart = (0, 0, "")
     for line in lines:
         lnum = lnum + 1
+        line = universal_newline(line)
         pos, max = 0, len(line)
 
         if contstr:
             if not line:
                 raise TokenError(
-                    "EOF while scanning triple-quoted string literal",
+                    "end of file (EOF) while scanning triple-quoted string literal",
                     strstart[2], strstart[0], strstart[1]+1,
                     token_list, lnum-1)
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
-                tok = (tokens.STRING, contstr + line[:end], strstart[0],
+                tok = Token(tokens.STRING, contstr + line[:end], strstart[0],
                        strstart[1], line)
                 token_list.append(tok)
                 last_comment = ''
@@ -110,7 +112,7 @@ def generate_tokens(lines, flags):
                 contline = None
             elif (needcont and not line.endswith('\\\n') and
                                not line.endswith('\\\r\n')):
-                tok = (tokens.ERRORTOKEN, contstr + line, strstart[0],
+                tok = Token(tokens.ERRORTOKEN, contstr + line, strstart[0],
                        strstart[1], line)
                 token_list.append(tok)
                 last_comment = ''
@@ -122,7 +124,7 @@ def generate_tokens(lines, flags):
                 contline = contline + line
                 continue
 
-        elif parenlev == 0 and not continued:  # new statement
+        elif not parenstack and not continued:  # new statement
             if not line: break
             column = 0
             while pos < max:                   # measure leading whitespace
@@ -139,24 +141,24 @@ def generate_tokens(lines, flags):
 
             if column > indents[-1]:           # count indents or dedents
                 indents.append(column)
-                token_list.append((tokens.INDENT, line[:pos], lnum, 0, line))
+                token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line))
                 last_comment = ''
             while column < indents[-1]:
-                indents = indents[:-1]
-                token_list.append((tokens.DEDENT, '', lnum, pos, line))
+                indents.pop()
+                token_list.append(Token(tokens.DEDENT, '', lnum, pos, line))
                 last_comment = ''
             if column != indents[-1]:
                 err = "unindent does not match any outer indentation level"
-                raise TokenIndentationError(err, line, lnum, 0, token_list)
+                raise TokenIndentationError(err, line, lnum, column+1, token_list)
 
         else:                                  # continued statement
             if not line:
-                if parenlev > 0:
-                    lnum1, start1, line1 = parenlevstart
+                if parenstack:
+                    _, lnum1, start1, line1 = parenstack[0]
                     raise TokenError("parenthesis is never closed", line1,
                                      lnum1, start1 + 1, token_list, lnum)
-                raise TokenError("EOF in multi-line statement", line,
-                                 lnum, 0, token_list)
+                raise TokenError("end of file (EOF) in multi-line statement", line,
+                                 lnum, 0, token_list) # XXX why is the offset 0 here?
             continued = 0
 
         while pos < max:
@@ -176,11 +178,11 @@ def generate_tokens(lines, flags):
                 token, initial = line[start:end], line[start]
                 if initial in numchars or \
                    (initial == '.' and token != '.'):      # ordinary number
-                    token_list.append((tokens.NUMBER, token, lnum, start, line))
+                    token_list.append(Token(tokens.NUMBER, token, lnum, start, line))
                     last_comment = ''
                 elif initial in '\r\n':
-                    if parenlev <= 0:
-                        tok = (tokens.NEWLINE, last_comment, lnum, start, line)
+                    if not parenstack:
+                        tok = Token(tokens.NEWLINE, last_comment, lnum, start, line)
                         token_list.append(tok)
                     last_comment = ''
                 elif initial == '#':
@@ -192,7 +194,7 @@ def generate_tokens(lines, flags):
                     if endmatch >= 0:                     # all on one line
                         pos = endmatch
                         token = line[start:pos]
-                        tok = (tokens.STRING, token, lnum, start, line)
+                        tok = Token(tokens.STRING, token, lnum, start, line)
                         token_list.append(tok)
                         last_comment = ''
                     else:
@@ -211,51 +213,74 @@ def generate_tokens(lines, flags):
                         contline = line
                         break
                     else:                                  # ordinary string
-                        tok = (tokens.STRING, token, lnum, start, line)
+                        tok = Token(tokens.STRING, token, lnum, start, line)
                         token_list.append(tok)
                         last_comment = ''
                 elif initial in namechars:                 # ordinary name
-                    token_list.append((tokens.NAME, token, lnum, start, line))
+                    token_list.append(Token(tokens.NAME, token, lnum, start, line))
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
                     continued = 1
+                elif initial == '$':
+                    token_list.append(Token(tokens.REVDBMETAVAR, token,
+                                       lnum, start, line))
+                    last_comment = ''
                 else:
                     if initial in '([{':
-                        if parenlev == 0:
-                            parenlevstart = (lnum, start, line)
-                        parenlev = parenlev + 1
+                        parenstack.append((initial, lnum, start, line))
                     elif initial in ')]}':
-                        parenlev = parenlev - 1
-                        if parenlev < 0:
+                        if not parenstack:
                             raise TokenError("unmatched '%s'" % initial, line,
                                              lnum, start + 1, token_list)
+                        opening, lnum1, start1, line1 = parenstack.pop()
+                        if not ((opening == "(" and initial == ")") or
+                                (opening == "[" and initial == "]") or
+                                (opening == "{" and initial == "}")):
+                            msg = "closing parenthesis '%s' does not match opening parenthesis '%s'" % (
+                                        initial, opening)
+
+                            if lnum1 != lnum:
+                                msg += " on line " + str(lnum1)
+                            raise TokenError(
+                                    msg, line, lnum, start + 1, token_list)
                     if token in python_opmap:
                         punct = python_opmap[token]
                     else:
                         punct = tokens.OP
-                    token_list.append((punct, token, lnum, start, line))
+                    token_list.append(Token(punct, token, lnum, start, line))
                     last_comment = ''
             else:
                 start = whiteSpaceDFA.recognize(line, pos)
                 if start < 0:
                     start = pos
                 if start<max and line[start] in single_quoted:
-                    raise TokenError("EOL while scanning string literal",
+                    raise TokenError("end of line (EOL) while scanning string literal",
                              line, lnum, start+1, token_list)
-                tok = (tokens.ERRORTOKEN, line[pos], lnum, pos, line)
+                tok = Token(tokens.ERRORTOKEN, line[pos], lnum, pos, line)
                 token_list.append(tok)
                 last_comment = ''
                 pos = pos + 1
 
     lnum -= 1
     if not (flags & consts.PyCF_DONT_IMPLY_DEDENT):
-        if token_list and token_list[-1][0] != tokens.NEWLINE:
-            tok = (tokens.NEWLINE, '', lnum, 0, '\n')
+        if token_list and token_list[-1].token_type != tokens.NEWLINE:
+            tok = Token(tokens.NEWLINE, '', lnum, 0, '\n')
             token_list.append(tok)
         for indent in indents[1:]:                # pop remaining indent levels
-            token_list.append((tokens.DEDENT, '', lnum, pos, line))
-    tok = (tokens.NEWLINE, '', lnum, 0, '\n')
+            token_list.append(Token(tokens.DEDENT, '', lnum, pos, line))
+    tok = Token(tokens.NEWLINE, '', lnum, 0, '\n')
     token_list.append(tok)
 
-    token_list.append((tokens.ENDMARKER, '', lnum, pos, line))
+    token_list.append(Token(tokens.ENDMARKER, '', lnum, pos, line))
     return token_list
+
+
+def universal_newline(line):
+    # show annotator that indexes below are non-negative
+    line_len_m2 = len(line) - 2
+    if line_len_m2 >= 0 and line[-2] == '\r' and line[-1] == '\n':
+        return line[:line_len_m2] + '\n'
+    line_len_m1 = len(line) - 1
+    if line_len_m1 >= 0 and line[-1] == '\r':
+        return line[:line_len_m1] + '\n'
+    return line

@@ -16,11 +16,17 @@ except ImportError:
 # Skip this test if the _testcapi module isn't available.
 _testcapi = support.import_module('_testcapi')
 
+class CAPITest(unittest.TestCase):
+
+    @support.impl_detail("Currently broken on pypy", pypy=False)
+    def test_buildvalue_N(self):
+        _testcapi.test_buildvalue_N()
+
 
 skips = []
 if support.check_impl_detail(pypy=True):
     skips += [
-            'test_broken_memoryview',
+            'test_buildvalue_N',
             'test_capsule',
             'test_lazy_hash_inheritance',
             'test_widechar',
@@ -143,7 +149,7 @@ def test_main():
             except _testcapi.error:
                 raise support.TestFailed, sys.exc_info()[1]
 
-    support.run_unittest(TestPendingCalls, TestThreadState)
+    support.run_unittest(CAPITest, TestPendingCalls, TestThreadState)
 
 if __name__ == "__main__":
     test_main()

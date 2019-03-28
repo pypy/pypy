@@ -14,7 +14,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeTypeOf, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
-    SomeWeakRef, SomeUnicodeString, SomeByteArray)
+    SomeWeakRef, SomeUnicodeString, SomeByteArray, SomeOrderedDict)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
@@ -113,8 +113,9 @@ def contains_number(annotator, number, element):
 
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
-    return annotator.annotation(func).call(
-        simple_args([annotator.annotation(arg) for arg in args]))
+    s_func = annotator.annotation(func)
+    argspec = simple_args([annotator.annotation(arg) for arg in args])
+    return s_func.call(argspec)
 
 @op.call_args.register_transform(SomeObject)
 def transform_varargs(annotator, v_func, v_shape, *data_v):
@@ -184,8 +185,8 @@ class __extend__(SomeObject):
         return SomeString()
 
     def id(self):
-        raise Exception("cannot use id() in RPython; "
-                        "see objectmodel.compute_xxx()")
+        raise AnnotatorError("cannot use id() in RPython; "
+                             "see objectmodel.compute_xxx()")
 
     def int(self):
         return SomeInteger()
@@ -409,6 +410,7 @@ class __extend__(SomeList):
                 self.listdef.resize()
                 self.listdef.listitem.hint_maxlength = True
         elif 'fence' in hints:
+            self.listdef.resize()
             self = self.listdef.offspring(getbookkeeper())
         return self
 
@@ -420,7 +422,7 @@ class __extend__(SomeList):
     def setslice(self, s_start, s_stop, s_iterable):
         check_negative_slice(s_start, s_stop)
         if not isinstance(s_iterable, SomeList):
-            raise Exception("list[start:stop] = x: x must be a list")
+            raise AnnotatorError("list[start:stop] = x: x must be a list")
         self.listdef.mutate()
         self.listdef.agree(getbookkeeper(), s_iterable.listdef)
         self.listdef.resize()
@@ -494,7 +496,7 @@ class __extend__(SomeDict):
             return SomeTuple((s_key, s_Int))
         raise ValueError(variant)
 
-    def method_get(self, key, dfl):
+    def method_get(self, key, dfl=s_None):
         position = getbookkeeper().position_key
         self.dictdef.generalize_key(key)
         self.dictdef.generalize_value(dfl)
@@ -573,6 +575,17 @@ class __extend__(SomeDict):
     def method_delitem_with_hash(self, s_key, s_hash):
         pair(self, s_key).delitem()
     method_delitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
+
+    def method_delitem_if_value_is(self, s_key, s_value):
+        pair(self, s_key).setitem(s_value)
+        pair(self, s_key).delitem()
+
+class __extend__(SomeOrderedDict):
+
+    def method_move_to_end(self, s_key, s_last):
+        assert s_Bool.contains(s_last)
+        pair(self, s_key).delitem()
+    method_move_to_end.can_only_throw = _dict_can_only_throw_keyerror
 
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)
@@ -659,7 +672,7 @@ class __extend__(SomeString,
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(self, patt, max=-1):
-        s_item = self.basestringclass(no_nul=self.no_nul)
+        s_item = self.basestringclass(no_nul=self.no_nul, can_be_None=False)
         return getbookkeeper().newlist(s_item)
 
     def method_replace(self, s1, s2):
@@ -684,8 +697,19 @@ class __extend__(SomeUnicodeString):
         if not s_enc.is_constant():
             raise AnnotatorError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1', 'utf-8'):
+        if enc not in ('ascii', 'latin-1', 'utf-8', 'utf8'):
             raise AnnotatorError("Encoding %s not supported for unicode" % (enc,))
+        if enc == 'utf-8':
+            from rpython.rlib import runicode
+            bookkeeper = getbookkeeper()
+            s_func = bookkeeper.immutablevalue(
+                             runicode.unicode_encode_utf_8_elidable)
+            s_errors = bookkeeper.immutablevalue('strict')
+            s_errorhandler = bookkeeper.immutablevalue(
+                                    runicode.default_unicode_error_encode)
+            s_allow_surr = bookkeeper.immutablevalue(True)
+            args = [self, self.len(), s_errors, s_errorhandler, s_allow_surr]
+            bookkeeper.emulate_pbc_call(bookkeeper.position_key, s_func, args)
         return SomeString(no_nul=self.no_nul)
     method_encode.can_only_throw = [UnicodeEncodeError]
 
@@ -717,8 +741,21 @@ class __extend__(SomeString):
         if not s_enc.is_constant():
             raise AnnotatorError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1', 'utf-8'):
+        if enc not in ('ascii', 'latin-1', 'utf-8', 'utf8'):
             raise AnnotatorError("Encoding %s not supported for strings" % (enc,))
+        if enc == 'utf-8':
+            from rpython.rlib import runicode
+            bookkeeper = getbookkeeper()
+            s_func = bookkeeper.immutablevalue(
+                            runicode.str_decode_utf_8_elidable)
+            s_errors = bookkeeper.immutablevalue('strict')
+            s_final = bookkeeper.immutablevalue(True)
+            s_errorhandler = bookkeeper.immutablevalue(
+                                    runicode.default_unicode_error_decode)
+            s_allow_surr = bookkeeper.immutablevalue(True)
+            args = [self, self.len(), s_errors, s_final, s_errorhandler,
+                    s_allow_surr]
+            bookkeeper.emulate_pbc_call(bookkeeper.position_key, s_func, args)
         return SomeUnicodeString(no_nul=self.no_nul)
     method_decode.can_only_throw = [UnicodeDecodeError]
 
@@ -755,7 +792,7 @@ class __extend__(SomeUnicodeCodePoint):
     def ord(self):
         # warning, on 32-bit with 32-bit unichars, this might return
         # negative numbers
-        return SomeInteger()
+        return SomeInteger(nonneg=True)
 
 class __extend__(SomeIterator):
 

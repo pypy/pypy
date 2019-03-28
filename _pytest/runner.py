@@ -1,10 +1,12 @@
 """ basic collect and runtest protocol implementations """
+import bdb
+import sys
+from time import time
 
 import py
 import pytest
-import sys
-from time import time
-from py._code.code import TerminalRepr
+from _pytest._code.code import TerminalRepr, ExceptionInfo
+
 
 def pytest_namespace():
     return {
@@ -85,7 +87,17 @@ def pytest_runtest_setup(item):
     item.session._setupstate.prepare(item)
 
 def pytest_runtest_call(item):
-    item.runtest()
+    try:
+        item.runtest()
+    except Exception:
+        # Store trace info to allow postmortem debugging
+        type, value, tb = sys.exc_info()
+        tb = tb.tb_next  # Skip *this* frame
+        sys.last_type = type
+        sys.last_value = value
+        sys.last_traceback = tb
+        del tb  # Get rid of it in this namespace
+        raise
 
 def pytest_runtest_teardown(item, nextitem):
     item.session._setupstate.teardown_exact(item, nextitem)
@@ -118,7 +130,7 @@ def check_interactive_exception(call, report):
     return call.excinfo and not (
                 hasattr(report, "wasxfail") or
                 call.excinfo.errisinstance(skip.Exception) or
-                call.excinfo.errisinstance(py.std.bdb.BdbQuit))
+                call.excinfo.errisinstance(bdb.BdbQuit))
 
 def call_runtest_hook(item, when, **kwds):
     hookname = "pytest_runtest_" + when
@@ -135,14 +147,13 @@ class CallInfo:
         self.when = when
         self.start = time()
         try:
-            try:
-                self.result = func()
-            except KeyboardInterrupt:
-                raise
-            except:
-                self.excinfo = py.code.ExceptionInfo()
-        finally:
+            self.result = func()
+        except KeyboardInterrupt:
             self.stop = time()
+            raise
+        except:
+            self.excinfo = ExceptionInfo()
+        self.stop = time()
 
     def __repr__(self):
         if self.excinfo:
@@ -167,9 +178,13 @@ class BaseReport(object):
         self.__dict__.update(kw)
 
     def toterminal(self, out):
-        longrepr = self.longrepr
         if hasattr(self, 'node'):
             out.line(getslaveinfoline(self.node))
+
+        longrepr = self.longrepr
+        if longrepr is None:
+            return
+
         if hasattr(longrepr, 'toterminal'):
             longrepr.toterminal(out)
         else:
@@ -177,6 +192,11 @@ class BaseReport(object):
                 out.line(longrepr)
             except UnicodeEncodeError:
                 out.line("<unprintable longrepr>")
+
+    def get_sections(self, prefix):
+        for name, content in self.sections:
+            if name.startswith(prefix):
+                yield prefix, content
 
     passed = property(lambda x: x.outcome == "passed")
     failed = property(lambda x: x.outcome == "failed")
@@ -191,11 +211,12 @@ def pytest_runtest_makereport(item, call):
     duration = call.stop-call.start
     keywords = dict([(x,1) for x in item.keywords])
     excinfo = call.excinfo
+    sections = []
     if not call.excinfo:
         outcome = "passed"
         longrepr = None
     else:
-        if not isinstance(excinfo, py.code.ExceptionInfo):
+        if not isinstance(excinfo, ExceptionInfo):
             outcome = "failed"
             longrepr = excinfo
         elif excinfo.errisinstance(pytest.skip.Exception):
@@ -209,16 +230,18 @@ def pytest_runtest_makereport(item, call):
             else: # exception in setup or teardown
                 longrepr = item._repr_failure_py(excinfo,
                                             style=item.config.option.tbstyle)
+    for rwhen, key, content in item._report_sections:
+        sections.append(("Captured %s %s" %(key, rwhen), content))
     return TestReport(item.nodeid, item.location,
                       keywords, outcome, longrepr, when,
-                      duration=duration)
+                      sections, duration)
 
 class TestReport(BaseReport):
     """ Basic test report object (also used for setup and teardown calls if
     they fail).
     """
-    def __init__(self, nodeid, location,
-            keywords, outcome, longrepr, when, sections=(), duration=0, **extra):
+    def __init__(self, nodeid, location, keywords, outcome,
+                 longrepr, when, sections=(), duration=0, **extra):
         #: normalized collection node id
         self.nodeid = nodeid
 
@@ -267,7 +290,9 @@ def pytest_make_collect_report(collector):
     if not call.excinfo:
         outcome = "passed"
     else:
-        if call.excinfo.errisinstance(collector.skip_exceptions):
+        from _pytest import nose
+        skip_exceptions = (Skipped,) + nose.get_skip_exceptions()
+        if call.excinfo.errisinstance(skip_exceptions):
             outcome = "skipped"
             r = collector._repr_failure_py(call.excinfo, "line").reprcrash
             longrepr = (str(r.path), r.lineno, r.message)
@@ -284,7 +309,8 @@ def pytest_make_collect_report(collector):
 
 
 class CollectReport(BaseReport):
-    def __init__(self, nodeid, outcome, longrepr, result, sections=(), **extra):
+    def __init__(self, nodeid, outcome, longrepr, result,
+                 sections=(), **extra):
         self.nodeid = nodeid
         self.outcome = outcome
         self.longrepr = longrepr
@@ -318,7 +344,7 @@ class SetupState(object):
         is called at the end of teardown_all().
         """
         assert colitem and not isinstance(colitem, tuple)
-        assert callable(finalizer)
+        assert py.builtin.callable(finalizer)
         #assert colitem in self.stack  # some unit tests don't setup stack :/
         self._finalizers.setdefault(colitem, []).append(finalizer)
 
@@ -409,7 +435,10 @@ class OutcomeException(Exception):
 
     def __repr__(self):
         if self.msg:
-            return str(self.msg)
+            val = self.msg
+            if isinstance(val, bytes):
+                val = py._builtin._totext(val, errors='replace')
+            return val
         return "<%s instance>" %(self.__class__.__name__,)
     __str__ = __repr__
 
@@ -448,7 +477,7 @@ def skip(msg=""):
 skip.Exception = Skipped
 
 def fail(msg="", pytrace=True):
-    """ explicitely fail an currently-executing test with the given Message.
+    """ explicitly fail an currently-executing test with the given Message.
 
     :arg pytrace: if false the msg represents the full failure information
                   and no python traceback will be reported.
@@ -462,8 +491,6 @@ def importorskip(modname, minversion=None):
     """ return imported module if it has at least "minversion" as its
     __version__ attribute.  If no minversion is specified the a skip
     is only triggered if the module can not be imported.
-    Note that version comparison only works with simple version strings
-    like "1.2.3" but not "1.2.3.dev1" or others.
     """
     __tracebackhide__ = True
     compile(modname, '', 'eval') # to catch syntaxerrors
@@ -475,9 +502,14 @@ def importorskip(modname, minversion=None):
     if minversion is None:
         return mod
     verattr = getattr(mod, '__version__', None)
-    def intver(verstring):
-        return [int(x) for x in verstring.split(".")]
-    if verattr is None or intver(verattr) < intver(minversion):
-        skip("module %r has __version__ %r, required is: %r" %(
-             modname, verattr, minversion))
+    if minversion is not None:
+        try:
+            from pkg_resources import parse_version as pv
+        except ImportError:
+            skip("we have a required version for %r but can not import "
+                 "no pkg_resources to parse version strings." %(modname,))
+        if verattr is None or pv(verattr) < pv(minversion):
+            skip("module %r has __version__ %r, required is: %r" %(
+                 modname, verattr, minversion))
     return mod
+

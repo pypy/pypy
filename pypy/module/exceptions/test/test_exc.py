@@ -4,6 +4,10 @@
 class AppTestExc(object):
     spaceconfig = dict(usemodules=('exceptions',))
 
+    def test_import(self):
+        import exceptions
+        assert exceptions.SyntaxError is SyntaxError
+
     def test_baseexc(self):
         from exceptions import BaseException
 
@@ -117,6 +121,8 @@ class AppTestExc(object):
         assert ee.strerror == "x"
         assert ee.filename == "y"
         assert EnvironmentError(3, "x").filename is None
+        e = EnvironmentError(1, "hello", "world")
+        assert str(e) == "[Errno 1] hello: 'world'"
 
     def test_windows_error(self):
         try:
@@ -145,6 +151,7 @@ class AppTestExc(object):
 
     def test_system_exit(self):
         from exceptions import SystemExit
+        assert issubclass(SystemExit, BaseException)
         assert SystemExit().code is None
         assert SystemExit("x").code == "x"
         assert SystemExit(1, 2).code == (1, 2)

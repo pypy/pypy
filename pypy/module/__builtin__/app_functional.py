@@ -2,7 +2,6 @@
 Plain Python definition of the builtin functions oriented towards
 functional programming.
 """
-from __future__ import with_statement
 import operator
 from __pypy__ import resizelist_hint, newlist_hint
 from __pypy__ import specialized_zip_2_lists
@@ -15,9 +14,9 @@ def apply(function, args=(), kwds={}):
 
 # ____________________________________________________________
 
-def sorted(lst, cmp=None, key=None, reverse=False):
+def sorted(iterable, cmp=None, key=None, reverse=False):
     "sorted(iterable, cmp=None, key=None, reverse=False) --> new sorted list"
-    sorted_lst = list(lst)
+    sorted_lst = list(iterable)
     sorted_lst.sort(cmp, key, reverse)
     return sorted_lst
 

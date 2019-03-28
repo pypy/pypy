@@ -4,6 +4,8 @@ import os
 import py
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
+from pypy.module._sre import interp_sre
+from rpython.rlib.rsre.test import support
 
 
 def init_app_test(cls, space):
@@ -19,6 +21,37 @@ def init_app_test(cls, space):
         finally:
             sys.path.pop(0)
         """)
+
+def _test_sre_ctx_(self, str, start, end):
+    # Use the MatchContextForTests class, which handles Position
+    # instances instead of plain integers.  This is used to detect when
+    # we're accepting or escaping a Position to app-level, which we
+    # should not: Positions are meant to be byte indexes inside a
+    # possibly UTF8 string, not character indexes.
+    if not isinstance(start, support.Position):
+        start = support.Position(start)
+    if not isinstance(end, support.Position):
+        end = support.Position(end)
+    return support.MatchContextForTests(str, start, end, self.flags)
+
+def _bytepos_to_charindex(self, bytepos):
+    if isinstance(self.ctx, support.MatchContextForTests):
+        return self.ctx._real_pos(bytepos)
+    return _org_maker[1](self, bytepos)
+
+def setup_module(mod):
+    mod._org_maker = (
+        interp_sre.W_SRE_Pattern._make_str_match_context,
+        interp_sre.W_SRE_Match.bytepos_to_charindex,
+        )
+    interp_sre.W_SRE_Pattern._make_str_match_context = _test_sre_ctx_
+    interp_sre.W_SRE_Match.bytepos_to_charindex = _bytepos_to_charindex
+
+def teardown_module(mod):
+    (
+        interp_sre.W_SRE_Pattern._make_str_match_context,
+        interp_sre.W_SRE_Match.bytepos_to_charindex,
+    ) = mod._org_maker
 
 
 class AppTestSrePy:
@@ -87,6 +120,14 @@ class AppTestSrePattern:
         assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
         assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
 
+    def test_findall_unicode(self):
+        import re
+        assert [u"\u1234"] == re.findall(u"\u1234", u"\u1000\u1234\u2000")
+        assert ["a", "u"] == re.findall("b(.)", "abalbus")
+        assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
+        assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
+        assert [u"xyz"] == re.findall(u".*yz", u"xyz")
+
     def test_finditer(self):
         import re
         it = re.finditer("b(.)", "brabbel")
@@ -101,10 +142,18 @@ class AppTestSrePattern:
         assert ['', 'a', 'l', 'a', 'lla'] == re.split("b(a)", "balballa")
         assert ['', 'a', None, 'l', 'u', None, 'lla'] == (
             re.split("b([ua]|(s))", "balbulla"))
+        assert ["abc"] == re.split("", "abc")
+        assert ["abc"] == re.split("X?", "abc")
+        assert ["a", "c"] == re.split("b?", "abc")
 
     def test_weakref(self):
         import re, _weakref
         _weakref.ref(re.compile(r""))
+
+    def test_match_compat(self):
+        import re
+        res = re.match(r'(a)|(b)', 'b').start(1)
+        assert res == -1
 
 
 class AppTestSreMatch:
@@ -214,6 +263,7 @@ class AppTestSreMatch:
         assert "rbd\nbr\n" == re.sub("a(.)", r"b\1\n", "radar")
         assert ("rbd\nbr\n", 2) == re.subn("a(.)", r"b\1\n", "radar")
         assert ("bbbba", 2) == re.subn("a", "b", "ababa", 2)
+        assert "XaXbXcX" == re.sub("", "X", "abc")
 
     def test_sub_unicode(self):
         import re
@@ -319,6 +369,18 @@ class AppTestSreMatch:
         import re
         KEYCRE = re.compile(r"%\(([^)]*)\)s|.")
         raises(TypeError, KEYCRE.sub, "hello", {"%(": 1})
+
+    def test_sub_matches_stay_valid(self):
+        import re
+        matches = []
+        def callback(match):
+            matches.append(match)
+            return "x"
+        result = re.compile(r"[ab]").sub(callback, "acb")
+        assert result == "xcx"
+        assert len(matches) == 2
+        assert matches[0].group() == "a"
+        assert matches[1].group() == "b"
 
 
 class AppTestSreScanner:
@@ -999,3 +1061,15 @@ class AppTestOptimizations:
         import re
         assert re.search(".+ab", "wowowowawoabwowo")
         assert None == re.search(".+ab", "wowowaowowo")
+
+
+class AppTestUnicodeExtra:
+    def test_string_attribute(self):
+        import re
+        match = re.search(u"\u1234", u"\u1233\u1234\u1235")
+        assert match.string == u"\u1233\u1234\u1235"
+
+    def test_match_start(self):
+        import re
+        match = re.search(u"\u1234", u"\u1233\u1234\u1235")
+        assert match.start() == 1

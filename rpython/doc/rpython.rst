@@ -135,6 +135,12 @@ We are using
   hash functions and custom equality will not be honored.
   Use ``rpython.rlib.objectmodel.r_dict`` for custom hash functions.
 
+**sets**
+
+  sets are not directly supported in RPython. Instead you should use a
+  plain dict and fill the values with None. Values in that dict
+  will not consume space.
+
 **list comprehensions**
 
   May be used to create allocated, initialized arrays.
@@ -191,6 +197,12 @@ We are using
   ``__setitem__`` for slicing isn't supported. Additionally, using negative
   indices for slicing is still not support, even when using ``__getslice__``.
 
+  Note that the destructor ``__del__`` should only contain `simple
+  operations`__; for any kind of more complex destructor, consider
+  using instead ``rpython.rlib.rgc.FinalizerQueue``.
+
+.. __: garbage_collection.html
+
 This layout makes the number of types to take care about quite limited.
 
 
@@ -245,6 +257,26 @@ helpers (which live in :source:`rpython/rlib/rarithmetic.py`):
   Mixing of (signed) integers and r_uint in operations produces r_uint that
   means unsigned results.  To convert back from r_uint to signed integers, use
   intmask().
+
+
+Type Enforcing and Checking
+---------------------------
+
+RPython provides a helper decorator to force RPython-level types on function
+arguments. The decorator, called ``enforceargs()``, accepts as parameters the
+types expected to match the arguments of the function.
+
+Functions decorated with ``enforceargs()`` have their function signature
+analyzed and their RPython-level type inferred at import time (for further
+details about the flavor of translation performed in RPython, see the
+`Annotation pass documentation`_). Encountering types not supported by RPython
+will raise a ``TypeError``.
+
+``enforceargs()`` by default also performs type checking of parameter types
+each time the function is invoked. To disable this behavior, it's possible to
+pass the ``typecheck=False`` parameter to the decorator.
+
+.. _Annotation pass documentation: http://rpython.readthedocs.io/en/latest/translation.html#annotator
 
 
 Exception rules

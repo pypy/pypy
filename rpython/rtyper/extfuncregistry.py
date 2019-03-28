@@ -11,7 +11,6 @@ from rpython.rlib import rtime
 
 import math
 from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.rtyper.module import ll_pdb
 from rpython.rlib import rfloat
 
 # the following functions all take one float, return one float
@@ -28,12 +27,12 @@ for name in ll_math.unary_math_functions:
 
 _register = [  # (module, [(method name, arg types, return type), ...], ...)
     (rfloat, [
-        ('isinf', [float], bool),
-        ('isnan', [float], bool),
         ('isfinite', [float], bool),
-        ('copysign', [float, float], float),
     ]),
     (math, [
+       ('copysign', [float, float], float),
+       ('isinf', [float], bool),
+       ('isnan', [float], bool),
        ('floor', [float], float),
        ('sqrt', [float], float),
        ('log', [float], float),

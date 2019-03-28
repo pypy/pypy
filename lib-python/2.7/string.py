@@ -75,7 +75,7 @@ def maketrans(fromstr, tostr):
     for i in range(256):
         buf[i] = i
     for i in range(n):
-        buf[ord(fromstr[i])] = tostr[i]
+        buf[ord(fromstr[i])] = ord(tostr[i])
     return str(buf)
 
 

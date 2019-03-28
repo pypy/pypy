@@ -3,10 +3,12 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py [--options] pypy-VER-PLATFORM
+    package.py [--options] --archive-name=pypy-VER-PLATFORM
 
 The output is found in the directory from --builddir,
 by default /tmp/usession-YOURNAME/build/.
+
+For a list of all options, see 'package.py --help'.
 """
 
 import shutil
@@ -19,14 +21,13 @@ import py
 import fnmatch
 import subprocess
 import glob
-
-if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
+from pypy.tool.release.smartstrip import smartstrip
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
 STDLIB_VER = "2.7"
 
-from pypy.tool.build_cffi_imports import (create_cffi_import_libraries, 
+from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
@@ -61,6 +62,7 @@ def create_package(basedir, options, _fake=False):
     name = options.name
     if not name:
         name = 'pypy-nightly'
+    assert '/' not in name
     rename_pypy_c = options.pypy_c
     override_pypy_c = options.override_pypy_c
 
@@ -108,17 +110,14 @@ def create_package(basedir, options, _fake=False):
     #
     builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
+
     includedir = basedir.join('include')
-    # Recursively copy all headers, shutil has only ignore
-    # so we do a double-negative to include what we want
-    def copyonly(dirpath, contents):
-        return set(contents) - set(    # XXX function not used?
-            shutil.ignore_patterns('*.h', '*.incl')(dirpath, contents),
-        )
     shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
+        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
+                            os.environ.get('PATH', '')
         src,tgt = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():
@@ -139,28 +138,33 @@ def create_package(basedir, options, _fake=False):
                     continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-        importlib_name = 'python27.lib'
-        if pypy_c.dirpath().join(importlib_name).check():
-            shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
-                        str(pypydir.join('include/python27.lib')))
-            print "Picking %s as %s" % (pypy_c.dirpath().join(importlib_name),
-                        pypydir.join('include/python27.lib'))
+        libsdir = basedir.join('libs')
+        if libsdir.exists():
+            print 'Picking %s (and contents)' % libsdir
+            shutil.copytree(str(libsdir), str(pypydir.join('libs')))
         else:
-            pass
-            # XXX users will complain that they cannot compile cpyext
-            # modules for windows, has the lib moved or are there no
-            # exported functions in the dll so no import library is created?
+            print '"libs" dir with import library not found.'
+            print 'You have to create %r' % (str(libsdir),)
+            print 'and copy libpypy-c.lib in there, renamed to python27.lib'
+            # XXX users will complain that they cannot compile capi (cpyext)
+            # modules for windows, also embedding pypy (i.e. in cffi)
+            # will fail.
+            # Has the lib moved, was translation not 'shared', or are
+            # there no exported functions in the dll so no import
+            # library was created?
         if not options.no_tk:
             try:
                 p = pypy_c.dirpath().join('tcl85.dll')
                 if not p.check():
                     p = py.path.local.sysfind('tcl85.dll')
+                    if p is None:
+                        raise WindowsError("tcl85.dll not found")
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
-                print >>sys.stderr, """Packaging Tk runtime failed.
-tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
-directory next to the dlls, as per build instructions."""
+                print >>sys.stderr, r"""Packaging Tk runtime failed.
+tk85.dll and tcl85.dll found in %s, expecting to find runtime in %s
+directory next to the dlls, as per build instructions.""" %(p, tktcldir)
                 import traceback;traceback.print_exc()
                 raise MissingDependenciesError('Tk runtime')
 
@@ -169,13 +173,14 @@ directory next to the dlls, as per build instructions."""
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
+    # XXX ^^^ this is no longer true!
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
                     str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*.c', '*.o'))
+                                           '*_cffi.c', '*.o'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -208,15 +213,9 @@ directory next to the dlls, as per build instructions."""
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
-        if not options.nostrip:
+        if not _fake:
             for source, target in binaries:
-                if sys.platform == 'win32':
-                    pass
-                elif sys.platform == 'darwin':
-                    # 'strip' fun: see issue #587 for why -x
-                    os.system("strip -x " + str(bindir.join(target)))    # ignore errors
-                else:
-                    os.system("strip " + str(bindir.join(target)))    # ignore errors
+                smartstrip(bindir.join(target), keep_debug=options.keep_debug)
         #
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -230,12 +229,14 @@ directory next to the dlls, as per build instructions."""
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+            if sys.platform == 'darwin':
                 print >>sys.stderr, """Warning: tar on current platform does not suport overriding the uid and gid
 for its contents. The tarball will contain your uid and gid. If you are
 building the actual release for the PyPy website, you may want to be
 using another platform..."""
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+            elif sys.platform.startswith('freebsd'):
+                e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
                 e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
             else:
@@ -275,8 +276,8 @@ def package(*args, **kwds):
                     help='do not build and package the %r cffi module' % (key,))
     parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
         help='skip building *all* the cffi modules listed above')
-    parser.add_argument('--nostrip', dest='nostrip', action='store_true',
-        help='do not strip the exe, making it ~10MB larger')
+    parser.add_argument('--no-keep-debug', dest='keep_debug',
+                        action='store_false', help='do not keep debug symbols')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
         help='target executable name, defaults to "pypy"')
     parser.add_argument('--archive-name', dest='name', type=str, default='',
@@ -287,26 +288,12 @@ def package(*args, **kwds):
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
         help='use as pypy exe instead of pypy/goal/pypy-c')
-    # Positional arguments, for backward compatability with buldbots
-    parser.add_argument('extra_args', help='optional interface to positional arguments', nargs=argparse.REMAINDER,
-        metavar='[archive-name] [rename_pypy_c] [targetdir] [override_pypy_c]',
-        )
     options = parser.parse_args(args)
 
-    # Handle positional arguments, choke if both methods are used
-    for i,target, default in ([1, 'name', ''], [2, 'pypy_c', pypy_exe],
-                              [3, 'targetdir', ''], [4,'override_pypy_c', '']):
-        if len(options.extra_args)>i:
-            if getattr(options, target) != default:
-                print 'positional argument',i,target,'already has value',getattr(options, target)
-                parser.print_help()
-                return
-            setattr(options, target, options.extra_args[i])
-    if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
-        options.nostrip = True
-
+    if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
+        options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
-        options.tk = True
+        options.no_tk = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
@@ -322,7 +309,7 @@ def package(*args, **kwds):
 if __name__ == '__main__':
     import sys
     if sys.platform == 'win32':
-        # Try to avoid opeing a dialog box if one of the 
+        # Try to avoid opeing a dialog box if one of the
         # subprocesses causes a system error
         import ctypes
         winapi = ctypes.windll.kernel32

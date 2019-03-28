@@ -11,6 +11,11 @@ def excepthook(exctype, value, traceback):
 
     # Flush stdout as well, both files may refer to the same file
     try:
+        if sys.stdout.softspace:
+            print
+    except:
+        pass
+    try:
         sys.stdout.flush()
     except:
         pass
@@ -70,11 +75,11 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2014 PyPy development team.
+Copyright 2003-2016 PyPy development team.
 All Rights Reserved.
 For further information, see <http://pypy.org>
 
-Portions Copyright (c) 2001-2014 Python Software Foundation.
+Portions Copyright (c) 2001-2016 Python Software Foundation.
 All Rights Reserved.
 
 Portions Copyright (c) 2000 BeOpen.com.

@@ -1,8 +1,8 @@
 from pypy.interpreter.astcompiler import ast
 class TestAstToObject:
     def test_types(self, space):
-        assert space.is_true(space.issubtype(
-                ast.get(space).w_Module, ast.get(space).w_mod))
+        assert space.issubtype_w(
+                ast.get(space).w_Module, ast.get(space).w_mod)
                                   
     def test_num(self, space):
         value = space.wrap(42)

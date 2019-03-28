@@ -2,6 +2,9 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
 from rpython.rlib.debug import ll_assert
 from rpython.tool.identity_dict import identity_dict
+from rpython.rtyper.rclass import NONGCOBJECTPTR
+from rpython.rtyper.annlowlevel import cast_nongc_instance_to_base_ptr
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_nongc_instance
 
 
 def mangle_hash(i):
@@ -266,22 +269,23 @@ def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
             self.index_in_oldest = index + 1
             return result
 
-        def foreach(self, callback, arg):
+        def foreach(self, callback, arg, step=1):
             """Invoke 'callback(address, arg)' for all addresses in the deque.
             Typically, 'callback' is a bound method and 'arg' can be None.
+            If step > 1, only calls it for addresses multiple of 'step'.
             """
             chunk = self.oldest_chunk
             index = self.index_in_oldest
             while chunk is not self.newest_chunk:
                 while index < chunk_size:
                     callback(chunk.items[index], arg)
-                    index += 1
+                    index += step
                 chunk = chunk.next
-                index = 0
+                index -= chunk_size
             limit = self.index_in_newest
             while index < limit:
                 callback(chunk.items[index], arg)
-                index += 1
+                index += step
         foreach._annspecialcase_ = 'specialize:arg(1)'
 
         def delete(self):
@@ -291,6 +295,9 @@ def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 unused_chunks.put(cur)
                 cur = next
             free_non_gc_object(self)
+
+        def _was_freed(self):
+            return False    # otherwise, the __class__ changes
 
     cache[chunk_size] = AddressDeque
     return AddressDeque

@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.rgc import lltype_is_gc
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 
 RAW_STORAGE = rffi.CCHARP.TO
 RAW_STORAGE_PTR = rffi.CCHARP
@@ -16,23 +16,23 @@ def alloc_raw_storage(size, track_allocation=True, zero=False):
                          track_allocation=track_allocation,
                          zero=zero)
 
+@not_rpython
 def raw_storage_getitem(TP, storage, index):
-    "NOT_RPYTHON"
     _check_alignment(TP, index)
     return _raw_storage_getitem_unchecked(TP, storage, index)
 
+@not_rpython
 def _raw_storage_getitem_unchecked(TP, storage, index):
-    "NOT_RPYTHON"
     return rffi.cast(rffi.CArrayPtr(TP), rffi.ptradd(storage, index))[0]
 
+@not_rpython
 def raw_storage_setitem(storage, index, item):
-    "NOT_RPYTHON"
     TP = lltype.typeOf(item)
     _check_alignment(TP, index)
     _raw_storage_setitem_unchecked(storage, index, item)
 
+@not_rpython
 def _raw_storage_setitem_unchecked(storage, index, item):
-    "NOT_RPYTHON"
     TP = lltype.typeOf(item)
     rffi.cast(rffi.CArrayPtr(TP), rffi.ptradd(storage, index))[0] = item
 
@@ -46,7 +46,11 @@ def free_raw_storage(storage, track_allocation=True):
 
 from rpython.jit.backend import detect_cpu
 try:
-    misaligned_is_fine = detect_cpu.autodetect().startswith('x86')
+    cpuname = detect_cpu.autodetect()
+    misaligned_is_fine = cpuname.startswith('x86') or \
+                         cpuname.startswith('s390x') or \
+                         cpuname.startswith('ppc')
+    del cpuname
 except detect_cpu.ProcessorAutodetectError:
     misaligned_is_fine = False
 

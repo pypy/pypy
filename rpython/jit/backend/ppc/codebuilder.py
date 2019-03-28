@@ -1,4 +1,5 @@
 import os
+
 from rpython.jit.backend.ppc.ppc_form import PPCForm as Form
 from rpython.jit.backend.ppc.locations import RegisterLocation
 from rpython.jit.backend.ppc.ppc_field import ppc_fields
@@ -60,6 +61,17 @@ XL2 = Form("crbD", "XO1", "Rc")
 XFL = Form("FM", "frB", "XO1", "Rc")
 XFX = Form("CRM", "rS", "XO1")
 XLL = Form("LL", "XO1")
+XX1 = Form("fvrT", "rA", "rB", "XO1")
+XX2 = Form("fvrT", "fvrB", "XO6")
+XX3 = Form("fvrT", "fvrA", "fvrB", "XO9")
+XX3_2 = Form("fvrT", "fvrA", "fvrB", "OE", "XO11")
+XX3_splat = Form("fvrT", "fvrA", "fvrB", "DM", "XO13", "OE")
+XV = Form("ivrT", "rA", "rB", "XO1")
+VX = Form("ivrT", "ivrA", "ivrB", "XO8")
+VC = Form("ivrT", "ivrA", "ivrB", "XO12", "OE")
+VXI = Form("ivrT", "SIM", "XO8")
+VA = Form("ivrT", "ivrA", "ivrB", "ivrC", "XO10")
+
 
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
 MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
@@ -568,6 +580,145 @@ class BasicPPCAssembler(object):
     xor = XS(31, XO1=316, Rc=0)
     xorx = XS(31, XO1=316, Rc=1)
 
+    # Vector Ext
+
+    # floating point operations (ppc got it's own vector
+    # unit for double/single precision floating points
+
+    # FLOAT
+    # -----
+
+    # load
+    lxvdsx = XX1(31, XO1=332) # splat first element
+    lxvd2x = XX1(31, XO1=844)
+    lxvw4x = XX1(31, XO1=780)
+
+    # store
+    stxvd2x = XX1(31, XO1=972)
+    stxvw4x = XX1(31, XO1=908)
+
+    # arith
+
+    # add
+    xvadddp = XX3(60, XO9=96)
+    xvaddsp = XX3(60, XO9=64)
+    xsadddp = XX3(60, XO9=32)
+    # sub
+    xvsubdp = XX3(60, XO9=104)
+    xvsubsp = XX3(60, XO9=72)
+    # mul
+    xvmuldp = XX3(60, XO9=112)
+    xvmulsp = XX3(60, XO9=80)
+    xsmuldp = XX3(60, XO9=48)
+    # div
+    xvdivdp = XX3(60, XO9=102)
+    xvdivsp = XX3(60, XO9=88)
+    # cmp
+    xvcmpeqdp = XX3_2(60, XO11=99, OE=0)
+    xvcmpeqdpx = XX3_2(60, XO11=99, OE=1)
+    xvcmpeqsp = XX3_2(60, XO11=67, OE=0)
+    xvcmpeqspx = XX3_2(60, XO11=67, OE=1)
+
+    # logical and and complement
+    xxlandc = XX3(60, XO9=138)
+
+    # neg
+    xvnegdp = XX2(60, XO6=505)
+    xvnegsp = XX2(60, XO6=441)
+
+    # abs
+    xvabsdp = XX2(60, XO6=473)
+    xvabssp = XX2(60, XO6=409)
+
+    # conversion from/to
+    xvcvsxddp = XX2(60, XO6=504)
+    xvcvdpsxds = XX2(60, XO6=472)
+
+    # compare greater than unsigned int
+    vcmpgtubx = VC(4, XO12=518, OE=1)
+    vcmpgtub = VC(4, XO12=518, OE=0)
+    vcmpgtuhx = VC(4, XO12=584, OE=1)
+    vcmpgtuh = VC(4, XO12=584, OE=0)
+    vcmpgtuwx = VC(4, XO12=646, OE=1)
+    vcmpgtuw = VC(4, XO12=646, OE=0)
+    vcmpgtudx = VC(4, XO12=711, OE=1)
+    vcmpgtud = VC(4, XO12=711, OE=0)
+
+    # compare equal to unsigned int
+    vcmpequbx = VC(4, XO12=6, OE=1)
+    vcmpequb = VC(4, XO12=6, OE=0)
+    vcmpequhx = VC(4, XO12=70, OE=1)
+    vcmpequh = VC(4, XO12=70, OE=0)
+    vcmpequwx = VC(4, XO12=134, OE=1)
+    vcmpequw = VC(4, XO12=134, OE=0)
+    vcmpequdx = VC(4, XO12=199, OE=1)
+    vcmpequd = VC(4, XO12=199, OE=0)
+
+    # permute/splat
+    # splat low of A, and low of B
+    xxspltdl = XX3_splat(60, XO13=10, OE=0, DM=0b00)
+    # splat high of A, and high of B
+    xxspltdh = XX3_splat(60, XO13=10, OE=0, DM=0b11)
+    # generic splat
+    xxpermdi = XX3_splat(60, XO13=10, OE=0)
+
+    xxlxor = XX3(60, XO9=154)
+    xxlor = XX3(60, XO9=146)
+
+    # vector move register is alias to vector or
+    xvmr = xxlor
+
+    # INTEGER
+    # -------
+
+    # load
+    lvx = XV(31, XO1=103)
+    lvewx = XV(31, XO1=71)
+    lvehx = XV(31, XO1=39)
+    lvebx = XV(31, XO1=7)
+    # store
+    stvx = XV(31, XO1=231)
+    stvewx = XV(31, XO1=199)
+    stvehx = XV(31, XO1=167)
+    stvebx = XV(31, XO1=135)
+
+    # arith
+    vaddudm = VX(4, XO8=192)
+    vadduwm = VX(4, XO8=128)
+    vadduhm = VX(4, XO8=64)
+    vaddubm = VX(4, XO8=0)
+
+    vsubudm = VX(4, XO8=1216)
+    vsubuwm = VX(4, XO8=1152)
+    vsubuhm = VX(4, XO8=1088)
+    vsububm = VX(4, XO8=1024)
+
+    # logic
+    vand = VX(4, XO8=1028)
+    vor = VX(4, XO8=1156)
+    veqv = VX(4, XO8=1668)
+    vxor = VX(4, XO8=1220)
+    vnor = VX(4, XO8=1284)
+
+    # vector move register is alias to vector or
+    vmr = vor
+    # complement is equivalent to vnor
+    vnot = vnor
+
+    # shift, perm and select
+    lvsl = XV(31, XO1=6)
+    lvsr = XV(31, XO1=38)
+    vperm = VA(4, XO10=43)
+    vsel = VA(4, XO10=42)
+    vspltisb = VXI(4, XO8=780)
+    vspltisw = VXI(4, XO8=844)
+    vspltisw = VXI(4, XO8=908)
+
+    VX_splat = Form("ivrT", "ivrB", "ivrA", "XO8")
+    vspltb = VX_splat(4, XO8=524)
+    vsplth = VX_splat(4, XO8=588)
+    vspltw = VX_splat(4, XO8=652)
+
 class PPCAssembler(BasicPPCAssembler):
     BA = BasicPPCAssembler
 
@@ -936,9 +1087,9 @@ flush_icache = rffi.llexternal(
 
 class PPCGuardToken(GuardToken):
     def __init__(self, cpu, gcmap, descr, failargs, faillocs,
-                 guard_opnum, frame_depth, fcond=c.cond_none):
+                 guard_opnum, frame_depth, faildescrindex, fcond=c.cond_none):
         GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs,
-                            guard_opnum, frame_depth)
+                            guard_opnum, frame_depth, faildescrindex)
         self.fcond = fcond
 
 
@@ -1012,13 +1163,15 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.load_imm(dest_reg, word)
         return diff
 
-    def load_from_addr(self, rD, addr):
-        assert rD is not r.r0
-        diff = self.load_imm_plus(rD, addr)
+    def load_from_addr(self, rD, rT, addr):
+        # load [addr] into rD.  rT is a temporary register which can be
+        # equal to rD, but can't be r0.
+        assert rT is not r.r0
+        diff = self.load_imm_plus(rT, addr)
         if IS_PPC_32:
-            self.lwz(rD.value, rD.value, diff)
+            self.lwz(rD.value, rT.value, diff)
         else:
-            self.ld(rD.value, rD.value, diff)
+            self.ld(rD.value, rT.value, diff)
 
     def b_offset(self, target):
         curpos = self.currpos()
@@ -1279,7 +1432,7 @@ def make_operations():
 
     oplist = [None] * (rop._LAST + 1)
     for key, val in rop.__dict__.items():
-        if key.startswith("_"):
+        if key.startswith("_") or not isinstance(val, int):
             continue
         opname = key.lower()
         methname = "emit_%s" % opname

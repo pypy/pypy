@@ -13,16 +13,19 @@ $Id: automata.py,v 1.2 2003/10/02 17:37:17 jriehl Exp $
 # PYPY Modification: removed the EMPTY class as it's not needed here
 
 
-# PYPY Modification: we don't need a particuliar DEFAULT class here
-#                    a simple None works fine.
-#                    (Having a DefaultClass inheriting from str makes
-#                     the annotator crash)
-DEFAULT = "\00default" # XXX hack, the rtyper does not support dict of with str|None keys
-                       # anyway using dicts doesn't seem the best final way to store these char indexed tables
+# PYPY Modification: DEFAULT is a singleton, used only in the pre-RPython
+# dicts (see pytokenize.py).  Then DFA.__init__() turns these dicts into
+# more compact strings.
+DEFAULT = object()
+
 # PYPY Modification : removed all automata functions (any, maybe,
 #                     newArcPair, etc.)
 
 ERROR_STATE = chr(255)
+
+# NB: all non-ascii bytes (>= 128) will be turned into 128
+NON_ASCII = chr(128)
+
 
 class DFA:
     # ____________________________________________________________
@@ -37,7 +40,10 @@ class DFA:
             for key in state:
                 if key == DEFAULT:
                     continue
-                maximum = max(ord(key), maximum)
+                ordkey = ord(key)
+                if ordkey > 128:
+                    raise ValueError("DFA does not support matching of specific non-ASCII character %r. Use NON_ASCII instead" % key)
+                maximum = max(ordkey, maximum)
         self.max_char = maximum + 1
 
         defaults = []
@@ -73,6 +79,8 @@ class DFA:
         i = pos
         for i in range(pos, len(inVec)):
             item = inVec[i]
+            if ord(item) > 0x80:
+                item = NON_ASCII
             accept = self.accepts[crntState]
             crntState = self._next_state(item, crntState)
             if crntState != ERROR_STATE:
@@ -104,6 +112,8 @@ class NonGreedyDFA (DFA):
         i = pos
         for i in range(pos, len(inVec)):
             item = inVec[i]
+            if ord(item) > 0x80:
+                item = NON_ASCII
             accept = self.accepts[crntState]
             if accept:
                 return i

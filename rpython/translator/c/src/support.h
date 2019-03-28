@@ -9,8 +9,6 @@
 #define OP_JIT_RECORD_EXACT_CLASS(i, c, r)  /* nothing */
 
 #define FAIL_OVF(msg) _RPyRaiseSimpleException(RPyExc_OverflowError)
-#define FAIL_VAL(msg) _RPyRaiseSimpleException(RPyExc_ValueError)
-#define FAIL_ZER(msg) _RPyRaiseSimpleException(RPyExc_ZeroDivisionError)
 
 /* Extra checks can be enabled with the RPY_ASSERT or RPY_LL_ASSERT
  * macros.  They differ in the level at which the tests are made.
@@ -39,6 +37,9 @@ void RPyAssertFailed(const char* filename, long lineno,
 
 RPY_EXTERN
 void RPyAbort(void);
+
+RPY_EXTERN
+double _PyPy_dg_stdnan(int sign);
 
 #if defined(RPY_LL_ASSERT) || defined(RPY_SANDBOXED)
 /* obscure macros that can be used as expressions and lvalues to refer

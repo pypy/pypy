@@ -38,7 +38,7 @@ stuff = "nothing"
 """, info=info)
         assert tree.type == syms.file_input
         assert info.encoding == "iso-8859-1"
-        sentence = u"u'Die Männer ärgen sich!'"
+        sentence = u"u'Die Männer ärgern sich!'"
         input = (u"# coding: utf-7\nstuff = %s" % (sentence,)).encode("utf-7")
         tree = self.parse(input, info=info)
         assert info.encoding == "utf-7"
@@ -76,14 +76,14 @@ stuff = "nothing"
         exc = py.test.raises(SyntaxError, parse, "name another for").value
         assert exc.msg == "invalid syntax"
         assert exc.lineno == 1
-        assert exc.offset == 5
+        assert exc.offset == 6
         assert exc.text.startswith("name another for")
         exc = py.test.raises(SyntaxError, parse, "x = \"blah\n\n\n").value
-        assert exc.msg == "EOL while scanning string literal"
+        assert exc.msg == "end of line (EOL) while scanning string literal"
         assert exc.lineno == 1
         assert exc.offset == 5
         exc = py.test.raises(SyntaxError, parse, "x = '''\n\n\n").value
-        assert exc.msg == "EOF while scanning triple-quoted string literal"
+        assert exc.msg == "end of file (EOF) while scanning triple-quoted string literal"
         assert exc.lineno == 1
         assert exc.offset == 5
         assert exc.lastlineno == 3
@@ -112,7 +112,7 @@ pass"""
         assert exc.msg == "expected an indented block"
         assert exc.lineno == 3
         assert exc.text.startswith("pass")
-        assert exc.offset == 0
+        assert exc.offset == 1
         input = "hi\n    indented"
         exc = py.test.raises(IndentationError, parse, input).value
         assert exc.msg == "unexpected indent"
@@ -120,6 +120,7 @@ pass"""
         exc = py.test.raises(IndentationError, parse, input).value
         assert exc.msg == "unindent does not match any outer indentation level"
         assert exc.lineno == 3
+        assert exc.offset == 3
 
     def test_mac_newline(self):
         self.parse("this_is\ra_mac\rfile")
@@ -158,3 +159,40 @@ pass"""
 
     def test_print_function(self):
         self.parse("from __future__ import print_function\nx = print\n")
+
+    def test_universal_newlines(self):
+        fmt = 'stuff = """hello%sworld"""'
+        expected_tree = self.parse(fmt % '\n')
+        for linefeed in ["\r\n","\r"]:
+            tree = self.parse(fmt % linefeed)
+            assert expected_tree == tree
+
+    def test_revdb_dollar_num(self):
+        assert not self.space.config.translation.reverse_debugger
+        py.test.raises(SyntaxError, self.parse, '$0')
+        py.test.raises(SyntaxError, self.parse, '$0 + 5')
+        py.test.raises(SyntaxError, self.parse,
+                "from __future__ import print_function\nx = ($0, print)")
+
+    def test_error_forgotten_chars(self):
+        info = py.test.raises(SyntaxError, self.parse, "if 1\n    print 4")
+        assert "(expected ':')" in info.value.msg
+        info = py.test.raises(SyntaxError, self.parse, "for i in range(10)\n    print i")
+        assert "(expected ':')" in info.value.msg
+        info = py.test.raises(SyntaxError, self.parse, "def f:\n print 1")
+        assert "(expected '(')" in info.value.msg
+
+class TestPythonParserRevDB(TestPythonParser):
+    spaceconfig = {"translation.reverse_debugger": True}
+
+    def test_revdb_dollar_num(self):
+        self.parse('$0')
+        self.parse('$5')
+        self.parse('$42')
+        self.parse('2+$42.attrname')
+        self.parse("from __future__ import print_function\nx = ($0, print)")
+        py.test.raises(SyntaxError, self.parse, '$')
+        py.test.raises(SyntaxError, self.parse, '$a')
+        py.test.raises(SyntaxError, self.parse, '$.5')
+
+

@@ -40,7 +40,8 @@ def test_framework_simple():
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    db = cbuild.generate_graphs_for_llinterp()
+    cbuild.make_entrypoint_wrapper = False
+    db = cbuild.build_database()
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
 
@@ -69,7 +70,7 @@ def test_cancollect():
         return -x
     t = rtype(g, [int])
     gg = graphof(t, g)
-    assert not CollectAnalyzer(t).analyze_direct_call(gg)    
+    assert not CollectAnalyzer(t).analyze_direct_call(gg)
 
 def test_cancollect_external():
     fext1 = rffi.llexternal('fext1', [], lltype.Void, releasegil=False)
@@ -110,12 +111,13 @@ def test_no_collect():
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    db = cbuild.generate_graphs_for_llinterp()
+    cbuild.make_entrypoint_wrapper = False
+    db = cbuild.build_database()
 
 def test_no_collect_detection():
     from rpython.rlib import rgc
@@ -134,12 +136,14 @@ def test_no_collect_detection():
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
+    cbuild.make_entrypoint_wrapper = False
+    with py.test.raises(Exception) as f:
+        cbuild.build_database()
     expected = "'no_collect' function can trigger collection: <function g at "
     assert str(f.value).startswith(expected)
 
@@ -163,11 +167,13 @@ def test_custom_trace_function_no_collect():
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
+    cbuild.make_entrypoint_wrapper = False
+    with py.test.raises(Exception) as f:
+        cbuild.build_database()
     assert 'can cause the GC to be called' in str(f.value)
     assert 'trace_func' in str(f.value)
     assert 'MyStructure' in str(f.value)
- 
+
 class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
     clean_sets = {}
     GC_PARAMS = {}
@@ -252,7 +258,8 @@ def test_remove_duplicate_write_barrier():
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    db = cbuild.generate_graphs_for_llinterp()
+    cbuild.make_entrypoint_wrapper = False
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -306,7 +313,7 @@ def test_find_initializing_stores_across_blocks():
 def test_find_clean_setarrayitems():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)
@@ -327,7 +334,7 @@ def test_find_clean_setarrayitems():
 def test_find_clean_setarrayitems_2():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)
@@ -349,7 +356,7 @@ def test_find_clean_setarrayitems_2():
 def test_find_clean_setarrayitems_3():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)

@@ -51,6 +51,7 @@ def do_force_quasi_immutable(cpu, p, mutatefielddescr):
 class QuasiImmut(object):
     llopaque = True
     compress_limit = 30
+    looptokens_wrefs = None
 
     def __init__(self, cpu):
         self.cpu = cpu
@@ -75,7 +76,7 @@ class QuasiImmut(object):
     def compress_looptokens_list(self):
         self.looptokens_wrefs = [wref for wref in self.looptokens_wrefs
                                       if wref() is not None]
-        # NB. we must keep around the looptoken_wrefs that are
+        # NB. we must keep around the looptokens_wrefs that are
         # already invalidated; see below
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
 
@@ -83,6 +84,9 @@ class QuasiImmut(object):
         # When this is called, all the loops that we record become
         # invalid: all GUARD_NOT_INVALIDATED in these loops (and
         # in attached bridges) must now fail.
+        if self.looptokens_wrefs is None:
+            # can't happen, but helps compiled tests
+            return
         wrefs = self.looptokens_wrefs
         self.looptokens_wrefs = []
         for wref in wrefs:

@@ -542,6 +542,41 @@ class ImplicitVirtualizableTests(object):
         self.check_resops(getfield_gc_r=1, getarrayitem_gc_i=4,
                           getfield_gc_i=1)
 
+    @py.test.mark.xfail
+    def test_virtualizable_with_array_huge(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'frame'],
+                                virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable_ = ['l[*]', 's']
+
+            def __init__(self, l, s):
+                self.l = l
+                self.s = s
+
+        def f(n, a):
+            frame = Frame([a] * 1024, 0) # make a huge frame
+            x = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(frame=frame, n=n, x=x)
+                myjitdriver.jit_merge_point(frame=frame, n=n, x=x)
+                frame.s = promote(frame.s)
+                n -= 1
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
+                frame.s += 1
+                s = frame.s
+                assert s >= 0
+                x += frame.l[s]
+                x += len(frame.l)
+                frame.s -= 1
+            return x
+
+        res = self.meta_interp(f, [50, 1], listops=True)
+        # should stop giving up to compile, eventually
+        assert get_stats().aborted_count < 6
+
     def test_subclass_of_virtualizable(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],
                                 virtualizables = ['frame'])
@@ -665,7 +700,7 @@ class ImplicitVirtualizableTests(object):
                 jitdriver.jit_merge_point(frame=frame)
                 try:
                     g()
-                except FooError, e:
+                except FooError as e:
                     frame.x -= e.value
                 frame.y += 1
             return frame.x
@@ -1381,7 +1416,7 @@ class ImplicitVirtualizableTests(object):
             return result
 
         def indirection(arg):
-            return interp(arg)
+            return interp(arg) + 1
 
         def run_interp(n):
             f = hint(Frame(n), access_directly=True)

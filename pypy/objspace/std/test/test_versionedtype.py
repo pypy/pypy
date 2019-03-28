@@ -1,7 +1,6 @@
 from pypy.objspace.std.test import test_typeobject
 
 class TestVersionedType(test_typeobject.TestTypeObject):
-    spaceconfig = {"objspace.std.withtypeversion": True}
 
     def get_three_classes(self):
         space = self.space
@@ -297,7 +296,4 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         cell = w_A._getdictvalue_no_unwrapping(space, "x")
         assert space.str_w(cell.w_value) == "abc"
 
-
-class AppTestVersionedType(test_typeobject.AppTestTypeObject):
-    spaceconfig = {"objspace.std.withtypeversion": True}
 

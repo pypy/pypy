@@ -11,6 +11,9 @@
       * value of 768 kb is only enough for 406 levels on ppc64, and 792
       * on ppc64le */
 #    define MAX_STACK_SIZE (11 << 18)    /* 2.8 mb */
+#  elif defined(__s390x__)
+     /* S390X as well has pretty large stack frames. */
+#    define MAX_STACK_SIZE (11 << 18)    /* 2.8 mb */
 #  else
 #    define MAX_STACK_SIZE (3 << 18)    /* 768 kb */
 #  endif

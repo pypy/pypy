@@ -8,11 +8,14 @@
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) malloc(size);				\
-	if (r != NULL) {						\
-	    COUNT_MALLOC;						\
-	}								\
+#define OP_RAW_MALLOC(size, zero, result)  {    \
+        if (zero)                               \
+            result = calloc(size, 1);           \
+        else                                    \
+            result = malloc(size);              \
+        if (result != NULL) {                   \
+            COUNT_MALLOC;                       \
+        }                                       \
     }
 
 #define OP_RAW_FREE(p, r) free(p); COUNT_FREE;
@@ -26,10 +29,6 @@
 #define alloca  _alloca
 #endif
 
-#define OP_STACK_MALLOC(size,r,restype)                                 \
-    r = (restype) alloca(size);                                         \
-    if (r != NULL) memset((void*) r, 0, size);
-    
 #define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
 #define OP_RAW_MEMMOVE(x,y,size,r) memmove(y,x,size);
 
@@ -104,10 +103,22 @@ RPY_EXTERN void pypy_debug_alloc_results(void);
 RPY_EXTERN int boehm_gc_finalizer_lock;
 RPY_EXTERN void boehm_gc_startup_code(void);
 RPY_EXTERN void boehm_gc_finalizer_notifier(void);
+struct boehm_fq_s;
+RPY_EXTERN struct boehm_fq_s *boehm_fq_queues[];
+RPY_EXTERN void (*boehm_fq_trigger[])(void);
+RPY_EXTERN void boehm_fq_register(struct boehm_fq_s **, void *);
+RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 
 #define OP_GC__DISABLE_FINALIZERS(r)  boehm_gc_finalizer_lock++
 #define OP_GC__ENABLE_FINALIZERS(r)  (boehm_gc_finalizer_lock--,	\
 				      boehm_gc_finalizer_notifier())
+#define OP_GC__DISABLE(r)             /* nothing */
+#define OP_GC__ENABLE(r)              /* nothing */
+
+#define OP_BOEHM_FQ_REGISTER(tagindex, obj, r)                          \
+    boehm_fq_register(boehm_fq_queues + tagindex, obj)
+#define OP_BOEHM_FQ_NEXT_DEAD(tagindex, r)                              \
+    r = boehm_fq_next_dead(boehm_fq_queues + tagindex)
 
 #endif /* PYPY_USING_BOEHM_GC */
 
@@ -118,9 +129,19 @@ RPY_EXTERN void boehm_gc_finalizer_notifier(void);
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
 #define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
 #define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#define OP_GC__DISABLE(r)             /* nothing */
+#define OP_GC__ENABLE(r)              /* nothing */
 #define GC_REGISTER_FINALIZER(a, b, c, d, e)  /* nothing */
 #define GC_gcollect()  /* nothing */
 #define GC_set_max_heap_size(a)  /* nothing */
+#define OP_GC_FQ_REGISTER(tag, obj, r)   /* nothing */
+#define OP_GC_FQ_NEXT_DEAD(tag, r)       (r = NULL)
+#endif
+
+#if (defined(PYPY_USING_BOEHM_GC) || defined(PYPY_USING_NO_GC_AT_ALL)) && !defined(PYPY_BOEHM_WITH_HEADER)
+#  define RPY_SIZE_OF_GCHEADER  0
+#else
+#  define RPY_SIZE_OF_GCHEADER  sizeof(struct pypy_header0)
 #endif
 
 /************************************************************/
@@ -139,6 +160,7 @@ RPY_EXTERN void boehm_gc_finalizer_notifier(void);
 #define OP_GC_IS_RPY_INSTANCE(x, r)      r = 0
 #define OP_GC_DUMP_RPY_HEAP(fd, r)       r = 0
 #define OP_GC_SET_EXTRA_THRESHOLD(x, r)  /* nothing */
+#define OP_GC_IGNORE_FINALIZER(x, r)     /* nothing */
 
 /****************************/
 /* The "asmgcc" root finder */

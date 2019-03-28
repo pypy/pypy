@@ -1,6 +1,9 @@
 class AppTestWeakref(object):
     spaceconfig = dict(usemodules=('_weakref',))
-                    
+
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_simple(self):
         import _weakref, gc
         class A(object):
@@ -18,6 +21,12 @@ class AppTestWeakref(object):
     def test_missing_arg(self):
         import _weakref
         raises(TypeError, _weakref.ref)
+
+    def test_no_kwargs(self):
+        import _weakref
+        class C(object):
+            pass
+        raises(TypeError, _weakref.ref, C(), callback=None)
 
     def test_callback(self):
         import _weakref, gc
@@ -140,6 +149,14 @@ class AppTestWeakref(object):
         assert ref1 != ref2
         assert not (ref1 == [])
         assert ref1 != []
+
+    def test_ne(self):
+        import _weakref
+        class X(object):
+            pass
+        ref1 = _weakref.ref(X())
+        assert ref1.__eq__(X()) is NotImplemented
+        assert ref1.__ne__(X()) is NotImplemented
 
     def test_getweakrefs(self):
         import _weakref, gc
@@ -287,6 +304,9 @@ class AppTestWeakref(object):
             assert a1 is None
 
     def test_del_and_callback_and_id(self):
+        if not self.runappdirect:
+            skip("the id() doesn't work correctly in __del__ and "
+                 "callbacks before translation")
         import gc, weakref
         seen_del = []
         class A(object):

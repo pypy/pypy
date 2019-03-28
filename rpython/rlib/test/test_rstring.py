@@ -1,7 +1,7 @@
 import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
-from rpython.rlib.rstring import replace, startswith, endswith
+from rpython.rlib.rstring import replace, startswith, endswith, replace_count
 from rpython.rlib.rstring import find, rfind, count
 from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -43,6 +43,12 @@ def test_split_unicode():
     assert split(u'endcase test', u'test') == [u'endcase ', u'']
     py.test.raises(ValueError, split, u'abc', u'')
 
+def test_split_utf8():
+    assert split('', 'a', isutf8=1) == ['']
+    assert split('baba', 'a', isutf8=1) == ['b', 'b', '']
+    assert split('b b', isutf8=1) == ['b', 'b']
+    assert split('b\xe1\x9a\x80b', isutf8=1) == ['b', 'b']
+
 def test_rsplit():
     def check_rsplit(value, sub, *args, **kwargs):
         result = kwargs['res']
@@ -77,13 +83,23 @@ def test_rsplit_unicode():
     assert rsplit(u'endcase test', u'test') == [u'endcase ', u'']
     py.test.raises(ValueError, rsplit, u"abc", u'')
 
+def test_rsplit_utf8():
+    assert rsplit('', 'a', isutf8=1) == ['']
+    assert rsplit('baba', 'a', isutf8=1) == ['b', 'b', '']
+    assert rsplit('b b', isutf8=1) == ['b', 'b']
+    assert rsplit('b\xe1\x9a\x80b', isutf8=1) == ['b', 'b']
+
 def test_string_replace():
     def check_replace(value, sub, *args, **kwargs):
         result = kwargs['res']
         assert replace(value, sub, *args) == result
-
         assert replace(list(value), sub, *args) == list(result)
-        
+        count = value.count(sub)
+        if len(args) >= 2:
+            count = min(count, args[1])
+        assert replace_count(value, sub, *args) == (result, count)
+        assert replace_count(value, sub, *args, isutf8=True) == (result, count)
+
     check_replace('one!two!three!', '!', '@', 1, res='one@two!three!')
     check_replace('one!two!three!', '!', '', res='onetwothree')
     check_replace('one!two!three!', '!', '@', 2, res='one@two@three!')
@@ -230,6 +246,10 @@ def test_search():
     check_search(count, 'one two three', 'e', 0, 13, res=3)
     check_search(count, 'one two three', 'e', 0, 1, res=0)
     check_search(count, 'one two three', '', 0, 13, res=14)
+
+    check_search(count, '', 'ab', 0, 0, res=0)
+    check_search(count, 'a', 'ab', 0, 1, res=0)
+    check_search(count, 'ac', 'ab', 0, 2, res=0)
 
 
 class TestTranslates(BaseRtypingTest):

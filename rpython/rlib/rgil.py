@@ -3,6 +3,7 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rlib.objectmodel import not_rpython
 
 # these functions manipulate directly the GIL, whose definition does not
 # escape the C code itself
@@ -58,8 +59,8 @@ def invoke_after_thread_switch(callback):
 
 _emulated_after_thread_switch = None
 
+@not_rpython
 def _after_thread_switch():
-    """NOT_RPYTHON"""
     if _emulated_after_thread_switch is not None:
         _emulated_after_thread_switch()
 

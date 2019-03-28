@@ -3,6 +3,7 @@ import py
 import sys, os
 from pypy.module.thread.test.support import GenericTestThread
 from rpython.translator.c.test.test_genc import compile
+from platform import machine
 
 
 class AppTestLock(GenericTestThread):
@@ -51,6 +52,10 @@ class AppTestLock(GenericTestThread):
             assert feedback == [42]
         assert lock.locked() is False
 
+    def test_weakrefable(self):
+        import thread, weakref
+        weakref.ref(thread.allocate_lock())
+
     def test_timeout(self):
         import thread
         lock = thread.allocate_lock()
@@ -63,6 +68,26 @@ class AppTestLock(GenericTestThread):
         else:
             assert self.runappdirect, "missing lock._py3k_acquire()"
 
+    def test_py3k_acquire_timeout_overflow(self):
+        import thread
+        lock = thread.allocate_lock()
+        if not hasattr(lock, '_py3k_acquire'):
+            skip("missing lock._py3k_acquire()")
+        maxint = 2**63 - 1
+        boundary = int(maxint * 1e-6)
+        for i in [-100000, -10000, -1000, -100, -10, -1, 0,
+                  1, 10, 100, 1000, 10000, 100000]:
+            timeout = (maxint + i) * 1e-6
+            try:
+                lock._py3k_acquire(True, timeout=timeout)
+            except OverflowError:
+                got_ovf = True
+            else:
+                got_ovf = False
+                lock.release()
+            assert (i, got_ovf) == (i, int(timeout * 1e6) > maxint)
+
+    @py.test.mark.xfail(machine()=='s390x', reason='may fail under heavy load')
     def test_ping_pong(self):
         # The purpose of this test is that doing a large number of ping-pongs
         # between two threads, using locks, should complete in a reasonable
@@ -113,6 +138,62 @@ class AppTestLockAgain(GenericTestThread):
     test_lock_again = AppTestLock.test_lock.im_func
 
 
+class AppTestRLock(GenericTestThread):
+    """
+    Tests for recursive locks.
+    """
+    def test_reacquire(self):
+        import thread
+        lock = thread.RLock()
+        lock.acquire()
+        lock.acquire()
+        lock.release()
+        lock.acquire()
+        lock.release()
+        lock.release()
+
+    def test_release_unacquired(self):
+        # Cannot release an unacquired lock
+        import thread
+        lock = thread.RLock()
+        raises(RuntimeError, lock.release)
+        lock.acquire()
+        lock.acquire()
+        lock.release()
+        lock.acquire()
+        lock.release()
+        lock.release()
+        raises(RuntimeError, lock.release)
+
+    def test_release_save(self):
+        import thread
+        lock = thread.RLock()
+        raises(RuntimeError, lock._release_save)
+        lock.acquire()
+        state = lock._release_save()
+        lock._acquire_restore(state)
+        lock.release()
+
+    def test__is_owned(self):
+        import thread
+        lock = thread.RLock()
+        assert lock._is_owned() is False
+        lock.acquire()
+        assert lock._is_owned() is True
+        lock.acquire()
+        assert lock._is_owned() is True
+        lock.release()
+        assert lock._is_owned() is True
+        lock.release()
+        assert lock._is_owned() is False
+
+    def test_context_manager(self):
+        import thread
+        lock = thread.RLock()
+        with lock:
+            assert lock._is_owned() is True
+
+
 class AppTestLockSignals(GenericTestThread):
     pytestmark = py.test.mark.skipif("os.name != 'posix'")
 
@@ -153,6 +234,10 @@ class AppTestLockSignals(GenericTestThread):
         import thread
         self.acquire_retries_on_intr(thread.allocate_lock())
 
+    def test_rlock_acquire_retries_on_intr(self):
+        import thread
+        self.acquire_retries_on_intr(thread.RLock())
+
     def w_alarm_interrupt(self, sig, frame):
         raise KeyboardInterrupt
 
@@ -184,3 +269,20 @@ class AppTestLockSignals(GenericTestThread):
             assert dt < 8.0
         finally:
             signal.signal(signal.SIGALRM, oldalrm)
+
+
+class AppTestLockRepr(GenericTestThread):
+
+    def test_rlock_repr(self):
+        import thread
+        class MyThread:
+            name = "foobar"
+        actives = {thread.get_ident(): MyThread()}
+        rlock = thread.RLock(actives)
+        assert repr(rlock) == "<thread.RLock owner=None count=0>"
+        rlock.acquire()
+        rlock.acquire()
+        assert repr(rlock) == "<thread.RLock owner='foobar' count=2>"
+        actives.clear()
+        assert repr(rlock) == "<thread.RLock owner=%d count=2>" % (
+            thread.get_ident(),)

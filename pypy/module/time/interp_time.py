@@ -4,8 +4,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import math
 import os
 import sys
 import time as pytime
@@ -77,7 +78,7 @@ if _WIN:
             try:
                 globalState.interrupt_event = rwin32.CreateEvent(
                     rffi.NULL, True, False, rffi.NULL)
-            except WindowsError, e:
+            except WindowsError as e:
                 raise wrap_windowserror(space, e)
             if not _setCtrlHandlerRoutine(globalState.interrupt_event):
                 raise wrap_windowserror(space,
@@ -150,9 +151,10 @@ def external(name, args, result, eci=CConfig._compilation_info_, **kwds):
         if (rffi.TIME_T in args or rffi.TIME_TP in args
             or result in (rffi.TIME_T, rffi.TIME_TP)):
             name = '_' + name + '64'
+    _calling_conv = kwds.pop('calling_conv', calling_conv)
     return rffi.llexternal(name, args, result,
                            compilation_info=eci,
-                           calling_conv=calling_conv,
+                           calling_conv=_calling_conv,
                            releasegil=False,
                            **kwds)
 
@@ -186,20 +188,34 @@ if _WIN:
                              "RPY_EXTERN "
                              "int pypy_get_daylight();\n"
                              "RPY_EXTERN "
-                             "char** pypy_get_tzname();\n"
+                             "int pypy_get_tzname(size_t, int, char*);\n"
                              "RPY_EXTERN "
                              "void pypy__tzset();"],
         separate_module_sources = ["""
-        long pypy_get_timezone() { return timezone; }
-        int pypy_get_daylight() { return daylight; }
-        char** pypy_get_tzname() { return tzname; }
-        void pypy__tzset() { _tzset(); }
+            long pypy_get_timezone() {
+                long timezone; 
+                _get_timezone(&timezone); 
+                return timezone;
+            };
+            int pypy_get_daylight() {
+                int daylight;
+                _get_daylight(&daylight);
+                return daylight;
+            };
+            int pypy_get_tzname(size_t len, int index, char * tzname) {
+                size_t s;
+                errno_t ret = _get_tzname(&s, tzname, len, index);
+                return (int)s;
+            };
+            void pypy__tzset() { _tzset(); }
         """])
     # Ensure sure that we use _tzset() and timezone from the same C Runtime.
     c_tzset = external('pypy__tzset', [], lltype.Void, win_eci)
     c_get_timezone = external('pypy_get_timezone', [], rffi.LONG, win_eci)
     c_get_daylight = external('pypy_get_daylight', [], rffi.INT, win_eci)
-    c_get_tzname = external('pypy_get_tzname', [], rffi.CCHARPP, win_eci)
+    c_get_tzname = external('pypy_get_tzname',
+                            [rffi.SIZE_T, rffi.INT, rffi.CCHARP], 
+                            rffi.INT, win_eci, calling_conv='c')
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
@@ -209,7 +225,7 @@ def _init_accept2dyear(space):
         accept2dyear = 0
     else:
         accept2dyear = 1
-    _set_module_object(space, "accept2dyear", space.wrap(accept2dyear))
+    _set_module_object(space, "accept2dyear", space.newint(accept2dyear))
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0
@@ -220,8 +236,11 @@ def _init_timezone(space):
         timezone = c_get_timezone()
         altzone = timezone - 3600
         daylight = c_get_daylight()
-        tzname_ptr = c_get_tzname()
-        tzname = rffi.charp2str(tzname_ptr[0]), rffi.charp2str(tzname_ptr[1])
+        with rffi.scoped_alloc_buffer(100) as buf:
+            s = c_get_tzname(100, 0, buf.raw)
+            tzname[0] = buf.str(s)
+            s = c_get_tzname(100, 1, buf.raw)
+            tzname[1] = buf.str(s)
 
     if _POSIX:
         if _CYGWIN:
@@ -300,29 +319,35 @@ def _init_timezone(space):
                 daylight = int(janzone != julyzone)
                 tzname = [janname, julyname]
 
-    _set_module_object(space, "timezone", space.wrap(timezone))
-    _set_module_object(space, 'daylight', space.wrap(daylight))
-    tzname_w = [space.wrap(tzname[0]), space.wrap(tzname[1])]
+    _set_module_object(space, "timezone", space.newint(timezone))
+    _set_module_object(space, 'daylight', space.newint(daylight))
+    tzname_w = [space.newtext(tzname[0]), space.newtext(tzname[1])]
     _set_module_object(space, 'tzname', space.newtuple(tzname_w))
-    _set_module_object(space, 'altzone', space.wrap(altzone))
+    _set_module_object(space, 'altzone', space.newint(altzone))
 
 def _get_error_msg():
     errno = rposix.get_saved_errno()
     return os.strerror(errno)
 
+def _check_sleep_arg(space, secs):
+    if secs < 0:
+        raise oefmt(space.w_IOError,
+                    "Invalid argument: negative time in sleep")
+    if math.isinf(secs) or math.isnan(secs):
+        raise oefmt(space.w_IOError,
+                    "Invalid argument: inf or nan")
+
 if sys.platform != 'win32':
     @unwrap_spec(secs=float)
     def sleep(space, secs):
-        if secs < 0:
-            raise OperationError(space.w_IOError,
-                                 space.wrap("Invalid argument: negative time in sleep"))
-        pytime.sleep(secs)
+        _check_sleep_arg(space, secs)
+        rtime.sleep(secs)
 else:
     from rpython.rlib import rwin32
     from errno import EINTR
     def _simple_sleep(space, secs, interruptible):
         if secs == 0.0 or not interruptible:
-            pytime.sleep(secs)
+            rtime.sleep(secs)
         else:
             millisecs = int(secs * 1000)
             interrupt_event = space.fromcache(State).get_interrupt_event()
@@ -331,14 +356,12 @@ else:
             if rc == rwin32.WAIT_OBJECT_0:
                 # Yield to make sure real Python signal handler
                 # called.
-                pytime.sleep(0.001)
+                rtime.sleep(0.001)
                 raise wrap_oserror(space,
                                    OSError(EINTR, "sleep() interrupted"))
     @unwrap_spec(secs=float)
     def sleep(space, secs):
-        if secs < 0:
-            raise OperationError(space.w_IOError,
-                                 space.wrap("Invalid argument: negative time in sleep"))
+        _check_sleep_arg(space, secs)
         # as decreed by Guido, only the main thread can be
         # interrupted.
         main_thread = space.fromcache(State).main_thread
@@ -351,12 +374,12 @@ else:
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
-    w_obj = space.getattr(w_module, space.wrap(obj_name))
+    w_obj = space.getattr(w_module, space.newtext(obj_name))
     return w_obj
 
 def _set_module_object(space, obj_name, w_obj_value):
     w_module = space.getbuiltinmodule('time')
-    space.setattr(w_module, space.wrap(obj_name), w_obj_value)
+    space.setattr(w_module, space.newtext(obj_name), w_obj_value)
 
 def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
@@ -373,21 +396,21 @@ def _get_inttime(space, w_seconds):
     # input doesn't fit in a time_t; call it an error.
     diff = seconds - rffi.cast(lltype.Float, t)
     if diff <= -1.0 or diff >= 1.0:
-        raise OperationError(space.w_ValueError,
-                      space.wrap("timestamp out of range for platform time_t"))
+        raise oefmt(space.w_ValueError,
+                    "timestamp out of range for platform time_t")
     return t
 
 def _tm_to_tuple(space, t):
     time_tuple = [
-        space.wrap(rffi.getintfield(t, 'c_tm_year') + 1900),
-        space.wrap(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
-        space.wrap(rffi.getintfield(t, 'c_tm_mday')),
-        space.wrap(rffi.getintfield(t, 'c_tm_hour')),
-        space.wrap(rffi.getintfield(t, 'c_tm_min')),
-        space.wrap(rffi.getintfield(t, 'c_tm_sec')),
-        space.wrap((rffi.getintfield(t, 'c_tm_wday') + 6) % 7), # want monday == 0
-        space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
-        space.wrap(rffi.getintfield(t, 'c_tm_isdst'))]
+        space.newint(rffi.getintfield(t, 'c_tm_year') + 1900),
+        space.newint(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
+        space.newint(rffi.getintfield(t, 'c_tm_mday')),
+        space.newint(rffi.getintfield(t, 'c_tm_hour')),
+        space.newint(rffi.getintfield(t, 'c_tm_min')),
+        space.newint(rffi.getintfield(t, 'c_tm_sec')),
+        space.newint((rffi.getintfield(t, 'c_tm_wday') + 6) % 7), # want monday == 0
+        space.newint(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
+        space.newint(rffi.getintfield(t, 'c_tm_isdst'))]
 
     w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
@@ -396,8 +419,7 @@ def _tm_to_tuple(space, t):
 def _gettmarg(space, w_tup, allowNone=True):
     if space.is_none(w_tup):
         if not allowNone:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("tuple expected"))
+            raise oefmt(space.w_TypeError, "tuple expected")
         # default to the current local time
         tt = rffi.r_time_t(int(pytime.time()))
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
@@ -406,7 +428,7 @@ def _gettmarg(space, w_tup, allowNone=True):
         lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
-                space.wrap(_get_error_msg()))
+                space.newtext(_get_error_msg()))
         return pbuf
 
     tup_w = space.fixedview(w_tup)
@@ -446,22 +468,19 @@ def _gettmarg(space, w_tup, allowNone=True):
         accept2dyear = space.int_w(w_accept2dyear)
 
         if not accept2dyear:
-            raise OperationError(space.w_ValueError,
-                space.wrap("year >= 1900 required"))
+            raise oefmt(space.w_ValueError, "year >= 1900 required")
 
         if 69 <= y <= 99:
             y += 1900
         elif 0 <= y <= 68:
             y += 2000
         else:
-            raise OperationError(space.w_ValueError,
-                space.wrap("year out of range"))
+            raise oefmt(space.w_ValueError, "year out of range")
 
     # tm_wday does not need checking of its upper-bound since taking "%
     #  7" in gettmarg() automatically restricts the range.
     if rffi.getintfield(glob_buf, 'c_tm_wday') < -1:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of week out of range"))
+        raise oefmt(space.w_ValueError, "day of week out of range")
 
     rffi.setintfield(glob_buf, 'c_tm_year', y - 1900)
     rffi.setintfield(glob_buf, 'c_tm_mon',
@@ -480,7 +499,7 @@ def time(space):
     Fractions of a second may be present if the system clock provides them."""
 
     secs = pytime.time()
-    return space.wrap(secs)
+    return space.newfloat(secs)
 
 def clock(space):
     """clock() -> floating point number
@@ -489,7 +508,7 @@ def clock(space):
     the first call to clock().  This has as much precision as the system
     records."""
 
-    return space.wrap(pytime.clock())
+    return space.newfloat(pytime.clock())
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -505,10 +524,9 @@ def ctime(space, w_seconds=None):
     p = c_ctime(t_ref)
     lltype.free(t_ref, flavor='raw')
     if not p:
-        raise OperationError(space.w_ValueError,
-            space.wrap("unconvertible time"))
+        raise oefmt(space.w_ValueError, "unconvertible time")
 
-    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
+    return space.newtext(rffi.charp2str(p)[:-1]) # get rid of new line
 
 # by now w_tup is an optional argument (and not *args)
 # because of the ext. compiler bugs in handling such arguments (*args, **kwds)
@@ -521,10 +539,9 @@ def asctime(space, w_tup=None):
     buf_value = _gettmarg(space, w_tup)
     p = c_asctime(buf_value)
     if not p:
-        raise OperationError(space.w_ValueError,
-            space.wrap("unconvertible time"))
+        raise oefmt(space.w_ValueError, "unconvertible time")
 
-    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
+    return space.newtext(rffi.charp2str(p)[:-1]) # get rid of new line
 
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -543,7 +560,7 @@ def gmtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+        raise OperationError(space.w_ValueError, space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def localtime(space, w_seconds=None):
@@ -560,7 +577,7 @@ def localtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+        raise OperationError(space.w_ValueError, space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def mktime(space, w_tup):
@@ -574,10 +591,9 @@ def mktime(space, w_tup):
     # A return value of -1 does not necessarily mean an error, but tm_wday
     # cannot remain set to -1 if mktime succeeds.
     if tt == -1 and rffi.getintfield(buf, "c_tm_wday") == -1:
-        raise OperationError(space.w_OverflowError,
-            space.wrap("mktime argument out of range"))
+        raise oefmt(space.w_OverflowError, "mktime argument out of range")
 
-    return space.wrap(float(tt))
+    return space.newfloat(float(tt))
 
 if _POSIX:
     def tzset(space):
@@ -598,7 +614,7 @@ if _POSIX:
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
 
-@unwrap_spec(format=str)
+@unwrap_spec(format='text')
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
 
@@ -612,26 +628,19 @@ def strftime(space, format, w_tup=None):
     # by some bad index (fixes bug #897625).
     # No check for year since handled in gettmarg().
     if rffi.getintfield(buf_value, 'c_tm_mon') < 0 or rffi.getintfield(buf_value, 'c_tm_mon') > 11:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("month out of range"))
+        raise oefmt(space.w_ValueError, "month out of range")
     if rffi.getintfield(buf_value, 'c_tm_mday') < 1 or rffi.getintfield(buf_value, 'c_tm_mday') > 31:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of month out of range"))
+        raise oefmt(space.w_ValueError, "day of month out of range")
     if rffi.getintfield(buf_value, 'c_tm_hour') < 0 or rffi.getintfield(buf_value, 'c_tm_hour') > 23:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("hour out of range"))
+        raise oefmt(space.w_ValueError, "hour out of range")
     if rffi.getintfield(buf_value, 'c_tm_min') < 0 or rffi.getintfield(buf_value, 'c_tm_min') > 59:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("minute out of range"))
+        raise oefmt(space.w_ValueError, "minute out of range")
     if rffi.getintfield(buf_value, 'c_tm_sec') < 0 or rffi.getintfield(buf_value, 'c_tm_sec') > 61:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("seconds out of range"))
+        raise oefmt(space.w_ValueError, "seconds out of range")
     if rffi.getintfield(buf_value, 'c_tm_yday') < 0 or rffi.getintfield(buf_value, 'c_tm_yday') > 365:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of year out of range"))
+        raise oefmt(space.w_ValueError, "day of year out of range")
     if rffi.getintfield(buf_value, 'c_tm_isdst') < -1 or rffi.getintfield(buf_value, 'c_tm_isdst') > 1:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("daylight savings flag out of range"))
+        raise oefmt(space.w_ValueError, "daylight savings flag out of range")
 
     if _WIN:
         # check that the format string contains only valid directives
@@ -644,8 +653,7 @@ def strftime(space, format, w_tup=None):
                     # not documented by python
                     i += 1
                 if i >= length or format[i] not in "aAbBcdHIjmMpSUwWxXyYzZ%":
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("invalid format string"))
+                    raise oefmt(space.w_ValueError, "invalid format string")
             i += 1
 
     i = 1024
@@ -660,7 +668,7 @@ def strftime(space, format, w_tup=None):
                 # e.g. an empty format, or %Z when the timezone
                 # is unknown.
                 result = rffi.charp2strn(outbuf, intmask(buflen))
-                return space.wrap(result)
+                return space.newtext(result)
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i

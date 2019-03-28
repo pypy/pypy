@@ -1,37 +1,11 @@
-from pypy.module.cpyext.api import (
-    cpython_api, PyObject, PyObjectP, CANNOT_FAIL
-    )
-from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
-from rpython.rtyper.lltypesystem import rffi, lltype
+#----this file is not imported, only here for reference----
 
-# we don't really care
-PyTypeObjectPtr = rffi.VOIDP
-Py_ssize_t = rffi.SSIZE_T
-PyMethodDef = rffi.VOIDP
-PyGetSetDef = rffi.VOIDP
-PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
-va_list = rffi.VOIDP
-PyDateTime_Date = rffi.VOIDP
-PyDateTime_DateTime = rffi.VOIDP
-PyDateTime_Time = rffi.VOIDP
-wrapperbase = rffi.VOIDP
-FILE = rffi.VOIDP
-PyFileObject = rffi.VOIDP
-PyCodeObject = rffi.VOIDP
-PyFrameObject = rffi.VOIDP
-PyFloatObject = rffi.VOIDP
-_inittab = rffi.VOIDP
-PyThreadState = rffi.VOIDP
-PyInterpreterState = rffi.VOIDP
-Py_UNICODE = lltype.UniChar
-PyCompilerFlags = rffi.VOIDP
-_node = rffi.VOIDP
-Py_tracefunc = rffi.VOIDP
+#from pypy.module.cpyext.api import (
+#    cpython_api, PyObject, PyObjectP, CANNOT_FAIL
+#    )
+#from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
+#from rpython.rtyper.lltypesystem import rffi, lltype
 
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_Del(space, op):
-    raise NotImplementedError
 
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
 def PyBuffer_SizeFromFormat(space, format):
@@ -46,14 +20,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     given shape with the given number of bytes per element."""
     raise NotImplementedError
 
-@cpython_api([Py_buffer], PyObject)
-def PyMemoryView_FromBuffer(space, view):
-    """Create a memoryview object wrapping the given buffer-info structure view.
-    The memoryview object then owns the buffer, which means you shouldn't
-    try to release it yourself: it will be released on deallocation of the
-    memoryview object."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
 def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     """Create a memoryview object to a contiguous chunk of memory (in either
@@ -61,76 +27,6 @@ def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     interface. If memory is contiguous, the memoryview object points to the
     original memory. Otherwise copy is made and the memoryview points to a
     new bytes object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyMemoryView_Check(space, obj):
-    """Return true if the object obj is a memoryview object.  It is not
-    currently allowed to create subclasses of memoryview."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_buffer)
-def PyMemoryView_GET_BUFFER(space, obj):
-    """Return a pointer to the buffer-info structure wrapped by the given
-    object.  The object must be a memoryview instance; this macro doesn't
-    check its type, you must do it yourself or you will risk crashes."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_Check(space, o):
-    """Return true if the object o is a bytearray object or an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_CheckExact(space, o):
-    """Return true if the object o is a bytearray object, but not an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyByteArray_FromObject(space, o):
-    """Return a new bytearray object from any object, o, that implements the
-    buffer protocol.
-
-    XXX expand about the buffer protocol, at least somewhere"""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyByteArray_FromStringAndSize(space, string, len):
-    """Create a new bytearray object from string and its length, len.  On
-    failure, NULL is returned."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], PyObject)
-def PyByteArray_Concat(space, a, b):
-    """Concat bytearrays a and b and return a new bytearray with the result."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_Size(space, bytearray):
-    """Return the size of bytearray after checking for a NULL pointer."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AsString(space, bytearray):
-    """Return the contents of bytearray as a char array after checking for a
-    NULL pointer."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
-def PyByteArray_Resize(space, bytearray, len):
-    """Resize the internal buffer of bytearray to len."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AS_STRING(space, bytearray):
-    """Macro version of PyByteArray_AsString()."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_GET_SIZE(space, bytearray):
-    """Macro version of PyByteArray_Size()."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -313,11 +209,6 @@ def _Py_c_pow(space, num, exp):
     representation."""
     raise NotImplementedError
 
-@cpython_api([Py_complex], PyObject)
-def PyComplex_FromCComplex(space, v):
-    """Create a new Python complex number object from a C Py_complex value."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE, error=CANNOT_FAIL)
 def PyOS_ascii_strtod(space, nptr, endptr):
     """Convert a string to a double. This function behaves like the Standard C
@@ -346,39 +237,6 @@ def PyOS_ascii_formatd(space, buffer, buf_len, format, d):
     instead."""
     raise NotImplementedError
 
-@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, rffi.INTP], rffi.CCHARP)
-def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
-    """Convert a double val to a string using supplied
-    format_code, precision, and flags.
-
-    format_code must be one of 'e', 'E', 'f', 'F',
-    'g', 'G' or 'r'.  For 'r', the supplied precision
-    must be 0 and is ignored.  The 'r' format code specifies the
-    standard repr() format.
-
-    flags can be zero or more of the values Py_DTSF_SIGN,
-    Py_DTSF_ADD_DOT_0, or Py_DTSF_ALT, or-ed together:
-
-    Py_DTSF_SIGN means to always precede the returned string with a sign
-    character, even if val is non-negative.
-
-    Py_DTSF_ADD_DOT_0 means to ensure that the returned string will not look
-    like an integer.
-
-    Py_DTSF_ALT means to apply "alternate" formatting rules.  See the
-    documentation for the PyOS_snprintf() '#' specifier for
-    details.
-
-    If ptype is non-NULL, then the value it points to will be set to one of
-    Py_DTST_FINITE, Py_DTST_INFINITE, or Py_DTST_NAN, signifying that
-    val is a finite number, an infinite number, or not a number, respectively.
-
-    The return value is a pointer to buffer with the converted string or
-    NULL if the conversion failed. The caller is responsible for freeing the
-    returned string by calling PyMem_Free().
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP], rffi.DOUBLE, error=CANNOT_FAIL)
 def PyOS_ascii_atof(space, nptr):
     """Convert a string to a double in a locale-independent way.
@@ -402,24 +260,6 @@ def PyOS_strnicmp(space, s1, s2, size):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyTZInfo_Check(space, ob):
-    """Return true if ob is of type PyDateTime_TZInfoType or a subtype of
-    PyDateTime_TZInfoType.  ob must not be NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyTZInfo_CheckExact(space, ob):
-    """Return true if ob is of type PyDateTime_TZInfoType. ob must not be
-    NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyTypeObjectPtr, PyGetSetDef], PyObject)
-def PyDescr_NewGetSet(space, type, getset):
-    raise NotImplementedError
-
 @cpython_api([PyTypeObjectPtr, PyMemberDef], PyObject)
 def PyDescr_NewMember(space, type, meth):
     raise NotImplementedError
@@ -438,17 +278,6 @@ def PyDescr_IsData(space, descr):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyWrapper_New(space, w_d, w_self):
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
-def PyDict_Merge(space, a, b, override):
-    """Iterate over mapping object b adding key-value pairs to dictionary a.
-    b may be a dictionary, or any object supporting PyMapping_Keys()
-    and PyObject_GetItem(). If override is true, existing pairs in a
-    will be replaced if a matching key is found in b, otherwise pairs will
-    only be added if there is not a matching key in a. Return 0 on
-    success or -1 if an exception was raised.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
@@ -586,29 +415,6 @@ def PyUnicodeDecodeError_GetReason(space, exc):
 def PyUnicodeDecodeError_SetReason(space, exc, reason):
     """Set the reason attribute of the given exception object to reason.  Return
     0 on success, -1 on failure."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=1)
-def Py_EnterRecursiveCall(space, where):
-    """Marks a point where a recursive C-level call is about to be performed.
-
-    If USE_STACKCHECK is defined, this function checks if the the OS
-    stack overflowed using PyOS_CheckStack().  In this is the case, it
-    sets a MemoryError and returns a nonzero value.
-
-    The function then checks if the recursion limit is reached.  If this is the
-    case, a RuntimeError is set and a nonzero value is returned.
-    Otherwise, zero is returned.
-
-    where should be a string such as " in instance check" to be
-    concatenated to the RuntimeError message caused by the recursion depth
-    limit."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def Py_LeaveRecursiveCall(space):
-    """Ends a Py_EnterRecursiveCall().  Must be called once for each
-    successful invocation of Py_EnterRecursiveCall()."""
     raise NotImplementedError
 
 @cpython_api([PyFileObject], lltype.Void)
@@ -779,29 +585,6 @@ def PyObject_GC_Resize(space, op, newsize):
 
     This function used an int type for newsize. This might
     require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_GC_TRACK(space, op):
-    """A macro version of PyObject_GC_Track().  It should not be used for
-    extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_GC_UNTRACK(space, op):
-    """A macro version of PyObject_GC_UnTrack().  It should not be used for
-    extension modules."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_Check(space, ob):
-    """Return true if ob is a generator object; ob must not be NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyGen_CheckExact(space, ob):
-    """Return true if ob's type is PyGen_Type is a generator object; ob must not
-    be NULL."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], PyObject)
@@ -1185,19 +968,6 @@ def PyInterpreterState_Delete(space, interp):
     PyInterpreterState_Clear()."""
     raise NotImplementedError
 
-@cpython_api([], PyObject)
-def PyThreadState_GetDict(space):
-    """Return a dictionary in which extensions can store thread-specific state
-    information.  Each extension should use a unique key to use to store state in
-    the dictionary.  It is okay to call this function when no current thread state
-    is available. If this function returns NULL, no exception has been raised and
-    the caller should assume no current thread state is available.
-
-    Previously this could only be called when a current thread is active, and NULL
-    meant that an exception was raised."""
-    borrow_from()
-    raise NotImplementedError
-
 @cpython_api([lltype.Signed, PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyThreadState_SetAsyncExc(space, id, exc):
     """Asynchronously raise an exception in a thread. The id argument is the thread
@@ -1368,14 +1138,6 @@ def PyThreadState_Next(space, tstate):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
-def PyInt_AsUnsignedLongLongMask(space, io):
-    """Will first attempt to cast the object to a PyIntObject or
-    PyLongObject, if it is not already one, and then return its value as
-    unsigned long long, without checking for overflow.
-    """
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyInt_ClearFreeList(space):
     """Clear the integer free list. Return the number of items that could not
@@ -1395,18 +1157,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
-def PyMapping_DelItemString(space, o, key):
-    """Remove the mapping for object key from the object o. Return -1 on
-    failure.  This is equivalent to the Python statement del o[key]."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyMapping_DelItem(space, o, key):
-    """Remove the mapping for object key from the object o. Return -1 on
-    failure.  This is equivalent to the Python statement del o[key]."""
-    raise NotImplementedError
-
 @cpython_api([lltype.Signed, FILE, rffi.INT_real], lltype.Void)
 def PyMarshal_WriteLongToFile(space, value, file, version):
     """Marshal a long integer, value, to file.  This will only write
@@ -1419,13 +1169,6 @@ def PyMarshal_WriteLongToFile(space, value, file, version):
 @cpython_api([PyObject, FILE, rffi.INT_real], lltype.Void)
 def PyMarshal_WriteObjectToFile(space, value, file, version):
     """Marshal a Python object, value, to file.
-
-    version indicates the file format."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyMarshal_WriteObjectToString(space, value, version):
-    """Return a string object containing the marshalled representation of value.
 
     version indicates the file format."""
     raise NotImplementedError
@@ -1463,17 +1206,6 @@ def PyMarshal_ReadLastObjectFromFile(space, file):
     (EOFError or TypeError) and returns NULL."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyMarshal_ReadObjectFromString(space, string, len):
-    """Return a Python object from the data stream in a character buffer
-    containing len bytes pointed to by string.  On error, sets the
-    appropriate exception (EOFError or TypeError) and returns
-    NULL.
-
-    This function used an int type for len. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyMethod_ClearFreeList(space):
     """Clear the free list. Return the total number of freed items.
@@ -1485,13 +1217,6 @@ def PyModule_CheckExact(space, p):
     """Return true if p is a module object, but not a subtype of
     PyModule_Type.
     """
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyModule_New(space, name):
-    """Return a new module object with the __name__ attribute set to name.  Only
-    the module's __doc__ and __name__ attributes are filled in; the caller is
-    responsible for providing a __file__ attribute."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.CCHARP)
@@ -1532,13 +1257,6 @@ def PyObject_Bytes(space, o):
     for PyObject_Str()."""
     raise NotImplementedError
 
-@cpython_api([], PyFrameObject)
-def PyEval_GetFrame(space):
-    """Return the current thread state's frame, which is NULL if no frame is
-    currently executing."""
-    borrow_from()
-    raise NotImplementedError
-
 @cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrame_GetLineNumber(space, frame):
     """Return the line number that frame is currently executing."""
@@ -1565,23 +1283,6 @@ def PyEval_GetFuncDesc(space, func):
     func."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PySequence_InPlaceConcat(space, o1, o2):
-    """Return the concatenation of o1 and o2 on success, and NULL on failure.
-    The operation is done in-place when o1 supports it.  This is the equivalent
-    of the Python expression o1 += o2."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PySequence_InPlaceRepeat(space, o, count):
-    """Return the result of repeating sequence object o count times, or NULL on
-    failure.  The operation is done in-place when o supports it.  This is the
-    equivalent of the Python expression o *= count.
-
-    This function used an int type for count. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
 def PySequence_Count(space, o, value):
     """Return the number of occurrences of value in o, that is, return the number
@@ -1590,54 +1291,6 @@ def PySequence_Count(space, o, value):
 
     This function returned an int type. This might require changes
     in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObjectP)
-def PySequence_Fast_ITEMS(space, o):
-    """Return the underlying array of PyObject pointers.  Assumes that o was returned
-    by PySequence_Fast() and o is not NULL.
-
-    Note, if a list gets resized, the reallocation may relocate the items array.
-    So, only use the underlying array pointer in contexts where the sequence
-    cannot change.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_Check(space, p):
-    """Return true if p is a frozenset object or an instance of a
-    subtype.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_Check(space, p):
-    """Return true if p is a set object, a frozenset object, or an
-    instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_CheckExact(space, p):
-    """Return true if p is a set object or a frozenset object but
-    not an instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrozenSet_CheckExact(space, p):
-    """Return true if p is a frozenset object but not an instance of a
-    subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyFrozenSet_New(space, iterable):
-    """Return a new frozenset containing objects returned by the iterable.
-    The iterable may be NULL to create a new empty frozenset.  Return the new
-    set on success or NULL on failure.  Raise TypeError if iterable is
-    not actually iterable.
-
-    Now guaranteed to return a brand-new frozenset.  Formerly,
-    frozensets of zero-length were a singleton.  This got in the way of
-    building-up new frozensets with PySet_Add()."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
@@ -1675,14 +1328,6 @@ def Py_FdIsInteractive(space, fp, filename):
     is true.  If the global flag Py_InteractiveFlag is true, this function
     also returns true if the filename pointer is NULL or if the name is equal to
     one of the strings '<stdin>' or '???'."""
-    raise NotImplementedError
-
-@cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
-    """Function to update some internal state after a process fork; this should be
-    called in the new process if the Python interpreter will continue to be used.
-    If a new executable is loaded into the new process, this function does not need
-    to be called."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
@@ -1736,161 +1381,9 @@ def PyType_ClearCache(space):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_IS_GC(space, o):
-    """Return true if the type object includes support for the cycle detector; this
-    tests the type flag Py_TPFLAGS_HAVE_GC.
-    """
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyUnicode_ClearFreeList(space):
     """Clear the free list. Return the total number of freed items.
-    """
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyUnicode_FromFormat(space, format):
-    """Take a C printf()-style format string and a variable number of
-    arguments, calculate the size of the resulting Python unicode string and return
-    a string with the values formatted into it.  The variable arguments must be C
-    types and must correspond exactly to the format characters in the format
-    string.  The following format characters are allowed:
-
-    Format Characters
-
-    Type
-
-    Comment
-
-    %%
-
-    n/a
-
-    The literal % character.
-
-    %c
-
-    int
-
-    A single character,
-    represented as an C int.
-
-    %d
-
-    int
-
-    Exactly equivalent to
-    printf("%d").
-
-    %u
-
-    unsigned int
-
-    Exactly equivalent to
-    printf("%u").
-
-    %ld
-
-    long
-
-    Exactly equivalent to
-    printf("%ld").
-
-    %lu
-
-    unsigned long
-
-    Exactly equivalent to
-    printf("%lu").
-
-    %zd
-
-    Py_ssize_t
-
-    Exactly equivalent to
-    printf("%zd").
-
-    %zu
-
-    size_t
-
-    Exactly equivalent to
-    printf("%zu").
-
-    %i
-
-    int
-
-    Exactly equivalent to
-    printf("%i").
-
-    %x
-
-    int
-
-    Exactly equivalent to
-    printf("%x").
-
-    %s
-
-    char*
-
-    A null-terminated C character
-    array.
-
-    %p
-
-    void*
-
-    The hex representation of a C
-    pointer. Mostly equivalent to
-    printf("%p") except that
-    it is guaranteed to start with
-    the literal 0x regardless
-    of what the platform's
-    printf yields.
-
-    %U
-
-    PyObject*
-
-    A unicode object.
-
-    %V
-
-    PyObject*, char *
-
-    A unicode object (which may be
-    NULL) and a null-terminated
-    C character array as a second
-    parameter (which will be used,
-    if the first parameter is
-    NULL).
-
-    %S
-
-    PyObject*
-
-    The result of calling
-    PyObject_Unicode().
-
-    %R
-
-    PyObject*
-
-    The result of calling
-    PyObject_Repr().
-
-    An unrecognized format character causes all the rest of the format string to be
-    copied as-is to the result string, and any extra arguments discarded.
-    """
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, va_list], PyObject)
-def PyUnicode_FromFormatV(space, format, vargs):
-    """Identical to PyUnicode_FromFormat() except that it takes exactly two
-    arguments.
     """
     raise NotImplementedError
 
@@ -1946,14 +1439,6 @@ def PyUnicode_EncodeUTF32(space, s, size, errors, byteorder):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsUTF32String(space, unicode):
-    """Return a Python string using the UTF-32 encoding in native byte order. The
-    string always starts with a BOM mark.  Error handling is "strict".  Return
-    NULL if an exception was raised by the codec.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF16Stateful(space, s, size, errors, byteorder, consumed):
     """If consumed is NULL, behave like PyUnicode_DecodeUTF16(). If
@@ -1987,13 +1472,6 @@ def PyUnicode_EncodeUTF16(space, s, size, errors, byteorder):
 
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsUTF16String(space, unicode):
-    """Return a Python string using the UTF-16 encoding in native byte order. The
-    string always starts with a BOM mark.  Error handling is "strict".  Return
-    NULL if an exception was raised by the codec."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
@@ -2123,11 +1601,6 @@ def PyUnicode_DecodeMBCSStateful(space, s, size, errors, consumed):
     trailing lead byte and the number of bytes that have been decoded will be stored
     in consumed.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], PyObject)
-def PyUnicode_Concat(space, left, right):
-    """Concat two strings giving a new Unicode string."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.CCHARP], PyObject)
@@ -2361,22 +1834,4 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     The additional throwflag parameter can mostly be ignored - if true, then
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_Check(space, ob):
-    """Return true if ob is either a reference or proxy object.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckRef(space, ob):
-    """Return true if ob is a reference object.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyWeakref_CheckProxy(space, ob):
-    """Return true if ob is a proxy object.
-    """
     raise NotImplementedError

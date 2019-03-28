@@ -2,8 +2,15 @@ import _rawffi
 from _rawffi import alt as _ffi
 import sys
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+try:
+    from __pypy__ import builtinify
+except ImportError:
+    builtinify = lambda f: f
+
+try:
+    from __pypy__.bufferable import bufferable
+except ImportError:
+    bufferable = object
 
 keepalive_key = str # XXX fix this when provided with test
 
@@ -49,10 +56,13 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
+    def _build_ffiargtype(self):
+        return _shape_to_ffi_type(self._ffiargshape_)
+
     def get_ffi_argtype(self):
         if self._ffiargtype:
             return self._ffiargtype
-        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape_)
+        self._ffiargtype = self._build_ffiargtype()
         return self._ffiargtype
 
     def _CData_output(self, resbuffer, base=None, index=-1):
@@ -61,11 +71,12 @@ class _CDataMeta(type):
         'resbuffer' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
         """
-        res = object.__new__(self)
+        res = bufferable.__new__(self)
         res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
-        res.__dict__['_base'] = base
-        res.__dict__['_index'] = index
+        if base is not None:
+            res.__dict__['_base'] = base
+            res.__dict__['_index'] = index
         return res
 
     def _CData_retval(self, resbuffer):
@@ -81,18 +92,32 @@ class _CDataMeta(type):
         return False
 
     def in_dll(self, dll, name):
-        return self.from_address(dll._handle.getaddressindll(name))
+        return self.from_address(dll.__pypy_dll__.getaddressindll(name))
 
     def from_buffer(self, obj, offset=0):
         size = self._sizeofinstances()
+        if isinstance(obj, (str, unicode)):
+            # hack, buffer(str) will always return a readonly buffer.
+            # CPython calls PyObject_AsWriteBuffer(...) here!
+            # str cannot be modified, thus raise a type error in this case
+            raise TypeError("Cannot use %s as modifiable buffer" % str(type(obj)))
+
+        # why not just call memoryview(obj)[offset:]?
+        # array in Python 2.7 does not support the buffer protocol and will
+        # fail, even though buffer is supported
         buf = buffer(obj, offset, size)
+
         if len(buf) < size:
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
                 % (len(buf) + offset, size + offset))
         raw_addr = buf._pypy_raw_address()
         result = self.from_address(raw_addr)
-        result._ensure_objects()['ffffffff'] = obj
+        objects = result._ensure_objects()
+        if objects is not None:
+            objects['ffffffff'] = obj
+        else:   # case e.g. of a primitive type like c_int
+            result._objects = obj
         return result
 
     def from_buffer_copy(self, obj, offset=0):
@@ -102,7 +127,7 @@ class _CDataMeta(type):
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
                 % (len(buf) + offset, size + offset))
-        result = self()
+        result = self._newowninstance_()
         dest = result._buffer.buffer
         try:
             raw_addr = buf._pypy_raw_address()
@@ -111,6 +136,11 @@ class _CDataMeta(type):
         else:
             from ctypes import memmove
             memmove(dest, raw_addr, size)
+        return result
+
+    def _newowninstance_(self):
+        result = self.__new__(self)
+        result._init_no_arg_()
         return result
 
 
@@ -135,7 +165,7 @@ class CArgObject(object):
     def __ne__(self, other):
         return self._obj != other
 
-class _CData(object):
+class _CData(bufferable):
     """ The most basic object for all ctypes types
     """
     __metaclass__ = _CDataMeta
@@ -144,6 +174,7 @@ class _CData(object):
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
+    _init_no_arg_ = __init__
 
     def _ensure_objects(self):
         if '_objects' not in self.__dict__:
@@ -161,13 +192,17 @@ class _CData(object):
     def _get_buffer_value(self):
         return self._buffer[0]
 
+    def _copy_to(self, addr):
+        target = type(self).from_address(addr)._buffer
+        target[0] = self._get_buffer_value()
+
     def _to_ffi_param(self):
         if self.__class__._is_pointer_like():
             return self._get_buffer_value()
         else:
             return self.value
 
-    def __buffer__(self):
+    def __buffer__(self, flags):
         return buffer(self._buffer)
 
     def _get_b_base(self):
@@ -199,10 +234,13 @@ def alignment(tp):
     return tp._alignmentofinstances()
 
 @builtinify
-def byref(cdata):
+def byref(cdata, offset=0):
     # "pointer" is imported at the end of this module to avoid circular
     # imports
-    return pointer(cdata)
+    ptr = pointer(cdata)
+    if offset != 0:
+        ptr._buffer[0] += offset
+    return ptr
 
 def cdata_from_address(self, address):
     # fix the address: turn it into as unsigned, in case it's a negative number

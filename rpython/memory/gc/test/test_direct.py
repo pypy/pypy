@@ -8,11 +8,12 @@ see as the list of roots (stack and prebuilt objects).
 
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.memory.gctypelayout import TypeLayoutBuilder
+from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
 from rpython.rlib.debug import debug_print
+from rpython.rlib.test.test_debug import debuglog
 import pdb
 WORD = LONG_BIT // 8
 
@@ -70,6 +71,9 @@ class DirectRootWalker(object):
 class BaseDirectGCTest(object):
     GC_PARAMS = {}
 
+    def get_extra_gc_params(self):
+        return {}
+
     def setup_method(self, meth):
         from rpython.config.translationoption import get_combined_translation_config
         config = get_combined_translation_config(translating=True).translation
@@ -78,13 +82,16 @@ class BaseDirectGCTest(object):
         if hasattr(meth, 'GC_PARAMS'):
             GC_PARAMS.update(meth.GC_PARAMS)
         GC_PARAMS['translated_to_c'] = False
+        GC_PARAMS.update(self.get_extra_gc_params())
         self.gc = self.GCClass(config, **GC_PARAMS)
         self.gc.DEBUG = True
         self.rootwalker = DirectRootWalker(self)
         self.gc.set_root_walker(self.rootwalker)
         self.layoutbuilder = TypeLayoutBuilder(self.GCClass)
         self.get_type_id = self.layoutbuilder.get_type_id
-        self.layoutbuilder.initialize_gc_query_function(self.gc)
+        gcdata = self.layoutbuilder.initialize_gc_query_function(self.gc)
+        ll_handlers = lltype.malloc(FIN_HANDLER_ARRAY, 0, immortal=True)
+        gcdata.finalizer_handlers = llmemory.cast_ptr_to_adr(ll_handlers)
         self.gc.setup()
 
     def consider_constant(self, p):
@@ -552,6 +559,7 @@ class TestMiniMarkGCSimple(DirectGCTest):
         assert res # we optimized it
         assert hdr_dst.tid & minimark.GCFLAG_TRACK_YOUNG_PTRS == 0 # and we copied the flag
         #
+        self.gc.card_page_indices = 128     # force > 0
         hdr_src.tid |= minimark.GCFLAG_TRACK_YOUNG_PTRS
         hdr_dst.tid |= minimark.GCFLAG_TRACK_YOUNG_PTRS
         hdr_src.tid |= minimark.GCFLAG_HAS_CARDS
@@ -617,7 +625,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
         assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
 
-        self.gc.minor_collection()
+        self.gc._minor_collection()
         self.gc.visit_all_objects_step(1)
 
         assert oldhdr.tid & incminimark.GCFLAG_VISITED
@@ -628,7 +636,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
         assert self.gc.header(self.gc.old_objects_pointing_to_young.tolist()[0]) == oldhdr
 
-        self.gc.minor_collection()
+        self.gc._minor_collection()
         self.gc.debug_check_consistency()
 
     def test_sweeping_simple(self):
@@ -667,6 +675,25 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         self.stackroots.append(obj1)
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
         assert self.stackroots[1].x == 13
+
+    def test_move_out_of_nursery(self):
+        obj0 = self.malloc(S)
+        obj0.x = 123
+        adr1 = self.gc.move_out_of_nursery(llmemory.cast_ptr_to_adr(obj0))
+        obj1 = llmemory.cast_adr_to_ptr(adr1, lltype.Ptr(S))
+        assert obj1.x == 123
+        #
+        import pytest
+        obj2 = self.malloc(S)
+        obj2.x = 456
+        adr3 = self.gc._find_shadow(llmemory.cast_ptr_to_adr(obj2))
+        obj3 = llmemory.cast_adr_to_ptr(adr3, lltype.Ptr(S))
+        with pytest.raises(lltype.UninitializedMemoryAccess):
+            obj3.x     # the shadow is not populated yet
+        adr4 = self.gc.move_out_of_nursery(llmemory.cast_ptr_to_adr(obj2))
+        assert adr4 == adr3
+        assert obj3.x == 456     # it is populated now
+
 
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
@@ -744,4 +771,76 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
                 assert elem.prev == lltype.nullptr(S)
                 assert elem.next == lltype.nullptr(S)
 
-            
+    def test_collect_0(self, debuglog):
+        self.gc.collect(1) # start a major
+        debuglog.reset()
+        self.gc.collect(-1) # do ONLY a minor
+        assert debuglog.summary() == {'gc-minor': 1}
+
+    def test_enable_disable(self, debuglog):
+        def large_malloc():
+            # malloc an object which is large enough to trigger a major collection
+            threshold = self.gc.next_major_collection_threshold
+            self.malloc(VAR, int(threshold/4))
+            summary = debuglog.summary()
+            debuglog.reset()
+            return summary
+        #
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-collect-step', 'gc-minor']
+        #
+        self.gc.disable()
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-minor']
+        #
+        self.gc.enable()
+        summary = large_malloc()
+        assert sorted(summary.keys()) == ['gc-collect-step', 'gc-minor']
+
+    def test_call_collect_when_disabled(self, debuglog):
+        # malloc an object and put it the old generation
+        s = self.malloc(S)
+        s.x = 42
+        self.stackroots.append(s)
+        self.gc.collect()
+        s = self.stackroots.pop()
+        #
+        self.gc.disable()
+        self.gc.collect(1) # start a major collect
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        assert s.x == 42 # s is not freed yet
+        #
+        debuglog.reset()
+        self.gc.collect(1) # run one more step
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        assert s.x == 42 # s is not freed yet
+        #
+        debuglog.reset()
+        self.gc.collect() # finish the major collection
+        summary = debuglog.summary()
+        assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
+        # s is freed
+        py.test.raises(RuntimeError, 's.x')
+
+    def test_collect_step(self, debuglog):
+        from rpython.rlib import rgc
+        n = 0
+        states = []
+        while True:
+            debuglog.reset()
+            val = self.gc.collect_step()
+            states.append((rgc.old_state(val), rgc.new_state(val)))
+            summary = debuglog.summary()
+            assert summary == {'gc-minor': 1, 'gc-collect-step': 1}
+            if rgc.is_done(val):
+                break
+            n += 1
+            if n == 100:
+                assert False, 'this looks like an endless loop'
+        #
+        assert states == [
+            (incminimark.STATE_SCANNING, incminimark.STATE_MARKING),
+            (incminimark.STATE_MARKING, incminimark.STATE_SWEEPING),
+            (incminimark.STATE_SWEEPING, incminimark.STATE_FINALIZING),
+            (incminimark.STATE_FINALIZING, incminimark.STATE_SCANNING)
+            ]

@@ -29,8 +29,8 @@ _INSTALL_SCHEMES = {
     'pypy': {
         'stdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
         'platstdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
-        'purelib': '{base}/lib-{implementation_lower}/{py_version_short}',
-        'platlib': '{base}/lib-{implementation_lower}/{py_version_short}',
+        'purelib': '{base}/site-packages',
+        'platlib': '{base}/site-packages',
         'include': '{base}/include',
         'platinclude': '{base}/include',
         'scripts': '{base}/bin',
@@ -369,11 +369,8 @@ def _generate_posix_vars():
 
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    # in cPython, _sysconfigdata is generated at build time, see _generate_posix_vars()
-    # in PyPy no such module exists
-    #from _sysconfigdata import build_time_vars
-    #vars.update(build_time_vars)
-    return
+    from _sysconfigdata import build_time_vars
+    vars.update(build_time_vars)
 
 def _init_non_posix(vars):
     """Initialize the module as appropriate for NT"""
@@ -530,6 +527,8 @@ def get_config_vars(*args):
             if type_ == imp.C_EXTENSION:
                 _CONFIG_VARS['SOABI'] = suffix.split('.')[1]
                 break
+        _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
+                                                 'include')
 
     if args:
         vals = []

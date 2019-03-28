@@ -1,5 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.rvmprof import VMProfPlatformUnsupported
+from rpython.translator.platform import CompilationError
+
 
 class Module(MixedModule):
     """
@@ -11,6 +13,11 @@ class Module(MixedModule):
     interpleveldefs = {
         'enable': 'interp_vmprof.enable',
         'disable': 'interp_vmprof.disable',
+        'is_enabled': 'interp_vmprof.is_enabled',
+        'get_profile_path': 'interp_vmprof.get_profile_path',
+        'stop_sampling': 'interp_vmprof.stop_sampling',
+        'start_sampling': 'interp_vmprof.start_sampling',
+
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
 
@@ -22,5 +29,11 @@ class Module(MixedModule):
 # (loaded later) replaces this method.
 try:
     import pypy.module._vmprof.interp_vmprof
-except VMProfPlatformUnsupported, e:
+except VMProfPlatformUnsupported as e:
     pass
+except CompilationError as e:
+    import sys
+    if sys.platform == 'win32':
+        pass
+    else:
+        raise

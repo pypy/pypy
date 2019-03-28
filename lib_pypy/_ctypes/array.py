@@ -4,69 +4,76 @@ import _rawffi
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject, as_ffi_pointer
+import sys, __pypy__, struct
 
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
-        if '_type_' in typedict:
-            ffiarray = _rawffi.Array(typedict['_type_']._ffishape_)
-            res._ffiarray = ffiarray
-            subletter = getattr(typedict['_type_'], '_type_', None)
-            if subletter == 'c':
-                def getvalue(self):
-                    return _rawffi.charp2string(self._buffer.buffer,
-                                                self._length_)
-                def setvalue(self, val):
-                    # we don't want to have buffers here
-                    if len(val) > self._length_:
-                        raise ValueError("%r too long" % (val,))
-                    if isinstance(val, str):
-                        _rawffi.rawstring2charp(self._buffer.buffer, val)
-                    else:
-                        for i in range(len(val)):
-                            self[i] = val[i]
-                    if len(val) < self._length_:
-                        self._buffer[len(val)] = '\x00'
-                res.value = property(getvalue, setvalue)
 
-                def getraw(self):
-                    return _rawffi.charp2rawstring(self._buffer.buffer,
-                                                   self._length_)
-
-                def setraw(self, buffer):
-                    if len(buffer) > self._length_:
-                        raise ValueError("%r too long" % (buffer,))
-                    _rawffi.rawstring2charp(self._buffer.buffer, buffer)
-                res.raw = property(getraw, setraw)
-            elif subletter == 'u':
-                def getvalue(self):
-                    return _rawffi.wcharp2unicode(self._buffer.buffer,
-                                                  self._length_)
-
-                def setvalue(self, val):
-                    # we don't want to have buffers here
-                    if len(val) > self._length_:
-                        raise ValueError("%r too long" % (val,))
-                    if isinstance(val, unicode):
-                        target = self._buffer
-                    else:
-                        target = self
-                    for i in range(len(val)):
-                        target[i] = val[i]
-                    if len(val) < self._length_:
-                        target[len(val)] = u'\x00'
-                res.value = property(getvalue, setvalue)
-                
-            if '_length_' in typedict:
-                res._ffishape_ = (ffiarray, typedict['_length_'])
-                res._fficompositesize_ = res._sizeofinstances()
-        else:
+        if cls == (_CData,): # this is the Array class defined below
             res._ffiarray = None
+            return res
+        if not hasattr(res, '_length_') or not isinstance(res._length_,
+                                                          (int, long)):
+            raise AttributeError(
+                "class must define a '_length_' attribute, "
+                "which must be a positive integer")
+        ffiarray = res._ffiarray = _rawffi.Array(res._type_._ffishape_)
+        subletter = getattr(res._type_, '_type_', None)
+        if subletter == 'c':
+            def getvalue(self):
+                return _rawffi.charp2string(self._buffer.buffer,
+                                            self._length_)
+            def setvalue(self, val):
+                # we don't want to have buffers here
+                if len(val) > self._length_:
+                    raise ValueError("%r too long" % (val,))
+                if isinstance(val, str):
+                    _rawffi.rawstring2charp(self._buffer.buffer, val)
+                else:
+                    for i in range(len(val)):
+                        self[i] = val[i]
+                if len(val) < self._length_:
+                    self._buffer[len(val)] = b'\x00'
+            res.value = property(getvalue, setvalue)
+
+            def getraw(self):
+                return _rawffi.charp2rawstring(self._buffer.buffer,
+                                               self._length_)
+
+            def setraw(self, buffer):
+                if len(buffer) > self._length_:
+                    raise ValueError("%r too long" % (buffer,))
+                _rawffi.rawstring2charp(self._buffer.buffer, buffer)
+            res.raw = property(getraw, setraw)
+        elif subletter == 'u':
+            def getvalue(self):
+                return _rawffi.wcharp2unicode(self._buffer.buffer,
+                                              self._length_)
+
+            def setvalue(self, val):
+                # we don't want to have buffers here
+                if len(val) > self._length_:
+                    raise ValueError("%r too long" % (val,))
+                if isinstance(val, unicode):
+                    target = self._buffer
+                else:
+                    target = self
+                for i in range(len(val)):
+                    target[i] = val[i]
+                if len(val) < self._length_:
+                    target[len(val)] = u'\x00'
+            res.value = property(getvalue, setvalue)
+
+        res._ffishape_ = (ffiarray, res._length_)
+        res._fficompositesize_ = res._sizeofinstances()
         return res
 
     from_address = cdata_from_address
 
     def _sizeofinstances(self):
+        if self._ffiarray is None:
+            raise TypeError("abstract class")
         size, alignment = self._ffiarray.size_alignment(self._length_)
         return size
 
@@ -74,17 +81,25 @@ class ArrayMeta(_CDataMeta):
         return self._type_._alignmentofinstances()
 
     def _CData_output(self, resarray, base=None, index=-1):
-        # this seems to be a string if we're array of char, surprise!
-        from ctypes import c_char, c_wchar
-        if self._type_ is c_char:
-            return _rawffi.charp2string(resarray.buffer, self._length_)
-        if self._type_ is c_wchar:
-            return _rawffi.wcharp2unicode(resarray.buffer, self._length_)
+        from _rawffi.alt import types
+        # If a char_p or unichar_p is received, skip the string interpretation
+        try:
+            deref = type(base)._deref_ffiargtype()
+        except AttributeError:
+            deref = None
+        if deref != types.char_p and deref != types.unichar_p:
+            # this seems to be a string if we're array of char, surprise!
+            from ctypes import c_char, c_wchar
+            if self._type_ is c_char:
+                return _rawffi.charp2string(resarray.buffer, self._length_)
+            if self._type_ is c_wchar:
+                return _rawffi.wcharp2unicode(resarray.buffer, self._length_)
         res = self.__new__(self)
         ffiarray = self._ffiarray.fromaddress(resarray.buffer, self._length_)
         res._buffer = ffiarray
-        res._base = base
-        res._index = index
+        if base is not None:
+            res._base = base
+            res._index = index
         return res
 
     def _CData_retval(self, resbuffer):
@@ -108,6 +123,12 @@ class ArrayMeta(_CDataMeta):
                     raise RuntimeError("Invalid length")
                 value = self(*value)
         return _CDataMeta.from_param(self, value)
+
+    def _build_ffiargtype(self):
+        return _ffi.types.Pointer(self._type_.get_ffi_argtype())
+
+    def _deref_ffiargtype(self):
+        return self._type_.get_ffi_argtype()
 
 def array_get_slice_params(self, index):
     if hasattr(self, '_length_'):
@@ -149,7 +170,7 @@ def array_slice_getitem(self, index):
     l = [self[i] for i in range(start, stop, step)]
     letter = getattr(self._type_, '_type_', None)
     if letter == 'c':
-        return "".join(l)
+        return b"".join(l)
     if letter == 'u':
         return u"".join(l)
     return l
@@ -163,6 +184,7 @@ class Array(_CData):
             self._buffer = self._ffiarray(self._length_, autofree=True)
         for i, arg in enumerate(args):
             self[i] = arg
+    _init_no_arg_ = __init__
 
     def _fix_index(self, index):
         if index < 0:
@@ -220,6 +242,24 @@ class Array(_CData):
     def _as_ffi_pointer_(self, ffitype):
         return as_ffi_pointer(self, ffitype)
 
+    def __buffer__(self, flags):
+        shape = []
+        obj = self
+        while 1:
+            shape.append(obj._length_)
+            try:
+                obj[0]._length_
+            except (AttributeError, IndexError):
+                break
+            obj = obj[0]
+
+        fmt = get_format_str(obj._type_)
+        try:
+            itemsize = struct.calcsize(fmt[1:])
+        except:
+            itemsize = sizeof(obj[0])
+        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
+
 ARRAY_CACHE = {}
 
 def create_array_type(base, length):
@@ -237,6 +277,33 @@ def create_array_type(base, length):
             _type_ = base
         )
         cls = ArrayMeta(name, (Array,), tpdict)
-        cls._ffiargtype = _ffi.types.Pointer(base.get_ffi_argtype())
         ARRAY_CACHE[key] = cls
         return cls
+
+byteorder = {'little': '<', 'big': '>'}
+swappedorder = {'little': '>', 'big': '<'}
+
+def get_format_str(typ):
+    if hasattr(typ, '_fields_'):
+        if hasattr(typ, '_swappedbytes_'):
+            bo = swappedorder[sys.byteorder]
+        else:
+            bo = byteorder[sys.byteorder]
+        flds = []
+        for name, obj in typ._fields_:
+            # Trim off the leading '<' or '>'
+            ch = get_format_str(obj)[1:]
+            if (ch) == 'B':
+                flds.append(byteorder[sys.byteorder])
+            else:
+                flds.append(bo)
+            flds.append(ch)
+            flds.append(':')
+            flds.append(name)
+            flds.append(':')
+        return 'T{' + ''.join(flds) + '}'
+    elif hasattr(typ, '_type_'):
+        ch = typ._type_
+        return byteorder[sys.byteorder] + ch
+    else:
+        raise ValueError('cannot get format string for %r' % typ)

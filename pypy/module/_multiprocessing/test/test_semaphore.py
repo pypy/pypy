@@ -10,7 +10,7 @@ class AppTestSemaphore:
                                    'binascii', 'struct'))
 
     if sys.platform == 'win32':
-        spaceconfig['usemodules'] += ('_rawffi',)
+        spaceconfig['usemodules'] += ('_rawffi', '_cffi_backend')
     else:
         spaceconfig['usemodules'] += ('fcntl',)
 

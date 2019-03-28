@@ -2,6 +2,7 @@ import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
@@ -14,11 +15,12 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
-from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
-from rpython.rlib.objectmodel import Symbolic
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong, intmask
+from rpython.rlib.objectmodel import Symbolic, compute_hash
 
 class LLAsmInfo(object):
     def __init__(self, lltrace):
@@ -152,7 +154,7 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
         self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
-        self._is_pure = S._immutable_field(fieldname)
+        self._is_pure = S._immutable_field(fieldname) != False
 
     def is_always_pure(self):
         return self._is_pure
@@ -327,10 +329,11 @@ class LLGraphCPU(model.AbstractCPU):
     supports_guard_gc_type = True
     translate_support_code = False
     is_llgraph = True
-    vector_extension = True
-    vector_register_size = 16 # in bytes
-    vector_horizontal_operations = True
-    vector_pack_slots = True
+    vector_ext = VectorExt()
+    vector_ext.enable(16, accum=True)
+    vector_ext.setup_once = lambda asm: asm
+    load_supported_factors = (1,2,4,8)
+    assembler = None
 
     def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)
@@ -404,7 +407,7 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             frame.execute(lltrace)
             assert False
-        except ExecutionFinished, e:
+        except ExecutionFinished as e:
             return e.deadframe
 
     def get_value_direct(self, deadframe, tp, index):
@@ -455,7 +458,7 @@ class LLGraphCPU(model.AbstractCPU):
                 if box is not frame.current_op:
                     value = frame.env[box]
                 else:
-                    value = box.getvalue()    # 0 or 0.0 or NULL
+                    value = 0 # box.getvalue()    # 0 or 0.0 or NULL
             else:
                 value = None
             values.append(value)
@@ -471,6 +474,16 @@ class LLGraphCPU(model.AbstractCPU):
         return deadframe._saved_data
 
     # ------------------------------------------------------------
+
+    def setup_descrs(self):
+        all_descrs = []
+        for k, v in self.descrs.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        return all_descrs
+
+    def fetch_all_descrs(self):
+        return self.descrs.values()
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
         key = ('call', getkind(RESULT),
@@ -608,9 +621,6 @@ class LLGraphCPU(model.AbstractCPU):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
 
-    bh_getfield_gc_pure_i = bh_getfield_gc
-    bh_getfield_gc_pure_r = bh_getfield_gc
-    bh_getfield_gc_pure_f = bh_getfield_gc
     bh_getfield_gc_i = bh_getfield_gc
     bh_getfield_gc_r = bh_getfield_gc
     bh_getfield_gc_f = bh_getfield_gc
@@ -706,16 +716,28 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
+    def _get_int_type_from_size(self, size):
+        if   size == 1:
+            return rffi.UCHAR
+        elif size == 2:
+            return rffi.USHORT
+        elif size == 4:
+            return rffi.UINT
+        elif size == 8:
+            return rffi.ULONGLONG
+        elif size == -1:
+            return rffi.SIGNEDCHAR
+        elif size == -2:
+            return rffi.SHORT
+        elif size == -4:
+            return rffi.INT
+        elif size == -8:
+            return rffi.LONGLONG
+        else:
+            raise NotImplementedError(size)
+    
     def bh_gc_load_indexed_i(self, struct, index, scale, base_ofs, bytes):
-        if   bytes == 1: T = rffi.UCHAR
-        elif bytes == 2: T = rffi.USHORT
-        elif bytes == 4: T = rffi.UINT
-        elif bytes == 8: T = rffi.ULONGLONG
-        elif bytes == -1: T = rffi.SIGNEDCHAR
-        elif bytes == -2: T = rffi.SHORT
-        elif bytes == -4: T = rffi.INT
-        elif bytes == -8: T = rffi.LONGLONG
-        else: raise NotImplementedError(bytes)
+        T = self._get_int_type_from_size(bytes)
         x = llop.gc_load_indexed(T, struct, index, scale, base_ofs)
         return lltype.cast_primitive(lltype.Signed, x)
 
@@ -724,6 +746,30 @@ class LLGraphCPU(model.AbstractCPU):
             raise Exception("gc_load_indexed_f is only for 'double'!")
         return llop.gc_load_indexed(longlong.FLOATSTORAGE,
                                     struct, index, scale, base_ofs)
+
+    def bh_gc_store_indexed_i(self, struct, index, val, scale, base_ofs, bytes,
+                              descr):
+        T = self._get_int_type_from_size(bytes)
+        val = lltype.cast_primitive(T, val)
+        if descr.A.OF == lltype.SingleFloat:
+            val = longlong.int2singlefloat(val)
+        llop.gc_store_indexed(lltype.Void, struct, index, val, scale, base_ofs)
+
+    def bh_gc_store_indexed_f(self, struct, index, val, scale, base_ofs, bytes,
+                              descr):
+        if bytes != 8:
+            raise Exception("gc_store_indexed_f is only for 'double'!")
+        val = longlong.getrealfloat(val)
+        llop.gc_store_indexed(lltype.Void, struct, index, val, scale, base_ofs)
+
+    def bh_gc_store_indexed(self, struct, index, val, scale, base_ofs, bytes,
+                            descr):
+        if descr.A.OF == lltype.Float:
+            self.bh_gc_store_indexed_f(struct, index, val, scale, base_ofs,
+                                       bytes, descr)
+        else:
+            self.bh_gc_store_indexed_i(struct, index, val, scale, base_ofs,
+                                       bytes, descr)
 
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
@@ -779,6 +825,10 @@ class LLGraphCPU(model.AbstractCPU):
         assert 0 <= dststart <= dststart + length <= len(dst.chars)
         rstr.copy_string_contents(src, dst, srcstart, dststart, length)
 
+    def bh_strhash(self, s):
+        lls = s._obj.container
+        return compute_hash(hlstr(lls._as_ptr()))
+
     def bh_newunicode(self, length):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
                                       lltype.malloc(rstr.UNICODE, length,
@@ -800,6 +850,10 @@ class LLGraphCPU(model.AbstractCPU):
         assert 0 <= srcstart <= srcstart + length <= len(src.chars)
         assert 0 <= dststart <= dststart + length <= len(dst.chars)
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
+
+    def bh_unicodehash(self, s):
+        lls = s._obj.container
+        return compute_hash(hlunicode(lls._as_ptr()))
 
     def bh_new(self, sizedescr):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
@@ -826,11 +880,13 @@ class LLGraphCPU(model.AbstractCPU):
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
-    def bh_new_raw_buffer(self, size):
-        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
-
     # vector operations
     vector_arith_code = """
+    def bh_vec_{0}_{1}(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
+        return [intmask(_vx {2} _vy) for _vx,_vy in zip(vx,vy)]
+    """
+    vector_float_arith_code = """
     def bh_vec_{0}_{1}(self, vx, vy, count):
         assert len(vx) == len(vy) == count
         return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
@@ -840,11 +896,12 @@ class LLGraphCPU(model.AbstractCPU):
     exec py.code.Source(vector_arith_code.format('int','mul','*')).compile()
     exec py.code.Source(vector_arith_code.format('int','and','&')).compile()
     exec py.code.Source(vector_arith_code.format('int','or','|')).compile()
-    exec py.code.Source(vector_arith_code.format('float','add','+')).compile()
-    exec py.code.Source(vector_arith_code.format('float','sub','-')).compile()
-    exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()
-    exec py.code.Source(vector_arith_code.format('float','truediv','/')).compile()
-    exec py.code.Source(vector_arith_code.format('float','eq','==')).compile()
+
+    exec py.code.Source(vector_float_arith_code.format('float','add','+')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','sub','-')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','mul','*')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','truediv','/')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','eq','==')).compile()
 
     def bh_vec_float_neg(self, vx, count):
         return [e * -1 for e in vx]
@@ -872,6 +929,9 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_int_xor(self, vx, vy, count):
         return [int(x) ^ int(y) for x,y in zip(vx,vy)]
 
+    def bh_vec_float_xor(self, vx, vy, count):
+        return [0.0 for x,y in zip(vx,vy)] # just used for clearing the vector register
+
     def bh_vec_cast_float_to_singlefloat(self, vx, count):
         from rpython.rlib.rarithmetic import r_singlefloat
         return [longlong.singlefloat2int(r_singlefloat(longlong.getrealfloat(v)))
@@ -880,9 +940,6 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_cast_singlefloat_to_float(self, vx, count):
         return [longlong.getfloatstorage(float(longlong.int2singlefloat(v)))
                 for v in vx]
-
-        a = float(a)
-        return longlong.getfloatstorage(a)
 
     def bh_vec_cast_float_to_int(self, vx, count):
         return [int(x) for x in vx]
@@ -923,50 +980,31 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_int_signext(self, vx, ext, count):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]
 
-    def build_getarrayitem(func):
-        def method(self, struct, offset, descr, _count):
+    def build_load(func):
+        def load(self, struct, offset, scale, disp, descr, _count):
             values = []
-            count = self.vector_register_size // descr.get_item_size_in_bytes()
+            count = self.vector_ext.vec_size() // descr.get_item_size_in_bytes()
             assert _count == count
             assert count > 0
+            adr = support.addr_add_bytes(struct, (offset * scale + disp))
+            a = support.cast_arg(lltype.Ptr(descr.A), adr)
+            array = a._obj
             for i in range(count):
-                val = func(self, struct, offset + i, descr)
+                val = support.cast_result(descr.A.OF, array.getitem(i))
                 values.append(val)
             return values
-        return method
+        return load
 
-    bh_vec_getarrayitem_gc_i = build_getarrayitem(bh_getarrayitem_gc)
-    bh_vec_getarrayitem_gc_f = build_getarrayitem(bh_getarrayitem_gc)
-    bh_vec_getarrayitem_raw_i = build_getarrayitem(bh_getarrayitem_raw)
-    bh_vec_getarrayitem_raw_f = build_getarrayitem(bh_getarrayitem_raw)
-    del build_getarrayitem
+    bh_vec_load_i = build_load(bh_getarrayitem_raw)
+    bh_vec_load_f = build_load(bh_getarrayitem_raw)
+    del build_load
 
-    def _bh_vec_raw_load(self, struct, offset, descr, _count):
-        values = []
-        stride = descr.get_item_size_in_bytes()
-        count = self.vector_register_size // descr.get_item_size_in_bytes()
-        assert _count == count
-        assert count > 0
-        for i in range(count):
-            val = self.bh_raw_load(struct, offset + i*stride, descr)
-            values.append(val)
-        return values
-
-    bh_vec_raw_load_i = _bh_vec_raw_load
-    bh_vec_raw_load_f = _bh_vec_raw_load
-
-    def bh_vec_raw_store(self, struct, offset, newvalues, descr, count):
-        stride = descr.get_item_size_in_bytes()
+    def bh_vec_store(self, struct, offset, newvalues, scale, disp, descr, count):
+        adr = support.addr_add_bytes(struct, offset * scale + disp)
+        a = support.cast_arg(lltype.Ptr(descr.A), adr)
+        array = a._obj
         for i,n in enumerate(newvalues):
-            self.bh_raw_store(struct, offset + i*stride, n, descr)
-
-    def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, descr, count):
-        for i,n in enumerate(newvalues):
-            self.bh_setarrayitem_raw(struct, offset + i, n, descr)
-
-    def bh_vec_setarrayitem_gc(self, struct, offset, newvalues, descr, count):
-        for i,n in enumerate(newvalues):
-            self.bh_setarrayitem_gc(struct, offset + i, n, descr)
+            array.setitem(i, support.cast_arg(descr.A.OF, n))
 
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
@@ -1090,7 +1128,7 @@ class LLFrame(object):
             execute = getattr(self, 'execute_' + op.getopname())
             try:
                 resval = execute(_getdescr(op), *args)
-            except Jump, j:
+            except Jump as j:
                 self.lltrace, i = j.jump_target
                 if i >= 0:
                     label_op = self.lltrace.operations[i]
@@ -1126,7 +1164,7 @@ class LLFrame(object):
                 value = sum(value)
             elif info.accum_operation == '*':
                 def prod(acc, x): return acc * x
-                value = reduce(prod, value, 1)
+                value = reduce(prod, value, 1.0)
             else:
                 raise NotImplementedError("accum operator in fail guard")
             values[i] = value
@@ -1330,6 +1368,16 @@ class LLFrame(object):
         # cond_call can't have a return value
         self.execute_call_n(calldescr, func, *args)
 
+    def execute_cond_call_value_i(self, calldescr, value, func, *args):
+        if not value:
+            value = self.execute_call_i(calldescr, func, *args)
+        return value
+
+    def execute_cond_call_value_r(self, calldescr, value, func, *args):
+        if not value:
+            value = self.execute_call_r(calldescr, func, *args)
+        return value
+
     def _execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()
         if effectinfo is not None and hasattr(effectinfo, 'oopspecindex'):
@@ -1341,7 +1389,7 @@ class LLFrame(object):
         try:
             res = self.cpu.maybe_on_top_of_llinterp(func, call_args, TP.RESULT)
             self.last_exception = None
-        except LLException, lle:
+        except LLException as lle:
             self.last_exception = lle
             res = _example_res[getkind(TP.RESULT)[0]]
         return res
@@ -1437,7 +1485,7 @@ class LLFrame(object):
             assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
             try:
                 result = assembler_helper_ptr(pframe, vable)
-            except LLException, lle:
+            except LLException as lle:
                 assert self.last_exception is None, "exception left behind"
                 self.last_exception = lle
                 # fish op
@@ -1514,6 +1562,11 @@ class LLFrame(object):
             lle = None
         self.last_exception = lle
 
+    def execute_check_memory_error(self, descr, value):
+        if not value:
+            from rpython.jit.backend.llsupport import llmodel
+            raise llmodel.MissingLatestDescrError
+
 
 def _getdescr(op):
     d = op.getdescr()
@@ -1550,7 +1603,7 @@ def _setup():
             if opname.startswith('vec_'):
                 # pre vector op
                 count = self.current_op.count
-                assert count >= 1
+                assert count >= 0
                 new_args = new_args + (count,)
             result = getattr(self.cpu, 'bh_' + opname)(*new_args)
             if isinstance(result, list):

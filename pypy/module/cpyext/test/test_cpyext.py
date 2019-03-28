@@ -1,38 +1,20 @@
 import sys
-import weakref
-import os
 
-import py
+import pytest
 
-from pypy.conftest import pypydir
+from pypy.tool.cpyext.extbuild import SystemCompilationInfo, HERE
+from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator import platform
-from rpython.translator.gensupp import uniquemodulename
-from rpython.tool.udir import udir
+from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
+from pypy.module.cpyext.api import cts
+from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.pyobject import RefcountState
-from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
-from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
+from rpython.rlib import rawrefcount
+from rpython.tool.udir import udir
 
-def setup_module(module):
-    if os.name == 'nt':
-        # Do not open dreaded dialog box on segfault
-        import ctypes
-        SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
-        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
-        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
-        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        module.old_err_mode = old_err_mode
-
-def teardown_module(module):
-    if os.name == 'nt':
-        import ctypes
-        ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
@@ -42,159 +24,176 @@ def PyPy_Crash1(space):
 def PyPy_Crash2(space):
     1/0
 
+@api.cpython_api([api.PyObject], api.PyObject, result_is_ll=True)
+def PyPy_Noop(space, pyobj):
+    return pyobj
+
 class TestApi:
     def test_signature(self):
-        assert 'PyModule_Check' in api.FUNCTIONS
-        assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
+        common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
+        assert 'PyModule_Check' in common_functions
+        assert common_functions['PyModule_Check'].argtypes == [api.PyObject]
 
-def compile_extension_module(space, modname, **kwds):
-    """
-    Build an extension module and return the filename of the resulting native
-    code file.
 
-    modname is the name of the module, possibly including dots if it is a module
-    inside a package.
+class SpaceCompiler(SystemCompilationInfo):
+    """Extension compiler for regular (untranslated PyPy) mode"""
+    def __init__(self, space, *args, **kwargs):
+        self.space = space
+        SystemCompilationInfo.__init__(self, *args, **kwargs)
 
-    Any extra keyword arguments are passed on to ExternalCompilationInfo to
-    build the module (so specify your source with one of those).
-    """
+    def load_module(self, mod, name):
+        space = self.space
+        api.load_extension_module(space, mod, name)
+        return space.getitem(
+            space.sys.get('modules'), space.wrap(name))
+
+
+def get_cpyext_info(space):
+    from pypy.module.imp.importing import get_so_extension
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':
-        kwds["libraries"] = [api_library]
+        libraries = [api_library]
         # '%s' undefined; assuming extern returning int
-        kwds["compile_extra"] = ["/we4013"]
+        compile_extra = ["/we4013"]
         # prevent linking with PythonXX.lib
         w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
-        kwds["link_extra"] = ["/NODEFAULTLIB:Python%d%d.lib" %
-                              (space.int_w(w_maj), space.int_w(w_min))]
-    elif sys.platform == 'darwin':
-        kwds["link_files"] = [str(api_library + '.dylib')]
+        link_extra = ["/NODEFAULTLIB:Python%d%d.lib" %
+            (space.int_w(w_maj), space.int_w(w_min))]
     else:
-        kwds["link_files"] = [str(api_library + '.so')]
+        libraries = []
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
+            compile_extra = [
+                "-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
+            link_extra = ["-g"]
+        else:
+            compile_extra = link_extra = None
+    return SpaceCompiler(space,
+        builddir_base=udir,
+        include_extra=api.include_dirs,
+        compile_extra=compile_extra,
+        link_extra=link_extra,
+        extra_libs=libraries,
+        ext=get_so_extension(space))
 
-    modname = modname.split('.')[-1]
-    eci = ExternalCompilationInfo(
-        include_dirs=api.include_dirs,
-        **kwds
-        )
-    eci = eci.convert_sources_to_files()
-    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-    soname = platform.platform.compile(
-        [], eci,
-        outputfilename=str(dirname/modname),
-        standalone=False)
-    from pypy.module.imp.importing import get_so_extension
-    pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
-    soname.rename(pydname)
-    return str(pydname)
 
 def freeze_refcnts(self):
-    state = self.space.fromcache(RefcountState)
-    self.frozen_refcounts = {}
-    for w_obj, obj in state.py_objects_w2r.iteritems():
-        self.frozen_refcounts[w_obj] = obj.c_ob_refcnt
-    #state.print_refcounts()
-    self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
+    rawrefcount._dont_free_any_more()
+
+def preload(space, name):
+    from pypy.module.cpyext.pyobject import make_ref
+    if '.' not in name:
+        w_obj = space.builtin.getdictvalue(space, name)
+    else:
+        module, localname = name.rsplit('.', 1)
+        code = "(): import {module}; return {module}.{localname}"
+        code = code.format(**locals())
+        w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
+def preload_expr(space, expr):
+    from pypy.module.cpyext.pyobject import make_ref
+    code = "(): return {}".format(expr)
+    w_obj = space.appexec([], code)
+    make_ref(space, w_obj)
+
+def is_interned_string(space, w_obj):
+    try:
+        s = space.str_w(w_obj)
+    except OperationError:
+        return False
+    return space.is_interned_str(s)
+
+def is_allowed_to_leak(space, obj):
+    from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+    try:
+        w_obj = from_ref(space, cts.cast('PyObject*', obj._as_ptr()))
+    except:
+        return False
+    if isinstance(w_obj, W_PyCFunctionObject):
+        return True
+    # It's OK to "leak" some interned strings: if the pyobj is created by
+    # the test, but the w_obj is referred to from elsewhere.
+    return is_interned_string(space, w_obj)
+
+def _get_w_obj(space, c_obj):
+    return from_ref(space, cts.cast('PyObject*', c_obj._as_ptr()))
+
+class CpyextLeak(leakfinder.MallocMismatch):
+    def __str__(self):
+        lines = [leakfinder.MallocMismatch.__str__(self), '']
+        lines.append(
+            "These objects are attached to the following W_Root objects:")
+        for c_obj in self.args[0]:
+            try:
+                lines.append("  %s" % (_get_w_obj(self.args[1], c_obj),))
+            except:
+                pass
+        return '\n'.join(lines)
+
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
-    spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
-                                   'itertools', 'time', 'binascii', 'micronumpy'])
-    spaceconfig['std.withmethodcache'] = True
+    spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
+                                   'itertools', 'time', 'binascii',
+                                   'mmap'
+                                   ])
+    spaceconfig["objspace.std.withspecialisedtuple"] = True
 
-    enable_leak_checking = True
+    @classmethod
+    def preload_builtins(cls, space):
+        """
+        Eagerly create pyobjs for various builtins so they don't look like
+        leaks.
+        """
+        for name in [
+                'buffer', 'mmap.mmap',
+                'types.FunctionType', 'types.CodeType',
+                'types.TracebackType', 'types.FrameType']:
+            preload(space, name)
+        for expr in ['type(str.join)']:
+            preload_expr(space, expr)
 
-    @staticmethod
-    def cleanup_references(space):
-        state = space.fromcache(RefcountState)
-
-        import gc; gc.collect()
-        # Clear all lifelines, objects won't resurrect
-        for w_obj, obj in state.lifeline_dict._dict.items():
-            if w_obj not in state.py_objects_w2r:
-                state.lifeline_dict.set(w_obj, None)
-            del obj
-        import gc; gc.collect()
-
-        space.getexecutioncontext().cleanup_cpyext_state()
-
-        for w_obj in state.non_heaptypes_w:
-            Py_DecRef(space, w_obj)
-        state.non_heaptypes_w[:] = []
-        state.reset_borrowed_references()
-
-    def check_and_print_leaks(self):
-        # check for sane refcnts
-        import gc
-
-        if not self.enable_leak_checking:
+    def cleanup(self):
+        self.space.getexecutioncontext().cleanup_cpyext_state()
+        rawrefcount._collect()
+        self.space.user_del_action._run_finalizers()
+        try:
+            # set check=True to actually enable leakfinder
             leakfinder.stop_tracking_allocations(check=False)
-            return False
+        except leakfinder.MallocMismatch as e:
+            result = e.args[0]
+            filtered_result = {}
+            for obj, value in result.iteritems():
+                if not is_allowed_to_leak(self.space, obj):
+                    filtered_result[obj] = value
+            if filtered_result:
+                raise CpyextLeak(filtered_result, self.space)
+        assert not self.space.finalizer_queue.next_dead()
 
-        leaking = False
-        state = self.space.fromcache(RefcountState)
-        gc.collect()
-        lost_objects_w = identity_dict()
-        lost_objects_w.update((key, None) for key in self.frozen_refcounts.keys())
-
-        for w_obj, obj in state.py_objects_w2r.iteritems():
-            base_refcnt = self.frozen_refcounts.get(w_obj)
-            delta = obj.c_ob_refcnt
-            if base_refcnt is not None:
-                delta -= base_refcnt
-                lost_objects_w.pop(w_obj)
-            if delta != 0:
-                leaking = True
-                print >>sys.stderr, "Leaking %r: %i references" % (w_obj, delta)
-                try:
-                    weakref.ref(w_obj)
-                except TypeError:
-                    lifeline = None
-                else:
-                    lifeline = state.lifeline_dict.get(w_obj)
-                if lifeline is not None:
-                    refcnt = lifeline.pyo.c_ob_refcnt
-                    if refcnt > 0:
-                        print >>sys.stderr, "\tThe object also held by C code."
-                    else:
-                        referrers_repr = []
-                        for o in gc.get_referrers(w_obj):
-                            try:
-                                repr_str = repr(o)
-                            except TypeError, e:
-                                repr_str = "%s (type of o is %s)" % (str(e), type(o))
-                            referrers_repr.append(repr_str)
-                        referrers = ", ".join(referrers_repr)
-                        print >>sys.stderr, "\tThe object is referenced by these objects:", \
-                                referrers
-        for w_obj in lost_objects_w:
-            print >>sys.stderr, "Lost object %r" % (w_obj, )
-            leaking = True
-        # the actual low-level leak checking is done by pypy.tool.leakfinder,
-        # enabled automatically by pypy.conftest.
-        return leaking
 
 class AppTestApi(LeakCheckingTest):
     def setup_class(cls):
         from rpython.rlib.clibffi import get_libc_name
-        cls.w_libc = cls.space.wrap(get_libc_name())
+        if cls.runappdirect:
+            cls.libc = get_libc_name()
+        else:
+            cls.w_libc = cls.space.wrap(get_libc_name())
 
     def setup_method(self, meth):
-        freeze_refcnts(self)
+        if not self.runappdirect:
+            freeze_refcnts(self)
 
     def teardown_method(self, meth):
-        self.cleanup_references(self.space)
-        # XXX: like AppTestCpythonExtensionBase.teardown_method:
-        # find out how to disable check_and_print_leaks() if the
-        # test failed
-        assert not self.check_and_print_leaks(), (
-            "Test leaks or loses object(s).  You should also check if "
-            "the test actually passed in the first place; if it failed "
-            "it is likely to reach this place.")
+        if self.runappdirect:
+            return
+        self.cleanup()
 
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    def test_only_import(self):
+        import cpyext
+
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_load_error(self):
         import cpyext
         raises(ImportError, cpyext.load_module, "missing.file", "foo")
@@ -206,155 +205,152 @@ class AppTestApi(LeakCheckingTest):
             skip("Windows Python >= 2.6 only")
         assert isinstance(sys.dllhandle, int)
 
+
+def _unwrap_include_dirs(space, w_include_dirs):
+    if w_include_dirs is None:
+        return None
+    else:
+        return [space.str_w(s) for s in space.listview(w_include_dirs)]
+
+def debug_collect(space):
+    rawrefcount._collect()
+
+
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
-        cls.space.getbuiltinmodule("cpyext")
-        from pypy.module.imp.importing import importhook
-        importhook(cls.space, "os") # warm up reference counts
-        state = cls.space.fromcache(RefcountState)
-        state.non_heaptypes_w[:] = []
+        space = cls.space
+        cls.w_here = space.wrap(str(HERE))
+        cls.w_udir = space.wrap(str(udir))
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
+        if not cls.runappdirect:
+            cls.sys_info = get_cpyext_info(space)
+            cls.w_debug_collect = space.wrap(interp2app(debug_collect))
+            cls.preload_builtins(space)
+        else:
+            def w_import_module(self, name, init=None, body='', filename=None,
+                    include_dirs=None, PY_SSIZE_T_CLEAN=False):
+                from extbuild import get_sys_info_app
+                sys_info = get_sys_info_app(self.udir)
+                return sys_info.import_module(
+                    name, init=init, body=body, filename=filename,
+                    include_dirs=include_dirs,
+                    PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
+            cls.w_import_module = w_import_module
+
+            def w_import_extension(self, modname, functions, prologue="",
+                include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
+                from extbuild import get_sys_info_app
+                sys_info = get_sys_info_app(self.udir)
+                return sys_info.import_extension(
+                    modname, functions, prologue=prologue,
+                    include_dirs=include_dirs, more_init=more_init,
+                    PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
+            cls.w_import_extension = w_import_extension
+
+            def w_compile_module(self, name,
+                    source_files=None, source_strings=None):
+                from extbuild import get_sys_info_app
+                sys_info = get_sys_info_app(self.udir)
+                return sys_info.compile_extension_module(name,
+                    source_files=source_files, source_strings=source_strings)
+            cls.w_compile_module = w_compile_module
+
+            def w_load_module(self, mod, name):
+                from extbuild import get_sys_info_app
+                sys_info = get_sys_info_app(self.udir)
+                return sys_info.load_module(mod, name)
+            cls.w_load_module = w_load_module
+
+            def w_debug_collect(self):
+                import gc
+                gc.collect()
+                gc.collect()
+                gc.collect()
+            cls.w_debug_collect = w_debug_collect
+
+
+    def record_imported_module(self, name):
+        """
+        Record a module imported in a test so that it can be cleaned up in
+        teardown before the check for leaks is done.
+
+        name gives the name of the module in the space's sys.modules.
+        """
+        self.imported_module_names.append(name)
 
     def setup_method(self, func):
-        @unwrap_spec(name=str)
+        if self.runappdirect:
+            return
+
+        @unwrap_spec(name='text')
         def compile_module(space, name,
-                           w_separate_module_files=None,
-                           w_separate_module_sources=None):
+                           w_source_files=None,
+                           w_source_strings=None):
             """
             Build an extension module linked against the cpyext api library.
             """
-            if not space.is_none(w_separate_module_files):
-                separate_module_files = space.listview_bytes(
-                    w_separate_module_files)
-                assert separate_module_files is not None
+            if not space.is_none(w_source_files):
+                source_files = space.listview_bytes(w_source_files)
             else:
-                separate_module_files = []
-            if not space.is_none(w_separate_module_sources):
-                separate_module_sources = space.listview_bytes(
-                    w_separate_module_sources)
-                assert separate_module_sources is not None
+                source_files = None
+            if not space.is_none(w_source_strings):
+                source_strings = space.listview_bytes(w_source_strings)
             else:
-                separate_module_sources = []
-            pydname = compile_extension_module(
-                space, name,
-                separate_module_files=separate_module_files,
-                separate_module_sources=separate_module_sources)
+                source_strings = None
+            pydname = self.sys_info.compile_extension_module(
+                name,
+                source_files=source_files,
+                source_strings=source_strings)
+
+            # hackish, but tests calling compile_module() always end up
+            # importing the result
+            self.record_imported_module(name)
+
             return space.wrap(pydname)
 
-        @unwrap_spec(name=str, init='str_or_None', body=str,
-                     load_it=bool, filename='str_or_None',
-                     PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(name='text', init='text_or_none', body='text',
+                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='',
-                          load_it=True, filename=None,
+                          filename=None, w_include_dirs=None,
                           PY_SSIZE_T_CLEAN=False):
-            """
-            init specifies the overall template of the module.
+            include_dirs = _unwrap_include_dirs(space, w_include_dirs)
+            w_result = self.sys_info.import_module(
+                name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN)
+            self.record_imported_module(name)
+            return w_result
 
-            if init is None, the module source will be loaded from a file in this
-            test direcory, give a name given by the filename parameter.
 
-            if filename is None, the module name will be used to construct the
-            filename.
-            """
-            if init is not None:
-                code = """
-                %(PY_SSIZE_T_CLEAN)s
-                #include <Python.h>
-                %(body)s
+        @unwrap_spec(mod='text', name='text')
+        def load_module(space, mod, name):
+            return self.sys_info.load_module(mod, name)
 
-                PyMODINIT_FUNC
-                init%(name)s(void) {
-                %(init)s
-                }
-                """ % dict(name=name, init=init, body=body,
-                           PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
-                                            if PY_SSIZE_T_CLEAN else '')
-                kwds = dict(separate_module_sources=[code])
-            else:
-                assert not PY_SSIZE_T_CLEAN
-                if filename is None:
-                    filename = name
-                filename = py.path.local(pypydir) / 'module' \
-                        / 'cpyext'/ 'test' / (filename + ".c")
-                kwds = dict(separate_module_files=[filename])
-
-            mod = compile_extension_module(space, name, **kwds)
-
-            if load_it:
-                api.load_extension_module(space, mod, name)
-                self.imported_module_names.append(name)
-                return space.getitem(
-                    space.sys.get('modules'),
-                    space.wrap(name))
-            else:
-                return os.path.dirname(mod)
-
-        @unwrap_spec(mod=str, name=str)
-        def reimport_module(space, mod, name):
-            api.load_extension_module(space, mod, name)
-            return space.getitem(
-                space.sys.get('modules'),
-                space.wrap(name))
-
-        @unwrap_spec(modname=str, prologue=str, more_init=str, PY_SSIZE_T_CLEAN=bool)
+        @unwrap_spec(modname='text', prologue='text',
+                             more_init='text', PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
-                             more_init="", PY_SSIZE_T_CLEAN=False):
+                             w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
-            methods_table = []
-            codes = []
-            for funcname, flags, code in functions:
-                cfuncname = "%s_%s" % (modname, funcname)
-                methods_table.append("{\"%s\", %s, %s}," %
-                                     (funcname, cfuncname, flags))
-                func_code = """
-                static PyObject* %s(PyObject* self, PyObject* args)
-                {
-                %s
-                }
-                """ % (cfuncname, code)
-                codes.append(func_code)
-
-            body = prologue + "\n".join(codes) + """
-            static PyMethodDef methods[] = {
-            %s
-            { NULL }
-            };
-            """ % ('\n'.join(methods_table),)
-            init = """Py_InitModule("%s", methods);""" % (modname,)
-            if more_init:
-                init += more_init
-            return import_module(space, name=modname, init=init, body=body,
-                                 PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
-
-        @unwrap_spec(name=str)
-        def record_imported_module(name):
-            """
-            Record a module imported in a test so that it can be cleaned up in
-            teardown before the check for leaks is done.
-
-            name gives the name of the module in the space's sys.modules.
-            """
-            self.imported_module_names.append(name)
+            include_dirs = _unwrap_include_dirs(space, w_include_dirs)
+            w_result = self.sys_info.import_extension(
+                modname, functions, prologue, include_dirs, more_init,
+                PY_SSIZE_T_CLEAN)
+            self.record_imported_module(modname)
+            return w_result
 
         # A list of modules which the test caused to be imported (in
         # self.space).  These will be cleaned up automatically in teardown.
         self.imported_module_names = []
 
-        self.w_compile_module = self.space.wrap(interp2app(compile_module))
-        self.w_import_module = self.space.wrap(interp2app(import_module))
-        self.w_reimport_module = self.space.wrap(interp2app(reimport_module))
-        self.w_import_extension = self.space.wrap(interp2app(import_extension))
-        self.w_record_imported_module = self.space.wrap(
-            interp2app(record_imported_module))
-        self.w_here = self.space.wrap(
-            str(py.path.local(pypydir)) + '/module/cpyext/test/')
-
+        wrap = self.space.wrap
+        self.w_compile_module = wrap(interp2app(compile_module))
+        self.w_load_module = wrap(interp2app(load_module))
+        self.w_import_module = wrap(interp2app(import_module))
+        self.w_import_extension = wrap(interp2app(import_extension))
 
         # create the file lock before we count allocations
         self.space.call_method(self.space.sys.get("stdout"), "flush")
 
         freeze_refcnts(self)
-        #self.check_and_print_leaks()
 
     def unimport_module(self, name):
         """
@@ -365,15 +361,13 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.space.delitem(w_modules, w_name)
 
     def teardown_method(self, func):
+        if self.runappdirect:
+            self.w_debug_collect()
+            return
+        debug_collect(self.space)
         for name in self.imported_module_names:
             self.unimport_module(name)
-        self.cleanup_references(self.space)
-        # XXX: find out how to disable check_and_print_leaks() if the
-        # test failed...
-        assert not self.check_and_print_leaks(), (
-            "Test leaks or loses object(s).  You should also check if "
-            "the test actually passed in the first place; if it failed "
-            "it is likely to reach this place.")
+        self.cleanup()
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
@@ -388,6 +382,11 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
     def test_export_function(self):
         import sys
+        if '__pypy__' in sys.modules:
+            from cpyext import is_cpyext_function
+        else:
+            import inspect
+            is_cpyext_function = inspect.isbuiltin
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);
@@ -406,12 +405,12 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert 'return_pi' in dir(module)
         assert module.return_pi is not None
+        assert is_cpyext_function(module.return_pi)
         assert module.return_pi() == 3.14
         assert module.return_pi.__module__ == 'foo'
 
 
     def test_export_docstring(self):
-        import sys
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);
@@ -444,7 +443,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         {
             if (self)
             {
-                Py_INCREF(self);
+                Py_IncRef(self);
                 return self;
             }
             else
@@ -499,17 +498,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         If `cherry.date` is an extension module which imports `apple.banana`,
         the latter is added to `sys.modules` for the `"apple.banana"` key.
         """
+        import sys, types, os
         # Build the extensions.
         banana = self.compile_module(
-            "apple.banana", separate_module_files=[self.here + 'banana.c'])
-        self.record_imported_module("apple.banana")
+            "apple.banana", source_files=[os.path.join(self.here, 'banana.c')])
         date = self.compile_module(
-            "cherry.date", separate_module_files=[self.here + 'date.c'])
-        self.record_imported_module("cherry.date")
+            "cherry.date", source_files=[os.path.join(self.here, 'date.c')])
 
         # Set up some package state so that the extensions can actually be
         # imported.
-        import sys, types, os
         cherry = sys.modules['cherry'] = types.ModuleType('cherry')
         cherry.__path__ = [os.path.dirname(date)]
 
@@ -517,7 +514,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         apple.__path__ = [os.path.dirname(banana)]
 
         import cherry.date
-        import apple.banana
 
         assert sys.modules['apple.banana'].__name__ == 'apple.banana'
         assert sys.modules['cherry.date'].__name__ == 'cherry.date'
@@ -533,7 +529,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_export_function2(self):
-        import sys
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);
@@ -638,23 +633,24 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         static PyObject* foo_pi(PyObject* self, PyObject *args)
         {
             PyObject *true_obj = Py_True;
-            int refcnt = true_obj->ob_refcnt;
-            int refcnt_after;
+            Py_ssize_t refcnt = true_obj->ob_refcnt;
+            Py_ssize_t refcnt_after;
             Py_INCREF(true_obj);
             Py_INCREF(true_obj);
-            PyBool_Check(true_obj);
+            if (!PyBool_Check(true_obj))
+                Py_RETURN_NONE;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);
-            fprintf(stderr, "REFCNT %i %i\\n", refcnt, refcnt_after);
-            return PyBool_FromLong(refcnt_after == refcnt+2 && refcnt < 3);
+            fprintf(stderr, "REFCNT %ld %ld\\n", refcnt, refcnt_after);
+            return PyBool_FromLong(refcnt_after == refcnt + 2);
         }
         static PyObject* foo_bar(PyObject* self, PyObject *args)
         {
             PyObject *true_obj = Py_True;
             PyObject *tup = NULL;
-            int refcnt = true_obj->ob_refcnt;
-            int refcnt_after;
+            Py_ssize_t refcnt = true_obj->ob_refcnt;
+            Py_ssize_t refcnt_after;
 
             tup = PyTuple_New(1);
             Py_INCREF(true_obj);
@@ -662,8 +658,10 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
                 return NULL;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(tup);
-            fprintf(stderr, "REFCNT2 %i %i\\n", refcnt, refcnt_after);
-            return PyBool_FromLong(refcnt_after == refcnt);
+            fprintf(stderr, "REFCNT2 %ld %ld %ld\\n", refcnt, refcnt_after,
+                    true_obj->ob_refcnt);
+            return PyBool_FromLong(refcnt_after == refcnt + 1 &&
+                                   refcnt == true_obj->ob_refcnt);
         }
 
         static PyMethodDef methods[] = {
@@ -690,7 +688,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_internal_exceptions(self):
-        import sys
+        if self.runappdirect:
+            skip('cannot import module with undefined functions')
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);
@@ -698,6 +697,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         body = """
         PyAPI_FUNC(PyObject*) PyPy_Crash1(void);
         PyAPI_FUNC(long) PyPy_Crash2(void);
+        PyAPI_FUNC(PyObject*) PyPy_Noop(PyObject*);
         static PyObject* foo_crash1(PyObject* self, PyObject *args)
         {
             return PyPy_Crash1();
@@ -721,9 +721,27 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             int a = PyPy_Crash2();
             return PyFloat_FromDouble(a);
         }
+        static PyObject* foo_noop(PyObject* self, PyObject* args)
+        {
+            Py_INCREF(args);
+            return PyPy_Noop(args);
+        }
+        static PyObject* foo_set(PyObject* self, PyObject *args)
+        {
+            PyErr_SetString(PyExc_TypeError, "clear called with no error");
+            if (PyInt_Check(args)) {
+                Py_INCREF(args);
+                return args;
+            }
+            return NULL;
+        }
         static PyObject* foo_clear(PyObject* self, PyObject *args)
         {
             PyErr_Clear();
+            if (PyInt_Check(args)) {
+                Py_INCREF(args);
+                return args;
+            }
             return NULL;
         }
         static PyMethodDef methods[] = {
@@ -731,20 +749,53 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "crash2", foo_crash2, METH_NOARGS },
             { "crash3", foo_crash3, METH_NOARGS },
             { "crash4", foo_crash4, METH_NOARGS },
-            { "clear",  foo_clear, METH_NOARGS },
+            { "clear",  foo_clear,  METH_O },
+            { "set",    foo_set,    METH_O },
+            { "noop",   foo_noop,   METH_O },
             { NULL }
         };
         """
         module = self.import_module(name='foo', init=init, body=body)
+
         # uncaught interplevel exceptions are turned into SystemError
-        raises(SystemError, module.crash1)
-        raises(SystemError, module.crash2)
-        # caught exception
+        expected = "ZeroDivisionError('integer division or modulo by zero',)"
+        exc = raises(SystemError, module.crash1)
+        assert exc.value[0] == expected
+
+        exc = raises(SystemError, module.crash2)
+        assert exc.value[0] == expected
+
+        # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
-        # An exception was set, but function returned a value
-        raises(SystemError, module.crash4)
-        # No exception set, but NULL returned
-        raises(SystemError, module.clear)
+
+        expected = 'An exception was set, but function returned a value'
+        # PyPy only incompatibility/extension
+        exc = raises(SystemError, module.crash4)
+        assert exc.value[0] == expected
+
+        # An exception was set by the previous call, it can pass
+        # cleanly through a call that doesn't check error state
+        assert module.noop(1) == 1
+
+        # clear the exception but return NULL, signalling an error
+        expected = 'Function returned a NULL result without setting an exception'
+        exc = raises(SystemError, module.clear, None)
+        assert exc.value[0] == expected
+
+        # Set an exception and return NULL
+        raises(TypeError, module.set, None)
+
+        # clear any exception and return a value
+        assert module.clear(1) == 1
+
+        # Set an exception, but return non-NULL
+        expected = 'An exception was set, but function returned a value'
+        exc = raises(SystemError, module.set, 1)
+        assert exc.value[0] == expected
+
+
+        # Clear the exception and return a value, all is OK
+        assert module.clear(1) == 1
 
     def test_new_exception(self):
         mod = self.import_extension('foo', [
@@ -758,6 +809,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             ])
         raises(SystemError, mod.newexc, "name", Exception, {})
 
+    @pytest.mark.skipif(only_pypy, reason='pypy specific test')
     def test_hash_pointer(self):
         mod = self.import_extension('foo', [
             ('get_hash', 'METH_NOARGS',
@@ -808,6 +860,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         print p
         assert 'py' in p
 
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_get_version(self):
         mod = self.import_extension('foo', [
             ('get_version', 'METH_NOARGS',
@@ -849,7 +902,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             f.write('not again!\n')
             f.close()
             m1 = sys.modules['foo']
-            m2 = self.reimport_module(m1.__file__, name='foo')
+            m2 = self.load_module(m1.__file__, name='foo')
             assert m1 is m2
             assert m1 is sys.modules['foo']
 
@@ -863,3 +916,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
                 os.unlink('_imported_already')
             except OSError:
                 pass
+
+    def test_no_structmember(self):
+        """structmember.h should not be included by default."""
+        mod = self.import_extension('foo', [
+            ('bar', 'METH_NOARGS',
+             '''
+             /* reuse a name that is #defined in structmember.h */
+             int RO = 0; (void)RO;
+             Py_RETURN_NONE;
+             '''
+             ),
+        ])

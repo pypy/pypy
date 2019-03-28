@@ -1,10 +1,8 @@
 from __future__ import absolute_import
-import py
+import pytest
 import sys
 import marshal as cpy_marshal
 from lib_pypy import _marshal as marshal
-
-from rpython.tool.udir import udir 
 
 hello = "he"
 hello += "llo"
@@ -12,12 +10,7 @@ def func(x):
     return lambda y: x+y
 scopefunc = func(42)
 
-TESTCASES = [
-    None,
-    False,
-    True,
-    StopIteration,
-    Ellipsis,
+SUBCLASSABLE = [
     42,
     sys.maxint,
     -1.25,
@@ -32,119 +25,74 @@ TESTCASES = [
     [3, 4],
     {},
     {5: 6, 7: 8},
+    u'hello',
+    set(),
+    set([1, 2]),
+    frozenset(),
+    frozenset([3, 4]),
+]
+
+TESTCASES = SUBCLASSABLE + [
+    None,
+    False,
+    True,
+    StopIteration,
+    Ellipsis,
     func.func_code,
     scopefunc.func_code,
-    u'hello',
-    ]
-
-try:
-    TESTCASES += [
-        set(),
-        set([1, 2]),
-        frozenset(),
-        frozenset([3, 4]),
-        ]
-except NameError:
-    pass    # Python < 2.4
-
-if getattr(cpy_marshal, 'version', 0) > 1:
-    cpy_dump_version = (1,)
-else:
-    cpy_dump_version = ()
+]
 
 
-def test_cases():
-    for case in TESTCASES:
-        yield dumps_and_reload, case
-        yield loads_from_cpython, case
-        yield dumps_to_cpython, case
-        if case is not StopIteration:
-            yield dumps_subclass, case
-        yield load_from_cpython, case
-        yield dump_to_cpython, case
-
-def dumps_and_reload(case):
-    print 'dump_and_reload', `case`
+@pytest.mark.parametrize('case', TESTCASES)
+def test_dumps_and_reload(case):
     s = marshal.dumps(case)
     obj = marshal.loads(s)
     assert obj == case
 
-def loads_from_cpython(case):
-    print 'load_from_cpython', `case`
-    try:
-        s = cpy_marshal.dumps(case, *cpy_dump_version)
-    except ValueError:
-        py.test.skip("this version of CPython doesn't support this object") 
+@pytest.mark.parametrize('case', TESTCASES)
+def test_loads_from_cpython(case):
+    s = cpy_marshal.dumps(case, 1)  # XXX: fails with version 2
     obj = marshal.loads(s)
     assert obj == case
 
-def dumps_to_cpython(case):
-    print 'dump_to_cpython', `case`
-    try:
-        cpy_marshal.dumps(case, *cpy_dump_version)
-    except ValueError:
-        py.test.skip("this version of CPython doesn't support this object") 
+@pytest.mark.parametrize('case', TESTCASES)
+def test_dumps_to_cpython(case):
     s = marshal.dumps(case)
     obj = cpy_marshal.loads(s)
     assert obj == case
 
-def dumps_subclass(case):
-    try:
-        class Subclass(type(case)):
-            pass
-        case = Subclass(case)
-    except TypeError:
-        py.test.skip("this version of CPython doesn't support this object") 
+@pytest.mark.parametrize('case', SUBCLASSABLE)
+def test_dumps_subclass(case):
+    class Subclass(type(case)):
+        pass
+    case = Subclass(case)
     s = marshal.dumps(case)
     obj = marshal.loads(s)
     assert obj == case
 
-def load_from_cpython(case):
-    p = str(udir.join('test.dat'))
+@pytest.mark.parametrize('case', TESTCASES)
+def test_load_from_cpython(tmpdir, case):
+    p = str(tmpdir.join('test.dat'))
 
-    f1 = open(p, "w")
-    try:
-        try:
-            s = cpy_marshal.dump(case, f1, *cpy_dump_version)
-        finally:
-            f1.close()
-    except ValueError:
-        py.test.skip("this version of CPython doesn't support this object") 
-
-    f2 = open(p, "r")
-    try:
+    with open(p, "w") as f1:
+        s = cpy_marshal.dump(case, f1, 1)  # XXX: fails with version 2
+    with open(p, "r") as f2:
         obj = marshal.load(f2)
-    finally:
-        f2.close()
     assert obj == case
 
-def dump_to_cpython(case):
-
-    try:
-        cpy_marshal.dumps(case, *cpy_dump_version)
-    except ValueError:
-        py.test.skip("this version of CPython doesn't support this object") 
-
-    p = str(udir.join('test.dat'))
-    f1 = open(p, "w")
-    try:
-        try:
-            s = marshal.dump(case, f1)
-        finally:
-            f1.close()
-    except ValueError:
-        py.test.skip("this version of CPython doesn't support this object") 
-
-    f2 = open(p, "r")
-    try:
+@pytest.mark.parametrize('case', TESTCASES)
+def test_dump_to_cpython(tmpdir, case):
+    p = str(tmpdir.join('test.dat'))
+    with open(p, "w") as f1:
+        s = marshal.dump(case, f1)
+    with open(p, "r") as f2:
         obj = cpy_marshal.load(f2)
-    finally:
-        f2.close()
     assert obj == case
 
 def test_load_truncated_string():
     s = '(\x02\x00\x00\x00i\x03\x00\x00\x00sB\xf9\x00\x00\nabcd'
-    py.test.raises(EOFError, marshal.loads, s)
+    with pytest.raises(EOFError):
+        marshal.loads(s)
 
 def test_dump_unicode_length():
     s = b'123\xe9'.decode('latin-1')

@@ -4,6 +4,7 @@ from __future__ import with_statement
 
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, is_emulated_long
@@ -22,9 +23,6 @@ import os
 import sys
 import ctypes.util
 
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("libffi")
-py.log.setconsumer("libffi", ansi_log)
 
 # maaaybe isinstance here would be better. Think
 _MSVC = platform.name == "msvc"
@@ -151,7 +149,8 @@ class CConfig:
                                                  ('elements', FFI_TYPE_PP)])
 
     ffi_cif = rffi_platform.Struct('ffi_cif', [])
-    ffi_closure = rffi_platform.Struct('ffi_closure', [])
+    ffi_closure = rffi_platform.Struct('ffi_closure',
+                                       [('user_data', rffi.VOIDP)])
 
 def add_simple_type(type_name):
     for name in ['size', 'alignment', 'type']:
@@ -298,7 +297,8 @@ elif _MSVC:
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
 
-    assert "msvcr" in get_libc_name().lower(), \
+    libc_name = get_libc_name().lower()
+    assert "msvcr" in libc_name or 'ucrtbase' in libc_name, \
            "Suspect msvcrt library: %s" % (get_libc_name(),)
 elif _MINGW:
     def get_libc_name():
@@ -361,12 +361,13 @@ def make_struct_ffitype_e(size, aligment, field_types, track_allocation=True):
     tpe.members[n] = lltype.nullptr(FFI_TYPE_P.TO)
     return tpe
 
+@specialize.memo()
 def cast_type_to_ffitype(tp):
     """ This function returns ffi representation of rpython type tp
     """
     return TYPE_MAP[tp]
-cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
+@specialize.argtype(1)
 def push_arg_as_ffiptr(ffitp, arg, ll_buf):
     # This is for primitive types.  Note that the exact type of 'arg' may be
     # different from the expected 'c_size'.  To cope with that, we fall back
@@ -398,7 +399,6 @@ def push_arg_as_ffiptr(ffitp, arg, ll_buf):
                 arg >>= 8
         else:
             raise AssertionError
-push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
 
 # type defs for callback and closure userdata
@@ -421,6 +421,7 @@ def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
                   (what the real callback is for example), casted to VOIDP
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
+    llop.revdb_do_next_call(lltype.Void)
     userdata.callback(ll_args, ll_res, userdata)
 
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
@@ -472,12 +473,12 @@ FUNCFLAG_PYTHONAPI = 4
 FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
+@specialize.arg(1)     # hack :-/
 def get_call_conv(flags, from_jit):
     if _WIN32 and not _WIN64 and (flags & FUNCFLAG_CDECL == 0):
         return FFI_STDCALL
     else:
         return FFI_DEFAULT_ABI
-get_call_conv._annspecialcase_ = 'specialize:arg(1)'     # hack :-/
 
 
 class AbstractFuncPtr(object):
@@ -594,10 +595,14 @@ class FuncPtr(AbstractFuncPtr):
                                             intmask(argtypes[i].c_size),
                                             flavor='raw')
         if restype != ffi_type_void:
-            size = adjust_return_size(intmask(restype.c_size))
+            self.restype_size = intmask(restype.c_size)
+            size = adjust_return_size(self.restype_size)
             self.ll_result = lltype.malloc(rffi.VOIDP.TO, size,
                                            flavor='raw')
+        else:
+            self.restype_size = -1
 
+    @specialize.argtype(1)
     def push_arg(self, value):
         #if self.pushed_args == self.argnum:
         #    raise TypeError("Too many arguments, eats %d, pushed %d" %
@@ -617,7 +622,6 @@ class FuncPtr(AbstractFuncPtr):
         push_arg_as_ffiptr(self.argtypes[self.pushed_args], value,
                            self.ll_args[self.pushed_args])
         self.pushed_args += 1
-    push_arg._annspecialcase_ = 'specialize:argtype(1)'
 
     def _check_args(self):
         if self.pushed_args < self.argnum:
@@ -626,6 +630,7 @@ class FuncPtr(AbstractFuncPtr):
     def _clean_args(self):
         self.pushed_args = 0
 
+    @specialize.arg(1)
     def call(self, RES_TP):
         self._check_args()
         ffires = c_ffi_call(self.ll_cif, self.funcsym,
@@ -633,13 +638,17 @@ class FuncPtr(AbstractFuncPtr):
                             rffi.cast(VOIDPP, self.ll_args))
         if RES_TP is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RES_TP))
-            res = rffi.cast(TP, self.ll_result)[0]
+            ptr = self.ll_result
+            if _BIG_ENDIAN and RES_TP in TYPE_MAP_INT:
+                # we get a 8 byte value in big endian
+                n = rffi.sizeof(lltype.Signed) - self.restype_size
+                ptr = rffi.ptradd(ptr, n)
+            res = rffi.cast(TP, ptr)[0]
         else:
             res = None
         self._clean_args()
         check_fficall_result(ffires, self.flags)
         return res
-    call._annspecialcase_ = 'specialize:arg(1)'
 
     def __del__(self):
         if self.ll_args:

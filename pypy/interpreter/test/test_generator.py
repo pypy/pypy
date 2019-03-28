@@ -57,12 +57,14 @@ class AppTestGenerator:
         def f():
             yield 2
         g = f()
+        # two arguments version
         raises(NameError, g.throw, NameError, "Error")
 
     def test_throw2(self):
         def f():
             yield 2
         g = f()
+        # single argument version
         raises(NameError, g.throw, NameError("Error"))
 
     def test_throw3(self):
@@ -221,7 +223,8 @@ class AppTestGenerator:
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.send, 1)
+        raises(TypeError, g.send)     # one argument required
+        raises(TypeError, g.send, 1)  # not started, must send None
 
     def test_generator_explicit_stopiteration(self):
         def f():
@@ -293,6 +296,13 @@ res = f()
             next(gen)
         except TypeError:
             pass
+
+    def test_multiple_invalid_sends(self):
+        def mygen():
+            yield 42
+        g = mygen()
+        raises(TypeError, g.send, 2)
+        raises(TypeError, g.send, 2)
 
 
 def test_should_not_inline(space):

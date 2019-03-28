@@ -1,4 +1,5 @@
 import os
+from rpython.rlib import entrypoint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -37,7 +38,7 @@ def load_embedded_cffi_module(space, version, init_struct):
     compiler = space.createcompiler()
     pycode = compiler.compile(code, "<init code for '%s'>" % name, 'exec', 0)
     w_globals = space.newdict(module=True)
-    space.setitem_str(w_globals, "__builtins__", space.wrap(space.builtin))
+    space.setitem_str(w_globals, "__builtins__", space.builtin)
     pycode.exec_code(space, w_globals, w_globals)
 
 
@@ -45,6 +46,9 @@ class Global:
     pass
 glob = Global()
 
+
+@entrypoint.entrypoint_highlevel('main', [rffi.INT, rffi.VOIDP],
+                                 c_name='pypy_init_embedded_cffi_module')
 def pypy_init_embedded_cffi_module(version, init_struct):
     # called from __init__.py
     name = "?"
@@ -58,7 +62,9 @@ def pypy_init_embedded_cffi_module(version, init_struct):
             must_leave = space.threadlocals.try_enter_thread(space)
             load_embedded_cffi_module(space, version, init_struct)
             res = 0
-        except OperationError, operr:
+        except OperationError as operr:
+            from pypy.module._cffi_backend import errorbox
+            ecap = errorbox.start_error_capture(space)
             operr.write_unraisable(space, "initialization of '%s'" % name,
                                    with_traceback=True)
             space.appexec([], r"""():
@@ -67,10 +73,11 @@ def pypy_init_embedded_cffi_module(version, init_struct):
                                  sys.pypy_version_info[:3])
                 sys.stderr.write('sys.path: %r\n' % (sys.path,))
             """)
+            errorbox.stop_error_capture(space, ecap)
             res = -1
         if must_leave:
             space.threadlocals.leave_thread(space)
-    except Exception, e:
+    except Exception as e:
         # oups! last-level attempt to recover.
         try:
             os.write(STDERR, "From initialization of '")
@@ -85,14 +92,47 @@ def pypy_init_embedded_cffi_module(version, init_struct):
 
 # ____________________________________________________________
 
+if os.name == 'nt':
 
-eci = ExternalCompilationInfo(separate_module_sources=[
-r"""
-/* XXX Windows missing */
-#include <stdio.h>
-#include <dlfcn.h>
+    do_includes = r"""
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501
+#endif
+#include <windows.h>
+
+static void _cffi_init(void);
+
+static void _cffi_init_once(void)
+{
+    static LONG volatile lock = 0;
+    static int _init_called = 0;
+
+    while (InterlockedCompareExchange(&lock, 1, 0) != 0) {
+         SwitchToThread();        /* spin loop */
+    }
+    if (!_init_called) {
+        _cffi_init();
+        _init_called = 1;
+    }
+    InterlockedCompareExchange(&lock, 0, 1);
+}
+"""
+
+else:
+
+    do_includes = r"""
 #include <pthread.h>
 
+static void _cffi_init(void);
+
+static void _cffi_init_once(void)
+{
+    static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+    pthread_once(&once_control, _cffi_init);
+}
+"""
+
+do_startup = do_includes + r"""
 RPY_EXPORTED void rpython_startup_code(void);
 RPY_EXPORTED int pypy_setup_home(char *, int);
 
@@ -108,18 +148,10 @@ static void _cffi_init_error(const char *msg, const char *extra)
 
 static void _cffi_init(void)
 {
-    Dl_info info;
-    char *home;
-
     rpython_startup_code();
     RPyGilAllocate();
 
-    if (dladdr(&_cffi_init, &info) == 0) {
-        _cffi_init_error("dladdr() failed: ", dlerror());
-        return;
-    }
-    home = realpath(info.dli_fname, NULL);
-    if (pypy_setup_home(home, 1) != 0) {
+    if (pypy_setup_home(NULL, 1) != 0) {
         _cffi_init_error("pypy_setup_home() failed", "");
         return;
     }
@@ -134,13 +166,12 @@ int pypy_carefully_make_gil(const char *name)
        It assumes that we don't hold the GIL before (if it exists), and we
        don't hold it afterwards.
     */
-    static pthread_once_t once_control = PTHREAD_ONCE_INIT;
-
     _cffi_module_name = name;    /* not really thread-safe, but better than
                                     nothing */
-    pthread_once(&once_control, _cffi_init);
+    _cffi_init_once();
     return (int)_cffi_ready - 1;
 }
-"""])
+"""
+eci = ExternalCompilationInfo(separate_module_sources=[do_startup])
 
 declare_c_function = rffi.llexternal_use_eci(eci)

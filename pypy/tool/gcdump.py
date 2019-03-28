@@ -13,10 +13,12 @@ import sys, array, struct, os
 class Stat(object):
     summary = {}
     typeids = {0: '<GCROOT>'}
+    BIGOBJ = 65536   # bytes
 
     def summarize(self, filename):
         a = self.load_dump_file(filename)
         self.summary = {}     # {typenum: [count, totalsize]}
+        self.bigobjs = []     # list of individual (size, typenum)
         for obj in self.walk(a):
             self.add_object_summary(obj[2], obj[3])
 
@@ -50,6 +52,18 @@ class Stat(object):
             print '%8d %8.2fM  %s' % (stat[0], stat[1] / (1024.0*1024.0),
                                       self.get_type_name(typenum))
         print 'total %.1fM' % (totalsize / (1024.0*1024.0),)
+        print
+        lst = sorted(self.bigobjs)[-10:]
+        if lst:
+            if len(lst) == len(self.bigobjs):
+                print '%d objects take at least %d bytes each:' % (len(lst), self.BIGOBJ)
+            else:
+                print '%d largest single objects:' % (len(lst),)
+            for size, typenum in lst:
+                print '%8s %8.2fM  %s' % ('', size / (1024.0*1024.0),
+                                          self.get_type_name(typenum))
+        else:
+            print 'No object takes at least %d bytes on its own.' % (self.BIGOBJ,)
 
     def load_dump_file(self, filename):
         f = open(filename, 'rb')
@@ -62,6 +76,8 @@ class Stat(object):
         return a
 
     def add_object_summary(self, typenum, sizeobj):
+        if sizeobj >= self.BIGOBJ:
+            self.bigobjs.append((sizeobj, typenum))
         try:
             stat = self.summary[typenum]
         except KeyError:

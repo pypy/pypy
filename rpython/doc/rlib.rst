@@ -52,7 +52,7 @@ more useful ones are:
     backend emits code, the function is called to determine the value.
 
 ``CDefinedIntSymbolic``:
-    Instances of ``ComputedIntSymbolic`` are also treated like integers of
+    Instances of ``CDefinedIntSymbolic`` are also treated like integers of
     unknown value by the annotator. When C code is emitted they will be
     represented by the attribute ``expr`` of the symbolic (which is also the
     first argument of the constructor).

@@ -11,6 +11,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
+from rpython.rlib.rutf8 import get_utf8_length
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import constants as NPY
@@ -68,7 +69,7 @@ class Box(object):
         scalar = multiarray.get("scalar")
 
         ret = space.newtuple([scalar, space.newtuple(
-            [space.wrap(self._get_dtype(space)), space.wrap(self.raw_str())])])
+            [self._get_dtype(space), space.newtext(self.raw_str())])])
         return ret
 
 
@@ -187,8 +188,7 @@ class W_GenericBox(W_NumpyObject):
         elif (space.isinstance_w(w_item, space.w_tuple) and
                     space.len_w(w_item) == 0):
             return self
-        raise OperationError(space.w_IndexError, space.wrap(
-            "invalid index to scalar variable"))
+        raise oefmt(space.w_IndexError, "invalid index to scalar variable")
 
     def descr_iter(self, space):
         # Making numpy scalar non-iterable with a valid __getitem__ method
@@ -197,11 +197,11 @@ class W_GenericBox(W_NumpyObject):
 
     def descr_str(self, space):
         tp = self.get_dtype(space).itemtype
-        return space.wrap(tp.str_format(self, add_quotes=False))
+        return space.newtext(tp.str_format(self, add_quotes=False))
 
     def descr_repr(self, space):
         tp = self.get_dtype(space).itemtype
-        return space.wrap(tp.str_format(self, add_quotes=True))
+        return space.newtext(tp.str_format(self, add_quotes=True))
 
     def descr_format(self, space, w_spec):
         return space.format(self.item(space), w_spec)
@@ -210,7 +210,7 @@ class W_GenericBox(W_NumpyObject):
         return space.hash(self.item(space))
 
     def descr___array_priority__(self, space):
-        return space.wrap(0.0)
+        return space.newfloat(0.0)
 
     def descr_index(self, space):
         return space.index(self.item(space))
@@ -243,7 +243,7 @@ class W_GenericBox(W_NumpyObject):
         return space.hex(self.descr_int(space))
 
     def descr_nonzero(self, space):
-        return space.wrap(self.get_dtype(space).itemtype.bool(self))
+        return space.newbool(self.get_dtype(space).itemtype.bool(self))
 
     # TODO: support all kwargs in ufuncs like numpy ufunc_object.c
     sig = None
@@ -344,8 +344,7 @@ class W_GenericBox(W_NumpyObject):
     @unwrap_spec(decimals=int)
     def descr_round(self, space, decimals=0, w_out=None):
         if not space.is_none(w_out):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "out not supported"))
+            raise oefmt(space.w_NotImplementedError, "out not supported")
         return self.get_dtype(space).itemtype.round(self, decimals)
 
     def descr_astype(self, space, w_dtype):
@@ -357,9 +356,9 @@ class W_GenericBox(W_NumpyObject):
     def descr_view(self, space, w_dtype):
         from pypy.module.micronumpy.descriptor import W_Dtype
         try:
-            subclass = space.is_true(space.issubtype(
-                w_dtype, space.gettypefor(W_NDimArray)))
-        except OperationError, e:
+            subclass = space.issubtype_w(w_dtype,
+                                         space.gettypefor(W_NDimArray))
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 subclass = False
             else:
@@ -370,14 +369,13 @@ class W_GenericBox(W_NumpyObject):
             dtype = space.interp_w(W_Dtype,
                 space.call_function(space.gettypefor(W_Dtype), w_dtype))
             if dtype.elsize == 0:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "data-type must not be 0-sized"))
+                raise oefmt(space.w_TypeError, "data-type must not be 0-sized")
             if dtype.elsize != self.get_dtype(space).elsize:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "new type not compatible with array."))
+                raise oefmt(space.w_ValueError,
+                            "new type not compatible with array.")
         if dtype.is_record():
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "viewing scalar as record not implemented"))
+            raise oefmt(space.w_NotImplementedError,
+                        "viewing scalar as record not implemented")
         else:
             return dtype.runpack_str(space, self.raw_str())
 
@@ -388,16 +386,16 @@ class W_GenericBox(W_NumpyObject):
         return self.get_dtype(space)
 
     def descr_get_size(self, space):
-        return space.wrap(1)
+        return space.newint(1)
 
     def descr_get_itemsize(self, space):
-        return space.wrap(self.get_dtype(space).elsize)
+        return space.newint(self.get_dtype(space).elsize)
 
     def descr_get_shape(self, space):
         return space.newtuple([])
 
     def descr_get_ndim(self, space):
-        return space.wrap(0)
+        return space.newint(0)
 
     def descr_copy(self, space):
         return self.convert_to(space, self.get_dtype(space))
@@ -415,18 +413,18 @@ class W_GenericBox(W_NumpyObject):
         return self.get_dtype(space).itemtype.byteswap(self)
 
     def descr_tostring(self, space, __args__):
-        w_meth = space.getattr(self.descr_ravel(space), space.wrap('tostring'))
+        w_meth = space.getattr(self.descr_ravel(space), space.newtext('tostring'))
         return space.call_args(w_meth, __args__)
 
     def descr_reshape(self, space, __args__):
-        w_meth = space.getattr(self.descr_ravel(space), space.wrap('reshape'))
+        w_meth = space.getattr(self.descr_ravel(space), space.newtext('reshape'))
         w_res = space.call_args(w_meth, __args__)
         if isinstance(w_res, W_NDimArray) and len(w_res.get_shape()) == 0:
             return w_res.get_scalar_value()
         return w_res
 
     def descr_nd_nonzero(self, space, __args__):
-        w_meth = space.getattr(self.descr_ravel(space), space.wrap('nonzero'))
+        w_meth = space.getattr(self.descr_ravel(space), space.newtext('nonzero'))
         return space.call_args(w_meth, __args__)
 
     def descr_get_real(self, space):
@@ -559,7 +557,7 @@ class W_FlexibleBox(W_GenericBox):
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
         if space.isinstance_w(w_item, space.w_basestring):
-            item = space.str_w(w_item)
+            item = space.text_w(w_item)
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
@@ -582,7 +580,7 @@ class W_VoidBox(W_FlexibleBox):
             read_val = dtype.read(self.arr, self.ofs, ofs)
         if isinstance (read_val, W_StringBox):
             # StringType returns a str
-            return space.wrap(dtype.itemtype.to_str(read_val))
+            return space.newbytes(dtype.itemtype.to_str(read_val))
         return read_val
 
     def descr_iter(self, space):
@@ -590,7 +588,7 @@ class W_VoidBox(W_FlexibleBox):
 
     def descr_setitem(self, space, w_item, w_value):
         if space.isinstance_w(w_item, space.w_basestring):
-            item = space.str_w(w_item)
+            item = space.text_w(w_item)
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
@@ -616,7 +614,8 @@ class W_VoidBox(W_FlexibleBox):
 
 class W_CharacterBox(W_FlexibleBox):
     def convert_to(self, space, dtype):
-        return dtype.coerce(space, space.wrap(self.raw_str()))
+        # XXX should be newbytes?
+        return dtype.coerce(space, space.newtext(self.raw_str()))
 
     def descr_len(self, space):
         return space.len(self.item(space))
@@ -624,7 +623,7 @@ class W_CharacterBox(W_FlexibleBox):
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.descriptor import new_string_dtype
-        arg = space.str_w(space.str(w_arg))
+        arg = space.text_w(space.str(w_arg))
         arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
@@ -638,7 +637,8 @@ class W_UnicodeBox(W_CharacterBox):
         if dtype.is_unicode():
             return self
         elif dtype.is_object():
-            return W_ObjectBox(space.wrap(self._value))
+            return W_ObjectBox(space.newutf8(self._value,
+                               get_utf8_length(self._value)))
         else:
             raise oefmt(space.w_NotImplementedError,
                         "Conversion from unicode not implemented yet")
@@ -648,7 +648,7 @@ class W_UnicodeBox(W_CharacterBox):
         return new_unicode_dtype(space, len(self._value))
 
     def descr__new__unicode_box(space, w_subtype, w_arg):
-        value = space.unicode_w(space.unicode_from_object(w_arg))
+        value = space.utf8_w(space.unicode_from_object(w_arg))
         return W_UnicodeBox(value)
 
 class W_ObjectBox(W_GenericBox):

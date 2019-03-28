@@ -6,9 +6,8 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
-from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH
-from rpython.rlib.buffer import Buffer
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, not_rpython
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH, intmask
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
@@ -16,17 +15,41 @@ from rpython.tool.pairtype import pairtype
 
 # -------------- public API for string functions -----------------------
 
-@specialize.argtype(0)
-def _isspace(char):
+@specialize.ll_and_arg(2)
+def _isspace(s, pos, isutf8=False):
+    if isutf8:
+        from rpython.rlib import rutf8
+        return rutf8.isspace(s, pos)
+    char = s[pos]
     if isinstance(char, str):
         return char.isspace()
     else:
         assert isinstance(char, unicode)
         return unicodedb.isspace(ord(char))
 
+@specialize.ll_and_arg(2)
+def _incr(s, pos, isutf8):
+    if isutf8:
+        from rpython.rlib.rutf8 import next_codepoint_pos
+        assert pos >= 0
+        r = next_codepoint_pos(s, pos)
+        assert r >= 0
+        return r
+    else:
+        return pos + 1
 
-@specialize.argtype(0, 1)
-def split(value, by=None, maxsplit=-1):
+@specialize.ll_and_arg(2)
+def _decr(s, pos, isutf8):
+    if isutf8:
+        from rpython.rlib.rutf8 import prev_codepoint_pos
+        if pos <= 0:
+            return -1
+        return intmask(prev_codepoint_pos(s, pos))
+    else:
+        return pos - 1
+
+@specialize.ll_and_arg(3)
+def split(value, by=None, maxsplit=-1, isutf8=False):
     if by is None:
         length = len(value)
         i = 0
@@ -34,9 +57,9 @@ def split(value, by=None, maxsplit=-1):
         while True:
             # find the beginning of the next word
             while i < length:
-                if not _isspace(value[i]):
+                if not _isspace(value, i, isutf8):
                     break   # found
-                i += 1
+                i = _incr(value, i, isutf8)
             else:
                 break  # end of string, finished
 
@@ -44,18 +67,25 @@ def split(value, by=None, maxsplit=-1):
             if maxsplit == 0:
                 j = length   # take all the rest of the string
             else:
-                j = i + 1
-                while j < length and not _isspace(value[j]):
-                    j += 1
+                j = _incr(value, i, isutf8)
+                while j < length and not _isspace(value, j, isutf8):
+                    j = _incr(value, j, isutf8)
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
             # the word is value[i:j]
             res.append(value[i:j])
 
             # continue to look from the character following the space after the word
-            i = j + 1
+            if j < length:
+                i = _incr(value, j, isutf8)
+            else:
+                break
         return res
+    else:
+        return _split_by(value, by, maxsplit)
 
+@specialize.argtype(0)
+def _split_by(value, by, maxsplit):
     if isinstance(value, unicode):
         assert isinstance(by, unicode)
     if isinstance(value, str):
@@ -66,6 +96,8 @@ def split(value, by=None, maxsplit=-1):
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
+    # XXX measure if preallocating the result list to the correct
+    #     size is faster, should be
 
     start = 0
     if bylen == 1:
@@ -102,8 +134,8 @@ def split(value, by=None, maxsplit=-1):
     return res
 
 
-@specialize.argtype(0, 1)
-def rsplit(value, by=None, maxsplit=-1):
+@specialize.ll_and_arg(3)
+def rsplit(value, by=None, maxsplit=-1, isutf8=False):
     if by is None:
         res = []
 
@@ -111,33 +143,40 @@ def rsplit(value, by=None, maxsplit=-1):
         while True:
             # starting from the end, find the end of the next word
             while i >= 0:
-                if not _isspace(value[i]):
+                if not _isspace(value, i, isutf8):
                     break   # found
-                i -= 1
+                i = _decr(value, i, isutf8)
             else:
                 break  # end of string, finished
 
-            # find the start of the word
-            # (more precisely, 'j' will be the space character before the word)
+            # find the start of the word as 'j1'
             if maxsplit == 0:
-                j = -1   # take all the rest of the string
+                j1 = 0   # take all the rest of the string
+                j = -1
             else:
-                j = i - 1
-                while j >= 0 and not _isspace(value[j]):
-                    j -= 1
+                j1 = i
+                while True:
+                    j = _decr(value, j1, isutf8)
+                    if j < 0 or _isspace(value, j, isutf8):
+                        break
+                    j1 = j
                 maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-            # the word is value[j+1:i+1]
-            j1 = j + 1
+            # the word is value[j1:i+1]
             assert j1 >= 0
-            res.append(value[j1:i+1])
+            i1 = _incr(value, i, isutf8)
+            res.append(value[j1:i1])
 
             # continue to look from the character before the space before the word
-            i = j - 1
+            i = _decr(value, j, isutf8)
 
         res.reverse()
         return res
+    else:
+        return _rsplit_by(value, by, maxsplit)
 
+@specialize.argtype(0)
+def _rsplit_by(value, by, maxsplit):
     if isinstance(value, unicode):
         assert isinstance(by, unicode)
     if isinstance(value, str):
@@ -170,6 +209,11 @@ def rsplit(value, by=None, maxsplit=-1):
 @specialize.argtype(0, 1)
 @jit.elidable
 def replace(input, sub, by, maxsplit=-1):
+    return replace_count(input, sub, by, maxsplit)[0]
+
+@specialize.ll_and_arg(4)
+@jit.elidable
+def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
     if isinstance(input, str):
         Builder = StringBuilder
     elif isinstance(input, unicode):
@@ -178,10 +222,10 @@ def replace(input, sub, by, maxsplit=-1):
         assert isinstance(input, list)
         Builder = ByteListBuilder
     if maxsplit == 0:
-        return input
+        return input, 0
 
 
-    if not sub:
+    if not sub and not isutf8:
         upper = len(input)
         if maxsplit > 0 and maxsplit < upper + 2:
             upper = maxsplit - 1
@@ -201,9 +245,16 @@ def replace(input, sub, by, maxsplit=-1):
             builder.append(input[i])
         builder.append(by)
         builder.append_slice(input, upper, len(input))
+        replacements = upper + 1
     else:
         # First compute the exact result size
-        cnt = count(input, sub, 0, len(input))
+        if sub:
+            cnt = count(input, sub, 0, len(input))
+        else:
+            assert isutf8
+            from rpython.rlib import rutf8
+            cnt = rutf8.codepoints_in_utf8(input) + 1
+
         if cnt > maxsplit and maxsplit > 0:
             cnt = maxsplit
         diff_len = len(by) - len(sub)
@@ -212,23 +263,36 @@ def replace(input, sub, by, maxsplit=-1):
             result_size = ovfcheck(result_size + len(input))
         except OverflowError:
             raise
+        replacements = cnt
 
         builder = Builder(result_size)
         start = 0
         sublen = len(sub)
 
-        while maxsplit != 0:
-            next = find(input, sub, start, len(input))
-            if next < 0:
-                break
-            builder.append_slice(input, start, next)
-            builder.append(by)
-            start = next + sublen
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+        if sublen == 0:
+            assert isutf8
+            from rpython.rlib import rutf8
+            while True:
+                builder.append(by)
+                maxsplit -= 1
+                if start == len(input) or maxsplit == 0:
+                    break
+                next = rutf8.next_codepoint_pos(input, start)
+                builder.append_slice(input, start, next)
+                start = next
+        else:
+            while maxsplit != 0:
+                next = find(input, sub, start, len(input))
+                if next < 0:
+                    break
+                builder.append_slice(input, start, next)
+                builder.append(by)
+                start = next + sublen
+                maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         builder.append_slice(input, start, len(input))
 
-    return builder.build()
+    return builder.build(), replacements
 
 def _normalize_start_end(length, start, end):
     if start < 0:
@@ -291,6 +355,7 @@ def count(value, other, start, end):
     return _search(value, other, start, end, SEARCH_COUNT)
 
 # -------------- substring searching helper ----------------
+# XXX a lot of code duplication with lltypesystem.rstr :-(
 
 SEARCH_COUNT = 0
 SEARCH_FIND = 1
@@ -309,6 +374,8 @@ def _search(value, other, start, end, mode):
     if end > len(value):
         end = len(value)
     if start > end:
+        if mode == SEARCH_COUNT:
+            return 0
         return -1
 
     count = 0
@@ -326,6 +393,8 @@ def _search(value, other, start, end, mode):
     w = n - m
 
     if w < 0:
+        if mode == SEARCH_COUNT:
+            return 0
         return -1
 
     mlast = m - 1
@@ -413,6 +482,9 @@ class ParseStringError(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+    def __str__(self):
+        return self.msg
+
 class InvalidBaseError(ParseStringError):
     """Signals an invalid base argument"""
 
@@ -427,7 +499,8 @@ class NumberStringParser:
         raise ParseStringError("invalid literal for %s() with base %d" %
                                (self.fname, self.original_base))
 
-    def __init__(self, s, literal, base, fname):
+    def __init__(self, s, literal, base, fname, allow_underscores=False,
+                 no_implicit_octal=False):
         self.fname = fname
         sign = 1
         if s.startswith('-'):
@@ -437,6 +510,7 @@ class NumberStringParser:
             s = strip_spaces(s[1:])
         self.sign = sign
         self.original_base = base
+        self.allow_underscores = allow_underscores
 
         if base == 0:
             if s.startswith('0x') or s.startswith('0X'):
@@ -444,12 +518,20 @@ class NumberStringParser:
             elif s.startswith('0b') or s.startswith('0B'):
                 base = 2
             elif s.startswith('0'): # also covers the '0o' case
-                base = 8
+                if no_implicit_octal and not (s.startswith('0o') or
+                                              s.startswith('0O')):
+                    base = 1    # this makes only the digit '0' valid...
+                else:
+                    base = 8
             else:
                 base = 10
         elif base < 2 or base > 36:
             raise InvalidBaseError("%s() base must be >= 2 and <= 36" % fname)
         self.base = base
+
+        # Leading underscores are not allowed
+        if s.startswith('_'):
+            self.error()
 
         if base == 16 and (s.startswith('0x') or s.startswith('0X')):
             s = s[2:]
@@ -469,6 +551,11 @@ class NumberStringParser:
     def next_digit(self): # -1 => exhausted
         if self.i < self.n:
             c = self.s[self.i]
+            if self.allow_underscores and c == '_':
+                self.i += 1
+                if self.i >= self.n:
+                    self.error()
+                c = self.s[self.i]
             digit = ord(c)
             if '0' <= c <= '9':
                 digit -= ord('0')
@@ -511,37 +598,37 @@ INIT_SIZE = 100 # XXX tweak
 class AbstractStringBuilder(object):
     # This is not the real implementation!
 
+    @not_rpython
     def __init__(self, init_size=INIT_SIZE):
-        "NOT_RPYTHON"
         self._l = []
         self._size = 0
 
+    @not_rpython
     def _grow(self, size):
-        "NOT_RPYTHON"
         self._size += size
 
+    @not_rpython
     def append(self, s):
-        "NOT_RPYTHON"
         assert isinstance(s, self._tp)
         self._l.append(s)
         self._grow(len(s))
 
+    @not_rpython
     def append_slice(self, s, start, end):
-        "NOT_RPYTHON"
         assert isinstance(s, self._tp)
         assert 0 <= start <= end <= len(s)
         s = s[start:end]
         self._l.append(s)
         self._grow(len(s))
 
+    @not_rpython
     def append_multiple_char(self, c, times):
-        "NOT_RPYTHON"
         assert isinstance(c, self._tp)
         self._l.append(c * times)
         self._grow(times)
 
+    @not_rpython
     def append_charpsize(self, s, size):
-        "NOT_RPYTHON"
         assert size >= 0
         l = []
         for i in xrange(size):
@@ -549,15 +636,15 @@ class AbstractStringBuilder(object):
         self._l.append(self._tp("").join(l))
         self._grow(size)
 
+    @not_rpython
     def build(self):
-        "NOT_RPYTHON"
         result = self._tp("").join(self._l)
         assert len(result) == self._size
         self._l = [result]
         return result
 
+    @not_rpython
     def getlength(self):
-        "NOT_RPYTHON"
         return self._size
 
 
@@ -570,18 +657,20 @@ class UnicodeBuilder(AbstractStringBuilder):
 
 class ByteListBuilder(object):
     def __init__(self, init_size=INIT_SIZE):
+        assert init_size >= 0
         self.l = newlist_hint(init_size)
 
     @specialize.argtype(1)
     def append(self, s):
+        l = self.l
         for c in s:
-            self.l.append(c)
+            l.append(c)
 
     @specialize.argtype(1)
     def append_slice(self, s, start, end):
-        assert 0 <= start <= end <= len(s)
-        for c in s[start:end]:
-            self.l.append(c)
+        l = self.l
+        for i in xrange(start, end):
+            l.append(s[i])
 
     def append_multiple_char(self, c, times):
         assert isinstance(c, str)
@@ -589,8 +678,9 @@ class ByteListBuilder(object):
 
     def append_charpsize(self, s, size):
         assert size >= 0
+        l = self.l
         for i in xrange(size):
-            self.l.append(s[i])
+            l.append(s[i])
 
     def build(self):
         return self.l
@@ -616,7 +706,7 @@ class SomeStringBuilder(SomeObject):
         return s_None
 
     def method_append_multiple_char(self, s_char, s_times):
-        assert isinstance(s_char, SomeChar)
+        assert isinstance(s_char, (SomeString, SomeChar))
         assert isinstance(s_times, SomeInteger)
         return s_None
 
@@ -629,7 +719,7 @@ class SomeStringBuilder(SomeObject):
         return SomeInteger(nonneg=True)
 
     def method_build(self):
-        return SomeString()
+        return SomeString(can_be_None=False)
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.lltypesystem.rbuilder import stringbuilder_repr
@@ -669,7 +759,7 @@ class SomeUnicodeBuilder(SomeObject):
         return SomeInteger(nonneg=True)
 
     def method_build(self):
-        return SomeUnicodeString()
+        return SomeUnicodeString(can_be_None=False)
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.lltypesystem.rbuilder import unicodebuilder_repr

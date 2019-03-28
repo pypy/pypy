@@ -1,98 +1,105 @@
-from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr
-from rpython.annotator.model import unionof
+from rpython.annotator.model import unionof, SomeObject
 from rpython.annotator.signature import annotation, SignatureError
+from rpython.rtyper.extregistry import ExtRegistryEntry, lookup
+from rpython.rtyper.lltypesystem.lltype import (
+    typeOf, FuncType, functionptr, _ptr, Void)
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.rmodel import Repr
 
-import py
+class SomeExternalFunction(SomeObject):
+    def __init__(self, name, args_s, s_result):
+        self.name = name
+        self.args_s = args_s
+        self.s_result = s_result
+
+    def check_args(self, callspec):
+        params_s = self.args_s
+        args_s, kwargs = callspec.unpack()
+        if kwargs:
+            raise SignatureError(
+                "External functions cannot be called with keyword arguments")
+        if len(args_s) != len(params_s):
+            raise SignatureError("Argument number mismatch")
+        for i, s_param in enumerate(params_s):
+            arg = unionof(args_s[i], s_param)
+            if not s_param.contains(arg):
+                raise SignatureError(
+                    "In call to external function %r:\n"
+                    "arg %d must be %s,\n"
+                    "          got %s" % (
+                        self.name, i + 1, s_param, args_s[i]))
+
+    def call(self, callspec):
+        self.check_args(callspec)
+        return self.s_result
+
+    def rtyper_makerepr(self, rtyper):
+        if not self.is_constant():
+            raise TyperError("Non-constant external function!")
+        entry = lookup(self.const)
+        impl = getattr(entry, 'lltypeimpl', None)
+        fakeimpl = getattr(entry, 'lltypefakeimpl', None)
+        return ExternalFunctionRepr(self, impl, fakeimpl)
+
+    def rtyper_makekey(self):
+        return self.__class__, self
+
+class ExternalFunctionRepr(Repr):
+    lowleveltype = Void
+
+    def __init__(self, s_func, impl, fakeimpl):
+        self.s_func = s_func
+        self.impl = impl
+        self.fakeimpl = fakeimpl
+
+    def rtype_simple_call(self, hop):
+        rtyper = hop.rtyper
+        args_r = [rtyper.getrepr(s_arg) for s_arg in self.s_func.args_s]
+        r_result = rtyper.getrepr(self.s_func.s_result)
+        obj = self.get_funcptr(rtyper, args_r, r_result)
+        hop2 = hop.copy()
+        hop2.r_s_popfirstarg()
+        vlist = [hop2.inputconst(typeOf(obj), obj)] + hop2.inputargs(*args_r)
+        hop2.exception_is_here()
+        return hop2.genop('direct_call', vlist, r_result)
+
+    def get_funcptr(self, rtyper, args_r, r_result):
+        from rpython.rtyper.rtyper import llinterp_backend
+        args_ll = [r_arg.lowleveltype for r_arg in args_r]
+        ll_result = r_result.lowleveltype
+        name = self.s_func.name
+        if self.fakeimpl and rtyper.backend is llinterp_backend:
+            FT = FuncType(args_ll, ll_result)
+            return functionptr(
+                FT, name, _external_name=name, _callable=self.fakeimpl)
+        elif self.impl:
+            if isinstance(self.impl, _ptr):
+                return self.impl
+            else:
+                # store some attributes to the 'impl' function, where
+                # the eventual call to rtyper.getcallable() will find them
+                # and transfer them to the final lltype.functionptr().
+                self.impl._llfnobjattrs_ = {'_name': name}
+                return rtyper.getannmixlevel().delayedfunction(
+                    self.impl, self.s_func.args_s, self.s_func.s_result)
+        else:
+            fakeimpl = self.fakeimpl or self.s_func.const
+            FT = FuncType(args_ll, ll_result)
+            return functionptr(
+                FT, name, _external_name=name, _callable=fakeimpl)
+
 
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
 
-    # common case: args is a list of annotation or types
-    def normalize_args(self, *args_s):
-        args = self.signature_args
-        signature_args = [annotation(arg, None) for arg in args]
-        assert len(args_s) == len(signature_args),\
-               "Argument number mismatch"
+    def compute_annotation(self):
+        s_result = SomeExternalFunction(
+            self.name, self.signature_args, self.signature_result)
+        if (self.bookkeeper.annotator.translator.config.translation.sandbox
+                and not self.safe_not_sandboxed):
+            s_result.needs_sandboxing = True
+        return s_result
 
-        for i, expected in enumerate(signature_args):
-            arg = unionof(args_s[i], expected)
-            if not expected.contains(arg):
-                name = getattr(self, 'name', None)
-                if not name:
-                    try:
-                        name = self.instance.__name__
-                    except AttributeError:
-                        name = '?'
-                raise SignatureError("In call to external function %r:\n"
-                                "arg %d must be %s,\n"
-                                "          got %s" % (
-                    name, i+1, expected, args_s[i]))
-        return signature_args
-
-    def compute_result_annotation(self, *args_s):
-        self.normalize_args(*args_s)   # check arguments
-        return self.signature_result
-
-    def specialize_call(self, hop):
-        rtyper = hop.rtyper
-        signature_args = self.normalize_args(*hop.args_s)
-        args_r = [rtyper.getrepr(s_arg) for s_arg in signature_args]
-        args_ll = [r_arg.lowleveltype for r_arg in args_r]
-        s_result = hop.s_result
-        r_result = rtyper.getrepr(s_result)
-        ll_result = r_result.lowleveltype
-        name = getattr(self, 'name', None) or self.instance.__name__
-        impl = getattr(self, 'lltypeimpl', None)
-        fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
-        if impl:
-            if hasattr(self, 'lltypefakeimpl'):
-                # If we have both an llimpl and an llfakeimpl,
-                # we need a wrapper that selects the proper one and calls it
-                from rpython.tool.sourcetools import func_with_new_name
-                # Using '*args' is delicate because this wrapper is also
-                # created for init-time functions like llarena.arena_malloc
-                # which are called before the GC is fully initialized
-                args = ', '.join(['arg%d' % i for i in range(len(args_ll))])
-                d = {'original_impl': impl,
-                     's_result': s_result,
-                     'fakeimpl': fakeimpl,
-                     '__name__': __name__,
-                     }
-                exec py.code.compile("""
-                    from rpython.rlib.objectmodel import running_on_llinterp
-                    from rpython.rlib.debug import llinterpcall
-                    from rpython.rlib.jit import dont_look_inside
-                    # note: we say 'dont_look_inside' mostly because the
-                    # JIT does not support 'running_on_llinterp', but in
-                    # theory it is probably right to stop jitting anyway.
-                    @dont_look_inside
-                    def ll_wrapper(%s):
-                        if running_on_llinterp:
-                            return llinterpcall(s_result, fakeimpl, %s)
-                        else:
-                            return original_impl(%s)
-                """ % (args, args, args)) in d
-                impl = func_with_new_name(d['ll_wrapper'], name + '_wrapper')
-            if rtyper.annotator.translator.config.translation.sandbox:
-                impl._dont_inline_ = True
-            # store some attributes to the 'impl' function, where
-            # the eventual call to rtyper.getcallable() will find them
-            # and transfer them to the final lltype.functionptr().
-            impl._llfnobjattrs_ = {
-                '_name': self.name,
-                '_safe_not_sandboxed': self.safe_not_sandboxed,
-                }
-            obj = rtyper.getannmixlevel().delayedfunction(
-                impl, signature_args, hop.s_result)
-        else:
-            FT = FuncType(args_ll, ll_result)
-            obj = functionptr(FT, name, _external_name=self.name,
-                              _callable=fakeimpl,
-                              _safe_not_sandboxed=self.safe_not_sandboxed)
-        vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
-        hop.exception_is_here()
-        return hop.genop('direct_call', vlist, r_result)
 
 def register_external(function, args, result=None, export_name=None,
                        llimpl=None, llfakeimpl=None, sandboxsafe=False):
@@ -108,31 +115,19 @@ def register_external(function, args, result=None, export_name=None,
 
     if export_name is None:
         export_name = function.__name__
+    params_s = [annotation(arg) for arg in args]
+    s_result = annotation(result)
 
     class FunEntry(ExtFuncEntry):
         _about_ = function
         safe_not_sandboxed = sandboxsafe
-
-        if args is None:
-            def normalize_args(self, *args_s):
-                return args_s    # accept any argument unmodified
-        elif callable(args):
-            # custom annotation normalizer (see e.g. os.utime())
-            normalize_args = staticmethod(args)
-        else: # use common case behavior
-            signature_args = args
-
-        signature_result = annotation(result, None)
+        signature_args = params_s
+        signature_result = s_result
         name = export_name
         if llimpl:
             lltypeimpl = staticmethod(llimpl)
         if llfakeimpl:
             lltypefakeimpl = staticmethod(llfakeimpl)
-
-    if export_name:
-        FunEntry.__name__ = export_name
-    else:
-        FunEntry.__name__ = function.func_name
 
 def is_external(func):
     if hasattr(func, 'value'):

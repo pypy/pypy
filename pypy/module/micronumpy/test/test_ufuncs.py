@@ -1480,7 +1480,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_outer(self):
         import numpy as np
-        from numpy import absolute
+        c = np.multiply.outer([1, 2, 3], [4, 5, 6])
+        assert c.shape == (3, 3)
+        assert (c ==[[ 4,  5,  6],
+                     [ 8, 10, 12],
+                     [12, 15, 18]]).all()
+        A = np.array([[1, 2, 3], [4, 5, 6]])
+        B = np.array([[1, 2, 3, 4]])
+        c = np.multiply.outer(A, B)
+        assert c.shape == (2, 3, 1, 4)
+        assert (c == [[[[ 1,  2,  3,  4]],
+                       [[ 2,  4,  6,  8]],
+                       [[ 3,  6,  9, 12]]],
+                      [[[ 4,  8, 12, 16]],
+                       [[ 5, 10, 15, 20]],
+                       [[ 6, 12, 18, 24]]]]).all()
         exc = raises(ValueError, np.absolute.outer, [-1, -2])
         assert exc.value[0] == 'outer product only supported for binary functions'
 

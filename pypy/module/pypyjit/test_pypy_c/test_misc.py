@@ -87,7 +87,6 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000.0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            guard_not_invalidated(descr=...)
             i9 = float_lt(f5, f7)
             guard_true(i9, descr=...)
             f10 = float_add(f8, f5)
@@ -111,17 +110,21 @@ class TestMisc(BaseTestPyPyC):
             return sa
         #
         log = self.run(main, [1000])
-        assert log.result == main(1000)
+        assert log.result == 4000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            guard_not_invalidated?
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
-            guard_not_invalidated?
-            i13 = int_add_ovf(i8, 2)
+            guard_not_invalidated(descr=...)
+            guard_nonnull_class(p10, ConstClass(W_IntObject), descr=...)
+            i10p = getfield_gc_i(p10, descr=...)
+            i10 = int_mul_ovf(2, i10p)
             guard_no_overflow(descr=...)
-            i14 = int_add_ovf(i13, 2)
+            i14 = int_add_ovf(i13, i10)
             guard_no_overflow(descr=...)
+            i13 = int_add_ovf(i14, i9)
+            guard_no_overflow(descr=...)
+            setfield_gc(p17, p10, descr=...)
             i17 = int_sub_ovf(i4, 1)
             guard_no_overflow(descr=...)
             --TICK--
@@ -149,10 +152,12 @@ class TestMisc(BaseTestPyPyC):
         setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
         guard_not_invalidated(descr=...)
         i18 = force_token()
-        i75 = int_sub(i71, 1)
+        i83 = int_lt(0, i14)
+        guard_true(i83, descr=...)
+        i84 = int_sub(i14, 1)
         i21 = int_lt(i10, 0)
         guard_false(i21, descr=...)
-        i22 = int_lt(i10, _)
+        i22 = int_lt(i10, i14)
         guard_true(i22, descr=...)
         i23 = int_add_ovf(i6, i10)
         guard_no_overflow(descr=...)
@@ -176,12 +181,16 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             guard_not_invalidated?
+            i80 = int_lt(i11, 0)
+            guard_false(i80, descr=...)
             i16 = int_ge(i11, i12)
             guard_false(i16, descr=...)
             i20 = int_add(i11, 1)
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
             i21 = force_token()
+            i89 = int_lt(0, i9)
+            guard_true(i89, descr=...)
             i88 = int_sub(i9, 1)
             i25 = int_ge(i11, i9)
             guard_false(i25, descr=...)
@@ -215,6 +224,8 @@ class TestMisc(BaseTestPyPyC):
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
             i21 = force_token()
+            i94 = int_lt(0, i9)
+            guard_true(i94, descr=...)
             i95 = int_sub(i9, 1)
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
@@ -272,7 +283,7 @@ class TestMisc(BaseTestPyPyC):
             setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
-            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
+            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayBase.inst__buffer .*>)
             i25 = getarrayitem_raw_i(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=...)
@@ -388,7 +399,8 @@ class TestMisc(BaseTestPyPyC):
     def test_long_comparison(self):
         def main(n):
             while n:
-                12345L > 123L  # ID: long_op
+                x = 12345L
+                x > 123L  # ID: long_op
                 n -= 1
 
         log = self.run(main, [300])

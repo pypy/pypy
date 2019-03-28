@@ -4,14 +4,14 @@ from pypy.interpreter.typedef import TypeDef
 
 
 class W_NoneObject(W_Root):
-    def unwrap(w_self, space):
+    def unwrap(self, space):
         return None
 
     def descr_nonzero(self, space):
         return space.w_False
 
     def descr_repr(self, space):
-        return space.wrap('None')
+        return space.newtext('None')
 
 
 W_NoneObject.w_None = W_NoneObject()

@@ -9,7 +9,7 @@ HIDE_VIRTUAL_EVENT_NAME = "<<calltipwindow-hide>>"
 HIDE_SEQUENCES = ("<Key-Escape>", "<FocusOut>")
 CHECKHIDE_VIRTUAL_EVENT_NAME = "<<calltipwindow-checkhide>>"
 CHECKHIDE_SEQUENCES = ("<KeyRelease>", "<ButtonRelease>")
-CHECKHIDE_TIME = 100 # miliseconds
+CHECKHIDE_TIME = 100 # milliseconds
 
 MARK_RIGHT = "calltipwindowregion_right"
 
@@ -72,6 +72,7 @@ class CallTip:
                            background="#ffffe0", relief=SOLID, borderwidth=1,
                            font = self.widget['font'])
         self.label.pack()
+        tw.lift()  # work around bug in Tk 8.5.18+ (issue #24570)
 
         self.checkhideid = self.widget.bind(CHECKHIDE_VIRTUAL_EVENT_NAME,
                                             self.checkhide_event)

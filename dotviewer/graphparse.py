@@ -85,10 +85,11 @@ class PlainParseError(Exception):
     pass
 
 def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
+    import ast
     result = []
     for word in re_word.findall(line):
         if word.startswith('"'):
-            word = eval(word)
+            word = ast.literal_eval(word)
         result.append(word)
     return result
 

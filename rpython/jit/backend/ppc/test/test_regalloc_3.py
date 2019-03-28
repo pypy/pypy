@@ -55,7 +55,7 @@ def test_bug_0():
     i22 = int_or(i3, i9)
     i41 = int_and(i11, -4)
     i42 = int_or(i41, 1)
-    i23 = int_mod(i12, i42)
+    i23 = int_mul(i12, 0)
     i24 = int_is_true(i6)
     i25 = uint_rshift(i15, 6)
     i26 = int_or(-4, i25)
@@ -63,11 +63,11 @@ def test_bug_0():
     i28 = int_sub(-113, i11)
     i29 = int_neg(i7)
     i30 = int_neg(i24)
-    i31 = int_floordiv(i3, 53)
+    i31 = int_mul(i3, 53)
     i32 = int_mul(i28, i27)
     i43 = int_and(i18, -4)
     i44 = int_or(i43, 1)
-    i33 = int_mod(i26, i44)
+    i33 = int_mul(i26, i44)
     i34 = int_or(i27, i19)
     i35 = uint_lt(i13, 1)
     i45 = int_and(i21, 31)
@@ -84,7 +84,7 @@ def test_bug_0():
     assert cpu.get_int_value(deadframe, 0) == 0
     assert cpu.get_int_value(deadframe, 1) == 0
     assert cpu.get_int_value(deadframe, 2) == 0
-    assert cpu.get_int_value(deadframe, 3) == 0
+    assert cpu.get_int_value(deadframe, 3) == 530
     assert cpu.get_int_value(deadframe, 4) == 1
     assert cpu.get_int_value(deadframe, 5) == -7
     assert cpu.get_int_value(deadframe, 6) == 1
@@ -94,7 +94,7 @@ def test_bug_0():
     assert cpu.get_int_value(deadframe, 10) == 1
     assert cpu.get_int_value(deadframe, 11) == 18
     assert cpu.get_int_value(deadframe, 12) == -1
-    assert cpu.get_int_value(deadframe, 13) == 0
+    assert cpu.get_int_value(deadframe, 13) == 1
 
 def test_bug_1():
     cpu, deadframe = run([17, -20, -6, 6, 1, 13, 13, 9, 49, 8], '''
@@ -112,7 +112,7 @@ def test_bug_1():
     i43 = int_and(i14, 31)
     i19 = int_lshift(7, i43)
     i20 = int_neg(i19)
-    i21 = int_mod(i3, 1)
+    i21 = int_and(i3, 0)
     i22 = uint_ge(i15, i1)
     i44 = int_and(i16, 31)
     i23 = int_lshift(i8, i44)

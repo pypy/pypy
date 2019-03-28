@@ -21,6 +21,30 @@ class GcCache(object):
         self._cache_call = {}
         self._cache_interiorfield = {}
 
+    def setup_descrs(self):
+        all_descrs = []
+        for k, v in self._cache_size.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_field.iteritems():
+            for k1, v1 in v.iteritems():
+                v1.descr_index = len(all_descrs)
+                all_descrs.append(v1)
+        for k, v in self._cache_array.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_arraylen.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_call.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_interiorfield.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        assert len(all_descrs) < 2**15
+        return all_descrs
+
     def init_size_descr(self, STRUCT, sizedescr):
         pass
 
@@ -180,7 +204,8 @@ class FieldDescr(ArrayOrFieldDescr):
         return self.offset
 
     def repr_of_descr(self):
-        return '<Field%s %s %s>' % (self.flag, self.name, self.offset)
+        ispure = " pure" if self._is_pure else ""
+        return '<Field%s %s %s%s>' % (self.flag, self.name, self.offset, ispure)
 
     def get_parent_descr(self):
         return self.parent_descr
@@ -200,7 +225,7 @@ def get_field_descr(gccache, STRUCT, fieldname):
         flag = get_type_flag(FIELDTYPE)
         name = '%s.%s' % (STRUCT._name, fieldname)
         index_in_parent = heaptracker.get_fielddescr_index_in(STRUCT, fieldname)
-        is_pure = bool(STRUCT._immutable_field(fieldname))
+        is_pure = STRUCT._immutable_field(fieldname) != False
         fielddescr = FieldDescr(name, offset, size, flag, index_in_parent,
                                 is_pure)
         cachedict = cache.setdefault(STRUCT, {})
@@ -255,7 +280,7 @@ class ArrayDescr(ArrayOrFieldDescr):
     concrete_type = '\x00'
 
     def __init__(self, basesize, itemsize, lendescr, flag, is_pure=False, concrete_type='\x00'):
-        self.basesize = basesize
+        self.basesize = basesize    # this includes +1 for STR
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
@@ -651,11 +676,10 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
 
 def unpack_arraydescr(arraydescr):
     assert isinstance(arraydescr, ArrayDescr)
-    ofs = arraydescr.basesize
+    ofs = arraydescr.basesize    # this includes +1 for STR
     size = arraydescr.itemsize
     sign = arraydescr.is_item_signed()
     return size, ofs, sign
-
 
 def unpack_fielddescr(fielddescr):
     assert isinstance(fielddescr, FieldDescr)

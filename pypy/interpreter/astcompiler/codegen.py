@@ -7,6 +7,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 # you figure out a way to remove them, great, but try a translation first,
 # please.
 
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -18,6 +19,7 @@ def compile_ast(space, module, info):
     symbols = symtable.SymtableBuilder(space, module, info)
     return TopLevelCodeGenerator(space, module, symbols, info).assemble()
 
+MAX_STACKDEPTH_CONTAINERS = 100
 
 name_ops_default = misc.dict_to_switch({
     ast.Load: ops.LOAD_NAME,
@@ -321,7 +323,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
         self.visit_sequence(cls.decorator_list)
-        self.load_const(self.space.wrap(cls.name))
+        self.load_const(self.space.newtext(cls.name))
         self.visit_sequence(cls.bases)
         bases_count = len(cls.bases) if cls.bases is not None else 0
         self.emit_op_arg(ops.BUILD_TUPLE, bases_count)
@@ -564,7 +566,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
-        self.is_dead_code()
         self.use_next_block(otherwise)
         self.visit_sequence(te.orelse)
         self.use_next_block(end)
@@ -611,7 +612,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 level = 0
             else:
                 level = -1
-            self.load_const(self.space.wrap(level))
+            self.load_const(self.space.newint(level))
             self.load_const(self.space.w_None)
             self.emit_op_name(ops.IMPORT_NAME, self.names, alias.name)
             # If there's no asname then we store the root module.  If there is
@@ -654,12 +655,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             level = -1
         else:
             level = imp.level
-        self.load_const(space.wrap(level))
+        self.load_const(space.newint(level))
         names_w = [None]*len(imp.names)
         for i in range(len(imp.names)):
             alias = imp.names[i]
             assert isinstance(alias, ast.alias)
-            names_w[i] = space.wrap(alias.name)
+            names_w[i] = space.newtext(alias.name)
         self.load_const(space.newtuple(names_w))
         if imp.module:
             mod_name = imp.module
@@ -911,6 +912,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elt_count = len(tup.elts) if tup.elts is not None else 0
         if tup.ctx == ast.Store:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
+        if tup.ctx == ast.Load and elt_count > MAX_STACKDEPTH_CONTAINERS:
+            # we need a complete hack to build a new tuple from the list
+            # ().__class__(l)
+            empty_index = self.add_const(self.space.newtuple([]))
+            self.emit_op_arg(ops.LOAD_CONST, empty_index)
+            self.emit_op_name(ops.LOAD_ATTR, self.names, '__class__')
+
+            self.emit_op_arg(ops.BUILD_LIST, 0)
+            for element in tup.elts:
+                element.walkabout(self)
+                self.emit_op_arg(ops.LIST_APPEND, 1)
+
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+            return
         self.visit_sequence(tup.elts)
         if tup.ctx == ast.Load:
             self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
@@ -920,9 +935,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elt_count = len(l.elts) if l.elts is not None else 0
         if l.ctx == ast.Store:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(l.elts)
-        if l.ctx == ast.Load:
-            self.emit_op_arg(ops.BUILD_LIST, elt_count)
+        if elt_count > MAX_STACKDEPTH_CONTAINERS and l.ctx == ast.Load:
+            # pushing all the elements would make the stack depth gigantic.
+            # build the list incrementally instead
+            self.emit_op_arg(ops.BUILD_LIST, 0)
+            for element in l.elts:
+                element.walkabout(self)
+                self.emit_op_arg(ops.LIST_APPEND, 1)
+        else:
+            self.visit_sequence(l.elts)
+            if l.ctx == ast.Load:
+                self.emit_op_arg(ops.BUILD_LIST, elt_count)
 
     def visit_Dict(self, d):
         self.update_position(d.lineno)
@@ -936,15 +959,22 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Set(self, s):
         self.update_position(s.lineno)
         elt_count = len(s.elts) if s.elts is not None else 0
-        self.visit_sequence(s.elts)
-        self.emit_op_arg(ops.BUILD_SET, elt_count)
+        if elt_count > MAX_STACKDEPTH_CONTAINERS:
+            self.emit_op_arg(ops.BUILD_SET, 0)
+            for element in s.elts:
+                element.walkabout(self)
+                self.emit_op_arg(ops.SET_ADD, 1)
+        else:
+            self.visit_sequence(s.elts)
+            self.emit_op_arg(ops.BUILD_SET, elt_count)
+
 
     def visit_Name(self, name):
         self.update_position(name.lineno)
         self.name_op(name.id, name.ctx)
 
     def visit_keyword(self, keyword):
-        self.load_const(self.space.wrap(keyword.arg))
+        self.load_const(self.space.newtext(keyword.arg))
         keyword.value.walkabout(self)
 
     def visit_Call(self, call):
@@ -1028,11 +1058,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_ListComp(self, lc):
         self.update_position(lc.lineno)
-        if len(lc.generators) != 1 or lc.generators[0].ifs:
+        if len(lc.generators) == 1:
+            comp = lc.generators[0]
+            assert isinstance(comp, ast.comprehension)
+            if comp.ifs:
+                single = False
+                self.emit_op_arg(ops.BUILD_LIST, 0)
+            else:
+                single = True
+        else:
             single = False
             self.emit_op_arg(ops.BUILD_LIST, 0)
-        else:
-            single = True
         self._listcomp_generator(lc.generators, 0, lc.elt, single=single)
 
     def _comp_generator(self, node, generators, gen_index):
@@ -1196,6 +1232,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if sub.ctx != ast.AugStore:
             sub.value.walkabout(self)
         self._compile_slice(sub.slice, sub.ctx)
+
+    def _revdb_metavar(self, node):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import dbstate
+        if not dbstate.standard_code:
+            self.emit_op_arg(ops.LOAD_REVDB_VAR, node.metavar)
+            return True
+        return False
+
+    def visit_RevDBMetaVar(self, node):
+        if self.space.reverse_debugging and self._revdb_metavar(node):
+            return
+        self.error("Unknown character ('$NUM' is only valid in the "
+                   "reverse-debugger)", node)
 
 
 class TopLevelCodeGenerator(PythonCodeGenerator):

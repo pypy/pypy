@@ -1,4 +1,5 @@
 # NOTE: run this script with LANG=en_US.UTF-8
+# works with pip install mercurial==3.0
 
 import py
 import sys
@@ -18,11 +19,13 @@ alias = {
     'Antonio Cuni': ['antocuni', 'anto'],
     'Armin Rigo': ['arigo', 'arfigo', 'armin', 'arigato'],
     'Maciej Fijalkowski': ['fijal'],
-    'Carl Friedrich Bolz': ['cfbolz', 'cf'],
+    'Carl Friedrich Bolz-Tereick': ['Carl Friedrich Bolz', 'cfbolz', 'cf', 'cbolz'],
     'Samuele Pedroni': ['pedronis', 'samuele', 'samule'],
-    'Michael Hudson': ['mwh'],
+    'Richard Plangger': ['planrich', 'plan_rich'],
+    'Remi Meier': ['remi'],
+    'Michael Hudson-Doyle': ['mwh', 'Michael Hudson'],
     'Holger Krekel': ['hpk', 'holger krekel', 'holger', 'hufpk'],
-    "Amaury Forgeot d'Arc": ['afa'],
+    "Amaury Forgeot d'Arc": ['afa', 'amauryfa@gmail.com'],
     'Alex Gaynor': ['alex', 'agaynor'],
     'David Schneider': ['bivab', 'david'],
     'Christian Tismer': ['chris', 'christian', 'tismer',
@@ -32,7 +35,7 @@ alias = {
     'Niklaus Haldimann': ['nik'],
     'Alexander Schremmer': ['xoraxax'],
     'Anders Hammarquist': ['iko'],
-    'David Edelsohn': ['edelsoh', 'edelsohn'],
+    'David Edelsohn': ['edelsoh', 'edelsohn','opassembler.py'],
     'Niko Matsakis': ['niko'],
     'Jakub Gustak': ['jlg'],
     'Guido Wesdorp': ['guido'],
@@ -40,7 +43,7 @@ alias = {
     'Mark Pearse': ['mwp'],
     'Toon Verwaest': ['tverwaes'],
     'Eric van Riet Paap': ['ericvrp'],
-    'Jacob Hallen': ['jacob', 'jakob'],
+    'Jacob Hallen': ['jacob', 'jakob', 'jacob hallen'],
     'Anders Lehmann': ['ale', 'anders'],
     'Bert Freudenberg': ['bert'],
     'Boris Feigin': ['boris', 'boria'],
@@ -67,11 +70,27 @@ alias = {
     'Edd Barrett': ['edd'],
     'Manuel Jacob': ['mjacob'],
     'Rami Chowdhury': ['necaris'],
-    'Stanislaw Halik':['w31rd0'],
-    'Wenzhu Man':['wenzhu man', 'wenzhuman'],
-    'Anton Gulenko':['anton gulenko', 'anton_gulenko'],
-    'Richard Lancaster':['richardlancaster'],
-    'William Leslie':['William ML Leslie'],
+    'Stanislaw Halik': ['Stanislaw Halik', 'w31rd0'],
+    'Wenzhu Man': ['wenzhu man', 'wenzhuman'],
+    'Anton Gulenko': ['anton gulenko', 'anton_gulenko'],
+    'Richard Lancaster': ['richardlancaster'],
+    'William Leslie': ['William ML Leslie'],
+    'Spenser Bauman': ['Spenser Andrew Bauman'],
+    'Raffael Tfirst': ['raffael.tfirst@gmail.com'],
+    'timo': ['timo@eistee.fritz.box'],
+    'Jasper Schulz': ['Jasper.Schulz', 'jbs'],
+    'Aaron Gallagher': ['"Aaron Gallagher'],
+    'Yasir Suhail': ['yasirs'],
+    'Squeaky': ['squeaky'],
+    "Dodan Mihai": ['mihai.dodan@gmail.com'],
+    'Wim Lavrijsen': ['wlav'],
+    'Toon Verwaest': ['toon', 'tverwaes'],
+    'Seo Sanghyeon': ['sanxiyn'],
+    'Leonardo Santagada': ['santagada'],
+    'Laurence Tratt': ['ltratt'],
+    'Pieter Zieschang': ['pzieschang', 'p_zieschang@yahoo.de'],
+    'John Witulski': ['witulski'],
+    'Andrew Lawrence': ['andrew.lawrence@siemens.com', 'andrewjlawrence'],
     }
 
 alias_map = {}
@@ -93,7 +112,8 @@ def get_more_authors(log):
         return set()
     ignore_words = ['around', 'consulting', 'yesterday', 'for a bit', 'thanks',
                     'in-progress', 'bits of', 'even a little', 'floating',
-                    'a bit', 'reviewing']
+                    'a bit', 'reviewing', 'looking', 'advising', 'partly', 'ish',
+                    'watching', 'mostly', 'jumping']
     sep_words = ['and', ';', '+', '/', 'with special  by']
     nicknames = match.group(1)
     for word in ignore_words:

@@ -77,6 +77,8 @@ CLIP = 0
 WRAP = 1
 RAISE = 2
 
+MAXARGS = 32
+
 # These can be requested in constructor functions and tested for
 ARRAY_C_CONTIGUOUS = 0x0001
 ARRAY_F_CONTIGUOUS = 0x0002

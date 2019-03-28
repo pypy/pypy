@@ -3,8 +3,7 @@ import os
 
 import py
 
-from rpython.rlib.debug import llinterpcall
-from rpython.rlib.objectmodel import instantiate, running_on_llinterp, compute_unique_id, current_object_addr_as_int
+from rpython.rlib.objectmodel import instantiate, compute_unique_id, current_object_addr_as_int
 from rpython.rlib.rarithmetic import (intmask, longlongmask, r_int64, is_valid_int,
     r_int, r_uint, r_longlong, r_ulonglong)
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
@@ -455,26 +454,6 @@ class TestRbuiltin(BaseRtypingTest):
                 return a
         res = self.interpret(fn, [3.25])
         assert res == 7.25
-
-    def test_debug_llinterpcall(self):
-        S = lltype.Struct('S', ('m', lltype.Signed))
-        SPTR = lltype.Ptr(S)
-        def foo(n):
-            "NOT_RPYTHON"
-            s = lltype.malloc(S, immortal=True)
-            s.m = eval("n*6", locals())
-            return s
-        def fn(n):
-            if running_on_llinterp:
-                return llinterpcall(SPTR, foo, n).m
-            else:
-                return 321
-        res = self.interpret(fn, [7])
-        assert res == 42
-        from rpython.translator.c.test.test_genc import compile
-        f = compile(fn, [int])
-        res = f(7)
-        assert res == 321
 
     def test_id(self):
         class A:

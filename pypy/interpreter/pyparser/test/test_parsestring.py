@@ -6,11 +6,11 @@ class TestParsetring:
         space = self.space
         w_ret = parsestring.parsestr(space, encoding, literal)
         if isinstance(value, str):
-            assert space.type(w_ret) == space.w_str
+            assert space.type(w_ret) == space.w_bytes
             assert space.str_w(w_ret) == value
         elif isinstance(value, unicode):
             assert space.type(w_ret) == space.w_unicode
-            assert space.unicode_w(w_ret) == value
+            assert space.utf8_w(w_ret).decode('utf8') == value
         else:
             assert False
 
@@ -50,7 +50,7 @@ class TestParsetring:
         s = "u'\x81'"
         s = s.decode("koi8-u").encode("utf8")
         w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
-        ret = space.unwrap(w_ret)
+        ret = w_ret._utf8.decode('utf8')
         assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81'")
 
     def test_unicode_literals(self):
@@ -58,7 +58,7 @@ class TestParsetring:
         w_ret = parsestring.parsestr(space, None, repr("hello"), True)
         assert space.isinstance_w(w_ret, space.w_unicode)
         w_ret = parsestring.parsestr(space, None, "b'hi'", True)
-        assert space.isinstance_w(w_ret, space.w_str)
+        assert space.isinstance_w(w_ret, space.w_bytes)
         w_ret = parsestring.parsestr(space, None, "r'hi'", True)
         assert space.isinstance_w(w_ret, space.w_unicode)
 
@@ -102,7 +102,4 @@ class TestParsetring:
     def test_decode_unicode_utf8(self):
         buf = parsestring.decode_unicode_utf8(self.space,
                                               'u"\xf0\x9f\x92\x8b"', 2, 6)
-        if sys.maxunicode == 65535:
-            assert buf == r"\U0000d83d\U0000dc8b"
-        else:
-            assert buf == r"\U0001f48b"
+        assert buf == r"\U0001f48b"

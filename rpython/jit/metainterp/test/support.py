@@ -1,5 +1,4 @@
-
-import py, sys
+import py, sys, math
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
@@ -9,7 +8,7 @@ from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from rpython.jit.metainterp import pyjitpl, history, jitexc
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter import codewriter, longlong
-from rpython.rlib.rfloat import isnan
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.rlib.jit import ENABLE_ALL_OPTS
 from rpython.translator.backendopt.all import backend_optimizations
 
@@ -18,7 +17,8 @@ def _get_jitcodes(testself, CPUClass, func, values,
                   supports_floats=True,
                   supports_longlong=False,
                   supports_singlefloats=False,
-                  translationoptions={}, **kwds):
+                  translationoptions={},
+                  backendopt_inline_threshold=0, **kwds):
     from rpython.jit.codewriter import support
 
     class FakeJitCell(object):
@@ -58,11 +58,15 @@ def _get_jitcodes(testself, CPUClass, func, values,
         FakeWarmRunnerState.enable_opts = {}
 
     func._jit_unroll_safe_ = True
-    rtyper = support.annotate(func, values,
+    rtyper = support.annotate(func, values, inline=backendopt_inline_threshold,
                               translationoptions=translationoptions)
     graphs = rtyper.annotator.translator.graphs
     testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]
+
+
+    class FakeJitDriver:
+        name = 'fakejitdriver'
 
     class FakeJitDriverSD:
         num_green_args = 0
@@ -72,8 +76,9 @@ def _get_jitcodes(testself, CPUClass, func, values,
         result_type = result_kind
         portal_runner_ptr = "???"
         vec = False
+        jitdriver = FakeJitDriver()
 
-    stats = history.Stats()
+    stats = history.Stats(None)
     cpu = CPUClass(rtyper, stats, None, False)
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     cw.debug = True
@@ -99,6 +104,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         testself.finish_setup_for_interp_operations()
     #
     cw.make_jitcodes(verbose=True)
+    return stats
 
 def _run_with_blackhole(testself, args):
     from rpython.jit.metainterp.blackhole import BlackholeInterpBuilder
@@ -125,11 +131,14 @@ def _run_with_blackhole(testself, args):
     blackholeinterp.run()
     return blackholeinterp._final_result_anytype()
 
-def _run_with_pyjitpl(testself, args):
+def _run_with_pyjitpl(testself, args, stats):
     cw = testself.cw
     opt = history.Options(listops=True)
     metainterp_sd = pyjitpl.MetaInterpStaticData(cw.cpu, opt)
+    stats.metainterp_sd = metainterp_sd
     metainterp_sd.finish_setup(cw)
+    metainterp_sd.finish_setup_descrs()
+
     [jitdriver_sd] = metainterp_sd.jitdrivers_sd
     metainterp = pyjitpl.MetaInterp(metainterp_sd, jitdriver_sd)
     testself.metainterp = metainterp
@@ -258,16 +267,16 @@ class JitMixin:
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
-        _get_jitcodes(self, self.CPUClass, f, args, **kwds)
+        stats = _get_jitcodes(self, self.CPUClass, f, args, **kwds)
         # try to run it with blackhole.py
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
-        result2 = _run_with_pyjitpl(self, args)
-        assert result1 == result2 or isnan(result1) and isnan(result2)
+        result2 = _run_with_pyjitpl(self, args, stats)
+        assert result1 == result2 or math.isnan(result1) and math.isnan(result2)
         # try to run it by running the code compiled just before
         df, result3 = _run_with_machine_code(self, args)
         self._lastframe = df
-        assert result1 == result3 or result3 == NotImplemented or isnan(result1) and isnan(result3)
+        assert result1 == result3 or result3 == NotImplemented or math.isnan(result1) and math.isnan(result3)
         #
         if (longlong.supports_longlong and
             isinstance(result1, longlong.r_float_storage)):
@@ -288,6 +297,9 @@ class JitMixin:
 
 class LLJitMixin(JitMixin):
     CPUClass = runner.LLGraphCPU
+
+    def supports_vector_ext(self):
+        return True
 
     @staticmethod
     def Ptr(T):

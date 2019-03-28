@@ -1,3 +1,4 @@
+import math
 import sys
 from rpython.translator.translator import TranslationContext
 from rpython.rtyper.test import snippet
@@ -147,9 +148,8 @@ class TestRfloat(BaseRtypingTest):
         self.interpret(fn, [1.0, 2.0, 3.0])
 
     def test_copysign(self):
-        from rpython.rlib import rfloat
         def fn(x, y):
-            return rfloat.copysign(x, y)
+            return math.copysign(x, y)
         assert self.interpret(fn, [42, -1]) == -42
         assert self.interpret(fn, [42, -0.0]) == -42
         assert self.interpret(fn, [42, 0.0]) == 42
@@ -162,11 +162,10 @@ class TestRfloat(BaseRtypingTest):
         assert self.interpret(fn, [0]) == 42.3
 
     def test_isnan(self):
-        from rpython.rlib import rfloat
         def fn(x, y):
             n1 = x * x
             n2 = y * y * y
-            return rfloat.isnan(n1 / n2)
+            return math.isnan(n1 / n2)
         assert self.interpret(fn, [1e200, 1e200])   # nan
         assert not self.interpret(fn, [1e200, 1.0])   # +inf
         assert not self.interpret(fn, [1e200, -1.0])  # -inf
@@ -174,11 +173,10 @@ class TestRfloat(BaseRtypingTest):
         assert not self.interpret(fn, [42.5, -2.3])   # -finite
 
     def test_isinf(self):
-        from rpython.rlib import rfloat
         def fn(x, y):
             n1 = x * x
             n2 = y * y * y
-            return rfloat.isinf(n1 / n2)
+            return math.isinf(n1 / n2)
         assert self.interpret(fn, [1e200, 1.0])       # +inf
         assert self.interpret(fn, [1e200, -1.0])      # -inf
         assert not self.interpret(fn, [1e200, 1e200]) # nan
@@ -203,6 +201,14 @@ class TestRfloat(BaseRtypingTest):
             return formatd(x, 'f', 2, 0)
         res = self.ll_to_string(self.interpret(f, [10/3.0]))
         assert res == '3.33'
+
+    def test_formatd_g(self):
+        from rpython.rlib import rfloat
+        for flags in [0, rfloat.DTSF_ADD_DOT_0]:
+            def f(y):
+                return rfloat.formatd(y, 'g', 2, flags)
+
+            assert self.ll_to_string(self.interpret(f, [3.0])) == f(3.0)
 
     def test_formatd_repr(self):
         from rpython.rlib.rfloat import formatd

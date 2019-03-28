@@ -15,17 +15,19 @@ class AppTestHashlib:
 
     def test_attributes(self):
         import hashlib
-        for name, expected_size in {'md5': 16,
-                                    'sha1': 20,
-                                    'sha224': 28,
-                                    'sha256': 32,
-                                    'sha384': 48,
-                                    'sha512': 64,
-                                    }.items():
+        for name, (expected_size, expected_block_size) in {
+                'md5': (16, 64),
+                'sha1': (20, 64),
+                'sha224': (28, 64),
+                'sha256': (32, 64),
+                'sha384': (48, 128),
+                'sha512': (64, 128),
+                }.items():
             h = hashlib.new(name)
             assert h.name == name
             assert h.digest_size == expected_size
             assert h.digestsize == expected_size
+            assert h.block_size == expected_block_size
             #
             h.update('abc')
             h2 = h.copy()
@@ -46,6 +48,7 @@ class AppTestHashlib:
             h = py_new(name)('')
             assert h.digest_size == expected_size
             assert h.digestsize == expected_size
+            assert h.block_size == expected_block_size
             #
             h.update('abc')
             h2 = h.copy()
@@ -99,7 +102,7 @@ class AppTestHashlib:
         for hash_name, expected in sorted(expected_results.items()):
             try:
                 m = _hashlib.new(hash_name)
-            except ValueError, e:
+            except ValueError as e:
                 print 'skipped %s: %s' % (hash_name, e)
                 continue
             m.update(test_string)
@@ -108,3 +111,13 @@ class AppTestHashlib:
             got.decode('hex')
             if expected is not None:
                 assert got == expected
+
+    def test_pbkdf2(self):
+        try:
+            from _hashlib import pbkdf2_hmac
+        except ImportError:
+            skip("Requires OpenSSL >= 1.1")
+        out = pbkdf2_hmac('sha1', 'password', 'salt', 1)
+        assert out == '0c60c80f961f0e71f3a9b524af6012062fe037a6'.decode('hex')
+        out = pbkdf2_hmac('sha1', 'password', 'salt', 2, None)
+        assert out == 'ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957'.decode('hex')

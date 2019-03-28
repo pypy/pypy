@@ -7,6 +7,12 @@ from pypy.interpreter.pyparser import parser, metaparser, pygram
 from pypy.interpreter.pyparser.test.test_metaparser import MyGrammar
 
 
+def test_char_set():
+    first = {5: None, 9: None, 100: None, 255:None}
+    p = parser.DFA(None, None, first)
+    for i in range(256):
+        assert p.could_match_token(i) == (i in first)
+
 class SimpleParser(parser.Parser):
 
     def parse(self, input):
@@ -14,7 +20,7 @@ class SimpleParser(parser.Parser):
         rl = StringIO.StringIO(input + "\n").readline
         gen = tokenize.generate_tokens(rl)
         for tp, value, begin, end, line in gen:
-            if self.add_token(tp, value, begin[0], begin[1], line):
+            if self.add_token(parser.Token(tp, value, begin[0], begin[1], line)):
                 py.test.raises(StopIteration, gen.next)
         return self.root
 
@@ -52,24 +58,22 @@ def tree_from_string(expected, gram):
                 value = "\n"
             else:
                 value = ""
-            children = None
+            n = parser.Terminal(tp, value, 0, 0)
         else:
             tp = gram.symbol_ids[data[0]]
-            value = None
-            children = []
-        n = parser.Node(tp, value, children, 0, 0)
+            n = parser.Nonterminal(tp)
         new_indent = count_indent(line)
         if new_indent >= last_indent:
             if new_indent == last_indent and node_stack:
                 node_stack.pop()
             if node_stack:
-                node_stack[-1].children.append(n)
+                node_stack[-1].append_child(n)
             node_stack.append(n)
         else:
             diff = last_indent - new_indent
             pop_nodes = diff // 4 + 1
             del node_stack[-pop_nodes:]
-            node_stack[-1].children.append(n)
+            node_stack[-1].append_child(n)
             node_stack.append(n)
         last_indent = new_indent
     return node_stack[0]
@@ -292,3 +296,37 @@ age: NUMBER\n"""
             NEWLINE
             ENDMARKER"""
         assert tree_from_string(expected, gram) == p.parse("hi 42 end")
+
+
+    def test_optimized_terminal(self):
+        gram = """foo: bar baz 'end' NEWLINE ENDMARKER
+bar: NAME
+baz: NUMBER
+"""
+        p, gram = self.parser_for(gram, False)
+        expected = """
+        foo
+            bar
+                NAME "a_name"
+            baz
+                NUMBER "42"
+            NAME "end"
+            NEWLINE
+            ENDMARKER"""
+        input = "a_name 42 end"
+        tree = p.parse(input)
+        assert tree_from_string(expected, gram) == tree
+        assert isinstance(tree, parser.Nonterminal)
+        assert isinstance(tree.get_child(0), parser.Nonterminal1)
+        assert isinstance(tree.get_child(1), parser.Nonterminal1)
+
+
+    def test_error_string(self):
+        p, gram = self.parser_for(
+            "foo: 'if' NUMBER '+' NUMBER"
+        )
+        info = py.test.raises(parser.ParseError, p.parse, "if 42")
+        info.value.expected_str is None
+        info = py.test.raises(parser.ParseError, p.parse, "if 42 42")
+        info.value.expected_str == '+'
+

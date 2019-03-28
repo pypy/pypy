@@ -18,6 +18,8 @@ PyAPI_FUNC(int) PyThread_acquire_lock(PyThread_type_lock, int);
 #define NOWAIT_LOCK	0
 PyAPI_FUNC(void) PyThread_release_lock(PyThread_type_lock);
 
+PyAPI_FUNC(long) PyThread_start_new_thread(void (*func)(void *), void *arg);
+
 /* Thread Local Storage (TLS) API */
 PyAPI_FUNC(int) PyThread_create_key(void);
 PyAPI_FUNC(void) PyThread_delete_key(int);
