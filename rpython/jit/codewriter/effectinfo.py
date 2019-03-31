@@ -326,14 +326,17 @@ def effectinfo_from_writeanalyze(effects, cpu,
         # a read or a write to an interiorfield, inside an array of
         # structs, is additionally recorded as a read or write of
         # the array itself
-        extraef = set()
+        extraef = list()
         for tup in effects:
             if tup[0] == "interiorfield" or tup[0] == "readinteriorfield":
                 T = deref(tup[1])
                 if isinstance(T, lltype.Array) and consider_array(T):
-                    extraef.add((tup[0].replace("interiorfield", "array"),
-                                 tup[1]))
-        effects |= extraef
+                    val = (tup[0].replace("interiorfield", "array"),
+                                 tup[1])
+                    if val not in effects:
+                        extraef.append(val)
+        # preserve order in the added effects issue bitbucket #2984
+        effects = tuple(effects) + tuple(extraef)
 
         for tup in effects:
             if tup[0] == "struct":
