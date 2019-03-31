@@ -36,7 +36,7 @@ class LLTrace(object):
         # front-end will mutate them under our feet again.  We also
         # need to make sure things get freed.
         _cache={}
-        
+
         def mapping(box):
             if isinstance(box, Const) or box is None:
                 return box
@@ -208,7 +208,7 @@ def _is_signed_kind(TYPE):
 
 class ArrayDescr(AbstractDescr):
     all_interiorfielddescrs = None
-    
+
     def __init__(self, A, runner):
         self.A = self.OUTERA = A
         self._is_pure = A._immutable_field(None)
@@ -322,7 +322,6 @@ _example_res = {'v': None,
 
 
 class LLGraphCPU(model.AbstractCPU):
-    from rpython.jit.metainterp.typesystem import llhelper as ts
     supports_floats = True
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
@@ -735,7 +734,7 @@ class LLGraphCPU(model.AbstractCPU):
             return rffi.LONGLONG
         else:
             raise NotImplementedError(size)
-    
+
     def bh_gc_load_indexed_i(self, struct, index, scale, base_ofs, bytes):
         T = self._get_int_type_from_size(bytes)
         x = llop.gc_load_indexed(T, struct, index, scale, base_ofs)
@@ -1089,7 +1088,7 @@ class LLFrame(object):
             if box.datatype == INT:
                 for i,a in enumerate(arg):
                     if isinstance(a, bool):
-                        arg[i] = int(a) 
+                        arg[i] = int(a)
                 assert all([lltype.typeOf(a) == lltype.Signed for a in arg])
             elif box.datatype == FLOAT:
                 assert all([lltype.typeOf(a) == longlong.FLOATSTORAGE or \

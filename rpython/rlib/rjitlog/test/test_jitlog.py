@@ -42,7 +42,6 @@ class FakeJitDriver(object):
 
 class FakeMetaInterpSd:
     cpu = AbstractCPU()
-    cpu.ts = None
     jitdrivers_sd = [FakeJitDriver()]
     def get_name_from_address(self, addr):
         return 'Name'

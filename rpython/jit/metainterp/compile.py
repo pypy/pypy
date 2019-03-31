@@ -730,7 +730,7 @@ class AbstractResumeGuardDescr(ResumeDescr):
         else:
             from rpython.jit.metainterp.blackhole import resume_in_blackhole
             if isinstance(self, ResumeGuardCopiedDescr):
-                resume_in_blackhole(metainterp_sd, jitdriver_sd, self.prev, deadframe)    
+                resume_in_blackhole(metainterp_sd, jitdriver_sd, self.prev, deadframe)
             else:
                 assert isinstance(self, ResumeGuardDescr)
                 resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
@@ -921,7 +921,7 @@ class CompileLoopVersionDescr(ResumeGuardDescr):
         cloned.copy_all_attributes_from(self)
         return cloned
 
-class AllVirtuals:
+class AllVirtuals(object):
     llopaque = True
     cache = None
 

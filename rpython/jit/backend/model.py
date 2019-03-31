@@ -9,6 +9,8 @@ class CPUTotalTracker(object):
     total_freed_bridges = 0
 
 class AbstractCPU(object):
+    from rpython.jit.metainterp.typesystem import llhelper as ts
+
     supports_floats = False
     supports_longlong = False
     # ^^^ This is only useful on 32-bit platforms.  If True,

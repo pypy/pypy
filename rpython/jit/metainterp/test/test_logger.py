@@ -1,12 +1,11 @@
-
 import re
+from StringIO import StringIO
 from rpython.rlib import debug
 from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp import logger
-from rpython.jit.metainterp.typesystem import llhelper
-from StringIO import StringIO
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr
+from rpython.jit.metainterp.history import (
+    AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr)
 from rpython.jit.backend.model import AbstractCPU
 
 
@@ -50,8 +49,6 @@ class Logger(logger.Logger):
         return logops
 
 class TestLogger(object):
-    ts = llhelper
-
     def make_metainterp_sd(self):
         class FakeJitDriver(object):
             class warmstate(object):
@@ -59,7 +56,6 @@ class TestLogger(object):
 
         class FakeMetaInterpSd:
             cpu = AbstractCPU()
-            cpu.ts = self.ts
             jitdrivers_sd = [FakeJitDriver()]
             def get_name_from_address(self, addr):
                 return 'Name'

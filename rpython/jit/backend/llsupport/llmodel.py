@@ -23,8 +23,6 @@ from rpython.rlib.unroll import unrolling_iterable
 
 
 class AbstractLLCPU(AbstractCPU):
-    from rpython.jit.metainterp.typesystem import llhelper as ts
-
     HAS_CODEMAP = False
 
     done_with_this_frame_descr_int      = None   # overridden by pyjitpl.py

@@ -12,16 +12,17 @@ from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
     supports_guard_gc_type = True
-    
+
     class Storage:
         pass
-    
+
     class tracker:
         pass
 
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
+
     def compile_loop(self, inputargs, operations, token, jd_id=0,
                      unique_id=0, log=True, name='',
                      logger=None):
