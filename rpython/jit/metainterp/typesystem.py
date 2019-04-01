@@ -1,7 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, llstr
-from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.objectmodel import r_dict, specialize
@@ -29,8 +28,6 @@ class TypeSystemHelper(object):
 class LLTypeHelper(TypeSystemHelper):
 
     name = 'lltype'
-    cast_instance_to_base_ref = staticmethod(cast_instance_to_base_ptr)
-    loops_done_with_this_frame_ref = None # patched by compile.py
 
     def get_typeptr(self, obj):
         return obj.typeptr
@@ -54,8 +51,7 @@ class LLTypeHelper(TypeSystemHelper):
         return llmemory.cast_ptr_to_adr(fnptr)
 
     def cls_of_box(self, box):
-        PTR = lltype.Ptr(rclass.OBJECT)
-        obj = lltype.cast_opaque_ptr(PTR, box.getref_base())
+        obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.getref_base())
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
         return history.ConstInt(heaptracker.adr2int(cls))
 
@@ -70,11 +66,11 @@ class LLTypeHelper(TypeSystemHelper):
 
     def get_exception_obj(self, evaluebox):
         # only works when translated
-        obj = evaluebox.getref(lltype.Ptr(rclass.OBJECT))
+        obj = evaluebox.getref(rclass.OBJECTPTR)
         return cast_base_ptr_to_instance(Exception, obj)
 
     def cast_to_baseclass(self, value):
-        return lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), value)
+        return lltype.cast_opaque_ptr(rclass.OBJECTPTR, value)
 
     @specialize.ll()
     def getlength(self, array):
@@ -97,8 +93,10 @@ class LLTypeHelper(TypeSystemHelper):
     # the value type.  Note that NULL is not allowed as a key.
     def new_ref_dict(self):
         return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
+
     def new_ref_dict_2(self):
         return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
+
     def new_ref_dict_3(self):
         return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
 
@@ -109,10 +107,6 @@ class LLTypeHelper(TypeSystemHelper):
     def cast_from_ref(self, TYPE, value):
         return lltype.cast_opaque_ptr(TYPE, value)
     cast_from_ref._annspecialcase_ = 'specialize:arg(1)'
-
-    def cast_to_ref(self, value):
-        return lltype.cast_opaque_ptr(llmemory.GCREF, value)
-    cast_to_ref._annspecialcase_ = 'specialize:ll'
 
     def getaddr_for_box(self, box):
         return box.getaddr()

@@ -1,6 +1,8 @@
 import sys
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import (
+    cast_gcref_to_instance, cast_instance_to_gcref)
 from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id, specialize
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
@@ -97,14 +99,11 @@ class AbstractDescr(AbstractValue):
         return '%r' % (self,)
 
     def hide(self, cpu):
-        descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
-        return cpu.ts.cast_to_ref(descr_ptr)
+        return cast_instance_to_gcref(self)
 
     @staticmethod
     def show(cpu, descr_gcref):
-        from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-        descr_ptr = cpu.ts.cast_to_baseclass(descr_gcref)
-        return cast_base_ptr_to_instance(AbstractDescr, descr_ptr)
+        return cast_gcref_to_instance(AbstractDescr, descr_gcref)
 
     def get_vinfo(self):
         raise NotImplementedError

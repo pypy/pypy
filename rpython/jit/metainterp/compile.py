@@ -1,6 +1,7 @@
 import weakref
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import (
+    cast_instance_to_gcref, cast_gcref_to_instance)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -931,15 +932,12 @@ class AllVirtuals(object):
     def __init__(self, cache):
         self.cache = cache
 
-    def hide(self, cpu):
-        ptr = cpu.ts.cast_instance_to_base_ref(self)
-        return cpu.ts.cast_to_ref(ptr)
+    def hide(self):
+        return cast_instance_to_gcref(self)
 
     @staticmethod
-    def show(cpu, gcref):
-        from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-        ptr = cpu.ts.cast_to_baseclass(gcref)
-        return cast_base_ptr_to_instance(AllVirtuals, ptr)
+    def show(gcref):
+        return cast_gcref_to_instance(AllVirtuals, gcref)
 
 def invent_fail_descr_for_op(opnum, optimizer, copied_from_descr=None):
     if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
@@ -974,7 +972,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # handle_async_forcing() just a moment ago.
         from rpython.jit.metainterp.blackhole import resume_in_blackhole
         hidden_all_virtuals = metainterp_sd.cpu.get_savedata_ref(deadframe)
-        obj = AllVirtuals.show(metainterp_sd.cpu, hidden_all_virtuals)
+        obj = AllVirtuals.show(hidden_all_virtuals)
         all_virtuals = obj.cache
         if all_virtuals is None:
             all_virtuals = ResumeDataDirectReader.VirtualCache([], [])
@@ -1017,8 +1015,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED
         obj = AllVirtuals(all_virtuals)
-        hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
-        metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
+        metainterp_sd.cpu.set_savedata_ref(deadframe, obj.hide())
 
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
