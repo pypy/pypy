@@ -129,7 +129,8 @@ def create_package(basedir, options, _fake=False):
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
         win_extras = [('libpypy-c.dll', None), ('sqlite3.dll', lib_pypy)]
         if not options.no_tk:
-            win_extras += [('tcl85.dll', lib_pypy), ('tk85.dll', lib_pypy)]
+            tkinter_dir = lib_pypy.join('_tkinter')
+            win_extras += [('tcl85.dll', tkinter_dir), ('tk85.dll', tkinter_dir)]
 
         for extra,target_dir in win_extras:
             p = pypy_c.dirpath().join(extra)
