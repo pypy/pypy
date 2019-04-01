@@ -186,8 +186,6 @@ class Const(AbstractValue):
             else:
                 intval = lltype.cast_primitive(lltype.Signed, x)
             return ConstInt(intval)
-        elif kind == "ref":
-            return cpu.ts.new_ConstRef(x)
         elif kind == "float":
             return ConstFloat(longlong.getfloatstorage(x))
         else:
@@ -716,7 +714,7 @@ class History(object):
     @specialize.argtype(2)
     def set_op_value(self, op, value):
         if value is None:
-            return        
+            return
         elif isinstance(value, bool):
             op.setint(int(value))
         elif lltype.typeOf(value) == lltype.Signed:

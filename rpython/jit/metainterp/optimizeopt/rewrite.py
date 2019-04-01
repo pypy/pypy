@@ -1,8 +1,8 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp import compile
-from rpython.jit.metainterp.history import (Const, ConstInt, make_hashable_int,
-                                            ConstFloat)
+from rpython.jit.metainterp.history import (
+    Const, ConstInt, make_hashable_int, ConstFloat, CONST_NULL)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (
@@ -354,7 +354,7 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def postprocess_GUARD_ISNULL(self, op):
-        self.make_constant(op.getarg(0), self.optimizer.cpu.ts.CONST_NULL)
+        self.make_constant(op.getarg(0), CONST_NULL)
 
     def optimize_GUARD_IS_OBJECT(self, op):
         info = self.getptrinfo(op.getarg(0))

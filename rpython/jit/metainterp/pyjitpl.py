@@ -8,7 +8,7 @@ from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, TargetToken, MissingValue, SwitchToBlackhole)
+    ConstFloat, CONST_NULL, TargetToken, MissingValue, SwitchToBlackhole)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
@@ -136,9 +136,12 @@ class MIFrame(object):
             # is not defined yet.
             argcode = self._result_argcode
             index = ord(self.bytecode[self.pc - 1])
-            if   argcode == 'i': self.registers_i[index] = history.CONST_FALSE
-            elif argcode == 'r': self.registers_r[index] = history.CONST_NULL
-            elif argcode == 'f': self.registers_f[index] = history.CONST_FZERO
+            if argcode == 'i':
+                self.registers_i[index] = history.CONST_FALSE
+            elif argcode == 'r':
+                self.registers_r[index] = CONST_NULL
+            elif argcode == 'f':
+                self.registers_f[index] = history.CONST_FZERO
             self._result_argcode = '?'     # done
         #
         info = self.get_current_position_info()
@@ -269,11 +272,11 @@ class MIFrame(object):
 
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):
-        return self.execute(rop.PTR_NE, box, history.CONST_NULL)
+        return self.execute(rop.PTR_NE, box, CONST_NULL)
 
     @arguments("box")
     def opimpl_ptr_iszero(self, box):
-        return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
+        return self.execute(rop.PTR_EQ, box, CONST_NULL)
 
     @arguments("box")
     def opimpl_assert_not_none(self, box):
@@ -931,8 +934,7 @@ class MIFrame(object):
         token_descr = vinfo.vable_token_descr
         mi = self.metainterp
         tokenbox = mi.execute_and_record(rop.GETFIELD_GC_R, token_descr, box)
-        condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox,
-                                       history.CONST_NULL)
+        condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox, CONST_NULL)
         funcbox = ConstInt(rffi.cast(lltype.Signed, vinfo.clear_vable_ptr))
         calldescr = vinfo.clear_vable_descr
         self.execute_varargs(rop.COND_CALL, [condbox, funcbox, box],
@@ -1495,7 +1497,7 @@ class MIFrame(object):
         vref = vrefbox.getref_base()
         if vrefinfo.is_virtual_ref(vref):
             # XXX write a comment about nullbox
-            nullbox = self.metainterp.cpu.ts.CONST_NULL
+            nullbox = CONST_NULL
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
@@ -2957,7 +2959,7 @@ class MetaInterp(object):
         # CALL_xxx is recorded
         self.history.record(rop.VIRTUAL_REF_FINISH, [vrefbox, virtualbox], None)
         # mark this situation by replacing the vrefbox with ConstPtr(NULL)
-        self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
+        self.virtualref_boxes[i+1] = CONST_NULL
 
     def handle_possible_exception(self):
         if self.last_exc_value:
@@ -3075,7 +3077,7 @@ class MetaInterp(object):
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
             # we're during tracing, so we should not execute it
-            self.history.record(rop.SETFIELD_GC, [vbox, self.cpu.ts.CONST_NULL],
+            self.history.record(rop.SETFIELD_GC, [vbox, CONST_NULL],
                                 None, descr=vinfo.vable_token_descr)
 
     def replace_box(self, oldbox, newbox):

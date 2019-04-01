@@ -1,7 +1,7 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     get_const_ptr_for_string, get_const_ptr_for_unicode, REF, INT,
-    DONT_CHANGE)
+    DONT_CHANGE, CONST_NULL)
 from rpython.jit.metainterp.optimizeopt import optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from rpython.jit.metainterp.optimizeopt.optimizer import llhelper, REMOVED
@@ -140,12 +140,12 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         srcbox = self.force_box(op, string_optimizer)
         return copy_str_content(string_optimizer, srcbox, targetbox,
                                 CONST_0, offsetbox, lengthbox, mode)
-     
+
 class VStringPlainInfo(StrPtrInfo):
     #_attrs_ = ('mode', '_is_virtual')
 
     _chars = None
-    
+
     def __init__(self, mode, is_virtual, length):
         if length != -1:
             self._chars = [None] * length
@@ -218,7 +218,7 @@ class VStringSliceInfo(StrPtrInfo):
     start = None
     lgtop = None
     s = None
-    
+
     def __init__(self, s, start, length, mode):
         self.s = s
         self.start = start
@@ -271,7 +271,7 @@ class VStringConcatInfo(StrPtrInfo):
     vleft = None
     vright = None
     _is_virtual = False
-    
+
     def __init__(self, mode, vleft, vright, is_virtual):
         self.vleft = vleft
         self.vright = vright
@@ -785,9 +785,8 @@ class OptString(optimizer.Optimization):
             if i1 and i1.is_null():
                 self.make_constant(resultop, CONST_1)
                 return True, None
-            op = self.optimizer.replace_op_with(resultop, rop.PTR_EQ,
-                                                [arg1, llhelper.CONST_NULL],
-                                                descr=DONT_CHANGE)
+            op = self.optimizer.replace_op_with(
+                resultop, rop.PTR_EQ, [arg1, CONST_NULL], descr=DONT_CHANGE)
             return True, self.emit(op)
         #
         return False, None

@@ -33,14 +33,7 @@ class LLTypeHelper(TypeSystemHelper):
     nullptr = staticmethod(lltype.nullptr)
     cast_instance_to_base_ref = staticmethod(cast_instance_to_base_ptr)
     BASETYPE = llmemory.GCREF
-    ConstRef = history.ConstPtr
     loops_done_with_this_frame_ref = None # patched by compile.py
-    NULLREF = history.ConstPtr.value
-    CONST_NULL = history.ConstPtr(NULLREF)
-
-    def new_ConstRef(self, x):
-        ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
-        return history.ConstPtr(ptrval)
 
     def get_typeptr(self, obj):
         return obj.typeptr
