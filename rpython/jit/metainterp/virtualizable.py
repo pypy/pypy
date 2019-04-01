@@ -293,15 +293,14 @@ class VirtualizableInfo(object):
         #
         all_graphs = self.warmrunnerdesc.translator.graphs
         ts = self.warmrunnerdesc.cpu.ts
-        (_, FUNCPTR) = ts.get_FuncType([self.VTYPEPTR], lltype.Void)
+        FUNC = lltype.FuncType([self.VTYPEPTR], lltype.Void)
         funcptr = self.warmrunnerdesc.helper_func(
-            FUNCPTR, force_virtualizable_if_necessary)
+            lltype.Ptr(FUNC), force_virtualizable_if_necessary)
         rvirtualizable.replace_force_virtualizable_with_call(
             all_graphs, self.VTYPEPTR, funcptr)
-        (_, FUNCPTR) = ts.get_FuncType([llmemory.GCREF], lltype.Void)
+        FUNC = lltype.FuncType([llmemory.GCREF], lltype.Void)
         self.clear_vable_ptr = self.warmrunnerdesc.helper_func(
-            FUNCPTR, self.clear_vable_token)
-        FUNC = FUNCPTR.TO
+            lltype.Ptr(FUNC), self.clear_vable_token)
         ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                         can_invalidate=False,
                         oopspecindex=EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE)

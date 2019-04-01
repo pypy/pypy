@@ -29,14 +29,6 @@ class LLTypeHelper(TypeSystemHelper):
 
     name = 'lltype'
 
-    def get_typeptr(self, obj):
-        return obj.typeptr
-
-    def get_FuncType(self, ARGS, RESULT):
-        FUNCTYPE = lltype.FuncType(ARGS, RESULT)
-        FUNCPTRTYPE = lltype.Ptr(FUNCTYPE)
-        return FUNCTYPE, FUNCPTRTYPE
-
     def get_superclass(self, TYPE):
         SUPER = TYPE.TO._first_struct()[1]
         if SUPER is None:
@@ -68,9 +60,6 @@ class LLTypeHelper(TypeSystemHelper):
         # only works when translated
         obj = evaluebox.getref(rclass.OBJECTPTR)
         return cast_base_ptr_to_instance(Exception, obj)
-
-    def cast_to_baseclass(self, value):
-        return lltype.cast_opaque_ptr(rclass.OBJECTPTR, value)
 
     @specialize.ll()
     def getlength(self, array):
