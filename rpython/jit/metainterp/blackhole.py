@@ -1622,7 +1622,7 @@ class BlackholeInterpreter(object):
         elif kind == 'i':
             raise jitexc.DoneWithThisFrameInt(self.get_tmpreg_i())
         elif kind == 'r':
-            raise jitexc.DoneWithThisFrameRef(self.cpu, self.get_tmpreg_r())
+            raise jitexc.DoneWithThisFrameRef(self.get_tmpreg_r())
         elif kind == 'f':
             raise jitexc.DoneWithThisFrameFloat(self.get_tmpreg_f())
         else:
@@ -1631,7 +1631,7 @@ class BlackholeInterpreter(object):
     def _exit_frame_with_exception(self, e):
         sd = self.builder.metainterp_sd
         e = lltype.cast_opaque_ptr(llmemory.GCREF, e)
-        raise jitexc.ExitFrameWithExceptionRef(self.cpu, e)
+        raise jitexc.ExitFrameWithExceptionRef(e)
 
     def _handle_jitexception_in_portal(self, e):
         # This case is really rare, but can occur if

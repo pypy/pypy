@@ -2131,7 +2131,7 @@ class MetaInterp(object):
             elif result_type == history.INT:
                 raise jitexc.DoneWithThisFrameInt(int(resultbox.getint()))
             elif result_type == history.REF:
-                raise jitexc.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
+                raise jitexc.DoneWithThisFrameRef(resultbox.getref_base())
             elif result_type == history.FLOAT:
                 raise jitexc.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
@@ -2165,7 +2165,8 @@ class MetaInterp(object):
             self.compile_exit_frame_with_exception(self.last_exc_box)
         except SwitchToBlackhole as stb:
             self.aborted_tracing(stb.reason)
-        raise jitexc.ExitFrameWithExceptionRef(self.cpu, lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
+        raise jitexc.ExitFrameWithExceptionRef(
+            lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
 
     def check_recursion_invariant(self):
         portal_call_depth = -1
@@ -2632,16 +2633,24 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         num_red_args = self.jitdriver_sd.num_red_args
         for box in live_arg_boxes[num_green_args:num_green_args+num_red_args]:
-            if   box.type == history.INT: args.append(box.getint())
-            elif box.type == history.REF: args.append(box.getref_base())
-            elif box.type == history.FLOAT: args.append(box.getfloatstorage())
-            else: assert 0
+            if box.type == history.INT:
+                args.append(box.getint())
+            elif box.type == history.REF:
+                args.append(box.getref_base())
+            elif box.type == history.FLOAT:
+                args.append(box.getfloatstorage())
+            else:
+                assert 0
         res = self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
         kind = history.getkind(lltype.typeOf(res))
-        if kind == 'void':  raise jitexc.DoneWithThisFrameVoid()
-        if kind == 'int':   raise jitexc.DoneWithThisFrameInt(res)
-        if kind == 'ref':   raise jitexc.DoneWithThisFrameRef(self.cpu, res)
-        if kind == 'float': raise jitexc.DoneWithThisFrameFloat(res)
+        if kind == 'void':
+            raise jitexc.DoneWithThisFrameVoid()
+        if kind == 'int':
+            raise jitexc.DoneWithThisFrameInt(res)
+        if kind == 'ref':
+            raise jitexc.DoneWithThisFrameRef(res)
+        if kind == 'float':
+            raise jitexc.DoneWithThisFrameFloat(res)
         raise AssertionError(kind)
 
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):

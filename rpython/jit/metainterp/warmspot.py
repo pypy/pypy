@@ -909,8 +909,8 @@ class WarmRunnerDesc(object):
         #
         from rpython.jit.metainterp.warmstate import specialize_value
         from rpython.jit.metainterp.warmstate import unspecialize_value
-        portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
-                                         graph=portalgraph)
+        portal_ptr = lltype.functionptr(
+            PORTALFUNC, 'portal', graph=portalgraph)
         jd._portal_ptr = portal_ptr
         #
         portalfunc_ARGS = []

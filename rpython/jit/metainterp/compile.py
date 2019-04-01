@@ -654,6 +654,7 @@ class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
     def get_result(self, cpu, deadframe):
         return cpu.get_int_value(deadframe, 0)
+
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
         cpu = metainterp_sd.cpu
@@ -662,14 +663,16 @@ class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
     def get_result(self, cpu, deadframe):
         return cpu.get_ref_value(deadframe, 0)
+
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
-        raise jitexc.DoneWithThisFrameRef(cpu, self.get_result(cpu, deadframe))
+        raise jitexc.DoneWithThisFrameRef(self.get_result(cpu, deadframe))
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
     def get_result(self, cpu, deadframe):
         return cpu.get_float_value(deadframe, 0)
+
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
         cpu = metainterp_sd.cpu
@@ -679,7 +682,7 @@ class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         value = cpu.get_ref_value(deadframe, 0)
-        raise jitexc.ExitFrameWithExceptionRef(cpu, value)
+        raise jitexc.ExitFrameWithExceptionRef(value)
 
 
 def make_and_attach_done_descrs(targets):
@@ -1120,7 +1123,7 @@ class PropagateExceptionDescr(AbstractFailDescr):
         if not exception:
             exception = cast_instance_to_gcref(memory_error)
         assert exception, "PropagateExceptionDescr: no exception??"
-        raise jitexc.ExitFrameWithExceptionRef(cpu, exception)
+        raise jitexc.ExitFrameWithExceptionRef(exception)
 
 def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
                          memory_manager=None):

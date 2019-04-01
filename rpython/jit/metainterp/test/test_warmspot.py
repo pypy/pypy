@@ -601,7 +601,6 @@ class TestWarmspotDirect(object):
                     exc = lltype.malloc(OBJECT)
                     exc.typeptr = exc_vtable
                     raise jitexc.ExitFrameWithExceptionRef(
-                        metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
                 assert 0
 

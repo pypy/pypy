@@ -29,10 +29,7 @@ class TypeSystemHelper(object):
 class LLTypeHelper(TypeSystemHelper):
 
     name = 'lltype'
-    functionptr = staticmethod(lltype.functionptr)
-    nullptr = staticmethod(lltype.nullptr)
     cast_instance_to_base_ref = staticmethod(cast_instance_to_base_ptr)
-    BASETYPE = llmemory.GCREF
     loops_done_with_this_frame_ref = None # patched by compile.py
 
     def get_typeptr(self, obj):
