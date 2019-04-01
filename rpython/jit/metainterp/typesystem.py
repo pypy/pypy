@@ -29,19 +29,6 @@ class LLTypeHelper(TypeSystemHelper):
 
     name = 'lltype'
 
-    def get_superclass(self, TYPE):
-        SUPER = TYPE.TO._first_struct()[1]
-        if SUPER is None:
-            return None
-        return lltype.Ptr(SUPER)
-
-    def cast_to_instance_maybe(self, TYPE, instance):
-        return lltype.cast_pointer(TYPE, instance)
-    cast_to_instance_maybe._annspecialcase_ = 'specialize:arg(1)'
-
-    def cast_fnptr_to_root(self, fnptr):
-        return llmemory.cast_ptr_to_adr(fnptr)
-
     def cls_of_box(self, box):
         obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.getref_base())
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
@@ -73,10 +60,6 @@ class LLTypeHelper(TypeSystemHelper):
     def setarrayitem(self, array, i, newvalue):
         array[i] = newvalue
 
-    def conststr(self, str):
-        ll = llstr(str)
-        return history.ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, ll))
-
     # A dict whose keys are refs (like the .value of BoxPtr).
     # It is an r_dict on lltype.  Two copies, to avoid conflicts with
     # the value type.  Note that NULL is not allowed as a key.
@@ -92,10 +75,6 @@ class LLTypeHelper(TypeSystemHelper):
     def cast_vtable_to_hashable(self, cpu, ptr):
         adr = llmemory.cast_ptr_to_adr(ptr)
         return heaptracker.adr2int(adr)
-
-    def cast_from_ref(self, TYPE, value):
-        return lltype.cast_opaque_ptr(TYPE, value)
-    cast_from_ref._annspecialcase_ = 'specialize:arg(1)'
 
     def getaddr_for_box(self, box):
         return box.getaddr()

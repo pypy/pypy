@@ -8,7 +8,6 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.rclass import IR_IMMUTABLE_ARRAY, IR_IMMUTABLE
 
 
-
 class VirtualizableInfo(object):
 
     def __init__(self, warmrunnerdesc, VTYPEPTR):
@@ -16,16 +15,17 @@ class VirtualizableInfo(object):
         cpu = warmrunnerdesc.cpu
         self.cpu = cpu
         #
-        VTYPEPTR1 = VTYPEPTR
-        while 'virtualizable_accessor' not in deref(VTYPEPTR)._hints:
-            VTYPEPTR = cpu.ts.get_superclass(VTYPEPTR)
-            assert VTYPEPTR is not None, (
-                "%r is listed in the jit driver's 'virtualizables', "
-                "but that class doesn't have a '_virtualizable_' attribute "
-                "(if it has _virtualizable2_, rename it to _virtualizable_)"
-                % (VTYPEPTR1,))
-        self.VTYPEPTR = VTYPEPTR
-        self.VTYPE = VTYPE = deref(VTYPEPTR)
+        VTYPE = VTYPEPTR.TO
+        while 'virtualizable_accessor' not in VTYPE._hints:
+            VTYPE = VTYPE._first_struct()[1]
+            if VTYPE is None:
+                raise ValueError(
+                    "%r is listed in the jit driver's 'virtualizables', "
+                    "but that class doesn't have a '_virtualizable_' attribute "
+                    "(if it has _virtualizable2_, rename it to _virtualizable_)"
+                    % (VTYPEPTR,))
+        self.VTYPE = VTYPE
+        self.VTYPEPTR = VTYPEPTR = lltype.Ptr(VTYPE)
         self.vable_token_descr = cpu.fielddescrof(VTYPE, 'vable_token')
         #
         accessor = VTYPE._hints['virtualizable_accessor']
@@ -214,7 +214,7 @@ class VirtualizableInfo(object):
         self.get_total_size = get_total_size
 
         def cast_to_vtype(virtualizable):
-            return self.cpu.ts.cast_to_instance_maybe(VTYPEPTR, virtualizable)
+            return lltype.cast_pointer(VTYPEPTR, virtualizable)
         self.cast_to_vtype = cast_to_vtype
 
         def cast_gcref_to_vtype(virtualizable):
