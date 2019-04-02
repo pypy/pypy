@@ -48,18 +48,6 @@ class LLTypeHelper(TypeSystemHelper):
         obj = evaluebox.getref(rclass.OBJECTPTR)
         return cast_base_ptr_to_instance(Exception, obj)
 
-    @specialize.ll()
-    def getlength(self, array):
-        return len(array)
-
-    @specialize.ll()
-    def getarrayitem(self, array, i):
-        return array[i]
-
-    @specialize.ll()
-    def setarrayitem(self, array, i, newvalue):
-        array[i] = newvalue
-
     # A dict whose keys are refs (like the .value of BoxPtr).
     # It is an r_dict on lltype.  Two copies, to avoid conflicts with
     # the value type.  Note that NULL is not allowed as a key.

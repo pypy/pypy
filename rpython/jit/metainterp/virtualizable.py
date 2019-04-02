@@ -83,10 +83,6 @@ class VirtualizableInfo(object):
             [(descr, i) for (i, descr) in enumerate(self.static_field_descrs)])
         self.array_field_by_descrs = dict(
             [(descr, i) for (i, descr) in enumerate(self.array_field_descrs)])
-        #
-        getlength = cpu.ts.getlength
-        getarrayitem = cpu.ts.getarrayitem
-        setarrayitem = cpu.ts.setarrayitem
 
         def read_boxes(cpu, virtualizable):
             assert lltype.typeOf(virtualizable) == llmemory.GCREF
@@ -97,8 +93,8 @@ class VirtualizableInfo(object):
                 boxes.append(wrap(cpu, x))
             for _, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for i in range(getlength(lst)):
-                    boxes.append(wrap(cpu, getarrayitem(lst, i)))
+                for i in range(len(lst)):
+                    boxes.append(wrap(cpu, lst[i]))
             return boxes
 
         def write_boxes(virtualizable, boxes):
@@ -110,9 +106,8 @@ class VirtualizableInfo(object):
                 i = i + 1
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst)):
-                    x = unwrap(ARRAYITEMTYPE, boxes[i])
-                    setarrayitem(lst, j, x)
+                for j in range(len(lst)):
+                    lst[j] = unwrap(ARRAYITEMTYPE, boxes[i])
                     i = i + 1
             assert len(boxes) == i + 1
 
@@ -121,7 +116,7 @@ class VirtualizableInfo(object):
             size = 0
             for _, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                size += getlength(lst)
+                size += len(lst)
             for _, fieldname in unroll_static_fields:
                 size += 1
             return size
@@ -136,9 +131,8 @@ class VirtualizableInfo(object):
                 setattr(virtualizable, fieldname, x)
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst)):
-                    x = reader.load_next_value_of_type(ARRAYITEMTYPE)
-                    setarrayitem(lst, j, x)
+                for j in range(len(lst)):
+                    lst[j] = reader.load_next_value_of_type(ARRAYITEMTYPE)
 
         def load_list_of_boxes(virtualizable, reader, vable_box):
             virtualizable = cast_gcref_to_vtype(virtualizable)
@@ -152,7 +146,7 @@ class VirtualizableInfo(object):
                 boxes.append(box)
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst)):
+                for j in range(len(lst)):
                     box = reader.next_box_of_type(ARRAYITEMTYPE)
                     boxes.append(box)
             boxes.append(vable_box)
@@ -168,9 +162,8 @@ class VirtualizableInfo(object):
                 i = i + 1
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst)):
-                    x = unwrap(ARRAYITEMTYPE, boxes[i])
-                    assert getarrayitem(lst, j) == x
+                for j in range(len(lst)):
+                    assert lst[j] == unwrap(ARRAYITEMTYPE, boxes[i])
                     i = i + 1
             assert len(boxes) == i + 1
 
@@ -182,7 +175,7 @@ class VirtualizableInfo(object):
                 if arrayindex == j:
                     return index
                 lst = getattr(virtualizable, fieldname)
-                index += getlength(lst)
+                index += len(lst)
                 j = j + 1
             assert False, "invalid arrayindex"
 
@@ -192,7 +185,7 @@ class VirtualizableInfo(object):
             for _, fieldname in unroll_array_fields:
                 if arrayindex == j:
                     lst = getattr(virtualizable, fieldname)
-                    return getlength(lst)
+                    return len(lst)
                 j += 1
             assert False, "invalid arrayindex"
 
