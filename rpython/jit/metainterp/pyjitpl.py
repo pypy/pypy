@@ -1352,9 +1352,9 @@ class MIFrame(object):
         last_exc_value = metainterp.last_exc_value
         assert last_exc_value
         assert metainterp.class_of_last_exc_is_const
-        if not metainterp.cpu.ts.instanceOf(
-                ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, last_exc_value)),
-                vtablebox):
+        cls = llmemory.cast_adr_to_ptr(vtablebox.getaddr(), rclass.CLASSTYPE)
+        real_instance = rclass.ll_cast_to_object(last_exc_value)
+        if not rclass.ll_isinstance(real_instance, cls):
             self.pc = next_exc_target
 
     @arguments("box", "orgpc")

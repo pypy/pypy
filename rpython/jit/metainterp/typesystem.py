@@ -19,12 +19,6 @@ class LLTypeHelper(TypeSystemHelper):
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
         return history.ConstInt(heaptracker.adr2int(cls))
 
-    def instanceOf(self, instbox, clsbox):
-        adr = clsbox.getaddr()
-        bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-        real_instance = instbox.getref(rclass.OBJECTPTR)
-        return rclass.ll_isinstance(real_instance, bounding_class)
-
     # A dict whose keys are refs (like the .value of BoxPtr).
     # It is an r_dict on lltype.  Two copies, to avoid conflicts with
     # the value type.  Note that NULL is not allowed as a key.
