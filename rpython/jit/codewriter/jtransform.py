@@ -6,10 +6,8 @@ from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
-from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant,\
-     c_last_exception
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -1729,9 +1727,9 @@ class Transformer(object):
         (in which case the original call is written as a residual call).
         """
         if oopspec_name.startswith('new'):
-            LIST = deref(op.result.concretetype)
+            LIST = op.result.concretetype.TO
         else:
-            LIST = deref(args[0].concretetype)
+            LIST = args[0].concretetype.TO
         resizable = isinstance(LIST, lltype.GcStruct)
         assert resizable == (not isinstance(LIST, lltype.GcArray))
         if resizable:

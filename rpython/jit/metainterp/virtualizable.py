@@ -1,6 +1,5 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import history
-from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.jit.metainterp.warmstate import wrap, unwrap
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rvirtualizable
@@ -42,12 +41,12 @@ class VirtualizableInfo(object):
         self.static_fields = static_fields
         self.array_fields = array_fields
         #
-        FIELDTYPES = [fieldType(VTYPE, name) for name in static_fields]
+        FIELDTYPES = [getattr(VTYPE, name) for name in static_fields]
         ARRAYITEMTYPES = []
         for name in array_fields:
-            ARRAYPTR = fieldType(VTYPE, name)
-            ARRAY = deref(ARRAYPTR)
+            ARRAYPTR = getattr(VTYPE, name)
             assert isinstance(ARRAYPTR, lltype.Ptr)
+            ARRAY = ARRAYPTR.TO
             if not isinstance(ARRAY, lltype.GcArray):
                 raise Exception(
                     "The virtualizable field '%s' is not an array (found %r)."
@@ -55,8 +54,8 @@ class VirtualizableInfo(object):
                     " the list is not resized at run-time. You can do that by"
                     " using rpython.rlib.debug.make_sure_not_resized()." %
                     (name, ARRAY))
-            ARRAYITEMTYPES.append(arrayItem(ARRAY))
-        self.array_descrs = [cpu.arraydescrof(deref(fieldType(VTYPE, name)))
+            ARRAYITEMTYPES.append(ARRAY.OF)
+        self.array_descrs = [cpu.arraydescrof(getattr(VTYPE, name).TO)
                              for name in array_fields]
         #
         self.num_static_extra_boxes = len(static_fields)

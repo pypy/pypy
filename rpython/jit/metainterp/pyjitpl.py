@@ -1352,7 +1352,9 @@ class MIFrame(object):
         last_exc_value = metainterp.last_exc_value
         assert last_exc_value
         assert metainterp.class_of_last_exc_is_const
-        if not metainterp.cpu.ts.instanceOf(ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, last_exc_value)), vtablebox):
+        if not metainterp.cpu.ts.instanceOf(
+                ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, last_exc_value)),
+                vtablebox):
             self.pc = next_exc_target
 
     @arguments("box", "orgpc")
@@ -1824,7 +1826,7 @@ class MIFrame(object):
         to handle an indirect_call that may need to be inlined."""
         if isinstance(funcbox, Const):
             sd = self.metainterp.staticdata
-            key = sd.cpu.ts.getaddr_for_box(funcbox)
+            key = funcbox.getaddr()
             jitcode = sd.bytecode_for_address(key)
             if jitcode is not None:
                 # we should follow calls to this graph
