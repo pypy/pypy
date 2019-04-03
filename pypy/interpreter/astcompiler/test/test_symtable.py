@@ -456,7 +456,7 @@ def f(x):
         scp = self.func_scope("async def f(): pass")
         assert not scp.is_generator
         scp = self.func_scope("async def f(): await 5")
-        assert scp.is_generator
+        assert not scp.is_generator
 
     def test_yield_inside_try(self):
         scp = self.func_scope("def f(): yield x")
