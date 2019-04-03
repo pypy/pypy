@@ -1,7 +1,7 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import (
-    Const, ConstInt, ConstPtr, CONST_NULL)
+    Const, ConstInt, ConstPtr, CONST_NULL, new_ref_dict)
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT, IntUnbounded
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -9,7 +9,6 @@ from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
      OpHelpers
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.debug import debug_print
 from rpython.rtyper import rclass
@@ -272,7 +271,7 @@ class Optimizer(Optimization):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
-        self.interned_refs = self.cpu.ts.new_ref_dict()
+        self.interned_refs = new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard

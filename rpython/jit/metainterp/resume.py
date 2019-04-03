@@ -2,7 +2,8 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import jitprof
 from rpython.jit.metainterp.history import (
     Const, ConstInt, ConstPtr, getkind, INT, REF, FLOAT, CONST_NULL,
-    AbstractDescr, IntFrontendOp, RefFrontendOp, FloatFrontendOp)
+    AbstractDescr, IntFrontendOp, RefFrontendOp, FloatFrontendOp,
+    new_ref_dict)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import rarithmetic, rstack
 from rpython.rlib.objectmodel import (we_are_translated, specialize,
@@ -177,7 +178,7 @@ class ResumeDataLoopMemo(object):
         self.cpu = metainterp_sd.cpu
         self.consts = []
         self.large_ints = {}
-        self.refs = self.cpu.ts.new_ref_dict_2()
+        self.refs = new_ref_dict()
         self.cached_boxes = {}
         self.cached_virtuals = {}
 

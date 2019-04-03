@@ -3,8 +3,8 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import (
     cast_gcref_to_instance, cast_instance_to_gcref)
-from rpython.rlib.objectmodel import we_are_translated, Symbolic
-from rpython.rlib.objectmodel import compute_unique_id, specialize
+from rpython.rlib.objectmodel import (
+    we_are_translated, Symbolic, compute_unique_id, specialize, r_dict)
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 from rpython.rlib.jit import Counters
@@ -385,6 +385,20 @@ def get_const_ptr_for_unicode(s):
         _const_ptr_for_unicode[s] = result
     return result
 _const_ptr_for_unicode = {}
+
+# A dict whose keys are refs (like the .value of ConstPtr).
+# It is an r_dict. Note that NULL is not allowed as a key.
+@specialize.call_location()
+def new_ref_dict():
+    return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
+
+def rd_eq(ref1, ref2):
+    return ref1 == ref2
+
+def rd_hash(ref):
+    assert ref
+    return lltype.identityhash(ref)
+
 
 # ____________________________________________________________
 

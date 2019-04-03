@@ -2,9 +2,8 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     get_const_ptr_for_string, get_const_ptr_for_unicode, REF, INT,
     DONT_CHANGE, CONST_NULL)
-from rpython.jit.metainterp.optimizeopt import optimizer
-from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
-from rpython.jit.metainterp.optimizeopt.optimizer import llhelper, REMOVED
+from rpython.jit.metainterp.optimizeopt.optimizer import (
+    CONST_0, CONST_1, REMOVED, Optimization)
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt import info
@@ -47,7 +46,6 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 # ____________________________________________________________
 
 
-
 class StrPtrInfo(info.AbstractVirtualPtrInfo):
     #_attrs_ = ('length', 'lenbound', 'lgtop', 'mode', '_cached_vinfo', '_is_virtual')
 
@@ -72,7 +70,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
 
     @specialize.arg(2)
     def get_constant_string_spec(self, string_optimizer, mode):
-        return None # can't be constant
+        return None  # can't be constant
 
     def force_box(self, op, optforce):
         if not self.is_virtual():
@@ -196,8 +194,8 @@ class VStringPlainInfo(StrPtrInfo):
     def initialize_forced_string(self, op, string_optimizer, targetbox,
                                  offsetbox, mode):
         for i in range(len(self._chars)):
-            assert not isinstance(targetbox, Const) # ConstPtr never makes sense
-            charbox = self.strgetitem(i) # can't be virtual
+            assert not isinstance(targetbox, Const)  # ConstPtr never makes sense
+            charbox = self.strgetitem(i)  # can't be virtual
             if charbox is not None:
                 op = ResOperation(mode.STRSETITEM, [targetbox,
                                                     offsetbox,
@@ -247,7 +245,7 @@ class VStringSliceInfo(StrPtrInfo):
             length = vlength.getint()
             assert start >= 0
             assert length >= 0
-            return s1[start : start + length]
+            return s1[start: start + length]
         return None
 
     def getstrlen(self, op, string_optimizer, mode):
@@ -353,7 +351,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
             charbox = string_optimizer.strgetitem(None, srcbox, srcoffsetbox,
                                                   mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
-            assert not isinstance(targetbox, Const)# ConstPtr never makes sense
+            assert not isinstance(targetbox, Const)  # ConstPtr never makes sense
             string_optimizer.emit_extra(ResOperation(mode.STRSETITEM,
                     [targetbox, offsetbox, charbox]))
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
@@ -412,7 +410,7 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
     return resbox
 
 
-class OptString(optimizer.Optimization):
+class OptString(Optimization):
     "Handling of strings and unicodes."
 
     def setup(self):
@@ -444,6 +442,7 @@ class OptString(optimizer.Optimization):
 
     def optimize_NEWSTR(self, op):
         return self._optimize_NEWSTR(op, mode_string)
+
     def optimize_NEWUNICODE(self, op):
         return self._optimize_NEWSTR(op, mode_unicode)
 
@@ -480,6 +479,7 @@ class OptString(optimizer.Optimization):
 
     def optimize_STRGETITEM(self, op):
         return self._optimize_STRGETITEM(op, mode_string)
+
     def optimize_UNICODEGETITEM(self, op):
         return self._optimize_STRGETITEM(op, mode_unicode)
 
@@ -522,6 +522,7 @@ class OptString(optimizer.Optimization):
 
     def optimize_STRLEN(self, op):
         return self._optimize_STRLEN(op, mode_string)
+
     def optimize_UNICODELEN(self, op):
         return self._optimize_STRLEN(op, mode_unicode)
 
@@ -537,6 +538,7 @@ class OptString(optimizer.Optimization):
 
     def optimize_STRHASH(self, op):
         return self._optimize_STRHASH(op, mode_string)
+
     def optimize_UNICODEHASH(self, op):
         return self._optimize_STRHASH(op, mode_unicode)
 
@@ -761,18 +763,15 @@ class OptString(optimizer.Optimization):
                     l1box = i1.getstrlen(arg1, self, mode)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
-                    vchar1 = self.strgetitem(None, arg1, optimizer.CONST_0,
-                                             mode)
-                    vchar2 = self.strgetitem(None, arg2, optimizer.CONST_0,
-                                             mode)
+                    vchar1 = self.strgetitem(None, arg1, CONST_0, mode)
+                    vchar2 = self.strgetitem(None, arg2, CONST_0, mode)
                     seo = self.optimizer.send_extra_operation
                     op = self.optimizer.replace_op_with(resultop, rop.INT_EQ,
                                 [vchar1, vchar2], descr=DONT_CHANGE)
                     seo(op)
                     return True, None
                 if isinstance(i1, VStringSliceInfo):
-                    vchar = self.strgetitem(None, arg2, optimizer.CONST_0,
-                                            mode)
+                    vchar = self.strgetitem(None, arg2, CONST_0, mode)
                     do = EffectInfo.OS_STREQ_SLICE_CHAR
                     return True, self.generate_modified_call(do, [i1.s, i1.start,
                                                                   i1.lgtop, vchar],
@@ -801,7 +800,7 @@ class OptString(optimizer.Optimization):
             l2info = self.getintbound(l2box)
             if l2info.is_constant():
                 if l2info.getint() == 1:
-                    vchar = self.strgetitem(None, arg2, optimizer.CONST_0, mode)
+                    vchar = self.strgetitem(None, arg2, CONST_0, mode)
                     if i1 and i1.is_nonnull():
                         do = EffectInfo.OS_STREQ_NONNULL_CHAR
                     else:
@@ -832,8 +831,8 @@ class OptString(optimizer.Optimization):
             isinstance(l2box, ConstInt) and
             l1box.getint() == l2box.getint() == 1):
             # comparing two single chars
-            char1 = self.strgetitem(None, op.getarg(1), optimizer.CONST_0, mode)
-            char2 = self.strgetitem(None, op.getarg(2), optimizer.CONST_0, mode)
+            char1 = self.strgetitem(None, op.getarg(1), CONST_0, mode)
+            char2 = self.strgetitem(None, op.getarg(2), CONST_0, mode)
             seo = self.optimizer.send_extra_operation
             op = self.replace_op_with(op, rop.INT_SUB, [char1, char2],
                                       descr=DONT_CHANGE)
