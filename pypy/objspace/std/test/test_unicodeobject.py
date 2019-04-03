@@ -739,6 +739,11 @@ class AppTestUnicodeString:
         raises(TypeError, 'hello'.translate)
         raises(TypeError, 'abababc'.translate, 'abc', 'xyz')
 
+    def test_maketrans_bug(self):
+        assert str.maketrans(u'啊', u'阿') == {21834: 38463}
+        assert str.maketrans(u'啊', u'a') == {21834: 97}
+        assert str.maketrans(u'', u'', u'阿') == {38463: None}
+
     def test_unicode_from_encoded_object(self):
         assert str(b'x', 'utf-8') == 'x'
         assert str(b'x', 'utf-8', 'strict') == 'x'

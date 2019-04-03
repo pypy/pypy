@@ -223,7 +223,6 @@ class W_UnicodeObject(W_Root):
 
         if y is not None:
             # x must be a string too, of equal length
-            ylen = len(y)
             try:
                 x = space.utf8_w(w_x)
             except OperationError as e:
@@ -232,19 +231,21 @@ class W_UnicodeObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "first maketrans argument must be a string if "
                             "there is a second argument")
-            if len(x) != ylen:
+            if space.len_w(w_x) != space.len_w(w_y):
                 raise oefmt(space.w_ValueError,
                             "the first two maketrans arguments must have "
                             "equal length")
             # create entries for translating chars in x to those in y
-            for i in range(len(x)):
-                w_key = space.newint(ord(x[i]))
-                w_value = space.newint(ord(y[i]))
+            iter2 = rutf8.Utf8StringIterator(y)
+            for xch in rutf8.Utf8StringIterator(x):
+                ych = iter2.next()
+                w_key = space.newint(xch)
+                w_value = space.newint(ych)
                 space.setitem(w_new, w_key, w_value)
             # create entries for deleting chars in z
             if z is not None:
-                for i in range(len(z)):
-                    w_key = space.newint(ord(z[i]))
+                for zch in rutf8.Utf8StringIterator(z):
+                    w_key = space.newint(zch)
                     space.setitem(w_new, w_key, space.w_None)
         else:
             # x must be a dict
