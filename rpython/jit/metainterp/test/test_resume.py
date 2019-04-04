@@ -638,12 +638,12 @@ class FakeOptimizer_VirtualValue(object):
             pass
 fakeoptimizer = FakeOptimizer_VirtualValue()
 
-def ConstAddr(addr, cpu):   # compatibility
+def ConstAddr(addr):   # compatibility
     return ConstInt(heaptracker.adr2int(addr))
 
 def virtual_value(keybox, value, next):
-    vv = VirtualValue(fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr,
-                                     LLtypeMixin.cpu), keybox)
+    vv = VirtualValue(
+        fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr), keybox)
     if not isinstance(next, OptValue):
         next = OptValue(next)
     vv.setfield(LLtypeMixin.valuedescr, OptValue(value))
@@ -1212,13 +1212,13 @@ def test_virtual_adder_make_virtual():
     modifier.vfieldboxes = {}
 
     vdescr = LLtypeMixin.nodesize2
-    ca = ConstAddr(LLtypeMixin.node_vtable_adr2, LLtypeMixin.cpu)
+    ca = ConstAddr(LLtypeMixin.node_vtable_adr2)
     v4 = info.InstancePtrInfo(vdescr, ca, True)
     b4s.set_forwarded(v4)
     v4.setfield(LLtypeMixin.nextdescr, ca, b2s)
     v4.setfield(LLtypeMixin.valuedescr, ca, b3s)
     v4.setfield(LLtypeMixin.otherdescr, ca, b5s)
-    ca = ConstAddr(LLtypeMixin.node_vtable_adr, LLtypeMixin.cpu)
+    ca = ConstAddr(LLtypeMixin.node_vtable_adr)
     v2 = info.InstancePtrInfo(LLtypeMixin.nodesize, ca, True)
     v2.setfield(LLtypeMixin.nextdescr, b4s, ca)
     v2.setfield(LLtypeMixin.valuedescr, c1s, ca)
