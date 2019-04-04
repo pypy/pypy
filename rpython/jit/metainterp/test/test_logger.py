@@ -6,7 +6,6 @@ from rpython.jit.metainterp import logger
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import (
     AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr)
-from rpython.jit.backend.model import AbstractCPU
 
 
 class Descr(AbstractDescr):
@@ -19,8 +18,10 @@ def capturing(func, *args, **kwds):
             for arg in args:
                 print >> log_stream, arg,
             print >> log_stream
+
         def debug_start(self, *args):
             pass
+
         def debug_stop(self, *args):
             pass
     try:
@@ -55,7 +56,6 @@ class TestLogger(object):
                 get_location_str = staticmethod(lambda args: "dupa")
 
         class FakeMetaInterpSd:
-            cpu = AbstractCPU()
             jitdrivers_sd = [FakeJitDriver()]
             def get_name_from_address(self, addr):
                 return 'Name'

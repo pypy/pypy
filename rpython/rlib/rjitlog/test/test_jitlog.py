@@ -1,10 +1,7 @@
 import pytest
 import sys
-from rpython.jit.tool.oparser import pure_parse
-from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.backend.model import AbstractCPU
-from rpython.jit.metainterp.history import ConstInt, ConstPtr
+from rpython.jit.metainterp.history import ConstInt
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rlib.objectmodel import compute_unique_id
@@ -41,7 +38,6 @@ class FakeJitDriver(object):
 
 
 class FakeMetaInterpSd:
-    cpu = AbstractCPU()
     jitdrivers_sd = [FakeJitDriver()]
     def get_name_from_address(self, addr):
         return 'Name'
