@@ -9,6 +9,7 @@ from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.metainterp.optimize import SpeculativeError
+from rpython.jit.metainterp.support import adr2int, int2adr, int_signext
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -136,7 +137,7 @@ class SizeDescr(AbstractDescr):
         if self._vtable is Ellipsis:
             self._vtable = heaptracker.get_vtable_for_gcstruct(self._runner,
                                                                self.S)
-        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self._vtable))
+        return adr2int(llmemory.cast_ptr_to_adr(self._vtable))
 
     def is_immutable(self):
         return heaptracker.is_immutable_struct(self.S)
@@ -877,7 +878,7 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
-        return heaptracker.adr2int(result_adr)
+        return adr2int(result_adr)
 
     # vector operations
     vector_arith_code = """
@@ -977,7 +978,7 @@ class LLGraphCPU(model.AbstractCPU):
     bh_vec_expand_i = _bh_vec_expand
 
     def bh_vec_int_signext(self, vx, ext, count):
-        return [heaptracker.int_signext(_vx, ext) for _vx in vx]
+        return [int_signext(_vx, ext) for _vx in vx]
 
     def build_load(func):
         def load(self, struct, offset, scale, disp, descr, _count):
@@ -1551,7 +1552,7 @@ class LLFrame(object):
         return res
 
     def execute_restore_exception(self, descr, kls, e):
-        kls = heaptracker.int2adr(kls)
+        kls = int2adr(kls)
         if e:
             value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, e)
             assert llmemory.cast_ptr_to_adr(value.typeptr) == kls

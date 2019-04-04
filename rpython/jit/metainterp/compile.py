@@ -21,7 +21,8 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resume import (PENDINGFIELDSP,
         ResumeDataDirectReader, AccumInfo)
 from rpython.jit.metainterp.resumecode import NUMBERING
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.metainterp.support import adr2int
+from rpython.jit.codewriter import longlong
 
 
 def giveup():
@@ -1147,7 +1148,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
             raise AssertionError
         inputargs.append(box)
     k = jitdriver_sd.portal_runner_adr
-    funcbox = history.ConstInt(heaptracker.adr2int(k))
+    funcbox = history.ConstInt(adr2int(k))
     callargs = [funcbox] + greenboxes + inputargs
     #
 

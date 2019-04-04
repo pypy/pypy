@@ -12,6 +12,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.jit.codewriter import heaptracker, effectinfo
 from rpython.jit.codewriter.flatten import ListOfKind
 from rpython.jit.codewriter.jtransform import Transformer, UnsupportedMallocFlags
+from rpython.jit.metainterp.support import int2adr
 from rpython.jit.metainterp.history import getkind
 
 def const(x):
@@ -1198,7 +1199,7 @@ def test_unicode_concat():
     got = cc.callinfocollection.seen[0]
     assert got[0] == effectinfo.EffectInfo.OS_UNI_CONCAT
     assert got[1] == op1.args[2]    # the calldescr
-    assert heaptracker.int2adr(got[2]) == llmemory.cast_ptr_to_adr(func)
+    assert int2adr(got[2]) == llmemory.cast_ptr_to_adr(func)
 
 def test_str_slice():
     # test that the oopspec is present and correctly transformed

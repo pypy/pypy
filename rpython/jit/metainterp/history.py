@@ -14,7 +14,8 @@ from rpython.conftest import option
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
     AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp,\
     opclasses
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.metainterp.support import adr2int, int2adr
+from rpython.jit.codewriter import longlong
 import weakref
 from rpython.jit.metainterp import jitexc
 
@@ -181,7 +182,7 @@ class Const(AbstractValue):
         kind = getkind(T)
         if kind == "int":
             if isinstance(T, lltype.Ptr):
-                intval = heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
+                intval = adr2int(llmemory.cast_ptr_to_adr(x))
             else:
                 intval = lltype.cast_primitive(lltype.Signed, x)
             return ConstInt(intval)
@@ -228,7 +229,7 @@ class ConstInt(Const):
     getvalue = getint
 
     def getaddr(self):
-        return heaptracker.int2adr(self.value)
+        return int2adr(self.value)
 
     def _get_hash_(self):
         return make_hashable_int(self.value)
@@ -351,7 +352,7 @@ def make_hashable_int(i):
     from rpython.rtyper.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
     if not we_are_translated() and isinstance(i, llmemory.AddressAsInt):
         # Warning: such a hash changes at the time of translation
-        adr = heaptracker.int2adr(i)
+        adr = int2adr(i)
         try:
             return llmemory.cast_adr_to_int(adr, "emulated")
         except NotCtypesAllocatedStructure:

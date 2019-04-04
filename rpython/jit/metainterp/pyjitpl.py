@@ -2,7 +2,7 @@ import sys
 
 import py
 
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
@@ -13,6 +13,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, GuardResOp
+from rpython.jit.metainterp.support import adr2int
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -1161,7 +1162,7 @@ class MIFrame(object):
                           assembler_call=False):
         portal_code = targetjitdriver_sd.mainjitcode
         k = targetjitdriver_sd.portal_runner_adr
-        funcbox = ConstInt(heaptracker.adr2int(k))
+        funcbox = ConstInt(adr2int(k))
         return self.do_residual_call(funcbox, allboxes, portal_code.calldescr, pc,
                                      assembler_call=assembler_call,
                                      assembler_call_jd=targetjitdriver_sd)
@@ -2675,7 +2676,7 @@ class MetaInterp(object):
 
             exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
             if exception_obj:
-                exc_class = heaptracker.adr2int(
+                exc_class = adr2int(
                     llmemory.cast_ptr_to_adr(exception_obj.typeptr))
             else:
                 exc_class = 0
@@ -2974,7 +2975,7 @@ class MetaInterp(object):
 
     def handle_possible_exception(self):
         if self.last_exc_value:
-            exception_box = ConstInt(heaptracker.adr2int(
+            exception_box = ConstInt(adr2int(
                 llmemory.cast_ptr_to_adr(self.last_exc_value.typeptr)))
             op = self.generate_guard(rop.GUARD_EXCEPTION,
                                      None, [exception_box])
@@ -3269,7 +3270,7 @@ class MetaInterp(object):
             calldescr._original_func_ = argboxes[0].getint()
         effectinfo = calldescr.get_extra_info()
         realfuncaddr, saveerr = effectinfo.call_release_gil_target
-        funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
+        funcbox = ConstInt(adr2int(realfuncaddr))
         savebox = ConstInt(saveerr)
         opnum = rop.call_release_gil_for_descr(calldescr)
         return self.history.record_nospec(opnum,

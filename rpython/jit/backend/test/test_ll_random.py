@@ -5,6 +5,7 @@ from rpython.jit.backend.test import test_random
 from rpython.jit.backend.test.test_random import getint, getref_base, getref
 from rpython.jit.metainterp.resoperation import ResOperation, rop, optypes
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, getkind
+from rpython.jit.metainterp.support import adr2int
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rtyper.annlowlevel import llhelper
@@ -219,7 +220,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
 # ____________________________________________________________
 
 def ConstAddr(addr):
-    return ConstInt(heaptracker.adr2int(addr))
+    return ConstInt(adr2int(addr))
 
 class GuardClassOperation(test_random.GuardOperation):
     def gen_guard(self, builder, r):

@@ -3,6 +3,7 @@ from rpython.rtyper.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 from rpython.tool.algo import bitstring
+from rpython.jit.metainterp.support import int2adr
 
 
 class UnsupportedFieldExc(Exception):
@@ -445,9 +446,8 @@ class CallInfoCollection(object):
             return (None, 0)
 
     def _funcptr_for_oopspec_memo(self, oopspecindex):
-        from rpython.jit.codewriter import heaptracker
         _, func_as_int = self.callinfo_for_oopspec(oopspecindex)
-        funcadr = heaptracker.int2adr(func_as_int)
+        funcadr = int2adr(func_as_int)
         return funcadr.ptr
     _funcptr_for_oopspec_memo._annspecialcase_ = 'specialize:memo'
 

@@ -1,3 +1,5 @@
+from rpython.jit.metainterp.support import adr2int
+
 class Boxes(object):
     pass
 
@@ -21,7 +23,6 @@ def get_real_model():
 
         @staticmethod
         def ptr_to_int(obj):
-            from rpython.jit.codewriter.heaptracker import adr2int
             from rpython.rtyper.lltypesystem import llmemory
             return adr2int(llmemory.cast_ptr_to_adr(obj))
 

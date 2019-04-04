@@ -7,6 +7,7 @@ from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
+from rpython.jit.metainterp.support import adr2int
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
@@ -1954,7 +1955,7 @@ class Transformer(object):
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
-            func = heaptracker.adr2int(
+            func = adr2int(
                 llmemory.cast_ptr_to_adr(op.args[0].value))
             self.callcontrol.callinfocollection.add(oopspecindex,
                                                     calldescr, func)
@@ -1982,7 +1983,7 @@ class Transformer(object):
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
-            func = heaptracker.adr2int(
+            func = adr2int(
                 llmemory.cast_ptr_to_adr(c_func.value))
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 

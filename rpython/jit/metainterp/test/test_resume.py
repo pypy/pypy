@@ -19,9 +19,10 @@ from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.history import (
     ConstInt, Const, AbstractDescr, ConstPtr, ConstFloat, IntFrontendOp,
     RefFrontendOp, CONST_NULL)
+from rpython.jit.metainterp.support import adr2int
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp import executor
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib.debug import debug_start, debug_stop, debug_print,\
     have_debug_prints
@@ -639,7 +640,7 @@ class FakeOptimizer_VirtualValue(object):
 fakeoptimizer = FakeOptimizer_VirtualValue()
 
 def ConstAddr(addr):   # compatibility
-    return ConstInt(heaptracker.adr2int(addr))
+    return ConstInt(adr2int(addr))
 
 def virtual_value(keybox, value, next):
     vv = VirtualValue(
