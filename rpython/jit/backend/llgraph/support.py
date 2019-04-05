@@ -1,6 +1,6 @@
 
 from rpython.jit.codewriter import longlong
-from rpython.jit.metainterp.support import adr2int
+from rpython.jit.metainterp.support import adr2int, ptr2int
 from rpython.jit.metainterp.history import getkind
 
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
@@ -19,7 +19,7 @@ kind2TYPE = {
 def cast_to_int(x):
     TP = lltype.typeOf(x)
     if isinstance(TP, lltype.Ptr):
-        return adr2int(llmemory.cast_ptr_to_adr(x))
+        return ptr2int(x)
     if TP == llmemory.Address:
         return adr2int(x)
     if TP is lltype.SingleFloat:

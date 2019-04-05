@@ -11,7 +11,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, ConstInt
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.metainterp.support import adr2int
+from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr, FieldDescr
@@ -67,7 +67,7 @@ class GcLLDescription(GcCache):
     @specialize.arg(1)
     def get_malloc_fn_addr(self, funcname):
         ll_func = self.get_malloc_fn(funcname)
-        return adr2int(llmemory.cast_ptr_to_adr(ll_func))
+        return ptr2int(ll_func)
 
     def _freeze_(self):
         return True

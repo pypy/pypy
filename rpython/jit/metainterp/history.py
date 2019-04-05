@@ -14,7 +14,7 @@ from rpython.conftest import option
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
     AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp,\
     opclasses
-from rpython.jit.metainterp.support import adr2int, int2adr
+from rpython.jit.metainterp.support import ptr2int, int2adr
 from rpython.jit.codewriter import longlong
 import weakref
 from rpython.jit.metainterp import jitexc
@@ -182,7 +182,7 @@ class Const(AbstractValue):
         kind = getkind(T)
         if kind == "int":
             if isinstance(T, lltype.Ptr):
-                intval = adr2int(llmemory.cast_ptr_to_adr(x))
+                intval = ptr2int(x)
             else:
                 intval = lltype.cast_primitive(lltype.Signed, x)
             return ConstInt(intval)

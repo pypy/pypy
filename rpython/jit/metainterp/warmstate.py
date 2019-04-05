@@ -3,7 +3,7 @@ import weakref
 
 from rpython.jit.codewriter import support, longlong
 from rpython.jit.metainterp import resoperation, history, jitexc
-from rpython.jit.metainterp.support import adr2int, int2adr
+from rpython.jit.metainterp.support import ptr2int, int2adr
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
@@ -48,8 +48,7 @@ def unspecialize_value(value):
         if lltype.typeOf(value).TO._gckind == 'gc':
             return lltype.cast_opaque_ptr(llmemory.GCREF, value)
         else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            return adr2int(adr)
+            return ptr2int(value)
     elif isinstance(value, float):
         return longlong.getfloatstorage(value)
     else:
@@ -82,8 +81,7 @@ def wrap(cpu, value, in_const_box=False):
                 res.setref_base(value)
                 return res
         else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            value = adr2int(adr)
+            value = ptr2int(value)
             # fall through to the end of the function
     elif (isinstance(value, float) or
           longlong.is_longlong(lltype.typeOf(value))):

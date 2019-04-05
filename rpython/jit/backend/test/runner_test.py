@@ -11,7 +11,7 @@ from rpython.jit.metainterp.history import (
 from rpython.jit.metainterp.resoperation import (
     ResOperation, rop, InputArgInt, InputArgFloat, InputArgRef)
 from rpython.jit.metainterp.executor import wrap_constant
-from rpython.jit.metainterp.support import adr2int, int_signext
+from rpython.jit.metainterp.support import ptr2int, int_signext
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
@@ -1846,8 +1846,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     @classmethod
     def get_funcbox(cls, cpu, func_ptr):
-        addr = llmemory.cast_ptr_to_adr(func_ptr)
-        return ConstInt(adr2int(addr))
+        return ConstInt(ptr2int(func_ptr))
 
 
     MY_VTABLE = rclass.OBJECT_VTABLE    # for tests only
@@ -1869,7 +1868,6 @@ class LLtypeBackendTest(BaseBackendTest):
     def alloc_instance(self, T):
         if hasattr(T, 'parent'):
             vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
-            vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
         else:
             vtable_for_T = lltype.nullptr(rclass.OBJECT_VTABLE)
         cpu = self.cpu
@@ -1898,7 +1896,7 @@ class LLtypeBackendTest(BaseBackendTest):
             T_box = None
         else:
             vtable = vtable_for_T
-            T_box = ConstInt(adr2int(vtable_for_T_addr))
+            T_box = ConstInt(ptr2int(vtable_for_T_addr))
         descr = cpu.sizeof(T, vtable)
         return t_box, T_box, descr
 
@@ -1987,7 +1985,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
-        v = adr2int(llmemory.cast_ptr_to_adr(x))
+        v = ptr2int(x)
         r = self.execute_operation(rop.PTR_EQ, [InputArgInt(v), InputArgInt(v)], 'int')
         assert r == 1
         r = self.execute_operation(rop.PTR_NE, [InputArgInt(v), InputArgInt(v)], 'int')
@@ -2779,8 +2777,7 @@ class LLtypeBackendTest(BaseBackendTest):
         lltype.free(buffer, flavor='raw')
 
         cpu = self.cpu
-        func_adr = llmemory.cast_ptr_to_adr(c_GetCurrentDir.funcsym)
-        funcbox = ConstInt(adr2int(func_adr))
+        funcbox = ConstInt(ptr2int(c_GetCurrentDir.funcsym))
         calldescr = cpu._calldescr_dynamic_for_tests(
             [types.ulong, types.pointer],
             types.ulong,
@@ -3619,14 +3616,10 @@ class LLtypeBackendTest(BaseBackendTest):
         descrfld_rx = cpu.fielddescrof(RS, 'x')
         rs = lltype.malloc(RS, immortal=True)
         rs.x = '?'
-        x = cpu.bh_getfield_raw_i(
-            adr2int(llmemory.cast_ptr_to_adr(rs)),
-            descrfld_rx)
+        x = cpu.bh_getfield_raw_i(ptr2int(rs), descrfld_rx)
         assert x == ord('?')
         #
-        cpu.bh_setfield_raw_i(
-            adr2int(llmemory.cast_ptr_to_adr(rs)),
-            ord('!'), descrfld_rx)
+        cpu.bh_setfield_raw_i(ptr2int(rs), ord('!'), descrfld_rx)
         assert rs.x == '!'
         #
 
@@ -3700,7 +3693,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_guards_nongc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
-        v = adr2int(llmemory.cast_ptr_to_adr(x))
+        v = ptr2int(x)
         vbox = InputArgInt(v)
         ops = [
             (rop.GUARD_NONNULL, vbox, False),
@@ -3907,8 +3900,7 @@ class LLtypeBackendTest(BaseBackendTest):
         descr = self.cpu.arraydescrof(ARRAY)
         a = lltype.malloc(ARRAY, 10, flavor='raw')
         a[7] = -4242
-        addr = llmemory.cast_ptr_to_adr(a)
-        abox = InputArgInt(adr2int(addr))
+        abox = InputArgInt(ptr2int(a))
         r1 = self.execute_operation(rop.GETARRAYITEM_RAW_I, [abox, InputArgInt(7)],
                                     'int', descr=descr)
         assert r1 == -4242
@@ -3918,8 +3910,7 @@ class LLtypeBackendTest(BaseBackendTest):
         ARRAY = rffi.CArray(lltype.Signed)
         descr = self.cpu.arraydescrof(ARRAY)
         a = lltype.malloc(ARRAY, 10, flavor='raw')
-        addr = llmemory.cast_ptr_to_adr(a)
-        abox = InputArgInt(adr2int(addr))
+        abox = InputArgInt(ptr2int(a))
         self.execute_operation(rop.SETARRAYITEM_RAW, [abox, InputArgInt(5),
                                                       InputArgInt(12345)],
                                'void', descr=descr)
@@ -4193,7 +4184,7 @@ class LLtypeBackendTest(BaseBackendTest):
             value = intmask(0xFFEEDDCCBBAA9988)
             expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
             a[3] = rffi.cast(RESTYPE, value)
-            a_rawint = adr2int(llmemory.cast_ptr_to_adr(a))
+            a_rawint = ptr2int(a)
             x = cpu.bh_getarrayitem_raw_i(a_rawint, 3, descrarray)
             assert x == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, x, expected))
@@ -4214,7 +4205,7 @@ class LLtypeBackendTest(BaseBackendTest):
             value = intmask(0xFFEEDDCCBBAA9988)
             expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
             a[3] = rffi.cast(RESTYPE, value)
-            a_rawint = adr2int(llmemory.cast_ptr_to_adr(a))
+            a_rawint = ptr2int(a)
             res = self.execute_operation(rop.GETARRAYITEM_RAW_I,
                                          [InputArgInt(a_rawint), InputArgInt(3)],
                                          'int', descr=descrarray)
@@ -5069,8 +5060,7 @@ class LLtypeBackendTest(BaseBackendTest):
         a = lltype.malloc(A, 2, flavor='raw')
         a[0] = rffi.cast(rffi.SHORT, 666)
         a[1] = rffi.cast(rffi.SHORT, 777)
-        addr = llmemory.cast_ptr_to_adr(a)
-        a_int = adr2int(addr)
+        a_int = ptr2int(a)
         print 'a_int:', a_int
         self.execute_operation(rop.SETARRAYITEM_RAW,
                                [ConstInt(a_int), ConstInt(0), ConstInt(-7654)],
@@ -5104,8 +5094,7 @@ class LLtypeBackendTest(BaseBackendTest):
             A = lltype.GcArray(OF)
             arraydescr = self.cpu.arraydescrof(A)
             a = lltype.malloc(A, 100)
-            addr = llmemory.cast_ptr_to_adr(a)
-            a_int = adr2int(addr)
+            a_int = ptr2int(a)
             a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
             for (start, length) in [(0, 100), (49, 49), (1, 98),
                                     (15, 9), (10, 10), (47, 0),
@@ -5260,7 +5249,7 @@ class LLtypeBackendTest(BaseBackendTest):
         xptr = lltype.malloc(X)
         xptr.parent.typeptr = xtp
         x_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, xptr))
-        X_box = ConstInt(adr2int(llmemory.cast_ptr_to_adr(xtp)))
+        X_box = ConstInt(ptr2int(xtp))
 
         ytp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         ytp.subclassrange_min = 2
@@ -5271,7 +5260,7 @@ class LLtypeBackendTest(BaseBackendTest):
         yptr = lltype.malloc(Y)
         yptr.parent.parent.typeptr = ytp
         y_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, yptr))
-        Y_box = ConstInt(adr2int(llmemory.cast_ptr_to_adr(ytp)))
+        Y_box = ConstInt(ptr2int(ytp))
 
         ztp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         ztp.subclassrange_min = 4
@@ -5283,7 +5272,7 @@ class LLtypeBackendTest(BaseBackendTest):
         zptr = lltype.malloc(Z)
         zptr.parent.typeptr = ztp
         z_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, zptr))
-        Z_box = ConstInt(adr2int(llmemory.cast_ptr_to_adr(ztp)))
+        Z_box = ConstInt(ptr2int(ztp))
 
         for num, arg, klass, is_subclass in [
                 (1, x_box, X_box, True),

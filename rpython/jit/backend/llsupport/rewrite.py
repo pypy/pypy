@@ -6,7 +6,7 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.metainterp.history import (
     ConstInt, ConstPtr, JitCellToken, new_ref_dict)
 from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
-from rpython.jit.metainterp.support import adr2int
+from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_field_token, get_array_token)
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
@@ -606,11 +606,9 @@ class GcRewriterAssembler(object):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         loop_token = op.getdescr()
         assert isinstance(loop_token, JitCellToken)
-        jfi = loop_token.compiled_loop_token.frame_info
-        llfi = adr2int(llmemory.cast_ptr_to_adr(jfi))
+        llfi = ptr2int(loop_token.compiled_loop_token.frame_info)
         frame = self.gen_malloc_frame(llfi)
-        self.emit_setfield(frame, ConstInt(llfi),
-                           descr=descrs.jf_frame_info)
+        self.emit_setfield(frame, ConstInt(llfi), descr=descrs.jf_frame_info)
         arglist = op.getarglist()
         index_list = loop_token.compiled_loop_token._ll_initial_locs
         for i, arg in enumerate(arglist):

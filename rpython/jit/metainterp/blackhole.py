@@ -944,8 +944,7 @@ class BlackholeInterpreter(object):
     def bhimpl_last_exception(self):
         real_instance = self.exception_last_value
         assert real_instance
-        adr = llmemory.cast_ptr_to_adr(real_instance.typeptr)
-        return adr2int(adr)
+        return ptr2int(real_instance.typeptr)
 
     @arguments("self", returns="r")
     def bhimpl_last_exc_value(self):

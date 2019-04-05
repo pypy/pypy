@@ -17,6 +17,15 @@ def int2adr(int):
     """
     return llmemory.cast_int_to_adr(int)
 
+def ptr2int(ptr):
+    """
+    Cast a pointer to int.
+
+    Returns an AddressAsInt object.
+    """
+    addr = llmemory.cast_ptr_to_adr(ptr)
+    return llmemory.cast_adr_to_int(addr, "symbolic")
+
 def int_signext(value, numbytes):
     b8 = numbytes * 8
     a = r_uint(value)

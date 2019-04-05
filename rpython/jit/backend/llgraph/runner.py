@@ -9,7 +9,7 @@ from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.metainterp.optimize import SpeculativeError
-from rpython.jit.metainterp.support import adr2int, int2adr, int_signext
+from rpython.jit.metainterp.support import ptr2int, int_signext
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -137,7 +137,7 @@ class SizeDescr(AbstractDescr):
         if self._vtable is Ellipsis:
             self._vtable = heaptracker.get_vtable_for_gcstruct(self._runner,
                                                                self.S)
-        return adr2int(llmemory.cast_ptr_to_adr(self._vtable))
+        return ptr2int(self._vtable)
 
     def is_immutable(self):
         return heaptracker.is_immutable_struct(self.S)
@@ -877,8 +877,7 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
-        return adr2int(result_adr)
+        return ptr2int(struct.typeptr)
 
     # vector operations
     vector_arith_code = """
@@ -1552,13 +1551,12 @@ class LLFrame(object):
         return res
 
     def execute_restore_exception(self, descr, kls, e):
-        kls = int2adr(kls)
         if e:
             value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, e)
-            assert llmemory.cast_ptr_to_adr(value.typeptr) == kls
+            assert ptr2int(value.typeptr) == kls
             lle = LLException(value.typeptr, e)
         else:
-            assert kls == llmemory.NULL
+            assert kls == 0
             lle = None
         self.last_exception = lle
 

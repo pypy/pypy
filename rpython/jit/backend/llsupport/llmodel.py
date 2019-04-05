@@ -8,7 +8,7 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_hash
 from rpython.jit.metainterp import history, compile
 from rpython.jit.metainterp.optimize import SpeculativeError
-from rpython.jit.metainterp.support import adr2int
+from rpython.jit.metainterp.support import adr2int, ptr2int
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.backend.llsupport import symbolic, jitframe
@@ -159,7 +159,7 @@ class AbstractLLCPU(AbstractCPU):
             graph = mixlevelann.getgraph(realloc_frame, args_s, s_result)
             fptr = mixlevelann.graph2delayed(graph, FUNC)
             mixlevelann.finish()
-        self.realloc_frame = adr2int(llmemory.cast_ptr_to_adr(fptr))
+        self.realloc_frame = ptr2int(fptr)
 
         if not translate_support_code:
             fptr = llhelper(FUNC_TP, realloc_frame_crash)
@@ -171,7 +171,7 @@ class AbstractLLCPU(AbstractCPU):
             graph = mixlevelann.getgraph(realloc_frame_crash, args_s, s_result)
             fptr = mixlevelann.graph2delayed(graph, FUNC)
             mixlevelann.finish()
-        self.realloc_frame_crash = adr2int(llmemory.cast_ptr_to_adr(fptr))
+        self.realloc_frame_crash = ptr2int(fptr)
 
     def _setup_exception_handling_untranslated(self):
         # for running un-translated only, all exceptions occurring in the
@@ -775,8 +775,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
-        return adr2int(result_adr)
+        return ptr2int(struct.typeptr)
 
     def bh_new_array(self, length, arraydescr):
         return self.gc_ll_descr.gc_malloc_array(length, arraydescr)

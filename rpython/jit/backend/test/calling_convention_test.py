@@ -2,7 +2,7 @@
 from rpython.jit.metainterp.history import BasicFinalDescr,\
      JitCellToken, ConstInt, ConstFloat
 from rpython.jit.metainterp.resoperation import rop, InputArgInt, InputArgFloat
-from rpython.jit.metainterp.support import adr2int
+from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -50,8 +50,7 @@ class CallingConvTests(Runner):
 
     @classmethod
     def get_funcbox(cls, cpu, func_ptr):
-        addr = llmemory.cast_ptr_to_adr(func_ptr)
-        return ConstInt(adr2int(addr))
+        return ConstInt(ptr2int(func_ptr))
 
     def test_call_aligned_with_spilled_values(self):
         cpu = self.cpu

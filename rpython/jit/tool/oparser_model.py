@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.support import adr2int
+from rpython.jit.metainterp.support import ptr2int
 
 class Boxes(object):
     pass
@@ -23,8 +23,7 @@ def get_real_model():
 
         @staticmethod
         def ptr_to_int(obj):
-            from rpython.rtyper.lltypesystem import llmemory
-            return adr2int(llmemory.cast_ptr_to_adr(obj))
+            return ptr2int(obj)
 
     return LoopModel
 

@@ -13,7 +13,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, GuardResOp
-from rpython.jit.metainterp.support import adr2int
+from rpython.jit.metainterp.support import adr2int, ptr2int
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -2676,8 +2676,7 @@ class MetaInterp(object):
 
             exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
             if exception_obj:
-                exc_class = adr2int(
-                    llmemory.cast_ptr_to_adr(exception_obj.typeptr))
+                exc_class = ptr2int(exception_obj.typeptr)
             else:
                 exc_class = 0
             assert self.history.trace is None
@@ -2975,8 +2974,7 @@ class MetaInterp(object):
 
     def handle_possible_exception(self):
         if self.last_exc_value:
-            exception_box = ConstInt(adr2int(
-                llmemory.cast_ptr_to_adr(self.last_exc_value.typeptr)))
+            exception_box = ConstInt(ptr2int(self.last_exc_value.typeptr))
             op = self.generate_guard(rop.GUARD_EXCEPTION,
                                      None, [exception_box])
             val = lltype.cast_opaque_ptr(llmemory.GCREF, self.last_exc_value)
