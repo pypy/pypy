@@ -83,10 +83,8 @@ corresponding Unix manual entries for more information on calls."""
         'symlink': 'interp_posix.symlink',
 
         'scandir': 'interp_scandir.scandir',
-        'DirEntry': 'interp_scandir.W_DirEntry',
         'get_inheritable': 'interp_posix.get_inheritable',
         'set_inheritable': 'interp_posix.set_inheritable',
-        'fspath': 'interp_posix.fspath',
     }
 
     if hasattr(os, 'chown'):
@@ -247,6 +245,22 @@ corresponding Unix manual entries for more information on calls."""
 
     if hasattr(rposix, 'sched_yield'):
         interpleveldefs['sched_yield'] = 'interp_posix.sched_yield'
+
+     if hasattr(rposix, 'getgrouplist'):
+        interpleveldefs['getgrouplist'] = 'interp_posix.getgrouplist'
+
+    if hasattr(rposix, 'sched_rr_get_interval'):
+        interpleveldefs['sched_rr_get_interval'] = 'interp_posix.sched_rr_get_interval'
+
+    if hasattr(rposix, 'sched_getscheduler'):
+        interpleveldefs['sched_getscheduler'] = 'interp_posix.sched_getscheduler'
+    if hasattr(rposix, 'sched_setscheduler'):
+        interpleveldefs['sched_setscheduler'] = 'interp_posix.sched_setscheduler'
+
+     if hasattr(rposix, 'sched_getparam'):
+        interpleveldefs['sched_getparam'] = 'interp_posix.sched_getparam'
+    if hasattr(rposix, 'sched_setparam'):
+        interpleveldefs['sched_setparam'] = 'interp_posix.sched_setparam'
 
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:

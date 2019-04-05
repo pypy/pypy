@@ -10,7 +10,6 @@ from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
-from rpython.rlib.objectmodel import we_are_translated
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
 # py3k os.open uses subprocess, requiring the following per platform
@@ -24,8 +23,6 @@ def setup_module(mod):
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
-    mod.path3 = udir.join('unlinktestfile.txt')
-    mod.path3.write("delete me!")
     pdir = udir.ensure('posixtestdir', dir=True)
     pdir.join('file1').write("test1")
     os.chmod(str(pdir.join('file1')), 0o600)
@@ -69,7 +66,6 @@ class AppTestPosix:
         cls.w_os = space.appexec([], "(): import os as m ; return m")
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
-        cls.w_path3 = space.wrap(str(path3))
         cls.w_pdir = space.wrap(str(pdir))
         cls.w_bytes_dir = space.newbytes(str(bytes_dir))
         cls.w_esurrogate_dir = space.newbytes(str(esurrogate_dir))
@@ -165,12 +161,8 @@ class AppTestPosix:
     def test_stat_float_times(self):
         path = self.path
         posix = self.posix
-        import warnings
-        with warnings.catch_warnings(record=True) as l:
-            warnings.simplefilter('always')
-            current = posix.stat_float_times()
-            assert current is True
-        assert "stat_float_times" in repr(l[0].message)
+        current = posix.stat_float_times()
+        assert current is True
         try:
             posix.stat_float_times(True)
             st = posix.stat(path)
@@ -186,7 +178,6 @@ class AppTestPosix:
 
         finally:
             posix.stat_float_times(current)
-
 
     def test_stat_result(self):
         st = self.posix.stat_result((0, 0, 0, 0, 0, 0, 0, 41, 42.1, 43))
@@ -215,9 +206,9 @@ class AppTestPosix:
             assert exc.value.filename == "nonexistentdir/nonexistentfile"
 
         excinfo = raises(TypeError, self.posix.stat, None)
-        assert "should be string, bytes, os.PathLike or integer, not None" in str(excinfo.value)
+        assert "can't specify None" in str(excinfo.value)
         excinfo = raises(TypeError, self.posix.stat, 2.)
-        assert "should be string, bytes, os.PathLike or integer, not float" in str(excinfo.value)
+        assert "should be string, bytes or integer, not float" in str(excinfo.value)
         raises(ValueError, self.posix.stat, -1)
         raises(ValueError, self.posix.stat, b"abc\x00def")
         raises(ValueError, self.posix.stat, u"abc\x00def")
@@ -292,7 +283,6 @@ class AppTestPosix:
                 assert 0
 
     def test_functions_raise_error(self):
-        import sys
         def ex(func, *args):
             try:
                 func(*args)
@@ -310,12 +300,10 @@ class AppTestPosix:
         ex(self.posix.write, UNUSEDFD, b"x")
         ex(self.posix.close, UNUSEDFD)
         #UMPF cpython raises IOError ex(self.posix.ftruncate, UNUSEDFD, 123)
-        if sys.platform == 'win32' and not we_are_translated():
-            # XXX kills the host interpreter untranslated
-            ex(self.posix.fstat, UNUSEDFD)
-            ex(self.posix.stat, "qweqwehello")
-            # how can getcwd() raise?
-            ex(self.posix.dup, UNUSEDFD)
+        ex(self.posix.fstat, UNUSEDFD)
+        ex(self.posix.stat, "qweqwehello")
+        # how can getcwd() raise?
+        ex(self.posix.dup, UNUSEDFD)
 
     def test_getcwd(self):
         os, posix = self.os, self.posix
@@ -395,16 +383,6 @@ class AppTestPosix:
         import sys
         if sys.platform != "win32":
             assert posix.access(pdir, posix.X_OK) is False
-
-    def test_unlink(self):
-        os = self.posix
-        path = self.path3
-        with open(path, 'wb'):
-            pass
-        class Path:
-            def __fspath__(self):
-                return path
-        os.unlink(Path())
 
     def test_times(self):
         """
@@ -598,6 +576,7 @@ class AppTestPosix:
         # using startfile in app_startfile creates global state
         test_popen.dont_track_allocations = True
         test_popen_with.dont_track_allocations = True
+        test_popen_child_fds.dont_track_allocations = True
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -1021,6 +1000,71 @@ class AppTestPosix:
             #Always suceeds on Linux
             os.sched_yield()
 
+    if hasattr(rposix, 'getgrouplist'):
+        def test_getgrouplist(self):
+            posix, os = self.posix, self.os
+            user = pwd.getpwuid(os.getuid())[0]
+            group = pwd.getpwuid(os.getuid())[3]
+            self.assertIn(group, posix.getgrouplist(user, group))
+
+    if hasattr(rposix, 'test_sched_rr_get_interval'):
+        def test_sched_rr_get_interval(self):
+            posix= self.posix
+            try:
+                interval = posix.sched_rr_get_interval(0)
+            except OSError as e:
+                # This likely means that sched_rr_get_interval is only valid for
+                # processes with the SCHED_RR scheduler in effect.
+                if e.errno != errno.EINVAL:
+                    raise
+                self.skipTest("only works on SCHED_RR processes")
+            self.assertIsInstance(interval, float)
+            # Reasonable constraints, I think.
+            self.assertGreaterEqual(interval, 0.)
+            self.assertLess(interval, 1.)
+
+    if hasattr(rposix, 'test_sched_rr_get_interval'):
+        def test_get_and_set_scheduler_and_param(self):
+            posix= self.posix
+            possible_schedulers = [sched for name, sched in posix.__dict__.items()
+                                   if name.startswith("SCHED_")]
+            mine = posix.sched_getscheduler(0)
+            self.assertIn(mine, possible_schedulers)
+            try:
+                parent = posix.sched_getscheduler(os.getppid())
+            except OSError as e:
+                if e.errno != errno.EPERM:
+                    raise
+            else:
+                self.assertIn(parent, possible_schedulers)
+            self.assertRaises(OSError, posix.sched_getscheduler, -1)
+            self.assertRaises(OSError, posix.sched_getparam, -1)
+            param = posix.sched_getparam(0)
+            self.assertIsInstance(param.sched_priority, int)
+
+            # POSIX states that calling sched_setparam() or sched_setscheduler() on
+            # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
+            # is implementation-defined: NetBSD and FreeBSD can return EINVAL.
+            if not sys.platform.startswith(('freebsd', 'netbsd')):
+                try:
+                    posix.sched_setscheduler(0, mine, param)
+                    posix.sched_setparam(0, param)
+                except OSError as e:
+                    if e.errno != errno.EPERM:
+                        raise
+                self.assertRaises(OSError, posix.sched_setparam, -1, param)
+
+            self.assertRaises(OSError, posix.sched_setscheduler, -1, mine, param)
+            self.assertRaises(TypeError, posix.sched_setscheduler, 0, mine, None)
+            self.assertRaises(TypeError, posix.sched_setparam, 0, 43)
+            param = posix.sched_param(None)
+            self.assertRaises(TypeError, posix.sched_setparam, 0, param)
+            large = 214748364700
+            param = posix.sched_param(large)
+            self.assertRaises(OverflowError, posix.sched_setparam, 0, param)
+            param = posix.sched_param(sched_priority=-large)
+            self.assertRaises(OverflowError, posix.sched_setparam, 0, param)
+
     def test_write_buffer(self):
         os = self.posix
         fd = os.open(self.path2 + 'test_write_buffer',
@@ -1076,10 +1120,8 @@ class AppTestPosix:
         os.closerange(start, stop)
         for fd in fds:
             os.close(fd)     # should not have been closed
-        if sys.platform == 'win32' and not we_are_translated():
-            # XXX kills the host interpreter untranslated
-            for fd in range(start, stop):
-                raises(OSError, os.fstat, fd)   # should have been closed
+        for fd in range(start, stop):
+            raises(OSError, os.fstat, fd)   # should have been closed
 
     if hasattr(os, 'chown'):
         def test_chown(self):
@@ -1196,19 +1238,15 @@ class AppTestPosix:
                 skip("encoding not good enough")
             dest = bytes_dir + b"/file.txt"
             posix.symlink(bytes_dir + b"/somefile", dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+            #
+            posix.unlink(dest)
             posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
 
         # XXX skip test if dir_fd is unsupported
         def test_symlink_fd(self):
@@ -1222,25 +1260,6 @@ class AppTestPosix:
             finally:
                 posix.close(f)
                 posix.unlink(bytes_dir + '/somelink'.encode())
-
-        def test_symlink_fspath(self):
-            class Path:
-                def __init__(self, b):
-                    self.path = b
-                def __fspath__(self):
-                    return self.path
-            posix = self.posix
-            bytes_dir = self.bytes_dir
-            if bytes_dir is None:
-                skip("encoding not good enough")
-            dest = Path(bytes_dir + b"/file.txt")
-            posix.symlink(Path(bytes_dir + b"/somefile"), dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
     else:
         def test_symlink(self):
             posix = self.posix
@@ -1460,11 +1479,6 @@ class AppTestPosix:
         fname = self.path2 + 'rename.txt'
         with open(fname, "w") as f:
             f.write("this is a rename test")
-        str_name = str(self.pdir) + '/test_rename.txt'
-        os.rename(self.path, str_name)
-        with open(str_name) as f:
-            assert f.read() == 'this is a rename test'
-        os.rename(str_name, fname)
         unicode_name = str(self.udir) + u'/test\u03be.txt'
         os.rename(fname, unicode_name)
         with open(unicode_name) as f:
@@ -1474,7 +1488,7 @@ class AppTestPosix:
             assert f.read() == 'this is a rename test'
         os.unlink(fname)
 
-        
+
     def test_device_encoding(self):
         import sys
         encoding = self.posix.device_encoding(sys.stdout.fileno())
@@ -1522,32 +1536,6 @@ class AppTestPosix:
         if sys.platform != 'win32':
             e = raises(OSError, self.posix.symlink, 'bok', '/nonexistentdir/boz')
             assert str(e.value).endswith(": 'bok' -> '/nonexistentdir/boz'")
-
-    def test_os_fspath(self):
-        assert hasattr(self.posix, 'fspath')
-        raises(TypeError, self.posix.fspath, None)
-        e = raises(TypeError, self.posix.fspath, 42)
-        assert str(e.value).endswith('int')
-        string = 'string'
-        assert self.posix.fspath(string) == string
-        assert self.posix.fspath(b'bytes') == b'bytes'
-        class Sample:
-            def __fspath__(self):
-                return 'sample'
-
-        assert self.posix.fspath(Sample()) == 'sample'
-
-        class BSample:
-            def __fspath__(self):
-                return b'binary sample'
-
-        assert self.posix.fspath(BSample()) == b'binary sample'
-
-        class WrongSample:
-            def __fspath__(self):
-                return 4
-
-        raises(TypeError, self.posix.fspath, WrongSample())
 
     if hasattr(rposix, 'getxattr'):
         def test_xattr_simple(self):

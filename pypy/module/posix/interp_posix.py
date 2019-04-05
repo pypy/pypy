@@ -91,7 +91,7 @@ def make_dispatch_function(func, tag, allow_fd_fn=None):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = FileDecoder(space, w_fname)
+            fname = space.bytesbuf0_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -142,11 +142,9 @@ class Path(object):
 
 @specialize.arg(2)
 def _unwrap_path(space, w_value, allow_fd=True):
-    # equivalent of posixmodule.c:path_converter() in CPython
-    if allow_fd:
-        allowed_types = "string, bytes, os.PathLike or integer"
-    else:
-        allowed_types = "string, bytes or os.PathLike"
+    if space.is_none(w_value):
+        raise oefmt(space.w_TypeError,
+            "can't specify None for path argument")
     if _WIN32:
         try:
             path_u = space.utf8_0_w(w_value)
@@ -154,20 +152,17 @@ def _unwrap_path(space, w_value, allow_fd=True):
         except OperationError:
             pass
     try:
-        path_b = space.fsencode_w(w_value, allowed_types=allowed_types)
+        path_b = space.fsencode_w(w_value)
         return Path(-1, path_b, None, w_value)
     except OperationError as e:
-        if not allow_fd or not e.match(space, space.w_TypeError):
+        if not e.match(space, space.w_TypeError):
             raise
-        # File descriptor case
-        try:
-            space.index(w_value)
-        except OperationError:
-            raise oefmt(space.w_TypeError,
-                        "illegal type for path parameter (should be "
-                        "%s, not %T)", allowed_types, w_value)
-        fd = unwrap_fd(space, w_value, allowed_types)
-        return Path(fd, None, None, w_value)
+        if allow_fd:
+            fd = unwrap_fd(space, w_value, "string, bytes or integer")
+            return Path(fd, None, None, w_value)
+    raise oefmt(space.w_TypeError,
+                "illegal type for path parameter (expected "
+                "string or bytes, got %T)", w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
@@ -203,7 +198,7 @@ def _unwrap_dirfd(space, w_value):
     if space.is_none(w_value):
         return DEFAULT_DIR_FD
     else:
-        return unwrap_fd(space, w_value, allowed_types="integer or None")
+        return unwrap_fd(space, w_value)
 
 class _DirFD(Unwrapper):
     def unwrap(self, space, w_value):
@@ -581,8 +576,6 @@ If newval is True, future calls to stat() return floats, if it is False,
 future calls return ints.
 If newval is omitted, return the current setting.
 """
-    space.warn(space.newtext("stat_float_times() is deprecated"),
-               space.w_DeprecationWarning)
     state = space.fromcache(StatState)
 
     if newval == -1:
@@ -722,9 +715,8 @@ def system(space, command):
     else:
         return space.newint(rc)
 
-@unwrap_spec(path=path_or_fd(allow_fd=False),
-             dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def unlink(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def unlink(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """unlink(path, *, dir_fd=None)
 
 Remove a file (same as remove()).
@@ -735,16 +727,15 @@ dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
         if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
-            rposix.unlinkat(space.fsencode_w(path.w_path),
-                            dir_fd, removedir=False)
+            path = space.fsencode_w(w_path)
+            rposix.unlinkat(path, dir_fd, removedir=False)
         else:
-            call_rposix(rposix.unlink, path)
+            dispatch_filename(rposix.unlink)(space, w_path)
     except OSError as e:
-        raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
+        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
 
-@unwrap_spec(path=path_or_fd(allow_fd=False),
-             dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def remove(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def remove(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """remove(path, *, dir_fd=None)
 
 Remove a file (same as unlink()).
@@ -755,12 +746,12 @@ dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
         if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
-            rposix.unlinkat(space.fsencode_w(path.w_path),
-                            dir_fd, removedir=False)
+            path = space.fsencode_w(w_path)
+            rposix.unlinkat(path, dir_fd, removedir=False)
         else:
-            call_rposix(rposix.unlink, path)
+            dispatch_filename(rposix.unlink)(space, w_path)
     except OSError as e:
-        raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
+        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
 
 def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
@@ -1107,9 +1098,9 @@ def fchmod(space, fd, mode):
             wrap_oserror(space, e, eintr_retry=True)
 
 @unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
-             dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
+        dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
 def rename(space, w_src, w_dst, __kwonly__,
-           src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
+        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
 Rename a file or directory.
@@ -2595,34 +2586,64 @@ def sched_yield(space):
         else:
             return space.newint(res)
 
-def fspath(space, w_path):
-    """
-    Return the file system path representation of the object.
+def getgrouplist(space, user, group, groups, n_groups):
+    """ function scans the group database to obtain the
+    list of groups that user belongs to.  Up to *ngroups
+    of these groups are returned in the array groups."""
+    while True:
+        try:
+            res = rposix.getgrouplist(user, group, groups, n_groups)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
 
-    If the object is str or bytes, then allow it to pass through as-is. If the
-    object defines __fspath__(), then return the result of that method. All other
-    types raise a TypeError.
-    """
-    if (space.isinstance_w(w_path, space.w_text) or
-        space.isinstance_w(w_path, space.w_bytes)):
-        return w_path
+def sched_rr_get_interval(space, pid, interval):
+    """ get execution time limits. """
+    while True:
+        try:
+            res = rposix.sched_rr_get_interval(user, pid, interval)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
 
-    w_fspath_method = space.lookup(w_path, '__fspath__')
-    if w_fspath_method is None:
-        raise oefmt(
-            space.w_TypeError,
-            'expected str, bytes or os.PathLike object, not %T',
-            w_path
-        )
+def sched_getscheduler(space, pid):
+    """ get scheduling policy/parameters. """
+    while True:
+        try:
+            res = rposix.sched_getscheduler(pid)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
 
-    w_result = space.get_and_call_function(w_fspath_method, w_path)
-    if (space.isinstance_w(w_result, space.w_text) or
-        space.isinstance_w(w_result, space.w_bytes)):
-        return w_result
+def sched_setscheduler(space, pid, policy, param):
+    """ set scheduling policy/parameters. """
+    while True:
+        try:
+            res = rposix.sched_setscheduler(pid, policy, param)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
 
-    raise oefmt(
-        space.w_TypeError,
-        'expected %T.__fspath__() to return str or bytes, not %T',
-        w_path,
-        w_result
-    )
+def sched_getparam(space, pid, param):
+    """ get scheduling parameters. """
+    while True:
+        try:
+            res = rposix.sched_getparam(pid, param)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
+def sched_setparam(space, pid, param):
+    """ set scheduling parameters. """
+    while True:
+        try:
+            res = rposix.sched_setparam(pid, param)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)

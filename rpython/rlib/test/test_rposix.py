@@ -827,6 +827,68 @@ def test_sched_yield():
     if sys.platform != 'win32':
         rposix.sched_yield()
 
+@rposix_requires('getgrouplist')
+def test_getgrouplist(self):
+    user = pwd.getpwuid(os.getuid())[0]
+    group = pwd.getpwuid(os.getuid())[3]
+    assert group in rposix.getgrouplist(user, group)
+
+@rposix_requires('test_sched_rr_get_interval')
+def test_sched_rr_get_interval(self):
+    try:
+        interval = rposix.sched_rr_get_interval(0)
+    except OSError as e:
+        # This likely means that sched_rr_get_interval is only valid for
+        # processes with the SCHED_RR scheduler in effect.
+        if e.errno != errno.EINVAL:
+                raise
+            self.skipTest("only works on SCHED_RR processes")
+    assert isinstance(interval, float)
+    # Reasonable constraints, I think.
+    assert interval > 0
+    assert interval < 1.
+
+@rposix_requires('sched_getscheduler')
+def test_get_and_set_scheduler_and_param(self):
+    possible_schedulers = [sched for name, sched in rposix.__dict__.items()
+                                   if name.startswith("SCHED_")]
+    mine = rposix.sched_getscheduler(0)
+    assert mine in possible_schedulers
+    try:
+        parent = rposix.sched_getscheduler(os.getppid())
+    except OSError as e:
+        if e.errno != errno.EPERM:
+            raise
+    else:
+        self.assertIn(parent, possible_schedulers)
+    assert rposix.sched_getscheduler(-1) is OSError
+    assert rposix.sched_getparam(-1) is OSError
+    param = rposix.sched_getparam(0)
+    assert isinstance(param.sched_priority, int)
+
+    # POSIX states that calling sched_setparam() or sched_setscheduler() on
+    # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
+    # is implementation-defined: NetBSD and FreeBSD can return EINVAL.
+    if not sys.platform.startswith(('freebsd', 'netbsd')):
+        try:
+            rposix.sched_setscheduler(0, mine, param)
+            rposix.sched_setparam(0, param)
+        except OSError as e:
+            if e.errno != errno.EPERM:
+                raise
+        assert rposix.sched_setparam(-1, param) is OSError
+
+    assert rposix.sched_setscheduler(-1, mine, param) is OSError
+    assert rposix.sched_setscheduler(0, mine, None) is TypeError
+    assert rposix.sched_setparam(0, 43) is TypeError
+    param = rposix.sched_param(None)
+    assert rposix.sched_setparam(0, param) is TypeError
+    large = 214748364700
+    param = rposix.sched_param(large)
+    assert rposix.sched_setparam(0, param) is OverflowError
+    param = rposix.sched_param(sched_priority=-large)
+    assert rposix.sched_setparam(0, param) is OverflowError
+
 @rposix_requires('lockf')
 def test_os_lockf():
     fname = str(udir.join('os_test.txt'))

@@ -109,6 +109,9 @@ if os.name == 'nt':
             wchar_t const* file,
             unsigned int line,
             uintptr_t pReserved) {
+                wprintf(L"Invalid parameter detected in function %s."
+                            L" File: %s Line: %d\\n", function, file, line);
+                wprintf(L"Expression: %s\\n", expression);
         }
 
         RPY_EXTERN void* enter_suppress_iph(void)
@@ -1270,8 +1273,6 @@ def rename(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
-        assert isinstance(path1, unicode)
-        assert isinstance(path2, unicode)
         if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
 
@@ -1282,8 +1283,6 @@ def replace(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
-        assert isinstance(path1, unicode)
-        assert isinstance(path2, unicode)
         ret = win32traits.MoveFileEx(path1, path2,
                      win32traits.MOVEFILE_REPLACE_EXISTING)
         if not ret:
@@ -1949,6 +1948,38 @@ if not _WIN32:
     def sched_yield():
         return handle_posix_error('sched_yield', c_sched_yield())
 
+    c_getgrouplist = external('getgrouplist', [rffi.CCHARP, GID_T, GID_T, rffi.INT],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_rr_get_interval = external('sched_rr_get_interval', [rffi.PID_T, TIMESPEC],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_getscheduler = external('sched_getscheduler', [rffi.PID_T],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_setscheduler = external('sched_getscheduler', [rffi.PID_T, rffi.INT, SCHED_PARAM],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_getparam = external('sched_getparam', [rffi.PID_T, SCHED_PARAM],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_setparam = external('sched_setparam', [rffi.PID_T, SCHED_PARAM],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+
+    def getgrouplist(user, group, groups, n_groups):
+        return handle_posix_error('getgrouplist', c_getgrouplist(user, group, groups, n_groups))
+
+    def sched_rr_get_interval(pid, interval):
+        return handle_posix_error('sched_rr_get_interval', c_sched_rr_get_interval(pid, interval))
+
+    def sched_getscheduler (pid):
+        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid))
+
+    def sched_setscheduler (pid, policy, param):
+        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid, policy, param))
+
+    def sched_getparam (pid, param):
+        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid, param))
+
+    def sched_setparam (pid, param):
+        return handle_posix_error('sched_setscheduler ', c_sched_setscheduler (pid, param))
+
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -2117,6 +2148,8 @@ if not _WIN32:
         TIMESPEC = rffi_platform.Struct('struct timespec', [
             ('tv_sec', rffi.TIME_T),
             ('tv_nsec', rffi.LONG)])
+        SCHED_PARAM = rffi_platform.Struct('struct sched_param', [
+            ('sched_priority', rffi.INT)])
 
     cConfig = rffi_platform.configure(CConfig)
     globals().update(cConfig)
