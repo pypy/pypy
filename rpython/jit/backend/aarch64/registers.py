@@ -21,6 +21,6 @@ fp = x29
 ip1 = x17
 ip0 = x16
 
-callee_saved_registers = [x19, x20, x21, x22]
+callee_saved_registers = [] # x19, x20, x21, x22]
 
 argument_regs = caller_resp = [x0, x1, x2, x3, x4, x5, x6, x7]

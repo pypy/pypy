@@ -9,4 +9,4 @@ WORD = 8
 # Stack frame fixed area
 # Currently only the force_index
 JITFRAME_FIXED_SIZE = 16 + 16
-# 20 GPR + 16 VFP Regs
+# 16 GPR + 16 VFP Regs # 20 if we want to use 4 extra x19..x22
