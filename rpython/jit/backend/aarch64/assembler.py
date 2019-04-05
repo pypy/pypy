@@ -1,7 +1,7 @@
 
 from rpython.jit.backend.aarch64.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.aarch64.codebuilder import InstrBuilder
-#from rpython.jit.backend.arm.locations import imm, StackLocation, get_fp_offset
+from rpython.jit.backend.arm.locations import imm, StackLocation, get_fp_offset
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
 from rpython.jit.backend.aarch64.regalloc import (Regalloc,
@@ -555,6 +555,10 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.STR_ri(prev_loc.value, r.fp.value, loc.value)
         else:
             XXX
+
+    def new_stack_loc(self, i, tp):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        return StackLocation(i, get_fp_offset(base_ofs, i), tp)
 
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""

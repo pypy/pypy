@@ -11,7 +11,7 @@ sp = xzr = ZeroRegister()
 
 vfpregisters = [VFPRegisterLocation(i) for i in range(32)]
 all_vfp_regs = vfpregisters[:16]
-all_regs = registers[:16] + [x19, x20, x21, x22]
+all_regs = registers[:16] #+ [x19, x20, x21, x22]
 
 lr = x30
 fp = x29

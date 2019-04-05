@@ -13,6 +13,7 @@ class CPU_ARM64(AbstractLLCPU):
     gen_regs = r.all_regs
     float_regs = VFPRegisterManager.all_regs
 
+    from rpython.jit.backend.aarch64.arch import JITFRAME_FIXED_SIZE
 
     IS_64_BIT = True
 
