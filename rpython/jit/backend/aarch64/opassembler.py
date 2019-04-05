@@ -122,7 +122,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_guard_false(self, op, arglocs):
         self.load_condition_into_cc(arglocs[1])
-        self._emit_guard(op, c.NE, arglocs)
+        self._emit_guard(op, c.EQ, arglocs)
 
     def emit_op_label(self, op, arglocs):
         pass

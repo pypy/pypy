@@ -1,6 +1,6 @@
 
 from rpython.jit.backend.aarch64.arch import WORD, JITFRAME_FIXED_SIZE
-from rpython.jit.backend.aarch64.codebuilder import InstrBuilder
+from rpython.jit.backend.aarch64.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.locations import imm, StackLocation, get_fp_offset
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
@@ -253,6 +253,36 @@ class AssemblerARM64(ResOpAssembler):
             mc.ADD_ri(r.ip.value, r.fp.value, imm=ofs+base_ofs)
             mc.VSTM(r.ip.value, [vfpr.value for vfpr in regs])
 
+    def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
+                                    callee_only=False):
+        # Pop general purpose registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if callee_only:
+            regs = CoreRegisterManager.save_around_call_regs
+        else:
+            regs = CoreRegisterManager.all_regs
+        # XXX add special case if ignored_regs are a block at the start of regs
+        if not ignored_regs:  # we want to pop a contiguous block of regs
+            assert base_ofs < 0x100
+            for i, reg in enumerate(regs):
+                mc.LDR_ri(reg.value, r.fp.value, base_ofs + i * WORD)
+        else:
+            for reg in ignored_regs:
+                assert not reg.is_vfp_reg()  # sanity check
+            # we can have holes in the list of regs
+            for i, gpr in enumerate(regs):
+                if gpr in ignored_regs:
+                    continue
+                ofs = i * WORD + base_ofs
+                self.load_reg(mc, gpr, r.fp, ofs)
+        if withfloats:
+            # Pop VFP regs
+            regs = VFPRegisterManager.all_regs
+            ofs = len(CoreRegisterManager.all_regs) * WORD
+            assert check_imm_arg(ofs+base_ofs)
+            mc.ADD_ri(r.ip.value, r.fp.value, imm=ofs+base_ofs)
+            mc.VLDM(r.ip.value, [vfpr.value for vfpr in regs])
+
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = InstrBuilder()
         self._push_all_regs_to_jitframe(mc, [], withfloats)
@@ -289,6 +319,75 @@ class AssemblerARM64(ResOpAssembler):
         pass # XXX
 
     def build_frame_realloc_slowpath(self):
+        # this code should do the following steps
+        # a) store all registers in the jitframe
+        # b) fish for the arguments passed by the caller
+        # c) store the gcmap in the jitframe
+        # d) call realloc_frame
+        # e) set the fp to point to the new jitframe
+        # f) store the address of the new jitframe in the shadowstack
+        # c) set the gcmap field to 0 in the new jitframe
+        # g) restore registers and return
+        mc = InstrBuilder()
+        self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats)
+        # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
+        # and the expected_size pushed in _check_stack_frame
+        # pop the values passed on the stack, gcmap -> r0, expected_size -> r1
+        mc.LDP_rri(r.x0.value, r.x1.value, r.sp.value, 0)
+        
+        # XXX # store return address and keep the stack aligned
+        # mc.PUSH([r.ip.value, r.lr.value])
+
+        # store the current gcmap(r0) in the jitframe
+        gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.STR_ri(r.x0.value, r.fp.value, gcmap_ofs)
+
+        # set first arg, which is the old jitframe address
+        mc.MOV_rr(r.x0.value, r.fp.value)
+
+        # store a possibly present exception
+        # we use a callee saved reg here as a tmp for the exc.
+        self._store_and_reset_exception(mc, None, r.x19, on_frame=True)
+
+        # call realloc_frame, it takes two arguments
+        # arg0: the old jitframe
+        # arg1: the new size
+        #
+        mc.BL(self.cpu.realloc_frame)
+
+        # set fp to the new jitframe returned from the previous call
+        mc.MOV_rr(r.fp.value, r.x0.value)
+
+        # restore a possibly present exception
+        self._restore_exception(mc, None, r.x19)
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._load_shadowstack_top(mc, r.r5, gcrootmap)
+            # store the new jitframe addr in the shadowstack
+            mc.STR_ri(r.r0.value, r.r5.value, imm=-WORD)
+
+        # reset the jf_gcmap field in the jitframe
+        mc.gen_load_int(r.ip0.value, 0)
+        mc.STR_ri(r.ip0.value, r.fp.value, gcmap_ofs)
+
+        # restore registers
+        self._pop_all_regs_from_jitframe(mc, [], self.cpu.supports_floats)
+
+        # return
+        mc.ADD_ri(r.sp.value, r.sp.value, 2*WORD)
+        mc.LDR_ri(r.lr.value, r.sp.value, WORD)
+        mc.RET_r(r.lr.value)
+        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])        
+
+    def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None,
+                                   on_frame=False):
+        """ Resest the exception. If excvalloc is None, then store it on the
+        frame in jf_guard_exc
+        """
+        pass
+
+    def _restore_exception(self, mc, excvalloc, exctploc):
         pass
 
     def _build_propagate_exception_path(self):
@@ -303,8 +402,41 @@ class AssemblerARM64(ResOpAssembler):
     def _check_frame_depth_debug(self, mc):
         pass
 
-    def _check_frame_depth(self, mc, gcmap):
-        pass # XXX
+    def _check_frame_depth(self, mc, gcmap, expected_size=-1):
+        """ check if the frame is of enough depth to follow this bridge.
+        Otherwise reallocate the frame in a helper.
+        There are other potential solutions
+        to that, but this one does not sound too bad.
+        """
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
+        mc.LDR_ri(r.ip0.value, r.fp.value, ofs)
+        stack_check_cmp_ofs = mc.currpos()
+        if expected_size == -1:
+            for _ in range(mc.get_max_size_of_gen_load_int()):
+                mc.NOP()
+        else:
+            mc.gen_load_int(r.lr.value, expected_size)
+        mc.CMP_rr(r.ip0.value, r.lr.value)
+
+        jg_location = mc.currpos()
+        mc.BRK()
+
+        # the size value is still stored in lr
+        mc.SUB_ri(r.sp.value, r.sp.value, 2*WORD)
+        mc.STR_ri(r.lr.value, r.sp.value, WORD)
+
+        mc.gen_load_int(r.ip0.value, rffi.cast(lltype.Signed, gcmap))
+        mc.STR_ri(r.ip0.value, r.sp.value, 0)
+
+        mc.BL(self._frame_realloc_slowpath)
+
+        # patch jg_location above
+        currpos = mc.currpos()
+        pmc = OverwritingBuilder(mc, jg_location, WORD)
+        pmc.B_ofs_cond(currpos - jg_location, c.GE)
+
+        self.frame_depth_to_patch.append(stack_check_cmp_ofs)
 
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()
@@ -351,7 +483,10 @@ class AssemblerARM64(ResOpAssembler):
         self.teardown_gcrefs_list()
 
     def patch_stack_checks(self, framedepth, rawstart):
-        pass # XXX
+        for ofs in self.frame_depth_to_patch:
+            mc = InstrBuilder()
+            mc.gen_load_int(r.lr.value, framedepth)
+            mc.copy_to_raw_memory(ofs + rawstart)
 
     def load_from_gc_table(self, regnum, index):
         address_in_buffer = index * WORD   # at the start of the buffer

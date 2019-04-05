@@ -119,6 +119,9 @@ class AbstractAarch64Builder(object):
         assert 0 <= imm <= 4095
         self.write32((base << 22) | (imm << 10) | (rn << 5) | 0b11111)
 
+    def NOP(self):
+        self.write32(0b11010101000000110010000000011111)
+
     def B_ofs(self, ofs):
         base = 0b000101
         assert ofs & 0x3 == 0
@@ -169,6 +172,26 @@ class AbstractAarch64Builder(object):
             self.MOVK_r_u16(r, value & 0xFFFF, shift)
             shift += 16
             value >>= 16
+
+    def get_max_size_of_gen_load_int(self):
+        return 4
+
+
+class OverwritingBuilder(AbstractAarch64Builder):
+    def __init__(self, cb, start, size):
+        AbstractAarch64Builder.__init__(self)
+        self.cb = cb
+        self.index = start
+        self.start = start
+        self.end = start + size
+
+    def currpos(self):
+        return self.index
+
+    def writechar(self, char):
+        assert self.index <= self.end
+        self.cb.overwrite(self.index, char)
+        self.index += 1
 
 
 class InstrBuilder(BlockBuilderMixin, AbstractAarch64Builder):

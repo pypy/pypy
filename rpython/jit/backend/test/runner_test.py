@@ -340,6 +340,9 @@ class BaseBackendTest(Runner):
 
         self.cpu.compile_bridge(faildescr1, [i0], bridge, looptoken)
 
+        deadframe = self.cpu.execute_token(looptoken, 0)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
         deadframe = self.cpu.execute_token(looptoken, 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 3
