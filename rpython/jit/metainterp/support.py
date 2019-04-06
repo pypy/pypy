@@ -25,6 +25,7 @@ def ptr2int(ptr):
     """
     addr = llmemory.cast_ptr_to_adr(ptr)
     return llmemory.cast_adr_to_int(addr, "symbolic")
+ptr2int._annspecialcase_ = 'specialize:arglltype(0)'
 
 def int_signext(value, numbytes):
     b8 = numbytes * 8

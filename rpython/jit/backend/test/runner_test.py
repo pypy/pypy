@@ -1896,7 +1896,7 @@ class LLtypeBackendTest(BaseBackendTest):
             T_box = None
         else:
             vtable = vtable_for_T
-            T_box = ConstInt(ptr2int(vtable_for_T_addr))
+            T_box = ConstInt(ptr2int(vtable_for_T))
         descr = cpu.sizeof(T, vtable)
         return t_box, T_box, descr
 
