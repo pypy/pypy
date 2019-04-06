@@ -4,7 +4,8 @@ from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import get_llexception, reraise
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.history import MissingValue
-from rpython.jit.metainterp.support import adr2int, int2adr, int_signext
+from rpython.jit.metainterp.support import (
+    adr2int, int2adr, ptr2int, int_signext)
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.debug import check_annotation

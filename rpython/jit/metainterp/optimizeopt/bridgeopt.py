@@ -142,7 +142,7 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         class_known = bitfield & mask
         mask >>= 1
         if class_known:
-            cls = optimizer.cpu.ts.cls_of_box(frontend_boxes[i])
+            cls = optimizer.cpu.cls_of_box(frontend_boxes[i])
             optimizer.make_constant_class(box, cls)
 
     # heap knowledge

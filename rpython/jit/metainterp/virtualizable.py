@@ -284,7 +284,6 @@ class VirtualizableInfo(object):
         force_virtualizable_if_necessary._always_inline_ = True
         #
         all_graphs = self.warmrunnerdesc.translator.graphs
-        ts = self.warmrunnerdesc.cpu.ts
         FUNC = lltype.FuncType([self.VTYPEPTR], lltype.Void)
         funcptr = self.warmrunnerdesc.helper_func(
             lltype.Ptr(FUNC), force_virtualizable_if_necessary)

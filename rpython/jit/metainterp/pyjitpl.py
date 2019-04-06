@@ -1383,7 +1383,8 @@ class MIFrame(object):
         exc_value = self.metainterp.last_exc_value
         assert exc_value
         assert self.metainterp.class_of_last_exc_is_const
-        return self.metainterp.cpu.ts.cls_of_box(ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, exc_value)))
+        exc_cls = rclass.ll_cast_to_object(exc_value).typeptr
+        return ConstInt(ptr2int(exc_cls))
 
     @arguments()
     def opimpl_last_exc_value(self):
@@ -1583,7 +1584,7 @@ class MIFrame(object):
             return promoted_box
 
     def cls_of_box(self, box):
-        return self.metainterp.cpu.ts.cls_of_box(box)
+        return self.metainterp.cpu.cls_of_box(box)
 
     @specialize.arg(1)
     def execute(self, opnum, *argboxes):

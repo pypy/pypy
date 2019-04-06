@@ -5,7 +5,7 @@ from rpython.jit.metainterp.compile import compile_loop
 from rpython.jit.metainterp.compile import compile_tmp_callback
 from rpython.jit.metainterp import jitexc
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.jit.metainterp import jitprof, typesystem, compile
+from rpython.jit.metainterp import jitprof, compile
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
@@ -19,7 +19,6 @@ class FakeCPU(object):
     class tracker:
         pass
 
-    ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
 

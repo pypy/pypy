@@ -8,7 +8,6 @@ def get_real_model():
         from rpython.jit.metainterp.history import TreeLoop, JitCellToken
         from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
         from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr, TargetToken
-        from rpython.jit.metainterp.typesystem import llhelper
         from rpython.jit.metainterp.opencoder import Trace
 
         from rpython.jit.metainterp.history import get_const_ptr_for_string
@@ -118,11 +117,6 @@ def get_mock_model():
         @staticmethod
         def ptr_to_int(obj):
             return id(obj)
-
-        class llhelper(object):
-            pass
-
-    MockLoopModel.llhelper.BoxRef = MockLoopModel.BoxRef
 
     return MockLoopModel
 

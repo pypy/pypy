@@ -1,6 +1,9 @@
 import weakref
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.rclass import OBJECTPTR
+from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.support import ptr2int
 
 class CPUTotalTracker(object):
     total_compiled_loops = 0
@@ -9,8 +12,6 @@ class CPUTotalTracker(object):
     total_freed_bridges = 0
 
 class AbstractCPU(object):
-    from rpython.jit.metainterp.typesystem import llhelper as ts
-
     supports_floats = False
     supports_longlong = False
     # ^^^ This is only useful on 32-bit platforms.  If True,
@@ -193,6 +194,10 @@ class AbstractCPU(object):
     def cast_int_to_ptr(x, TYPE):
         x = llmemory.cast_int_to_adr(x)
         return llmemory.cast_adr_to_ptr(x, TYPE)
+
+    def cls_of_box(self, box):
+        obj = lltype.cast_opaque_ptr(OBJECTPTR, box.getref_base())
+        return ConstInt(ptr2int(obj.typeptr))
 
 
     # ---------- the backend-dependent operations ----------

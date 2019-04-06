@@ -4,7 +4,6 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
-from rpython.jit.metainterp import typesystem
 from rpython.jit.metainterp.quasiimmut import QuasiImmut
 from rpython.jit.metainterp.quasiimmut import get_current_qmut_instance
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -23,8 +22,6 @@ def test_get_current_qmut_instance():
     assert not foo.mutate_x
 
     class FakeCPU:
-        ts = typesystem.llhelper
-
         def bh_getfield_gc_r(self, gcref, fielddescr):
             assert fielddescr == mutatefielddescr
             foo = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)

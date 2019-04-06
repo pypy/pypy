@@ -578,7 +578,6 @@ class TestLLWarmspot(LLJitMixin):
 
 class TestWarmspotDirect(object):
     def setup_class(cls):
-        from rpython.jit.metainterp.typesystem import llhelper
         from rpython.jit.codewriter.support import annotate
         from rpython.jit.metainterp.warmspot import WarmRunnerDesc
         from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
@@ -615,7 +614,6 @@ class TestWarmspotDirect(object):
             supports_floats = False
             supports_longlong = False
             supports_singlefloats = False
-            ts = llhelper
             translate_support_code = False
             stats = "stats"
 
