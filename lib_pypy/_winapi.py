@@ -17,12 +17,25 @@ GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
 # Now the _subprocess module implementation
-
-
 def _WinError(type=WindowsError):
     code, message = _ffi.getwinerror()
     excep = type(None, message, None ,code)
     raise excep
+
+# In CPython this function converts a windows error into a python object
+# Not sure what we should do here.
+def SetFromWindowsErr(err):
+    if err == 0:
+       err = _kernel32.GetLastError()
+
+    if err == ERROR_CONNECTION_REFUSED:
+        type = ConnectionRefusedError
+    elif err == ERROR_CONNECTION_ABORTED:
+        type = ConnectionAbortedError
+    else:
+        type = WindowsError
+
+    return _WinError(type)
 
 def _int2handle(val):
     return _ffi.cast("HANDLE", val)
@@ -38,20 +51,20 @@ def CreatePipe(attributes, size):
     res = _kernel32.CreatePipe(handles, handles + 1, NULL, size)
 
     if not res:
-        raise _WinError()
+        SetFromWindowsErr(0)
 
     return _handle2int(handles[0]), _handle2int(handles[1])
 
 def CreateNamedPipe(*args):
     handle = _kernel32.CreateNamedPipeW(*args)
     if handle == INVALID_HANDLE_VALUE:
-        raise _WinError()
+        SetFromWindowsErr(0)
     return _handle2int(handle)
 
 def CreateFile(*args):
     handle = _kernel32.CreateFileW(*args)
     if handle == INVALID_HANDLE_VALUE:
-        raise _WinError()
+        SetFromWindowsErr(0)
     return _handle2int(handle)
 
 def SetNamedPipeHandleState(namedpipe, mode, max_collection_count, collect_data_timeout):
@@ -93,7 +106,8 @@ class Overlapped(object):
                 raise RuntimeError('deleting an overlapped struct with a pending operation not supported')
 
     @property
-    def event(self):
+    def event(self): 
+        xxx
         return None
 
     def GetOverlappedResult(self, wait):
@@ -142,10 +156,10 @@ def ConnectNamedPipe(handle, overlapped=False):
             _kernel32.SetEvent(ov.overlapped[0].hEvent)
         else:
             del ov
-            raise _WinError()
+            SetFromWindowsErr(err)
         return ov
     elif not success:
-        raise _WinError()
+        SetFromWindowsErr(0)
 
 def GetCurrentProcess():
     return _handle2int(_kernel32.GetCurrentProcess())
