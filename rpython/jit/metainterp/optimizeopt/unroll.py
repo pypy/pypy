@@ -333,7 +333,7 @@ class UnrollOptimizer(Optimization):
                     if isinstance(guard, GuardResOp):
                         guard.rd_resume_position = patchguardop.rd_resume_position
                         guard.setdescr(compile.ResumeAtPositionDescr())
-                    self.send_extra_operation(guard)
+                    self.optimizer.send_extra_operation(guard)
             except VirtualStatesCantMatch:
                 continue
 
@@ -359,7 +359,7 @@ class UnrollOptimizer(Optimization):
                     short_preamble, {})
                 raise
 
-            self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
+            self.optimizer.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
                                       descr=target_token))
             return None # explicit because the return can be non-None
@@ -478,8 +478,7 @@ class UnrollOptimizer(Optimization):
     def import_state(self, targetargs, exported_state):
         # the mapping between input args (from old label) and what we need
         # to actually emit. Update the info
-        assert (len(exported_state.next_iteration_args) ==
-                len(targetargs))
+        assert len(exported_state.next_iteration_args) == len(targetargs)
         for i, target in enumerate(exported_state.next_iteration_args):
             source = targetargs[i]
             assert source is not target

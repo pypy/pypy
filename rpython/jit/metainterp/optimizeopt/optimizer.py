@@ -57,9 +57,6 @@ class Optimization(object):
     def __init__(self):
         pass # make rpython happy
 
-    def send_extra_operation(self, op, opt=None):
-        self.optimizer.send_extra_operation(op, opt)
-
     def propagate_forward(self, op):
         raise NotImplementedError
 
@@ -79,7 +76,7 @@ class Optimization(object):
     def emit_extra(self, op, emit=True):
         if emit:
             self.emit(op)
-        self.send_extra_operation(op, self.next_optimization)
+        self.optimizer.send_extra_operation(op, self.next_optimization)
 
     def getintbound(self, op):
         assert op.type == 'i'
