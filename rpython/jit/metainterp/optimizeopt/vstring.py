@@ -4,7 +4,8 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     DONT_CHANGE, CONST_NULL)
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     CONST_0, CONST_1, REMOVED, Optimization)
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -79,13 +80,13 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
             s = self.get_constant_string_spec(optforce, mode_string)
             if s is not None:
                 c_s = get_const_ptr_for_string(s)
-                optforce.get_box_replacement(op).set_forwarded(c_s)
+                get_box_replacement(op).set_forwarded(c_s)
                 return c_s
         else:
             s = self.get_constant_string_spec(optforce, mode_unicode)
             if s is not None:
                 c_s = get_const_ptr_for_unicode(s)
-                optforce.get_box_replacement(op).set_forwarded(c_s)
+                get_box_replacement(op).set_forwarded(c_s)
                 return c_s
         self._is_virtual = False
         lengthbox = self.getstrlen(op, optforce.optimizer.optstring, self.mode)
@@ -93,9 +94,9 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         if not we_are_translated():
             newop.name = 'FORCE'
         optforce.emit_extra(newop)
-        newop = optforce.getlastop()
+        newop = optforce.optimizer.getlastop()
         newop.set_forwarded(self)
-        op = optforce.get_box_replacement(op)
+        op = get_box_replacement(op)
         op.set_forwarded(newop)
         optstring = optforce.optimizer.optstring
         self.initialize_forced_string(op, optstring, op, CONST_0, self.mode)
@@ -337,7 +338,7 @@ class VStringConcatInfo(StrPtrInfo):
 def copy_str_content(string_optimizer, srcbox, targetbox,
                      srcoffsetbox, offsetbox, lengthbox, mode,
                      need_next_offset=True):
-    srcbox = string_optimizer.get_box_replacement(srcbox)
+    srcbox = get_box_replacement(srcbox)
     srcoffset = string_optimizer.getintbound(srcoffsetbox)
     lgt = string_optimizer.getintbound(lengthbox)
     if isinstance(srcbox, ConstPtr) and srcoffset.is_constant():
@@ -470,7 +471,7 @@ class OptString(Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 opinfo.strsetitem(indexbox.getint(),
-                                  self.get_box_replacement(op.getarg(2)))
+                                  get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
         return self.emit(op)
@@ -527,7 +528,7 @@ class OptString(Optimization):
         return self._optimize_STRLEN(op, mode_unicode)
 
     def _optimize_STRLEN(self, op, mode):
-        arg1 = self.get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(0))
         opinfo = self.getptrinfo(arg1)
         if opinfo:
             lgtop = opinfo.getstrlen(arg1, self, mode)
@@ -658,8 +659,8 @@ class OptString(Optimization):
         self.make_nonnull_str(op.getarg(1), mode)
         self.make_nonnull_str(op.getarg(2), mode)
         self.make_vstring_concat(op, mode,
-                                 self.get_box_replacement(op.getarg(1)),
-                                 self.get_box_replacement(op.getarg(2)))
+                                 get_box_replacement(op.getarg(1)),
+                                 get_box_replacement(op.getarg(2)))
         self.last_emitted_operation = REMOVED
         return True, None
 
@@ -694,8 +695,8 @@ class OptString(Optimization):
 
     @specialize.arg(2)
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
-        arg1 = self.get_box_replacement(op.getarg(1))
-        arg2 = self.get_box_replacement(op.getarg(2))
+        arg1 = get_box_replacement(op.getarg(1))
+        arg2 = get_box_replacement(op.getarg(2))
         i1 = self.getptrinfo(arg1)
         i2 = self.getptrinfo(arg2)
         #
@@ -818,8 +819,8 @@ class OptString(Optimization):
         return False, None
 
     def opt_call_stroruni_STR_CMP(self, op, mode):
-        arg1 = self.get_box_replacement(op.getarg(1))
-        arg2 = self.get_box_replacement(op.getarg(2))
+        arg1 = get_box_replacement(op.getarg(1))
+        arg2 = get_box_replacement(op.getarg(2))
         i1 = self.getptrinfo(arg1)
         i2 = self.getptrinfo(arg2)
         if not i1 or not i2:

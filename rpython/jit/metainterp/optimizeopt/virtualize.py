@@ -3,7 +3,8 @@ from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.history import CONST_NULL
 from rpython.jit.metainterp.optimizeopt import info, optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import REMOVED
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
 
 from rpython.jit.metainterp.optimizeopt.rawbuffer import InvalidRawOperation
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -195,7 +196,7 @@ class OptVirtualize(optimizer.Optimization):
         opinfo = self.getptrinfo(struct)
         if opinfo is not None and opinfo.is_virtual():
             opinfo.setfield(op.getdescr(), struct,
-                            self.get_box_replacement(op.getarg(1)))
+                            get_box_replacement(op.getarg(1)))
         else:
             self.make_nonnull(struct)
             return self.emit(op)
@@ -299,8 +300,8 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 opinfo.setitem(op.getdescr(), indexbox.getint(),
-                               self.get_box_replacement(op.getarg(0)),
-                               self.get_box_replacement(op.getarg(2)))
+                               get_box_replacement(op.getarg(0)),
+                               get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
         return self.emit(op)
@@ -337,7 +338,7 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
-                itemop = self.get_box_replacement(op.getarg(2))
+                itemop = get_box_replacement(op.getarg(2))
                 try:
                     opinfo.setitem_raw(offset, itemsize, descr, itemop)
                     return
@@ -407,7 +408,7 @@ class OptVirtualize(optimizer.Optimization):
             if indexbox is not None:
                 opinfo.setinteriorfield_virtual(indexbox.getint(),
                                                 op.getdescr(),
-                                       self.get_box_replacement(op.getarg(2)))
+                                       get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
         return self.emit(op)

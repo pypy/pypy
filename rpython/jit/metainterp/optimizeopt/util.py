@@ -72,6 +72,10 @@ def sort_descrs(lst):
     # unused, should I leave it or kill it?
     quicksort(lst, 0, len(lst)-1)
 
+def get_box_replacement(op):
+    if op is None:
+        return op
+    return op.get_box_replacement()
 
 # ____________________________________________________________
 

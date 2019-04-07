@@ -7,6 +7,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.metainterp.optimize import InvalidLoop
+from .util import get_box_replacement
 
 
 INFO_NULL = 0
@@ -51,7 +52,7 @@ class PtrInfo(AbstractInfo):
 
     def force_at_the_end_of_preamble(self, op, optforce, rec):
         if not self.is_virtual():
-            return optforce.get_box_replacement(op)
+            return get_box_replacement(op)
         return self._force_at_the_end_of_preamble(op, optforce, rec)
 
     def get_known_class(self, cpu):
@@ -145,7 +146,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             #
             op.set_forwarded(None)
             optforce.emit_extra(op)
-            newop = optforce.getlastop()
+            newop = optforce.optimizer.getlastop()
             if newop is not op:
                 op.set_forwarded(newop)
             newop.set_forwarded(self)
@@ -218,7 +219,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         for i, fielddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
             if fld is not None:
-                subbox = optforce.force_box(fld)
+                subbox = optforce.optimizer.force_box(fld)
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=fielddescr)
                 self._fields[i] = None
@@ -226,13 +227,13 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
 
     def _force_at_the_end_of_preamble(self, op, optforce, rec):
         if self._fields is None:
-            return optforce.get_box_replacement(op)
+            return get_box_replacement(op)
         if self in rec:
-            return optforce.get_box_replacement(op)
+            return get_box_replacement(op)
         rec[self] = None
         for i, fldbox in enumerate(self._fields):
             if fldbox is not None:
-                info = optforce.getptrinfo(fldbox)
+                info = optforce.optimizer.getptrinfo(fldbox)
                 if info is not None:
                     fldbox = info.force_at_the_end_of_preamble(fldbox, optforce,
                                                                rec)
@@ -242,9 +243,8 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         lst = self.descr.get_all_fielddescrs()
         assert self.is_virtual()
-        visitor.register_virtual_fields(instbox,
-                                        [optimizer.get_box_replacement(box)
-                                         for box in self._fields])
+        visitor.register_virtual_fields(
+            instbox, [get_box_replacement(box) for box in self._fields])
         for i in range(len(lst)):
             op = self._fields[i]
             if op:
@@ -259,7 +259,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         if fielddescr.get_index() >= len(self._fields):
             # we don't know about this item
             return
-        op = optimizer.get_box_replacement(self._fields[fielddescr.get_index()])
+        op = get_box_replacement(self._fields[fielddescr.get_index()])
         if op is None:
             # XXX same bug as in serialize_opt:
             # op should never be None, because that's an invariant violation in
@@ -305,7 +305,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     def _force_elements_immutable(self, descr, constptr, optforce):
         for i, fielddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
-            subbox = optforce.force_box(fld)
+            subbox = optforce.optimizer.force_box(fld)
             assert isinstance(subbox, Const)
             execute(optforce.optimizer.cpu, None, rop.SETFIELD_GC,
                     fielddescr, constptr, subbox)
@@ -436,7 +436,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
             optforce.emit_extra(setfield_op)
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
-        itemboxes = [optimizer.get_box_replacement(box)
+        itemboxes = [get_box_replacement(box)
                      for box in self._get_buffer().values]
         visitor.register_virtual_fields(op, itemboxes)
         # there can be no virtuals stored in raw buffer
@@ -476,7 +476,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         self.parent = None
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
-        source_op = optimizer.get_box_replacement(op.getarg(0))
+        source_op = get_box_replacement(op.getarg(0))
         visitor.register_virtual_fields(op, [source_op])
         if self.parent.is_virtual():
             self.parent.visitor_walk_recursive(source_op, visitor, optimizer)
@@ -543,7 +543,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 # clear the item so we don't know what's there
                 self._items[i] = None
                 continue
-            subbox = optforce.force_box(item)
+            subbox = optforce.optimizer.force_box(item)
             setop = ResOperation(rop.SETARRAYITEM_GC,
                                  [op, ConstInt(i), subbox],
                                   descr=descr)
@@ -571,8 +571,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         return self.length
 
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
-        itemops = [optimizer.get_box_replacement(item)
-                   for item in self._items]
+        itemops = [get_box_replacement(item) for item in self._items]
         visitor.register_virtual_fields(instbox, itemops)
         for i in range(self.getlength()):
             itemop = self._items[i]
@@ -596,7 +595,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         item = self._items[index]
         if item is not None:
             # see comment in AbstractStructPtrInfo.produce_short_preamble_ops
-            op = optimizer.get_box_replacement(item)
+            op = get_box_replacement(item)
             opnum = OpHelpers.getarrayitem_for_descr(descr)
             getarrayitem_op = ResOperation(opnum, [structbox, ConstInt(index)],
                                            descr=descr)
@@ -604,9 +603,9 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def _force_at_the_end_of_preamble(self, op, optforce, rec):
         if self._items is None:
-            return optforce.get_box_replacement(op)
+            return get_box_replacement(op)
         if self in rec:
-            return optforce.get_box_replacement(op)
+            return get_box_replacement(op)
         rec[self] = None
         for i, fldbox in enumerate(self._items):
             if fldbox is not None:
@@ -659,7 +658,7 @@ class ArrayStructInfo(ArrayPtrInfo):
             for fielddescr in fielddescrs:
                 fld = self._items[i]
                 if fld is not None:
-                    subbox = optforce.force_box(fld)
+                    subbox = optforce.optimizer.force_box(fld)
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
                                               [op, ConstInt(index), subbox],
                                               descr=fielddescr)
@@ -669,8 +668,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                 i += 1
 
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
-        itemops = [optimizer.get_box_replacement(item)
-                   for item in self._items]
+        itemops = [get_box_replacement(item) for item in self._items]
         visitor.register_virtual_fields(instbox, itemops)
         fielddescrs = self.descr.get_all_fielddescrs()
         i = 0

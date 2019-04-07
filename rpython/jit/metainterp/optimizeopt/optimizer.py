@@ -2,15 +2,15 @@ from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import (
     Const, ConstInt, ConstPtr, CONST_NULL, new_ref_dict)
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
-     ConstIntBound, MININT, MAXINT, IntUnbounded
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
-     OpHelpers
+from rpython.jit.metainterp.optimizeopt.intutils import (
+    IntBound, ConstIntBound, MININT, MAXINT, IntUnbounded)
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
+from rpython.jit.metainterp.resoperation import (
+    rop, AbstractResOp, GuardResOp, OpHelpers)
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib.debug import debug_print
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
@@ -83,7 +83,7 @@ class Optimization(object):
 
     def getintbound(self, op):
         assert op.type == 'i'
-        op = self.get_box_replacement(op)
+        op = get_box_replacement(op)
         if isinstance(op, ConstInt):
             return ConstIntBound(op.getint())
         fw = op.get_forwarded()
@@ -99,7 +99,7 @@ class Optimization(object):
 
     def setintbound(self, op, bound):
         assert op.type == 'i'
-        op = self.get_box_replacement(op)
+        op = get_box_replacement(op)
         if op.is_constant():
             return
         cur = op.get_forwarded()
@@ -120,7 +120,7 @@ class Optimization(object):
         assert False
 
     def make_constant_class(self, op, class_const, update_last_guard=True):
-        op = self.get_box_replacement(op)
+        op = get_box_replacement(op)
         opinfo = op.get_forwarded()
         if isinstance(opinfo, info.InstancePtrInfo):
             opinfo._known_class = class_const
@@ -142,7 +142,7 @@ class Optimization(object):
         elif op.type == 'f':
             return None
         assert op.type == 'r'
-        op = self.get_box_replacement(op)
+        op = get_box_replacement(op)
         assert op.type == 'r'
         if isinstance(op, ConstPtr):
             return info.ConstPtrInfo(op)
@@ -153,14 +153,14 @@ class Optimization(object):
         return None
 
     def is_raw_ptr(self, op):
-        fw = self.get_box_replacement(op).get_forwarded()
+        fw = get_box_replacement(op).get_forwarded()
         if isinstance(fw, info.AbstractRawPtrInfo):
             return True
         return False
 
     def getrawptrinfo(self, op, create=False, is_object=False):
         assert op.type == 'i'
-        op = self.get_box_replacement(op)
+        op = get_box_replacement(op)
         assert op.type == 'i'
         if isinstance(op, ConstInt):
             return info.ConstPtrInfo(op)
@@ -175,15 +175,6 @@ class Optimization(object):
             assert isinstance(fw, info.AbstractRawPtrInfo)
             return fw
         return None
-
-    def get_box_replacement(self, op):
-        return self.optimizer.get_box_replacement(op)
-
-    def getlastop(self):
-        return self.optimizer.getlastop()
-
-    def force_box(self, op, optforce=None):
-        return self.optimizer.force_box(op, optforce)
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
@@ -351,8 +342,8 @@ class Optimizer(Optimization):
                 return self.getptrinfo(op)
             return self.getintbound(op)
         elif op.type == 'f':
-            if self.get_box_replacement(op).is_constant():
-                return info.FloatConstInfo(self.get_box_replacement(op))
+            if get_box_replacement(op).is_constant():
+                return info.FloatConstInfo(get_box_replacement(op))
 
     def get_box_replacement(self, op):
         if op is None:
@@ -360,8 +351,9 @@ class Optimizer(Optimization):
         return op.get_box_replacement()
 
     def force_box(self, op, optforce=None):
-        op = self.get_box_replacement(op)
+        op = get_box_replacement(op)
         if optforce is None:
+            #import pdb; pdb.set_trace()
             optforce = self
         info = op.get_forwarded()
         if self.optunroll and self.optunroll.potential_extra_ops:
@@ -387,7 +379,7 @@ class Optimizer(Optimization):
         return None
 
     def get_constant_box(self, box):
-        box = self.get_box_replacement(box)
+        box = get_box_replacement(box)
         if isinstance(box, Const):
             return box
         if (box.type == 'i' and box.get_forwarded() and
@@ -405,7 +397,7 @@ class Optimizer(Optimization):
         self._emittedoperations = {}
 
     def make_equal_to(self, op, newop):
-        op = self.get_box_replacement(op)
+        op = get_box_replacement(op)
         if op is newop:
             return
         opinfo = op.get_forwarded()
@@ -420,7 +412,7 @@ class Optimizer(Optimization):
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         newop = op.copy_and_change(newopnum, args, descr)
         if newop.type != 'v':
-            op = self.get_box_replacement(op)
+            op = get_box_replacement(op)
             opinfo = op.get_forwarded()
             if opinfo is not None:
                 newop.set_forwarded(opinfo)
@@ -429,7 +421,7 @@ class Optimizer(Optimization):
 
     def make_constant(self, box, constbox):
         assert isinstance(constbox, Const)
-        box = self.get_box_replacement(box)
+        box = get_box_replacement(box)
         # safety-check: if the constant is outside the bounds for the
         # box, then it is an invalid loop
         if (box.get_forwarded() is not None and

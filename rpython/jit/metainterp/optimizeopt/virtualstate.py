@@ -6,6 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import \
      MININT, MAXINT, IntBound, IntLowerBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat
+from .util import get_box_replacement
 from rpython.rlib.debug import debug_print
 
 LEVEL_UNKNOWN = '\x00'
@@ -178,7 +179,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         raise NotImplementedError
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
-        box = optimizer.get_box_replacement(box)
+        box = get_box_replacement(box)
         info = optimizer.getptrinfo(box)
         if info is None or not info.is_virtual():
             raise VirtualStatesCantMatch()
@@ -259,7 +260,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                                             fieldbox, fieldbox_runtime, state)
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
-        box = optimizer.get_box_replacement(box)
+        box = get_box_replacement(box)
         info = optimizer.getptrinfo(box)
         if info is None or not info.is_virtual():
             raise VirtualStatesCantMatch()
@@ -412,7 +413,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             return
         assert 0 <= self.position_in_notvirtuals
         if optimizer is not None:
-            box = optimizer.get_box_replacement(box)
+            box = get_box_replacement(box)
             if box.type == 'r':
                 info = optimizer.getptrinfo(box)
                 if info and info.is_virtual():
@@ -707,7 +708,7 @@ class VirtualStateConstructor(VirtualVisitor):
         return self.create_state(box, opt)
 
     def create_state(self, box, opt):
-        box = opt.get_box_replacement(box)
+        box = get_box_replacement(box)
         try:
             return self.info[box]
         except KeyError:

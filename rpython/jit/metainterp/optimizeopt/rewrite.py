@@ -8,7 +8,8 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED, CONST_0, CONST_1)
 from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
-from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (
+    _findall, make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
      OpHelpers
 from rpython.rlib.rarithmetic import highest_bit
@@ -128,8 +129,8 @@ class OptRewrite(Optimization):
             return self.emit(op)
 
     def optimize_INT_SUB(self, op):
-        arg1 = self.get_box_replacement(op.getarg(0))
-        arg2 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
         if b2.equal(0):
@@ -162,9 +163,9 @@ class OptRewrite(Optimization):
     def optimize_INT_ADD(self, op):
         if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
             return self.emit(op)
-        arg1 = self.get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg1)
-        arg2 = self.get_box_replacement(op.getarg(1))
+        arg2 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg2)
 
         # If one side of the op is 0 the result is the other side.
@@ -204,9 +205,9 @@ class OptRewrite(Optimization):
         self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
 
     def optimize_INT_MUL(self, op):
-        arg1 = self.get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg1)
-        arg2 = self.get_box_replacement(op.getarg(1))
+        arg2 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg2)
 
         # If one side of the op is 1 the result is the other side.
@@ -276,8 +277,8 @@ class OptRewrite(Optimization):
         # Constant fold f0 * 1.0 and turn f0 * -1.0 into a FLOAT_NEG, these
         # work in all cases, including NaN and inf
         for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
-            v1 = self.get_box_replacement(lhs)
-            v2 = self.get_box_replacement(rhs)
+            v1 = get_box_replacement(lhs)
+            v2 = get_box_replacement(rhs)
 
             if v1.is_constant():
                 if v1.getfloat() == 1.0:
@@ -295,7 +296,7 @@ class OptRewrite(Optimization):
     def optimize_FLOAT_TRUEDIV(self, op):
         arg1 = op.getarg(0)
         arg2 = op.getarg(1)
-        v2 = self.get_box_replacement(arg2)
+        v2 = get_box_replacement(arg2)
 
         # replace "x / const" by "x * (1/const)" if possible
         newop = op
@@ -331,7 +332,7 @@ class OptRewrite(Optimization):
                                       'was proven to always fail' % r)
                 return
         elif box.type == 'r':
-            box = self.get_box_replacement(box)
+            box = get_box_replacement(box)
             if box.is_constant():
                 if not box.same_constant(constbox):
                     r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
@@ -361,7 +362,7 @@ class OptRewrite(Optimization):
         if info and info.is_constant():
             if info.is_null():
                 raise InvalidLoop("A GUARD_IS_OBJECT(NULL) found")
-            c = self.get_box_replacement(op.getarg(0))
+            c = get_box_replacement(op.getarg(0))
             if self.optimizer.cpu.check_is_object(c.getref_base()):
                 return
             raise InvalidLoop("A GUARD_IS_OBJECT(not-an-object) found")
@@ -375,7 +376,7 @@ class OptRewrite(Optimization):
     def optimize_GUARD_GC_TYPE(self, op):
         info = self.getptrinfo(op.getarg(0))
         if info and info.is_constant():
-            c = self.get_box_replacement(op.getarg(0))
+            c = get_box_replacement(op.getarg(0))
             tid = self.optimizer.cpu.get_actual_typeid(c.getref_base())
             if tid != op.getarg(1).getint():
                 raise InvalidLoop("wrong GC type ID found on a constant")
@@ -392,7 +393,7 @@ class OptRewrite(Optimization):
         # must raise 'InvalidLoop' in all cases where 'info' shows the
         # class cannot possibly match (see test_issue2926)
         if info and info.is_constant():
-            c = self.get_box_replacement(op.getarg(0))
+            c = get_box_replacement(op.getarg(0))
             vtable = optimizer.cpu.cls_of_box(c).getint()
             if optimizer._check_subclass(vtable, op.getarg(1).getint()):
                 return
@@ -452,7 +453,7 @@ class OptRewrite(Optimization):
                     op = self.replace_old_guard_with_guard_value(op, info,
                                                               old_guard_op)
         elif arg0.type == 'f':
-            arg0 = self.get_box_replacement(arg0)
+            arg0 = get_box_replacement(arg0)
             if arg0.is_constant():
                 return
         constbox = op.getarg(1)
@@ -460,7 +461,7 @@ class OptRewrite(Optimization):
         return self.optimize_guard(op, constbox)
 
     def postprocess_GUARD_VALUE(self, op):
-        box = self.get_box_replacement(op.getarg(0))
+        box = get_box_replacement(op.getarg(0))
         self.make_constant(box, op.getarg(1))
 
     def replace_old_guard_with_guard_value(self, op, info, old_guard_op):
@@ -507,7 +508,7 @@ class OptRewrite(Optimization):
         return self.optimize_guard(op, CONST_1)
 
     def postprocess_GUARD_TRUE(self, op):
-        box = self.get_box_replacement(op.getarg(0))
+        box = get_box_replacement(op.getarg(0))
         box1 = self.optimizer.as_operation(box)
         if box1 is not None and box1.getopnum() == rop.INT_IS_TRUE:
             # we can't use the (current) range analysis for this because
@@ -519,7 +520,7 @@ class OptRewrite(Optimization):
         return self.optimize_guard(op, CONST_0)
 
     def postprocess_GUARD_FALSE(self, op):
-        box = self.get_box_replacement(op.getarg(0))
+        box = get_box_replacement(op.getarg(0))
         box1 = self.optimizer.as_operation(box)
         if box1 is not None and box1.getopnum() == rop.INT_IS_ZERO:
             # we can't use the (current) range analysis for this because
@@ -660,8 +661,8 @@ class OptRewrite(Optimization):
         return self._optimize_nullness(op, op.getarg(0), False)
 
     def _optimize_oois_ooisnot(self, op, expect_isnot, instance):
-        arg0 = self.get_box_replacement(op.getarg(0))
-        arg1 = self.get_box_replacement(op.getarg(1))
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         info0 = self.getptrinfo(arg0)
         info1 = self.getptrinfo(arg1)
         if info0 and info0.is_virtual():
@@ -755,7 +756,7 @@ class OptRewrite(Optimization):
                     continue
                 if dest_info and dest_info.is_virtual():
                     dest_info.setitem(arraydescr, index + dest_start,
-                                      self.get_box_replacement(op.getarg(2)),
+                                      get_box_replacement(op.getarg(2)),
                                       val)
                 else:
                     newop = ResOperation(rop.SETARRAYITEM_GC,
@@ -898,7 +899,7 @@ class OptRewrite(Optimization):
     def serialize_optrewrite(self, available_boxes):
         res = []
         for i, box in self.loop_invariant_results.iteritems():
-            box = self.get_box_replacement(box)
+            box = get_box_replacement(box)
             if box in available_boxes:
                 res.append((i, box))
         return res

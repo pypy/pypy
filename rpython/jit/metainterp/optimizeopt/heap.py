@@ -6,7 +6,8 @@ from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const, ConstInt, new_ref_dict
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -56,7 +57,7 @@ class AbstractCachedEntry(object):
                                              descr, index=-1):
         assert self._lazy_set is None
         for i, info in enumerate(self.cached_infos):
-            structbox = optimizer.get_box_replacement(self.cached_structs[i])
+            structbox = get_box_replacement(self.cached_structs[i])
             info.produce_short_preamble_ops(structbox, descr, index, optimizer,
                                             shortboxes)
 
@@ -72,13 +73,13 @@ class AbstractCachedEntry(object):
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
         structinfo = optheap.ensure_ptr_info_arg0(op)
-        arg1 = optheap.get_box_replacement(self._get_rhs_from_set_op(op))
+        arg1 = get_box_replacement(self._get_rhs_from_set_op(op))
         if self.possible_aliasing(optheap, structinfo):
             self.force_lazy_set(optheap, op.getdescr())
             assert not self.possible_aliasing(optheap, structinfo)
         cached_field = self._getfield(structinfo, op.getdescr(), optheap, False)
         if cached_field is not None:
-            cached_field = optheap.get_box_replacement(cached_field)
+            cached_field = cached_field.get_box_replacement()
 
         # Hack to ensure constants are imported from the preamble
         # XXX no longer necessary?
@@ -108,7 +109,7 @@ class AbstractCachedEntry(object):
             self.force_lazy_set(optheap, descr)
         if self._lazy_set is not None:
             op = self._lazy_set
-            return optheap.get_box_replacement(self._get_rhs_from_set_op(op))
+            return get_box_replacement(self._get_rhs_from_set_op(op))
         else:
             res = self._getfield(opinfo, descr, optheap)
             if res is not None:
@@ -167,8 +168,8 @@ class CachedField(AbstractCachedEntry):
         return op.getarg(1)
 
     def put_field_back_to_info(self, op, opinfo, optheap):
-        arg = optheap.get_box_replacement(op.getarg(1))
-        struct = optheap.get_box_replacement(op.getarg(0))
+        arg = get_box_replacement(op.getarg(1))
+        struct = get_box_replacement(op.getarg(0))
         opinfo.setfield(op.getdescr(), struct, arg, optheap=optheap, cf=self)
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
@@ -216,8 +217,8 @@ class ArrayCachedItem(AbstractCachedEntry):
         return res
 
     def put_field_back_to_info(self, op, opinfo, optheap):
-        arg = optheap.get_box_replacement(op.getarg(2))
-        struct = optheap.get_box_replacement(op.getarg(0))
+        arg = get_box_replacement(op.getarg(2))
+        struct = get_box_replacement(op.getarg(0))
         opinfo.setitem(op.getdescr(), self.index, struct, arg, optheap=optheap, cf=self)
 
     def invalidate(self, descr):
@@ -412,8 +413,8 @@ class OptHeap(Optimization):
             d = self.cached_dict_reads[descr1] = args_dict()
             self.corresponding_array_descrs[descrs[1]] = descr1
         #
-        key = [self.optimizer.get_box_replacement(op.getarg(1)),   # dict
-               self.optimizer.get_box_replacement(op.getarg(2))]   # key
+        key = [get_box_replacement(op.getarg(1)),   # dict
+               get_box_replacement(op.getarg(2))]   # key
                # other args can be ignored here (hash, store_flag)
         try:
             res_v = d[key]
@@ -606,8 +607,8 @@ class OptHeap(Optimization):
             index = indexb.getint()
             cf = self.arrayitem_cache(op.getdescr(), index)
             arrayinfo.setitem(op.getdescr(), indexb.getint(),
-                              self.get_box_replacement(op.getarg(0)),
-                              self.get_box_replacement(op), optheap=self,
+                              get_box_replacement(op.getarg(0)),
+                              get_box_replacement(op), optheap=self,
                               cf=cf)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
@@ -680,8 +681,7 @@ class OptHeap(Optimization):
         # check that the value is still correct; it could have changed
         # already between the tracing and now.  In this case, we mark the loop
         # as invalid
-        if not qmutdescr.is_still_valid_for(
-                self.get_box_replacement(op.getarg(0))):
+        if not qmutdescr.is_still_valid_for(get_box_replacement(op.getarg(0))):
             raise InvalidLoop('quasi immutable field changed during tracing')
         # record as an out-of-line guard
         if self.optimizer.quasi_immutable_deps is None:

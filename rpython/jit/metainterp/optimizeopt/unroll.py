@@ -10,6 +10,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
+from .util import get_box_replacement
 from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print, debug_start, debug_stop,\
@@ -26,7 +27,7 @@ class UnrollableOptimizer(Optimizer):
                                                 preamble_op.preamble_op, self)
             if not preamble_op.op.is_constant():
                 if preamble_op.invented_name:
-                    op = self.get_box_replacement(op)
+                    op = get_box_replacement(op)
                 self.optunroll.potential_extra_ops[op] = preamble_op
             return preamble_op.op
         return preamble_op
@@ -44,7 +45,7 @@ class UnrollableOptimizer(Optimizer):
                 # know anything about
 
     def setinfo_from_preamble(self, op, preamble_info, exported_infos):
-        op = self.get_box_replacement(op)
+        op = get_box_replacement(op)
         if op.get_forwarded() is not None:
             return
         if op.is_constant():
@@ -152,7 +153,7 @@ class UnrollOptimizer(Optimization):
                                 descr=celltoken)
         for a in end_jump.getarglist():
             self.optimizer.force_box_for_end_of_preamble(
-                self.optimizer.get_box_replacement(a))
+                get_box_replacement(a))
         current_vs = self.get_virtual_state(end_jump.getarglist())
         # pick the vs we want to jump to
         assert isinstance(celltoken, JitCellToken)
@@ -163,7 +164,7 @@ class UnrollOptimizer(Optimization):
         # force the boxes for virtual state to match
         try:
             args = target_virtual_state.make_inputargs(
-               [self.get_box_replacement(x) for x in end_jump.getarglist()],
+               [get_box_replacement(x) for x in end_jump.getarglist()],
                self.optimizer, force_boxes=True)
             for arg in args:
                 if arg is not None:
@@ -318,7 +319,7 @@ class UnrollOptimizer(Optimization):
         jitcelltoken = jump_op.getdescr()
         assert isinstance(jitcelltoken, JitCellToken)
         virtual_state = self.get_virtual_state(jump_op.getarglist())
-        args = [self.get_box_replacement(op) for op in jump_op.getarglist()]
+        args = [get_box_replacement(op) for op in jump_op.getarglist()]
         for target_token in jitcelltoken.target_tokens:
             target_virtual_state = target_token.virtual_state
             if target_virtual_state is None:
@@ -418,13 +419,13 @@ class UnrollOptimizer(Optimization):
             # force all of them except the virtuals
             for arg in (args_no_virtuals +
                         self._map_args(mapping, short_jump_args)):
-                self.optimizer.force_box(self.get_box_replacement(arg))
+                self.optimizer.force_box(get_box_replacement(arg))
             self.optimizer.flush()
             # done unless "short" has grown again
             if i == len(short) - 1:
                 break
 
-        return [self.get_box_replacement(box)
+        return [get_box_replacement(box)
                 for box in self._map_args(mapping, short_jump_args)]
 
     def _expand_info(self, arg, infos):
@@ -453,7 +454,7 @@ class UnrollOptimizer(Optimization):
                     for a in original_label_args]
         self.optimizer.flush()
         virtual_state = self.get_virtual_state(end_args)
-        end_args = [self.get_box_replacement(arg) for arg in end_args]
+        end_args = [get_box_replacement(arg) for arg in end_args]
         infos = {}
         for arg in end_args:
             self._expand_info(arg, infos)
