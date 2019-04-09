@@ -1,12 +1,12 @@
 import py, sys
 from rpython.jit.codewriter import support
-from rpython.jit.codewriter.heaptracker import int_signext
 from rpython.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
 from rpython.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
 from rpython.jit.codewriter.format import assert_format
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.support import int_signext
 from rpython.rtyper.lltypesystem import lltype, rstr, rffi
 from rpython.rtyper import rclass
 from rpython.flowspace.model import SpaceOperation, Variable, Constant

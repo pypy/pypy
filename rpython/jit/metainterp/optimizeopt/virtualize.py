@@ -122,8 +122,7 @@ class OptVirtualize(optimizer.Optimization):
         newop.set_forwarded(vrefvalue)
         token = ResOperation(rop.FORCE_TOKEN, [])
         vrefvalue.setfield(descr_virtual_token, newop, token)
-        vrefvalue.setfield(descr_forced, newop,
-                           self.optimizer.cpu.ts.CONST_NULLREF)
+        vrefvalue.setfield(descr_forced, newop, CONST_NULL)
         return self.emit(token)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):

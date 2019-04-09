@@ -2,17 +2,18 @@ import sys
 
 import py
 
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, TargetToken, MissingValue, SwitchToBlackhole)
+    ConstFloat, CONST_NULL, TargetToken, MissingValue, SwitchToBlackhole)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, GuardResOp
+from rpython.jit.metainterp.support import adr2int, ptr2int
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -136,9 +137,12 @@ class MIFrame(object):
             # is not defined yet.
             argcode = self._result_argcode
             index = ord(self.bytecode[self.pc - 1])
-            if   argcode == 'i': self.registers_i[index] = history.CONST_FALSE
-            elif argcode == 'r': self.registers_r[index] = history.CONST_NULL
-            elif argcode == 'f': self.registers_f[index] = history.CONST_FZERO
+            if argcode == 'i':
+                self.registers_i[index] = history.CONST_FALSE
+            elif argcode == 'r':
+                self.registers_r[index] = CONST_NULL
+            elif argcode == 'f':
+                self.registers_f[index] = history.CONST_FZERO
             self._result_argcode = '?'     # done
         #
         info = self.get_current_position_info()
@@ -269,11 +273,11 @@ class MIFrame(object):
 
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):
-        return self.execute(rop.PTR_NE, box, history.CONST_NULL)
+        return self.execute(rop.PTR_NE, box, CONST_NULL)
 
     @arguments("box")
     def opimpl_ptr_iszero(self, box):
-        return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
+        return self.execute(rop.PTR_EQ, box, CONST_NULL)
 
     @arguments("box")
     def opimpl_assert_not_none(self, box):
@@ -931,8 +935,7 @@ class MIFrame(object):
         token_descr = vinfo.vable_token_descr
         mi = self.metainterp
         tokenbox = mi.execute_and_record(rop.GETFIELD_GC_R, token_descr, box)
-        condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox,
-                                       history.CONST_NULL)
+        condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox, CONST_NULL)
         funcbox = ConstInt(rffi.cast(lltype.Signed, vinfo.clear_vable_ptr))
         calldescr = vinfo.clear_vable_descr
         self.execute_varargs(rop.COND_CALL, [condbox, funcbox, box],
@@ -1159,7 +1162,7 @@ class MIFrame(object):
                           assembler_call=False):
         portal_code = targetjitdriver_sd.mainjitcode
         k = targetjitdriver_sd.portal_runner_adr
-        funcbox = ConstInt(heaptracker.adr2int(k))
+        funcbox = ConstInt(adr2int(k))
         return self.do_residual_call(funcbox, allboxes, portal_code.calldescr, pc,
                                      assembler_call=assembler_call,
                                      assembler_call_jd=targetjitdriver_sd)
@@ -1350,7 +1353,9 @@ class MIFrame(object):
         last_exc_value = metainterp.last_exc_value
         assert last_exc_value
         assert metainterp.class_of_last_exc_is_const
-        if not metainterp.cpu.ts.instanceOf(ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, last_exc_value)), vtablebox):
+        cls = llmemory.cast_adr_to_ptr(vtablebox.getaddr(), rclass.CLASSTYPE)
+        real_instance = rclass.ll_cast_to_object(last_exc_value)
+        if not rclass.ll_isinstance(real_instance, cls):
             self.pc = next_exc_target
 
     @arguments("box", "orgpc")
@@ -1378,7 +1383,8 @@ class MIFrame(object):
         exc_value = self.metainterp.last_exc_value
         assert exc_value
         assert self.metainterp.class_of_last_exc_is_const
-        return self.metainterp.cpu.ts.cls_of_box(ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, exc_value)))
+        exc_cls = rclass.ll_cast_to_object(exc_value).typeptr
+        return ConstInt(ptr2int(exc_cls))
 
     @arguments()
     def opimpl_last_exc_value(self):
@@ -1495,7 +1501,7 @@ class MIFrame(object):
         vref = vrefbox.getref_base()
         if vrefinfo.is_virtual_ref(vref):
             # XXX write a comment about nullbox
-            nullbox = self.metainterp.cpu.ts.CONST_NULL
+            nullbox = CONST_NULL
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
@@ -1578,7 +1584,7 @@ class MIFrame(object):
             return promoted_box
 
     def cls_of_box(self, box):
-        return self.metainterp.cpu.ts.cls_of_box(box)
+        return self.metainterp.cpu.cls_of_box(box)
 
     @specialize.arg(1)
     def execute(self, opnum, *argboxes):
@@ -1822,7 +1828,7 @@ class MIFrame(object):
         to handle an indirect_call that may need to be inlined."""
         if isinstance(funcbox, Const):
             sd = self.metainterp.staticdata
-            key = sd.cpu.ts.getaddr_for_box(funcbox)
+            key = funcbox.getaddr()
             jitcode = sd.bytecode_for_address(key)
             if jitcode is not None:
                 # we should follow calls to this graph
@@ -2129,7 +2135,7 @@ class MetaInterp(object):
             elif result_type == history.INT:
                 raise jitexc.DoneWithThisFrameInt(int(resultbox.getint()))
             elif result_type == history.REF:
-                raise jitexc.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
+                raise jitexc.DoneWithThisFrameRef(resultbox.getref_base())
             elif result_type == history.FLOAT:
                 raise jitexc.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
@@ -2163,7 +2169,8 @@ class MetaInterp(object):
             self.compile_exit_frame_with_exception(self.last_exc_box)
         except SwitchToBlackhole as stb:
             self.aborted_tracing(stb.reason)
-        raise jitexc.ExitFrameWithExceptionRef(self.cpu, lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
+        raise jitexc.ExitFrameWithExceptionRef(
+            lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
 
     def check_recursion_invariant(self):
         portal_call_depth = -1
@@ -2630,16 +2637,24 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         num_red_args = self.jitdriver_sd.num_red_args
         for box in live_arg_boxes[num_green_args:num_green_args+num_red_args]:
-            if   box.type == history.INT: args.append(box.getint())
-            elif box.type == history.REF: args.append(box.getref_base())
-            elif box.type == history.FLOAT: args.append(box.getfloatstorage())
-            else: assert 0
+            if box.type == history.INT:
+                args.append(box.getint())
+            elif box.type == history.REF:
+                args.append(box.getref_base())
+            elif box.type == history.FLOAT:
+                args.append(box.getfloatstorage())
+            else:
+                assert 0
         res = self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
         kind = history.getkind(lltype.typeOf(res))
-        if kind == 'void':  raise jitexc.DoneWithThisFrameVoid()
-        if kind == 'int':   raise jitexc.DoneWithThisFrameInt(res)
-        if kind == 'ref':   raise jitexc.DoneWithThisFrameRef(self.cpu, res)
-        if kind == 'float': raise jitexc.DoneWithThisFrameFloat(res)
+        if kind == 'void':
+            raise jitexc.DoneWithThisFrameVoid()
+        if kind == 'int':
+            raise jitexc.DoneWithThisFrameInt(res)
+        if kind == 'ref':
+            raise jitexc.DoneWithThisFrameRef(res)
+        if kind == 'float':
+            raise jitexc.DoneWithThisFrameFloat(res)
         raise AssertionError(kind)
 
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
@@ -2662,8 +2677,7 @@ class MetaInterp(object):
 
             exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
             if exception_obj:
-                exc_class = heaptracker.adr2int(
-                    llmemory.cast_ptr_to_adr(exception_obj.typeptr))
+                exc_class = ptr2int(exception_obj.typeptr)
             else:
                 exc_class = 0
             assert self.history.trace is None
@@ -2957,12 +2971,11 @@ class MetaInterp(object):
         # CALL_xxx is recorded
         self.history.record(rop.VIRTUAL_REF_FINISH, [vrefbox, virtualbox], None)
         # mark this situation by replacing the vrefbox with ConstPtr(NULL)
-        self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
+        self.virtualref_boxes[i+1] = CONST_NULL
 
     def handle_possible_exception(self):
         if self.last_exc_value:
-            exception_box = ConstInt(heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(self.last_exc_value.typeptr)))
+            exception_box = ConstInt(ptr2int(self.last_exc_value.typeptr))
             op = self.generate_guard(rop.GUARD_EXCEPTION,
                                      None, [exception_box])
             val = lltype.cast_opaque_ptr(llmemory.GCREF, self.last_exc_value)
@@ -3075,7 +3088,7 @@ class MetaInterp(object):
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
             # we're during tracing, so we should not execute it
-            self.history.record(rop.SETFIELD_GC, [vbox, self.cpu.ts.CONST_NULL],
+            self.history.record(rop.SETFIELD_GC, [vbox, CONST_NULL],
                                 None, descr=vinfo.vable_token_descr)
 
     def replace_box(self, oldbox, newbox):
@@ -3256,7 +3269,7 @@ class MetaInterp(object):
             calldescr._original_func_ = argboxes[0].getint()
         effectinfo = calldescr.get_extra_info()
         realfuncaddr, saveerr = effectinfo.call_release_gil_target
-        funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
+        funcbox = ConstInt(adr2int(realfuncaddr))
         savebox = ConstInt(saveerr)
         opnum = rop.call_release_gil_for_descr(calldescr)
         return self.history.record_nospec(opnum,

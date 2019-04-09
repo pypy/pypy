@@ -2,31 +2,31 @@ from __future__ import with_statement
 import py
 import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
-     AbstractResumeDataReader, get_VirtualCache_class, ResumeDataBoxReader,\
-     tag, TagOverflow, untag, tagged_eq, UNASSIGNED, TAGBOX, TAGVIRTUAL,\
-     tagged_list_eq, AbstractVirtualInfo, TAGCONST, NULLREF,\
-     ResumeDataDirectReader, TAGINT, REF, VirtualInfo, VStructInfo,\
-     VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,\
-     VUniPlainInfo, VUniConcatInfo, VUniSliceInfo,\
-     capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
-     annlowlevel, PENDINGFIELDSP, TAG_CONST_OFFSET
-from rpython.jit.metainterp.resumecode import unpack_numbering,\
-     create_numbering, NULL_NUMBER
-from rpython.jit.metainterp.opencoder import Trace, Snapshot, TopSnapshot
+from rpython.jit.metainterp.resume import (
+    ResumeDataVirtualAdder, AbstractResumeDataReader, get_VirtualCache_class,
+    ResumeDataBoxReader, tag, TagOverflow, untag, tagged_eq, UNASSIGNED,
+    TAGBOX, TAGVIRTUAL, tagged_list_eq, AbstractVirtualInfo, TAGCONST,
+    NULLREF, ResumeDataDirectReader, TAGINT, REF, VirtualInfo, VStructInfo,
+    VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,
+    VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, capture_resumedata,
+    ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT, annlowlevel, PENDINGFIELDSP,
+    TAG_CONST_OFFSET)
+from rpython.jit.metainterp.resumecode import (
+    unpack_numbering, create_numbering)
+from rpython.jit.metainterp.opencoder import Trace
 
 from rpython.jit.metainterp.optimizeopt import info
-from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr
-from rpython.jit.metainterp.history import ConstPtr, ConstFloat,\
-     IntFrontendOp, RefFrontendOp
+from rpython.jit.metainterp.history import (
+    ConstInt, Const, AbstractDescr, ConstPtr, ConstFloat, IntFrontendOp,
+    RefFrontendOp, CONST_NULL)
+from rpython.jit.metainterp.support import adr2int
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp import executor
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib.debug import debug_start, debug_stop, debug_print,\
-     have_debug_prints
+    have_debug_prints
 from rpython.jit.metainterp.test.strategies import intconsts
-from rpython.jit.metainterp import resumecode
 
 from hypothesis import given, strategies
 
@@ -57,7 +57,7 @@ class FakeOptimizer(object):
 
     def getptrinfo(self, op, create=True):
         op = self.get_box_replacement(op)
-        return op.get_forwarded()        
+        return op.get_forwarded()
 
 
 # ____________________________________________________________
@@ -185,7 +185,7 @@ class MyMetaInterp:
     def newframe(self, jitcode):
         frame = FakeFrame(jitcode, -1)
         self.framestack.append(frame)
-        return frame    
+        return frame
 
     def execute_and_record(self, opnum, descr, *argboxes):
         resvalue = executor.execute(self.cpu, None, opnum, descr, *argboxes)
@@ -228,17 +228,17 @@ gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S))
 gcrefnull = lltype.nullptr(llmemory.GCREF.TO)
 
 class MyCPU:
-    class ts:
-        NULLREF = gcrefnull
-        CONST_NULL = ConstPtr(gcrefnull)
     def __init__(self, values):
         self.values = values
+
     def get_int_value(self, deadframe, index):
         assert deadframe == "deadframe"
         return self.values[index]
+
     def get_ref_value(self, deadframe, index):
         assert deadframe == "deadframe"
         return self.values[index]
+
     def get_float_value(self, deadframe, index):
         assert deadframe == "deadframe"
         return self.values[index]
@@ -378,7 +378,7 @@ def test_prepare_virtuals():
 
 class FakeResumeDataReader(AbstractResumeDataReader):
     VirtualCache = get_VirtualCache_class('Fake')
-    
+
     def allocate_with_vtable(self, descr):
         return FakeBuiltObject(vtable=descr)
     def allocate_struct(self, typedescr):
@@ -521,7 +521,7 @@ class FakeFrame(object):
 
     def setup_resume_at_op(self, pc, exception_target, env):
         self.__init__(self.jitcode, pc, exception_target, *env)
-    
+
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
     def __ne__(self, other):
@@ -544,7 +544,7 @@ class FakeMetaInterpStaticData:
 def test_rebuild_from_resumedata():
     py.test.skip("XXX rewrite")
     b1, b2, b3 = [BoxInt(), InputArgRef(), BoxInt()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
     storage = Storage()
     fs = [FakeFrame("code0", 0, b1, c1, b2),
           FakeFrame("code1", 3, b3, c2, b1),
@@ -568,7 +568,7 @@ def test_rebuild_from_resumedata():
 def test_rebuild_from_resumedata_with_virtualizable():
     py.test.skip("XXX rewrite")
     b1, b2, b3, b4 = [BoxInt(), InputArgRef(), BoxInt(), InputArgRef()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
     storage = Storage()
     fs = [FakeFrame("code0", 0, b1, c1, b2),
           FakeFrame("code1", 3, b3, c2, b1),
@@ -593,7 +593,7 @@ def test_rebuild_from_resumedata_with_virtualizable():
 def test_rebuild_from_resumedata_two_guards():
     py.test.skip("XXX rewrite")
     b1, b2, b3, b4 = [BoxInt(), InputArgRef(), BoxInt(), BoxInt()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]    
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
     storage = Storage()
     fs = [FakeFrame("code0", 0, b1, c1, b2),
           FakeFrame("code1", 3, b3, c2, b1),
@@ -602,7 +602,7 @@ def test_rebuild_from_resumedata_two_guards():
     storage2 = Storage()
     fs = fs[:-1] + [FakeFrame("code2", 10, c3, b2, b4)]
     capture_resumedata(fs, None, [], storage2)
-    
+
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(FakeOptimizer({}), storage, memo)
     liveboxes = modifier.finish()
@@ -639,12 +639,12 @@ class FakeOptimizer_VirtualValue(object):
             pass
 fakeoptimizer = FakeOptimizer_VirtualValue()
 
-def ConstAddr(addr, cpu):   # compatibility
-    return ConstInt(heaptracker.adr2int(addr))
+def ConstAddr(addr):   # compatibility
+    return ConstInt(adr2int(addr))
 
 def virtual_value(keybox, value, next):
-    vv = VirtualValue(fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr,
-                                     LLtypeMixin.cpu), keybox)
+    vv = VirtualValue(
+        fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr), keybox)
     if not isinstance(next, OptValue):
         next = OptValue(next)
     vv.setfield(LLtypeMixin.valuedescr, OptValue(value))
@@ -653,7 +653,7 @@ def virtual_value(keybox, value, next):
 
 def test_rebuild_from_resumedata_two_guards_w_virtuals():
     py.test.skip("XXX rewrite")
-    
+
     b1, b2, b3, b4, b5 = [BoxInt(), InputArgRef(), BoxInt(), BoxInt(), BoxInt()]
     c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3),
                       LLtypeMixin.nodebox.constbox()]
@@ -665,7 +665,7 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
     storage2 = Storage()
     fs = fs[:-1] + [FakeFrame("code2", 10, c3, b2, b4)]
     capture_resumedata(fs, None, [], storage2)
-    
+
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     values = {b2: virtual_value(b2, b5, c4)}
     modifier = ResumeDataVirtualAdder(FakeOptimizer(values), storage, memo)
@@ -676,12 +676,12 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
 
     b6 = InputArgRef()
     v6 = virtual_value(b6, c2, None)
-    v6.setfield(LLtypeMixin.nextdescr, v6)    
+    v6.setfield(LLtypeMixin.nextdescr, v6)
     values = {b2: virtual_value(b2, b4, v6), b6: v6}
     memo.clear_box_virtual_numbers()
     modifier = ResumeDataVirtualAdder(FakeOptimizer(values), storage2, memo)
     liveboxes2 = modifier.finish()
-    assert len(storage2.rd_virtuals) == 2    
+    assert len(storage2.rd_virtuals) == 2
     assert storage2.rd_virtuals[0].fieldnums == [tag(len(liveboxes2)-1, TAGBOX),
                                                  tag(-1, TAGVIRTUAL)]
     assert storage2.rd_virtuals[1].fieldnums == [tag(2, TAGINT),
@@ -712,7 +712,7 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
     fs2 = [FakeFrame("code0", 0, b1t, c1, b2t),
            FakeFrame("code1", 3, b3t, c2, b1t),
            FakeFrame("code2", 10, c3, b2t, b4t)]
-    assert metainterp.framestack == fs2    
+    assert metainterp.framestack == fs2
 
 def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
     py.test.skip("XXX rewrite")
@@ -722,7 +722,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
     storage = Storage()
     fs = [FakeFrame("code0", 0, c1, b2, b3)]
     capture_resumedata(fs, None, [], storage)
-    
+
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     values = {b2: virtual_value(b2, b5, c4)}
     modifier = ResumeDataVirtualAdder(FakeOptimizer(values), storage, memo)
@@ -740,7 +740,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
     assert len(storage2.rd_virtuals) == 2
     assert storage2.rd_virtuals[1].fieldnums == storage.rd_virtuals[0].fieldnums
     assert storage2.rd_virtuals[1] is storage.rd_virtuals[0]
-    
+
 
 def test_resumedata_top_recursive_virtuals():
     py.test.skip("XXX rewrite")
@@ -748,7 +748,7 @@ def test_resumedata_top_recursive_virtuals():
     storage = Storage()
     fs = [FakeFrame("code0", 0, b1, b2)]
     capture_resumedata(fs, None, [], storage)
-    
+
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     v1 = virtual_value(b1, b3, None)
     v2 = virtual_value(b2, b3, v1)
@@ -761,7 +761,7 @@ def test_resumedata_top_recursive_virtuals():
     assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
                                                 tag(1, TAGVIRTUAL)]
     assert storage.rd_virtuals[1].fieldnums == [tag(-1, TAGBOX),
-                                                tag(0, TAGVIRTUAL)]    
+                                                tag(0, TAGVIRTUAL)]
 
 
 # ____________________________________________________________
@@ -787,24 +787,23 @@ demo55 = lltype.malloc(LLtypeMixin.NODE)
 demo55o = lltype.cast_opaque_ptr(llmemory.GCREF, demo55)
 demo66 = lltype.malloc(LLtypeMixin.NODE)
 demo66o = lltype.cast_opaque_ptr(llmemory.GCREF, demo66)
-    
+
 def test_ResumeDataLoopMemo_refs():
-    cpu = LLtypeMixin.cpu
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    const = cpu.ts.ConstRef(demo55o)
+    const = ConstPtr(demo55o)
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
     assert tagbits == TAGCONST
-    assert memo.consts[index - TAG_CONST_OFFSET] is const    
-    tagged = memo.getconst(cpu.ts.ConstRef(demo55o))
+    assert memo.consts[index - TAG_CONST_OFFSET] is const
+    tagged = memo.getconst(ConstPtr(demo55o))
     index2, tagbits = untag(tagged)
     assert tagbits == TAGCONST
     assert index2 == index
-    tagged = memo.getconst(cpu.ts.ConstRef(demo66o))
+    tagged = memo.getconst(ConstPtr(demo66o))
     index3, tagbits = untag(tagged)
     assert tagbits == TAGCONST
-    assert index3 != index    
-    tagged = memo.getconst(cpu.ts.CONST_NULL)
+    assert index3 != index
+    tagged = memo.getconst(CONST_NULL)
     assert tagged == NULLREF
 
 def test_ResumeDataLoopMemo_other():
@@ -828,7 +827,7 @@ class Frame(object):
 def test_ResumeDataLoopMemo_number():
     b1, b2, b3, b4, b5 = [IntFrontendOp(0), IntFrontendOp(1), IntFrontendOp(2),
                           RefFrontendOp(3), RefFrontendOp(4)]
-    c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3), ConstInt(4)]    
+    c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3), ConstInt(4)]
 
     env = [b1, c1, b2, b1, c2]
     metainterp_sd = FakeMetaInterpStaticData()
@@ -892,7 +891,7 @@ def test_ResumeDataLoopMemo_number():
     numb_state3 = memo.number(FakeOptimizer(), 2, iter)
     numb3 = numb_state3.create_numbering()
     assert numb_state3.num_virtuals == 0
-    
+
     assert numb_state3.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
     assert unpack_numbering(numb3) == ([17, 0, 0, 2, tag(3, TAGINT), tag(4, TAGINT),
                                        tag(0, TAGBOX), tag(3, TAGINT)] +
@@ -908,7 +907,7 @@ def test_ResumeDataLoopMemo_number():
     numb_state4 = memo.number(FakeOptimizer(), 3, iter)
     numb4 = numb_state4.create_numbering()
     assert numb_state4.num_virtuals == 1
-    
+
     assert numb_state4.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                                      b4: tag(0, TAGVIRTUAL)}
     assert unpack_numbering(numb4) == [17, 0, 0, 2, tag(3, TAGINT), tag(0, TAGVIRTUAL),
@@ -964,7 +963,7 @@ def test_ResumeDataLoopMemo_random(lst):
             assert memo.consts[v].getint() == item.getint()
         elif tag == TAGINT:
             assert v == item.getint()
-    
+
 def test_ResumeDataLoopMemo_number_boxes():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     b1, b2 = [IntFrontendOp(0), IntFrontendOp(0)]
@@ -1064,7 +1063,7 @@ def test_virtual_adder_int_constants():
     b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**16), ConstInt(-65)]
     storage, t = make_storage(b1s, b2s, b3s)
     metainterp_sd = FakeMetaInterpStaticData()
-    memo = ResumeDataLoopMemo(metainterp_sd)  
+    memo = ResumeDataLoopMemo(metainterp_sd)
     i = t.get_iter()
     modifier = ResumeDataVirtualAdder(FakeOptimizer(i), storage, storage, i, memo)
     liveboxes = modifier.finish()
@@ -1095,7 +1094,7 @@ def test_virtual_adder_memo_const_sharing():
     modifier2 = ResumeDataVirtualAdder(FakeOptimizer(i), storage2, storage2,
                                        i, memo)
     modifier2.finish()
-    assert len(memo.consts) == 3    
+    assert len(memo.consts) == 3
     assert storage2.rd_consts is memo.consts
 
 
@@ -1177,7 +1176,7 @@ def test_virtual_adder_no_op_renaming():
     assert_same(lst, [ConstInt(2), ConstInt(3)])
     lst = reader.consume_boxes()
     assert_same(lst, [b1t, ConstInt(1), b1t, b1t])
-    assert metainterp.trace == []    
+    assert metainterp.trace == []
 
 
 def test_virtual_adder_make_constant():
@@ -1185,7 +1184,7 @@ def test_virtual_adder_make_constant():
     b1s, b2s, b3s = [InputArgInt(1), InputArgRef(), InputArgInt(3)]
     b1s = ConstInt(111)
     storage = make_storage(b1s, b2s, b3s)
-    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())        
+    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
     liveboxes = modifier.finish()
     b2t, b3t = [InputArgRef(demo55o), InputArgInt(33)]
@@ -1204,7 +1203,7 @@ def test_virtual_adder_make_constant():
 
 def test_virtual_adder_make_virtual():
     b2s, b3s, b4s, b5s = [IntFrontendOp(0), IntFrontendOp(0), RefFrontendOp(0),
-                          RefFrontendOp(0)]  
+                          RefFrontendOp(0)]
     c1s = ConstInt(111)
     storage = Storage()
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
@@ -1214,13 +1213,13 @@ def test_virtual_adder_make_virtual():
     modifier.vfieldboxes = {}
 
     vdescr = LLtypeMixin.nodesize2
-    ca = ConstAddr(LLtypeMixin.node_vtable_adr2, LLtypeMixin.cpu)
+    ca = ConstAddr(LLtypeMixin.node_vtable_adr2)
     v4 = info.InstancePtrInfo(vdescr, ca, True)
     b4s.set_forwarded(v4)
     v4.setfield(LLtypeMixin.nextdescr, ca, b2s)
     v4.setfield(LLtypeMixin.valuedescr, ca, b3s)
     v4.setfield(LLtypeMixin.otherdescr, ca, b5s)
-    ca = ConstAddr(LLtypeMixin.node_vtable_adr, LLtypeMixin.cpu)
+    ca = ConstAddr(LLtypeMixin.node_vtable_adr)
     v2 = info.InstancePtrInfo(LLtypeMixin.nodesize, ca, True)
     v2.setfield(LLtypeMixin.nextdescr, b4s, ca)
     v2.setfield(LLtypeMixin.valuedescr, c1s, ca)
@@ -1542,7 +1541,7 @@ def test_resume_reader_fields_and_arrayitems():
 def test_invalidation_needed():
     class options:
         failargs_limit = 10
-        
+
     metainterp_sd = FakeMetaInterpStaticData()
     metainterp_sd.options = options
     memo = ResumeDataLoopMemo(metainterp_sd)
@@ -1556,5 +1555,5 @@ def test_invalidation_needed():
 
     assert not modifier._invalidation_needed(10, 2)
     assert not modifier._invalidation_needed(10, 3)
-    assert modifier._invalidation_needed(10, 4)        
-    
+    assert modifier._invalidation_needed(10, 4)
+

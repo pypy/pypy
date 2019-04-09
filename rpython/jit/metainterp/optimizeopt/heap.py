@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.history import Const, ConstInt
+from rpython.jit.metainterp.history import Const, ConstInt, new_ref_dict
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -14,7 +14,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
      GuardResOp
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
-        
+
 
 
 class BogusImmutableField(JitException):
@@ -97,7 +97,7 @@ class AbstractCachedEntry(object):
             # need any _lazy_set: the heap value is already right.
             # Note that this may reset to None a non-None lazy_set,
             # cancelling its previous effects with no side effect.
-            
+
             # Now, we have to force the item in the short preamble
             self._getfield(structinfo, op.getdescr(), optheap)
             self._lazy_set = None
@@ -251,7 +251,7 @@ class OptHeap(Optimization):
     def setup(self):
         self.optimizer.optheap = self
         # mapping const value -> info corresponding to it's heap cache
-        self.const_infos = self.optimizer.cpu.ts.new_ref_dict()
+        self.const_infos = new_ref_dict()
 
     def flush(self):
         self.cached_dict_reads.clear()
