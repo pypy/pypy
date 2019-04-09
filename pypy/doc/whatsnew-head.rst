@@ -9,3 +9,6 @@ What's new in PyPy2.7 7.1+
 
 Fix typo
 
+.. branch: jit-cleanup
+
+Remove rpython.jit.metainterp.typesystem and clean up related code in rpython/jit/
