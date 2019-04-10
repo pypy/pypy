@@ -1,12 +1,10 @@
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
-from rpython.rlib.objectmodel import specialize
-from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
-    cast_base_ptr_to_instance, llstr)
+from rpython.rtyper.annlowlevel import (
+    cast_instance_to_gcref, cast_gcref_to_instance, llstr)
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.flowspace.model import Constant
-from rpython.rtyper import rclass
 
 
 def register_helper(s_result):
@@ -16,7 +14,7 @@ def register_helper(s_result):
 
             def compute_result_annotation(self, *args):
                 if (isinstance(s_result, annmodel.SomeObject) or
-                    s_result is None):
+                        s_result is None):
                     return s_result
                 return lltype_to_annotation(s_result)
 
@@ -35,20 +33,13 @@ def register_helper(s_result):
 
 def _cast_to_box(llref):
     from rpython.jit.metainterp.history import AbstractValue
-
-    ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llref)
-    return cast_base_ptr_to_instance(AbstractValue, ptr)
+    return cast_gcref_to_instance(AbstractValue, llref)
 
 def _cast_to_resop(llref):
     from rpython.jit.metainterp.resoperation import AbstractResOp
+    return cast_gcref_to_instance(AbstractResOp, llref)
 
-    ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llref)
-    return cast_base_ptr_to_instance(AbstractResOp, ptr)
-
-@specialize.argtype(0)
-def _cast_to_gcref(obj):
-    return lltype.cast_opaque_ptr(llmemory.GCREF,
-                                  cast_instance_to_base_ptr(obj))
+_cast_to_gcref = cast_instance_to_gcref
 
 def emptyval():
     return lltype.nullptr(llmemory.GCREF.TO)
