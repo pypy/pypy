@@ -110,6 +110,22 @@ class AbstractAarch64Builder(object):
         base = 0b10001011000
         self.write32((base << 21) | (rm << 16) | (rn << 5) | (rd))
 
+    def SUB_rr(self, rd, rn, rm):
+        base = 0b11001011001
+        self.write32((base << 21) | (rm << 16) | (0b11 << 13) | (rn << 5) | (rd))
+
+    def MUL_rr(self, rd, rn, rm):
+        base = 0b10011011000
+        self.write32((base << 21) | (rm << 16) | (0b11111 << 10) | (rn << 5) | rd)
+
+    def AND_rr(self, rd, rn, rm):
+        base = 0b10001010000
+        self.write32((base << 21) | (rm << 16) | (rn << 5) | rd)
+
+    def EOR_rr(self, rd, rn, rm):
+        base = 0b11001010000
+        self.write32((base << 21) | (rm << 16) | (rn << 5) | rd)
+
     def CMP_rr(self, rn, rm):
         base = 0b11101011000
         self.write32((base << 21) | (rm << 16) | (rn << 5) | 0b11111)

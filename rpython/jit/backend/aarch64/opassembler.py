@@ -20,13 +20,7 @@ class ResOpAssembler(BaseAssembler):
             s = 1
         else:
             s = 0
-        if l0.is_imm():
-            value = l0.getint()
-            assert value >= 0
-            # reverse substract ftw
-            XX
-            self.mc.RSB_ri(res.value, l1.value, value)
-        elif l1.is_imm():
+        if l1.is_imm():
             value = l1.getint()
             assert value >= 0
             self.mc.SUB_ri(res.value, l0.value, value)
@@ -40,17 +34,32 @@ class ResOpAssembler(BaseAssembler):
 
     def int_add_impl(self, op, arglocs, ovfcheck=False):
         l0, l1, res = arglocs
+        assert not l0.is_imm()
         if ovfcheck:
             XXX
             s = 1
         else:
             s = 0
-        if l0.is_imm():
-            self.mc.ADD_ri(res.value, l1.value, l0.value)
-        elif l1.is_imm():
+        if l1.is_imm():
             self.mc.ADD_ri(res.value, l0.value, l1.value)
         else:
             self.mc.ADD_rr(res.value, l0.value, l1.value)
+
+    def emit_op_int_mul(self, op, arglocs):
+        reg1, reg2, res = arglocs
+        self.mc.MUL_rr(res.value, reg1.value, reg2.value)
+
+    def emit_op_int_and(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.AND_rr(res.value, l0.value, l1.value)
+
+    def emit_op_int_or(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.ORR_rr(res.value, l0.value, l1.value)
+
+    def emit_op_int_xor(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.EOR_rr(res.value, l0.value, l1.value)
 
     def emit_int_comp_op(self, op, arglocs):
         l0, l1 = arglocs

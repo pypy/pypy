@@ -776,22 +776,22 @@ class AssemblerARM64(ResOpAssembler):
 
 
 def not_implemented(msg):
-    msg = '[ARM/asm] %s\n' % msg
+    msg = '[ARM64/asm] %s\n' % msg
     if we_are_translated():
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
 
 def notimplemented_op(self, op, arglocs):
-    print "[ARM/asm] %s not implemented" % op.getopname()
+    print "[ARM64/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
 def notimplemented_comp_op(self, op, arglocs):
-    print "[ARM/asm] %s not implemented" % op.getopname()
+    print "[ARM64/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
 def notimplemented_guard_op(self, op, fcond, arglocs):
-    print "[ARM/asm] %s not implemented" % op.getopname()
+    print "[ARM64/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)

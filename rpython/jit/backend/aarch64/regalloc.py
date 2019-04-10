@@ -298,7 +298,7 @@ class Regalloc(BaseRegalloc):
         self.free_temp_vars()
         return [base_loc, value_loc]
 
-    def prepare_op_int_add(self, op):
+    def prepare_int_ri(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes
         imm_a0 = check_imm_box(a0)
@@ -307,8 +307,8 @@ class Regalloc(BaseRegalloc):
             l0 = self.make_sure_var_in_reg(a0, boxes)
             l1 = self.convert_to_imm(a1)
         elif imm_a0 and not imm_a1:
-            l0 = self.convert_to_imm(a0)
-            l1 = self.make_sure_var_in_reg(a1, boxes)
+            l1 = self.convert_to_imm(a0)
+            l0 = self.make_sure_var_in_reg(a1, boxes)
         else:
             l0 = self.make_sure_var_in_reg(a0, boxes)
             l1 = self.make_sure_var_in_reg(a1, boxes)
@@ -316,7 +316,38 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
 
-    prepare_op_int_sub = prepare_op_int_add
+    prepare_op_int_add = prepare_int_ri
+
+    def prepare_op_int_sub(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+        imm_a1 = check_imm_box(a1)
+        if imm_a1:
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.convert_to_imm(a1)
+        else:
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.make_sure_var_in_reg(a1, boxes)
+        self.possibly_free_vars_for_op(op)
+        res = self.force_allocate_reg(op)
+        return [l0, l1, res]
+
+    def prepare_op_int_mul(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+
+        reg1 = self.make_sure_var_in_reg(a0, forbidden_vars=boxes)
+        reg2 = self.make_sure_var_in_reg(a1, forbidden_vars=boxes)
+
+        self.possibly_free_vars(boxes)
+        self.possibly_free_vars_for_op(op)
+        res = self.force_allocate_reg(op)
+        self.possibly_free_var(op)
+        return [reg1, reg2, res]
+
+    prepare_op_int_and = prepare_op_int_mul
+    prepare_op_int_or = prepare_op_int_mul
+    prepare_op_int_xor = prepare_op_int_mul
 
     def prepare_int_cmp(self, op, res_in_cc):
         boxes = op.getarglist()
