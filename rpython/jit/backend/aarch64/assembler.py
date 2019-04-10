@@ -1,7 +1,7 @@
 
 from rpython.jit.backend.aarch64.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.aarch64.codebuilder import InstrBuilder, OverwritingBuilder
-from rpython.jit.backend.arm.locations import imm, StackLocation, get_fp_offset
+from rpython.jit.backend.aarch64.locations import imm, StackLocation, get_fp_offset
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
 from rpython.jit.backend.aarch64.regalloc import (Regalloc,
