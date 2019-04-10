@@ -69,6 +69,10 @@ class ResOpAssembler(BaseAssembler):
         self.emit_int_comp_op(op, arglocs)
         return c.LE
 
+    def emit_comp_op_int_eq(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs)
+        return c.EQ
+
     def emit_op_increment_debug_counter(self, op, arglocs):
         return # XXXX
         base_loc, value_loc = arglocs

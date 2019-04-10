@@ -338,6 +338,7 @@ class Regalloc(BaseRegalloc):
 
     prepare_comp_op_int_lt = prepare_int_cmp
     prepare_comp_op_int_le = prepare_int_cmp
+    prepare_comp_op_int_eq = prepare_int_cmp
 
     def prepare_op_int_le(self, op):
         return self.prepare_int_cmp(op, False)
