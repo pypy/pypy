@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Depe
         IndexVar, MemoryRef, Node)
 from rpython.jit.metainterp.optimizeopt.vector import VectorLoop
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets,
+    BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets,
     FakeJitDriverStaticData)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llgraph.runner import ArrayDescr
@@ -243,7 +243,7 @@ class DependencyBaseTest(BaseTest):
         assert not m1.is_adjacent_to(m2)
         assert not m2.is_adjacent_to(m1)
 
-class BaseTestDependencyGraph(DependencyBaseTest):
+class TestDependencyGraph(DependencyBaseTest):
 
     def test_index_var_basic(self):
         b = FakeBox()
@@ -697,7 +697,3 @@ class FakeNode(Node):
 
     def __repr__(self):
         return "n%d" % self.opidx
-
-
-class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
-    pass

@@ -1,17 +1,17 @@
-import py, sys
-from rpython.rlib.objectmodel import instantiate
+import py
+import sys
+import re
 from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
-from rpython.jit.metainterp.history import TargetToken, JitCellToken
-import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
-import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
-from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.history import ConstInt, get_const_ptr_for_string
-from rpython.jit.metainterp import executor, compile, resume
-from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt,\
-     OpHelpers, InputArgRef
-from rpython.jit.metainterp.resumecode import unpack_numbering
+    BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
+from rpython.jit.metainterp.history import (
+    JitCellToken, ConstInt, get_const_ptr_for_string)
+from rpython.jit.metainterp import executor, compile
+from rpython.jit.metainterp.resoperation import (
+    rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
+from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+from rpython.jit.metainterp.test.test_resume import (
+    ResumeDataFakeReader, MyMetaInterp)
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 
@@ -42,7 +42,7 @@ class BaseTestBasic(BaseTest):
         self.assert_equal(loop, expected)
 
 
-class BaseTestOptimizeBasic(BaseTestBasic):
+class TestOptimizeBasic(BaseTestBasic):
 
     def test_very_simple(self):
         ops = """
@@ -2111,7 +2111,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     # ----------
 
     def _verify_fail_args(self, boxes, oparse, text):
-        import re
         r = re.compile(r"\bwhere\s+(\w+)\s+is a\s+(\w+)")
         parts = list(r.finditer(text))
         ends = [match.start() for match in parts] + [len(text)]
@@ -2208,8 +2207,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                 index += 1
 
     def check_expanded_fail_descr(self, expectedtext, guard_opnum, values=None):
-        from rpython.jit.metainterp.test.test_resume import ResumeDataFakeReader
-        from rpython.jit.metainterp.test.test_resume import MyMetaInterp
         guard_op, = [op for op in self.loop.operations if op.is_guard()]
         fail_args = guard_op.getfailargs()
         if values is not None:
@@ -3435,7 +3432,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     def test_int_add_sub_constants_inverse(self):
         py.test.skip("reenable")
-        import sys
         ops = """
         [i0, i10, i11, i12, i13]
         i2 = int_add(1, i0)
@@ -4763,7 +4759,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_intmod_bounds(self):
-        from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
         ops = """
         [i0, i1]
         i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
@@ -5790,7 +5785,3 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i57 = int_or(i51, i52)
         """
         self.optimize_loop(ops, expected)
-
-
-class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
-    pass

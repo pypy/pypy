@@ -1,18 +1,16 @@
-import py, sys
-from rpython.rlib.objectmodel import instantiate
+import py
+import sys
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.metainterp import compile, resume
-from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
-from rpython.jit.metainterp.history import ConstPtr
+from rpython.jit.metainterp.history import ConstInt, TreeLoop, ConstPtr
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import build_opt_chain
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, convert_old_style_to_targets)
+    BaseTest, convert_old_style_to_targets)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import \
     FakeMetaInterpStaticData
-from rpython.jit.metainterp.resoperation import rop, opname, oparity,\
-     InputArgInt
+from rpython.jit.metainterp.resoperation import (
+    rop, opname, oparity, InputArgInt)
 
 
 def test_build_opt_chain():
@@ -103,7 +101,7 @@ class BaseTestWithUnroll(BaseTest):
         return py.test.raises(e, fn, *args).value
 
 
-class OptimizeOptTest(BaseTestWithUnroll):
+class TestOptimizeOpt(BaseTestWithUnroll):
     def test_simple(self):
         ops = """
         []
@@ -8809,7 +8807,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i1, 1)
         i3 = int_le(i2, 13)
         guard_true(i3) [p1]
-        jump(p0, i2)      
+        jump(p0, i2)
         """
         expected = """
         [p0, i1, p1]
@@ -8824,7 +8822,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i1, 1)
         i3 = int_le(i2, 13)
         guard_true(i3) [p1]
-        jump(p0, i2, p1)        
+        jump(p0, i2, p1)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -8846,7 +8844,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i4)
         setfield_gc(p0, i1, descr=valuedescr)
         ii = same_as_i(i1)
-        jump(p0, i0, i3, i1, ii)        
+        jump(p0, i0, i3, i1, ii)
         """
         expected = """
         [p0, i0, i2, i4, i5]
@@ -8887,7 +8885,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i19)
         """
         self.optimize_loop(ops, expected, expected_short=expected_short)
- 
+
 
     def test_cached_arrayitem_write_descr(self):
         ops = """
@@ -9519,6 +9517,3 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i3, i2, i3)
         """
         self.optimize_loop(ops, expected)
-
-class TestLLtype(OptimizeOptTest, LLtypeMixin):
-    pass

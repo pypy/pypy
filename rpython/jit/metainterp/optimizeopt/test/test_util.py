@@ -1,27 +1,31 @@
-import py, random, string
+import pytest
+import random
+import string
 
-from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import (
     OBJECT, OBJECT_VTABLE, FieldListAccessor, IR_QUASIIMMUTABLE)
+from rpython.rlib.rjitlog import rjitlog as jl
 
 from rpython.jit.backend.llgraph import runner
-from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
-                                            JitCellToken, TargetToken)
-from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
+from rpython.jit.metainterp.history import (
+    TreeLoop, AbstractDescr, JitCellToken)
+from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
 from rpython.jit.codewriter.effectinfo import EffectInfo, compute_bitstrings
-from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.tool.oparser import OpParser, pure_parse, convert_loop_to_trace
+from rpython.jit.tool.oparser import (
+    OpParser, pure_parse, convert_loop_to_trace)
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
-from rpython.jit.metainterp import compile, resume, history
+from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
-from rpython.jit.metainterp.resoperation import (rop, ResOperation,
-        InputArgRef, AbstractValue, OpHelpers)
-from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.jit.metainterp.resoperation import (
+    rop, ResOperation, InputArgRef, AbstractValue)
+from rpython.jit.metainterp.virtualref import VirtualRefInfo
+from rpython.jit.metainterp.optimizeopt import optimize_trace
+from rpython.jit.metainterp.optimizeopt.util import (
+    sort_descrs, equaloplists, args_dict)
 
 
 def test_sort_descrs():
@@ -59,9 +63,10 @@ def test_equaloplists():
     assert equaloplists(loop1.operations, loop2.operations,
                         remap=make_remap(loop1.inputargs,
                                          loop2.inputargs))
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations,"
-                   "remap=make_remap(loop1.inputargs, loop3.inputargs))")
+    with pytest.raises(AssertionError):
+        equaloplists(
+            loop1.operations, loop3.operations,
+            remap=make_remap(loop1.inputargs, loop3.inputargs))
 
 def test_equaloplists_fail_args():
     ops = """
@@ -75,17 +80,19 @@ def test_equaloplists_fail_args():
     loop1 = pure_parse(ops, namespace=namespace)
     loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
                        namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop2.operations,"
-                   "remap=make_remap(loop1.inputargs, loop2.inputargs))")
+    with pytest.raises(AssertionError):
+        equaloplists(
+            loop1.operations, loop2.operations,
+            remap=make_remap(loop1.inputargs, loop2.inputargs))
     assert equaloplists(loop1.operations, loop2.operations,
                         remap=make_remap(loop1.inputargs, loop2.inputargs),
                         strict_fail_args=False)
     loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
                        namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations,"
-                   " remap=make_remap(loop1.inputargs, loop3.inputargs))")
+    with pytest.raises(AssertionError):
+        equaloplists(
+            loop1.operations, loop3.operations,
+            remap=make_remap(loop1.inputargs, loop3.inputargs))
 
 # ____________________________________________________________
 
@@ -264,7 +271,7 @@ class LLtypeMixin(object):
     inst_step = cpu.fielddescrof(W_ROOT, 'inst_step')
     inst_w_list = cpu.fielddescrof(W_ROOT, 'inst_w_list')
     w_root_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    
+
     tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
@@ -406,7 +413,6 @@ class LLtypeMixin(object):
         pass
     asmdescr = LoopToken() # it can be whatever, it's not a descr though
 
-    from rpython.jit.metainterp.virtualref import VirtualRefInfo
 
     class FakeWarmRunnerDesc:
         pass
@@ -529,20 +535,16 @@ class Storage(compile.ResumeGuardDescr):
     def __init__(self, metainterp_sd=None, original_greenkey=None):
         self.metainterp_sd = metainterp_sd
         self.original_greenkey = original_greenkey
+
     def store_final_boxes(self, op, boxes, metainterp_sd):
         op.setfailargs(boxes)
+
     def __eq__(self, other):
         return True # screw this
         #return type(self) is type(other)      # xxx obscure
 
-def _sortboxes(boxes):
-    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
-    return sorted(boxes, key=lambda box: _kind2count[box.type])
 
-final_descr = history.BasicFinalDescr()
-
-class BaseTest(object):
-
+class BaseTest(LLtypeMixin):
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
         AbstractValue._repr_memo.counter = 0
         self.oparse = OpParser(s, self.cpu, self.namespace, boxkinds,
@@ -557,7 +559,6 @@ class BaseTest(object):
 
     @staticmethod
     def assert_equal(optimized, expected, text_right=None):
-        from rpython.jit.metainterp.optimizeopt.util import equaloplists
         assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
         for box1, box2 in zip(optimized.inputargs, expected.inputargs):
@@ -567,7 +568,6 @@ class BaseTest(object):
                             expected.operations, False, remap, text_right)
 
     def _do_optimize_loop(self, compile_data):
-        from rpython.jit.metainterp.optimizeopt import optimize_trace
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
@@ -580,7 +580,6 @@ class BaseTest(object):
         return state
 
     def _convert_call_pure_results(self, d):
-        from rpython.jit.metainterp.optimizeopt.util import args_dict
 
         if d is None:
             return
@@ -590,7 +589,6 @@ class BaseTest(object):
         return call_pure_results
 
     def convert_values(self, inpargs, values):
-        from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
         if values:
             r = []
             for arg, v in zip(inpargs, values):

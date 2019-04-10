@@ -1,23 +1,20 @@
-
-""" More direct tests for unrolling
+"""
+More direct tests for unrolling
 """
 
-import py
-
-from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest,\
-     LLtypeMixin, FakeMetaInterpStaticData
+from rpython.jit.metainterp.optimizeopt.test.test_util import (
+    BaseTest, FakeMetaInterpStaticData)
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
-                                            JitCellToken, TargetToken)
-from rpython.jit.metainterp.resoperation import rop, ResOperation,\
-     InputArgRef, InputArgInt
+from rpython.jit.metainterp.history import TreeLoop, JitCellToken
+from rpython.jit.metainterp.resoperation import (
+    rop, ResOperation, InputArgRef, InputArgInt)
 from rpython.jit.metainterp.support import adr2int
-from rpython.jit.metainterp.optimizeopt.shortpreamble import \
-     ShortPreambleBuilder, PreambleOp, ShortInputArg
+from rpython.jit.metainterp.optimizeopt.shortpreamble import (
+    ShortPreambleBuilder, PreambleOp, ShortInputArg)
 from rpython.jit.metainterp.compile import LoopCompileData
-from rpython.jit.metainterp.optimizeopt.virtualstate import \
-     NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,\
-     VirtualStateInfo
+from rpython.jit.metainterp.optimizeopt.virtualstate import (
+    NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,
+    VirtualStateInfo)
 from rpython.jit.metainterp.optimizeopt import info, optimizer
 from rpython.jit.tool import oparser
 
@@ -37,7 +34,7 @@ class FakeOptimizer(object):
     def get_box_replacement(self, box):
         return box
 
-class BaseTestUnroll(BaseTest, LLtypeMixin):
+class BaseTestUnroll(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
 
     def optimize(self, ops):
