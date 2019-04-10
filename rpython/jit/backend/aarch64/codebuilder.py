@@ -165,6 +165,9 @@ class AbstractAarch64Builder(object):
         """r is the register number, value is the value to be loaded to the
         register"""
         # XXX optimize!
+        if value < 0:
+            self.gen_load_int_full(r, value)
+            return
         self.MOVZ_r_u16(r, value & 0xFFFF, 0)
         value = value >> 16
         shift = 16
