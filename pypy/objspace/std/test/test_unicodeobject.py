@@ -524,6 +524,7 @@ class AppTestUnicodeString:
         assert 'xyzzyhelloxyzzy'.strip('xyz') == 'hello'
         assert 'xyzzyhelloxyzzy'.lstrip('xyz') == 'helloxyzzy'
         assert 'xyzzyhelloxyzzy'.rstrip('xyz') == 'xyzzyhello'
+        raises(TypeError, s.strip, bytearray(b'a'))
 
     def test_long_from_unicode(self):
         assert int('12345678901234567890') == 12345678901234567890

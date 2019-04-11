@@ -134,7 +134,7 @@ class W_UnicodeObject(W_Root):
                     "Can't convert '%T' object to str implicitly", w_other)
         if strict:
             raise oefmt(space.w_TypeError,
-                "%s arg must be None, unicode or str", strict)
+                "%s arg must be None or str", strict)
         return decode_object(space, w_other, 'utf8', "strict")
 
     def convert_to_w_unicode(self, space):
@@ -1135,7 +1135,7 @@ class W_UnicodeObject(W_Root):
     def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._utf8
-        chars = self.convert_arg_to_w_unicode(space, w_chars)._utf8
+        chars = self.convert_arg_to_w_unicode(space, w_chars, name)._utf8
 
         lpos = 0
         rpos = len(value)
