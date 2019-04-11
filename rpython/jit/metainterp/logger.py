@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import ConstInt, ConstFloat
+from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.jit.metainterp.resoperation import rop, AbstractInputArg
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)
@@ -135,7 +135,6 @@ class LogOperations(object):
     """
     def __init__(self, metainterp_sd, guard_number, memo):
         self.metainterp_sd = metainterp_sd
-        self.ts = metainterp_sd.cpu.ts
         self.guard_number = guard_number
         if memo is None:
             memo = {}
@@ -157,7 +156,7 @@ class LogOperations(object):
                 if name:
                     return 'ConstClass(' + name + ')'
             return str(arg.value)
-        elif isinstance(arg, self.ts.ConstRef):
+        elif isinstance(arg, ConstPtr):
             if arg.value:
                 return 'ConstPtr(ptr' + str(mv) + ')'
             return 'ConstPtr(null)'

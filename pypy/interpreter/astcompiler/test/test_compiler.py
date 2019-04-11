@@ -1099,13 +1099,29 @@ class TestCompiler(BaseTestCompiler):
                 return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3], 4)
+
+    def test_unpacking_while_building(self):
         func = """def f():
             b = [4,5,6]
-            c = 7
-            a = [*b, c]
+            a = (*b, 7)
+            return a
+        """
+        yield self.st, func, "f()", (4, 5, 6, 7)
+
+        func = """def f():
+            b = [4,5,6]
+            a = [*b, 7]
             return a
         """
         yield self.st, func, "f()", [4, 5, 6, 7]
+
+        func = """def f():
+            b = [4,]
+            x, y = (*b, 7)
+            return x
+        """
+        yield self.st, func, "f()", 4
+
 
     def test_extended_unpacking_fail(self):
         exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
@@ -1542,4 +1558,71 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert ops.BUILD_TUPLE not in counts
 
+    def test_constant_tuples_star(self):
+        source = """def f(a, c):
+            return (u"a", 1, *a, 3, 5, 3, *c)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
 
+        source = """def f(a, c, d):
+            return (u"a", 1, *a, c, 1, *d, 1, 2, 3)
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+
+    def test_constant_list_star(self):
+        source = """def f(a, c):
+            return [u"a", 1, *a, 3, 5, 3, *c]
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f(a, c, d):
+            return [u"a", 1, *a, c, 1, *d, 1, 2, 3]
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+
+
+class TestHugeStackDepths:
+    def run_and_check_stacksize(self, source):
+        space = self.space
+        code = compile_with_astcompiler("a = " + source, 'exec', space)
+        assert code.co_stacksize < 100
+        w_dict = space.newdict()
+        code.exec_code(space, w_dict, w_dict)
+        return space.getitem(w_dict, space.newtext("a"))
+
+    def test_tuple(self):
+        source = "(" + ",".join([str(i) for i in range(200)]) + ")\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == tuple(range(200))
+
+    def test_list(self):
+        source = "[" + ",".join([str(i) for i in range(200)]) + "]\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == range(200)
+
+    def test_list_unpacking(self):
+        space = self.space
+        source = "[" + ",".join(['b%d' % i for i in range(200)]) + "] = a\n"
+        code = compile_with_astcompiler(source, 'exec', space)
+        assert code.co_stacksize == 200   # xxx remains big
+        w_dict = space.newdict()
+        space.setitem(w_dict, space.newtext("a"), space.wrap(range(42, 242)))
+        code.exec_code(space, w_dict, w_dict)
+        assert space.unwrap(space.getitem(w_dict, space.newtext("b0"))) == 42
+        assert space.unwrap(space.getitem(w_dict, space.newtext("b199"))) == 241
+
+    def test_set(self):
+        source = "{" + ",".join([str(i) for i in range(200)]) + "}\n"
+        w_res = self.run_and_check_stacksize(source)
+        space = self.space
+        assert [space.int_w(w_x)
+                    for w_x in space.unpackiterable(w_res)] == range(200)
+
+    def test_dict(self):
+        source = "{" + ",".join(['%s: None' % (i, ) for i in range(200)]) + "}\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == dict.fromkeys(range(200))

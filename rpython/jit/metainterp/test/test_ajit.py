@@ -109,6 +109,35 @@ class BasicTests:
         self.check_trace_count(1)
         self.check_simple_loop(int_mul=1)
 
+    def test_rutf8(self):
+        from rpython.rlib import rutf8, jit
+        class U(object):
+            def __init__(self, u, l):
+                self.u = u
+                self.l = l
+                self._index_storage = rutf8.null_storage()
+
+            def _get_index_storage(self):
+                return jit.conditional_call_elidable(self._index_storage,
+                            U._compute_index_storage, self)
+
+            def _compute_index_storage(self):
+                storage = rutf8.create_utf8_index_storage(self.u, self.l)
+                self._index_storage = storage
+                return storage
+
+        def m(a):
+            return f(a)
+        def f(a):
+            x = str(a)
+            u = U(x, len(x))
+            st = u._get_index_storage()
+            return rutf8.codepoint_index_at_byte_position(
+                u.u, st, 1)
+
+        self.interp_operations(m, [123232])
+
+
     def test_loop_variant_mul_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
@@ -3959,6 +3988,55 @@ class BaseLLtypeTests(BasicTests):
         assert res1 == res2
         # here it works again
         self.check_operations_history(guard_class=0, record_exact_class=1)
+
+    def test_record_exact_class_nonconst(self):
+        class Base(object):
+            def f(self):
+                raise NotImplementedError
+            def g(self):
+                raise NotImplementedError
+        class A(Base):
+            def f(self):
+                return self.a
+            def g(self):
+                return self.a + 1
+        class B(Base):
+            def f(self):
+                return self.b
+            def g(self):
+                return self.b + 1
+        class C(B):
+            def f(self):
+                self.c += 1
+                return self.c
+            def g(self):
+                return self.c + 1
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                a = A()
+                a.a = x + 1
+            elif x < 0:
+                a = B()
+                a.b = -x
+            else:
+                a = C()
+                a.c = 10
+            return a, type(a)
+        def f(x):
+            a, cls = make(x)
+            record_exact_class(a, cls)
+            if x > 0:
+                z = a.f()
+            elif x < 0:
+                z = a.f()
+            else:
+                z = a.f()
+            return z + a.g()
+        res1 = f(6)
+        res2 = self.interp_operations(f, [6])
+        assert res1 == res2
+        self.check_operations_history(guard_class=1, record_exact_class=0)
 
     def test_generator(self):
         def g(n):

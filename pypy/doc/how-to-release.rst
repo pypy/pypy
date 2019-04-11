@@ -40,11 +40,11 @@ when we do a merge::
   $ hg up -r default
   $ # edit the version to e.g. 7.0.0-final
   $ hg ci
-  $ hg branch release-pypy2.7-7.x && hg ci
+  $ hg branch release-pypy2.7-v7.x && hg ci
   $ hg up -r default
   $ # edit the version to 7.1.0-alpha0
   $ hg ci
-  $ hg up -r release-pypy2.7-7.x
+  $ hg up -r release-pypy2.7-v7.x
   $ hg merge default
   $ # edit the version to AGAIN 7.0.0-final
   $ hg ci
@@ -53,11 +53,11 @@ Then, we need to do the same for the 3.x branch::
 
   $ hg up -r py3.5
   $ hg merge default # this brings the version fo 7.1.0-alpha0
-  $ hg branch release-pypy3.5-7.x
+  $ hg branch release-pypy3.5-v7.x
   $ # edit the version to 7.0.0-final
   $ hg ci
   $ hg up -r py3.5
-  $ hg merge release-pypy3.5-7.x
+  $ hg merge release-pypy3.5-v7.x
   $ # edit the version to 7.1.0-alpha0
   $ hg ci
 
@@ -109,9 +109,11 @@ Other steps
   * add a tag on the pypy/jitviewer repo that corresponds to pypy release, so
     that the source tarball can be produced in the next steps
 
-  * download the builds, repackage binaries. Tag the release version
-    and download and repackage source from bitbucket. You may find it
-    convenient to use the ``repackage.sh`` script in pypy/tool/release to do this. 
+  * download the builds, repackage binaries. Tag the release-candidate version
+    (it is important to mark this as a candidate since usually at least two
+    tries are needed to complete the process) and download and repackage source
+    from bitbucket. You may find it convenient to use the ``repackage.sh``
+    script in pypy/tool/release to do this. 
 
     Otherwise repackage and upload source "-src.tar.bz2" to bitbucket
     and to cobra, as some packagers prefer a clearly labeled source package
@@ -135,3 +137,5 @@ Other steps
 
   * add a tag on the codespeed web site that corresponds to pypy release
   * revise versioning at https://readthedocs.org/projects/pypy
+  * tag the final release(s) with appropriate tags
+

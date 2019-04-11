@@ -201,6 +201,7 @@ class AppTestUnicodeStringStdOnly:
         assert not ('a' == 5)
         assert 'a' != 5
         raises(TypeError, "'a' < 5")
+        raises(TypeError, "'a' < bytearray(b'a')")
 
 
 class AppTestUnicodeString:
@@ -524,6 +525,7 @@ class AppTestUnicodeString:
         assert 'xyzzyhelloxyzzy'.strip('xyz') == 'hello'
         assert 'xyzzyhelloxyzzy'.lstrip('xyz') == 'helloxyzzy'
         assert 'xyzzyhelloxyzzy'.rstrip('xyz') == 'xyzzyhello'
+        raises(TypeError, s.strip, bytearray(b'a'))
 
     def test_long_from_unicode(self):
         assert int('12345678901234567890') == 12345678901234567890
@@ -738,6 +740,11 @@ class AppTestUnicodeString:
 
         raises(TypeError, 'hello'.translate)
         raises(TypeError, 'abababc'.translate, 'abc', 'xyz')
+
+    def test_maketrans_bug(self):
+        assert str.maketrans(u'啊', u'阿') == {21834: 38463}
+        assert str.maketrans(u'啊', u'a') == {21834: 97}
+        assert str.maketrans(u'', u'', u'阿') == {38463: None}
 
     def test_unicode_from_encoded_object(self):
         assert str(b'x', 'utf-8') == 'x'

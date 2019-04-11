@@ -134,7 +134,7 @@ class W_UnicodeObject(W_Root):
                     "Can't convert '%T' object to str implicitly", w_other)
         if strict:
             raise oefmt(space.w_TypeError,
-                "%s arg must be None, unicode or str", strict)
+                "%s arg must be None or str", strict)
         return decode_object(space, w_other, 'utf8', "strict")
 
     def convert_to_w_unicode(self, space):
@@ -223,7 +223,6 @@ class W_UnicodeObject(W_Root):
 
         if y is not None:
             # x must be a string too, of equal length
-            ylen = len(y)
             try:
                 x = space.utf8_w(w_x)
             except OperationError as e:
@@ -232,19 +231,21 @@ class W_UnicodeObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "first maketrans argument must be a string if "
                             "there is a second argument")
-            if len(x) != ylen:
+            if space.len_w(w_x) != space.len_w(w_y):
                 raise oefmt(space.w_ValueError,
                             "the first two maketrans arguments must have "
                             "equal length")
             # create entries for translating chars in x to those in y
-            for i in range(len(x)):
-                w_key = space.newint(ord(x[i]))
-                w_value = space.newint(ord(y[i]))
+            iter2 = rutf8.Utf8StringIterator(y)
+            for xch in rutf8.Utf8StringIterator(x):
+                ych = iter2.next()
+                w_key = space.newint(xch)
+                w_value = space.newint(ych)
                 space.setitem(w_new, w_key, w_value)
             # create entries for deleting chars in z
             if z is not None:
-                for i in range(len(z)):
-                    w_key = space.newint(ord(z[i]))
+                for zch in rutf8.Utf8StringIterator(z):
+                    w_key = space.newint(zch)
                     space.setitem(w_new, w_key, space.w_None)
         else:
             # x must be a dict
@@ -328,7 +329,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_lt(self, space, w_other):
         try:
-            res = self._utf8 < self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 < self.convert_arg_to_w_unicode(space, w_other,
+                                                    strict='__lt__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -337,7 +339,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_le(self, space, w_other):
         try:
-            res = self._utf8 <= self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 <= self.convert_arg_to_w_unicode(space, w_other,
+                                                    strict='__le__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -346,7 +349,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_gt(self, space, w_other):
         try:
-            res = self._utf8 > self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 > self.convert_arg_to_w_unicode(space, w_other,
+                                                    strict='__gt__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -355,7 +359,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_ge(self, space, w_other):
         try:
-            res = self._utf8 >= self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 >= self.convert_arg_to_w_unicode(space, w_other,
+                                                    strict='__ge__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -1134,7 +1139,7 @@ class W_UnicodeObject(W_Root):
     def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._utf8
-        chars = self.convert_arg_to_w_unicode(space, w_chars)._utf8
+        chars = self.convert_arg_to_w_unicode(space, w_chars, name)._utf8
 
         lpos = 0
         rpos = len(value)
