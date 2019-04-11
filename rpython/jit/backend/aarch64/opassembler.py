@@ -8,6 +8,17 @@ from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import TargetToken
 
+def gen_comp_op(name, flag):
+    def emit_op(self, op, arglocs):
+        l0, l1, res = arglocs
+
+        if l1.is_imm():
+            self.mc.CMP_ri(l0.value, l1.getint())
+        else:
+            self.mc.CMP_rr(l0.value, l1.value)
+        self.mc.CSET_r_flag(res.value, c.get_opposite_of(flag))
+    emit_op.__name__ = name
+    return emit_op
 
 class ResOpAssembler(BaseAssembler):
     def emit_op_int_add(self, op, arglocs):
@@ -61,12 +72,27 @@ class ResOpAssembler(BaseAssembler):
         l0, l1, res = arglocs
         self.mc.EOR_rr(res.value, l0.value, l1.value)
 
+    def emit_op_int_lshift(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.LSL_rr(res.value, l0.value, l1.value)
+
+    def emit_op_int_rshift(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.ASR_rr(res.value, l0.value, l1.value)
+
+    def emit_op_uint_rshift(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.LSR_rr(res.value, l0.value, l1.value)
+
+    def emit_op_uint_mul_high(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.UMULH_rr(res.value, l0.value, l1.value)
+
     def emit_int_comp_op(self, op, arglocs):
         l0, l1 = arglocs
 
         if l1.is_imm():
-            xxx
-            self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)
+            self.mc.CMP_ri(l0.value, l1.getint())
         else:
             self.mc.CMP_rr(l0.value, l1.value)
 
@@ -81,6 +107,13 @@ class ResOpAssembler(BaseAssembler):
     def emit_comp_op_int_eq(self, op, arglocs):
         self.emit_int_comp_op(op, arglocs)
         return c.EQ
+
+    emit_op_int_lt = gen_comp_op('emit_op_int_lt', c.LT)
+    emit_op_int_le = gen_comp_op('emit_op_int_le', c.LE)
+    emit_op_int_gt = gen_comp_op('emit_op_int_gt', c.GT)
+    emit_op_int_ge = gen_comp_op('emit_op_int_ge', c.GE)
+    emit_op_int_eq = gen_comp_op('emit_op_int_eq', c.EQ)
+    emit_op_int_ne = gen_comp_op('emit_op_int_ne', c.NE)
 
     def emit_op_increment_debug_counter(self, op, arglocs):
         return # XXXX

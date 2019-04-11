@@ -118,9 +118,25 @@ class AbstractAarch64Builder(object):
         base = 0b10011011000
         self.write32((base << 21) | (rm << 16) | (0b11111 << 10) | (rn << 5) | rd)
 
+    def UMULH_rr(self, rd, rn, rm):
+        base = 0b10011011110
+        self.write32((base << 21) | (rm << 16) | (0b11111 << 10) | (rn << 5) | rd)
+
     def AND_rr(self, rd, rn, rm):
         base = 0b10001010000
         self.write32((base << 21) | (rm << 16) | (rn << 5) | rd)
+
+    def LSL_rr(self, rd, rn, rm):
+        base = 0b10011010110
+        self.write32((base << 21) | (rm << 16) | (0b001000 << 10) | (rn << 5) | rd)
+
+    def ASR_rr(self, rd, rn, rm):
+        base = 0b10011010110
+        self.write32((base << 21) | (rm << 16) | (0b001010 << 10) | (rn << 5) | rd)
+
+    def LSR_rr(self, rd, rn, rm):
+        base = 0b10011010110
+        self.write32((base << 21) | (rm << 16) | (0b001001 << 10) | (rn << 5) | rd)
 
     def EOR_rr(self, rd, rn, rm):
         base = 0b11001010000
@@ -134,6 +150,11 @@ class AbstractAarch64Builder(object):
         base = 0b1111000100
         assert 0 <= imm <= 4095
         self.write32((base << 22) | (imm << 10) | (rn << 5) | 0b11111)
+
+    def CSET_r_flag(self, rd, cond):
+        base = 0b10011010100
+        self.write32((base << 21) | (0b11111 << 16) | (cond << 12) | (1 << 10) |
+                     (0b11111 << 5) | rd)
 
     def NOP(self):
         self.write32(0b11010101000000110010000000011111)

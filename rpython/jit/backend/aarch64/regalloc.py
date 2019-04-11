@@ -345,14 +345,20 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_var(op)
         return [reg1, reg2, res]
 
+    # some of those have forms of imm that they accept, but they're rather
+    # obscure. Can be future optimization
     prepare_op_int_and = prepare_op_int_mul
     prepare_op_int_or = prepare_op_int_mul
     prepare_op_int_xor = prepare_op_int_mul
+    prepare_op_int_lshift = prepare_op_int_mul
+    prepare_op_int_rshift = prepare_op_int_mul
+    prepare_op_uint_rshift = prepare_op_int_mul
+    prepare_op_uint_mul_high = prepare_op_int_mul
 
     def prepare_int_cmp(self, op, res_in_cc):
         boxes = op.getarglist()
         arg0, arg1 = boxes
-        imm_a1 = False # XXX check_imm_box(arg1)
+        imm_a1 = check_imm_box(arg1)
 
         l0 = self.make_sure_var_in_reg(arg0, forbidden_vars=boxes)
         if imm_a1:
@@ -363,7 +369,7 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         if not res_in_cc:
-            res = self.force_allocate_reg_or_cc(op)
+            res = self.force_allocate_reg(op)
             return [l0, l1, res]
         return [l0, l1]
 
@@ -373,6 +379,12 @@ class Regalloc(BaseRegalloc):
 
     def prepare_op_int_le(self, op):
         return self.prepare_int_cmp(op, False)
+
+    prepare_op_int_lt = prepare_op_int_le
+    prepare_op_int_gt = prepare_op_int_le
+    prepare_op_int_ge = prepare_op_int_le
+    prepare_op_int_eq = prepare_op_int_le
+    prepare_op_int_ne = prepare_op_int_le
 
     def prepare_op_label(self, op):
         descr = op.getdescr()
