@@ -1218,3 +1218,40 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert ops.BUILD_TUPLE not in counts
 
+
+class TestHugeStackDepths:
+    def run_and_check_stacksize(self, source):
+        space = self.space
+        code = compile_with_astcompiler("a = " + source, 'exec', space)
+        assert code.co_stacksize < 100
+        w_dict = space.newdict()
+        code.exec_code(space, w_dict, w_dict)
+        return space.getitem(w_dict, space.newtext("a"))
+
+    def test_tuple(self):
+        source = "(" + ",".join([str(i) for i in range(200)]) + ")\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == tuple(range(200))
+
+    def test_list(self):
+        source = "a = [" + ",".join([str(i) for i in range(200)]) + "]\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == range(200)
+
+    def test_list_unpacking(self):
+        space = self.space
+        source = "[" + ",".join(['b%d' % i for i in range(200)]) + "] = a\n"
+        code = compile_with_astcompiler(source, 'exec', space)
+        assert code.co_stacksize == 200   # xxx remains big
+        w_dict = space.newdict()
+        space.setitem(w_dict, space.newtext("a"), space.wrap(range(42, 242)))
+        code.exec_code(space, w_dict, w_dict)
+        assert space.unwrap(space.getitem(w_dict, space.newtext("b0"))) == 42
+        assert space.unwrap(space.getitem(w_dict, space.newtext("b199"))) == 241
+
+    def test_set(self):
+        source = "a = {" + ",".join([str(i) for i in range(200)]) + "}\n"
+        w_res = self.run_and_check_stacksize(source)
+        space = self.space
+        assert [space.int_w(w_x)
+                    for w_x in space.unpackiterable(w_res)] == range(200)

@@ -5,6 +5,8 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.unicodehelper import wcharpsize2utf8
+from pypy.interpreter.unicodehelper import wrap_unicode_out_of_range_error
 
 from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -596,10 +598,13 @@ def wcharp2unicode(space, address, maxlength=-1):
     if address == 0:
         return space.w_None
     wcharp_addr = rffi.cast(rffi.CWCHARP, address)
-    if maxlength == -1:
-        s, lgt = rffi.wcharp2utf8(wcharp_addr)
-    else:
-        s, lgt = rffi.wcharp2utf8n(wcharp_addr, maxlength)
+    try:
+        if maxlength == -1:
+            s, lgt = rffi.wcharp2utf8(wcharp_addr)
+        else:
+            s, lgt = rffi.wcharp2utf8n(wcharp_addr, maxlength)
+    except rutf8.OutOfRange as e:
+        raise wrap_unicode_out_of_range_error(space, e)
     return space.newutf8(s, lgt)
 
 @unwrap_spec(address=r_uint, maxlength=int)
@@ -613,7 +618,7 @@ def charp2rawstring(space, address, maxlength=-1):
 def wcharp2rawunicode(space, address, maxlength=-1):
     if maxlength == -1:
         return wcharp2unicode(space, address)
-    s = rffi.wcharpsize2utf8(rffi.cast(rffi.CWCHARP, address), maxlength)
+    s = wcharpsize2utf8(space, rffi.cast(rffi.CWCHARP, address), maxlength)
     return space.newutf8(s, maxlength)
 
 @unwrap_spec(address=r_uint, newcontent='bufferstr')

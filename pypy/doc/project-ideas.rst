@@ -5,7 +5,7 @@ Getting involved
 ----------------
 
 We are happy to discuss ideas around the PyPy ecosystem.
-If you are interested in palying with RPython or PyPy, or have a new idea not
+If you are interested in playing with RPython or PyPy, or have a new idea not
 mentioned here please join us on irc, channel #pypy (freenode). If you are unsure,
 but still think that you can make a valuable contribution to PyPy, dont
 hesitate to contact us on #pypy or on our mailing list. Here are some ideas

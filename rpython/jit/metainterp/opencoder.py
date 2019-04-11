@@ -6,14 +6,14 @@ for each operation (inputargs numbered with negative numbers)
 Snapshot index for guards points to snapshot stored in _snapshots of trace
 """
 
-from rpython.jit.metainterp.history import ConstInt, Const, ConstFloat, ConstPtr
+from rpython.jit.metainterp.history import (
+    ConstInt, Const, ConstFloat, ConstPtr, new_ref_dict)
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
     ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp,\
     opclasses
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
-from rpython.jit.metainterp.typesystem import llhelper
 
 TAGINT, TAGCONSTPTR, TAGCONSTOTHER, TAGBOX = range(4)
 TAGMASK = 0x3
@@ -179,7 +179,7 @@ class TraceIterator(BaseTrace):
         if opwithdescr[opnum]:
             descr_index = self._next()
             if rop.is_guard(opnum):
-                update_liveranges(self.trace._snapshots[descr_index], index, 
+                update_liveranges(self.trace._snapshots[descr_index], index,
                                   liveranges)
         if opclasses[opnum].type != 'v':
             return index + 1
@@ -274,7 +274,7 @@ class Trace(BaseTrace):
         self._consts_ptr = 0
         self._descrs = [None]
         self._refs = [lltype.nullptr(llmemory.GCREF.TO)]
-        self._refs_dict = llhelper.new_ref_dict_3()
+        self._refs_dict = new_ref_dict()
         self._bigints = []
         self._bigints_dict = {}
         self._floats = []
@@ -304,7 +304,7 @@ class Trace(BaseTrace):
         assert not self.tag_overflow
 
         self._bigints_dict = {}
-        self._refs_dict = llhelper.new_ref_dict_3()
+        self._refs_dict = new_ref_dict()
         debug_start("jit-trace-done")
         debug_print("trace length: " + str(self._pos))
         debug_print(" total snapshots: " + str(self._total_snapshots))

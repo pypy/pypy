@@ -1,9 +1,10 @@
 from rpython.jit.metainterp.history import AbstractDescr, getkind
+from rpython.jit.metainterp.support import adr2int, int2adr
 from rpython.jit.codewriter.flatten import Register, Label, TLabel, KINDS
 from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.format import format_assembler
 from rpython.jit.codewriter.jitcode import SwitchDictDescr, JitCode
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.rlib.objectmodel import ComputedIntSymbolic
 from rpython.rlib.rarithmetic import r_int
 from rpython.flowspace.model import Constant
@@ -77,7 +78,7 @@ class Assembler(object):
                 value = llmemory.cast_ptr_to_adr(value)
                 TYPE = llmemory.Address
             if TYPE == llmemory.Address:
-                value = heaptracker.adr2int(value)
+                value = adr2int(value)
             if TYPE is lltype.SingleFloat:
                 value = longlong.singlefloat2int(value)
             if not isinstance(value, (llmemory.AddressAsInt,
@@ -265,7 +266,7 @@ class Assembler(object):
         # Helper called at the end of assembling.  Registers the extra
         # functions shown in _callinfo_for_oopspec.
         for func in callinfocollection.all_function_addresses_as_int():
-            func = heaptracker.int2adr(func)
+            func = int2adr(func)
             self.see_raw_object(func.ptr)
 
 

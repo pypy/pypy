@@ -1,8 +1,8 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp import compile
-from rpython.jit.metainterp.history import (Const, ConstInt, make_hashable_int,
-                                            ConstFloat)
+from rpython.jit.metainterp.history import (
+    Const, ConstInt, make_hashable_int, ConstFloat, CONST_NULL)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (
@@ -354,7 +354,7 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def postprocess_GUARD_ISNULL(self, op):
-        self.make_constant(op.getarg(0), self.optimizer.cpu.ts.CONST_NULL)
+        self.make_constant(op.getarg(0), CONST_NULL)
 
     def optimize_GUARD_IS_OBJECT(self, op):
         info = self.getptrinfo(op.getarg(0))
@@ -393,7 +393,7 @@ class OptRewrite(Optimization):
         # class cannot possibly match (see test_issue2926)
         if info and info.is_constant():
             c = self.get_box_replacement(op.getarg(0))
-            vtable = optimizer.cpu.ts.cls_of_box(c).getint()
+            vtable = optimizer.cpu.cls_of_box(c).getint()
             if optimizer._check_subclass(vtable, op.getarg(1).getint()):
                 return
             raise InvalidLoop("GUARD_SUBCLASS(const) proven to always fail")
@@ -482,7 +482,7 @@ class OptRewrite(Optimization):
                               'guard that it is not NULL')
         previous_classbox = info.get_known_class(self.optimizer.cpu)
         if previous_classbox is not None:
-            expected_classbox = self.optimizer.cpu.ts.cls_of_box(c_value)
+            expected_classbox = self.optimizer.cpu.cls_of_box(c_value)
             assert expected_classbox is not None
             if not previous_classbox.same_constant(
                     expected_classbox):
