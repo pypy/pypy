@@ -6,9 +6,7 @@ from rpython.jit.metainterp.history import ConstInt, TreeLoop, ConstPtr
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import build_opt_chain
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    BaseTest, convert_old_style_to_targets)
-from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import \
-    FakeMetaInterpStaticData
+    BaseTest, convert_old_style_to_targets, FakeMetaInterpStaticData)
 from rpython.jit.metainterp.resoperation import (
     rop, opname, oparity, InputArgInt)
 

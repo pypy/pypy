@@ -97,21 +97,14 @@ def test_equaloplists_fail_args():
 # ____________________________________________________________
 
 class LLtypeMixin(object):
-    def get_class_of_box(self, box):
-        base = box.getref_base()
-        return lltype.cast_opaque_ptr(rclass.OBJECTPTR, base).typeptr
-
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable.name = rclass.alloc_array_name('node')
-    node_vtable_adr = llmemory.cast_ptr_to_adr(node_vtable)
     node_vtable2 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable2.name = rclass.alloc_array_name('node2')
-    node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable3.name = rclass.alloc_array_name('node3')
     node_vtable3.subclassrange_min = 3
     node_vtable3.subclassrange_max = 3
-    node_vtable_adr3 = llmemory.cast_ptr_to_adr(node_vtable3)
     cpu = runner.LLGraphCPU(None)
 
     NODE = lltype.GcForwardReference()
@@ -151,7 +144,8 @@ class LLtypeMixin(object):
     node2addr = lltype.cast_opaque_ptr(llmemory.GCREF, node2)
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
     mynodeb = lltype.malloc(NODE)
-    myarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(lltype.GcArray(lltype.Signed), 13, zero=True))
+    myarray = lltype.cast_opaque_ptr(llmemory.GCREF,
+        lltype.malloc(lltype.GcArray(lltype.Signed), 13, zero=True))
     mynodeb.parent.typeptr = node_vtable
     myptrb = lltype.cast_opaque_ptr(llmemory.GCREF, mynodeb)
     myptr2 = lltype.malloc(NODE2)
@@ -168,9 +162,6 @@ class LLtypeMixin(object):
     mynode4.parent.typeptr = node_vtable3
     myptr4 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode4)   # a NODE3
 
-
-    nullptr = lltype.nullptr(llmemory.GCREF.TO)
-    #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
     node_tid = nodesize.get_type_id()
     nodesize2 = cpu.sizeof(NODE2, node_vtable2)
@@ -281,7 +272,6 @@ class LLtypeMixin(object):
                         ('parent', OBJECT),
                         ('one', lltype.Ptr(lltype.GcArray(lltype.Ptr(NODE)))))
     u_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    u_vtable_adr = llmemory.cast_ptr_to_adr(u_vtable)
     SIMPLE = lltype.GcStruct('simple',
         ('parent', OBJECT),
         ('value', lltype.Signed))
@@ -427,7 +417,6 @@ class LLtypeMixin(object):
     clear_vable = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
 
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
-    jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
     vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, jit_virtual_ref_vtable)
 
     FUNC = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
@@ -466,12 +455,6 @@ class FakeCallInfoCollection:
                              oopspecindex)
 
     calldescr_udiv = LLtypeMixin.int_udiv_descr
-    #calldescr_umod = LLtypeMixin.int_umod_descr
-
-LLtypeMixin.callinfocollection = FakeCallInfoCollection()
-
-
-# ____________________________________________________________
 
 
 class Fake(object):
@@ -498,6 +481,7 @@ class FakeMetaInterpStaticData(object):
         self.globaldata = Fake()
         self.config = get_combined_translation_config(translating=True)
         self.jitlog = jl.JitLogger()
+        self.callinfocollection = FakeCallInfoCollection()
 
     class logger_noopt:
         @classmethod
@@ -530,19 +514,6 @@ class Info(object):
         self.short_preamble = short_preamble
         self.virtual_state = virtual_state
 
-class Storage(compile.ResumeGuardDescr):
-    "for tests."
-    def __init__(self, metainterp_sd=None, original_greenkey=None):
-        self.metainterp_sd = metainterp_sd
-        self.original_greenkey = original_greenkey
-
-    def store_final_boxes(self, op, boxes, metainterp_sd):
-        op.setfailargs(boxes)
-
-    def __eq__(self, other):
-        return True # screw this
-        #return type(self) is type(other)      # xxx obscure
-
 
 class BaseTest(LLtypeMixin):
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
@@ -569,10 +540,7 @@ class BaseTest(LLtypeMixin):
 
     def _do_optimize_loop(self, compile_data):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
+        metainterp_sd.virtualref_info = self.vrefinfo
         compute_bitstrings(self.cpu.fetch_all_descrs())
         #
         compile_data.enable_opts = self.enable_opts

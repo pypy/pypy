@@ -16,7 +16,7 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseT
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, IntLowerBound, IntUpperBound, IntUnbounded
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
-from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
+from rpython.jit.metainterp.optimizeopt.test.test_util import FakeMetaInterpStaticData
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp import resume, compile
@@ -862,10 +862,7 @@ class BaseTestBridges(BaseTest):
             for k, v in call_pure_results.items():
                 bridge.call_pure_results[list(k)] = v
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
+        metainterp_sd.virtualref_info = self.vrefinfo
         #
         trace = oparser.convert_loop_to_trace(bridge, metainterp_sd)
 

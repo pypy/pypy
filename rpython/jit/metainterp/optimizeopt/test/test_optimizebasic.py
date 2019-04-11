@@ -2,6 +2,9 @@ import py
 import sys
 import re
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper import rclass
+from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import (
@@ -12,7 +15,6 @@ from rpython.jit.metainterp.resoperation import (
 from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
 from rpython.jit.metainterp.test.test_resume import (
     ResumeDataFakeReader, MyMetaInterp)
-from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 
 # ____________________________________________________________
@@ -2109,6 +2111,9 @@ class TestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     # ----------
+    def get_class_of_box(self, box):
+        base = box.getref_base()
+        return lltype.cast_opaque_ptr(rclass.OBJECTPTR, base).typeptr
 
     def _verify_fail_args(self, boxes, oparse, text):
         r = re.compile(r"\bwhere\s+(\w+)\s+is a\s+(\w+)")

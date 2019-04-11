@@ -8,7 +8,7 @@ from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgRef, InputArgInt)
-from rpython.jit.metainterp.support import adr2int
+from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.metainterp.optimizeopt.shortpreamble import (
     ShortPreambleBuilder, PreambleOp, ShortInputArg)
 from rpython.jit.metainterp.compile import LoopCompileData
@@ -130,7 +130,7 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         p0 = preamble.inputargs[0]
-        expected_class = adr2int(self.node_vtable_adr)
+        expected_class = ptr2int(self.node_vtable)
         assert expected_class == es.exported_infos[p0]._known_class.getint()
         vs = es.virtual_state
         assert vs.state[0].level == LEVEL_KNOWNCLASS
