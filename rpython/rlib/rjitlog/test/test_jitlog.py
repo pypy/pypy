@@ -1,10 +1,7 @@
-import py
+import pytest
 import sys
-from rpython.jit.tool.oparser import pure_parse
-from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.backend.model import AbstractCPU
-from rpython.jit.metainterp.history import ConstInt, ConstPtr
+from rpython.jit.metainterp.history import ConstInt
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rlib.objectmodel import compute_unique_id
@@ -27,37 +24,36 @@ def _get_location(greenkey_list):
     assert len(greenkey_list) == 0
     return '/home/pypy/jit.py', 0, 'enclosed', 99, 'DEL'
 
+class FakeJitDriver(object):
+    class warmstate(object):
+        get_location_types = [jl.MP_FILENAME,jl.MP_INT,jl.MP_SCOPE, jl.MP_INT, jl.MP_OPCODE]
+        @staticmethod
+        def get_location(greenkey_list):
+            return [jl.wrap(jl.MP_FILENAME[0],'s','/home/pypy/jit.py'),
+                    jl.wrap(jl.MP_INT[0], 'i', 0),
+                    jl.wrap(jl.MP_SCOPE[0], 's', 'enclosed'),
+                    jl.wrap(jl.MP_INT[0], 'i', 99),
+                    jl.wrap(jl.MP_OPCODE[0], 's', 'DEL')
+                    ]
+
+
+class FakeMetaInterpSd:
+    jitdrivers_sd = [FakeJitDriver()]
+    def get_name_from_address(self, addr):
+        return 'Name'
+
+@pytest.fixture
+def metainterp_sd():
+    return FakeMetaInterpSd()
+
 class TestLogger(object):
-
-    def make_metainterp_sd(self):
-        class FakeJitDriver(object):
-            class warmstate(object):
-                get_location_types = [jl.MP_FILENAME,jl.MP_INT,jl.MP_SCOPE, jl.MP_INT, jl.MP_OPCODE]
-                @staticmethod
-                def get_location(greenkey_list):
-                    return [jl.wrap(jl.MP_FILENAME[0],'s','/home/pypy/jit.py'),
-                            jl.wrap(jl.MP_INT[0], 'i', 0),
-                            jl.wrap(jl.MP_SCOPE[0], 's', 'enclosed'),
-                            jl.wrap(jl.MP_INT[0], 'i', 99),
-                            jl.wrap(jl.MP_OPCODE[0], 's', 'DEL')
-                           ]
-
-
-        class FakeMetaInterpSd:
-            cpu = AbstractCPU()
-            cpu.ts = None
-            jitdrivers_sd = [FakeJitDriver()]
-            def get_name_from_address(self, addr):
-                return 'Name'
-        return FakeMetaInterpSd()
-
-    def test_debug_merge_point(self, tmpdir):
+    def test_debug_merge_point(self, tmpdir, metainterp_sd):
         logger = jl.JitLogger()
         file = tmpdir.join('binary_file')
         file.ensure()
         fd = file.open('wb')
         jl.jitlog_init(fd.fileno())
-        logger.start_new_trace(self.make_metainterp_sd(), jd_name='jdname')
+        logger.start_new_trace(metainterp_sd, jd_name='jdname')
         log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
         op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
         log_trace.write([], [op])
@@ -115,10 +111,10 @@ class TestLogger(object):
         assert jl.commonprefix("/hello/world","/path/to") == "/"
         assert jl.commonprefix("pyramid","python") == "py"
         assert jl.commonprefix("0"*100,"0"*100) == "0"*100
-        with py.test.raises(AssertionError):
+        with pytest.raises(AssertionError):
             jl.commonprefix(None,None)
 
-    def test_redirect_assembler(self, tmpdir):
+    def test_redirect_assembler(self, tmpdir, metainterp_sd):
         looptoken = FakeCallAssemblerLoopToken(0x0)
         newlooptoken = FakeCallAssemblerLoopToken(0x1234)
         #
@@ -127,7 +123,7 @@ class TestLogger(object):
         file.ensure()
         fd = file.open('wb')
         jl.jitlog_init(fd.fileno())
-        logger.start_new_trace(self.make_metainterp_sd(), jd_name='jdname')
+        logger.start_new_trace(metainterp_sd, jd_name='jdname')
         log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
         op = ResOperation(rop.CALL_ASSEMBLER_I, [], descr=looptoken)
         log_trace.write([], [op])
@@ -145,4 +141,3 @@ class TestLogger(object):
               jl.encode_le_addr(new_id_looptoken) + \
               jl.encode_le_addr(newlooptoken._ll_function_addr)
         assert binary.endswith(end)
-        

@@ -9,6 +9,7 @@ from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.metainterp.optimize import SpeculativeError
+from rpython.jit.metainterp.support import ptr2int, int_signext
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -36,7 +37,7 @@ class LLTrace(object):
         # front-end will mutate them under our feet again.  We also
         # need to make sure things get freed.
         _cache={}
-        
+
         def mapping(box):
             if isinstance(box, Const) or box is None:
                 return box
@@ -136,7 +137,7 @@ class SizeDescr(AbstractDescr):
         if self._vtable is Ellipsis:
             self._vtable = heaptracker.get_vtable_for_gcstruct(self._runner,
                                                                self.S)
-        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self._vtable))
+        return ptr2int(self._vtable)
 
     def is_immutable(self):
         return heaptracker.is_immutable_struct(self.S)
@@ -208,7 +209,7 @@ def _is_signed_kind(TYPE):
 
 class ArrayDescr(AbstractDescr):
     all_interiorfielddescrs = None
-    
+
     def __init__(self, A, runner):
         self.A = self.OUTERA = A
         self._is_pure = A._immutable_field(None)
@@ -322,7 +323,6 @@ _example_res = {'v': None,
 
 
 class LLGraphCPU(model.AbstractCPU):
-    from rpython.jit.metainterp.typesystem import llhelper as ts
     supports_floats = True
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
@@ -735,7 +735,7 @@ class LLGraphCPU(model.AbstractCPU):
             return rffi.LONGLONG
         else:
             raise NotImplementedError(size)
-    
+
     def bh_gc_load_indexed_i(self, struct, index, scale, base_ofs, bytes):
         T = self._get_int_type_from_size(bytes)
         x = llop.gc_load_indexed(T, struct, index, scale, base_ofs)
@@ -877,8 +877,7 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
-        return heaptracker.adr2int(result_adr)
+        return ptr2int(struct.typeptr)
 
     # vector operations
     vector_arith_code = """
@@ -978,7 +977,7 @@ class LLGraphCPU(model.AbstractCPU):
     bh_vec_expand_i = _bh_vec_expand
 
     def bh_vec_int_signext(self, vx, ext, count):
-        return [heaptracker.int_signext(_vx, ext) for _vx in vx]
+        return [int_signext(_vx, ext) for _vx in vx]
 
     def build_load(func):
         def load(self, struct, offset, scale, disp, descr, _count):
@@ -1089,7 +1088,7 @@ class LLFrame(object):
             if box.datatype == INT:
                 for i,a in enumerate(arg):
                     if isinstance(a, bool):
-                        arg[i] = int(a) 
+                        arg[i] = int(a)
                 assert all([lltype.typeOf(a) == lltype.Signed for a in arg])
             elif box.datatype == FLOAT:
                 assert all([lltype.typeOf(a) == longlong.FLOATSTORAGE or \
@@ -1552,13 +1551,12 @@ class LLFrame(object):
         return res
 
     def execute_restore_exception(self, descr, kls, e):
-        kls = heaptracker.int2adr(kls)
         if e:
             value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, e)
-            assert llmemory.cast_ptr_to_adr(value.typeptr) == kls
+            assert ptr2int(value.typeptr) == kls
             lle = LLException(value.typeptr, e)
         else:
-            assert kls == llmemory.NULL
+            assert kls == 0
             lle = None
         self.last_exception = lle
 

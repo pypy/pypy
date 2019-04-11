@@ -498,6 +498,15 @@ Miscellaneous
 * Dictionaries and sets are ordered on PyPy.  On CPython < 3.6 they are not;
   on CPython >= 3.6 dictionaries (but not sets) are ordered.
 
+* PyPy2 refuses to load lone ``.pyc`` files, i.e. ``.pyc`` files that are
+  still there after you deleted the ``.py`` file.  PyPy3 instead behaves like
+  CPython.  We could be amenable to fix this difference in PyPy2: the current
+  version reflects `our annoyance`__ with this detail of CPython, which bit
+  us too often while developing PyPy.  (It is as easy as passing the
+  ``--lonepycfile`` flag when translating PyPy, if you really need it.)
+
+.. __: https://stackoverflow.com/a/55499713/1556290
+
 
 .. _extension-modules:
 
