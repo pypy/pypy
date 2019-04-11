@@ -329,7 +329,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_lt(self, space, w_other):
         try:
-            res = self._utf8 < self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 < self.convert_arg_to_w_unicode(space, w_other,
+                                                    strict='__lt__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -338,7 +339,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_le(self, space, w_other):
         try:
-            res = self._utf8 <= self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 <= self.convert_arg_to_w_unicode(space, w_other,
+                                                    strict='__le__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -347,7 +349,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_gt(self, space, w_other):
         try:
-            res = self._utf8 > self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 > self.convert_arg_to_w_unicode(space, w_other,
+                                                    strict='__gt__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
@@ -356,7 +359,8 @@ class W_UnicodeObject(W_Root):
 
     def descr_ge(self, space, w_other):
         try:
-            res = self._utf8 >= self.convert_arg_to_w_unicode(space, w_other)._utf8
+            res = self._utf8 >= self.convert_arg_to_w_unicode(space, w_other,
+                                                    strict='__ge__')._utf8
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented

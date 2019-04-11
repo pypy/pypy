@@ -201,6 +201,7 @@ class AppTestUnicodeStringStdOnly:
         assert not ('a' == 5)
         assert 'a' != 5
         raises(TypeError, "'a' < 5")
+        raises(TypeError, "'a' < bytearray(b'a')")
 
 
 class AppTestUnicodeString:
