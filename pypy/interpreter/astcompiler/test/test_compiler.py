@@ -1115,6 +1115,13 @@ class TestCompiler(BaseTestCompiler):
         """
         yield self.st, func, "f()", [4, 5, 6, 7]
 
+        func = """def f():
+            b = [4,]
+            x, y = (*b, 7)
+            return x
+        """
+        yield self.st, func, "f()", 4
+
 
     def test_extended_unpacking_fail(self):
         exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",

@@ -923,6 +923,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         values_count = len(values)
         if targets_count != values_count:
             return False
+        for value in values:
+            if isinstance(value, ast.Starred):
+                return False # more complicated
         for target in targets:
             if not isinstance(target, ast.Name):
                 if isinstance(target, ast.Starred):
