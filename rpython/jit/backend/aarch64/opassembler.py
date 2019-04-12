@@ -12,10 +12,7 @@ def gen_comp_op(name, flag):
     def emit_op(self, op, arglocs):
         l0, l1, res = arglocs
 
-        if l1.is_imm():
-            self.mc.CMP_ri(l0.value, l1.getint())
-        else:
-            self.mc.CMP_rr(l0.value, l1.value)
+        self.emit_int_comp_op(op, l0, l1)
         self.mc.CSET_r_flag(res.value, c.get_opposite_of(flag))
     emit_op.__name__ = name
     return emit_op
@@ -88,24 +85,22 @@ class ResOpAssembler(BaseAssembler):
         l0, l1, res = arglocs
         self.mc.UMULH_rr(res.value, l0.value, l1.value)
 
-    def emit_int_comp_op(self, op, arglocs):
-        l0, l1 = arglocs
-
+    def emit_int_comp_op(self, op, l0, l1):
         if l1.is_imm():
             self.mc.CMP_ri(l0.value, l1.getint())
         else:
             self.mc.CMP_rr(l0.value, l1.value)
 
     def emit_comp_op_int_lt(self, op, arglocs):
-        self.emit_int_comp_op(op, arglocs)
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
         return c.LT
 
     def emit_comp_op_int_le(self, op, arglocs):
-        self.emit_int_comp_op(op, arglocs)
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
         return c.LE
 
     def emit_comp_op_int_eq(self, op, arglocs):
-        self.emit_int_comp_op(op, arglocs)
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
         return c.EQ
 
     emit_op_int_lt = gen_comp_op('emit_op_int_lt', c.LT)
@@ -114,6 +109,31 @@ class ResOpAssembler(BaseAssembler):
     emit_op_int_ge = gen_comp_op('emit_op_int_ge', c.GE)
     emit_op_int_eq = gen_comp_op('emit_op_int_eq', c.EQ)
     emit_op_int_ne = gen_comp_op('emit_op_int_ne', c.NE)
+
+    emit_op_uint_lt = gen_comp_op('emit_op_uint_lt', c.LO)
+    emit_op_uint_gt = gen_comp_op('emit_op_uint_gt', c.HI)
+    emit_op_uint_le = gen_comp_op('emit_op_uint_le', c.LS)
+    emit_op_uint_ge = gen_comp_op('emit_op_uint_ge', c.HS)
+
+    def emit_op_int_is_true(self, op, arglocs):
+        reg, res = arglocs
+
+        self.mc.CMP_ri(reg.value, 0)
+        self.mc.CSET_r_flag(res.value, c.EQ)
+
+    def emit_op_int_is_zero(self, op, arglocs):
+        reg, res = arglocs
+
+        self.mc.CMP_ri(reg.value, 0)
+        self.mc.CSET_r_flag(res.value, c.NE)
+
+    def emit_op_int_neg(self, op, arglocs):
+        reg, res = arglocs
+        self.mc.SUB_rr_shifted(res.value, r.xzr.value, reg.value)
+
+    def emit_op_int_invert(self, op, arglocs):
+        reg, res = arglocs
+        self.mc.MVN_rr(res.value, reg.value)
 
     def emit_op_increment_debug_counter(self, op, arglocs):
         return # XXXX

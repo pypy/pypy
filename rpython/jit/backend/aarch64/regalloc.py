@@ -385,6 +385,23 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_ge = prepare_op_int_le
     prepare_op_int_eq = prepare_op_int_le
     prepare_op_int_ne = prepare_op_int_le
+    prepare_op_uint_lt = prepare_op_int_le
+    prepare_op_uint_le = prepare_op_int_le
+    prepare_op_uint_gt = prepare_op_int_le
+    prepare_op_uint_ge = prepare_op_int_le
+
+    def prepare_unary(self, op):
+        a0 = op.getarg(0)
+        assert not isinstance(a0, Const)
+        reg = self.make_sure_var_in_reg(a0)
+        self.possibly_free_vars_for_op(op)
+        res = self.force_allocate_reg(op)
+        return [reg, res]
+
+    prepare_op_int_is_true = prepare_unary
+    prepare_op_int_is_zero = prepare_unary
+    prepare_op_int_neg = prepare_unary
+    prepare_op_int_invert = prepare_unary
 
     def prepare_op_label(self, op):
         descr = op.getdescr()
