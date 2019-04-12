@@ -36,6 +36,8 @@ RAWREFCOUNT_GC_AS_PYOBJ = lltype.Ptr(lltype.FuncType([PYOBJ_GC_HDR_PTR],
                                                      PYOBJ_HDR_PTR))
 RAWREFCOUNT_PYOBJ_AS_GC = lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR],
                                                      PYOBJ_GC_HDR_PTR))
+RAWREFCOUNT_CLEAR_WR_TYPE = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+                                                       lltype.Void))
 
 
 def _build_pypy_link(p):
@@ -307,21 +309,22 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_dealloc_callback, s_tp_traverse,
                                   s_pyobj_list, s_as_gc, s_as_pyobj,
-                                  a_finalizer_type):
+                                  a_finalizer_type, a_clear_wr):
         from rpython.rtyper.llannotation import SomePtr
         assert isinstance(s_dealloc_callback, SomePtr)   # ll-ptr-to-function
         assert isinstance(s_tp_traverse, SomePtr)
         assert isinstance(s_as_gc, SomePtr)
         assert isinstance(s_as_pyobj, SomePtr)
         assert isinstance(a_finalizer_type, SomePtr)
+        assert isinstance(a_clear_wr, SomePtr)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         v_dealloc_callback, v_tp_traverse, v_pyobj_list, v_as_gc, \
-        v_as_pyobj, v_finalizer_type = hop.inputargs(*hop.args_r)
+        v_as_pyobj, v_finalizer_type, v_clear_wr = hop.inputargs(*hop.args_r)
         hop.genop('gc_rawrefcount_init', [v_dealloc_callback, v_tp_traverse,
                                           v_pyobj_list, v_as_gc, v_as_pyobj,
-                                          v_finalizer_type])
+                                          v_finalizer_type, v_clear_wr])
 
 
 class Entry(ExtRegistryEntry):

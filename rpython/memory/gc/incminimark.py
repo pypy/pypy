@@ -3112,6 +3112,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                                          PYOBJ_GC_HDR_PTR))
     RAWREFCOUNT_FINALIZER_TYPE = lltype.Ptr(lltype.FuncType([PYOBJ_GC_HDR_PTR],
                                                          lltype.Signed))
+    RAWREFCOUNT_CLEAR_WR_TYPE = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+                                                            lltype.Void))
     RAWREFCOUNT_FINALIZER_NONE = 0
     RAWREFCOUNT_FINALIZER_MODERN = 1
     RAWREFCOUNT_FINALIZER_LEGACY = 2
@@ -3124,7 +3126,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(pygchdraddr, self.PYOBJ_GC_HDR_PTR)
 
     def rawrefcount_init(self, dealloc_trigger_callback, tp_traverse,
-                         pyobj_list, gc_as_pyobj, pyobj_as_gc, finalizer_type):
+                         pyobj_list, gc_as_pyobj, pyobj_as_gc, finalizer_type,
+                         clear_weakref_callback):
         # see pypy/doc/discussion/rawrefcount.rst
         if not self.rrc_enabled:
             self.rrc_p_list_young = self.AddressStack()
@@ -3145,6 +3148,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_gc_as_pyobj = gc_as_pyobj
             self.rrc_pyobj_as_gc = pyobj_as_gc
             self.rrc_finalizer_type = finalizer_type
+            self.rrc_clear_weakref_callback = clear_weakref_callback
             self.rrc_enabled = True
             self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
 
@@ -3411,10 +3415,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rrc_p_list_old.foreach(self._rrc_major_trace, use_cylicrc)
         self.rrc_o_list_old.foreach(self._rrc_major_trace, use_cylicrc)
 
-        # TODO: handle weakrefs for unreachable objects and create
-        # TODO: a list of callbacks, which has to be called after the
-        # TODO: the GC runs
-
     def _rrc_major_trace(self, pyobject, use_cylicrefcnt):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
@@ -3459,8 +3459,47 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         if self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT:
             if not self._rrc_gc_list_is_empty(self.rrc_pyobj_old_list):
+                self._rrc_clear_weakref_callbacks()
                 self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
                                         self.rrc_pyobj_dead_list)
+
+    def _rrc_clear_weakref_callbacks(self):
+        # Look for any weakrefs within the trash cycle and remove the callback.
+        # This is only needed for weakrefs created from rawrefcounted objects
+        # because weakrefs from gc-managed objects are going away anyway.
+        gchdr = self.rrc_pyobj_old_list.c_gc_next
+        while gchdr <> self.rrc_pyobj_old_list:
+            pyobj = self.rrc_gc_as_pyobj(gchdr)
+            self._rrc_traverse_weakref(pyobj)
+            gchdr = gchdr.c_gc_next
+
+    def _rrc_visit_weakref(pyobj, self_ptr):
+        from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
+        #
+        self_adr = rffi.cast(llmemory.Address, self_ptr)
+        self = cast_adr_to_nongc_instance(IncrementalMiniMarkGC, self_adr)
+        self._rrc_visit_weakref_action(pyobj, None)
+        return rffi.cast(rffi.INT_real, 0)
+
+    def _rrc_visit_weakref_action(self, pyobj, ignore):
+        intobj = pyobj.c_ob_pypy_link
+        if intobj <> 0:
+            obj = llmemory.cast_int_to_adr(intobj)
+            object = llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+            self.rrc_clear_weakref_callback(object)
+
+    def _rrc_traverse_weakref(self, pyobj):
+        from rpython.rlib.objectmodel import we_are_translated
+        from rpython.rtyper.annlowlevel import (cast_nongc_instance_to_adr,
+                                                llhelper)
+        #
+        if we_are_translated():
+            callback_ptr = llhelper(self.RAWREFCOUNT_VISIT,
+                                    IncrementalMiniMarkGC._rrc_visit_weakref)
+            self_ptr = rffi.cast(rffi.VOIDP, cast_nongc_instance_to_adr(self))
+            self.rrc_tp_traverse(pyobj, callback_ptr, self_ptr)
+        else:
+            self.rrc_tp_traverse(pyobj, self._rrc_visit_weakref_action, None)
 
     def _rrc_major_free(self, pyobject, surviving_list, surviving_dict):
         # The pyobject survives if the corresponding obj survives.
@@ -3658,6 +3697,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
                                     self.rrc_pyobj_list)
         else:
+            self._rrc_clear_weakref_callbacks()
             self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
                                     self.rrc_pyobj_dead_list)
 
