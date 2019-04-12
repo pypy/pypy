@@ -79,6 +79,7 @@ Changes shared across versions
   (issue 2988_)
 * Cleanup and refactor JIT code to remove ``rpython.jit.metainterp.typesystem``
 * Fix memoryviews of ctype structures with padding, (cpython issue 32780_)
+* CFFI updated to as-yet-unreleased 1.12.3
 
 Python 3.6 only
 
