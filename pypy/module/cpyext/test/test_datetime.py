@@ -188,17 +188,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         assert module.new_datetime() == datetime.datetime(
             2000, 6, 6, 6, 6, 6, 6)
 
-        class UTC(datetime.tzinfo):
-            def utcoffset(self, dt):
-                return datetime.timedelta(hours=0)
-
-            def dst(self, dt):
-                return datetime.timedelta(0)
-
-            def tzname(self, dt):
-                return "UTC"
-
-        utc = UTC()
+        utc = datetime.timezone.utc
 
         # .fromtimestamp tests
         assert (module.new_datetime_fromtimestamp() ==
