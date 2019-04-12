@@ -67,6 +67,14 @@ def _PyDateTime_Import(space):
         _PyDelta_FromDelta.api_func.functype,
         _PyDelta_FromDelta.api_func.get_wrapper(space))
 
+    datetimeAPI.c_DateTime_FromTimestamp = llhelper(
+        _PyDateTime_FromTimestamp.api_func.functype,
+        _PyDateTime_FromTimestamp.api_func.get_wrapper(space))
+
+    datetimeAPI.c_Date_FromTimestamp = llhelper(
+        _PyDate_FromTimestamp.api_func.functype,
+        _PyDate_FromTimestamp.api_func.get_wrapper(space))
+
     state.datetimeAPI.append(datetimeAPI)
     return state.datetimeAPI[0]
 
@@ -243,8 +251,16 @@ def PyDateTime_FromTimestamp(space, w_args):
     """
     w_datetime = PyImport_Import(space, space.newtext("datetime"))
     w_type = space.getattr(w_datetime, space.newtext("datetime"))
+    return _PyDateTime_FromTimestamp(space, w_type, w_args, None)
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def _PyDateTime_FromTimestamp(space, w_type, w_args, w_kwds):
+    """Implementation of datetime.fromtimestamp that matches the signature for
+    PyDatetimeCAPI.DateTime_FromTimestamp
+    """
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
-    return space.call(w_method, w_args)
+
+    return space.call(w_method, w_args, w_kwds=w_kwds)
 
 @cpython_api([PyObject], PyObject)
 def PyDate_FromTimestamp(space, w_args):
@@ -253,6 +269,12 @@ def PyDate_FromTimestamp(space, w_args):
     """
     w_datetime = PyImport_Import(space, space.newtext("datetime"))
     w_type = space.getattr(w_datetime, space.newtext("date"))
+    return _PyDate_FromTimestamp(space, w_type, w_args)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyDate_FromTimestamp(space, w_type, w_args):
+    """Implementation of date.fromtimestamp that matches the signature for
+    PyDatetimeCAPI.Date_FromTimestamp"""
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
     return space.call(w_method, w_args)
 
