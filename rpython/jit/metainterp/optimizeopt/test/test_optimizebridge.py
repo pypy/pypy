@@ -1,4 +1,3 @@
-from rpython.jit.metainterp.optimizeopt import use_unrolling
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, convert_old_style_to_targets, FakeMetaInterpStaticData)
 from rpython.jit.metainterp import compile
@@ -30,13 +29,12 @@ class TestOptimizeBridge(BaseTest):
         self.add_guard_future_condition(bridge)
         trace = oparser.convert_loop_to_trace(
             bridge, FakeMetaInterpStaticData(self.cpu))
-        use_unroll = use_unrolling(self.cpu, self.enable_opts)
         data = compile.BridgeCompileData(
             trace,
             self.convert_values(bridge.operations[-1].getarglist(), bridge_values),
             None, enable_opts=self.enable_opts,
             inline_short_preamble=inline_short_preamble)
-        bridge_info, ops = self._do_optimize_loop(data, use_unroll)
+        bridge_info, ops = self._do_optimize_loop(data)
         loop.check_consistency(check_descr=False)
         info.preamble.check_consistency(check_descr=False)
         bridge.operations = ([ResOperation(rop.LABEL, bridge_info.inputargs)] +

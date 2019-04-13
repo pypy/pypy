@@ -11,12 +11,11 @@ from rpython.jit.metainterp.resoperation import (
 from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.metainterp.optimizeopt.shortpreamble import (
     ShortPreambleBuilder, PreambleOp, ShortInputArg)
-from rpython.jit.metainterp.compile import LoopCompileData
+from rpython.jit.metainterp.compile import PreambleCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,
     VirtualStateInfo)
 from rpython.jit.metainterp.optimizeopt import info, optimizer
-from rpython.jit.metainterp.optimizeopt import use_unrolling
 from rpython.jit.tool import oparser
 
 class FakeOptimizer(object):
@@ -47,9 +46,8 @@ class BaseTestUnroll(BaseTest):
         inputargs = loop.inputargs
         preamble = TreeLoop('preamble')
         trace = oparser.convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
-        use_unroll = use_unrolling(self.cpu, self.enable_opts)
-        compile_data = LoopCompileData(trace, inputargs)
-        start_state, newops = self._do_optimize_loop(compile_data, use_unroll)
+        compile_data = PreambleCompileData(trace, inputargs)
+        start_state, newops = self._do_optimize_loop(compile_data)
         preamble.operations = newops
         preamble.inputargs = start_state.renamed_inputargs
         return start_state, loop, preamble

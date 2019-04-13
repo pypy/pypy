@@ -2918,9 +2918,8 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, jitdriver_sd, data, memo=None,
-                              use_unrolling=True):
-            assert use_unrolling == ('unroll' in data.enable_opts)
+        def my_optimize_trace(metainterp_sd, jitdriver_sd, data, memo=None):
+            use_unrolling = ('unroll' in data.enable_opts)
             seen.append(use_unrolling)
             raise InvalidLoop
         old_optimize_trace = optimizeopt.optimize_trace

@@ -5,7 +5,6 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.metainterp.optimizeopt import use_unrolling
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import (
@@ -34,10 +33,9 @@ class BaseTestBasic(BaseTest):
         expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         trace = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
-        use_unroll = use_unrolling(self.cpu, self.enable_opts)
         compile_data = compile.SimpleCompileData(
             trace, call_pure_results=call_pure_results)
-        info, ops = self._do_optimize_loop(compile_data, use_unroll)
+        info, ops = self._do_optimize_loop(compile_data)
         label_op = ResOperation(rop.LABEL, info.inputargs)
         loop.inputargs = info.inputargs
         loop.operations = [label_op] + ops

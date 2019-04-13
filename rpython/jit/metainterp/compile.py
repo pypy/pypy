@@ -35,7 +35,7 @@ class CompileData(object):
         for arg in self.trace.inputargs:
             arg.set_forwarded(None)
 
-class LoopCompileData(CompileData):
+class PreambleCompileData(CompileData):
     """ An object that accumulates all of the necessary info for
     the optimization phase, but does not actually have any other state
 
@@ -49,19 +49,13 @@ class LoopCompileData(CompileData):
         assert runtime_boxes is not None
         self.runtime_boxes = runtime_boxes
 
-    def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
-        from rpython.jit.metainterp.optimizeopt.unroll import (UnrollOptimizer,
-                                                               Optimizer)
-
-        if unroll:
-            opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
-            return opt.optimize_preamble(self.trace,
-                                         self.runtime_boxes,
-                                         self.call_pure_results,
-                                         self.box_names_memo)
-        else:
-            opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
-            return opt.propagate_all_forward(self.trace, self.call_pure_results)
+    def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
+        from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
+        opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
+        return opt.optimize_preamble(self.trace,
+                                        self.runtime_boxes,
+                                        self.call_pure_results,
+                                        self.box_names_memo)
 
 class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
@@ -74,11 +68,9 @@ class SimpleCompileData(CompileData):
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
 
-    def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
+    def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
         from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
         from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_knowledge
-
-        #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
         traceiter = self.trace.get_iter()
         if self.resumestorage:
@@ -101,7 +93,7 @@ class BridgeCompileData(CompileData):
         self.inline_short_preamble = inline_short_preamble
         self.resumestorage = resumestorage
 
-    def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
+    def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
 
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
@@ -113,7 +105,7 @@ class BridgeCompileData(CompileData):
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
-    run of LoopCompileData. Jump goes to the same label
+    run of PreambleCompileData. Jump goes to the same label
     """
     log_noopt = False
 
@@ -127,10 +119,8 @@ class UnrolledLoopData(CompileData):
         self.call_pure_results = call_pure_results
         self.inline_short_preamble = inline_short_preamble
 
-    def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
+    def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
-
-        assert unroll # we should not be here if it's disabled
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_peeled_loop(self.trace, self.celltoken, self.state,
             self.call_pure_results, self.inline_short_preamble)
@@ -217,7 +207,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
                         cut_at):
-    from rpython.jit.metainterp.optimizeopt import optimize_trace, use_unrolling
+    from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     jitdriver_sd = metainterp.jitdriver_sd
     metainterp_sd = metainterp.staticdata
@@ -225,11 +215,9 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
     call_pure_results = metainterp.call_pure_results
     data = SimpleCompileData(trace, call_pure_results=call_pure_results,
                              enable_opts=enable_opts)
-    use_unroll = use_unrolling(metainterp_sd.cpu, enable_opts)
     try:
         loop_info, ops = optimize_trace(
-            metainterp_sd, jitdriver_sd, data, metainterp.box_names_memo,
-            use_unrolling=use_unroll)
+            metainterp_sd, jitdriver_sd, data, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         trace.cut_at(cut_at)
@@ -287,13 +275,13 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         return compile_simple_loop(metainterp, greenkey, trace, jumpargs,
                                    enable_opts, cut_at)
     call_pure_results = metainterp.call_pure_results
-    preamble_data = LoopCompileData(trace, jumpargs,
+    preamble_data = PreambleCompileData(trace, jumpargs,
                                     call_pure_results=call_pure_results,
                                     enable_opts=enable_opts)
     try:
         start_state, preamble_ops = optimize_trace(
             metainterp_sd, jitdriver_sd, preamble_data,
-            metainterp.box_names_memo, use_unrolling=use_unroll)
+            metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
@@ -309,8 +297,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                  enable_opts=enable_opts)
     try:
         loop_info, loop_ops = optimize_trace(
-            metainterp_sd, jitdriver_sd, loop_data, metainterp.box_names_memo,
-            use_unrolling=use_unroll)
+            metainterp_sd, jitdriver_sd, loop_data, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
@@ -373,15 +360,15 @@ def compile_retrace(metainterp, greenkey, start,
     cut = history.get_trace_position()
     history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
     enable_opts = jitdriver_sd.warmstate.enable_opts
+    use_unroll = use_unrolling(metainterp_sd.cpu, enable_opts)
+    assert use_unroll
     call_pure_results = metainterp.call_pure_results
     loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
-    use_unroll = use_unrolling(metainterp_sd.cpu, enable_opts)
     try:
         loop_info, loop_ops = optimize_trace(
-            metainterp_sd, jitdriver_sd, loop_data, metainterp.box_names_memo,
-            use_unrolling=use_unroll)
+            metainterp_sd, jitdriver_sd, loop_data, metainterp.box_names_memo)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
         history.cut(cut)
@@ -393,7 +380,7 @@ def compile_retrace(metainterp, greenkey, start,
         try:
             loop_info, loop_ops = optimize_trace(
                 metainterp_sd, jitdriver_sd, loop_data,
-                metainterp.box_names_memo, use_unrolling=use_unroll)
+                metainterp.box_names_memo)
         except InvalidLoop:
             metainterp_sd.jitlog.trace_aborted()
             history.cut(cut)
@@ -1091,8 +1078,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     use_unroll = use_unrolling(metainterp_sd.cpu, enable_opts)
     try:
         info, newops = optimize_trace(
-            metainterp_sd, jitdriver_sd, data, metainterp.box_names_memo,
-            use_unrolling=use_unroll)
+            metainterp_sd, jitdriver_sd, data, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
