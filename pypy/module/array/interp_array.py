@@ -1156,11 +1156,15 @@ def make_array(mytype):
             elif mytype.typecode == 'c':
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
-                if ord(item) >= 0x110000:
+                code = r_uint(ord(item))
+                try:
+                    item = rutf8.unichr_as_utf8(code)
+                except rutf8.OutOfRange:
                     raise oefmt(space.w_ValueError,
-                                "array contains a unicode character out of "
-                                "range(0x110000)")
-                return space.newtext(rutf8.unichr_as_utf8(ord(item)), 1)
+                        "cannot operate on this array('u') because it contains"
+                        " character %s not in range [U+0000; U+10ffff]"
+                        " at index %d", 'U+%x' % code, idx)
+                return space.newtext(item, 1)
             assert 0, "unreachable"
 
         # interface

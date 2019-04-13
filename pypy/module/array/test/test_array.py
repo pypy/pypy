@@ -897,7 +897,13 @@ class AppTestArray(object):
         a = self.array('u', input_unicode)
         b = self.array('u', input_unicode)
         b.byteswap()
-        raises(ValueError, "a != b")
+        assert b[2] == u'\u0000'
+        raises(ValueError, "b[1]")        # doesn't work
+        e = raises(ValueError, "a != b")  # doesn't work
+        assert str(e.value) == (
+            "cannot operate on this array('u') because it contains"
+            " character U+1000000 not in range [U+0000; U+10ffff]"
+            " at index 0")
         assert str(a) == "array('u', %r)" % (input_unicode,)
         assert str(b) == ("array('u', <character U+1000000 is not in"
                           " range [U+0000; U+10ffff]>)")
