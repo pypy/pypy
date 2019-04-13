@@ -2901,6 +2901,8 @@ class BasicTests:
             optimizeopt.optimize_trace = old_optimize_trace
 
     def test_max_unroll_loops_retry_without_unroll(self):
+        if not self.basic:
+            py.test.skip("unrolling")
         from rpython.jit.metainterp.optimize import InvalidLoop
         from rpython.jit.metainterp import optimizeopt
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
@@ -2916,14 +2918,14 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, jitdriver_sd, data, memo=None):
-            seen.append('unroll' in data.enable_opts)
+        def my_optimize_trace(metainterp_sd, jitdriver_sd, data, memo=None,
+                              use_unrolling=True):
+            assert use_unrolling == ('unroll' in data.enable_opts)
+            seen.append(use_unrolling)
             raise InvalidLoop
         old_optimize_trace = optimizeopt.optimize_trace
         optimizeopt.optimize_trace = my_optimize_trace
         try:
-            if not self.basic:
-                py.test.skip("unrolling")
             res = self.meta_interp(f, [23, 4])
             assert res == 23
             assert False in seen

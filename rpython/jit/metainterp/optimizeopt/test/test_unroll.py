@@ -5,7 +5,7 @@ More direct tests for unrolling
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, FakeMetaInterpStaticData)
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.history import TreeLoop, JitCellToken
+from rpython.jit.metainterp.history import TreeLoop
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgRef, InputArgInt)
 from rpython.jit.metainterp.support import ptr2int
@@ -16,6 +16,7 @@ from rpython.jit.metainterp.optimizeopt.virtualstate import (
     NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,
     VirtualStateInfo)
 from rpython.jit.metainterp.optimizeopt import info, optimizer
+from rpython.jit.metainterp.optimizeopt import use_unrolling
 from rpython.jit.tool import oparser
 
 class FakeOptimizer(object):
@@ -40,20 +41,15 @@ class BaseTestUnroll(BaseTest):
     def optimize(self, ops):
         loop = self.parse(ops)
         self.add_guard_future_condition(loop)
-        operations =  loop.operations
+        operations = loop.operations
         jumpop = operations[-1]
         assert jumpop.getopnum() == rop.JUMP
         inputargs = loop.inputargs
-
-        jump_args = jumpop.getarglist()[:]
-        operations = operations[:-1]
-
         preamble = TreeLoop('preamble')
-
-        token = JitCellToken()
         trace = oparser.convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        use_unroll = use_unrolling(self.cpu, self.enable_opts)
         compile_data = LoopCompileData(trace, inputargs)
-        start_state, newops = self._do_optimize_loop(compile_data)
+        start_state, newops = self._do_optimize_loop(compile_data, use_unroll)
         preamble.operations = newops
         preamble.inputargs = start_state.renamed_inputargs
         return start_state, loop, preamble

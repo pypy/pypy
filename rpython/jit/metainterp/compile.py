@@ -8,8 +8,6 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.rlib.objectmodel import compute_unique_id
-from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
      get_deep_immutable_oplist, OpHelpers, InputArgInt, InputArgRef,\
@@ -138,6 +136,7 @@ class UnrolledLoopData(CompileData):
             self.call_pure_results, self.inline_short_preamble)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
+    from rpython.conftest import option
     # debugging
     if option and (option.view or option.viewloops):
         if error:
@@ -218,7 +217,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
                         cut_at):
-    from rpython.jit.metainterp.optimizeopt import optimize_trace
+    from rpython.jit.metainterp.optimizeopt import optimize_trace, use_unrolling
 
     jitdriver_sd = metainterp.jitdriver_sd
     metainterp_sd = metainterp.staticdata
@@ -226,9 +225,11 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
     call_pure_results = metainterp.call_pure_results
     data = SimpleCompileData(trace, call_pure_results=call_pure_results,
                              enable_opts=enable_opts)
+    use_unroll = use_unrolling(metainterp_sd.cpu, enable_opts)
     try:
-        loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                        data, metainterp.box_names_memo)
+        loop_info, ops = optimize_trace(
+            metainterp_sd, jitdriver_sd, data, metainterp.box_names_memo,
+            use_unrolling=use_unroll)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         trace.cut_at(cut_at)
@@ -257,7 +258,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
-    from rpython.jit.metainterp.optimizeopt import optimize_trace
+    from rpython.jit.metainterp.optimizeopt import optimize_trace, use_unrolling
 
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
@@ -269,18 +270,20 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
             faildescr=None, entry_bridge=False)
     #
     enable_opts = jitdriver_sd.warmstate.enable_opts
+    use_unroll = use_unrolling(metainterp_sd.cpu, enable_opts)
     if try_disabling_unroll:
-        if 'unroll' not in enable_opts:
+        if not use_unroll:
             return None
         enable_opts = enable_opts.copy()
         del enable_opts['unroll']
+        use_unroll = False
 
     jitcell_token = make_jitcell_token(jitdriver_sd)
     cut_at = history.get_trace_position()
     history.record(rop.JUMP, jumpargs, None, descr=jitcell_token)
     if start != (0, 0, 0):
         trace = trace.cut_trace_from(start, inputargs)
-    if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
+    if not use_unroll:
         return compile_simple_loop(metainterp, greenkey, trace, jumpargs,
                                    enable_opts, cut_at)
     call_pure_results = metainterp.call_pure_results
@@ -288,9 +291,9 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                     call_pure_results=call_pure_results,
                                     enable_opts=enable_opts)
     try:
-        start_state, preamble_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                                   preamble_data,
-                                                   metainterp.box_names_memo)
+        start_state, preamble_ops = optimize_trace(
+            metainterp_sd, jitdriver_sd, preamble_data,
+            metainterp.box_names_memo, use_unrolling=use_unroll)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
@@ -305,9 +308,9 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
-        loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                             loop_data,
-                                             metainterp.box_names_memo)
+        loop_info, loop_ops = optimize_trace(
+            metainterp_sd, jitdriver_sd, loop_data, metainterp.box_names_memo,
+            use_unrolling=use_unroll)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
@@ -354,7 +357,7 @@ def compile_retrace(metainterp, greenkey, start,
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
-    from rpython.jit.metainterp.optimizeopt import optimize_trace
+    from rpython.jit.metainterp.optimizeopt import optimize_trace, use_unrolling
 
     trace = metainterp.history.trace.cut_trace_from(start, inputargs)
     metainterp_sd = metainterp.staticdata
@@ -374,10 +377,11 @@ def compile_retrace(metainterp, greenkey, start,
     loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
+    use_unroll = use_unrolling(metainterp_sd.cpu, enable_opts)
     try:
-        loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                             loop_data,
-                                             metainterp.box_names_memo)
+        loop_info, loop_ops = optimize_trace(
+            metainterp_sd, jitdriver_sd, loop_data, metainterp.box_names_memo,
+            use_unrolling=use_unroll)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
         history.cut(cut)
@@ -387,9 +391,9 @@ def compile_retrace(metainterp, greenkey, start,
                                      enable_opts=enable_opts,
                                      inline_short_preamble=False)
         try:
-            loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                                 loop_data,
-                                                 metainterp.box_names_memo)
+            loop_info, loop_ops = optimize_trace(
+                metainterp_sd, jitdriver_sd, loop_data,
+                metainterp.box_names_memo, use_unrolling=use_unroll)
         except InvalidLoop:
             metainterp_sd.jitlog.trace_aborted()
             history.cut(cut)
@@ -1048,7 +1052,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     to some existing place.
     """
 
-    from rpython.jit.metainterp.optimizeopt import optimize_trace
+    from rpython.jit.metainterp.optimizeopt import optimize_trace, use_unrolling
 
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
@@ -1084,13 +1088,13 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
         data = SimpleCompileData(trace, resumestorage,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
+    use_unroll = use_unrolling(metainterp_sd.cpu, enable_opts)
     try:
-        info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                      data, metainterp.box_names_memo)
+        info, newops = optimize_trace(
+            metainterp_sd, jitdriver_sd, data, metainterp.box_names_memo,
+            use_unrolling=use_unroll)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
-        #pdb.post_mortem(sys.exc_info()[2])
-        debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
         debug_print('InvalidLoop in compile_new_bridge')
