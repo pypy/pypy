@@ -87,6 +87,8 @@ def _int2dword(int2cast):
 def _int2handle(val):
     return _ffi.cast("HANDLE", val)
 
+def _int2overlappedptr(val):
+    return _ffi.cast("OVERLAPPED*", val)
 
 def _handle2int(handle):
     return int(_ffi.cast("intptr_t", handle))
@@ -437,10 +439,10 @@ class Overlapped(object):
     
     @property
     def address(self):
-        return self.overlapped
+        return _handle2int(self.overlapped)
 
 def SetEvent(handle):
-    ret = _kernel32.SetEvent(handle)
+    ret = _kernel32.SetEvent(_int2handle(handle))
     if not ret:
        raise _winapi._WinError()
 
@@ -451,6 +453,7 @@ def mark_as_completed(overlapped):
 
 def CreateEvent(eventattributes, manualreset, initialstate, name):
     event = _kernel32.CreateEventW(NULL, manualreset, initialstate, _Z(name))
+    event = _handle2int(event)
     if not event:
         raise _winapi._WinError()
     return event
@@ -466,8 +469,7 @@ def CreateIoCompletionPort(handle, existingcompletionport, completionkey, number
                                               numberofconcurrentthreads)
     if result == _ffi.NULL:
         raise SetFromWindowsErr(0)
-    
-    return result
+    return _handle2int(result)
 
 def PostQueuedCompletionStatus(completionport, ms):
     raise _winapi._WinError()
@@ -475,6 +477,7 @@ def PostQueuedCompletionStatus(completionport, ms):
 def GetQueuedCompletionStatus(completionport, milliseconds):
     numberofbytes = _ffi.new('DWORD[1]', [0])
     completionkey  = _ffi.new('ULONG**')
+    completionport = _int2handle(completionport)
 
     if completionport is None:
         raise _winapi._WinError()
@@ -495,20 +498,21 @@ def GetQueuedCompletionStatus(completionport, milliseconds):
             return None
         return SetFromWindowsErr(err)
 
-    return (err, numberofbytes, _handle2int(completionkey[0]), _ffi.addressof(overlapped[0][0]))
+    return (err, numberofbytes, _handle2int(completionkey[0]), _handle2int(_ffi.addressof(overlapped[0][0])))
 
 @_ffi.callback("void(void*, int)")
 def post_to_queue_callback(lpparameter, timerorwaitfired):
-    pdata = _ffi.cast("PostCallbackData *", lpparameter)
+    pdata = _ffi.cast("PostCallbackData*", lpparameter)
     ret = _kernel32.PostQueuedCompletionStatus(pdata.hCompletionPort, timerorwaitfired, _ffi.cast("ULONG_PTR",0), pdata.Overlapped)
     result = False
+    _winapi.free(pdata)
 
 
 def RegisterWaitWithQueue(object, completionport, ovaddress, miliseconds):
-    data = _ffi.new('PostCallbackData*')
+    data = _ffi.cast('PostCallbackData*', _winapi.malloc( _ffi.sizeof("PostCallbackData")))
     newwaitobject = _ffi.new("HANDLE*")
-    data[0].hCompletionPort = completionport
-    data[0].Overlapped = ovaddress
+    data[0].hCompletionPort = _int2handle(completionport)
+    data[0].Overlapped = _int2overlappedptr(ovaddress)
     ret = _kernel32.RegisterWaitForSingleObject(newwaitobject,
                                                 _int2handle(object),
                                                 _ffi.cast("WAITORTIMERCALLBACK",post_to_queue_callback),

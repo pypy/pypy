@@ -152,6 +152,10 @@ BOOL WINAPI WriteFile(HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
 #define WT_EXECUTEINWAITTHREAD 0x00000004
 #define WT_EXECUTEONLYONCE 0x00000008
 
+HANDLE GetProcessHeap();
+LPVOID HeapAlloc(HANDLE, DWORD, SIZE_T);
+BOOL HeapFree(HANDLE, DWORD, LPVOID);
+
 """)
 
 # -------------------- Win Sock 2 ----------------------

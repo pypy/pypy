@@ -106,7 +106,7 @@ class Overlapped(object):
                 raise RuntimeError('deleting an overlapped struct with a pending operation not supported')
 
     @property
-    def event(self): 
+    def event(self):
         xxx
         return None
 
@@ -288,6 +288,13 @@ def GetModuleFileName(module):
         raise _WinError()
     return _ffi.string(buf)
 
+ZERO_MEMORY = 0x00000008
+
+def malloc(size):
+    return _kernel32.HeapAlloc(_kernel32.GetProcessHeap(),ZERO_MEMORY,size)
+
+def free(voidptr):
+    _kernel32.HeapFree(_kernel32.GetProcessHeap(),0, voidptr)
 
 # #define macros from WinBase.h and elsewhere
 STD_INPUT_HANDLE = -10
