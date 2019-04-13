@@ -96,8 +96,10 @@ class W_UnicodeObject(W_Root):
     def utf8_w(self, space):
         return self._utf8
 
-    def listview_utf8(self):
-        return _create_list_from_unicode(self._utf8)
+    def listview_ascii(self):
+        if self.is_ascii():
+            return list(self._utf8)
+        return None
 
     def descr_iter(self, space):
         from pypy.objspace.std.iterobject import W_FastUnicodeIterObject
@@ -569,7 +571,7 @@ class W_UnicodeObject(W_Root):
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
-        l = space.listview_utf8(w_list)
+        l = space.listview_ascii(w_list)
         if l is not None and self.is_ascii():
             if len(l) == 1:
                 return space.newutf8(l[0], len(l[0]))
@@ -1846,12 +1848,6 @@ W_UnicodeObject.typedef = TypeDef(
                            doc=UnicodeDocstrings.maketrans.__doc__),
 )
 W_UnicodeObject.typedef.flag_sequence_bug_compat = True
-
-
-def _create_list_from_unicode(value):
-    # need this helper function to allow the jit to look inside and inline
-    # listview_unicode
-    return [rutf8.unichr_as_utf8(r_uint(s), True) for s in rutf8.Utf8StringIterator(value)]
 
 
 W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
