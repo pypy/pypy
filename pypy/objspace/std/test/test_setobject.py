@@ -80,7 +80,7 @@ class TestW_SetObject:
 
     def test_create_set_from_list(self):
         from pypy.interpreter.baseobjspace import W_Root
-        from pypy.objspace.std.setobject import BytesSetStrategy, ObjectSetStrategy, UnicodeSetStrategy
+        from pypy.objspace.std.setobject import BytesSetStrategy, ObjectSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
 
         w = self.space.wrap
@@ -105,8 +105,6 @@ class TestW_SetObject:
         w_list = self.space.iter(W_ListObject(self.space, [w(u"1"), w(u"2"), w(u"3")]))
         w_set = W_SetObject(self.space)
         _initialize_set(self.space, w_set, w_list)
-        #assert w_set.strategy is self.space.fromcache(UnicodeSetStrategy)
-        #assert w_set.strategy.unerase(w_set.sstorage) == {u"1":None, u"2":None, u"3":None}
 
         w_list = W_ListObject(self.space, [w("1"), w(2), w("3")])
         w_set = W_SetObject(self.space)

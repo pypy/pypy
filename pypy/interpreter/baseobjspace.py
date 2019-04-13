@@ -1113,9 +1113,10 @@ class ObjSpace(object):
         """
         return None
 
-    def listview_utf8(self, w_list):
-        """ Return a list of unwrapped unicode out of a list of unicode. If the
-        argument is not a list or does not contain only unicode, return None.
+    def listview_ascii(self, w_list):
+        """ Return a list of unwrapped **ASCII** strings out of a list of
+        unicode. If the argument is not a list, does not contain only unicode,
+        or contains a unicode with non-ascii characters, return None.
         May return None anyway.
         """
         return None

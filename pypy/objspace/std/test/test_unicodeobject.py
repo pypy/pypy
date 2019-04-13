@@ -30,9 +30,9 @@ class TestUnicodeObject:
             space.warn = prev_warn
         assert len(warnings) == 2
 
-    def test_listview_unicode(self):
+    def test_listview_ascii(self):
         w_str = self.space.newutf8('abcd', 4)
-        assert self.space.listview_utf8(w_str) == list("abcd")
+        assert self.space.listview_ascii(w_str) == list("abcd")
 
     def test_new_shortcut(self):
         space = self.space

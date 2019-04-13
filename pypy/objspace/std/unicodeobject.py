@@ -129,9 +129,10 @@ class W_UnicodeObject(W_Root):
         # Returns ascii-encoded str
         return space.text_w(encode_object(space, self, 'ascii', 'strict'))
 
-    def listview_utf8(self):
-        assert self.is_ascii()
-        return _create_list_from_unicode(self._utf8)
+    def listview_ascii(self):
+        if self.is_ascii():
+            return list(self._utf8)
+        return None
 
     def ord(self, space):
         if self._len() != 1:
@@ -480,7 +481,7 @@ class W_UnicodeObject(W_Root):
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
-        l = space.listview_utf8(w_list)
+        l = space.listview_ascii(w_list)
         if l is not None and self.is_ascii():
             if len(l) == 1:
                 return space.newutf8(l[0], len(l[0]))
@@ -1806,12 +1807,6 @@ W_UnicodeObject.typedef = TypeDef(
         interp2app(W_UnicodeObject.descr_formatter_field_name_split),
 )
 W_UnicodeObject.typedef.flag_sequence_bug_compat = True
-
-
-def _create_list_from_unicode(value):
-    # need this helper function to allow the jit to look inside and inline
-    # listview_unicode
-    return [s for s in value]
 
 
 W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
