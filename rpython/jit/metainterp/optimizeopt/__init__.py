@@ -31,39 +31,40 @@ ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
 assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
     'please fix rlib/jit.py to say ENABLE_ALL_OPTS = %r' % (ALL_OPTS_NAMES,))
 
-def build_opt_chain(metainterp_sd, enable_opts):
+def use_unrolling(cpu, enable_opts):
+    return cpu.supports_guard_gc_type and 'unroll' in enable_opts
+
+def build_opt_chain(enable_opts):
     optimizations = []
-    unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
-    if (metainterp_sd.cpu is not None and
-        not metainterp_sd.cpu.supports_guard_gc_type):
-        unroll = False
     for name, opt in unroll_all_opts:
         if name in enable_opts:
             if opt is not None:
                 o = opt()
                 optimizations.append(o)
+    if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts or
+            'heap' not in enable_opts or 'pure' not in enable_opts):
+        optimizations.append(OptSimplify())
+    return optimizations
 
-    if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
-        or 'heap' not in enable_opts or 'pure' not in enable_opts):
-        optimizations.append(OptSimplify(unroll))
-
-    return optimizations, unroll
+def _log_loop_from_trace(metainterp_sd, trace, memo=None, is_unrolled=False):
+    # mark that a new trace has been started
+    log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE, metainterp_sd, None)
+    log.write_trace(trace)
+    if not is_unrolled:
+        metainterp_sd.logger_noopt.log_loop_from_trace(trace, memo=memo)
 
 def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     """Optimize loop.operations to remove internal overheadish operations.
     """
     debug_start("jit-optimize")
     try:
-        # mark that a new trace has been started
-        log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE, metainterp_sd, None)
-        log.write_trace(compile_data.trace)
-        if compile_data.log_noopt:
-            metainterp_sd.logger_noopt.log_loop_from_trace(compile_data.trace, memo=memo)
+        _log_loop_from_trace(metainterp_sd, compile_data.trace, memo,
+                             is_unrolled=not compile_data.log_noopt)
         if memo is None:
             memo = {}
         compile_data.box_names_memo = memo
-        optimizations, unroll = build_opt_chain(metainterp_sd,
-                                                compile_data.enable_opts)
+        unroll = use_unrolling(metainterp_sd.cpu, compile_data.enable_opts)
+        optimizations = build_opt_chain(compile_data.enable_opts)
         return compile_data.optimize(metainterp_sd, jitdriver_sd,
                                      optimizations, unroll)
     finally:
@@ -72,4 +73,3 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
 
 if __name__ == '__main__':
     print ALL_OPTS_NAMES
-

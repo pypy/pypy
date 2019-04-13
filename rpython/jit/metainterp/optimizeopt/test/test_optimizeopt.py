@@ -6,7 +6,7 @@ from rpython.jit.metainterp.history import ConstInt, TreeLoop, ConstPtr
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import build_opt_chain
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    BaseTest, convert_old_style_to_targets, FakeMetaInterpStaticData)
+    BaseTest, convert_old_style_to_targets)
 from rpython.jit.metainterp.resoperation import (
     rop, opname, oparity, InputArgInt)
 
@@ -16,24 +16,16 @@ def test_build_opt_chain():
         names = [opt.__class__.__name__ for opt in chain]
         assert names == expected_names
     #
-    metainterp_sd = FakeMetaInterpStaticData(None)
-    chain, _ = build_opt_chain(metainterp_sd, "")
+    chain = build_opt_chain("")
     check(chain, ["OptSimplify"])
     #
-    chain, _ = build_opt_chain(metainterp_sd, "")
-    check(chain, ["OptSimplify"])
-    #
-    chain, _ = build_opt_chain(metainterp_sd, "")
-    check(chain, ["OptSimplify"])
-    #
-    chain, _ = build_opt_chain(metainterp_sd, "heap:intbounds")
+    chain = build_opt_chain("heap:intbounds")
     check(chain, ["OptIntBounds", "OptHeap", "OptSimplify"])
     #
-    chain, unroll = build_opt_chain(metainterp_sd, "unroll")
+    chain = build_opt_chain("unroll")
     check(chain, ["OptSimplify"])
-    assert unroll
     #
-    chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb")
+    chain = build_opt_chain("aaa:bbb")
     check(chain, ["OptSimplify"])
 
 

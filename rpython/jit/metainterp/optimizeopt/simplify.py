@@ -1,13 +1,8 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
-from rpython.jit.metainterp.history import TargetToken, JitCellToken
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 
 class OptSimplify(Optimization):
-    def __init__(self, unroll):
-        self.last_label_descr = None
-        self.unroll = unroll
-
     def emit(self, op):
         if op.is_guard():
             if self.optimizer.pendingfields is None:
@@ -47,30 +42,6 @@ class OptSimplify(Optimization):
 
     def optimize_RECORD_EXACT_CLASS(self, op):
         pass
-
-    # def optimize_LABEL(self, op):
-    #     if not self.unroll:
-    #         descr = op.getdescr()
-    #         if isinstance(descr, JitCellToken):
-    #             return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
-    #         self.last_label_descr = op.getdescr()
-    #     return self.emit(op)
-
-    # def optimize_JUMP(self, op):
-    #     if not self.unroll:
-    #         op = op.copy_and_change(op.getopnum())
-    #         descr = op.getdescr()
-    #         assert isinstance(descr, JitCellToken)
-    #         if not descr.target_tokens:
-    #             assert self.last_label_descr is not None
-    #             target_token = self.last_label_descr
-    #             assert isinstance(target_token, TargetToken)
-    #             assert target_token.targeting_jitcell_token is descr
-    #             op.setdescr(self.last_label_descr)
-    #         else:
-    #             assert len(descr.target_tokens) == 1
-    #             op.setdescr(descr.target_tokens[0])
-    #     return self.emit(op)
 
     def optimize_GUARD_FUTURE_CONDITION(self, op):
         self.optimizer.notice_guard_future_condition(op)
