@@ -256,7 +256,7 @@ def PyDateTime_FromTimestamp(space, w_args):
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def _PyDateTime_FromTimestamp(space, w_type, w_args, w_kwds):
     """Implementation of datetime.fromtimestamp that matches the signature for
-    PyDatetimeCAPI.DateTime_FromTimestamp
+    PyDateTimeCAPI.DateTime_FromTimestamp
     """
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
 
@@ -274,7 +274,7 @@ def PyDate_FromTimestamp(space, w_args):
 @cpython_api([PyObject, PyObject], PyObject)
 def _PyDate_FromTimestamp(space, w_type, w_args):
     """Implementation of date.fromtimestamp that matches the signature for
-    PyDatetimeCAPI.Date_FromTimestamp"""
+    PyDateTimeCAPI.Date_FromTimestamp"""
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
     return space.call(w_method, w_args)
 
