@@ -17,10 +17,25 @@ GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
 # Now the _subprocess module implementation
-
-def _WinError():
+def _WinError(type=WindowsError):
     code, message = _ffi.getwinerror()
-    raise WindowsError(code, message)
+    excep = type(None, message, None ,code)
+    raise excep
+
+# In CPython this function converts a windows error into a python object
+# Not sure what we should do here.
+def SetFromWindowsErr(err):
+    if err == 0:
+       err = _kernel32.GetLastError()
+
+    if err == ERROR_CONNECTION_REFUSED:
+        type = ConnectionRefusedError
+    elif err == ERROR_CONNECTION_ABORTED:
+        type = ConnectionAbortedError
+    else:
+        type = WindowsError
+
+    return _WinError(type)
 
 def _int2handle(val):
     return _ffi.cast("HANDLE", val)
@@ -32,25 +47,25 @@ _INVALID_HANDLE_VALUE = _int2handle(-1)
 
 def CreatePipe(attributes, size):
     handles = _ffi.new("HANDLE[2]")
-
+    
     res = _kernel32.CreatePipe(handles, handles + 1, NULL, size)
 
     if not res:
-        raise _WinError()
+        SetFromWindowsErr(0)
 
     return _handle2int(handles[0]), _handle2int(handles[1])
 
 def CreateNamedPipe(*args):
     handle = _kernel32.CreateNamedPipeW(*args)
     if handle == INVALID_HANDLE_VALUE:
-        raise _WinError()
-    return handle
+        SetFromWindowsErr(0)
+    return _handle2int(handle)
 
 def CreateFile(*args):
     handle = _kernel32.CreateFileW(*args)
     if handle == INVALID_HANDLE_VALUE:
-        raise _WinError()
-    return handle
+        SetFromWindowsErr(0)
+    return _handle2int(handle)
 
 def SetNamedPipeHandleState(namedpipe, mode, max_collection_count, collect_data_timeout):
     d0 = _ffi.new('DWORD[1]', [mode])
@@ -79,20 +94,20 @@ class Overlapped(object):
 
     def __del__(self):
         # do this somehow else
-        xxx
         err = _kernel32.GetLastError()
         bytes = _ffi.new('DWORD[1]')
-        o = overlapped[0]
-        if overlapped[0].pending:
+        o = self.overlapped[0]
+        if self.pending:
             if _kernel32.CancelIoEx(o.handle, o.overlapped) & \
                 self.GetOverlappedResult(o.handle, o.overlapped, _ffi.addressof(bytes), True):
                 # The operation is no longer pending, nothing to do
                 pass
             else:
-                raise RuntimeError('deleting an overlapped strucwith a pending operation not supported')
+                raise RuntimeError('deleting an overlapped struct with a pending operation not supported')
 
     @property
     def event(self):
+        xxx
         return None
 
     def GetOverlappedResult(self, wait):
@@ -110,8 +125,8 @@ class Overlapped(object):
         else:
             self.pending = 0
             raise _WinError()
-        if self.completed and self.read_buffer:
-            if transferred != len(self.read_buffer):
+        if self.completed and self.readbuffer:
+            if transferred != len(self.readbuffer):
                 raise _WinError()
         return transferred[0], err
 
@@ -125,6 +140,7 @@ class Overlapped(object):
 
  
 def ConnectNamedPipe(handle, overlapped=False):
+    handle = _int2handle(handle)
     if overlapped:
         ov = Overlapped(handle)
     else:
@@ -140,10 +156,10 @@ def ConnectNamedPipe(handle, overlapped=False):
             _kernel32.SetEvent(ov.overlapped[0].hEvent)
         else:
             del ov
-            raise _WinError()
+            SetFromWindowsErr(err)
         return ov
     elif not success:
-        raise _WinError()
+        SetFromWindowsErr(0)
 
 def GetCurrentProcess():
     return _handle2int(_kernel32.GetCurrentProcess())
@@ -217,6 +233,18 @@ def WaitForSingleObject(handle, milliseconds):
 
     return res
 
+def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
+    if len(handle_sequence) > MAXIMUM_WAIT_OBJECTS:
+        return None
+    
+    # CPython makes the wait interruptible by ctrl-c. We need to add this in at some point
+    res = _kernel32.WaitForMultipleObjects(len(handle_sequence), handle_sequence, waitflag, milliseconds)
+
+    if res == WAIT_FAILED:
+        raise _WinError()
+    return int(res)
+
+
 def GetExitCodeProcess(handle):
     # CPython: the first argument is expected to be an integer.
     code = _ffi.new("DWORD[1]")
@@ -260,6 +288,14 @@ def GetModuleFileName(module):
         raise _WinError()
     return _ffi.string(buf)
 
+ZERO_MEMORY = 0x00000008
+
+def malloc(size):
+    return _kernel32.HeapAlloc(_kernel32.GetProcessHeap(),ZERO_MEMORY,size)
+
+def free(voidptr):
+    _kernel32.HeapFree(_kernel32.GetProcessHeap(),0, voidptr)
+
 # #define macros from WinBase.h and elsewhere
 STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
@@ -272,6 +308,7 @@ INFINITE = 0xffffffff
 WAIT_OBJECT_0 = 0
 WAIT_ABANDONED_0 = 0x80
 WAIT_TIMEOUT = 0x102
+WAIT_FAILED = 0xFFFFFFFF
 CREATE_NEW_CONSOLE = 0x010
 CREATE_NEW_PROCESS_GROUP = 0x200
 CREATE_UNICODE_ENVIRONMENT = 0x400
@@ -281,11 +318,14 @@ _MAX_PATH = 260
 ERROR_SUCCESS           = 0
 ERROR_NETNAME_DELETED   = 64
 ERROR_BROKEN_PIPE       = 109
+ERROR_PIPE_BUSY         = 231 
 ERROR_MORE_DATA         = 234
 ERROR_PIPE_CONNECTED    = 535
 ERROR_OPERATION_ABORTED = 995
 ERROR_IO_INCOMPLETE     = 996
 ERROR_IO_PENDING        = 997
+ERROR_CONNECTION_REFUSED = 1225
+ERROR_CONNECTION_ABORTED = 1236
 
 PIPE_ACCESS_INBOUND = 0x00000001
 PIPE_ACCESS_OUTBOUND = 0x00000002
@@ -299,11 +339,13 @@ PIPE_TYPE_MESSAGE          = 0x00000004
 PIPE_ACCEPT_REMOTE_CLIENTS = 0x00000000
 PIPE_REJECT_REMOTE_CLIENTS = 0x00000008
 
+PIPE_UNLIMITED_INSTANCES = 255
+
 GENERIC_READ   =  0x80000000
 GENERIC_WRITE  =  0x40000000
 GENERIC_EXECUTE=  0x20000000
 GENERIC_ALL    =  0x10000000
-INVALID_HANDLE_VALUE = -1
+INVALID_HANDLE_VALUE = _int2handle(-1)
 FILE_FLAG_WRITE_THROUGH       =  0x80000000
 FILE_FLAG_OVERLAPPED          =  0x40000000
 FILE_FLAG_NO_BUFFERING        =  0x20000000
@@ -325,4 +367,6 @@ CREATE_ALWAYS     = 2
 OPEN_EXISTING     = 3
 OPEN_ALWAYS       = 4
 TRUNCATE_EXISTING = 5
+
+MAXIMUM_WAIT_OBJECTS = 64
 

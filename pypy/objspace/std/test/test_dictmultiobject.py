@@ -148,7 +148,7 @@ class TestW_DictObject(object):
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
-        assert self.space.listview_utf8(w_d) == ["a", "b"]
+        assert self.space.listview_ascii(w_d) == ["a", "b"]
 
     def test_listview_int_dict(self):
         w = self.space.wrap

@@ -1403,6 +1403,10 @@ class AppTestListObject(object):
         l1 = list(s)
         assert len(l1) == 1
 
+    def test_unicode_bug_in_listview_utf8(self):
+        l1 = list(u'\u1234\u2345')
+        assert l1 == [u'\u1234', '\u2345']
+
     def test_list_from_set(self):
         l = ['a']
         l.__init__(set('b'))

@@ -28,7 +28,7 @@ class TestUnicodeObject:
 
     def test_listview_unicode(self):
         w_str = self.space.newutf8('abcd', 4)
-        assert self.space.listview_utf8(w_str) == list("abcd")
+        assert self.space.listview_ascii(w_str) == list("abcd")
 
     def test_new_shortcut(self):
         space = self.space
@@ -225,6 +225,14 @@ class AppTestUnicodeString:
         raises(TypeError, ','.join, [b'a'])
         exc = raises(TypeError, ''.join, ['a', 2, 3])
         assert 'sequence item 1' in str(exc.value)
+        # unicode lists
+        check(''.join(['\u1234']), '\u1234')
+        check(''.join(['\u1234', '\u2345']), '\u1234\u2345')
+        check('\u1234'.join(['\u2345', '\u3456']), '\u2345\u1234\u3456')
+        # also checking passing a single unicode instead of a list
+        check(''.join('\u1234'), '\u1234')
+        check(''.join('\u1234\u2345'), '\u1234\u2345')
+        check('\u1234'.join('\u2345\u3456'), '\u2345\u1234\u3456')
 
     def test_contains(self):
         assert '' in 'abc'

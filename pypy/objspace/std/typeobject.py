@@ -821,8 +821,8 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     pos = surrogate_in_utf8(name)
     if pos >= 0:
-        raise oefmt(space.w_ValueError, "can't encode character %s in position "
-                    "%d, surrogates not allowed", name[pos], pos)
+        raise oefmt(space.w_ValueError, "can't encode character in position "
+                    "%d, surrogates not allowed", pos)
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
@@ -927,8 +927,8 @@ def descr_set__name__(space, w_type, w_value):
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     pos = surrogate_in_utf8(name)
     if pos >= 0:
-        raise oefmt(space.w_ValueError, "can't encode character %s in position "
-                    "%d, surrogates not allowed", name[pos], pos)
+        raise oefmt(space.w_ValueError, "can't encode character in position "
+                    "%d, surrogates not allowed", pos)
     w_type.name = name
 
 def descr_get__qualname__(space, w_type):
