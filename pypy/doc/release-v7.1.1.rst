@@ -90,6 +90,7 @@ Python 3.6 only
 * ``str.maketrans`` was broken (issue 2991_)
 * Raise a ``TypeError`` when using buffers and unicode such as ``''.strip(buffer)``
   and ``'a' < buffer``
+* Support ``_overlapped`` and asyncio on win32
 
 .. _2984: https://bitbucket.org/pypy/pypy/issues/2984
 .. _2991: https://bitbucket.org/pypy/pypy/issues/2991
