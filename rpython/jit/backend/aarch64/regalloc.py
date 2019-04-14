@@ -1,6 +1,7 @@
 
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.aarch64 import locations
+from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.aarch64.arch import WORD, JITFRAME_FIXED_SIZE
 
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat,
@@ -298,7 +299,7 @@ class Regalloc(BaseRegalloc):
         self.free_temp_vars()
         return [base_loc, value_loc]
 
-    def prepare_int_ri(self, op):
+    def prepare_int_ri(self, op, res_in_cc):
         boxes = op.getarglist()
         a0, a1 = boxes
         imm_a0 = check_imm_box(a0)
@@ -314,9 +315,12 @@ class Regalloc(BaseRegalloc):
             l1 = self.make_sure_var_in_reg(a1, boxes)
         self.possibly_free_vars_for_op(op)
         res = self.force_allocate_reg(op)
+        # note that we always allocate res, even if res_in_cc is True,
+        # that only means overflow is in CC
         return [l0, l1, res]
 
-    prepare_op_int_add = prepare_int_ri
+    def prepare_op_int_add(self, op):
+        return self.prepare_int_ri(op, False)
 
     def prepare_op_int_sub(self, op):
         boxes = op.getarglist()
@@ -332,6 +336,10 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
 
+    def prepare_comp_op_int_sub_ovf(self, op, res_in_cc):
+        # ignore res_in_cc
+        return self.prepare_op_int_sub(op)
+
     def prepare_op_int_mul(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes
@@ -344,6 +352,9 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         self.possibly_free_var(op)
         return [reg1, reg2, res]
+
+    def prepare_comp_op_int_mul_ovf(self, op, res_in_cc):
+        return self.prepare_op_int_mul(op)
 
     # some of those have forms of imm that they accept, but they're rather
     # obscure. Can be future optimization
@@ -470,10 +481,19 @@ class Regalloc(BaseRegalloc):
     prepare_guard_op_guard_true = guard_impl
     prepare_guard_op_guard_false = guard_impl
 
+    def prepare_guard_op_guard_overflow(self, guard_op, prev_op):
+        self.assembler.dispatch_comparison(prev_op)
+        # result in CC
+        if prev_op.opnum == rop.INT_MUL_OVF:
+            return self._guard_impl(guard_op), c.GT
+        return self._guard_impl(guard_op), c.VC
+    prepare_guard_op_guard_no_overflow = prepare_guard_op_guard_overflow
+
     prepare_op_guard_true = _guard_impl
     prepare_op_guard_false = _guard_impl
 
     prepare_op_nursery_ptr_increment = prepare_op_int_add
+    prepare_comp_op_int_add_ovf = prepare_int_ri
 
     def prepare_op_jump(self, op):
         assert self.jump_target_descr is None

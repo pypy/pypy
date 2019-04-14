@@ -606,7 +606,11 @@ class AssemblerARM64(ResOpAssembler):
                 regalloc.possibly_free_vars_for_op(op)
             elif not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
                 regalloc.prepare_force_spill(op)
-            elif i < len(operations) - 1 and regalloc.next_op_can_accept_cc(operations, i):
+            elif i < len(operations) - 1 and (regalloc.next_op_can_accept_cc(operations, i) or
+                                              operations[i].is_ovf()):
+                if operations[i].is_ovf():
+                    assert operations[i + 1].getopnum() in [rop.GUARD_OVERFLOW,
+                                                            rop.GUARD_NO_OVERFLOW]
                 guard_op = operations[i + 1]
                 guard_num = guard_op.getopnum()
                 arglocs, fcond = guard_operations[guard_num](regalloc, guard_op, op)

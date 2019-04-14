@@ -65,14 +65,14 @@ class AbstractAarch64Builder(object):
         assert 0 <= immed < 1 << 16
         self.write32((base << 21) | (immed << 5) | rd)
 
-    def ADD_ri(self, rd, rn, constant):
-        base = 0b1001000100
+    def ADD_ri(self, rd, rn, constant, s=0):
+        base = 0b1001000100 | (s << 7)
         assert 0 <= constant < 4096
         self.write32((base << 22) | (constant << 10) |
                      (rn << 5) | rd)
 
-    def SUB_ri(self, rd, rn, constant):
-        base = 0b1101000100
+    def SUB_ri(self, rd, rn, constant, s=0):
+        base = 0b1101000100 | (s << 7)
         assert 0 <= constant < 4096
         self.write32((base << 22) | (constant << 10) | (rn << 5) | rd)
 
@@ -106,12 +106,12 @@ class AbstractAarch64Builder(object):
         assert offset & 0x3 == 0
         self.write32((base << 24) | ((0x7ffff & (offset >> 2)) << 5) | rt)
 
-    def ADD_rr(self, rd, rn, rm):
-        base = 0b10001011000
+    def ADD_rr(self, rd, rn, rm, s=0):
+        base = 0b10001011000 | (s << 8)
         self.write32((base << 21) | (rm << 16) | (rn << 5) | (rd))
 
-    def SUB_rr(self, rd, rn, rm):
-        base = 0b11001011001
+    def SUB_rr(self, rd, rn, rm, s=0):
+        base = 0b11001011001 | (s << 8)
         self.write32((base << 21) | (rm << 16) | (0b11 << 13) | (rn << 5) | (rd))
 
     def SUB_rr_shifted(self, rd, rn, rm, shift=0):
@@ -150,6 +150,14 @@ class AbstractAarch64Builder(object):
     def MVN_rr(self, rd, rm):
         base = 0b10101010001
         self.write32((base << 21) | (rm << 16) | (0b11111 << 5)| rd)
+
+    def SMULL_rr(self, rd, rn, rm):
+        base = 0b10011011001
+        self.write32((base << 21) | (rm << 16) | (0b11111 << 10) | (rn << 5) | rd)
+
+    def SMULH_rr(self, rd, rn, rm):
+        base = 0b10011011010
+        self.write32((base << 21) | (rm << 16) | (0b11111 << 10) | (rn << 5) | rd)
 
     def CMP_rr(self, rn, rm):
         base = 0b11101011000

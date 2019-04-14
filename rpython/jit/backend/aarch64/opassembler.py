@@ -18,44 +18,54 @@ def gen_comp_op(name, flag):
     return emit_op
 
 class ResOpAssembler(BaseAssembler):
-    def emit_op_int_add(self, op, arglocs):
-        return self.int_add_impl(op, arglocs)
-
     def int_sub_impl(self, op, arglocs, flags=0):
         l0, l1, res = arglocs
         if flags:
-            xxx
             s = 1
         else:
             s = 0
         if l1.is_imm():
             value = l1.getint()
             assert value >= 0
-            self.mc.SUB_ri(res.value, l0.value, value)
+            self.mc.SUB_ri(res.value, l0.value, value, s)
         else:
-            self.mc.SUB_rr(res.value, l0.value, l1.value)
+            self.mc.SUB_rr(res.value, l0.value, l1.value, s)
 
     def emit_op_int_sub(self, op, arglocs):
         self.int_sub_impl(op, arglocs)
-
-    emit_op_nursery_ptr_increment = emit_op_int_add
 
     def int_add_impl(self, op, arglocs, ovfcheck=False):
         l0, l1, res = arglocs
         assert not l0.is_imm()
         if ovfcheck:
-            XXX
             s = 1
         else:
             s = 0
         if l1.is_imm():
-            self.mc.ADD_ri(res.value, l0.value, l1.value)
+            self.mc.ADD_ri(res.value, l0.value, l1.value, s)
         else:
-            self.mc.ADD_rr(res.value, l0.value, l1.value)
+            self.mc.ADD_rr(res.value, l0.value, l1.value, s)
+
+    def emit_op_int_add(self, op, arglocs):
+        self.int_add_impl(op, arglocs)
+    emit_op_nursery_ptr_increment = emit_op_int_add
+
+    def emit_comp_op_int_add_ovf(self, op, arglocs):
+        self.int_add_impl(op, arglocs, True)
+
+    def emit_comp_op_int_sub_ovf(self, op, arglocs):
+        self.int_sub_impl(op, arglocs, True)
 
     def emit_op_int_mul(self, op, arglocs):
         reg1, reg2, res = arglocs
         self.mc.MUL_rr(res.value, reg1.value, reg2.value)
+
+    def emit_comp_op_int_mul_ovf(self, op, arglocs):
+        reg1, reg2, res = arglocs
+        self.mc.MUL_rr(res.value, reg1.value, reg2.value)
+        xxx # what to do here?
+        self.mc.SMULH_rr(res.value, reg1.value, reg2.value)
+        self.mc.CMP_ri(r.ip0.value, 0)
 
     def emit_op_int_and(self, op, arglocs):
         l0, l1, res = arglocs
@@ -175,9 +185,11 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_guard_op_guard_true(self, guard_op, fcond, arglocs):
         self._emit_guard(guard_op, fcond, arglocs)
+    emit_guard_op_guard_no_overflow = emit_guard_op_guard_true
 
     def emit_guard_op_guard_false(self, guard_op, fcond, arglocs):
         self._emit_guard(guard_op, c.get_opposite_of(fcond), arglocs)
+    emit_guard_op_guard_overflow = emit_guard_op_guard_false
 
     def load_condition_into_cc(self, loc):
         if not loc.is_core_reg():
