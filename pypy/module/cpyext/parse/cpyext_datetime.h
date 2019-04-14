@@ -13,6 +13,10 @@ typedef struct {
         PyObject*, PyTypeObject*);
     PyObject *(*Time_FromTime)(int, int, int, int, PyObject*, PyTypeObject*);
     PyObject *(*Delta_FromDelta)(int, int, int, int, PyTypeObject*);
+
+    /* constructors for the DB API */
+    PyObject *(*DateTime_FromTimestamp)(PyObject*, PyObject*, PyObject*);
+    PyObject *(*Date_FromTimestamp)(PyObject*, PyObject*);
 } PyDateTime_CAPI;
 
 typedef struct

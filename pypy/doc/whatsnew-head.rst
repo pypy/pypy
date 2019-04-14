@@ -12,3 +12,7 @@ Fix typo
 .. branch: jit-cleanup
 
 Remove rpython.jit.metainterp.typesystem and clean up related code in rpython/jit/
+
+.. branch: datetime_api_27
+
+Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp``

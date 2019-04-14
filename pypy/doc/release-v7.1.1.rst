@@ -79,6 +79,7 @@ Changes shared across versions
   (issue 2988_)
 * Cleanup and refactor JIT code to remove ``rpython.jit.metainterp.typesystem``
 * Fix memoryviews of ctype structures with padding, (cpython issue 32780_)
+* CFFI updated to as-yet-unreleased 1.12.3
 
 Python 3.6 only
 
@@ -89,8 +90,12 @@ Python 3.6 only
 * ``str.maketrans`` was broken (issue 2991_)
 * Raise a ``TypeError`` when using buffers and unicode such as ``''.strip(buffer)``
   and ``'a' < buffer``
+* Support ``_overlapped`` and asyncio on win32
+* Fix an issue where ``''.join(list_of_strings)`` would rarely confuse utf8 and
+  bytes (issue 2997_)
 
 .. _2984: https://bitbucket.org/pypy/pypy/issues/2984
 .. _2991: https://bitbucket.org/pypy/pypy/issues/2991
 .. _2988: https://bitbucket.org/pypy/pypy/issues/2988
+.. _2997: https://bitbucket.org/pypy/pypy/issues/2997
 .. _32780: https://bugs.python.org/issue32780
