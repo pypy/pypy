@@ -102,10 +102,10 @@ def test_compile_loop():
     metainterp.history.trace = t
     #
     greenkey = 'faked'
-    target_token = compile_loop(metainterp, greenkey, (0, 0, 0),
-                                t.inputargs,
-                                [t._mapping[x] for x in loop.operations[-1].getarglist()],
-                                None)
+    target_token = compile_loop(
+        metainterp, greenkey, (0, 0, 0), t.inputargs,
+        [t._mapping[x] for x in loop.operations[-1].getarglist()],
+        use_unroll=False)
     jitcell_token = target_token.targeting_jitcell_token
     assert jitcell_token == target_token.original_jitcell_token
     assert jitcell_token.target_tokens == [target_token]

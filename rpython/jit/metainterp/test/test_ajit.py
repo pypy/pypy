@@ -9,6 +9,7 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.test.support import LLJitMixin, noConst
 from rpython.jit.metainterp.warmspot import get_stats
+from rpython.jit.metainterp.pyjitpl import MetaInterp
 from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
@@ -2883,10 +2884,11 @@ class BasicTests:
                 i += 1
             return i
         #
-        def my_optimize_trace(*args, **kwds):
-            raise InvalidLoop
-        old_optimize_trace = optimizeopt.optimize_trace
-        optimizeopt.optimize_trace = my_optimize_trace
+        def my_compile_loop(self, original_boxes, live_arg_boxes, start,
+                        try_disabling_unroll=False, exported_state=None):
+            return None
+        old_compile_loop = MetaInterp.compile_loop
+        MetaInterp.compile_loop = my_compile_loop
         try:
             res = self.meta_interp(f, [23, 4])
             assert res == 23
@@ -2898,13 +2900,11 @@ class BasicTests:
             self.check_trace_count(0)
             self.check_aborted_count(2)
         finally:
-            optimizeopt.optimize_trace = old_optimize_trace
+            MetaInterp.compile_loop = old_compile_loop
 
     def test_max_unroll_loops_retry_without_unroll(self):
         if not self.basic:
             py.test.skip("unrolling")
-        from rpython.jit.metainterp.optimize import InvalidLoop
-        from rpython.jit.metainterp import optimizeopt
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
         #
         def f(n, limit):
@@ -2918,19 +2918,19 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, jitdriver_sd, data, memo=None):
-            use_unrolling = ('unroll' in data.enable_opts)
-            seen.append(use_unrolling)
-            raise InvalidLoop
-        old_optimize_trace = optimizeopt.optimize_trace
-        optimizeopt.optimize_trace = my_optimize_trace
+        def my_compile_loop(self, original_boxes, live_arg_boxes, start,
+                        try_disabling_unroll=False, exported_state=None):
+            seen.append(try_disabling_unroll)
+            return None
+        old_compile_loop = MetaInterp.compile_loop
+        MetaInterp.compile_loop = my_compile_loop
         try:
             res = self.meta_interp(f, [23, 4])
             assert res == 23
             assert False in seen
             assert True in seen
         finally:
-            optimizeopt.optimize_trace = old_optimize_trace
+            MetaInterp.compile_loop = old_compile_loop
 
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',

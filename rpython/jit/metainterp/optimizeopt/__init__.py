@@ -31,9 +31,6 @@ ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
 assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
     'please fix rlib/jit.py to say ENABLE_ALL_OPTS = %r' % (ALL_OPTS_NAMES,))
 
-def use_unrolling(cpu, enable_opts):
-    return cpu.supports_guard_gc_type and 'unroll' in enable_opts
-
 def build_opt_chain(enable_opts):
     optimizations = []
     for name, opt in unroll_all_opts:

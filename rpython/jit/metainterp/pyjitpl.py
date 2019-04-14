@@ -2733,14 +2733,21 @@ class MetaInterp(object):
                                                    self.resumekey,
                                                    exported_state)
         else:
-            target_token = compile.compile_loop(self, greenkey, start,
-                                                original_boxes[num_green_args:],
-                                                live_arg_boxes[num_green_args:],
-                                     try_disabling_unroll=try_disabling_unroll)
+            use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
+                'unroll' in self.jitdriver_sd.warmstate.enable_opts)
+            if try_disabling_unroll:
+                if not use_unroll:
+                    return
+                use_unroll = False
+            target_token = compile.compile_loop(
+                self, greenkey, start, original_boxes[num_green_args:],
+                live_arg_boxes[num_green_args:], use_unroll=use_unroll)
             if target_token is not None:
                 assert isinstance(target_token, TargetToken)
-                self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
-                self.staticdata.stats.add_jitcell_token(target_token.targeting_jitcell_token)
+                self.jitdriver_sd.warmstate.attach_procedure_to_interp(
+                    greenkey, target_token.targeting_jitcell_token)
+                self.staticdata.stats.add_jitcell_token(
+                    target_token.targeting_jitcell_token)
 
         if target_token is not None: # raise if it *worked* correctly
             assert isinstance(target_token, TargetToken)
