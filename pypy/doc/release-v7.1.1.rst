@@ -71,8 +71,11 @@ Changelog
 Changes shared across versions:
 
 * Improve performance of ``u''.append``
+
 * Prevent a crash in ``zlib`` when flushing a closed stream
+
 * Fix a few corner cases when encountering unicode values above 0x110000
+
 * Teach the JIT how to handle very large constant lists, sets, or dicts
 * Fix building on ARM32 (issue 2984_)
 * Fix a bug in register assignment in ARM32
