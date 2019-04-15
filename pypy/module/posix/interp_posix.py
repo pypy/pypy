@@ -69,10 +69,10 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.bytesbuf0_w(self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
-        ret = self.space.fsdecode_w(self.w_obj)
+        ret = self.space.fsdecode_w(self.w_obj).decode('utf-8')
         if u'\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
