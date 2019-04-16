@@ -2582,9 +2582,12 @@ class MetaInterp(object):
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
                 self.history.trace.tracing_done()
-                target_token = self.compile_loop(
-                    original_boxes, live_arg_boxes, start,
-                    exported_state=self.exported_state)
+                if self.partial_trace:
+                    target_token = self.compile_retrace(
+                        original_boxes, live_arg_boxes, start)
+                else:
+                    target_token = self.compile_loop(
+                        original_boxes, live_arg_boxes, start)
                 self.raise_if_successful(live_arg_boxes, target_token)
                 self.exported_state = None
                 # creation of the loop was cancelled!
@@ -2721,36 +2724,30 @@ class MetaInterp(object):
         return token
 
     def compile_loop(self, original_boxes, live_arg_boxes, start,
-                     try_disabling_unroll=False, exported_state=None):
+                     try_disabling_unroll=False):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
-        if self.partial_trace:
-            return compile.compile_retrace(
-                self, greenkey, start, original_boxes[num_green_args:],
-                live_arg_boxes[num_green_args:], self.partial_trace,
-                self.resumekey, exported_state)
-        else:
-            ptoken = self.get_procedure_token(greenkey)
-            if ptoken is not None and ptoken.target_tokens is not None:
-                # XXX this path not tested, but shown to occur on pypy-c :-(
-                self.staticdata.log('cancelled: we already have a token now')
-                raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-            use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
-                'unroll' in self.jitdriver_sd.warmstate.enable_opts)
-            if try_disabling_unroll:
-                if not use_unroll:
-                    return
-                use_unroll = False
-            target_token = compile.compile_loop(
-                self, greenkey, start, original_boxes[num_green_args:],
-                live_arg_boxes[num_green_args:], use_unroll=use_unroll)
-            if target_token is not None:
-                assert isinstance(target_token, TargetToken)
-                self.jitdriver_sd.warmstate.attach_procedure_to_interp(
-                    greenkey, target_token.targeting_jitcell_token)
-                self.staticdata.stats.add_jitcell_token(
-                    target_token.targeting_jitcell_token)
-            return target_token
+        ptoken = self.get_procedure_token(greenkey)
+        if ptoken is not None and ptoken.target_tokens is not None:
+            # XXX this path not tested, but shown to occur on pypy-c :-(
+            self.staticdata.log('cancelled: we already have a token now')
+            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+        use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
+            'unroll' in self.jitdriver_sd.warmstate.enable_opts)
+        if try_disabling_unroll:
+            if not use_unroll:
+                return
+            use_unroll = False
+        target_token = compile.compile_loop(
+            self, greenkey, start, original_boxes[num_green_args:],
+            live_arg_boxes[num_green_args:], use_unroll=use_unroll)
+        if target_token is not None:
+            assert isinstance(target_token, TargetToken)
+            self.jitdriver_sd.warmstate.attach_procedure_to_interp(
+                greenkey, target_token.targeting_jitcell_token)
+            self.staticdata.stats.add_jitcell_token(
+                target_token.targeting_jitcell_token)
+        return target_token
 
     def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
                               start):
@@ -2766,6 +2763,14 @@ class MetaInterp(object):
         #
         self.staticdata.log('cancelled too many times!')
         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+
+    def compile_retrace(self, original_boxes, live_arg_boxes, start):
+        num_green_args = self.jitdriver_sd.num_green_args
+        greenkey = original_boxes[:num_green_args]
+        return compile.compile_retrace(
+            self, greenkey, start, original_boxes[num_green_args:],
+            live_arg_boxes[num_green_args:], self.partial_trace,
+            self.resumekey, self.exported_state)
 
     def compile_trace(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
