@@ -2526,6 +2526,14 @@ class MetaInterp(object):
             else:
                 duplicates[box] = None
 
+    def cancelled_too_many_times(self):
+        if self.staticdata.warmrunnerdesc:
+            memmgr = self.staticdata.warmrunnerdesc.memory_manager
+            if memmgr:
+                if self.cancel_count > memmgr.max_unroll_loops:
+                    return True
+        return False
+
     def reached_loop_header(self, greenboxes, redboxes):
         self.heapcache.reset() #reset_virtuals=False)
         #self.heapcache.reset_keep_likely_virtuals()
@@ -2585,20 +2593,27 @@ class MetaInterp(object):
                 if self.partial_trace:
                     target_token = self.compile_retrace(
                         original_boxes, live_arg_boxes, start)
+                    self.raise_if_successful(live_arg_boxes, target_token)
+                    # creation of the loop was cancelled!
+                    self.cancel_count += 1
+                    if self.cancelled_too_many_times():
+                        self.staticdata.log('cancelled too many times!')
+                        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
                 else:
                     target_token = self.compile_loop(
                         original_boxes, live_arg_boxes, start)
-                self.raise_if_successful(live_arg_boxes, target_token)
+                    self.raise_if_successful(live_arg_boxes, target_token)
+                    # creation of the loop was cancelled!
+                    self.cancel_count += 1
+                    if self.cancelled_too_many_times():
+                        target_token = self.compile_loop(
+                            original_boxes, live_arg_boxes, start,
+                            try_disabling_unroll=True)
+                        self.raise_if_successful(live_arg_boxes, target_token)
+                        #
+                        self.staticdata.log('cancelled too many times!')
+                        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
                 self.exported_state = None
-                # creation of the loop was cancelled!
-                self.cancel_count += 1
-                if self.staticdata.warmrunnerdesc:
-                    memmgr = self.staticdata.warmrunnerdesc.memory_manager
-                    if memmgr:
-                        if self.cancel_count > memmgr.max_unroll_loops:
-                            self.compile_loop_or_abort(original_boxes,
-                                                       live_arg_boxes,
-                                                       start)
                 self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
@@ -2748,21 +2763,6 @@ class MetaInterp(object):
             self.staticdata.stats.add_jitcell_token(
                 target_token.targeting_jitcell_token)
         return target_token
-
-    def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
-                              start):
-        """Called after we aborted more than 'max_unroll_loops' times.
-        As a last attempt, try to compile the loop with unrolling disabled.
-        """
-        if not self.partial_trace:
-            self.history.trace.tracing_done()
-            target_token = self.compile_loop(
-                original_boxes, live_arg_boxes, start,
-                try_disabling_unroll=True)
-            self.raise_if_successful(live_arg_boxes, target_token)
-        #
-        self.staticdata.log('cancelled too many times!')
-        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
 
     def compile_retrace(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.jitdriver_sd.num_green_args
