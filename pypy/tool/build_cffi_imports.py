@@ -7,6 +7,8 @@ class MissingDependenciesError(Exception):
 
 
 cffi_build_scripts = {
+    "_blake2": "_blake2/_blake2_build.py",
+    "_ssl": "_ssl_build.py",
     "sqlite3": "_sqlite3_build.py",
     "audioop": "_audioop_build.py",
     "tk": "_tkinter/tklib_build.py",
@@ -17,8 +19,6 @@ cffi_build_scripts = {
     "resource": "_resource_build.py" if sys.platform != "win32" else None,
     "lzma": "_lzma_build.py",
     "_decimal": "_decimal_build.py",
-    "_ssl": "_ssl_build.py",
-    "_blake2": "_blake2/_blake2_build.py",
     "_sha3": "_sha3/_sha3_build.py",
     "xx": None,    # for testing: 'None' should be completely ignored
     }
@@ -154,7 +154,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
     failures = []
 
-    for key, module in sorted(cffi_build_scripts.items()):
+    for key, module in cffi_build_scripts.items():
         if only and key not in only:
             print("* SKIPPING", key, '(not specified in --only)')
             continue
