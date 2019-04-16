@@ -77,7 +77,7 @@ def SetNamedPipeHandleState(namedpipe, mode, max_collection_count, collect_data_
         d2 = NULL
     else:
         d2 = _ffi.new('DWORD[1]', [collect_data_timeout])
-    ret = _kernel32.SetNamedPipeHandleState(namedpipe, d0, d1, d2)
+    ret = _kernel32.SetNamedPipeHandleState(_int2handle(namedpipe), d0, d1, d2)
     if not ret:
         raise _WinError()
 
@@ -225,6 +225,15 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
             pi.dwProcessId,
             pi.dwThreadId)
 
+def OpenProcess(desired_access, inherit_handle, process_id):
+
+    handle = _kernel32.OpenProcess(desired_access, inherit_handle, process_id)
+    if (handle == _ffi.NULL):
+        SetFromWindowsErr(0)
+        handle = INVALID_HANDLE_VALUE
+
+    return handle
+
 def WaitForSingleObject(handle, milliseconds):
     # CPython: the first argument is expected to be an integer.
     res = _kernel32.WaitForSingleObject(_int2handle(handle), milliseconds)
@@ -301,6 +310,7 @@ STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
 STD_ERROR_HANDLE = -12
 DUPLICATE_SAME_ACCESS = 2
+DUPLICATE_CLOSE_SOURCE = 1
 STARTF_USESTDHANDLES = 0x100
 STARTF_USESHOWWINDOW = 0x001
 SW_HIDE = 0
@@ -361,6 +371,26 @@ FILE_FLAG_FIRST_PIPE_INSTANCE =  0x00080000
 NMPWAIT_WAIT_FOREVER          =  0xffffffff
 NMPWAIT_NOWAIT                =  0x00000001
 NMPWAIT_USE_DEFAULT_WAIT      =  0x00000000
+
+FILE_READ_DATA = 1
+FILE_WRITE_DATA = 2
+FILE_APPEND_DATA = 4
+FILE_READ_EA = 8
+FILE_WRITE_EA = 16
+FILE_EXECUTE = 32
+FILE_READ_ATTRIBUTES = 128 
+FILE_WRITE_ATTRIBUTES = 256
+READ_CONTROL = 0x00020000
+SYNCHRONIZE = 0x00100000
+STANDARD_RIGHTS_EXECUTE = READ_CONTROL
+STANDARD_RIGHTS_READ = READ_CONTROL
+STANDARD_RIGHTS_WRITE = READ_CONTROL
+
+FILE_GENERIC_EXECUTE = FILE_EXECUTE | FILE_READ_ATTRIBUTES | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE
+FILE_GENERIC_READ = FILE_READ_ATTRIBUTES | FILE_READ_DATA | FILE_READ_EA | STANDARD_RIGHTS_READ | SYNCHRONIZE
+FILE_GENERIC_WRITE = FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_DATA | FILE_WRITE_EA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE
+
+PROCESS_DUP_HANDLE = 0x0040
 
 CREATE_NEW        = 1
 CREATE_ALWAYS     = 2
