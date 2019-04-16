@@ -2581,8 +2581,11 @@ class MetaInterp(object):
                         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
-                self.compile_loop(original_boxes, live_arg_boxes, start,
-                                  exported_state=self.exported_state)
+                self.history.trace.tracing_done()
+                target_token = self.compile_loop(
+                    original_boxes, live_arg_boxes, start,
+                    exported_state=self.exported_state)
+                self.raise_if_successful(live_arg_boxes, target_token)
                 self.exported_state = None
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
@@ -2656,6 +2659,12 @@ class MetaInterp(object):
             raise jitexc.DoneWithThisFrameFloat(res)
         raise AssertionError(kind)
 
+    def raise_if_successful(self, live_arg_boxes, target_token):
+        if target_token is not None: # raise if it *worked* correctly
+            assert isinstance(target_token, TargetToken)
+            jitcell_token = target_token.targeting_jitcell_token
+            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
         if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
@@ -2715,14 +2724,11 @@ class MetaInterp(object):
                      try_disabling_unroll=False, exported_state=None):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
-        self.history.trace.tracing_done()
         if self.partial_trace:
-            target_token = compile.compile_retrace(self, greenkey, start,
-                                                   original_boxes[num_green_args:],
-                                                   live_arg_boxes[num_green_args:],
-                                                   self.partial_trace,
-                                                   self.resumekey,
-                                                   exported_state)
+            return compile.compile_retrace(
+                self, greenkey, start, original_boxes[num_green_args:],
+                live_arg_boxes[num_green_args:], self.partial_trace,
+                self.resumekey, exported_state)
         else:
             ptoken = self.get_procedure_token(greenkey)
             if ptoken is not None and ptoken.target_tokens is not None:
@@ -2744,11 +2750,7 @@ class MetaInterp(object):
                     greenkey, target_token.targeting_jitcell_token)
                 self.staticdata.stats.add_jitcell_token(
                     target_token.targeting_jitcell_token)
-
-        if target_token is not None: # raise if it *worked* correctly
-            assert isinstance(target_token, TargetToken)
-            jitcell_token = target_token.targeting_jitcell_token
-            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+            return target_token
 
     def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
                               start):
@@ -2756,8 +2758,11 @@ class MetaInterp(object):
         As a last attempt, try to compile the loop with unrolling disabled.
         """
         if not self.partial_trace:
-            self.compile_loop(original_boxes, live_arg_boxes, start,
-                              try_disabling_unroll=True)
+            self.history.trace.tracing_done()
+            target_token = self.compile_loop(
+                original_boxes, live_arg_boxes, start,
+                try_disabling_unroll=True)
+            self.raise_if_successful(live_arg_boxes, target_token)
         #
         self.staticdata.log('cancelled too many times!')
         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
@@ -2781,10 +2786,7 @@ class MetaInterp(object):
         finally:
             self.history.cut(cut_at) # pop the jump
             self.history.ends_with_jump = False
-        if target_token is not None: # raise if it *worked* correctly
-            assert isinstance(target_token, TargetToken)
-            jitcell_token = target_token.targeting_jitcell_token
-            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+        self.raise_if_successful(live_arg_boxes, target_token)
 
     def compile_done_with_this_frame(self, exitbox):
         # temporarily put a JUMP to a pseudo-loop
