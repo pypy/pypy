@@ -84,7 +84,28 @@ def test_scripts():
     # test 3 : additionnal pypy parameters
     output = run(sys.executable, pypypath, '-S', "-O", tmpfilepath, "hello")
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
-    
+
+def test_optimize_removes_assert():
+    tmpfilepath = str(udir.join("test_assert.py"))
+    tmpfile = file(tmpfilepath, "w")
+    tmpfile.write("""
+try:
+    assert 0
+except AssertionError:
+    print("AssertionError")
+else:
+    print("nothing")
+""")
+    tmpfile.close()
+
+    # no optimization: crashes
+    output = run(sys.executable, pypypath, '-S', tmpfilepath)
+    assert "AssertionError" in output
+
+    # optimization: just works
+    output = run(sys.executable, pypypath, '-SO', tmpfilepath)
+    assert "nothing" in output
+
 
 TB_NORMALIZATION_CHK= """
 class K(object):
