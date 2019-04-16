@@ -36,8 +36,14 @@ if sys.platform == 'win32':
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def sem_unlink(name):
-        pass
+        return None
 
+    def semaphore_unlink(space, w_name):
+        name = space.text_w(w_name)
+        try:
+            sem_unlink(name)
+        except OSError as e:
+            raise wrap_oserror(space, e)
 else:
     from rpython.rlib import rposix
 
