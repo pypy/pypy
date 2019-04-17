@@ -138,6 +138,51 @@ class Overlapped(object):
         xxx
         return None
 
+
+def ReadFile(handle, size, overlapped):
+    nread = _ffi.new("DWORD*")
+    err = _ffi.new("DWORD*")
+    use_overlapped = overlapped
+    overlapped = None
+
+    buf = _ffi.new("CHAR[]", size)
+    if not buf:
+        return _ffi.NULL
+
+    if use_overlapped:
+        overlapped = Overlapped(handle)
+        if not overlapped:
+            return _ffi.NULL
+        overlapped.read_buffer = buf
+    
+    if overlapped:
+        ret = _kernel32.ReadFile(_int2handle(handle), buf, size, nread,
+                       overlapped.overlapped)
+    else:
+        ret = _kernel32.ReadFile(_int2handle(handle), buf, size, nread,
+                       _ffi.NULL)
+ 
+    if ret:
+        err = 0
+    else: 
+        err = _kernel32.GetLastError()
+
+    if overlapped:
+        if not ret:
+            if err == ERROR_IO_PENDING:
+                overlapped.pending = 1
+            elif err != ERROR_MORE_DATA:
+                # In CPython SetExcFromWindowsErr was called here
+                return SetFromWindowsErr(0)
+        return overlapped, err
+
+    if not ret and err != ERROR_MORE_DATA:
+        # In CPython SetExcFromWindowsErr was called here.
+        return PyErr_SetExcFromWindowsErr(0)
+    return buf, err
+
+
+
  
 def ConnectNamedPipe(handle, overlapped=False):
     handle = _int2handle(handle)
@@ -233,6 +278,38 @@ def OpenProcess(desired_access, inherit_handle, process_id):
         handle = INVALID_HANDLE_VALUE
 
     return handle
+
+def PeekNamedPipe(handle, size=0):
+    xxx
+    nread = _ffi.new("DWORD*")
+    navail = _ffi.new("DWORD*")
+    nleft = _ffi.new("DWORD*")
+
+    if size < 0:
+        raise ValueError("negative size")
+
+    if size:
+        buf = _ffi.new("CHAR[]", size)
+        if not buf:
+            return _ffi.NULL
+
+        ret = _kernel32.PeekNamedPipe(_int2handle(handle), buf, size, nread,
+                                      navail, nleft)
+        if not ret:
+            # In CPython SetExcFromWindowsErr is called here.
+            # Not sure what that is doing currently.
+            SetFromWindowsErr(0)
+
+ #       if (_PyBytes_Resize(&buf, nread))
+ #           return NULL;
+        return  buf, navail, nleft
+    else:
+        ret = _kernel32.PeekNamedPipe(_int2handle(handle), _ffi.NULL, 0, _ffi.NULL, navail, nleft)
+        if not ret:
+            # In CPython SetExcFromWindowsErr is called here.
+            # Not sure what that is doing currently.
+            SetFromWindowsErr(0)
+        return  navail, nleft
 
 def WaitForSingleObject(handle, milliseconds):
     # CPython: the first argument is expected to be an integer.
