@@ -485,7 +485,7 @@ class Regalloc(BaseRegalloc):
         self.assembler.dispatch_comparison(prev_op)
         # result in CC
         if prev_op.opnum == rop.INT_MUL_OVF:
-            return self._guard_impl(guard_op), c.GT
+            return self._guard_impl(guard_op), c.EQ
         return self._guard_impl(guard_op), c.VC
     prepare_guard_op_guard_no_overflow = prepare_guard_op_guard_overflow
 

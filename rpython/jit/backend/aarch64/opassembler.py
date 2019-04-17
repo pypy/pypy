@@ -62,10 +62,9 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_comp_op_int_mul_ovf(self, op, arglocs):
         reg1, reg2, res = arglocs
+        self.mc.SMULH_rr(r.ip0.value, reg1.value, reg2.value)
         self.mc.MUL_rr(res.value, reg1.value, reg2.value)
-        xxx # what to do here?
-        self.mc.SMULH_rr(res.value, reg1.value, reg2.value)
-        self.mc.CMP_ri(r.ip0.value, 0)
+        self.mc.CMP_rr_shifted(r.ip0.value, res.value, 63)
 
     def emit_op_int_and(self, op, arglocs):
         l0, l1, res = arglocs
