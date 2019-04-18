@@ -16,3 +16,7 @@ Remove rpython.jit.metainterp.typesystem and clean up related code in rpython/ji
 .. branch: datetime_api_27
 
 Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp``
+
+.. branch: issue2968
+
+Fix segfault in cpyext_tp_new_tupl
