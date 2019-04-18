@@ -382,7 +382,7 @@ class W_UnicodeObject(W_Root):
                                 "or unicode")
             try:
                 builder.append_code(codepoint)
-            except ValueError:
+            except rutf8.OutOfRange:
                 raise oefmt(space.w_TypeError,
                             "character mapping must be in range(0x110000)")
         return self.from_utf8builder(builder)
