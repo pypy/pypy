@@ -93,6 +93,7 @@ class Overlapped(object):
                 _kernel32.CreateEventW(NULL, True, False, NULL)
 
     def __del__(self):
+        print("Deleting overlapped")
         # do this somehow else
         err = _kernel32.GetLastError()
         bytes = _ffi.new('DWORD[1]')
@@ -107,12 +108,14 @@ class Overlapped(object):
 
     @property
     def event(self):
+        print("Event")
         xxx
         return None
 
     def GetOverlappedResult(self, wait):
+        print("Get overlapped result")
         transferred = _ffi.new('DWORD[1]', [0])
-        res = _kernel32.GetOverlappedResult(self.handle, self.overlapped, transferred, wait != 0)
+        res = _kernel32.GetOverlappedResult(_int2handle(self.handle), self.overlapped, transferred, wait != 0)
         if res:
             err = ERROR_SUCCESS
         else:
@@ -128,18 +131,22 @@ class Overlapped(object):
         if self.completed and self.readbuffer:
             if transferred != len(self.readbuffer):
                 raise _WinError()
+        print("Leaving getoverlappedresult")
         return transferred[0], err
 
     def getbuffer(self):
+        print("getbuffer")
         xxx
         return None
 
     def cancel(self):
+        print("cancel")
         xxx
         return None
 
 
 def ReadFile(handle, size, overlapped):
+    print("ReadFile entered")
     nread = _ffi.new("DWORD*")
     err = _ffi.new("DWORD*")
     use_overlapped = overlapped
@@ -166,7 +173,7 @@ def ReadFile(handle, size, overlapped):
         err = 0
     else: 
         err = _kernel32.GetLastError()
-
+    print("Error {0}".format(err))
     if overlapped:
         if not ret:
             if err == ERROR_IO_PENDING:
@@ -182,9 +189,11 @@ def ReadFile(handle, size, overlapped):
     return buf, err
 
 
-
+def WriteFile():
+    xxx
  
 def ConnectNamedPipe(handle, overlapped=False):
+    print("Connecting named pipe")
     handle = _int2handle(handle)
     if overlapped:
         ov = Overlapped(handle)
@@ -211,6 +220,7 @@ def GetCurrentProcess():
 
 def DuplicateHandle(source_process, source, target_process, access, inherit, options=0):
     # CPython: the first three arguments are expected to be integers
+    print("DuplicateHandle")
     target = _ffi.new("HANDLE[1]")
 
     res = _kernel32.DuplicateHandle(
@@ -221,7 +231,8 @@ def DuplicateHandle(source_process, source, target_process, access, inherit, opt
 
     if not res:
         raise _WinError()
-
+    
+    print("Leaving DuplicateHandle")
     return _handle2int(target[0])
 
 def _Z(input):
@@ -271,16 +282,16 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
             pi.dwThreadId)
 
 def OpenProcess(desired_access, inherit_handle, process_id):
-
+    print("OpenProcess")
     handle = _kernel32.OpenProcess(desired_access, inherit_handle, process_id)
-    if (handle == _ffi.NULL):
+    if handle == _ffi.NULL:
         SetFromWindowsErr(0)
         handle = INVALID_HANDLE_VALUE
 
-    return handle
+    return _handle2int(handle)
 
 def PeekNamedPipe(handle, size=0):
-    xxx
+    print("Entering Peek Named Pipe")
     nread = _ffi.new("DWORD*")
     navail = _ffi.new("DWORD*")
     nleft = _ffi.new("DWORD*")
@@ -302,6 +313,7 @@ def PeekNamedPipe(handle, size=0):
 
  #       if (_PyBytes_Resize(&buf, nread))
  #           return NULL;
+        print("Leaving print named pipe")
         return  buf, navail, nleft
     else:
         ret = _kernel32.PeekNamedPipe(_int2handle(handle), _ffi.NULL, 0, _ffi.NULL, navail, nleft)
@@ -309,17 +321,20 @@ def PeekNamedPipe(handle, size=0):
             # In CPython SetExcFromWindowsErr is called here.
             # Not sure what that is doing currently.
             SetFromWindowsErr(0)
+        print("Leaving print named pipe")
         return  navail, nleft
 
 def WaitForSingleObject(handle, milliseconds):
+    print("Entering waitforsingle object")
     # CPython: the first argument is expected to be an integer.
     res = _kernel32.WaitForSingleObject(_int2handle(handle), milliseconds)
     if res < 0:
         raise _WinError()
-
+    print("leavng waitforsingle object")
     return res
 
 def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
+    print("Entering waitformultipleobjects")
     if len(handle_sequence) > MAXIMUM_WAIT_OBJECTS:
         return None
     
@@ -328,6 +343,7 @@ def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
 
     if res == WAIT_FAILED:
         raise _WinError()
+    print("leaving waitformultipleobjects")
     return int(res)
 
 
@@ -343,6 +359,7 @@ def GetExitCodeProcess(handle):
     return code[0]
 
 def TerminateProcess(handle, exitcode):
+    print("Terminating process")
     # CPython: the first argument is expected to be an integer.
     # The second argument is silently wrapped in a UINT.
     res = _kernel32.TerminateProcess(_int2handle(handle),
