@@ -575,14 +575,7 @@ def encode(space, w_obj, encoding=None, errors=None):
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
-    w_retval =  _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
-    if not space.isinstance_w(w_retval, space.w_bytes):
-        raise oefmt(space.w_TypeError,
-                    "'%s' encoder returned '%T' instead of 'bytes'; "
-                    "use codecs.encode() to encode to arbitrary types",
-                    encoding,
-                    w_retval)
-    return w_retval
+    return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
 
 @unwrap_spec(errors='text_or_none')
 def readbuffer_encode(space, w_data, errors='strict'):
@@ -604,14 +597,7 @@ def decode(space, w_obj, encoding=None, errors=None):
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
-    w_retval = _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
-    if not isinstance(w_retval, W_UnicodeObject):
-        raise oefmt(space.w_TypeError,
-                    "'%s' decoder returned '%T' instead of 'str'; "
-                    "use codecs.decode() to decode to arbitrary types",
-                    encoding,
-                    w_retval)
-    return w_retval
+    return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 @unwrap_spec(errors='text')
 def register_error(space, errors, w_handler):

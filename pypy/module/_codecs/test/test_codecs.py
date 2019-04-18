@@ -1386,7 +1386,7 @@ class AppTestPartialEvaluation:
                      "foo\udca5bar")
         assert ("foo\udca5bar".encode("iso-8859-3", "surrogateescape") == 
                          b"foo\xa5bar")
-    
+
     def test_warn_escape_decode(self):
         import warnings
         import codecs
@@ -1399,5 +1399,31 @@ class AppTestPartialEvaluation:
         assert len(l) == 2
         assert isinstance(l[0].message, DeprecationWarning)
 
+    def test_invalid_type_errors(self):
+        # hex is not a text encoding. it works via the codecs functions, but
+        # not the methods
+        import codecs
+        res = codecs.decode(b"aabb", "hex")
+        assert res == b"\xaa\xbb"
+        res = codecs.decode(u"aabb", "hex")
+        assert res == b"\xaa\xbb"
+        res = codecs.encode(b"\xaa\xbb", "hex")
+        assert res == b"aabb"
 
+        raises(LookupError, u"abc".encode, "hex")
 
+    def test_non_text_codec(self):
+        import _codecs
+        def search_function(encoding):
+            def f(input, errors="strict"):
+                return 52, len(input)
+            if encoding == 'test.mynontextenc':
+                return (f, f, None, None)
+            return None
+        _codecs.register(search_function)
+        res = _codecs.encode(u"abc", "test.mynontextenc")
+        assert res == 52
+        res = _codecs.decode(b"abc", "test.mynontextenc")
+        assert res == 52
+        raises(TypeError, u"abc".encode, "test.mynontextenc")
+        raises(TypeError, b"abc".decode, "test.mynontextenc")
