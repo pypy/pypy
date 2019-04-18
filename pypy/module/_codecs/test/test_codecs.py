@@ -1394,10 +1394,11 @@ class AppTestPartialEvaluation:
         with warnings.catch_warnings(record=True) as l:
             warnings.simplefilter("always")
             codecs.unicode_escape_decode(b'\\A')
-            codecs.unicode_escape_decode(b"\\A")
+            codecs.unicode_escape_decode(b"\\" + b"\xff")
 
         assert len(l) == 2
         assert isinstance(l[0].message, DeprecationWarning)
+        assert isinstance(l[1].message, DeprecationWarning)
 
     def test_invalid_type_errors(self):
         # hex is not a text encoding. it works via the codecs functions, but
