@@ -16,6 +16,7 @@ _kernel32 = _ffi.dlopen('kernel32')
 GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
+
 # Now the _subprocess module implementation
 def _WinError(type=WindowsError):
     code, message = _ffi.getwinerror()
@@ -109,8 +110,7 @@ class Overlapped(object):
     @property
     def event(self):
         print("Event")
-        xxx
-        return None
+        return _handle2int(self.overlapped[0].hEvent)
 
     def GetOverlappedResult(self, wait):
         print("Get overlapped result")
@@ -119,7 +119,8 @@ class Overlapped(object):
         if res:
             err = ERROR_SUCCESS
         else:
-            err = GetLastError()
+            err = _kernel32.GetLastError()
+        print("error {0}".format(err))
         if err in (ERROR_SUCCESS, ERROR_MORE_DATA, ERROR_OPERATION_ABORTED):
             self.completed = 1
             self.pending = 0
@@ -136,12 +137,20 @@ class Overlapped(object):
 
     def getbuffer(self):
         print("getbuffer")
-        xxx
-        return None
+        if not self.completed:
+            raise ValueError("can't get read buffer before GetOverlappedResult() "
+                        "signals the operation completed")
+        return self.readbuffer
 
     def cancel(self):
         print("cancel")
-        xxx
+        ret = True
+        if self.pending:
+            ret = _kernel32.CancelIoEx(_int2handle(self.handle), self.overlapped)
+        if not ret and _kernel32.GetLastError() != ERROR_NOT_FOUND:
+            # In CPython SetExcFromWindowsErr is called here.
+            SetFromWindowsErr(0)
+        self.pending = 0
         return None
 
 
@@ -160,7 +169,7 @@ def ReadFile(handle, size, overlapped):
         overlapped = Overlapped(handle)
         if not overlapped:
             return _ffi.NULL
-        overlapped.read_buffer = buf
+        overlapped.readbuffer = buf
     
     if overlapped:
         ret = _kernel32.ReadFile(_int2handle(handle), buf, size, nread,
@@ -185,12 +194,46 @@ def ReadFile(handle, size, overlapped):
 
     if not ret and err != ERROR_MORE_DATA:
         # In CPython SetExcFromWindowsErr was called here.
-        return PyErr_SetExcFromWindowsErr(0)
+        return SetFromWindowsErr(0)
     return buf, err
 
+def WriteFile(handle, buffer, overlapped=False):
+    written = _ffi.new("DWORD*")
+    err = _ffi.new("DWORD*")
+    use_overlapped = overlapped
+    overlapped = None
 
-def WriteFile():
-    xxx
+    if use_overlapped:
+        overlapped = Overlapped(handle)
+        if not overlapped:
+            return _ffi.NULL
+        overlapped.writebuffer = _ffi.new("CHAR[]", bytes(buffer))
+        buf = overlapped.writebuffer
+    else:
+        buf = _ffi.new("CHAR[]", bytes(buffer))
+    
+    ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, overlapped.overlapped)
+
+    if ret:
+        err = 0
+    else: 
+        err = _kernel32.GetLastError()
+
+    if overlapped:
+        if not ret:
+            if err == ERROR_IO_PENDING:
+                overlapped.pending = 1
+            elif err != ERROR_MORE_DATA:
+                # In CPython SetExcFromWindowsErr was called here
+                return SetFromWindowsErr(0)
+        return overlapped, err
+
+    if not ret:
+        # In CPython SetExcFromWindowsErr was called here.
+        return PyErr_SetExcFromWindowsErr(0)
+    print("written {0}, len(buf) {1}".format(written, len(buf)))
+    return written, err
+
  
 def ConnectNamedPipe(handle, overlapped=False):
     print("Connecting named pipe")
