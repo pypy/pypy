@@ -94,7 +94,6 @@ class Overlapped(object):
                 _kernel32.CreateEventW(NULL, True, False, NULL)
 
     def __del__(self):
-        print("Deleting overlapped")
         # do this somehow else
         err = _kernel32.GetLastError()
         bytes = _ffi.new('DWORD[1]')
@@ -109,18 +108,16 @@ class Overlapped(object):
 
     @property
     def event(self):
-        print("Event")
         return _handle2int(self.overlapped[0].hEvent)
 
     def GetOverlappedResult(self, wait):
-        print("Get overlapped result")
         transferred = _ffi.new('DWORD[1]', [0])
-        res = _kernel32.GetOverlappedResult(_int2handle(self.handle), self.overlapped, transferred, wait != 0)
+        res = _kernel32.GetOverlappedResult(_int2handle(self.handle), self.overlapped, transferred, wait)
         if res:
             err = ERROR_SUCCESS
         else:
             err = _kernel32.GetLastError()
-        print("error {0}".format(err))
+
         if err in (ERROR_SUCCESS, ERROR_MORE_DATA, ERROR_OPERATION_ABORTED):
             self.completed = 1
             self.pending = 0
@@ -128,22 +125,24 @@ class Overlapped(object):
             pass
         else:
             self.pending = 0
-            raise _WinError()
+            raise _WinError(IOError)
+
         if self.completed and self.readbuffer:
-            if transferred != len(self.readbuffer):
-                raise _WinError()
-        print("Leaving getoverlappedresult")
+            assert _ffi.typeof(self.readbuffer) is _ffi.typeof("CHAR[]")
+            if transferred[0] != len(self.readbuffer):
+                tempbuffer = _ffi.new("CHAR[]", transferred[0])
+                _ffi.memmove(tempbuffer, self.readbuffer, transferred[0])
+                self.readbuffer = tempbuffer
+                return None
         return transferred[0], err
 
     def getbuffer(self):
-        print("getbuffer")
         if not self.completed:
             raise ValueError("can't get read buffer before GetOverlappedResult() "
                         "signals the operation completed")
         return self.readbuffer
 
     def cancel(self):
-        print("cancel")
         ret = True
         if self.pending:
             ret = _kernel32.CancelIoEx(_int2handle(self.handle), self.overlapped)
@@ -155,7 +154,6 @@ class Overlapped(object):
 
 
 def ReadFile(handle, size, overlapped):
-    print("ReadFile entered")
     nread = _ffi.new("DWORD*")
     err = _ffi.new("DWORD*")
     use_overlapped = overlapped
@@ -182,19 +180,16 @@ def ReadFile(handle, size, overlapped):
         err = 0
     else: 
         err = _kernel32.GetLastError()
-    print("Error {0}".format(err))
     if overlapped:
         if not ret:
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
             elif err != ERROR_MORE_DATA:
-                # In CPython SetExcFromWindowsErr was called here
-                return SetFromWindowsErr(0)
+                return _WinError(IOError)
         return overlapped, err
 
     if not ret and err != ERROR_MORE_DATA:
-        # In CPython SetExcFromWindowsErr was called here.
-        return SetFromWindowsErr(0)
+        return _WinError(IOError)
     return buf, err
 
 def WriteFile(handle, buffer, overlapped=False):
@@ -224,19 +219,22 @@ def WriteFile(handle, buffer, overlapped=False):
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
             elif err != ERROR_MORE_DATA:
-                # In CPython SetExcFromWindowsErr was called here
-                return SetFromWindowsErr(0)
+                return _WinError(IOError)
+
+        assert written == len(overlapped.writebuffer)
         return overlapped, err
 
     if not ret:
-        # In CPython SetExcFromWindowsErr was called here.
-        return PyErr_SetExcFromWindowsErr(0)
-    print("written {0}, len(buf) {1}".format(written, len(buf)))
+        return _WinError(IOError)
+     
+    # The whole of the buffer should have been written
+    # otherwise this function call has been be successful
+    assert written == len(buf)
+
     return written, err
 
  
 def ConnectNamedPipe(handle, overlapped=False):
-    print("Connecting named pipe")
     handle = _int2handle(handle)
     if overlapped:
         ov = Overlapped(handle)
@@ -263,7 +261,6 @@ def GetCurrentProcess():
 
 def DuplicateHandle(source_process, source, target_process, access, inherit, options=0):
     # CPython: the first three arguments are expected to be integers
-    print("DuplicateHandle")
     target = _ffi.new("HANDLE[1]")
 
     res = _kernel32.DuplicateHandle(
@@ -275,7 +272,6 @@ def DuplicateHandle(source_process, source, target_process, access, inherit, opt
     if not res:
         raise _WinError()
     
-    print("Leaving DuplicateHandle")
     return _handle2int(target[0])
 
 def _Z(input):
@@ -325,7 +321,6 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
             pi.dwThreadId)
 
 def OpenProcess(desired_access, inherit_handle, process_id):
-    print("OpenProcess")
     handle = _kernel32.OpenProcess(desired_access, inherit_handle, process_id)
     if handle == _ffi.NULL:
         SetFromWindowsErr(0)
@@ -334,7 +329,6 @@ def OpenProcess(desired_access, inherit_handle, process_id):
     return _handle2int(handle)
 
 def PeekNamedPipe(handle, size=0):
-    print("Entering Peek Named Pipe")
     nread = _ffi.new("DWORD*")
     navail = _ffi.new("DWORD*")
     nleft = _ffi.new("DWORD*")
@@ -356,7 +350,6 @@ def PeekNamedPipe(handle, size=0):
 
  #       if (_PyBytes_Resize(&buf, nread))
  #           return NULL;
-        print("Leaving print named pipe")
         return  buf, navail, nleft
     else:
         ret = _kernel32.PeekNamedPipe(_int2handle(handle), _ffi.NULL, 0, _ffi.NULL, navail, nleft)
@@ -364,29 +357,25 @@ def PeekNamedPipe(handle, size=0):
             # In CPython SetExcFromWindowsErr is called here.
             # Not sure what that is doing currently.
             SetFromWindowsErr(0)
-        print("Leaving print named pipe")
         return  navail, nleft
 
 def WaitForSingleObject(handle, milliseconds):
-    print("Entering waitforsingle object")
     # CPython: the first argument is expected to be an integer.
     res = _kernel32.WaitForSingleObject(_int2handle(handle), milliseconds)
     if res < 0:
         raise _WinError()
-    print("leavng waitforsingle object")
     return res
 
 def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
-    print("Entering waitformultipleobjects")
     if len(handle_sequence) > MAXIMUM_WAIT_OBJECTS:
         return None
-    
+    handle_sequence = list(map(_int2handle, handle_sequence))
+    handle_sequence = _ffi.new("HANDLE[]", handle_sequence)
     # CPython makes the wait interruptible by ctrl-c. We need to add this in at some point
     res = _kernel32.WaitForMultipleObjects(len(handle_sequence), handle_sequence, waitflag, milliseconds)
 
     if res == WAIT_FAILED:
         raise _WinError()
-    print("leaving waitformultipleobjects")
     return int(res)
 
 
@@ -402,7 +391,6 @@ def GetExitCodeProcess(handle):
     return code[0]
 
 def TerminateProcess(handle, exitcode):
-    print("Terminating process")
     # CPython: the first argument is expected to be an integer.
     # The second argument is silently wrapped in a UINT.
     res = _kernel32.TerminateProcess(_int2handle(handle),
