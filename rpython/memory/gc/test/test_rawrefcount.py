@@ -598,6 +598,7 @@ class TestRawRefCount(BaseDirectGCTest):
 
         # quick self check, if traverse works properly
         dests_by_source = {}
+        weakrefs_added = []
         for e in g.get_edges():
             source = nodes[e.get_source()]
             dest = nodes[e.get_destination()]
@@ -607,9 +608,11 @@ class TestRawRefCount(BaseDirectGCTest):
                 if not dests_by_source.has_key(source):
                     dests_by_source[source] = []
                 if weakref:
-                    wrs = self.pyobj_weakrefs[self.pyobjs.index(source.r)]
-                    # currently only one weakref supported
-                    dests_by_source[source].append(wrs[0].r)
+                    if source not in weakrefs_added: # add all weakrefs at once
+                        weakrefs_added.append(source)
+                        wrs = self.pyobj_weakrefs[self.pyobjs.index(source.r)]
+                        for wr in wrs:
+                            dests_by_source[source].append(wr.r)
                 else:
                     dests_by_source[source].append(dest.r)
         for source in dests_by_source:
