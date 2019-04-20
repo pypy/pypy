@@ -30,21 +30,34 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gcobjs = []
         self.pyobjs = []
         self.pyobj_refs = []
+        self.pyobj_weakrefs = []
         self.pyobj_finalizer = {}
         self.pyobj_finalized = {}
         self.pyobj_resurrect = {}
         self.pyobj_delete = {}
+        self.is_pygc = []
 
         def rawrefcount_tp_traverse(obj, callback, args):
             refs = self.pyobj_refs[self.pyobjs.index(obj)]
+            weakrefs = self.pyobj_weakrefs[self.pyobjs.index(obj)]
             for ref in refs:
                 callback(ref, args)
+            for weakref in weakrefs:
+                callback(weakref.r, args)
 
         def rawrefcount_gc_as_pyobj(gc):
-            return self.pyobjs[self.gcobjs.index(gc)]
+            index = self.gcobjs.index(gc)
+            if self.is_pygc[index]:
+                return self.pyobjs[index]
+            else:
+                assert False
 
         def rawrefcount_pyobj_as_gc(pyobj):
-            return self.gcobjs[self.pyobjs.index(pyobj)]
+            index = self.pyobjs.index(pyobj)
+            if self.is_pygc[index]:
+                return self.gcobjs[index]
+            else:
+                return lltype.nullptr(PYOBJ_GC_HDR)
 
         def rawrefcount_finalizer_type(gc):
             pyobj = self.pyobjs[self.gcobjs.index(gc)]
@@ -56,6 +69,15 @@ class TestRawRefCount(BaseDirectGCTest):
             else:
                 return RAWREFCOUNT_FINALIZER_NONE
 
+        def rawrefcount_clear_wr(gc):
+            cleared = False
+            for weakrefs in self.pyobj_weakrefs:
+                for weakref in weakrefs:
+                    if gc._obj.container == weakref.p._obj:
+                        weakref.callback_cleared = True
+                        cleared = True
+            assert cleared
+
         self.pyobj_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
                                         immortal=True)
         self.pyobj_list.c_gc_next = self.pyobj_list
@@ -65,7 +87,8 @@ class TestRawRefCount(BaseDirectGCTest):
                                  llmemory.cast_ptr_to_adr(self.pyobj_list),
                                  rawrefcount_gc_as_pyobj,
                                  rawrefcount_pyobj_as_gc,
-                                 rawrefcount_finalizer_type)
+                                 rawrefcount_finalizer_type,
+                                 rawrefcount_clear_wr)
 
     def _collect(self, major, expected_trigger=0):
         if major:
@@ -82,6 +105,11 @@ class TestRawRefCount(BaseDirectGCTest):
         refs = self.pyobj_refs[self.pyobjs.index(pyobj_from)]
         refs.append(pyobj_to)
         pyobj_to.c_ob_refcnt += 1
+
+    def _rawrefcount_addweakref(self, pyobj_from, weakref):
+        refs = self.pyobj_weakrefs[self.pyobjs.index(pyobj_from)]
+        refs.append(weakref)
+        weakref.r.c_ob_refcnt += 1
 
     def _rawrefcount_add_resurrect(self, pyobj_source, pyobj_target):
         refs = self.pyobj_resurrect[self.pyobjs.index(pyobj_source)] = []
@@ -109,23 +137,26 @@ class TestRawRefCount(BaseDirectGCTest):
 
         return p1, p1ref, check_alive
 
-    def _rawrefcount_pyobj(self, create_immortal=False):
+    def _rawrefcount_pyobj(self, create_immortal=False, is_gc=True):
         r1 = lltype.malloc(PYOBJ_HDR, flavor='raw',
                            immortal=create_immortal)
         r1.c_ob_refcnt = 0
         r1.c_ob_pypy_link = 0
         r1addr = llmemory.cast_ptr_to_adr(r1)
 
-        r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
-                             immortal=True)
-        r1gc.c_gc_next = self.pyobj_list
-        r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
-        r1gc.c_gc_prev.c_gc_next = r1gc
-        self.pyobj_list.c_gc_prev = r1gc
+        if is_gc:
+            r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
+                                 immortal=True)
+            r1gc.c_gc_next = self.pyobj_list
+            r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
+            r1gc.c_gc_prev.c_gc_next = r1gc
+            self.pyobj_list.c_gc_prev = r1gc
+            self.gcobjs.append(r1gc)
 
-        self.gcobjs.append(r1gc)
         self.pyobjs.append(r1)
+        self.is_pygc.append(is_gc)
         self.pyobj_refs.append([])
+        self.pyobj_weakrefs.append([])
 
         def check_alive(extra_refcount):
             assert r1.c_ob_refcnt == extra_refcount
@@ -134,7 +165,7 @@ class TestRawRefCount(BaseDirectGCTest):
 
     def _rawrefcount_pair(self, intval, is_light=False, is_pyobj=False,
                           create_old=False, create_immortal=False,
-                          rooted=False, force_external=False):
+                          rooted=False, force_external=False, is_gc=True):
         if is_light:
             rc = REFCNT_FROM_PYPY_LIGHT
         else:
@@ -166,16 +197,19 @@ class TestRawRefCount(BaseDirectGCTest):
         r1.c_ob_pypy_link = 0
         r1addr = llmemory.cast_ptr_to_adr(r1)
 
-        r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
-                             immortal=True)
-        r1gc.c_gc_next = self.pyobj_list
-        r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
-        r1gc.c_gc_prev.c_gc_next = r1gc
-        self.pyobj_list.c_gc_prev = r1gc
+        if is_gc:
+            r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
+                                 immortal=True)
+            r1gc.c_gc_next = self.pyobj_list
+            r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
+            r1gc.c_gc_prev.c_gc_next = r1gc
+            self.pyobj_list.c_gc_prev = r1gc
+            self.gcobjs.append(r1gc)
 
-        self.gcobjs.append(r1gc)
         self.pyobjs.append(r1)
+        self.is_pygc.append(is_gc)
         self.pyobj_refs.append([])
+        self.pyobj_weakrefs.append([])
 
         if is_pyobj:
             assert not is_light
@@ -457,6 +491,20 @@ class TestRawRefCount(BaseDirectGCTest):
                 self.delete = delete
                 self.garbage = garbage
 
+        class WeakrefNode(BorderNode):
+            def __init__(self, p, pref, r, raddr, check_alive, info, r_dest,
+                         callback, clear_callback):
+                self.p = p
+                self.pref = pref
+                self.r = r
+                self.raddr = raddr
+                self.check_alive = check_alive
+                self.info = info
+                self.r_dest = r_dest
+                self.callback = callback
+                self.clear_callback = clear_callback
+                self.callback_cleared = False
+
         path = os.path.join(self.dot_dir, file)
         g = pydot.graph_from_dot_file(path)[0]
         nodes = {}
@@ -501,17 +549,33 @@ class TestRawRefCount(BaseDirectGCTest):
         for e in g.get_edges():
             source = nodes[e.get_source()]
             dest = nodes[e.get_destination()]
+            attr = e.obj_dict['attributes']
+            weakref = attr['weakref'] == "y" if 'weakref' in attr else False
+            callback = attr['callback'] == "y" if 'callback' in attr else False
+            clear_callback = attr['clear_callback'] == "y" \
+                if 'clear_callback' in attr else False
             if source.info.type == "C" or dest.info.type == "C":
-                self._rawrefcount_addref(source.r, dest.r)
-                if source.info.alive:
-                    dest.info.ext_refcnt += 1
+                if weakref:
+                    # only weakrefs from C objects supported in tests
+                    assert source.info.type == "C"
+                    p, pref, r, raddr, check_alive = \
+                        self._rawrefcount_pair(42 + i, rooted=False,
+                                               create_old=True, is_gc=False)
+                    weakref = WeakrefNode(p, pref, r, raddr, check_alive, info,
+                                          dest.r, callback, clear_callback)
+                    self._rawrefcount_addweakref(source.r, weakref)
+                    i += 1
+                else:
+                    self._rawrefcount_addref(source.r, dest.r)
+                    if source.info.alive:
+                        dest.info.ext_refcnt += 1
             elif source.info.type == "P" or dest.info.type == "P":
                 if llmemory.cast_ptr_to_adr(source.p.next) == llmemory.NULL:
                     source.p.next = dest.p
                 elif llmemory.cast_ptr_to_adr(source.p.prev) == llmemory.NULL:
                     source.p.prev = dest.p
                 else:
-                    assert False  # only 2 refs supported from pypy obj
+                    assert False # only 2 refs supported from pypy obj in tests
 
         # add finalizers
         for name in nodes:
@@ -538,10 +602,17 @@ class TestRawRefCount(BaseDirectGCTest):
         for e in g.get_edges():
             source = nodes[e.get_source()]
             dest = nodes[e.get_destination()]
+            attr = e.obj_dict['attributes']
+            weakref = attr['weakref'] == "y" if 'weakref' in attr else False
             if source.info.type == "C" or dest.info.type == "C":
                 if not dests_by_source.has_key(source):
                     dests_by_source[source] = []
-                dests_by_source[source].append(dest.r)
+                if weakref:
+                    wrs = self.pyobj_weakrefs[self.pyobjs.index(source.r)]
+                    # currently only one weakref supported
+                    dests_by_source[source].append(wrs[0].r)
+                else:
+                    dests_by_source[source].append(dest.r)
         for source in dests_by_source:
             dests_target = dests_by_source[source]
             def append(pyobj, ignore):
@@ -613,8 +684,12 @@ class TestRawRefCount(BaseDirectGCTest):
 
                 def clear(pyobj_to, pyobj_from):
                     refs = self.pyobj_refs[self.pyobjs.index(pyobj_from)]
-                    refs.remove(pyobj_to)
-                    decref(pyobj_to, None)
+                    weakrefs = self.pyobj_weakrefs[self.pyobjs.index(pyobj_from)]
+                    if pyobj_to in refs:
+                        refs.remove(pyobj_to)
+                        decref(pyobj_to, None)
+                    else:
+                        pass # weakref
 
                 self.gc.rrc_tp_traverse(pyobj, clear, pyobj)
 
@@ -666,6 +741,14 @@ class TestRawRefCount(BaseDirectGCTest):
                     py.test.raises(RuntimeError, "n.p.x")  # dead
                 else:
                     py.test.raises(RuntimeError, "n.r.c_ob_refcnt")  # dead
+
+        # check if all callbacks from weakrefs from cyclic garbage structures,
+        # which should not be called because they could ressurrect dead
+        # objects, have been cleared and no other callbacks were cleared; see:
+        # https://github.com/python/cpython/blob/master/Modules/gc_weakref.txt
+        for weakrefs in self.pyobj_weakrefs:
+            for weakref in weakrefs:
+                assert weakref.callback_cleared == weakref.clear_callback
 
         # check if unreachable objects in cyclic structures with legacy
         # finalizers and all otherwise unreachable objects reachable from them
