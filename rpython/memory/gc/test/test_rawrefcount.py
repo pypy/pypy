@@ -76,7 +76,6 @@ class TestRawRefCount(BaseDirectGCTest):
                     if gc._obj.container == weakref.p._obj:
                         weakref.callback_cleared = True
                         cleared = True
-            assert cleared
 
         self.pyobj_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
                                         immortal=True)
