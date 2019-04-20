@@ -442,18 +442,40 @@ class AssemblerARM64(ResOpAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
 
+    def _reload_frame_if_necessary(self, mc):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            YYY
+            rst = gcrootmap.get_root_stack_top_addr()
+            mc.gen_load_int(r.ip.value, rst)
+            self.load_reg(mc, r.ip, r.ip)
+            self.load_reg(mc, r.fp, r.ip, ofs=-WORD)
+        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+        if gcrootmap and wbdescr:
+            YYY
+            # frame never uses card marking, so we enforce this is not
+            # an array
+            self._write_barrier_fastpath(mc, wbdescr, [r.fp], array=False,
+                                         is_frame=True)
+
     def generate_quick_failure(self, guardtok):
         startpos = self.mc.currpos()
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         self.load_from_gc_table(r.ip0.value, faildescrindex)
         self.store_reg(self.mc, r.ip0, r.fp, WORD)
-        self.push_gcmap(self.mc, gcmap=guardtok.gcmap, ofs=0)
+        self.push_gcmap(self.mc, gcmap=guardtok.gcmap)
         self.mc.BL(target)
         return startpos
 
-    def push_gcmap(self, mc, gcmap, ofs):
+    def push_gcmap(self, mc, gcmap):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         ptr = rffi.cast(lltype.Signed, gcmap)
         mc.gen_load_int(r.ip0.value, ptr)
+        self.store_reg(mc, r.ip0, r.fp, ofs)
+
+    def pop_gcmap(self, mc):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.gen_load_int(r.ip0.value, 0)
         self.store_reg(mc, r.ip0, r.fp, ofs)
 
     def write_pending_failure_recoveries(self):

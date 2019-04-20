@@ -2,6 +2,7 @@
 from rpython.jit.metainterp.history import (AbstractFailDescr, ConstInt,
                                             INT, FLOAT, REF)
 from rpython.jit.backend.aarch64 import registers as r
+from rpython.jit.backend.aarch64.callbuilder import Aarch64CallBuilder
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.aarch64.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
@@ -189,6 +190,44 @@ class ResOpAssembler(BaseAssembler):
     def emit_guard_op_guard_false(self, guard_op, fcond, arglocs):
         self._emit_guard(guard_op, c.get_opposite_of(fcond), arglocs)
     emit_guard_op_guard_overflow = emit_guard_op_guard_false
+
+    def _genop_call(self, op, arglocs):
+        return self._emit_call(op, arglocs)
+    emit_op_call_i = _genop_call
+    emit_op_call_r = _genop_call
+    emit_op_call_f = _genop_call
+    emit_op_call_n = _genop_call
+
+    def _emit_call(self, op, arglocs, is_call_release_gil=False):
+        # args = [resloc, size, sign, args...]
+        from rpython.jit.backend.llsupport.descr import CallDescr
+
+        func_index = 3 + is_call_release_gil
+        cb = Aarch64CallBuilder(self, arglocs[func_index],
+                                arglocs[func_index+1:], arglocs[0])
+
+        descr = op.getdescr()
+        assert isinstance(descr, CallDescr)
+        cb.callconv = descr.get_call_conv()
+        cb.argtypes = descr.get_arg_types()
+        cb.restype  = descr.get_result_type()
+        sizeloc = arglocs[1]
+        assert sizeloc.is_imm()
+        cb.ressize = sizeloc.value
+        signloc = arglocs[2]
+        assert signloc.is_imm()
+        cb.ressign = signloc.value
+
+        if is_call_release_gil:
+            saveerrloc = arglocs[3]
+            assert saveerrloc.is_imm()
+            cb.emit_call_release_gil(saveerrloc.value)
+        else:
+            effectinfo = descr.get_extra_info()
+            if effectinfo is None or effectinfo.check_can_collect():
+                cb.emit()
+            else:
+                cb.emit_no_collect()
 
     def load_condition_into_cc(self, loc):
         if not loc.is_core_reg():

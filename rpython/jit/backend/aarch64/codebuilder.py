@@ -203,9 +203,14 @@ class AbstractAarch64Builder(object):
         self.write32((base << 24) | (imm << 5) | cond)
 
     def BL(self, target):
+        # XXX use the IMM version if close enough
         target = rffi.cast(lltype.Signed, target)
         self.gen_load_int_full(r.ip0.value, target)
-        self.BR(r.ip0.value)
+        self.BLR(r.ip0.value)
+
+    def BLR(self, reg):
+        base = 0b1101011000111111000000
+        self.write32((base << 10) | (reg << 5))
 
     def BR(self, reg):
         base = 0b1101011000011111000000

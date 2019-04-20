@@ -17,6 +17,8 @@ from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
 from rpython.jit.backend.aarch64.locations import imm
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+from rpython.jit.backend.llsupport.descr import CallDescr
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 
 
@@ -80,6 +82,8 @@ class ARMRegisterManager(RegisterManager):
                                     forbidden_vars, selected_reg)
 
 
+
+
 class VFPRegisterManager(ARMRegisterManager):
     all_regs = r.all_vfp_regs
     box_types = [FLOAT]
@@ -93,14 +97,6 @@ class VFPRegisterManager(ARMRegisterManager):
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
-
-    def after_call(self, v):
-        """ Adjust registers according to the result of the call,
-        which is in variable v.
-        """
-        self._check_type(v)
-        reg = self.force_allocate_reg(v, selected_reg=r.d0)
-        return reg
 
     def get_scratch_reg(self, type=FLOAT, forbidden_vars=[], selected_reg=None):
         assert type == FLOAT  # for now
@@ -122,7 +118,7 @@ class CoreRegisterManager(ARMRegisterManager):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
     def call_result_location(self, v):
-        return r.r0
+        return r.x0
 
     def convert_to_imm(self, c):
         if isinstance(c, ConstInt):
@@ -413,6 +409,92 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_is_zero = prepare_unary
     prepare_op_int_neg = prepare_unary
     prepare_op_int_invert = prepare_unary
+
+    def _prepare_op_call(self, op):
+        calldescr = op.getdescr()
+        assert calldescr is not None
+        effectinfo = calldescr.get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex in (EffectInfo.OS_LLONG_ADD,
+                            EffectInfo.OS_LLONG_SUB,
+                            EffectInfo.OS_LLONG_AND,
+                            EffectInfo.OS_LLONG_OR,
+                            EffectInfo.OS_LLONG_XOR):
+                if self.cpu.cpuinfo.neon:
+                    args = self._prepare_llong_binop_xx(op, fcond)
+                    self.perform_extra(op, args, fcond)
+                    return
+            elif oopspecindex == EffectInfo.OS_LLONG_TO_INT:
+                args = self._prepare_llong_to_int(op, fcond)
+                self.perform_extra(op, args, fcond)
+                return
+            elif oopspecindex == EffectInfo.OS_MATH_SQRT:
+                args = self._prepare_op_math_sqrt(op, fcond)
+                self.perform_extra(op, args, fcond)
+                return
+            elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+                args = self._prepare_threadlocalref_get(op, fcond)
+                self.perform_extra(op, args, fcond)
+                return
+            #elif oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
+            #    ...
+        return self._prepare_call(op)
+
+    prepare_op_call_i = _prepare_op_call
+    prepare_op_call_r = _prepare_op_call
+    prepare_op_call_f = _prepare_op_call
+    prepare_op_call_n = _prepare_op_call
+
+    def _prepare_call(self, op, save_all_regs=False, first_arg_index=1):
+        args = [None] * (op.numargs() + 3)
+        calldescr = op.getdescr()
+        assert isinstance(calldescr, CallDescr)
+        assert len(calldescr.arg_classes) == op.numargs() - first_arg_index
+
+        for i in range(op.numargs()):
+            args[i + 3] = self.loc(op.getarg(i))
+
+        size = calldescr.get_result_size()
+        sign = calldescr.is_result_signed()
+        if sign:
+            sign_loc = imm(1)
+        else:
+            sign_loc = imm(0)
+        args[1] = imm(size)
+        args[2] = sign_loc
+
+        effectinfo = calldescr.get_extra_info()
+        if save_all_regs:
+            gc_level = 2
+        elif effectinfo is None or effectinfo.check_can_collect():
+            gc_level = 1
+        else:
+            gc_level = 0
+
+        args[0] = self._call(op, args, gc_level)
+        return args
+
+    def _call(self, op, arglocs, gc_level):
+        # spill variables that need to be saved around calls:
+        # gc_level == 0: callee cannot invoke the GC
+        # gc_level == 1: can invoke GC, save all regs that contain pointers
+        # gc_level == 2: can force, save all regs
+        save_all_regs = gc_level == 2
+        self.vfprm.before_call(save_all_regs=save_all_regs)
+        if gc_level == 1 and self.cpu.gc_ll_descr.gcrootmap:
+            save_all_regs = 2
+        self.rm.before_call(save_all_regs=save_all_regs)
+        resloc = self.after_call(op)
+        return resloc
+
+    def after_call(self, v):
+        if v.type == 'v':
+            return
+        if v.type == FLOAT:
+            return self.vfprm.after_call(v)
+        else:
+            return self.rm.after_call(v)
 
     def prepare_op_label(self, op):
         descr = op.getdescr()
