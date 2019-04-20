@@ -17,6 +17,9 @@ GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
 
+def GetLastError():
+    return _kernel32.GetLastError()
+
 # Now the _subprocess module implementation
 def _WinError(type=WindowsError):
     code, message = _ffi.getwinerror()
@@ -99,12 +102,12 @@ class Overlapped(object):
         bytes = _ffi.new('DWORD[1]')
         o = self.overlapped[0]
         if self.pending:
-            if _kernel32.CancelIoEx(o.handle, o.overlapped) & \
-                self.GetOverlappedResult(o.handle, o.overlapped, _ffi.addressof(bytes), True):
+            if _kernel32.CancelIoEx(_int2handle(self.handle), self.overlapped) and \
+                _kernel32.GetOverlappedResult(_int2handle(self.handle), self.overlapped, bytes, True):
                 # The operation is no longer pending, nothing to do
                 pass
-            else:
-                raise RuntimeError('deleting an overlapped struct with a pending operation not supported')
+            #else:
+                #raise RuntimeError('deleting an overlapped struct with a pending operation not supported')
 
     @property
     def event(self):
@@ -133,22 +136,20 @@ class Overlapped(object):
                 tempbuffer = _ffi.new("CHAR[]", transferred[0])
                 _ffi.memmove(tempbuffer, self.readbuffer, transferred[0])
                 self.readbuffer = tempbuffer
-                return None
         return transferred[0], err
 
     def getbuffer(self):
         if not self.completed:
             raise ValueError("can't get read buffer before GetOverlappedResult() "
                         "signals the operation completed")
-        return self.readbuffer
+        return _ffi.buffer(self.readbuffer)
 
     def cancel(self):
         ret = True
         if self.pending:
             ret = _kernel32.CancelIoEx(_int2handle(self.handle), self.overlapped)
         if not ret and _kernel32.GetLastError() != ERROR_NOT_FOUND:
-            # In CPython SetExcFromWindowsErr is called here.
-            SetFromWindowsErr(0)
+            return _WinError(IOError)
         self.pending = 0
         return None
 
@@ -202,12 +203,15 @@ def WriteFile(handle, buffer, overlapped=False):
         overlapped = Overlapped(handle)
         if not overlapped:
             return _ffi.NULL
-        overlapped.writebuffer = _ffi.new("CHAR[]", bytes(buffer))
+        overlapped.writebuffer = bytes(buffer)
         buf = overlapped.writebuffer
     else:
         buf = _ffi.new("CHAR[]", bytes(buffer))
     
-    ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, overlapped.overlapped)
+    if use_overlapped:
+        ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, overlapped.overlapped)
+    else:
+        ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, _ffi.NULL)
 
     if ret:
         err = 0
@@ -220,8 +224,6 @@ def WriteFile(handle, buffer, overlapped=False):
                 overlapped.pending = 1
             elif err != ERROR_MORE_DATA:
                 return _WinError(IOError)
-
-        assert written == len(overlapped.writebuffer)
         return overlapped, err
 
     if not ret:
@@ -229,9 +231,9 @@ def WriteFile(handle, buffer, overlapped=False):
      
     # The whole of the buffer should have been written
     # otherwise this function call has been be successful
-    assert written == len(buf)
+    assert written[0] == len(buf)
 
-    return written, err
+    return written[0], err
 
  
 def ConnectNamedPipe(handle, overlapped=False):
@@ -348,16 +350,17 @@ def PeekNamedPipe(handle, size=0):
             # Not sure what that is doing currently.
             SetFromWindowsErr(0)
 
+        assert nread == len(buf)
  #       if (_PyBytes_Resize(&buf, nread))
  #           return NULL;
-        return  buf, navail, nleft
+        return  buf, navail[0], nleft[0]
     else:
         ret = _kernel32.PeekNamedPipe(_int2handle(handle), _ffi.NULL, 0, _ffi.NULL, navail, nleft)
         if not ret:
             # In CPython SetExcFromWindowsErr is called here.
             # Not sure what that is doing currently.
             SetFromWindowsErr(0)
-        return  navail, nleft
+        return  navail[0], nleft[0]
 
 def WaitForSingleObject(handle, milliseconds):
     # CPython: the first argument is expected to be an integer.
@@ -365,6 +368,14 @@ def WaitForSingleObject(handle, milliseconds):
     if res < 0:
         raise _WinError()
     return res
+
+
+def WaitNamedPipe(namedpipe, milliseconds):
+    namedpipe = _ffi.new("CHAR[]", namedpipe.encode("ascii", "ignore"))
+    res = _kernel32.WaitNamedPipeA(namedpipe, milliseconds)
+    if res < 0:
+        raise SetFromWindowsErr(0)
+
 
 def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
     if len(handle_sequence) > MAXIMUM_WAIT_OBJECTS:
@@ -453,14 +464,18 @@ _MAX_PATH = 260
 ERROR_SUCCESS           = 0
 ERROR_NETNAME_DELETED   = 64
 ERROR_BROKEN_PIPE       = 109
-ERROR_PIPE_BUSY         = 231 
+ERROR_SEM_TIMEOUT       = 121
+ERROR_PIPE_BUSY         = 231
+ERROR_NO_DATA           = 232 
 ERROR_MORE_DATA         = 234
 ERROR_PIPE_CONNECTED    = 535
 ERROR_OPERATION_ABORTED = 995
 ERROR_IO_INCOMPLETE     = 996
 ERROR_IO_PENDING        = 997
+ERROR_NOT_FOUND          = 1168
 ERROR_CONNECTION_REFUSED = 1225
 ERROR_CONNECTION_ABORTED = 1236
+
 
 PIPE_ACCESS_INBOUND = 0x00000001
 PIPE_ACCESS_OUTBOUND = 0x00000002
