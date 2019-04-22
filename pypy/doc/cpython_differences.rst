@@ -95,7 +95,9 @@ can't do something really different if there are cycles or not.
 There are a few extra implications from the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
 than once in PyPy; but CPython will call the same ``__del__`` several times
-if the object is resurrected and dies again.  The ``__del__`` methods are
+if the object is resurrected and dies again (at least it is reliably so in
+older CPythons; newer CPythons try to call destructors not more than once,
+but there are counter-examples).  The ``__del__`` methods are
 called in "the right" order if they are on objects pointing to each
 other, as in CPython, but unlike CPython, if there is a dead cycle of
 objects referencing each other, their ``__del__`` methods are called anyway;

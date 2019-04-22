@@ -728,6 +728,7 @@ class AppTestUnicodeString:
 
         raises(TypeError, 'hello'.translate)
         raises(ValueError, "\xff".translate, {0xff: sys.maxunicode+1})
+        raises(TypeError, u'x'.translate, {ord('x'):0x110000})
 
     def test_maketrans(self):
         assert 'abababc' == 'abababc'.translate({'b': '<i>'})
