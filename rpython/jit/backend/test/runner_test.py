@@ -542,8 +542,10 @@ class BaseBackendTest(Runner):
             return chr(ord(c) + ord(c1))
 
         functions = [
-            (func_int, lltype.Signed, types.sint, 655360, 655360),
-            (func_int, lltype.Signed, types.sint, 655360, -293999429),
+            (func_int, lltype.Signed, types.slong, 655360, 655360),
+            (func_int, lltype.Signed, types.slong, 655360, -293999429),
+            (func_int, rffi.INT, types.sint, 655360, 655360),
+            (func_int, rffi.INT, types.sint, 655360, -293999429),
             (func_int, rffi.SHORT, types.sint16, 1213, 1213),
             (func_int, rffi.SHORT, types.sint16, 1213, -12020),
             (func_char, lltype.Char, types.uchar, 12, 12),
