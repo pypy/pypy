@@ -717,9 +717,22 @@ class AssemblerARM64(ResOpAssembler):
         else:
             XXX
 
+    def _mov_imm_to_loc(self, prev_loc, loc):
+        assert loc.is_core_reg()
+        self.mc.gen_load_int(loc.value, prev_loc.value)
+
     def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         return StackLocation(i, get_fp_offset(base_ofs, i), tp)
+
+    def mov_loc_to_raw_stack(self, loc, pos):
+        if loc.is_core_reg():
+            self.mc.STR_ri(loc.value, r.sp.value, pos)
+        elif loc.is_stack():
+            self.mc.LDR_ri(r.ip0.value, r.fp.value, loc.value)
+            self.mc.STR_ri(r.ip0.value, r.sp.value, pos)
+        else:
+            assert False, "wrong loc"
 
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""
@@ -733,8 +746,6 @@ class AssemblerARM64(ResOpAssembler):
             self._mov_imm_float_to_loc(prev_loc, loc)
         elif prev_loc.is_vfp_reg():
             self._mov_vfp_reg_to_loc(prev_loc, loc)
-        elif prev_loc.is_raw_sp():
-            self._mov_raw_sp_to_loc(prev_loc, loc)
         else:
             assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov
