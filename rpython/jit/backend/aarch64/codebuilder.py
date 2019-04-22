@@ -10,6 +10,14 @@ from rpython.tool.udir import udir
 PC_OFFSET = 0 # XXX
 
 class AbstractAarch64Builder(object):
+    # just copied some values from https://gist.github.com/dinfuehr/51a01ac58c0b23e4de9aac313ed6a06a
+    immr_imms = {
+        32: (0b111011, 0b000000),
+        56: (0b111101, 0b000010),
+        48: (0b111100, 0b000001),
+        16: (0b111100, 0b000000),
+    }
+
     def write32(self, word):
         self.writechar(chr(word & 0xFF))
         self.writechar(chr((word >> 8) & 0xFF))
@@ -135,9 +143,19 @@ class AbstractAarch64Builder(object):
         base = 0b10011010110
         self.write32((base << 21) | (rm << 16) | (0b001000 << 10) | (rn << 5) | rd)
 
+    def LSL_ri(self, rd, rn, shift):
+        immr, imms = self.immr_imms[shift]
+        base = 0b1101001101
+        self.write32((base << 22) | (immr << 16) | (imms << 10) | (rn << 5) | rd)
+
     def ASR_rr(self, rd, rn, rm):
         base = 0b10011010110
         self.write32((base << 21) | (rm << 16) | (0b001010 << 10) | (rn << 5) | rd)
+
+    def ASR_ri(self, rd, rn, shift):
+        immr, imms = self.immr_imms[shift]
+        base = 0b1001001101
+        self.write32((base << 22) | (immr << 16) | (imms << 10) | (rn << 5) | rd)
 
     def LSR_rr(self, rd, rn, rm):
         base = 0b10011010110
