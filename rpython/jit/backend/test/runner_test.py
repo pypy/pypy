@@ -709,6 +709,7 @@ class BaseBackendTest(Runner):
         shortdescr = self.cpu.fielddescrof(self.S, 'short')
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(250)],
                                'void', descr=fielddescr2)
+
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(133)],
                                'void', descr=fielddescr1)
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(1331)],

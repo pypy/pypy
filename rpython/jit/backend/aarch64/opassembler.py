@@ -5,8 +5,10 @@ from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.aarch64.callbuilder import Aarch64CallBuilder
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.aarch64.arch import JITFRAME_FIXED_SIZE
+from rpython.jit.backend.aarch64.locations import imm
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+from rpython.jit.backend.llsupport.regalloc import get_scale
 from rpython.jit.metainterp.history import TargetToken
 
 def gen_comp_op(name, flag):
@@ -152,6 +154,69 @@ class ResOpAssembler(BaseAssembler):
         self.mc.ADD_ri(value_loc.value, value_loc.value, 1)
         self.mc.STR_ri(value_loc.value, base_loc.value, 0)
 
+    # -------------------------------- fields -------------------------------
+
+    def emit_op_gc_store(self, op, arglocs):
+        value_loc, base_loc, ofs_loc, size_loc = arglocs
+        scale = get_scale(size_loc.value)
+        self._write_to_mem(value_loc, base_loc, ofs_loc, imm(scale))
+
+    def _emit_op_gc_load(self, op, arglocs):
+        base_loc, ofs_loc, res_loc, nsize_loc = arglocs
+        nsize = nsize_loc.value
+        signed = (nsize < 0)
+        scale = get_scale(abs(nsize))
+        self._load_from_mem(res_loc, base_loc, ofs_loc, imm(scale), signed)
+
+    emit_op_gc_load_i = _emit_op_gc_load
+    emit_op_gc_load_r = _emit_op_gc_load
+    emit_op_gc_load_f = _emit_op_gc_load
+
+    def _write_to_mem(self, value_loc, base_loc, ofs_loc, scale):
+        # Write a value of size '1 << scale' at the address
+        # 'base_ofs + ofs_loc'.  Note that 'scale' is not used to scale
+        # the offset!
+        assert base_loc.is_core_reg()
+        if scale.value == 3:
+            # WORD size
+            if ofs_loc.is_imm():
+                self.mc.STR_ri(value_loc.value, base_loc.value,
+                                ofs_loc.value)
+            else:
+                self.mc.STR_rr(value_loc.value, base_loc.value,
+                                ofs_loc.value)
+        else:
+            if ofs_loc.is_imm():
+                self.mc.STR_size_ri(scale.value, value_loc.value, base_loc.value,
+                                     ofs_loc.value)
+            else:
+                self.mc.STR_size_rr(scale.value, value_loc.value, base_loc.value,
+                                     ofs_loc.value)
+
+    def _load_from_mem(self, res_loc, base_loc, ofs_loc, scale,
+                                            signed=False):
+        # Load a value of '1 << scale' bytes, from the memory location
+        # 'base_loc + ofs_loc'.  Note that 'scale' is not used to scale
+        # the offset!
+        #
+        if scale.value == 3:
+            # WORD
+            if ofs_loc.is_imm():
+                self.mc.LDR_ri(res_loc.value, base_loc.value,
+                                ofs_loc.value)
+            else:
+                self.mc.LDR_rr(res_loc.value, base_loc.value,
+                                ofs_loc.value)
+        else:
+            if ofs_loc.is_imm():
+                self.mc.LDR_size_ri(scale.value, res_loc.value, base_loc.value,
+                                    ofs_loc.value)
+            else:
+                self.mc.LDR_size_rr(scale.value, res_loc.value, base_loc.value,
+                                    ofs_loc.value)
+
+    # -------------------------------- guard --------------------------------
+
     def build_guard_token(self, op, frame_depth, arglocs, offset, fcond):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
@@ -190,6 +255,8 @@ class ResOpAssembler(BaseAssembler):
     def emit_guard_op_guard_false(self, guard_op, fcond, arglocs):
         self._emit_guard(guard_op, c.get_opposite_of(fcond), arglocs)
     emit_guard_op_guard_overflow = emit_guard_op_guard_false
+
+    # ----------------------------- call ------------------------------
 
     def _genop_call(self, op, arglocs):
         return self._emit_call(op, arglocs)
@@ -272,11 +339,11 @@ class ResOpAssembler(BaseAssembler):
                 gcmap = self._finish_gcmap
             else:
                 gcmap = self.gcmap_for_finish
-            self.push_gcmap(self.mc, gcmap, store=True)
+            self.push_gcmap(self.mc, gcmap)
         elif self._finish_gcmap:
             # we're returning with a guard_not_forced_2
             gcmap = self._finish_gcmap
-            self.push_gcmap(self.mc, gcmap, store=True)
+            self.push_gcmap(self.mc, gcmap)
         else:
             # note that the 0 here is redundant, but I would rather
             # keep that one and kill all the others

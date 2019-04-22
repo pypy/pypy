@@ -410,6 +410,42 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_neg = prepare_unary
     prepare_op_int_invert = prepare_unary
 
+    # --------------------------------- fields --------------------------
+
+    def prepare_op_gc_store(self, op):
+        boxes = op.getarglist()
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        ofs = boxes[1].getint()
+        value_loc = self.make_sure_var_in_reg(boxes[2], boxes)
+        size = boxes[3].getint()
+        if check_imm_arg(ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc = r.ip1
+            self.assembler.load(ofs_loc, imm(ofs))
+        return [value_loc, base_loc, ofs_loc, imm(size)]
+
+    def _prepare_op_gc_load(self, op):
+        a0 = op.getarg(0)
+        ofs = op.getarg(1).getint()
+        nsize = op.getarg(2).getint()    # negative for "signed"
+        base_loc = self.make_sure_var_in_reg(a0)
+        immofs = imm(ofs)
+        if check_imm_arg(ofs):
+            ofs_loc = immofs
+        else:
+            ofs_loc = r.ip1
+            self.assembler.load(ofs_loc, immofs)
+        self.possibly_free_vars_for_op(op)
+        res_loc = self.force_allocate_reg(op)
+        return [base_loc, ofs_loc, res_loc, imm(nsize)]
+
+    prepare_op_gc_load_i = _prepare_op_gc_load
+    prepare_op_gc_load_r = _prepare_op_gc_load
+    prepare_op_gc_load_f = _prepare_op_gc_load
+
+    # --------------------------------- call ----------------------------
+
     def _prepare_op_call(self, op):
         calldescr = op.getdescr()
         assert calldescr is not None

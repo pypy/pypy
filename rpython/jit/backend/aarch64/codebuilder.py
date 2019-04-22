@@ -10,7 +10,6 @@ from rpython.tool.udir import udir
 PC_OFFSET = 0 # XXX
 
 class AbstractAarch64Builder(object):
-    # just copied some values from https://gist.github.com/dinfuehr/51a01ac58c0b23e4de9aac313ed6a06a
     def write32(self, word):
         self.writechar(chr(word & 0xFF))
         self.writechar(chr((word >> 8) & 0xFF))
@@ -40,6 +39,18 @@ class AbstractAarch64Builder(object):
         assert offset & 0x7 == 0
         self.write32((base << 22) | ((0x7F & (offset >> 3)) << 15) |
                      (reg2 << 10) | (rn << 5) | reg1)
+
+    def STR_size_rr(self, scale, rt, rn, rm):
+        base = 0b111000001
+        assert 0 <= scale <= 3
+        self.wirte32((scale << 30) | (base << 21) | (rm << 16) | (0b11 << 13) |
+                     (0b010 << 10) | (rn << 5) | rt)
+
+    def STR_size_ri(self, scale, rt, rn, imm):
+        assert 0 <= imm < 4096
+        assert 0 <= scale <= 3
+        base = 0b11100100
+        self.write32((scale << 30) | (base << 22) | (imm >> scale << 10) | (rn << 5) | rt)
 
     def MOV_rr(self, rd, rn):
         self.ORR_rr(rd, r.xzr.value, rn)
@@ -100,6 +111,18 @@ class AbstractAarch64Builder(object):
         assert 0 <= immed <= 1<<15
         assert immed & 0x7 == 0
         self.write32((base << 22) | (immed >> 3 << 10) | (rn << 5) | rt)
+
+    def LDR_rr(self, rt, rn, rm):
+        xxx
+
+    def LDR_size_ri(self, size, rt, rn, ofs):
+        assert 0 <= size <= 3
+        assert 0 <= ofs <= 4096
+        base = 0b11100101
+        self.write32((size << 30) | (base << 22) | (ofs >> size << 10) | (rn << 5) | rt)
+
+    def LDR_size_rr(self, size, rt, rn, rm):
+        xxx
     
     def LDR_r_literal(self, rt, offset):
         base = 0b01011000
@@ -236,9 +259,9 @@ class AbstractAarch64Builder(object):
         # XXX use the IMM version if close enough
         target = rffi.cast(lltype.Signed, target)
         self.gen_load_int_full(r.ip0.value, target)
-        self.BLR(r.ip0.value)
+        self.BLR_r(r.ip0.value)
 
-    def BLR(self, reg):
+    def BLR_r(self, reg):
         base = 0b1101011000111111000000
         self.write32((base << 10) | (reg << 5))
 
