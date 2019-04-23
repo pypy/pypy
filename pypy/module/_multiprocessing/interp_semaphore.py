@@ -333,11 +333,15 @@ else:
         _sem_close_no_errno(handle)
 
     def semlock_acquire(self, space, block, w_timeout):
+        import threading
+        myid = threading.current_thread().ident
         if not block:
+            print 'not expected'
             deadline = lltype.nullptr(TIMESPECP.TO)
         elif space.is_none(w_timeout):
             deadline = lltype.nullptr(TIMESPECP.TO)
         else:
+            print 'not expected'
             timeout = space.float_w(w_timeout)
             sec = int(timeout)
             nsec = int(1e9 * (timeout - sec) + 0.5)
@@ -356,12 +360,16 @@ else:
             while True:
                 try:
                     if not block:
+                        print 'not expected'
                         sem_trywait(self.handle)
                     elif not deadline:
+                        print 'sem_wait', myid
                         sem_wait(self.handle)
                     else:
+                        print 'not expected'
                         sem_timedwait(self.handle, deadline)
                 except OSError as e:
+                    print str(e)
                     if e.errno == errno.EINTR:
                         # again
                         _check_signals(space)
@@ -369,8 +377,9 @@ else:
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False
                     raise
+                print 4, myid
                 _check_signals(space)
-
+                print 5, myid
                 return True
         finally:
             if deadline:
@@ -378,6 +387,9 @@ else:
 
 
     def semlock_release(self, space):
+        import threading
+        myid = threading.current_thread().ident
+        print 'semlock_release', myid
         if self.kind == RECURSIVE_MUTEX:
             sem_post(self.handle)
             return
