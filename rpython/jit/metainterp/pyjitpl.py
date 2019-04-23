@@ -2577,44 +2577,39 @@ class MetaInterp(object):
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
             assert len(original_boxes) == len(live_arg_boxes)
-            for i in range(num_green_args):
-                box1 = original_boxes[i]
-                box2 = live_arg_boxes[i]
-                assert isinstance(box1, Const)
-                if not box1.same_constant(box2):
-                    break
+            if not same_greenkey(original_boxes, live_arg_boxes, num_green_args):
+                continue
+            if self.partial_trace:
+                if start != self.retracing_from:
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
+            # Found!  Compile it as a loop.
+            # raises in case it works -- which is the common case
+            self.history.trace.tracing_done()
+            if self.partial_trace:
+                target_token = self.compile_retrace(
+                    original_boxes, live_arg_boxes, start)
+                self.raise_if_successful(live_arg_boxes, target_token)
+                # creation of the loop was cancelled!
+                self.cancel_count += 1
+                if self.cancelled_too_many_times():
+                    self.staticdata.log('cancelled too many times!')
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
             else:
-                if self.partial_trace:
-                    if start != self.retracing_from:
-                        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
-                # Found!  Compile it as a loop.
-                # raises in case it works -- which is the common case
-                self.history.trace.tracing_done()
-                if self.partial_trace:
-                    target_token = self.compile_retrace(
-                        original_boxes, live_arg_boxes, start)
-                    self.raise_if_successful(live_arg_boxes, target_token)
-                    # creation of the loop was cancelled!
-                    self.cancel_count += 1
-                    if self.cancelled_too_many_times():
-                        self.staticdata.log('cancelled too many times!')
-                        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-                else:
+                target_token = self.compile_loop(
+                    original_boxes, live_arg_boxes, start)
+                self.raise_if_successful(live_arg_boxes, target_token)
+                # creation of the loop was cancelled!
+                self.cancel_count += 1
+                if self.cancelled_too_many_times():
                     target_token = self.compile_loop(
-                        original_boxes, live_arg_boxes, start)
+                        original_boxes, live_arg_boxes, start,
+                        try_disabling_unroll=True)
                     self.raise_if_successful(live_arg_boxes, target_token)
-                    # creation of the loop was cancelled!
-                    self.cancel_count += 1
-                    if self.cancelled_too_many_times():
-                        target_token = self.compile_loop(
-                            original_boxes, live_arg_boxes, start,
-                            try_disabling_unroll=True)
-                        self.raise_if_successful(live_arg_boxes, target_token)
-                        #
-                        self.staticdata.log('cancelled too many times!')
-                        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-                self.exported_state = None
-                self.staticdata.log('cancelled, tracing more...')
+                    #
+                    self.staticdata.log('cancelled too many times!')
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+            self.exported_state = None
+            self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
         start = self.history.get_trace_position()
@@ -3446,3 +3441,13 @@ def put_back_list_of_boxes3(frame, position, newvalue):
     frame._put_back_list_of_boxes(newvalue, 0, position)
     frame._put_back_list_of_boxes(newvalue, length1, position2)
     frame._put_back_list_of_boxes(newvalue, length1 + length2, position3)
+
+def same_greenkey(original_boxes, live_arg_boxes, num_green_args):
+    for i in range(num_green_args):
+        box1 = original_boxes[i]
+        box2 = live_arg_boxes[i]
+        assert isinstance(box1, Const)
+        if not box1.same_constant(box2):
+            return False
+    else:
+        return True
