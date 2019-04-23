@@ -108,3 +108,15 @@ class AppTestSemaphore:
         with sem:
             assert sem._count() == 1
         assert sem._count() == 0
+
+    def test_in_threads(self):
+        from _multiprocessing import SemLock
+        from threading import Thread
+        l = SemLock(0, 1, 1)
+        def f():
+            for i in range(10000):
+                with l:
+                    pass
+        threads = [Thread(None, f) for i in range(2)]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
