@@ -2600,15 +2600,17 @@ class MetaInterp(object):
                     self.staticdata.log('cancelled too many times!')
                     raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
             else:
+                can_use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
+                    'unroll' in self.jitdriver_sd.warmstate.enable_opts)
                 target_token = self.compile_loop(
-                    original_boxes, live_arg_boxes, start)
+                    original_boxes, live_arg_boxes, start, can_use_unroll=can_use_unroll)
                 self.raise_if_successful(live_arg_boxes, target_token)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
                 if self.cancelled_too_many_times():
                     target_token = self.compile_loop(
                         original_boxes, live_arg_boxes, start,
-                        try_disabling_unroll=True)
+                        try_disabling_unroll=True, can_use_unroll=can_use_unroll)
                     self.raise_if_successful(live_arg_boxes, target_token)
                     #
                     self.staticdata.log('cancelled too many times!')
@@ -2733,7 +2735,12 @@ class MetaInterp(object):
         return cell.get_procedure_token()
 
     def compile_loop(self, original_boxes, live_arg_boxes, start,
-                     try_disabling_unroll=False):
+                     try_disabling_unroll=False, can_use_unroll=True):
+        use_unroll = can_use_unroll
+        if try_disabling_unroll:
+            if not use_unroll:
+                return
+            use_unroll = False
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         ptoken = self.get_procedure_token(greenkey)
@@ -2741,12 +2748,6 @@ class MetaInterp(object):
             # XXX this path not tested, but shown to occur on pypy-c :-(
             self.staticdata.log('cancelled: we already have a token now')
             raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-        use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
-            'unroll' in self.jitdriver_sd.warmstate.enable_opts)
-        if try_disabling_unroll:
-            if not use_unroll:
-                return
-            use_unroll = False
         target_token = compile.compile_loop(
             self, greenkey, start, original_boxes[num_green_args:],
             live_arg_boxes[num_green_args:], use_unroll=use_unroll)
