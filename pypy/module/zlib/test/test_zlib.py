@@ -363,4 +363,5 @@ class AppTestZlib(object):
         dco = zlib.decompressobj()
         dco.decompress(x)
         dco.flush()
-        raises(self.zlib.error, dco.flush)
+        # multiple flush calls should not raise
+        dco.flush()

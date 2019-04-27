@@ -711,6 +711,7 @@ class AppTestUnicodeString:
 
         raises(TypeError, u'hello'.translate)
         raises(TypeError, u'abababc'.translate, {ord('a'):''})
+        raises(TypeError, u'x'.translate, {ord('x'):0x110000})
 
     def test_unicode_from_encoded_object(self):
         assert unicode('x', 'utf-8') == u'x'

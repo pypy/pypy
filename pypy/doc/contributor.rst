@@ -77,6 +77,7 @@ Contributors
   Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
+  Andrew Lawrence
   David Malcolm
   Squeaky
   Edd Barrett
@@ -92,7 +93,6 @@ Contributors
   John Witulski
   Stefan Beyer
   Jeremy Thurgood
-  Andrew Lawrence
   Greg Price
   Ivan Sichmann Freitas
   Dario Bertini
@@ -221,6 +221,7 @@ Contributors
   Omer Katz
   Jacek Generowicz
   Tomasz Dziopa
+  Lin Cheng
   Sylvain Thenault
   Jakub Stasiak
   Andrew Dalke
@@ -370,6 +371,7 @@ Contributors
   Niclas Olofsson
   Chris Pressey
   Tobias Diaz
+  Paul Graydon
   Nikolaos-Digenis Karagiannis
   Kurt Griffiths
   Ben Mather

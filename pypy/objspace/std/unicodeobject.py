@@ -42,13 +42,10 @@ class W_UnicodeObject(W_Root):
         self._length = length
         self._index_storage = rutf8.null_storage()
         if not we_are_translated():
-            try:
-                # best effort, too expensive to handle surrogates
-                ulength = rutf8.codepoints_in_utf(utf8str)
-            except:
-                ulength = length 
-            assert ulength == length
-
+            # utf8str must always be a valid utf8 string, except maybe with
+            # explicit surrogate characters---which .decode('utf-8') doesn't
+            # special-case in Python 2, which is exactly what we want here
+            assert length == len(utf8str.decode('utf-8'))
 
 
     @staticmethod
@@ -385,7 +382,7 @@ class W_UnicodeObject(W_Root):
                                 "or unicode")
             try:
                 builder.append_code(codepoint)
-            except ValueError:
+            except rutf8.OutOfRange:
                 raise oefmt(space.w_TypeError,
                             "character mapping must be in range(0x110000)")
         return self.from_utf8builder(builder)

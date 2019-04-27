@@ -74,8 +74,8 @@ def compare_arrays(space, arr1, arr2, comp_op):
     lgt = min(arr1.len, arr2.len)
     for i in range(lgt):
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
-        w_elem1 = arr1.w_getitem(space, i)
-        w_elem2 = arr2.w_getitem(space, i)
+        w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
+        w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
         if comp_op == EQ:
             res = space.eq_w(w_elem1, w_elem2)
             if not res:
@@ -1036,10 +1036,11 @@ def make_array(mytype):
             else:
                 self.fromsequence(w_iterable)
 
-        def w_getitem(self, space, idx):
+        def w_getitem(self, space, idx, integer_instead_of_char=False):
             item = self.get_buffer()[idx]
             keepalive_until_here(self)
-            if mytype.typecode in 'bBhHil':
+            if mytype.typecode in 'bBhHil' or (
+                    integer_instead_of_char and mytype.typecode in 'cu'):
                 item = rffi.cast(lltype.Signed, item)
                 return space.newint(item)
             if mytype.typecode in 'IL':
@@ -1053,21 +1054,17 @@ def make_array(mytype):
                 code = r_uint(ord(item))
                 # cpython will allow values > sys.maxunicode
                 # while silently truncating the top bits
-                if code <= r_uint(0x7F):
-                    # Encode ASCII
-                    item = chr(code)
-                elif code <= r_uint(0x07FF):
-                    item = (chr((0xc0 | (code >> 6))) + 
-                            chr((0x80 | (code & 0x3f))))
-                elif code <= r_uint(0xFFFF):
-                    item = (chr((0xe0 | (code >> 12))) +
-                            chr((0x80 | ((code >> 6) & 0x3f))) +
-                            chr((0x80 | (code & 0x3f))))
-                else:
-                    item = (chr((0xf0 | (code >> 18)) & 0xff) +
-                            chr((0x80 | ((code >> 12) & 0x3f))) +
-                            chr((0x80 | ((code >> 6) & 0x3f))) +
-                            chr((0x80 | (code & 0x3f))))
+                # For now I (arigo) am going to ignore that and
+                # raise a ValueError always here, instead of getting
+                # some invalid utf8-encoded string which makes things
+                # potentially explode left and right.
+                try:
+                    item = rutf8.unichr_as_utf8(code)
+                except rutf8.OutOfRange:
+                    raise oefmt(space.w_ValueError,
+                        "cannot operate on this array('u') because it contains"
+                        " character %s not in range [U+0000; U+10ffff]"
+                        " at index %d", 'U+%x' % code, idx)
                 return space.newutf8(item, 1)
             assert 0, "unreachable"
 
