@@ -1282,8 +1282,11 @@ class MIFrame(object):
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not any_operation:
                 return
-            if self.metainterp.portal_call_depth or not self.metainterp.get_procedure_token(greenboxes, True):
-                if not jitdriver_sd.no_loop_header:
+            if not jitdriver_sd.no_loop_header:
+                if self.metainterp.portal_call_depth:
+                    return
+                ptoken = self.metainterp.get_procedure_token(greenboxes)
+                if not has_compiled_targets(ptoken):
                     return
             # automatically add a loop_header if there is none
             self.metainterp.seen_loop_header_for_jdindex = jdindex
@@ -2562,9 +2565,12 @@ class MetaInterp(object):
         #   that failed;
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
+        num_green_args = self.jitdriver_sd.num_green_args
         if not self.partial_trace:
             # FIXME: Support a retrace to be a bridge as well as a loop
-            self.compile_trace(live_arg_boxes)
+            ptoken = self.get_procedure_token(greenboxes)
+            if has_compiled_targets(ptoken):
+                self.compile_trace(live_arg_boxes, ptoken)
 
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
@@ -2573,7 +2579,6 @@ class MetaInterp(object):
         # green keys, representing the beginning of the same loop as the one
         # we end now.
 
-        num_green_args = self.jitdriver_sd.num_green_args
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
             assert len(original_boxes) == len(live_arg_boxes)
@@ -2720,25 +2725,19 @@ class MetaInterp(object):
             self.history.set_inputargs(inputargs, self.staticdata)
             assert not exception
 
-    def get_procedure_token(self, greenkey, with_compiled_targets=False):
+    def get_procedure_token(self, greenkey):
         JitCell = self.jitdriver_sd.warmstate.JitCell
         cell = JitCell.get_jit_cell_at_key(greenkey)
         if cell is None:
             return None
-        token = cell.get_procedure_token()
-        if with_compiled_targets:
-            if not token:
-                return None
-            if not token.target_tokens:
-                return None
-        return token
+        return cell.get_procedure_token()
 
     def compile_loop(self, original_boxes, live_arg_boxes, start,
                      try_disabling_unroll=False):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         ptoken = self.get_procedure_token(greenkey)
-        if ptoken is not None and ptoken.target_tokens is not None:
+        if has_compiled_targets(ptoken):
             # XXX this path not tested, but shown to occur on pypy-c :-(
             self.staticdata.log('cancelled: we already have a token now')
             raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
@@ -2767,24 +2766,19 @@ class MetaInterp(object):
             live_arg_boxes[num_green_args:], self.partial_trace,
             self.resumekey, self.exported_state)
 
-    def compile_trace(self, live_arg_boxes):
+    def compile_trace(self, live_arg_boxes, ptoken):
         num_green_args = self.jitdriver_sd.num_green_args
-        greenkey = live_arg_boxes[:num_green_args]
-        target_jitcell_token = self.get_procedure_token(greenkey, True)
-        if not target_jitcell_token:
-            return
-
         cut_at = self.history.get_trace_position()
         self.potential_retrace_position = cut_at
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
-                            descr=target_jitcell_token)
+                            descr=ptoken)
         self.history.ends_with_jump = True
         self.history.trace.tracing_done()
         try:
             target_token = compile.compile_trace(self, self.resumekey,
                 live_arg_boxes[num_green_args:])
         finally:
-            self.history.cut(cut_at) # pop the jump
+            self.history.cut(cut_at)  # pop the jump
             self.history.ends_with_jump = False
         self.raise_if_successful(live_arg_boxes, target_token)
 
@@ -3451,3 +3445,6 @@ def same_greenkey(original_boxes, live_arg_boxes, num_green_args):
             return False
     else:
         return True
+
+def has_compiled_targets(token):
+    return bool(token) and bool(token.target_tokens)
