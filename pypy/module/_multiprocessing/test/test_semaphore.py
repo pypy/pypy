@@ -112,11 +112,14 @@ class AppTestSemaphore:
     def test_in_threads(self):
         from _multiprocessing import SemLock
         from threading import Thread
+        from time import sleep
         l = SemLock(0, 1, 1)
-        def f():
-            for i in range(10000):
+        def f(id):
+            for i in range(1000):
                 with l:
                     pass
-        threads = [Thread(None, f) for i in range(2)]
+        threads = [Thread(None, f, args=(i,)) for i in range(2)]
         [t.start() for t in threads]
+        # if the RLock calls to sem_wait and sem_post do not match,
+        # one of the threads will block and the call to join will fail
         [t.join() for t in threads]
