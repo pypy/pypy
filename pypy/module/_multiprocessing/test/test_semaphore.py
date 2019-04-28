@@ -17,6 +17,7 @@ class AppTestSemaphore:
     def setup_class(cls):
         cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)
         cls.w_RECURSIVE = cls.space.wrap(RECURSIVE_MUTEX)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_semaphore(self):
         from _multiprocessing import SemLock
@@ -114,10 +115,17 @@ class AppTestSemaphore:
         from threading import Thread
         from time import sleep
         l = SemLock(0, 1, 1)
-        def f(id):
-            for i in range(1000):
-                with l:
+        if self.runappdirect:
+            def f(id):
+                for i in range(10000):
                     pass
+        else:
+            def f(id):
+                for i in range(1000):
+                    # reduce the probability of thread switching
+                    # at exactly the wrong time in semlock_acquire
+                    for j in range(10):
+                        pass
         threads = [Thread(None, f, args=(i,)) for i in range(2)]
         [t.start() for t in threads]
         # if the RLock calls to sem_wait and sem_post do not match,

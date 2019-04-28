@@ -260,6 +260,8 @@ if sys.platform == 'win32':
         res = rwin32.WaitForSingleObject(self.handle, 0)
 
         if res != rwin32.WAIT_TIMEOUT:
+            self.last_tid = rthread.get_ident()
+            self.count += 1
             return True
 
         msecs = full_msecs
@@ -292,6 +294,8 @@ if sys.platform == 'win32':
 
         # handle result
         if res != rwin32.WAIT_TIMEOUT:
+            self.last_tid = rthread.get_ident()
+            self.count += 1
             return True
         return False
 
@@ -371,6 +375,8 @@ else:
                         return False
                     raise
                 _check_signals(space)    
+                self.last_tid = rthread.get_ident()
+                self.count += 1
                 return True
         finally:
             if deadline:
@@ -477,40 +483,33 @@ class W_SemLock(W_Root):
         if self.kind == RECURSIVE_MUTEX and self._ismine():
             self.count += 1
             return space.w_True
-        owner_id = self.last_tid
         try:
-            # Ideally these calls would be atomic. Since we cannot
-            # promise that, make sure we do not enable the fast-path
-            # through release anymore
-            self.last_tid = rthread.get_ident()
+            # sets self.last_tid and increments self.count
+            # those steps need to be as close as possible to
+            # acquiring the semlock for self._ismine() to support
+            # multiple threads 
             got = semlock_acquire(self, space, block, w_timeout)
         except OSError as e:
-            self.last_tid = owner_id
             raise wrap_oserror(space, e)
-
         if got:
-            self.count += 1
             return space.w_True
         else:
-            self.last_tid = owner_id
             return space.w_False
 
     def release(self, space):
         if self.kind == RECURSIVE_MUTEX:
-            # another thread may be in the middle of an acquire and
-            # have set the last_tid already
-            if self._ismine() and self.count > 1:
+            if not self._ismine():
+                raise oefmt(space.w_AssertionError,
+                            "attempt to release recursive lock not owned by "
+                            "thread")
+            if self.count > 1:
                 self.count -= 1
                 return
 
         try:
-            # Ideally these two calls would be atomic. Since we cannot
-            # promise that, make sure once we release the lock the count
-            # will be correct
-            self.count -= 1
             semlock_release(self, space)
+            self.count -= 1
         except OSError as e:
-            self.count += 1
             raise wrap_oserror(space, e)
 
 
