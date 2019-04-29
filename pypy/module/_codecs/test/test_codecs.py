@@ -125,6 +125,7 @@ class AppTestCodecs:
         assert (charmap_decode(b"\x00\x01\x02", "strict",
                                {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
                 (u"\U0010FFFFbc", 3))
+        assert charmap_decode(b'\xff', "strict", {0xff: 0xd800}) == (u'\ud800', 1)
 
     def test_escape_decode(self):
         from _codecs import unicode_escape_decode as decode

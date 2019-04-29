@@ -245,6 +245,7 @@ class BaseIntegralFormattingTest:
     def test_simple(self):
         assert format(self.i(2)) == "2"
         assert isinstance(format(self.i(2), ""), str)
+        assert isinstance(self.i(2).__format__(""), str)
 
     def test_invalid(self):
         raises(ValueError, format, self.i(8), "s")
@@ -491,3 +492,9 @@ class AppTestInternalMethods:
         excinfo = raises(ValueError, "{:j}".format, x(1))
         print(excinfo.value)
         assert str(excinfo.value) == "Unknown format code j for object of type 'x'"
+
+    def test_format_char(self):
+        import sys
+        assert '{0:c}'.format(42) == '*'
+        assert '{0:c}'.format(1234) == '\u04d2'
+        raises(OverflowError, '{0:c}'.format, -1)

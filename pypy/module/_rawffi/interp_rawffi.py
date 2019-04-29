@@ -452,8 +452,13 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             elif c == 'c':
                 return space.newbytes(func(add_arg, argdesc, ll_type))
             elif c == 'u':
-                return space.newutf8(rutf8.unichr_as_utf8(
-                    r_uint(ord(func(add_arg, argdesc, ll_type)))), 1)
+                code = r_uint(ord(func(add_arg, argdesc, ll_type)))
+                try:
+                    return space.newutf8(rutf8.unichr_as_utf8(
+                        code, allow_surrogates=True), 1)
+                except rutf8.OutOfRange:
+                    raise oefmt(space.w_ValueError,
+                        "unicode character %d out of range", code)
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.newfloat(float(func(add_arg, argdesc, ll_type)))
             else:

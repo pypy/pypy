@@ -215,6 +215,7 @@ class AppTestStringObject:
 
     def test_format_wrong_char(self):
         raises(ValueError, 'a%Zb'.__mod__, ((23,),))
+        raises(ValueError, u'a%\ud800b'.__mod__, ((23,),))
 
     def test_incomplete_format(self):
         raises(ValueError, '%'.__mod__, ((23,),))
@@ -234,6 +235,8 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
         raises(TypeError, '%c'.__mod__, b'A')
+        surrogate = 0xd800
+        assert '%c' % surrogate == '\ud800'
 
     def test___int__index__(self):
         class MyInt(object):

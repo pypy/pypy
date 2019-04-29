@@ -1159,7 +1159,7 @@ def make_array(mytype):
             elif mytype.typecode == 'u':
                 code = r_uint(ord(item))
                 try:
-                    item = rutf8.unichr_as_utf8(code)
+                    item = rutf8.unichr_as_utf8(code, allow_surrogates=True)
                 except rutf8.OutOfRange:
                     raise oefmt(space.w_ValueError,
                         "cannot operate on this array('u') because it contains"

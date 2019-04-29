@@ -8,8 +8,13 @@ Taken from http://twistedmatrix.com/trac/browser/sandbox/exarkun/force-builds.py
 
 modified by PyPy team
 """
+from __future__ import absolute_import, division, print_function
 
-import os, sys, urllib, subprocess
+import os, sys, subprocess
+try:
+    from urllib2 import quote
+except ImportError:
+    from urllib.request import quote
 
 from twisted.internet import reactor, defer
 from twisted.python import log
@@ -29,10 +34,10 @@ BUILDERS = [
     'pypy-c-jit-macosx-x86-64',
     'pypy-c-jit-win-x86-32',
     'pypy-c-jit-linux-s390x',
-    'build-pypy-c-jit-linux-armhf-raspbian',
-    'build-pypy-c-jit-linux-armel',
+#    'build-pypy-c-jit-linux-armhf-raspbian',
+#    'build-pypy-c-jit-linux-armel',
     'rpython-linux-x86-32',
-    'rpython-linux-x86-64'
+    'rpython-linux-x86-64',
     'rpython-win-x86-32'
 ]
 
@@ -54,7 +59,7 @@ def main(branch, server, user):
         log.err(err, "Build force failure")
 
     for builder in BUILDERS:
-        print 'Forcing', builder, '...'
+        print('Forcing', builder, '...')
         url = "http://" + server + "/builders/" + builder + "/force"
         args = [
             ('username', user),
@@ -63,15 +68,15 @@ def main(branch, server, user):
             ('submit', 'Force Build'),
             ('branch', branch),
             ('comments', "Forced by command line script")]
-        url = url + '?' + '&'.join([k + '=' + urllib.quote(v) for (k, v) in args])
+        url = url + '?' + '&'.join([k + '=' + quote(v) for (k, v) in args])
         requests.append(
-            lock.run(client.getPage, url, followRedirect=False).addErrback(ebList))
+            lock.run(client.getPage, url.encode('utf-8'), followRedirect=False).addErrback(ebList))
 
     d = defer.gatherResults(requests)
     d.addErrback(log.err)
     d.addCallback(lambda ign: reactor.stop())
     reactor.run()
-    print 'See http://buildbot.pypy.org/summary after a while'
+    print('See http://buildbot.pypy.org/summary after a while')
 
 if __name__ == '__main__':
     log.startLogging(sys.stdout)
@@ -86,6 +91,6 @@ if __name__ == '__main__':
     try:
         subprocess.check_call(['hg','id','-r', options.branch])
     except subprocess.CalledProcessError:
-        print 'branch',  options.branch, 'could not be found in local repository'
+        print('branch',  options.branch, 'could not be found in local repository')
         sys.exit(-1) 
     main(options.branch, options.server, user=options.user)
