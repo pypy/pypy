@@ -570,7 +570,7 @@ class Charmap_Decode:
             if not 0 <= x <= 0x10FFFF:
                 raise oefmt(space.w_TypeError,
                     "character mapping must be in range(0x110000)")
-            return rutf8.unichr_as_utf8(x)
+            return rutf8.unichr_as_utf8(x, allow_surrogates=True)
         elif space.is_w(w_ch, space.w_None):
             # Charmap may return None
             return errorchar
