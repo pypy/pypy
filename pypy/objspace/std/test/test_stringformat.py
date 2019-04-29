@@ -236,6 +236,8 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
+        surrogate = 0xd800
+        assert u'%c' % surrogate == u'\ud800'
 
     def test_broken_unicode(self):
         raises(UnicodeDecodeError, 'Názov: %s'.__mod__, u'Jerry')
