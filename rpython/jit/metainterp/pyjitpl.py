@@ -2579,6 +2579,8 @@ class MetaInterp(object):
         # green keys, representing the beginning of the same loop as the one
         # we end now.
 
+        can_use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
+            'unroll' in self.jitdriver_sd.warmstate.enable_opts)
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
             assert len(original_boxes) == len(live_arg_boxes)
@@ -2600,18 +2602,19 @@ class MetaInterp(object):
                     self.staticdata.log('cancelled too many times!')
                     raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
             else:
-                can_use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
-                    'unroll' in self.jitdriver_sd.warmstate.enable_opts)
                 target_token = self.compile_loop(
-                    original_boxes, live_arg_boxes, start, can_use_unroll=can_use_unroll)
+                    original_boxes, live_arg_boxes, start,
+                    use_unroll=can_use_unroll)
                 self.raise_if_successful(live_arg_boxes, target_token)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
                 if self.cancelled_too_many_times():
-                    target_token = self.compile_loop(
-                        original_boxes, live_arg_boxes, start,
-                        try_disabling_unroll=True, can_use_unroll=can_use_unroll)
-                    self.raise_if_successful(live_arg_boxes, target_token)
+                    if can_use_unroll:
+                        # try one last time without unrolling
+                        target_token = self.compile_loop(
+                            original_boxes, live_arg_boxes, start,
+                            use_unroll=False)
+                        self.raise_if_successful(live_arg_boxes, target_token)
                     #
                     self.staticdata.log('cancelled too many times!')
                     raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
@@ -2734,13 +2737,7 @@ class MetaInterp(object):
             return None
         return cell.get_procedure_token()
 
-    def compile_loop(self, original_boxes, live_arg_boxes, start,
-                     try_disabling_unroll=False, can_use_unroll=True):
-        use_unroll = can_use_unroll
-        if try_disabling_unroll:
-            if not use_unroll:
-                return
-            use_unroll = False
+    def compile_loop(self, original_boxes, live_arg_boxes, start, use_unroll):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         ptoken = self.get_procedure_token(greenkey)

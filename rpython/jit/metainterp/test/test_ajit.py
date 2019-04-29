@@ -2884,8 +2884,8 @@ class BasicTests:
                 i += 1
             return i
         #
-        def my_compile_loop(self, original_boxes, live_arg_boxes, start,
-                        try_disabling_unroll=False, can_use_unroll=None):
+        def my_compile_loop(
+                self, original_boxes, live_arg_boxes, start, use_unroll):
             return None
         old_compile_loop = MetaInterp.compile_loop
         MetaInterp.compile_loop = my_compile_loop
@@ -2918,9 +2918,9 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_compile_loop(self, original_boxes, live_arg_boxes, start,
-                        try_disabling_unroll=False, can_use_unroll=None):
-            seen.append(try_disabling_unroll)
+        def my_compile_loop(
+                self, original_boxes, live_arg_boxes, start, use_unroll):
+            seen.append(use_unroll)
             return None
         old_compile_loop = MetaInterp.compile_loop
         MetaInterp.compile_loop = my_compile_loop
