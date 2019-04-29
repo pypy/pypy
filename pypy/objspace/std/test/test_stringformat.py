@@ -218,6 +218,7 @@ class AppTestStringObject:
 
     def test_format_wrong_char(self):
         raises(ValueError, 'a%Zb'.__mod__, ((23,),))
+        raises(ValueError, u'a%\ud800b'.__mod__, ((23,),))
 
     def test_incomplete_format(self):
         raises(ValueError, '%'.__mod__, ((23,),))
