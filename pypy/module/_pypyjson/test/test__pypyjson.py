@@ -210,7 +210,7 @@ class AppTest(object):
         res = _pypyjson.loads('"z\\udc00\\udc00x"')
         assert list(res) == [u'z', u'\udc00', u'\udc00', u'x']
 
-    def test_surrogate_pair(self):
+    def test_lone_surrogate(self):
         import _pypyjson
         json = '{"a":"\\uD83D"}'
         res = _pypyjson.loads(json)
