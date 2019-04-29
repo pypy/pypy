@@ -450,7 +450,7 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             elif c == 'c':
                 return space.newbytes(func(add_arg, argdesc, ll_type))
             elif c == 'u':
-                code = ord(func(add_arg, argdesc, ll_type))
+                code = r_uint(ord(func(add_arg, argdesc, ll_type)))
                 try:
                     return space.newutf8(rutf8.unichr_as_utf8(
                         code, allow_surrogates=True), 1)
