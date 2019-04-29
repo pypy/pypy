@@ -349,9 +349,11 @@ def make_template_formatting_class(for_unicode):
             if recursive:
                 spec = self._build_string(spec_start, end, level)
             w_rendered = self.space.format(w_obj, self.wrap(spec))
-            unwrapper = "utf8_w" if self.is_unicode else "bytes_w"
-            to_interp = getattr(self.space, unwrapper)
-            return to_interp(w_rendered)
+            if self.is_unicode:
+                w_rendered = self.space.unicode_from_object(w_rendered)
+                return self.space.utf8_w(w_rendered)
+            else:
+                return self.space.bytes_w(w_rendered)
 
         def formatter_parser(self):
             self.parser_list_w = []
@@ -779,6 +781,7 @@ def make_formatting_class(for_unicode):
             return out.build()
 
         def _format_int_or_long(self, w_num, kind):
+            # note: 'self.is_unicode' cannot be True any more here
             space = self.space
             if self._precision != -1:
                 raise oefmt(space.w_ValueError,
@@ -903,6 +906,7 @@ def make_formatting_class(for_unicode):
             return "".join(buf[i:])
 
         def format_int_or_long(self, w_num, kind):
+            # note: 'self.is_unicode' cannot be True any more here
             space = self.space
             if self._parse_spec("d", ">"):
                 if self.is_unicode:
@@ -992,6 +996,7 @@ def make_formatting_class(for_unicode):
                              fill, to_remainder, False))
 
         def format_float(self, w_float):
+            # note: 'self.is_unicode' cannot be True any more here
             space = self.space
             if self._parse_spec("\0", ">"):
                 if self.is_unicode:
@@ -1155,6 +1160,7 @@ def make_formatting_class(for_unicode):
 
         def format_complex(self, w_complex):
             """return the string representation of a complex number"""
+            # note: 'self.is_unicode' cannot be True any more here
             space = self.space
             #parse format specification, set associated variables
             if self._parse_spec("\0", ">"):
@@ -1178,9 +1184,5 @@ unicode_formatter = make_formatting_class(for_unicode=True)
 
 @specialize.arg(2)
 def run_formatter(space, w_format_spec, meth, *args):
-    if space.isinstance_w(w_format_spec, space.w_unicode):
-        formatter = unicode_formatter(space, space.utf8_w(w_format_spec))
-        return getattr(formatter, meth)(*args)
-    else:
-        formatter = str_formatter(space, space.bytes_w(w_format_spec))
-        return getattr(formatter, meth)(*args)
+    formatter = str_formatter(space, space.bytes_w(w_format_spec))
+    return getattr(formatter, meth)(*args)
