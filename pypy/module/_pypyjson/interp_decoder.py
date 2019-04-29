@@ -365,9 +365,11 @@ class JSONDecoder(object):
         hexdigits = self.getslice(start, i)
         try:
             val = int(hexdigits, 16)
-            if sys.maxunicode > 65535 and 0xd800 <= val <= 0xdfff:
+            if sys.maxunicode > 65535 and 0xd800 <= val <= 0xdbff:
                 # surrogate pair
-                if self.ll_chars[i] == '\\' and self.ll_chars[i+1] == 'u':
+                if (self.ll_chars[i] == '\\' and self.ll_chars[i+1] == 'u' and
+                        self.ll_chars[i+2] in 'dD' and
+                        self.ll_chars[i+3] in 'cdefCDEF'):
                     val = self.decode_surrogate_pair(i, val)
                     i += 6
         except ValueError:
