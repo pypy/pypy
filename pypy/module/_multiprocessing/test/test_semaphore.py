@@ -144,7 +144,7 @@ class AppTestSemaphore:
         from _multiprocessing import SemLock
         from threading import Thread
         from time import sleep
-        l = SemLock(0, 1, 1)
+        l = SemLock(0, 1, 1, "6", unlink=True)
         if self.runappdirect:
             def f(id):
                 for i in range(10000):
