@@ -49,7 +49,8 @@ else:
     eci = ExternalCompilationInfo(
         includes = ['sys/time.h',
                     'limits.h',
-                    'semaphore.h'],
+                    'semaphore.h',
+                    ],
         libraries = libraries,
         )
 
@@ -269,6 +270,8 @@ if sys.platform == 'win32':
         res = rwin32.WaitForSingleObject(self.handle, 0)
 
         if res != rwin32.WAIT_TIMEOUT:
+            self.last_tid = rthread.get_ident()
+            self.count += 1
             return True
 
         msecs = full_msecs
@@ -301,6 +304,8 @@ if sys.platform == 'win32':
 
         # handle result
         if res != rwin32.WAIT_TIMEOUT:
+            self.last_tid = rthread.get_ident()
+            self.count += 1
             return True
         return False
 
@@ -379,8 +384,9 @@ else:
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False
                     raise
-                _check_signals(space)
-
+                _check_signals(space)    
+                self.last_tid = rthread.get_ident()
+                self.count += 1
                 return True
         finally:
             if deadline:
@@ -449,6 +455,7 @@ class W_SemLock(W_Root):
         self.count = 0
         self.maxvalue = maxvalue
         self.register_finalizer(space)
+        self.last_tid = -1
         self.name = name
 
     def name_get(self, space):
@@ -495,15 +502,15 @@ class W_SemLock(W_Root):
         if self.kind == RECURSIVE_MUTEX and self._ismine():
             self.count += 1
             return space.w_True
-
         try:
+            # sets self.last_tid and increments self.count
+            # those steps need to be as close as possible to
+            # acquiring the semlock for self._ismine() to support
+            # multiple threads 
             got = semlock_acquire(self, space, block, w_timeout)
         except OSError as e:
             raise wrap_oserror(space, e)
-
         if got:
-            self.last_tid = rthread.get_ident()
-            self.count += 1
             return space.w_True
         else:
             return space.w_False
@@ -520,10 +527,10 @@ class W_SemLock(W_Root):
 
         try:
             semlock_release(self, space)
+            self.count -= 1
         except OSError as e:
             raise wrap_oserror(space, e)
 
-        self.count -= 1
 
     def after_fork(self):
         self.count = 0
