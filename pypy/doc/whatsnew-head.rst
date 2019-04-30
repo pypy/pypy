@@ -16,3 +16,8 @@ Remove rpython.jit.metainterp.typesystem and clean up related code in rpython/ji
 .. branch: datetime_api_27
 
 Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp``
+
+.. branch: semlock-deadlock
+
+Test and reduce the probability of a deadlock when acquiring a semaphore by
+moving global state changes closer to the actual aquire.
