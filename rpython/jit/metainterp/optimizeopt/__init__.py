@@ -53,12 +53,12 @@ def _log_loop_from_trace(metainterp_sd, trace, memo=None, is_unrolled=False):
 def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     """Optimize loop.operations to remove internal overheadish operations.
     """
+    if memo is None:
+        memo = {}
     debug_start("jit-optimize")
     try:
         _log_loop_from_trace(metainterp_sd, compile_data.trace, memo,
                              is_unrolled=not compile_data.log_noopt)
-        if memo is None:
-            memo = {}
         compile_data.box_names_memo = memo
         optimizations = build_opt_chain(compile_data.enable_opts)
         return compile_data.optimize(

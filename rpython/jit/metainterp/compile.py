@@ -164,19 +164,14 @@ def record_loop_or_bridge(metainterp_sd, loop):
     original_jitcell_token = loop.original_jitcell_token
     assert original_jitcell_token is not None
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
-        assert original_jitcell_token.generation > 0     # has been registered with memmgr
+        assert original_jitcell_token.generation > 0  # has been registered with memmgr
     wref = weakref.ref(original_jitcell_token)
     clt = original_jitcell_token.compiled_loop_token
     clt.loop_token_wref = wref
     for op in loop.operations:
         descr = op.getdescr()
-        # not sure what descr.index is about
         if isinstance(descr, ResumeDescr):
             descr.rd_loop_token = clt   # stick it there
-            #n = descr.index
-            #if n >= 0:       # we also record the resumedescr number
-            #    original_jitcell_token.compiled_loop_token.record_faildescr_index(n)
-        #    pass
         if isinstance(descr, JitCellToken):
             # for a CALL_ASSEMBLER: record it as a potential jump.
             if descr is not original_jitcell_token:
@@ -401,8 +396,6 @@ def compile_retrace(metainterp, greenkey, start,
 
     target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop, inputargs)
-
-    record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
 def get_box_replacement(op, allow_none=False):
@@ -810,6 +803,7 @@ class AbstractResumeGuardDescr(ResumeDescr):
                                self, inputargs, new_loop.operations,
                                new_loop.original_jitcell_token,
                                metainterp.box_names_memo)
+        record_loop_or_bridge(metainterp.staticdata, new_loop)
 
     def make_a_counter_per_value(self, guard_value_op, index):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
@@ -1020,6 +1014,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         jitdriver_sd.warmstate.attach_procedure_to_interp(
             self.original_greenkey, jitcell_token)
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
+        record_loop_or_bridge(metainterp_sd, new_loop)
 
     def get_resumestorage(self):
         return None
@@ -1084,7 +1079,6 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
         new_trace.inputargs = info.inputargs
         target_token = new_trace.operations[-1].getdescr()
         resumekey.compile_and_attach(metainterp, new_trace, inputargs)
-        record_loop_or_bridge(metainterp_sd, new_trace)
         return target_token
     new_trace.inputargs = info.renamed_inputargs
     metainterp.retrace_needed(new_trace, info)
