@@ -95,7 +95,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.shadow_stack_pool = ShadowStackPool(gcdata)
         rsd = gctransformer.root_stack_depth
         if rsd is not None:
-            self.shadow_stack_pool.root_stack_depth = rsd
+            self.shadow_stack_pool.root_stack_size = sizeofaddr * rsd
 
     def push_stack(self, addr):
         top = self.incr_stack(1)
@@ -140,6 +140,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         # this is a dict {tid: SHADOWSTACKREF}, where the tid for the
         # current thread may be missing so far
         gcdata.thread_stacks = None
+        shadow_stack_pool.has_threads = True
 
         # Return the thread identifier, as an integer.
         get_tid = rthread.get_ident
@@ -268,7 +269,8 @@ class ShadowStackPool(object):
     """Manages a pool of shadowstacks.
     """
     _alloc_flavor_ = "raw"
-    root_stack_depth = 163840
+    root_stack_size = sizeofaddr * 163840
+    has_threads = False
 
     def __init__(self, gcdata):
         self.unused_full_stack = llmemory.NULL
@@ -332,10 +334,46 @@ class ShadowStackPool(object):
 
     def _prepare_unused_stack(self):
         if self.unused_full_stack == llmemory.NULL:
-            root_stack_size = sizeofaddr * self.root_stack_depth
-            self.unused_full_stack = llmemory.raw_malloc(root_stack_size)
+            self.unused_full_stack = llmemory.raw_malloc(self.root_stack_size)
             if self.unused_full_stack == llmemory.NULL:
                 raise MemoryError
+
+    def increase_root_stack_size(self, new_size):
+        if new_size <= self.root_stack_size:
+            return     # can't easily decrease the size
+        if self.unused_full_stack:
+            llmemory.raw_free(self.unused_full_stack)
+            self.unused_full_stack = llmemory.NULL
+        used = self.gcdata.root_stack_top - self.gcdata.root_stack_base
+        addr = self._resize(self.gcdata.root_stack_base, used, new_size)
+        self.gcdata.root_stack_base = addr
+        self.gcdata.root_stack_top  = addr + used
+        # no gc operations above: we just switched shadowstacks
+        if self.has_threads:
+            self._resize_thread_shadowstacks(new_size)
+        self.root_stack_size = new_size
+
+    def _resize_thread_shadowstacks(self, new_size):
+        if self.gcdata.thread_stacks is not None:
+            for ssref in self.gcdata.thread_stacks.values():
+                if ssref.base:
+                    used = ssref.top - ssref.base
+                    addr = self._resize(base, used, new_size)
+                    ssref.base = addr
+                    ssref.top = addr + used
+    _resize_thread_shadowstacks._dont_inline_ = True
+
+    def _resize(self, base, used, new_size):
+        ll_assert(used <= new_size, "shadowstack resize: overflow detected")
+        addr = llmemory.raw_malloc(new_size)
+        if addr == llmemory.NULL:
+            raise MemoryError
+        # note that we don't know the total memory size of 'base', but we
+        # know the size of the part that is used right now, and we only need
+        # to copy that
+        llmemory.raw_memmove(base, addr, used)
+        llmemory.raw_free(base)
+        return addr
 
 
 def get_shadowstackref(root_walker, gctransformer):
