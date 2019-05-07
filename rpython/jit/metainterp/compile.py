@@ -1024,7 +1024,6 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
-
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     # The history contains new operations to attach as the code for the
@@ -1035,11 +1034,6 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
 
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
-    #
-    jd_name = jitdriver_sd.jitdriver.name
-    metainterp_sd.jitlog.start_new_trace(metainterp_sd,
-            faildescr=resumekey, entry_bridge=False, jd_name=jd_name)
-    #
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False
     else:
@@ -1048,9 +1042,13 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     trace = metainterp.history.trace
     jitdriver_sd = metainterp.jitdriver_sd
     enable_opts = jitdriver_sd.warmstate.enable_opts
-
     call_pure_results = metainterp.call_pure_results
     resumestorage = resumekey.get_resumestorage()
+
+    trace.tracing_done()
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd,
+        faildescr=resumekey, entry_bridge=False,
+        jd_name=jitdriver_sd.jitdriver.name)
 
     if metainterp.history.ends_with_jump:
         data = BridgeCompileData(trace, runtime_boxes, resumestorage,

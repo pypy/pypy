@@ -2771,7 +2771,6 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=ptoken)
         self.history.ends_with_jump = True
-        self.history.trace.tracing_done()
         try:
             target_token = compile.compile_trace(self, self.resumekey,
                 live_arg_boxes[num_green_args:])
@@ -2781,7 +2780,6 @@ class MetaInterp(object):
         self.raise_if_successful(live_arg_boxes, target_token)
 
     def compile_done_with_this_frame(self, exitbox):
-        # temporarily put a JUMP to a pseudo-loop
         self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
@@ -2800,9 +2798,7 @@ class MetaInterp(object):
             token = sd.done_with_this_frame_descr_float
         else:
             assert False
-        # FIXME: can we call compile_trace?
         self.history.record(rop.FINISH, exits, None, descr=token)
-        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
@@ -2828,7 +2824,6 @@ class MetaInterp(object):
         sd = self.staticdata
         token = sd.exit_frame_with_exception_descr_ref
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
-        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])
         if target_token is not token:
             compile.giveup()
