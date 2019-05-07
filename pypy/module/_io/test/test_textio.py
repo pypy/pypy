@@ -377,3 +377,13 @@ class AppTestIncrementalNewlineDecoder:
         _check(dec)
         dec = _io.IncrementalNewlineDecoder(None, translate=True)
         _check(dec)
+
+    def test_newlines2(self):
+        import _io, codecs
+        inner_decoder = codecs.getincrementaldecoder("utf-8")()
+        decoder = _io.IncrementalNewlineDecoder(inner_decoder, translate=True)
+        msg = b"abc\r\n\n\r\r\n\n"
+        decoded = ''
+        for ch in msg:
+            decoded += decoder.decode(ch)
+        assert set(decoder.newlines) == {"\r", "\n", "\r\n"}
