@@ -236,6 +236,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if root_walker.stacklet_support:
             root_walker.need_stacklet_support(self, getfn)
 
+        if hasattr(root_walker, 'build_increase_root_stack_depth_ptr'):
+            root_walker.build_increase_root_stack_depth_ptr(getfn)
+
         self.layoutbuilder.encode_type_shapes_now()
         self.create_custom_trace_funcs(gcdata.gc, translator.rtyper)
 
@@ -1652,6 +1655,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             hop.rename("same_as")
 
+    def gct_gc_increase_root_stack_depth(self, hop):
+        hop.genop("direct_call",
+                  [self.root_walker.gc_increase_root_stack_depth_ptr,
+                   hop.spaceop.args[0]])
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

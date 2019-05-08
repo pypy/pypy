@@ -95,7 +95,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.shadow_stack_pool = ShadowStackPool(gcdata)
         rsd = gctransformer.root_stack_depth
         if rsd is not None:
-            self.shadow_stack_pool.root_stack_size = sizeofaddr * rsd
+            self.shadow_stack_pool.root_stack_depth = rsd
 
     def push_stack(self, addr):
         top = self.incr_stack(1)
@@ -253,6 +253,15 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.gc_modified_shadowstack_ptr = getfn(gc_modified_shadowstack,
                                                  [], annmodel.s_None)
 
+    def build_increase_root_stack_depth_ptr(self, getfn):
+        shadow_stack_pool = self.shadow_stack_pool
+        def gc_increase_root_stack_depth(new_size):
+            shadow_stack_pool.increase_root_stack_depth(new_size)
+
+        self.gc_increase_root_stack_depth_ptr = getfn(
+                gc_increase_root_stack_depth, [annmodel.SomeInteger()],
+                annmodel.s_None)
+
     def postprocess_graph(self, gct, graph, any_inlining):
         from rpython.memory.gctransform import shadowcolor
         if any_inlining:
@@ -269,7 +278,7 @@ class ShadowStackPool(object):
     """Manages a pool of shadowstacks.
     """
     _alloc_flavor_ = "raw"
-    root_stack_size = sizeofaddr * 163840
+    root_stack_depth = 163840
     has_threads = False
 
     def __init__(self, gcdata):
@@ -334,36 +343,38 @@ class ShadowStackPool(object):
 
     def _prepare_unused_stack(self):
         if self.unused_full_stack == llmemory.NULL:
-            self.unused_full_stack = llmemory.raw_malloc(self.root_stack_size)
+            root_stack_size = sizeofaddr * self.root_stack_depth
+            self.unused_full_stack = llmemory.raw_malloc(root_stack_size)
             if self.unused_full_stack == llmemory.NULL:
                 raise MemoryError
 
-    def increase_root_stack_size(self, new_size):
-        if new_size <= self.root_stack_size:
+    def increase_root_stack_depth(self, new_depth):
+        if new_depth <= self.root_stack_depth:
             return     # can't easily decrease the size
         if self.unused_full_stack:
             llmemory.raw_free(self.unused_full_stack)
             self.unused_full_stack = llmemory.NULL
         used = self.gcdata.root_stack_top - self.gcdata.root_stack_base
-        addr = self._resize(self.gcdata.root_stack_base, used, new_size)
+        addr = self._resize(self.gcdata.root_stack_base, used, new_depth)
         self.gcdata.root_stack_base = addr
         self.gcdata.root_stack_top  = addr + used
         # no gc operations above: we just switched shadowstacks
         if self.has_threads:
-            self._resize_thread_shadowstacks(new_size)
-        self.root_stack_size = new_size
+            self._resize_thread_shadowstacks(new_depth)
+        self.root_stack_depth = new_depth
 
-    def _resize_thread_shadowstacks(self, new_size):
+    def _resize_thread_shadowstacks(self, new_depth):
         if self.gcdata.thread_stacks is not None:
             for ssref in self.gcdata.thread_stacks.values():
                 if ssref.base:
                     used = ssref.top - ssref.base
-                    addr = self._resize(base, used, new_size)
+                    addr = self._resize(base, used, new_depth)
                     ssref.base = addr
                     ssref.top = addr + used
     _resize_thread_shadowstacks._dont_inline_ = True
 
-    def _resize(self, base, used, new_size):
+    def _resize(self, base, used, new_depth):
+        new_size = sizeofaddr * new_depth
         ll_assert(used <= new_size, "shadowstack resize: overflow detected")
         addr = llmemory.raw_malloc(new_size)
         if addr == llmemory.NULL:
