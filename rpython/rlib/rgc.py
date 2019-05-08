@@ -690,6 +690,13 @@ class MoveOutOfNurseryEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
+@jit.dont_look_inside
+def increase_root_stack_depth(new_depth):
+    """Shadowstack: make sure the size of the shadowstack is at least
+    'new_depth' pointers."""
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.gc_increase_root_stack_depth(lltype.Void, new_depth)
+
 # ____________________________________________________________
 
 

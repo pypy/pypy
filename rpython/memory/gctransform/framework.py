@@ -572,6 +572,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.move_out_of_nursery_ptr = getfn(GCClass.move_out_of_nursery,
                                               [s_gc, SomeAddress()],
                                               SomeAddress())
+        if hasattr(self.root_walker, 'build_increase_root_stack_depth_ptr'):
+            self.root_walker.build_increase_root_stack_depth_ptr(getfn)
 
 
     def create_custom_trace_funcs(self, gc, rtyper):
@@ -1652,6 +1654,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             hop.rename("same_as")
 
+    def gct_gc_increase_root_stack_depth(self, hop):
+        if not hasattr(self.root_walker, 'gc_increase_root_stack_depth_ptr'):
+            return
+        hop.genop("direct_call",
+                  [self.root_walker.gc_increase_root_stack_depth_ptr,
+                   hop.spaceop.args[0]])
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

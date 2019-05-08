@@ -1912,6 +1912,45 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     def test_total_gc_time(self):
         res = self.run("total_gc_time")
         assert res > 0 # should take a few microseconds
+
+    def define_increase_root_stack_depth(cls):
+        class X:
+            pass
+        def g(n):
+            if n <= 0:
+                return None
+            x = X()
+            x.n = n
+            x.next = g(n - 1)
+            return x
+        def f(depth):
+            from rpython.rlib.rstack import _stack_set_length_fraction
+            _stack_set_length_fraction(50.0)
+            # ^^^ the default is enough for at least 10'000 (but less than
+            # 100'000) recursions of the simple function g().  We multiply
+            # it by 50.0 to make sure that 200'000 works.  The default
+            # shadowstack depth is 163'840 entries, so 200'000 overflows
+            # that default shadowstack depth, and gives a segfault unless
+            # the following line works too.
+            from rpython.rlib.rgc import increase_root_stack_depth
+            increase_root_stack_depth(depth + 100)
+            #
+            g(depth)
+            return 42
+        return f
+
+    def test_increase_root_stack_depth(self):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("linux only")
+        #
+        def myrunner(args):
+            args1 = ['/bin/bash', '-c', 'ulimit -s unlimited && %s' %
+                     (' '.join(args),)]
+            return subprocess.check_output(args1)
+        res = self.run("increase_root_stack_depth", 200000, runner=myrunner)
+        assert res == 42
+
+
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):

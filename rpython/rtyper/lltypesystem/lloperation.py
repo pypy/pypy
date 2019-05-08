@@ -530,6 +530,7 @@ LL_OPERATIONS = {
     'gc_rawrefcount_next_dead':         LLOp(),
 
     'gc_move_out_of_nursery':           LLOp(),
+    'gc_increase_root_stack_depth':     LLOp(canrun=True),
 
     'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
     'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore
