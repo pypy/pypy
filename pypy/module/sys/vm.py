@@ -51,10 +51,12 @@ depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
 """
     from rpython.rlib.rstack import _stack_set_length_fraction
+    from rpython.rlib.rgc import increase_root_stack_depth
     if new_limit <= 0:
         raise oefmt(space.w_ValueError, "recursion limit must be positive")
     space.sys.recursionlimit = new_limit
     _stack_set_length_fraction(new_limit * 0.001)
+    increase_root_stack_depth(int(new_limit * 0.001 * 163840))
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
