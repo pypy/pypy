@@ -368,7 +368,7 @@ class ShadowStackPool(object):
             for ssref in self.gcdata.thread_stacks.values():
                 if ssref.base:
                     used = ssref.top - ssref.base
-                    addr = self._resize(base, used, new_depth)
+                    addr = self._resize(ssref.base, used, new_depth)
                     ssref.base = addr
                     ssref.top = addr + used
     _resize_thread_shadowstacks._dont_inline_ = True
