@@ -2770,13 +2770,11 @@ class MetaInterp(object):
         self.potential_retrace_position = cut_at
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=ptoken)
-        self.history.ends_with_jump = True
         try:
             target_token = compile.compile_trace(self, self.resumekey,
-                live_arg_boxes[num_green_args:])
+                live_arg_boxes[num_green_args:], ends_with_jump=True)
         finally:
             self.history.cut(cut_at)  # pop the jump
-            self.history.ends_with_jump = False
         self.raise_if_successful(live_arg_boxes, target_token)
 
     def compile_done_with_this_frame(self, exitbox):

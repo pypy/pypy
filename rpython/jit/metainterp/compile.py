@@ -1020,7 +1020,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         return None
 
 
-def compile_trace(metainterp, resumekey, runtime_boxes):
+def compile_trace(metainterp, resumekey, runtime_boxes, ends_with_jump=False):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -1050,7 +1050,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
         faildescr=resumekey, entry_bridge=False,
         jd_name=jitdriver_sd.jitdriver.name)
 
-    if metainterp.history.ends_with_jump:
+    if ends_with_jump:
         data = BridgeCompileData(trace, runtime_boxes, resumestorage,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
