@@ -241,7 +241,7 @@ class ResumeDataLoopMemo(object):
                     info = optimizer.getptrinfo(box)
                     is_virtual = (info is not None and info.is_virtual())
                 if box.type == 'i':
-                    info = optimizer.getrawptrinfo(box, create=False)
+                    info = optimizer.getrawptrinfo(box)
                     is_virtual = (info is not None and info.is_virtual())
                 if is_virtual:
                     tagged = tag(num_virtuals, TAGVIRTUAL)

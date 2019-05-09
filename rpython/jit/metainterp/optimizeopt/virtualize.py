@@ -252,7 +252,7 @@ class OptVirtualize(optimizer.Optimization):
         return self.emit(op)
 
     def optimize_INT_ADD(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0), create=False)
+        opinfo = self.getrawptrinfo(op.getarg(0))
         offsetbox = self.get_constant_box(op.getarg(1))
         if opinfo and opinfo.is_virtual() and offsetbox is not None:
             offset = offsetbox.getint()

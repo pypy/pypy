@@ -135,7 +135,7 @@ class Optimization(object):
             opinfo.mark_last_guard(self.optimizer)
         return opinfo
 
-    def getptrinfo(self, op, is_object=False):
+    def getptrinfo(self, op):
         if op.type == 'i':
             return self.getrawptrinfo(op)
         elif op.type == 'f':
@@ -157,7 +157,7 @@ class Optimization(object):
             return True
         return False
 
-    def getrawptrinfo(self, op, create=False, is_object=False):
+    def getrawptrinfo(self, op):
         assert op.type == 'i'
         op = get_box_replacement(op)
         assert op.type == 'i'

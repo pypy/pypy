@@ -51,11 +51,11 @@ class FakeOptimizer(object):
             op = op.get_forwarded()
         return op
 
-    def getrawptrinfo(self, op, create=True):
+    def getrawptrinfo(self, op):
         op = self.get_box_replacement(op)
         return op.get_forwarded()
 
-    def getptrinfo(self, op, create=True):
+    def getptrinfo(self, op):
         op = self.get_box_replacement(op)
         return op.get_forwarded()
 
