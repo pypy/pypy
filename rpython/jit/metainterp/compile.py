@@ -39,6 +39,26 @@ class CompileData(object):
         for arg in self.trace.inputargs:
             arg.set_forwarded(None)
 
+    def optimize_trace(self, metainterp_sd, jitdriver_sd, memo):
+        """Optimize loop.operations to remove internal overheadish operations.
+        """
+        from rpython.jit.metainterp.optimizeopt import build_opt_chain
+        # mark that a new trace has been started
+        log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE, metainterp_sd, None)
+        log.write_trace(self.trace)
+        if self.log_noopt:
+            metainterp_sd.logger_noopt.log_loop_from_trace(self.trace, memo=memo)
+
+        self.box_names_memo = memo
+        optimizations = build_opt_chain(self.enable_opts)
+        debug_start("jit-optimize")
+        try:
+            return self.optimize(metainterp_sd, jitdriver_sd, optimizations)
+        finally:
+            self.forget_optimization_info()
+            debug_stop("jit-optimize")
+
+
 class PreambleCompileData(CompileData):
     """
     This is the case of label() ops label()
@@ -54,10 +74,9 @@ class PreambleCompileData(CompileData):
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.optimize_preamble(self.trace,
-                                        self.runtime_boxes,
-                                        self.call_pure_results,
-                                        self.box_names_memo)
+        return opt.optimize_preamble(
+            self.trace, self.runtime_boxes, self.call_pure_results,
+            self.box_names_memo)
 
 class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
@@ -72,7 +91,8 @@ class SimpleCompileData(CompileData):
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
         from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
-        from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_knowledge
+        from rpython.jit.metainterp.optimizeopt.bridgeopt \
+            import deserialize_optimizer_knowledge
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
         traceiter = self.trace.get_iter()
         if self.resumestorage:
@@ -86,8 +106,9 @@ class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
     loop, we need to deal with virtual state and inlining of short preamble
     """
-    def __init__(self, trace, runtime_boxes, resumestorage=None, call_pure_results=None,
-                 enable_opts=None, inline_short_preamble=False):
+    def __init__(self, trace, runtime_boxes, resumestorage=None,
+                 call_pure_results=None, enable_opts=None,
+                 inline_short_preamble=False):
         self.trace = trace
         self.runtime_boxes = runtime_boxes
         self.call_pure_results = call_pure_results
@@ -203,8 +224,6 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
                         cut_at):
-    from rpython.jit.metainterp.optimizeopt import optimize_trace
-
     jitdriver_sd = metainterp.jitdriver_sd
     metainterp_sd = metainterp.staticdata
     jitcell_token = make_jitcell_token(jitdriver_sd)
@@ -212,8 +231,8 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
     data = SimpleCompileData(trace, call_pure_results=call_pure_results,
                              enable_opts=enable_opts)
     try:
-        loop_info, ops = optimize_trace(
-            metainterp_sd, jitdriver_sd, data, metainterp.box_names_memo)
+        loop_info, ops = data.optimize_trace(
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         trace.cut_at(cut_at)
@@ -242,8 +261,6 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
-    from rpython.jit.metainterp.optimizeopt import optimize_trace
-
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
@@ -267,9 +284,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                     call_pure_results=call_pure_results,
                                     enable_opts=enable_opts)
     try:
-        start_state, preamble_ops = optimize_trace(
-            metainterp_sd, jitdriver_sd, preamble_data,
-            metainterp.box_names_memo)
+        start_state, preamble_ops = preamble_data.optimize_trace(
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
@@ -284,8 +300,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
-        loop_info, loop_ops = optimize_trace(
-            metainterp_sd, jitdriver_sd, loop_data, metainterp.box_names_memo)
+        loop_info, loop_ops = loop_data.optimize_trace(
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
@@ -332,8 +348,6 @@ def compile_retrace(metainterp, greenkey, start,
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
-    from rpython.jit.metainterp.optimizeopt import optimize_trace
-
     trace = metainterp.history.trace.cut_trace_from(start, inputargs)
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
@@ -353,8 +367,8 @@ def compile_retrace(metainterp, greenkey, start,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
-        loop_info, loop_ops = optimize_trace(
-            metainterp_sd, jitdriver_sd, loop_data, metainterp.box_names_memo)
+        loop_info, loop_ops = loop_data.optimize_trace(
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
         history.cut(cut)
@@ -364,9 +378,8 @@ def compile_retrace(metainterp, greenkey, start,
                                      enable_opts=enable_opts,
                                      inline_short_preamble=False)
         try:
-            loop_info, loop_ops = optimize_trace(
-                metainterp_sd, jitdriver_sd, loop_data,
-                metainterp.box_names_memo)
+            loop_info, loop_ops = loop_data.optimize_trace(
+                metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
         except InvalidLoop:
             metainterp_sd.jitlog.trace_aborted()
             history.cut(cut)
@@ -1024,8 +1037,6 @@ def compile_trace(metainterp, resumekey, runtime_boxes, ends_with_jump=False):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
-    from rpython.jit.metainterp.optimizeopt import optimize_trace
-
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
     #
@@ -1060,8 +1071,8 @@ def compile_trace(metainterp, resumekey, runtime_boxes, ends_with_jump=False):
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
-        info, newops = optimize_trace(
-            metainterp_sd, jitdriver_sd, data, metainterp.box_names_memo)
+        info, newops = data.optimize_trace(
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         # XXX I am fairly convinced that optimize_bridge cannot actually raise

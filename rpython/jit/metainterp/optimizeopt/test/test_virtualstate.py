@@ -853,7 +853,6 @@ class BaseTestBridges(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:pure:earlyforce:heap:unroll"
 
     def _do_optimize_bridge(self, bridge, call_pure_results, values):
-        from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
 
         self.bridge = bridge
@@ -871,7 +870,7 @@ class BaseTestBridges(BaseTest):
         data = compile.BridgeCompileData(trace, runtime_boxes,
             enable_opts=self.enable_opts, inline_short_preamble=True)
 
-        info, newops = optimize_trace(metainterp_sd, None, data)
+        info, newops = data.optimize_trace(metainterp_sd, None, {})
         if info.final():
             bridge.operations = newops
             bridge.inputargs = info.inputargs

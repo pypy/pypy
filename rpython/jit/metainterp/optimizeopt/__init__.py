@@ -1,4 +1,3 @@
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.optimizeopt.rewrite import OptRewrite
 from rpython.jit.metainterp.optimizeopt.intbounds import OptIntBounds
 from rpython.jit.metainterp.optimizeopt.virtualize import OptVirtualize
@@ -7,10 +6,8 @@ from rpython.jit.metainterp.optimizeopt.vstring import OptString
 from rpython.jit.metainterp.optimizeopt.simplify import OptSimplify
 from rpython.jit.metainterp.optimizeopt.pure import OptPure
 from rpython.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
-from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import PARAMETERS, ENABLE_ALL_OPTS
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
 
 ALL_OPTS = [('intbounds', OptIntBounds),
@@ -42,30 +39,6 @@ def build_opt_chain(enable_opts):
             'heap' not in enable_opts or 'pure' not in enable_opts):
         optimizations.append(OptSimplify())
     return optimizations
-
-def _log_loop_from_trace(metainterp_sd, trace, memo=None, is_unrolled=False):
-    # mark that a new trace has been started
-    log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE, metainterp_sd, None)
-    log.write_trace(trace)
-    if not is_unrolled:
-        metainterp_sd.logger_noopt.log_loop_from_trace(trace, memo=memo)
-
-def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
-    """Optimize loop.operations to remove internal overheadish operations.
-    """
-    if memo is None:
-        memo = {}
-    debug_start("jit-optimize")
-    try:
-        _log_loop_from_trace(metainterp_sd, compile_data.trace, memo,
-                             is_unrolled=not compile_data.log_noopt)
-        compile_data.box_names_memo = memo
-        optimizations = build_opt_chain(compile_data.enable_opts)
-        return compile_data.optimize(
-            metainterp_sd, jitdriver_sd, optimizations)
-    finally:
-        compile_data.forget_optimization_info()
-        debug_stop("jit-optimize")
 
 if __name__ == '__main__':
     print ALL_OPTS_NAMES

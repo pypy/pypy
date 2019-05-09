@@ -23,7 +23,6 @@ from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgRef, AbstractValue)
 from rpython.jit.metainterp.virtualref import VirtualRefInfo
-from rpython.jit.metainterp.optimizeopt import optimize_trace
 from rpython.jit.metainterp.optimizeopt.util import (
     sort_descrs, equaloplists, args_dict)
 
@@ -544,7 +543,7 @@ class BaseTest(LLtypeMixin):
         compute_bitstrings(self.cpu.fetch_all_descrs())
         #
         compile_data.enable_opts = self.enable_opts
-        state = optimize_trace(metainterp_sd, None, compile_data)
+        state = compile_data.optimize_trace(metainterp_sd, None, {})
         return state
 
     def _convert_call_pure_results(self, d):
