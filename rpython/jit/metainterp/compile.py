@@ -72,8 +72,8 @@ class PreambleCompileData(CompileData):
         self.runtime_boxes = runtime_boxes
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
-        from rpython.jit.metainterp.optimizeopt.unroll import OptUnroll
-        opt = OptUnroll(metainterp_sd, jitdriver_sd, optimizations)
+        from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
+        opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_preamble(
             self.trace, self.runtime_boxes, self.call_pure_results,
             self.box_names_memo)
@@ -110,9 +110,9 @@ class BridgeCompileData(CompileData):
         self.resumestorage = resumestorage
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
-        from rpython.jit.metainterp.optimizeopt.unroll import OptUnroll
+        from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
 
-        opt = OptUnroll(metainterp_sd, jitdriver_sd, optimizations)
+        opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_bridge(self.trace, self.runtime_boxes,
                                    self.call_pure_results,
                                    self.inline_short_preamble,
@@ -136,8 +136,8 @@ class UnrolledLoopData(CompileData):
         self.inline_short_preamble = inline_short_preamble
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
-        from rpython.jit.metainterp.optimizeopt.unroll import OptUnroll
-        opt = OptUnroll(metainterp_sd, jitdriver_sd, optimizations)
+        from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
+        opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_peeled_loop(self.trace, self.celltoken, self.state,
             self.call_pure_results, self.inline_short_preamble)
 
