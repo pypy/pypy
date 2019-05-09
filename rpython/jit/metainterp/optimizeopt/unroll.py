@@ -16,7 +16,7 @@ from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print, debug_start, debug_stop,\
      have_debug_prints
 
-class UnrollableOptimizer(Optimizer):
+class UnrollOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
         if isinstance(preamble_op, PreambleOp):
             if self.optunroll.short_preamble_producer is None:
@@ -99,7 +99,7 @@ class UnrollableOptimizer(Optimizer):
             op.set_forwarded(preamble_info._const)
 
 
-class UnrollOptimizer(Optimization):
+class OptUnroll(Optimization):
     """Unroll the loop into two iterations. The first one will
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
@@ -107,7 +107,7 @@ class UnrollOptimizer(Optimization):
     short_preamble_producer = None
 
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
-        self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,
+        self.optimizer = UnrollOptimizer(metainterp_sd, jitdriver_sd,
                                              optimizations)
         self.optimizer.optunroll = self
 
