@@ -6,6 +6,8 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound, ConstIntBound, MININT, MAXINT, IntUnbounded)
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
+from rpython.jit.metainterp.optimizeopt.bridgeopt import (
+    deserialize_optimizer_knowledge)
 from rpython.jit.metainterp.resoperation import (
     rop, AbstractResOp, GuardResOp, OpHelpers)
 from rpython.jit.metainterp.optimizeopt import info
@@ -295,6 +297,14 @@ class Optimizer(Optimization):
             self.first_optimization = self
 
         self.optimizations = optimizations
+
+    def optimize_loop(self, trace, resumestorage, call_pure_results):
+        traceiter = trace.get_iter()
+        if resumestorage:
+            frontend_inputargs = trace.inputargs
+            deserialize_optimizer_knowledge(
+                self, resumestorage, frontend_inputargs, traceiter.inputargs)
+        return self.propagate_all_forward(traceiter, call_pure_results)
 
     def force_op_from_preamble(self, op):
         return op

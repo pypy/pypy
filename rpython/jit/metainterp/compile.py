@@ -91,16 +91,9 @@ class SimpleCompileData(CompileData):
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
         from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
-        from rpython.jit.metainterp.optimizeopt.bridgeopt \
-            import deserialize_optimizer_knowledge
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
-        traceiter = self.trace.get_iter()
-        if self.resumestorage:
-            frontend_inputargs = self.trace.inputargs
-            deserialize_optimizer_knowledge(opt, self.resumestorage,
-                                            frontend_inputargs,
-                                            traceiter.inputargs)
-        return opt.propagate_all_forward(traceiter, self.call_pure_results)
+        return opt.optimize_loop(
+            self.trace, self.resumestorage, self.call_pure_results)
 
 class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
