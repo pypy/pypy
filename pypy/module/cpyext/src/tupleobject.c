@@ -89,3 +89,9 @@ _PyPy_tuple_dealloc(register PyObject *_op)
 done:
     Py_TRASHCAN_SAFE_END(op)
 }
+
+void
+_PyPy_tuple_free(void *obj)
+{
+    PyObject_GC_Del(obj);
+}

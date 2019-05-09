@@ -7,7 +7,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    PyVarObject, Py_ssize_t, init_function, cts)
+    PyVarObject, Py_ssize_t, init_function, cts, Py_TPFLAGS_HAVE_GC)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -77,37 +77,17 @@ class BaseCpyTypedescr(object):
         state = space.fromcache(State)
         return state.C._PyPy_subtype_dealloc
 
-    # CCC port to C
+    def get_free(self, space):
+        state = space.fromcache(State)
+        return state.C.PyObject_Free
+
     def allocate(self, space, w_type, itemcount=0, immortal=False):
-        # typically called from PyType_GenericAlloc via typedescr.allocate
-        # this returns a PyObject with ob_refcnt == 1.
-
-        pytype = as_pyobj(space, w_type)
-        pytype = rffi.cast(PyTypeObjectPtr, pytype)
-        assert pytype
-        # Don't increase refcount for non-heaptypes
-        flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
-        if flags & Py_TPFLAGS_HEAPTYPE:
-            incref(space, pytype)
-
-        if pytype:
-            size = pytype.c_tp_basicsize
-        else:
-            size = rffi.sizeof(self.basestruct)
-        if pytype.c_tp_itemsize:
-            size += itemcount * pytype.c_tp_itemsize
-        assert size >= rffi.sizeof(PyObject.TO)
-        buf = lltype.malloc(rffi.VOIDP.TO, size,
-                            flavor='raw', zero=True,
-                            add_memory_pressure=True, immortal=immortal)
-        pyobj = rffi.cast(PyObject, buf)
-        if pytype.c_tp_itemsize:
-            pyvarobj = rffi.cast(PyVarObject, pyobj)
-            pyvarobj.c_ob_size = itemcount
-        pyobj.c_ob_refcnt = 1
-        #pyobj.c_ob_pypy_link should get assigned very quickly
-        pyobj.c_ob_type = pytype
-        return pyobj
+        state = space.fromcache(State)
+        ob_type = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+        ptup = state.ccall("PyType_GenericAlloc", ob_type, itemcount)
+        if not ptup:
+            state.check_and_raise_exception(always=True)
+        return ptup
 
     def attach(self, space, pyobj, w_obj, w_userdata=None):
         pass
@@ -140,6 +120,7 @@ def make_typedescr(typedef, **kw):
     attach    : Function called to tie a raw structure to a pypy object
     realize   : Function called to create a pypy object from a raw struct
     dealloc   : a @slot_function(), similar to PyObject_dealloc
+    free      : a @slot_function(), similar to PyObject_free
     """
 
     tp_basestruct = kw.pop('basestruct', PyObject.TO)
@@ -147,6 +128,7 @@ def make_typedescr(typedef, **kw):
     tp_attach     = kw.pop('attach', None)
     tp_realize    = kw.pop('realize', None)
     tp_dealloc    = kw.pop('dealloc', None)
+    tp_free       = kw.pop('free', None)
     assert not kw, "Extra arguments to make_typedescr"
 
     null_dealloc = lltype.nullptr(lltype.FuncType([PyObject], lltype.Void))
@@ -165,6 +147,10 @@ def make_typedescr(typedef, **kw):
         elif tp_dealloc:
             def get_dealloc(self, space):
                 return tp_dealloc
+
+        if tp_free:
+            def get_free(self, space):
+                return tp_free
 
         if tp_attach:
             def attach(self, space, pyobj, w_obj, w_userdata=None):

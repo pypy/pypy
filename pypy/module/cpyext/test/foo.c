@@ -822,7 +822,7 @@ initfoo(void)
     if (PyType_Ready(&UnicodeSubtype3) < 0)
         INITERROR;
 
-    TupleLike.tp_flags = Py_TPFLAGS_DEFAULT;
+    TupleLike.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC;
     TupleLike.tp_base = &PyTuple_Type;
     if (PyType_Ready(&TupleLike) < 0)
         INITERROR;

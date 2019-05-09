@@ -4,10 +4,11 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import fatalerror_notb
 from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, build_type_checkers_flags,
-    PyVarObjectFields, cpython_struct, bootstrap_function, slot_function)
+    PyVarObjectFields, cpython_struct, bootstrap_function, slot_function,
+    PyTypeObjectPtr)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, incref, BaseCpyTypedescr,
-    track_reference, make_typedescr, get_typedescr, pyobj_has_w_obj)
+    track_reference, make_typedescr, get_typedescr, pyobj_has_w_obj, as_pyobj)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -44,7 +45,8 @@ def init_tupleobject(space):
                    attach=tuple_attach,
                    alloc=tuple_alloc,
                    dealloc=state.C._PyPy_tuple_dealloc,
-                   realize=tuple_realize)
+                   realize=tuple_realize,
+                   free=state.C._PyPy_tuple_free)
 
 PyTuple_Check, PyTuple_CheckExact = build_type_checkers_flags("Tuple")
 
@@ -65,7 +67,13 @@ def tuple_alloc(typedescr, space, w_type, itemcount):
             state.check_and_raise_exception(always=True)
         return ptup
     else:
-        return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
+        if not we_are_translated() and itemcount == _BAD_ITEMCOUNT:
+            itemcount = -42
+        ob_type = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+        ptup = state.ccall("PyType_GenericAlloc", ob_type, itemcount)
+        if not ptup:
+            state.check_and_raise_exception(always=True)
+        return ptup
 
 def tuple_attach(space, py_obj, w_obj, w_userdata=None):
     """

@@ -129,7 +129,7 @@ constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
-Py_TPFLAGS_HEAPTYPE
+Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_GC
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
@@ -1182,6 +1182,9 @@ def attach_c_functions(space, eci, prefix):
         [Py_ssize_t], PyObject,
         compilation_info=eci,
         _nowrapper=True)
+    state.C._PyPy_tuple_free = rffi.llexternal(
+        '_PyPy_tuple_free', [rffi.VOIDP], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
     state.C._PyPy_tuple_dealloc = rffi.llexternal(
         '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)

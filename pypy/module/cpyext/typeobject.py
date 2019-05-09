@@ -20,7 +20,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_BYTES_SUBCLASS,
-    Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
+    Py_TPPYPYFLAGS_FLOAT_SUBCLASS, Py_TPFLAGS_HAVE_GC
     )
 
 from pypy.module.cpyext.cparser import CTypeSpace
@@ -419,6 +419,8 @@ def inherit_special(space, pto, w_obj, base_pto):
     if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
         pto.c_tp_itemsize = base_pto.c_tp_itemsize
 
+    pto.c_tp_flags |= (base_pto.c_tp_flags & Py_TPFLAGS_HAVE_GC)
+
     #/* Setup fast subclass flags */
     if space.issubtype_w(w_obj, space.w_BaseException):
         pto.c_tp_flags |= Py_TPFLAGS_BASE_EXC_SUBCLASS
@@ -432,6 +434,7 @@ def inherit_special(space, pto, w_obj, base_pto):
         pto.c_tp_flags |= Py_TPFLAGS_UNICODE_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_tuple):
         pto.c_tp_flags |= Py_TPFLAGS_TUPLE_SUBCLASS
+        pto.c_tp_flags |= Py_TPFLAGS_HAVE_GC
     elif space.issubtype_w(w_obj, space.w_list):
         pto.c_tp_flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
@@ -606,9 +609,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
+        pto.c_tp_flags |= Py_TPFLAGS_HAVE_GC
 
     state = space.fromcache(State)
-    pto.c_tp_free = state.C.PyObject_Free
     pto.c_tp_alloc = state.C.PyType_GenericAlloc
     builder = state.builder
     if ((pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE) != 0
@@ -642,6 +645,15 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if not pto.c_tp_dealloc:
             # strange, but happens (ABCMeta)
             pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
+
+    # free
+    if space.gettypeobject(w_type.layout.typedef) is w_type:
+        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
+        pto.c_tp_free = typedescr.get_free(space)
+    else:
+        pto.c_tp_free = pto.c_tp_base.c_tp_free
+
+    # TODO: traverse (for tuple)
 
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
