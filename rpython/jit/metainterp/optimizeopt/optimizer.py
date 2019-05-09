@@ -164,7 +164,7 @@ class Optimization(object):
         if isinstance(op, ConstInt):
             return info.ConstPtrInfo(op)
         fw = op.get_forwarded()
-        if isinstance(fw, IntBound) and not create:
+        if isinstance(fw, IntBound):
             return None
         if fw is not None:
             if isinstance(fw, info.AbstractRawPtrInfo):
