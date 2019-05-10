@@ -464,7 +464,7 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         return '(char *)(%s) += sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
 
     def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
-        return 'char *)(%s) -= sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
+        return (char *)(%s) -= sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
 
     def OP_GC_SAVE_ROOT(self, funcgen, op):
         num = op.args[0].value
