@@ -68,7 +68,7 @@ for name in dir(lib):
             globals()[name[4:]] = getattr(lib, name)
 
 OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
-OP_NO_SSL_v2 = lib.SSL_OP_NO_SSL_v2
+OP_NO_SSLv2 = lib.SSL_OP_NO_SSLv2
 
 SSL_CLIENT = 0
 SSL_SERVER = 1
@@ -77,7 +77,8 @@ SSL_CB_MAXLEN=128
 
 if lib.Cryptography_HAS_SSL2:
     PROTOCOL_SSLv2  = 0
-PROTOCOL_SSLv3  = 1
+if lib.Cryptography_HAS_SSL3_METHOD:
+    PROTOCOL_SSLv3  = 1
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
@@ -156,7 +157,7 @@ def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
     ffi.memmove(buf, password, len(password))
     return len(password)
 
-if lib.Cryptography_STATIC_CALLBACKS:
+if 0: # lib.Cryptography_STATIC_CALLBACKS:
     ffi.def_extern(_Cryptography_pem_password_cb)
     Cryptography_pem_password_cb = lib.Cryptography_pem_password_cb
 else:
@@ -530,7 +531,7 @@ class _SSLSocket(object):
         short_name = lib.SSL_COMP_get_name(comp_method)
         if short_name == ffi.NULL:
             return None
-        return _cstr_decode_fs(short_name)
+        return _str_from_buf(short_name)
 
     def version(self):
         if self.ssl == ffi.NULL:
@@ -781,7 +782,7 @@ class _SSLContext(object):
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
             method = lib.TLSv1_2_method()
-        elif protocol == PROTOCOL_SSLv3 and lib.Cryptography_HAS_SSL3_METHOD:
+        elif lib.Cryptography_HAS_SSL3_METHOD and protocol == PROTOCOL_SSLv3:
             method = lib.SSLv3_method()
         elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
@@ -812,7 +813,7 @@ class _SSLContext(object):
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if not lib.Cryptography_HAS_SSL2 or protocol != PROTOCOL_SSLv2:
             options |= lib.SSL_OP_NO_SSLv2
-        if protocol != PROTOCOL_SSLv3:
+        if not lib.Cryptography_HAS_SSL3_METHOD or protocol != PROTOCOL_SSLv3:
             options |= lib.SSL_OP_NO_SSLv3
         # Minimal security flags for server and client side context.
         # Client sockets ignore server-side parameters.
@@ -976,7 +977,7 @@ class _SSLContext(object):
                 _errno = ffi.errno
                 if _errno:
                     lib.ERR_clear_error()
-                    raise OSError(_errno, "Error")
+                    raise IOError(_errno, "Error")
                 else:
                     raise ssl_error(None)
 
@@ -991,7 +992,7 @@ class _SSLContext(object):
                 _errno = ffi.errno
                 if _errno:
                     lib.ERR_clear_error()
-                    raise OSError(_errno, None)
+                    raise IOError(_errno, None)
                 else:
                     raise ssl_error(None)
 
@@ -1016,7 +1017,7 @@ class _SSLContext(object):
         if cadata is None:
             ca_file_type = -1
         else:
-            if not isinstance(cadata, str):
+            if not isinstance(cadata, unicode):
                 ca_file_type = lib.SSL_FILETYPE_ASN1
             else:
                 ca_file_type = lib.SSL_FILETYPE_PEM
@@ -1024,8 +1025,11 @@ class _SSLContext(object):
                     cadata = cadata.encode('ascii')
                 except UnicodeEncodeError:
                     raise TypeError("cadata should be a ASCII string or a bytes-like object")
-        if cafile is None and capath is None and cadata is None:
-            raise TypeError("cafile and capath cannot be both omitted")
+        if cafile is None and capath is None:
+            if cadata is None:
+                raise TypeError("cafile and capath cannot be both omitted")
+            if not cadata:
+                raise ssl_error(None)
         # load from cadata
         if cadata is not None:
             buf = _str_to_ffi_buffer(cadata)
@@ -1046,7 +1050,7 @@ class _SSLContext(object):
                 _errno = ffi.errno
                 if _errno:
                     lib.ERR_clear_error()
-                    raise OSError(_errno, '')
+                    raise IOError(_errno, '')
                 else:
                     raise ssl_error(None)
 
@@ -1143,7 +1147,7 @@ class _SSLContext(object):
         if bio == ffi.NULL:
             _errno = ffi.errno
             lib.ERR_clear_error()
-            raise OSError(_errno, '')
+            raise IOError(_errno, '')
         try:
             dh = lib.PEM_read_bio_DHparams(bio, ffi.NULL, ffi.NULL, ffi.NULL)
         finally:
@@ -1473,16 +1477,16 @@ def RAND_add(view, entropy):
 
 def get_default_verify_paths():
 
-    ofile_env = _cstr_decode_fs(lib.X509_get_default_cert_file_env())
+    ofile_env = _str_from_buf(lib.X509_get_default_cert_file_env())
     if ofile_env is None:
         return None
-    ofile = _cstr_decode_fs(lib.X509_get_default_cert_file())
+    ofile = _str_from_buf(lib.X509_get_default_cert_file())
     if ofile is None:
         return None
-    odir_env = _cstr_decode_fs(lib.X509_get_default_cert_dir_env())
+    odir_env = _str_from_buf(lib.X509_get_default_cert_dir_env())
     if odir_env is None:
         return None
-    odir = _cstr_decode_fs(lib.X509_get_default_cert_dir())
+    odir = _str_from_buf(lib.X509_get_default_cert_dir())
     if odir is None:
         return odir
     return (ofile_env, ofile, odir_env, odir);

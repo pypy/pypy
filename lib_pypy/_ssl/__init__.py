@@ -3,6 +3,8 @@ from _cffi_ssl._stdssl import (_PROTOCOL_NAMES, _OPENSSL_API_VERSION,
 from _cffi_ssl import _stdssl
 from _cffi_ssl._stdssl import *
 
+OP_SINGLE_DH_USE = lib.SSL_OP_SINGLE_DH_USE
+OP_SINGLE_ECDH_USE = lib.SSL_OP_SINGLE_ECDH_USE
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
