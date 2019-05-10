@@ -1,7 +1,6 @@
 import sys
 import time
-import _thread
-import socket
+import thread as _thread
 import weakref
 from _pypy_openssl import ffi
 from _pypy_openssl import lib
@@ -21,7 +20,6 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         pyerr_write_unraisable)
 from _cffi_ssl._stdssl import error
 from select import select
-from enum import IntEnum as _IntEnum
 
 if sys.platform == 'win32':
     from _cffi_ssl._stdssl.win32_extra import enum_certificates, enum_crls
@@ -30,7 +28,7 @@ else:
     from select import poll, POLLIN, POLLOUT
     HAVE_POLL = True
 
-OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
+OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT)
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
 ver = OPENSSL_VERSION_NUMBER
 ver, status = divmod(ver, 16)
@@ -70,6 +68,7 @@ for name in dir(lib):
             globals()[name[4:]] = getattr(lib, name)
 
 OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+OP_NO_SSL_v2 = lib.SSL_OP_NO_SSL_v2
 
 SSL_CLIENT = 0
 SSL_SERVER = 1
@@ -91,8 +90,9 @@ PROTOCOL_TLS_SERVER = 0x11
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
-_IntEnum._convert('_SSLMethod', __name__,
-        lambda name: name.startswith('PROTOCOL_'))
+#from enum import IntEnum as _IntEnum
+#_IntEnum._convert('_SSLMethod', __name__,
+#        lambda name: name.startswith('PROTOCOL_'))
 
 if HAS_TLS_UNIQUE:
     CHANNEL_BINDING_TYPES = ['tls-unique']
@@ -162,13 +162,6 @@ if lib.Cryptography_STATIC_CALLBACKS:
 else:
     Cryptography_pem_password_cb = ffi.callback("int(char*,int,int,void*)")(_Cryptography_pem_password_cb)
 
-if hasattr(time, 'monotonic'):
-    def _monotonic_clock():
-        return time.monotonic()
-else:
-    def _monotonic_clock():
-        return time.clock_gettime(time.CLOCK_MONOTONIC)
-
 def _ssl_select(sock, writing, timeout):
     if HAVE_POLL:
         p = poll()
@@ -217,12 +210,14 @@ SOCKET_OPERATION_OK = 5
 class _SSLSocket(object):
 
     @staticmethod
-    def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, inbio, outbio):
+    def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, ssl_sock):
         self = _SSLSocket(sslctx)
         ctx = sslctx.ctx
 
         if server_hostname:
-            self.server_hostname = server_hostname.decode('idna', 'strict')
+            if isinstance(server_hostname, unicode):
+                server_hostname = server_hostname.encode('idna')
+            self.server_hostname = server_hostname
 
         lib.ERR_clear_error()
         self.ssl = ssl = ffi.gc(lib.SSL_new(ctx), lib.SSL_free)
@@ -235,9 +230,9 @@ class _SSLSocket(object):
             # BIOs are reference counted and SSL_set_bio borrows our reference.
             # To prevent a double free in memory_bio_dealloc() we need to take an
             # extra reference here.
-            lib.BIO_up_ref(inbio.bio);
-            lib.BIO_up_ref(outbio.bio);
-            lib.SSL_set_bio(self.ssl, inbio.bio, outbio.bio)
+            lib.BIO_up_ref(ssl_sock.bio);
+            lib.BIO_up_ref(ssl_sock.bio);
+            lib.SSL_set_bio(self.ssl, ssl_sock.bio, ssl_sock.bio)
 
         mode = lib.SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
         if lib.SSL_MODE_AUTO_RETRY:
@@ -310,6 +305,9 @@ class _SSLSocket(object):
         return self.socket_type == SSL_SERVER
 
     def do_handshake(self):
+        # delay to prevent circular imports
+        import socket
+
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
         timeout = _socket_timeout(sock)
@@ -318,10 +316,6 @@ class _SSLSocket(object):
             lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
             lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
 
-        has_timeout = timeout > 0
-        deadline = -1
-        if has_timeout:
-            deadline = _monotonic_clock() + timeout;
         # Actually negotiate SSL connection
         # XXX If SSL_do_handshake() returns 0, it's also a failure.
         while True:
@@ -331,10 +325,6 @@ class _SSLSocket(object):
             # end allow threads
 
             check_signals()
-
-            if has_timeout:
-                # REIVIEW monotonic clock?
-                timeout = deadline - _monotonic_clock()
 
             if err == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
@@ -381,6 +371,9 @@ class _SSLSocket(object):
                 return _decode_certificate(self.peer_cert)
 
     def write(self, bytestring):
+        # delay to prevent circular imports
+        import socket
+
         deadline = 0
         b = _str_to_ffi_buffer(bytestring)
         sock = self.get_socket_or_connection_gone()
@@ -395,11 +388,6 @@ class _SSLSocket(object):
             lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
             lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
 
-
-        has_timeout = timeout > 0
-        if has_timeout:
-            deadline = _monotonic_clock() + timeout
-
         sockstate = _ssl_select(sock, 1, timeout)
         if sockstate == SOCKET_HAS_TIMED_OUT:
             raise socket.timeout("The write operation timed out")
@@ -413,9 +401,6 @@ class _SSLSocket(object):
             err = lib.SSL_get_error(self.ssl, length)
 
             check_signals()
-
-            if has_timeout:
-                timeout = deadline - _monotonic_clock()
 
             if err == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
@@ -439,6 +424,9 @@ class _SSLSocket(object):
             raise pyssl_error(self, length)
 
     def read(self, length, buffer_into=None):
+        # delay to prevent circular imports
+        import socket
+
         ssl = self.ssl
 
         if length < 0 and buffer_into is None:
@@ -468,19 +456,12 @@ class _SSLSocket(object):
 
         deadline = 0
         timeout = _socket_timeout(sock)
-        has_timeout = timeout > 0
-        if has_timeout:
-            deadline = _monotonic_clock() + timeout
-
         shutdown = False
         while True:
             count = lib.SSL_read(self.ssl, mem, length);
             err = lib.SSL_get_error(self.ssl, count);
 
             check_signals()
-
-            if has_timeout:
-                timeout = deadline - _monotonic_clock()
 
             if err == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
@@ -579,6 +560,9 @@ class _SSLSocket(object):
         return sock
 
     def shutdown(self):
+        # delay to prevent circular imports
+        import socket
+
         sock = self.get_socket_or_None()
         nonblocking = False
         ssl = self.ssl
@@ -596,10 +580,6 @@ class _SSLSocket(object):
                 lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
         else:
             timeout = 0
-
-        has_timeout = (timeout > 0);
-        if has_timeout:
-            deadline = _monotonic_clock() + timeout;
 
         zeros = 0
 
@@ -629,9 +609,6 @@ class _SSLSocket(object):
                 # Shutdown was sent, now try receiving
                 self.shutdown_seen_zero = 1
                 continue
-
-            if has_timeout:
-                timeout = deadline - _monotonic_clock()
 
             # Possibly retry shutdown until timeout or failure
             ssl_err = lib.SSL_get_error(self.ssl, err)
@@ -1028,11 +1005,11 @@ class _SSLContext(object):
             lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, ffi.NULL)
 
 
-    def _wrap_socket(self, sock, server_side, server_hostname=None):
+    def _wrap_socket(self, sock, server_side, server_hostname=None, ssl_sock=None):
         if server_hostname:
             server_hostname = server_hostname.encode('idna')
         return _SSLSocket._new__ssl_socket(self, sock, server_side,
-                server_hostname, None, None)
+                server_hostname, ssl_sock)
 
     def load_verify_locations(self, cafile=None, capath=None, cadata=None):
         ffi.errno = 0

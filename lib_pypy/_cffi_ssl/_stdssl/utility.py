@@ -19,7 +19,7 @@ def _str_to_ffi_buffer(view):
     elif isinstance(view, memoryview):
         # NOTE pypy limitation StringBuffer does not allow
         # to get a raw address to the string!
-        view = bytes(view)
+        view = view.tobytes()
     # dont call call ffi.from_buffer(bytes(view)), arguments
     # like ints/bools should result in a TypeError
     return ffi.from_buffer(view)
