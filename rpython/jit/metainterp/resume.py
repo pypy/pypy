@@ -224,12 +224,13 @@ class ResumeDataLoopMemo(object):
     def _number_boxes(self, iter, arr, optimizer, numb_state):
         """ Number boxes from one snapshot
         """
+        from rpython.jit.metainterp.optimizeopt.info import getrawptrinfo
         num_boxes = numb_state.num_boxes
         num_virtuals = numb_state.num_virtuals
         liveboxes = numb_state.liveboxes
         for item in arr:
             box = iter.get(rffi.cast(lltype.Signed, item))
-            box = optimizer.get_box_replacement(box)
+            box = box.get_box_replacement()
 
             if isinstance(box, Const):
                 tagged = self.getconst(box)
@@ -241,7 +242,7 @@ class ResumeDataLoopMemo(object):
                     info = optimizer.getptrinfo(box)
                     is_virtual = (info is not None and info.is_virtual())
                 if box.type == 'i':
-                    info = optimizer.getrawptrinfo(box)
+                    info = getrawptrinfo(box)
                     is_virtual = (info is not None and info.is_virtual())
                 if is_virtual:
                     tagged = tag(num_virtuals, TAGVIRTUAL)
@@ -414,6 +415,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         return tagbits == TAGVIRTUAL
 
     def finish(self, pending_setfields=[]):
+        from rpython.jit.metainterp.optimizeopt.info import getrawptrinfo
         optimizer = self.optimizer
         # compute the numbering
         storage = self.storage
@@ -442,7 +444,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                     info = optimizer.getptrinfo(box)
                 else:
                     assert box.type == 'i'
-                    info = optimizer.getrawptrinfo(box)
+                    info = getrawptrinfo(box)
                 assert info.is_virtual()
                 info.visitor_walk_recursive(box, self, optimizer)
 

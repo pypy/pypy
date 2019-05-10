@@ -10,6 +10,7 @@ from rpython.jit.metainterp.optimizeopt.bridgeopt import (
     deserialize_optimizer_knowledge)
 from rpython.jit.metainterp.resoperation import (
     rop, AbstractResOp, GuardResOp, OpHelpers)
+from .info import getrawptrinfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -137,7 +138,7 @@ class Optimization(object):
 
     def getptrinfo(self, op):
         if op.type == 'i':
-            return self.getrawptrinfo(op)
+            return getrawptrinfo(op)
         elif op.type == 'f':
             return None
         assert op.type == 'r'
@@ -156,24 +157,6 @@ class Optimization(object):
         if isinstance(fw, info.AbstractRawPtrInfo):
             return True
         return False
-
-    def getrawptrinfo(self, op):
-        assert op.type == 'i'
-        op = get_box_replacement(op)
-        assert op.type == 'i'
-        if isinstance(op, ConstInt):
-            return info.ConstPtrInfo(op)
-        fw = op.get_forwarded()
-        if isinstance(fw, IntBound):
-            return None
-        if fw is not None:
-            if isinstance(fw, info.AbstractRawPtrInfo):
-                return fw
-            fw = info.RawStructPtrInfo()
-            op.set_forwarded(fw)
-            assert isinstance(fw, info.AbstractRawPtrInfo)
-            return fw
-        return None
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
@@ -327,7 +310,7 @@ class Optimizer(Optimization):
                                                 self.optearlyforce, rec)
             return box
         if box.type == 'i':
-            info = self.getrawptrinfo(box)
+            info = getrawptrinfo(box)
             if info is not None:
                 return info.force_at_the_end_of_preamble(box,
                                             self.optearlyforce, None)
@@ -854,7 +837,7 @@ class Optimizer(Optimization):
             opinfo = self.getptrinfo(op)
             return opinfo is not None and opinfo.is_virtual()
         if op.type == 'i':
-            opinfo = self.getrawptrinfo(op)
+            opinfo = getrawptrinfo(op)
             return opinfo is not None and opinfo.is_virtual()
         return False
 

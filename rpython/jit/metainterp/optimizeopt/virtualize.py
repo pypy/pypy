@@ -5,8 +5,8 @@ from rpython.jit.metainterp.optimizeopt import info, optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
-
 from rpython.jit.metainterp.optimizeopt.rawbuffer import InvalidRawOperation
+from .info import getrawptrinfo
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 
 
@@ -246,13 +246,13 @@ class OptVirtualize(optimizer.Optimization):
         self.last_emitted_operation = REMOVED
 
     def do_RAW_FREE(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(1))
+        opinfo = getrawptrinfo(op.getarg(1))
         if opinfo and opinfo.is_virtual():
             return
         return self.emit(op)
 
     def optimize_INT_ADD(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         offsetbox = self.get_constant_box(op.getarg(1))
         if opinfo and opinfo.is_virtual() and offsetbox is not None:
             offset = offsetbox.getint()
@@ -315,7 +315,7 @@ class OptVirtualize(optimizer.Optimization):
         return offset, itemsize, descr
 
     def optimize_GETARRAYITEM_RAW_I(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
@@ -333,7 +333,7 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
 
     def optimize_SETARRAYITEM_RAW(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
@@ -355,7 +355,7 @@ class OptVirtualize(optimizer.Optimization):
         return offset, itemsize, descr
 
     def optimize_RAW_LOAD_I(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             offsetbox = self.get_constant_box(op.getarg(1))
             if offsetbox is not None:
@@ -371,7 +371,7 @@ class OptVirtualize(optimizer.Optimization):
     optimize_RAW_LOAD_F = optimize_RAW_LOAD_I
 
     def optimize_RAW_STORE(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             offsetbox = self.get_constant_box(op.getarg(1))
             if offsetbox is not None:

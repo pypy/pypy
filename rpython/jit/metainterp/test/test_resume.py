@@ -15,7 +15,7 @@ from rpython.jit.metainterp.resumecode import (
     unpack_numbering, create_numbering)
 from rpython.jit.metainterp.opencoder import Trace
 
-from rpython.jit.metainterp.optimizeopt import info
+from rpython.jit.metainterp.optimizeopt import info, util
 from rpython.jit.metainterp.history import (
     ConstInt, Const, AbstractDescr, ConstPtr, ConstFloat, IntFrontendOp,
     RefFrontendOp, CONST_NULL)
@@ -51,12 +51,8 @@ class FakeOptimizer(object):
             op = op.get_forwarded()
         return op
 
-    def getrawptrinfo(self, op):
-        op = self.get_box_replacement(op)
-        return op.get_forwarded()
-
     def getptrinfo(self, op):
-        op = self.get_box_replacement(op)
+        op = util.get_box_replacement(op)
         return op.get_forwarded()
 
 

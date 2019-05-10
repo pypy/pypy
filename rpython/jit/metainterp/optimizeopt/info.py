@@ -9,7 +9,6 @@ from rpython.jit.metainterp.executor import execute
 from rpython.jit.metainterp.optimize import InvalidLoop
 from .util import get_box_replacement
 
-
 INFO_NULL = 0
 INFO_NONNULL = 1
 INFO_UNKNOWN = 2
@@ -110,7 +109,7 @@ class NonNullPtrInfo(PtrInfo):
 
     def mark_last_guard(self, optimizer):
         if (optimizer.getlastop() is None or
-            not optimizer.getlastop().is_guard()):
+                not optimizer.getlastop().is_guard()):
             # there can be a really emitted operation that's not a guard
             # e.g. a setfield, ignore those
             return
@@ -468,7 +467,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         return self.parent.getitem_raw(self.offset+offset, itemsize, descr)
 
     def setitem_raw(self, offset, itemsize, descr, itemop):
-        self.parent.setitem_raw(self.offset+offset, itemsize, descr, itemop)
+        self.parent.setitem_raw(self.offset + offset, itemsize, descr, itemop)
 
     def _force_elements(self, op, optforce, descr):
         if self.parent.is_virtual():
@@ -639,7 +638,7 @@ class ArrayStructInfo(ArrayPtrInfo):
     def _compute_index(self, index, fielddescr):
         all_fdescrs = fielddescr.get_arraydescr().get_all_fielddescrs()
         if all_fdescrs is None:
-            return 0 # annotation hack
+            return 0  # annotation hack
         one_size = len(all_fdescrs)
         return index * one_size + fielddescr.get_field_descr().get_index()
 
@@ -675,8 +674,7 @@ class ArrayStructInfo(ArrayPtrInfo):
         for index in range(self.getlength()):
             for fielddescr in fielddescrs:
                 itemop = self._items[i]
-                if (itemop is not None and
-                    not isinstance(itemop, Const)):
+                if (itemop is not None and not isinstance(itemop, Const)):
                     ptrinfo = optimizer.getptrinfo(itemop)
                     if ptrinfo and ptrinfo.is_virtual():
                         ptrinfo.visitor_walk_recursive(itemop, visitor,
@@ -703,7 +701,8 @@ class ConstPtrInfo(PtrInfo):
 
     def _get_info(self, descr, optheap):
         ref = self._const.getref_base()
-        if not ref: raise InvalidLoop   # null protection
+        if not ref:
+            raise InvalidLoop   # null protection
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = StructPtrInfo(descr)
@@ -712,7 +711,8 @@ class ConstPtrInfo(PtrInfo):
 
     def _get_array_info(self, descr, optheap):
         ref = self._const.getref_base()
-        if not ref: raise InvalidLoop   # null protection
+        if not ref:
+            raise InvalidLoop   # null protection
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = ArrayPtrInfo(descr)
@@ -778,8 +778,8 @@ class ConstPtrInfo(PtrInfo):
         return self._unpack_str(mode)
 
     def getlenbound(self, mode):
-        from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound,\
-                IntLowerBound
+        from rpython.jit.metainterp.optimizeopt.intutils import (
+            ConstIntBound, IntLowerBound)
 
         length = self.getstrlen1(mode)
         if length < 0:
@@ -846,3 +846,23 @@ class FloatConstInfo(AbstractInfo):
 
     def make_guards(self, op, short, optimizer):
         short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))
+
+
+def getrawptrinfo(op):
+    from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+    assert op.type == 'i'
+    op = op.get_box_replacement()
+    assert op.type == 'i'
+    if isinstance(op, ConstInt):
+        return ConstPtrInfo(op)
+    fw = op.get_forwarded()
+    if isinstance(fw, IntBound):
+        return None
+    if fw is not None:
+        if isinstance(fw, AbstractRawPtrInfo):
+            return fw
+        fw = RawStructPtrInfo()
+        op.set_forwarded(fw)
+        assert isinstance(fw, AbstractRawPtrInfo)
+        return fw
+    return None
