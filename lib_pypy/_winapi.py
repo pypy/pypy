@@ -5,6 +5,7 @@ modules on Windows.
 """
 
 import sys
+
 if sys.platform != 'win32':
     raise ImportError("The '_winapi' module is only available on Windows")
 
@@ -16,6 +17,8 @@ _kernel32 = _ffi.dlopen('kernel32')
 GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
+def SetLastError(errno):
+    return _kernel32.SetLastError(errno)
 
 def GetLastError():
     return _kernel32.GetLastError()
@@ -55,19 +58,19 @@ def CreatePipe(attributes, size):
     res = _kernel32.CreatePipe(handles, handles + 1, NULL, size)
 
     if not res:
-        SetFromWindowsErr(0)
+        SetFromWindowsErr(GetLastError())
 
     return _handle2int(handles[0]), _handle2int(handles[1])
 
 def CreateNamedPipe(*args):
     handle = _kernel32.CreateNamedPipeW(*args)
-    if handle == INVALID_HANDLE_VALUE:
+    if handle == _INVALID_HANDLE_VALUE:
         SetFromWindowsErr(0)
     return _handle2int(handle)
 
 def CreateFile(*args):
     handle = _kernel32.CreateFileW(*args)
-    if handle == INVALID_HANDLE_VALUE:
+    if handle == _INVALID_HANDLE_VALUE:
         SetFromWindowsErr(0)
     return _handle2int(handle)
 
@@ -88,7 +91,7 @@ def SetNamedPipeHandleState(namedpipe, mode, max_collection_count, collect_data_
 class Overlapped(object):
     def __init__(self, handle):
         self.overlapped = _ffi.new('OVERLAPPED[1]')
-        self.handle = handle
+        self.handle = _handle2int(handle)
         self.readbuffer = None
         self.pending = 0
         self.completed = 0
@@ -100,14 +103,18 @@ class Overlapped(object):
         # do this somehow else
         err = _kernel32.GetLastError()
         bytes = _ffi.new('DWORD[1]')
-        o = self.overlapped[0]
         if self.pending:
-            if _kernel32.CancelIoEx(_int2handle(self.handle), self.overlapped) and \
-                _kernel32.GetOverlappedResult(_int2handle(self.handle), self.overlapped, bytes, True):
+            result = _kernel32.CancelIoEx(_int2handle(self.handle), self.overlapped)
+            if result: 
+                _kernel32.GetOverlappedResult(_int2handle(self.handle), self.overlapped, bytes, True)
                 # The operation is no longer pending, nothing to do
-                pass
+                
             #else:
+                # We need to raise a warning here and not crash pypy
                 #raise RuntimeError('deleting an overlapped struct with a pending operation not supported')
+        CloseHandle(_int2handle(self.overlapped[0].hEvent))
+        _kernel32.SetLastError(err)
+        err = _kernel32.GetLastError()
 
     @property
     def event(self):
@@ -115,7 +122,8 @@ class Overlapped(object):
 
     def GetOverlappedResult(self, wait):
         transferred = _ffi.new('DWORD[1]', [0])
-        res = _kernel32.GetOverlappedResult(_int2handle(self.handle), self.overlapped, transferred, wait)
+        res = _kernel32.GetOverlappedResult(_int2handle(self.handle), self.overlapped, transferred, wait != 0)
+        
         if res:
             err = ERROR_SUCCESS
         else:
@@ -124,14 +132,11 @@ class Overlapped(object):
         if err in (ERROR_SUCCESS, ERROR_MORE_DATA, ERROR_OPERATION_ABORTED):
             self.completed = 1
             self.pending = 0
-        elif res == ERROR_IO_INCOMPLETE:
-            pass
-        else:
+        elif res != ERROR_IO_INCOMPLETE:
             self.pending = 0
             raise _WinError(IOError)
 
         if self.completed and self.readbuffer:
-            assert _ffi.typeof(self.readbuffer) is _ffi.typeof("CHAR[]")
             if transferred[0] != len(self.readbuffer):
                 tempbuffer = _ffi.new("CHAR[]", transferred[0])
                 _ffi.memmove(tempbuffer, self.readbuffer, transferred[0])
@@ -142,7 +147,11 @@ class Overlapped(object):
         if not self.completed:
             raise ValueError("can't get read buffer before GetOverlappedResult() "
                         "signals the operation completed")
-        return _ffi.buffer(self.readbuffer)
+        if self.readbuffer:
+            result = _ffi.buffer(self.readbuffer)
+        else:
+            result = None
+        return result
 
     def cancel(self):
         ret = True
@@ -181,7 +190,8 @@ def ReadFile(handle, size, overlapped):
         err = 0
     else: 
         err = _kernel32.GetLastError()
-    if overlapped:
+
+    if use_overlapped:
         if not ret:
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
@@ -189,7 +199,7 @@ def ReadFile(handle, size, overlapped):
                 return _WinError(IOError)
         return overlapped, err
 
-    if not ret and err != ERROR_MORE_DATA:
+    if (not ret) and err != ERROR_MORE_DATA:
         return _WinError(IOError)
     return buf, err
 
@@ -197,8 +207,7 @@ def WriteFile(handle, buffer, overlapped=False):
     written = _ffi.new("DWORD*")
     err = _ffi.new("DWORD*")
     use_overlapped = overlapped
-    overlapped = None
-
+    overlapped = None    
     if use_overlapped:
         overlapped = Overlapped(handle)
         if not overlapped:
@@ -207,7 +216,6 @@ def WriteFile(handle, buffer, overlapped=False):
         buf = overlapped.writebuffer
     else:
         buf = _ffi.new("CHAR[]", bytes(buffer))
-    
     if use_overlapped:
         ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, overlapped.overlapped)
     else:
@@ -218,21 +226,17 @@ def WriteFile(handle, buffer, overlapped=False):
     else: 
         err = _kernel32.GetLastError()
 
-    if overlapped:
+    if use_overlapped:
         if not ret:
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
-            elif err != ERROR_MORE_DATA:
+            else:
                 return _WinError(IOError)
         return overlapped, err
 
     if not ret:
         return _WinError(IOError)
      
-    # The whole of the buffer should have been written
-    # otherwise this function call has been be successful
-    assert written[0] == len(buf)
-
     return written[0], err
 
  
@@ -350,9 +354,7 @@ def PeekNamedPipe(handle, size=0):
             # Not sure what that is doing currently.
             SetFromWindowsErr(0)
 
-        assert nread == len(buf)
- #       if (_PyBytes_Resize(&buf, nread))
- #           return NULL;
+
         return  buf, navail[0], nleft[0]
     else:
         ret = _kernel32.PeekNamedPipe(_int2handle(handle), _ffi.NULL, 0, _ffi.NULL, navail, nleft)
@@ -373,6 +375,7 @@ def WaitForSingleObject(handle, milliseconds):
 def WaitNamedPipe(namedpipe, milliseconds):
     namedpipe = _ffi.new("CHAR[]", namedpipe.encode("ascii", "ignore"))
     res = _kernel32.WaitNamedPipeA(namedpipe, milliseconds)
+
     if res < 0:
         raise SetFromWindowsErr(0)
 
@@ -432,6 +435,9 @@ def GetModuleFileName(module):
     if not res:
         raise _WinError()
     return _ffi.string(buf)
+
+def ExitProcess(exitcode):
+    _kernel32.ExitProcess(exitcode)
 
 ZERO_MEMORY = 0x00000008
 

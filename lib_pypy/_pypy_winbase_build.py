@@ -113,9 +113,11 @@ BOOL WINAPI CancelIo(HANDLE);
 BOOL WINAPI CancelIoEx(HANDLE, LPOVERLAPPED);
 BOOL WINAPI CloseHandle(HANDLE);
 DWORD WINAPI GetLastError(VOID);
+void WINAPI SetLastError(DWORD);
 BOOL WINAPI GetOverlappedResult(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
 HANDLE WINAPI GetCurrentProcess(void);
 HANDLE OpenProcess(DWORD, BOOL, DWORD);
+void ExitProcess(UINT);
 BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
                             DWORD, BOOL, DWORD);
 BOOL WINAPI CreateProcessA(char *, char *, void *,
