@@ -24,6 +24,9 @@ PyAPI_DATA(char *) PyStructSequence_UnnamedField;
 PyAPI_FUNC(void) PyStructSequence_InitType(PyTypeObject *type,
                                            PyStructSequence_Desc *desc);
 
+PyAPI_FUNC(int) PyStructSequence_InitType2(PyTypeObject *type,
+                                           PyStructSequence_Desc *desc);
+
 PyAPI_FUNC(PyObject *) PyStructSequence_New(PyTypeObject* type);
 
 typedef struct {

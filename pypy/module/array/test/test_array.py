@@ -892,14 +892,21 @@ class AppTestArray(object):
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
+    def test_array_of_chars_equality(self):
+        input_bytes = '\x01\x63a\x00!'
+        a = self.array('c', input_bytes)
+        b = self.array('c', input_bytes)
+        b.byteswap()
+        assert a == b
+
     def test_unicode_outofrange(self):
         input_unicode = u'\x01\u263a\x00\ufeff'
         a = self.array('u', input_unicode)
         b = self.array('u', input_unicode)
         b.byteswap()
         assert b[2] == u'\u0000'
-        raises(ValueError, "b[1]")        # doesn't work
-        e = raises(ValueError, "a != b")  # doesn't work
+        assert a != b
+        e = raises(ValueError, "b[0]")        # doesn't work
         assert str(e.value) == (
             "cannot operate on this array('u') because it contains"
             " character U+1000000 not in range [U+0000; U+10ffff]"
@@ -909,6 +916,10 @@ class AppTestArray(object):
                           " range [U+0000; U+10ffff]>)")
         assert a.tounicode() == input_unicode
         raises(ValueError, b.tounicode)   # doesn't work
+
+    def test_unicode_surrogate(self):
+        a = self.array('u', u'\ud800')
+        assert a[0] == u'\ud800'
 
     def test_weakref(self):
         import weakref

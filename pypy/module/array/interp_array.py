@@ -94,8 +94,8 @@ def compare_arrays(space, arr1, arr2, comp_op):
     lgt = min(arr1.len, arr2.len)
     for i in range(lgt):
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
-        w_elem1 = arr1.w_getitem(space, i)
-        w_elem2 = arr2.w_getitem(space, i)
+        w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
+        w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
         if comp_op == EQ:
             res = space.eq_w(w_elem1, w_elem2)
             if not res:
@@ -1142,10 +1142,11 @@ def make_array(mytype):
             else:
                 self.fromsequence(w_iterable)
 
-        def w_getitem(self, space, idx):
+        def w_getitem(self, space, idx, integer_instead_of_char=False):
             item = self.get_buffer()[idx]
             keepalive_until_here(self)
-            if mytype.typecode in 'bBhHil':
+            if mytype.typecode in 'bBhHil' or (
+                    integer_instead_of_char and mytype.typecode in 'cu'):
                 item = rffi.cast(lltype.Signed, item)
                 return space.newint(item)
             if mytype.typecode in 'ILqQ':
@@ -1158,7 +1159,7 @@ def make_array(mytype):
             elif mytype.typecode == 'u':
                 code = r_uint(ord(item))
                 try:
-                    item = rutf8.unichr_as_utf8(code)
+                    item = rutf8.unichr_as_utf8(code, allow_surrogates=True)
                 except rutf8.OutOfRange:
                     raise oefmt(space.w_ValueError,
                         "cannot operate on this array('u') because it contains"

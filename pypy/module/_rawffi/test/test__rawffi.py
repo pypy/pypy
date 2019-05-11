@@ -348,6 +348,21 @@ class AppTestFfi:
         arg2.free()
         a.free()
 
+    def test_unicode_array(self):
+        import _rawffi
+        A = _rawffi.Array('u')
+        a = A(6, u'\u1234')
+        assert a[0] == u'\u1234'
+        a[0] = u'\U00012345'
+        assert a[0] == u'\U00012345'
+        a[0] = u'\ud800'
+        assert a[0] == u'\ud800'
+        B = _rawffi.Array('i')
+        b = B.fromaddress(a.itemaddress(0), 1)
+        b[0] = 0xffffffff
+        raises(ValueError, "a[0]")
+        a.free()
+
     def test_returning_unicode(self):
         import _rawffi
         A = _rawffi.Array('u')

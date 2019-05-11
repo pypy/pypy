@@ -923,3 +923,18 @@ class AppTestArgument:
             def test(**kwargs):
                 return kwargs
             assert test(**q) == {"foo": "bar"}
+
+    def test_issue2996_1(self): """
+        class Class:
+            def method(*args, a_parameter=None, **kwargs):
+                pass
+        Class().method(**{'a_parameter': 4})
+        """
+
+    def test_issue2996_2(self): """
+        class Foo:
+            def methhh(*args, offset=42):
+                return args, offset
+        foo = Foo()
+        assert foo.methhh(**{}) == ((foo,), 42)
+        """

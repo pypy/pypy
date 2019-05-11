@@ -509,8 +509,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return
         self.update_position(asrt.lineno)
         end = self.new_block()
-        if self.compile_info.optimize != 0:
-            self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
+        self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:

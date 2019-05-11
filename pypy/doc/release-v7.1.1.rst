@@ -68,10 +68,14 @@ although PyPy does support ARM 32 bit processors.
 Changelog
 =========
 
-Changes shared across versions
-* improve performance of ``u''.append``
+Changes shared across versions:
+
+* Improve performance of ``u''.append``
+
 * Prevent a crash in ``zlib`` when flushing a closed stream
-* Fix a few corener cases when encountering unicode values above 0x110000
+
+* Fix a few corner cases when encountering unicode values above 0x110000
+
 * Teach the JIT how to handle very large constant lists, sets, or dicts
 * Fix building on ARM32 (issue 2984_)
 * Fix a bug in register assignment in ARM32
@@ -81,9 +85,9 @@ Changes shared across versions
 * Fix memoryviews of ctype structures with padding, (cpython issue 32780_)
 * CFFI updated to as-yet-unreleased 1.12.3
 
-Python 3.6 only
+Python 3.6 only:
 
-* On win32, override some ``errno.E*`` values that were added to MSVC in v2010
+* Override some ``errno.E*`` values that were added to MSVC in v2010
   so that ``errno.E* == errno.WSAE*`` as in CPython
 * Do the same optimization that CPython does for ``(1, 2, 3, *a)`` (but at the
   AST level)

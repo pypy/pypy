@@ -125,6 +125,7 @@ class AppTestCodecs:
         assert (charmap_decode(b"\x00\x01\x02", "strict",
                                {0: u'\U0010FFFF', 1: u'b', 2: u'c'}) ==
                 (u"\U0010FFFFbc", 3))
+        assert charmap_decode(b'\xff', "strict", {0xff: 0xd800}) == (u'\ud800', 1)
 
     def test_escape_decode(self):
         from _codecs import unicode_escape_decode as decode
@@ -1386,7 +1387,7 @@ class AppTestPartialEvaluation:
                      "foo\udca5bar")
         assert ("foo\udca5bar".encode("iso-8859-3", "surrogateescape") == 
                          b"foo\xa5bar")
-    
+
     def test_warn_escape_decode(self):
         import warnings
         import codecs
@@ -1394,10 +1395,37 @@ class AppTestPartialEvaluation:
         with warnings.catch_warnings(record=True) as l:
             warnings.simplefilter("always")
             codecs.unicode_escape_decode(b'\\A')
-            codecs.unicode_escape_decode(b"\\A")
+            codecs.unicode_escape_decode(b"\\" + b"\xff")
 
         assert len(l) == 2
         assert isinstance(l[0].message, DeprecationWarning)
+        assert isinstance(l[1].message, DeprecationWarning)
 
+    def test_invalid_type_errors(self):
+        # hex is not a text encoding. it works via the codecs functions, but
+        # not the methods
+        import codecs
+        res = codecs.decode(b"aabb", "hex")
+        assert res == b"\xaa\xbb"
+        res = codecs.decode(u"aabb", "hex")
+        assert res == b"\xaa\xbb"
+        res = codecs.encode(b"\xaa\xbb", "hex")
+        assert res == b"aabb"
 
+        raises(LookupError, u"abc".encode, "hex")
 
+    def test_non_text_codec(self):
+        import _codecs
+        def search_function(encoding):
+            def f(input, errors="strict"):
+                return 52, len(input)
+            if encoding == 'test.mynontextenc':
+                return (f, f, None, None)
+            return None
+        _codecs.register(search_function)
+        res = _codecs.encode(u"abc", "test.mynontextenc")
+        assert res == 52
+        res = _codecs.decode(b"abc", "test.mynontextenc")
+        assert res == 52
+        raises(TypeError, u"abc".encode, "test.mynontextenc")
+        raises(TypeError, b"abc".decode, "test.mynontextenc")

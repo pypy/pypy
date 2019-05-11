@@ -1235,7 +1235,14 @@ def encode_object(space, w_obj, encoding, errors):
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(utf8)
-    return encode(space, w_obj, encoding, errors)
+    w_retval = encode(space, w_obj, encoding, errors)
+    if not space.isinstance_w(w_retval, space.w_bytes):
+        raise oefmt(space.w_TypeError,
+                    "'%s' encoder returned '%T' instead of 'bytes'; "
+                    "use codecs.encode() to encode to arbitrary types",
+                    encoding,
+                    w_retval)
+    return w_retval
 
 
 def decode_object(space, w_obj, encoding, errors=None):
@@ -1250,7 +1257,14 @@ def decode_object(space, w_obj, encoding, errors=None):
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
     from pypy.module._codecs.interp_codecs import decode
-    return decode(space, w_obj, encoding, errors)
+    w_retval = decode(space, w_obj, encoding, errors)
+    if not isinstance(w_retval, W_UnicodeObject):
+        raise oefmt(space.w_TypeError,
+                    "'%s' decoder returned '%T' instead of 'str'; "
+                    "use codecs.decode() to decode to arbitrary types",
+                    encoding,
+                    w_retval)
+    return w_retval
 
 def unicode_from_object(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):

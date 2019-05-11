@@ -180,14 +180,17 @@ class Arguments(object):
         too_many_args = False
 
         # put the special w_firstarg into the scope, if it exists
+        upfront = 0
+        args_w = self.arguments_w
         if w_firstarg is not None:
-            upfront = 1
             if co_argcount > 0:
                 scope_w[0] = w_firstarg
-        else:
-            upfront = 0
+                upfront = 1
+            else:
+                # ugh, this is a call to a method 'def meth(*args)', maybe
+                # (see test_issue2996_*).  Fall-back solution...
+                args_w = [w_firstarg] + args_w
 
-        args_w = self.arguments_w
         num_args = len(args_w)
         avail = num_args + upfront
 
@@ -210,11 +213,8 @@ class Arguments(object):
         # collect extra positional arguments into the *vararg
         if signature.has_vararg():
             args_left = co_argcount - upfront
-            if args_left < 0:  # check required by rpython
-                starargs_w = [w_firstarg]
-                if num_args:
-                    starargs_w = starargs_w + args_w
-            elif num_args > args_left:
+            assert args_left >= 0  # check required by rpython
+            if num_args > args_left:
                 starargs_w = args_w[args_left:]
             else:
                 starargs_w = []

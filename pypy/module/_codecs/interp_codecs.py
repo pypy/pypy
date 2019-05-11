@@ -575,14 +575,7 @@ def encode(space, w_obj, encoding=None, errors=None):
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
-    w_retval =  _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
-    if not space.isinstance_w(w_retval, space.w_bytes):
-        raise oefmt(space.w_TypeError,
-                    "'%s' encoder returned '%T' instead of 'bytes'; "
-                    "use codecs.encode() to encode to arbitrary types",
-                    encoding,
-                    w_retval)
-    return w_retval
+    return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
 
 @unwrap_spec(errors='text_or_none')
 def readbuffer_encode(space, w_data, errors='strict'):
@@ -604,14 +597,7 @@ def decode(space, w_obj, encoding=None, errors=None):
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
-    w_retval = _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
-    if not isinstance(w_retval, W_UnicodeObject):
-        raise oefmt(space.w_TypeError,
-                    "'%s' decoder returned '%T' instead of 'str'; "
-                    "use codecs.decode() to decode to arbitrary types",
-                    encoding,
-                    w_retval)
-    return w_retval
+    return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 @unwrap_spec(errors='text')
 def register_error(space, errors, w_handler):
@@ -842,7 +828,7 @@ class Charmap_Decode:
             if not 0 <= x <= 0x10FFFF:
                 raise oefmt(space.w_TypeError,
                     "character mapping must be in range(0x110000)")
-            return rutf8.unichr_as_utf8(x)
+            return rutf8.unichr_as_utf8(x, allow_surrogates=True)
         elif space.is_w(w_ch, space.w_None):
             # Charmap may return None
             return errorchar
@@ -972,9 +958,17 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
         unicode_name_handler)
 
     if first_escape_error_char is not None:
+        # Here, 'first_escape_error_char' is a single string character.
+        # Careful, it might be >= '\x80'.  If it is, it would made an
+        # invalid utf-8 string when pasted directory in it.
+        if ' ' <= first_escape_error_char < '\x7f':
+            msg = "invalid escape sequence '\\%s'" % (first_escape_error_char,)
+        else:
+            msg = "invalid escape sequence: '\\' followed by %s" % (
+                space.text_w(space.repr(
+                    space.newbytes(first_escape_error_char))),)
         space.warn(
-            space.newtext("invalid escape sequence '\\%s'"
-                          % str(first_escape_error_char)),
+            space.newtext(msg),
             space.w_DeprecationWarning
         )
     return space.newtuple([space.newutf8(result, lgt), space.newint(u_len)])
