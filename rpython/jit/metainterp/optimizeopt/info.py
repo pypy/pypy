@@ -859,10 +859,6 @@ def getrawptrinfo(op):
     if isinstance(fw, IntBound):
         return None
     if fw is not None:
-        if isinstance(fw, AbstractRawPtrInfo):
-            return fw
-        fw = RawStructPtrInfo()
-        op.set_forwarded(fw)
         assert isinstance(fw, AbstractRawPtrInfo)
         return fw
     return None
