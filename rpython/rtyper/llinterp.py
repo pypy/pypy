@@ -1226,6 +1226,9 @@ class LLFrame(object):
     def op_gc_move_out_of_nursery(self, obj):
         raise NotImplementedError("gc_move_out_of_nursery")
 
+    def op_gc_increase_root_stack_depth(self, new_depth):
+        raise NotImplementedError("gc_increase_root_stack_depth")
+
     def op_revdb_stop_point(self, *args):
         pass
     def op_revdb_send_answer(self, *args):
