@@ -20,7 +20,7 @@ build_time_vars = {
     'AR': "ar",
     'ARFLAGS': "rc",
     'EXE': "",
-    'LIBDIR': os.path.join(sys.prefix, 'lib'),
+    'LIBDIR': os.path.join(sys.prefix, 'bin'),
     'VERSION': sys.version[:3]
 }
 
