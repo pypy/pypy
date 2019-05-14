@@ -21,3 +21,7 @@ Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp``
 
 Test and reduce the probability of a deadlock when acquiring a semaphore by
 moving global state changes closer to the actual aquire.
+
+.. branch: shadowstack-issue2722
+
+Make the shadowstack size more dynamic
