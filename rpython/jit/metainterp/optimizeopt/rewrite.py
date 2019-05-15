@@ -7,14 +7,13 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED, CONST_0, CONST_1)
-from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
+from rpython.jit.metainterp.optimizeopt.info import (
+    INFO_NONNULL, INFO_NULL, getptrinfo)
 from rpython.jit.metainterp.optimizeopt.util import (
     _findall, make_dispatcher_method, get_box_replacement)
-from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
-     OpHelpers
+from rpython.jit.metainterp.resoperation import (
+    rop, ResOperation, opclasses, OpHelpers)
 from rpython.rlib.rarithmetic import highest_bit
-from rpython.rtyper.lltypesystem import llmemory
-from rpython.rtyper import rclass
 import math
 
 
@@ -69,7 +68,6 @@ class OptRewrite(Optimization):
                 return True
         return False
 
-
     def find_rewritable_bool(self, op):
         oldopnum = op.boolinverse
         arg0 = op.getarg(0)
@@ -79,7 +77,7 @@ class OptRewrite(Optimization):
             if self.try_boolinvers(op, top):
                 return True
 
-        oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
+        oldopnum = op.boolreflex  # FIXME: add INT_ADD, INT_MUL
         if oldopnum != -1:
             top = ResOperation(oldopnum, [arg1, arg0])
             oldop = self.get_pure_result(top)
@@ -344,7 +342,7 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def optimize_GUARD_ISNULL(self, op):
-        info = self.getptrinfo(op.getarg(0))
+        info = getptrinfo(op.getarg(0))
         if info is not None:
             if info.is_null():
                 return
@@ -358,7 +356,7 @@ class OptRewrite(Optimization):
         self.make_constant(op.getarg(0), CONST_NULL)
 
     def optimize_GUARD_IS_OBJECT(self, op):
-        info = self.getptrinfo(op.getarg(0))
+        info = getptrinfo(op.getarg(0))
         if info and info.is_constant():
             if info.is_null():
                 raise InvalidLoop("A GUARD_IS_OBJECT(NULL) found")
@@ -374,7 +372,7 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def optimize_GUARD_GC_TYPE(self, op):
-        info = self.getptrinfo(op.getarg(0))
+        info = getptrinfo(op.getarg(0))
         if info and info.is_constant():
             c = get_box_replacement(op.getarg(0))
             tid = self.optimizer.cpu.get_actual_typeid(c.getref_base())
@@ -388,7 +386,7 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def optimize_GUARD_SUBCLASS(self, op):
-        info = self.getptrinfo(op.getarg(0))
+        info = getptrinfo(op.getarg(0))
         optimizer = self.optimizer
         # must raise 'InvalidLoop' in all cases where 'info' shows the
         # class cannot possibly match (see test_issue2926)
@@ -427,7 +425,7 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def optimize_GUARD_NONNULL(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo is not None:
             if opinfo.is_nonnull():
                 return
@@ -439,12 +437,12 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_NONNULL(self, op):
         self.make_nonnull(op.getarg(0))
-        self.getptrinfo(op.getarg(0)).mark_last_guard(self.optimizer)
+        getptrinfo(op.getarg(0)).mark_last_guard(self.optimizer)
 
     def optimize_GUARD_VALUE(self, op):
         arg0 = op.getarg(0)
         if arg0.type == 'r':
-            info = self.getptrinfo(arg0)
+            info = getptrinfo(arg0)
             if info:
                 if info.is_virtual():
                     raise InvalidLoop("promote of a virtual")
@@ -492,8 +490,8 @@ class OptRewrite(Optimization):
                                   'always fail' % r)
         descr = compile.ResumeGuardDescr()
         op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
-                         args = [old_guard_op.getarg(0), op.getarg(1)],
-                         descr = descr)
+                         args=[old_guard_op.getarg(0), op.getarg(1)],
+                         descr=descr)
         # Note: we give explicitly a new descr for 'op'; this is why the
         # old descr must not be ResumeAtPositionDescr (checked above).
         # Better-safe-than-sorry but it should never occur: we should
@@ -532,7 +530,7 @@ class OptRewrite(Optimization):
         self.make_nonnull(op.getarg(0))
 
     def optimize_RECORD_EXACT_CLASS(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         expectedclassbox = op.getarg(1)
         assert isinstance(expectedclassbox, Const)
         if opinfo is not None:
@@ -563,8 +561,8 @@ class OptRewrite(Optimization):
                 # it was a guard_nonnull, which we replace with a
                 # guard_nonnull_class.
                 descr = compile.ResumeGuardDescr()
-                op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
-                            args = [old_guard_op.getarg(0), op.getarg(1)],
+                op = old_guard_op.copy_and_change(rop.GUARD_NONNULL_CLASS,
+                            args=[old_guard_op.getarg(0), op.getarg(1)],
                             descr=descr)
                 # Note: we give explicitly a new descr for 'op'; this is why the
                 # old descr must not be ResumeAtPositionDescr (checked above).
@@ -577,14 +575,14 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_CLASS(self, op):
         expectedclassbox = op.getarg(1)
-        info = self.getptrinfo(op.getarg(0))
+        info = getptrinfo(op.getarg(0))
         old_guard_op = info.get_last_guard(self.optimizer)
         update_last_guard = not old_guard_op or isinstance(
             old_guard_op.getdescr(), compile.ResumeAtPositionDescr)
         self.make_constant_class(op.getarg(0), expectedclassbox, update_last_guard)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):
-        info = self.getptrinfo(op.getarg(0))
+        info = getptrinfo(op.getarg(0))
         if info and info.is_null():
             r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
             raise InvalidLoop('A GUARD_NONNULL_CLASS (%s) was proven to '
@@ -663,8 +661,8 @@ class OptRewrite(Optimization):
     def _optimize_oois_ooisnot(self, op, expect_isnot, instance):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
-        info0 = self.getptrinfo(arg0)
-        info1 = self.getptrinfo(arg1)
+        info0 = getptrinfo(arg0)
+        info1 = getptrinfo(arg1)
         if info0 and info0.is_virtual():
             if info1 and info1.is_virtual():
                 intres = (info0 is info1) ^ expect_isnot
@@ -724,8 +722,8 @@ class OptRewrite(Optimization):
         if length and length.getint() == 0:
             return None  # 0-length arraycopy
 
-        source_info = self.getptrinfo(op.getarg(1))
-        dest_info = self.getptrinfo(op.getarg(2))
+        source_info = getptrinfo(op.getarg(1))
+        dest_info = getptrinfo(op.getarg(2))
         source_start_box = self.get_constant_box(op.getarg(3))
         dest_start_box = self.get_constant_box(op.getarg(4))
         extrainfo = op.getdescr().get_extra_info()

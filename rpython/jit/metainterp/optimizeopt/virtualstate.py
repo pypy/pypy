@@ -6,6 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import \
      MININT, MAXINT, IntBound, IntLowerBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat
+from .info import getptrinfo
 from .util import get_box_replacement
 from rpython.rlib.debug import debug_print
 
@@ -145,7 +146,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if runtime_box is not None:
-            opinfo = state.optimizer.getptrinfo(box)
+            opinfo = getptrinfo(box)
             assert opinfo.is_virtual()
             assert isinstance(opinfo, AbstractStructPtrInfo)
         else:
@@ -180,7 +181,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = get_box_replacement(box)
-        info = optimizer.getptrinfo(box)
+        info = getptrinfo(box)
         if info is None or not info.is_virtual():
             raise VirtualStatesCantMatch()
         else:
@@ -248,7 +249,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         fieldbox_runtime = None
         for i in range(len(self.fieldstate)):
             if runtime_box is not None:
-                opinfo = state.optimizer.getptrinfo(box)
+                opinfo = getptrinfo(box)
                 assert isinstance(opinfo, ArrayPtrInfo)
                 fieldbox = opinfo._items[i]
                 fieldbox_runtime = state.get_runtime_item(runtime_box,
@@ -261,7 +262,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = get_box_replacement(box)
-        info = optimizer.getptrinfo(box)
+        info = getptrinfo(box)
         if info is None or not info.is_virtual():
             raise VirtualStatesCantMatch()
         if len(self.fieldstate) > info.getlength():
@@ -305,7 +306,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         fieldbox = None
         fieldbox_runtime = None
         if box is not None:
-            opinfo = state.optimizer.getptrinfo(box)
+            opinfo = getptrinfo(box)
             assert isinstance(opinfo, ArrayPtrInfo)
         else:
             opinfo = None
@@ -330,7 +331,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                 s.enum(virtual_state)
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
-        opinfo = optimizer.getptrinfo(box)
+        opinfo = getptrinfo(box)
         if not isinstance(opinfo, ArrayStructInfo):
             raise VirtualStatesCantMatch
         if not opinfo.is_virtual():
@@ -412,15 +413,15 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.level == LEVEL_CONSTANT:
             return
         assert 0 <= self.position_in_notvirtuals
-        if optimizer is not None:
-            box = get_box_replacement(box)
-            if box.type == 'r':
-                info = optimizer.getptrinfo(box)
-                if info and info.is_virtual():
-                    if force_boxes:
-                        info.force_box(box, optimizer)
-                    else:
-                        raise VirtualStatesCantMatch
+        assert optimizer is not None
+        box = get_box_replacement(box)
+        if box.type == 'r':
+            info = getptrinfo(box)
+            if info and info.is_virtual():
+                if force_boxes:
+                    info.force_box(box, optimizer)
+                else:
+                    raise VirtualStatesCantMatch
         boxes[self.position_in_notvirtuals] = box
 
     def _enum(self, virtual_state):
@@ -714,11 +715,11 @@ class VirtualStateConstructor(VirtualVisitor):
         except KeyError:
             pass
         if box.type == 'r':
-            info = opt.getptrinfo(box)
+            info = getptrinfo(box)
             if info is not None and info.is_virtual():
                 result = info.visitor_dispatch_virtual_type(self)
                 self.info[box] = result
-                info.visitor_walk_recursive(box, self, opt)
+                info.visitor_walk_recursive(box, self)
                 result.fieldstate = [self.create_state_or_none(b, opt)
                                      for b in self.fieldboxes[box]]
             else:

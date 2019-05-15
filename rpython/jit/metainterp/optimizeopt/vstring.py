@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.metainterp.optimizeopt import info
+from .info import AbstractVirtualPtrInfo, getptrinfo
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import annlowlevel
@@ -47,7 +47,7 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 # ____________________________________________________________
 
 
-class StrPtrInfo(info.AbstractVirtualPtrInfo):
+class StrPtrInfo(AbstractVirtualPtrInfo):
     #_attrs_ = ('length', 'lenbound', 'lgtop', 'mode', '_cached_vinfo', '_is_virtual')
 
     lenbound = None
@@ -119,7 +119,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         return lengthop
 
     def make_guards(self, op, short, optimizer):
-        info.AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
+        AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
         if (self.lenbound and
                 self.lenbound.has_lower and self.lenbound.lower >= 1):
             if self.mode is mode_string:
@@ -205,7 +205,7 @@ class VStringPlainInfo(StrPtrInfo):
             offsetbox = _int_add(optstring, offsetbox, CONST_1)
         return offsetbox
 
-    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor):
         visitor.register_virtual_fields(instbox, self._chars)
 
     @specialize.argtype(1)
@@ -238,7 +238,7 @@ class VStringSliceInfo(StrPtrInfo):
         vstart = optstring.getintbound(self.start)
         vlength = optstring.getintbound(self.lgtop)
         if vstart.is_constant() and vlength.is_constant():
-            vstr = optstring.getptrinfo(self.s)
+            vstr = getptrinfo(self.s)
             s1 = vstr.get_constant_string_spec(optstring, mode)
             if s1 is None:
                 return None
@@ -253,12 +253,12 @@ class VStringSliceInfo(StrPtrInfo):
         assert op is not None
         return self.lgtop
 
-    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor):
         boxes = [self.s, self.start, self.lgtop]
         visitor.register_virtual_fields(instbox, boxes)
-        opinfo = optimizer.getptrinfo(self.s)
+        opinfo = getptrinfo(self.s)
         if opinfo and opinfo.is_virtual():
-            opinfo.visitor_walk_recursive(self.s, visitor, optimizer)
+            opinfo.visitor_walk_recursive(self.s, visitor)
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
@@ -283,11 +283,11 @@ class VStringConcatInfo(StrPtrInfo):
         assert op is not None
         if self.lgtop is not None:
             return self.lgtop
-        lefti = optstring.getptrinfo(self.vleft)
+        lefti = getptrinfo(self.vleft)
         len1box = lefti.getstrlen(self.vleft, optstring, mode)
         if len1box is None:
             return None
-        righti = optstring.getptrinfo(self.vright)
+        righti = getptrinfo(self.vright)
         len2box = righti.getstrlen(self.vright, optstring, mode)
         if len2box is None:
             return None
@@ -297,11 +297,11 @@ class VStringConcatInfo(StrPtrInfo):
 
     @specialize.arg(2)
     def get_constant_string_spec(self, optstring, mode):
-        ileft = optstring.getptrinfo(self.vleft)
+        ileft = getptrinfo(self.vleft)
         s1 = ileft.get_constant_string_spec(optstring, mode)
         if s1 is None:
             return None
-        iright = optstring.getptrinfo(self.vright)
+        iright = getptrinfo(self.vright)
         s2 = iright.get_constant_string_spec(optstring, mode)
         if s2 is None:
             return None
@@ -309,26 +309,26 @@ class VStringConcatInfo(StrPtrInfo):
 
     def string_copy_parts(self, op, optstring, targetbox, offsetbox,
                           mode):
-        lefti = optstring.getptrinfo(self.vleft)
+        lefti = getptrinfo(self.vleft)
         offsetbox = lefti.string_copy_parts(self.vleft, optstring,
                                             targetbox, offsetbox, mode)
-        righti = optstring.getptrinfo(self.vright)
+        righti = getptrinfo(self.vright)
         offsetbox = righti.string_copy_parts(self.vright, optstring,
                                              targetbox, offsetbox, mode)
         return offsetbox
 
-    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor):
         # we don't store the lengthvalue in guards, because the
         # guard-failed code starts with a regular STR_CONCAT again
         leftbox = self.vleft
         rightbox = self.vright
         visitor.register_virtual_fields(instbox, [leftbox, rightbox])
-        leftinfo = optimizer.getptrinfo(leftbox)
-        rightinfo = optimizer.getptrinfo(rightbox)
+        leftinfo = getptrinfo(leftbox)
+        rightinfo = getptrinfo(rightbox)
         if leftinfo and leftinfo.is_virtual():
-            leftinfo.visitor_walk_recursive(leftbox, visitor, optimizer)
+            leftinfo.visitor_walk_recursive(leftbox, visitor)
         if rightinfo and rightinfo.is_virtual():
-            rightinfo.visitor_walk_recursive(rightbox, visitor, optimizer)
+            rightinfo.visitor_walk_recursive(rightbox, visitor)
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
@@ -463,7 +463,7 @@ class OptString(Optimization):
         self.pure_from_args(mode_unicode.STRLEN, [op], op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo:
             assert not opinfo.is_constant()
             # strsetitem(ConstPtr) never makes sense
@@ -489,12 +489,12 @@ class OptString(Optimization):
 
     def strgetitem(self, op, s, index, mode):
         self.make_nonnull_str(s, mode)
-        sinfo = self.getptrinfo(s)
+        sinfo = getptrinfo(s)
         #
         if isinstance(sinfo, VStringSliceInfo) and sinfo.is_virtual(): # slice
             index = _int_add(self.optimizer, sinfo.start, index)
             s = sinfo.s
-            sinfo = self.getptrinfo(sinfo.s)
+            sinfo = getptrinfo(sinfo.s)
         #
         if isinstance(sinfo, VStringPlainInfo):
             # even if no longer virtual
@@ -508,7 +508,7 @@ class OptString(Optimization):
         #
         vindex = self.getintbound(index)
         if isinstance(sinfo, VStringConcatInfo) and vindex.is_constant():
-            leftinfo = self.getptrinfo(sinfo.vleft)
+            leftinfo = getptrinfo(sinfo.vleft)
             len1box = leftinfo.getstrlen(sinfo.vleft, self, mode)
             if isinstance(len1box, ConstInt):
                 raw_index = vindex.getint()
@@ -529,7 +529,7 @@ class OptString(Optimization):
 
     def _optimize_STRLEN(self, op, mode):
         arg1 = get_box_replacement(op.getarg(0))
-        opinfo = self.getptrinfo(arg1)
+        opinfo = getptrinfo(arg1)
         if opinfo:
             lgtop = opinfo.getstrlen(arg1, self, mode)
             if lgtop is not None:
@@ -544,7 +544,7 @@ class OptString(Optimization):
         return self._optimize_STRHASH(op, mode_unicode)
 
     def _optimize_STRHASH(self, op, mode):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo:
             lgtop = opinfo.getstrhash(op, mode)
             if lgtop is not None:
@@ -565,8 +565,8 @@ class OptString(Optimization):
         assert op.getarg(2).type == INT
         assert op.getarg(3).type == INT
         assert op.getarg(4).type == INT
-        src = self.getptrinfo(op.getarg(0))
-        dst = self.getptrinfo(op.getarg(1))
+        src = getptrinfo(op.getarg(0))
+        dst = getptrinfo(op.getarg(1))
         srcstart = self.getintbound(op.getarg(2))
         dststart = self.getintbound(op.getarg(3))
         length = self.getintbound(op.getarg(4))
@@ -641,7 +641,7 @@ class OptString(Optimization):
         # More generally, supporting non-constant but virtual cases is
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
-        varg = self.getptrinfo(op.getarg(1))
+        varg = getptrinfo(op.getarg(1))
         s = None
         if varg:
             s = varg.get_constant_string_spec(self, mode_string)
@@ -666,7 +666,7 @@ class OptString(Optimization):
 
     def opt_call_stroruni_STR_SLICE(self, op, mode):
         self.make_nonnull_str(op.getarg(1), mode)
-        vstr = self.getptrinfo(op.getarg(1))
+        vstr = getptrinfo(op.getarg(1))
         vstart = self.getintbound(op.getarg(2))
         vstop = self.getintbound(op.getarg(3))
         #
@@ -697,8 +697,8 @@ class OptString(Optimization):
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
         arg1 = get_box_replacement(op.getarg(1))
         arg2 = get_box_replacement(op.getarg(2))
-        i1 = self.getptrinfo(arg1)
-        i2 = self.getptrinfo(arg2)
+        i1 = getptrinfo(arg1)
+        i2 = getptrinfo(arg2)
         #
         if i1:
             l1box = i1.getstrlen(arg1, self, mode)
@@ -738,8 +738,8 @@ class OptString(Optimization):
         return False, None
 
     def handle_str_equal_level1(self, arg1, arg2, resultop, mode):
-        i1 = self.getptrinfo(arg1)
-        i2 = self.getptrinfo(arg2)
+        i1 = getptrinfo(arg1)
+        i2 = getptrinfo(arg2)
         l2box = None
         l1box = None
         if i2:
@@ -748,7 +748,7 @@ class OptString(Optimization):
             if l2box.value == 0:
                 if i1 and i1.is_nonnull():
                     self.make_nonnull_str(arg1, mode)
-                    i1 = self.getptrinfo(arg1)
+                    i1 = getptrinfo(arg1)
                     lengthbox = i1.getstrlen(arg1, self, mode)
                 else:
                     lengthbox = None
@@ -792,8 +792,8 @@ class OptString(Optimization):
         return False, None
 
     def handle_str_equal_level2(self, arg1, arg2, resultbox, mode):
-        i1 = self.getptrinfo(arg1)
-        i2 = self.getptrinfo(arg2)
+        i1 = getptrinfo(arg1)
+        i2 = getptrinfo(arg2)
         l2box = None
         if i2:
             l2box = i2.getstrlen(arg1, self, mode)
@@ -821,8 +821,8 @@ class OptString(Optimization):
     def opt_call_stroruni_STR_CMP(self, op, mode):
         arg1 = get_box_replacement(op.getarg(1))
         arg2 = get_box_replacement(op.getarg(2))
-        i1 = self.getptrinfo(arg1)
-        i2 = self.getptrinfo(arg2)
+        i1 = getptrinfo(arg1)
+        i2 = getptrinfo(arg2)
         if not i1 or not i2:
             return False, None
         l1box = i1.getstrlen(arg1, self, mode)
@@ -842,7 +842,7 @@ class OptString(Optimization):
         return False, None
 
     def opt_call_SHRINK_ARRAY(self, op):
-        i1 = self.getptrinfo(op.getarg(1))
+        i1 = getptrinfo(op.getarg(1))
         i2 = self.getintbound(op.getarg(2))
         # If the index is constant, if the argument is virtual (we only support
         # VStringPlainValue for now) we can optimize away the call.

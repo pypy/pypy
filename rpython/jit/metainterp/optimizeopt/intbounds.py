@@ -7,6 +7,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
+from .info import getptrinfo
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -443,7 +444,7 @@ class OptIntBounds(Optimization):
 
     def postprocess_STRLEN(self, op):
         self.make_nonnull_str(op.getarg(0), vstring.mode_string)
-        array = self.getptrinfo(op.getarg(0))
+        array = getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_string))
 
     def optimize_UNICODELEN(self, op):
@@ -451,7 +452,7 @@ class OptIntBounds(Optimization):
 
     def postprocess_UNICODELEN(self, op):
         self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
-        array = self.getptrinfo(op.getarg(0))
+        array = getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_unicode))
 
     def optimize_STRGETITEM(self, op):
@@ -459,7 +460,7 @@ class OptIntBounds(Optimization):
 
     def postprocess_STRGETITEM(self, op):
         v1 = self.getintbound(op)
-        v2 = self.getptrinfo(op.getarg(0))
+        v2 = getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
         if (intbound.has_lower and v2 is not None and
             v2.getlenbound(vstring.mode_string) is not None):
@@ -524,7 +525,7 @@ class OptIntBounds(Optimization):
     def postprocess_UNICODEGETITEM(self, op):
         b1 = self.getintbound(op)
         b1.make_ge(IntLowerBound(0))
-        v2 = self.getptrinfo(op.getarg(0))
+        v2 = getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
         if (intbound.has_lower and v2 is not None and
             v2.getlenbound(vstring.mode_unicode) is not None):

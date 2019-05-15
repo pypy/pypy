@@ -25,9 +25,6 @@ class FakeOptimizer(object):
     class cpu:
         remove_gctypeptr = True
 
-    def getptrinfo(self, box):
-        return box.get_forwarded()
-
     def setinfo_from_preamble(self, *args):
         pass
 

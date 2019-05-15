@@ -221,10 +221,11 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def _number_boxes(self, iter, arr, optimizer, numb_state):
+    def _number_boxes(self, iter, arr, numb_state):
         """ Number boxes from one snapshot
         """
-        from rpython.jit.metainterp.optimizeopt.info import getrawptrinfo
+        from rpython.jit.metainterp.optimizeopt.info import (
+            getrawptrinfo, getptrinfo)
         num_boxes = numb_state.num_boxes
         num_virtuals = numb_state.num_virtuals
         liveboxes = numb_state.liveboxes
@@ -239,7 +240,7 @@ class ResumeDataLoopMemo(object):
             else:
                 is_virtual = False
                 if box.type == 'r':
-                    info = optimizer.getptrinfo(box)
+                    info = getptrinfo(box)
                     is_virtual = (info is not None and info.is_virtual())
                 if box.type == 'i':
                     info = getrawptrinfo(box)
@@ -264,21 +265,20 @@ class ResumeDataLoopMemo(object):
         arr = snapshot_iter.vable_array
 
         numb_state.append_int(len(arr))
-        self._number_boxes(snapshot_iter, arr, optimizer, numb_state)
+        self._number_boxes(snapshot_iter, arr, numb_state)
 
         arr = snapshot_iter.vref_array
         n = len(arr)
         assert not (n & 1)
         numb_state.append_int(n >> 1)
 
-        self._number_boxes(snapshot_iter, arr, optimizer, numb_state)
+        self._number_boxes(snapshot_iter, arr, numb_state)
 
         for snapshot in snapshot_iter.framestack:
             jitcode_index, pc = snapshot_iter.unpack_jitcode_pc(snapshot)
             numb_state.append_int(jitcode_index)
             numb_state.append_int(pc)
-            self._number_boxes(
-                    snapshot_iter, snapshot.box_array, optimizer, numb_state)
+            self._number_boxes(snapshot_iter, snapshot.box_array, numb_state)
         numb_state.patch_current_size(0)
 
         return numb_state
@@ -415,7 +415,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         return tagbits == TAGVIRTUAL
 
     def finish(self, pending_setfields=[]):
-        from rpython.jit.metainterp.optimizeopt.info import getrawptrinfo
+        from rpython.jit.metainterp.optimizeopt.info import (
+            getrawptrinfo, getptrinfo)
         optimizer = self.optimizer
         # compute the numbering
         storage = self.storage
@@ -441,12 +442,12 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             else:
                 assert tagbits == TAGVIRTUAL
                 if box.type == 'r':
-                    info = optimizer.getptrinfo(box)
+                    info = getptrinfo(box)
                 else:
                     assert box.type == 'i'
                     info = getrawptrinfo(box)
                 assert info.is_virtual()
-                info.visitor_walk_recursive(box, self, optimizer)
+                info.visitor_walk_recursive(box, self)
 
         for setfield_op in pending_setfields:
             box = setfield_op.getarg(0)
@@ -458,11 +459,11 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             fieldbox = optimizer.get_box_replacement(fieldbox)
             self.register_box(box)
             self.register_box(fieldbox)
-            info = optimizer.getptrinfo(fieldbox)
+            info = getptrinfo(fieldbox)
             assert info is not None and info.is_virtual()
-            info.visitor_walk_recursive(fieldbox, self, optimizer)
+            info.visitor_walk_recursive(fieldbox, self)
 
-        self._number_virtuals(liveboxes, optimizer, num_virtuals)
+        self._number_virtuals(liveboxes, num_virtuals)
         self._add_pending_fields(optimizer, pending_setfields)
 
         numb_state.patch(1, len(liveboxes))
@@ -472,8 +473,9 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         storage.rd_consts = self.memo.consts
         return liveboxes[:]
 
-    def _number_virtuals(self, liveboxes, optimizer, num_env_virtuals):
-        from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
+    def _number_virtuals(self, liveboxes, num_env_virtuals):
+        from rpython.jit.metainterp.optimizeopt.info import (
+            AbstractVirtualPtrInfo, getptrinfo)
 
         # !! 'liveboxes' is a list that is extend()ed in-place !!
         memo = self.memo
@@ -514,7 +516,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             memo.nvholes += length - len(vfieldboxes)
             for virtualbox, fieldboxes in vfieldboxes.iteritems():
                 num, _ = untag(self.liveboxes[virtualbox])
-                info = optimizer.getptrinfo(virtualbox)
+                info = getptrinfo(virtualbox)
                 assert info.is_virtual()
                 assert isinstance(info, AbstractVirtualPtrInfo)
                 fieldnums = [self._gettagged(box)

@@ -61,36 +61,28 @@ class AbstractCachedEntry(object):
             info.produce_short_preamble_ops(structbox, descr, index, optimizer,
                                             shortboxes)
 
-    def possible_aliasing(self, optheap, opinfo):
+    def possible_aliasing(self, opinfo):
         # If lazy_set is set and contains a setfield on a different
         # structvalue, then we are annoyed, because it may point to either
         # the same or a different structure at runtime.
         # XXX constants?
         return (self._lazy_set is not None
-                and (not optheap.getptrinfo(
-                    self._lazy_set.getarg(0)).same_info(opinfo)))
+            and not info.getptrinfo(self._lazy_set.getarg(0)).same_info(opinfo))
 
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
         structinfo = optheap.ensure_ptr_info_arg0(op)
         arg1 = get_box_replacement(self._get_rhs_from_set_op(op))
-        if self.possible_aliasing(optheap, structinfo):
+        if self.possible_aliasing(structinfo):
             self.force_lazy_set(optheap, op.getdescr())
-            assert not self.possible_aliasing(optheap, structinfo)
+            assert not self.possible_aliasing(structinfo)
         cached_field = self._getfield(structinfo, op.getdescr(), optheap, False)
         if cached_field is not None:
             cached_field = cached_field.get_box_replacement()
 
-        # Hack to ensure constants are imported from the preamble
-        # XXX no longer necessary?
-        #if cached_fieldvalue and fieldvalue.is_constant():
-        #    optheap.optimizer.ensure_imported(cached_fieldvalue)
-        #    cached_fieldvalue = self._cached_fields.get(structvalue, None)
-
         if not cached_field or not cached_field.same_box(arg1):
             # common case: store the 'op' as lazy_set
             self._lazy_set = op
-
         else:
             # this is the case where the pending setfield ends up
             # storing precisely the value that is already there,
@@ -105,7 +97,7 @@ class AbstractCachedEntry(object):
 
     def getfield_from_cache(self, optheap, opinfo, descr):
         # Returns the up-to-date field's value, or None if not cached.
-        if self.possible_aliasing(optheap, opinfo):
+        if self.possible_aliasing(opinfo):
             self.force_lazy_set(optheap, descr)
         if self._lazy_set is not None:
             op = self._lazy_set
@@ -526,7 +518,7 @@ class OptHeap(Optimization):
                 # guards' resume data is that of a virtual object that is stored
                 # into a field of a non-virtual object.  Here, 'op' in either
                 # SETFIELD_GC or SETARRAYITEM_GC.
-                opinfo = self.getptrinfo(op.getarg(0))
+                opinfo = info.getptrinfo(op.getarg(0))
                 assert not opinfo.is_virtual()      # it must be a non-virtual
                 if self.optimizer.is_virtual(op.getarg(2)):
                     pendingfields.append(op)

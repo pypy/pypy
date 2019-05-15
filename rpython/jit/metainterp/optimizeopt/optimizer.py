@@ -1,7 +1,7 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import (
-    Const, ConstInt, ConstPtr, CONST_NULL, new_ref_dict)
+    Const, ConstInt, CONST_NULL, new_ref_dict)
 from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound, ConstIntBound, MININT, MAXINT, IntUnbounded)
 from rpython.jit.metainterp.optimizeopt.util import (
@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.bridgeopt import (
     deserialize_optimizer_knowledge)
 from rpython.jit.metainterp.resoperation import (
     rop, AbstractResOp, GuardResOp, OpHelpers)
-from .info import getrawptrinfo
+from .info import getrawptrinfo, getptrinfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -111,7 +111,7 @@ class Optimization(object):
 
     def getnullness(self, op):
         if op.type == 'r' or self.is_raw_ptr(op):
-            ptrinfo = self.getptrinfo(op)
+            ptrinfo = getptrinfo(op)
             if ptrinfo is None:
                 return info.INFO_UNKNOWN
             return ptrinfo.getnullness()
@@ -120,7 +120,7 @@ class Optimization(object):
         assert False
 
     def make_constant_class(self, op, class_const, update_last_guard=True):
-        op = get_box_replacement(op)
+        op = op.get_box_replacement()
         opinfo = op.get_forwarded()
         if isinstance(opinfo, info.InstancePtrInfo):
             opinfo._known_class = class_const
@@ -135,22 +135,6 @@ class Optimization(object):
         if update_last_guard:
             opinfo.mark_last_guard(self.optimizer)
         return opinfo
-
-    def getptrinfo(self, op):
-        if op.type == 'i':
-            return getrawptrinfo(op)
-        elif op.type == 'f':
-            return None
-        assert op.type == 'r'
-        op = get_box_replacement(op)
-        assert op.type == 'r'
-        if isinstance(op, ConstPtr):
-            return info.ConstPtrInfo(op)
-        fw = op.get_forwarded()
-        if fw is not None:
-            assert isinstance(fw, info.PtrInfo)
-            return fw
-        return None
 
     def is_raw_ptr(self, op):
         fw = get_box_replacement(op).get_forwarded()
@@ -303,7 +287,7 @@ class Optimizer(Optimization):
 
     def force_box_for_end_of_preamble(self, box):
         if box.type == 'r':
-            info = self.getptrinfo(box)
+            info = getptrinfo(box)
             if info is not None and info.is_virtual():
                 rec = {}
                 return info.force_at_the_end_of_preamble(box,
@@ -326,10 +310,10 @@ class Optimizer(Optimization):
 
     def getinfo(self, op):
         if op.type == 'r':
-            return self.getptrinfo(op)
+            return getptrinfo(op)
         elif op.type == 'i':
             if self.is_raw_ptr(op):
-                return self.getptrinfo(op)
+                return getptrinfo(op)
             return self.getintbound(op)
         elif op.type == 'f':
             if get_box_replacement(op).is_constant():
@@ -424,7 +408,7 @@ class Optimizer(Optimization):
             return
         if box.type == 'r' and box.get_forwarded() is not None:
             opinfo = box.get_forwarded()
-            opinfo.copy_fields_to_const(self.getptrinfo(constbox), self.optheap)
+            opinfo.copy_fields_to_const(getptrinfo(constbox), self.optheap)
         box.set_forwarded(constbox)
 
     def make_constant_int(self, box, intvalue):
@@ -833,13 +817,8 @@ class Optimizer(Optimization):
                 <= expected_class.subclassrange_max)
 
     def is_virtual(self, op):
-        if op.type == 'r':
-            opinfo = self.getptrinfo(op)
-            return opinfo is not None and opinfo.is_virtual()
-        if op.type == 'i':
-            opinfo = getrawptrinfo(op)
-            return opinfo is not None and opinfo.is_virtual()
-        return False
+        opinfo = getptrinfo(op)
+        return opinfo is not None and opinfo.is_virtual()
 
     # These are typically removed already by OptRewrite, but it can be
     # dissabled and unrolling emits some SAME_AS ops to setup the

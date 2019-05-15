@@ -1,4 +1,3 @@
-from __future__ import with_statement
 import py
 import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -15,7 +14,7 @@ from rpython.jit.metainterp.resumecode import (
     unpack_numbering, create_numbering)
 from rpython.jit.metainterp.opencoder import Trace
 
-from rpython.jit.metainterp.optimizeopt import info, util
+from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.history import (
     ConstInt, Const, AbstractDescr, ConstPtr, ConstFloat, IntFrontendOp,
     RefFrontendOp, CONST_NULL)
@@ -50,10 +49,6 @@ class FakeOptimizer(object):
                not isinstance(op.get_forwarded(), info.AbstractInfo)):
             op = op.get_forwarded()
         return op
-
-    def getptrinfo(self, op):
-        op = util.get_box_replacement(op)
-        return op.get_forwarded()
 
 
 # ____________________________________________________________
@@ -872,12 +867,12 @@ def test_ResumeDataLoopMemo_number():
                                   False, [], env3)
     snap3.prev = snap
 
-    class FakeVirtualInfo(info.AbstractInfo):
+    class FakeVirtualInfo(info.AbstractVirtualPtrInfo):
         def __init__(self, virt):
-            self.virt = virt
+            self._is_virtual = virt
 
         def is_virtual(self):
-            return self.virt
+            return self._is_virtual
 
     # renamed
     b3.set_forwarded(c4)
@@ -1195,7 +1190,7 @@ def test_virtual_adder_make_constant():
 
 
 def test_virtual_adder_make_virtual():
-    b2s, b3s, b4s, b5s = [IntFrontendOp(0), IntFrontendOp(0), RefFrontendOp(0),
+    b2s, b3s, b4s, b5s = [RefFrontendOp(0), IntFrontendOp(0), RefFrontendOp(0),
                           RefFrontendOp(0)]
     c1s = ConstInt(111)
     storage = Storage()
@@ -1222,7 +1217,7 @@ def test_virtual_adder_make_virtual():
     modifier.register_virtual_fields(b4s, [b3s, None, None, None, b2s, b5s])
 
     liveboxes = []
-    modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
+    modifier._number_virtuals(liveboxes, 0)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = Numbering([0])
     # resume
@@ -1277,7 +1272,7 @@ class CompareableConsts(object):
         del Const.__eq__
 
 def test_virtual_adder_make_varray():
-    b2s, b4s = [IntFrontendOp(0), IntFrontendOp(0)]
+    b2s, b4s = [RefFrontendOp(0), IntFrontendOp(0)]
     b4s.setint(4)
     c1s = ConstInt(111)
     storage = Storage()
@@ -1292,7 +1287,7 @@ def test_virtual_adder_make_varray():
     v2._items = [b4s, c1s]
     modifier.register_virtual_fields(b2s, [b4s, c1s])
     liveboxes = []
-    modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
+    modifier._number_virtuals(liveboxes, 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = Numbering([0])
@@ -1345,7 +1340,7 @@ def test_virtual_adder_make_vstruct():
     v2.setfield(LLtypeMixin.bdescr, b2s, b4s)
     modifier.register_virtual_fields(b2s, [c1s, c1s, b4s])
     liveboxes = []
-    modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
+    modifier._number_virtuals(liveboxes, 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = Numbering([0])
@@ -1389,7 +1384,7 @@ def test_virtual_adder_pending_fields():
     modifier.register_box(b4s)
 
     liveboxes = []
-    modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
+    modifier._number_virtuals(liveboxes, 0)
     assert liveboxes == [b2s, b4s] or liveboxes == [b4s, b2s]
     modifier._add_pending_fields(FakeOptimizer(), [
         ResOperation(rop.SETFIELD_GC, [b2s, b4s], descr=LLtypeMixin.nextdescr)])

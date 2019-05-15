@@ -1,10 +1,11 @@
 
-from rpython.rlib.objectmodel import specialize, we_are_translated, compute_hash
-from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
-     rop, OpHelpers
-from rpython.jit.metainterp.history import ConstInt, Const
-from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
+from rpython.rlib.objectmodel import specialize, compute_hash
+from rpython.jit.metainterp.resoperation import (
+    AbstractValue, ResOperation, rop, OpHelpers)
+from rpython.jit.metainterp.history import ConstInt, ConstPtr, Const
+from rpython.rtyper.lltypesystem import lltype
+from rpython.jit.metainterp.optimizeopt.rawbuffer import (
+    RawBuffer, InvalidRawOperation)
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.metainterp.optimize import InvalidLoop
 from .util import get_box_replacement
@@ -84,7 +85,7 @@ class PtrInfo(AbstractInfo):
 
     @specialize.arg(2)
     def get_constant_string_spec(self, string_optimizer, mode):
-        return None # can't be constant
+        return None  # can't be constant
 
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
@@ -161,14 +162,14 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
     def is_virtual(self):
         return self._is_virtual
 
-    def _visitor_walk_recursive(self, op, visitor, optimizer):
+    def _visitor_walk_recursive(self, op, visitor):
         raise NotImplementedError("abstract")
 
-    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def visitor_walk_recursive(self, instbox, visitor):
         instbox = instbox.get_box_replacement()
         if visitor.already_seen_virtual(instbox):
             return
-        return self._visitor_walk_recursive(instbox, visitor, optimizer)
+        return self._visitor_walk_recursive(instbox, visitor)
 
 
 class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
@@ -181,7 +182,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
             self.descr = descr
             self._fields = [None] * len(descr.get_all_fielddescrs())
         if index >= len(self._fields):
-            self.descr = descr # a more precise descr
+            self.descr = descr  # a more precise descr
             # we found out a subclass with more fields
             extra_len = len(descr.get_all_fielddescrs()) - len(self._fields)
             self._fields = self._fields + [None] * extra_len
@@ -232,14 +233,14 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         rec[self] = None
         for i, fldbox in enumerate(self._fields):
             if fldbox is not None:
-                info = optforce.optimizer.getptrinfo(fldbox)
+                info = getptrinfo(fldbox)
                 if info is not None:
                     fldbox = info.force_at_the_end_of_preamble(fldbox, optforce,
                                                                rec)
                     self._fields[i] = fldbox
         return op
 
-    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor):
         lst = self.descr.get_all_fielddescrs()
         assert self.is_virtual()
         visitor.register_virtual_fields(
@@ -247,9 +248,9 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         for i in range(len(lst)):
             op = self._fields[i]
             if op:
-                fieldinfo = optimizer.getptrinfo(op)
+                fieldinfo = getptrinfo(op)
                 if fieldinfo and fieldinfo.is_virtual():
-                    fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
+                    fieldinfo.visitor_walk_recursive(op, visitor)
 
     def produce_short_preamble_ops(self, structbox, fielddescr, index, optimizer,
                                    shortboxes):
@@ -289,7 +290,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
             if op.is_constant():
                 pass            # it is a constant value: ok
             else:
-                fieldinfo = optimizer.getptrinfo(op)
+                fieldinfo = getptrinfo(op)
                 if fieldinfo and fieldinfo.is_virtual():
                     # recursive check
                     if memo is None:
@@ -434,7 +435,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
                               [op, ConstInt(offset), itembox], descr=descr)
             optforce.emit_extra(setfield_op)
 
-    def _visitor_walk_recursive(self, op, visitor, optimizer):
+    def _visitor_walk_recursive(self, op, visitor):
         itemboxes = [get_box_replacement(box)
                      for box in self._get_buffer().values]
         visitor.register_virtual_fields(op, itemboxes)
@@ -464,7 +465,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         return self.parent is not None
 
     def getitem_raw(self, offset, itemsize, descr):
-        return self.parent.getitem_raw(self.offset+offset, itemsize, descr)
+        return self.parent.getitem_raw(self.offset + offset, itemsize, descr)
 
     def setitem_raw(self, offset, itemsize, descr, itemop):
         self.parent.setitem_raw(self.offset + offset, itemsize, descr, itemop)
@@ -474,11 +475,11 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
             self.parent._force_elements(op, optforce, descr)
         self.parent = None
 
-    def _visitor_walk_recursive(self, op, visitor, optimizer):
+    def _visitor_walk_recursive(self, op, visitor):
         source_op = get_box_replacement(op.getarg(0))
         visitor.register_virtual_fields(op, [source_op])
         if self.parent.is_virtual():
-            self.parent.visitor_walk_recursive(source_op, visitor, optimizer)
+            self.parent.visitor_walk_recursive(source_op, visitor)
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
@@ -569,16 +570,15 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def getlength(self):
         return self.length
 
-    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor):
         itemops = [get_box_replacement(item) for item in self._items]
         visitor.register_virtual_fields(instbox, itemops)
         for i in range(self.getlength()):
             itemop = self._items[i]
-            if (itemop is not None and
-                not isinstance(itemop, Const)):
-                ptrinfo = optimizer.getptrinfo(itemop)
+            if (itemop is not None and not isinstance(itemop, Const)):
+                ptrinfo = getptrinfo(itemop)
                 if ptrinfo and ptrinfo.is_virtual():
-                    ptrinfo.visitor_walk_recursive(itemop, visitor, optimizer)
+                    ptrinfo.visitor_walk_recursive(itemop, visitor)
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
@@ -608,7 +608,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         rec[self] = None
         for i, fldbox in enumerate(self._items):
             if fldbox is not None:
-                info = optforce.getptrinfo(fldbox)
+                info = getptrinfo(fldbox)
                 if info is not None:
                     fldbox = info.force_at_the_end_of_preamble(fldbox, optforce,
                                                                rec)
@@ -666,7 +666,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                     # if it does, we would need a fix here
                 i += 1
 
-    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor):
         itemops = [get_box_replacement(item) for item in self._items]
         visitor.register_virtual_fields(instbox, itemops)
         fielddescrs = self.descr.get_all_fielddescrs()
@@ -675,10 +675,9 @@ class ArrayStructInfo(ArrayPtrInfo):
             for fielddescr in fielddescrs:
                 itemop = self._items[i]
                 if (itemop is not None and not isinstance(itemop, Const)):
-                    ptrinfo = optimizer.getptrinfo(itemop)
+                    ptrinfo = getptrinfo(itemop)
                     if ptrinfo and ptrinfo.is_virtual():
-                        ptrinfo.visitor_walk_recursive(itemop, visitor,
-                                                       optimizer)
+                        ptrinfo.visitor_walk_recursive(itemop, visitor)
                 i += 1
 
     @specialize.argtype(1)
@@ -862,3 +861,20 @@ def getrawptrinfo(op):
         assert isinstance(fw, AbstractRawPtrInfo)
         return fw
     return None
+
+def getptrinfo(op):
+    if op.type == 'i':
+        return getrawptrinfo(op)
+    elif op.type == 'f':
+        return None
+    assert op.type == 'r'
+    op = get_box_replacement(op)
+    assert op.type == 'r'
+    if isinstance(op, ConstPtr):
+        return ConstPtrInfo(op)
+    fw = op.get_forwarded()
+    if fw is not None:
+        assert isinstance(fw, PtrInfo)
+        return fw
+    return None
+
