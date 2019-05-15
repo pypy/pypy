@@ -125,6 +125,14 @@ class AbstractAarch64Builder(object):
         base = 0b11111000011
         self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
 
+    def LDR_uint32_rr(self, rt, rn, rm):
+        base = 0b10111000011
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)        
+
+    def LDRH_rr(self, rt, rn, rm):
+        base = 0b01111000011
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
+
     def LDRB_rr(self, rt, rn, rm):
         base = 0b00111000011
         self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)

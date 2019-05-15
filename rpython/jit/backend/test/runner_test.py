@@ -1013,15 +1013,17 @@ class BaseBackendTest(Runner):
         vsdescr = self.cpu.interiorfielddescrof(A, 'vs')
         kdescr = self.cpu.interiorfielddescrof(A, 'k')
         pdescr = self.cpu.interiorfielddescrof(A, 'p')
-        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, InputArgInt(3),
-                                                         boxfloat(1.5)],
-                               'void', descr=kdescr)
-        f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
-        assert longlong.getrealfloat(f) == 1.5
-        self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
-        r = self.execute_operation(rop.GETINTERIORFIELD_GC_F, [a_box, InputArgInt(3)],
-                                   'float', descr=kdescr)
-        assert longlong.getrealfloat(r) == 2.5
+        if self.cpu.supports_floats:
+
+            self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, InputArgInt(3),
+                                                             boxfloat(1.5)],
+                                   'void', descr=kdescr)
+            f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
+            assert longlong.getrealfloat(f) == 1.5
+            self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
+            r = self.execute_operation(rop.GETINTERIORFIELD_GC_F, [a_box, InputArgInt(3)],
+                                       'float', descr=kdescr)
+            assert longlong.getrealfloat(r) == 2.5
         #
         NUMBER_FIELDS = [('vs', lltype.Signed),
                          ('vu', lltype.Unsigned),
