@@ -123,6 +123,26 @@ class ResOpAssembler(BaseAssembler):
         self.emit_int_comp_op(op, arglocs[0], arglocs[1])
         return c.EQ
 
+    def emit_comp_op_int_ne(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
+        return c.NE
+
+    def emit_comp_op_uint_lt(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
+        return c.LO
+
+    def emit_comp_op_uint_le(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
+        return c.LS
+
+    def emit_comp_op_uint_gt(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
+        return c.HI
+
+    def emit_comp_op_uint_ge(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
+        return c.HS
+
     emit_op_int_lt = gen_comp_op('emit_op_int_lt', c.LT)
     emit_op_int_le = gen_comp_op('emit_op_int_le', c.LE)
     emit_op_int_gt = gen_comp_op('emit_op_int_gt', c.GT)
@@ -144,11 +164,19 @@ class ResOpAssembler(BaseAssembler):
         self.mc.CMP_ri(reg.value, 0)
         self.mc.CSET_r_flag(res.value, c.EQ)
 
+    def emit_comp_op_int_is_true(self, op, arglocs):
+        self.mc.CMP_ri(arglocs[0].value, 0)
+        return c.NE
+
     def emit_op_int_is_zero(self, op, arglocs):
         reg, res = arglocs
 
         self.mc.CMP_ri(reg.value, 0)
         self.mc.CSET_r_flag(res.value, c.NE)
+
+    def emit_comp_op_int_is_zero(self, op, arglocs):
+        self.mc.CMP_ri(arglocs[0].value, 0)
+        return c.EQ
 
     def emit_op_int_neg(self, op, arglocs):
         reg, res = arglocs
@@ -180,6 +208,15 @@ class ResOpAssembler(BaseAssembler):
         res_loc, = arglocs
         index = op.getarg(0).getint()
         self.load_from_gc_table(res_loc.value, index)
+
+    def emit_op_debug_merge_point(self, op, arglocs):
+        pass
+    
+    emit_op_jit_debug = emit_op_debug_merge_point
+    emit_op_keepalive = emit_op_debug_merge_point
+    emit_op_enter_portal_frame = emit_op_debug_merge_point
+    emit_op_leave_portal_frame = emit_op_debug_merge_point
+
 
     # -------------------------------- fields -------------------------------
 

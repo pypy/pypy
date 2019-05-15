@@ -14,7 +14,7 @@ from rpython.jit.backend.llsupport.regalloc import FrameManager, \
         get_scale
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.jit.backend.aarch64 import registers as r
-from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
+from rpython.jit.backend.aarch64.jump import remap_frame_layout_mixed
 from rpython.jit.backend.aarch64.locations import imm
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import CallDescr
@@ -303,6 +303,11 @@ class Regalloc(BaseRegalloc):
         self.free_temp_vars()
         return [base_loc, value_loc]
 
+    def void(self, op):
+        return []
+
+    prepare_op_jit_debug = void
+
     def prepare_int_ri(self, op, res_in_cc):
         boxes = op.getarglist()
         a0, a1 = boxes
@@ -390,9 +395,14 @@ class Regalloc(BaseRegalloc):
 
     prepare_comp_op_int_lt = prepare_int_cmp
     prepare_comp_op_int_le = prepare_int_cmp
-    prepare_comp_op_int_eq = prepare_int_cmp
     prepare_comp_op_int_ge = prepare_int_cmp
     prepare_comp_op_int_gt = prepare_int_cmp
+    prepare_comp_op_int_ne = prepare_int_cmp
+    prepare_comp_op_int_eq = prepare_int_cmp
+    prepare_comp_op_uint_lt = prepare_int_cmp
+    prepare_comp_op_uint_le = prepare_int_cmp
+    prepare_comp_op_uint_ge = prepare_int_cmp
+    prepare_comp_op_uint_gt = prepare_int_cmp
 
     def prepare_op_int_le(self, op):
         return self.prepare_int_cmp(op, False)
@@ -419,6 +429,15 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_is_zero = prepare_unary
     prepare_op_int_neg = prepare_unary
     prepare_op_int_invert = prepare_unary
+
+    def prepare_comp_unary(self, op, res_in_cc):
+        a0 = op.getarg(0)
+        assert not isinstance(a0, Const)
+        reg = self.make_sure_var_in_reg(a0)
+        return [reg]
+
+    prepare_comp_op_int_is_true = prepare_comp_unary
+    prepare_comp_op_int_is_zero = prepare_comp_unary        
 
     # --------------------------------- fields --------------------------
 
