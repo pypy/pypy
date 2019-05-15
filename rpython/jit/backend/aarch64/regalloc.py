@@ -212,6 +212,8 @@ class Regalloc(BaseRegalloc):
             var = op.getarg(i)
             if var is not None:  # xxx kludgy
                 self.possibly_free_var(var)
+        if op.is_guard():
+            self.possibly_free_vars(op.getfailargs())
 
     def possibly_free_vars(self, vars):
         for var in vars:
@@ -444,6 +446,34 @@ class Regalloc(BaseRegalloc):
     prepare_op_gc_load_r = _prepare_op_gc_load
     prepare_op_gc_load_f = _prepare_op_gc_load
 
+    def prepare_op_gc_store_indexed(self, op):
+        boxes = op.getarglist()
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        value_loc = self.make_sure_var_in_reg(boxes[2], boxes)
+        index_loc = self.make_sure_var_in_reg(boxes[1], boxes)
+        assert boxes[3].getint() == 1    # scale
+        ofs = boxes[4].getint()
+        size = boxes[5].getint()
+        assert check_imm_arg(ofs)
+        return [value_loc, base_loc, index_loc, imm(size), imm(ofs)]
+
+    def _prepare_op_gc_load_indexed(self, op):
+        boxes = op.getarglist()
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        index_loc = self.make_sure_var_in_reg(boxes[1], boxes)
+        assert boxes[2].getint() == 1    # scale
+        ofs = boxes[3].getint()
+        nsize = boxes[4].getint()
+        assert check_imm_arg(ofs)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res_loc = self.force_allocate_reg(op)
+        return [res_loc, base_loc, index_loc, imm(nsize), imm(ofs)]
+
+    prepare_op_gc_load_indexed_i = _prepare_op_gc_load_indexed
+    prepare_op_gc_load_indexed_r = _prepare_op_gc_load_indexed
+    prepare_op_gc_load_indexed_f = _prepare_op_gc_load_indexed
+
     # --------------------------------- call ----------------------------
 
     def _prepare_op_call(self, op):
@@ -607,8 +637,40 @@ class Regalloc(BaseRegalloc):
         return self._guard_impl(guard_op), c.VC
     prepare_guard_op_guard_no_overflow = prepare_guard_op_guard_overflow
 
-    prepare_op_guard_true = _guard_impl
-    prepare_op_guard_false = _guard_impl
+    def guard_no_cc_impl(self, op):
+        # rare case of guard with no CC
+        arglocs = self._guard_impl(op)
+        return [self.loc(op.getarg(0))] + arglocs
+
+    prepare_op_guard_true = guard_no_cc_impl
+    prepare_op_guard_false = guard_no_cc_impl
+    prepare_op_guard_nonnull = guard_no_cc_impl
+    prepare_op_guard_isnull = guard_no_cc_impl
+
+    def prepare_op_guard_value(self, op):
+        arg = self.make_sure_var_in_reg(op.getarg(0))
+        op.getdescr().make_a_counter_per_value(op,
+            self.cpu.all_reg_indexes[arg.value])
+        l1 = self.loc(op.getarg(1))
+        imm_a1 = check_imm_box(op.getarg(1))
+        if not imm_a1:
+            l1 = self.make_sure_var_in_reg(op.getarg(1), [arg])
+        arglocs = self._guard_impl(op)
+        return [arg, l1] + arglocs
+
+    def prepare_op_guard_class(self, op):
+        assert not isinstance(op.getarg(0), Const)
+        x = self.make_sure_var_in_reg(op.getarg(0))
+        y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
+        arglocs = self._guard_impl(op)
+        return [x, imm(y_val)] + arglocs
+
+    prepare_op_guard_nonnull_class = prepare_op_guard_class
+    prepare_op_guard_gc_type = prepare_op_guard_class
+    prepare_op_guard_subclass = prepare_op_guard_class
+
+    prepare_op_ptr_eq = prepare_op_instance_ptr_eq = prepare_op_int_eq
+    prepare_op_ptr_ne = prepare_op_instance_ptr_ne = prepare_op_int_ne
 
     prepare_op_nursery_ptr_increment = prepare_op_int_add
     prepare_comp_op_int_add_ovf = prepare_int_ri

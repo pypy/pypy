@@ -7,8 +7,6 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.udir import udir
 
-PC_OFFSET = 0 # XXX
-
 class AbstractAarch64Builder(object):
     def write32(self, word):
         self.writechar(chr(word & 0xFF))
@@ -43,7 +41,7 @@ class AbstractAarch64Builder(object):
     def STR_size_rr(self, scale, rt, rn, rm):
         base = 0b111000001
         assert 0 <= scale <= 3
-        self.wirte32((scale << 30) | (base << 21) | (rm << 16) | (0b11 << 13) |
+        self.write32((scale << 30) | (base << 21) | (rm << 16) | (0b11 << 13) |
                      (0b010 << 10) | (rn << 5) | rt)
 
     def STR_size_ri(self, scale, rt, rn, imm):
@@ -112,18 +110,37 @@ class AbstractAarch64Builder(object):
         assert immed & 0x7 == 0
         self.write32((base << 22) | (immed >> 3 << 10) | (rn << 5) | rt)
 
+    def LDRB_ri(self, rt, rn, immed):
+        base = 0b0011100101
+        assert 0 <= immed <= 1<<12
+        self.write32((base << 22) | (immed << 10) | (rn << 5) | rt)
+
+    def LDRSH_ri(self, rt, rn, immed):
+        base = 0b0111100110
+        assert 0 <= immed <= 1<<13
+        assert immed & 0b1 == 0
+        self.write32((base << 22) | (immed >> 1 << 10) | (rn << 5) | rt)
+
     def LDR_rr(self, rt, rn, rm):
-        xxx
+        base = 0b11111000011
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
 
-    def LDR_size_ri(self, size, rt, rn, ofs):
-        assert 0 <= size <= 3
-        assert 0 <= ofs <= 4096
-        base = 0b11100101
-        self.write32((size << 30) | (base << 22) | (ofs >> size << 10) | (rn << 5) | rt)
+    def LDRB_rr(self, rt, rn, rm):
+        base = 0b00111000011
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
 
-    def LDR_size_rr(self, size, rt, rn, rm):
-        xxx
-    
+    def LDRSW_rr(self, rt, rn, rm):
+        base = 0b10111000101
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
+
+    def LDRSH_rr(self, rt, rn, rm):
+        base = 0b01111000101
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
+
+    def LDRSB_rr(self, rt, rn, rm):
+        base = 0b00111000101
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
+
     def LDR_r_literal(self, rt, offset):
         base = 0b01011000
         assert -(1 << 20) <= offset < (1<< 20)
@@ -237,14 +254,12 @@ class AbstractAarch64Builder(object):
     def B_ofs(self, ofs):
         base = 0b000101
         assert ofs & 0x3 == 0
-        pos = self.currpos()
-        target_ofs = ofs - (pos + PC_OFFSET)
-        assert -(1 << (26 + 2)) < target_ofs < 1<<(26 + 2)
-        if target_ofs < 0:
-            target_ofs = (1 << 26) - (-target_ofs >> 2)
+        assert -(1 << (26 + 2)) < ofs < 1<<(26 + 2)
+        if ofs < 0:
+            ofs = (1 << 26) - (-ofs >> 2)
         else:
-            target_ofs = target_ofs >> 2
-        self.write32((base << 26) | target_ofs)
+            ofs = ofs >> 2
+        self.write32((base << 26) | ofs)
 
     def B_ofs_cond(self, ofs, cond):
         base = 0b01010100
@@ -254,6 +269,11 @@ class AbstractAarch64Builder(object):
         if imm < 0:
             xxx
         self.write32((base << 24) | (imm << 5) | cond)
+
+    def B(self, target):
+        target = rffi.cast(lltype.Signed, target)
+        self.gen_load_int_full(r.ip0.value, target)
+        self.BR_r(r.ip0.value)        
 
     def BL(self, target):
         # XXX use the IMM version if close enough
@@ -265,7 +285,7 @@ class AbstractAarch64Builder(object):
         base = 0b1101011000111111000000
         self.write32((base << 10) | (reg << 5))
 
-    def BR(self, reg):
+    def BR_r(self, reg):
         base = 0b1101011000011111000000
         self.write32((base << 10) | (reg << 5))
 

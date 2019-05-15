@@ -127,6 +127,9 @@ class ResOpAssembler(BaseAssembler):
     emit_op_uint_le = gen_comp_op('emit_op_uint_le', c.LS)
     emit_op_uint_ge = gen_comp_op('emit_op_uint_ge', c.HS)
 
+    emit_op_ptr_eq = emit_op_instance_ptr_eq = emit_op_int_eq
+    emit_op_ptr_ne = emit_op_instance_ptr_ne = emit_op_int_ne
+
     def emit_op_int_is_true(self, op, arglocs):
         reg, res = arglocs
 
@@ -159,38 +162,65 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_gc_store(self, op, arglocs):
         value_loc, base_loc, ofs_loc, size_loc = arglocs
         scale = get_scale(size_loc.value)
-        self._write_to_mem(value_loc, base_loc, ofs_loc, imm(scale))
+        self._write_to_mem(value_loc, base_loc, ofs_loc, scale)
 
     def _emit_op_gc_load(self, op, arglocs):
         base_loc, ofs_loc, res_loc, nsize_loc = arglocs
         nsize = nsize_loc.value
         signed = (nsize < 0)
         scale = get_scale(abs(nsize))
-        self._load_from_mem(res_loc, base_loc, ofs_loc, imm(scale), signed)
+        self._load_from_mem(res_loc, base_loc, ofs_loc, scale, signed)
 
     emit_op_gc_load_i = _emit_op_gc_load
     emit_op_gc_load_r = _emit_op_gc_load
     emit_op_gc_load_f = _emit_op_gc_load
+
+    def emit_op_gc_store_indexed(self, op, arglocs):
+        value_loc, base_loc, index_loc, size_loc, ofs_loc = arglocs
+        assert index_loc.is_core_reg()
+        # add the base offset
+        if ofs_loc.value > 0:
+            self.mc.ADD_ri(r.ip0.value, index_loc.value, ofs_loc.value)
+            index_loc = r.ip0
+        scale = get_scale(size_loc.value)
+        self._write_to_mem(value_loc, base_loc, index_loc, scale)
+
+    def _emit_op_gc_load_indexed(self, op, arglocs):
+        res_loc, base_loc, index_loc, nsize_loc, ofs_loc = arglocs
+        assert index_loc.is_core_reg()
+        nsize = nsize_loc.value
+        signed = (nsize < 0)
+        # add the base offset
+        if ofs_loc.value > 0:
+            self.mc.ADD_ri(r.ip0.value, index_loc.value, ofs_loc.value)
+            index_loc = r.ip0
+        #
+        scale = get_scale(abs(nsize))
+        self._load_from_mem(res_loc, base_loc, index_loc, scale, signed)
+
+    emit_op_gc_load_indexed_i = _emit_op_gc_load_indexed
+    emit_op_gc_load_indexed_r = _emit_op_gc_load_indexed
+    emit_op_gc_load_indexed_f = _emit_op_gc_load_indexed
 
     def _write_to_mem(self, value_loc, base_loc, ofs_loc, scale):
         # Write a value of size '1 << scale' at the address
         # 'base_ofs + ofs_loc'.  Note that 'scale' is not used to scale
         # the offset!
         assert base_loc.is_core_reg()
-        if scale.value == 3:
+        if scale == 3:
             # WORD size
             if ofs_loc.is_imm():
                 self.mc.STR_ri(value_loc.value, base_loc.value,
                                 ofs_loc.value)
             else:
-                self.mc.STR_rr(value_loc.value, base_loc.value,
-                                ofs_loc.value)
+                self.mc.STR_size_rr(3, value_loc.value, base_loc.value,
+                                    ofs_loc.value)
         else:
             if ofs_loc.is_imm():
-                self.mc.STR_size_ri(scale.value, value_loc.value, base_loc.value,
+                self.mc.STR_size_ri(scale, value_loc.value, base_loc.value,
                                      ofs_loc.value)
             else:
-                self.mc.STR_size_rr(scale.value, value_loc.value, base_loc.value,
+                self.mc.STR_size_rr(scale, value_loc.value, base_loc.value,
                                      ofs_loc.value)
 
     def _load_from_mem(self, res_loc, base_loc, ofs_loc, scale,
@@ -199,21 +229,54 @@ class ResOpAssembler(BaseAssembler):
         # 'base_loc + ofs_loc'.  Note that 'scale' is not used to scale
         # the offset!
         #
-        if scale.value == 3:
+        if scale == 3:
             # WORD
             if ofs_loc.is_imm():
-                self.mc.LDR_ri(res_loc.value, base_loc.value,
-                                ofs_loc.value)
+                self.mc.LDR_ri(res_loc.value, base_loc.value, ofs_loc.value)
             else:
-                self.mc.LDR_rr(res_loc.value, base_loc.value,
-                                ofs_loc.value)
+                self.mc.LDR_rr(res_loc.value, base_loc.value, ofs_loc.value)
+            return
+        if scale == 2:
+            # 32bit int
+            if not signed:
+                if ofs_loc.is_imm():
+                    self.mc.LDR_uint32_ri(res_loc.value, base_loc.value,
+                                          ofs_loc.value)
+                else:
+                    self.mc.LDR_uint32_rr(res_loc.value, base_loc.value,
+                                          ofs_loc.value)
+            else:
+                if ofs_loc.is_imm():
+                    self.mc.LDRSW_ri(res_loc.value, base_loc.value,
+                                             ofs_loc.value)
+                else:
+                    self.mc.LDRSW_rr(res_loc.value, base_loc.value,
+                                             ofs_loc.value)
+            return
+        if scale == 1:
+            # short
+            if not signed:
+                if ofs_loc.is_imm():
+                    self.mc.LDRH_ri(res_loc.value, base_loc.value, ofs_loc.value)
+                else:
+                    self.mc.LDRH_rr(res_loc.value, base_loc.value, ofs_loc.value)
+            else:
+                if ofs_loc.is_imm():
+                    self.mc.LDRSH_ri(res_loc.value, base_loc.value, ofs_loc.value)
+                else:
+                    self.mc.LDRSH_rr(res_loc.value, base_loc.value, ofs_loc.value)
+            return
+        assert scale == 0
+        if not signed:
+            if ofs_loc.is_imm():
+                self.mc.LDRB_ri(res_loc.value, base_loc.value, ofs_loc.value)
+            else:
+                self.mc.LDRB_rr(res_loc.value, base_loc.value, ofs_loc.value)
         else:
             if ofs_loc.is_imm():
-                self.mc.LDR_size_ri(scale.value, res_loc.value, base_loc.value,
-                                    ofs_loc.value)
+                self.mc.LDRSB_ri(res_loc.value, base_loc.value, ofs_loc.value)
             else:
-                self.mc.LDR_size_rr(scale.value, res_loc.value, base_loc.value,
-                                    ofs_loc.value)
+                self.mc.LDRSB_rr(res_loc.value, base_loc.value, ofs_loc.value)
 
     # -------------------------------- guard --------------------------------
 
@@ -256,6 +319,63 @@ class ResOpAssembler(BaseAssembler):
         self._emit_guard(guard_op, c.get_opposite_of(fcond), arglocs)
     emit_guard_op_guard_overflow = emit_guard_op_guard_false
 
+
+    def load_condition_into_cc(self, loc):
+        if not loc.is_core_reg():
+            if loc.is_stack():
+                self.regalloc_mov(loc, r.ip0)
+            else:
+                assert loc.is_imm()
+                self.mc.gen_load_int(r.ip0.value, loc.value)
+            loc = r.ip0
+        self.mc.CMP_ri(loc.value, 0)
+
+    def emit_op_guard_false(self, op, arglocs):
+        self.load_condition_into_cc(arglocs[0])
+        self._emit_guard(op, c.EQ, arglocs[1:])
+    emit_op_guard_isnull = emit_op_guard_false
+
+    def emit_op_guard_true(self, op, arglocs):
+        self.load_condition_into_cc(arglocs[0])
+        self._emit_guard(op, c.NE, arglocs[1:])
+    emit_op_guard_nonnull = emit_op_guard_true
+
+    def emit_op_guard_value(self, op, arglocs):
+        v0 = arglocs[0]
+        assert v0.is_core_reg() # can be also a float reg, but later
+        v1 = arglocs[1]
+        if v1.is_core_reg():
+            loc = v1
+        elif v1.is_imm():
+            self.mc.gen_load_int(r.ip0.value, v1.value)
+            loc = r.ip0
+        else:
+            assert v1.is_stack()
+            yyy
+        self.mc.CMP_rr(v0.value, loc.value)
+        self._emit_guard(op, c.EQ, arglocs[2:])
+
+    def emit_op_guard_class(self, op, arglocs):
+        offset = self.cpu.vtable_offset
+        assert offset is not None
+        self.mc.LDR_ri(r.ip0.value, arglocs[0].value, offset)
+        self.mc.gen_load_int(r.ip1.value, arglocs[1].value)
+        self.mc.CMP_rr(r.ip0.value, r.ip1.value)
+        self._emit_guard(op, c.EQ, arglocs[2:])
+
+    def emit_op_guard_nonnull_class(self, op, arglocs):
+        offset = self.cpu.vtable_offset
+        assert offset is not None
+        # XXX a bit obscure think about a better way
+        self.mc.MOVZ_r_u16(r.ip0.value, 1, 0)
+        self.mc.MOVZ_r_u16(r.ip1.value, 0, 0)
+        self.mc.CMP_ri(arglocs[0].value, 0)
+        self.mc.B_ofs_cond(4 * (4 + 2), c.EQ)
+        self.mc.LDR_ri(r.ip0.value, arglocs[0].value, offset)
+        self.mc.gen_load_int_full(r.ip1.value, arglocs[1].value)
+        self.mc.CMP_rr(r.ip0.value, r.ip1.value)
+        self._emit_guard(op, c.EQ, arglocs[2:])        
+
     # ----------------------------- call ------------------------------
 
     def _genop_call(self, op, arglocs):
@@ -296,17 +416,6 @@ class ResOpAssembler(BaseAssembler):
             else:
                 cb.emit_no_collect()
 
-    def load_condition_into_cc(self, loc):
-        if not loc.is_core_reg():
-            assert loc.is_stack()
-            self.regalloc_mov(loc, r.ip0)
-            loc = r.ip0
-        self.mc.CMP_ri(loc.value, 0)
-
-    def emit_op_guard_false(self, op, arglocs):
-        self.load_condition_into_cc(arglocs[1])
-        self._emit_guard(op, c.EQ, arglocs)
-
     def emit_op_label(self, op, arglocs):
         pass
 
@@ -315,9 +424,9 @@ class ResOpAssembler(BaseAssembler):
         assert isinstance(target_token, TargetToken)
         target = target_token._ll_loop_code
         if target_token in self.target_tokens_currently_compiling:
-            self.mc.B_ofs(target)
+            self.mc.B_ofs(target - self.mc.currpos())
         else:
-            self.mc.BL(target)
+            self.mc.B(target)
 
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
