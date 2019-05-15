@@ -675,6 +675,24 @@ class Regalloc(BaseRegalloc):
     prepare_op_nursery_ptr_increment = prepare_op_int_add
     prepare_comp_op_int_add_ovf = prepare_int_ri
 
+    def _prepare_op_same_as(self, op):
+        arg = op.getarg(0)
+        imm_arg = check_imm_box(arg)
+        if imm_arg:
+            argloc = self.convert_to_imm(arg)
+        else:
+            argloc = self.make_sure_var_in_reg(arg)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        resloc = self.force_allocate_reg(op)
+        return [argloc, resloc]
+
+    prepare_op_cast_ptr_to_int = _prepare_op_same_as
+    prepare_op_cast_int_to_ptr = _prepare_op_same_as
+    prepare_op_same_as_i = _prepare_op_same_as
+    prepare_op_same_as_r = _prepare_op_same_as
+    prepare_op_same_as_f = _prepare_op_same_as
+
     def prepare_op_jump(self, op):
         assert self.jump_target_descr is None
         descr = op.getdescr()

@@ -157,6 +157,17 @@ class ResOpAssembler(BaseAssembler):
         self.mc.ADD_ri(value_loc.value, value_loc.value, 1)
         self.mc.STR_ri(value_loc.value, base_loc.value, 0)
 
+    def _genop_same_as(self, op, arglocs):
+        argloc, resloc = arglocs
+        if argloc is not resloc:
+            self.mov_loc_loc(argloc, resloc)
+
+    emit_op_same_as_i = _genop_same_as
+    emit_op_same_as_r = _genop_same_as
+    emit_op_same_as_f = _genop_same_as
+    emit_op_cast_ptr_to_int = _genop_same_as
+    emit_op_cast_int_to_ptr = _genop_same_as
+
     # -------------------------------- fields -------------------------------
 
     def emit_op_gc_store(self, op, arglocs):
