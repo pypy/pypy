@@ -13,7 +13,7 @@ from rpython.jit.metainterp.optimizeopt.schedule import Scheduler
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import (
     DependencyBaseTest)
 from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (
-    FakeMetaInterpStaticData, FakeJitDriverStaticData, FakePackSet)
+    FakeJitDriverStaticData, FakePackSet)
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, VectorizationInfo)
 
@@ -60,9 +60,8 @@ class SchedulerBaseTest(DependencyBaseTest):
         for name, overwrite in (overwrite_funcs or {}).items():
             setattr(state, name, overwrite)
         renamer = Renamer()
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
+        opt = VectorizingOptimizer(self.metainterp_sd, jitdriver_sd, 0)
         opt.packset = packset
         opt.combine_packset()
         opt.schedule(state)

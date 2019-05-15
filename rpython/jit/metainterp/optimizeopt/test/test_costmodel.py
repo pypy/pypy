@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.schedule import VecScheduleState
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.test.test_schedule import SchedulerBaseTest
 from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (
-    FakeMetaInterpStaticData, FakeJitDriverStaticData)
+    FakeJitDriverStaticData)
 
 class FakeMemoryRef(object):
     def __init__(self, array, iv):
@@ -80,9 +80,8 @@ class FakeCostModel(CostModel):
 
 class TestCostModel(SchedulerBaseTest):
     def savings(self, loop):
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
+        opt = VectorizingOptimizer(self.metainterp_sd, jitdriver_sd, 0)
         opt.orig_label_args = loop.label.getarglist()[:]
         graph = opt.dependency_graph = DependencyGraph(loop)
         self.show_dot_graph(graph, 'costmodel')

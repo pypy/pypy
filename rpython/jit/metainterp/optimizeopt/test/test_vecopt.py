@@ -2,8 +2,6 @@ import py
 import sys
 import pytest
 
-from rpython.jit.metainterp.optimizeopt.test.test_util import (
-        FakeMetaInterpStaticData)
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
 from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer,
         MemoryRef, isomorphic, Pair, NotAVectorizeableLoop,
@@ -80,13 +78,12 @@ class VecTestHelper(DependencyBaseTest):
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
         jump = ResOperation(rop.JUMP, loop.jump.getarglist(), loop.jump.getdescr())
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         warmstate = FakeWarmState()
         loop.operations += [loop.jump]
         loop_info = BasicLoopInfo(loop.jump.getarglist(), None, jump)
         loop_info.label_op = ResOperation(
             rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
-        optimize_vector(None, metainterp_sd, self.jitdriver_sd, warmstate,
+        optimize_vector(None, self.metainterp_sd, self.jitdriver_sd, warmstate,
                         loop_info, loop.operations)
         loop.operations = loop.operations[:-1]
         #loop.label = state[0].label_op
@@ -94,9 +91,8 @@ class VecTestHelper(DependencyBaseTest):
         self.assert_equal(loop, expected_loop)
 
     def vectoroptimizer(self, loop):
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
+        opt = VectorizingOptimizer(self.metainterp_sd, jitdriver_sd, 0)
         opt.orig_label_args = loop.label.getarglist()[:]
         return opt
 

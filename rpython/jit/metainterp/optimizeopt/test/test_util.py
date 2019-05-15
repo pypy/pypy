@@ -515,6 +515,13 @@ class Info(object):
 
 
 class BaseTest(LLtypeMixin):
+    @pytest.fixture(autouse=True)
+    def cls_attributes(self):
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        metainterp_sd.virtualref_info = self.vrefinfo
+        compute_bitstrings(self.cpu.fetch_all_descrs())
+        self.metainterp_sd = metainterp_sd
+
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
         AbstractValue._repr_memo.counter = 0
         self.oparse = OpParser(s, self.cpu, self.namespace, boxkinds,
@@ -538,12 +545,8 @@ class BaseTest(LLtypeMixin):
                             expected.operations, False, remap, text_right)
 
     def _do_optimize_loop(self, compile_data):
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        metainterp_sd.virtualref_info = self.vrefinfo
-        compute_bitstrings(self.cpu.fetch_all_descrs())
-        #
         compile_data.enable_opts = self.enable_opts
-        state = compile_data.optimize_trace(metainterp_sd, None, {})
+        state = compile_data.optimize_trace(self.metainterp_sd, None, {})
         return state
 
     def _convert_call_pure_results(self, d):
@@ -580,7 +583,7 @@ class BaseTest(LLtypeMixin):
         runtime_boxes = self.pack_into_boxes(jump_op, jump_values)
         jump_op.setdescr(celltoken)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        t = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        t = convert_loop_to_trace(loop, self.metainterp_sd)
         preamble_data = compile.PreambleCompileData(
             t, runtime_boxes, call_pure_results, enable_opts=self.enable_opts)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)

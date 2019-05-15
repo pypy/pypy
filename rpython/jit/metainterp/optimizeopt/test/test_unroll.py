@@ -2,8 +2,7 @@
 More direct tests for unrolling
 """
 
-from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    BaseTest, FakeMetaInterpStaticData)
+from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import TreeLoop
 from rpython.jit.metainterp.resoperation import (
@@ -42,7 +41,7 @@ class BaseTestUnroll(BaseTest):
         assert jumpop.getopnum() == rop.JUMP
         inputargs = loop.inputargs
         preamble = TreeLoop('preamble')
-        trace = oparser.convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        trace = oparser.convert_loop_to_trace(loop, self.metainterp_sd)
         compile_data = PreambleCompileData(trace, inputargs)
         start_state, newops = self._do_optimize_loop(compile_data)
         preamble.operations = newops

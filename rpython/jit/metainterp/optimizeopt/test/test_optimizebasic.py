@@ -6,7 +6,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
+    BaseTest, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import (
     JitCellToken, ConstInt, get_const_ptr_for_string)
 from rpython.jit.metainterp import executor, compile
@@ -32,7 +32,7 @@ class BaseTestBasic(BaseTest):
         exp = parse(optops, namespace=self.namespace.copy())
         expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        trace = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        trace = convert_loop_to_trace(loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
             trace, call_pure_results=call_pure_results)
         info, ops = self._do_optimize_loop(compile_data)
