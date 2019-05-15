@@ -111,6 +111,14 @@ class ResOpAssembler(BaseAssembler):
         self.emit_int_comp_op(op, arglocs[0], arglocs[1])
         return c.LE
 
+    def emit_comp_op_int_gt(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
+        return c.GT
+
+    def emit_comp_op_int_ge(self, op, arglocs):
+        self.emit_int_comp_op(op, arglocs[0], arglocs[1])
+        return c.GE
+
     def emit_comp_op_int_eq(self, op, arglocs):
         self.emit_int_comp_op(op, arglocs[0], arglocs[1])
         return c.EQ
@@ -167,6 +175,11 @@ class ResOpAssembler(BaseAssembler):
     emit_op_same_as_f = _genop_same_as
     emit_op_cast_ptr_to_int = _genop_same_as
     emit_op_cast_int_to_ptr = _genop_same_as
+
+    def emit_op_load_from_gc_table(self, op, arglocs):
+        res_loc, = arglocs
+        index = op.getarg(0).getint()
+        self.load_from_gc_table(res_loc.value, index)
 
     # -------------------------------- fields -------------------------------
 

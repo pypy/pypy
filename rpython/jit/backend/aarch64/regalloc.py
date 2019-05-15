@@ -207,6 +207,12 @@ class Regalloc(BaseRegalloc):
         else:
             self.rm.possibly_free_var(var)
 
+    def force_spill_var(self, var):
+        if var.type == FLOAT:
+            self.vfprm.force_spill_var(var)
+        else:
+            self.rm.force_spill_var(var)
+
     def possibly_free_vars_for_op(self, op):
         for i in range(op.numargs()):
             var = op.getarg(i)
@@ -385,6 +391,8 @@ class Regalloc(BaseRegalloc):
     prepare_comp_op_int_lt = prepare_int_cmp
     prepare_comp_op_int_le = prepare_int_cmp
     prepare_comp_op_int_eq = prepare_int_cmp
+    prepare_comp_op_int_ge = prepare_int_cmp
+    prepare_comp_op_int_gt = prepare_int_cmp
 
     def prepare_op_int_le(self, op):
         return self.prepare_int_cmp(op, False)
@@ -692,6 +700,10 @@ class Regalloc(BaseRegalloc):
     prepare_op_same_as_i = _prepare_op_same_as
     prepare_op_same_as_r = _prepare_op_same_as
     prepare_op_same_as_f = _prepare_op_same_as
+
+    def prepare_op_load_from_gc_table(self, op):
+        resloc = self.force_allocate_reg(op)
+        return [resloc]
 
     def prepare_op_jump(self, op):
         assert self.jump_target_descr is None
