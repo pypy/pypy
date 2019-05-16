@@ -3448,11 +3448,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if use_cylicrefcnt:
             pygchdr = self.rrc_pyobj_as_gc(pyobj)
             if pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR):
-                #if pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:
-                rc = pygchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT
-                cyclic_rc = rc
-                #else:
-                #    rc = pyobj.c_ob_refcnt
+                if pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:
+                    rc = pygchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT
+                    cyclic_rc = rc
+                else:
+                    rc = pyobj.c_ob_refcnt
             else:
                 rc = pyobj.c_ob_refcnt
         else:
@@ -3595,18 +3595,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = llmemory.cast_int_to_adr(intobj)
         gchdr = self.rrc_pyobj_as_gc(pyobj)
         if gchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
-            #if gchdr.c_gc_refs == self.RAWREFCOUNT_REFS_UNTRACKED:
-            #    debug_print("gc obj not tracked", gchdr, ": obj", obj)
-            #else:
-            refcnt = pyobj.c_ob_refcnt
-            if refcnt >= REFCNT_FROM_PYPY_LIGHT:
-                refcnt -= REFCNT_FROM_PYPY_LIGHT
-            elif refcnt >= REFCNT_FROM_PYPY:
-                refcnt -= REFCNT_FROM_PYPY
-            if self.header(obj).tid & (GCFLAG_VISITED |
-                                       GCFLAG_NO_HEAP_PTRS):
-                refcnt += 1
-            self._rrc_pyobj_gc_refcnt_set(gchdr, refcnt)
+            if gchdr.c_gc_refs == self.RAWREFCOUNT_REFS_UNTRACKED:
+                debug_print("gc obj not tracked", gchdr, ": obj", obj)
+            else:
+                refcnt = pyobj.c_ob_refcnt
+                if refcnt >= REFCNT_FROM_PYPY_LIGHT:
+                    refcnt -= REFCNT_FROM_PYPY_LIGHT
+                elif refcnt >= REFCNT_FROM_PYPY:
+                    refcnt -= REFCNT_FROM_PYPY
+                if self.header(obj).tid & (GCFLAG_VISITED |
+                                           GCFLAG_NO_HEAP_PTRS):
+                    refcnt += 1
+                self._rrc_pyobj_gc_refcnt_set(gchdr, refcnt)
 
     def _rrc_mark_rawrefcount(self):
         if self._rrc_gc_list_is_empty(self.rrc_pyobj_list):
@@ -3779,8 +3779,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_visit_action(self, pyobj, ignore):
         pygchdr = self.rrc_pyobj_as_gc(pyobj)
         if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
-            pygchdr.c_gc_refs += self.rrc_refcnt_add << \
-                                 self.RAWREFCOUNT_REFS_SHIFT
+            if pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:
+                pygchdr.c_gc_refs += self.rrc_refcnt_add << \
+                                     self.RAWREFCOUNT_REFS_SHIFT
 
     def _rrc_traverse(self, pyobj, refcnt_add):
         from rpython.rlib.objectmodel import we_are_translated

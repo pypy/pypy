@@ -660,9 +660,10 @@ class TestRawRefCount(BaseDirectGCTest):
                     finalize_modern(pyobj)
                 if pyobj.c_ob_refcnt == 0:
                     gchdr = self.gc.rrc_pyobj_as_gc(pyobj)
-                    next = gchdr.c_gc_next
-                    next.c_gc_prev = gchdr.c_gc_prev
-                    gchdr.c_gc_prev.c_gc_next = next
+                    if gchdr.c_gc_refs != RAWREFCOUNT_REFS_UNTRACKED:
+                        next = gchdr.c_gc_next
+                        next.c_gc_prev = gchdr.c_gc_prev
+                        gchdr.c_gc_prev.c_gc_next = next
                     decref_children(pyobj)
                     self.pyobjs[self.pyobjs.index(pyobj)] = \
                         lltype.nullptr(PYOBJ_HDR_PTR.TO)
