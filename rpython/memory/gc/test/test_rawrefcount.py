@@ -12,6 +12,7 @@ PYOBJ_GC_HDR_PTR = IncMiniMark.PYOBJ_GC_HDR_PTR
 RAWREFCOUNT_FINALIZER_MODERN = IncMiniMark.RAWREFCOUNT_FINALIZER_MODERN
 RAWREFCOUNT_FINALIZER_LEGACY = IncMiniMark.RAWREFCOUNT_FINALIZER_LEGACY
 RAWREFCOUNT_FINALIZER_NONE = IncMiniMark.RAWREFCOUNT_FINALIZER_NONE
+RAWREFCOUNT_REFS_UNTRACKED = IncMiniMark.RAWREFCOUNT_REFS_UNTRACKED
 
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('S',
@@ -136,7 +137,8 @@ class TestRawRefCount(BaseDirectGCTest):
 
         return p1, p1ref, check_alive
 
-    def _rawrefcount_pyobj(self, create_immortal=False, is_gc=True):
+    def _rawrefcount_pyobj(self, create_immortal=False, is_gc=True,
+                           tracked=True):
         r1 = lltype.malloc(PYOBJ_HDR, flavor='raw',
                            immortal=create_immortal)
         r1.c_ob_refcnt = 0
@@ -144,13 +146,7 @@ class TestRawRefCount(BaseDirectGCTest):
         r1addr = llmemory.cast_ptr_to_adr(r1)
 
         if is_gc:
-            r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
-                                 immortal=True)
-            r1gc.c_gc_next = self.pyobj_list
-            r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
-            r1gc.c_gc_prev.c_gc_next = r1gc
-            self.pyobj_list.c_gc_prev = r1gc
-            self.gcobjs.append(r1gc)
+            self._rawrefcount_add_gc(tracked)
 
         self.pyobjs.append(r1)
         self.is_pygc.append(is_gc)
@@ -164,7 +160,8 @@ class TestRawRefCount(BaseDirectGCTest):
 
     def _rawrefcount_pair(self, intval, is_light=False, is_pyobj=False,
                           create_old=False, create_immortal=False,
-                          rooted=False, force_external=False, is_gc=True):
+                          rooted=False, force_external=False, is_gc=True,
+                          tracked=True):
         if is_light:
             rc = REFCNT_FROM_PYPY_LIGHT
         else:
@@ -197,13 +194,7 @@ class TestRawRefCount(BaseDirectGCTest):
         r1addr = llmemory.cast_ptr_to_adr(r1)
 
         if is_gc:
-            r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
-                                 immortal=True)
-            r1gc.c_gc_next = self.pyobj_list
-            r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
-            r1gc.c_gc_prev.c_gc_next = r1gc
-            self.pyobj_list.c_gc_prev = r1gc
-            self.gcobjs.append(r1gc)
+            self._rawrefcount_add_gc(tracked)
 
         self.pyobjs.append(r1)
         self.is_pygc.append(is_gc)
@@ -230,6 +221,19 @@ class TestRawRefCount(BaseDirectGCTest):
                 assert self.gc.rawrefcount_from_obj(p1ref) == llmemory.NULL
             return p1
         return p1, p1ref, r1, r1addr, check_alive
+
+    def _rawrefcount_add_gc(self, tracked):
+        r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
+                             immortal=True)
+        self.gcobjs.append(r1gc)
+        if tracked:
+            r1gc.c_gc_refs = 0
+            r1gc.c_gc_next = self.pyobj_list
+            r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
+            r1gc.c_gc_prev.c_gc_next = r1gc
+            self.pyobj_list.c_gc_prev = r1gc
+        else:
+            r1gc.c_gc_refs = RAWREFCOUNT_REFS_UNTRACKED
 
     def test_rawrefcount_objects_basic(self, old=False):
         p1, p1ref, r1, r1addr, check_alive = (
@@ -519,6 +523,7 @@ class TestRawRefCount(BaseDirectGCTest):
             rooted = attr['rooted'] == "y" if 'rooted' in attr else False
             ext_refcnt = int(attr['ext_refcnt']) if 'ext_refcnt' in attr else 0
             finalizer = attr['finalizer'] if 'finalizer' in attr else None
+            tracked = attr['tracked'] == "y" if 'tracked' in attr else True
             if finalizer == "modern":
                 finalizers = True
             resurrect = attr['resurrect'] if 'resurrect' in attr else None
@@ -527,7 +532,8 @@ class TestRawRefCount(BaseDirectGCTest):
             info = NodeInfo(type, alive, ext_refcnt, finalizer, resurrect,
                             delete, garbage)
             if type == "C":
-                r, raddr, check_alive = self._rawrefcount_pyobj()
+                r, raddr, check_alive = self._rawrefcount_pyobj(
+                    tracked=tracked)
                 r.c_ob_refcnt += ext_refcnt
                 nodes[name] = CPythonNode(r, raddr, check_alive, info)
             elif type == "P":
@@ -539,7 +545,7 @@ class TestRawRefCount(BaseDirectGCTest):
             elif type == "B":
                 p, pref, r, raddr, check_alive =\
                     self._rawrefcount_pair(42 + i, rooted=rooted,
-                                           create_old=True)
+                                           create_old=True, tracked=tracked)
                 r.c_ob_refcnt += ext_refcnt
                 nodes[name] = BorderNode(p, pref, r, raddr, check_alive, info)
                 i += 1

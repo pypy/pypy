@@ -1,0 +1,8 @@
+digraph G {
+    "a" [type=C, alive=y, ext_refcnt=1];
+    "b" [type=C, alive=y, tracked=n];
+    "c" [type=C, alive=y];
+    "a" -> "b";
+    "b" -> "c";
+    "c" -> "a";
+}

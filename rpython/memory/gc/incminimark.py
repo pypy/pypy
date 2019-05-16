@@ -3401,11 +3401,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Only trace and mark rawrefcounted object if we are not doing
         # something special, like building gc.garbage.
         if self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT:
+            merged_old_list = False
             # check objects with finalizers from last collection cycle
             if not self._rrc_gc_list_is_empty(self.rrc_pyobj_old_list):
-                self._rrc_check_finalizer()
+                merged_old_list = self._rrc_check_finalizer()
             # collect all rawrefcounted roots
             self._rrc_collect_rawrefcount_roots(self.rrc_pyobj_list)
+            if merged_old_list:
+                # set all refcounts to zero for objects in dead list
+                # (might have been incremented) by fix_refcnt
+                gchdr = self.rrc_pyobj_dead_list.c_gc_next
+                while gchdr <> self.rrc_pyobj_dead_list:
+                    gchdr.c_gc_refs = 0
+                    gchdr = gchdr.c_gc_next
             self._rrc_debug_check_consistency(print_label="roots-marked")
             # mark all objects reachable from rawrefcounted roots
             self._rrc_mark_rawrefcount()
@@ -3740,10 +3748,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if found_alive:
             self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
                                     self.rrc_pyobj_list)
+            return False
         else:
             self._rrc_clear_weakref_callbacks()
             self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
                                     self.rrc_pyobj_dead_list)
+            return True
 
     def _rrc_find_finalizer(self):
         found_finalizer = False
@@ -3841,10 +3851,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                        should_print, "rrc_pyobj_old_list")
             self._rrc_debug_check_list(self.rrc_pyobj_dead_list,
                                        should_print, "rrc_pyobj_dead_list")
-            self._rrc_debug_check_list(self.rrc_pyobj_garbage_list,
-                                       should_print, "rrc_pyobj_garbage_list")
             self._rrc_debug_check_list(self.rrc_pyobj_isolate_list,
                                        should_print, "rrc_pyobj_isolate_list")
+            # rrc_pyobj_garbage_list is not a real list, it just marks the
+            # first and the last object in rrc_pyobj_list, which are garbage
+
             if should_print:
                 debug_stop("rrc-lists " + print_label)
 
