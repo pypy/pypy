@@ -653,7 +653,13 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     else:
         pto.c_tp_free = pto.c_tp_base.c_tp_free
 
-    # TODO: traverse (for tuple)
+    from rpython.rtyper.lltypesystem import llmemory
+    from pypy.module.cpyext.typeobjectdefs import traverseproc
+    if typedescr.has_traverse(space):
+        traverse = typedescr.get_traverse(space)
+        obj = llmemory.cast_int_to_adr(traverse)
+        traverse_ptr = llmemory.cast_adr_to_ptr(obj, traverseproc)
+        pto.c_tp_traverse = traverse_ptr
 
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
@@ -723,6 +729,10 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_init = base.c_tp_init
         if not pto.c_tp_alloc:
             pto.c_tp_alloc = base.c_tp_alloc
+        if not pto.c_tp_clear:
+            pto.c_tp_clear = base.c_tp_clear
+        if not pto.c_tp_traverse:
+            pto.c_tp_traverse = base.c_tp_traverse
         # XXX check for correct GC flags!
         if not pto.c_tp_free:
             pto.c_tp_free = base.c_tp_free

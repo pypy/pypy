@@ -6,6 +6,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
+from rpython.rlib.debug import debug_print
 import sys
 
 
@@ -177,6 +178,7 @@ class State:
                 def _tp_traverse(pyobj_ptr, callback, args):
                     from pypy.module.cpyext.api import PyObject
                     from pypy.module.cpyext.typeobjectdefs import visitproc
+                    from pypy.module.cpyext.pyobject import cts
                     # convert to pointers with correct types (PyObject)
                     callback_addr = llmemory.cast_ptr_to_adr(callback)
                     callback_ptr = llmemory.cast_adr_to_ptr(callback_addr,
@@ -184,9 +186,31 @@ class State:
                     pyobj_addr = llmemory.cast_ptr_to_adr(pyobj_ptr)
                     pyobj = llmemory.cast_adr_to_ptr(pyobj_addr, PyObject)
                     # now call tp_traverse (if possible)
-                    if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_traverse:
-                        pyobj.c_ob_type.c_tp_traverse(pyobj, callback_ptr,
-                                                      args)
+                    debug_print("rrc check traverse", pyobj)
+                    pto = pyobj.c_ob_type
+                    if pto and pto.c_tp_name:
+                        tp_name = pto.c_tp_name
+                        name = rffi.charp2str(cts.cast('char*', tp_name))
+                        debug_print("rrc try traverse", pyobj, ": type", pto,
+                                    ": name", name)
+                        pto2 = pto
+                        i = 1
+                        while pto2.c_tp_base:
+                            base = pto2.c_tp_base
+                            if base.c_tp_name:
+                                tp_name = base.c_tp_name
+                                name = rffi.charp2str(cts.cast('char*', tp_name))
+                                debug_print(" " * i * 3, "basetype",
+                                            base, ": name",
+                                            name, "traverse",
+                                            base.c_tp_traverse)
+                            else:
+                                debug_print(" " * i * 3, "unknown base")
+                            pto2 = base
+                            i += 1
+                    if pto and pto.c_tp_traverse:
+                        debug_print("rrc do traverse", pyobj)
+                        pto.c_tp_traverse(pyobj, callback_ptr, args)
 
                 self.tp_traverse = (lambda o, v, a:_tp_traverse(o, v, a))
 
@@ -308,7 +332,8 @@ class CNamespace:
 def _rawrefcount_perform(space):
     from pypy.interpreter.baseobjspace import W_Root
     from pypy.module.cpyext.pyobject import (PyObject, incref, decref,
-                                             finalize, from_ref)
+                                             finalize, from_ref, cts)
+    from pypy.module.cpyext.api import generic_cpy_call
 
     while True:
         py_obj = rawrefcount.next_dead(PyObject)
@@ -328,9 +353,15 @@ def _rawrefcount_perform(space):
             break
         pyobj = rffi.cast(PyObject, py_obj)
         adr_int = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(pyobj))
-        if pyobj.c_ob_type.c_tp_clear:
+        pto = pyobj.c_ob_type
+        if pto.c_tp_clear:
             incref(space, py_obj)
-            pyobj.c_ob_type.c_tp_clear(pyobj)
+            if pto and pto.c_tp_name:
+                tp_name = pto.c_tp_name
+                name = rffi.charp2str(cts.cast('char*', tp_name))
+                debug_print("tp_clear", pyobj, ": type", pto,
+                            ": name", name)
+            generic_cpy_call(space, pto.c_tp_clear, pyobj)
             decref(space, py_obj)
         head = rawrefcount.cyclic_garbage_head(PyObject)
         if adr_int == llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(head)):

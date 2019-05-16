@@ -81,6 +81,12 @@ class BaseCpyTypedescr(object):
         state = space.fromcache(State)
         return state.C.PyObject_Free
 
+    def has_traverse(self, space):
+        return False
+
+    def get_traverse(self, space):
+        return 0
+
     def allocate(self, space, w_type, itemcount=0, immortal=False):
         state = space.fromcache(State)
         ob_type = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
@@ -129,6 +135,7 @@ def make_typedescr(typedef, **kw):
     tp_realize    = kw.pop('realize', None)
     tp_dealloc    = kw.pop('dealloc', None)
     tp_free       = kw.pop('free', None)
+    tp_traverse   = kw.pop('traverse', None)
     assert not kw, "Extra arguments to make_typedescr"
 
     null_dealloc = lltype.nullptr(lltype.FuncType([PyObject], lltype.Void))
@@ -159,6 +166,17 @@ def make_typedescr(typedef, **kw):
         if tp_realize:
             def realize(self, space, ref):
                 return tp_realize(space, ref)
+
+        if tp_traverse:
+            def get_traverse(self, space):
+                from rpython.rtyper.lltypesystem import llmemory
+                from pypy.module.cpyext.typeobjectdefs import traverseproc
+                ptr = rffi.cast(traverseproc, tp_traverse)
+                obj = llmemory.cast_ptr_to_adr(ptr)
+                return llmemory.cast_adr_to_int(obj, "symbolic")
+
+            def has_traverse(self, space):
+                return True
     if typedef:
         CpyTypedescr.__name__ = "CpyTypedescr_%s" % (typedef.name,)
 

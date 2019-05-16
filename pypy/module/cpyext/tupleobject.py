@@ -46,7 +46,8 @@ def init_tupleobject(space):
                    alloc=tuple_alloc,
                    dealloc=state.C._PyPy_tuple_dealloc,
                    realize=tuple_realize,
-                   free=state.C._PyPy_tuple_free)
+                   free=state.C._PyPy_tuple_free,
+                   traverse=state.C._PyPy_tuple_traverse)
 
 PyTuple_Check, PyTuple_CheckExact = build_type_checkers_flags("Tuple")
 

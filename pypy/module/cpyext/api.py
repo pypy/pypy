@@ -1185,6 +1185,10 @@ def attach_c_functions(space, eci, prefix):
     state.C._PyPy_tuple_free = rffi.llexternal(
         '_PyPy_tuple_free', [rffi.VOIDP], lltype.Void,
         compilation_info=eci, _nowrapper=True)
+    from pypy.module.cpyext.typeobjectdefs import visitproc
+    state.C._PyPy_tuple_traverse = rffi.llexternal(
+        '_PyPy_tuple_traverse', [PyObject, visitproc, rffi.VOIDP],
+        rffi.INT, compilation_info=eci, _nowrapper=True)
     state.C._PyPy_tuple_dealloc = rffi.llexternal(
         '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)

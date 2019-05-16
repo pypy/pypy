@@ -95,3 +95,14 @@ _PyPy_tuple_free(void *obj)
 {
     PyObject_GC_Del(obj);
 }
+
+int
+_PyPy_tuple_traverse(PyObject *ob, visitproc visit, void *arg)
+{
+    PyTupleObject *o = (PyTupleObject *)ob;
+    Py_ssize_t i;
+
+    for (i = Py_SIZE(o); --i >= 0; )
+        Py_VISIT(o->ob_item[i]);
+    return 0;
+}
