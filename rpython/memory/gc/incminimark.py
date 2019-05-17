@@ -3119,7 +3119,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     RAWREFCOUNT_FINALIZER_LEGACY = 2
     RAWREFCOUNT_REFS_SHIFT = 1
     RAWREFCOUNT_REFS_MASK_FINALIZED = 1
-    RAWREFCOUNT_REFS_UNTRACKED = -2
+    RAWREFCOUNT_REFS_UNTRACKED = -2 << RAWREFCOUNT_REFS_SHIFT
 
     def _pyobj(self, pyobjaddr):
         return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
@@ -3595,10 +3595,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = llmemory.cast_int_to_adr(intobj)
         gchdr = self.rrc_pyobj_as_gc(pyobj)
         if gchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
-            if gchdr.c_gc_refs == self.RAWREFCOUNT_REFS_UNTRACKED:
-                debug_print("gc obj not tracked", gchdr, ": obj", obj)
+            rc = gchdr.c_gc_refs
+            refcnt = pyobj.c_ob_refcnt
+            if rc == self.RAWREFCOUNT_REFS_UNTRACKED:
+                debug_print("gc obj not tracked", gchdr, ": obj", obj,
+                            "real-rc", refcnt, "cyclic-rc", rc)
             else:
-                refcnt = pyobj.c_ob_refcnt
+                debug_print("gc obj tracked", gchdr, ": obj", obj, "real-rc",
+                            refcnt, "cyclic-rc", rc, "gc-next",
+                            gchdr.c_gc_next, "gc-prev", gchdr.c_gc_prev)
                 if refcnt >= REFCNT_FROM_PYPY_LIGHT:
                     refcnt -= REFCNT_FROM_PYPY_LIGHT
                 elif refcnt >= REFCNT_FROM_PYPY:
