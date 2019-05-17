@@ -89,7 +89,7 @@ def s390x_cpu_revision():
     if machine == 0x2964:
         return "z13"
     if machine == 0x3907:  # gcc supports z14 as of 2019/05/08
-	    return "z14"
+        return "z14"
 
     # well all others are unsupported!
     return "unknown"
