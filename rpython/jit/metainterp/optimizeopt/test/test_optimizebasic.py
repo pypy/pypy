@@ -34,8 +34,9 @@ class BaseTestBasic(BaseTest):
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         trace = convert_loop_to_trace(loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
-            trace, call_pure_results=call_pure_results)
-        info, ops = self._do_optimize_loop(compile_data)
+            trace, call_pure_results=call_pure_results,
+            enable_opts=self.enable_opts)
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
         label_op = ResOperation(rop.LABEL, info.inputargs)
         loop.inputargs = info.inputargs
         loop.operations = [label_op] + ops

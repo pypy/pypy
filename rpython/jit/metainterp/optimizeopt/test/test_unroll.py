@@ -42,8 +42,10 @@ class BaseTestUnroll(BaseTest):
         inputargs = loop.inputargs
         preamble = TreeLoop('preamble')
         trace = oparser.convert_loop_to_trace(loop, self.metainterp_sd)
-        compile_data = PreambleCompileData(trace, inputargs)
-        start_state, newops = self._do_optimize_loop(compile_data)
+        compile_data = PreambleCompileData(
+            trace, inputargs, enable_opts=self.enable_opts)
+        start_state, newops = compile_data.optimize_trace(
+            self.metainterp_sd, None, {})
         preamble.operations = newops
         preamble.inputargs = start_state.renamed_inputargs
         return start_state, loop, preamble

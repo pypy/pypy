@@ -544,11 +544,6 @@ class BaseTest(LLtypeMixin):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def _do_optimize_loop(self, compile_data):
-        compile_data.enable_opts = self.enable_opts
-        state = compile_data.optimize_trace(self.metainterp_sd, None, {})
-        return state
-
     def _convert_call_pure_results(self, d):
         if d is None:
             return
@@ -586,11 +581,13 @@ class BaseTest(LLtypeMixin):
         t = convert_loop_to_trace(loop, self.metainterp_sd)
         preamble_data = compile.PreambleCompileData(
             t, runtime_boxes, call_pure_results, enable_opts=self.enable_opts)
-        start_state, preamble_ops = self._do_optimize_loop(preamble_data)
+        start_state, preamble_ops = preamble_data.optimize_trace(
+            self.metainterp_sd, None, {})
         preamble_data.forget_optimization_info()
-        loop_data = compile.UnrolledLoopData(preamble_data.trace,
-            celltoken, start_state, call_pure_results)
-        loop_info, ops = self._do_optimize_loop(loop_data)
+        loop_data = compile.UnrolledLoopData(
+            preamble_data.trace, celltoken, start_state, call_pure_results,
+            enable_opts=self.enable_opts)
+        loop_info, ops = loop_data.optimize_trace(self.metainterp_sd, None, {})
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)

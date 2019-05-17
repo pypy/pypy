@@ -1544,4 +1544,3 @@ def test_invalidation_needed():
     assert not modifier._invalidation_needed(10, 2)
     assert not modifier._invalidation_needed(10, 3)
     assert modifier._invalidation_needed(10, 4)
-

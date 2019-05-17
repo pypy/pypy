@@ -33,7 +33,7 @@ class TestOptimizeBridge(BaseTest):
             self.convert_values(bridge.operations[-1].getarglist(), bridge_values),
             None, enable_opts=self.enable_opts,
             inline_short_preamble=inline_short_preamble)
-        bridge_info, ops = self._do_optimize_loop(data)
+        bridge_info, ops = data.optimize_trace(self.metainterp_sd, None, {})
         loop.check_consistency(check_descr=False)
         info.preamble.check_consistency(check_descr=False)
         bridge.operations = ([ResOperation(rop.LABEL, bridge_info.inputargs)] +
