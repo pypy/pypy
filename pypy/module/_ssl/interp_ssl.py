@@ -103,7 +103,10 @@ version_info = (major, minor, fix, patch, status)
 constants["OPENSSL_VERSION_INFO"] = version_info
 constants["_OPENSSL_API_VERSION"] = version_info
 constants["OPENSSL_VERSION"] = SSLEAY_VERSION
-
+if OPENSSL_NO_TLS1_3:
+    constants["HAS_TLSv1_3"] = 0
+else:
+    constants["HAS_TLSv1_3"] = TLS1_3_VERSION
 
 def ssl_error(space, msg, errno=0, w_errtype=None, errcode=0):
     reason_str = None

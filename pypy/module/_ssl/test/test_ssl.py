@@ -42,6 +42,7 @@ class AppTestSSL:
         assert 'openssl' in lower_version or "libressl" in lower_version
 
         assert isinstance(_ssl.ALERT_DESCRIPTION_ACCESS_DENIED, int)
+        assert isinstance(_ssl.HAS_TLSv1_3, int)
 
     def test_RAND_add(self):
         import _ssl
