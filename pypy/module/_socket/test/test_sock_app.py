@@ -574,6 +574,13 @@ class AppTestSocket:
         s = _socket.socket()
         raises(ValueError, s.ioctl, -1, None)
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
+		
+    def test_socket_sharelocal(self):
+        import _socket, sys, os
+        if sys.platform != 'win32':
+            skip("win32 only")
+        assert hasattr(_socket.socket, 'share')
+        s = _socket.socket()
 
     def test_dup(self):
         import _socket as socket, os
