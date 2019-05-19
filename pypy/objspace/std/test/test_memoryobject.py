@@ -62,13 +62,15 @@ class AppTestMemoryView(object):
         assert w.tobytes() == bytes(w) == b'geb'
 
     def test_memoryview_attrs(self):
-        v = memoryview(b"a"*100)
+        b = b"a"*100
+        v = memoryview(b)
         assert v.format == "B"
         assert v.itemsize == 1
         assert v.shape == (100,)
         assert v.ndim == 1
         assert v.strides == (1,)
         assert v.nbytes == 100
+        assert v.obj is b
 
     def test_suboffsets(self):
         v = memoryview(b"a"*100)

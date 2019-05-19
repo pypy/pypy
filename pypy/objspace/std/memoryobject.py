@@ -57,7 +57,9 @@ class W_MemoryView(W_Root):
             w_object._check_released(space)
             return W_MemoryView.copy(w_object)
         view = space.buffer_w(w_object, space.BUF_FULL_RO)
-        return view.wrap(space)
+        mv = view.wrap(space)
+        mv.obj = w_object
+        return mv
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -264,6 +266,10 @@ class W_MemoryView(W_Root):
         self._check_released(space)
         # I've never seen anyone filling this field
         return space.newtuple([])
+
+    def w_get_obj(self, space):
+        self._check_released(space)
+        return self.obj
 
     def descr_repr(self, space):
         if self.view is None:
@@ -529,6 +535,7 @@ Create a new memoryview object which references the given object.
     shape       = GetSetProperty(W_MemoryView.w_get_shape),
     strides     = GetSetProperty(W_MemoryView.w_get_strides),
     suboffsets  = GetSetProperty(W_MemoryView.w_get_suboffsets),
+    obj         = GetSetProperty(W_MemoryView.w_get_obj),
     _pypy_raw_address = interp2app(W_MemoryView.descr_pypy_raw_address),
     )
 W_MemoryView.typedef.acceptable_as_base_class = False
