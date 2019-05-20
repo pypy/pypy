@@ -450,7 +450,7 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         # XXX hard-code the field name here
         gcpol_ss = '%s->gcd_inst_root_stack_top' % funcgen.expr(c_gcdata)
         #
-        yield ('typedef struct { void %s; } pypy_ss_t;'
+        yield ('typedef struct { char %s; } pypy_ss_t;'
                    % ', '.join(['*s%d' % i for i in range(numcolors)]))
         funcgen.gcpol_ss = gcpol_ss
 
@@ -461,15 +461,15 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         raise Exception("gc_pop_roots should be removed by postprocess_graph")
 
     def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
-        return '%s += sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
+        return '(%s) += sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
 
     def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
-        return '%s -= sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
+        return '(%s) -= sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
 
     def OP_GC_SAVE_ROOT(self, funcgen, op):
         num = op.args[0].value
         exprvalue = funcgen.expr(op.args[1])
-        return '((pypy_ss_t *)%s)[-1].s%d = (void *)%s;' % (
+        return '((pypy_ss_t *)%s)[-1].s%d = (char *)%s;' % (
             funcgen.gcpol_ss, num, exprvalue)
 
     def OP_GC_RESTORE_ROOT(self, funcgen, op):
