@@ -141,12 +141,15 @@ class test__RandomNameSequence(TC):
         try:
             pid = os.fork()
             if not pid:
+                # child process
                 os.close(read_fd)
                 os.write(write_fd, next(self.r).encode("ascii"))
                 os.close(write_fd)
                 # bypass the normal exit handlers- leave those to
                 # the parent.
                 os._exit(0)
+
+            # parent process
             parent_value = next(self.r)
             child_value = os.read(read_fd, len(parent_value)).decode("ascii")
         finally:
@@ -157,6 +160,10 @@ class test__RandomNameSequence(TC):
                     os.kill(pid, signal.SIGKILL)
                 except EnvironmentError:
                     pass
+
+                # Read the process exit status to avoid zombie process
+                os.waitpid(pid, 0)
+
             os.close(read_fd)
             os.close(write_fd)
         self.assertNotEqual(child_value, parent_value)
@@ -235,13 +242,12 @@ class TestGetDefaultTempdir(TC):
                     self.assertEqual(cm.exception.errno, errno.ENOENT)
                     self.assertEqual(os.listdir(our_temp_directory), [])
 
-                open = io.open
                 def bad_writer(*args, **kwargs):
-                    fp = open(*args, **kwargs)
+                    fp = orig_open(*args, **kwargs)
                     fp.write = raise_OSError
                     return fp
 
-                with support.swap_attr(io, "open", bad_writer):
+                with support.swap_attr(io, "open", bad_writer) as orig_open:
                     # test again with failing write()
                     with self.assertRaises(IOError) as cm:
                         tempfile._get_default_tempdir()
@@ -815,6 +821,7 @@ class test_NamedTemporaryFile(TC):
         old_fdopen = os.fdopen
         closed = []
         def close(fd):
+            old_close(fd)
             closed.append(fd)
         def fdopen(*args):
             raise ValueError()

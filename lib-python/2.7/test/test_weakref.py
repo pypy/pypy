@@ -6,6 +6,7 @@ import weakref
 import operator
 import contextlib
 import copy
+import time
 
 from test import test_support
 
@@ -54,6 +55,32 @@ class Object:
 class RefCycle:
     def __init__(self):
         self.cycle = self
+
+
+@contextlib.contextmanager
+def collect_in_thread(period=0.001):
+    """
+    Ensure GC collections happen in a different thread, at a high frequency.
+    """
+    threading = test_support.import_module('threading')
+    please_stop = False
+
+    def collect():
+        while not please_stop:
+            time.sleep(period)
+            gc.collect()
+
+    with test_support.disable_gc():
+        old_interval = sys.getcheckinterval()
+        sys.setcheckinterval(20)
+        t = threading.Thread(target=collect)
+        t.start()
+        try:
+            yield
+        finally:
+            please_stop = True
+            t.join()
+            sys.setcheckinterval(old_interval)
 
 
 class TestBase(unittest.TestCase):
@@ -574,6 +601,7 @@ class ReferencesTestCase(TestBase):
         del c1, c2, C, D
         gc.collect()
 
+    @test_support.requires_type_collecting
     def test_callback_in_cycle_resurrection(self):
         import gc
 
@@ -1393,6 +1421,35 @@ class MappingTestCase(TestBase):
             del d[o]
         self.assertEqual(len(d), 0)
         self.assertEqual(count, 2)
+
+    def test_threaded_weak_valued_setdefault(self):
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(50000):
+                x = d.setdefault(10, RefCycle())
+                self.assertIsNot(x, None)  # we never put None in there!
+                del x
+
+    def test_threaded_weak_valued_pop(self):
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(50000):
+                d[10] = RefCycle()
+                x = d.pop(10, 10)
+                self.assertIsNot(x, None)  # we never put None in there!
+
+    def test_threaded_weak_valued_consistency(self):
+        # Issue #28427: old keys should not remove new values from
+        # WeakValueDictionary when collecting from another thread.
+        d = weakref.WeakValueDictionary()
+        with collect_in_thread():
+            for i in range(200000):
+                o = RefCycle()
+                d[10] = o
+                # o is still alive, so the dict can't be empty
+                self.assertEqual(len(d), 1)
+                o = None  # lose ref
+
 
 from test import mapping_tests
 
