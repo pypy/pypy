@@ -199,6 +199,7 @@ class PosixTester(unittest.TestCase):
     def test_fdopen_directory(self):
         try:
             fd = os.open('.', os.O_RDONLY)
+            self.addCleanup(os.close, fd)
         except OSError as e:
             self.assertEqual(e.errno, errno.EACCES)
             self.skipTest("system cannot open directories")
@@ -286,6 +287,10 @@ class PosixTester(unittest.TestCase):
         self.assertRaises(TypeError, posix.minor, float(dev))
         self.assertRaises(TypeError, posix.minor)
         self.assertRaises((ValueError, OverflowError), posix.minor, -1)
+
+        if sys.platform.startswith('freebsd') and dev >= 0x100000000:
+            self.skipTest("bpo-31044: on FreeBSD CURRENT, minor() truncates "
+                          "64-bit dev to 32-bit")
 
         self.assertEqual(posix.makedev(major, minor), dev)
         self.assertEqual(posix.makedev(int(major), int(minor)), dev)
@@ -503,6 +508,15 @@ class PosixTester(unittest.TestCase):
                              new_dummy_symlink_st.st_flags)
         finally:
             posix.lchflags(_DUMMY_SYMLINK, dummy_symlink_st.st_flags)
+
+    @unittest.skipUnless(hasattr(os, "putenv"), "requires os.putenv()")
+    def test_putenv(self):
+        with self.assertRaises(TypeError):
+            os.putenv('FRUIT\0VEGETABLE', 'cabbage')
+        with self.assertRaises(TypeError):
+            os.putenv('FRUIT', 'orange\0VEGETABLE=cabbage')
+        with self.assertRaises(ValueError):
+            os.putenv('FRUIT=ORANGE', 'lemon')
 
     @unittest.skipUnless(hasattr(posix, 'getcwd'),
                          'test needs posix.getcwd()')

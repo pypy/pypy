@@ -93,15 +93,15 @@ class FloatTestCase(unittest.TestCase, HelperMixin):
 
 class StringTestCase(unittest.TestCase, HelperMixin):
     def test_unicode(self):
-        for s in [u"", u"Andrè Previn", u"abc", u" "*10000]:
+        for s in [u"", u"Andrï¿½ Previn", u"abc", u" "*10000]:
             self.helper(s)
 
     def test_string(self):
-        for s in ["", "Andrè Previn", "abc", " "*10000]:
+        for s in ["", "Andrï¿½ Previn", "abc", " "*10000]:
             self.helper(s)
 
     def test_buffer(self):
-        for s in ["", "Andrè Previn", "abc", " "*10000]:
+        for s in ["", "Andrï¿½ Previn", "abc", " "*10000]:
             with test_support.check_py3k_warnings(("buffer.. not supported",
                                                      DeprecationWarning)):
                 b = buffer(s)
@@ -126,7 +126,7 @@ class ContainerTestCase(unittest.TestCase, HelperMixin):
          'alist': ['.zyx.41'],
          'atuple': ('.zyx.41',)*10,
          'aboolean': False,
-         'aunicode': u"Andrè Previn"
+         'aunicode': u"Andrï¿½ Previn"
          }
     def test_dict(self):
         self.helper(self.d)
@@ -169,8 +169,22 @@ class BugsTestCase(unittest.TestCase):
                 pass
 
     def test_loads_recursion(self):
-        s = 'c' + ('X' * 4*4) + '{' * 2**20
-        self.assertRaises(ValueError, marshal.loads, s)
+        def run_tests(N, check):
+            # (((...None...),),)
+            check(b'(\x01\x00\x00\x00' * N + b'N')
+            # [[[...None...]]]
+            check(b'[\x01\x00\x00\x00' * N + b'N')
+            # {None: {None: {None: ...None...}}}
+            check(b'{N' * N + b'N' + b'0' * N)
+            # frozenset([frozenset([frozenset([...None...])])])
+            check(b'>\x01\x00\x00\x00' * N + b'N')
+        # Check that the generated marshal data is valid and marshal.loads()
+        # works for moderately deep nesting
+        run_tests(100, marshal.loads)
+        # Very deeply nested structure shouldn't blow the stack
+        def check(s):
+            self.assertRaises(ValueError, marshal.loads, s)
+        run_tests(2**20, check)
 
     @test_support.impl_detail('specific recursion check')
     def test_recursion_limit(self):

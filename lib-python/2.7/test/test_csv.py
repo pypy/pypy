@@ -1041,6 +1041,15 @@ Stonecutters Seafood and Chop House+ Lemont+ IL+ 12/19/02+ Week Back
         self.assertEqual(sniffer.has_header(self.header2 + self.sample8),
                          True)
 
+    def test_guess_quote_and_delimiter(self):
+        sniffer = csv.Sniffer()
+        for header in (";'123;4';", "'123;4';", ";'123;4'", "'123;4'"):
+            dialect = sniffer.sniff(header, ",;")
+            self.assertEqual(dialect.delimiter, ';')
+            self.assertEqual(dialect.quotechar, "'")
+            self.assertIs(dialect.doublequote, False)
+            self.assertIs(dialect.skipinitialspace, False)
+
     def test_sniff(self):
         sniffer = csv.Sniffer()
         dialect = sniffer.sniff(self.sample1)
@@ -1168,16 +1177,16 @@ class TestLeaks(unittest.TestCase):
 ## class TestUnicode(unittest.TestCase):
 ##     def test_unicode_read(self):
 ##         import codecs
-##         f = codecs.EncodedFile(StringIO("Martin von Löwis,"
-##                                         "Marc André Lemburg,"
+##         f = codecs.EncodedFile(StringIO("Martin von Lï¿½wis,"
+##                                         "Marc Andrï¿½ Lemburg,"
 ##                                         "Guido van Rossum,"
-##                                         "François Pinard\r\n"),
+##                                         "Franï¿½ois Pinard\r\n"),
 ##                                data_encoding='iso-8859-1')
 ##         reader = csv.reader(f)
-##         self.assertEqual(list(reader), [[u"Martin von Löwis",
-##                                          u"Marc André Lemburg",
+##         self.assertEqual(list(reader), [[u"Martin von Lï¿½wis",
+##                                          u"Marc Andrï¿½ Lemburg",
 ##                                          u"Guido van Rossum",
-##                                          u"François Pinardn"]])
+##                                          u"Franï¿½ois Pinardn"]])
 
 def test_main():
     mod = sys.modules[__name__]

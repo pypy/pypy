@@ -1,9 +1,9 @@
 in here there are copies of the Lib/ directory of the CPython HG repository
 at http://hg.python.org/cpython/
 
-the outputs for hg id of each are:
+the outputs for hg id or `git rev-parse HEAD` of each are:
 
     2.7::
-        a06454b1afa1 (2.7) v2.7.13
+        2.7.16 413a49145e35c7a2d3a7de27c5a1828449c9b2e5
     3::
         cef745775b65 (3.2) v3.2.5

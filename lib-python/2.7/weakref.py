@@ -72,7 +72,7 @@ class WeakValueDictionary(UserDict.UserDict):
         args = args[1:]
         if len(args) > 1:
             raise TypeError('expected at most 1 arguments, got %d' % len(args))
-        def remove(wr, selfref=ref(self)):
+        def remove(wr, selfref=ref(self), _atomic_removal=_remove_dead_weakref):
             self = selfref()
             if self is not None:
                 if self._iterating:
@@ -80,7 +80,7 @@ class WeakValueDictionary(UserDict.UserDict):
                 else:
                     # Atomic removal is necessary since this function
                     # can be called asynchronously by the GC
-                    _delitem_if_value_is(self.data, wr.key, wr)
+                    _atomic_removal(self.data, wr.key)
         self._remove = remove
         # A list of keys to be removed
         self._pending_removals = []
@@ -97,6 +97,8 @@ class WeakValueDictionary(UserDict.UserDict):
             _remove_dead_weakref(d, key)
 
     def __getitem__(self, key):
+        if self._pending_removals:
+            self._commit_removals()
         o = self.data[key]()
         if o is None:
             raise KeyError, key
@@ -109,6 +111,8 @@ class WeakValueDictionary(UserDict.UserDict):
         del self.data[key]
 
     def __contains__(self, key):
+        if self._pending_removals:
+            self._commit_removals()
         try:
             o = self.data[key]()
         except KeyError:
@@ -116,6 +120,8 @@ class WeakValueDictionary(UserDict.UserDict):
         return o is not None
 
     def has_key(self, key):
+        if self._pending_removals:
+            self._commit_removals()
         try:
             o = self.data[key]()
         except KeyError:
@@ -136,6 +142,8 @@ class WeakValueDictionary(UserDict.UserDict):
         self.data.clear()
 
     def copy(self):
+        if self._pending_removals:
+            self._commit_removals()
         new = WeakValueDictionary()
         for key, wr in self.data.items():
             o = wr()
@@ -147,6 +155,8 @@ class WeakValueDictionary(UserDict.UserDict):
 
     def __deepcopy__(self, memo):
         from copy import deepcopy
+        if self._pending_removals:
+            self._commit_removals()
         new = self.__class__()
         for key, wr in self.data.items():
             o = wr()
@@ -155,6 +165,8 @@ class WeakValueDictionary(UserDict.UserDict):
         return new
 
     def get(self, key, default=None):
+        if self._pending_removals:
+            self._commit_removals()
         try:
             wr = self.data[key]
         except KeyError:
@@ -168,6 +180,8 @@ class WeakValueDictionary(UserDict.UserDict):
                 return o
 
     def items(self):
+        if self._pending_removals:
+            self._commit_removals()
         L = []
         for key, wr in self.data.items():
             o = wr()
@@ -176,6 +190,8 @@ class WeakValueDictionary(UserDict.UserDict):
         return L
 
     def iteritems(self):
+        if self._pending_removals:
+            self._commit_removals()
         with _IterationGuard(self):
             for wr in self.data.itervalues():
                 value = wr()
@@ -183,6 +199,8 @@ class WeakValueDictionary(UserDict.UserDict):
                     yield wr.key, value
 
     def iterkeys(self):
+        if self._pending_removals:
+            self._commit_removals()
         with _IterationGuard(self):
             for k in self.data.iterkeys():
                 yield k
@@ -199,11 +217,15 @@ class WeakValueDictionary(UserDict.UserDict):
         keep the values around longer than needed.
 
         """
+        if self._pending_removals:
+            self._commit_removals()
         with _IterationGuard(self):
             for wr in self.data.itervalues():
                 yield wr
 
     def itervalues(self):
+        if self._pending_removals:
+            self._commit_removals()
         with _IterationGuard(self):
             for wr in self.data.itervalues():
                 obj = wr()
@@ -235,13 +257,13 @@ class WeakValueDictionary(UserDict.UserDict):
             return o
 
     def setdefault(self, key, default=None):
+        if self._pending_removals:
+            self._commit_removals()
         try:
             o = self.data[key]()
         except KeyError:
             o = None
         if o is None:
-            if self._pending_removals:
-                self._commit_removals()
             self.data[key] = KeyedRef(default, self._remove, key)
             return default
         else:
@@ -277,9 +299,13 @@ class WeakValueDictionary(UserDict.UserDict):
         keep the values around longer than needed.
 
         """
+        if self._pending_removals:
+            self._commit_removals()
         return self.data.values()
 
     def values(self):
+        if self._pending_removals:
+            self._commit_removals()
         L = []
         for wr in self.data.values():
             o = wr()

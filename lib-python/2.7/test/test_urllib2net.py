@@ -25,6 +25,13 @@ def _wrap_with_retry_thrice(func, exc):
         return _retry_thrice(func, exc, *args, **kwargs)
     return wrapped
 
+# bpo-35411: FTP tests of test_urllib2net randomly fail
+# with "425 Security: Bad IP connecting" on Travis CI
+skip_ftp_test_on_travis = unittest.skipIf('TRAVIS' in os.environ,
+                                          'bpo-35411: skip FTP test '
+                                          'on Travis CI')
+
+
 # Connecting to remote hosts is flaky.  Make it more robust by retrying
 # the connection several times.
 _urlopen_with_retry = _wrap_with_retry_thrice(urllib2.urlopen, urllib2.URLError)
@@ -100,10 +107,11 @@ class OtherNetworkTests(unittest.TestCase):
     # XXX The rest of these tests aren't very good -- they don't check much.
     # They do sometimes catch some major disasters, though.
 
+    @skip_ftp_test_on_travis
     def test_ftp(self):
         urls = [
-            'ftp://ftp.debian.org/debian/README',
-            ('ftp://ftp.debian.org/debian/non-existent-file',
+            'ftp://www.pythontest.net/README',
+            ('ftp://www.pythontest.net/non-existent-file',
              None, urllib2.URLError),
             ]
         self._test_urls(urls, self._extra_handlers())
@@ -184,6 +192,7 @@ class OtherNetworkTests(unittest.TestCase):
             opener.open(request)
             self.assertEqual(request.get_header('User-agent'),'Test-Agent')
 
+    @unittest.skip('XXX: http://www.imdb.com is gone')
     def test_sites_no_connection_close(self):
         # Some sites do not send Connection: close header.
         # Verify that those work properly. (#issue12576)
@@ -288,6 +297,7 @@ class TimeoutTest(unittest.TestCase):
 
     FTP_HOST = 'ftp://www.pythontest.net/'
 
+    @skip_ftp_test_on_travis
     def test_ftp_basic(self):
         self.assertIsNone(socket.getdefaulttimeout())
         with test_support.transient_internet(self.FTP_HOST, timeout=None):
@@ -295,6 +305,7 @@ class TimeoutTest(unittest.TestCase):
             self.assertIsNone(u.fp.fp._sock.gettimeout())
             u.close()
 
+    @skip_ftp_test_on_travis
     def test_ftp_default_timeout(self):
         self.assertIsNone(socket.getdefaulttimeout())
         with test_support.transient_internet(self.FTP_HOST):
@@ -306,6 +317,7 @@ class TimeoutTest(unittest.TestCase):
             self.assertEqual(u.fp.fp._sock.gettimeout(), 60)
             u.close()
 
+    @skip_ftp_test_on_travis
     def test_ftp_no_timeout(self):
         self.assertIsNone(socket.getdefaulttimeout(),)
         with test_support.transient_internet(self.FTP_HOST):
@@ -317,6 +329,7 @@ class TimeoutTest(unittest.TestCase):
             self.assertIsNone(u.fp.fp._sock.gettimeout())
             u.close()
 
+    @skip_ftp_test_on_travis
     def test_ftp_timeout(self):
         with test_support.transient_internet(self.FTP_HOST):
             try:

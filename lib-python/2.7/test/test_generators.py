@@ -1534,13 +1534,7 @@ Yield by itself yields None:
 [None]
 
 
-
-An obscene abuse of a yield expression within a generator expression:
-
->>> list((yield 21) for i in range(4))
-[21, None, 21, None, 21, None, 21, None]
-
-And a more sane, but still weird usage:
+Yield is allowed only in the outermost iterable in generator expression:
 
 >>> def f(): list(i for i in [(yield 26)])
 >>> type(f())
@@ -1796,7 +1790,7 @@ enclosing function a generator:
 >>> type(f())
 <type 'generator'>
 
->>> def f(): x=(i for i in (yield) if (yield))
+>>> def f(): x=(i for i in (yield) if i)
 >>> type(f())
 <type 'generator'>
 
@@ -1898,6 +1892,16 @@ test_generators just happened to be the test that drew these out.
 
 """
 
+crash_test = """
+>>> def foo(): yield
+>>> gen = foo()
+>>> gen.next()
+>>> print gen.gi_frame.f_restricted  # This would segfault.
+False
+
+"""
+
+
 __test__ = {"tut":      tutorial_tests,
             "pep":      pep_tests,
             "email":    email_tests,
@@ -1907,6 +1911,7 @@ __test__ = {"tut":      tutorial_tests,
             "weakref":  weakref_tests,
             "coroutine":  coroutine_tests,
             "refleaks": refleaks_tests,
+            "crash": crash_test,
             }
 
 # Magic test name that regrtest.py invokes *after* importing this module.
