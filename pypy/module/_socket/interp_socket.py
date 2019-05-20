@@ -207,7 +207,7 @@ class W_Socket(W_Root):
                     from rpython.rlib.rsocket import _c
                     # it is possible to pass some bytes representing a socket
                     # in the file descriptor object on winodws
-                    fdobj = space.text_w(w_fdobj)
+                    fdobj = space.bytes_w(w_fdobj)
                     info_charptr = rffi.str2charp(fdobj)
                     try:
                         info_ptr = rffi.cast(lltype.Ptr(_c.WSAPROTOCOL_INFOW), info_charptr)
@@ -215,7 +215,7 @@ class W_Socket(W_Root):
                         _c.FROM_PROTOCOL_INFO, info_ptr, 0, _c.WSA_FLAG_OVERLAPPED)
                         if fd == rsocket.INVALID_SOCKET:
                             raise converted_error(space, rsocket.last_error())
-                        sock = RSocket(family, type, proto, fd)
+                        sock = RSocket(info_ptr.c_iAddressFamily, info_ptr.c_iSocketType, info_ptr.c_iProtocol, fd)
                     finally:
                         lltype.free(info_charptr, flavor='raw')
                 else:
