@@ -1,6 +1,7 @@
 import sys
 import os
 import traceback
+import socket
 from _pypy_openssl import ffi
 from _pypy_openssl import lib
 
@@ -20,7 +21,7 @@ SSL_ERROR_EOF = 8 # special case of SSL_ERROR_SYSCALL
 SSL_ERROR_NO_SOCKET = 9 # socket has been GC'd
 SSL_ERROR_INVALID_ERROR_CODE = 10
 
-class SSLError(OSError):
+class SSLError(socket.error):
     """ An error occurred in the SSL implementation. """
     def __str__(self):
         if self.strerror and isinstance(self.strerror, str):
