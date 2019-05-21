@@ -56,7 +56,10 @@ class Hash(object):
         return "<%s HASH object at 0x%s>" % (self.name, id(self))
 
     def update(self, string):
-        buf = ffi.from_buffer(string)
+        if isinstance(string, unicode):
+            buf = ffi.from_buffer(string.encode('utf-8'))
+        else:
+            buf = ffi.from_buffer(string)
         with self.lock:
             # XXX try to not release the GIL for small requests
             lib.EVP_DigestUpdate(self.ctx, buf, len(buf))
@@ -76,8 +79,8 @@ class Hash(object):
         hexdigits = '0123456789abcdef'
         result = []
         for c in digest:
-            result.append(hexdigits[(c >> 4) & 0xf])
-            result.append(hexdigits[ c       & 0xf])
+            result.append(hexdigits[(ord(c) >> 4) & 0xf])
+            result.append(hexdigits[ ord(c)       & 0xf])
         return ''.join(result)
 
     @property
