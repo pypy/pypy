@@ -245,10 +245,6 @@ class OptPure(Optimization):
         newop.set_forwarded(op)
         self.pure(opnum, newop)
 
-    def has_pure_result(self, opnum, args, descr):
-        return False
-    # XXX
-
     def get_pure_result(self, op):
         recentops = self.getrecentops(op.getopnum())
         return recentops.lookup(self.optimizer, op)

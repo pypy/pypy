@@ -1,25 +1,17 @@
-import os
 from collections import OrderedDict
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.history import Const, ConstInt, new_ref_dict
-from rpython.jit.metainterp.jitexc import JitException
+from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
-     GuardResOp
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
-
-
-
-class BogusImmutableField(JitException):
-    pass
 
 
 class AbstractCachedEntry(object):
@@ -132,7 +124,6 @@ class AbstractCachedEntry(object):
             self.put_field_back_to_info(op, opinfo, optheap)
         elif not can_cache:
             self.invalidate(descr)
-
 
     # abstract methods
 
@@ -557,13 +548,6 @@ class OptHeap(Optimization):
 
     def optimize_SETFIELD_GC(self, op):
         self.setfield(op)
-        #opnum = OpHelpers.getfield_pure_for_descr(op.getdescr())
-        #if self.has_pure_result(opnum, [op.getarg(0)],
-        #                        op.getdescr()):
-        #    os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
-        #             (op.getdescr().repr_of_descr()))
-        #    raise BogusImmutableField
-        #
 
     def setfield(self, op):
         cf = self.field_cache(op.getdescr())
@@ -632,13 +616,6 @@ class OptHeap(Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
 
     def optimize_SETARRAYITEM_GC(self, op):
-        #opnum = OpHelpers.getarrayitem_pure_for_descr(op.getdescr())
-        #if self.has_pure_result(opnum, [op.getarg(0), op.getarg(1)],
-        #                        op.getdescr()):
-        #    os.write(2, '[bogus immutable array declaration: %s]\n' %
-        #             (op.getdescr().repr_of_descr()))
-        #    raise BogusImmutableField
-        #
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant():
             arrayinfo = self.ensure_ptr_info_arg0(op)
@@ -693,10 +670,10 @@ class OptHeap(Optimization):
         result_getfield = []
         for descr, cf in self.cached_fields.iteritems():
             if cf._lazy_set:
-                continue # XXX safe default for now
+                continue  # XXX safe default for now
             parent_descr = descr.get_parent_descr()
             if not parent_descr.is_object():
-                continue # XXX could be extended to non-instance objects
+                continue  # XXX could be extended to non-instance objects
             for i, box1 in enumerate(cf.cached_structs):
                 if not box1.is_constant() and box1 not in available_boxes:
                     continue
@@ -713,7 +690,7 @@ class OptHeap(Optimization):
         for descr, indexdict in self.cached_arrayitems.iteritems():
             for index, cf in indexdict.iteritems():
                 if cf._lazy_set:
-                    continue # XXX safe default for now
+                    continue  # XXX safe default for now
                 for i, box1 in enumerate(cf.cached_structs):
                     if not box1.is_constant() and box1 not in available_boxes:
                         continue
