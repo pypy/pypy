@@ -6,6 +6,7 @@ time zone and DST data sources.
 
 import time as _time
 import math as _math
+import sys
 
 # for cpyext, use these as base classes
 from __pypy__._pypydatetime import dateinterop, deltainterop, timeinterop
@@ -1379,7 +1380,8 @@ class datetime(date):
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None, *, fold=0):
-        if isinstance(year, bytes) and len(year) == 10 and 1 <= year[2]&0x7F <= 12:
+        if (isinstance(year, (bytes, str)) and len(year) == 10 and
+            1 <= ord(year[2:3])&0x7F <= 12):
             # Pickle support
             self = dateinterop.__new__(cls)
             self.__setstate(year, month)
