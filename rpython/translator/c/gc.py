@@ -461,10 +461,12 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         raise Exception("gc_pop_roots should be removed by postprocess_graph")
 
     def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
-        return '(%s) += sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
+        # avoid arithmatic on void*
+        return '({0}) = (char*)({0}) + sizeof(pypy_ss_t);'.format(funcgen.gcpol_ss,)
 
     def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
-        return '(%s) -= sizeof(pypy_ss_t);' % (funcgen.gcpol_ss,)
+        # avoid arithmatic on void*
+        return '({0}) = (char*)({0}) - sizeof(pypy_ss_t);'.format(funcgen.gcpol_ss,)
 
     def OP_GC_SAVE_ROOT(self, funcgen, op):
         num = op.args[0].value
