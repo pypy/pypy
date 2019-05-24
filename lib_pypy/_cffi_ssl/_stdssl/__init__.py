@@ -1,6 +1,6 @@
 import sys
 import time
-import thread as _thread
+import _thread
 import weakref
 from _pypy_openssl import ffi
 from _pypy_openssl import lib
