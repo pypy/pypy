@@ -379,8 +379,6 @@ def compile_retrace(metainterp, greenkey, start,
             return None
 
     label_op = loop_info.label_op
-    if label_op is None:
-        assert False, "unreachable code" # hint for some strange tests
     label_token = label_op.getdescr()
     assert isinstance(label_token, TargetToken)
     if label_token.short_preamble:
@@ -388,9 +386,8 @@ def compile_retrace(metainterp, greenkey, start,
             label_token.short_preamble, metainterp.box_names_memo)
     loop = partial_trace
     loop.original_jitcell_token = loop_jitcell_token
-    loop.operations = (loop.operations + loop_info.extra_same_as +
-                       [loop_info.label_op]
-                       + loop_ops)
+    loop.operations = (
+        loop.operations + loop_info.extra_same_as + [label_op] + loop_ops)
 
     quasi_immutable_deps = {}
     if loop_info.quasi_immutable_deps:
