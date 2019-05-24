@@ -83,7 +83,11 @@ def create_package(basedir, options, _fake=False):
     if not _fake and not pypy_runs(pypy_c):
         raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
-        failures = create_cffi_import_libraries(pypy_c, options, basedir)
+        failures = create_cffi_import_libraries(
+            str(pypy_c), options, str(basedir),
+            embed_dependencies=options.embed_dependencies,
+        )
+
         for key, module in failures:
             print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
                 You can either install development headers package,
@@ -262,11 +266,16 @@ using another platform..."""
     return retval, builddir # for tests
 
 def package(*args, **kwds):
-    try:
-        import argparse
-    except ImportError:
-        import imp
-        argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
+    import argparse
+
+    class NegateAction(argparse.Action):
+        def __init__(self, option_strings, dest, nargs=0, **kwargs):
+            super(NegateAction, self).__init__(option_strings, dest, nargs,
+                                               **kwargs)
+
+        def __call__(self, parser, ns, values, option):
+            setattr(ns, self.dest, option[2:4] != 'no')
+
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
     else:
@@ -288,7 +297,7 @@ def package(*args, **kwds):
     parser.add_argument('--no-keep-debug', dest='keep_debug',
                         action='store_false', help='do not keep debug symbols')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
-        help='target executable name, defaults to "pypy"')
+        help='target executable name, defaults to "%s"' % pypy_exe)
     parser.add_argument('--archive-name', dest='name', type=str, default='',
         help='pypy-VER-PLATFORM')
     parser.add_argument('--builddir', type=str, default='',
@@ -296,13 +305,21 @@ def package(*args, **kwds):
     parser.add_argument('--targetdir', type=str, default='',
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
-        help='use as pypy exe instead of pypy/goal/pypy-c')
+        help='use as pypy3 exe instead of pypy/goal/pypy3-c')
+    parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
+                        dest='embed_dependencies',
+                        action=NegateAction,
+                        default=(sys.platform == 'darwin'),
+                        help='whether to embed dependencies for distribution '
+                        '(default on OS X)')
     options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
         options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
         options.no_tk = True
+    if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
+        options.embed_dependencies = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
