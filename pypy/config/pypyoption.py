@@ -113,42 +113,6 @@ if sys.platform == "win32":
     module_suggests["cpyext"].append(("translation.shared", True))
 
 
-# NOTE: this dictionary is not used any more
-module_import_dependencies = {
-    # no _rawffi if importing rpython.rlib.clibffi raises ImportError
-    # or CompilationError or py.test.skip.Exception
-    "_rawffi"   : ["rpython.rlib.clibffi"],
-
-    "zlib"      : ["rpython.rlib.rzlib"],
-    "bz2"       : ["pypy.module.bz2.interp_bz2"],
-    "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
-    "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
-    "_continuation": ["rpython.rlib.rstacklet"],
-    "_vmprof"      : ["pypy.module._vmprof.interp_vmprof"],
-    "faulthandler" : ["pypy.module._vmprof.interp_vmprof"],
-    "_lzma"     : ["pypy.module._lzma.interp_lzma"],
-    }
-
-def get_module_validator(modname):
-    # NOTE: this function is not used any more
-    if modname in module_import_dependencies:
-        modlist = module_import_dependencies[modname]
-        def validator(config):
-            from rpython.rtyper.tool.rffi_platform import CompilationError
-            try:
-                for name in modlist:
-                    __import__(name)
-            except (ImportError, CompilationError, py.test.skip.Exception) as e:
-                errcls = e.__class__.__name__
-                raise Exception(
-                    "The module %r is disabled\n" % (modname,) +
-                    "because importing %s raised %s\n" % (name, errcls) +
-                    str(e))
-        return validator
-    else:
-        return None
-
-
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     OptionDescription("usemodules", "Which Modules should be used", [
         BoolOption(modname, "use module %s" % (modname, ),
@@ -157,7 +121,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=module_dependencies.get(modname, []),
                    suggests=module_suggests.get(modname, []),
                    negation=modname not in essential_modules,
-                   ) #validator=get_module_validator(modname))
+                   )
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",

@@ -14,7 +14,7 @@ cffi_build_scripts = {
     "tk": "_tkinter/tklib_build.py",
     "curses": "_curses_build.py" if sys.platform != "win32" else None,
     "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
-    "_gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
+    "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
     "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
     "resource": "_resource_build.py" if sys.platform != "win32" else None,
     "lzma": "_lzma_build.py",
