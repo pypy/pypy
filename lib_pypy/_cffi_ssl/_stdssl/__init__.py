@@ -1025,7 +1025,7 @@ class _SSLContext(object):
             self._add_ca_certs(buf, len(buf), ca_file_type)
 
         # load cafile or capath
-        if cafile or capath:
+        if cafile is not None or capath is not None:
             if cafile is None:
                 cafilebuf = ffi.NULL
             else:
