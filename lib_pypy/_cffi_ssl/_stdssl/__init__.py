@@ -333,7 +333,7 @@ class _SSLSocket(object):
                 sockstate = SOCKET_OPERATION_OK
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise socket.timeout("The handshake operation timed out")
+                raise SSLError("The handshake operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 raise SSLError("Underlying socket has been closed.")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
