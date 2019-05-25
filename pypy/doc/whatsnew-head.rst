@@ -30,3 +30,7 @@ Make the shadowstack size more dynamic
 
 Move _ssl and _hashlib from rpython to a cffi-based module, like on python3.
 Reduces the number of problematic linked-in libraries (libssl, libcrypto)
+
+.. branch: fix-vmprof-memory-tracking
+
+Fix a bug that prevent memory-tracking in vmprof working on PyPy.
