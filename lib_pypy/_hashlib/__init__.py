@@ -57,7 +57,7 @@ class Hash(object):
 
     def update(self, string):
         if isinstance(string, unicode):
-            buf = ffi.from_buffer(string.encode('utf-8'))
+            buf = ffi.from_buffer(string.encode('ascii'))
         else:
             buf = ffi.from_buffer(string)
         with self.lock:
