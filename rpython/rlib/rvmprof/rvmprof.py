@@ -143,7 +143,7 @@ class VMProf(object):
             native = 0 # force disabled on Windows
         lines = 0 # not supported on PyPy currently
 
-        p_error = self.cintf.vmprof_init(fileno, interval, lines, memory, "pypy", native, real_time)
+        p_error = self.cintf.vmprof_init(fileno, interval, memory, lines, "pypy", native, real_time)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
