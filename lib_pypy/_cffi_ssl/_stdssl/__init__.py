@@ -20,6 +20,7 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         pyerr_write_unraisable)
 from _cffi_ssl._stdssl import error
 from select import select
+import socket
 
 if sys.platform == 'win32':
     from _cffi_ssl._stdssl.win32_extra import enum_certificates, enum_crls
@@ -306,9 +307,6 @@ class _SSLSocket(object):
         return self.socket_type == SSL_SERVER
 
     def do_handshake(self):
-        # delay to prevent circular imports
-        import socket
-
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
         timeout = _socket_timeout(sock)
@@ -372,9 +370,6 @@ class _SSLSocket(object):
                 return _decode_certificate(self.peer_cert)
 
     def write(self, bytestring):
-        # delay to prevent circular imports
-        import socket
-
         deadline = 0
         b = _str_to_ffi_buffer(bytestring)
         sock = self.get_socket_or_connection_gone()
@@ -425,9 +420,6 @@ class _SSLSocket(object):
             raise pyssl_error(self, length)
 
     def read(self, length, buffer_into=None):
-        # delay to prevent circular imports
-        import socket
-
         ssl = self.ssl
 
         if length < 0 and buffer_into is None:
@@ -561,9 +553,6 @@ class _SSLSocket(object):
         return sock
 
     def shutdown(self):
-        # delay to prevent circular imports
-        import socket
-
         sock = self.get_socket_or_None()
         nonblocking = False
         ssl = self.ssl
@@ -1545,3 +1534,5 @@ if lib.Cryptography_HAS_EGD:
                            "enough data to seed the PRNG");
         return bytecount
 
+socket.RAND_add = RAND_add
+socket.RAND_status = RAND_status
