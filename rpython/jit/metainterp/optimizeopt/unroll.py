@@ -115,8 +115,7 @@ class UnrollOptimizer(Optimizer):
         self._clean_optimization_info(self._newoperations)
         return exported_state, self._newoperations
 
-    def optimize_peeled_loop(self, trace, celltoken, state,
-                             call_pure_results, inline_short_preamble=True):
+    def optimize_peeled_loop(self, trace, celltoken, state, call_pure_results):
         trace = trace.get_iter()
         try:
             label_args = self.optunroll.import_state(trace.inputargs, state)
@@ -155,18 +154,12 @@ class UnrollOptimizer(Optimizer):
                                                     state.virtual_state)
         label_op.setdescr(target_token)
 
-        if not inline_short_preamble:
-            self.optunroll.jump_to_preamble(celltoken, end_jump, info)
-            return (UnrollInfo(target_token, label_op, extra_same_as,
-                               self.quasi_immutable_deps),
-                    self._newoperations)
-
         try:
             new_virtual_state = self.optunroll.jump_to_existing_trace(
-                    end_jump, label_op, state.runtime_boxes, force_boxes=False)
+                end_jump, label_op, state.runtime_boxes, force_boxes=False)
         except InvalidLoop:
             # inlining short preamble failed, jump to preamble
-            self.optunroll.jump_to_preamble(celltoken, end_jump, info)
+            self.jump_to_preamble(celltoken, end_jump)
             return (UnrollInfo(target_token, label_op, extra_same_as,
                                self.quasi_immutable_deps),
                     self._newoperations)
@@ -176,12 +169,12 @@ class UnrollOptimizer(Optimizer):
             # to the preamble.
             try:
                 new_virtual_state = self.optunroll.jump_to_existing_trace(
-                        end_jump, label_op, state.runtime_boxes, force_boxes=True)
+                    end_jump, label_op, state.runtime_boxes, force_boxes=True)
             except InvalidLoop:
                 pass
 
         if new_virtual_state is not None:
-            self.optunroll.jump_to_preamble(celltoken, end_jump, info)
+            self.jump_to_preamble(celltoken, end_jump)
             return (UnrollInfo(target_token, label_op, extra_same_as,
                                self.quasi_immutable_deps),
                     self._newoperations)
@@ -209,7 +202,8 @@ class UnrollOptimizer(Optimizer):
         cell_token = jump_op.getdescr()
         assert isinstance(cell_token, JitCellToken)
         if not inline_short_preamble or len(cell_token.target_tokens) == 1:
-            return self.optunroll.jump_to_preamble(cell_token, jump_op, info)
+            self.jump_to_preamble(cell_token, jump_op)
+            return info, self._newoperations[:]
         # force all the information that does not go to the short
         # preamble at all
         self.flush()
@@ -219,7 +213,8 @@ class UnrollOptimizer(Optimizer):
             vs = self.optunroll.jump_to_existing_trace(jump_op, None, runtime_boxes,
                                              force_boxes=False)
         except InvalidLoop:
-            return self.optunroll.jump_to_preamble(cell_token, jump_op, info)
+            self.jump_to_preamble(cell_token, jump_op)
+            return info, self._newoperations[:]
         if vs is None:
             return info, self._newoperations[:]
         warmrunnerdescr = self.metainterp_sd.warmrunnerdesc
@@ -237,13 +232,20 @@ class UnrollOptimizer(Optimizer):
             if vs is None:
                 return info, self._newoperations[:]
             debug_print("Retrace count reached, jumping to preamble")
-            return self.optunroll.jump_to_preamble(cell_token, jump_op, info)
+            self.jump_to_preamble(cell_token, jump_op)
+            return info, self._newoperations[:]
         exported_state = self.optunroll.export_state(info.jump_op.getarglist(),
                                            info.inputargs, runtime_boxes,
                                            box_names_memo)
         exported_state.quasi_immutable_deps = self.quasi_immutable_deps
         self._clean_optimization_info(self._newoperations)
         return exported_state, self._newoperations
+
+    def jump_to_preamble(self, cell_token, jump_op):
+        assert cell_token.target_tokens[0].virtual_state is None
+        jump_op = jump_op.copy_and_change(
+            rop.JUMP, descr=cell_token.target_tokens[0])
+        self.send_extra_operation(jump_op)
 
 
 class OptUnroll(Optimization):
@@ -304,13 +306,6 @@ class OptUnroll(Optimization):
         label_op.initarglist(label_op.getarglist() + sb.used_boxes)
         return target_token
 
-    def jump_to_preamble(self, cell_token, jump_op, info):
-        assert cell_token.target_tokens[0].virtual_state is None
-        jump_op = jump_op.copy_and_change(rop.JUMP,
-                                          descr=cell_token.target_tokens[0])
-        self.optimizer.send_extra_operation(jump_op)
-        return info, self.optimizer._newoperations[:]
-
 
     def jump_to_existing_trace(self, jump_op, label_op, runtime_boxes, force_boxes=False):
         jitcelltoken = jump_op.getdescr()
@@ -346,20 +341,14 @@ class OptUnroll(Optimization):
                 continue
 
             short_preamble = target_token.short_preamble
-            try:
-                extra = self.inline_short_preamble(args + virtuals, args,
-                                    short_preamble, self.optimizer.patchguardop,
-                                    target_token, label_op)
-            except KeyError:
-                # SHOULD NOT OCCUR BUT DOES: WHY??  issue #2185
-                self.optimizer.metainterp_sd.logger_ops.log_short_preamble([],
-                    short_preamble, {})
-                raise
-
+            extra = self.inline_short_preamble(args + virtuals, args,
+                                short_preamble, self.optimizer.patchguardop,
+                                target_token, label_op)
             self.optimizer.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
                                       descr=target_token))
             return None # explicit because the return can be non-None
+
         return virtual_state
 
     def _map_args(self, mapping, arglist):

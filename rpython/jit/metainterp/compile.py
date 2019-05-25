@@ -126,20 +126,18 @@ class UnrolledLoopData(CompileData):
     log_noopt = False
 
     def __init__(self, trace, celltoken, state,
-                 call_pure_results=None, enable_opts=None,
-                 inline_short_preamble=True):
+                 call_pure_results=None, enable_opts=None):
         self.trace = trace
         self.celltoken = celltoken
         self.enable_opts = enable_opts
         self.state = state
         self.call_pure_results = call_pure_results
-        self.inline_short_preamble = inline_short_preamble
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.optimize_peeled_loop(self.trace, self.celltoken, self.state,
-            self.call_pure_results, self.inline_short_preamble)
+        return opt.optimize_peeled_loop(
+            self.trace, self.celltoken, self.state, self.call_pure_results)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     from rpython.conftest import option
@@ -363,20 +361,9 @@ def compile_retrace(metainterp, greenkey, start,
         loop_info, loop_ops = loop_data.optimize_trace(
             metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
     except InvalidLoop:
-        # Fall back on jumping directly to preamble
+        metainterp_sd.jitlog.trace_aborted()
         history.cut(cut)
-        history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
-        loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
-                                     call_pure_results=call_pure_results,
-                                     enable_opts=enable_opts,
-                                     inline_short_preamble=False)
-        try:
-            loop_info, loop_ops = loop_data.optimize_trace(
-                metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
-        except InvalidLoop:
-            metainterp_sd.jitlog.trace_aborted()
-            history.cut(cut)
-            return None
+        return None
 
     label_op = loop_info.label_op
     label_token = label_op.getdescr()
