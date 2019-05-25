@@ -87,8 +87,8 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1 = 3
     PROTOCOL_TLSv1_1 = 4
     PROTOCOL_TLSv1_2 = 5
-PROTOCOL_TLS_CLIENT = 0x10
-PROTOCOL_TLS_SERVER = 0x11
+# PROTOCOL_TLS_CLIENT = 0x10
+# PROTOCOL_TLS_SERVER = 0x11
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
@@ -777,10 +777,10 @@ class _SSLContext(object):
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
             method = lib.SSLv23_method()
-        elif protocol == PROTOCOL_TLS_CLIENT:
-            method = lib.SSLv23_client_method()
-        elif protocol == PROTOCOL_TLS_SERVER:
-            method = lib.SSLv23_server_method()
+        # elif protocol == PROTOCOL_TLS_CLIENT:
+        #     method = lib.SSLv23_client_method()
+        # elif protocol == PROTOCOL_TLS_SERVER:
+        #     method = lib.SSLv23_server_method()
         else:
             raise ValueError("invalid protocol version")
 
@@ -791,7 +791,7 @@ class _SSLContext(object):
 
         # Don't check host name by default
         self._check_hostname = False
-        if protocol == PROTOCOL_TLS_CLIENT:
+        if 0 and protocol == PROTOCOL_TLS_CLIENT:
             self._check_hostname = True
             self.verify_mode = CERT_REQUIRED
         else:
