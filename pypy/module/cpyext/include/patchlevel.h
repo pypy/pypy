@@ -26,7 +26,7 @@
 #define PY_RELEASE_SERIAL	0
 
 /* Version as a string */
-#define PY_VERSION		"2.7.13"
+#define PY_VERSION		"2.7.16"
 
 /* PyPy version as a string: make sure to keep this in sync with:
  *     module/sys/version.py

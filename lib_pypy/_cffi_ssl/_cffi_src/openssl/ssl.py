@@ -17,6 +17,7 @@ static const long Cryptography_HAS_SSL2;
 static const long Cryptography_HAS_SSL3_METHOD;
 static const long Cryptography_HAS_TLSv1_1;
 static const long Cryptography_HAS_TLSv1_2;
+static const long Cryptography_HAS_TLSv1_3;
 static const long Cryptography_HAS_SECURE_RENEGOTIATION;
 static const long Cryptography_HAS_COMPRESSION;
 static const long Cryptography_HAS_TLSEXT_STATUS_REQ_CB;
@@ -39,13 +40,12 @@ static const long Cryptography_HAS_RELEASE_BUFFERS;
  * supported
  */
 static const long Cryptography_HAS_OP_NO_COMPRESSION;
-
 static const long Cryptography_HAS_SSL_OP_MSIE_SSLV2_RSA_PADDING;
 static const long Cryptography_HAS_SSL_SET_SSL_CTX;
 static const long Cryptography_HAS_SSL_OP_NO_TICKET;
 static const long Cryptography_HAS_NETBSD_D1_METH;
-static const long Cryptography_HAS_NEXTPROTONEG;
 static const long Cryptography_HAS_ALPN;
+static const long Cryptography_HAS_NEXTPROTONEG;
 static const long Cryptography_HAS_SET_CERT_CB;
 
 static const long SSL_FILETYPE_PEM;
@@ -65,13 +65,13 @@ static const long SSL_OP_NO_SSLv3;
 static const long SSL_OP_NO_TLSv1;
 static const long SSL_OP_NO_TLSv1_1;
 static const long SSL_OP_NO_TLSv1_2;
+static const long SSL_OP_NO_TLSv1_3;
 static const long SSL_OP_NO_COMPRESSION;
 static const long SSL_OP_SINGLE_DH_USE;
 static const long SSL_OP_EPHEMERAL_RSA;
 static const long SSL_OP_MICROSOFT_SESS_ID_BUG;
 static const long SSL_OP_NETSCAPE_CHALLENGE_BUG;
 static const long SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
-static const long SSL_OP_NO_SSLv2;
 static const long SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG;
 static const long SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER;
 static const long SSL_OP_MSIE_SSLV2_RSA_PADDING;
@@ -356,7 +356,7 @@ void *SSL_get_ex_data(const SSL *, int);
 void SSL_set_tlsext_host_name(SSL *, char *);
 void SSL_CTX_set_tlsext_servername_callback(
     SSL_CTX *,
-    int (*)(const SSL *, int *, void *));
+    int (*)(SSL *, int *, void *));
 void SSL_CTX_set_tlsext_servername_arg(
     SSL_CTX *, void *);
 
@@ -514,10 +514,12 @@ size_t SSL_SESSION_get_master_key(const SSL_SESSION *session,
     memcpy(out, session->master_key, outlen);
     return outlen;
 }
-
-int SSL_SESSION_has_ticket(const SSL_SESSION *s) {
+/* from ssl/ssl_sess.c */
+int SSL_SESSION_has_ticket(const SSL_SESSION *s)
+{
     return (s->tlsext_ticklen > 0) ? 1 : 0;
 }
+/* from ssl/ssl_sess.c */
 unsigned long SSL_SESSION_get_ticket_lifetime_hint(const SSL_SESSION *s)
 {
     return s->tlsext_tick_lifetime_hint;
@@ -728,5 +730,20 @@ static const long Cryptography_HAS_NPN_NEGOTIATED = 1;
 #else
 static const long OPENSSL_NPN_NEGOTIATED = -1;
 static const long Cryptography_HAS_NPN_NEGOTIATED = 0;
+#endif
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_111
+static const long Cryptography_HAS_TLSv1_3 = 0;
+static const long SSL_OP_NO_TLSv1_3 = 0;
+static const long SSL_VERIFY_POST_HANDSHAKE = 0;
+int (*SSL_CTX_set_ciphersuites)(SSL_CTX *, const char *) = NULL;
+int (*SSL_verify_client_post_handshake)(SSL *) = NULL;
+void (*SSL_CTX_set_post_handshake_auth)(SSL_CTX *, int) = NULL;
+void (*SSL_set_post_handshake_auth)(SSL *, int) = NULL;
+uint32_t (*SSL_SESSION_get_max_early_data)(const SSL_SESSION *) = NULL;
+int (*SSL_write_early_data)(SSL *, const void *, size_t, size_t *) = NULL;
+int (*SSL_read_early_data)(SSL *, void *, size_t, size_t *) = NULL;
+int (*SSL_CTX_set_max_early_data)(SSL_CTX *, uint32_t) = NULL;
+#else
+static const long Cryptography_HAS_TLSv1_3 = 1;
 #endif
 """

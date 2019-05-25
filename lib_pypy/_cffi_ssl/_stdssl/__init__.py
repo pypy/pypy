@@ -87,6 +87,10 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1 = 3
     PROTOCOL_TLSv1_1 = 4
     PROTOCOL_TLSv1_2 = 5
+if lib.Cryptography_HAS_TLSv1_3:
+    HAS_TLSv1_3 = True
+else:
+    HAS_TLSv1_3 = False
 PROTOCOL_TLS_CLIENT = 0x10
 PROTOCOL_TLS_SERVER = 0x11
 
