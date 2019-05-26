@@ -574,13 +574,26 @@ class AppTestSocket:
         s = _socket.socket()
         raises(ValueError, s.ioctl, -1, None)
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
-		
+
     def test_socket_sharelocal(self):
         import _socket, sys, os
         if sys.platform != 'win32':
             skip("win32 only")
         assert hasattr(_socket.socket, 'share')
-        s = _socket.socket()
+        s = _socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.listen()
+        data = s.share(os.getpid())
+        s2 = socket.fromshare(data)
+        try:
+            assert s.gettimeout() == s2.gettimeout()
+            assert s.family == s2.family
+            assert s.type == s2.type
+            if s.proto != 0:
+                assert s.proto == s2.proto
+        finally:
+            s.close()
+            s2.close()
+
 
     def test_dup(self):
         import _socket as socket, os

@@ -114,7 +114,6 @@ class Overlapped(object):
                 #raise RuntimeError('deleting an overlapped struct with a pending operation not supported')
         CloseHandle(_int2handle(self.overlapped[0].hEvent))
         _kernel32.SetLastError(err)
-        err = _kernel32.GetLastError()
 
     @property
     def event(self):
