@@ -73,6 +73,7 @@ static const long SSL_OP_NETSCAPE_CHALLENGE_BUG;
 static const long SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
 static const long SSL_OP_NO_SSLv2;
 static const long SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG;
+static const long SSL_OP_ENABLE_MIDDLEBOX_COMPAT;
 static const long SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER;
 static const long SSL_OP_MSIE_SSLV2_RSA_PADDING;
 static const long SSL_OP_SSLEAY_080_CLIENT_DH_BUG;

@@ -215,6 +215,7 @@ class _SSLSocket(object):
     def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, ssl_sock):
         self = _SSLSocket(sslctx)
         ctx = sslctx.ctx
+        self.owner = ssl_sock  # weakref
 
         if server_hostname:
             if isinstance(server_hostname, unicode):
@@ -285,7 +286,8 @@ class _SSLSocket(object):
     def owner(self, value):
         if value is None:
             self._owner = None
-        self._owner = weakref.ref(value)
+        else:
+            self._owner = weakref.ref(value)
 
     @property
     def context(self):
@@ -807,7 +809,7 @@ class _SSLContext(object):
         # Minimal security flags for server and client side context.
         # Client sockets ignore server-side parameters.
         options |= lib.SSL_OP_NO_COMPRESSION
-        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
+        # options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
         options |= lib.SSL_OP_SINGLE_DH_USE
         options |= lib.SSL_OP_SINGLE_ECDH_USE
         lib.SSL_CTX_set_options(self.ctx, options)

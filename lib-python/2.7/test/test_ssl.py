@@ -770,6 +770,7 @@ class ContextTests(unittest.TestCase):
         default = (ssl.OP_ALL | ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3)
         if not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (1, 1, 0):
             default |= ssl.OP_NO_COMPRESSION
+            default |= ssl.OP_ENABLE_MIDDLEBOX_COMPAT
         self.assertEqual(default, ctx.options)
         ctx.options |= ssl.OP_NO_TLSv1
         self.assertEqual(default | ssl.OP_NO_TLSv1, ctx.options)
