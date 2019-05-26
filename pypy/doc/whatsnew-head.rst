@@ -25,3 +25,12 @@ Fix segfault in cpyext_tp_new_tupl
 
 Test and reduce the probability of a deadlock when acquiring a semaphore by
 moving global state changes closer to the actual aquire.
+
+.. branch: shadowstack-issue2722
+
+Make the shadowstack size more dynamic
+
+.. branch: cffi-libs
+
+Move _ssl and _hashlib from rpython to a cffi-based module, like on python3.
+Reduces the number of problematic linked-in libraries (libssl, libcrypto)

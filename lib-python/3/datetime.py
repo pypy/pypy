@@ -6,6 +6,7 @@ time zone and DST data sources.
 
 import time as _time
 import math as _math
+import sys
 
 # for cpyext, use these as base classes
 from __pypy__._pypydatetime import dateinterop, deltainterop, timeinterop
@@ -1379,7 +1380,8 @@ class datetime(date):
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None, *, fold=0):
-        if isinstance(year, bytes) and len(year) == 10 and 1 <= year[2]&0x7F <= 12:
+        if (isinstance(year, (bytes, str)) and len(year) == 10 and
+            1 <= ord(year[2:3])&0x7F <= 12):
             # Pickle support
             self = dateinterop.__new__(cls)
             self.__setstate(year, month)
@@ -1456,6 +1458,14 @@ class datetime(date):
             # 23 hours at 1969-09-30 13:00:00 in Kwajalein.
             # Let's probe 24 hours in the past to detect a transition:
             max_fold_seconds = 24 * 3600
+
+            # On Windows localtime_s throws an OSError for negative values,
+            # thus we can't perform fold detection for values of time less
+            # than the max time fold. See comments in _datetimemodule's
+            # version of this method for more details.
+            if t < max_fold_seconds and sys.platform.startswith("win"):
+                return result
+
             y, m, d, hh, mm, ss = converter(t - max_fold_seconds)[:6]
             probe1 = cls(y, m, d, hh, mm, ss, us, tz)
             trans = result - probe1 - timedelta(0, max_fold_seconds)

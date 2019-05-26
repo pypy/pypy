@@ -126,6 +126,9 @@ class TestCompiler(BaseTestCompiler):
         for c in expressions.constants:
             yield (self.simple_test, "x="+c, "x", eval(c))
 
+    def test_const_underscore(self):
+        yield (self.simple_test, "x=0xffff_ffff_ff20_0000", "x", 0xffffffffff200000)
+
     def test_neg_sys_maxint(self):
         import sys
         stmt = "x = %s" % (-sys.maxint-1)

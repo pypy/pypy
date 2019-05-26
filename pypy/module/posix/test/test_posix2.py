@@ -1462,7 +1462,7 @@ class AppTestPosix:
         with open(fname, "w") as f:
             f.write("this is a rename test")
         str_name = str(self.pdir) + '/test_rename.txt'
-        os.rename(self.path, str_name)
+        os.rename(fname, str_name)
         with open(str_name) as f:
             assert f.read() == 'this is a rename test'
         os.rename(str_name, fname)
@@ -1471,6 +1471,11 @@ class AppTestPosix:
         with open(unicode_name) as f:
             assert f.read() == 'this is a rename test'
         os.rename(unicode_name, fname)
+        
+        os.rename(bytes(fname, 'utf-8'), bytes(str_name, 'utf-8'))
+        with open(str_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(str_name, fname)
         with open(fname) as f:
             assert f.read() == 'this is a rename test'
         os.unlink(fname)
