@@ -580,7 +580,7 @@ class AppTestSocket:
         if sys.platform != 'win32':
             skip("win32 only")
         assert hasattr(_socket.socket, 'share')
-        s = _socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         s.listen()
         data = s.share(os.getpid())
         # emulate socket.fromshare
