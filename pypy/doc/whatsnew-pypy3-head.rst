@@ -8,3 +8,7 @@ What's new in PyPy3 7.1+
 .. branch: fix-literal-prev_digit-underscore
 
 Fix parsing for converting strings with underscore into ints
+
+.. branch: winmultiprocessing
+
+Improve multiprocessing support on win32

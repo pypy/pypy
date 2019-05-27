@@ -36,8 +36,7 @@ if sys.platform == 'win32':
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def sem_unlink(name):
-        pass
-
+        return None
 else:
     from rpython.rlib import rposix
 
@@ -217,12 +216,13 @@ else:
     def handle_w(space, w_handle):
         return rffi.cast(SEM_T, space.int_w(w_handle))
 
-    def semaphore_unlink(space, w_name):
-        name = space.text_w(w_name)
-        try:
-            sem_unlink(name)
-        except OSError as e:
-            raise wrap_oserror(space, e)
+# utilized by POSIX and win32
+def semaphore_unlink(space, w_name):
+    name = space.text_w(w_name)
+    try:
+        sem_unlink(name)
+    except OSError as e:
+        raise wrap_oserror(space, e)
 
 class CounterState:
     def __init__(self, space):
