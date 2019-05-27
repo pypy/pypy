@@ -703,12 +703,12 @@ class VirtualStateConstructor(VirtualVisitor):
     def already_seen_virtual(self, keybox):
         return keybox in self.fieldboxes
 
-    def create_state_or_none(self, box, opt):
+    def create_state_or_none(self, box):
         if box is None:
             return None
-        return self.create_state(box, opt)
+        return self.create_state(box)
 
-    def create_state(self, box, opt):
+    def create_state(self, box):
         box = get_box_replacement(box)
         try:
             return self.info[box]
@@ -720,7 +720,7 @@ class VirtualStateConstructor(VirtualVisitor):
                 result = info.visitor_dispatch_virtual_type(self)
                 self.info[box] = result
                 info.visitor_walk_recursive(box, self)
-                result.fieldstate = [self.create_state_or_none(b, opt)
+                result.fieldstate = [self.create_state_or_none(b)
                                      for b in self.fieldboxes[box]]
             else:
                 result = self.visit_not_virtual(box)
@@ -733,14 +733,10 @@ class VirtualStateConstructor(VirtualVisitor):
         return result
 
     def get_virtual_state(self, jump_args):
-        if self.optimizer.optearlyforce:
-            opt = self.optimizer.optearlyforce
-        else:
-            opt = self.optimizer
         state = []
         self.info = {}
         for box in jump_args:
-            state.append(self.create_state(box, opt))
+            state.append(self.create_state(box))
         return VirtualState(state)
 
     def visit_not_virtual(self, box):

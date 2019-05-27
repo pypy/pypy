@@ -836,7 +836,7 @@ def test_ResumeDataLoopMemo_number():
 
     iter = t.get_iter()
     b1, b2, b3, b4, b5 = iter.inputargs
-    numb_state = memo.number(FakeOptimizer(), 0, iter)
+    numb_state = memo.number(0, iter)
     numb = numb_state.create_numbering()
     assert numb_state.num_virtuals == 0
 
@@ -852,7 +852,7 @@ def test_ResumeDataLoopMemo_number():
                                   False, [], [])
     snap2.prev = snap
 
-    numb_state2 = memo.number(FakeOptimizer(), 1, iter)
+    numb_state2 = memo.number(1, iter)
     numb2 = numb_state2.create_numbering()
     assert numb_state2.num_virtuals == 0
 
@@ -876,7 +876,7 @@ def test_ResumeDataLoopMemo_number():
 
     # renamed
     b3.set_forwarded(c4)
-    numb_state3 = memo.number(FakeOptimizer(), 2, iter)
+    numb_state3 = memo.number(2, iter)
     numb3 = numb_state3.create_numbering()
     assert numb_state3.num_virtuals == 0
 
@@ -892,7 +892,7 @@ def test_ResumeDataLoopMemo_number():
     snap4.prev = snap
 
     b4.set_forwarded(FakeVirtualInfo(True))
-    numb_state4 = memo.number(FakeOptimizer(), 3, iter)
+    numb_state4 = memo.number(3, iter)
     numb4 = numb_state4.create_numbering()
     assert numb_state4.num_virtuals == 1
 
@@ -911,7 +911,7 @@ def test_ResumeDataLoopMemo_number():
 
     b4.set_forwarded(FakeVirtualInfo(True))
     b5.set_forwarded(FakeVirtualInfo(True))
-    numb_state5 = memo.number(FakeOptimizer(), 4, iter)
+    numb_state5 = memo.number(4, iter)
     numb5 = numb_state5.create_numbering()
     assert numb_state5.num_virtuals == 2
 
@@ -923,8 +923,9 @@ def test_ResumeDataLoopMemo_number():
         2, 1, tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX), tag(3, TAGINT)
         ] + [0, 0]
 
-@given(strategies.lists(strategies.builds(IntFrontendOp, strategies.just(0)) | intconsts,
-       min_size=1))
+@given(strategies.lists(
+    strategies.builds(IntFrontendOp, strategies.just(0)) | intconsts,
+    min_size=1))
 def test_ResumeDataLoopMemo_random(lst):
     inpargs = [box for box in lst if not isinstance(box, Const)]
     metainterp_sd = FakeMetaInterpStaticData()
@@ -933,7 +934,7 @@ def test_ResumeDataLoopMemo_random(lst):
     i = t.get_iter()
     t.create_top_snapshot(FakeJitCode("", 0), 0, Frame(lst), False, [], [])
     memo = ResumeDataLoopMemo(metainterp_sd)
-    numb_state = memo.number(FakeOptimizer(), 0, i)
+    numb_state = memo.number(0, i)
     numb = numb_state.create_numbering()
     l = unpack_numbering(numb)
     assert l[0] == len(l)
@@ -1386,7 +1387,7 @@ def test_virtual_adder_pending_fields():
     liveboxes = []
     modifier._number_virtuals(liveboxes, 0)
     assert liveboxes == [b2s, b4s] or liveboxes == [b4s, b2s]
-    modifier._add_pending_fields(FakeOptimizer(), [
+    modifier._add_pending_fields([
         ResOperation(rop.SETFIELD_GC, [b2s, b4s], descr=LLtypeMixin.nextdescr)])
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = Numbering([0])
@@ -1415,7 +1416,7 @@ def test_virtual_adder_pending_fields_and_arrayitems():
         pass
     storage = Storage()
     modifier = ResumeDataVirtualAdder(None, storage, storage, None, None)
-    modifier._add_pending_fields(None, [])
+    modifier._add_pending_fields([])
     assert not storage.rd_pendingfields
     #
     class FieldDescr(AbstractDescr):
@@ -1428,9 +1429,8 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     b = IntFrontendOp(0)
     modifier.liveboxes_from_env = {a: rffi.cast(rffi.SHORT, 1042),
                                    b: rffi.cast(rffi.SHORT, 1061)}
-    modifier._add_pending_fields(FakeOptimizer(), [
-        ResOperation(rop.SETFIELD_GC, [a, b],
-                     descr=field_a)])
+    modifier._add_pending_fields(
+        [ResOperation(rop.SETFIELD_GC, [a, b], descr=field_a)])
     pf = storage.rd_pendingfields
     assert len(pf) == 1
     assert (annlowlevel.cast_base_ptr_to_instance(FieldDescr, pf[0].lldescr)
@@ -1450,7 +1450,7 @@ def test_virtual_adder_pending_fields_and_arrayitems():
                                    a61: rffi.cast(rffi.SHORT, 1061),
                                    a62: rffi.cast(rffi.SHORT, 1062),
                                    a63: rffi.cast(rffi.SHORT, 1063)}
-    modifier._add_pending_fields(FakeOptimizer(), [
+    modifier._add_pending_fields([
         ResOperation(rop.SETARRAYITEM_GC, [a42, ConstInt(0), a61],
                      descr=array_a),
         ResOperation(rop.SETARRAYITEM_GC, [a42, ConstInt(2147483647), a62],
@@ -1469,11 +1469,10 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     assert rffi.cast(lltype.Signed, pf[1].itemindex) == 2147483647
     #
     if sys.maxint >= 2147483648:
-        py.test.raises(TagOverflow, modifier._add_pending_fields,
-                       FakeOptimizer(),
-                       [ResOperation(rop.SETARRAYITEM_GC,
-                                     [a42, ConstInt(2147483648), a63],
-                                     descr=array_a)])
+        with py.test.raises(TagOverflow):
+            modifier._add_pending_fields(
+                [ResOperation(rop.SETARRAYITEM_GC,
+                    [a42, ConstInt(2147483648), a63], descr=array_a)])
 
 def test_resume_reader_fields_and_arrayitems():
     class ResumeReader(AbstractResumeDataReader):

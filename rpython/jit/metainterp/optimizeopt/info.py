@@ -141,7 +141,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
                 constptr = optforce.optimizer.constant_fold(op)
                 op.set_forwarded(constptr)
                 self._is_virtual = False
-                self._force_elements_immutable(self.descr, constptr, optforce)
+                self._force_elements_immutable(self.descr, constptr, optforce.optimizer)
                 return constptr
             #
             op.set_forwarded(None)
@@ -302,12 +302,12 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                     return False    # not a constant at all
         return True
 
-    def _force_elements_immutable(self, descr, constptr, optforce):
+    def _force_elements_immutable(self, descr, constptr, optimizer):
         for i, fielddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
-            subbox = optforce.optimizer.force_box(fld)
+            subbox = optimizer.force_box(fld)
             assert isinstance(subbox, Const)
-            execute(optforce.optimizer.cpu, None, rop.SETFIELD_GC,
+            execute(optimizer.cpu, None, rop.SETFIELD_GC,
                     fielddescr, constptr, subbox)
 
 class InstancePtrInfo(AbstractStructPtrInfo):
