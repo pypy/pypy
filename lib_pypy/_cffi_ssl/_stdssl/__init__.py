@@ -20,6 +20,7 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         pyerr_write_unraisable)
 from _cffi_ssl._stdssl import error
 from select import select
+import socket
 from enum import IntEnum as _IntEnum
 
 if sys.platform == 'win32':
@@ -221,6 +222,7 @@ class _SSLSocket(object):
     def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, inbio, outbio):
         self = _SSLSocket(sslctx)
         ctx = sslctx.ctx
+        self.owner = None
 
         if server_hostname:
             self.server_hostname = server_hostname.decode('idna', 'strict')
@@ -289,7 +291,8 @@ class _SSLSocket(object):
     def owner(self, value):
         if value is None:
             self._owner = None
-        self._owner = weakref.ref(value)
+        else:
+            self._owner = weakref.ref(value)
 
     @property
     def context(self):
@@ -311,9 +314,6 @@ class _SSLSocket(object):
         return self.socket_type == SSL_SERVER
 
     def do_handshake(self):
-        # delay to prevent circular imports
-        import socket
-
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
         timeout = _socket_timeout(sock)
@@ -385,9 +385,6 @@ class _SSLSocket(object):
                 return _decode_certificate(self.peer_cert)
 
     def write(self, bytestring):
-        # delay to prevent circular imports
-        import socket
-
         deadline = 0
         b = _str_to_ffi_buffer(bytestring)
         sock = self.get_socket_or_connection_gone()
@@ -446,9 +443,6 @@ class _SSLSocket(object):
             raise pyssl_error(self, length)
 
     def read(self, length, buffer_into=None):
-        # delay to prevent circular imports
-        import socket
-
         ssl = self.ssl
 
         if length < 0 and buffer_into is None:
@@ -589,9 +583,6 @@ class _SSLSocket(object):
         return sock
 
     def shutdown(self):
-        # delay to prevent circular imports
-        import socket
-
         sock = self.get_socket_or_None()
         nonblocking = False
         ssl = self.ssl
@@ -1068,7 +1059,7 @@ class _SSLContext(object):
             self._add_ca_certs(buf, len(buf), ca_file_type)
 
         # load cafile or capath
-        if cafile or capath:
+        if cafile is not None or capath is not None:
             if cafile is None:
                 cafilebuf = ffi.NULL
             else:
@@ -1577,3 +1568,5 @@ if lib.Cryptography_HAS_EGD:
                            "enough data to seed the PRNG");
         return bytecount
 
+socket.RAND_add = RAND_add
+socket.RAND_status = RAND_status

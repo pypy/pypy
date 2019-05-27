@@ -173,7 +173,6 @@ class Overlapped(object):
         olderr = _kernel32.GetLastError()
         hascompletedio = HasOverlappedIoCompleted(self.overlapped[0])      
         if not hascompletedio and self.type != OverlappedType.TYPE_NOT_STARTED:
-            
             wait = _kernel32.CancelIoEx(self.handle, self.overlapped)
             ret = self.GetOverlappedResult(wait)
             err = _winapi.ERROR_SUCCESS
@@ -186,6 +185,7 @@ class Overlapped(object):
                SetFromWindowsErr(err)
         if self.overlapped[0].hEvent != 0:
             _winapi.CloseHandle(self.overlapped[0].hEvent)
+        _winapi.SetLastError(olderr)
 
     @property
     def event(self):
@@ -215,10 +215,6 @@ class Overlapped(object):
             return _ffi.unpack(self.read_buffer, transferred[0])
         else:
             return transferred[0]
-
-    def getbuffer(self):
-        xxx
-        return None
 
     def cancel(self):
         result = True
