@@ -222,7 +222,7 @@ class _SSLSocket(object):
     def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, inbio, outbio):
         self = _SSLSocket(sslctx)
         ctx = sslctx.ctx
-        self.owner = ssl_sock  # weakref
+        self.owner = None
 
         if server_hostname:
             self.server_hostname = server_hostname.decode('idna', 'strict')
