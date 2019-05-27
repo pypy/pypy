@@ -137,6 +137,11 @@ if WIN32:
     HMODULE = HANDLE
     NULL_HANDLE = rffi.cast(HANDLE, 0)
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
+    GENERIC_READ   =  rffi.cast(DWORD, 0x80000000)
+    GENERIC_WRITE  =  rffi.cast(DWORD, 0x40000000)
+    GENERIC_EXECUTE=  rffi.cast(DWORD, 0x20000000)
+    GENERIC_ALL    =  rffi.cast(DWORD, 0x10000000)
+
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
     _GetLastError = winexternal('GetLastError', [], DWORD,
