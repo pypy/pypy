@@ -583,7 +583,8 @@ class AppTestSocket:
         s = _socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.listen()
         data = s.share(os.getpid())
-        s2 = socket.fromshare(data)
+        # emulate socket.fromshare
+        s2 = _socket.socket(0, 0, 0, data)
         try:
             assert s.gettimeout() == s2.gettimeout()
             assert s.family == s2.family
