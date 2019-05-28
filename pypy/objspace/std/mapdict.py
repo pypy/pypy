@@ -753,6 +753,7 @@ class MapDictStrategy(DictStrategy):
         self.space = space
 
     def get_empty_storage(self):
+        # mainly used for tests
         w_result = Object()
         terminator = self.space.fromcache(get_terminator_for_dicts)
         w_result._mapdict_init_empty(terminator)
@@ -865,6 +866,11 @@ class MapDictStrategy(DictStrategy):
     def iteritems(self, w_dict):
         return MapDictIteratorItems(self.space, self, w_dict)
 
+def make_instance_dict(space):
+    w_fake_object = Object()
+    terminator = space.fromcache(get_terminator_for_dicts)
+    w_fake_object._mapdict_init_empty(terminator)
+    return w_fake_object.getdict(space)
 
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()

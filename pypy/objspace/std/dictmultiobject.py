@@ -78,8 +78,9 @@ class W_DictMultiObject(W_Root):
             W_ModuleDictObject.__init__(w_obj, space, strategy, storage)
             return w_obj
         elif instance:
-            from pypy.objspace.std.mapdict import MapDictStrategy
-            strategy = space.fromcache(MapDictStrategy)
+            from pypy.objspace.std.mapdict import make_instance_dict
+            assert w_type is None
+            return make_instance_dict(space)
         elif strdict or module:
             assert w_type is None
             strategy = space.fromcache(BytesDictStrategy)
