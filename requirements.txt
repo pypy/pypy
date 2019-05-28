@@ -1,3 +1,5 @@
+--only-binary vmprof
+
 cffi>=1.4.0
 
 # parse log files in rvmprof tests
