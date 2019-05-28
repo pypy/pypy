@@ -7,7 +7,7 @@ from rpython.jit.metainterp.resume import (
     TAGBOX, TAGVIRTUAL, tagged_list_eq, AbstractVirtualInfo, TAGCONST,
     NULLREF, ResumeDataDirectReader, TAGINT, REF, VirtualInfo, VStructInfo,
     VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,
-    VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, capture_resumedata,
+    VUniPlainInfo, VUniConcatInfo, VUniSliceInfo,
     ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT, annlowlevel, PENDINGFIELDSP,
     TAG_CONST_OFFSET)
 from rpython.jit.metainterp.resumecode import (
@@ -56,7 +56,7 @@ class FakeOptimizer(object):
 def dump_storage(storage, liveboxes):
     "For profiling only."
     debug_start("jit-resume")
-    return # XXX refactor if needed
+    return  # XXX refactor if needed
     if have_debug_prints():
         debug_print('Log storage', compute_unique_id(storage))
         frameinfo = storage.rd_frame_info_list
@@ -515,8 +515,10 @@ class FakeFrame(object):
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
+
     def __ne__(self, other):
         return self.__dict__ != other.__dict__
+
     def __repr__(self):
         return "<FF %s %s %s>" % (self.jitcode, self.pc, self._env)
 
@@ -531,228 +533,6 @@ class FakeMetaInterpStaticData:
 
     class options:
         failargs_limit = 100
-
-def test_rebuild_from_resumedata():
-    py.test.skip("XXX rewrite")
-    b1, b2, b3 = [BoxInt(), InputArgRef(), BoxInt()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
-    storage = Storage()
-    fs = [FakeFrame("code0", 0, b1, c1, b2),
-          FakeFrame("code1", 3, b3, c2, b1),
-          FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, None, [], storage)
-    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
-    liveboxes = modifier.finish()
-    metainterp = MyMetaInterp()
-
-    b1t, b2t, b3t = [BoxInt(), InputArgRef(), BoxInt()]
-    newboxes = _resume_remap(liveboxes, [b1, b2, b3], b1t, b2t, b3t)
-
-    result = rebuild_from_resumedata(metainterp, storage, False)
-    assert result == (None, [])
-    fs2 = [FakeFrame("code0", 0, b1t, c1, b2t),
-           FakeFrame("code1", 3, b3t, c2, b1t),
-           FakeFrame("code2", 9, c3, b2t)]
-    assert metainterp.framestack == fs2
-
-def test_rebuild_from_resumedata_with_virtualizable():
-    py.test.skip("XXX rewrite")
-    b1, b2, b3, b4 = [BoxInt(), InputArgRef(), BoxInt(), InputArgRef()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
-    storage = Storage()
-    fs = [FakeFrame("code0", 0, b1, c1, b2),
-          FakeFrame("code1", 3, b3, c2, b1),
-          FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, [b4], [], storage)
-    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(FakeOptimizer({}), storage, memo)
-    liveboxes = modifier.finish()
-    metainterp = MyMetaInterp()
-
-    b1t, b2t, b3t, b4t = [BoxInt(), InputArgRef(), BoxInt(), InputArgRef()]
-    newboxes = _resume_remap(liveboxes, [b1, b2, b3, b4], b1t, b2t, b3t, b4t)
-
-    result = rebuild_from_resumedata(metainterp, newboxes, storage,
-                                     True)
-    assert result == ([b4t], [])
-    fs2 = [FakeFrame("code0", 0, b1t, c1, b2t),
-           FakeFrame("code1", 3, b3t, c2, b1t),
-           FakeFrame("code2", 9, c3, b2t)]
-    assert metainterp.framestack == fs2
-
-def test_rebuild_from_resumedata_two_guards():
-    py.test.skip("XXX rewrite")
-    b1, b2, b3, b4 = [BoxInt(), InputArgRef(), BoxInt(), BoxInt()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
-    storage = Storage()
-    fs = [FakeFrame("code0", 0, b1, c1, b2),
-          FakeFrame("code1", 3, b3, c2, b1),
-          FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, None, [], storage)
-    storage2 = Storage()
-    fs = fs[:-1] + [FakeFrame("code2", 10, c3, b2, b4)]
-    capture_resumedata(fs, None, [], storage2)
-
-    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(FakeOptimizer({}), storage, memo)
-    liveboxes = modifier.finish()
-
-    modifier = ResumeDataVirtualAdder(FakeOptimizer({}), storage2, memo)
-    liveboxes2 = modifier.finish()
-
-    metainterp = MyMetaInterp()
-
-    b1t, b2t, b3t, b4t = [BoxInt(), InputArgRef(), BoxInt(), BoxInt()]
-    newboxes = _resume_remap(liveboxes, [b1, b2, b3], b1t, b2t, b3t)
-
-    result = rebuild_from_resumedata(metainterp, newboxes, storage,
-                                     False)
-    assert result == (None, [])
-    fs2 = [FakeFrame("code0", 0, b1t, c1, b2t),
-           FakeFrame("code1", 3, b3t, c2, b1t),
-           FakeFrame("code2", 9, c3, b2t)]
-    assert metainterp.framestack == fs2
-
-    newboxes = _resume_remap(liveboxes2, [b1, b2, b3, b4], b1t, b2t, b3t, b4t)
-
-    metainterp.framestack = []
-    result = rebuild_from_resumedata(metainterp, newboxes, storage2,
-                                     False)
-    assert result == (None, [])
-    fs2 = fs2[:-1] + [FakeFrame("code2", 10, c3, b2t, b4t)]
-    assert metainterp.framestack == fs2
-
-
-class FakeOptimizer_VirtualValue(object):
-    class optimizer:
-        class cpu:
-            pass
-fakeoptimizer = FakeOptimizer_VirtualValue()
-
-def virtual_value(keybox, value, next):
-    vv = VirtualValue(
-        fakeoptimizer, ConstInt(ptr2int(LLtypeMixin.node_vtable)), keybox)
-    if not isinstance(next, OptValue):
-        next = OptValue(next)
-    vv.setfield(LLtypeMixin.valuedescr, OptValue(value))
-    vv.setfield(LLtypeMixin.nextdescr, next)
-    return vv
-
-def test_rebuild_from_resumedata_two_guards_w_virtuals():
-    py.test.skip("XXX rewrite")
-
-    b1, b2, b3, b4, b5 = [BoxInt(), InputArgRef(), BoxInt(), BoxInt(), BoxInt()]
-    c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3),
-                      LLtypeMixin.nodebox.constbox()]
-    storage = Storage()
-    fs = [FakeFrame("code0", 0, b1, c1, b2),
-          FakeFrame("code1", 3, b3, c2, b1),
-          FakeFrame("code2", 9, c3, b2)]
-    capture_resumedata(fs, None, [], storage)
-    storage2 = Storage()
-    fs = fs[:-1] + [FakeFrame("code2", 10, c3, b2, b4)]
-    capture_resumedata(fs, None, [], storage2)
-
-    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    values = {b2: virtual_value(b2, b5, c4)}
-    modifier = ResumeDataVirtualAdder(FakeOptimizer(values), storage, memo)
-    liveboxes = modifier.finish()
-    assert len(storage.rd_virtuals) == 1
-    assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
-                                                tag(0, TAGCONST)]
-
-    b6 = InputArgRef()
-    v6 = virtual_value(b6, c2, None)
-    v6.setfield(LLtypeMixin.nextdescr, v6)
-    values = {b2: virtual_value(b2, b4, v6), b6: v6}
-    memo.clear_box_virtual_numbers()
-    modifier = ResumeDataVirtualAdder(FakeOptimizer(values), storage2, memo)
-    liveboxes2 = modifier.finish()
-    assert len(storage2.rd_virtuals) == 2
-    assert storage2.rd_virtuals[0].fieldnums == [tag(len(liveboxes2)-1, TAGBOX),
-                                                 tag(-1, TAGVIRTUAL)]
-    assert storage2.rd_virtuals[1].fieldnums == [tag(2, TAGINT),
-                                                 tag(-1, TAGVIRTUAL)]
-
-    # now on to resuming
-    metainterp = MyMetaInterp()
-
-    b1t, b3t, b4t, b5t = [BoxInt(), BoxInt(), BoxInt(), BoxInt()]
-    newboxes = _resume_remap(liveboxes, [b1, b3, b5], b1t, b3t, b5t)
-
-    result = rebuild_from_resumedata(metainterp, newboxes, storage,
-                                     False)
-
-    b2t = metainterp.resboxes[0]
-    fs2 = [FakeFrame("code0", 0, b1t, c1, b2t),
-           FakeFrame("code1", 3, b3t, c2, b1t),
-           FakeFrame("code2", 9, c3, b2t)]
-    assert metainterp.framestack == fs2
-
-    newboxes = _resume_remap(liveboxes2, [b1, b3, b4], b1t, b3t, b4t)
-
-    metainterp = MyMetaInterp()
-    result = rebuild_from_resumedata(metainterp, newboxes, storage2,
-                                     False)
-    b2t = metainterp.resboxes[0]
-    assert len(metainterp.resboxes) == 2
-    fs2 = [FakeFrame("code0", 0, b1t, c1, b2t),
-           FakeFrame("code1", 3, b3t, c2, b1t),
-           FakeFrame("code2", 10, c3, b2t, b4t)]
-    assert metainterp.framestack == fs2
-
-def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
-    py.test.skip("XXX rewrite")
-    b1, b2, b3, b4, b5, b6 = [InputArgRef(), InputArgRef(), BoxInt(), InputArgRef(), BoxInt(), BoxInt()]
-    c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3),
-                      LLtypeMixin.nodebox.constbox()]
-    storage = Storage()
-    fs = [FakeFrame("code0", 0, c1, b2, b3)]
-    capture_resumedata(fs, None, [], storage)
-
-    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    values = {b2: virtual_value(b2, b5, c4)}
-    modifier = ResumeDataVirtualAdder(FakeOptimizer(values), storage, memo)
-    liveboxes = modifier.finish()
-    assert len(storage.rd_virtuals) == 1
-    assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
-                                                tag(0, TAGCONST)]
-
-    storage2 = Storage()
-    fs = [FakeFrame("code0", 0, b1, b4, b2)]
-    capture_resumedata(fs, None, [], storage2)
-    values[b4] = virtual_value(b4, b6, c4)
-    modifier = ResumeDataVirtualAdder(FakeOptimizer(values), storage2, memo)
-    liveboxes = modifier.finish()
-    assert len(storage2.rd_virtuals) == 2
-    assert storage2.rd_virtuals[1].fieldnums == storage.rd_virtuals[0].fieldnums
-    assert storage2.rd_virtuals[1] is storage.rd_virtuals[0]
-
-
-def test_resumedata_top_recursive_virtuals():
-    py.test.skip("XXX rewrite")
-    b1, b2, b3 = [InputArgRef(), InputArgRef(), BoxInt()]
-    storage = Storage()
-    fs = [FakeFrame("code0", 0, b1, b2)]
-    capture_resumedata(fs, None, [], storage)
-
-    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    v1 = virtual_value(b1, b3, None)
-    v2 = virtual_value(b2, b3, v1)
-    v1.setfield(LLtypeMixin.nextdescr, v2)
-    values = {b1: v1, b2: v2}
-    modifier = ResumeDataVirtualAdder(FakeOptimizer(values), storage, memo)
-    liveboxes = modifier.finish()
-    assert liveboxes == [b3]
-    assert len(storage.rd_virtuals) == 2
-    assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
-                                                tag(1, TAGVIRTUAL)]
-    assert storage.rd_virtuals[1].fieldnums == [tag(-1, TAGBOX),
-                                                tag(0, TAGVIRTUAL)]
-
-
-# ____________________________________________________________
 
 
 def test_ResumeDataLoopMemo_ints():
