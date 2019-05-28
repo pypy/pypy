@@ -166,18 +166,6 @@ class Optimization(object):
     def get_constant_box(self, box):
         return self.optimizer.get_constant_box(box)
 
-    def new_box(self, fieldofs):
-        return self.optimizer.new_box(fieldofs)
-
-    def new_const(self, fieldofs):
-        return self.optimizer.new_const(fieldofs)
-
-    def new_box_item(self, arraydescr):
-        return self.optimizer.new_box_item(arraydescr)
-
-    def new_const_item(self, arraydescr):
-        return self.optimizer.new_const_item(arraydescr)
-
     def pure(self, opnum, result):
         if self.optimizer.optpure:
             self.optimizer.optpure.pure(opnum, result)
@@ -356,14 +344,6 @@ class Optimizer(Optimization):
             return ConstInt(box.get_forwarded().getint())
         return None
         #self.ensure_imported(value)
-
-    def get_newoperations(self):
-        self.flush()
-        return self._newoperations
-
-    def clear_newoperations(self):
-        self._newoperations = []
-        self._emittedoperations = {}
 
     def make_equal_to(self, op, newop):
         op = get_box_replacement(op)
@@ -622,32 +602,6 @@ class Optimizer(Optimization):
         if op.getopnum() == rop.GUARD_EXCEPTION:
             self._last_guard_op = None
         return op
-
-    def potentially_change_ovf_op_to_no_ovf(self, op):
-        # if last emitted operations was int_xxx_ovf and we are not emitting
-        # a guard_no_overflow change to int_add
-        if op.getopnum() != rop.GUARD_NO_OVERFLOW:
-            return
-        if not self._newoperations:
-            # got optimized otherwise
-            return
-        op = self._newoperations[-1]
-        if not op.is_ovf():
-            return
-        newop = self.replace_op_with_no_ovf(op)
-        self._newoperations[-1] = newop
-        self._emittedoperations[newop] = None
-
-    def replace_op_with_no_ovf(self, op):
-        if op.getopnum() == rop.INT_MUL_OVF:
-            return self.replace_op_with(op, rop.INT_MUL)
-        elif op.getopnum() == rop.INT_ADD_OVF:
-            return self.replace_op_with(op, rop.INT_ADD)
-        elif op.getopnum() == rop.INT_SUB_OVF:
-            return self.replace_op_with(op, rop.INT_SUB)
-        else:
-            assert False
-
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
         last_descr = last_guard_op.getdescr()

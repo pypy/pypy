@@ -28,7 +28,7 @@ class OptVirtualize(optimizer.Optimization):
             assert clear
             opinfo = info.ArrayStructInfo(arraydescr, size, is_virtual=True)
         else:
-            const = self.new_const_item(arraydescr)
+            const = self.optimizer.new_const_item(arraydescr)
             opinfo = info.ArrayPtrInfo(arraydescr, const, size, clear,
                                        is_virtual=True)
         # Replace 'source_op' with a version in which the length is
@@ -393,7 +393,7 @@ class OptVirtualize(optimizer.Optimization):
                 if fld is None:
                     raise Exception("I think this is illegal")
                     xxx
-                    fieldvalue = self.new_const(descr)
+                    fieldvalue = self.optimizer.new_const(descr)
                 self.make_equal_to(op, fld)
                 return
         self.make_nonnull(op.getarg(0))

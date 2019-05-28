@@ -534,7 +534,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def _force_elements(self, op, optforce, descr):
         # XXX
         descr = op.getdescr()
-        const = optforce.new_const_item(self.descr)
+        const = optforce.optimizer.new_const_item(self.descr)
         for i in range(self.length):
             item = self._items[i]
             if item is None:
