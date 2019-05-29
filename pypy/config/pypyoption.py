@@ -34,13 +34,14 @@ default_modules.update([
 working_modules = default_modules.copy()
 working_modules.update([
     "_socket", "unicodedata", "mmap", "fcntl", "pwd",
-    "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
+    "select", "zipimport", "_lsprof", "signal", "_rawffi", "termios",
     "zlib", "bz2", "_md5", "_minimal_curses",
     "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
     "_jitlog",
+    #" _ssl", "_hashlib", "crypt"
 ])
 
 import rpython.rlib.rvmprof.cintf
