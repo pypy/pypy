@@ -176,7 +176,7 @@ testmap = [
     RegrTest('test_copy_reg.py', core=True),
     RegrTest('test_cpickle.py', core=True),
     RegrTest('test_cprofile.py'),
-    RegrTest('test_crypt.py', usemodules='crypt'),
+    RegrTest('test_crypt.py'),
     RegrTest('test_csv.py', usemodules='_csv'),
     RegrTest('test_ctypes.py', usemodules="_rawffi thread cpyext"),
     RegrTest('test_curses.py'),
