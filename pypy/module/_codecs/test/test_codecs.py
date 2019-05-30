@@ -436,6 +436,9 @@ class AppTestCodecs:
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=['array',])
 
+    def setup_class(cls):
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
+
     def test_partial_utf8(self):
         import _codecs
         encoding = 'utf-8'
@@ -1404,6 +1407,8 @@ class AppTestPartialEvaluation:
     def test_invalid_type_errors(self):
         # hex is not a text encoding. it works via the codecs functions, but
         # not the methods
+        if not self.appdirect:
+            skip('"hex" only available after translation')
         import codecs
         res = codecs.decode(b"aabb", "hex")
         assert res == b"\xaa\xbb"
