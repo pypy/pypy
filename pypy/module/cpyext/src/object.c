@@ -132,10 +132,17 @@ PyObject_GC_Del(void *obj)
 PyObject *
 PyType_GenericAlloc(PyTypeObject *type, Py_ssize_t nitems)
 {
+    PyObject *obj;
+
     if (PyType_IS_GC(type))
-        return (PyObject*)_PyObject_GC_NewVar(type, nitems);
+        obj = (PyObject*)_PyObject_GC_NewVar(type, nitems);
     else
-        return (PyObject*)_PyObject_NewVar(type, nitems);
+        obj = (PyObject*)_PyObject_NewVar(type, nitems);
+
+    if (PyType_IS_GC(type))
+        _PyObject_GC_TRACK(obj);
+
+    return obj;
 }
 
 PyObject *
@@ -191,7 +198,7 @@ PyVarObject * _PyObject_GC_NewVar(PyTypeObject *type, Py_ssize_t nitems)
         return (PyVarObject*)PyErr_NoMemory();
 
     if (type->tp_itemsize == 0)
-        return (PyVarObject*)PyObject_INIT(py_obj, type);
+        return PyObject_INIT(py_obj, type);
     else
         return PyObject_INIT_VAR((PyVarObject*)py_obj, type, nitems);
 }

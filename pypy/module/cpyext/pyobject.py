@@ -77,9 +77,9 @@ class BaseCpyTypedescr(object):
         state = space.fromcache(State)
         return state.C._PyPy_subtype_dealloc
 
-    def get_free(self, space):
+    def get_free(self, space, gc):
         state = space.fromcache(State)
-        return state.C.PyObject_Free
+        return state.C.PyObject_GC_Del if gc else state.C.PyObject_Free
 
     def has_traverse(self, space):
         return False
@@ -156,7 +156,7 @@ def make_typedescr(typedef, **kw):
                 return tp_dealloc
 
         if tp_free:
-            def get_free(self, space):
+            def get_free(self, space, gc):
                 return tp_free
 
         if tp_attach:

@@ -8,7 +8,6 @@ from pypy.module.cpyext.pyobject import decref, incref, PyObject, make_ref
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import oefmt
 
-
 PyList_Check, PyList_CheckExact = build_type_checkers_flags("List")
 
 @cpython_api([Py_ssize_t], PyObject)
@@ -29,6 +28,33 @@ def get_list_storage(space, w_list):
     from pypy.module.cpyext.sequence import CPyListStrategy
     w_list.convert_to_cpy_strategy(space)
     return CPyListStrategy.unerase(w_list.lstorage)
+
+def list_traverse(space, w_list, visit, args):
+    from rpython.rlib.rawrefcount import PYOBJ_HDR_PTR
+    from pypy.module.cpyext.sequence import CPyListStrategy
+    from rpython.rtyper.lltypesystem import lltype, llmemory
+    from rpython.rlib.debug import debug_print
+    assert isinstance(w_list, W_ListObject)
+    obj = llmemory.cast_ptr_to_adr(w_list.lstorage)
+    objint = llmemory.cast_adr_to_int(obj, "forced")
+    if objint != 0:
+        cpy_strategy = space.fromcache(CPyListStrategy)
+        if not cpy_strategy.locked and cpy_strategy == w_list.strategy:
+            debug_print('rrc do traverse ', w_list)
+            index = 0
+            storage = CPyListStrategy.unerase(w_list.lstorage)
+            while index < storage._length:
+                pyobj = storage._elems[index]
+                pyobj_hdr = rffi.cast(PYOBJ_HDR_PTR, pyobj)
+                if pyobj_hdr:
+                    vret = rffi.cast(lltype.Signed, visit(pyobj_hdr, args))
+                    if vret:
+                        return vret
+                index += 1
+        else:
+            debug_print('rrc no traverse', w_list, 'locked',
+                        cpy_strategy.locked, 'strategy', w_list.strategy)
+    return 0
 
 @cpython_api([rffi.VOIDP, Py_ssize_t, PyObject], lltype.Void, error=CANNOT_FAIL)
 def PyList_SET_ITEM(space, w_list, index, py_item):

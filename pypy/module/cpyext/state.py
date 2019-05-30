@@ -133,9 +133,10 @@ class State:
                 print 'dealloc_trigger DONE'
                 return "RETRY"
             def tp_traverse(pyobj_ptr, callback, args):
-                from pypy.module.cpyext.api import PyObject
+                from pypy.module.cpyext.api import PyObject, generic_cpy_call
                 from pypy.module.cpyext.typeobjectdefs import visitproc
-                from pypy.module.cpyext.pyobject import cts
+                from pypy.module.cpyext.pyobject import cts, from_ref
+
                 # convert to pointers with correct types (PyObject)
                 callback_addr = llmemory.cast_ptr_to_adr(callback)
                 callback_ptr = llmemory.cast_adr_to_ptr(callback_addr,
@@ -148,9 +149,9 @@ class State:
                 print 'traverse PyObject', pyobj, 'of type', name
 
                 # now call tp_traverse (if possible)
-                if pyobj.c_ob_type and pyobj.c_ob_type.c_tp_traverse:
-                    pyobj.c_ob_type.c_tp_traverse(pyobj, callback_ptr,
-                                                  args)
+                if pto and pto.c_tp_traverse:
+                    generic_cpy_call(space, pto.c_tp_traverse, pyobj,
+                                     callback_ptr, args)
             rawrefcount.init(dealloc_trigger, tp_traverse)
         else:
             if space.config.translation.gc == "boehm":
@@ -176,9 +177,12 @@ class State:
                     (lambda w_obj: _clear_weakref_callbacks(w_obj))
 
                 def _tp_traverse(pyobj_ptr, callback, args):
-                    from pypy.module.cpyext.api import PyObject
+                    from pypy.module.cpyext.api import PyObject, \
+                        generic_cpy_call
                     from pypy.module.cpyext.typeobjectdefs import visitproc
-                    from pypy.module.cpyext.pyobject import cts
+                    from pypy.module.cpyext.pyobject import cts, from_ref
+                    from pypy.module.cpyext.listobject import list_traverse
+
                     # convert to pointers with correct types (PyObject)
                     callback_addr = llmemory.cast_ptr_to_adr(callback)
                     callback_ptr = llmemory.cast_adr_to_ptr(callback_addr,
@@ -208,9 +212,19 @@ class State:
                                 debug_print(" " * i * 3, "unknown base")
                             pto2 = base
                             i += 1
+
+                    if pyobj.c_ob_pypy_link != 0: # special traverse
+                        w_obj = from_ref(space, pyobj)
+                        w_obj_type = space.type(w_obj)
+                        if space.is_w(w_obj_type, space.w_list): # list
+                            debug_print('rrc list traverse ', pyobj)
+                            list_traverse(space, w_obj, callback, args)
+                            return
+
                     if pto and pto.c_tp_traverse:
                         debug_print("rrc do traverse", pyobj)
-                        pto.c_tp_traverse(pyobj, callback_ptr, args)
+                        generic_cpy_call(space, pto.c_tp_traverse, pyobj,
+                                         callback_ptr, args)
 
                 self.tp_traverse = (lambda o, v, a:_tp_traverse(o, v, a))
 

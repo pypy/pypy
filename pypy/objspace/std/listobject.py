@@ -248,9 +248,11 @@ class W_ListObject(W_Root):
         cpy_strategy = self.space.fromcache(CPyListStrategy)
         if self.strategy is cpy_strategy:
             return
+        cpy_strategy.locked = True
         lst = self.getitems()
         self.strategy = cpy_strategy
         self.lstorage = cpy_strategy.erase(CPyListStorage(space, lst))
+        cpy_strategy.locked = False
 
     # ___________________________________________________
 

@@ -281,6 +281,7 @@ class CPyListStrategy(ListStrategy):
     erase, unerase = rerased.new_erasing_pair("cpylist")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+    locked = False
 
     def _check_index(self, index, length):
         if index < 0:

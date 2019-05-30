@@ -1169,6 +1169,11 @@ def attach_c_functions(space, eci, prefix):
         [rffi.VOIDP], lltype.Void,
         compilation_info=eci,
         _nowrapper=True)
+    state.C.PyObject_GC_Del = rffi.llexternal(
+        mangle_name(prefix, 'PyObject_GC_Del'),
+        [rffi.VOIDP], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
     state.C.PyType_GenericAlloc = rffi.llexternal(
         mangle_name(prefix, 'PyType_GenericAlloc'),
         [PyTypeObjectPtr, Py_ssize_t], PyObject,
@@ -1186,6 +1191,9 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_tuple_free', [rffi.VOIDP], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     from pypy.module.cpyext.typeobjectdefs import visitproc
+    state.C.PyObject_GC_Track = rffi.llexternal(
+        'PyObject_GC_Track', [rffi.VOIDP], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
     state.C._PyPy_tuple_traverse = rffi.llexternal(
         '_PyPy_tuple_traverse', [PyObject, visitproc, rffi.VOIDP],
         rffi.INT, compilation_info=eci, _nowrapper=True)

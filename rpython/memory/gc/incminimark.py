@@ -3383,6 +3383,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #pygchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
                 #if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
                 #    self._rrc_debug_check_list(pygchdr)
+
+                # TODO?
+                #pygchdr = self.rrc_pyobj_as_gc(self._pyobj(pyobject))
+                #if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
+                #    next = pygchdr.c_gc_next
+                #    next.c_gc_prev = pygchdr.c_gc_prev
+                #    pygchdr.c_gc_prev.c_gc_next = next
+
                 self.rrc_dealloc_pending.append(pyobject)
                 # an object with refcnt == 0 cannot stay around waiting
                 # for its deallocator to be called.  Some code (lxml)
@@ -3434,7 +3442,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         # TODO: check again, if some new border objects have been marked and
         #       continue marking recursively... why needed? -> wrapper for
-        #       pypy-obj is no pygc-obj??? ...
+        #       pypy-obj is no pygc-obj??? ...KI
 
         self._rrc_debug_check_consistency(print_label="end-mark")
         #self.rrc_o_list_old.foreach(self._rrc_major_trace, use_cylicrc) # TODO: remove?
@@ -3470,6 +3478,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.visit_all_objects()
 
     def rrc_major_collection_free(self):
+        if self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT:
+            if not self._rrc_gc_list_is_empty(self.rrc_pyobj_old_list):
+                self._rrc_debug_check_consistency()
+                self._rrc_clear_weakref_callbacks()
+                self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
+                                        self.rrc_pyobj_dead_list)
+                self._rrc_debug_check_consistency(print_label="before-sweep")
+
         ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 2")
         length_estimate = self.rrc_p_dict.length()
         self.rrc_p_dict.delete()
@@ -3488,14 +3504,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                                               no_o_dict)
         self.rrc_o_list_old.delete()
         self.rrc_o_list_old = new_o_list
-
-        if self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT:
-            if not self._rrc_gc_list_is_empty(self.rrc_pyobj_old_list):
-                self._rrc_debug_check_consistency()
-                self._rrc_clear_weakref_callbacks()
-                self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
-                                        self.rrc_pyobj_dead_list)
-                self._rrc_debug_check_consistency(print_label="before-sweep")
 
     def _rrc_clear_weakref_callbacks(self):
         # Look for any weakrefs within the trash cycle and remove the callback.
@@ -3564,12 +3572,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._rrc_pyobj_gc_refcnt_set(pygchdr, refcnt)
             pygchdr = pygchdr.c_gc_next
 
-        self._rrc_debug_check_consistency(print_label="rc-initialized")
-
         # For every object in this set, if it is marked, add 1 as a real
         # refcount (p_list => pyobj stays alive if obj stays alive).
         self.rrc_p_list_old.foreach(self._rrc_obj_fix_refcnt, None)
         self.rrc_o_list_old.foreach(self._rrc_obj_fix_refcnt, None)
+
+        self._rrc_debug_check_consistency(print_label="rc-initialized")
 
         # Subtract all internal refcounts from the cyclic refcount
         # of rawrefcounted objects

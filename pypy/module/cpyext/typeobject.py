@@ -434,7 +434,7 @@ def inherit_special(space, pto, w_obj, base_pto):
         pto.c_tp_flags |= Py_TPFLAGS_UNICODE_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_tuple):
         pto.c_tp_flags |= Py_TPFLAGS_TUPLE_SUBCLASS
-        pto.c_tp_flags |= Py_TPFLAGS_HAVE_GC
+        pto.c_tp_flags |= Py_TPFLAGS_HAVE_GC # TODO: remove? already done elsewhere
     elif space.issubtype_w(w_obj, space.w_list):
         pto.c_tp_flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
@@ -610,6 +610,8 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
         pto.c_tp_flags |= Py_TPFLAGS_HAVE_GC
+    elif space.is_w(w_type, space.w_list):
+        pto.c_tp_flags |= Py_TPFLAGS_HAVE_GC
 
     state = space.fromcache(State)
     pto.c_tp_alloc = state.C.PyType_GenericAlloc
@@ -646,13 +648,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
             # strange, but happens (ABCMeta)
             pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
 
-    # free
-    if space.gettypeobject(w_type.layout.typedef) is w_type:
-        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
-        pto.c_tp_free = typedescr.get_free(space)
-    else:
-        pto.c_tp_free = pto.c_tp_base.c_tp_free
-
     from rpython.rtyper.lltypesystem import llmemory
     from pypy.module.cpyext.typeobjectdefs import traverseproc
     if typedescr.has_traverse(space):
@@ -685,6 +680,18 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_base != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
                 pto.c_tp_new = pto.c_tp_base.c_tp_new
         decref(space, base_object_pyo)
+
+    # free
+    gc = pto.c_tp_flags & Py_TPFLAGS_HAVE_GC != 0
+    if space.gettypeobject(w_type.layout.typedef) is w_type:
+        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
+        pto.c_tp_free = typedescr.get_free(space, gc)
+    else:
+        if gc:
+            pto.c_tp_free = state.C.PyObject_GC_Del
+        else:
+            pto.c_tp_free = state.C.PyObject_Free
+
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
 
