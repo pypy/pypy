@@ -1,6 +1,5 @@
 import sys
 from rpython.rlib import rlocale
-from rpython.rlib.objectmodel import we_are_translated
 
 def getdefaultencoding(space):
     """Return the current default string encoding used by the Unicode
@@ -8,7 +7,8 @@ implementation."""
     return space.newtext(space.sys.defaultencoding)
 
 if sys.platform == "win32":
-    base_encoding = "mbcs"
+    # crash, this should not be used
+    base_encoding = "utf-8"
 elif sys.platform == "darwin":
     base_encoding = "utf-8"
 elif sys.platform == "linux2":
@@ -51,4 +51,6 @@ def getfilesystemencoding(space):
 
 
 def getfilesystemencodeerrors(space):
-    return space.newtext('surrogateescape')
+    if space.sys.filesystemencoderrors is None:
+        return space.newtext('surrogateescape')
+    return space.newtext(space.sys.filesystemencoderrors)
