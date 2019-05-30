@@ -65,7 +65,8 @@ if sys.platform == "win32":
     working_modules.add("_winreg")
     # unix only modules
     for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses"]:
-        working_modules.remove(name)
+        if name in working_modules:
+            working_modules.remove(name)
         if name in translation_modules:
             translation_modules.remove(name)
 
