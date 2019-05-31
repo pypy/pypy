@@ -2277,15 +2277,14 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
-        path = space.utf8_w(w_path).decode('utf-8')
         try:
-            result = nt._getfinalpathname(path)
+            s, lgt = dispatch_filename(nt._getfinalpathname)(space, w_path)
         except nt.LLNotImplemented as e:
             raise OperationError(space.w_NotImplementedError,
                                  space.newtext(e.msg))
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        return space.newtext(result)
+        return space.newtext(s, lgt)
 
 
 def chflags():
