@@ -560,3 +560,9 @@ if WIN32:
                 os.close(fd2)
                 raise
         return res
+    
+    GetConsoleMode = winexternal(
+        'GetConsoleMode', [HANDLE, LPDWORD], BOOL)
+        
+    GetNumberOfConsoleInputEvents = winexternal(
+        'GetNumberOfConsoleInputEvents', [HANDLE, LPDWORD], BOOL)
