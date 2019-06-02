@@ -1,4 +1,5 @@
 import sys
+import os
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import TypeDef
@@ -6,16 +7,16 @@ from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module._io.interp_iobase import (W_RawIOBase, DEFAULT_BUFFER_SIZE)
 from pypy.interpreter.unicodehelper import fsdecode
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib._os_support import _preferred_traits, string_trait
 from rpython.rlib import rwin32
 
 SMALLBUF = 4
 
 def _get_console_type(handle):
+    mode = lltype.malloc(rwin32.LPDWORD.TO,0,flavor='raw')
+    peek_count = lltype.malloc(rwin32.LPDWORD.TO,0,flavor='raw')
     try:
-        mode = lltype.malloc(rffi.DWORD,0,flavor='raw')
-        peek_count = lltype.malloc(rffi.DWORD,0,flavor='raw')
-
-        if handle == INVALID_HANDLE_VALUE:
+        if handle == rwin32.INVALID_HANDLE_VALUE:
             return '\0'
 
         if not rwin32.GetConsoleMode(handle, mode):
@@ -37,8 +38,60 @@ def _pyio_get_console_type(path_or_fd):
             return '\0'
         return _get_console_type(handle)
 
-    #if not fsdecode(path_or_fd, decoded):
-    #    return '\0';
+
+    decoded = os.fsdecode(path_or_fd)
+    if not decoded:
+        return '\0'
+    
+    decoded_wstr = rffi.cast(rffi.CWCHARP, decoded)
+    if not decoded_wstr:
+        return '\0'
+ 
+    m = '\0'
+    
+    # In CPython the _wcsicmp function is used to perform case insensitive comparison
+    normdecoded = unicodedata.normalize("NFKD", decoded.casefold())
+    if normdecoded == unicodedata.normalize("NFKD", "CONIN$".casefold()):
+        m = 'r'
+    elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".casefold()):
+        m = 'w'
+    elif normaldecoded == unicodedata.normalize("NFKD", "CON".casefold())
+        m = 'x'
+
+    if m != '\0':
+        return m
+
+    length = 0
+    
+    pname_buf = lltype.malloc(rffi.CWHARPP.TO, MAX_PATH, flavor='raw')
+
+    traits = _preferred_traits(decoded_wstr)
+    win32traits = make_win32_traits(traits)
+    length = win32traits.GetFullPathName(decoded_wstr, MAX_PATH, pname_buf, rffi.NULL)
+    
+    if length > MAX_PATH:
+        lltype.free(pname_buf, flavor='raw')
+        pname_buf = lltype.malloc(rffi.CWHARPP.TO, length, flavor='raw')
+        if pname_buf:
+            length = win32traits.GetFullPathName(decoded_wstr, MAX_PATH, pname_buf, rffi.NULL)
+        else:
+            length = 0
+
+    if length:
+        if length >= 4 and pname_buf[3] == '\\' and \
+           (name[2] == '.' or name[2] == '?') and \
+           name[1] == '\\' and name[0] == '\\':
+           name += 4
+        normdecoded = unicodedata.normalize("NFKD", decoded.casefold())
+        if normdecoded == unicodedata.normalize("NFKD", "CONIN$".casefold()):
+            m = 'r'
+        elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".casefold()):
+            m = 'w'
+        elif normaldecoded == unicodedata.normalize("NFKD", "CON".casefold())
+            m = 'x'
+           
+    lltype.free(pname_buf, flavor='raw')
+    return m
 
 
 class W_WinConsoleIO(W_RawIOBase):
@@ -52,6 +105,9 @@ class W_WinConsoleIO(W_RawIOBase):
         self.closehandle = 0
         self.blksize = 0
 
+    def _internal_close(self, space):
+        pass
+        
     @unwrap_spec(w_mode=WrappedDefault("r"), w_closefd=WrappedDefault(True), w_opener=WrappedDefault(None))
     def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
         #self.fd = -1
@@ -116,10 +172,9 @@ class W_WinConsoleIO(W_RawIOBase):
                 if not closefd:
                     raise oefmt(space.w_ValueError,
                             "Cannot use closefd=False with a file name")
-                if self.writeable:
+                if self.writable:
                     access = rwin32.GENERIC_WRITE
             
-                from rpython.rlib._os_support import _preferred_traits, string_trait
                 traits = _preferred_traits(name)
                 if not (traits.str is unicode):
                     raise oefmt(space.w_ValueError,
@@ -158,9 +213,11 @@ class W_WinConsoleIO(W_RawIOBase):
             rffi.c_memset(self.buf, 0, SMALLBUF)
         finally:
            lltype.free(self.buf, flavor='raw')
+        
+        return None
 
 W_WinConsoleIO.typedef = TypeDef(
-    '_io.WinConsoleIO', W_WinConsoleIO.typedef,
+    '_io._WinConsoleIO', W_WinConsoleIO.typedef,
     #__new__  = interp2app(W_FileIO.descr_new.im_func),
     __init__  = interp2app(W_WinConsoleIO.descr_init),
     )
