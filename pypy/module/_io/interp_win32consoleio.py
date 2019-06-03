@@ -7,8 +7,9 @@ from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module._io.interp_iobase import (W_RawIOBase, DEFAULT_BUFFER_SIZE)
 from pypy.interpreter.unicodehelper import fsdecode
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib._os_support import _preferred_traits, string_trait
+from rpython.rlib._os_support import _preferred_traits
 from rpython.rlib import rwin32
+from rpython.rlib.rwin32file import make_win32_traits
 
 SMALLBUF = 4
 
@@ -55,7 +56,7 @@ def _pyio_get_console_type(path_or_fd):
         m = 'r'
     elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".casefold()):
         m = 'w'
-    elif normaldecoded == unicodedata.normalize("NFKD", "CON".casefold())
+    elif normaldecoded == unicodedata.normalize("NFKD", "CON".casefold()):
         m = 'x'
 
     if m != '\0':
@@ -87,7 +88,7 @@ def _pyio_get_console_type(path_or_fd):
             m = 'r'
         elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".casefold()):
             m = 'w'
-        elif normaldecoded == unicodedata.normalize("NFKD", "CON".casefold())
+        elif normaldecoded == unicodedata.normalize("NFKD", "CON".casefold()):
             m = 'x'
            
     lltype.free(pname_buf, flavor='raw')
@@ -112,6 +113,7 @@ class W_WinConsoleIO(W_RawIOBase):
     def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
         #self.fd = -1
         #self.created = 0
+        name = None
         self.readable = False
         self.writable = False
         #self.closehandle = 0;
