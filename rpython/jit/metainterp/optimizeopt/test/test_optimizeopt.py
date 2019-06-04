@@ -1,18 +1,14 @@
-import py, sys
-from rpython.rlib.objectmodel import instantiate
+import py
+import sys
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.metainterp import compile, resume
-from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
-from rpython.jit.metainterp.history import ConstPtr
+from rpython.jit.metainterp.history import ConstInt, TreeLoop, ConstPtr
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import build_opt_chain
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, convert_old_style_to_targets)
-from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import \
-    FakeMetaInterpStaticData
-from rpython.jit.metainterp.resoperation import rop, opname, oparity,\
-     InputArgInt
+    BaseTest, convert_old_style_to_targets)
+from rpython.jit.metainterp.resoperation import (
+    rop, opname, oparity, InputArgInt)
 
 
 def test_build_opt_chain():
@@ -20,24 +16,16 @@ def test_build_opt_chain():
         names = [opt.__class__.__name__ for opt in chain]
         assert names == expected_names
     #
-    metainterp_sd = FakeMetaInterpStaticData(None)
-    chain, _ = build_opt_chain(metainterp_sd, "")
+    chain = build_opt_chain("")
     check(chain, ["OptSimplify"])
     #
-    chain, _ = build_opt_chain(metainterp_sd, "")
-    check(chain, ["OptSimplify"])
-    #
-    chain, _ = build_opt_chain(metainterp_sd, "")
-    check(chain, ["OptSimplify"])
-    #
-    chain, _ = build_opt_chain(metainterp_sd, "heap:intbounds")
+    chain = build_opt_chain("heap:intbounds")
     check(chain, ["OptIntBounds", "OptHeap", "OptSimplify"])
     #
-    chain, unroll = build_opt_chain(metainterp_sd, "unroll")
+    chain = build_opt_chain("unroll")
     check(chain, ["OptSimplify"])
-    assert unroll
     #
-    chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb")
+    chain = build_opt_chain("aaa:bbb")
     check(chain, ["OptSimplify"])
 
 
@@ -103,7 +91,7 @@ class BaseTestWithUnroll(BaseTest):
         return py.test.raises(e, fn, *args).value
 
 
-class OptimizeOptTest(BaseTestWithUnroll):
+class TestOptimizeOpt(BaseTestWithUnroll):
     def test_simple(self):
         ops = """
         []
@@ -5027,18 +5015,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_complains_getfieldpure_setfield(self):
-        from rpython.jit.metainterp.optimizeopt.heap import BogusImmutableField
-        py.test.skip("disabled for now")
-        ops = """
-        [p3]
-        p1 = escape_r()
-        p2 = getfield_gc_r(p1, descr=nextdescr)
-        setfield_gc(p1, p3, descr=nextdescr)
-        jump(p3)
-        """
-        self.raises(BogusImmutableField, self.optimize_loop, ops, "crash!")
-
     def test_dont_complains_different_field(self):
         ops = """
         [p3]
@@ -8809,7 +8785,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i1, 1)
         i3 = int_le(i2, 13)
         guard_true(i3) [p1]
-        jump(p0, i2)      
+        jump(p0, i2)
         """
         expected = """
         [p0, i1, p1]
@@ -8824,7 +8800,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i1, 1)
         i3 = int_le(i2, 13)
         guard_true(i3) [p1]
-        jump(p0, i2, p1)        
+        jump(p0, i2, p1)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -8846,7 +8822,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i4)
         setfield_gc(p0, i1, descr=valuedescr)
         ii = same_as_i(i1)
-        jump(p0, i0, i3, i1, ii)        
+        jump(p0, i0, i3, i1, ii)
         """
         expected = """
         [p0, i0, i2, i4, i5]
@@ -8887,7 +8863,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i19)
         """
         self.optimize_loop(ops, expected, expected_short=expected_short)
- 
+
 
     def test_cached_arrayitem_write_descr(self):
         ops = """
@@ -9519,6 +9495,3 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i3, i2, i3)
         """
         self.optimize_loop(ops, expected)
-
-class TestLLtype(OptimizeOptTest, LLtypeMixin):
-    pass
