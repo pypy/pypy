@@ -8,6 +8,12 @@ We try to create a stable release a few times a year. These are released on
 a branch named like release-pypy3.5-v2.x or release-pypy3.5-v4.x, and each
 release is tagged, for instance release-pypy3.5-v4.0.1. 
 
+The release version number should be bumped. A micro release increment means
+there were no changes that justify rebuilding c-extension wheels, since
+the wheels are marked with only major.minor version numbers. It is ofen not
+clear what constitues a "major" release verses a "minor" release, the release
+manager can make that call.
+
 After release, inevitably there are bug fixes. It is the responsibility of
 the commiter who fixes a bug to make sure this fix is on the release branch,
 so that we can then create a tagged bug-fix release, which will hopefully
@@ -78,6 +84,8 @@ Other steps
 
 * Maybe bump the SOABI number in module/imp/importing. This has many
   implications, so make sure the PyPy community agrees to the change.
+  Wheels will use the major.minor release numbers in the name, so bump
+  them if there is an incompatible change to cpyext.
 
 * Update and write documentation
 

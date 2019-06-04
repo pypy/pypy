@@ -145,6 +145,7 @@ static int _cffi_initialize_python(void)
     int result;
     PyGILState_STATE state;
     PyObject *pycode=NULL, *global_dict=NULL, *x;
+    PyObject *builtins;
 
     state = PyGILState_Ensure();
 
@@ -169,7 +170,7 @@ static int _cffi_initialize_python(void)
     global_dict = PyDict_New();
     if (global_dict == NULL)
         goto error;
-    PyObject *builtins = PyEval_GetBuiltins();
+    builtins = PyEval_GetBuiltins();
     if (builtins == NULL)
         goto error;
     if (PyDict_SetItemString(global_dict, "__builtins__", builtins) < 0)
@@ -223,7 +224,7 @@ static int _cffi_initialize_python(void)
 
         if (f != NULL && f != Py_None) {
             PyFile_WriteString("\nFrom: " _CFFI_MODULE_NAME
-                               "\ncompiled with cffi version: 1.12.3"
+                               "\ncompiled with cffi version: 1.13.0"
                                "\n_cffi_backend module: ", f);
             modules = PyImport_GetModuleDict();
             mod = PyDict_GetItemString(modules, "_cffi_backend");

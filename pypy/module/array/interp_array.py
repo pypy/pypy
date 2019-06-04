@@ -1059,7 +1059,7 @@ def make_array(mytype):
                 # some invalid utf8-encoded string which makes things
                 # potentially explode left and right.
                 try:
-                    item = rutf8.unichr_as_utf8(code)
+                    item = rutf8.unichr_as_utf8(code, allow_surrogates=True)
                 except rutf8.OutOfRange:
                     raise oefmt(space.w_ValueError,
                         "cannot operate on this array('u') because it contains"

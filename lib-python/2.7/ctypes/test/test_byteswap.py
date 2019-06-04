@@ -2,7 +2,6 @@ import sys, unittest, struct, math, ctypes
 from binascii import hexlify
 
 from ctypes import *
-from ctypes.test import xfail
 
 def bin(s):
     return hexlify(memoryview(s)).upper()

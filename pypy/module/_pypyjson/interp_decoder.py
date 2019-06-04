@@ -365,10 +365,14 @@ class JSONDecoder(object):
         hexdigits = self.getslice(start, i)
         try:
             val = int(hexdigits, 16)
-            if sys.maxunicode > 65535 and 0xd800 <= val <= 0xdfff:
-                # surrogate pair
-                if self.ll_chars[i] == '\\' and self.ll_chars[i+1] == 'u':
-                    val = self.decode_surrogate_pair(i, val)
+            if (0xd800 <= val <= 0xdbff and
+                    self.ll_chars[i] == '\\' and self.ll_chars[i+1] == 'u'):
+                hexdigits = self.getslice(i+2, i+6)
+                lowsurr = int(hexdigits, 16)
+                if 0xdc00 <= lowsurr <= 0xdfff:
+                    # decode surrogate pair
+                    val = 0x10000 + (((val - 0xd800) << 10) |
+                                     (lowsurr - 0xdc00))
                     i += 6
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", i-1)
@@ -378,15 +382,6 @@ class JSONDecoder(object):
         utf8_ch = rutf8.unichr_as_utf8(r_uint(val), allow_surrogates=True)
         builder.append(utf8_ch)
         return i
-
-    def decode_surrogate_pair(self, i, highsurr):
-        """ uppon enter the following must hold:
-              chars[i] == "\\" and chars[i+1] == "u"
-        """
-        i += 2
-        hexdigits = self.getslice(i, i+4)
-        lowsurr = int(hexdigits, 16) # the possible ValueError is caugth by the caller
-        return 0x10000 + (((highsurr - 0xd800) << 10) | (lowsurr - 0xdc00))
 
     def decode_key(self, i):
         """ returns a wrapped unicode """

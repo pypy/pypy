@@ -871,6 +871,10 @@ class AppTestArray(object):
         assert a.tounicode() == input_unicode
         raises(ValueError, b.tounicode)   # doesn't work
 
+    def test_unicode_surrogate(self):
+        a = self.array('u', u'\ud800')
+        assert a[0] == u'\ud800'
+
     def test_weakref(self):
         import weakref
         a = self.array('c', 'Hi!')

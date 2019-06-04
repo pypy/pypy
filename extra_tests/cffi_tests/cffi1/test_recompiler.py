@@ -2339,3 +2339,24 @@ def test_realize_struct_error():
         typedef int foo_t; struct foo_s { void (*x)(foo_t); };
     """)
     py.test.raises(TypeError, ffi.new, "struct foo_s *")
+
+def test_from_buffer_struct():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { int a, b; };""")
+    lib = verify(ffi, "test_from_buffer_struct_p", """
+        struct foo_s { int a, b; };
+    """)
+    p = ffi.new("struct foo_s *", [-219239, 58974983])
+    q = ffi.from_buffer("struct foo_s[]", ffi.buffer(p))
+    assert ffi.typeof(q) == ffi.typeof("struct foo_s[]")
+    assert len(q) == 1
+    assert q[0].a == p.a
+    assert q[0].b == p.b
+    assert q == p
+    q = ffi.from_buffer("struct foo_s *", ffi.buffer(p))
+    assert ffi.typeof(q) == ffi.typeof("struct foo_s *")
+    assert q.a == p.a
+    assert q.b == p.b
+    assert q[0].a == p.a
+    assert q[0].b == p.b
+    assert q == p

@@ -105,16 +105,10 @@ class W_IncrementalNewlineDecoder(W_Root):
         # desired, all in one pass.
         seennl = self.seennl
 
-        # If, up to now, newlines are consistently \n, do a quick check
-        # for the \r
-        only_lf = False
-        if seennl == SEEN_LF or seennl == 0:
-            only_lf = (output.find('\r') < 0)
-
-        if only_lf:
-            # If not already seen, quick scan for a possible "\n" character.
+        if output.find('\r') < 0:
+            # If no \r, quick scan for a possible "\n" character.
             # (there's nothing else to be done, even when in translation mode)
-            if seennl == 0 and output.find('\n') >= 0:
+            if output.find('\n') >= 0:
                 seennl |= SEEN_LF
                 # Finished: we have scanned for newlines, and none of them
                 # need translating.

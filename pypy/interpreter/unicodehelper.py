@@ -1233,7 +1233,7 @@ def str_decode_utf_32_helper(s, errors, final,
                                   s, pos, pos + 4)
             result.append(r)
             continue
-        elif ch >= 0x110000:
+        elif r_uint(ch) >= 0x110000:
             r, pos = errorhandler(errors, public_encoding_name,
                                   "codepoint not in range(0x110000)",
                                   s, pos, len(s))

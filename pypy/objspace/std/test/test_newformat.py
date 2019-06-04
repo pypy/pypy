@@ -258,6 +258,7 @@ class BaseIntegralFormattingTest:
     def test_simple(self):
         assert format(self.i(2)) == "2"
         assert isinstance(format(self.i(2), u""), unicode)
+        assert isinstance(self.i(2).__format__(u""), str)
 
     def test_invalid(self):
         raises(ValueError, format, self.i(8), "s")
@@ -471,3 +472,15 @@ class AppTestInternalMethods:
         assert isinstance(first, unicode)
         for x, y in l:
             assert isinstance(y, unicode)
+
+    def test_format_char(self):
+        import sys
+        assert '{0:c}'.format(42) == '*'
+        raises(OverflowError, '{0:c}'.format, 1234)
+        # the rest looks unexpected, but that's also what CPython does
+        raises(UnicodeDecodeError, u'{0:c}'.format, 255)
+        raises(OverflowError, u'{0:c}'.format, 1234)
+        raises(OverflowError, u'{0:c}'.format, -1)
+
+    def test_format_unicode_nonutf8_bytestring(self):
+        raises(UnicodeDecodeError, u'{0}'.format, '\xff')

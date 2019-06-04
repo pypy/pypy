@@ -199,7 +199,18 @@ class AppTest(object):
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
 
-    def test_surrogate_pair(self):
+    def test_unicode_not_a_surrogate_pair(self):
+        import _pypyjson
+        res = _pypyjson.loads('"z\\ud800\\ud800x"')
+        assert list(res) == [u'z', u'\ud800', u'\ud800', u'x']
+        res = _pypyjson.loads('"z\\udbff\\uffffx"')
+        assert list(res) == [u'z', u'\udbff', u'\uffff', u'x']
+        res = _pypyjson.loads('"z\\ud800\\ud834\\udd20x"')
+        assert res == u'z\ud800\U0001d120x'
+        res = _pypyjson.loads('"z\\udc00\\udc00x"')
+        assert list(res) == [u'z', u'\udc00', u'\udc00', u'x']
+
+    def test_lone_surrogate(self):
         import _pypyjson
         json = '{"a":"\\uD83D"}'
         res = _pypyjson.loads(json)
