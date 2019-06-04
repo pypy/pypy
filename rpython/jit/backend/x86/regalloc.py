@@ -1222,6 +1222,17 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
         self.perform(op, [argloc], resloc)
 
+    def consider_load_effective_address(self, op):
+        p0 = op.getarg(0)
+        i0 = op.getarg(1)
+        ploc = self.make_sure_var_in_reg(p0, [i0])
+        iloc = self.make_sure_var_in_reg(i0, [p0])
+        res = self.rm.force_allocate_reg(op, [p0, i0])
+        assert isinstance(op.getarg(2), ConstInt)
+        assert isinstance(op.getarg(3), ConstInt)
+        self.assembler.load_effective_addr(iloc, op.getarg(2).getint(),
+            op.getarg(3).getint(), res, ploc)
+
     def consider_copystrcontent(self, op):
         self._consider_copystrcontent(op, is_unicode=False)
 
