@@ -142,6 +142,7 @@ class RewriteTests(object):
         raw_sfdescr = get_array_descr(self.gc_ll_descr, RAW_SF)
         #
         strdescr     = self.gc_ll_descr.str_descr
+        str_basesize = self.gc_ll_descr.str_descr.basesize - 1
         unicodedescr = self.gc_ll_descr.unicode_descr
         strlendescr     = strdescr.lendescr
         unicodelendescr = unicodedescr.lendescr
@@ -241,7 +242,7 @@ class BaseFakeCPU(object):
             return r
 
     def cast_adr_to_int(self, adr):
-        return rffi.cast(lltype.Signed, adr)
+        return llmemory.AddressAsInt(adr)
 
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
@@ -1449,7 +1450,7 @@ class TestFramework(RewriteTests):
         copystrcontent(p0, p1, i0, i1, i_len)
         """, """
         [p0, p1, i0, i1, i_len]
-        i2 = load_effective_address(p0, i0, %(strdescr.basesize)s, %(strdescr.itemsize)s)
-        i3 = load_effective_address(p1, i1, %(strdescr.basesize)s, %(strdescr.itemsize)s)
-        call_n(ConstClass(memcpy_fn), i2, i3, i_len, descr=memcpy_descr)
+        i2 = load_effective_address(p0, i0, %(str_basesize)s, 0)
+        i3 = load_effective_address(p1, i1, %(str_basesize)s, 0)
+        call_n(ConstClass(memcpy_fn), i3, i2, i_len, descr=memcpy_descr)
         """)
