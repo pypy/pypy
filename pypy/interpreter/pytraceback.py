@@ -1,8 +1,24 @@
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
 
-from rpython.tool.error import offset2lineno
+def offset2lineno(c, stopat):
+    # even position in lnotab denote byte increments, odd line increments.
+    # see dis.findlinestarts in the python std. library for more details
 
+    tab = c.co_lnotab
+    line = c.co_firstlineno
+    addr = 0
+    for i in range(0, len(tab), 2):
+        addr = addr + ord(tab[i])
+        if addr > stopat:
+            break
+        line_offset = ord(tab[i+1])
+        # new in Python 3.6: support for negative line offsets by using a
+        # signed char interpretation for the line offsets
+        if line_offset > 0x80:
+            line_offset -= 0x100
+        line = line + line_offset
+    return line
 
 class PyTraceback(baseobjspace.W_Root):
     """Traceback object

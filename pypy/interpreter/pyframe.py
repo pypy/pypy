@@ -665,7 +665,10 @@ class PyFrame(W_Root):
             lnotab = self.pycode.co_lnotab
             for offset in xrange(0, len(lnotab), 2):
                 addr += ord(lnotab[offset])
-                line += ord(lnotab[offset + 1])
+                line_offset = ord(lnotab[offset + 1])
+                if line_offset >= 0x80:
+                    line_offset -= 0x100
+                line += line_offset
                 if line >= new_lineno:
                     new_lasti = addr
                     new_lineno = line

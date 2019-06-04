@@ -65,6 +65,26 @@ class AppTestPyFrame:
         origin = g.__code__.co_firstlineno
         assert g() == [origin+3, origin+4, origin+5]
 
+    def test_f_lineno_huge_jump(self):
+        """
+        code = \"\"\"def g():
+            import sys
+            f = sys._getframe()
+            x = f.f_lineno
+            %s
+            y = f.f_lineno
+            %s
+            z = f.f_lineno
+            return [x, y, z]\"\"\" % (\"\\n\" * 127, \"\\n\" * 1000)
+        d = {}
+        exec(code, d)
+        g = d['g']
+        origin = g.__code__.co_firstlineno
+        print(repr(g.__code__.co_lnotab))
+        print(g())
+        assert g() == [origin+3, origin+5+127, origin+7+127+1000]
+        """
+
     def test_f_lineno_set(self):
         def tracer(f, *args):
             def y(f, *args):
