@@ -19,7 +19,7 @@ class TestJson(object):
         w_a = self.space.newutf8("a", 1)
         w_b = self.space.newutf8("b", 1)
         w_c = self.space.newutf8("c", 1)
-        m1 = m.get_next(w_a, '"a"', 0, 3)
+        m1 = m.get_next(w_a, '"a"', 0, 3, m)
         assert m1.w_key == w_a
         assert m1.single_nextmap is None
         assert m1.key_repr == '"a"'
@@ -27,16 +27,16 @@ class TestJson(object):
         assert not m1.key_repr_cmp('b": 123', 0)
         assert m.single_nextmap.w_key == w_a
 
-        m2 = m.get_next(w_a, '"a"', 0, 3)
+        m2 = m.get_next(w_a, '"a"', 0, 3, m)
         assert m2 is m1
 
-        m3 = m.get_next(w_b, '"b"', 0, 3)
+        m3 = m.get_next(w_b, '"b"', 0, 3, m)
         assert m3.w_key == w_b
         assert m3.single_nextmap is None
         assert m3.key_repr == '"b"'
         assert m.single_nextmap is m1
 
-        m4 = m3.get_next(w_c, '"c"', 0, 3)
+        m4 = m3.get_next(w_c, '"c"', 0, 3, m)
         assert m4.w_key == w_c
         assert m4.single_nextmap is None
         assert m4.key_repr == '"c"'
@@ -47,15 +47,15 @@ class TestJson(object):
         w_a = self.space.newutf8("a", 1)
         w_b = self.space.newutf8("b", 1)
         w_c = self.space.newutf8("c", 1)
-        m1 = m.get_next(w_a, 'a"', 0, 2)
+        m1 = m.get_next(w_a, 'a"', 0, 2, m)
         assert m1.get_index(w_a) == 0
         assert m1.get_index(w_b) == -1
 
-        m2 = m.get_next(w_b, 'b"', 0, 2)
+        m2 = m.get_next(w_b, 'b"', 0, 2, m)
         assert m2.get_index(w_b) == 0
         assert m2.get_index(w_a) == -1
 
-        m3 = m2.get_next(w_c, 'c"', 0, 2)
+        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
         assert m3.get_index(w_b) == 0
         assert m3.get_index(w_c) == 1
         assert m3.get_index(w_a) == -1
@@ -103,10 +103,10 @@ class TestJson(object):
         w_d = self.space.newutf8("d", 1)
         base = Terminator(self.space)
         base.instantiation_count = 6
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
-        m3 = m2.get_next(w_c, 'c"', 0, 2)
-        m4 = m2.get_next(w_d, 'd"', 0, 2)
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
+        m3 = m2.get_next(w_c, 'c"', 0, 2, base)
+        m4 = m2.get_next(w_d, 'd"', 0, 2, base)
         return base, m1, m2, m3, m4
 
     # unit tests for map state transistions
@@ -126,7 +126,7 @@ class TestJson(object):
         assert m4.state == MapBase.PRELIMINARY
         m4.instantiation_count = 4
 
-        m1.mark_useful()
+        m1.mark_useful(base)
         assert m1.state == MapBase.USEFUL
         assert m2.state == MapBase.USEFUL
         assert m3.state == MapBase.FRINGE
@@ -144,7 +144,7 @@ class TestJson(object):
         assert m2.number_of_leaves == 2
         assert m3.number_of_leaves == 1
         assert m4.number_of_leaves == 1
-        m5 = m2.get_next(w_x, 'x"', 0, 2)
+        m5 = m2.get_next(w_x, 'x"', 0, 2, base)
         assert base.number_of_leaves == 3
         assert m1.number_of_leaves == 3
         assert m2.number_of_leaves == 3
@@ -160,7 +160,7 @@ class TestJson(object):
         m4.instantiation_count = 4
         assert base.current_fringe == {m1: None}
 
-        m1.mark_useful()
+        m1.mark_useful(base)
         assert base.current_fringe == {m1: None, m3: None} # not cleaned up
         base.cleanup_fringe()
         assert base.current_fringe == {m3: None}
@@ -172,11 +172,11 @@ class TestJson(object):
         w_d = self.space.newutf8("d", 1)
         base = Terminator(self.space)
         base.instantiation_count = 6
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = base.get_next(w_b, 'b"', 0, 2)
-        m3 = base.get_next(w_c, 'c"', 0, 2)
-        m4 = base.get_next(w_d, 'd"', 0, 2)
-        m5 = m4.get_next(w_a, 'a"', 0, 2)
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = base.get_next(w_b, 'b"', 0, 2, base)
+        m3 = base.get_next(w_c, 'c"', 0, 2, base)
+        m4 = base.get_next(w_d, 'd"', 0, 2, base)
+        m5 = m4.get_next(w_a, 'a"', 0, 2, base)
         base.instantiation_count = 7
         m1.instantiation_count = 2
         m2.instantiation_count = 2
@@ -202,9 +202,9 @@ class TestJson(object):
         s = '{"a": 1, "b": 2, "c": 3}'
         dec = JSONDecoder(space, s)
         dec.startmap = base = Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
-        m2.mark_blocked()
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
+        m2.mark_blocked(base)
         w_res = dec.decode_object(1)
         assert space.int_w(space.len(w_res)) == 3
         assert space.int_w(space.getitem(w_res, w_a)) == 1
@@ -219,34 +219,13 @@ class TestJson(object):
         w_u = self.space.newutf8("u", 1)
         space = self.space
         base = Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
-        m2.get_next(w_x, 'x"', 0, 2)
-        m2.get_next(w_u, 'u"', 0, 2)
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
+        m2.get_next(w_x, 'x"', 0, 2, base)
+        m2.get_next(w_u, 'u"', 0, 2, base)
         assert base.number_of_leaves == 2
-        m2.mark_blocked()
+        m2.mark_blocked(base)
         assert base.number_of_leaves == 1
-
-    @pytest.mark.skip()
-    def test_caching_stats(self):
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_x = self.space.newutf8("x", 1)
-        w_u = self.space.newutf8("u", 1)
-        space = self.space
-        base = Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
-        m2.get_next(w_x, 'x"', 0, 2)
-        m2.get_next(w_u, 'u"', 0, 2)
-        m1.decode_string = 300
-        m1.cache_hits = 0
-        m3 = base.get_next(w_b, '"b"', 0, 3)
-        m3.decode_string = 300
-        m3.cache_hits = 300
-        caching_maps, total_maps = base._get_caching_stats()
-        assert caching_maps == 5
-        assert total_maps == 6
 
 
 class AppTest(object):

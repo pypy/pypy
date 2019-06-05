@@ -610,7 +610,7 @@ class JSONDecoder(W_Root):
             self._raise("Key name must be string at char %d", i)
         i += 1
         w_key = self._decode_key_string(i)
-        return currmap.get_next(w_key, self.s, start, self.pos)
+        return currmap.get_next(w_key, self.s, start, self.pos, self.startmap)
 
     def _decode_key_string(self, i):
         ll_chars = self.ll_chars
@@ -732,12 +732,6 @@ class MapBase(object):
         self.instantiation_count = 0
         self.number_of_leaves = 1
 
-    def get_terminator(self):
-        while isinstance(self, JSONMap):
-            self = self.prev
-        assert isinstance(self, Terminator)
-        return self
-
     def _check_invariants(self):
         if self.all_next:
             for next in self.all_next.itervalues():
@@ -745,7 +739,7 @@ class MapBase(object):
         elif self.single_nextmap:
             self.single_nextmap._check_invariants()
 
-    def get_next(self, w_key, string, start, stop):
+    def get_next(self, w_key, string, start, stop, terminator):
         from pypy.objspace.std.dictmultiobject import unicode_hash, unicode_eq
         if isinstance(self, JSONMap):
             assert not self.state == MapBase.BLOCKED
@@ -776,7 +770,6 @@ class MapBase(object):
             # fix number_of_leaves
             self.change_number_of_leaves(1)
 
-        terminator = self.get_terminator()
         terminator.register_potential_fringe(next)
         return next
 
@@ -804,7 +797,7 @@ class MapBase(object):
         self.instantiation_count += 1
         if isinstance(self, JSONMap) and self.state == MapBase.FRINGE:
             if self.is_useful():
-                self.mark_useful()
+                self.mark_useful(self.startmap)
 
     def _make_next_map(self, w_key, key_repr):
         return JSONMap(self.space, self, w_key, key_repr)
@@ -842,23 +835,6 @@ class MapBase(object):
         p.write("\n".join(r))
         graphclient.display_dot_file(str(p))
 
-    def _get_caching_stats(self):
-        caching = 0
-        num_maps = 1
-        if isinstance(self, JSONMap) and self.should_cache() and self.decoded_strings > 200:
-            caching += 1
-
-        if self.all_next:
-            children = self.all_next.values()
-        elif self.single_nextmap:
-            children = [self.single_nextmap]
-        else:
-            children = []
-        for child in children:
-            a, b = child._get_caching_stats()
-            caching += a
-            num_maps += b
-        return caching, num_maps
 
 class Terminator(MapBase):
     def __init__(self, space):
@@ -891,7 +867,7 @@ class Terminator(MapBase):
                         del self.current_fringe[f]
                 return
         assert min_fringe
-        min_fringe.mark_blocked()
+        min_fringe.mark_blocked(self)
         del self.current_fringe[min_fringe]
 
 
@@ -953,7 +929,7 @@ class JSONMap(MapBase):
 
         MapBase._check_invariants(self)
 
-    def mark_useful(self):
+    def mark_useful(self, terminator):
         # mark self as useful, and also the most commonly instantiated
         # children, recursively
         assert self.state in (MapBase.FRINGE, MapBase.PRELIMINARY)
@@ -964,21 +940,20 @@ class JSONMap(MapBase):
                 if child.instantiation_count > maxchild.instantiation_count:
                     maxchild = child
         if maxchild is not None:
-            maxchild.mark_useful()
+            maxchild.mark_useful(terminator)
             if self.all_next:
-                terminator = self.get_terminator()
                 for child in self.all_next.itervalues():
                     if child is not maxchild:
                         terminator.register_potential_fringe(child)
                 self.single_nextmap = maxchild
 
-    def mark_blocked(self):
+    def mark_blocked(self, terminator):
         self.state = MapBase.BLOCKED
         if self.all_next:
             for next in self.all_next.itervalues():
-                next.mark_blocked()
+                next.mark_blocked(terminator)
         elif self.single_nextmap:
-            self.single_nextmap.mark_blocked()
+            self.single_nextmap.mark_blocked(terminator)
         self.single_nextmap = None
         self.all_next = None
         self.change_number_of_leaves(-self.number_of_leaves + 1)
