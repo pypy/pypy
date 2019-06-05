@@ -60,23 +60,23 @@ class TestJson(object):
         assert m3.get_index(w_c) == 1
         assert m3.get_index(w_a) == -1
 
-    def test_decode_key(self):
+    def test_decode_key_map(self):
         m = Terminator(self.space)
         m_diff = Terminator(self.space)
         for s1 in ["abc", "1001" * 10, u"ä".encode("utf-8")]:
             s = ' "%s"   "%s" "%s"' % (s1, s1, s1)
             dec = JSONDecoder(self.space, s)
             assert dec.pos == 0
-            m1 = dec.decode_key(dec.skip_whitespace(0), m)
+            m1 = dec.decode_key_map(dec.skip_whitespace(0), m)
             assert m1.w_key._utf8 == s1
             assert m1.key_repr == '"%s"' % s1
 
             # check caching on w_key level
-            m2 = dec.decode_key(dec.skip_whitespace(dec.pos), m_diff)
+            m2 = dec.decode_key_map(dec.skip_whitespace(dec.pos), m_diff)
             assert m1.w_key is m2.w_key
 
             # check caching on map level
-            m3 = dec.decode_key(dec.skip_whitespace(dec.pos), m_diff)
+            m3 = dec.decode_key_map(dec.skip_whitespace(dec.pos), m_diff)
             assert m3 is m2
             dec.close()
 
@@ -149,6 +149,14 @@ class TestJson(object):
         assert m1.number_of_leaves == 3
         assert m2.number_of_leaves == 3
         assert m5.number_of_leaves == 1
+
+    def test_number_of_leaves_after_mark_blocked(self):
+        w_x = self.space.newutf8("x", 1)
+        base, m1, m2, m3, m4 = self._make_some_maps()
+        m5 = m2.get_next(w_x, 'x"', 0, 2, base)
+        assert base.number_of_leaves == 3
+        m2.mark_blocked(base)
+        assert base.number_of_leaves == 1
 
     def test_mark_useful_cleans_fringe(self):
         base, m1, m2, m3, m4 = self._make_some_maps()
@@ -224,6 +232,19 @@ class TestJson(object):
         assert base.number_of_leaves == 2
         m2.mark_blocked(base)
         assert base.number_of_leaves == 1
+
+    def test_instatiation_count(self):
+        m = Terminator(self.space)
+        dec = JSONDecoder(self.space, '"abc" "def"')
+        m1 = dec.decode_key_map(dec.skip_whitespace(0), m)
+        m2 = dec.decode_key_map(dec.skip_whitespace(6), m1)
+        m1 = dec.decode_key_map(dec.skip_whitespace(0), m)
+        m2 = dec.decode_key_map(dec.skip_whitespace(6), m1)
+        m1 = dec.decode_key_map(dec.skip_whitespace(0), m)
+
+        assert m1.instantiation_count == 3
+        assert m2.instantiation_count == 2
+        dec.close()
 
 
 class AppTest(object):

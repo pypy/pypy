@@ -24,17 +24,6 @@ def neg_pow_10(x, exp):
         return 0.0
     return x * NEG_POW_10[exp]
 
-def _compare_cache_entry(space, res, ll_chars, start, length):
-    if length != len(res):
-        return False
-    index = start
-    for c in res:
-        x = ord(c)
-        if not ll_chars[index] == chr(x):
-            return False
-        index += 1
-    return True
-
 
 class IntCache(object):
     START = -10
@@ -84,6 +73,9 @@ class JSONDecoder(W_Root):
         self.pos = 0
         self.intcache = space.fromcache(IntCache)
 
+        # two caches, one for keys, one for general strings. they both have the
+        # form {hash-as-int: CacheEntry} and they don't deal with
+        # collisions at all. For every hash there is simply one string stored.
         self.cache = {}
         self.cache_wrapped = {}
 
@@ -339,7 +331,7 @@ class JSONDecoder(W_Root):
         currmap = self.startmap
         while True:
             # parse a key: value
-            currmap = self.decode_key(i, currmap)
+            currmap = self.decode_key_map(i, currmap)
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
@@ -359,11 +351,9 @@ class JSONDecoder(W_Root):
                 self.pos = i
                 self.scratch.append(values_w)  # can reuse next time
                 if currmap.is_state_blocked():
-                    currmap.instantiation_count += 1
                     dict_w = self._switch_to_dict(currmap, values_w, nextindex)
                     return self._create_dict(dict_w)
                 values_w = values_w[:nextindex]
-                currmap.instantiation_count += 1
                 w_res = self._create_dict_map(values_w, currmap)
                 if not currmap.is_state_useful():
                     self.unclear_objects.append(w_res)
@@ -371,7 +361,6 @@ class JSONDecoder(W_Root):
             elif ch == ',':
                 i = self.skip_whitespace(i)
                 if currmap.is_state_blocked():
-                    currmap.instantiation_count += 1
                     self.scratch.append(values_w)  # can reuse next time
                     dict_w = self._switch_to_dict(currmap, values_w, nextindex)
                     return self.decode_object_dict(i, start, dict_w)
@@ -582,27 +571,30 @@ class JSONDecoder(W_Root):
             if ((context is not None and
                         context.decoded_strings < self.STRING_CACHE_EVALUATION_SIZE) or
                     strhash in self.lru_cache):
-                entry = WrappedCacheEntry(
+                entry = CacheEntry(
                         self.getslice(start, start + length), w_res)
                 self.cache_wrapped[strhash] = entry
             else:
                 self.lru_cache[self.lru_index] = strhash
                 self.lru_index = (self.lru_index + 1) & self.LRU_MASK
             return w_res
-        if not _compare_cache_entry(self.space, entry.repr, ll_chars, start, length):
-            # hopefully rare
+        if not entry.compare(ll_chars, start, length):
+            # collision! hopefully rare
             return self._create_string_wrapped(start, i, nonascii)
         if context is not None:
             context.cache_hits += 1
         return entry.w_uni
 
-    def decode_key(self, i, currmap):
-        newmap = self._decode_key(i, currmap)
+    def decode_key_map(self, i, currmap):
+        """ Given the current map currmap of an object, decode the next key at
+        position i. This returns the new map of the object. """
+        newmap = self._decode_key_map(i, currmap)
         currmap.observe_transition(newmap, self.startmap)
         return newmap
 
-    def _decode_key(self, i, currmap):
+    def _decode_key_map(self, i, currmap):
         ll_chars = self.ll_chars
+        # first try to see whether we happen to find currmap.single_nextmap
         nextmap = currmap.fast_path_key_parse(self, i)
         if nextmap is not None:
             return nextmap
@@ -616,6 +608,8 @@ class JSONDecoder(W_Root):
         return currmap.get_next(w_key, self.s, start, self.pos, self.startmap)
 
     def _decode_key_string(self, i):
+        """ decode key at position i as a string. Key strings are always
+        cached, since they repeat a lot. """
         ll_chars = self.ll_chars
         start = i
 
@@ -636,14 +630,13 @@ class JSONDecoder(W_Root):
             entry = self.cache[strhash]
         except KeyError:
             w_res = self._create_string_wrapped(start, i, nonascii)
-            entry = WrappedCacheEntry(
+            entry = CacheEntry(
                     self.getslice(start, start + length), w_res)
             self.cache[strhash] = entry
             return w_res
-        if not _compare_cache_entry(self.space, entry.repr, ll_chars, start, length):
-            # hopefully rare
+        if not entry.compare(ll_chars, start, length):
+            # collision! hopefully rare
             w_res = self._create_string_wrapped(start, i, nonascii)
-            print w_res
         else:
             w_res = entry.w_uni
         return w_res
@@ -656,10 +649,25 @@ class JSONDecoder(W_Root):
         i += 1
         return self._decode_key_string(i)
 
-class WrappedCacheEntry(object):
+class CacheEntry(object):
+    """ A cache entry, bunding the encoded version of a string, and its wrapped
+    decoded variant. """
     def __init__(self, repr, w_uni):
+        # repr is the escaped string
         self.repr = repr
+        # uni is the wrapped decoded string
         self.w_uni = w_uni
+
+    def compare(self, ll_chars, start, length):
+        """ Check whether self.repr occurs at ll_chars[start:start+length] """
+        if length != len(self.repr):
+            return False
+        index = start
+        for c in self.repr:
+            if not ll_chars[index] == c:
+                return False
+            index += 1
+        return True
 
 
 class MapBase(object):
@@ -745,6 +753,9 @@ class MapBase(object):
         # but then it also contains .single_nextmap
         self.all_next = None # later dict {key: nextmap}
 
+        # keep some statistics about every map: how often it was instantiated
+        # and how many non-blocked leaves the map transition tree has, starting
+        # from self
         self.instantiation_count = 0
         self.number_of_leaves = 1
 
@@ -783,13 +794,15 @@ class MapBase(object):
             next = self._make_next_map(w_key, string[start:stop])
             self.all_next[w_key] = next
 
-            # fix number_of_leaves
+            # one new leaf has been created
             self.change_number_of_leaves(1)
 
         terminator.register_potential_fringe(next)
         return next
 
     def change_number_of_leaves(self, difference):
+        if not difference:
+            return
         parent = self
         while isinstance(parent, JSONMap):
             parent.number_of_leaves += difference
@@ -797,6 +810,9 @@ class MapBase(object):
         parent.number_of_leaves += difference # terminator
 
     def fast_path_key_parse(self, decoder, position):
+        """ Fast path when parsing the next key: We speculate that we will
+        always see a commonly seen next key, and use strcmp (implemented in
+        key_repr_cmp) to check whether that is the case. """
         single_nextmap = self.single_nextmap
         if single_nextmap:
             ll_chars = decoder.ll_chars
@@ -810,7 +826,7 @@ class MapBase(object):
         This does a few things, including updating the self size estimate with
         the knowledge that one object transitioned from self to newmap.
         also it potentially decides that self should move to state USEFUL."""
-        self.instantiation_count += 1
+        newmap.instantiation_count += 1
         if isinstance(self, JSONMap) and self.state == MapBase.FRINGE:
             if self.is_useful():
                 self.mark_useful(terminator)
@@ -915,6 +931,10 @@ class JSONMap(MapBase):
         self.keys_in_order = None
         self.strategy_instance = None
 
+    def __repr__(self):
+        return "<JSONMap key_repr=%s #instantiation=%s #leaves=%s prev=%r>" % (
+                self.key_repr, self.instantiation_count, self.number_of_leaves, self.prev)
+
     def _get_terminator(self): # only for _check_invariants
         while isinstance(self, JSONMap):
             self = self.prev
@@ -961,6 +981,8 @@ class JSONMap(MapBase):
         self.state = MapBase.USEFUL
         if was_fringe:
             terminator.remove_from_fringe(self)
+        # find the most commonly instantiated child, store it into
+        # single_nextmap and mark it useful, recursively
         maxchild = self.single_nextmap
         if self.all_next is not None:
             for child in self.all_next.itervalues():
@@ -975,6 +997,7 @@ class JSONMap(MapBase):
                 self.single_nextmap = maxchild
 
     def mark_blocked(self, terminator):
+        """ mark self and recursively all its children as blocked."""
         was_fringe = self.state == MapBase.FRINGE
         self.state = MapBase.BLOCKED
         if was_fringe:
@@ -1059,7 +1082,7 @@ class JSONMap(MapBase):
         if self.all_next is None:
             l = int(self.single_nextmap is not None)
         else:
-            l = len(self.all_next) + 1
+            l = len(self.all_next)
         extra = ""
         if self.decoded_strings:
             extra = "\\n%s/%s (%s%%)" % (self.cache_hits, self.decoded_strings, self.cache_hits/float(self.decoded_strings))
