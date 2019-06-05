@@ -150,7 +150,7 @@ class TestJson(object):
         assert m2.number_of_leaves == 3
         assert m5.number_of_leaves == 1
 
-    def test_cleanup_fringe_simple(self):
+    def test_mark_useful_cleans_fringe(self):
         base, m1, m2, m3, m4 = self._make_some_maps()
         base.instantiation_count = 6
         assert m1.state == MapBase.FRINGE
@@ -161,11 +161,9 @@ class TestJson(object):
         assert base.current_fringe == {m1: None}
 
         m1.mark_useful(base)
-        assert base.current_fringe == {m1: None, m3: None} # not cleaned up
-        base.cleanup_fringe()
         assert base.current_fringe == {m3: None}
 
-    def test_cleanup_fringe_block(self):
+    def test_cleanup_fringe(self):
         w_a = self.space.newutf8("a", 1)
         w_b = self.space.newutf8("b", 1)
         w_c = self.space.newutf8("c", 1)

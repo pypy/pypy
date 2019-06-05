@@ -595,7 +595,7 @@ class JSONDecoder(W_Root):
 
     def decode_key(self, i, currmap):
         newmap = self._decode_key(i, currmap)
-        currmap.observe_transition(newmap)
+        currmap.observe_transition(newmap, self.startmap)
         return newmap
 
     def _decode_key(self, i, currmap):
@@ -789,7 +789,7 @@ class MapBase(object):
                 decoder.pos = position + len(single_nextmap.key_repr)
                 return single_nextmap
 
-    def observe_transition(self, newmap):
+    def observe_transition(self, newmap, terminator):
         """ observe a transition from self to newmap.
         This does a few things, including updating the self size estimate with
         the knowledge that one object transitioned from self to newmap.
@@ -797,7 +797,7 @@ class MapBase(object):
         self.instantiation_count += 1
         if isinstance(self, JSONMap) and self.state == MapBase.FRINGE:
             if self.is_useful():
-                self.mark_useful(self.startmap)
+                self.mark_useful(terminator)
 
     def _make_next_map(self, w_key, key_repr):
         return JSONMap(self.space, self, w_key, key_repr)
@@ -852,23 +852,21 @@ class Terminator(MapBase):
                 self.cleanup_fringe()
             self.current_fringe[prelim] = None
 
+    def remove_from_fringe(self, former_fringe):
+        assert former_fringe.state in (MapBase.USEFUL, MapBase.BLOCKED)
+        del self.current_fringe[former_fringe]
+
     def cleanup_fringe(self):
         min_fringe = None
         min_avg = 10000000000
         for f in self.current_fringe:
-            if f.state == MapBase.FRINGE:
-                avg = f.average_instantiation()
-                if avg < min_avg:
-                    min_avg = avg
-                    min_fringe = f
-            else:
-                for f in self.current_fringe.keys():
-                    if f.state != MapBase.FRINGE:
-                        del self.current_fringe[f]
-                return
+            assert f.state == MapBase.FRINGE
+            avg = f.average_instantiation()
+            if avg < min_avg:
+                min_avg = avg
+                min_fringe = f
         assert min_fringe
         min_fringe.mark_blocked(self)
-        del self.current_fringe[min_fringe]
 
 
 class JSONMap(MapBase):
@@ -932,8 +930,11 @@ class JSONMap(MapBase):
     def mark_useful(self, terminator):
         # mark self as useful, and also the most commonly instantiated
         # children, recursively
+        was_fringe = self.state == MapBase.FRINGE
         assert self.state in (MapBase.FRINGE, MapBase.PRELIMINARY)
         self.state = MapBase.USEFUL
+        if was_fringe:
+            terminator.remove_from_fringe(self)
         maxchild = self.single_nextmap
         if self.all_next is not None:
             for child in self.all_next.itervalues():
@@ -948,7 +949,10 @@ class JSONMap(MapBase):
                 self.single_nextmap = maxchild
 
     def mark_blocked(self, terminator):
+        was_fringe = self.state == MapBase.FRINGE
         self.state = MapBase.BLOCKED
+        if was_fringe:
+            terminator.remove_from_fringe(self)
         if self.all_next:
             for next in self.all_next.itervalues():
                 next.mark_blocked(terminator)
