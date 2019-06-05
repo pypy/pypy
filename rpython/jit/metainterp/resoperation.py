@@ -1057,6 +1057,7 @@ _oplist = [
     'LOAD_FROM_GC_TABLE/1/r',    # only emitted by rewrite.py
     #
     'LOAD_EFFECTIVE_ADDRESS/4/i', # only emitted by rewrite.py, shortcut for x86
+    # res = arg0 + (arg1 << arg3) + arg2
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 

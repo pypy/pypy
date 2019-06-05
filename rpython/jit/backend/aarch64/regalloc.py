@@ -180,9 +180,8 @@ class Regalloc(BaseRegalloc):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(inputargs, operations)
+        longevity = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        self.last_real_usage = last_real_usage
         fm = self.frame_manager
         asm = self.assembler
         self.vfprm = VFPRegisterManager(longevity, fm, asm)
@@ -602,7 +601,7 @@ class Regalloc(BaseRegalloc):
         position = self.rm.position
         for arg in inputargs:
             assert not isinstance(arg, Const)
-            if self.last_real_usage.get(arg, -1) <= position:
+            if self.longevity[arg].is_last_real_use_before(position):
                 self.force_spill_var(arg)
 
         #
@@ -723,6 +722,13 @@ class Regalloc(BaseRegalloc):
     def prepare_op_load_from_gc_table(self, op):
         resloc = self.force_allocate_reg(op)
         return [resloc]
+
+    def prepare_op_load_effective_address(self, op):
+        args = op.getarglist()
+        arg0 = self.make_sure_var_in_reg(args[0], args)
+        arg1 = self.make_sure_var_in_reg(args[1], args)
+        res = self.force_allocate_reg(op)
+        return [arg0, arg1, args[2], args[3], res]
 
     def prepare_op_jump(self, op):
         assert self.jump_target_descr is None

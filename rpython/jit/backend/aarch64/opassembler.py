@@ -209,6 +209,22 @@ class ResOpAssembler(BaseAssembler):
         index = op.getarg(0).getint()
         self.load_from_gc_table(res_loc.value, index)
 
+    def emit_op_load_effective_address(self, op, arglocs):
+        self._gen_address(arglocs[4], arglocs[0], arglocs[1], arglocs[3].value,
+                          arglocs[2].value)
+
+   # result = base_loc  + (scaled_loc << scale) + static_offset
+    def _gen_address(self, result, base_loc, scaled_loc, scale=0, static_offset=0):
+        assert scaled_loc.is_core_reg()
+        assert base_loc.is_core_reg()
+        if scale > 0:
+            self.mc.LSL_ri(r.ip0.value, scaled_loc.value, scale)
+            scaled_loc = r.ip0
+        else:
+            scaled_loc = scaled_loc
+        self.mc.ADD_rr(result.value, base_loc.value, scaled_loc.value)
+        self.mc.ADD_ri(result.value, result.value, static_offset)
+
     def emit_op_debug_merge_point(self, op, arglocs):
         pass
     
