@@ -91,6 +91,10 @@ class JSONDecoder(W_Root):
         self.lru_index = 0
 
         self.startmap = self.space.fromcache(Terminator)
+
+        # keep a list of objects that are created with maps that aren't clearly
+        # useful. If they turn out to be useful in the end we are good,
+        # otherwise convert them to dicts (see .close())
         self.unclear_objects = []
 
         self.scratch = [[None] * self.DEFAULT_SIZE_SCRATCH]  # list of scratch space
@@ -102,7 +106,7 @@ class JSONDecoder(W_Root):
         # clean up objects that are instances of now blocked maps
         for w_obj in self.unclear_objects:
             jsonmap = self._get_jsonmap_from_dict(w_obj)
-            if jsonmap.is_blocked():
+            if jsonmap.is_state_blocked():
                 self._devolve_jsonmap_dict(w_obj)
 
     def getslice(self, start, end):
@@ -353,21 +357,20 @@ class JSONDecoder(W_Root):
             i += 1
             if ch == '}':
                 self.pos = i
-                if currmap.is_blocked():
+                self.scratch.append(values_w)  # can reuse next time
+                if currmap.is_state_blocked():
                     currmap.instantiation_count += 1
-                    self.scratch.append(values_w)  # can reuse next time
                     dict_w = self._switch_to_dict(currmap, values_w, nextindex)
                     return self._create_dict(dict_w)
-                self.scratch.append(values_w)  # can reuse next time
                 values_w = values_w[:nextindex]
                 currmap.instantiation_count += 1
                 w_res = self._create_dict_map(values_w, currmap)
-                if currmap.state != MapBase.USEFUL:
+                if not currmap.is_state_useful():
                     self.unclear_objects.append(w_res)
                 return w_res
             elif ch == ',':
                 i = self.skip_whitespace(i)
-                if currmap.is_blocked():
+                if currmap.is_state_blocked():
                     currmap.instantiation_count += 1
                     self.scratch.append(values_w)  # can reuse next time
                     dict_w = self._switch_to_dict(currmap, values_w, nextindex)
@@ -660,6 +663,9 @@ class WrappedCacheEntry(object):
 
 
 class MapBase(object):
+    """ A map implementation to speed up parsing of json dicts, and to
+    represent the resulting dicts more compactly and make access faster. """
+
     # the basic problem we are trying to solve is the following: dicts in
     # json can either be used as objects, or as dictionaries with arbitrary
     # string keys. We want to use maps for the former, but not for the
@@ -673,6 +679,16 @@ class MapBase(object):
     # If we determine that a map is not used often enough, we can turn it
     # into a "blocked" map, which is a point in the map tree where we will
     # switch to regular dicts, when we reach that part of the tree.
+
+    # One added complication: We want to keep the number of preliminary maps
+    # bounded to prevent generating tons of useless maps. but also not too
+    # small, to support having a json file that contains many uniform objects
+    # with tons of keys. That's where the idea of "fringe" maps comes into
+    # play. They are maps that sit between known useful nodes and preliminary
+    # nodes in the map transition tree. We bound only the number of fringe
+    # nodes we are considering (to MAX_FRINGE), but not the number of
+    # preliminary maps. When we have too many fringe maps, we remove the least
+    # commonly instantiated fringe map and mark it as blocked.
 
     # allowed graph edges or nodes in all_next:
     #    USEFUL -------
@@ -837,15 +853,19 @@ class MapBase(object):
 
 
 class Terminator(MapBase):
+    """ The root node of the map transition tree. """
     def __init__(self, space):
         MapBase.__init__(self, space)
-        self.all_object_count = 0
+        # a set of all map nodes that are currently in the FRINGE state
         self.current_fringe = {}
 
     def register_potential_fringe(self, prelim):
+        """ add prelim to the fringe, if its prev is either a Terminator or
+        useful. """
         prev = prelim.prev
         if (isinstance(prev, Terminator) or
                 isinstance(prev, JSONMap) and prev.state == MapBase.USEFUL):
+            assert prelim.state == MapBase.PRELIMINARY
             prelim.state = MapBase.FRINGE
 
             if len(self.current_fringe) > MapBase.MAX_FRINGE:
@@ -853,10 +873,12 @@ class Terminator(MapBase):
             self.current_fringe[prelim] = None
 
     def remove_from_fringe(self, former_fringe):
+        """ Remove former_fringe from self.current_fringe. """
         assert former_fringe.state in (MapBase.USEFUL, MapBase.BLOCKED)
         del self.current_fringe[former_fringe]
 
     def cleanup_fringe(self):
+        """ remove the least-instantiated fringe map and block it."""
         min_fringe = None
         min_avg = 10000000000
         for f in self.current_fringe:
@@ -868,6 +890,9 @@ class Terminator(MapBase):
         assert min_fringe
         min_fringe.mark_blocked(self)
 
+    def _check_invariants(self):
+        for fringe in self.current_fringe:
+            assert fringe.state == MapBase.FRINGE
 
 class JSONMap(MapBase):
     """ A map implementation to speed up parsing """
@@ -890,8 +915,7 @@ class JSONMap(MapBase):
         self.keys_in_order = None
         self.strategy_instance = None
 
-    @jit.elidable
-    def get_terminator(self):
+    def _get_terminator(self): # only for _check_invariants
         while isinstance(self, JSONMap):
             self = self.prev
         assert isinstance(self, Terminator)
@@ -924,6 +948,8 @@ class JSONMap(MapBase):
         if self.state == MapBase.BLOCKED:
             assert self.single_nextmap is None
             assert self.all_next is None
+        elif self.state == MapBase.FRINGE:
+            assert self in self._get_terminator().current_fringe
 
         MapBase._check_invariants(self)
 
@@ -962,8 +988,11 @@ class JSONMap(MapBase):
         self.all_next = None
         self.change_number_of_leaves(-self.number_of_leaves + 1)
 
-    def is_blocked(self):
+    def is_state_blocked(self):
         return self.state == MapBase.BLOCKED
+
+    def is_state_useful(self):
+        return self.state == MapBase.USEFUL
 
     def average_instantiation(self):
         return self.instantiation_count / float(self.number_of_leaves)
