@@ -2,6 +2,8 @@
 
 import sys
 
+import sys
+
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
     enforceargs, newlist_hint, specialize, we_are_translated)
