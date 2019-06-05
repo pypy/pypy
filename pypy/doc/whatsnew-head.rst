@@ -38,3 +38,8 @@ Fix a bug that prevent memory-tracking in vmprof working on PyPy.
 .. branch: optimizeopt-cleanup
 
 Cleanup optimizeopt
+
+.. branch: json-decoder-maps
+
+Much faster and more memory-efficient JSON decoding. The resulting
+dictionaries that come out of the JSON decoder have faster lookups too.
