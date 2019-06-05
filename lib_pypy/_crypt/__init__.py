@@ -15,6 +15,10 @@ except OSError:
 
 
 def crypt(word, salt):
+    if isinstance(word, str):
+        word = word.encode('ascii')
+    if isinstance(salt, str):
+        salt = salt.encode('ascii')
     res = lib.crypt(word, salt)
     if not res:
         return None
