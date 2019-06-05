@@ -1,253 +1,31 @@
 # -*- encoding: utf-8 -*-
-import pytest
-from pypy.module._pypyjson.interp_decoder import JSONDecoder, Terminator, MapBase
-from rpython.rtyper.lltypesystem import lltype, rffi
+from pypy.module._pypyjson.interp_decoder import JSONDecoder
 
+def test_skip_whitespace():
+    s = '   hello   '
+    dec = JSONDecoder('fake space', s)
+    assert dec.pos == 0
+    assert dec.skip_whitespace(0) == 3
+    assert dec.skip_whitespace(3) == 3
+    assert dec.skip_whitespace(8) == len(s)
+    dec.close()
 
-class TestJson(object):
-    def test_skip_whitespace(self):
-        s = '   hello   '
-        dec = JSONDecoder(self.space, s)
-        assert dec.pos == 0
-        assert dec.skip_whitespace(0) == 3
-        assert dec.skip_whitespace(3) == 3
-        assert dec.skip_whitespace(8) == len(s)
-        dec.close()
+class FakeSpace(object):
+    def newutf8(self, s, l):
+        return s
 
-    def test_json_map(self):
-        m = Terminator(self.space)
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_c = self.space.newutf8("c", 1)
-        m1 = m.get_next(w_a, '"a"', 0, 3)
-        assert m1.w_key == w_a
-        assert m1.single_nextmap is None
-        assert m1.key_repr == '"a"'
-        assert m1.key_repr_cmp('"a": 123', 0)
-        assert not m1.key_repr_cmp('b": 123', 0)
-        assert m.single_nextmap.w_key == w_a
-
-        m2 = m.get_next(w_a, '"a"', 0, 3)
-        assert m2 is m1
-
-        m3 = m.get_next(w_b, '"b"', 0, 3)
-        assert m3.w_key == w_b
-        assert m3.single_nextmap is None
-        assert m3.key_repr == '"b"'
-        assert m.single_nextmap is m1
-
-        m4 = m3.get_next(w_c, '"c"', 0, 3)
-        assert m4.w_key == w_c
-        assert m4.single_nextmap is None
-        assert m4.key_repr == '"c"'
-        assert m3.single_nextmap is m4
-
-    def test_json_map_get_index(self):
-        m = Terminator(self.space)
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_c = self.space.newutf8("c", 1)
-        m1 = m.get_next(w_a, 'a"', 0, 2)
-        assert m1.get_index(w_a) == 0
-        assert m1.get_index(w_b) == -1
-
-        m2 = m.get_next(w_b, 'b"', 0, 2)
-        assert m2.get_index(w_b) == 0
-        assert m2.get_index(w_a) == -1
-
-        m3 = m2.get_next(w_c, 'c"', 0, 2)
-        assert m3.get_index(w_b) == 0
-        assert m3.get_index(w_c) == 1
-        assert m3.get_index(w_a) == -1
-
-    def test_decode_key(self):
-        m = Terminator(self.space)
-        m_diff = Terminator(self.space)
-        for s1 in ["abc", "1001" * 10, u"ä".encode("utf-8")]:
-            s = ' "%s"   "%s" "%s"' % (s1, s1, s1)
-            dec = JSONDecoder(self.space, s)
-            assert dec.pos == 0
-            m1 = dec.decode_key(dec.skip_whitespace(0), m)
-            assert m1.w_key._utf8 == s1
-            assert m1.key_repr == '"%s"' % s1
-
-            # check caching on w_key level
-            m2 = dec.decode_key(dec.skip_whitespace(dec.pos), m_diff)
-            assert m1.w_key is m2.w_key
-
-            # check caching on map level
-            m3 = dec.decode_key(dec.skip_whitespace(dec.pos), m_diff)
-            assert m3 is m2
-            dec.close()
-
-    def test_decode_string_caching(self):
-        for s1 in ["abc", u"ä".encode("utf-8")]:
-            s = '"%s"   "%s"    "%s"' % (s1, s1, s1)
-            dec = JSONDecoder(self.space, s)
-            dec.MIN_SIZE_FOR_STRING_CACHE = 0
-            assert dec.pos == 0
-            w_x = dec.decode_string(1)
-            w_y = dec.decode_string(dec.skip_whitespace(dec.pos) + 1)
-            assert w_x is not w_y
-            # check caching
-            w_z = dec.decode_string(dec.skip_whitespace(dec.pos) + 1)
-            assert w_z is w_y
-            dec.close()
-
-    def _make_some_maps(self):
-        # base -> m1 -> m2 -> m3
-        #                \-> m4
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_c = self.space.newutf8("c", 1)
-        w_d = self.space.newutf8("d", 1)
-        base = Terminator(self.space)
-        base.instantiation_count = 6
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
-        m3 = m2.get_next(w_c, 'c"', 0, 2)
-        m4 = m2.get_next(w_d, 'd"', 0, 2)
-        return base, m1, m2, m3, m4
-
-    # unit tests for map state transistions
-    def test_fringe_to_useful(self):
-        base, m1, m2, m3, m4 = self._make_some_maps()
-        base.instantiation_count = 6
-        assert m1.state == MapBase.FRINGE
-        m1.instantiation_count = 6
-
-        assert m2.state == MapBase.PRELIMINARY
-        m2.instantiation_count = 6
-
-        assert m3.state == MapBase.PRELIMINARY
-        m3.instantiation_count = 2
-        assert m2.single_nextmap is m3
-
-        assert m4.state == MapBase.PRELIMINARY
-        m4.instantiation_count = 4
-
-        m1.mark_useful()
-        assert m1.state == MapBase.USEFUL
-        assert m2.state == MapBase.USEFUL
-        assert m3.state == MapBase.FRINGE
-        assert m4.state == MapBase.USEFUL
-        assert m2.single_nextmap is m4
-
-        assert m1.number_of_leaves == 2
-        base._check_invariants()
-
-    def test_number_of_leaves(self):
-        w_x = self.space.newutf8("x", 1)
-        base, m1, m2, m3, m4 = self._make_some_maps()
-        assert base.number_of_leaves == 2
-        assert m1.number_of_leaves == 2
-        assert m2.number_of_leaves == 2
-        assert m3.number_of_leaves == 1
-        assert m4.number_of_leaves == 1
-        m5 = m2.get_next(w_x, 'x"', 0, 2)
-        assert base.number_of_leaves == 3
-        assert m1.number_of_leaves == 3
-        assert m2.number_of_leaves == 3
-        assert m5.number_of_leaves == 1
-
-    def test_cleanup_fringe_simple(self):
-        base, m1, m2, m3, m4 = self._make_some_maps()
-        base.instantiation_count = 6
-        assert m1.state == MapBase.FRINGE
-        m1.instantiation_count = 6
-        m2.instantiation_count = 6
-        m3.instantiation_count = 2
-        m4.instantiation_count = 4
-        assert base.current_fringe == {m1: None}
-
-        m1.mark_useful()
-        assert base.current_fringe == {m1: None, m3: None} # not cleaned up
-        base.cleanup_fringe()
-        assert base.current_fringe == {m3: None}
-
-    def test_cleanup_fringe_block(self):
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_c = self.space.newutf8("c", 1)
-        w_d = self.space.newutf8("d", 1)
-        base = Terminator(self.space)
-        base.instantiation_count = 6
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = base.get_next(w_b, 'b"', 0, 2)
-        m3 = base.get_next(w_c, 'c"', 0, 2)
-        m4 = base.get_next(w_d, 'd"', 0, 2)
-        m5 = m4.get_next(w_a, 'a"', 0, 2)
-        base.instantiation_count = 7
-        m1.instantiation_count = 2
-        m2.instantiation_count = 2
-        m3.instantiation_count = 2
-        m4.instantiation_count = 1
-        m5.instantiation_count = 1
-        assert base.current_fringe == dict.fromkeys([m1, m2, m3, m4])
-
-        base.cleanup_fringe()
-        assert base.current_fringe == dict.fromkeys([m1, m2, m3])
-        assert m4.state == MapBase.BLOCKED
-        assert m4.single_nextmap is None
-        assert m4.all_next is None
-        assert m5.state == MapBase.BLOCKED
-        assert m5.single_nextmap is None
-        assert m5.all_next is None
-
-    def test_deal_with_blocked(self):
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_c = self.space.newutf8("c", 1)
-        space = self.space
-        s = '{"a": 1, "b": 2, "c": 3}'
-        dec = JSONDecoder(space, s)
-        dec.startmap = base = Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
-        m2.mark_blocked()
-        w_res = dec.decode_object(1)
-        assert space.int_w(space.len(w_res)) == 3
-        assert space.int_w(space.getitem(w_res, w_a)) == 1
-        assert space.int_w(space.getitem(w_res, w_b)) == 2
-        assert space.int_w(space.getitem(w_res, w_c)) == 3
-        dec.close()
-
-    def test_deal_with_blocked_number_of_leaves(self):
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_x = self.space.newutf8("x", 1)
-        w_u = self.space.newutf8("u", 1)
-        space = self.space
-        base = Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
-        m2.get_next(w_x, 'x"', 0, 2)
-        m2.get_next(w_u, 'u"', 0, 2)
-        assert base.number_of_leaves == 2
-        m2.mark_blocked()
-        assert base.number_of_leaves == 1
-
-    @pytest.mark.skip()
-    def test_caching_stats(self):
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_x = self.space.newutf8("x", 1)
-        w_u = self.space.newutf8("u", 1)
-        space = self.space
-        base = Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
-        m2.get_next(w_x, 'x"', 0, 2)
-        m2.get_next(w_u, 'u"', 0, 2)
-        m1.decode_string = 300
-        m1.cache_hits = 0
-        m3 = base.get_next(w_b, '"b"', 0, 3)
-        m3.decode_string = 300
-        m3.cache_hits = 300
-        caching_maps, total_maps = base._get_caching_stats()
-        assert caching_maps == 5
-        assert total_maps == 6
-
+def test_decode_key():
+    s1 = "123" * 100
+    s = ' "%s"   "%s" ' % (s1, s1)
+    dec = JSONDecoder(FakeSpace(), s)
+    assert dec.pos == 0
+    x = dec.decode_key(0)
+    assert x == s1
+    # check caching
+    y = dec.decode_key(dec.pos)
+    assert y == s1
+    assert y is x
+    dec.close()
 
 class AppTest(object):
     spaceconfig = {"objspace.usemodules._pypyjson": True}
@@ -277,7 +55,7 @@ class AppTest(object):
         raises(ValueError, _pypyjson.loads, 'fa')
         raises(ValueError, _pypyjson.loads, 'f')
         raises(ValueError, _pypyjson.loads, 'falXX')
-
+        
 
     def test_decode_string(self):
         import _pypyjson
@@ -307,7 +85,7 @@ class AppTest(object):
         import _pypyjson
         assert _pypyjson.loads(r'"\\"') == u'\\'
         assert _pypyjson.loads(r'"\""') == u'"'
-        assert _pypyjson.loads(r'"\/"') == u'/'
+        assert _pypyjson.loads(r'"\/"') == u'/'       
         assert _pypyjson.loads(r'"\b"') == u'\b'
         assert _pypyjson.loads(r'"\f"') == u'\f'
         assert _pypyjson.loads(r'"\n"') == u'\n'
@@ -323,18 +101,11 @@ class AppTest(object):
         import _pypyjson
         s = r'"hello\nworld' # missing the trailing "
         raises(ValueError, "_pypyjson.loads(s)")
-
+        
     def test_escape_sequence_unicode(self):
         import _pypyjson
         s = r'"\u1234"'
         assert _pypyjson.loads(s) == u'\u1234'
-
-    def test_escape_sequence_mixed_with_utf8(self):
-        import _pypyjson
-        utf8 = u'ä"'.encode("utf-8")
-        assert _pypyjson.loads(r'"abc\\' + utf8) == u'abc\\ä'
-        assert _pypyjson.loads(r'"abc\"' + utf8) == u'abc"ä'
-        assert _pypyjson.loads(r'"def\u1234' + utf8) == u'def\u1234ä'
 
     def test_invalid_utf_8(self):
         import _pypyjson
@@ -405,18 +176,13 @@ class AppTest(object):
         s = '{"hello": "world", "aaa": "bbb"}'
         assert _pypyjson.loads(s) == {'hello': 'world',
                                       'aaa': 'bbb'}
-        assert _pypyjson.loads(s) == {'hello': 'world',
-                                      'aaa': 'bbb'}
         raises(ValueError, _pypyjson.loads, '{"key"')
         raises(ValueError, _pypyjson.loads, '{"key": 42')
-
-        assert _pypyjson.loads('{"neighborhood": ""}') == {
-            "neighborhood": ""}
 
     def test_decode_object_nonstring_key(self):
         import _pypyjson
         raises(ValueError, "_pypyjson.loads('{42: 43}')")
-
+        
     def test_decode_array(self):
         import _pypyjson
         assert _pypyjson.loads('[]') == []
@@ -497,4 +263,3 @@ class AppTest(object):
         for inputtext, errmsg in test_cases:
             exc = raises(ValueError, _pypyjson.loads, inputtext)
             assert str(exc.value) == errmsg
-
