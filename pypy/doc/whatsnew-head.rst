@@ -34,3 +34,7 @@ Reduces the number of problematic linked-in libraries (libssl, libcrypto)
 .. branch: fix-vmprof-memory-tracking
 
 Fix a bug that prevent memory-tracking in vmprof working on PyPy.
+
+.. branch: optimizeopt-cleanup
+
+Cleanup optimizeopt
