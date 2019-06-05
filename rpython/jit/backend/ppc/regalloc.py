@@ -802,6 +802,14 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         temp_loc = r.SCRATCH2
         return [base_loc, temp_loc]
 
+    def prepare_load_effective_address(self, op):
+        arg0 = self.ensure_reg(op.getarg(0))
+        arg1 = self.ensure_reg(op.getarg(1))
+        arg2 = self.ensure_reg_or_any_imm(op.getarg(2))
+        arg3 = self.ensure_reg_or_any_imm(op.getarg(3))
+        resloc = self.force_allocate_reg(op)
+        return [arg0, arg1, arg2, arg3, resloc]
+
     def prepare_copystrcontent(self, op):
         src_ptr_loc = self.ensure_reg(op.getarg(0))
         dst_ptr_loc = self.ensure_reg(op.getarg(1))
