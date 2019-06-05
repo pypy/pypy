@@ -308,9 +308,9 @@ class TestDecoding(UnicodeTests):
         _assert_decu7(' +AOQ- ', u' \xe4 ')
         _assert_decu7('+AOQ-+AOQ-', u'\xe4\xe4')
 
-        s_utf7 = 'Die M+AOQ-nner +AOQ-rgen sich!'
-        s_utf8 = u'Die Männer ärgen sich!'
-        s_utf8_esc = u'Die M\xe4nner \xe4rgen sich!'
+        s_utf7 = 'Die M+AOQ-nner +AOQ-rgern sich!'
+        s_utf8 = u'Die Männer ärgern sich!'
+        s_utf8_esc = u'Die M\xe4nner \xe4rgern sich!'
 
         _assert_decu7(s_utf7, s_utf8_esc)
         _assert_decu7(s_utf7, s_utf8)

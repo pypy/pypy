@@ -89,9 +89,14 @@ class W_Buffer(W_Root):
     def descr_str(self, space):
         return space.newbytes(self.buf.as_str())
 
-    @unwrap_spec(other='bufferstr')
-    def descr_add(self, space, other):
-        return space.newbytes(self.buf.as_str() + other)
+    def descr_add(self, space, w_other):
+        try:
+            other = w_other.readbuf_w(space)
+        except BufferInterfaceNotFound:
+            raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
+        if self.buf.getlength() < 1:
+            return w_other
+        return space.newbytes(self.buf.as_str() + other.as_str())
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):

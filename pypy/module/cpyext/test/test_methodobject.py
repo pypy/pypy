@@ -108,6 +108,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_KW(a=3, b=4) == ((), {'a': 3, 'b': 4})
         assert mod.getarg_KW(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})
         assert mod.getarg_KW.__name__ == "getarg_KW"
+        assert mod.getarg_KW(*(), **{}) == ((), {})
 
     def test_func_attributes(self):
         mod = self.import_extension('MyModule', [
@@ -192,3 +193,17 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.check(A) == 0
         assert mod.check(A.meth) == 0
         assert mod.check(A.stat) == 0
+
+    def test_module_attribute(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_NO', 'METH_NOARGS',
+             '''
+                 Py_INCREF(Py_None);
+                 return Py_None;
+             '''
+             ),
+            ])
+        assert mod.getarg_NO() is None
+        assert mod.getarg_NO.__module__ == 'MyModule'
+        mod.getarg_NO.__module__ = 'foobar'
+        assert mod.getarg_NO.__module__ == 'foobar'

@@ -4,7 +4,7 @@ import py
 import sys
 
 from rpython.translator import cdir
-from rpython.rlib import jit, rposix
+from rpython.rlib import jit, rposix, objectmodel
 from rpython.rlib.rfloat import INFINITY, NAN, isfinite
 from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -185,6 +185,8 @@ def ll_math_frexp(x):
         mantissa = x
         exponent = 0
     else:
+        if objectmodel.revdb_flag_io_disabled():
+            return _revdb_frexp(x)
         exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
             mantissa = math_frexp(x, exp_p)
@@ -221,6 +223,8 @@ def ll_math_ldexp(x, exp):
 def ll_math_modf(x):
     # some platforms don't do the right thing for NaNs and
     # infinities, so we take care of special cases directly.
+    if objectmodel.revdb_flag_io_disabled():
+        return _revdb_modf(x)
     if not isfinite(x):
         if math.isnan(x):
             return (x, x)
@@ -406,6 +410,18 @@ def new_unary_math_function(name, can_overflow, c99):
         return r
 
     return func_with_new_name(ll_math, 'll_math_' + name)
+
+
+def _revdb_frexp(x):
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.emulate_frexp(x)
+
+def _revdb_modf(x):
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.emulate_modf(x)
+
 
 # ____________________________________________________________
 

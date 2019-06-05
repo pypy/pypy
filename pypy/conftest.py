@@ -5,6 +5,19 @@ from inspect import isclass
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
 
+try:
+    from hypothesis import settings, __version__
+except ImportError:
+    pass
+else:
+    try:
+        settings.register_profile('default', deadline=None)
+    except Exception:
+        import warnings
+        warnings.warn("Version of hypothesis too old, "
+                      "cannot set the deadline to None")
+    settings.load_profile('default')
+
 # PyPy's command line extra options (these are added
 # to py.test's standard options)
 #

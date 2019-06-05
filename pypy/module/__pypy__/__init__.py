@@ -48,6 +48,7 @@ class IntOpModule(MixedModule):
         'int_lshift':      'interp_intop.int_lshift',
         'int_rshift':      'interp_intop.int_rshift',
         'uint_rshift':     'interp_intop.uint_rshift',
+        'int_mulmod':      'interp_intop.int_mulmod',
     }
 
 
@@ -61,10 +62,17 @@ class OsModule(MixedModule):
 class PyPyDateTime(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
-        'dateinterop': 'interp_pypydatetime.W_DateTime_Date',
-        'timeinterop'    : 'interp_pypydatetime.W_DateTime_Time',
-        'deltainterop'   : 'interp_pypydatetime.W_DateTime_Delta',
+        'dateinterop'  : 'interp_pypydatetime.W_DateTime_Date',
+        'timeinterop'  : 'interp_pypydatetime.W_DateTime_Time',
+        'deltainterop' : 'interp_pypydatetime.W_DateTime_Delta',
     }
+
+class PyPyBufferable(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
+        'bufferable': 'interp_buffer.W_Bufferable',
+    }
+        
 
 class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
@@ -82,6 +90,8 @@ class Module(MixedModule):
         'debug_stop'                : 'interp_debug.debug_stop',
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'debug_flush'               : 'interp_debug.debug_flush',
+        'debug_read_timestamp'      : 'interp_debug.debug_read_timestamp',
+        'debug_get_timestamp_unit'  : 'interp_debug.debug_get_timestamp_unit',
         'builtinify'                : 'interp_magic.builtinify',
         'hidden_applevel'           : 'interp_magic.hidden_applevel',
         'get_hidden_tb'             : 'interp_magic.get_hidden_tb',
@@ -104,7 +114,10 @@ class Module(MixedModule):
                           'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
         '_promote'                   : 'interp_magic._promote',
+        'side_effects_ok'           : 'interp_magic.side_effects_ok',
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
+        'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
+        'newmemoryview'             : 'interp_buffer.newmemoryview',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
@@ -116,6 +129,7 @@ class Module(MixedModule):
         "intop": IntOpModule,
         "os": OsModule,
         '_pypydatetime': PyPyDateTime,
+        'bufferable': PyPyBufferable,
     }
 
     def setup_after_space_initialization(self):
@@ -143,3 +157,7 @@ class Module(MixedModule):
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',
                                     'space.wrap(%r)' % features)
+        if self.space.config.translation.reverse_debugger:
+            self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
+        else:
+            self.extra_interpdef('revdb_stop', 'space.w_None')

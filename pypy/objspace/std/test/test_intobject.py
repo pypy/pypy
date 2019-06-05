@@ -1,8 +1,9 @@
 # encoding: utf-8
 import py
 import sys
+from pypy.interpreter.error import OperationError
 from pypy.objspace.std import intobject as iobj
-from rpython.rlib.rarithmetic import r_uint, is_valid_int
+from rpython.rlib.rarithmetic import r_uint, is_valid_int, intmask
 from rpython.rlib.rbigint import rbigint
 
 
@@ -185,6 +186,63 @@ class TestW_IntObject:
         v = f1.descr_pow(space, f2, space.w_None)
         assert space.isinstance_w(v, space.w_long)
         assert space.bigint_w(v).eq(rbigint.fromlong(pow(10, 20)))
+
+    try:
+        from hypothesis import given, strategies, example
+    except ImportError:
+        pass
+    else:
+        @given(
+           a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           b=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           c=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint))
+        @example(0, 0, -sys.maxint-1)
+        @example(0, 1, -sys.maxint-1)
+        @example(1, 0, -sys.maxint-1)
+        def test_hypot_pow(self, a, b, c):
+            if c == 0:
+                return
+            #
+            # "pow(a, b, c)": if b < 0, should get an app-level TypeError.
+            # Otherwise, should always work except if c == -maxint-1
+            if b < 0:
+                expected = TypeError
+            elif b > 0 and c == -sys.maxint-1:
+                expected = OverflowError
+            else:
+                expected = pow(a, b, c)
+
+            try:
+                result = iobj._pow(self.space, a, b, c)
+            except OperationError as e:
+                assert ('TypeError: pow() 2nd argument cannot be negative '
+                        'when 3rd argument specified' == e.errorstr(self.space))
+                result = TypeError
+            except OverflowError:
+                result = OverflowError
+            assert result == expected
+
+        @given(
+           a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           b=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint))
+        def test_hypot_pow_nomod(self, a, b):
+            # "a ** b": detect overflows and ValueErrors
+            if b < 0:
+                expected = ValueError
+            elif b > 128 and not (-1 <= a <= 1):
+                expected = OverflowError
+            else:
+                expected = a ** b
+                if expected != intmask(expected):
+                    expected = OverflowError
+
+            try:
+                result = iobj._pow(self.space, a, b, 0)
+            except ValueError:
+                result = ValueError
+            except OverflowError:
+                result = OverflowError
+            assert result == expected
 
     def test_neg(self):
         space = self.space
@@ -613,6 +671,18 @@ class AppTestInt(object):
         assert type(x) is int
         assert str(x) == "0"
 
+    def test_binop_overflow(self):
+        x = int(2)
+        assert x.__lshift__(128) == 680564733841876926926749214863536422912L
+
+    def test_rbinop_overflow(self):
+        x = int(321)
+        assert x.__rlshift__(333) == 1422567365923326114875084456308921708325401211889530744784729710809598337369906606315292749899759616L
+
+    def test_some_rops(self):
+        import sys
+        x = int(-sys.maxint)
+        assert x.__rsub__(2) == (2 + sys.maxint)
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}

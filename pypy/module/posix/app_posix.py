@@ -94,7 +94,7 @@ if osname == 'posix':
         try:
             posix.fstat(fd)
         except OSError as e:
-            raise IOError(e.errno, e.message)
+            raise OSError(e.errno, e.message)
         return _fdopen(fd, mode, buffering)
 
 else:

@@ -225,8 +225,10 @@ class TestJIT(BaseRtypingTest):
     def test_green_field(self):
         def get_printable_location(xfoo):
             return str(ord(xfoo))   # xfoo must be annotated as a character
-        myjitdriver = JitDriver(greens=['x.foo'], reds=['n', 'x'],
+        # green fields are disabled!
+        pytest.raises(ValueError, JitDriver, greens=['x.foo'], reds=['n', 'x'],
                                 get_printable_location=get_printable_location)
+        return
         class A(object):
             _immutable_fields_ = ['foo']
         def fn(n):

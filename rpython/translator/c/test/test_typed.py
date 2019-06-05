@@ -6,6 +6,7 @@ import py
 
 from rpython.rlib.rstackovf import StackOverflow
 from rpython.rlib.objectmodel import compute_hash, current_object_addr_as_int
+from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask, longlongmask
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.test import snippet
@@ -955,6 +956,49 @@ class TestTypedTestCase(object):
         res = f(217)
         assert res == 305123851
 
+    def test_uint128(self):
+        if not hasattr(rffi, '__UINT128_T'):
+            py.test.skip("no '__uint128_t'")
+        def func(n):
+            x = rffi.cast(getattr(rffi, '__UINT128_T'), n)
+            x *= x
+            x *= x
+            x *= x
+            x *= x
+            return intmask(x >> 96)
+        f = self.getcompiled(func, [int])
+        res = f(217)
+        assert res == 305123851
+
+    def test_uint128_constant(self):
+        if not hasattr(rffi, '__UINT128_T'):
+            py.test.skip("no '__uint128_t'")
+        x = rffi.cast(getattr(rffi, '__UINT128_T'), 41)
+        x <<= 60
+        x *= 7
+        def func(n):
+            y = NonConstant(x)
+            y >>= 50
+            return intmask(y)
+        f = self.getcompiled(func, [int])
+        res = f(1)
+        assert res == ((41 << 60) * 7) >> 50
+
+    def test_int128_constant(self):
+        if not hasattr(rffi, '__INT128_T'):
+            py.test.skip("no '__int128_t'")
+        x = rffi.cast(getattr(rffi, '__INT128_T'), -41)
+        x <<= 60
+        x *= 7
+        x |= 2**63
+        def func(n):
+            y = NonConstant(x)
+            y >>= 50
+            return intmask(y)
+        f = self.getcompiled(func, [int])
+        res = f(1)
+        assert res == (((-41 << 60) * 7) | 2**63) >> 50
+
     def test_bool_2(self):
         def func(n):
             x = rffi.cast(lltype.Bool, n)
@@ -962,3 +1006,12 @@ class TestTypedTestCase(object):
         f = self.getcompiled(func, [int])
         res = f(2)
         assert res == 1     # and not 2
+
+    def test_mulmod(self):
+        from rpython.rlib.rarithmetic import mulmod
+
+        def func(a, b, c):
+            return mulmod(a, b, c)
+        f = self.getcompiled(func, [int, int, int])
+        res = f(1192871273, 1837632879, 2001286281)
+        assert res == 1573897320

@@ -1,31 +1,24 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
+from rpython.rlib.rdynload import DLLHANDLE, dlsym, dlclose
 
 from pypy.interpreter.error import oefmt
-from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from pypy.module._cffi_backend.parse_c_type import (
     _CFFI_OPCODE_T, GLOBAL_S, CDL_INTCONST_S, STRUCT_UNION_S, FIELD_S,
     ENUM_S, TYPENAME_S, ll_set_cdl_realize_global_int)
 from pypy.module._cffi_backend.realize_c_type import getop
 from pypy.module._cffi_backend.lib_obj import W_LibObject
-from pypy.module._cffi_backend import cffi_opcode, cffi1_module
-
+from pypy.module._cffi_backend import cffi_opcode, cffi1_module, misc
 
 class W_DlOpenLibObject(W_LibObject):
 
-    def __init__(self, ffi, filename, flags):
-        with rffi.scoped_str2charp(filename) as ll_libname:
-            if filename is None:
-                filename = "<None>"
-            try:
-                handle = dlopen(ll_libname, flags)
-            except DLOpenError as e:
-                raise wrap_dlopenerror(ffi.space, e, filename)
-        W_LibObject.__init__(self, ffi, filename)
+    def __init__(self, ffi, w_filename, flags):
+        space = ffi.space
+        fname, handle = misc.dlopen_w(space, w_filename, flags)
+        W_LibObject.__init__(self, ffi, fname)
         self.libhandle = handle
-        self.register_finalizer(ffi.space)
+        self.register_finalizer(space)
 
     def _finalize_(self):
         h = self.libhandle

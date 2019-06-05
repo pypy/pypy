@@ -1,5 +1,6 @@
 import py
 import sys, os, re
+import textwrap
 
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.config.translationoption import SUPPORT__THREAD
@@ -518,6 +519,50 @@ class TestStandalone(StandaloneTests):
         assert out.strip() == 'got:.-1.'
         assert not err
         assert path.check(file=0)
+
+    def test_debug_start_stop_timestamp(self):
+        from rpython.rlib.rtimer import read_timestamp
+        def entry_point(argv):
+            timestamp = bool(int(argv[1]))
+            ts1 = debug_start("foo", timestamp=timestamp)
+            ts2 = read_timestamp()
+            ts3 = debug_stop("foo", timestamp=timestamp)
+            print ts1
+            print ts2
+            print ts3
+            return 0
+        t, cbuilder = self.compile(entry_point)
+
+        def parse_out(out):
+            lines = out.strip().splitlines()
+            ts1, ts2, ts3 = lines
+            return int(ts1), int(ts2), int(ts3)
+
+        # check with PYPYLOG :-
+        out, err = cbuilder.cmdexec("1", err=True, env={'PYPYLOG': ':-'})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+        expected = ('[%x] {foo\n' % ts1 +
+                    '[%x] foo}\n' % ts3)
+        assert err == expected
+
+        # check with PYPYLOG profiling only
+        out, err = cbuilder.cmdexec("1", err=True, env={'PYPYLOG': '-'})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+        expected = ('[%x] {foo\n' % ts1 +
+                    '[%x] foo}\n' % ts3)
+        assert err == expected
+
+        # check with PYPYLOG undefined
+        out, err = cbuilder.cmdexec("1", err=True, env={})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+
+        # check with PYPYLOG undefined and timestamp=False
+        out, err = cbuilder.cmdexec("0", err=True, env={})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts1 == ts3 == 42;
 
     def test_debug_print_start_stop_nonconst(self):
         def entry_point(argv):

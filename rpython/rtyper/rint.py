@@ -4,11 +4,11 @@ from rpython.annotator import model as annmodel
 from rpython.flowspace.operation import op_appendices
 from rpython.rlib import objectmodel, jit
 from rpython.rlib.rarithmetic import intmask, longlongmask, r_int, r_longlong
-from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlonglong
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlonglong, r_ulonglonglong
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
     Char, UniChar, UnsignedLongLong, SignedLongLong, build_number, Number,
-    cast_primitive, typeOf, SignedLongLongLong)
+    cast_primitive, typeOf, SignedLongLongLong, UnsignedLongLongLong)
 from rpython.rtyper.rfloat import FloatRepr
 from rpython.rtyper.rmodel import inputconst, log
 from rpython.tool.pairtype import pairtype
@@ -188,6 +188,7 @@ signedlonglong_repr = getintegerrepr(SignedLongLong, 'llong_')
 signedlonglonglong_repr = getintegerrepr(SignedLongLongLong, 'lllong_')
 unsigned_repr = getintegerrepr(Unsigned, 'uint_')
 unsignedlonglong_repr = getintegerrepr(UnsignedLongLong, 'ullong_')
+unsignedlonglonglong_repr = getintegerrepr(UnsignedLongLongLong, 'ulllong_')
 
 class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
@@ -473,6 +474,14 @@ def ll_lllong_py_div_zer(x, y):
         raise ZeroDivisionError("longlonglong division")
     return ll_lllong_py_div(x, y)
 
+@jit.dont_look_inside
+def ll_ulllong_py_div(x, y):
+    return llop.ulllong_floordiv(UnsignedLongLongLong, x, y)
+
+def ll_ulllong_py_div_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError("unsigned longlonglong division")
+    return ll_ulllong_py_div(x, y)
 
 # ---------- mod ----------
 
@@ -553,6 +562,15 @@ def ll_lllong_py_mod_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
     return ll_lllong_py_mod(x, y)
+
+@jit.dont_look_inside
+def ll_ulllong_py_mod(x, y):
+    return llop.ulllong_mod(UnsignedLongLongLong, x, y)
+
+def ll_ulllong_py_mod_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return ll_ulllong_py_mod(x, y)
 
 
 # ---------- lshift, neg, abs ----------

@@ -504,8 +504,10 @@ def parse_log_counts(input, loops):
     for line in lines:
         if line:
             num, count = line.split(':', 2)
-            mapping[num].count = int(count)
-
+            try:
+                mapping[num].count = int(count)
+            except KeyError:
+                pass # too bad
 
 def mangle_descr(descr):
     if descr.startswith('TargetToken('):

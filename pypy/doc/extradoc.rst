@@ -75,12 +75,12 @@ Papers
 .. _A Way Forward in Parallelising Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2014/position-paper.pdf
 .. _Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
 .. _Allocation Removal by Partial Evaluation in a Tracing JIT: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
-.. _Towards a Jitting VM for Prolog Execution: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
+.. _Towards a Jitting VM for Prolog Execution: http://stups.hhu.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
 .. _High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
 .. _How to *not* write Virtual Machines for Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
-.. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: http://stups.hhu.de/mediawiki/images/b/b9/Master_bolz.pdf
+.. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: https://www.researchgate.net/profile/Davide_Ancona/publication/252023163_Automatic_generation_of_JIT_compilers_for_dynamic_languages_in_NET/links/53f2098e0cf2bc0c40e70023/Automatic-generation-of-JIT-compilers-for-dynamic-languages-in-NET.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
 .. _EU Reports: index-report.html
 .. _Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution: http://sabi.net/nriley/pubs/dls6-riley.pdf
@@ -368,6 +368,6 @@ Related projects
 .. _LLVM: http://llvm.org/
 .. _IronPython: http://ironpython.codeplex.com/
 .. _Dynamic Native Optimization of Native Interpreters: http://people.csail.mit.edu/gregs/dynamorio.html
-.. _JikesRVM: http://jikesrvm.org/
+.. _JikesRVM: http://www.jikesrvm.org/
 .. _Tunes: http://tunes.org
 .. _old Tunes Wiki: http://buildbot.pypy.org/misc/cliki.tunes.org/

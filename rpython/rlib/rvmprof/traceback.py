@@ -13,6 +13,8 @@ def traceback(estimate_number_of_entries):
     array_length).  The caller must free array_p.  Not for signal handlers:
     for these, call vmprof_get_traceback() from C code.
     """
+    if not cintf.IS_SUPPORTED:
+        return (None, 0)
     _cintf = rvmprof._get_vmprof().cintf
     size = estimate_number_of_entries * 2 + 4
     stack = cintf.get_rvmprof_stack()
@@ -47,6 +49,8 @@ def walk_traceback(CodeClass, callback, arg, array_p, array_length):
     'code_obj' may be None if it can't be determined.  'loc' is one
     of the LOC_xxx constants.
     """
+    if not cintf.IS_SUPPORTED:
+        return
     i = 0
     while i < array_length - 1:
         tag = array_p[i]

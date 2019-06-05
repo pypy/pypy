@@ -1,3 +1,5 @@
+import pytest
+
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.cdatetime import *
@@ -82,6 +84,14 @@ class TestDatetime(BaseApiTest):
         date = datetime.datetime.fromtimestamp(0)
         assert space.unwrap(space.str(w_date)) == str(date)
 
+    @pytest.mark.parametrize('name', ['Time', 'DateTime', 'Date', 'Delta'])
+    def test_basicsize(self, space, name):
+        datetime = _PyDateTime_Import(space)
+        py_size = getattr(datetime, "c_%sType" % name).c_tp_basicsize
+        c_size = rffi.sizeof(cts.gettype("PyDateTime_%s" % name))
+        assert py_size == c_size
+
+
 class AppTestDatetime(AppTestCpythonExtensionBase):
     def test_CAPI(self):
         module = self.import_extension('foo', [
@@ -136,12 +146,69 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     2000, 6, 6, 6, 6, 6, 6, Py_None,
                     PyDateTimeAPI->DateTimeType);
              """),
+            ("new_datetime_fromtimestamp", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(200000.0);
+                 Py_INCREF(Py_None);
+                 PyObject *tsargs = PyTuple_Pack(2, ts, Py_None);
+                 PyObject *rv = PyDateTimeAPI->DateTime_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateTimeType, tsargs, NULL);
+                 Py_DECREF(tsargs);
+                 return rv;
+             """),
+            ("new_dt_fromts_tzinfo", "METH_O",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(200000.0);
+                 PyObject *tsargs = PyTuple_Pack(1, ts);
+                 PyObject *tskwargs = PyDict_New();
+
+                 Py_INCREF(args);
+                 PyDict_SetItemString(tskwargs, "tz", args);
+                 PyObject *rv = PyDateTimeAPI->DateTime_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateTimeType, tsargs, tskwargs);
+                 Py_DECREF(tsargs);
+                 Py_DECREF(tskwargs);
+                 return rv;
+             """),
+            ("new_date_fromtimestamp", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(1430366400.0);
+                 Py_INCREF(Py_None);
+                 PyObject *tsargs = PyTuple_Pack(1, ts);
+                 PyObject *rv = PyDateTimeAPI->Date_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateType, tsargs);
+                 Py_DECREF(tsargs);
+                 return rv;
+             """),
+
         ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.new_date() == datetime.date(2000, 6, 6)
         assert module.new_time() == datetime.time(6, 6, 6, 6)
         assert module.new_datetime() == datetime.datetime(
             2000, 6, 6, 6, 6, 6, 6)
+
+        class UTC(datetime.tzinfo):
+            def utcoffset(self, dt):
+                return datetime.timedelta(hours=0)
+
+            def dst(self, dt):
+                return datetime.timedelta(0)
+
+            def tzname(self, dt):
+                return "UTC"
+
+        utc = UTC()
+
+        # .fromtimestamp tests
+        assert (module.new_datetime_fromtimestamp() ==
+                datetime.datetime.fromtimestamp(200000.0))
+
+        assert (module.new_dt_fromts_tzinfo(utc) ==
+                datetime.datetime.fromtimestamp(200000.0, tz=utc))
+
+        assert (module.new_date_fromtimestamp() ==
+                datetime.date.fromtimestamp(1430366400.0))
 
     def test_macros(self):
         module = self.import_extension('foo', [
@@ -271,9 +338,9 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     6, 6, 6, 6, args, PyDateTimeAPI->TimeType);
              """),
             ("datetime_with_tzinfo", "METH_O",
-             """ 
+             """
                  PyObject * obj;
-                 int tzrefcnt = args->ob_refcnt; 
+                 int tzrefcnt = args->ob_refcnt;
                  PyDateTime_IMPORT;
                  obj = PyDateTimeAPI->DateTime_FromDateAndTime(
                     2000, 6, 6, 6, 6, 6, 6, args,
@@ -291,24 +358,28 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 return obj;
-                
+
              """),
         ], prologue='#include "datetime.h"\n')
         from datetime import tzinfo, datetime, timedelta, time
+
         # copied from datetime documentation
         class GMT1(tzinfo):
-           def utcoffset(self, dt):
-               return timedelta(hours=1) + self.dst(dt)
-           def dst(self, dt):
-               return timedelta(0)
-           def tzname(self,dt):
+            def __del__(self):
+                print('deleting GMT1')
+            def utcoffset(self, dt):
+                return timedelta(hours=1) + self.dst(dt)
+            def dst(self, dt):
+                return timedelta(0)
+            def tzname(self,dt):
                 return "GMT +1"
+
         gmt1 = GMT1()
         dt1 = module.time_with_tzinfo(gmt1)
         assert dt1 == time(6, 6, 6, 6, gmt1)
         assert '+01' in str(dt1)
-        assert module.datetime_with_tzinfo(gmt1) == datetime(
-            2000, 6, 6, 6, 6, 6, 6, gmt1)
+        dt_tz = module.datetime_with_tzinfo(gmt1)
+        assert dt_tz == datetime(2000, 6, 6, 6, 6, 6, 6, gmt1)
 
     def test_checks(self):
         module = self.import_extension('foo', [
@@ -339,4 +410,4 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         assert module.checks(o) == (True,) * 3 + (False,) * 7 # isinstance(datetime, date)
         o = tzinfo()
         assert module.checks(o) == (False,) * 8 + (True,) * 2
-        
+

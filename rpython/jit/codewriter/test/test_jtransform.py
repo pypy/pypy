@@ -12,6 +12,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.jit.codewriter import heaptracker, effectinfo
 from rpython.jit.codewriter.flatten import ListOfKind
 from rpython.jit.codewriter.jtransform import Transformer, UnsupportedMallocFlags
+from rpython.jit.metainterp.support import int2adr
 from rpython.jit.metainterp.history import getkind
 
 def const(x):
@@ -94,7 +95,7 @@ class FakeCallInfoCollection:
                 return True
         return False
     def callinfo_for_oopspec(self, oopspecindex):
-        assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
+        # assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
         class c:
             class adr:
                 ptr = 1
@@ -1129,6 +1130,21 @@ def test_str_promote():
     assert op1.result == v2
     assert op0.opname == '-live-'
 
+def test_unicode_promote():
+    PUNICODE = lltype.Ptr(rstr.UNICODE)
+    v1 = varoftype(PUNICODE)
+    v2 = varoftype(PUNICODE)
+    op = SpaceOperation('hint',
+                        [v1, Constant({'promote_unicode': True}, lltype.Void)],
+                        v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op0, op1, _ = tr.rewrite_operation(op)
+    assert op1.opname == 'str_guard_value'
+    assert op1.args[0] == v1
+    assert op1.args[2] == 'calldescr'
+    assert op1.result == v2
+    assert op0.opname == '-live-'
+
 def test_double_promote_str():
     PSTR = lltype.Ptr(rstr.STR)
     v1 = varoftype(PSTR)
@@ -1183,7 +1199,7 @@ def test_unicode_concat():
     got = cc.callinfocollection.seen[0]
     assert got[0] == effectinfo.EffectInfo.OS_UNI_CONCAT
     assert got[1] == op1.args[2]    # the calldescr
-    assert heaptracker.int2adr(got[2]) == llmemory.cast_ptr_to_adr(func)
+    assert int2adr(got[2]) == llmemory.cast_ptr_to_adr(func)
 
 def test_str_slice():
     # test that the oopspec is present and correctly transformed

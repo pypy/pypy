@@ -373,6 +373,37 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, translator.config)
 
+
+def revdb_flag_io_disabled():
+    if not revdb_enabled():
+        return False
+    return _revdb_flag_io_disabled()
+
+def _revdb_flag_io_disabled():
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.flag_io_disabled()
+
+@not_rpython
+def revdb_enabled():
+    return False
+
+class Entry(ExtRegistryEntry):
+    _about_ = revdb_enabled
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.reverse_debugger:
+            return annmodel.s_True
+        else:
+            return annmodel.s_False
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
+
 # ____________________________________________________________
 
 class FREED_OBJECT(object):
@@ -960,7 +991,9 @@ def _untranslated_move_to_end(d, key, last):
         items = d.items()
         d.clear()
         d[key] = value
-        d.update(items)
+        # r_dict.update does not support list of tuples, do it manually
+        for key, value in items:
+            d[key] = value
 
 @specialize.call_location()
 def move_to_end(d, key, last=True):

@@ -503,14 +503,14 @@ class ContainerNode(Node):
             assert self.implementationtypename.startswith('struct ')
             assert self.implementationtypename.endswith(' @')
             uniontypename = 'union %su @' % self.implementationtypename[7:-2]
-            return uniontypename, self.name[:-2]
+            return uniontypename, self.name[:-2], True
         else:
-            return self.implementationtypename, self.name
+            return self.implementationtypename, self.name, False
 
     def forward_declaration(self):
         if llgroup.member_of_group(self.obj):
             return
-        type, name = self.get_declaration()
+        type, name, is_union = self.get_declaration()
         yield '%s;' % (
             forward_cdecl(type, name, self.db.standalone,
                           is_thread_local=self.is_thread_local(),
@@ -520,12 +520,12 @@ class ContainerNode(Node):
         if llgroup.member_of_group(self.obj):
             return []
         lines = list(self.initializationexpr())
-        type, name = self.get_declaration()
-        if name != self.name and len(lines) < 2:
+        type, name, is_union = self.get_declaration()
+        if is_union and len(lines) < 2:
             # a union with length 0
             lines[0] = cdecl(type, name, self.is_thread_local())
         else:
-            if name != self.name:
+            if is_union:
                 lines[0] = '{ ' + lines[0]    # extra braces around the 'a' part
                 lines[-1] += ' }'             # of the union
             lines[0] = '%s = %s' % (
@@ -613,8 +613,8 @@ class StructNode(ContainerNode):
             padding_drop = T._hints['get_padding_drop'](d)
         else:
             padding_drop = []
-        type, name = self.get_declaration()
-        if name != self.name and self.getvarlength() < 1 and len(data) < 2:
+        type, name, is_union = self.get_declaration()
+        if is_union and self.getvarlength() < 1 and len(data) < 2:
             # an empty union
             yield ''
             return

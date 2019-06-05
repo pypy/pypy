@@ -69,7 +69,10 @@ if MESSAGEBOX:
                 import sys
                 class FileLike:
                     def write(self, x):
-                        of.write(x)
+                        try:
+                            of.write(x)
+                        except:
+                            pass
                         self.buf += x
                 fl = FileLike()
                 fl.buf = ''

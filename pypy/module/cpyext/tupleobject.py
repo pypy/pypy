@@ -187,6 +187,8 @@ def _PyTuple_Resize(space, p_ref, newsize):
         PyErr_BadInternalCall(space)
     oldref = rffi.cast(PyTupleObject, ref)
     oldsize = oldref.c_ob_size
+    if oldsize == newsize:
+        return 0
     ptup = state.ccall("PyTuple_New", newsize)
     if not ptup:
         state.check_and_raise_exception(always=True)
@@ -199,8 +201,9 @@ def _PyTuple_Resize(space, p_ref, newsize):
             to_cp = newsize
         for i in range(to_cp):
             ob = oldref.c_ob_item[i]
-            incref(space, ob)
-            newref.c_ob_item[i] = ob
+            if ob:
+                incref(space, ob)
+                newref.c_ob_item[i] = ob
     except:
         decref(space, p_ref[0])
         p_ref[0] = lltype.nullptr(PyObject.TO)

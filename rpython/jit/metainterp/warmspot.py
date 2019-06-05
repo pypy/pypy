@@ -3,10 +3,10 @@ import sys, py
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
-    cast_base_ptr_to_instance, hlstr, cast_instance_to_gcref)
+    hlstr, cast_instance_to_gcref, cast_gcref_to_instance)
 from rpython.rtyper.llannotation import lltype_to_annotation
+from rpython.rtyper.rclass import OBJECTPTR
 from rpython.annotator import model as annmodel
-from rpython.annotator.dictdef import DictDef
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
@@ -222,6 +222,15 @@ def debug_checks():
     stats.check_consistency()
 
 # ____________________________________________________________
+# always disabled hooks interface
+
+from rpython.rlib.jit import JitHookInterface
+
+class NoHooksInterface(JitHookInterface):
+    def are_hooks_enabled(self):
+        return False
+
+# ____________________________________________________________
 
 class WarmRunnerDesc(object):
 
@@ -261,7 +270,7 @@ class WarmRunnerDesc(object):
         else:
             self.jitcounter = counter.DeterministicJitCounter()
         #
-        self.hooks = policy.jithookiface
+        self.make_hooks(policy.jithookiface)
         self.make_virtualizable_infos()
         self.make_driverhook_graphs()
         self.make_enter_functions()
@@ -500,6 +509,12 @@ class WarmRunnerDesc(object):
             self.metainterp_sd.opencoder_model = Model
         self.stats.metainterp_sd = self.metainterp_sd
 
+    def make_hooks(self, hooks):
+        if hooks is None:
+            # interface not overridden, use a special one that is never enabled
+            hooks = NoHooksInterface()
+        self.hooks = hooks
+
     def make_virtualizable_infos(self):
         vinfos = {}
         for jd in self.jitdrivers_sd:
@@ -652,10 +667,10 @@ class WarmRunnerDesc(object):
         jd.num_green_args = len(jd._green_args_spec)
         jd.num_red_args = len(jd.red_args_types)
         RESTYPE = graph.getreturnvar().concretetype
-        (jd._JIT_ENTER_FUNCTYPE,
-         jd._PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
-        (jd._PORTAL_FUNCTYPE,
-         jd._PTR_PORTAL_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, RESTYPE)
+        jd._JIT_ENTER_FUNCTYPE = lltype.FuncType(ALLARGS, lltype.Void)
+        jd._PTR_JIT_ENTER_FUNCTYPE = lltype.Ptr(jd._JIT_ENTER_FUNCTYPE)
+        jd._PORTAL_FUNCTYPE = lltype.FuncType(ALLARGS, RESTYPE)
+        jd._PTR_PORTAL_FUNCTYPE = lltype.Ptr(jd._PORTAL_FUNCTYPE)
         #
         if jd.result_type == 'v':
             ASMRESTYPE = lltype.Void
@@ -667,8 +682,8 @@ class WarmRunnerDesc(object):
             ASMRESTYPE = lltype.Float
         else:
             assert False
-        (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
-            [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE)
+        jd._PTR_ASSEMBLER_HELPER_FUNCTYPE = lltype.Ptr(lltype.FuncType(
+            [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE))
 
     def rewrite_jitcell_accesses(self):
         jitdrivers_by_name = {}
@@ -896,8 +911,8 @@ class WarmRunnerDesc(object):
         #
         from rpython.jit.metainterp.warmstate import specialize_value
         from rpython.jit.metainterp.warmstate import unspecialize_value
-        portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
-                                         graph=portalgraph)
+        portal_ptr = lltype.functionptr(
+            PORTALFUNC, 'portal', graph=portalgraph)
         jd._portal_ptr = portal_ptr
         #
         portalfunc_ARGS = []
@@ -919,7 +934,6 @@ class WarmRunnerDesc(object):
         RESULT = PORTALFUNC.RESULT
         result_kind = history.getkind(RESULT)
         assert result_kind.startswith(jd.result_type)
-        ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
         EnterJitAssembler = jd._EnterJitAssembler
@@ -982,11 +996,11 @@ class WarmRunnerDesc(object):
                         return e.result
                 #
                 if isinstance(e, jitexc.ExitFrameWithExceptionRef):
-                    value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
-                        raise LLException(ts.get_typeptr(value), value)
+                        value = lltype.cast_opaque_ptr(OBJECTPTR, e.value)
+                        raise LLException(value.typeptr, value)
                     else:
-                        value = cast_base_ptr_to_instance(Exception, value)
+                        value = cast_gcref_to_instance(Exception, e.value)
                         assert value is not None
                         raise value
                 #
@@ -1074,10 +1088,10 @@ class WarmRunnerDesc(object):
 
         closures = {}
         graphs = self.translator.graphs
-        _, PTR_SET_PARAM_FUNCTYPE = self.cpu.ts.get_FuncType([lltype.Signed],
-                                                             lltype.Void)
-        _, PTR_SET_PARAM_STR_FUNCTYPE = self.cpu.ts.get_FuncType(
-            [lltype.Ptr(STR)], lltype.Void)
+        SET_PARAM_FUNC = lltype.Ptr(lltype.FuncType(
+            [lltype.Signed], lltype.Void))
+        SET_PARAM_STR_FUNC = lltype.Ptr(lltype.FuncType(
+            [lltype.Ptr(STR)], lltype.Void))
         def make_closure(jd, fullfuncname, is_string):
             if jd is None:
                 def closure(i):
@@ -1092,9 +1106,9 @@ class WarmRunnerDesc(object):
                         i = hlstr(i)
                     getattr(state, fullfuncname)(i)
             if is_string:
-                TP = PTR_SET_PARAM_STR_FUNCTYPE
+                TP = SET_PARAM_STR_FUNC
             else:
-                TP = PTR_SET_PARAM_FUNCTYPE
+                TP = SET_PARAM_FUNC
             funcptr = self.helper_func(TP, closure)
             return Constant(funcptr, TP)
         #

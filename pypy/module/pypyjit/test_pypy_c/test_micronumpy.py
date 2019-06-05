@@ -1,12 +1,14 @@
 import py
 import sys
+import platform
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
 def no_vector_backend():
-    import platform
     if platform.machine().startswith('x86'):
         from rpython.jit.backend.x86.detect_feature import detect_sse4_2
+        if sys.maxsize < 2**31:
+            return True    
         return not detect_sse4_2()
     if platform.machine().startswith('ppc'):
         from rpython.jit.backend.ppc.detect_feature import detect_vsx
@@ -243,6 +245,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             f80 = raw_load_f(i67, i79, descr=<ArrayF 8>)
             i81 = int_add(i71, 1)
             --TICK--
+            i92 = int_le(i33, _)
+            guard_true(i92, descr=...)
             jump(..., descr=...)
         """)
 
@@ -282,6 +286,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             f86 = float_add(f74, f85)
             i87 = int_add(i76, 1)
             --TICK--
+            i98 = int_le(i36, _)
+            guard_true(i98, descr=...)
             jump(..., descr=...)
         """)
 
@@ -389,6 +395,8 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result == [0.] * N
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            i4 = int_lt(i91, 0)
+            guard_false(i4, descr=...)
             i92 = int_ge(i91, i37)
             guard_false(i92, descr=...)
             i93 = int_add(i91, 1)

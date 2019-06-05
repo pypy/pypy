@@ -5,7 +5,7 @@ RPython-compliant way.  It is mainly about the stack_check() function.
 
 import py
 
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, fetch_translated_config
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -42,6 +42,8 @@ _stack_criticalcode_stop = llexternal('LL_stack_criticalcode_stop', [],
 def stack_check():
     if not we_are_translated():
         return
+    if fetch_translated_config().translation.reverse_debugger:
+        return     # XXX for now
     #
     # Load the "current" stack position, or at least some address that
     # points close to the current stack head

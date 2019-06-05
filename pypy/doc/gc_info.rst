@@ -22,8 +22,44 @@ of objects of the same size, or directly allocated with malloc if they're
 larger.  (A third category, the very large objects, are initially allocated
 outside the nursery and never move.)
 
-Since Incminimark is an incremental GC, the major collection is incremental,
-meaning there should not be any pauses longer than 1ms.
+Since Incminimark is an incremental GC, the major collection is incremental:
+the goal is not to have any pause longer than 1ms, but in practice it depends
+on the size and characteristics of the heap: occasionally, there can be pauses
+between 10-100ms.
+
+
+Semi-manual GC management
+--------------------------
+
+If there are parts of the program where it is important to have a low latency,
+you might want to control precisely when the GC runs, to avoid unexpected
+pauses.  Note that this has effect only on major collections, while minor
+collections continue to work as usual.
+
+As explained above, a full major collection consists of ``N`` steps, where
+``N`` depends on the size of the heap; generally speaking, it is not possible
+to predict how many steps will be needed to complete a collection.
+
+``gc.enable()`` and ``gc.disable()`` control whether the GC runs collection
+steps automatically.  When the GC is disabled the memory usage will grow
+indefinitely, unless you manually call ``gc.collect()`` and
+``gc.collect_step()``.
+
+``gc.collect()`` runs a full major collection.
+
+``gc.collect_step()`` runs a single collection step. It returns an object of
+type GcCollectStepStats_, the same which is passed to the corresponding `GC
+Hooks`_.  The following code is roughly equivalent to a ``gc.collect()``::
+
+    while True:
+        if gc.collect_step().major_is_done:
+            break
+  
+For a real-world example of usage of this API, you can look at the 3rd-party
+module `pypytools.gc.custom`_, which also provides a ``with customgc.nogc()``
+context manager to mark sections where the GC is forbidden.
+
+.. _`pypytools.gc.custom`: https://bitbucket.org/antocuni/pypytools/src/0273afc3e8bedf0eb1ef630c3bc69e8d9dd661fe/pypytools/gc/custom.py?at=default&fileviewer=file-view-default
 
 
 Fragmentation
@@ -119,6 +155,146 @@ The details of various fields:
 * memory pressure, if asked for - amount of memory we think got allocated
   via external malloc (eg loading cert store in SSL contexts) that is kept
   alive by GC objects, but not accounted in the GC
+
+
+GC Hooks
+--------
+
+GC hooks are user-defined functions which are called whenever a specific GC
+event occur, and can be used to monitor GC activity and pauses.  You can
+install the hooks by setting the following attributes:
+
+``gc.hook.on_gc_minor``
+    Called whenever a minor collection occurs. It corresponds to
+    ``gc-minor`` sections inside ``PYPYLOG``.
+
+``gc.hook.on_gc_collect_step``
+    Called whenever an incremental step of a major collection occurs. It
+    corresponds to ``gc-collect-step`` sections inside ``PYPYLOG``.
+
+``gc.hook.on_gc_collect``
+    Called after the last incremental step, when a major collection is fully
+    done. It corresponds to ``gc-collect-done`` sections inside ``PYPYLOG``.
+
+To uninstall a hook, simply set the corresponding attribute to ``None``.  To
+install all hooks at once, you can call ``gc.hooks.set(obj)``, which will look
+for methods ``on_gc_*`` on ``obj``.  To uninstall all the hooks at once, you
+can call ``gc.hooks.reset()``.
+
+The functions called by the hooks receive a single ``stats`` argument, which
+contains various statistics about the event.
+
+Note that PyPy cannot call the hooks immediately after a GC event, but it has
+to wait until it reaches a point in which the interpreter is in a known state
+and calling user-defined code is harmless.  It might happen that multiple
+events occur before the hook is invoked: in this case, you can inspect the
+value ``stats.count`` to know how many times the event occurred since the last
+time the hook was called.  Similarly, ``stats.duration`` contains the
+**total** time spent by the GC for this specific event since the last time the
+hook was called.
+
+On the other hand, all the other fields of the ``stats`` object are relative
+only to the **last** event of the series.
+
+The attributes for ``GcMinorStats`` are:
+
+``count``
+    The number of minor collections occurred since the last hook call.
+
+``duration``
+    The total time spent inside minor collections since the last hook
+    call, in seconds.
+
+``duration_min``
+    The duration of the fastest minor collection since the last hook call.
+    
+``duration_max``
+    The duration of the slowest minor collection since the last hook call.
+
+ ``total_memory_used``
+    The amount of memory used at the end of the minor collection, in
+    bytes. This include the memory used in arenas (for GC-managed memory) and
+    raw-malloced memory (e.g., the content of numpy arrays).
+
+``pinned_objects``
+    the number of pinned objects.
+
+
+.. _GcCollectStepStats:
+
+The attributes for ``GcCollectStepStats`` are:
+
+``count``, ``duration``, ``duration_min``, ``duration_max``
+    See above.
+
+``oldstate``, ``newstate``
+    Integers which indicate the state of the GC before and after the step.
+
+``major_is_done``
+    Boolean which indicate whether this was the last step of the major
+    collection
+
+The value of ``oldstate`` and ``newstate`` is one of these constants, defined
+inside ``gc.GcCollectStepStats``: ``STATE_SCANNING``, ``STATE_MARKING``,
+``STATE_SWEEPING``, ``STATE_FINALIZING``, ``STATE_USERDEL``.  It is possible
+to get a string representation of it by indexing the ``GC_STATES`` tuple.
+
+
+The attributes for ``GcCollectStats`` are:
+
+``count``
+    See above.
+
+``num_major_collects``
+    The total number of major collections which have been done since the
+    start. Contrarily to ``count``, this is an always-growing counter and it's
+    not reset between invocations.
+
+``arenas_count_before``, ``arenas_count_after``
+    Number of arenas used before and after the major collection.
+
+``arenas_bytes``
+    Total number of bytes used by GC-managed objects.
+
+``rawmalloc_bytes_before``, ``rawmalloc_bytes_after``
+    Total number of bytes used by raw-malloced objects, before and after the
+    major collection.
+
+Note that ``GcCollectStats`` has **not** got a ``duration`` field. This is
+because all the GC work is done inside ``gc-collect-step``:
+``gc-collect-done`` is used only to give additional stats, but doesn't do any
+actual work.
+
+Here is an example of GC hooks in use::
+
+    import sys
+    import gc
+
+    class MyHooks(object):
+        done = False
+
+        def on_gc_minor(self, stats):
+            print 'gc-minor:        count = %02d, duration = %d' % (stats.count,
+                                                                    stats.duration)
+
+        def on_gc_collect_step(self, stats):
+            old = gc.GcCollectStepStats.GC_STATES[stats.oldstate]
+            new = gc.GcCollectStepStats.GC_STATES[stats.newstate]
+            print 'gc-collect-step: %s --> %s' % (old, new)
+            print '                 count = %02d, duration = %d' % (stats.count,
+                                                                    stats.duration)
+
+        def on_gc_collect(self, stats):
+            print 'gc-collect-done: count = %02d' % stats.count
+            self.done = True
+
+    hooks = MyHooks()
+    gc.hooks.set(hooks)
+
+    # simulate some GC activity
+    lst = []
+    while not hooks.done:
+        lst = [lst, 1, 2, 3]
 
 
 .. _minimark-environment-variables:

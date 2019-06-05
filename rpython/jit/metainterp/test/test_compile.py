@@ -5,23 +5,23 @@ from rpython.jit.metainterp.compile import compile_loop
 from rpython.jit.metainterp.compile import compile_tmp_callback
 from rpython.jit.metainterp import jitexc
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.jit.metainterp import jitprof, typesystem, compile
+from rpython.jit.metainterp import jitprof, compile
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
     supports_guard_gc_type = True
-    
+
     class Storage:
         pass
-    
+
     class tracker:
         pass
 
-    ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
+
     def compile_loop(self, inputargs, operations, token, jd_id=0,
                      unique_id=0, log=True, name='',
                      logger=None):
@@ -102,10 +102,10 @@ def test_compile_loop():
     metainterp.history.trace = t
     #
     greenkey = 'faked'
-    target_token = compile_loop(metainterp, greenkey, (0, 0, 0),
-                                t.inputargs,
-                                [t._mapping[x] for x in loop.operations[-1].getarglist()],
-                                None)
+    target_token = compile_loop(
+        metainterp, greenkey, (0, 0, 0), t.inputargs,
+        [t._mapping[x] for x in loop.operations[-1].getarglist()],
+        use_unroll=False)
     jitcell_token = target_token.targeting_jitcell_token
     assert jitcell_token == target_token.original_jitcell_token
     assert jitcell_token.target_tokens == [target_token]

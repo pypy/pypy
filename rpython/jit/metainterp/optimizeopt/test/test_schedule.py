@@ -3,24 +3,21 @@ import sys
 import pytest
 import platform
 
-from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
-from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.optimizeopt.renamer import Renamer
-from rpython.jit.metainterp.optimizeopt.vector import (VecScheduleState,
-        Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, GenericCostModel,
-        PackSet, SchedulerState)
+from rpython.jit.metainterp.optimizeopt.vector import (
+    VecScheduleState, Pack, Pair, VectorizingOptimizer, GenericCostModel,
+    PackSet, SchedulerState)
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
-from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
+from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.schedule import Scheduler
-from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
-from rpython.jit.metainterp.optimizeopt.test.test_dependency import (DependencyBaseTest)
-from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
-        FakeJitDriverStaticData, FakePackSet)
-from rpython.jit.metainterp.resoperation import rop, ResOperation, VectorizationInfo
-from rpython.jit.tool.oparser import parse as opparse
-from rpython.jit.tool.oparser_model import get_model
+from rpython.jit.metainterp.optimizeopt.test.test_dependency import (
+    DependencyBaseTest)
+from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (
+    FakeJitDriverStaticData, FakePackSet)
+from rpython.jit.metainterp.resoperation import (
+    rop, ResOperation, VectorizationInfo)
 
-if sys.maxint == 2**31-1:
+if sys.maxint == 2 ** 31 - 1:
     pytest.skip("32bit platforms are not supported")
 
 class FakeVecScheduleState(VecScheduleState):
@@ -63,9 +60,8 @@ class SchedulerBaseTest(DependencyBaseTest):
         for name, overwrite in (overwrite_funcs or {}).items():
             setattr(state, name, overwrite)
         renamer = Renamer()
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
+        opt = VectorizingOptimizer(self.metainterp_sd, jitdriver_sd, 0)
         opt.packset = packset
         opt.combine_packset()
         opt.schedule(state)
@@ -76,7 +72,7 @@ class SchedulerBaseTest(DependencyBaseTest):
             loop.operations = loop.prefix + loop.operations
         return loop
 
-class Test(SchedulerBaseTest, LLtypeMixin):
+class TestScheduler(SchedulerBaseTest):
 
     def test_next_must_not_loop_forever(self):
         scheduler = Scheduler()
@@ -318,11 +314,11 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack3 = self.pack(loop1, 8, 12)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3])
         loop3 = self.parse_trace("""
-        v44[2xf64] = vec_load_f(p0, i1, 1, 0, descr=double) 
-        v45[2xf64] = vec_load_f(p0, i3, 1, 0, descr=double) 
-        v46[2xi32] = vec_cast_float_to_singlefloat(v44[2xf64]) 
-        v47[2xi32] = vec_cast_float_to_singlefloat(v45[2xf64]) 
-        v41[4xi32] = vec_pack_i(v46[2xi32], v47[2xi32], 2, 2) 
+        v44[2xf64] = vec_load_f(p0, i1, 1, 0, descr=double)
+        v45[2xf64] = vec_load_f(p0, i3, 1, 0, descr=double)
+        v46[2xi32] = vec_cast_float_to_singlefloat(v44[2xf64])
+        v47[2xi32] = vec_cast_float_to_singlefloat(v45[2xf64])
+        v41[4xi32] = vec_pack_i(v46[2xi32], v47[2xi32], 2, 2)
         vec_store(p1, i1, v41[4xi32], 1, 0, descr=float)
         """, False)
         self.assert_equal(loop2, loop3)

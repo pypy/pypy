@@ -65,7 +65,8 @@ def test_compiled_incminimark():
 def test_compiled_semispace():
     fn = compile(main, [], gcpolicy="semispace")
     res = fn()
-    assert res == 42    # get_raw_address_of_string() raises ValueError
+    # get_raw_address_of_string() never raise ValueError any more
+    assert res == 0
 
 def test_compiled_boehm():
     fn = compile(main, [], gcpolicy="boehm")

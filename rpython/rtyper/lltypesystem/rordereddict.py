@@ -283,8 +283,12 @@ class OrderedDictRepr(AbstractDictRepr):
         return DictIteratorRepr(self, *variant)
 
     def rtype_method_get(self, hop):
-        v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
-                                                 self.value_repr)
+        if hop.nb_args == 3:
+            v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
+                                                     self.value_repr)
+        else:
+            v_dict, v_key = hop.inputargs(self, self.key_repr)
+            v_default = hop.inputconst(self.value_repr, None)
         hop.exception_cannot_occur()
         v_res = hop.gendirectcall(ll_dict_get, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)

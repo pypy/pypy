@@ -123,6 +123,8 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self):
         translator = self.bookkeeper.annotator.translator
+        if translator.config.translation.reverse_debugger:
+            return    # ignore and use the regular hash, with reverse-debugger
         if hasattr(translator, 'll_hash_string'):
             assert translator.ll_hash_string == ll_hash_string_siphash24
         else:
@@ -134,6 +136,9 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
+        translator = hop.rtyper.annotator.translator
+        if translator.config.translation.reverse_debugger:
+            return    # ignore and use the regular hash, with reverse-debugger
         bk = hop.rtyper.annotator.bookkeeper
         s_callable = bk.immutablevalue(initialize_from_env)
         r_callable = hop.rtyper.getrepr(s_callable)

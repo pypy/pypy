@@ -1,28 +1,11 @@
-from pypy.module.cpyext.api import (
-    cpython_api, PyObject, PyObjectP, CANNOT_FAIL
-    )
-from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
-from rpython.rtyper.lltypesystem import rffi, lltype
+#----this file is not imported, only here for reference----
 
-# we don't really care
-PyTypeObjectPtr = rffi.VOIDP
-Py_ssize_t = rffi.SSIZE_T
-PyMethodDef = rffi.VOIDP
-PyGetSetDef = rffi.VOIDP
-PyMemberDef = rffi.VOIDP
-va_list = rffi.VOIDP
-wrapperbase = rffi.VOIDP
-FILE = rffi.VOIDP
-PyFileObject = rffi.VOIDP
-PyCodeObject = rffi.VOIDP
-PyFrameObject = rffi.VOIDP
-_inittab = rffi.VOIDP
-PyThreadState = rffi.VOIDP
-PyInterpreterState = rffi.VOIDP
-Py_UNICODE = lltype.UniChar
-PyCompilerFlags = rffi.VOIDP
-_node = rffi.VOIDP
-Py_tracefunc = rffi.VOIDP
+#from pypy.module.cpyext.api import (
+#    cpython_api, PyObject, PyObjectP, CANNOT_FAIL
+#    )
+#from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
+#from rpython.rtyper.lltypesystem import rffi, lltype
+
 
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
 def PyBuffer_SizeFromFormat(space, format):
@@ -254,39 +237,6 @@ def PyOS_ascii_formatd(space, buffer, buf_len, format, d):
     instead."""
     raise NotImplementedError
 
-@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, rffi.INTP], rffi.CCHARP)
-def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
-    """Convert a double val to a string using supplied
-    format_code, precision, and flags.
-
-    format_code must be one of 'e', 'E', 'f', 'F',
-    'g', 'G' or 'r'.  For 'r', the supplied precision
-    must be 0 and is ignored.  The 'r' format code specifies the
-    standard repr() format.
-
-    flags can be zero or more of the values Py_DTSF_SIGN,
-    Py_DTSF_ADD_DOT_0, or Py_DTSF_ALT, or-ed together:
-
-    Py_DTSF_SIGN means to always precede the returned string with a sign
-    character, even if val is non-negative.
-
-    Py_DTSF_ADD_DOT_0 means to ensure that the returned string will not look
-    like an integer.
-
-    Py_DTSF_ALT means to apply "alternate" formatting rules.  See the
-    documentation for the PyOS_snprintf() '#' specifier for
-    details.
-
-    If ptype is non-NULL, then the value it points to will be set to one of
-    Py_DTST_FINITE, Py_DTST_INFINITE, or Py_DTST_NAN, signifying that
-    val is a finite number, an infinite number, or not a number, respectively.
-
-    The return value is a pointer to buffer with the converted string or
-    NULL if the conversion failed. The caller is responsible for freeing the
-    returned string by calling PyMem_Free().
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP], rffi.DOUBLE, error=CANNOT_FAIL)
 def PyOS_ascii_atof(space, nptr):
     """Convert a string to a double in a locale-independent way.
@@ -308,24 +258,6 @@ def PyOS_strnicmp(space, s1, s2, size):
     """Case insensitive comparison of strings. The function works almost
     identically to strncmp() except that it ignores the case.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyTZInfo_Check(space, ob):
-    """Return true if ob is of type PyDateTime_TZInfoType or a subtype of
-    PyDateTime_TZInfoType.  ob must not be NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyTZInfo_CheckExact(space, ob):
-    """Return true if ob is of type PyDateTime_TZInfoType. ob must not be
-    NULL.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyTypeObjectPtr, PyGetSetDef], PyObject)
-def PyDescr_NewGetSet(space, type, getset):
     raise NotImplementedError
 
 @cpython_api([PyTypeObjectPtr, PyMemberDef], PyObject)
@@ -1206,14 +1138,6 @@ def PyThreadState_Next(space, tstate):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
-def PyInt_AsUnsignedLongLongMask(space, io):
-    """Will first attempt to cast the object to a PyIntObject or
-    PyLongObject, if it is not already one, and then return its value as
-    unsigned long long, without checking for overflow.
-    """
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyInt_ClearFreeList(space):
     """Clear the integer free list. Return the number of items that could not
@@ -1233,18 +1157,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
-def PyMapping_DelItemString(space, o, key):
-    """Remove the mapping for object key from the object o. Return -1 on
-    failure.  This is equivalent to the Python statement del o[key]."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyMapping_DelItem(space, o, key):
-    """Remove the mapping for object key from the object o. Return -1 on
-    failure.  This is equivalent to the Python statement del o[key]."""
-    raise NotImplementedError
-
 @cpython_api([lltype.Signed, FILE, rffi.INT_real], lltype.Void)
 def PyMarshal_WriteLongToFile(space, value, file, version):
     """Marshal a long integer, value, to file.  This will only write
@@ -1257,13 +1169,6 @@ def PyMarshal_WriteLongToFile(space, value, file, version):
 @cpython_api([PyObject, FILE, rffi.INT_real], lltype.Void)
 def PyMarshal_WriteObjectToFile(space, value, file, version):
     """Marshal a Python object, value, to file.
-
-    version indicates the file format."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyMarshal_WriteObjectToString(space, value, version):
-    """Return a string object containing the marshalled representation of value.
 
     version indicates the file format."""
     raise NotImplementedError
@@ -1299,17 +1204,6 @@ def PyMarshal_ReadLastObjectFromFile(space, file):
     file.  Only use these variant if you are certain that you won't be reading
     anything else from the file.  On error, sets the appropriate exception
     (EOFError or TypeError) and returns NULL."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyMarshal_ReadObjectFromString(space, string, len):
-    """Return a Python object from the data stream in a character buffer
-    containing len bytes pointed to by string.  On error, sets the
-    appropriate exception (EOFError or TypeError) and returns
-    NULL.
-
-    This function used an int type for len. This might require
-    changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
@@ -1361,13 +1255,6 @@ def PyNumber_ToBase(space, n, base):
 def PyObject_Bytes(space, o):
     """Compute a bytes representation of object o.  In 2.x, this is just a alias
     for PyObject_Str()."""
-    raise NotImplementedError
-
-@cpython_api([], PyFrameObject)
-def PyEval_GetFrame(space):
-    """Return the current thread state's frame, which is NULL if no frame is
-    currently executing."""
-    borrow_from()
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)

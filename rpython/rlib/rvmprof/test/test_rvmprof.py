@@ -98,12 +98,12 @@ class RVMProfSamplingTest(RVMProfTest):
         self.tmpfilename = str(self.tmpfile)
         super(RVMProfSamplingTest, self).init()
 
-    ENTRY_POINT_ARGS = (int, float)
-    def entry_point(self, value, delta_t):
+    ENTRY_POINT_ARGS = (int, float, int)
+    def entry_point(self, value, delta_t, memory=0):
         code = self.MyCode('py:code:52:test_enable')
         rvmprof.register_code(code, self.MyCode.get_name)
         fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
-        rvmprof.enable(fd, self.SAMPLING_INTERVAL)
+        rvmprof.enable(fd, self.SAMPLING_INTERVAL, memory=memory)
         start = time.time()
         res = 0
         while time.time() < start+delta_t:
@@ -128,16 +128,24 @@ class TestEnable(RVMProfSamplingTest):
 
     def test(self):
         from vmprof import read_profile
-        assert self.entry_point(10**4, 0.1) == 99990000
+        assert self.entry_point(10**4, 0.1, 0) == 99990000
         assert self.tmpfile.check()
         self.tmpfile.remove()
         #
-        assert self.rpy_entry_point(10**4, 0.5) == 99990000
+        assert self.rpy_entry_point(10**4, 0.5, 0) == 99990000
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
         tree = prof.get_tree()
         assert tree.name == 'py:code:52:test_enable'
         assert self.approx_equal(tree.count, 0.5/self.SAMPLING_INTERVAL)
+
+    def test_mem(self):
+        from vmprof import read_profile
+        assert self.rpy_entry_point(10**4, 0.5, 1) == 99990000
+        assert self.tmpfile.check()
+        prof = read_profile(self.tmpfilename)
+        assert prof.profile_memory
+        assert all(p[-1] > 0 for p in prof.profiles)
 
 
 class TestNative(RVMProfSamplingTest):
@@ -177,7 +185,7 @@ class TestNative(RVMProfSamplingTest):
     def test(self):
         from vmprof import read_profile
         # from vmprof.show import PrettyPrinter
-        assert self.rpy_entry_point(3, 0.5) == 42000
+        assert self.rpy_entry_point(3, 0.5, 0) == 42000
         assert self.tmpfile.check()
 
         prof = read_profile(self.tmpfilename)

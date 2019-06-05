@@ -98,12 +98,13 @@ class AbstractAttribute(object):
                     cache.hits[name] = cache.hits.get(name, 0) + 1
                 return attr
         attr = self._find_map_attr(name, index)
-        cache.attrs[attr_hash] = self
-        cache.names[attr_hash] = name
-        cache.indexes[attr_hash] = index
-        cache.cached_attrs[attr_hash] = attr
-        if space.config.objspace.std.withmethodcachecounter:
-            cache.misses[name] = cache.misses.get(name, 0) + 1
+        if space._side_effects_ok():
+            cache.attrs[attr_hash] = self
+            cache.names[attr_hash] = name
+            cache.indexes[attr_hash] = index
+            cache.cached_attrs[attr_hash] = attr
+            if space.config.objspace.std.withmethodcachecounter:
+                cache.misses[name] = cache.misses.get(name, 0) + 1
         return attr
 
     def _find_map_attr(self, name, index):
@@ -752,6 +753,7 @@ class MapDictStrategy(DictStrategy):
         self.space = space
 
     def get_empty_storage(self):
+        # mainly used for tests
         w_result = Object()
         terminator = self.space.fromcache(get_terminator_for_dicts)
         w_result._mapdict_init_empty(terminator)
@@ -864,6 +866,11 @@ class MapDictStrategy(DictStrategy):
     def iteritems(self, w_dict):
         return MapDictIteratorItems(self.space, self, w_dict)
 
+def make_instance_dict(space):
+    w_fake_object = Object()
+    terminator = space.fromcache(get_terminator_for_dicts)
+    w_fake_object._mapdict_init_empty(terminator)
+    return w_fake_object.getdict(space)
 
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
@@ -994,6 +1001,8 @@ def init_mapdict_cache(pycode):
 
 @jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None):
+    if not pycode.space._side_effects_ok():
+        return
     entry = pycode._mapdict_caches[nameindex]
     if entry is INVALID_CACHE_ENTRY:
         entry = CacheEntry()

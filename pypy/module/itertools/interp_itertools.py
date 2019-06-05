@@ -497,7 +497,7 @@ def W_Chain___new__(space, w_subtype, args_w):
 def chain_from_iterable(space, w_cls, w_arg):
     """chain.from_iterable(iterable) --> chain object
 
-    Alternate chain() contructor taking a single iterable argument
+    Alternate chain() constructor taking a single iterable argument
     that evaluates lazily."""
     r = space.allocate_instance(W_Chain, w_cls)
     r.__init__(space, space.iter(w_arg))

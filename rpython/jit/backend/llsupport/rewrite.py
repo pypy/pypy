@@ -1,18 +1,15 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated, r_dict, always_inline
+from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.jit.metainterp import history
-from rpython.jit.metainterp.history import ConstInt, ConstPtr
+from rpython.jit.metainterp.history import (
+    ConstInt, ConstPtr, JitCellToken, new_ref_dict)
 from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
-from rpython.jit.metainterp.typesystem import rd_eq, rd_hash
-from rpython.jit.codewriter import heaptracker
+from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_field_token, get_array_token)
-from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
-     FLAG_POINTER
-from rpython.jit.metainterp.history import JitCellToken
+from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
         unpack_fielddescr, unpack_interiorfielddescr)
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -63,7 +60,7 @@ class GcRewriterAssembler(object):
     def remember_known_length(self, op, val):
         self._known_lengths[op] = val
 
-    def remember_setarrayitem_occured(self, op, index):
+    def remember_setarrayitem_occurred(self, op, index):
         op = self.get_box_replacement(op)
         try:
             subs = self._setarrayitems_occurred[op]
@@ -456,7 +453,7 @@ class GcRewriterAssembler(object):
         array_box = op.getarg(0)
         index_box = op.getarg(1)
         if not isinstance(array_box, ConstPtr) and index_box.is_constant():
-            self.remember_setarrayitem_occured(array_box, index_box.getint())
+            self.remember_setarrayitem_occurred(array_box, index_box.getint())
 
     def clear_varsize_gc_fields(self, kind, descr, result, v_length, opnum):
         if self.gc_ll_descr.malloc_zero_filled:
@@ -608,12 +605,10 @@ class GcRewriterAssembler(object):
     def handle_call_assembler(self, op):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         loop_token = op.getdescr()
-        assert isinstance(loop_token, history.JitCellToken)
-        jfi = loop_token.compiled_loop_token.frame_info
-        llfi = heaptracker.adr2int(llmemory.cast_ptr_to_adr(jfi))
+        assert isinstance(loop_token, JitCellToken)
+        llfi = ptr2int(loop_token.compiled_loop_token.frame_info)
         frame = self.gen_malloc_frame(llfi)
-        self.emit_setfield(frame, history.ConstInt(llfi),
-                           descr=descrs.jf_frame_info)
+        self.emit_setfield(frame, ConstInt(llfi), descr=descrs.jf_frame_info)
         arglist = op.getarglist()
         index_list = loop_token.compiled_loop_token._ll_initial_locs
         for i, arg in enumerate(arglist):
@@ -948,7 +943,7 @@ class GcRewriterAssembler(object):
 
     def _gcref_index(self, gcref):
         if self.gcrefs_map is None:
-            self.gcrefs_map = r_dict(rd_eq, rd_hash)
+            self.gcrefs_map = new_ref_dict()
         try:
             return self.gcrefs_map[gcref]
         except KeyError:

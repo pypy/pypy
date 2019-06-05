@@ -1,4 +1,4 @@
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers)
@@ -64,8 +64,13 @@ def PySet_Discard(space, w_s, w_obj):
     instance of set or its subtype."""
     if not PySet_Check(space, w_s):
         PyErr_BadInternalCall(space)
-    space.call_method(space.w_set, 'discard', w_s, w_obj)
-    return 0
+    try:
+        space.call_method(space.w_set, 'remove', w_s, w_obj)
+    except OperationError as e:
+        if e.match(space, space.w_KeyError):
+            return 0
+        raise
+    return 1
 
 
 @cpython_api([PyObject], PyObject)

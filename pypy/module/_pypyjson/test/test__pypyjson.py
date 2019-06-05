@@ -10,10 +10,14 @@ def test_skip_whitespace():
     assert dec.skip_whitespace(8) == len(s)
     dec.close()
 
+class FakeSpace(object):
+    def newutf8(self, s, l):
+        return s
+
 def test_decode_key():
     s1 = "123" * 100
     s = ' "%s"   "%s" ' % (s1, s1)
-    dec = JSONDecoder('fake space', s)
+    dec = JSONDecoder(FakeSpace(), s)
     assert dec.pos == 0
     x = dec.decode_key(0)
     assert x == s1
@@ -195,7 +199,18 @@ class AppTest(object):
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
 
-    def test_surrogate_pair(self):
+    def test_unicode_not_a_surrogate_pair(self):
+        import _pypyjson
+        res = _pypyjson.loads('"z\\ud800\\ud800x"')
+        assert list(res) == [u'z', u'\ud800', u'\ud800', u'x']
+        res = _pypyjson.loads('"z\\udbff\\uffffx"')
+        assert list(res) == [u'z', u'\udbff', u'\uffff', u'x']
+        res = _pypyjson.loads('"z\\ud800\\ud834\\udd20x"')
+        assert res == u'z\ud800\U0001d120x'
+        res = _pypyjson.loads('"z\\udc00\\udc00x"')
+        assert list(res) == [u'z', u'\udc00', u'\udc00', u'x']
+
+    def test_lone_surrogate(self):
         import _pypyjson
         json = '{"a":"\\uD83D"}'
         res = _pypyjson.loads(json)

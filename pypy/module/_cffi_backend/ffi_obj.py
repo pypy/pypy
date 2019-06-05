@@ -327,7 +327,9 @@ casted between integers or pointers of any type."""
         return w_ctype.cast(w_ob)
 
 
-    def descr_from_buffer(self, w_python_buffer):
+    @unwrap_spec(require_writable=int)
+    def descr_from_buffer(self, w_cdecl, w_python_buffer=None,
+                                require_writable=0):
         """\
 Return a <cdata 'char[]'> that points to the data of the given Python
 object, which must support the buffer interface.  Note that this is
@@ -336,8 +338,13 @@ not meant to be used on the built-in types str or unicode
 containing large quantities of raw data in some other format, like
 'array.array' or numpy arrays."""
         #
-        w_ctchara = newtype._new_chara_type(self.space)
-        return func._from_buffer(self.space, w_ctchara, w_python_buffer)
+        if w_python_buffer is None:
+            w_python_buffer = w_cdecl
+            w_ctype = newtype._new_chara_type(self.space)
+        else:
+            w_ctype = self.ffi_type(w_cdecl, ACCEPT_STRING | ACCEPT_CTYPE)
+        return func.from_buffer(self.space, w_ctype, w_python_buffer,
+                                require_writable)
 
 
     @unwrap_spec(w_arg=W_CData)
@@ -572,8 +579,8 @@ It can also be used on 'cdata' instance to get its C type."""
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 
-    @unwrap_spec(filename="fsencode_or_none", flags=int)
-    def descr_dlopen(self, filename, flags=0):
+    @unwrap_spec(flags=int)
+    def descr_dlopen(self, w_filename, flags=0):
         """\
 Load and return a dynamic library identified by 'name'.  The standard
 C library can be loaded by passing None.
@@ -584,7 +591,7 @@ we only look for the actual (untyped) symbols at the time of their
 first access."""
         #
         from pypy.module._cffi_backend import cdlopen
-        return cdlopen.W_DlOpenLibObject(self, filename, flags)
+        return cdlopen.W_DlOpenLibObject(self, w_filename, flags)
 
 
     def descr_dlclose(self, w_lib):
@@ -701,6 +708,16 @@ propagated and nothing is cached."""
                 pass
         return w_res
 
+    @unwrap_spec(w_cdata=W_CData)
+    def descr_release(self, w_cdata):
+        """\
+Release now the resources held by a 'cdata' object from ffi.new(),
+ffi.gc() or ffi.from_buffer().  The cdata object must not be used
+afterwards.
+
+'ffi.release(cdata)' is equivalent to 'cdata.__exit__()'."""
+        w_cdata.enter_exit(True)
+
 
 class W_InitOnceLock(W_Root):
     def __init__(self, space):
@@ -775,6 +792,7 @@ W_FFIObject.typedef = TypeDef(
         new_allocator = interp2app(W_FFIObject.descr_new_allocator),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),
+        release     = interp2app(W_FFIObject.descr_release),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),

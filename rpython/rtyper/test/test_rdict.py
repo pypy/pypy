@@ -1,6 +1,7 @@
 import sys
 from contextlib import contextmanager
 import signal
+from collections import OrderedDict
 
 from rpython.translator.translator import TranslationContext
 from rpython.annotator.model import (
@@ -207,6 +208,16 @@ class BaseTestRDict(BaseRtypingTest):
             return x1 * 10 + x2
         res = self.interpret(func, ())
         assert res == 421
+
+    def test_dict_get_no_second_arg(self):
+        def func():
+            dic = self.newdict()
+            x1 = dic.get('hi', 'a')
+            x2 = dic.get('blah')
+            return (x1 == 'a') * 10 + (x2 is None)
+            return x1 * 10 + x2
+        res = self.interpret(func, ())
+        assert res == 11
 
     def test_dict_get_empty(self):
         def func():
@@ -1186,7 +1197,7 @@ class MappingSpace(object):
                         DictValue(None, s_value))
         dictrepr.setup()
         self.l_dict = self.newdict(dictrepr)
-        self.reference = self.new_reference()
+        self.reference = OrderedDict()
         self.ll_key = r_key.convert_const
         self.ll_value = r_value.convert_const
         self.removed_keys = []
@@ -1313,7 +1324,6 @@ class MappingSM(GenericStateMachine):
 
 class DictSpace(MappingSpace):
     MappingRepr = rdict.DictRepr
-    new_reference = dict
     ll_getitem = staticmethod(rdict.ll_dict_getitem)
     ll_setitem = staticmethod(rdict.ll_dict_setitem)
     ll_delitem = staticmethod(rdict.ll_dict_delitem)

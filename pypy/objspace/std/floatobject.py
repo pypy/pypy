@@ -391,7 +391,6 @@ class W_FloatObject(W_Root):
 
     def descr_hash(self, space):
         h = _hash_float(space, self.floatval)
-        h -= (h == -1)
         return space.newint(h)
 
     def descr_format(self, space, w_spec):
@@ -716,8 +715,6 @@ def _hash_float(space, v):
         # This must return the same hash as an equal int or long.
         try:
             x = ovfcheck_float_to_int(intpart)
-            # Fits in a C long == a Python int, so is its own hash.
-            return x
         except OverflowError:
             # Convert to long and use its hash.
             try:
@@ -729,6 +726,10 @@ def _hash_float(space, v):
                 else:
                     return 314159
             return space.int_w(space.hash(w_lval))
+        else:
+            # Fits in a C long == a Python int.
+            from pypy.objspace.std.intobject import _hash_int
+            return _hash_int(x)
 
     # The fractional part is non-zero, so we don't have to worry about
     # making this match the hash of some other type.
@@ -747,6 +748,7 @@ def _hash_float(space, v):
     hipart = int(v)    # take the top 32 bits
     v = (v - hipart) * 2147483648.0 # get the next 32 bits
     x = intmask(hipart + int(v) + (expo << 15))
+    x -= (x == -1)
     return x
 
 

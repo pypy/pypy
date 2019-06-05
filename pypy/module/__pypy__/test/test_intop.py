@@ -102,3 +102,7 @@ class AppTestIntOp:
         assert intop.uint_rshift(-1, 1) == sys.maxsize
         assert intop.uint_rshift(-1, bits-2) == 3
         assert intop.uint_rshift(-1, bits-1) == 1
+
+    def test_mulmod(self):
+        from __pypy__ import intop
+        assert intop.int_mulmod(9373891, 9832739, 2**31-1) == 1025488209

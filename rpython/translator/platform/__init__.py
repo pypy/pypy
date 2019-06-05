@@ -308,6 +308,13 @@ elif "openbsd" in sys.platform:
         host_factory = OpenBSD
     else:
         host_factory = OpenBSD_64
+elif sys.platform.startswith('gnu'):
+    from rpython.translator.platform.hurd import Hurd
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Hurd
+    else:
+        host_factory = Hurd_64
 elif os.name == 'nt':
     from rpython.translator.platform.windows import Windows, Windows_x64
     import platform

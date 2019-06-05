@@ -5,7 +5,9 @@ class AppTestMemory:
                                    '_rawffi', 'itertools',
                                    'signal', 'select',
                                    'binascii'))
-    if sys.platform != 'win32':
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'] += ('_cffi_backend',)
+    else:
         spaceconfig['usemodules'] += ('fcntl',)
 
     def test_address_of(self):

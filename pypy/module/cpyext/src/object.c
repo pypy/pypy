@@ -5,18 +5,6 @@
 extern void _PyPy_Free(void *ptr);
 extern void *_PyPy_Malloc(Py_ssize_t size);
 
-void
-Py_IncRef(PyObject *o)
-{
-    Py_XINCREF(o);
-}
-
-void
-Py_DecRef(PyObject *o)
-{
-    Py_XDECREF(o);
-}
-
 /* 
  * The actual value of this variable will be the address of
  * pyobject.w_marker_deallocating, and will be set by
@@ -26,14 +14,14 @@ Py_DecRef(PyObject *o)
  * tests we cannot call set_marker(), so we need to set a special value
  * directly here)
  */
-Py_ssize_t _pypy_rawrefcount_w_marker_deallocating = 0xDEADFFF;
+void* _pypy_rawrefcount_w_marker_deallocating = (void*) 0xDEADFFF;
 
 void
 _Py_Dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     /* this is the same as rawrefcount.mark_deallocating() */
-    obj->ob_pypy_link = _pypy_rawrefcount_w_marker_deallocating;
+    obj->ob_pypy_link = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
     pto->tp_dealloc(obj);
 }
 
@@ -70,6 +58,11 @@ PyObject *
 _PyObject_New(PyTypeObject *type)
 {
     return (PyObject*)_PyObject_NewVar(type, 0);
+}
+
+PyObject * _PyObject_GC_Malloc(size_t size)
+{
+    return (PyObject *)PyObject_Malloc(size);
 }
 
 PyObject * _PyObject_GC_New(PyTypeObject *type)

@@ -1,3 +1,5 @@
+import pytest
+
 from pypy.interpreter.error import OperationError
 
 
@@ -630,6 +632,7 @@ class AppTestBytesObject:
     def test_unicode_join_str_arg_ascii(self):
         raises(UnicodeDecodeError, u''.join, ['\xc3\xa1'])
 
+    @pytest.mark.xfail(reason='setdefaultencoding does not work?')
     def test_unicode_join_str_arg_utf8(self):
         # Need default encoding utf-8, but sys.setdefaultencoding
         # is removed after startup.
@@ -812,6 +815,11 @@ class AppTestBytesObject:
     def test_encode(self):
         assert 'hello'.encode() == 'hello'
         assert type('hello'.encode()) is str
+        s = 'hello \xf8 world'
+        # CPython first decodes the bytes, then encodes
+        exc = raises(UnicodeDecodeError, s.encode, 'ascii')
+        assert str(exc.value) == ("'ascii' codec can't decode byte 0xf8"
+                        " in position 6: ordinal not in range(128)")
 
     def test_hash(self):
         # check that we have the same hash as CPython for at least 31 bits

@@ -23,6 +23,7 @@ VMPROF_JITTING_TAG = 4
 VMPROF_GC_TAG = 5
 
 class VMProfError(Exception):
+    msg = ''   # annotation hack
     def __init__(self, msg):
         self.msg = msg
     def __str__(self):
@@ -142,7 +143,7 @@ class VMProf(object):
             native = 0 # force disabled on Windows
         lines = 0 # not supported on PyPy currently
 
-        p_error = self.cintf.vmprof_init(fileno, interval, lines, memory, "pypy", native, real_time)
+        p_error = self.cintf.vmprof_init(fileno, interval, memory, lines, "pypy", native, real_time)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 

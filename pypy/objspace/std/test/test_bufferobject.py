@@ -29,9 +29,11 @@ class AppTestBuffer:
 
     def test_array_buffer(self):
         import array
-        b = buffer(array.array("B", [1, 2, 3]))
+        arr = array.array("B", [1, 2, 3])
+        b = buffer(arr)
         assert len(b) == 3
         assert b[0:3] == "\x01\x02\x03"
+        assert buffer('') + arr is arr
 
     def test_nonzero(self):
         assert buffer('\x00')
@@ -51,6 +53,7 @@ class AppTestBuffer:
         assert buffer('abc') + 'def' == 'abcdef'
         import array
         assert buffer('abc') + array.array('c', 'def') == 'abcdef'
+        raises(TypeError, buffer('abc').__add__, 3)
 
     def test_cmp(self):
         assert buffer('ab') != 'ab'
@@ -199,6 +202,9 @@ class AppTestBuffer:
         raises(TypeError, "buf[MyInt(0):MyInt(5)]")
 
     def test_pypy_raw_address_base(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only')
         a = buffer("foobar")._pypy_raw_address()
         assert a != 0
         b = buffer(u"foobar")._pypy_raw_address()

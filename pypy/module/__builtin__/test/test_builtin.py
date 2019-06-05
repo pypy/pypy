@@ -568,9 +568,9 @@ class AppTestBuiltinApp:
         assert hasattr(x, 'bar') is False
         assert hasattr(x, 'abc') is False    # CPython compliance
         assert hasattr(x, 'bac') is False    # CPython compliance
-        raises(TypeError, hasattr, x, None)
-        raises(TypeError, hasattr, x, 42)
-        raises(UnicodeError, hasattr, x, u'\u5678')  # cannot encode attr name
+        exc = raises(TypeError, hasattr, x, None)
+        assert str(exc.value) == 'hasattr(): attribute name must be string'
+        raises(UnicodeError, hasattr, x, u'\u5678')  # 'ascii' codec can't encode
 
     def test_execfile_args(self):
         execfile(self.nullbytes) # works

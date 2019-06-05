@@ -589,6 +589,12 @@ class AppTestArray(object):
             assert a[1] == 2
             assert a[2] == 3
 
+    def test_deepcopy(self):
+        a = self.array('u', u'\x01\u263a\x00\ufeff')
+        from copy import deepcopy
+        b = deepcopy(a)
+        assert a == b
+
     def test_addmul(self):
         a = self.array('i', [1, 2, 3])
         assert repr(a + a) == "array('i', [1, 2, 3, 1, 2, 3])"
@@ -840,23 +846,34 @@ class AppTestArray(object):
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
-    def test_unicode_outofrange(self):
-        a = self.array('u', u'\x01\u263a\x00\ufeff')
-        b = self.array('u', u'\x01\u263a\x00\ufeff')
+    def test_array_of_chars_equality(self):
+        input_bytes = '\x01\x63a\x00!'
+        a = self.array('c', input_bytes)
+        b = self.array('c', input_bytes)
         b.byteswap()
-        assert a != b
+        assert a == b
 
-    def test_unicode_ord_positive(self):
-        import sys
-        if sys.maxunicode == 0xffff:
-            skip("test for 32-bit unicodes")
-        a = self.array('u', b'\xff\xff\xff\xff')
-        assert len(a) == 1
-        assert repr(a[0]) == "u'\Uffffffff'"
-        if sys.maxint == 2147483647:
-            assert ord(a[0]) == -1
-        else:
-            assert ord(a[0]) == 4294967295
+    def test_unicode_outofrange(self):
+        input_unicode = u'\x01\u263a\x00\ufeff'
+        a = self.array('u', input_unicode)
+        b = self.array('u', input_unicode)
+        b.byteswap()
+        assert b[2] == u'\u0000'
+        assert a != b
+        e = raises(ValueError, "b[0]")        # doesn't work
+        assert str(e.value) == (
+            "cannot operate on this array('u') because it contains"
+            " character U+1000000 not in range [U+0000; U+10ffff]"
+            " at index 0")
+        assert str(a) == "array('u', %r)" % (input_unicode,)
+        assert str(b) == ("array('u', <character U+1000000 is not in"
+                          " range [U+0000; U+10ffff]>)")
+        assert a.tounicode() == input_unicode
+        raises(ValueError, b.tounicode)   # doesn't work
+
+    def test_unicode_surrogate(self):
+        a = self.array('u', u'\ud800')
+        assert a[0] == u'\ud800'
 
     def test_weakref(self):
         import weakref

@@ -1080,6 +1080,15 @@ class AppTestListObject(object):
         l[::3] = ('a', 'b')
         assert l == ['a', 1.1, 2.2, 'b', 4.4, 5.5]
 
+        l_int = [5]; l_int.pop()   # IntListStrategy
+        l_empty = []               # EmptyListStrategy
+        raises(ValueError, "l_int[::-1] = [42]")
+        raises(ValueError, "l_int[::7] = [42]")
+        raises(ValueError, "l_empty[::-1] = [42]")
+        raises(ValueError, "l_empty[::7] = [42]")
+        l_int[::1] = [42]; assert l_int == [42]
+        l_empty[::1] = [42]; assert l_empty == [42]
+
     def test_setslice_with_self(self):
         l = [1,2,3,4]
         l[:] = l

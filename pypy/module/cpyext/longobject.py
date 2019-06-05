@@ -1,9 +1,10 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
-    CONST_STRING, ADDR, CANNOT_FAIL)
+    CONST_STRING, ADDR, CANNOT_FAIL, INTP_real)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 
@@ -112,7 +113,7 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     num = space.bigint_w(w_long)
     return num.ulonglongmask()
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], lltype.Signed,
+@cpython_api([PyObject, INTP_real], lltype.Signed,
              error=-1)
 def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     """
@@ -133,7 +134,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
-@cpython_api([PyObject, rffi.CArrayPtr(rffi.INT_real)], rffi.LONGLONG,
+@cpython_api([PyObject, INTP_real], rffi.LONGLONG,
              error=-1)
 def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     """
@@ -191,7 +192,7 @@ def PyLong_FromUnicode(space, u, length, base):
     string, length gives the number of characters, and base is the radix
     for the conversion.  The radix must be in the range [2, 36]; if it is
     out of range, ValueError will be raised."""
-    w_value = space.newunicode(rffi.wcharpsize2unicode(u, length))
+    w_value = space.newutf8(wcharpsize2utf8(space, u, length), length)
     w_base = space.newint(rffi.cast(lltype.Signed, base))
     return space.call_function(space.w_long, w_value, w_base)
 

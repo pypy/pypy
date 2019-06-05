@@ -16,6 +16,8 @@ extern "C" {
 #define Py_RETURN_TRUE return Py_INCREF(Py_True), Py_True
 #define Py_RETURN_FALSE return Py_INCREF(Py_False), Py_False
 
+#define PyBool_Check(op) ((op)->ob_type == &PyBool_Type)
+
 #ifdef __cplusplus
 }
 #endif

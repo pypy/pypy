@@ -50,3 +50,7 @@
 #ifdef __CYGWIN__
 #include "src/cygwin_wait.h"
 #endif
+
+#ifdef RPY_REVERSE_DEBUGGER
+#include "src-revdb/revdb_include.h"
+#endif

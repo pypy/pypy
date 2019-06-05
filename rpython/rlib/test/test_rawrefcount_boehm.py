@@ -111,7 +111,7 @@ def make_code(draw):
         pyobjs.append(varname)
         return varname
 
-    for op in draw(strategies.lists(operations, average_size=250)):
+    for op in draw(strategies.lists(operations)):
         if op == 'new_gcobj':
             new_gcobj()
         elif op == 'new_pyobj':

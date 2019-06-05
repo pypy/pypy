@@ -33,6 +33,7 @@ if _POSIX:
                 'arpa/inet.h',
                 'stdint.h',
                 'errno.h',
+                'limits.h',
                 )
     if _HAS_AF_PACKET:
         includes += ('netpacket/packet.h',
@@ -113,6 +114,7 @@ class CConfig:
     F_GETFL = platform.DefinedConstantInteger('F_GETFL')
     F_SETFL = platform.DefinedConstantInteger('F_SETFL')
     FIONBIO = platform.DefinedConstantInteger('FIONBIO')
+    PIPE_BUF = platform.DefinedConstantInteger('PIPE_BUF')
 
     INVALID_SOCKET = platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = platform.DefinedConstantInteger('INET_ADDRSTRLEN')
@@ -223,6 +225,7 @@ constants_w_defaults = [('SOL_IP', 0),
                         ('SOL_UDP', 17),
                         ('SOMAXCONN', 5),
                         ('IPPROTO_IP', 6),
+                        ('IPPROTO_IPV6', 41),
                         ('IPPROTO_ICMP', 1),
                         ('IPPROTO_TCP', 6),
                         ('IPPROTO_UDP', 17),
@@ -1080,7 +1083,12 @@ EINTR = cConfig.EINTR or cConfig.WSAEINTR
 EINPROGRESS = cConfig.EINPROGRESS or cConfig.WSAEINPROGRESS
 EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
 EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT
+# vs 2010 and above define both the constansts
+WSAEINPROGRESS = cConfig.WSAEINPROGRESS or cConfig.EINPROGRESS
+WSAEWOULDBLOCK = cConfig.WSAEWOULDBLOCK or cConfig.EWOULDBLOCK
+WSAEAFNOSUPPORT = cConfig.WSAEAFNOSUPPORT or cConfig.EAFNOSUPPORT
 EISCONN = cConfig.EISCONN or cConfig.WSAEISCONN
+PIPE_BUF = cConfig.PIPE_BUF    # may be None
 
 linux = cConfig.linux
 WIN32 = cConfig.WIN32
@@ -1184,14 +1192,14 @@ if _POSIX:
 
 inet_ntoa = external('inet_ntoa', [in_addr], rffi.CCHARP)
 
-if _POSIX:
-    inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
-                                       rffi.VOIDP], rffi.INT,
-                         save_err=SAVE_ERR)
 
-    inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
-                                       socklen_t], CCHARP,
-                         save_err=SAVE_ERR)
+inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
+                                   rffi.VOIDP], rffi.INT,
+                     save_err=SAVE_ERR)
+
+inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
+                                   socklen_t], CCHARP,
+                     save_err=SAVE_ERR)
 
 inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
 socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
@@ -1263,7 +1271,8 @@ getservbyport = external('getservbyport', [rffi.INT, rffi.CCHARP], lltype.Ptr(cC
 getprotobyname = external('getprotobyname', [rffi.CCHARP], lltype.Ptr(cConfig.protoent))
 
 if _POSIX:
-    fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT)
+    fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT,
+                     save_err=SAVE_ERR)
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT,
@@ -1275,7 +1284,7 @@ if _POSIX:
 if _WIN32:
     ioctlsocket = external('ioctlsocket',
                            [socketfd_type, rffi.LONG, rffi.ULONGP],
-                           rffi.INT)
+                           rffi.INT, save_err=SAVE_ERR)
 
 select = external('select',
                   [rffi.INT, fd_set, fd_set,
@@ -1362,8 +1371,15 @@ if WIN32:
         return rwin32.FormatError(errno)
 
     def socket_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)
+        return rwin32.FormatErrorW(errno)[0]
+
     def gai_strerror_unicode(errno):
+        return rwin32.FormatErrorW(errno)[0]
+
+    def socket_strerror_utf8(errno):
+        return rwin32.FormatErrorW(errno)
+
+    def gai_strerror_utf8(errno):
         return rwin32.FormatErrorW(errno)
 
     # WinSock does not use a bitmask in select, and uses
@@ -1379,7 +1395,16 @@ else:
 
     def socket_strerror_unicode(errno):
         return socket_strerror_str(errno).decode('latin-1')
+
     def gai_strerror_unicode(errno):
         return gai_strerror_str(errno).decode('latin-1')
+
+    def socket_strerror_utf8(errno):
+        msg = socket_strerror_str(errno)
+        return msg, len(msg)
+
+    def gai_strerror_utf8(errno):
+        msg = gai_strerror_str(errno)
+        return msg, len(msg)
 
     MAX_FD_SIZE = FD_SETSIZE

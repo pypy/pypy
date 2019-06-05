@@ -211,9 +211,9 @@ class AppTestPosix:
     def test_pickle(self):
         import pickle, os
         st = self.posix.stat(os.curdir)
-        print type(st).__module__
+        # print type(st).__module__
         s = pickle.dumps(st)
-        print repr(s)
+        # print repr(s)
         new = pickle.loads(s)
         assert new == st
         assert type(new) is type(st)
@@ -303,7 +303,7 @@ class AppTestPosix:
         try:
             fid = posix.fdopen(fd)
             fid.read(10)
-        except IOError as e:
+        except (IOError, OSError) as e:
             assert e.errno == errno.EBADF
         else:
             assert False, "using result of fdopen(fd) on closed file must raise"
@@ -576,6 +576,12 @@ class AppTestPosix:
                     assert '\nOSError: [Errno 9]' in res
                 else:
                     assert res == 'test1\n'
+    if sys.platform == "win32":
+        # using startfile in app_startfile creates global state
+        test_popen.dont_track_allocations = True
+        test_popen_with.dont_track_allocations = True
+        test_popen_child_fds.dont_track_allocations = True
+
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -1184,6 +1190,11 @@ class AppTestPosix:
         os = self.posix
         with open(self.path, "w") as f:
             f.write("this is a rename test")
+        str_name = str(self.pdir) + '/test_rename.txt'
+        os.rename(self.path, str_name)
+        with open(str_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(str_name, self.path)
         unicode_name = str(self.udir) + u'/test\u03be.txt'
         os.rename(self.path, unicode_name)
         with open(unicode_name) as f:

@@ -132,7 +132,7 @@ class TestEval(BaseApiTest):
         finally:
             rffi.free_charp(buf)
         w_a = space.getitem(w_globals, space.wrap("a"))
-        assert space.unicode_w(w_a) == u'caf\xe9'
+        assert space.utf8_w(w_a) == u'caf\xe9'.encode('utf8')
         lltype.free(flags, flavor='raw')
 
     def test_run_file(self, space):
@@ -420,3 +420,15 @@ class AppTestCall(AppTestCpythonExtensionBase):
             except StopIteration:
                 pass
             assert out == [0, 1, 2, 3, 4]
+
+    def test_getframe(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("getframe1", "METH_NOARGS",
+             """
+                PyFrameObject *x = PyEval_GetFrame();
+                Py_INCREF(x);
+                return (PyObject *)x;
+             """),], prologue="#include <frameobject.h>\n")
+        res = module.getframe1()
+        assert res is sys._getframe(0)

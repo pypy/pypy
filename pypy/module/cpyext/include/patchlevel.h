@@ -28,10 +28,12 @@
 /* Version as a string */
 #define PY_VERSION		"2.7.13"
 
-/* PyPy version as a string */
-#define PYPY_VERSION "5.11.0-alpha0"
-#define PYPY_VERSION_NUM  0x050B0000
-
+/* PyPy version as a string: make sure to keep this in sync with:
+ *     module/sys/version.py
+ *     doc/conf.py
+ */
+#define PYPY_VERSION "7.2.0-alpha0"
+#define PYPY_VERSION_NUM  0x07020000
 /* Defined to mean a PyPy where cpyext holds more regular references
    to PyObjects, e.g. staying alive as long as the internal PyPy object
    stays alive. */

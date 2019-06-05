@@ -67,6 +67,18 @@ class TestTupleObject(BaseApiTest):
             assert space.int_w(space.getitem(w_tuple, space.wrap(i))) == 42 + i
         decref(space, ar[0])
 
+        py_tuple = state.ccall("PyTuple_New", 1)
+        ar[0] = py_tuple
+        api._PyTuple_Resize(ar, 1)
+        assert api.PyTuple_Size(ar[0]) == 1
+        decref(space, ar[0])
+
+        py_tuple = state.ccall("PyTuple_New", 1)
+        ar[0] = py_tuple
+        api._PyTuple_Resize(ar, 5)
+        assert api.PyTuple_Size(ar[0]) == 5
+        decref(space, ar[0])
+
         lltype.free(ar, flavor='raw')
 
     def test_setitem(self, space, api):
@@ -214,3 +226,42 @@ class AppTestTuple(AppTestCpythonExtensionBase):
             raises(SystemError, module.set_after_use, s)
         else:
             module.set_after_use(s)
+
+    def test_mp_length(self):
+        # issue 2968: creating a subclass of tuple in C led to recursion
+        # since the default tp_new needs to build a w_obj, but that needs
+        # to call space.len_w, which needs to call tp_new.
+        module = self.import_extension('foo', [
+            ("get_size", "METH_NOARGS",
+             """
+                return (PyObject*)&THPSizeType;
+             """),
+            ], prologue='''
+                #include "Python.h"
+
+                struct THPSize {
+                  PyTupleObject tuple;
+                } THPSize;
+
+                static PyMappingMethods THPSize_as_mapping = {
+                    0, //PyTuple_Type.tp_as_mapping->mp_length,
+                    0,
+                    0
+                };
+
+                PyTypeObject THPSizeType = {
+                  PyVarObject_HEAD_INIT(0, 0)
+                  "torch.Size",                          /* tp_name */
+                  sizeof(THPSize),                       /* tp_basicsize */
+                };
+            ''' , more_init = '''
+                THPSize_as_mapping.mp_length = PyTuple_Type.tp_as_mapping->mp_length;
+                THPSizeType.tp_base = &PyTuple_Type;
+                THPSizeType.tp_flags = Py_TPFLAGS_DEFAULT;
+                THPSizeType.tp_as_mapping = &THPSize_as_mapping;
+                THPSizeType.tp_new = PyTuple_Type.tp_new;
+                if (PyType_Ready(&THPSizeType) < 0) INITERROR;
+            ''')
+        SZ = module.get_size()
+        s = SZ((1, 2, 3))
+        assert len(s) == 3

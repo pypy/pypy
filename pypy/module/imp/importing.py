@@ -394,6 +394,8 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
 
     w_mod = None
     parts = modulename.split('.')
+    if parts[-1] == '':
+        del parts[-1]
     prefix = []
     w_path = None
 

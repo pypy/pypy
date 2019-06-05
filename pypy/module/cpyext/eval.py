@@ -9,6 +9,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.funcobject import PyCodeObject
+from pypy.module.cpyext.frameobject import PyFrameObject
 from pypy.module.__builtin__ import compiling
 
 PyCompilerFlags = cpython_struct(
@@ -57,6 +58,11 @@ def PyEval_GetGlobals(space):
     if caller is None:
         return None
     return caller.get_w_globals()    # borrowed ref
+
+@cpython_api([], PyFrameObject, error=CANNOT_FAIL, result_borrowed=True)
+def PyEval_GetFrame(space):
+    caller = space.getexecutioncontext().gettopframe_nohidden()
+    return caller    # borrowed ref, may be null
 
 @cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):

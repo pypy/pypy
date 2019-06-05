@@ -8,7 +8,88 @@ from rpython.rtyper.rmodel import IteratorRepr, inputconst, Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rfloat import FloatRepr
 from rpython.tool.pairtype import pairtype, pair
-from rpython.tool.sourcetools import func_with_new_name
+
+def str_decode_utf8(s):
+    from rpython.rlib.rstring import UnicodeBuilder
+    from rpython.rlib import runicode
+
+    size = len(s)
+    if size == 0:
+        return u''
+
+    result = UnicodeBuilder(size)
+    pos = 0
+    while pos < size:
+        ordch1 = ord(s[pos])
+        # fast path for ASCII
+        # XXX maybe use a while loop here
+        if ordch1 < 0x80:
+            result.append(unichr(ordch1))
+            pos += 1
+            continue
+
+        n = ord(runicode._utf8_code_length[ordch1 - 0x80])
+        if pos + n > size:
+            raise UnicodeDecodeError('utf8', s, pos, pos + 1,
+                                      'whatever')
+        if n == 0:
+            raise UnicodeDecodeError('utf8', s, pos, pos + 1,
+                                     'whatever')
+        elif n == 1:
+            assert 0, "ascii should have gone through the fast path"
+
+        elif n == 2:
+            ordch2 = ord(s[pos+1])
+            if runicode._invalid_byte_2_of_2(ordch2):
+
+                raise UnicodeDecodeError('utf8', s, pos, pos + 1,
+                                         'whatever')
+            # 110yyyyy 10zzzzzz -> 00000000 00000yyy yyzzzzzz
+            result.append(unichr(((ordch1 & 0x1F) << 6) +    # 0b00011111
+                                 (ordch2 & 0x3F)))           # 0b00111111
+            pos += 2
+
+        elif n == 3:
+            ordch2 = ord(s[pos+1])
+            ordch3 = ord(s[pos+2])
+            if (runicode._invalid_byte_2_of_3(ordch1, ordch2, True) or
+                runicode._invalid_byte_3_of_3(ordch3)):
+                raise UnicodeDecodeError('utf8', s, pos, pos + 1,
+                                         'whatever')
+            # 1110xxxx 10yyyyyy 10zzzzzz -> 00000000 xxxxyyyy yyzzzzzz
+            result.append(unichr(((ordch1 & 0x0F) << 12) +     # 0b00001111
+                                 ((ordch2 & 0x3F) << 6) +      # 0b00111111
+                                 (ordch3 & 0x3F)))             # 0b00111111
+            pos += 3
+
+        elif n == 4:
+            ordch2 = ord(s[pos+1])
+            ordch3 = ord(s[pos+2])
+            ordch4 = ord(s[pos+3])
+            if (runicode._invalid_byte_2_of_4(ordch1, ordch2) or
+                runicode._invalid_byte_3_of_4(ordch3) or
+                runicode._invalid_byte_4_of_4(ordch4)):
+
+                raise UnicodeDecodeError('utf8', s, pos, pos + 1,
+                                         'whatever')
+            # 11110www 10xxxxxx 10yyyyyy 10zzzzzz -> 000wwwxx xxxxyyyy yyzzzzzz
+            c = (((ordch1 & 0x07) << 18) +      # 0b00000111
+                 ((ordch2 & 0x3F) << 12) +      # 0b00111111
+                 ((ordch3 & 0x3F) << 6) +       # 0b00111111
+                 (ordch4 & 0x3F))               # 0b00111111
+            if c <= runicode.MAXUNICODE:
+                result.append(runicode.UNICHR(c))
+            else:
+                # compute and append the two surrogates:
+                # translate from 10000..10FFFF to 0..FFFF
+                c -= 0x10000
+                # high surrogate = top 10 bits added to D800
+                result.append(unichr(0xD800 + (c >> 10)))
+                # low surrogate = bottom 10 bits added to DC00
+                result.append(unichr(0xDC00 + (c & 0x03FF)))
+            pos += 4
+
+    return result.build()
 
 
 class AbstractStringRepr(Repr):
@@ -16,13 +97,10 @@ class AbstractStringRepr(Repr):
     @jit.elidable
     def ll_decode_utf8(self, llvalue):
         from rpython.rtyper.annlowlevel import hlstr
-        from rpython.rlib import runicode
         value = hlstr(llvalue)
         assert value is not None
-        errorhandler = runicode.default_unicode_error_decode
         # NB. keep the arguments in sync with annotator/unaryop.py
-        u, pos = runicode.str_decode_utf_8_elidable(
-            value, len(value), 'strict', True, errorhandler, True)
+        u = str_decode_utf8(value)
         # XXX maybe the whole ''.decode('utf-8') should be not RPython.
         return self.ll.llunicode(u)
 
@@ -332,7 +410,7 @@ class AbstractStringRepr(Repr):
             return hop.gendirectcall(self.ll.ll_str2unicode, v_self)
         elif encoding == 'latin-1':
             return hop.gendirectcall(self.ll_decode_latin1, v_self)
-        elif encoding == 'utf-8':
+        elif encoding == 'utf-8' or encoding == 'utf8':
             return hop.gendirectcall(self.ll_decode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
@@ -403,7 +481,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
             return hop.gendirectcall(self.ll_str, v_self)
         elif encoding == "latin-1":
             return hop.gendirectcall(self.ll_encode_latin1, v_self)
-        elif encoding == 'utf-8':
+        elif encoding == 'utf-8' or encoding == 'utf8':
             return hop.gendirectcall(self.ll_encode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))

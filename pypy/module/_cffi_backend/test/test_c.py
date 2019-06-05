@@ -124,6 +124,7 @@ with tmpname2.open('w') as f:
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'
     print >> f, '        skip = staticmethod(skip)'
+    print >> f, 'pytest = py.test'
     print >> f, backend_test_c.read()
 
 

@@ -8,3 +8,4 @@ Manual pages
    :maxdepth: 1
 
    man/pypy.1.rst
+   man/pypy3.1.rst

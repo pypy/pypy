@@ -424,7 +424,7 @@ MinimalGCTransformer.MinimalGCTransformer = None
 
 # ________________________________________________________________
 
-def mallocHelpers():
+def mallocHelpers(gckind):
     class _MallocHelpers(object):
         def _freeze_(self):
             return True
@@ -462,9 +462,17 @@ def mallocHelpers():
     mh._ll_malloc_varsize_no_length = _ll_malloc_varsize_no_length
     mh.ll_malloc_varsize_no_length = _ll_malloc_varsize_no_length
 
+    if gckind == 'raw':
+        llopstore = llop.raw_store
+    elif gckind == 'gc':
+        llopstore = llop.gc_store
+    else:
+        raise AssertionError(gckind)
+
+
     def ll_malloc_varsize(length, size, itemsize, lengthoffset):
         result = mh.ll_malloc_varsize_no_length(length, size, itemsize)
-        (result + lengthoffset).signed[0] = length
+        llopstore(lltype.Void, result, lengthoffset, length)
         return result
     mh.ll_malloc_varsize = ll_malloc_varsize
 
@@ -483,7 +491,7 @@ class GCTransformer(BaseGCTransformer):
     def __init__(self, translator, inline=False):
         super(GCTransformer, self).__init__(translator, inline=inline)
 
-        mh = mallocHelpers()
+        mh = mallocHelpers(gckind='raw')
         mh.allocate = llmemory.raw_malloc
         ll_raw_malloc_fixedsize = mh._ll_malloc_fixedsize
         ll_raw_malloc_fixedsize_zero = mh._ll_malloc_fixedsize_zero

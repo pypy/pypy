@@ -106,16 +106,17 @@ RPY_EXTERN void boehm_gc_finalizer_notifier(void);
 struct boehm_fq_s;
 RPY_EXTERN struct boehm_fq_s *boehm_fq_queues[];
 RPY_EXTERN void (*boehm_fq_trigger[])(void);
-RPY_EXTERN void boehm_fq_callback(void *, void *);
+RPY_EXTERN void boehm_fq_register(struct boehm_fq_s **, void *);
 RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 
 #define OP_GC__DISABLE_FINALIZERS(r)  boehm_gc_finalizer_lock++
 #define OP_GC__ENABLE_FINALIZERS(r)  (boehm_gc_finalizer_lock--,	\
 				      boehm_gc_finalizer_notifier())
+#define OP_GC__DISABLE(r)             /* nothing */
+#define OP_GC__ENABLE(r)              /* nothing */
 
 #define OP_BOEHM_FQ_REGISTER(tagindex, obj, r)                          \
-    GC_REGISTER_FINALIZER(obj, boehm_fq_callback,                       \
-                          boehm_fq_queues + tagindex, NULL, NULL)
+    boehm_fq_register(boehm_fq_queues + tagindex, obj)
 #define OP_BOEHM_FQ_NEXT_DEAD(tagindex, r)                              \
     r = boehm_fq_next_dead(boehm_fq_queues + tagindex)
 
@@ -128,6 +129,8 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
 #define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
 #define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#define OP_GC__DISABLE(r)             /* nothing */
+#define OP_GC__ENABLE(r)              /* nothing */
 #define GC_REGISTER_FINALIZER(a, b, c, d, e)  /* nothing */
 #define GC_gcollect()  /* nothing */
 #define GC_set_max_heap_size(a)  /* nothing */
@@ -135,7 +138,7 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 #define OP_GC_FQ_NEXT_DEAD(tag, r)       (r = NULL)
 #endif
 
-#if defined(PYPY_USING_BOEHM_GC) || defined(PYPY_USING_NO_GC_AT_ALL)
+#if (defined(PYPY_USING_BOEHM_GC) || defined(PYPY_USING_NO_GC_AT_ALL)) && !defined(PYPY_BOEHM_WITH_HEADER)
 #  define RPY_SIZE_OF_GCHEADER  0
 #else
 #  define RPY_SIZE_OF_GCHEADER  sizeof(struct pypy_header0)

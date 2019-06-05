@@ -455,6 +455,8 @@ class AppTestMethod:
         assert repr(B().f).startswith("<bound method B.f of <")
         assert repr(A().f).endswith(">>")
 
+        assert repr(type(A.f)) == repr(type(A().f)) == "<type 'instancemethod'>"
+
 
     def test_method_call(self):
         class C(object):

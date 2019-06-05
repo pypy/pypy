@@ -280,3 +280,15 @@ class AppTestRaise:
             def __new__(cls, *args):
                 return object()
         raises(TypeError, "raise MyException")
+
+    def test_with_exit_True(self):
+        class X:
+            def __enter__(self):
+                pass
+            def __exit__(self, *args):
+                return True
+        def g():
+            with X():
+                return 42
+            assert False, "unreachable"
+        assert g() == 42

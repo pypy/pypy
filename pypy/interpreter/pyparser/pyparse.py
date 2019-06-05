@@ -132,7 +132,11 @@ class PythonParser(parser.Parser):
                         w_message = space.str(e.get_w_value(space))
                         raise error.SyntaxError(space.text_w(w_message))
                     raise
+        if enc is not None:
+            compile_info.encoding = enc
+        return self._parse(textsrc, compile_info)
 
+    def _parse(self, textsrc, compile_info):
         flags = compile_info.flags
 
         # The tokenizer is very picky about how it wants its input.
@@ -143,51 +147,53 @@ class PythonParser(parser.Parser):
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
 
         self.prepare(_targets[compile_info.mode])
-        tp = 0
         try:
             try:
                 # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
                 # which is expected to work independently of them.  It's
                 # certainly the case for all futures in Python <= 2.7.
                 tokens = pytokenizer.generate_tokens(source_lines, flags)
-
-                newflags, last_future_import = (
-                    future.add_future_flags(self.future_flags, tokens))
-                compile_info.last_future_import = last_future_import
-                compile_info.flags |= newflags
-
-                if compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION:
-                    self.grammar = pygram.python_grammar_no_print
-                else:
-                    self.grammar = pygram.python_grammar
-
-                for tp, value, lineno, column, line in tokens:
-                    if self.add_token(tp, value, lineno, column, line):
-                        break
             except error.TokenError as e:
                 e.filename = compile_info.filename
                 raise
             except error.TokenIndentationError as e:
                 e.filename = compile_info.filename
                 raise
+
+            newflags, last_future_import = (
+                future.add_future_flags(self.future_flags, tokens))
+            compile_info.last_future_import = last_future_import
+            compile_info.flags |= newflags
+
+            self.grammar = pygram.choose_grammar(
+                print_function=compile_info.flags & consts.CO_FUTURE_PRINT_FUNCTION,
+                revdb=self.space.config.translation.reverse_debugger)
+
+            try:
+                for token in tokens:
+                    if self.add_token(token):
+                        break
             except parser.ParseError as e:
                 # Catch parse errors, pretty them up and reraise them as a
                 # SyntaxError.
                 new_err = error.IndentationError
-                if tp == pygram.tokens.INDENT:
+                if token.token_type == pygram.tokens.INDENT:
                     msg = "unexpected indent"
                 elif e.expected == pygram.tokens.INDENT:
                     msg = "expected an indented block"
                 else:
                     new_err = error.SyntaxError
                     msg = "invalid syntax"
-                raise new_err(msg, e.lineno, e.column, e.line,
+                    if e.expected_str is not None:
+                        msg += " (expected '%s')" % e.expected_str
+
+                # parser.ParseError(...).column is 0-based, but the offsets in the
+                # exceptions in the error module are 1-based, hence the '+ 1'
+                raise new_err(msg, e.token.lineno, e.token.column + 1, e.token.line,
                               compile_info.filename)
             else:
                 tree = self.root
         finally:
             # Avoid hanging onto the tree.
             self.root = None
-        if enc is not None:
-            compile_info.encoding = enc
         return tree

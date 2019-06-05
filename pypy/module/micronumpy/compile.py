@@ -197,7 +197,7 @@ class FakeSpace(ObjSpace):
         return StringObject(obj)
     newbytes = newtext
 
-    def newunicode(self, obj):
+    def newutf8(self, obj, l):
         raise NotImplementedError
 
     def newlist(self, items):
@@ -305,10 +305,10 @@ class FakeSpace(ObjSpace):
         raise NotImplementedError
     text_w = bytes_w
 
-    def unicode_w(self, w_obj):
+    def utf8_w(self, w_obj):
         # XXX
         if isinstance(w_obj, StringObject):
-            return unicode(w_obj.v)
+            return w_obj.v
         raise NotImplementedError
 
     def int(self, w_obj):

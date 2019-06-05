@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import ConstInt, ConstFloat
+from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -455,9 +455,6 @@ class LogTrace(BaseLogTrace):
     def __init__(self, tag, memo, metainterp_sd, mc, logger):
         self.memo = memo
         self.metainterp_sd = metainterp_sd
-        self.ts = None
-        if self.metainterp_sd is not None:
-            self.ts = metainterp_sd.cpu.ts
         self.tag = tag
         self.mc = mc
         self.logger = logger
@@ -625,7 +622,7 @@ class LogTrace(BaseLogTrace):
                 if name:
                     return 'ConstClass(' + name + ')'
             return str(arg.value)
-        elif self.ts is not None and isinstance(arg, self.ts.ConstRef):
+        elif isinstance(arg, ConstPtr):
             if arg.value:
                 return 'ConstPtr(ptr' + str(mv) + ')'
             return 'ConstPtr(null)'

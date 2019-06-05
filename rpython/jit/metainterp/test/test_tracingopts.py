@@ -743,3 +743,30 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [0])
         assert res == 0
         self.check_operations_history(setfield_gc=0)
+
+    def test_record_known_class_does_not_invalidate(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        class C(object):
+            _immutable_fields_ = ['x?']
+        c = C()
+        c.x = 5
+        c.b = A()
+        c.b.x = 14
+        def fn(n):
+            if n == 99:
+                c.x = 12
+                c.b = B()
+                c.b.x = 12
+                return 15
+            b = c.b
+            x = b.x
+            jit.record_exact_class(c.b, A)
+            y = b.x
+            return x + y
+        res = self.interp_operations(fn, [1])
+        assert res == 2 * 14
+        self.check_operations_history(getfield_gc_i=1)
+

@@ -1,60 +1,40 @@
-===========================
-What's new in PyPy2.7 5.10+
-===========================
+==========================
+What's new in PyPy2.7 7.1+
+==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.10.0
-.. startrev: 6b024edd9d12
+.. this is a revision shortly after release-pypy-7.1.0
+.. startrev: d3aefbf6dae7
 
-.. branch: cpyext-avoid-roundtrip
+.. branch: Twirrim/minor-typo-fix-1553456951526
 
-Big refactoring of some cpyext code, which avoids a lot of nonsense when
-calling C from Python and vice-versa: the result is a big speedup in
-function/method calls, up to 6 times faster.
+Fix typo
 
-.. branch: cpyext-datetime2
+.. branch: jit-cleanup
 
-Support ``tzinfo`` field on C-API datetime objects, fixes latest pandas HEAD
+Remove rpython.jit.metainterp.typesystem and clean up related code in rpython/jit/
 
+.. branch: datetime_api_27
 
-.. branch: mapdict-size-limit
+Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp``
 
-Fix a corner case of mapdict: When an instance is used like a dict (using
-``setattr`` and ``getattr``, or ``.__dict__``) and a lot of attributes are
-added, then the performance using mapdict is linear in the number of
-attributes. This is now fixed (by switching to a regular dict after 80
-attributes).
+.. branch: semlock-deadlock
 
+Test and reduce the probability of a deadlock when acquiring a semaphore by
+moving global state changes closer to the actual aquire.
 
-.. branch: cpyext-faster-arg-passing
+.. branch: shadowstack-issue2722
 
-When using cpyext, improve the speed of passing certain objects from PyPy to C
-code, most notably None, True, False, types, all instances of C-defined types.
-Before, a dict lookup was needed every time such an object crossed over, now it
-is just a field read.
+Make the shadowstack size more dynamic
 
+.. branch: cffi-libs
 
-.. branch: 2634_datetime_timedelta_performance
+Move _ssl and _hashlib from rpython to a cffi-based module, like on python3.
+Reduces the number of problematic linked-in libraries (libssl, libcrypto)
 
-Improve datetime + timedelta performance.
+.. branch: fix-vmprof-memory-tracking
 
-.. branch: memory-accounting
+Fix a bug that prevent memory-tracking in vmprof working on PyPy.
 
-Improve way to describe memory
+.. branch: optimizeopt-cleanup
 
-.. branch: msvc14
-
-Allow compilaiton with Visual Studio 2017 compiler suite on windows
-
-.. branch: refactor-slots
-
-Refactor cpyext slots.
-
-
-.. branch: call-loopinvariant-into-bridges
-
-Speed up branchy code that does a lot of function inlining by saving one call
-to read the TLS in most bridges.
-
-.. branch: rpython-sprint
-
-Refactor in rpython signatures
+Cleanup optimizeopt

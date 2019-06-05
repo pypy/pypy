@@ -15,30 +15,22 @@ from rpython.jit.metainterp.optimizeopt.info import InstancePtrInfo
 
 from hypothesis import strategies, given
 
-class FakeTS(object):
+
+class FakeCPU(object):
     def __init__(self, dct):
         self.dct = dct
 
     def cls_of_box(self, box):
         return self.dct[box]
 
-
-class FakeCPU(object):
-    def __init__(self, dct):
-        self.ts = FakeTS(dct)
-
 class FakeOptimizer(object):
     metainterp_sd = None
     optheap = None
     optrewrite = None
 
-    def __init__(self, dct={}, cpu=None):
-        self.dct = dct
+    def __init__(self, cpu=None):
         self.constant_classes = {}
         self.cpu = cpu
-
-    def getptrinfo(self, arg):
-        return self.dct.get(arg, None)
 
     def make_constant_class(self, arg, cls):
         self.constant_classes[arg] = cls
@@ -51,13 +43,12 @@ class FakeStorage(object):
         self.rd_numb = numb
 
 def test_known_classes():
+    cls = FakeClass()
     box1 = InputArgRef()
+    box1.set_forwarded(InstancePtrInfo(known_class=cls))
     box2 = InputArgRef()
     box3 = InputArgRef()
-
-    cls = FakeClass()
-    dct = {box1: InstancePtrInfo(known_class=cls)}
-    optimizer = FakeOptimizer(dct)
+    optimizer = FakeOptimizer()
 
     numb_state = NumberingState(4)
     numb_state.append_int(1) # size of resume block
@@ -91,10 +82,10 @@ boxes_known_classes = strategies.lists(tuples, min_size=1)
 @given(boxes_known_classes)
 def test_random_class_knowledge(boxes_known_classes):
     cls = FakeClass()
-    dct1 = {box: InstancePtrInfo(known_class=cls)
-              for box, known_class in boxes_known_classes
-                  if known_class}
-    optimizer = FakeOptimizer(dct1)
+    for box, known_class in boxes_known_classes:
+        if known_class:
+            box.set_forwarded(InstancePtrInfo(known_class=cls))
+    optimizer = FakeOptimizer()
 
     refboxes = [box for (box, _) in boxes_known_classes
                     if isinstance(box, InputArgRef)]

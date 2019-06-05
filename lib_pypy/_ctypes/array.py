@@ -4,6 +4,7 @@ import _rawffi
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject, as_ffi_pointer
+import sys, __pypy__, struct
 
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
@@ -82,8 +83,11 @@ class ArrayMeta(_CDataMeta):
     def _CData_output(self, resarray, base=None, index=-1):
         from _rawffi.alt import types
         # If a char_p or unichar_p is received, skip the string interpretation
-        if base._ffiargtype != types.Pointer(types.char_p) and \
-           base._ffiargtype != types.Pointer(types.unichar_p):
+        try:
+            deref = type(base)._deref_ffiargtype()
+        except AttributeError:
+            deref = None
+        if deref != types.char_p and deref != types.unichar_p:
             # this seems to be a string if we're array of char, surprise!
             from ctypes import c_char, c_wchar
             if self._type_ is c_char:
@@ -119,6 +123,12 @@ class ArrayMeta(_CDataMeta):
                     raise RuntimeError("Invalid length")
                 value = self(*value)
         return _CDataMeta.from_param(self, value)
+
+    def _build_ffiargtype(self):
+        return _ffi.types.Pointer(self._type_.get_ffi_argtype())
+
+    def _deref_ffiargtype(self):
+        return self._type_.get_ffi_argtype()
 
 def array_get_slice_params(self, index):
     if hasattr(self, '_length_'):
@@ -174,6 +184,7 @@ class Array(_CData):
             self._buffer = self._ffiarray(self._length_, autofree=True)
         for i, arg in enumerate(args):
             self[i] = arg
+    _init_no_arg_ = __init__
 
     def _fix_index(self, index):
         if index < 0:
@@ -231,6 +242,24 @@ class Array(_CData):
     def _as_ffi_pointer_(self, ffitype):
         return as_ffi_pointer(self, ffitype)
 
+    def __buffer__(self, flags):
+        shape = []
+        obj = self
+        while 1:
+            shape.append(obj._length_)
+            try:
+                obj[0]._length_
+            except (AttributeError, IndexError):
+                break
+            obj = obj[0]
+
+        fmt = get_format_str(obj._type_)
+        try:
+            itemsize = struct.calcsize(fmt[1:])
+        except:
+            itemsize = sizeof(obj[0])
+        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
+
 ARRAY_CACHE = {}
 
 def create_array_type(base, length):
@@ -248,6 +277,38 @@ def create_array_type(base, length):
             _type_ = base
         )
         cls = ArrayMeta(name, (Array,), tpdict)
-        cls._ffiargtype = _ffi.types.Pointer(base.get_ffi_argtype())
         ARRAY_CACHE[key] = cls
         return cls
+
+byteorder = {'little': '<', 'big': '>'}
+swappedorder = {'little': '>', 'big': '<'}
+
+def get_format_str(typ):
+    if hasattr(typ, '_fields_'):
+        if hasattr(typ, '_swappedbytes_'):
+            bo = swappedorder[sys.byteorder]
+        else:
+            bo = byteorder[sys.byteorder]
+        flds = []
+        cum_size = 0
+        for name, obj in typ._fields_:
+            padding = typ._ffistruct_.fieldoffset(name) - cum_size
+            if padding:
+                flds.append('%dx' % padding)
+            # Trim off the leading '<' or '>'
+            ch = get_format_str(obj)[1:]
+            if (ch) == 'B':
+                flds.append(byteorder[sys.byteorder])
+            else:
+                flds.append(bo)
+            flds.append(ch)
+            flds.append(':')
+            flds.append(name)
+            flds.append(':')
+            cum_size += typ._ffistruct_.fieldsize(name)
+        return 'T{' + ''.join(flds) + '}'
+    elif hasattr(typ, '_type_'):
+        ch = typ._type_
+        return byteorder[sys.byteorder] + ch
+    else:
+        raise ValueError('cannot get format string for %r' % typ)

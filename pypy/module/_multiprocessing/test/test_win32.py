@@ -2,7 +2,7 @@ import py
 import sys
 
 class AppTestWin32:
-    spaceconfig = dict(usemodules=('_multiprocessing',
+    spaceconfig = dict(usemodules=('_multiprocessing', '_cffi_backend',
                                    'signal', '_rawffi', 'binascii'))
 
     def setup_class(cls):

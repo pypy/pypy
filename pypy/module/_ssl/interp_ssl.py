@@ -606,7 +606,7 @@ class _SSLSocket(W_Root):
         This will return the certificate even if it wasn't validated.
         """
         if not self.handshake_done:
-            raise oefmt(space.w_ValueError, "hanshake not done yet")
+            raise oefmt(space.w_ValueError, "handshake not done yet")
         if not self.peer_cert:
             return space.w_None
 
@@ -1567,12 +1567,13 @@ class _SSLContext(W_Root):
                 cadata = space.bufferstr_w(w_cadata)
             else:
                 ca_file_type = SSL_FILETYPE_PEM
-                try:
-                    cadata = space.unicode_w(w_cadata).encode('ascii')
-                except UnicodeEncodeError:
+                w_uni = space.convert_arg_to_w_unicode(w_cadata)
+                if not w_uni.is_ascii():
                     raise oefmt(space.w_TypeError,
                                 "cadata should be a ASCII string or a "
                                 "bytes-like object")
+                cadata = space.utf8_w(w_uni)
+
         if cafile is None and capath is None and cadata is None:
             raise oefmt(space.w_TypeError,
                         "cafile and capath cannot be both omitted")

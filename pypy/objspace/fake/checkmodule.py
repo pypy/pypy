@@ -4,6 +4,7 @@ from pypy.config.pypyoption import get_pypy_config
 
 def checkmodule(*modnames, **kwds):
     translate_startup = kwds.pop('translate_startup', True)
+    ignore = set(kwds.pop('ignore', ()))
     assert not kwds
     config = get_pypy_config(translating=True)
     space = FakeObjSpace(config)
@@ -17,6 +18,8 @@ def checkmodule(*modnames, **kwds):
         module.init(space)
         modules.append(module)
         for name in module.loaders:
+            if name in ignore:
+                continue
             seeobj_w.append(module._load_lazily(space, name))
         if hasattr(module, 'submodules'):
             for cls in module.submodules.itervalues():

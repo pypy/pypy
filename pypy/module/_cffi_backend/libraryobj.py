@@ -4,28 +4,21 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from rpython.rtyper.lltypesystem import rffi
-from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
+from rpython.rlib.rdynload import DLLHANDLE, dlsym, dlclose
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypeobj import W_CType
+from pypy.module._cffi_backend import misc
 
 
 class W_Library(W_Root):
     _immutable_ = True
 
-    def __init__(self, space, filename, flags):
+    def __init__(self, space, w_filename, flags):
         self.space = space
-        with rffi.scoped_str2charp(filename) as ll_libname:
-            if filename is None:
-                filename = "<None>"
-            try:
-                self.handle = dlopen(ll_libname, flags)
-            except DLOpenError as e:
-                raise wrap_dlopenerror(space, e, filename)
-        self.name = filename
+        self.name, self.handle = misc.dlopen_w(space, w_filename, flags)
         self.register_finalizer(space)
 
     def _finalize_(self):
@@ -104,7 +97,7 @@ W_Library.typedef = TypeDef(
 W_Library.typedef.acceptable_as_base_class = False
 
 
-@unwrap_spec(filename="fsencode_or_none", flags=int)
-def load_library(space, filename, flags=0):
-    lib = W_Library(space, filename, flags)
+@unwrap_spec(flags=int)
+def load_library(space, w_filename, flags=0):
+    lib = W_Library(space, w_filename, flags)
     return lib

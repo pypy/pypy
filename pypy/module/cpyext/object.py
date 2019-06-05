@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, size_t, slot_function,
+    PyVarObject, size_t, slot_function, INTP_real,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, FILEP, fwrite, c_only)
 from pypy.module.cpyext.pyobject import (
@@ -11,6 +11,7 @@ from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.executioncontext import ExecutionContext
 import pypy.module.__builtin__.operation as operation
 
 
@@ -207,7 +208,7 @@ def PyObject_Unicode(space, w_obj):
     the Python expression unicode(o).  Called by the unicode() built-in
     function."""
     if w_obj is None:
-        return space.newunicode(u"<NULL>")
+        return space.newutf8("<NULL>", 6)
     return space.call_function(space.w_unicode, w_obj)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
@@ -220,14 +221,14 @@ def PyObject_Compare(space, w_o1, w_o2):
     expression cmp(o1, o2)."""
     return space.int_w(space.cmp(w_o1, w_o2))
 
-@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, INTP_real], rffi.INT_real, error=-1)
 def PyObject_Cmp(space, w_o1, w_o2, result):
     """Compare the values of o1 and o2 using a routine provided by o1, if one
     exists, otherwise with a routine provided by o2.  The result of the
     comparison is returned in result.  Returns -1 on failure.  This is the
     equivalent of the Python statement result = cmp(o1, o2)."""
     res = space.int_w(space.cmp(w_o1, w_o2))
-    result[0] = rffi.cast(rffi.INT, res)
+    result[0] = rffi.cast(rffi.INT_real, res)
     return 0
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
@@ -263,7 +264,7 @@ def PyObject_RichCompareBool(space, w_o1, w_o2, opid_int):
         if opid == Py_EQ:
             return 1
         if opid == Py_NE:
-            return 0 
+            return 0
     w_res = PyObject_RichCompare(space, w_o1, w_o2, opid_int)
     return int(space.is_true(w_res))
 
@@ -411,3 +412,27 @@ def PyObject_Print(space, pyobj, fp, flags):
 def _PyPyGC_AddMemoryPressure(space, report):
     from rpython.rlib import rgc
     rgc.add_memory_pressure(report)
+
+
+ExecutionContext.cpyext_recursive_repr = None
+
+@cpython_api([PyObject], rffi.INT_real, error=-1)
+def Py_ReprEnter(space, w_obj):
+    ec = space.getexecutioncontext()
+    d = ec.cpyext_recursive_repr
+    if d is None:
+        d = ec.cpyext_recursive_repr = {}
+    if w_obj in d:
+        return 1
+    d[w_obj] = None
+    return 0
+
+@cpython_api([PyObject], lltype.Void)
+def Py_ReprLeave(space, w_obj):
+    ec = space.getexecutioncontext()
+    d = ec.cpyext_recursive_repr
+    if d is not None:
+        try:
+            del d[w_obj]
+        except KeyError:
+            pass

@@ -37,6 +37,10 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 # include <src/thread.h>
 #endif
 
+#ifdef RPY_REVERSE_DEBUGGER
+# include <src-revdb/revdb_include.h>
+#endif
+
 RPY_EXPORTED
 void rpython_startup_code(void)
 {
@@ -83,6 +87,10 @@ int pypy_main_function(int argc, char *argv[])
     pypy_asm_stack_bottom();
     instrument_setup();
 
+#ifdef RPY_REVERSE_DEBUGGER
+    rpy_reverse_db_setup(&argc, &argv);
+#endif
+
 #ifndef MS_WINDOWS
     /* this message does no longer apply to win64 :-) */
     if (sizeof(void*) != SIZEOF_LONG) {
@@ -94,7 +102,11 @@ int pypy_main_function(int argc, char *argv[])
 
     RPython_StartupCode();
 
+#ifndef RPY_REVERSE_DEBUGGER
     exitcode = STANDALONE_ENTRY_POINT(argc, argv);
+#else
+    exitcode = rpy_reverse_db_main(STANDALONE_ENTRY_POINT, argc, argv);
+#endif
 
     pypy_debug_alloc_results();
 

@@ -160,6 +160,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_text0(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_utf8(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_fsencode(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -303,6 +306,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_text0(self, typ):
         self.run_args.append("space.text0_w(%s)" % (self.scopenext(),))
+
+    def visit_utf8(self, typ):
+        self.run_args.append("space.utf8_w(%s)" % (self.scopenext(),))
 
     def visit_fsencode(self, typ):
         self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
@@ -469,6 +475,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_text0(self, typ):
         self.unwrap.append("space.text0_w(%s)" % (self.nextarg(),))
 
+    def visit_utf8(self, typ):
+        self.unwrap.append("space.utf8_w(%s)" % (self.nextarg(),))
+
     def visit_fsencode(self, typ):
         self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
 
@@ -499,6 +508,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
+    @staticmethod
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
         unwrap_info.apply_over(unwrap_spec)
@@ -529,14 +539,13 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
             exec compile2(source) in unwrap_info.miniglobals, d
             fastfunc = d['fastfunc_%s_%d' % (func.__name__.replace('-', '_'), narg)]
         return narg, fastfunc
-    make_fastfunc = staticmethod(make_fastfunc)
 
 
 def int_unwrapping_space_method(typ):
-    assert typ in (int, str, float, unicode, r_longlong, r_uint, r_ulonglong, bool)
+    assert typ in (int, str, float, r_longlong, r_uint, r_ulonglong, bool)
     if typ is r_int is r_longlong:
         return 'gateway_r_longlong_w'
-    elif typ in (str, unicode, bool):
+    elif typ in (str, bool):
         return typ.__name__ + '_w'
     else:
         return 'gateway_' + typ.__name__ + '_w'

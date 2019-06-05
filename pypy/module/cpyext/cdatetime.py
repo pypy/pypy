@@ -12,18 +12,19 @@ from pypy.interpreter.error import OperationError
 from pypy.module.__pypy__.interp_pypydatetime import (W_DateTime_Date,
     W_DateTime_Time, W_DateTime_Delta)
 from rpython.tool.sourcetools import func_renamer
+from pypy.module.cpyext.state import State
 
 cts.parse_header(parse_dir / 'cpyext_datetime.h')
 
 
 PyDateTime_CAPI = cts.gettype('PyDateTime_CAPI')
 
-datetimeAPI_global = []
 
 @cpython_api([], lltype.Ptr(PyDateTime_CAPI))
 def _PyDateTime_Import(space):
-    if len(datetimeAPI_global) >0:
-        return datetimeAPI_global[0]
+    state = space.fromcache(State)
+    if len(state.datetimeAPI) > 0:
+        return state.datetimeAPI[0]
     datetimeAPI = lltype.malloc(PyDateTime_CAPI, flavor='raw',
                                 track_allocation=False)
 
@@ -66,8 +67,16 @@ def _PyDateTime_Import(space):
         _PyDelta_FromDelta.api_func.functype,
         _PyDelta_FromDelta.api_func.get_wrapper(space))
 
-    datetimeAPI_global.append(datetimeAPI)
-    return datetimeAPI
+    datetimeAPI.c_DateTime_FromTimestamp = llhelper(
+        _PyDateTime_FromTimestamp.api_func.functype,
+        _PyDateTime_FromTimestamp.api_func.get_wrapper(space))
+
+    datetimeAPI.c_Date_FromTimestamp = llhelper(
+        _PyDate_FromTimestamp.api_func.functype,
+        _PyDate_FromTimestamp.api_func.get_wrapper(space))
+
+    state.datetimeAPI.append(datetimeAPI)
+    return state.datetimeAPI[0]
 
 PyDateTime_Time = cts.gettype('PyDateTime_Time*')
 PyDateTime_DateTime = cts.gettype('PyDateTime_DateTime*')
@@ -120,21 +129,10 @@ def init_datetime(space):
                    dealloc=type_dealloc,
                   )
 
-    # why do we need date_dealloc? Since W_DateTime_Date is the base class for
-    # app level datetime.date. If a c-extension class uses datetime.date for its
-    # base class and defines a tp_dealloc, we will get this:
-    # c_class->tp_dealloc == tp_dealloc_func
-    # c_class->tp_base == datetime.date, 
-    #                     datetime.date->tp_dealloc = _PyPy_subtype_dealloc
-    # datetime.date->tp_base = W_DateTime_Date
-    #                    W_DateTime_Date->tp_dealloc = _PyPy_subtype_dealloc
-    # but _PyPy_subtype_dealloc will call tp_dealloc_func, which can call its
-    # base's tp_dealloc and we get recursion. So break the recursion by setting
-    # W_DateTime_Date->tp_dealloc
     make_typedescr(W_DateTime_Date.typedef,
                    basestruct=PyDateTime_DateTime.TO,
                    attach=type_attach,
-                   dealloc=date_dealloc,
+                   dealloc=type_dealloc,
                   )
 
     make_typedescr(W_DateTime_Delta.typedef,
@@ -144,30 +142,46 @@ def init_datetime(space):
 
 def type_attach(space, py_obj, w_obj, w_userdata=None):
     '''Fills a newly allocated py_obj from the w_obj
+    If it is a datetime.time or datetime.datetime, it may have tzinfo
     '''
-    if space.type(w_obj).name == 'date':
-        # No tzinfo
-        return
-    py_datetime = rffi.cast(PyDateTime_Time, py_obj)
-    w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
-    if space.is_none(w_tzinfo):
-        py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
-        py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
-    else:
-        py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
-        py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
+    state = space.fromcache(State)
+    if len(state.datetimeAPI) ==0:
+        # can happen in subclassing
+        _PyDateTime_Import(space)
+    if state.datetimeAPI[0].c_TimeType == py_obj.c_ob_type:
+        py_datetime = rffi.cast(PyDateTime_Time, py_obj)
+        w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
+        if space.is_none(w_tzinfo):
+            py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
+            py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
+        else:
+            py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
+            py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
+    elif state.datetimeAPI[0].c_DateTimeType == py_obj.c_ob_type:
+        # For now this is exactly the same structure as PyDateTime_Time
+        py_datetime = rffi.cast(PyDateTime_DateTime, py_obj)
+        w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
+        if space.is_none(w_tzinfo):
+            py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
+            py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
+        else:
+            py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
+            py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
 
 @slot_function([PyObject], lltype.Void)
 def type_dealloc(space, py_obj):
-    py_datetime = rffi.cast(PyDateTime_Time, py_obj)
-    if (widen(py_datetime.c_hastzinfo) != 0):
-        decref(space, py_datetime.c_tzinfo)
     from pypy.module.cpyext.object import _dealloc
-    _dealloc(space, py_obj)
-
-@slot_function([PyObject], lltype.Void)
-def date_dealloc(space, py_obj):
-    from pypy.module.cpyext.object import _dealloc
+    state = space.fromcache(State)
+    # cannot raise here, so just crash
+    assert len(state.datetimeAPI) > 0
+    if state.datetimeAPI[0].c_TimeType == py_obj.c_ob_type:
+        py_datetime = rffi.cast(PyDateTime_Time, py_obj)
+        if (widen(py_datetime.c_hastzinfo) != 0):
+            decref(space, py_datetime.c_tzinfo)
+    elif state.datetimeAPI[0].c_DateTimeType == py_obj.c_ob_type:
+        py_datetime = rffi.cast(PyDateTime_DateTime, py_obj)
+        if (widen(py_datetime.c_hastzinfo) != 0):
+            decref(space, py_datetime.c_tzinfo)
     _dealloc(space, py_obj)
 
 def timedeltatype_attach(space, py_obj, w_obj, w_userdata=None):
@@ -237,8 +251,16 @@ def PyDateTime_FromTimestamp(space, w_args):
     """
     w_datetime = PyImport_Import(space, space.newtext("datetime"))
     w_type = space.getattr(w_datetime, space.newtext("datetime"))
+    return _PyDateTime_FromTimestamp(space, w_type, w_args, None)
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def _PyDateTime_FromTimestamp(space, w_type, w_args, w_kwds):
+    """Implementation of datetime.fromtimestamp that matches the signature for
+    PyDateTimeCAPI.DateTime_FromTimestamp
+    """
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
-    return space.call(w_method, w_args)
+
+    return space.call(w_method, w_args, w_kwds=w_kwds)
 
 @cpython_api([PyObject], PyObject)
 def PyDate_FromTimestamp(space, w_args):
@@ -247,6 +269,12 @@ def PyDate_FromTimestamp(space, w_args):
     """
     w_datetime = PyImport_Import(space, space.newtext("datetime"))
     w_type = space.getattr(w_datetime, space.newtext("date"))
+    return _PyDate_FromTimestamp(space, w_type, w_args)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyDate_FromTimestamp(space, w_type, w_args):
+    """Implementation of date.fromtimestamp that matches the signature for
+    PyDateTimeCAPI.Date_FromTimestamp"""
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
     return space.call(w_method, w_args)
 
@@ -290,25 +318,41 @@ def PyDateTime_GET_DAY(space, w_obj):
 def PyDateTime_DATE_GET_HOUR(space, w_obj):
     """Return the hour, as an int from 0 through 23.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("hour")))
+    # w_obj must be a datetime.timedate object.  However, I've seen libraries
+    # call this macro with a datetime.date object.  I think it returns
+    # nonsense in CPython, but it doesn't crash.  We'll just return zero
+    # in case there is no field 'hour'.
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("hour")))
+    except OperationError:
+        return 0
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MINUTE(space, w_obj):
     """Return the minute, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("minute")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("minute")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_SECOND(space, w_obj):
     """Return the second, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("second")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("second")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MICROSECOND(space, w_obj):
     """Return the microsecond, as an int from 0 through 999999.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_HOUR(space, w_obj):

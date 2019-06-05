@@ -483,6 +483,7 @@ def get_config_vars(*args):
         _CONFIG_VARS['projectbase'] = _PROJECT_BASE
         _CONFIG_VARS['implementation'] = _get_implementation()
         _CONFIG_VARS['implementation_lower'] = _get_implementation().lower()
+        _CONFIG_VARS['LIBRARY'] = ''
 
         if os.name in ('nt', 'os2'):
             _init_non_posix(_CONFIG_VARS)

@@ -109,9 +109,6 @@ if os.name == 'nt':
             wchar_t const* file,
             unsigned int line,
             uintptr_t pReserved) {
-                wprintf(L"Invalid parameter detected in function %s."
-                            L" File: %s Line: %d\\n", function, file, line);
-                wprintf(L"Expression: %s\\n", expression);
         }
 
         RPY_EXTERN void* enter_suppress_iph(void)
@@ -137,7 +134,10 @@ if os.name == 'nt':
         RPY_EXTERN void exit_suppress_iph(void* handle) {};
         #endif
     ''',]
-    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
+    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);',
+                       'RPY_EXTERN void* enter_suppress_iph();',
+                       'RPY_EXTERN void exit_suppress_iph(void* handle);',
+                      ]
 else:
     separate_module_sources = []
     post_include_bits = []
@@ -235,7 +235,8 @@ def _errno_after(save_err):
             rthread.tlfield_rpy_errno.setraw(_get_errno())
             # ^^^ keep fork() up-to-date too, below
 if _WIN32:
-    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h',
+                'direct.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -250,7 +251,7 @@ else:
                 'sched.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
-    if sys.platform.startswith('linux'):
+    if sys.platform.startswith('linux') or sys.platform.startswith('gnu'):
         includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd') or sys.platform.startswith('openbsd'):
         includes.append('sys/ttycom.h')
@@ -730,16 +731,21 @@ def getfullpathname(path):
     length = rwin32.MAX_PATH + 1
     traits = _preferred_traits(path)
     win32traits = make_win32_traits(traits)
-    with traits.scoped_alloc_buffer(length) as buf:
-        res = win32traits.GetFullPathName(
-            traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
-            buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
-        if res == 0:
-            raise rwin32.lastSavedWindowsError("_getfullpathname failed")
-        result = buf.str(intmask(res))
-        assert result is not None
-        result = rstring.assert_str0(result)
-        return result
+    while True:      # should run the loop body maximum twice
+        with traits.scoped_alloc_buffer(length) as buf:
+            res = win32traits.GetFullPathName(
+                traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
+                buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
+            res = intmask(res)
+            if res == 0:
+                raise rwin32.lastSavedWindowsError("_getfullpathname failed")
+            if res >= length:
+                length = res + 1
+                continue
+            result = buf.str(res)
+            assert result is not None
+            result = rstring.assert_str0(result)
+            return result
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
@@ -874,11 +880,11 @@ def listdir(path):
 
         if traits.str is unicode:
             if path and path[-1] not in (u'/', u'\\', u':'):
-                path += u'/'
+                path += u'\\'
             mask = path + u'*.*'
         else:
             if path and path[-1] not in ('/', '\\', ':'):
-                path += '/'
+                path += '\\'
             mask = path + '*.*'
 
         filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
@@ -1086,9 +1092,12 @@ def _make_waitmacro(name):
         else:
             return bool(c_func(status))
 
-WAIT_MACROS = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+WAIT_MACROS = ['WCOREDUMP', 'WIFSTOPPED',
                'WIFSIGNALED', 'WIFEXITED',
                'WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']
+if not sys.platform.startswith('gnu'):
+    WAIT_MACROS.append('WIFCONTINUED')
+
 for name in WAIT_MACROS:
     _make_waitmacro(name)
 
@@ -1253,16 +1262,16 @@ def fchmod(fd, mode):
 @replace_os_function('rename')
 @specialize.argtype(0, 1)
 def rename(path1, path2):
-    if not _WIN32:
-        handle_posix_error('rename',
-                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
-    else:
+    if _WIN32:
         traits = _preferred_traits2(path1, path2)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
         if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
+    else:
+        handle_posix_error('rename',
+                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
 
 @specialize.argtype(0, 1)
 def replace(path1, path2):

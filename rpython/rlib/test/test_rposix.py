@@ -83,6 +83,14 @@ class TestPosixFunction:
         # the most intriguing failure of ntpath.py should not repeat, here:
         assert not data.endswith(stuff)
 
+    @win_only
+    def test__getfullpathname_long(self):
+        stuff = "C:" + "\\abcd" * 100
+        py.test.raises(WindowsError, rposix.getfullpathname, stuff)
+        ustuff = u"C:" + u"\\abcd" * 100
+        res = rposix.getfullpathname(ustuff)
+        assert res == ustuff
+
     def test_getcwd(self):
         assert rposix.getcwd() == os.getcwd()
 

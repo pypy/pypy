@@ -1096,7 +1096,7 @@ class TestAstBuilder:
         s = self.get_first_expr("'hi' ' implicitly' ' extra'")
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap("hi implicitly extra"))
-        sentence = u"Die Männer ärgen sich!"
+        sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = u'%s'" % (sentence,)
         info = pyparse.CompileInfo("<test>", "exec")
         tree = self.parser.parse_source(source.encode("utf-7"), info)

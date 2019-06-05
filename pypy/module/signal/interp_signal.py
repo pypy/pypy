@@ -166,13 +166,14 @@ def getsignal(space, signum):
     return handlers_w[signum]
 
 
-def default_int_handler(space, w_signum, w_frame):
+def default_int_handler(space, args_w):
     """
     default_int_handler(...)
 
     The default handler for SIGINT installed by Python.
     It raises KeyboardInterrupt.
     """
+    # issue #2780: accept and ignore any non-keyword arguments
     raise OperationError(space.w_KeyboardInterrupt, space.w_None)
 
 

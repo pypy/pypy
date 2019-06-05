@@ -15,10 +15,10 @@ class AppTestOVERLOADS:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        env = os.environ
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_overloads = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_class_based_overloads(self):
@@ -58,15 +58,19 @@ class AppTestOVERLOADS:
         c = c_overload()
         raises(TypeError, c.__dispatch__, 'get_int', 12)
         raises(LookupError, c.__dispatch__, 'get_int', 'does_not_exist')
-        assert c.__dispatch__('get_int', 'a_overload*')(a_overload()) == 42
-        assert c.__dispatch__('get_int', 'b_overload*')(b_overload()) == 13
+        assert c.__dispatch__('get_int', 'a_overload*')(a_overload())             == 42
+        assert c_overload.get_int.__overload__('a_overload*')(c, a_overload())    == 42
+        assert c.__dispatch__('get_int', 'b_overload*')(b_overload())             == 13
+        assert c_overload.get_int.__overload__('b_overload*')(c, b_overload())    == 13
 
         assert c_overload().__dispatch__('get_int', 'a_overload*')(a_overload())  == 42
         # TODO: #assert c_overload.__dispatch__('get_int', 'b_overload*')(c, b_overload()) == 13
 
         d = d_overload()
-        assert d.__dispatch__('get_int', 'a_overload*')(a_overload()) == 42
-        assert d.__dispatch__('get_int', 'b_overload*')(b_overload()) == 13
+        assert d.__dispatch__('get_int', 'a_overload*')(a_overload())             == 42
+        assert d_overload.get_int.__overload__('a_overload*')(d, a_overload())    == 42
+        assert d.__dispatch__('get_int', 'b_overload*')(b_overload())             == 13
+        assert d_overload.get_int.__overload__('b_overload*')(d, b_overload())    == 13
 
         nb = ns_a_overload.b_overload()
         raises(TypeError, nb.f, c_overload())
