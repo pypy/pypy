@@ -1228,9 +1228,18 @@ class MIFrame(object):
     @arguments("box", "orgpc")
     def _opimpl_guard_value(self, box, orgpc):
         limit = self.metainterp.jitdriver_sd.warmstate.guard_value_limit
-        if box is self.metainterp.not_guarded_value_box or self.metainterp.guard_value_counter > limit:
+
+        # If counter of the (failed) guard is above the 'limit', we will *not*
+        # implement a 'guard_value'. Instead, we simply return the current box
+        # as-is, with the effect that the trace is not specialized to the
+        # value.
+        #
+        # Additionally, the same 'box' may be promoted multiple times. Hence,
+        # if we elided the first 'guard_value(box)', we need to elide all later
+        # guards with the same 'box' as well.
+        if box is self.metainterp.elided_guard_value_box or self.metainterp.guard_value_counter > limit:
             # limit reached or guard on the same box as the first elided guard_value
-            self.metainterp.not_guarded_value_box = box
+            self.metainterp.elided_guard_value_box = box
             return box
 
         return self.implement_guard_value(box, orgpc)
@@ -2458,7 +2467,7 @@ class MetaInterp(object):
         # specialize this function and a few other ones for the '*args'.
         debug_start('jit-tracing')
         self.guard_value_counter = 0
-        self.not_guarded_value_box = None
+        self.elided_guard_value_box = None
         self.staticdata._setup_once()
         self.staticdata.profiler.start_tracing()
         assert jitdriver_sd is self.jitdriver_sd
@@ -2492,7 +2501,7 @@ class MetaInterp(object):
         key = resumedescr.get_resumestorage()
         assert isinstance(key, compile.ResumeGuardDescr)
         self.guard_value_counter = key.guard_value_counter + 1
-        self.not_guarded_value_box = None
+        self.elided_guard_value_box = None
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
         self.resumekey_original_loop_token = resumedescr.rd_loop_token.loop_token_wref()
