@@ -1,69 +1,36 @@
 ==========================
-What's new in PyPy2.7 6.0+
+What's new in PyPy2.7 7.1+
 ==========================
 
-.. this is a revision shortly after release-pypy-6.0.0
-.. startrev: e50e11af23f1
+.. this is a revision shortly after release-pypy-7.1.0
+.. startrev: d3aefbf6dae7
 
-.. branch: cppyy-packaging
+.. branch: Twirrim/minor-typo-fix-1553456951526
 
-Main items: vastly better template resolution and improved performance. In
-detail: upgrade to backend 1.4, improved handling of templated methods and
-functions (in particular automatic deduction of types), improved pythonization
-interface, range of compatibility fixes for Python3, free functions now take
-fast libffi path when possible, moves for strings (incl. from Python str),
-easier/faster handling of std::vector by numpy, improved and faster object
-identity preservation
+Fix typo
 
-.. branch: socket_default_timeout_blockingness
+.. branch: jit-cleanup
 
-Make sure 'blocking-ness' of socket is set along with default timeout
+Remove rpython.jit.metainterp.typesystem and clean up related code in rpython/jit/
 
-.. branch: crypt_h
+.. branch: datetime_api_27
 
-Include crypt.h for crypt() on Linux
+Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp``
 
-.. branch: gc-more-logging
+.. branch: semlock-deadlock
 
-Log additional gc-minor and gc-collect-step info in the PYPYLOG
+Test and reduce the probability of a deadlock when acquiring a semaphore by
+moving global state changes closer to the actual aquire.
 
-.. branch: reverse-debugger
+.. branch: shadowstack-issue2722
 
-The reverse-debugger branch has been merged.  For more information, see
-https://bitbucket.org/pypy/revdb
+Make the shadowstack size more dynamic
 
+.. branch: cffi-libs
 
-.. branch: pyparser-improvements-3
+Move _ssl and _hashlib from rpython to a cffi-based module, like on python3.
+Reduces the number of problematic linked-in libraries (libssl, libcrypto)
 
-Small refactorings in the Python parser.
+.. branch: fix-vmprof-memory-tracking
 
-.. branch: fix-readme-typo
-
-.. branch: avoid_shell_injection_in_shutil
-
-Backport CPython fix for possible shell injection issue in `distutils.spawn`,
-https://bugs.python.org/issue34540
-
-.. branch: cffi_dlopen_unicode
-
-Enable use of unicode file names in `dlopen`
-
-.. branch: rlock-in-rpython
-
-Backport CPython fix for `thread.RLock` 
-
-
-.. branch: expose-gc-time
-
-Make GC hooks measure time in seconds (as opposed to an opaque unit).
-
-.. branch: cleanup-test_lib_pypy
-
-Update most test_lib_pypy/ tests and move them to extra_tests/.
-
-.. branch: gc-disable
-
-Make it possible to manually manage the GC by using a combination of
-gc.disable() and gc.collect_step(). Make sure to write a proper release
-announcement in which we explain that existing programs could leak memory if
-they run for too much time between a gc.disable()/gc.enable()
+Fix a bug that prevent memory-tracking in vmprof working on PyPy.

@@ -11,6 +11,7 @@ from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      InputArgRef, InputArgInt
+from rpython.jit.metainterp.support import adr2int
 from rpython.jit.metainterp.optimizeopt.shortpreamble import \
      ShortPreambleBuilder, PreambleOp, ShortInputArg
 from rpython.jit.metainterp.compile import LoopCompileData
@@ -18,7 +19,6 @@ from rpython.jit.metainterp.optimizeopt.virtualstate import \
      NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,\
      VirtualStateInfo
 from rpython.jit.metainterp.optimizeopt import info, optimizer
-from rpython.jit.codewriter import heaptracker
 from rpython.jit.tool import oparser
 
 class FakeOptimizer(object):
@@ -36,10 +36,10 @@ class FakeOptimizer(object):
 
     def get_box_replacement(self, box):
         return box
-     
+
 class BaseTestUnroll(BaseTest, LLtypeMixin):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
-    
+
     def optimize(self, ops):
         loop = self.parse(ops)
         self.add_guard_future_condition(loop)
@@ -72,7 +72,7 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
 
 def producable_short_boxes(l):
     return [x for x in l if not isinstance(x.short_op, ShortInputArg)]
-        
+
 class TestUnroll(BaseTestUnroll):
     def test_simple(self):
         loop = """
@@ -133,7 +133,7 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         p0 = preamble.inputargs[0]
-        expected_class = heaptracker.adr2int(self.node_vtable_adr)
+        expected_class = adr2int(self.node_vtable_adr)
         assert expected_class == es.exported_infos[p0]._known_class.getint()
         vs = es.virtual_state
         assert vs.state[0].level == LEVEL_KNOWNCLASS
@@ -160,7 +160,7 @@ class TestUnroll(BaseTestUnroll):
         p.set_forwarded(ptrinfo)
         vs.make_inputargs([p, p, i], FakeOptimizer())
 
-    def test_short_boxes_heapcache(self):        
+    def test_short_boxes_heapcache(self):
         loop = """
         [p0, i1]
         i0 = getfield_gc_i(p0, descr=valuedescr)
@@ -230,7 +230,7 @@ class TestUnroll(BaseTestUnroll):
         assert len(es.short_boxes) == 4
         # both getfields are available as
         # well as getfield_gc
-        
+
     def test_p123_anti_nested(self):
         loop = """
         [i1, p2, p3]

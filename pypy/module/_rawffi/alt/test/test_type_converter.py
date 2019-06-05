@@ -6,7 +6,7 @@ from pypy.module._rawffi.alt.type_converter import FromAppLevelConverter, ToAppL
 
 class DummyFromAppLevelConverter(FromAppLevelConverter):
 
-    def handle_all(self, w_ffitype, w_obj, val):
+    def handle_all(self, w_ffitype, w_obj, val, lgt=None):
         self.lastval = val
 
     handle_signed = handle_all
@@ -120,8 +120,8 @@ class TestFromAppLevel(object):
     def test_strings(self):
         # first, try automatic conversion from applevel
         self.check(app_types.char_p, self.space.newbytes('foo'), 'foo')
-        self.check(app_types.unichar_p, self.space.wrap(u'foo\u1234'), u'foo\u1234')
-        self.check(app_types.unichar_p, self.space.wrap('foo'), u'foo')
+        self.check(app_types.unichar_p, self.space.wrap(u'foo\u1234'), u'foo\u1234'.encode('utf8'))
+        self.check(app_types.unichar_p, self.space.wrap('foo'), 'foo')
         # then, try to pass explicit pointers
         self.check(app_types.char_p, self.space.wrap(42), 42)
         self.check(app_types.unichar_p, self.space.wrap(42), 42)

@@ -7210,6 +7210,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0]
         p1 = getfield_gc_r(p0, descr=nextdescr)
         record_exact_class(p1, ConstClass(node_vtable))
+        guard_nonnull(p1) []
         guard_class(p1, ConstClass(node_vtable)) []
         jump(p1)
         """

@@ -592,7 +592,7 @@ class FFI(object):
             if sys.platform == "win32":
                 # we need 'libpypy-c.lib'.  Current distributions of
                 # pypy (>= 4.1) contain it as 'libs/python27.lib'.
-                pythonlib = "python27"
+                pythonlib = "python{0[0]}{0[1]}".format(sys.version_info)
                 if hasattr(sys, 'prefix'):
                     ensure('library_dirs', os.path.join(sys.prefix, 'libs'))
             else:
@@ -642,6 +642,16 @@ class FFI(object):
                              "name to make a 'package.module' location")
         self._assigned_source = (str(module_name), source,
                                  source_extension, kwds)
+
+    def set_source_pkgconfig(self, module_name, pkgconfig_libs, source,
+                             source_extension='.c', **kwds):
+        from . import pkgconfig
+        if not isinstance(pkgconfig_libs, list):
+            raise TypeError("the pkgconfig_libs argument must be a list "
+                            "of package names")
+        kwds2 = pkgconfig.flags_from_pkgconfig(pkgconfig_libs)
+        pkgconfig.merge_flags(kwds, kwds2)
+        self.set_source(module_name, source, source_extension, **kwds)
 
     def distutils_extension(self, tmpdir='build', verbose=True):
         from distutils.dir_util import mkpath

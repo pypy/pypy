@@ -5,11 +5,14 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.unicodehelper import wcharpsize2utf8
+from pypy.interpreter.unicodehelper import wrap_unicode_out_of_range_error
 
 from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rutf8
 from rpython.rlib.objectmodel import specialize
 import rpython.rlib.rposix as rposix
 
@@ -416,13 +419,13 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         val = s[0]
         push_func(add_arg, argdesc, val)
     elif letter == 'u':
-        s = space.unicode_w(w_arg)
-        if len(s) != 1:
+        s, lgt = space.utf8_len_w(w_arg)
+        if lgt != 1:
             raise oefmt(space.w_TypeError,
                         "Expected unicode string of length one as wide "
                         "character")
-        val = s[0]
-        push_func(add_arg, argdesc, val)
+        val = rutf8.codepoint_at_pos(s, 0)
+        push_func(add_arg, argdesc, rffi.cast(rffi.WCHAR_T, val))
     else:
         for c in unroll_letters_for_numbers:
             if letter == c:
@@ -447,7 +450,13 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             elif c == 'c':
                 return space.newbytes(func(add_arg, argdesc, ll_type))
             elif c == 'u':
-                return space.newunicode(func(add_arg, argdesc, ll_type))
+                code = ord(func(add_arg, argdesc, ll_type))
+                try:
+                    return space.newutf8(rutf8.unichr_as_utf8(
+                        r_uint(code), allow_surrogates=True), 1)
+                except rutf8.OutOfRange:
+                    raise oefmt(space.w_ValueError,
+                        "unicode character %d out of range", code)
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.newfloat(float(func(add_arg, argdesc, ll_type)))
             else:
@@ -594,11 +603,14 @@ def wcharp2unicode(space, address, maxlength=-1):
     if address == 0:
         return space.w_None
     wcharp_addr = rffi.cast(rffi.CWCHARP, address)
-    if maxlength == -1:
-        s = rffi.wcharp2unicode(wcharp_addr)
-    else:
-        s = rffi.wcharp2unicoden(wcharp_addr, maxlength)
-    return space.newunicode(s)
+    try:
+        if maxlength == -1:
+            s, lgt = rffi.wcharp2utf8(wcharp_addr)
+        else:
+            s, lgt = rffi.wcharp2utf8n(wcharp_addr, maxlength)
+    except rutf8.OutOfRange as e:
+        raise wrap_unicode_out_of_range_error(space, e)
+    return space.newutf8(s, lgt)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def charp2rawstring(space, address, maxlength=-1):
@@ -611,8 +623,8 @@ def charp2rawstring(space, address, maxlength=-1):
 def wcharp2rawunicode(space, address, maxlength=-1):
     if maxlength == -1:
         return wcharp2unicode(space, address)
-    s = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, address), maxlength)
-    return space.newunicode(s)
+    s = wcharpsize2utf8(space, rffi.cast(rffi.CWCHARP, address), maxlength)
+    return space.newutf8(s, maxlength)
 
 @unwrap_spec(address=r_uint, newcontent='bufferstr')
 def rawstring2charp(space, address, newcontent):

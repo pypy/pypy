@@ -416,7 +416,7 @@ def getaddrinfo_pydotorg(i, result):
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() in ('104.130.43.121', '23.253.135.79'):
+        if addr.get_host() in ('104.130.43.121', '23.253.135.79', '45.55.99.72'):
             found = True
         elif family == AF_INET:
             print 'pydotorg changed to', addr.get_host()

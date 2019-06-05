@@ -90,6 +90,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
 
+
     def teardown(self):
         self.pending_guard_tokens = None
         if WORD == 8:
@@ -545,6 +546,25 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                                  size_excluding_failure_stuff))
         debug_print("            end: 0x%x" % r_uint(rawstart + full_size))
         debug_stop("jit-backend-addr")
+        debug_start("jit-regalloc-stats")
+        debug_print("Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)" % (
+            looptoken.number, loopname,
+            r_uint(rawstart + looppos),
+            r_uint(rawstart + size_excluding_failure_stuff),
+            r_uint(rawstart + functionpos)))
+        debug_print("assembler size: ", size_excluding_failure_stuff)
+        debug_print("number ops: ", len(operations))
+        debug_print("preamble num moves calls: ", self.preamble_num_moves_calls)
+        debug_print("preamble num moves jump:", self.preamble_num_moves_jump)
+        debug_print("preamble num moves spills:", self.preamble_num_spills)
+        debug_print("preamble num moves spills to existing:", self.preamble_num_spills_to_existing)
+        debug_print("preamble num register reloads:", self.preamble_num_reloads)
+        debug_print("num moves calls: ", self.num_moves_calls)
+        debug_print("num moves jump:", self.num_moves_jump)
+        debug_print("num moves spills:", self.num_spills)
+        debug_print("num moves spills to existing:", self.num_spills_to_existing)
+        debug_print("num moves register reloads:", self.num_reloads)
+        debug_stop("jit-regalloc-stats")
         self.patch_pending_failure_recoveries(rawstart)
         #
         ops_offset = self.mc.ops_offset
@@ -624,6 +644,24 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         debug_print("       failures: 0x%x" % r_uint(rawstart + codeendpos))
         debug_print("            end: 0x%x" % r_uint(rawstart + fullsize))
         debug_stop("jit-backend-addr")
+        debug_start("jit-regalloc-stats")
+        debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
+                    (r_uint(descr_number), r_uint(rawstart + startpos),
+                        r_uint(rawstart + codeendpos)))
+
+        debug_print("assembler size: ", fullsize)
+        debug_print("number ops: ", len(operations))
+        debug_print("preamble num moves calls: ", self.preamble_num_moves_calls)
+        debug_print("preamble num moves jump:", self.preamble_num_moves_jump)
+        debug_print("preamble num moves spills:", self.preamble_num_spills)
+        debug_print("preamble num moves spills to existing:", self.preamble_num_spills_to_existing)
+        debug_print("preamble num register reloads:", self.preamble_num_reloads)
+        debug_print("num moves calls: ", self.num_moves_calls)
+        debug_print("num moves jump:", self.num_moves_jump)
+        debug_print("num moves spills:", self.num_spills)
+        debug_print("num moves spills to existing:", self.num_spills_to_existing)
+        debug_print("num moves register reloads:", self.num_reloads)
+        debug_stop("jit-regalloc-stats")
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart + startpos)
@@ -1291,10 +1329,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                      result_loc, result_type,
                                      result_size)
         cb.emit()
+        self.num_moves_calls += cb.num_moves
 
     def simple_call_no_collect(self, fnloc, arglocs):
         cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit_no_collect()
+        self.num_moves_calls += cb.num_moves
 
     def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -2132,6 +2172,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 cb.emit()
             else:
                 cb.emit_no_collect()
+        self.num_moves_calls += cb.num_moves
 
     def _store_force_index(self, guard_op):
         assert (guard_op.getopnum() == rop.GUARD_NOT_FORCED or
@@ -2410,6 +2451,16 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.JMP(imm(target))
 
     def label(self):
+        self.preamble_num_moves_calls += self.num_moves_calls
+        self.preamble_num_moves_jump += self.num_moves_jump
+        self.preamble_num_spills += self.num_spills
+        self.preamble_num_spills_to_existing += self.num_spills_to_existing
+        self.preamble_num_reloads += self.num_reloads
+        self.num_moves_calls = 0
+        self.num_moves_jump = 0
+        self.num_spills = 0
+        self.num_spills_to_existing = 0
+        self.num_reloads = 0
         self._check_frame_depth_debug(self.mc)
 
     class CondCallSlowPath(codebuf.SlowPath):

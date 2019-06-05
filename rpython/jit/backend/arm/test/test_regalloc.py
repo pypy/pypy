@@ -150,7 +150,6 @@ class CustomBaseTestRegalloc(BaseTestRegalloc):
                                                     EffectInfo.MOST_GENERAL)
     f10_calldescr = cpu.calldescrof(F10PTR.TO, F10PTR.TO.ARGS,
                                     F10PTR.TO.RESULT, EffectInfo.MOST_GENERAL)
-    typesystem = 'lltype'
     namespace = locals().copy()
 
 class TestRegallocSimple(CustomBaseTestRegalloc):

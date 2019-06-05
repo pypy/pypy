@@ -4,8 +4,10 @@ syntax: glob
 *~
 .*.swp
 .idea
+.mypy_cache
 .project
 .pydevproject
+.vscode
 __pycache__
 
 .cache/

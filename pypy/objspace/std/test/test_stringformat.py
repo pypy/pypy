@@ -218,6 +218,7 @@ class AppTestStringObject:
 
     def test_format_wrong_char(self):
         raises(ValueError, 'a%Zb'.__mod__, ((23,),))
+        raises(ValueError, u'a%\ud800b'.__mod__, ((23,),))
 
     def test_incomplete_format(self):
         raises(ValueError, '%'.__mod__, ((23,),))
@@ -235,6 +236,8 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
+        surrogate = 0xd800
+        assert u'%c' % surrogate == u'\ud800'
 
     def test_broken_unicode(self):
         raises(UnicodeDecodeError, 'Názov: %s'.__mod__, u'Jerry')

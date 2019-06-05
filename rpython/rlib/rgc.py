@@ -67,7 +67,7 @@ def must_split_gc_address_space():
     """Returns True if we have a "split GC address space", i.e. if
     we are translating with an option that doesn't support taking raw
     addresses inside GC objects and "hacking" at them.  This is
-    notably the case with --reversedb."""
+    notably the case with --revdb."""
     return False
 
 # for test purposes we allow objects to be pinned and use
@@ -689,6 +689,13 @@ class MoveOutOfNurseryEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
+
+@jit.dont_look_inside
+def increase_root_stack_depth(new_depth):
+    """Shadowstack: make sure the size of the shadowstack is at least
+    'new_depth' pointers."""
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.gc_increase_root_stack_depth(lltype.Void, new_depth)
 
 # ____________________________________________________________
 
@@ -1406,6 +1413,11 @@ def resizable_list_supporting_raw_ptr(lst):
     return _ResizableListSupportingRawPtr(lst)
 
 def nonmoving_raw_ptr_for_resizable_list(lst):
+    if must_split_gc_address_space():
+        raise ValueError
+    return _nonmoving_raw_ptr_for_resizable_list(lst)
+
+def _nonmoving_raw_ptr_for_resizable_list(lst):
     assert isinstance(lst, _ResizableListSupportingRawPtr)
     return lst._nonmoving_raw_ptr_for_resizable_list()
 
@@ -1450,7 +1462,7 @@ class Entry(ExtRegistryEntry):
         return hop.inputarg(hop.args_r[0], 0)
 
 class Entry(ExtRegistryEntry):
-    _about_ = nonmoving_raw_ptr_for_resizable_list
+    _about_ = _nonmoving_raw_ptr_for_resizable_list
 
     def compute_result_annotation(self, s_list):
         from rpython.rtyper.lltypesystem import lltype, rffi

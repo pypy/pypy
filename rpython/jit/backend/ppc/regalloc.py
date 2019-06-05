@@ -197,10 +197,8 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        longevity = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        self.last_real_usage = last_real_usage
         self.rm = PPCRegisterManager(self.longevity,
                                      frame_manager = self.fm,
                                      assembler = self.assembler)
@@ -804,6 +802,14 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         temp_loc = r.SCRATCH2
         return [base_loc, temp_loc]
 
+    def prepare_load_effective_address(self, op):
+        arg0 = self.ensure_reg(op.getarg(0))
+        arg1 = self.ensure_reg(op.getarg(1))
+        arg2 = self.ensure_reg_or_any_imm(op.getarg(2))
+        arg3 = self.ensure_reg_or_any_imm(op.getarg(3))
+        resloc = self.force_allocate_reg(op)
+        return [arg0, arg1, arg2, arg3, resloc]
+
     def prepare_copystrcontent(self, op):
         src_ptr_loc = self.ensure_reg(op.getarg(0))
         dst_ptr_loc = self.ensure_reg(op.getarg(1))
@@ -949,7 +955,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         position = self.rm.position
         for arg in inputargs:
             assert not isinstance(arg, Const)
-            if self.last_real_usage.get(arg, -1) <= position:
+            if self.longevity[arg].is_last_real_use_before(position):
                 self.force_spill_var(arg)
         #
         # we need to make sure that no variable is stored in spp (=r31)

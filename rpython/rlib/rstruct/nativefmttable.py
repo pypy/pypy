@@ -4,7 +4,7 @@ The table 'native_fmttable' is also used by pypy.module.array.interp_array.
 """
 import struct
 
-from rpython.rlib import jit, longlong2float
+from rpython.rlib import rutf8, longlong2float
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_singlefloat, widen, intmask
 from rpython.rlib.rstruct import standardfmttable as std
@@ -146,17 +146,17 @@ native_fmttable['e'] = {'size': native_fmttable['h']['size'],
 from rpython.rlib.rstruct import unichar
 
 def pack_unichar(fmtiter):
-    unistr = fmtiter.accept_unicode_arg()
-    if len(unistr) != 1:
+    utf8, lgt = fmtiter.accept_unicode_arg()
+    if lgt != 1:
         raise StructError("expected a unicode string of length 1")
-    c = unistr[0]   # string->char conversion for the annotator
-    unichar.pack_unichar(c, fmtiter.wbuf, fmtiter.pos)
+    uchr = rutf8.codepoint_at_pos(utf8, 0)
+    unichar.pack_codepoint(uchr, fmtiter.wbuf, fmtiter.pos)
     fmtiter.advance(unichar.UNICODE_SIZE)
 
 @specialize.argtype(0)
 def unpack_unichar(fmtiter):
     data = fmtiter.read(unichar.UNICODE_SIZE)
-    fmtiter.appendobj(unichar.unpack_unichar(data))
+    fmtiter.append_utf8(unichar.unpack_codepoint(data))
 
 native_fmttable['u'] = {'size': unichar.UNICODE_SIZE,
                         'alignment': unichar.UNICODE_SIZE,

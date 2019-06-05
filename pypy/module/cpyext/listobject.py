@@ -104,7 +104,8 @@ def PyList_Insert(space, w_list, index, w_item):
 def PyList_GET_SIZE(space, w_obj):
     """Macro form of PyList_Size() without error checking.
     """
-    return space.len_w(w_obj)
+    assert isinstance(w_obj, W_ListObject)
+    return w_obj.length()
 
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)

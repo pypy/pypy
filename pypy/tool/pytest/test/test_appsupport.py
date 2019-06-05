@@ -35,25 +35,6 @@ def test_pypy_collection(testdir):
     ])
 
 class TestSpaceConfig:
-    def test_applevel_skipped_on_cpython_and_spaceconfig(self, testdir):
-        setpypyconftest(testdir)
-        testdir.makepyfile("""
-            class AppTestClass:
-                spaceconfig = {"objspace.usemodules._random": True}
-                def setup_class(cls):
-                    assert 0
-                def test_applevel(self):
-                    pass
-        """)
-        result = testdir.runpytest("-A")
-        assert result.ret == 0
-        if hasattr(sys, 'pypy_translation_info') and \
-           sys.pypy_translation_info.get('objspace.usemodules._random'):
-            result.stdout.fnmatch_lines(["*1 error*"])
-        else:
-            # setup_class didn't get called, otherwise it would error
-            result.stdout.fnmatch_lines(["*1 skipped*"])
-
     def test_interp_spaceconfig(self, testdir):
         setpypyconftest(testdir)
         p = testdir.makepyfile("""

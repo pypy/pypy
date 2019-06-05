@@ -142,11 +142,14 @@ class RewriteTests(object):
         raw_sfdescr = get_array_descr(self.gc_ll_descr, RAW_SF)
         #
         strdescr     = self.gc_ll_descr.str_descr
+        str_basesize = self.gc_ll_descr.str_descr.basesize - 1
         unicodedescr = self.gc_ll_descr.unicode_descr
         strlendescr     = strdescr.lendescr
         unicodelendescr = unicodedescr.lendescr
         strhashdescr     = self.gc_ll_descr.str_hash_descr
         unicodehashdescr = self.gc_ll_descr.unicode_hash_descr
+        memcpy_fn = self.gc_ll_descr.memcpy_fn
+        memcpy_descr = self.gc_ll_descr.memcpy_descr
 
         casmdescr = JitCellToken()
         clt = FakeLoopToken()
@@ -169,6 +172,7 @@ class RewriteTests(object):
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
+
         #
         guarddescr = AbstractFailDescr()
         #
@@ -236,6 +240,9 @@ class BaseFakeCPU(object):
             r = FieldDescr(fname, 1, 1, 1)
             self._cache[key] = r
             return r
+
+    def cast_adr_to_int(self, adr):
+        return llmemory.AddressAsInt(adr)
 
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
@@ -1436,3 +1443,14 @@ class TestFramework(RewriteTests):
             jump()
         """)
         assert len(self.gcrefs) == 2
+
+    def test_rewrite_copystrcontents(self):
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copystrcontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i2 = load_effective_address(p0, i0, %(str_basesize)s, 0)
+        i3 = load_effective_address(p1, i1, %(str_basesize)s, 0)
+        call_n(ConstClass(memcpy_fn), i3, i2, i_len, descr=memcpy_descr)
+        """)

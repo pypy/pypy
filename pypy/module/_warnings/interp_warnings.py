@@ -1,3 +1,6 @@
+
+from rpython.rlib import rutf8
+
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 
@@ -208,10 +211,11 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     except OperationError as e:
         if e.async(space):
             raise
-        message = u"%s:%d: %s: %s\n" % (space.unicode_w(w_filename), lineno,
-                                        space.unicode_w(w_name),
-                                        space.unicode_w(w_text))
-        w_message = space.newunicode(message)
+        message = "%s:%d: %s: %s\n" % (space.utf8_w(w_filename), lineno,
+                                        space.utf8_w(w_name),
+                                        space.utf8_w(w_text))
+        lgt = rutf8.check_utf8(message, True)
+        w_message = space.newutf8(message, lgt)
     else:
         w_message = space.newtext(message)
     space.call_method(w_stderr, "write", w_message)

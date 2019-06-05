@@ -368,6 +368,16 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 raise oefmt(space.w_TypeError,
                             "field '%s.%s' has ctype '%s' of unknown size",
                             w_ctype.name, fname, ftype.name)
+        elif isinstance(ftype, ctypestruct.W_CTypeStructOrUnion):
+            ftype.force_lazy_struct()
+            # GCC (or maybe C99) accepts var-sized struct fields that are not
+            # the last field of a larger struct.  That's why there is no
+            # check here for "last field": we propagate the flag
+            # '_with_var_array' to any struct that contains either an open-
+            # ended array or another struct that recursively contains an
+            # open-ended array.
+            if ftype._with_var_array:
+                with_var_array = True
         #
         if is_union:
             boffset = 0         # reset each field at offset 0
@@ -419,7 +429,6 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 # a nested anonymous struct or union
                 # note: it seems we only get here with ffi.verify()
                 srcfield2names = {}
-                ftype.force_lazy_struct()
                 for name, srcfld in ftype._fields_dict.items():
                     srcfield2names[srcfld] = name
                 for srcfld in ftype._fields_list:

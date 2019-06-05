@@ -173,7 +173,8 @@ if sys.platform == 'win32':
         result = popen.stdout.read()
         err = popen.wait()
         if err:
-            raise OSError("%r failed with exit code %r" % (name, err))
+            raise OSError("%r failed with exit code %r" % (
+                os.path.join(path, executable_name), err))
         return result
 
 

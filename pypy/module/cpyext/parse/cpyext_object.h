@@ -68,7 +68,8 @@ typedef Py_ssize_t (*segcountproc)(PyObject *, Py_ssize_t *);
 typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
 
 /* Py3k buffer interface, adapted for PyPy */
-#define Py_MAX_NDIMS 32
+/* XXX remove this constant, us a PyObject_VAR_HEAD instead */
+#define Py_MAX_NDIMS 36
 #define Py_MAX_FMT 128
 typedef struct bufferinfo {
     void *buf;

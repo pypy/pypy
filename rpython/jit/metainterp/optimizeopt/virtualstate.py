@@ -596,14 +596,14 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
             raise VirtualStatesCantMatch('trying to match ptr with non-ptr??!')
         if other.level == LEVEL_UNKNOWN:
             if (runtime_box and runtime_box.nonnull() and
-                  self.known_class.same_constant(cpu.ts.cls_of_box(runtime_box))):
+                  self.known_class.same_constant(cpu.cls_of_box(runtime_box))):
                 op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class])
                 extra_guards.append(op)
             else:
                 raise VirtualStatesCantMatch("other's class is unknown")
         elif other.level == LEVEL_NONNULL:
             if (runtime_box and self.known_class.same_constant(
-                    cpu.ts.cls_of_box(runtime_box))):
+                    cpu.cls_of_box(runtime_box))):
                 op = ResOperation(rop.GUARD_CLASS, [box, self.known_class])
                 extra_guards.append(op)
             else:
@@ -615,7 +615,7 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
         else:
             assert other.level == LEVEL_CONSTANT
             if (other.constbox.nonnull() and
-                    self.known_class.same_constant(cpu.ts.cls_of_box(other.constbox))):
+                    self.known_class.same_constant(cpu.cls_of_box(other.constbox))):
                 pass
             else:
                 raise VirtualStatesCantMatch("classes don't match")

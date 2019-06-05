@@ -56,7 +56,12 @@ def _get_msvc_env(vsver, x64flag):
         # use setuptools from python3 to find tools
         try:
             vcdict = _find_vcvarsall(vsver, x64flag)
+        except ImportError as e:
+            if 'setuptools' in str(e):
+                log.error('is setuptools installed (perhaps try %s -mensurepip)?' % sys.executable)
+            log.error('looking for compiler %s raised exception "%s' % (vsver, str(e)))
         except Exception as e:
+            log.error('looking for compiler %s raised exception "%s' % (vsver, str(e)))
             return None
     else:
         if x64flag:

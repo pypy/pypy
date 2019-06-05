@@ -1,6 +1,7 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
-from rpython.jit.metainterp.history import Const, ConstInt, ConstPtr
+from rpython.jit.metainterp.history import (
+    Const, ConstInt, ConstPtr, CONST_NULL, new_ref_dict)
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT, IntUnbounded
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -8,7 +9,6 @@ from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
      OpHelpers
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.debug import debug_print
 from rpython.rtyper import rclass
@@ -21,7 +21,6 @@ from rpython.jit.metainterp.optimize import SpeculativeError
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CONST_ZERO_FLOAT = Const._new(0.0)
-llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
 class LoopInfo(object):
@@ -158,7 +157,7 @@ class Optimization(object):
         if isinstance(fw, info.AbstractRawPtrInfo):
             return True
         return False
-    
+
     def getrawptrinfo(self, op, create=False, is_object=False):
         assert op.type == 'i'
         op = self.get_box_replacement(op)
@@ -272,7 +271,7 @@ class Optimizer(Optimization):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
-        self.interned_refs = self.cpu.ts.new_ref_dict()
+        self.interned_refs = new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard
@@ -464,7 +463,7 @@ class Optimizer(Optimization):
 
     def make_nonnull_str(self, op, mode):
         from rpython.jit.metainterp.optimizeopt import vstring
-        
+
         op = self.get_box_replacement(op)
         if op.is_constant():
             return
@@ -475,7 +474,7 @@ class Optimizer(Optimization):
 
     def ensure_ptr_info_arg0(self, op):
         from rpython.jit.metainterp.optimizeopt import vstring
-        
+
         arg0 = self.get_box_replacement(op.getarg(0))
         if arg0.is_constant():
             return info.ConstPtrInfo(arg0)
@@ -503,7 +502,7 @@ class Optimizer(Optimization):
         elif opnum in (rop.GUARD_CLASS, rop.GUARD_NONNULL_CLASS):
             opinfo = info.InstancePtrInfo()
         elif opnum in (rop.STRLEN,):
-            opinfo = vstring.StrPtrInfo(vstring.mode_string)            
+            opinfo = vstring.StrPtrInfo(vstring.mode_string)
         elif opnum in (rop.UNICODELEN,):
             opinfo = vstring.StrPtrInfo(vstring.mode_unicode)
         else:
@@ -515,7 +514,7 @@ class Optimizer(Optimization):
 
     def new_const(self, fieldofs):
         if fieldofs.is_pointer_field():
-            return self.cpu.ts.CONST_NULL
+            return CONST_NULL
         elif fieldofs.is_float_field():
             return CONST_ZERO_FLOAT
         else:
@@ -523,7 +522,7 @@ class Optimizer(Optimization):
 
     def new_const_item(self, arraydescr):
         if arraydescr.is_array_of_pointers():
-            return self.cpu.ts.CONST_NULL
+            return CONST_NULL
         elif arraydescr.is_array_of_floats():
             return CONST_ZERO_FLOAT
         else:

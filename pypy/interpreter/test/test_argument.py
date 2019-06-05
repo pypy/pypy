@@ -54,6 +54,9 @@ class kwargsdict(dict):
     pass
 
 class DummySpace(object):
+    class sys:
+        defaultencoding = 'utf-8'
+
     def newtuple(self, items):
         return tuple(items)
 

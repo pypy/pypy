@@ -467,3 +467,40 @@ def test_error_invalid_syntax_for_cdef():
     e = py.test.raises(CDefError, ffi.cdef, 'void foo(void) {}')
     assert str(e.value) == ('<cdef source string>:1: unexpected <FuncDef>: '
                             'this construct is valid C but not valid in cdef()')
+
+def test_unsigned_int_suffix_for_constant():
+    ffi = FFI()
+    ffi.cdef("""enum e {
+                    bin_0=0b10,
+                    bin_1=0b10u,
+                    bin_2=0b10U,
+                    bin_3=0b10l,
+                    bin_4=0b10L,
+                    bin_5=0b10ll,
+                    bin_6=0b10LL,
+                    oct_0=010,
+                    oct_1=010u,
+                    oct_2=010U,
+                    oct_3=010l,
+                    oct_4=010L,
+                    oct_5=010ll,
+                    oct_6=010LL,
+                    dec_0=10,
+                    dec_1=10u,
+                    dec_2=10U,
+                    dec_3=10l,
+                    dec_4=10L,
+                    dec_5=10ll,
+                    dec_6=10LL,
+                    hex_0=0x10,
+                    hex_1=0x10u,
+                    hex_2=0x10U,
+                    hex_3=0x10l,
+                    hex_4=0x10L,
+                    hex_5=0x10ll,
+                    hex_6=0x10LL,};""")
+    needs_dlopen_none()
+    C = ffi.dlopen(None)
+    for base, expected_result in (('bin', 2), ('oct', 8), ('dec', 10), ('hex', 16)):
+        for index in range(7):
+            assert getattr(C, '{base}_{index}'.format(base=base, index=index)) == expected_result

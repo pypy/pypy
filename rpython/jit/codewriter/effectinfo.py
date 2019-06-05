@@ -1,9 +1,13 @@
 import sys
-from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.rtyper.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 from rpython.tool.algo import bitstring
+from rpython.jit.metainterp.support import int2adr
+
+
+class UnsupportedFieldExc(Exception):
+    pass
 
 
 class EffectInfo(object):
@@ -294,39 +298,45 @@ def effectinfo_from_writeanalyze(effects, cpu,
         write_descrs_interiorfields = []
 
         def add_struct(descrs_fields, (_, T, fieldname)):
-            T = deref(T)
+            T = T.TO
             if consider_struct(T, fieldname):
                 descr = cpu.fielddescrof(T, fieldname)
                 descrs_fields.append(descr)
 
         def add_array(descrs_arrays, (_, T)):
-            ARRAY = deref(T)
+            ARRAY = T.TO
             if consider_array(ARRAY):
                 descr = cpu.arraydescrof(ARRAY)
                 descrs_arrays.append(descr)
 
         def add_interiorfield(descrs_interiorfields, (_, T, fieldname)):
-            T = deref(T)
+            T = T.TO
             if not isinstance(T, lltype.Array):
                 return # let's not consider structs for now
             if not consider_array(T):
                 return
             if getattr(T.OF, fieldname) is lltype.Void:
                 return
-            descr = cpu.interiorfielddescrof(T, fieldname)
+            try:
+                descr = cpu.interiorfielddescrof(T, fieldname)
+            except UnsupportedFieldExc:
+                return
             descrs_interiorfields.append(descr)
 
         # a read or a write to an interiorfield, inside an array of
         # structs, is additionally recorded as a read or write of
         # the array itself
-        extraef = set()
+        extraef = list()
         for tup in effects:
             if tup[0] == "interiorfield" or tup[0] == "readinteriorfield":
-                T = deref(tup[1])
+                T = tup[1].TO
                 if isinstance(T, lltype.Array) and consider_array(T):
-                    extraef.add((tup[0].replace("interiorfield", "array"),
-                                 tup[1]))
-        effects |= extraef
+                    val = (tup[0].replace("interiorfield", "array"),
+                                 tup[1])
+                    if val not in effects:
+                        extraef.append(val)
+        # preserve order in the added effects issue bitbucket #2984
+        effects = tuple(effects) + tuple(extraef)
 
         for tup in effects:
             if tup[0] == "struct":
@@ -367,7 +377,7 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       can_collect)
 
 def consider_struct(TYPE, fieldname):
-    if fieldType(TYPE, fieldname) is lltype.Void:
+    if getattr(TYPE, fieldname) is lltype.Void:
         return False
     if not isinstance(TYPE, lltype.GcStruct): # can be a non-GC-struct
         return False
@@ -379,7 +389,7 @@ def consider_struct(TYPE, fieldname):
     return True
 
 def consider_array(ARRAY):
-    if arrayItem(ARRAY) is lltype.Void:
+    if ARRAY.OF is lltype.Void:
         return False
     if not isinstance(ARRAY, lltype.GcArray): # can be a non-GC-array
         return False
@@ -436,9 +446,8 @@ class CallInfoCollection(object):
             return (None, 0)
 
     def _funcptr_for_oopspec_memo(self, oopspecindex):
-        from rpython.jit.codewriter import heaptracker
         _, func_as_int = self.callinfo_for_oopspec(oopspecindex)
-        funcadr = heaptracker.int2adr(func_as_int)
+        funcadr = int2adr(func_as_int)
         return funcadr.ptr
     _funcptr_for_oopspec_memo._annspecialcase_ = 'specialize:memo'
 

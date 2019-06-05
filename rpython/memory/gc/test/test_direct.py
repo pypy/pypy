@@ -781,7 +781,7 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         def large_malloc():
             # malloc an object which is large enough to trigger a major collection
             threshold = self.gc.next_major_collection_threshold
-            self.malloc(VAR, int(threshold/8))
+            self.malloc(VAR, int(threshold/4))
             summary = debuglog.summary()
             debuglog.reset()
             return summary

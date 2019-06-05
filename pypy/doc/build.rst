@@ -220,11 +220,12 @@ without rerunning the previous steps.
 Making a debug build of PyPy
 ----------------------------
 
-If the Makefile is rerun with the lldebug or lldebug0 target, appropriate
-compilation flags are added to add debug info and reduce compiler optimizations
-to ``-O0`` respectively. If you stop in a debugger, you will see the
-very wordy machine-generated C code from the rpython translation step, which
-takes a little bit of reading to relate back to the rpython code.
+Rerun the ``Makefile`` with the ``make lldebug`` or ``make lldebug0`` target,
+which will build in a way that running under a debugger makes sense.
+Appropriate compilation flags are added to add debug info, and for ``lldebug0``
+compiler optimizations are fully disabled. If you stop in a debugger, you will
+see the very wordy machine-generated C code from the rpython translation step,
+which takes a little bit of reading to relate back to the rpython code.
 
 Build cffi import libraries for the stdlib
 ------------------------------------------

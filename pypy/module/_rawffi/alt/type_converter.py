@@ -1,6 +1,6 @@
 from rpython.rlib import libffi
-from rpython.rlib import jit
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib import jit, rutf8
+from rpython.rlib.rarithmetic import r_uint, intmask
 from pypy.interpreter.error import oefmt
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._rawffi.alt.interp_ffitype import app_types
@@ -85,8 +85,8 @@ class FromAppLevelConverter(object):
             return True
         elif w_ffitype.is_unichar_p() and (w_type is self.space.w_bytes or
                                            w_type is self.space.w_unicode):
-            unicodeval = self.space.unicode_w(w_obj)
-            self.handle_unichar_p(w_ffitype, w_obj, unicodeval)
+            utf8, lgt = self.space.utf8_len_w(w_obj)
+            self.handle_unichar_p(w_ffitype, w_obj, utf8, lgt)
             return True
         return False
 
@@ -147,7 +147,7 @@ class FromAppLevelConverter(object):
         """
         self.error(w_ffitype, w_obj)
 
-    def handle_unichar_p(self, w_ffitype, w_obj, unicodeval):
+    def handle_unichar_p(self, w_ffitype, w_obj, utf8val, utf8len):
         """
         unicodeval: interp-level unicode
         """
@@ -227,8 +227,8 @@ class ToAppLevelConverter(object):
             ucharval = self.get_char(w_ffitype)
             return space.newbytes(chr(ucharval))
         elif w_ffitype.is_unichar():
-            wcharval = self.get_unichar(w_ffitype)
-            return space.newunicode(unichr(wcharval))
+            wcharval = r_uint(self.get_unichar(w_ffitype))
+            return space.newutf8(rutf8.unichr_as_utf8(wcharval), 1)
         elif w_ffitype.is_double():
             return self._float(w_ffitype)
         elif w_ffitype.is_singlefloat():

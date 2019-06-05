@@ -27,7 +27,6 @@ import sys
 import platform
 import itertools
 import distutils.errors
-from pkg_resources.extern.packaging.version import LegacyVersion
 
 from setuptools.extern.six.moves import filterfalse
 
@@ -201,6 +200,7 @@ def msvc14_gen_lib_options(*args, **kwargs):
     """
     if "numpy.distutils" in sys.modules:
         import numpy as np
+        from pkg_resources.extern.packaging.version import LegacyVersion
         if LegacyVersion(np.__version__) < LegacyVersion('1.11.2'):
             return np.distutils.ccompiler.gen_lib_options(*args, **kwargs)
     return get_unpatched(msvc14_gen_lib_options)(*args, **kwargs)

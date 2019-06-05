@@ -1,8 +1,9 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import jitprof
-from rpython.jit.metainterp.history import (Const, ConstInt, getkind,
-    INT, REF, FLOAT, AbstractDescr, IntFrontendOp, RefFrontendOp,
-    FloatFrontendOp)
+from rpython.jit.metainterp.history import (
+    Const, ConstInt, ConstPtr, getkind, INT, REF, FLOAT, CONST_NULL,
+    AbstractDescr, IntFrontendOp, RefFrontendOp, FloatFrontendOp,
+    new_ref_dict)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import rarithmetic, rstack
 from rpython.rlib.objectmodel import (we_are_translated, specialize,
@@ -177,7 +178,7 @@ class ResumeDataLoopMemo(object):
         self.cpu = metainterp_sd.cpu
         self.consts = []
         self.large_ints = {}
-        self.refs = self.cpu.ts.new_ref_dict_2()
+        self.refs = new_ref_dict()
         self.cached_boxes = {}
         self.cached_virtuals = {}
 
@@ -241,7 +242,7 @@ class ResumeDataLoopMemo(object):
                     is_virtual = (info is not None and info.is_virtual())
                 if box.type == 'i':
                     info = optimizer.getrawptrinfo(box, create=False)
-                    is_virtual = (info is not None and info.is_virtual()) 
+                    is_virtual = (info is not None and info.is_virtual())
                 if is_virtual:
                     tagged = tag(num_virtuals, TAGVIRTUAL)
                     num_virtuals += 1
@@ -471,7 +472,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
 
     def _number_virtuals(self, liveboxes, optimizer, num_env_virtuals):
         from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
-        
+
         # !! 'liveboxes' is a list that is extend()ed in-place !!
         memo = self.memo
         new_liveboxes = [None] * memo.num_cached_boxes()
@@ -1251,7 +1252,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         num, tag = untag(tagged)
         if tag == TAGCONST:
             if tagged_eq(tagged, NULLREF):
-                box = self.cpu.ts.CONST_NULL
+                box = CONST_NULL
             else:
                 box = self.consts[num - TAG_CONST_OFFSET]
         elif tag == TAGVIRTUAL:
@@ -1569,7 +1570,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         num, tag = untag(tagged)
         if tag == TAGCONST:
             if tagged_eq(tagged, NULLREF):
-                return self.cpu.ts.NULLREF
+                return ConstPtr.value
             return self.consts[num - TAG_CONST_OFFSET].getref_base()
         elif tag == TAGVIRTUAL:
             return self.getvirtual_ptr(num)

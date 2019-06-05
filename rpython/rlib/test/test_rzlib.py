@@ -246,6 +246,108 @@ def test_decompress_max_length():
     rzlib.deflateEnd(stream)
 
 
+def test_compress_copy():
+    """
+    inflateCopy produces an independent copy of a stream.
+    """
+
+    stream = rzlib.deflateInit()
+
+    bytes1 = rzlib.compress(stream, expanded[:10])
+    assert bytes1
+
+    copied = rzlib.deflateCopy(stream)
+
+    bytes_stream = rzlib.compress(
+        stream,
+        expanded[10:],
+        rzlib.Z_FINISH,
+    )
+    assert bytes1 + bytes_stream == compressed
+    rzlib.deflateEnd(stream)
+
+    bytes_copy = rzlib.compress(
+        copied,
+        expanded[10:],
+        rzlib.Z_FINISH,
+    )
+    rzlib.deflateEnd(copied)
+    assert bytes1 + bytes_copy == compressed
+
+@py.test.mark.skipif(rzlib.ZLIB_VERSION == '1.2.8', reason='does not error check')
+def test_unsuccessful_compress_copy():
+    """
+    Errors during unsuccesful deflateCopy operations raise RZlibErrors.
+    """
+    stream = rzlib.deflateInit()
+
+    # From zlib.h:
+    #
+    # "deflateCopy returns [...] Z_STREAM_ERROR if the source stream
+    #  state was inconsistent (such as zalloc being Z_NULL)"
+    from rpython.rtyper.lltypesystem import rffi, lltype
+    stream.c_zalloc = rffi.cast(lltype.typeOf(stream.c_zalloc), rzlib.Z_NULL)
+
+    exc = py.test.raises(rzlib.RZlibError, rzlib.deflateCopy, stream)
+    msg = "Error -2 while copying compression object: inconsistent stream state"
+    assert str(exc.value) == msg
+    rzlib.deflateEnd(stream)
+
+
+def test_decompress_copy():
+    """
+    inflateCopy produces an independent copy of a stream.
+    """
+
+    stream = rzlib.inflateInit()
+
+    bytes1, finished1, unused1 = rzlib.decompress(stream, compressed[:10])
+    assert bytes1
+    assert finished1 is False
+
+    copied = rzlib.inflateCopy(stream)
+
+    bytes_stream, finished_stream, unused_stream = rzlib.decompress(
+        stream,
+        compressed[10:],
+        rzlib.Z_FINISH,
+    )
+    assert bytes1 + bytes_stream == expanded
+    assert finished_stream is True
+    assert unused1 == 0
+    assert unused_stream == 0
+    rzlib.inflateEnd(stream)
+
+    bytes_copy, finished_copy, unused_copy = rzlib.decompress(
+        copied,
+        compressed[10:],
+        rzlib.Z_FINISH,
+    )
+    rzlib.inflateEnd(copied)
+    assert bytes1 + bytes_copy == expanded
+    assert finished_copy is True
+    assert unused_copy == 0
+
+
+def test_unsuccessful_decompress_copy():
+    """
+    Errors during unsuccesful inflateCopy operations raise RZlibErrors.
+    """
+    stream = rzlib.inflateInit()
+
+    # From zlib.h:
+    #
+    # "inflateCopy returns [...] Z_STREAM_ERROR if the source stream
+    #  state was inconsistent (such as zalloc being Z_NULL)"
+    from rpython.rtyper.lltypesystem import rffi, lltype
+    stream.c_zalloc = rffi.cast(lltype.typeOf(stream.c_zalloc), rzlib.Z_NULL)
+
+    exc = py.test.raises(rzlib.RZlibError, rzlib.inflateCopy, stream)
+    msg = "Error -2 while copying decompression object: inconsistent stream state"
+    assert str(exc.value) == msg
+    rzlib.inflateEnd(stream)
+
+
 def test_cornercases():
     """
     Test degenerate arguments.

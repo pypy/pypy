@@ -1,10 +1,10 @@
 """The builtin str implementation"""
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.rstring import StringBuilder, replace
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import SimpleView
@@ -18,7 +18,7 @@ from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
     decode_object, unicode_from_encoded_object,
-    unicode_from_string, getdefaultencoding)
+    getdefaultencoding, unicode_from_string)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 
@@ -53,10 +53,8 @@ class W_AbstractBytesObject(W_Root):
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
         return space.newint(uid)
 
-    def unicode_w(self, space):
-        # Use the default encoding.
-        encoding = getdefaultencoding(space)
-        return space.unicode_w(decode_object(space, self, encoding, None))
+    def convert_to_w_unicode(self, space):
+        return unicode_from_string(space, self)
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""
@@ -453,6 +451,9 @@ class W_BytesObject(W_AbstractBytesObject):
     def str_w(self, space):
         return self._value
 
+    def utf8_w(self, space):
+        return self._value
+
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
         return SimpleView(StringBuffer(self._value))
@@ -602,7 +603,7 @@ class W_BytesObject(W_AbstractBytesObject):
             w_format_spec = space.str(w_format_spec)
         spec = space.bytes_w(w_format_spec)
         formatter = newformat.str_formatter(space, spec)
-        return formatter.format_string(self._value)
+        return formatter.format_string(self)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=False)
@@ -660,7 +661,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_prefix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return self_as_unicode._startswith(space, self_as_unicode._value,
+            return self_as_unicode._startswith(space, self_as_unicode._utf8,
                                                w_prefix, start, end)
         return self._StringMethods__startswith(space, value, w_prefix, start,
                                                end)
@@ -670,7 +671,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_suffix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return self_as_unicode._endswith(space, self_as_unicode._value,
+            return self_as_unicode._endswith(space, self_as_unicode._utf8,
                                              w_suffix, start, end)
         return self._StringMethods__endswith(space, value, w_suffix, start,
                                              end)
@@ -683,7 +684,7 @@ class W_BytesObject(W_AbstractBytesObject):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
             return space.newbool(
-                self_as_unicode._value.find(w_sub._value) >= 0)
+                self_as_unicode._utf8.find(w_sub._utf8) >= 0)
         return self._StringMethods_descr_contains(space, w_sub)
 
     _StringMethods_descr_replace = descr_replace

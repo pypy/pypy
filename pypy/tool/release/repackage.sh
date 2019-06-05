@@ -1,11 +1,15 @@
 # Edit these appropriately before running this script
-pmaj=2  # python main version
+pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
-maj=6
-min=0
+exe=pypy3 # pypy3 or pypy
+maj=7
+min=1
 rev=0
-branchname=release-pypy$pmaj.$pmin-$maj.x # ==OR== release-$maj.x  # ==OR== release-$maj.$min.x
-tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
+
+
+branchname=release-pypy$pmaj.$pmin-v$maj.x # ==OR== release-v$maj.x  # ==OR== release-v$maj.$min.x
+tagname=release-candidate-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
+# tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
 
 echo checking hg log -r $branchname
 hg log -r $branchname || exit 1
@@ -13,7 +17,7 @@ echo checking hg log -r $tagname
 hg log -r $tagname || exit 1
 hgrev=`hg id -r $tagname -i`
 
-rel=pypy$pmaj-v$maj.$min.$rev
+rel=pypy$pmaj.$pmin-v$maj.$min.$rev
 # The script should be run in an empty in the pypy tree, i.e. pypy/tmp
 if [ "`ls . | wc -l`" != "0" ]
 then
@@ -23,7 +27,8 @@ fi
 
 # Download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket
-for plat in linux linux64 linux-armhf-raspbian linux-armel osx64 s390x
+actual_ver=xxxxxxxxxxxxxxx
+for plat in linux linux64 osx64 s390x # linux-armhf-raspbian linux-armel
   do
     echo downloading package for $plat
     if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
@@ -49,11 +54,24 @@ for plat in linux linux64 linux-armhf-raspbian linux-armel osx64 s390x
         plat_final=linux32
     fi
     mv pypy-c-jit-*-$plat $rel-$plat_final
+    # TODO: automate the platform choice or move it to the head of the file
+    if [ $plat_final == linux64 ]
+    then
+        actual_ver=`$rel-$plat_final/bin/$exe -c "import sys; print('.'.join([str(x) for x in sys.pypy_version_info[:2]]))"`
+    fi
     echo packaging $plat_final
     tar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
     rm -rf $rel-$plat_final
   done
-
+if [ "$actual_ver" != "$maj.$min" ]
+then
+    echo xxxxxxxxxxxxxxxxxxxxxx
+    echo version mismatch, expected $maj.$min, got $actual_ver
+    echo xxxxxxxxxxxxxxxxxxxxxx
+    exit -1
+    rm -rf $rel-$plat_final
+    continue
+fi
 plat=win32
 if wget http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.zip
 then

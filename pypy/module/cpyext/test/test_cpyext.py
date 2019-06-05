@@ -138,6 +138,7 @@ class LeakCheckingTest(object):
                                    'itertools', 'time', 'binascii',
                                    'mmap'
                                    ])
+    spaceconfig["objspace.std.withspecialisedtuple"] = True
 
     @classmethod
     def preload_builtins(cls, space):

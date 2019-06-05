@@ -15,7 +15,7 @@ INFO_UNKNOWN = 2
 
 class AbstractInfo(AbstractValue):
     _attrs_ = ()
-    
+
     is_info_class = True
 
     def force_box(self, op, optforce):
@@ -89,7 +89,7 @@ class PtrInfo(AbstractInfo):
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
     last_guard_pos = -1
-    
+
     def is_nonnull(self):
         return True
 
@@ -469,7 +469,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
 
     def setitem_raw(self, offset, itemsize, descr, itemop):
         self.parent.setitem_raw(self.offset+offset, itemsize, descr, itemop)
-    
+
     def _force_elements(self, op, optforce, descr):
         if self.parent.is_virtual():
             self.parent._force_elements(op, optforce, descr)
@@ -643,7 +643,7 @@ class ArrayStructInfo(ArrayPtrInfo):
             return 0 # annotation hack
         one_size = len(all_fdescrs)
         return index * one_size + fielddescr.get_field_descr().get_index()
-        
+
     def setinteriorfield_virtual(self, index, fielddescr, fld):
         index = self._compute_index(index, fielddescr)
         self._items[index] = fld
@@ -693,7 +693,7 @@ class ArrayStructInfo(ArrayPtrInfo):
 
 class ConstPtrInfo(PtrInfo):
     _attrs_ = ('_const',)
-    
+
     def __init__(self, const):
         self._const = const
 
@@ -719,7 +719,7 @@ class ConstPtrInfo(PtrInfo):
         if info is None:
             info = ArrayPtrInfo(descr)
             optheap.const_infos[ref] = info
-        return info        
+        return info
 
     def getfield(self, fielddescr, optheap=None):
         info = self._get_info(fielddescr.get_parent_descr(), optheap)
@@ -755,7 +755,7 @@ class ConstPtrInfo(PtrInfo):
             # guard_gc_type
             if not cpu.check_is_object(self._const.getref_base()):
                 return None
-        return cpu.ts.cls_of_box(self._const)
+        return cpu.cls_of_box(self._const)
 
     def same_info(self, other):
         if not isinstance(other, ConstPtrInfo):
@@ -804,7 +804,7 @@ class ConstPtrInfo(PtrInfo):
                 return -1
             return len(s)
         elif mode is vstring.mode_unicode:
-            s = self._unpack_str(vstring.mode_unicode)            
+            s = self._unpack_str(vstring.mode_unicode)
             if s is None:
                 return -1
             return len(s)
@@ -835,7 +835,7 @@ class ConstPtrInfo(PtrInfo):
                                         targetbox, CONST_0, offsetbox,
                                         lgt, mode)
 
-    
+
 class FloatConstInfo(AbstractInfo):
     def __init__(self, const):
         self._const = const

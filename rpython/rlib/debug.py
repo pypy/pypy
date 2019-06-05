@@ -374,14 +374,21 @@ class UnexpectedRUInt(Exception):
 class ExpectedRegularInt(Exception):
     pass
 
+class NegativeArgumentNotAllowed(Exception):
+    pass
+
 def check_nonneg(x):
     """Give a translation-time error if 'x' is not known to be non-negative.
     To help debugging, this also gives a translation-time error if 'x' is
     actually typed as an r_uint (in which case the call to check_nonneg()
     is a bit strange and probably unexpected).
     """
-    assert type(x)(-1) < 0     # otherwise, 'x' is a r_uint or similar
-    assert x >= 0
+    try:
+        assert type(x)(-1) < 0     # otherwise, 'x' is a r_uint or similar
+    except NegativeArgumentNotAllowed:
+        pass
+    else:
+        assert x >= 0
     return x
 
 class Entry(ExtRegistryEntry):

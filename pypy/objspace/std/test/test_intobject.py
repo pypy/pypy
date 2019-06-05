@@ -679,6 +679,11 @@ class AppTestInt(object):
         x = int(321)
         assert x.__rlshift__(333) == 1422567365923326114875084456308921708325401211889530744784729710809598337369906606315292749899759616L
 
+    def test_some_rops(self):
+        import sys
+        x = int(-sys.maxint)
+        assert x.__rsub__(2) == (2 + sys.maxint)
+
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
 

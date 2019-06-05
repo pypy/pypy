@@ -505,43 +505,36 @@ def write_character_names(outfile, table, base_mod):
     if base_mod is None:
         triegenerator.build_compression_tree(outfile, names)
         print >> outfile, "# the following dictionary is used by modules that take this as a base"
+        print >> outfile, "# only used by generate_unicodedb, not after translation"
         print >> outfile, "_orig_names = {"
         for name, code in sorted_names_codes:
             print >> outfile, "%r: %r," % (name, code)
         print >> outfile, "}"
     else:
-        print >> outfile, '_names = {'
+        corrected_names = []
+
         for name, code in sorted_names_codes:
             try:
                 if base_mod.lookup_charcode(code) == name:
                     continue
             except KeyError:
                 pass
-            print >> outfile, '%r: %r,' % (code, name)
-        print >> outfile, '}'
+            corrected_names.append((name, code))
+        corrected_names_dict = dict(corrected_names)
+        triegenerator.build_compression_tree(outfile, corrected_names_dict)
 
-
-        print >> outfile, '_names_corrected = {'
+        removed_names = []
         for name, code in sorted(base_mod._orig_names.iteritems()):
             if name not in names:
-                print >> outfile, '%r: None,' % code
-        print >> outfile, '}'
-
-        print >> outfile, '_code_by_name = {'
-        corrected = {}
-        for name, code in sorted_names_codes:
-            try:
-                if base_mod.lookup_charcode(code) == name:
-                    continue
-            except KeyError:
-                pass
-            print >> outfile, '%r: %r,' % (name, code)
+                removed_names.append((name, code))
+        print >> outfile, '_names_corrected = {'
+        for name, code in removed_names:
+            print >> outfile, '%r: None,' % code
         print >> outfile, '}'
 
         print >> outfile, '_code_by_name_corrected = {'
-        for name, code in sorted(base_mod._orig_names.iteritems()):
-            if name not in names:
-                print >> outfile, '%r: None,' % name
+        for name, code in removed_names:
+            print >> outfile, '%r: None,' % name
         print >> outfile, '}'
 
 
@@ -657,7 +650,7 @@ def lookup(name, with_named_sequence=False):
         code = trie_lookup(name)
     else:
         try:
-            code = _code_by_name[name]
+            code = trie_lookup(name)
         except KeyError:
             if name not in _code_by_name_corrected:
                 code = base_mod.trie_lookup(name)
@@ -686,7 +679,7 @@ def name(code):
         return lookup_charcode(code)
     else:
         try:
-            return _names[code]
+            return lookup_charcode(code)
         except KeyError:
             if code not in _names_corrected:
                 return base_mod.lookup_charcode(code)
@@ -895,7 +888,7 @@ def lookup_named_sequence(code):
     else:
         return None
 ''' % dict(start=table.NAMED_SEQUENCES_START)
-    
+
     # aliases
     print >> outfile, '_name_aliases = ['
     for name, char in table.aliases:

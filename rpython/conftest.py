@@ -6,15 +6,16 @@ pytest_plugins = 'rpython.tool.pytest.expecttest'
 option = None
 
 try:
-    from hypothesis import settings, __version__
+    from hypothesis import settings
 except ImportError:
     pass
 else:
-    if __version__[:2] < '3.6':
-        s = settings(deadline=None)
-        settings.register_profile('default', s)
-    else:
+    try:
         settings.register_profile('default', deadline=None)
+    except Exception:
+        import warnings
+        warnings.warn("Version of hypothesis too old, "
+                      "cannot set the deadline to None")
     settings.load_profile('default')
 
 def braindead_deindent(self):

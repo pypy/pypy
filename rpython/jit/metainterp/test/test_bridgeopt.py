@@ -15,17 +15,13 @@ from rpython.jit.metainterp.optimizeopt.info import InstancePtrInfo
 
 from hypothesis import strategies, given
 
-class FakeTS(object):
+
+class FakeCPU(object):
     def __init__(self, dct):
         self.dct = dct
 
     def cls_of_box(self, box):
         return self.dct[box]
-
-
-class FakeCPU(object):
-    def __init__(self, dct):
-        self.ts = FakeTS(dct)
 
 class FakeOptimizer(object):
     metainterp_sd = None
