@@ -26,6 +26,8 @@ def neg_pow_10(x, exp):
 
 
 class IntCache(object):
+    """ A cache for wrapped ints between START and END """
+
     START = -10
     END = 256
 
@@ -89,7 +91,9 @@ class JSONDecoder(W_Root):
         # otherwise convert them to dicts (see .close())
         self.unclear_objects = []
 
-        self.scratch = [[None] * self.DEFAULT_SIZE_SCRATCH]  # list of scratch space
+        # this is a freelist of lists that store the decoded value of an
+        # object, before they get copied into the eventual dict
+        self.scratch = [[None] * self.DEFAULT_SIZE_SCRATCH]
 
 
     def close(self):
@@ -116,11 +120,13 @@ class JSONDecoder(W_Root):
                 break
         return i
 
-    def decode_any(self, i):
+    def decode_any(self, i, contextmap=None):
+        """ Decode an object at position i. Optionally pass a contextmap, if
+        the value is decoded as the value of a dict. """
         i = self.skip_whitespace(i)
         ch = self.ll_chars[i]
         if ch == '"':
-            return self.decode_string(i+1)
+            return self.decode_string(i+1, contextmap)
         elif ch == '[':
             return self.decode_array(i+1)
         elif ch == '{':
@@ -276,13 +282,8 @@ class JSONDecoder(W_Root):
             self._raise("Unexpected '%s' when decoding object (char %d)",
                         ch, i)
 
-    def decode_surrogate_pair(self, i, highsurr):
-        """ uppon enter the following must hold:
-              chars[i] == "\\" and chars[i+1] == "u"
-        """
-        # the possible ValueError is caught by the caller
-
     def decode_array(self, i):
+        """ Decode a list. i must be after the opening '[' """
         w_list = self.space.newlist([])
         start = i
         i = self.skip_whitespace(start)
@@ -308,13 +309,6 @@ class JSONDecoder(W_Root):
                 self._raise("Unexpected '%s' when decoding array (char %d)",
                             ch, i-1)
 
-    def decode_any_context(self, i, context):
-        i = self.skip_whitespace(i)
-        ch = self.ll_chars[i]
-        if ch == '"':
-            return self.decode_string(i+1, context)
-        return self.decode_any(i)
-
     def decode_object(self, i):
         start = i
 
@@ -338,7 +332,7 @@ class JSONDecoder(W_Root):
                 self._raise("No ':' found at char %d", i)
             i += 1
 
-            w_value = self.decode_any_context(i, currmap)
+            w_value = self.decode_any(i, currmap)
 
             if nextindex == len(values_w):  # full
                 values_w = values_w + [None] * len(values_w)  # double
@@ -527,7 +521,10 @@ class JSONDecoder(W_Root):
         return i
 
 
-    def decode_string(self, i, context=None):
+    def decode_string(self, i, contextmap=None):
+        """ Decode a string at position i (which is right after the opening ").
+        Optionally pass a contextmap, if the value is decoded as the value of a
+        dict. """
         ll_chars = self.ll_chars
         start = i
         ch = ll_chars[i]
@@ -536,9 +533,9 @@ class JSONDecoder(W_Root):
             return self.w_empty_string # surprisingly common
 
         cache = True
-        if context is not None:
-            context.decoded_strings += 1
-            if not context.should_cache():
+        if contextmap is not None:
+            contextmap.decoded_strings += 1
+            if not contextmap.should_cache_strings():
                 cache = False
         if len(self.s) < self.MIN_SIZE_FOR_STRING_CACHE:
             cache = False
@@ -568,8 +565,8 @@ class JSONDecoder(W_Root):
             w_res = self._create_string_wrapped(start, i, nonascii)
             # only add *some* strings to the cache, because keeping them all is
             # way too expensive
-            if ((context is not None and
-                        context.decoded_strings < self.STRING_CACHE_EVALUATION_SIZE) or
+            if ((contextmap is not None and
+                        contextmap.decoded_strings < self.STRING_CACHE_EVALUATION_SIZE) or
                     strhash in self.lru_cache):
                 entry = CacheEntry(
                         self.getslice(start, start + length), w_res)
@@ -581,8 +578,8 @@ class JSONDecoder(W_Root):
         if not entry.compare(ll_chars, start, length):
             # collision! hopefully rare
             return self._create_string_wrapped(start, i, nonascii)
-        if context is not None:
-            context.cache_hits += 1
+        if contextmap is not None:
+            contextmap.cache_hits += 1
         return entry.w_uni
 
     def decode_key_map(self, i, currmap):
@@ -801,6 +798,7 @@ class MapBase(object):
         return next
 
     def change_number_of_leaves(self, difference):
+        """ add difference to .number_of_leaves of self and its parents """
         if not difference:
             return
         parent = self
@@ -974,8 +972,8 @@ class JSONMap(MapBase):
         MapBase._check_invariants(self)
 
     def mark_useful(self, terminator):
-        # mark self as useful, and also the most commonly instantiated
-        # children, recursively
+        """ mark self as useful, and also the most commonly instantiated
+        children, recursively """
         was_fringe = self.state == MapBase.FRINGE
         assert self.state in (MapBase.FRINGE, MapBase.PRELIMINARY)
         self.state = MapBase.USEFUL
@@ -1018,12 +1016,20 @@ class JSONMap(MapBase):
         return self.state == MapBase.USEFUL
 
     def average_instantiation(self):
+        """ the number of instantiations, divided by the number of leaves. we
+        want to favor nodes that have either a high instantiation count, or few
+        leaves below it. """
         return self.instantiation_count / float(self.number_of_leaves)
 
     def is_useful(self):
         return self.average_instantiation() > self.USEFUL_THRESHOLD
 
-    def should_cache(self):
+    def should_cache_strings(self):
+        """ return whether strings parsed in the context of this map should be
+        cached. """
+        # we should cache if either we've seen few strings so far (less than
+        # STRING_CACHE_EVALUATION_SIZE), or if we've seen many, and the cache
+        # hit rate has been high enough
         return not (self.decoded_strings > JSONDecoder.STRING_CACHE_EVALUATION_SIZE and
                 self.cache_hits * JSONDecoder.STRING_CACHE_USEFULNESS_FACTOR < self.decoded_strings)
 
