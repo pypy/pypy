@@ -1,5 +1,5 @@
 """
-CFFI based implementation of the crypt module
+CFFI based implementation of the _crypt module
 """
 
 import sys
