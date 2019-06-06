@@ -475,7 +475,7 @@ class JSONDecoder(W_Root):
         elif ch == 'r': put('\r')
         elif ch == 't': put('\t')
         elif ch == 'u':
-            # may be a suggorate pair
+            # may be a surrogate pair
             return self.decode_escape_sequence_unicode(i, stringbuilder)
         else:
             self._raise("Invalid \\escape: %s (char %d)", ch, i-1)
@@ -647,7 +647,7 @@ class JSONDecoder(W_Root):
         return self._decode_key_string(i)
 
 class CacheEntry(object):
-    """ A cache entry, bunding the encoded version of a string, and its wrapped
+    """ A cache entry, bundling the encoded version of a string, and its wrapped
     decoded variant. """
     def __init__(self, repr, w_uni):
         # repr is the escaped string
@@ -861,7 +861,7 @@ class MapBase(object):
         r = ["digraph G {"]
         self._all_dot(r)
         r.append("}")
-        p = pytest.ensuretemp("resilientast").join("temp.dot")
+        p = pytest.ensuretemp("jsonmap").join("temp.dot")
         p.write("\n".join(r))
         graphclient.display_dot_file(str(p))
 
@@ -1016,7 +1016,7 @@ class JSONMap(MapBase):
         return self.state == MapBase.USEFUL
 
     def average_instantiation(self):
-        """ the number of instantiations, divided by the number of leaves. we
+        """ the number of instantiations, divided by the number of leaves. We
         want to favor nodes that have either a high instantiation count, or few
         leaves below it. """
         return self.instantiation_count / float(self.number_of_leaves)
