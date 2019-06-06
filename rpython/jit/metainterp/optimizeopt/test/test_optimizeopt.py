@@ -9509,15 +9509,17 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, ops)
 
     def test_issue3014_2(self):
-        # same rules for gc_store_indexed versus getarrayitem_gc
+        # same rules for gc_store_indexed versus getarrayitem_gc,
+        # and 'gc_store_indexed' invalidates the value for 'getarrayitem_gc'
         # (in this direction it seems to work already)
         ops = """
-        [i183]
-        p0 = new_array(5, descr=arraydescr)
+        [p0, i183]
+        i234 = getarrayitem_gc_i(p0, 0, descr=arraydescr)
         gc_store_indexed(p0, 0, i183, 1, 16, 2)
         i235 = getarrayitem_gc_i(p0, 0, descr=arraydescr)
+        escape_i(i234)
         escape_i(i235)
-        jump(i183)
+        jump(p0, i183)
         """
         self.optimize_loop(ops, ops)
 
