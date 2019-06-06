@@ -409,7 +409,7 @@ class AppTestPosix:
         path = self.path3
         with open(path, 'wb'):
             pass
-        os.unlink(self.Path())
+        os.unlink(path)
 
     def test_times(self):
         """

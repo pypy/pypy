@@ -793,7 +793,7 @@ class W_Socket(W_Root):
         finally:
             lltype.free(info_ptr, flavor='raw')
         return w_bytes
-			
+
     @unwrap_spec(how="c_int")
     def shutdown_w(self, space, how):
         """shutdown(flag)
