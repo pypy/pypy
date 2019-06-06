@@ -9495,3 +9495,40 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         jump(i3, i2, i3)
         """
         self.optimize_loop(ops, expected)
+
+    def test_issue3014(self):
+        # 'gc_load_indexed' must force 'setarrayitem_gc'
+        ops = """
+        [i183]
+        p0 = new_array(5, descr=arraydescr)
+        setarrayitem_gc(p0, 0, i183, descr=arraydescr)
+        i235 = gc_load_indexed_i(p0, 0, 1, 16, 2)
+        escape_i(i235)
+        jump(i183)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_issue3014_2(self):
+        # same rules for gc_store_indexed versus getarrayitem_gc
+        # (in this direction it seems to work already)
+        ops = """
+        [i183]
+        p0 = new_array(5, descr=arraydescr)
+        gc_store_indexed(p0, 0, i183, 1, 16, 2)
+        i235 = getarrayitem_gc_i(p0, 0, descr=arraydescr)
+        escape_i(i235)
+        jump(i183)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_issue3014_3(self):
+        # 'gc_load' must force 'setfield_gc'
+        ops = """
+        [i183]
+        p0 = new(descr=ssize)
+        setfield_gc(p0, i183, descr=adescr)
+        i235 = gc_load_i(p0, 8, 2)
+        escape_i(i235)
+        jump(i183)
+        """
+        self.optimize_loop(ops, ops)

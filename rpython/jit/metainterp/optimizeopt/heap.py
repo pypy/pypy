@@ -629,6 +629,20 @@ class OptHeap(Optimization):
             # and then emit the operation
             return self.emit(op)
 
+    def optimize_GC_LOAD_I(self, op):
+        # seeing a 'gc_load*' forces all the lazy sets that are still
+        # pending, as an approximation.  We could try to be really clever
+        # and only force some of them, but we don't have any descr here.
+        self.force_all_lazy_sets()
+        self.make_nonnull(op.getarg(0))
+        return self.emit(op)
+    optimize_GC_LOAD_R = optimize_GC_LOAD_I
+    optimize_GC_LOAD_F = optimize_GC_LOAD_I
+
+    optimize_GC_LOAD_INDEXED_I = optimize_GC_LOAD_I
+    optimize_GC_LOAD_R = optimize_GC_LOAD_INDEXED_I
+    optimize_GC_LOAD_F = optimize_GC_LOAD_INDEXED_I
+
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
         #          x = GETFIELD_GC(s, descr='inst_x') # pure
