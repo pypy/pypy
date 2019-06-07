@@ -1228,6 +1228,12 @@ class MIFrame(object):
     @arguments("box", "orgpc")
     def _opimpl_guard_value(self, box, orgpc):
         limit = self.metainterp.jitdriver_sd.warmstate.guard_value_limit
+        # XXX: assumes that guard_value() is only produced by promote().
+        #
+        # If guard_value were produced by control flow instructions, simply
+        # ignoring it would be wrong. Only "specializing" guards are optional.
+        # After pyjitpl, this assumption is invalid (pyjitpl generates various
+        # guard_values).
 
         # If counter of the (failed) guard is above the 'limit', we will *not*
         # implement a 'guard_value'. Instead, we simply return the current box
@@ -1236,13 +1242,17 @@ class MIFrame(object):
         #
         # Additionally, the same 'box' may be promoted multiple times. Hence,
         # if we elided the first 'guard_value(box)', we need to elide all later
-        # guards with the same 'box' as well.
-        if box is self.metainterp.elided_guard_value_box or self.metainterp.guard_value_counter > limit:
+        # guards with the same 'box' as well. (TODO: with the current logic,
+        # this does not work. In a trace, the guard_value may not come first
+        # (due to descr merging). For now, only use the limit as the elision
+        # condition.)
+        if (# box is self.metainterp.elided_guard_value_box or (TODO)
+            self.metainterp.guard_value_counter > limit):
             # limit reached or guard on the same box as the first elided guard_value
             self.metainterp.elided_guard_value_box = box
-            return box
+            return
 
-        return self.implement_guard_value(box, orgpc)
+        self.implement_guard_value(box, orgpc)
 
     @arguments("box", "box", "descr", "orgpc")
     def opimpl_str_guard_value(self, box, funcbox, descr, orgpc):
@@ -1263,6 +1273,16 @@ class MIFrame(object):
     opimpl_int_guard_value = _opimpl_guard_value
     opimpl_ref_guard_value = _opimpl_guard_value
     opimpl_float_guard_value = _opimpl_guard_value
+
+    @arguments("box", "orgpc")
+    def _opimpl_guard_green(self, box, orgpc):
+        # Never skip guarding of greens, they must always be guard_value'd.
+        # Code depends on green boxes to be Const.
+        self.implement_guard_value(box, orgpc)
+
+    opimpl_int_guard_green = _opimpl_guard_green
+    opimpl_ref_guard_green = _opimpl_guard_green
+    opimpl_float_guard_green = _opimpl_guard_green
 
     @arguments("box", "orgpc")
     def opimpl_guard_class(self, box, orgpc):
@@ -1584,7 +1604,6 @@ class MIFrame(object):
                 pc = self.pc
                 op = ord(self.bytecode[pc])
                 staticdata.opcode_implementations[op](self, pc)
-                self.metainterp.guard_value_counter = 0
         except ChangeFrame:
             pass
 
@@ -2500,7 +2519,8 @@ class MetaInterp(object):
         self.staticdata.profiler.start_tracing()
         key = resumedescr.get_resumestorage()
         assert isinstance(key, compile.ResumeGuardDescr)
-        self.guard_value_counter = key.guard_value_counter + 1
+        #
+        self.guard_value_counter = key.guard_value_counter
         self.elided_guard_value_box = None
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp

@@ -462,6 +462,22 @@ def propagate_original_jitcell_token(trace):
             assert isinstance(token, TargetToken)
             token.original_jitcell_token = trace.original_jitcell_token
 
+def propagate_guard_value_counters(r_descr, operations):
+    r_descr = r_descr.get_resumestorage()
+    assert isinstance(r_descr, ResumeGuardDescr)
+    gvc = r_descr.guard_value_counter
+    for op in operations:
+        if op.is_guard():
+            descr = op.getdescr()
+            if op.getopnum() == rop.GUARD_VALUE:
+                # for GV (and guards sharing this descr), increase the counter
+                descr = descr.get_resumestorage()
+                assert isinstance(descr, ResumeGuardDescr)
+                descr.guard_value_counter = gvc + 1
+            elif isinstance(descr, ResumeGuardDescr):
+                # for other guards, pass on the counter
+                descr.guard_value_counter = gvc
+
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
@@ -789,6 +805,7 @@ class AbstractResumeGuardDescr(ResumeDescr):
             self._debug_subinputargs = new_loop.inputargs
             self._debug_suboperations = new_loop.operations
         propagate_original_jitcell_token(new_loop)
+        propagate_guard_value_counters(self, new_loop.operations)
         send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
                                self, inputargs, new_loop.operations,
                                new_loop.original_jitcell_token,
@@ -857,17 +874,7 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
             self.rd_vector_info = other.rd_vector_info.clone()
         else:
             other.rd_vector_info = None
-
-    def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
-        for op in new_loop.operations:
-            if op.is_guard():
-                if op.getopnum() == rop.GUARD_VALUE:
-                    descr = op.getdescr()
-                    if isinstance(descr, ResumeGuardDescr):
-                        descr.guard_value_counter = self.guard_value_counter + 1
-                break
-
-        AbstractResumeGuardDescr.compile_and_attach(self, metainterp, new_loop, orig_inputargs)
+        self.guard_value_counter = other.guard_value_counter
 
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)

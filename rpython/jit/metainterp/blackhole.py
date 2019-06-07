@@ -615,6 +615,16 @@ class BlackholeInterpreter(object):
     def bhimpl_str_guard_value(a, i, d):
         return a
 
+    @arguments("i")
+    def bhimpl_int_guard_green(a):
+        pass
+    @arguments("r")
+    def bhimpl_ref_guard_green(a):
+        pass
+    @arguments("f")
+    def bhimpl_float_guard_green(a):
+        pass
+
     @arguments("self", "i")
     def bhimpl_int_push(self, a):
         self.tmpreg_i = a

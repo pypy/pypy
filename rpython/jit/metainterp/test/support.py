@@ -53,6 +53,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         trace_limit = sys.maxint
         enable_opts = ALL_OPTS_DICT
         vec = True
+        guard_value_limit = 100000
 
     if kwds.pop('disable_optimizations', False):
         FakeWarmRunnerState.enable_opts = {}
