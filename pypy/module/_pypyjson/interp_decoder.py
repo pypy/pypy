@@ -894,7 +894,7 @@ class Terminator(MapBase):
     def cleanup_fringe(self):
         """ remove the least-instantiated fringe map and block it."""
         min_fringe = None
-        min_avg = 10000000000
+        min_avg = float('inf')
         for f in self.current_fringe:
             assert f.state == MapBase.FRINGE
             avg = f.average_instantiation()
