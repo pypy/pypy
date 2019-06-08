@@ -11,6 +11,8 @@ from rpython.rlib._os_support import _preferred_traits
 from rpython.rlib import rwin32
 from rpython.rlib.rwin32file import make_win32_traits
 
+import unicodedata
+
 SMALLBUF = 4
 
 def _get_console_type(handle):
@@ -31,8 +33,8 @@ def _get_console_type(handle):
         lltype.free(mode, flavor='raw')
         lltype.free(peek_count, flavor='raw')
 
-def _pyio_get_console_type(path_or_fd):
-    fd = int(path_or_fd)
+def _pyio_get_console_type(space, w_path_or_fd):
+    fd = space.int_w(w_path_or_fd)
     if fd >= 0:
         handle = rwin32.get_osfhandle(fd)
         if handle == rwin32.INVALID_HANDLE_VALUE:
@@ -40,7 +42,7 @@ def _pyio_get_console_type(path_or_fd):
         return _get_console_type(handle)
 
 
-    decoded = os.fsdecode(path_or_fd)
+    decoded = space.fsdecode_w(w_path_or_fd)
     if not decoded:
         return '\0'
     
@@ -51,12 +53,12 @@ def _pyio_get_console_type(path_or_fd):
     m = '\0'
     
     # In CPython the _wcsicmp function is used to perform case insensitive comparison
-    normdecoded = unicodedata.normalize("NFKD", decoded.casefold())
-    if normdecoded == unicodedata.normalize("NFKD", "CONIN$".casefold()):
+    normdecoded = unicodedata.normalize("NFKD", decoded.lower())
+    if normdecoded == unicodedata.normalize("NFKD", "CONIN$".lower()):
         m = 'r'
-    elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".casefold()):
+    elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".lower()):
         m = 'w'
-    elif normaldecoded == unicodedata.normalize("NFKD", "CON".casefold()):
+    elif normdecoded == unicodedata.normalize("NFKD", "CON".lower()):
         m = 'x'
 
     if m != '\0':
@@ -64,31 +66,31 @@ def _pyio_get_console_type(path_or_fd):
 
     length = 0
     
-    pname_buf = lltype.malloc(rffi.CWHARPP.TO, MAX_PATH, flavor='raw')
+    pname_buf = lltype.malloc(rffi.CWCHARP.TO, rwin32.MAX_PATH, flavor='raw')
 
     traits = _preferred_traits(decoded_wstr)
     win32traits = make_win32_traits(traits)
-    length = win32traits.GetFullPathName(decoded_wstr, MAX_PATH, pname_buf, rffi.NULL)
+    length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, rffi.NULL)
     
-    if length > MAX_PATH:
+    if length > rwin32.MAX_PATH:
         lltype.free(pname_buf, flavor='raw')
-        pname_buf = lltype.malloc(rffi.CWHARPP.TO, length, flavor='raw')
+        pname_buf = lltype.malloc(rffi.CWCHARP.TO, length, flavor='raw')
         if pname_buf:
-            length = win32traits.GetFullPathName(decoded_wstr, MAX_PATH, pname_buf, rffi.NULL)
+            length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, rffi.NULL)
         else:
             length = 0
 
     if length:
         if length >= 4 and pname_buf[3] == '\\' and \
-           (name[2] == '.' or name[2] == '?') and \
-           name[1] == '\\' and name[0] == '\\':
-           name += 4
-        normdecoded = unicodedata.normalize("NFKD", decoded.casefold())
-        if normdecoded == unicodedata.normalize("NFKD", "CONIN$".casefold()):
+           (pname_buf[2] == '.' or pname_buf[2] == '?') and \
+           pname_buf[1] == '\\' and pname_buf[0] == '\\':
+           pname_buf += 4
+        normdecoded = unicodedata.normalize("NFKD", decoded.lower())
+        if normdecoded == unicodedata.normalize("NFKD", "CONIN$".lower()):
             m = 'r'
-        elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".casefold()):
+        elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".lower()):
             m = 'w'
-        elif normaldecoded == unicodedata.normalize("NFKD", "CON".casefold()):
+        elif normdecoded == unicodedata.normalize("NFKD", "CON".lower()):
             m = 'x'
            
     lltype.free(pname_buf, flavor='raw')
@@ -127,9 +129,9 @@ class W_WinConsoleIO(W_RawIOBase):
             closefd = space.bool_w(w_closefd)
 
             if self.fd < 0:
-                decodedname = space.fsdecode_w(w_nameobj)
-                name = rffi.cast(rffi.CWCHARP, decodedname)
-                console_type = _pyio_get_console_type(decodedname)
+                w_decodedname = space.fsdecode(w_nameobj)
+                name = rffi.cast(rffi.CWCHARP, space.text_w(w_decodedname))
+                console_type = _pyio_get_console_type(space, w_decodedname)
                 if not console_type:
                     raise oefmt(space.w_ValueError,
                             "Invalid console type")
