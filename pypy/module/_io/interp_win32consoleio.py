@@ -1,8 +1,9 @@
 import sys
 import os
 
-from pypy.interpreter.error import oefmt
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.typedef import (
+    TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module._io.interp_iobase import (W_RawIOBase, DEFAULT_BUFFER_SIZE)
 from pypy.interpreter.unicodehelper import fsdecode
@@ -219,9 +220,33 @@ class W_WinConsoleIO(W_RawIOBase):
            lltype.free(self.buf, flavor='raw')
         
         return None
+        
+    def repr_w(self, space):
+        typename = space.type(self).name
+        try:
+            w_name = space.getattr(self, space.newtext("name"))
+        except OperationError as e:
+            if not e.match(space, space.w_Exception):
+                raise
+            return space.newtext("<%s>" % (typename,))
+        else:
+            name_repr = space.text_w(space.repr(w_name))
+            return space.newtext("<%s name=%s>" % (typename, name_repr))
+            
+    def fileno_w(self, space):
+        if self.fd < 0 and self.handle != rwin32.INVALID_HANDLE_VALUE:
+            if self.writable:
+                self.fd = rwin32.open_osfhandle(self.handle, rwin32._O_WRONLY | rwin32._O_BINARY)
+            else:
+                self.fd = rwin32.open_osfhandle(self.handle, rwin32._O_RDONLY | rwin32._O_BINARY)
+        if self.fd < 0:
+            return err_mode("fileno")
+         
+        return space.newint(self.fd)
 
 W_WinConsoleIO.typedef = TypeDef(
     '_io._WinConsoleIO', W_WinConsoleIO.typedef,
-    #__new__  = interp2app(W_FileIO.descr_new.im_func),
+    __new__  = generic_new_descr(W_WinConsoleIO),
     __init__  = interp2app(W_WinConsoleIO.descr_init),
+    __repr__ = interp2app(W_WinConsoleIO.repr_w),
     )

@@ -249,6 +249,13 @@ if WIN32:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle
 
+    _open_osfhandle = rffi.llexternal('_open_osfhandle', [rffi.INTP, rffi.INT], rffi.INT)
+
+    def open_osfhandle(handle, flags):
+        fd = _open_osfhandle(handle, flags)
+        with FdValidator(fd):
+            return fd
+
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.
         The function returns the dict, and the default value for codes not
