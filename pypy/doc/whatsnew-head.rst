@@ -38,3 +38,10 @@ Fix a bug that prevent memory-tracking in vmprof working on PyPy.
 .. branch: optimizeopt-cleanup
 
 Cleanup optimizeopt
+
+.. branch: copystrcontents-in-rewrite
+
+Remove ``copystrcontent`` and ``copyunicodecontent`` in the backends.
+Instead, replace it in ``rewrite.py`` with a direct call to ``memcpy()`` and
+new basic operation, ``load_effective_address``, which the backend can
+even decide not to implement.
