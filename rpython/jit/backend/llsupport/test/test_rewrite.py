@@ -148,6 +148,8 @@ class RewriteTests(object):
         unicodelendescr = unicodedescr.lendescr
         strhashdescr     = self.gc_ll_descr.str_hash_descr
         unicodehashdescr = self.gc_ll_descr.unicode_hash_descr
+        uni_basesize  = unicodedescr.basesize
+        uni_itemscale = {2: 1, 4: 2}[unicodedescr.itemsize]
         memcpy_fn = self.gc_ll_descr.memcpy_fn
         memcpy_descr = self.gc_ll_descr.memcpy_descr
 
@@ -204,6 +206,7 @@ class BaseFakeCPU(object):
 
     load_constant_offset = True
     load_supported_factors = (1,2,4,8)
+    supports_load_effective_address = True
 
     translate_support_code = None
 
@@ -1453,4 +1456,47 @@ class TestFramework(RewriteTests):
         i2 = load_effective_address(p0, i0, %(str_basesize)s, 0)
         i3 = load_effective_address(p1, i1, %(str_basesize)s, 0)
         call_n(ConstClass(memcpy_fn), i3, i2, i_len, descr=memcpy_descr)
+        """)
+
+    def test_rewrite_copystrcontents_without_load_effective_address(self):
+        self.cpu.supports_load_effective_address = False
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copystrcontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i2b = int_add(p0, i0)
+        i2 = int_add(i2b, %(str_basesize)s)
+        i3b = int_add(p1, i1)
+        i3 = int_add(i3b, %(str_basesize)s)
+        call_n(ConstClass(memcpy_fn), i3, i2, i_len, descr=memcpy_descr)
+        """)
+
+    def test_rewrite_copyunicodecontents(self):
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copyunicodecontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i2 = load_effective_address(p0, i0, %(uni_basesize)s, %(uni_itemscale)d)
+        i3 = load_effective_address(p1, i1, %(uni_basesize)s, %(uni_itemscale)d)
+        i4 = int_lshift(i_len, %(uni_itemscale)d)
+        call_n(ConstClass(memcpy_fn), i3, i2, i4, descr=memcpy_descr)
+        """)
+
+    def test_rewrite_copyunicodecontents_without_load_effective_address(self):
+        self.cpu.supports_load_effective_address = False
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copyunicodecontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i0s = int_lshift(i0, %(uni_itemscale)d)
+        i2b = int_add(p0, i0s)
+        i2 = int_add(i2b, %(uni_basesize)s)
+        i1s = int_lshift(i1, %(uni_itemscale)d)
+        i3b = int_add(p1, i1s)
+        i3 = int_add(i3b, %(uni_basesize)s)
+        i4 = int_lshift(i_len, %(uni_itemscale)d)
+        call_n(ConstClass(memcpy_fn), i3, i2, i4, descr=memcpy_descr)
         """)
