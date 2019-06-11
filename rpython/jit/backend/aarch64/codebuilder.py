@@ -281,7 +281,7 @@ class AbstractAarch64Builder(object):
     def B(self, target):
         target = rffi.cast(lltype.Signed, target)
         self.gen_load_int_full(r.ip0.value, target)
-        self.BR_r(r.ip0.value)        
+        self.BR_r(r.ip0.value)
 
     def BL(self, target):
         # XXX use the IMM version if close enough

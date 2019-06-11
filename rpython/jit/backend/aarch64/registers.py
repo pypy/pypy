@@ -23,4 +23,5 @@ ip0 = x16
 
 callee_saved_registers = [] # x19, x20, x21, x22]
 
-argument_regs = caller_resp = [x0, x1, x2, x3, x4, x5, x6, x7]
+argument_regs = [x0, x1, x2, x3, x4, x5, x6, x7]
+caller_resp = argument_regs + [x8, x9, x10, x11, x12, x13, x14, x15]

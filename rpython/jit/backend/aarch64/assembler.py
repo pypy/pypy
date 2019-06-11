@@ -4,11 +4,9 @@ from rpython.jit.backend.aarch64.codebuilder import InstrBuilder, OverwritingBui
 from rpython.jit.backend.aarch64.locations import imm, StackLocation, get_fp_offset
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
-from rpython.jit.backend.aarch64.regalloc import (Regalloc,
+from rpython.jit.backend.aarch64.regalloc import (Regalloc, check_imm_arg,
     operations as regalloc_operations, guard_operations, comp_operations,
     CoreRegisterManager)
-#    CoreRegisterManager, check_imm_arg, VFPRegisterManager,
-#from rpython.jit.backend.arm import callbuilder
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.llsupport import jitframe
@@ -288,21 +286,19 @@ class AssemblerARM64(ResOpAssembler):
         self._push_all_regs_to_jitframe(mc, [], withfloats)
 
         if exc:
-            return # fix later
-            XXX
             # We might have an exception pending.  Load it into r4
             # (this is a register saved across calls)
-            mc.gen_load_int(r.r5.value, self.cpu.pos_exc_value())
-            mc.LDR_ri(r.r4.value, r.r5.value)
+            mc.gen_load_int(r.x5.value, self.cpu.pos_exc_value())
+            mc.LDR_ri(r.x4.value, r.x5.value, 0)
             # clear the exc flags
-            mc.gen_load_int(r.r6.value, 0)
-            mc.STR_ri(r.r6.value, r.r5.value) # pos_exc_value is still in r5
-            mc.gen_load_int(r.r5.value, self.cpu.pos_exception())
-            mc.STR_ri(r.r6.value, r.r5.value)
+            mc.gen_load_int(r.x6.value, 0)
+            mc.STR_ri(r.x6.value, r.x5.value, 0) # pos_exc_value is still in r5
+            mc.gen_load_int(r.x5.value, self.cpu.pos_exception())
+            mc.STR_ri(r.x6.value, r.x5.value, 0)
             # save r4 into 'jf_guard_exc'
             offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             assert check_imm_arg(abs(offset))
-            mc.STR_ri(r.r4.value, r.fp.value, imm=offset)
+            mc.STR_ri(r.x4.value, r.fp.value, offset)
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The LEA in _call_footer below
         # throws away most of the frame, including all the PUSHes that we
@@ -314,6 +310,12 @@ class AssemblerARM64(ResOpAssembler):
         self.gen_func_epilog(mc)
         rawstart = mc.materialize(self.cpu, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
+
+    def propagate_memoryerror_if_reg_is_null(self, reg_loc):
+        # see ../x86/assembler.py:genop_discard_check_memory_error()
+        self.mc.CMP_ri(reg_loc.value, 0)
+        self.mc.B_ofs_cond(6 * 4, c.NE)
+        self.mc.B(self.propagate_exception_path)
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         pass # XXX
@@ -365,7 +367,7 @@ class AssemblerARM64(ResOpAssembler):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._load_shadowstack_top(mc, r.r5, gcrootmap)
             # store the new jitframe addr in the shadowstack
-            mc.STR_ri(r.r0.value, r.r5.value, imm=-WORD)
+            mc.STR_ri(r.x0.value, r.r5.value, imm=-WORD)
 
         # reset the jf_gcmap field in the jitframe
         mc.gen_load_int(r.ip0.value, 0)
@@ -385,13 +387,60 @@ class AssemblerARM64(ResOpAssembler):
         """ Resest the exception. If excvalloc is None, then store it on the
         frame in jf_guard_exc
         """
-        pass
+        assert excvalloc is not r.ip0
+        assert exctploc is not r.ip0
+        tmpreg = r.lr
+        mc.gen_load_int(r.ip0.value, self.cpu.pos_exc_value())
+        if excvalloc is not None: # store
+            assert excvalloc.is_core_reg()
+            self.load_reg(mc, excvalloc, r.ip0)
+        if on_frame:
+            # store exc_value in JITFRAME
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            assert check_imm_arg(ofs)
+            #
+            self.load_reg(mc, r.ip0, r.ip0, helper=tmpreg)
+            #
+            self.store_reg(mc, r.ip0, r.fp, ofs, helper=tmpreg)
+        if exctploc is not None:
+            # store pos_exception in exctploc
+            assert exctploc.is_core_reg()
+            mc.gen_load_int(r.ip0.value, self.cpu.pos_exception())
+            self.load_reg(mc, exctploc, r.ip0, helper=tmpreg)
+
+        if on_frame or exctploc is not None:
+            mc.gen_load_int(r.ip0.value, self.cpu.pos_exc_value())
+
+        # reset exception
+        mc.gen_load_int(tmpreg.value, 0)
+
+        self.store_reg(mc, tmpreg, r.ip0, 0)
+
+        mc.gen_load_int(r.ip0.value, self.cpu.pos_exception())
+        self.store_reg(mc, tmpreg, r.ip0, 0)
 
     def _restore_exception(self, mc, excvalloc, exctploc):
         pass
 
     def _build_propagate_exception_path(self):
-        pass
+        mc = InstrBuilder()
+        self._store_and_reset_exception(mc, r.x0)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+        # make sure ofs fits into a register
+        assert check_imm_arg(ofs)
+        self.store_reg(mc, r.x0, r.fp, ofs)
+        propagate_exception_descr = rffi.cast(lltype.Signed,
+                  cast_instance_to_gcref(self.cpu.propagate_exception_descr))
+        # put propagate_exception_descr into frame
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        # make sure ofs fits into a register
+        assert check_imm_arg(ofs)
+        mc.gen_load_int(r.x0.value, propagate_exception_descr)
+        self.store_reg(mc, r.x0, r.fp, ofs)
+        mc.MOV_rr(r.x0.value, r.fp.value)
+        self.gen_func_epilog(mc)
+        rawstart = mc.materialize(self.cpu, [])
+        self.propagate_exception_path = rawstart
 
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
         pass
@@ -464,6 +513,7 @@ class AssemblerARM64(ResOpAssembler):
         self.load_from_gc_table(r.ip0.value, faildescrindex)
         self.store_reg(self.mc, r.ip0, r.fp, WORD)
         self.push_gcmap(self.mc, gcmap=guardtok.gcmap)
+        assert target
         self.mc.BL(target)
         return startpos
 
@@ -776,7 +826,7 @@ class AssemblerARM64(ResOpAssembler):
 
         mc.RET_r(r.lr.value)
 
-    def store_reg(self, mc, source, base, ofs=0):
+    def store_reg(self, mc, source, base, ofs=0, helper=None):
         # uses r.ip1 as a temporary
         if source.is_vfp_reg():
             return self._store_vfp_reg(mc, source, base, ofs)
@@ -802,6 +852,20 @@ class AssemblerARM64(ResOpAssembler):
         #else:
         #    mc.gen_load_int(r.ip1, ofs)
         #    mc.STR_rr(source.value, base.value, r.ip1)
+
+    def load_reg(self, mc, target, base, ofs=0, helper=None):
+        if target.is_vfp_reg():
+            return self._load_vfp_reg(mc, target, base, ofs)
+        elif target.is_core_reg():
+            return self._load_core_reg(mc, target, base, ofs)
+
+    def _load_core_reg(self, mc, target, base, ofs):
+        if check_imm_arg(abs(ofs)):
+            mc.LDR_ri(target.value, base.value, ofs)
+        else:
+            XXX
+            mc.gen_load_int(helper.value, ofs, cond=cond)
+            mc.LDR_rr(target.value, base.value, helper.value, cond=cond)
 
     def check_frame_before_jump(self, target_token):
         if target_token in self.target_tokens_currently_compiling:

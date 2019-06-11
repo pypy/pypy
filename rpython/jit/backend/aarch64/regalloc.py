@@ -695,6 +695,20 @@ class Regalloc(BaseRegalloc):
     prepare_op_guard_gc_type = prepare_op_guard_class
     prepare_op_guard_subclass = prepare_op_guard_class
 
+    def prepare_op_guard_exception(self, op):
+        boxes = op.getarglist()
+        arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
+        loc = self.make_sure_var_in_reg(arg0)
+        if op in self.longevity:
+            resloc = self.force_allocate_reg(op, boxes)
+            self.possibly_free_var(op)
+        else:
+            resloc = None
+        pos_exc_value = imm(self.cpu.pos_exc_value())
+        pos_exception = imm(self.cpu.pos_exception())
+        arglocs = [loc, resloc, pos_exc_value, pos_exception] + self._guard_impl(op)
+        return arglocs
+
     prepare_op_ptr_eq = prepare_op_instance_ptr_eq = prepare_op_int_eq
     prepare_op_ptr_ne = prepare_op_instance_ptr_ne = prepare_op_int_ne
 
@@ -729,6 +743,10 @@ class Regalloc(BaseRegalloc):
         arg1 = self.make_sure_var_in_reg(args[1], args)
         res = self.force_allocate_reg(op)
         return [arg0, arg1, args[2], args[3], res]
+
+    def prepare_op_check_memory_error(self, op):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        return [argloc]
 
     def prepare_op_jump(self, op):
         assert self.jump_target_descr is None

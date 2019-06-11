@@ -193,6 +193,9 @@ class ResOpAssembler(BaseAssembler):
         self.mc.ADD_ri(value_loc.value, value_loc.value, 1)
         self.mc.STR_ri(value_loc.value, base_loc.value, 0)
 
+    def emit_op_check_memory_error(self, op, arglocs):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
+
     def _genop_same_as(self, op, arglocs):
         argloc, resloc = arglocs
         if argloc is not resloc:
@@ -451,7 +454,18 @@ class ResOpAssembler(BaseAssembler):
         self.mc.LDR_ri(r.ip0.value, arglocs[0].value, offset)
         self.mc.gen_load_int_full(r.ip1.value, arglocs[1].value)
         self.mc.CMP_rr(r.ip0.value, r.ip1.value)
-        self._emit_guard(op, c.EQ, arglocs[2:])        
+        self._emit_guard(op, c.EQ, arglocs[2:])     
+
+    def emit_op_guard_exception(self, op, arglocs):
+        loc, resloc, pos_exc_value, pos_exception = arglocs[:4]
+        failargs = arglocs[4:]
+        self.mc.gen_load_int(r.ip1.value, pos_exception.value)
+        self.mc.LDR_ri(r.ip0.value, r.ip1.value, 0)
+
+        self.mc.CMP_rr(r.ip0.value, loc.value)
+        self._emit_guard(op, c.EQ, failargs)
+        self._store_and_reset_exception(self.mc, resloc)
+   
 
     # ----------------------------- call ------------------------------
 
