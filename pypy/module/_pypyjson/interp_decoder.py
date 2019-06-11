@@ -280,7 +280,7 @@ class JSONDecoder(W_Root):
     def _raise_object_error(self, ch, start, i):
         if ch == '\0':
             self._raise("Unterminated object starting at", start)
-        else:?!?jedi=0, ?!?          (*_*param msg*_*, param pos) ?!?jedi?!?
+        else:
             self._raise("Unexpected '%s' when decoding object" % ch, i)
 
     def decode_array(self, i):
