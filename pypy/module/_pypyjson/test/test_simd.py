@@ -9,7 +9,10 @@ from pypy.module._pypyjson.simd import print_chars
 from pypy.module._pypyjson.simd import find_end_of_string_simd_unaligned, WORD_SIZE
 from pypy.module._pypyjson.simd import find_end_of_string_simd_unaligned_no_hash
 
-from hypothesis import example, given, strategies
+try:
+    from hypothesis import example, given, strategies
+except ImportError:
+    pytest.skip("missing hypothesis!")
 
 if not USE_SIMD:
     pytest.skip("only implemented for 64 bit for now")
