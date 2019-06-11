@@ -70,20 +70,10 @@ class AppTest(object):
             assert len(d) == 1
             assert d == {u"a": 1}
 
-    def test_keys_value_items(self):
-        import __pypy__
+    def test_keys_values_items(self):
         import _pypyjson
 
         d = _pypyjson.loads('{"a": 1, "b": "x"}')
-        assert d.keys() == [u"a", u"b"]
-        assert d.values() == [1, u"x"]
-        assert d.items() == [(u"a", 1), (u"b", u"x")]
-
-    def test_iter_keys_value_items(self):
-        import __pypy__
-        import _pypyjson
-
-        d = _pypyjson.loads('{"a": 1, "b": "x"}')
-        assert list(d.iterkeys()) == [u"a", u"b"]
-        assert list(d.itervalues()) == [1, u"x"]
-        assert list(d.iteritems()) == [(u"a", 1), (u"b", u"x")]
+        assert list(d.keys()) == [u"a", u"b"]
+        assert list(d.values()) == [1, u"x"]
+        assert list(d.items()) == [(u"a", 1), (u"b", u"x")]
