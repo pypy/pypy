@@ -280,8 +280,8 @@ class JSONDecoder(W_Root):
     def _raise_object_error(self, ch, start, i):
         if ch == '\0':
             self._raise("Unterminated object starting at", start)
-        else:
-            self._raise("Unexpected '%s' when decoding object (char %d)" % ch, i)
+        else:?!?jedi=0, ?!?          (*_*param msg*_*, param pos) ?!?jedi?!?
+            self._raise("Unexpected '%s' when decoding object" % ch, i)
 
     def decode_array(self, i):
         """ Decode a list. i must be after the opening '[' """

@@ -488,6 +488,7 @@ class AppTest(object):
             ('["]', 'Unterminated string starting at', 1),
             ('["spam":', "Unexpected ':' when decoding array", 7),
             ('[{]', "Key name must be string at char", 2),
+            ('{"a": 1 "b": 2}', "Unexpected '\"' when decoding object", 8),
         ]
         for inputtext, errmsg, errpos in test_cases:
             exc = raises(ValueError, _pypyjson.loads, inputtext)
