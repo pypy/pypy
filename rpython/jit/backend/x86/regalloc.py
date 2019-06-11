@@ -1222,78 +1222,16 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
         self.perform(op, [argloc], resloc)
 
-    def consider_copystrcontent(self, op):
-        self._consider_copystrcontent(op, is_unicode=False)
-
-    def consider_copyunicodecontent(self, op):
-        self._consider_copystrcontent(op, is_unicode=True)
-
-    def _consider_copystrcontent(self, op, is_unicode):
-        # compute the source address
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(args[0], args)
-        ofs_loc = self.rm.make_sure_var_in_reg(args[2], args)
-        assert args[0] is not args[1]    # forbidden case of aliasing
-        srcaddr_box = TempVar()
-        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
-        srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
-                                        is_unicode=is_unicode)
-        # compute the destination address
-        base_loc = self.rm.make_sure_var_in_reg(args[1], forbidden_vars)
-        ofs_loc = self.rm.make_sure_var_in_reg(args[3], forbidden_vars)
-        forbidden_vars = [args[4], srcaddr_box]
-        dstaddr_box = TempVar()
-        dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
-                                        is_unicode=is_unicode)
-        # compute the length in bytes
-        length_box = args[4]
-        length_loc = self.loc(length_box)
-        if is_unicode:
-            forbidden_vars = [srcaddr_box, dstaddr_box]
-            bytes_box = TempVar()
-            bytes_loc = self.rm.force_allocate_reg(bytes_box, forbidden_vars)
-            scale = self._get_unicode_item_scale()
-            if not (isinstance(length_loc, ImmedLoc) or
-                    isinstance(length_loc, RegLoc)):
-                self.assembler.mov(length_loc, bytes_loc)
-                length_loc = bytes_loc
-            self.assembler.load_effective_addr(length_loc, 0, scale, bytes_loc)
-            length_box = bytes_box
-            length_loc = bytes_loc
-        # call memcpy()
-        self.rm.before_call()
-        self.xrm.before_call()
-        self.assembler.simple_call_no_collect(imm(self.assembler.memcpy_addr),
-                                        [dstaddr_loc, srcaddr_loc, length_loc])
-        self.rm.possibly_free_var(length_box)
-        self.rm.possibly_free_var(dstaddr_box)
-        self.rm.possibly_free_var(srcaddr_box)
-
-    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
-        if is_unicode:
-            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.translate_support_code)
-            scale = self._get_unicode_item_scale()
-        else:
-            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                                  self.translate_support_code)
-            assert itemsize == 1
-            ofs_items -= 1     # for the extra null character
-            scale = 0
-        self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
-                                           resloc, baseloc)
-
-    def _get_unicode_item_scale(self):
-        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.translate_support_code)
-        if itemsize == 4:
-            return 2
-        elif itemsize == 2:
-            return 1
-        else:
-            raise AssertionError("bad unicode item size")
+    def consider_load_effective_address(self, op):
+        p0 = op.getarg(0)
+        i0 = op.getarg(1)
+        ploc = self.make_sure_var_in_reg(p0, [i0])
+        iloc = self.make_sure_var_in_reg(i0, [p0])
+        res = self.rm.force_allocate_reg(op, [p0, i0])
+        assert isinstance(op.getarg(2), ConstInt)
+        assert isinstance(op.getarg(3), ConstInt)
+        self.assembler.load_effective_addr(iloc, op.getarg(2).getint(),
+            op.getarg(3).getint(), res, ploc)
 
     def _consider_math_read_timestamp(self, op):
         # hint: try to move unrelated registers away from eax and edx now
