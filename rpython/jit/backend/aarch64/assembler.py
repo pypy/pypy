@@ -389,7 +389,7 @@ class AssemblerARM64(ResOpAssembler):
         """
         assert excvalloc is not r.ip0
         assert exctploc is not r.ip0
-        tmpreg = r.lr
+        tmpreg = r.ip1
         mc.gen_load_int(r.ip0.value, self.cpu.pos_exc_value())
         if excvalloc is not None: # store
             assert excvalloc.is_core_reg()
@@ -420,7 +420,25 @@ class AssemblerARM64(ResOpAssembler):
         self.store_reg(mc, tmpreg, r.ip0, 0)
 
     def _restore_exception(self, mc, excvalloc, exctploc):
-        pass
+        assert excvalloc is not r.ip0
+        assert exctploc is not r.ip0
+        mc.gen_load_int(r.ip0.value, self.cpu.pos_exc_value())
+        if excvalloc is not None:
+            assert excvalloc.is_core_reg()
+            self.store_reg(mc, excvalloc, r.ip0)
+        else:
+            assert exctploc is not r.fp
+            # load exc_value from JITFRAME and put it in pos_exc_value
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            self.load_reg(mc, r.ip1, r.fp, ofs)
+            self.store_reg(mc, r.ip1, r.ip0)
+            # reset exc_value in the JITFRAME
+            mc.gen_load_int(r.ip1.value, 0)
+            self.store_reg(mc, r.ip1, r.fp, ofs)
+
+        # restore pos_exception from exctploc register
+        mc.gen_load_int(r.ip0.value, self.cpu.pos_exception())
+        self.store_reg(mc, exctploc, r.ip0)
 
     def _build_propagate_exception_path(self):
         mc = InstrBuilder()

@@ -20,6 +20,8 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
+from rpython.rlib.rarithmetic import r_uint
+
 
 
 class TempInt(TempVar):
@@ -708,6 +710,21 @@ class Regalloc(BaseRegalloc):
         pos_exception = imm(self.cpu.pos_exception())
         arglocs = [loc, resloc, pos_exc_value, pos_exception] + self._guard_impl(op)
         return arglocs
+
+    def prepare_op_guard_no_exception(self, op):
+        loc = self.make_sure_var_in_reg(ConstInt(self.cpu.pos_exception()))
+        return [loc] + self._guard_impl(op)
+
+    def prepare_op_save_exception(self, op):
+        resloc = self.force_allocate_reg(op)
+        return [resloc]
+    prepare_op_save_exc_class = prepare_op_save_exception
+
+    def prepare_op_restore_exception(self, op):
+        boxes = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), boxes)  # exc class
+        loc1 = self.make_sure_var_in_reg(op.getarg(1), boxes)  # exc instance
+        return [loc0, loc1]
 
     prepare_op_ptr_eq = prepare_op_instance_ptr_eq = prepare_op_int_eq
     prepare_op_ptr_ne = prepare_op_instance_ptr_ne = prepare_op_int_ne

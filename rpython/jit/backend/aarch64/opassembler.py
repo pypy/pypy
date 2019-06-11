@@ -10,6 +10,7 @@ from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import get_scale
 from rpython.jit.metainterp.history import TargetToken
+from rpython.jit.metainterp.resoperation import rop
 
 def gen_comp_op(name, flag):
     def emit_op(self, op, arglocs):
@@ -465,7 +466,32 @@ class ResOpAssembler(BaseAssembler):
         self.mc.CMP_rr(r.ip0.value, loc.value)
         self._emit_guard(op, c.EQ, failargs)
         self._store_and_reset_exception(self.mc, resloc)
-   
+
+    def emit_op_guard_no_exception(self, op, arglocs):
+        loc = arglocs[0]
+        failargs = arglocs[1:]
+        self.mc.LDR_ri(loc.value, loc.value, 0)
+        self.mc.CMP_ri(loc.value, 0)
+        self._emit_guard(op, c.EQ, failargs)
+        # If the previous operation was a COND_CALL, overwrite its conditional
+        # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
+        #if self._find_nearby_operation(-1).getopnum() == rop.COND_CALL:
+        #    XXX
+        #    jmp_adr, prev_cond = self.previous_cond_call_jcond
+        #    pmc = OverwritingBuilder(self.mc, jmp_adr, WORD)
+        #    pmc.B_offs(self.mc.currpos(), prev_cond)
+
+    def emit_op_save_exc_class(self, op, arglocs):
+        resloc = arglocs[0]
+        self.mc.gen_load_int(r.ip0.value, self.cpu.pos_exception())
+        self.load_reg(self.mc, resloc, r.ip0)
+
+    def emit_op_save_exception(self, op, arglocs):
+        resloc = arglocs[0]
+        self._store_and_reset_exception(self.mc, resloc)
+
+    def emit_op_restore_exception(self, op, arglocs):
+        self._restore_exception(self.mc, arglocs[1], arglocs[0])
 
     # ----------------------------- call ------------------------------
 
