@@ -1036,7 +1036,7 @@ if _WIN32:
         [('onoff', rffi.ULONG),
          ('keepalivetime', rffi.ULONG),
          ('keepaliveinterval', rffi.ULONG)])
-	
+
     CConfig.GUID = platform.Struct(
              'struct _GUID',
              [('Data1', rffi.UINT),
