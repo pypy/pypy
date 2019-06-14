@@ -1426,10 +1426,10 @@ if WIN32:
         return rwin32.FormatError(errno)
 
     def socket_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)[0]
+        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
 
     def gai_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)[0]
+        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
 
     def socket_strerror_utf8(errno):
         return rwin32.FormatErrorW(errno)
