@@ -3151,6 +3151,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_finalizer_type = finalizer_type
             self.rrc_clear_weakref_callback = clear_weakref_callback
             self.rrc_enabled = True
+            self.rrc_cycle_enabled = True
             self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
 
     def check_no_more_rawrefcount_state(self):
@@ -3163,6 +3164,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             assert value == llmemory.NULL
         self.rrc_p_dict.foreach(check_value_is_null, None)
         self.rrc_p_dict_nurs.foreach(check_value_is_null, None)
+
+    def deactivate_rawrefcount_cycle(self):
+        self.rrc_cycle_enabled = False
+
+    def activate_rawrefcount_cycle(self):
+        self.rrc_cycle_enabled = True
 
     def rawrefcount_create_link_pypy(self, gcobj, pyobject):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")
@@ -3405,10 +3412,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
     _rrc_free._always_inline_ = True
 
     def rrc_major_collection_trace(self):
-        self._rrc_debug_check_consistency(print_label="begin-mark")
+        if not self.rrc_cycle_enabled:
+            self._rrc_debug_check_consistency(print_label="begin-mark")
+
         # Only trace and mark rawrefcounted object if we are not doing
         # something special, like building gc.garbage.
-        if self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT:
+        if (self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT and
+                self.rrc_cycle_enabled):
             merged_old_list = False
             # check objects with finalizers from last collection cycle
             if not self._rrc_gc_list_is_empty(self.rrc_pyobj_old_list):
@@ -3472,6 +3482,30 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # force the corresponding object to be alive
             debug_print("pyobj stays alive", pyobj, "rc", rc, "cyclic_rc",
                         cyclic_rc)
+            intobj = pyobj.c_ob_pypy_link
+            obj = llmemory.cast_int_to_adr(intobj)
+            self.objects_to_trace.append(obj)
+            self.visit_all_objects()
+
+    def _rrc_major_trace_nongc(self, pyobject, ignore):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
+        pyobj = self._pyobj(pyobject)
+        pygchdr = self.rrc_pyobj_as_gc(pyobj)
+        if pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR):
+            if pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:
+                rc = 0
+            else:
+                rc = pyobj.c_ob_refcnt
+        else:
+            rc = pyobj.c_ob_refcnt
+
+        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT or rc == 0:
+            pass  # the corresponding object may die
+        else:
+            # force the corresponding object to be alive
+            debug_print("pyobj stays alive", pyobj, "rc", rc)
             intobj = pyobj.c_ob_pypy_link
             obj = llmemory.cast_int_to_adr(intobj)
             self.objects_to_trace.append(obj)
@@ -3571,6 +3605,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 refcnt -= REFCNT_FROM_PYPY
             self._rrc_pyobj_gc_refcnt_set(pygchdr, refcnt)
             pygchdr = pygchdr.c_gc_next
+
+        # For all non-gc pyobjects which have a refcount > 0,
+        # mark all reachable objects on the pypy side
+        self.rrc_p_list_old.foreach(self._rrc_major_trace_nongc, None)
 
         # For every object in this set, if it is marked, add 1 as a real
         # refcount (p_list => pyobj stays alive if obj stays alive).

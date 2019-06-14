@@ -187,6 +187,7 @@ class ShadowStackRootWalker(BaseRootWalker):
 
         def switch_shadow_stacks(new_tid):
             # we have the wrong shadowstack right now, but it should not matter
+            gcdata.gc.deactivate_rawrefcount_cycle()
             thread_stacks = gcdata.thread_stacks
             try:
                 if thread_stacks is None:
@@ -210,6 +211,7 @@ class ShadowStackRootWalker(BaseRootWalker):
                 shadow_stack_pool.start_fresh_new_state()
             # done
             #
+            gcdata.gc.activate_rawrefcount_cycle()
             gcdata.active_tid = new_tid
         switch_shadow_stacks._dont_inline_ = True
 
