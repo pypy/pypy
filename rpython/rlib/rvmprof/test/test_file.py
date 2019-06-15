@@ -37,7 +37,7 @@ def test_same_file():
     #
     if no_matches:
         print
-        print 'The following file dit NOT match'
+        print 'The following file did NOT match'
         for f in no_matches:
             print '   ', f.relto(RVMPROF)
         raise AssertionError("some files were updated on github, "

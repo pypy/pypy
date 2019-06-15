@@ -82,12 +82,6 @@ int vmp_profiles_python_lines(void) {
 
 static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, void ** result, int * depth, int max_depth)
 {
-    int len;
-    int addr;
-    int j;
-    uint64_t line;
-    char *lnotab;
-
 #ifndef RPYTHON_VMPROF // pypy does not support line profiling
     if (vmp_profiles_python_lines()) {
         // In the line profiling mode we save a line number for every frame.
@@ -99,27 +93,8 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
 
         // NOTE: the profiling overhead can be reduced by storing co_lnotab in the dump and
         // moving this computation to the reader instead of doing it here.
-        lnotab = PyStr_AS_STRING(frame->f_code->co_lnotab);
-
-        if (lnotab != NULL) {
-            line = (uint64_t)frame->f_lineno;
-            addr = 0;
-
-            len = (int)PyStr_GET_SIZE(frame->f_code->co_lnotab);
-
-            for (j = 0; j < len; j += 2) {
-                addr += lnotab[j];
-                if (addr > frame->f_lasti) {
-                    break;
-                }
-                line += lnotab[j+1];
-            }
-            result[*depth] = (void*) line;
-            *depth = *depth + 1;
-        } else {
-            result[*depth] = (void*) 0;
-            *depth = *depth + 1;
-        }
+        result[*depth] = (void*) (int64_t) PyFrame_GetLineNumber(frame);
+        *depth = *depth + 1;
     }
     result[*depth] = (void*)CODE_ADDR_TO_UID(FRAME_CODE(frame));
     *depth = *depth + 1;
