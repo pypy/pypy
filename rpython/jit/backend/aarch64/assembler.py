@@ -30,6 +30,7 @@ class AssemblerARM64(ResOpAssembler):
     def __init__(self, cpu, translate_support_code=False):
         ResOpAssembler.__init__(self, cpu, translate_support_code)
         self.failure_recovery_code = [0, 0, 0, 0]
+        self.wb_slowpath = [0, 0, 0, 0, 0]
 
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
@@ -318,7 +319,76 @@ class AssemblerARM64(ResOpAssembler):
         self.mc.B(self.propagate_exception_path)
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
-        pass # XXX
+        descr = self.cpu.gc_ll_descr.write_barrier_descr
+        if descr is None:
+            return
+        if not withcards:
+            func = descr.get_write_barrier_fn(self.cpu)
+        else:
+            if descr.jit_wb_cards_set == 0:
+                return
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            if func == 0:
+                return
+        #
+        # This builds a helper function called from the slow path of
+        # write barriers.  It must save all registers, and optionally
+        # all vfp registers.  It takes a single argument which is in x0.
+        # It must keep stack alignment accordingly.
+        mc = InstrBuilder()
+        #
+        exc0 = exc1 = None
+        mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
+        mc.STR_ri(r.ip0.value, r.sp.value, WORD)
+        mc.STR_ri(r.lr.value, r.sp.value, 0)
+        if not for_frame:
+            self._push_all_regs_to_jitframe(mc, [], withfloats, callee_only=True)
+        else:
+            # NOTE: don't save registers on the jitframe here!  It might
+            # override already-saved values that will be restored
+            # later...
+            #
+            # we're possibly called from the slowpath of malloc
+            # save the caller saved registers
+            # assuming we do not collect here
+            exc0, exc1 = r.r4, r.r5
+            XXX
+            mc.PUSH([gpr.value for gpr in r.caller_resp] + [exc0.value, exc1.value])
+            mc.VPUSH([vfpr.value for vfpr in r.caller_vfp_resp])
+
+            self._store_and_reset_exception(mc, exc0, exc1)
+        mc.BL(func)
+        #
+        if not for_frame:
+            self._pop_all_regs_from_jitframe(mc, [], withfloats, callee_only=True)
+        else:
+            XXX
+            self._restore_exception(mc, exc0, exc1)
+            mc.VPOP([vfpr.value for vfpr in r.caller_vfp_resp])
+            assert exc0 is not None
+            assert exc1 is not None
+            mc.POP([gpr.value for gpr in r.caller_resp] +
+                            [exc0.value, exc1.value])
+        #
+        if withcards:
+            # A final TEST8 before the RET, for the caller.  Careful to
+            # not follow this instruction with another one that changes
+            # the status of the CPU flags!
+            YYY
+            mc.LDRB_ri(r.ip.value, r.r0.value,
+                                    imm=descr.jit_wb_if_flag_byteofs)
+            mc.TST_ri(r.ip.value, imm=0x80)
+        #
+        mc.LDR_ri(r.ip0.value, r.sp.value, WORD)
+        mc.LDR_ri(r.ip1.value, r.sp.value, 0)
+        mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
+        mc.RET_r(r.ip1.value)
+        #
+        rawstart = mc.materialize(self.cpu, [])
+        if for_frame:
+            self.wb_slowpath[4] = rawstart
+        else:
+            self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def build_frame_realloc_slowpath(self):
         # this code should do the following steps

@@ -256,6 +256,11 @@ class AbstractAarch64Builder(object):
         self.write32((base << 21) | (0b11111 << 16) | (cond << 12) | (1 << 10) |
                      (0b11111 << 5) | rd)
 
+    def TST_rr_shift(self, rn, rm, shift):
+        assert 0 <= shift <= 64
+        base = 0b11101010000
+        self.write32((base << 21) | (rm << 16) | (shift << 10) | (rn << 5) | 0b11111)
+
     def NOP(self):
         self.write32(0b11010101000000110010000000011111)
 

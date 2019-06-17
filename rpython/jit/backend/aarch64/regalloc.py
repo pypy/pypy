@@ -800,6 +800,15 @@ class Regalloc(BaseRegalloc):
                                  src_locations2, dst_locations2, vfptmploc)
         return []
 
+    def prepare_op_cond_call_gc_wb(self, op):
+        # we force all arguments in a reg because it will be needed anyway by
+        # the following gc_store. It avoids loading it twice from the memory.
+        N = op.numargs()
+        args = op.getarglist()
+        arglocs = [self.make_sure_var_in_reg(op.getarg(i), args)
+                                                              for i in range(N)]
+        return arglocs
+
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None):
         if var.type == FLOAT:
             return self.vfprm.force_allocate_reg(var, forbidden_vars,
