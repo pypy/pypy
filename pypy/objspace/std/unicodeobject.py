@@ -2,15 +2,12 @@
 
 import sys
 
-import sys
-
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
     enforceargs, newlist_hint, specialize, we_are_translated)
 from rpython.rlib.rarithmetic import ovfcheck, r_uint
 from rpython.rlib.rstring import (
-    StringBuilder, split, rsplit, UnicodeBuilder, replace_count, startswith,
-    endswith)
+    StringBuilder, split, rsplit, replace_count, startswith, endswith)
 from rpython.rlib import rutf8, jit
 
 from pypy.interpreter import unicodehelper
@@ -47,7 +44,6 @@ class W_UnicodeObject(W_Root):
             # explicit surrogate characters---which .decode('utf-8') doesn't
             # special-case in Python 2, which is exactly what we want here
             assert length == len(utf8str.decode('utf-8'))
-
 
     @staticmethod
     def from_utf8builder(builder):
@@ -1886,15 +1882,13 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    utf8 = space.utf8_w(w_unistr)
-    lgt =  space.len_w(w_unistr)
-    result = StringBuilder(lgt)
-    pos = 0
-    for uchr in rutf8.Utf8StringIterator(utf8):
+    utf8 = w_unistr._utf8
+    result = StringBuilder(w_unistr._len())
+    it = rutf8.Utf8StringIterator(utf8)
+    for uchr in it:
         if uchr > 127:
-            if unicodedb.isspace(uchr):
+            if W_UnicodeObject._isspace(uchr):
                 result.append(' ')
-                pos += 1
                 continue
             try:
                 uchr = ord(u'0') + unicodedb.decimal(uchr)
@@ -1904,15 +1898,15 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
             c = rutf8.unichr_as_utf8(r_uint(uchr))
         except rutf8.OutOfRange:
             w_encoding = space.newtext('utf-8')
+            pos = it.get_pos()
             w_start = space.newint(pos)
-            w_end = space.newint(pos+1)
+            w_end = space.newint(pos + 1)
             w_reason = space.newtext('surrogates not allowed')
             raise OperationError(space.w_UnicodeEncodeError,
                                  space.newtuple([w_encoding, w_unistr,
                                                  w_start, w_end,
                                                  w_reason]))
         result.append(c)
-        pos += 1
     return result.build()
 
 _repr_function = rutf8.make_utf8_escape_function(
