@@ -902,7 +902,7 @@ class Regalloc(BaseRegalloc):
         arg0 = self.make_sure_var_in_reg(args[0], args)
         arg1 = self.make_sure_var_in_reg(args[1], args)
         res = self.force_allocate_reg(op)
-        return [arg0, arg1, args[2], args[3], res]
+        return [arg0, arg1, res]
 
     def prepare_op_call_malloc_nursery(self, op, fcond):
         size_box = op.getarg(0)
