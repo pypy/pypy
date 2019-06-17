@@ -1882,6 +1882,14 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
+    if w_unistr.is_ascii():
+        # fast path
+        return w_unistr._utf8
+    else:
+        return _unicode_to_decimal_w(space, w_unistr)
+
+def _unicode_to_decimal_w(space, w_unistr):
+    # slow path, in a separate function for the JIT's benefit
     utf8 = w_unistr._utf8
     result = StringBuilder(w_unistr._len())
     it = rutf8.Utf8StringIterator(utf8)
