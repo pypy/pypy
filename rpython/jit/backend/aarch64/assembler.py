@@ -374,10 +374,9 @@ class AssemblerARM64(ResOpAssembler):
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
-            YYY
-            mc.LDRB_ri(r.ip.value, r.r0.value,
-                                    imm=descr.jit_wb_if_flag_byteofs)
-            mc.TST_ri(r.ip.value, imm=0x80)
+            mc.LDRB_ri(r.ip0.value, r.x0.value, descr.jit_wb_if_flag_byteofs)
+            mc.MOVZ_r_u16(r.ip1.value, 0x80, 0)
+            mc.TST_rr_shift(r.ip0.value, r.ip1.value, 0)
         #
         mc.LDR_ri(r.ip0.value, r.sp.value, WORD)
         mc.LDR_ri(r.ip1.value, r.sp.value, 0)

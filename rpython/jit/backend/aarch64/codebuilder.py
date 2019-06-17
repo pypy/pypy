@@ -180,6 +180,11 @@ class AbstractAarch64Builder(object):
         base = 0b10001010000
         self.write32((base << 21) | (rm << 16) | (rn << 5) | rd)
 
+    def AND_rr_shift(self, rd, rn, rm, shift, shifttype=0):
+        base = 0b10001010
+        assert 0 <= shift < 64
+        self.write32((base << 24) | (shifttype << 22) | (rm << 16) | (shift << 10) | (rn << 5) | rd)
+
     def AND_ri(self, rd, rn, immed):
         assert immed == 0xFF # just one value for now, don't feel like
         # understanding IMMR/IMMS quite yet
@@ -225,9 +230,15 @@ class AbstractAarch64Builder(object):
         base = 0b11001010000
         self.write32((base << 21) | (rm << 16) | (rn << 5) | rd)
 
-    def MVN_rr(self, rd, rm):
+    def MVN_rr(self, rd, rm): # defaults to xzr
         base = 0b10101010001
         self.write32((base << 21) | (rm << 16) | (0b11111 << 5)| rd)
+
+    def MVN_rr_shift(self, rd, rm, shift=0, shifttype=0): # defaults to LSL
+        base = 0b10101010
+        assert 0 <= shift < 64
+        self.write32((base << 24) | (shifttype << 22) | (1 << 21) |
+                     (rm << 16) | (shift << 10) | (0b11111 << 5) | rd)
 
     def SMULL_rr(self, rd, rn, rm):
         base = 0b10011011001

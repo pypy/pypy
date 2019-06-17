@@ -809,6 +809,8 @@ class Regalloc(BaseRegalloc):
                                                               for i in range(N)]
         return arglocs
 
+    prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
+
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None):
         if var.type == FLOAT:
             return self.vfprm.force_allocate_reg(var, forbidden_vars,
