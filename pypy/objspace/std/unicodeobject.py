@@ -1879,7 +1879,7 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 # complex.__new__(), a lone surrogate will throw an app-level
 # UnicodeEncodeError.
 
-def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
+def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
     if w_unistr.is_ascii():

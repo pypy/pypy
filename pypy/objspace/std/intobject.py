@@ -647,7 +647,7 @@ class W_IntObject(W_AbstractIntObject):
             self = self.descr_float(space)
             w_exponent = w_exponent.descr_float(space)
             return space.pow(self, w_exponent, space.w_None)
-            
+
         return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
@@ -914,7 +914,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             try:
-                b = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+                b = unicode_to_decimal_w(space, w_value)
             except Exception:
                 raise oefmt(space.w_ValueError,
                             'invalid literal for int() with base 10: %R',
@@ -947,7 +947,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             try:
-                s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+                s = unicode_to_decimal_w(space, w_value)
             except Exception:
                 raise oefmt(space.w_ValueError,
                             'invalid literal for int() with base %d: %S',
