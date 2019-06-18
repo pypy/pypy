@@ -199,6 +199,14 @@ class AbstractAarch64Builder(object):
         base = 0b0001111001100000110000
         self.write32((base << 10) | (rn << 5) | rd)
 
+    def FCVTZS_d(self, rd, rn):
+        base = 0b1001111001111000
+        self.write32((base << 16) | (rn << 5) | rd)
+
+    def SCVTF_r(self, rd, rn):
+        base = 0b1001111001100010
+        self.write32((base << 16) | (rn << 5) | rd)
+
     def SUB_rr(self, rd, rn, rm, s=0):
         base = 0b11001011001 | (s << 8)
         self.write32((base << 21) | (rm << 16) | (0b11 << 13) | (rn << 5) | (rd))

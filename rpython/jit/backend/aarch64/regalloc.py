@@ -464,6 +464,9 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_float_neg = prepare_unary
     prepare_op_float_abs = prepare_unary
+    prepare_op_cast_float_to_int = prepare_unary
+    prepare_op_cast_int_to_float = prepare_unary
+
 
     # --------------------------------- fields --------------------------
 

@@ -253,6 +253,14 @@ class ResOpAssembler(BaseAssembler):
         arg, res = arglocs
         self.mc.FABS_d(res.value, arg.value)        
 
+    def emit_op_cast_float_to_int(self, op, arglocs):
+        arg, res = arglocs
+        self.mc.FCVTZS_d(res.value, arg.value)
+
+    def emit_op_cast_int_to_float(self, op, arglocs):
+        arg, res = arglocs
+        self.mc.SCVTF_r(res.value, arg.value)
+
     def emit_op_load_from_gc_table(self, op, arglocs):
         res_loc, = arglocs
         index = op.getarg(0).getint()
