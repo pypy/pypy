@@ -630,6 +630,42 @@ class Regalloc(BaseRegalloc):
             self._compute_hint_frame_locations_from_descr(descr)
         return []
 
+    def prepare_op_cond_call(self, op):
+        assert 2 <= op.numargs() <= 4 + 2
+        v = op.getarg(1)
+        assert isinstance(v, Const)
+        args_so_far = []
+        for i in range(2, op.numargs()):
+            reg = r.argument_regs[i - 2]
+            arg = op.getarg(i)
+            self.make_sure_var_in_reg(arg, args_so_far, selected_reg=reg)
+            args_so_far.append(arg)
+
+        if op.type == 'v':
+            # a plain COND_CALL.  Calls the function when args[0] is
+            # true.  Often used just after a comparison operation.
+            return []
+        else:
+            XXX
+            # COND_CALL_VALUE_I/R.  Calls the function when args[0]
+            # is equal to 0 or NULL.  Returns the result from the
+            # function call if done, or args[0] if it was not 0/NULL.
+            # Implemented by forcing the result to live in the same
+            # register as args[0], and overwriting it if we really do
+            # the call.
+
+            # Load the register for the result.  Possibly reuse 'args[0]'.
+            # But the old value of args[0], if it survives, is first
+            # spilled away.  We can't overwrite any of op.args[2:] here.
+            args = op.getarglist()
+            resloc = self.rm.force_result_in_reg(op, args[0],
+                                                 forbidden_vars=args[2:])
+            # Test the register for the result.
+            self.assembler.mc.CMP_ri(resloc.value, 0)
+            self.assembler.guard_success_cc = c.EQ
+            return [tmpreg, resloc]
+
+
     def prepare_op_finish(self, op):
         # the frame is in fp, but we have to point where in the frame is
         # the potential argument to FINISH

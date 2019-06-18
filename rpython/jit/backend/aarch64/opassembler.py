@@ -1,5 +1,6 @@
 
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.jit.metainterp.history import (AbstractFailDescr, ConstInt,
                                             INT, FLOAT, REF)
 from rpython.jit.backend.aarch64 import registers as r
@@ -501,6 +502,49 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cond_call_gc_wb_array(self, op, arglocs):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
                                      array=True)
+
+    def emit_op_cond_call(self, op, arglocs):
+        self.mc.gen_load_int(r.ip1.value, rffi.cast(lltype.Signed,
+            op.getarg(1).getint()))
+
+        #if len(arglocs) == 2:
+        #    res_loc = arglocs[1]     # cond_call_value
+        #else:
+        #    res_loc = None           # cond_call
+        # see x86.regalloc for why we skip res_loc in the gcmap
+        res_loc = None
+        gcmap = self._regalloc.get_gcmap([res_loc])
+
+        jmp_adr = self.mc.currpos()
+        self.mc.BRK()  # patched later: the conditional jump
+        #
+        self.push_gcmap(self.mc, gcmap)
+        #
+        callee_only = False
+        floats = False
+        if self._regalloc is not None:
+            for reg in self._regalloc.rm.reg_bindings.values():
+                if reg not in self._regalloc.rm.save_around_call_regs:
+                    break
+            else:
+                callee_only = True
+            if self._regalloc.vfprm.reg_bindings:
+                floats = True
+        cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
+        assert cond_call_adr
+        self.mc.BL(cond_call_adr)
+        # if this is a COND_CALL_VALUE, we need to move the result in place
+        # from its current location (which is, unusually, in r4: see
+        # cond_call_slowpath)
+        if res_loc is not None:
+            self.mc.MOV_rr(res_loc.value, r.ip1.value)
+        #
+        self.pop_gcmap(self.mc)
+        pmc = OverwritingBuilder(self.mc, jmp_adr, WORD)
+        pmc.B_ofs_cond(self.mc.currpos(), c.EQ)
+        # might be overridden again to skip over the following
+        # guard_no_exception too
+        self.previous_cond_call_jcond = jmp_adr, c.EQ
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False, is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks

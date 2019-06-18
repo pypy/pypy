@@ -530,7 +530,26 @@ class AssemblerARM64(ResOpAssembler):
         self.propagate_exception_path = rawstart
 
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
-        pass
+        """ This builds a general call slowpath, for whatever call happens to
+        come.
+        """
+        mc = InstrBuilder()
+        #
+        self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats, callee_only)
+        ## args are in their respective positions
+        mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
+        mc.STR_ri(r.ip0.value, r.sp.value, WORD)
+        mc.STR_ri(r.lr.value, r.sp.value, 0)
+        mc.BL(r.ip1.value)
+        mc.MOV_rr(r.ip1.value, r.x0.value) # return comes back in ip1
+        self._reload_frame_if_necessary(mc)
+        self._pop_all_regs_from_jitframe(mc, [], supports_floats,
+                                         callee_only)
+        # return
+        mc.LDR_ri(r.ip0.value, r.sp.value, 0)
+        mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
+        mc.RET_r(r.ip0.value)
+        return mc.materialize(self.cpu, [])
 
     def _build_stack_check_slowpath(self):
         self.stack_check_slowpath = 0  #XXX
