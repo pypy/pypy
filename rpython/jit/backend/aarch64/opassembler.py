@@ -348,7 +348,8 @@ class ResOpAssembler(BaseAssembler):
                     self.mc.STR_di(value_loc.value, base_loc.value,
                                     ofs_loc.value)
                 else:
-                    xxx
+                    self.mc.STR_dd(value_loc.value, base_loc.value,
+                                   ofs_loc.value)
                 return
             if ofs_loc.is_imm():
                 self.mc.STR_ri(value_loc.value, base_loc.value,
@@ -489,17 +490,24 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_guard_value(self, op, arglocs):
         v0 = arglocs[0]
-        assert v0.is_core_reg() # can be also a float reg, but later
         v1 = arglocs[1]
-        if v1.is_core_reg():
-            loc = v1
-        elif v1.is_imm():
-            self.mc.gen_load_int(r.ip0.value, v1.value)
-            loc = r.ip0
+        if v0.is_core_reg():
+            if v1.is_core_reg():
+                loc = v1
+            elif v1.is_imm():
+                self.mc.gen_load_int(r.ip0.value, v1.value)
+                loc = r.ip0
+            else:
+                assert v1.is_stack()
+                yyy
+            self.mc.CMP_rr(v0.value, loc.value)
         else:
-            assert v1.is_stack()
-            yyy
-        self.mc.CMP_rr(v0.value, loc.value)
+            assert v0.is_vfp_reg()
+            if v1.is_vfp_reg():
+                loc = v1
+            else:
+                xxx
+            self.mc.FCMP_dd(v0.value, loc.value)
         self._emit_guard(op, c.EQ, arglocs[2:])
 
     def emit_op_guard_class(self, op, arglocs):

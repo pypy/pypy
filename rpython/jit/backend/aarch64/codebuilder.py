@@ -30,6 +30,10 @@ class AbstractAarch64Builder(object):
         assert 0 <= offset < 32768
         self.write32((base << 22) | ((offset >> 3) << 10) | (rn << 5) | rt)
 
+    def STR_dd(self, rt, rn, rm):
+        base = 0b11111100001
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
+
     def STP_rr_preindex(self, reg1, reg2, rn, offset):
         base = 0b1010100110
         assert -512 <= offset < 512
@@ -121,6 +125,10 @@ class AbstractAarch64Builder(object):
         assert 0 <= offset < 32768
         base = 0b1111110101
         self.write32((base << 22) | (offset >> 3 << 10) | (rn << 5) | rt)
+
+    def LDR_dr(self, rt, rn, rm):
+        base = 0b11111100011
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
 
     def LDRB_ri(self, rt, rn, immed):
         base = 0b0011100101
