@@ -19,9 +19,9 @@ from rpython.jit.backend.aarch64.locations import imm
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter import longlong
 
 from rpython.rlib.rarithmetic import r_uint
-
 
 
 class TempInt(TempVar):
@@ -438,7 +438,22 @@ class Regalloc(BaseRegalloc):
         return [reg]
 
     prepare_comp_op_int_is_true = prepare_comp_unary
-    prepare_comp_op_int_is_zero = prepare_comp_unary        
+    prepare_comp_op_int_is_zero = prepare_comp_unary
+
+    # --------------------------------- floats --------------------------
+
+    def prepare_two_regs_op(self, op):
+        loc1 = self.make_sure_var_in_reg(op.getarg(0))
+        loc2 = self.make_sure_var_in_reg(op.getarg(1))
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [loc1, loc2, res]
+
+    prepare_op_float_add = prepare_two_regs_op
+    prepare_op_float_sub = prepare_two_regs_op
+    prepare_op_float_mul = prepare_two_regs_op
+    prepare_op_float_truediv = prepare_two_regs_op
 
     # --------------------------------- fields --------------------------
 

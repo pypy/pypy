@@ -211,6 +211,22 @@ class ResOpAssembler(BaseAssembler):
     emit_op_cast_ptr_to_int = _genop_same_as
     emit_op_cast_int_to_ptr = _genop_same_as
 
+    def emit_op_float_add(self, op, arglocs):
+        arg1, arg2, res = arglocs
+        self.mc.FADD_dd(res.value, arg1.value, arg2.value)
+
+    def emit_op_float_sub(self, op, arglocs):
+        arg1, arg2, res = arglocs
+        self.mc.FSUB_dd(res.value, arg1.value, arg2.value)    
+
+    def emit_op_float_mul(self, op, arglocs):
+        arg1, arg2, res = arglocs
+        self.mc.FMUL_dd(res.value, arg1.value, arg2.value)    
+
+    def emit_op_float_truediv(self, op, arglocs):
+        arg1, arg2, res = arglocs
+        self.mc.FDIV_dd(res.value, arg1.value, arg2.value)    
+
     def emit_op_load_from_gc_table(self, op, arglocs):
         res_loc, = arglocs
         index = op.getarg(0).getint()

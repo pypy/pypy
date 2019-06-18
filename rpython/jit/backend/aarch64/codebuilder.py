@@ -171,6 +171,22 @@ class AbstractAarch64Builder(object):
         base = 0b10001011000 | (s << 8)
         self.write32((base << 21) | (rm << 16) | (rn << 5) | (rd))
 
+    def FADD_dd(self, rd, rn, rm):
+        base = 0b00011110011
+        self.write32((base << 21) | (rm << 16) | (0b001010 << 10) | (rn << 5) | rd)
+
+    def FSUB_dd(self, rd, rn, rm):
+        base = 0b00011110011
+        self.write32((base << 21) | (rm << 16) | (0b001110 << 10) | (rn << 5) | rd)
+
+    def FMUL_dd(self, rd, rn, rm):
+        base = 0b00011110011
+        self.write32((base << 21) | (rm << 16) | (0b000010 << 10) | (rn << 5) | rd)
+
+    def FDIV_dd(self, rd, rn, rm):
+        base = 0b00011110011
+        self.write32((base << 21) | (rm << 16) | (0b000110 << 10) | (rn << 5) | rd)
+
     def SUB_rr(self, rd, rn, rm, s=0):
         base = 0b11001011001 | (s << 8)
         self.write32((base << 21) | (rm << 16) | (0b11 << 13) | (rn << 5) | (rd))

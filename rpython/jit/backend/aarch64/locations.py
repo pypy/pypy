@@ -114,6 +114,32 @@ class StackLocation(AssemblerLocation):
         return self.type == FLOAT
 
 
+class ConstFloatLoc(AssemblerLocation):
+    """This class represents an imm float value which is stored in memory at
+    the address stored in the field value"""
+    _immutable_ = True
+    width = WORD
+    type = FLOAT
+
+    def __init__(self, value):
+        self.value = value
+
+    def getint(self):
+        return self.value
+
+    def __repr__(self):
+        return "imm_float(stored at %d)" % (self.value)
+
+    def is_imm_float(self):
+        return True
+
+    def as_key(self):          # a real address + 1
+        return self.value | 1
+
+    def is_float(self):
+        return True
+
+
 class ZeroRegister(AssemblerLocation):
     _immutable_ = True
 

@@ -822,8 +822,8 @@ class AssemblerARM64(ResOpAssembler):
         if value.is_imm():
             self.mc.gen_load_int(loc.value, value.getint())
         elif value.is_imm_float():
-            self.mc.gen_load_int(r.ip.value, value.getint())
-            self.mc.VLDR(loc.value, r.ip.value)
+            self.mc.gen_load_int(r.ip0.value, value.getint())
+            self.mc.LDR_di(loc.value, r.ip0.value, 0)
 
     def _mov_stack_to_loc(self, prev_loc, loc):
         offset = prev_loc.value
@@ -834,7 +834,13 @@ class AssemblerARM64(ResOpAssembler):
             assert 0 <= offset <= (1<<15) - 1
             self.mc.LDR_ri(loc.value, r.fp.value, offset)
             return
-        xxx
+        if loc.is_vfp_reg():
+            assert prev_loc.type == FLOAT, 'trying to load from an \
+                incompatible location into a float register'
+            assert 0 <= offset <= (1 << 15) - 1
+            self.mc.LDR_di(loc.value, r.fp.value, offset)
+            return
+        assert False
         # elif loc.is_vfp_reg():
         #     assert prev_loc.type == FLOAT, 'trying to load from an \
         #         incompatible location into a float register'
@@ -932,12 +938,8 @@ class AssemblerARM64(ResOpAssembler):
             return self._store_core_reg(mc, source, base, ofs)
 
     def _store_vfp_reg(self, mc, source, base, ofs):
-        if check_imm_arg(ofs, VMEM_imm_size):
-            mc.VSTR(source.value, base.value, imm=ofs, cond=cond)
-        else:
-            mc.gen_load_int(helper.value, ofs, cond=cond)
-            mc.ADD_rr(helper.value, base.value, helper.value, cond=cond)
-            mc.VSTR(source.value, helper.value, cond=cond)
+        assert ofs <= (1 << 15) - 1
+        mc.STR_di(source.value, base.value, ofs)
 
     def _store_core_reg(self, mc, source, base, ofs):
         # uses r.ip1 as a temporary
