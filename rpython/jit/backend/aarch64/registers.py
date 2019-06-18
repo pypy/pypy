@@ -10,7 +10,7 @@ sp = xzr = ZeroRegister()
  x21, x22, x23, x24, x25, x26, x27, x28, x29, x30] = registers
 
 vfpregisters = [VFPRegisterLocation(i) for i in range(32)]
-all_vfp_regs = vfpregisters[:16]
+all_vfp_regs = vfpregisters[:8]
 all_regs = registers[:16] #+ [x19, x20, x21, x22]
 
 lr = x30
@@ -22,6 +22,7 @@ ip1 = x17
 ip0 = x16
 
 callee_saved_registers = [] # x19, x20, x21, x22]
+vfp_argument_regs = caller_vfp_resp = all_vfp_regs[:8]
 
 argument_regs = [x0, x1, x2, x3, x4, x5, x6, x7]
 caller_resp = argument_regs + [x8, x9, x10, x11, x12, x13, x14, x15]

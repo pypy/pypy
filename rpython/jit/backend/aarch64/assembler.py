@@ -6,7 +6,7 @@ from rpython.jit.backend.aarch64.locations import imm, StackLocation, get_fp_off
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
 from rpython.jit.backend.aarch64.regalloc import (Regalloc, check_imm_arg,
     operations as regalloc_operations, guard_operations, comp_operations,
-    CoreRegisterManager)
+    CoreRegisterManager, VFPRegisterManager)
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.llsupport import jitframe
@@ -248,9 +248,8 @@ class AssemblerARM64(ResOpAssembler):
             # Push VFP regs
             regs = VFPRegisterManager.all_regs
             ofs = len(CoreRegisterManager.all_regs) * WORD
-            assert check_imm_arg(ofs+base_ofs)
-            mc.ADD_ri(r.ip.value, r.fp.value, imm=ofs+base_ofs)
-            mc.VSTM(r.ip.value, [vfpr.value for vfpr in regs])
+            for reg in regs:
+                mc.STR_di(reg.value, r.fp.value, ofs + base_ofs + reg.value * WORD)
 
     def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
                                     callee_only=False):
@@ -278,9 +277,8 @@ class AssemblerARM64(ResOpAssembler):
             # Pop VFP regs
             regs = VFPRegisterManager.all_regs
             ofs = len(CoreRegisterManager.all_regs) * WORD
-            assert check_imm_arg(ofs+base_ofs)
-            mc.ADD_ri(r.ip.value, r.fp.value, imm=ofs+base_ofs)
-            mc.VLDM(r.ip.value, [vfpr.value for vfpr in regs])
+            for reg in regs:
+                mc.LDR_di(reg.value, r.fp.value, ofs + base_ofs + reg.value * WORD)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = InstrBuilder()
@@ -745,11 +743,6 @@ class AssemblerARM64(ResOpAssembler):
         
         #self.saved_threadlocal_addr = 0   # at offset 0 from location 'sp'
         # ^^^XXX save it from register x1 into some place
-        if self.cpu.supports_floats:
-            XXX
-            self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
-            self.saved_threadlocal_addr += (
-                len(r.callee_saved_vfp_registers) * 2 * WORD)
 
         # set fp to point to the JITFRAME, passed in argument 'x0'
         self.mc.MOV_rr(r.fp.value, r.x0.value)
@@ -916,19 +909,18 @@ class AssemblerARM64(ResOpAssembler):
             mc = self.mc
         if gcrootmap and gcrootmap.is_shadow_stack:
             self.gen_footer_shadowstack(gcrootmap, mc)
-        if self.cpu.supports_floats:
-            XXX
-        #    mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers])
 
         # pop all callee saved registers
 
-        stack_size = (len(r.callee_saved_registers) + 2) * WORD
+        stack_size = len(r.callee_saved_registers) * WORD
+
         for i in range(0, len(r.callee_saved_registers), 2):
             mc.LDP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
                             (i + 2) * WORD)
         mc.LDP_rr_postindex(r.fp.value, r.lr.value, r.sp.value, stack_size)
+
 
         mc.RET_r(r.lr.value)
 

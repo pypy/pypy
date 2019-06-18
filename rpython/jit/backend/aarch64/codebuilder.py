@@ -24,6 +24,12 @@ class AbstractAarch64Builder(object):
         self.write32((base << 22) | ((offset >> 3) << 10) |
                      (rn << 5) | rt)
 
+    def STR_di(self, rt, rn, offset):
+        base = 0b1111110100
+        assert offset & 0x7 == 0
+        assert 0 <= offset < 32768
+        self.write32((base << 22) | ((offset >> 3) << 10) | (rn << 5) | rt)
+
     def STP_rr_preindex(self, reg1, reg2, rn, offset):
         base = 0b1010100110
         assert -512 <= offset < 512
@@ -109,6 +115,12 @@ class AbstractAarch64Builder(object):
         assert 0 <= immed <= 1<<15
         assert immed & 0x7 == 0
         self.write32((base << 22) | (immed >> 3 << 10) | (rn << 5) | rt)
+
+    def LDR_di(self, rt, rn, offset):
+        assert offset & 0x7 == 0
+        assert 0 <= offset < 32768
+        base = 0b1111110101
+        self.write32((base << 22) | (offset >> 3 << 10) | (rn << 5) | rt)
 
     def LDRB_ri(self, rt, rn, immed):
         base = 0b0011100101
@@ -339,6 +351,8 @@ class AbstractAarch64Builder(object):
 
     def get_max_size_of_gen_load_int(self):
         return 4
+
+    # -------------------------------------------
 
 
 class OverwritingBuilder(AbstractAarch64Builder):

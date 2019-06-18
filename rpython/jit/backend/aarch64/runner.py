@@ -12,6 +12,7 @@ class CPU_ARM64(AbstractLLCPU):
     all_reg_indexes = range(len(r.all_regs))
     gen_regs = r.all_regs
     float_regs = VFPRegisterManager.all_regs
+    supports_floats = True
 
     from rpython.jit.backend.aarch64.arch import JITFRAME_FIXED_SIZE
 
