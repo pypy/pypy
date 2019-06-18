@@ -890,8 +890,14 @@ class AssemblerARM64(ResOpAssembler):
         elif loc.is_stack():
             self.mc.LDR_ri(r.ip0.value, r.fp.value, loc.value)
             self.mc.STR_ri(r.ip0.value, r.sp.value, pos)
+        elif loc.is_vfp_reg():
+            xxx
         else:
             assert False, "wrong loc"
+
+    def _mov_imm_float_to_loc(self, prev_loc, loc):
+        assert loc.is_vfp_reg()
+        self.load(loc, prev_loc)
 
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""

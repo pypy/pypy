@@ -97,6 +97,9 @@ class VFPRegisterManager(ARMRegisterManager):
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
         return locations.ConstFloatLoc(adr)
 
+    def call_result_location(self, v):
+        return r.d0
+
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 

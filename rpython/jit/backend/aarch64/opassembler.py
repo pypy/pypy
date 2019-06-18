@@ -343,6 +343,13 @@ class ResOpAssembler(BaseAssembler):
         assert base_loc.is_core_reg()
         if scale == 3:
             # WORD size
+            if value_loc.is_float():
+                if ofs_loc.is_imm():
+                    self.mc.STR_di(value_loc.value, base_loc.value,
+                                    ofs_loc.value)
+                else:
+                    xxx
+                return
             if ofs_loc.is_imm():
                 self.mc.STR_ri(value_loc.value, base_loc.value,
                                 ofs_loc.value)
@@ -365,6 +372,12 @@ class ResOpAssembler(BaseAssembler):
         #
         if scale == 3:
             # WORD
+            if res_loc.is_float():
+                if ofs_loc.is_imm():
+                    self.mc.LDR_di(res_loc.value, base_loc.value, ofs_loc.value)
+                else:
+                    self.mc.LDR_dr(res_loc.value, base_loc.value, ofs_loc.value)
+                return
             if ofs_loc.is_imm():
                 self.mc.LDR_ri(res_loc.value, base_loc.value, ofs_loc.value)
             else:
