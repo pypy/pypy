@@ -118,7 +118,6 @@ class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
     the address stored in the field value"""
     _immutable_ = True
-    width = WORD
     type = FLOAT
 
     def __init__(self, value):

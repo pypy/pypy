@@ -899,6 +899,10 @@ class AssemblerARM64(ResOpAssembler):
         assert loc.is_vfp_reg()
         self.load(loc, prev_loc)
 
+    def _mov_vfp_reg_to_loc(self, prev_loc, loc):
+        assert loc.is_stack()
+        self.mc.STR_di(prev_loc.value, r.fp.value, loc.value)
+
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""
         if prev_loc.is_imm():
