@@ -187,6 +187,18 @@ class AbstractAarch64Builder(object):
         base = 0b00011110011
         self.write32((base << 21) | (rm << 16) | (0b000110 << 10) | (rn << 5) | rd)
 
+    def FCMP_dd(self, rn, rm):
+        base = 0b00011110011
+        self.write32((base << 21) | (rm << 16) | (0b001000 << 10) | (rn << 5))
+
+    def FNEG_d(self, rd, rn):
+        base = 0b0001111001100001010000
+        self.write32((base << 10) | (rn << 5) | rd)
+
+    def FABS_d(self, rd, rn):
+        base = 0b0001111001100000110000
+        self.write32((base << 10) | (rn << 5) | rd)
+
     def SUB_rr(self, rd, rn, rm, s=0):
         base = 0b11001011001 | (s << 8)
         self.write32((base << 21) | (rm << 16) | (0b11 << 13) | (rn << 5) | (rd))

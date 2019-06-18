@@ -455,6 +455,16 @@ class Regalloc(BaseRegalloc):
     prepare_op_float_mul = prepare_two_regs_op
     prepare_op_float_truediv = prepare_two_regs_op
 
+    prepare_op_float_lt = prepare_two_regs_op
+    prepare_op_float_le = prepare_two_regs_op
+    prepare_op_float_eq = prepare_two_regs_op
+    prepare_op_float_ne = prepare_two_regs_op
+    prepare_op_float_gt = prepare_two_regs_op
+    prepare_op_float_ge = prepare_two_regs_op
+
+    prepare_op_float_neg = prepare_unary
+    prepare_op_float_abs = prepare_unary
+
     # --------------------------------- fields --------------------------
 
     def prepare_op_gc_store(self, op):

@@ -24,6 +24,14 @@ def gen_comp_op(name, flag):
     emit_op.__name__ = name
     return emit_op
 
+def gen_float_comp_op(name, flag):
+    def emit_op(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.emit_float_comp_op(op, l0, l1)
+        self.mc.CSET_r_flag(res.value, c.get_opposite_of(flag))
+    emit_op.__name__ = name
+    return emit_op        
+
 class ResOpAssembler(BaseAssembler):
     def int_sub_impl(self, op, arglocs, flags=0):
         l0, l1, res = arglocs
@@ -106,6 +114,9 @@ class ResOpAssembler(BaseAssembler):
             self.mc.CMP_ri(l0.value, l1.getint())
         else:
             self.mc.CMP_rr(l0.value, l1.value)
+
+    def emit_float_comp_op(self, op, l0, l1):
+        self.mc.FCMP_dd(l0.value, l1.value)
 
     def emit_comp_op_int_lt(self, op, arglocs):
         self.emit_int_comp_op(op, arglocs[0], arglocs[1])
@@ -226,6 +237,21 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_float_truediv(self, op, arglocs):
         arg1, arg2, res = arglocs
         self.mc.FDIV_dd(res.value, arg1.value, arg2.value)    
+
+    emit_op_float_lt = gen_float_comp_op('float_lt', c.VFP_LT)
+    emit_op_float_le = gen_float_comp_op('float_le', c.VFP_LE)
+    emit_op_float_eq = gen_float_comp_op('float_eq', c.EQ)
+    emit_op_float_ne = gen_float_comp_op('float_ne', c.NE)
+    emit_op_float_gt = gen_float_comp_op('float_gt', c.GT)
+    emit_op_float_ge = gen_float_comp_op('float_ge', c.GE)
+
+    def emit_op_float_neg(self, op, arglocs):
+        arg, res = arglocs
+        self.mc.FNEG_d(res.value, arg.value)
+
+    def emit_op_float_abs(self, op, arglocs):
+        arg, res = arglocs
+        self.mc.FABS_d(res.value, arg.value)        
 
     def emit_op_load_from_gc_table(self, op, arglocs):
         res_loc, = arglocs
