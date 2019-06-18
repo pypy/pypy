@@ -604,7 +604,7 @@ class W_IntObject(W_AbstractIntObject):
 
     def descr_repr(self, space):
         res = str(self.intval)
-        return space.newtext(res)
+        return space.newutf8(res, len(res))  # res is always ASCII
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_format(self, space, w_format_spec):
