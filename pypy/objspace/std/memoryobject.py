@@ -184,7 +184,7 @@ class W_MemoryView(W_Root):
         if self.view.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         if space.isinstance_w(w_index, space.w_tuple):
-            raise oefmt(space.w_NotImplementedError, "")
+            raise oefmt(space.w_NotImplementedError, "only 1d setitem supported")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         is_slice = space.isinstance_w(w_index, space.w_slice)
         start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)

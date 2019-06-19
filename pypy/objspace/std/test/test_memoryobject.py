@@ -287,6 +287,12 @@ class AppTestMemoryView(object):
         assert m2.itemsize == m1.itemsize
         assert m2.shape == m1.shape
 
+    def test_2d(self):
+        m = memoryview(bytearray(b'1234123412341234')).cast('b', shape=(4, 4))
+        assert m[2, 3] == ord('4')
+        m[2, 3] = ord('z')
+        assert m[2, 3] == ord('z') 
+
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])
 
