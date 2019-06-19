@@ -132,6 +132,24 @@ class W_MemoryView(W_Root):
         data = view.getbytes(start, itemsize)
         return view.value_from_bytes(space, data)
 
+    def _setitem_tuple_indexed(self, space, w_index, w_obj):
+        view = self.view
+        length = space.len_w(w_index)
+        ndim = view.getndim()
+        if length < ndim:
+            raise oefmt(space.w_NotImplementedError,
+                        "sub-views are not implemented")
+
+        if length > ndim:
+            raise oefmt(space.w_TypeError, \
+                    "cannot index %d-dimension view with %d-element tuple",
+                    length, ndim)
+
+        start = self._start_from_tuple(space, w_index)
+        itemsize = self.getitemsize()
+        val = self.view.bytes_from_value(space, w_obj)
+        self.view.setbytes(start * itemsize, val)
+
     def _decode_index(self, space, w_index, is_slice):
         shape = self.getshape()
         if len(shape) == 0:
@@ -184,7 +202,7 @@ class W_MemoryView(W_Root):
         if self.view.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         if space.isinstance_w(w_index, space.w_tuple):
-            raise oefmt(space.w_NotImplementedError, "only 1d setitem supported")
+            return self._setitem_tuple_indexed(space, w_index, w_obj)
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         is_slice = space.isinstance_w(w_index, space.w_slice)
         start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
