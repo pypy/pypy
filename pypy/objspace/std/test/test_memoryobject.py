@@ -287,6 +287,19 @@ class AppTestMemoryView(object):
         assert m2.itemsize == m1.itemsize
         assert m2.shape == m1.shape
 
+    def test_2d(self):
+        m = memoryview(bytearray(b'1234123412341234'))
+        assert m[3] == ord('4')
+        m[3] = ord('z')
+        assert m[3] == ord('z')
+        m = m.cast('B', shape=(4, 4))
+        assert m[2, 3] == ord('4')
+        m[2, 3] = ord('a')
+        assert m[2, 3] == ord('a') 
+        raises(TypeError, m.__setitem__, (2, 3), bytearray(b'12'))
+        # slices in 2d memoryviews are not supported at all
+        raises(TypeError, m.__getitem__, (slice(None), 3))
+
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])
 

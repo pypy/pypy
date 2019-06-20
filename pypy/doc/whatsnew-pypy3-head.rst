@@ -12,3 +12,7 @@ Fix parsing for converting strings with underscore into ints
 .. branch: winmultiprocessing
 
 Improve multiprocessing support on win32
+
+.. branch: setitem2d
+
+Allow 2d indexing in ``memoryview.__setitem__`` (issue bb-3028)
