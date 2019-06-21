@@ -18,6 +18,31 @@ MEMORYVIEW_FORTRAN  = 0x0004
 MEMORYVIEW_SCALAR   = 0x0008
 MEMORYVIEW_PIL      = 0x0010
 
+def is_multiindex(space, w_key):
+    if not space.isinstance_w(w_key, space.w_tuple):
+        return 0
+    length = space.len_w(w_key)
+    i = 0
+    while i < length:
+        w_obj = w_key.getitem(space, i)
+        if not space.lookup(w_obj, '__index__'):
+            return 0
+        i += 1
+    return 1
+
+def is_multislice(space, w_key):
+    if not space.isinstance_w(w_key, space.w_tuple):
+        return 0
+    length = space.len_w(w_key)
+    if length == 0:
+        return 0
+    i = 0
+    while i < length:
+        w_obj = w_key.getitem(space, i)
+        if not space.isinstance_w(w_obj, space.w_slice):
+            return 0
+        i += 1
+    return 1
 
 class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
@@ -161,24 +186,28 @@ class W_MemoryView(W_Root):
     def descr_getitem(self, space, w_index):
         self._check_released(space)
 
-        if space.isinstance_w(w_index, space.w_tuple):
-            return self._getitem_tuple_indexed(space, w_index)
         is_slice = space.isinstance_w(w_index, space.w_slice)
-        start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
-        # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
-        if step == 0:  # index only
-            dim = self.getndim()
-            if dim == 0:
-                raise oefmt(space.w_TypeError, "invalid indexing of 0-dim memory")
-            elif dim == 1:
-                return self.view.w_getitem(space, start)
-            else:
-                raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
-        elif is_slice:
-            return self.view.new_slice(start, step, slicelength).wrap(space)
-        # multi index is handled at the top of this function
+        if is_slice or space.lookup(w_index, '__index__'):
+            start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
+            # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
+            if step == 0:  # index only
+                dim = self.getndim()
+                if dim == 0:
+                    raise oefmt(space.w_TypeError, "invalid indexing of 0-dim memory")
+                elif dim == 1:
+                    return self.view.w_getitem(space, start)
+                else:
+                    raise oefmt(space.w_NotImplementedError,
+                                "multi-dimensional sub-views are not implemented")
+            elif is_slice:
+                return self.view.new_slice(start, step, slicelength).wrap(space)
+        elif is_multiindex(space, w_index):
+            return self._getitem_tuple_indexed(space, w_index)
+        elif is_multislice(space, w_index):
+            raise oefmt(space.w_NotImplementedError,
+                        "multi-dimensional slicing is not implemented")
         else:
-            raise TypeError("memoryview: invalid slice key")
+            raise oefmt(space.w_TypeError, "memoryview: invalid slice key")
 
     def init_len(self):
         self.length = self.bytecount_from_shape()
