@@ -1,0 +1,6 @@
+digraph G {
+    "a" [type=C, alive=n, tuple=y];
+    "b" [type=C, alive=n];
+    "a" -> "b";
+    "b" -> "a";
+}

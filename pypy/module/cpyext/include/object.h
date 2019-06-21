@@ -295,6 +295,7 @@ PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
                 ( (type *) _PyObject_GC_NewVar(typeobj, size) )
 
 extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
+extern PyGC_Head *_pypy_rawrefcount_tuple_list;
 
 #define _Py_AS_GC(o) ((PyGC_Head *)(o)-1)
 #define _Py_FROM_GC(g) ((PyObject *)(((PyGC_Head *)g)+1))
@@ -327,9 +328,15 @@ extern PyGC_Head *_pypy_rawrefcount_pyobj_list;
 #define _PyGC_REFS_REACHABLE               (-3)
 #define _PyGC_REFS_TENTATIVELY_UNREACHABLE (-4)
 
-#define _PyGC_IS_TRACKED(o) (_PyGC_REFS(o) != _PyGC_REFS_UNTRACKED)
-
 #define PyType_IS_GC(t) PyType_HasFeature((t), Py_TPFLAGS_HAVE_GC)
+#define PyObject_IS_GC(o) \
+    (PyType_IS_GC(Py_TYPE(o)) \
+    && (Py_TYPE(o)->tp_is_gc == NULL || Py_TYPE(o)->tp_is_gc(o)))
+
+#define _PyGC_IS_TRACKED(o) (_PyGC_REFS(o) != _PyGC_REFS_UNTRACKED)
+#define _PyObject_GC_MAY_BE_TRACKED(obj) \
+    (PyObject_IS_GC(obj) && \
+    (!PyTuple_CheckExact(obj) || _PyGC_IS_TRACKED(obj)))
 
 PyAPI_FUNC(void) PyObject_GC_Track(void *);
 PyAPI_FUNC(void) PyObject_GC_UnTrack(void *);
@@ -343,6 +350,16 @@ PyAPI_FUNC(void) PyObject_GC_UnTrack(void *);
     g->gc_prev = _pypy_rawrefcount_pyobj_list->gc_prev; \
     ((PyGC_Head *)g->gc_prev)->gc_next = g; \
     _pypy_rawrefcount_pyobj_list->gc_prev = g; \
+ } while(0)
+ #define _PyObject_GC_TRACK_Tuple(o)     do { \
+    PyGC_Head *g = _Py_AS_GC(o); \
+    if (_PyGCHead_REFS(g) != _PyGC_REFS_UNTRACKED) \
+        Py_FatalError("GC object already tracked"); \
+    _PyGCHead_SET_REFS(g, _PyGC_REFS_REACHABLE); \
+    g->gc_next = _pypy_rawrefcount_tuple_list; \
+    g->gc_prev = _pypy_rawrefcount_tuple_list->gc_prev; \
+    ((PyGC_Head *)g->gc_prev)->gc_next = g; \
+    _pypy_rawrefcount_tuple_list->gc_prev = g; \
  } while(0)
 #define _PyObject_GC_UNTRACK(o)   do { \
     PyGC_Head *g = _Py_AS_GC(o); \
@@ -438,6 +455,7 @@ PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
 PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
 PyAPI_FUNC(PyGC_Head *) _PyPy_init_pyobj_list();
+PyAPI_FUNC(PyGC_Head *) _PyPy_init_tuple_list();
 PyAPI_FUNC(GCHdr_PyObject *) _PyPy_gc_as_pyobj(PyGC_Head *);
 PyAPI_FUNC(PyGC_Head *) _PyPy_pyobj_as_gc(GCHdr_PyObject *);
 PyAPI_FUNC(Py_ssize_t) _PyPy_finalizer_type(PyGC_Head *);

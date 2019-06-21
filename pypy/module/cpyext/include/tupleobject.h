@@ -20,6 +20,7 @@ PyAPI_FUNC(PyObject *) PyTuple_New(Py_ssize_t size);
 PyAPI_FUNC(void) _PyPy_tuple_dealloc(PyObject *);
 PyAPI_FUNC(void) _PyPy_tuple_free(void *);
 PyAPI_FUNC(int) _PyPy_tuple_traverse(PyObject *ob, visitproc visit, void *arg);
+PyAPI_FUNC(Py_ssize_t) _PyTuple_MaybeUntrack(PyObject *);
 
 /* defined in varargswrapper.c */
 PyAPI_FUNC(PyObject *) PyTuple_Pack(Py_ssize_t, ...);

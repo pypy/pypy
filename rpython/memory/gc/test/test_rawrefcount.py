@@ -78,17 +78,32 @@ class TestRawRefCount(BaseDirectGCTest):
                         weakref.callback_cleared = True
                         cleared = True
 
+        def rawrefcount_tuple_maybe_untrack(obj):
+            #if foo:
+            #    gchdr = rawrefcount_pyobj_as_gc(obj)
+            #    next = gchdr.c_gc_next
+            #    next.c_gc_prev = gchdr.c_gc_prev
+            #    gchdr.c_gc_prev.c_gc_next = next
+            #    return 0
+            return 1 # TODO: add tests for 0 ("plain" tuple) and 2 (uninitialized)
+
         self.pyobj_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
                                         immortal=True)
         self.pyobj_list.c_gc_next = self.pyobj_list
         self.pyobj_list.c_gc_prev = self.pyobj_list
+        self.tuple_list = lltype.malloc(PYOBJ_GC_HDR_PTR.TO, flavor='raw',
+                                        immortal=True)
+        self.tuple_list.c_gc_next = self.tuple_list
+        self.tuple_list.c_gc_prev = self.tuple_list
         self.gc.rawrefcount_init(lambda: self.trigger.append(1),
                                  rawrefcount_tp_traverse,
                                  llmemory.cast_ptr_to_adr(self.pyobj_list),
+                                 llmemory.cast_ptr_to_adr(self.tuple_list),
                                  rawrefcount_gc_as_pyobj,
                                  rawrefcount_pyobj_as_gc,
                                  rawrefcount_finalizer_type,
-                                 rawrefcount_clear_wr)
+                                 rawrefcount_clear_wr,
+                                 rawrefcount_tuple_maybe_untrack)
 
     def _collect(self, major, expected_trigger=0):
         if major:
@@ -138,7 +153,7 @@ class TestRawRefCount(BaseDirectGCTest):
         return p1, p1ref, check_alive
 
     def _rawrefcount_pyobj(self, create_immortal=False, is_gc=True,
-                           tracked=True):
+                           tracked=True, tuple=tuple):
         r1 = lltype.malloc(PYOBJ_HDR, flavor='raw',
                            immortal=create_immortal)
         r1.c_ob_refcnt = 0
@@ -146,7 +161,7 @@ class TestRawRefCount(BaseDirectGCTest):
         r1addr = llmemory.cast_ptr_to_adr(r1)
 
         if is_gc:
-            self._rawrefcount_add_gc(tracked)
+            self._rawrefcount_add_gc(tracked, tuple)
 
         self.pyobjs.append(r1)
         self.is_pygc.append(is_gc)
@@ -161,7 +176,7 @@ class TestRawRefCount(BaseDirectGCTest):
     def _rawrefcount_pair(self, intval, is_light=False, is_pyobj=False,
                           create_old=False, create_immortal=False,
                           rooted=False, force_external=False, is_gc=True,
-                          tracked=True):
+                          tracked=True, tuple=tuple):
         if is_light:
             rc = REFCNT_FROM_PYPY_LIGHT
         else:
@@ -194,7 +209,7 @@ class TestRawRefCount(BaseDirectGCTest):
         r1addr = llmemory.cast_ptr_to_adr(r1)
 
         if is_gc:
-            self._rawrefcount_add_gc(tracked)
+            self._rawrefcount_add_gc(tracked, tuple)
 
         self.pyobjs.append(r1)
         self.is_pygc.append(is_gc)
@@ -222,16 +237,22 @@ class TestRawRefCount(BaseDirectGCTest):
             return p1
         return p1, p1ref, r1, r1addr, check_alive
 
-    def _rawrefcount_add_gc(self, tracked):
+    def _rawrefcount_add_gc(self, tracked, tuple):
         r1gc = lltype.malloc(PYOBJ_GC_HDR, flavor='raw',
                              immortal=True)
         self.gcobjs.append(r1gc)
         if tracked:
             r1gc.c_gc_refs = 0
-            r1gc.c_gc_next = self.pyobj_list
-            r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
-            r1gc.c_gc_prev.c_gc_next = r1gc
-            self.pyobj_list.c_gc_prev = r1gc
+            if tuple:
+                r1gc.c_gc_next = self.tuple_list
+                r1gc.c_gc_prev = self.tuple_list.c_gc_prev
+                r1gc.c_gc_prev.c_gc_next = r1gc
+                self.tuple_list.c_gc_prev = r1gc
+            else:
+                r1gc.c_gc_next = self.pyobj_list
+                r1gc.c_gc_prev = self.pyobj_list.c_gc_prev
+                r1gc.c_gc_prev.c_gc_next = r1gc
+                self.pyobj_list.c_gc_prev = r1gc
         else:
             r1gc.c_gc_refs = RAWREFCOUNT_REFS_UNTRACKED
 
@@ -485,7 +506,7 @@ class TestRawRefCount(BaseDirectGCTest):
 
         class NodeInfo:
             def __init__(self, type, alive, ext_refcnt, finalizer, resurrect,
-                         delete, garbage):
+                         delete, garbage, tuple):
                 self.type = type
                 self.alive = alive
                 self.ext_refcnt = ext_refcnt
@@ -493,6 +514,7 @@ class TestRawRefCount(BaseDirectGCTest):
                 self.resurrect = resurrect
                 self.delete = delete
                 self.garbage = garbage
+                self.tuple = tuple
 
         class WeakrefNode(BorderNode):
             def __init__(self, p, pref, r, raddr, check_alive, info, r_dest,
@@ -529,11 +551,12 @@ class TestRawRefCount(BaseDirectGCTest):
             resurrect = attr['resurrect'] if 'resurrect' in attr else None
             delete = attr['delete'] if 'delete' in attr else None
             garbage = True if 'garbage' in attr else False
+            tuple = attr['tuple'] == "y" if 'tuple' in attr else False
             info = NodeInfo(type, alive, ext_refcnt, finalizer, resurrect,
-                            delete, garbage)
+                            delete, garbage, tuple)
             if type == "C":
                 r, raddr, check_alive = self._rawrefcount_pyobj(
-                    tracked=tracked)
+                    tracked=tracked, tuple=tuple)
                 r.c_ob_refcnt += ext_refcnt
                 nodes[name] = CPythonNode(r, raddr, check_alive, info)
             elif type == "P":
@@ -545,7 +568,8 @@ class TestRawRefCount(BaseDirectGCTest):
             elif type == "B":
                 p, pref, r, raddr, check_alive =\
                     self._rawrefcount_pair(42 + i, rooted=rooted,
-                                           create_old=True, tracked=tracked)
+                                           create_old=True, tracked=tracked,
+                                           tuple=tuple)
                 r.c_ob_refcnt += ext_refcnt
                 nodes[name] = BorderNode(p, pref, r, raddr, check_alive, info)
                 i += 1

@@ -56,7 +56,7 @@ PyTuple_New(register Py_ssize_t size)
     }
     for (i=0; i < size; i++)
         op->ob_item[i] = NULL;
-    _PyObject_GC_TRACK(op);
+    _PyObject_GC_TRACK_Tuple(op);
     return (PyObject *) op;
 }
 
@@ -104,5 +104,34 @@ _PyPy_tuple_traverse(PyObject *ob, visitproc visit, void *arg)
 
     for (i = Py_SIZE(o); --i >= 0; )
         Py_VISIT(o->ob_item[i]);
+    return 0;
+}
+
+/* Return 0 if the tuple is untracked afterwards, return 1 if the tuple
+   should always be kept tracked and return 2 if the tuple was not fully
+   intialized yet. */
+Py_ssize_t
+_PyTuple_MaybeUntrack(PyObject *op)
+{
+    PyTupleObject *t;
+    Py_ssize_t i, n;
+
+    if (!PyTuple_CheckExact(op))
+        return 1;
+    if (!_PyGC_IS_TRACKED(op))
+        return 0;
+    t = (PyTupleObject *) op;
+    n = Py_SIZE(t);
+    for (i = 0; i < n; i++) {
+        PyObject *elt = PyTuple_GET_ITEM(t, i);
+        /* Tuple with NULL elements aren't
+           fully constructed, don't untrack
+           them yet. */
+        if (!elt)
+            return 2;
+        if (_PyObject_GC_MAY_BE_TRACKED(elt))
+            return 1;
+    }
+    _PyObject_GC_UNTRACK(op);
     return 0;
 }

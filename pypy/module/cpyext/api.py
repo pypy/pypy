@@ -1216,6 +1216,15 @@ def attach_c_functions(space, eci, prefix):
     state.C._PyPy_init_pyobj_list = rffi.llexternal(
         '_PyPy_init_pyobj_list', [], PyGC_HeadPtr,
         compilation_info=eci, _nowrapper=True)
+    state.C._PyPy_init_tuple_list = rffi.llexternal(
+        '_PyPy_init_tuple_list', [], PyGC_HeadPtr,
+        compilation_info=eci, _nowrapper=True)
+    state.C._PyTuple_MaybeUntrack = rffi.llexternal(
+        '_PyTuple_MaybeUntrack', [PyObject], lltype.Signed,
+        compilation_info=eci, _nowrapper=True)
+    state.C._PyList_CheckExact = rffi.llexternal(
+        '_PyList_CheckExact', [PyObject], lltype.Signed,
+        compilation_info=eci, _nowrapper=True)
     state.C._PyPy_gc_as_pyobj = rffi.llexternal(
         '_PyPy_gc_as_pyobj', [PyGC_HeadPtr], GCHdr_PyObject,
         compilation_info=eci, _nowrapper=True)
@@ -1348,7 +1357,9 @@ def build_bridge(space):
 
     # initialize the pyobj_list for the gc
     pyobj_list = space.fromcache(State).C._PyPy_init_pyobj_list()
+    pyobj_tuple_list = space.fromcache(State).C._PyPy_init_tuple_list()
     rawrefcount._init_pyobj_list(pyobj_list)
+    rawrefcount._init_pyobj_list(pyobj_tuple_list)
 
     # we need to call this *after* the init code above, because it might
     # indirectly call some functions which are attached to pypyAPI (e.g., we
@@ -1552,6 +1563,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "object.c",
                          source_dir / "typeobject.c",
                          source_dir / "tupleobject.c",
+                         source_dir / "listobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

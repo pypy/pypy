@@ -740,6 +740,10 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_clear = base.c_tp_clear
         if not pto.c_tp_traverse:
             pto.c_tp_traverse = base.c_tp_traverse
+        if not pto.c_tp_is_gc:
+            pto.c_tp_is_gc = base.c_tp_is_gc
+        if not pto.c_tp_finalize:
+            pto.c_tp_finalize = base.c_tp_finalize
         # XXX check for correct GC flags!
         if not pto.c_tp_free:
             pto.c_tp_free = base.c_tp_free

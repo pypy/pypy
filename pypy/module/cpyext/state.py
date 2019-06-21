@@ -184,47 +184,28 @@ class State:
                     from pypy.module.cpyext.listobject import list_traverse
 
                     # convert to pointers with correct types (PyObject)
-                    callback_addr = llmemory.cast_ptr_to_adr(callback)
-                    callback_ptr = llmemory.cast_adr_to_ptr(callback_addr,
-                                                            visitproc)
                     pyobj_addr = llmemory.cast_ptr_to_adr(pyobj_ptr)
                     pyobj = llmemory.cast_adr_to_ptr(pyobj_addr, PyObject)
+
                     # now call tp_traverse (if possible)
                     debug_print("rrc check traverse", pyobj)
-                    pto = pyobj.c_ob_type
-                    if pto and pto.c_tp_name:
-                        tp_name = pto.c_tp_name
-                        name = rffi.charp2str(cts.cast('char*', tp_name))
-                        debug_print("rrc try traverse", pyobj, ": type", pto,
-                                    ": name", name)
-                        pto2 = pto
-                        i = 1
-                        while pto2.c_tp_base:
-                            base = pto2.c_tp_base
-                            if base.c_tp_name:
-                                tp_name = base.c_tp_name
-                                name = rffi.charp2str(cts.cast('char*', tp_name))
-                                debug_print(" " * i * 3, "basetype",
-                                            base, ": name",
-                                            name, "traverse",
-                                            base.c_tp_traverse)
-                            else:
-                                debug_print(" " * i * 3, "unknown base")
-                            pto2 = base
-                            i += 1
 
-                    if pyobj.c_ob_pypy_link != 0: # special traverse
-                        w_obj = from_ref(space, pyobj)
-                        w_obj_type = space.type(w_obj)
-                        if space.is_w(w_obj_type, space.w_list): # list
-                            debug_print('rrc list traverse ', pyobj)
-                            list_traverse(space, w_obj, callback, args)
-                            return
-
-                    if pto and pto.c_tp_traverse:
-                        debug_print("rrc do traverse", pyobj)
-                        generic_cpy_call(space, pto.c_tp_traverse, pyobj,
-                                         callback_ptr, args)
+                    # special traverse for list
+                    if self.C._PyList_CheckExact(pyobj) != 0:
+                        if pyobj.c_ob_pypy_link != 0:
+                            w_obj = from_ref(space, pyobj)
+                            if w_obj:
+                                debug_print('rrc list traverse ', pyobj)
+                                list_traverse(space, w_obj, callback, args)
+                    else:
+                        pto = pyobj.c_ob_type
+                        if pto and pto.c_tp_traverse:
+                            callback_addr = llmemory.cast_ptr_to_adr(callback)
+                            callback_ptr = llmemory.cast_adr_to_ptr(
+                                callback_addr, visitproc)
+                            debug_print("rrc do traverse", pyobj)
+                            generic_cpy_call(space, pto.c_tp_traverse, pyobj,
+                                             callback_ptr, args)
 
                 self.tp_traverse = (lambda o, v, a:_tp_traverse(o, v, a))
 
@@ -258,16 +239,18 @@ class State:
                 # This must be called in RPython, the untranslated version
                 # does something different. Sigh.
                 pypyobj_list = self.C._PyPy_init_pyobj_list()
+                pypyobj_tuple_list = self.C._PyPy_init_tuple_list()
                 rawrefcount.init(
                     llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
                              self.dealloc_trigger),
                     llhelper(rawrefcount.RAWREFCOUNT_TRAVERSE,
                              self.tp_traverse),
-                    pypyobj_list,
+                    pypyobj_list, pypyobj_tuple_list,
                     self.C._PyPy_gc_as_pyobj, self.C._PyPy_pyobj_as_gc,
                     self.C._PyPy_finalizer_type,
                     llhelper(rawrefcount.RAWREFCOUNT_CLEAR_WR_TYPE,
-                             self.clear_weakref_callbacks))
+                             self.clear_weakref_callbacks),
+                    self.C._PyTuple_MaybeUntrack)
             self.builder.attach_all(space)
 
         setup_new_method_def(space)

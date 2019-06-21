@@ -3114,6 +3114,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                                          lltype.Signed))
     RAWREFCOUNT_CLEAR_WR_TYPE = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                                             lltype.Void))
+    RAWREFCOUNT_MAYBE_UNTRACK_TUPLE = \
+        lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR], lltype.Signed))
     RAWREFCOUNT_FINALIZER_NONE = 0
     RAWREFCOUNT_FINALIZER_MODERN = 1
     RAWREFCOUNT_FINALIZER_LEGACY = 2
@@ -3127,8 +3129,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(pygchdraddr, self.PYOBJ_GC_HDR_PTR)
 
     def rawrefcount_init(self, dealloc_trigger_callback, tp_traverse,
-                         pyobj_list, gc_as_pyobj, pyobj_as_gc, finalizer_type,
-                         clear_weakref_callback):
+                         pyobj_list, tuple_list, gc_as_pyobj, pyobj_as_gc,
+                         finalizer_type, clear_weakref_callback,
+                         tuple_maybe_untrack):
         # see pypy/doc/discussion/rawrefcount.rst
         if not self.rrc_enabled:
             self.rrc_p_list_young = self.AddressStack()
@@ -3141,6 +3144,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_dealloc_pending = self.AddressStack()
             self.rrc_tp_traverse = tp_traverse
             self.rrc_pyobj_list = self._pygchdr(pyobj_list)
+            self.rrc_tuple_list = self._pygchdr(tuple_list)
             self.rrc_pyobj_old_list = self._rrc_gc_list_new()
             self.rrc_pyobj_isolate_list = self._rrc_gc_list_new()
             self.rrc_pyobj_dead_list = self._rrc_gc_list_new()
@@ -3150,6 +3154,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.rrc_pyobj_as_gc = pyobj_as_gc
             self.rrc_finalizer_type = finalizer_type
             self.rrc_clear_weakref_callback = clear_weakref_callback
+            self.rrc_tuple_maybe_untrack = tuple_maybe_untrack
             self.rrc_enabled = True
             self.rrc_cycle_enabled = True
             self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
@@ -3226,6 +3231,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             gchdr = self._rrc_gc_list_pop(self.rrc_pyobj_isolate_list)
             self._rrc_gc_list_add(self.rrc_pyobj_old_list, gchdr)
             return llmemory.cast_ptr_to_adr(self.rrc_gc_as_pyobj(gchdr))
+#        if not self._rrc_gc_list_is_empty(self.rrc_tuple_isolate_list):
+#            gchdr = self._rrc_gc_list_pop(self.rrc_tuple_isolate_list)
+#            self._rrc_gc_list_add(self.rrc_tuple_old_list, gchdr)
+#            return llmemory.cast_ptr_to_adr(self.rrc_gc_as_pyobj(gchdr))
         return llmemory.NULL
 
     def rawrefcount_cyclic_garbage_head(self):
@@ -3288,6 +3297,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.rrc_enabled and (self.rrc_dealloc_pending.non_empty() or
                                  not self._rrc_gc_list_is_empty(
                                      self.rrc_pyobj_isolate_list) or
+#                                 not self._rrc_gc_list_is_empty(
+#                                     self.rrc_tuple_isolate_list) or
                                  not self._rrc_gc_list_is_empty(
                                      self.rrc_pyobj_dead_list) or
                                  not self._rrc_gc_list_is_empty(
@@ -3415,6 +3426,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if not self.rrc_cycle_enabled:
             self._rrc_debug_check_consistency(print_label="begin-mark")
 
+        # First, untrack all tuples with only non-gc rrc objects and promote
+        # all other tuples to the pyobj_list
+        self._rrc_untrack_tuples()
+
         # Only trace and mark rawrefcounted object if we are not doing
         # something special, like building gc.garbage.
         if (self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT and
@@ -3424,7 +3439,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if not self._rrc_gc_list_is_empty(self.rrc_pyobj_old_list):
                 merged_old_list = self._rrc_check_finalizer()
             # collect all rawrefcounted roots
-            self._rrc_collect_rawrefcount_roots(self.rrc_pyobj_list)
+            self._rrc_collect_roots(self.rrc_pyobj_list)
             if merged_old_list:
                 # set all refcounts to zero for objects in dead list
                 # (might have been incremented) by fix_refcnt
@@ -3449,13 +3464,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # now mark all pypy objects at the border, depending on the results
         debug_print("use_cylicrc", use_cylicrc)
         self.rrc_p_list_old.foreach(self._rrc_major_trace, use_cylicrc)
-
-        # TODO: check again, if some new border objects have been marked and
-        #       continue marking recursively... why needed? -> wrapper for
-        #       pypy-obj is no pygc-obj??? ...KI
-
         self._rrc_debug_check_consistency(print_label="end-mark")
-        #self.rrc_o_list_old.foreach(self._rrc_major_trace, use_cylicrc) # TODO: remove?
 
     def _rrc_major_trace(self, pyobject, use_cylicrefcnt):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
@@ -3513,12 +3522,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def rrc_major_collection_free(self):
         if self.rrc_state == self.RAWREFCOUNT_STATE_DEFAULT:
+            self._rrc_debug_check_consistency()
             if not self._rrc_gc_list_is_empty(self.rrc_pyobj_old_list):
-                self._rrc_debug_check_consistency()
                 self._rrc_clear_weakref_callbacks()
                 self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
                                         self.rrc_pyobj_dead_list)
-                self._rrc_debug_check_consistency(print_label="before-sweep")
+            self._rrc_debug_check_consistency(print_label="before-sweep")
 
         ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 2")
         length_estimate = self.rrc_p_dict.length()
@@ -3543,11 +3552,25 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Look for any weakrefs within the trash cycle and remove the callback.
         # This is only needed for weakrefs created from rawrefcounted objects
         # because weakrefs from gc-managed objects are going away anyway.
-        gchdr = self.rrc_pyobj_old_list.c_gc_next
-        while gchdr <> self.rrc_pyobj_old_list:
+        list = self.rrc_pyobj_old_list
+        gchdr = list.c_gc_next
+        while gchdr <> list:
             pyobj = self.rrc_gc_as_pyobj(gchdr)
             self._rrc_traverse_weakref(pyobj)
             gchdr = gchdr.c_gc_next
+
+    def _rrc_untrack_tuples(self):
+        gchdr = self.rrc_tuple_list.c_gc_next
+        while gchdr <> self.rrc_tuple_list:
+            gchdr_next = gchdr.c_gc_next
+            pyobj = self.rrc_gc_as_pyobj(gchdr)
+            result = self.rrc_tuple_maybe_untrack(pyobj)
+            if result == 1: # contains gc objects -> promote to pyobj list
+                next = gchdr.c_gc_next
+                next.c_gc_prev = gchdr.c_gc_prev
+                gchdr.c_gc_prev.c_gc_next = next
+                self._rrc_gc_list_add(self.rrc_pyobj_list, gchdr)
+            gchdr = gchdr_next
 
     def _rrc_visit_weakref(pyobj, self_ptr):
         from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
@@ -3591,20 +3614,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             self._rrc_free(pyobject, True)
 
-    def _rrc_collect_rawrefcount_roots(self, pygclist):
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        #
+    def _rrc_collect_roots(self, pygclist):
         # Initialize the cyclic refcount with the real refcount.
-        pygchdr = pygclist.c_gc_next
-        while pygchdr <> pygclist:
-            refcnt = self.rrc_gc_as_pyobj(pygchdr).c_ob_refcnt
-            if refcnt >= REFCNT_FROM_PYPY_LIGHT:
-                refcnt -= REFCNT_FROM_PYPY_LIGHT
-            elif refcnt >= REFCNT_FROM_PYPY:
-                refcnt -= REFCNT_FROM_PYPY
-            self._rrc_pyobj_gc_refcnt_set(pygchdr, refcnt)
-            pygchdr = pygchdr.c_gc_next
+        self._rrc_collect_roots_init_list(pygclist)
 
         # For all non-gc pyobjects which have a refcount > 0,
         # mark all reachable objects on the pypy side
@@ -3615,18 +3627,34 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rrc_p_list_old.foreach(self._rrc_obj_fix_refcnt, None)
         self.rrc_o_list_old.foreach(self._rrc_obj_fix_refcnt, None)
 
-        self._rrc_debug_check_consistency(print_label="rc-initialized")
-
         # Subtract all internal refcounts from the cyclic refcount
         # of rawrefcounted objects
+        self._rrc_collect_roots_subtract_internal(pygclist)
+
+        # now all rawrefcounted roots or live border objects have a
+        # refcount > 0
+        self._rrc_debug_check_consistency(print_label="rc-initialized")
+
+
+    def _rrc_collect_roots_init_list(self, pygclist):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        pygchdr = pygclist.c_gc_next
+        while pygchdr <> pygclist:
+            refcnt = self.rrc_gc_as_pyobj(pygchdr).c_ob_refcnt
+            if refcnt >= REFCNT_FROM_PYPY_LIGHT:
+                refcnt -= REFCNT_FROM_PYPY_LIGHT
+            elif refcnt >= REFCNT_FROM_PYPY:
+                refcnt -= REFCNT_FROM_PYPY
+            self._rrc_pyobj_gc_refcnt_set(pygchdr, refcnt)
+            pygchdr = pygchdr.c_gc_next
+
+    def _rrc_collect_roots_subtract_internal(self, pygclist):
         pygchdr = pygclist.c_gc_next
         while pygchdr <> pygclist:
             pyobj = self.rrc_gc_as_pyobj(pygchdr)
             self._rrc_traverse(pyobj, -1)
             pygchdr = pygchdr.c_gc_next
-
-        # now all rawrefcounted roots or live border objects have a
-        # refcount > 0
 
     def _rrc_pyobj_gc_refcnt_set(self, pygchdr, refcnt):
         pygchdr.c_gc_refs &= self.RAWREFCOUNT_REFS_MASK_FINALIZED
@@ -3662,48 +3690,53 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_mark_rawrefcount(self):
         if self._rrc_gc_list_is_empty(self.rrc_pyobj_list):
             self._rrc_gc_list_init(self.rrc_pyobj_old_list)
-            return
+        else:
+            self._rrc_gc_list_move(self.rrc_pyobj_list,
+                                   self.rrc_pyobj_old_list)
         # as long as new objects with cyclic a refcount > 0 or alive border
         # objects are found, increment the refcount of all referenced objects
         # of those newly found objects
-        self._rrc_gc_list_move(self.rrc_pyobj_list, self.rrc_pyobj_old_list)
         found_alive = True
+        pyobj_old = self.rrc_pyobj_list
         #
         while found_alive:
             found_alive = False
             gchdr = self.rrc_pyobj_old_list.c_gc_next
             while gchdr <> self.rrc_pyobj_old_list:
                 next_old = gchdr.c_gc_next
-                alive = (gchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT) > 0
-                pyobj = self.rrc_gc_as_pyobj(gchdr)
-                if pyobj.c_ob_pypy_link <> 0:
-                    intobj = pyobj.c_ob_pypy_link
-                    obj = llmemory.cast_int_to_adr(intobj)
-                    if not alive and self.header(obj).tid & (
-                            GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
-                        # add fake refcount, to mark it as live
-                        gchdr.c_gc_refs += 1 << self.RAWREFCOUNT_REFS_SHIFT
-                        alive = True
-                if alive:
-                    # remove from old list
-                    next = gchdr.c_gc_next
-                    next.c_gc_prev = gchdr.c_gc_prev
-                    gchdr.c_gc_prev.c_gc_next = next
-                    # add to new list
-                    self._rrc_gc_list_add(self.rrc_pyobj_list, gchdr)
-                    # increment refcounts
-                    self._rrc_traverse(pyobj, 1)
-                    # mark recursively, if it is a pypyobj
-                    if pyobj.c_ob_pypy_link <> 0:
-                        intobj = pyobj.c_ob_pypy_link
-                        obj = llmemory.cast_int_to_adr(intobj)
-                        self.objects_to_trace.append(obj)
-                        self.visit_all_objects()
-                    found_alive = True
+                found_alive |= self._rrc_mark_rawrefcount_obj(gchdr, pyobj_old)
                 gchdr = next_old
         #
         # now all rawrefcounted objects, which are alive, have a cyclic
         # refcount > 0 or are marked
+
+    def _rrc_mark_rawrefcount_obj(self, gchdr, gchdr_move):
+        alive = (gchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT) > 0
+        pyobj = self.rrc_gc_as_pyobj(gchdr)
+        if pyobj.c_ob_pypy_link <> 0:
+            intobj = pyobj.c_ob_pypy_link
+            obj = llmemory.cast_int_to_adr(intobj)
+            if not alive and self.header(obj).tid & (
+                    GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
+                # add fake refcount, to mark it as live
+                gchdr.c_gc_refs += 1 << self.RAWREFCOUNT_REFS_SHIFT
+                alive = True
+        if alive:
+            # remove from old list
+            next = gchdr.c_gc_next
+            next.c_gc_prev = gchdr.c_gc_prev
+            gchdr.c_gc_prev.c_gc_next = next
+            # add to new list (or not, if it is a tuple)
+            self._rrc_gc_list_add(gchdr_move, gchdr)
+            # increment refcounts
+            self._rrc_traverse(pyobj, 1)
+            # mark recursively, if it is a pypyobj
+            if pyobj.c_ob_pypy_link <> 0:
+                intobj = pyobj.c_ob_pypy_link
+                obj = llmemory.cast_int_to_adr(intobj)
+                self.objects_to_trace.append(obj)
+                self.visit_all_objects()
+        return alive
 
     def _rrc_find_garbage(self):
         found_garbage = False
@@ -3788,7 +3821,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Check, if the cyclic isolate from the last collection cycle
         # is reachable from outside, after the finalizers have been
         # executed.
-        self._rrc_collect_rawrefcount_roots(self.rrc_pyobj_old_list)
+        self._rrc_collect_roots(self.rrc_pyobj_old_list)
         found_alive = False
         gchdr = self.rrc_pyobj_old_list.c_gc_next
         while gchdr <> self.rrc_pyobj_old_list:
@@ -3899,6 +3932,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 debug_start("rrc-lists " + print_label)
             self._rrc_debug_check_list(self.rrc_pyobj_list,
                                        should_print, "rrc_pyobj_list")
+            self._rrc_debug_check_list(self.rrc_tuple_list,
+                                       should_print, "rrc_tuple_list")
             self._rrc_debug_check_list(self.rrc_pyobj_old_list,
                                        should_print, "rrc_pyobj_old_list")
             self._rrc_debug_check_list(self.rrc_pyobj_dead_list,

@@ -23,7 +23,10 @@ extern void *_PyPy_Malloc(Py_ssize_t size);
 void* _pypy_rawrefcount_w_marker_deallocating = (void*) 0xDEADFFF;
 
 static PyGC_Head _internal_pyobj_list;
+static PyGC_Head _internal_tuple_list;
+
 PyGC_Head *_pypy_rawrefcount_pyobj_list = &_internal_pyobj_list;
+PyGC_Head *_pypy_rawrefcount_tuple_list = &_internal_tuple_list;
 
 PyGC_Head *
 _PyPy_init_pyobj_list()
@@ -31,6 +34,14 @@ _PyPy_init_pyobj_list()
     _pypy_rawrefcount_pyobj_list->gc_next = _pypy_rawrefcount_pyobj_list;
     _pypy_rawrefcount_pyobj_list->gc_prev = _pypy_rawrefcount_pyobj_list;
     return _pypy_rawrefcount_pyobj_list;
+}
+
+PyGC_Head *
+_PyPy_init_tuple_list()
+{
+    _pypy_rawrefcount_tuple_list->gc_next = _pypy_rawrefcount_tuple_list;
+    _pypy_rawrefcount_tuple_list->gc_prev = _pypy_rawrefcount_tuple_list;
+    return _pypy_rawrefcount_tuple_list;
 }
 
 GCHdr_PyObject *
