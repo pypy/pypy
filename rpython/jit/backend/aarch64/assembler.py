@@ -737,16 +737,16 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
 
     def _call_header(self):
-        stack_size = (len(r.callee_saved_registers) + 2) * WORD
+        stack_size = (len(r.callee_saved_registers) + 4) * WORD
         self.mc.STP_rr_preindex(r.fp.value, r.lr.value, r.sp.value, -stack_size)
         for i in range(0, len(r.callee_saved_registers), 2):
             self.mc.STP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
-                            (i + 2) * WORD)
+                            (i + 4) * WORD)
         
-        #self.saved_threadlocal_addr = 0   # at offset 0 from location 'sp'
-        # ^^^XXX save it from register x1 into some place
+        self.saved_threadlocal_addr = 3 * WORD   # at offset 3 from location 'sp'
+        self.mc.STR_ri(r.x1.value, r.sp.value, 3 * WORD)
 
         # set fp to point to the JITFRAME, passed in argument 'x0'
         self.mc.MOV_rr(r.fp.value, r.x0.value)
@@ -798,7 +798,8 @@ class AssemblerARM64(ResOpAssembler):
                     regalloc.possibly_free_vars(guard_op.getfailargs())
                 regalloc.possibly_free_vars_for_op(guard_op)
             elif (rop.is_call_may_force(op.getopnum()) or
-                  rop.is_call_release_gil(op.getopnum())):
+                  rop.is_call_release_gil(op.getopnum()) or
+                  rop.is_call_assembler(op.getopnum())):
                 guard_op = operations[i + 1] # has to exist
                 guard_num = guard_op.getopnum()
                 assert guard_num in (rop.GUARD_NOT_FORCED, rop.GUARD_NOT_FORCED_2)
@@ -972,13 +973,13 @@ class AssemblerARM64(ResOpAssembler):
 
         # pop all callee saved registers
 
-        stack_size = len(r.callee_saved_registers) * WORD
+        stack_size = (len(r.callee_saved_registers) + 4) * WORD
 
         for i in range(0, len(r.callee_saved_registers), 2):
             mc.LDP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
-                            (i + 2) * WORD)
+                            (i + 4) * WORD)
         mc.LDP_rr_postindex(r.fp.value, r.lr.value, r.sp.value, stack_size)
 
 

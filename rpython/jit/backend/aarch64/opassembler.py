@@ -3,13 +3,14 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.jit.metainterp.history import (AbstractFailDescr, ConstInt,
-                                            INT, FLOAT, REF)
+                                            INT, FLOAT, REF, VOID)
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.aarch64.codebuilder import OverwritingBuilder
 from rpython.jit.backend.aarch64.callbuilder import Aarch64CallBuilder
 from rpython.jit.backend.arm import conditions as c, shift
+from rpython.jit.backend.aarch64.regalloc import check_imm_arg
 from rpython.jit.backend.aarch64.arch import JITFRAME_FIXED_SIZE, WORD
-from rpython.jit.backend.aarch64.locations import imm
+from rpython.jit.backend.aarch64 import locations
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import get_scale
@@ -42,6 +43,9 @@ def gen_float_comp_op_cc(name, flag):
     return emit_op        
 
 class ResOpAssembler(BaseAssembler):
+    def imm(self, v):
+        return locations.imm(v)
+
     def int_sub_impl(self, op, arglocs, flags=0):
         l0, l1, res = arglocs
         if flags:
@@ -806,17 +810,97 @@ class ResOpAssembler(BaseAssembler):
             else:
                 cb.emit_no_collect()
 
+    def simple_call(self, fnloc, arglocs, result_loc=r.x0):
+        if result_loc is None:
+            result_type = VOID
+            result_size = 0
+        elif result_loc.is_vfp_reg():
+            result_type = FLOAT
+            result_size = WORD
+        else:
+            result_type = INT
+            result_size = WORD
+        cb = Aarch64CallBuilder(self, fnloc, arglocs,
+                                     result_loc, result_type,
+                                     result_size)
+        cb.emit()
+
     def emit_guard_op_guard_not_forced(self, op, guard_op, fcond, arglocs):
         # arglocs is call locs + guard_locs, split them
-        assert fcond == op.numargs() + 3
-        call_args = arglocs[:fcond]
-        guard_locs = arglocs[fcond:]
-        self._store_force_index(guard_op)
-        self._emit_call(op, call_args)
+        if rop.is_call_assembler(op.getopnum()):
+            if fcond == 4:
+                [argloc, vloc, result_loc, tmploc] = arglocs[:4]
+            else:
+                [argloc, result_loc, tmploc] = arglocs[:3]
+                vloc = locations.imm(0)
+            guard_locs = arglocs[fcond:]
+            self._store_force_index(guard_op)
+            self.call_assembler(op, argloc, vloc, result_loc, tmploc)
+        else:
+            assert fcond == op.numargs() + 3
+            call_args = arglocs[:fcond]
+            guard_locs = arglocs[fcond:]
+            self._store_force_index(guard_op)
+            self._emit_call(op, call_args)
+        # process the guard_not_forced
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.LDR_ri(r.ip0.value, r.fp.value, ofs)
         self.mc.CMP_ri(r.ip0.value, 0)
         self._emit_guard(guard_op, c.EQ, guard_locs)
+
+    def _call_assembler_emit_call(self, addr, argloc, resloc):
+        ofs = self.saved_threadlocal_addr
+        # we are moving the threadlocal directly to x1, to avoid strange
+        # dances
+        self.mc.LDR_ri(r.x1.value, r.sp.value, ofs)
+        self.simple_call(addr, [argloc], result_loc=resloc)
+
+    def _call_assembler_emit_helper_call(self, addr, arglocs, resloc):
+        self.simple_call(addr, arglocs, result_loc=resloc)
+
+    def _call_assembler_check_descr(self, value, tmploc):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.LDR_ri(r.ip0.value, tmploc.value, ofs)
+        if check_imm_arg(value):
+            self.mc.CMP_ri(r.ip0.value, value)
+        else:
+            self.mc.gen_load_int(r.ip1.value, value)
+            self.mc.CMP_rr(r.ip0.value, r.ip1.value)
+        pos = self.mc.currpos()
+        self.mc.BRK()
+        return pos
+
+    def _call_assembler_patch_je(self, result_loc, jmp_location):
+        pos = self.mc.currpos()
+        self.mc.BRK()
+        #
+        pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
+        pmc.B_ofs_cond(self.mc.currpos() - jmp_location, c.EQ)
+        return pos
+
+    def _call_assembler_load_result(self, op, result_loc):
+        if op.type != 'v':
+            # load the return value from (tmploc, 0)
+            kind = op.type
+            descr = self.cpu.getarraydescr_for_frame(kind)
+            if kind == FLOAT:
+                ofs = self.cpu.unpack_arraydescr(descr)
+                assert check_imm_arg(ofs)
+                assert result_loc.is_vfp_reg()
+                # we always have a register here, since we have to sync them
+                # before call_assembler
+                self.mc.LDR_di(result_loc.value, r.x0.value, ofs)
+            else:
+                assert result_loc is r.x0
+                ofs = self.cpu.unpack_arraydescr(descr)
+                assert check_imm_arg(ofs)
+                self.mc.LDR_ri(result_loc.value, r.x0.value, ofs)
+
+    def _call_assembler_patch_jmp(self, jmp_location):
+        # merge point
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
+        pmc.B_ofs(currpos - jmp_location)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()

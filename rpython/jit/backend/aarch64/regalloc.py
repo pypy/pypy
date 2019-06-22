@@ -640,7 +640,13 @@ class Regalloc(BaseRegalloc):
         if rop.is_call_release_gil(prev_op.getopnum()):
             arglocs = self._prepare_call(prev_op, save_all_regs=True,
                                          first_arg_index=2)
+        elif rop.is_call_assembler(prev_op.getopnum()):
+            locs = self.locs_for_call_assembler(prev_op)
+            tmploc = self.get_scratch_reg(INT, selected_reg=r.x0)
+            resloc = self._call(prev_op, locs + [tmploc], gc_level=2)
+            arglocs = locs + [resloc, tmploc]
         else:
+            assert rop.is_call_may_force(prev_op.getopnum())
             arglocs = self._prepare_call(prev_op, save_all_regs=True)
         guard_locs = self._guard_impl(op)
         return arglocs + guard_locs, len(arglocs)

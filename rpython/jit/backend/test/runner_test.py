@@ -3722,7 +3722,8 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_assembler_call(self):
         called = []
         def assembler_helper(deadframe, virtualizable):
-            assert self.cpu.get_int_value(deadframe, 0) == 97
+            print "CALLED ASSEMBLER HELPER"
+            called.append(self.cpu.get_int_value(deadframe, 0))
             called.append(self.cpu.get_latest_descr(deadframe))
             return 4 + 9
 
@@ -3776,7 +3777,7 @@ class LLtypeBackendTest(BaseBackendTest):
         args = [i+1 for i in range(10)]
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert self.cpu.get_int_value(deadframe, 0) == 13
-        assert called == [finish_descr]
+        assert called == [97, finish_descr]
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
