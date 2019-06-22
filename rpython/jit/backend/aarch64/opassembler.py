@@ -596,7 +596,7 @@ class ResOpAssembler(BaseAssembler):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
                                      array=True)
 
-    def emit_op_cond_call(self, op, arglocs):
+    def _emit_op_cond_call(self, op, arglocs, fcond):
         #if len(arglocs) == 2:
         #    res_loc = arglocs[1]     # cond_call_value
         #else:
@@ -604,7 +604,8 @@ class ResOpAssembler(BaseAssembler):
         # see x86.regalloc for why we skip res_loc in the gcmap
         res_loc = None
 
-        self.mc.CMP_ri(arglocs[0].value, 0)
+        if arglocs[0] is not None: # otherwise result already in CC
+            self.mc.CMP_ri(arglocs[0].value, 0)
 
         gcmap = self._regalloc.get_gcmap([res_loc])
 
@@ -637,7 +638,16 @@ class ResOpAssembler(BaseAssembler):
         #
         self.pop_gcmap(self.mc)
         pmc = OverwritingBuilder(self.mc, jmp_adr, WORD)
-        pmc.B_ofs_cond(self.mc.currpos() - jmp_adr, c.EQ)
+        pmc.B_ofs_cond(self.mc.currpos() - jmp_adr, fcond)
+        # might be overridden again to skip over the following
+        # guard_no_exception too
+        self.previous_cond_call_jcond = jmp_adr, fcond
+
+    def emit_op_cond_call(self, op, arglocs):
+        self._emit_op_cond_call(op, arglocs, c.EQ)
+
+    def emit_guard_op_cond_call(self, op, fcond, arglocs):
+        self._emit_op_cond_call(op, arglocs, c.get_opposite_of(fcond))
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False, is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks

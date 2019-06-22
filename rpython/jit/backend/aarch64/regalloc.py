@@ -674,7 +674,7 @@ class Regalloc(BaseRegalloc):
             self._compute_hint_frame_locations_from_descr(descr)
         return []
 
-    def prepare_op_cond_call(self, op):
+    def _prepare_op_cond_call(self, op, res_in_cc):
         assert 2 <= op.numargs() <= 4 + 2
         v = op.getarg(1)
         assert isinstance(v, Const)
@@ -684,7 +684,10 @@ class Regalloc(BaseRegalloc):
             arg = op.getarg(i)
             self.make_sure_var_in_reg(arg, args_so_far, selected_reg=reg)
             args_so_far.append(arg)
-        argloc = self.make_sure_var_in_reg(op.getarg(0), args_so_far)
+        if res_in_cc:
+            argloc = None
+        else:
+            argloc = self.make_sure_var_in_reg(op.getarg(0), args_so_far)
 
         if op.type == 'v':
             # a plain COND_CALL.  Calls the function when args[0] is
@@ -710,6 +713,13 @@ class Regalloc(BaseRegalloc):
             self.assembler.guard_success_cc = c.EQ
             return [tmpreg, resloc]
 
+    def prepare_op_cond_call(self, op):
+        return self._prepare_op_cond_call(op, False)
+
+    def prepare_guard_op_cond_call(self, op, prevop):
+        fcond = self.assembler.dispatch_comparison(prevop)
+        locs = self._prepare_op_cond_call(op, True)
+        return locs, fcond
 
     def prepare_op_finish(self, op):
         # the frame is in fp, but we have to point where in the frame is

@@ -793,7 +793,8 @@ class AssemblerARM64(ResOpAssembler):
                 if arglocs is not None:
                     asm_guard_operations[guard_num](self, guard_op, fcond, arglocs)
                 regalloc.next_instruction() # advance one more
-                regalloc.possibly_free_vars(guard_op.getfailargs())
+                if guard_op.is_guard(): # can be also cond_call
+                    regalloc.possibly_free_vars(guard_op.getfailargs())
                 regalloc.possibly_free_vars_for_op(guard_op)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op)
