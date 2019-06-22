@@ -37,6 +37,9 @@ class CPU_ARM64(AbstractLLCPU):
                                               operations,
                                               original_loop_token, log=log)
 
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
+
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return CPU_ARM64.cast_adr_to_int(adr)

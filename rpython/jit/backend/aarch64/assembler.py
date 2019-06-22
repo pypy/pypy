@@ -1034,6 +1034,28 @@ class AssemblerARM64(ResOpAssembler):
         self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
                                 expected_size=expected_size)
 
+    # ../x86/assembler.py:668
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        # some minimal sanity checking
+        old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
+        new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
+        assert old_nbargs == new_nbargs
+        # we overwrite the instructions at the old _ll_function_addr
+        # to start with a JMP to the new _ll_function_addr.
+        # Ideally we should rather patch all existing CALLs, but well.
+        oldadr = oldlooptoken._ll_function_addr
+        target = newlooptoken._ll_function_addr
+        # copy frame-info data
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        newlooptoken.compiled_loop_token.update_frame_info(
+            oldlooptoken.compiled_loop_token, baseofs)
+        mc = InstrBuilder()
+        mc.B(target)
+        mc.copy_to_raw_memory(oldadr)
+        #
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
+
+
 
 def not_implemented(msg):
     msg = '[ARM64/asm] %s\n' % msg
