@@ -32,6 +32,14 @@ def gen_float_comp_op(name, flag):
     emit_op.__name__ = name
     return emit_op        
 
+def gen_float_comp_op_cc(name, flag):
+    def emit_op(self, op, arglocs):
+        l0, l1 = arglocs
+        self.emit_float_comp_op(op, l0, l1)
+        return flag
+    emit_op.__name__ = name
+    return emit_op        
+
 class ResOpAssembler(BaseAssembler):
     def int_sub_impl(self, op, arglocs, flags=0):
         l0, l1, res = arglocs
@@ -117,6 +125,20 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_float_comp_op(self, op, l0, l1):
         self.mc.FCMP_dd(l0.value, l1.value)
+
+    emit_comp_op_float_lt = emit_float_comp_op
+    emit_comp_op_float_lt = emit_float_comp_op
+    emit_comp_op_float_lt = emit_float_comp_op
+    emit_comp_op_float_lt = emit_float_comp_op
+    emit_comp_op_float_lt = emit_float_comp_op
+    emit_comp_op_float_lt = emit_float_comp_op
+
+    emit_comp_op_float_lt = gen_float_comp_op_cc('float_lt', c.VFP_LT)
+    emit_comp_op_float_le = gen_float_comp_op_cc('float_le', c.VFP_LE)
+    emit_comp_op_float_eq = gen_float_comp_op_cc('float_eq', c.EQ)
+    emit_comp_op_float_ne = gen_float_comp_op_cc('float_ne', c.NE)
+    emit_comp_op_float_gt = gen_float_comp_op_cc('float_gt', c.GT)
+    emit_comp_op_float_ge = gen_float_comp_op_cc('float_ge', c.GE)
 
     def emit_comp_op_int_lt(self, op, arglocs):
         self.emit_int_comp_op(op, arglocs[0], arglocs[1])
@@ -575,21 +597,23 @@ class ResOpAssembler(BaseAssembler):
                                      array=True)
 
     def emit_op_cond_call(self, op, arglocs):
-        self.mc.gen_load_int(r.ip1.value, rffi.cast(lltype.Signed,
-            op.getarg(1).getint()))
-
         #if len(arglocs) == 2:
         #    res_loc = arglocs[1]     # cond_call_value
         #else:
         #    res_loc = None           # cond_call
         # see x86.regalloc for why we skip res_loc in the gcmap
         res_loc = None
+
+        self.mc.CMP_ri(arglocs[0].value, 0)
+
         gcmap = self._regalloc.get_gcmap([res_loc])
 
         jmp_adr = self.mc.currpos()
         self.mc.BRK()  # patched later: the conditional jump
         #
         self.push_gcmap(self.mc, gcmap)
+        self.mc.gen_load_int(r.ip1.value, rffi.cast(lltype.Signed,
+            op.getarg(1).getint()))
         #
         callee_only = False
         floats = False
@@ -603,6 +627,7 @@ class ResOpAssembler(BaseAssembler):
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         assert cond_call_adr
+
         self.mc.BL(cond_call_adr)
         # if this is a COND_CALL_VALUE, we need to move the result in place
         # from its current location (which is, unusually, in r4: see
@@ -612,10 +637,7 @@ class ResOpAssembler(BaseAssembler):
         #
         self.pop_gcmap(self.mc)
         pmc = OverwritingBuilder(self.mc, jmp_adr, WORD)
-        pmc.B_ofs_cond(self.mc.currpos(), c.EQ)
-        # might be overridden again to skip over the following
-        # guard_no_exception too
-        self.previous_cond_call_jcond = jmp_adr, c.EQ
+        pmc.B_ofs_cond(self.mc.currpos() - jmp_adr, c.EQ)
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False, is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks

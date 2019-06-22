@@ -1,3 +1,4 @@
 * int_add - IMM
 * int_cmp - IMM
 * guard_nonnull_class - think about a better way
+* cond_call and following guard_exception

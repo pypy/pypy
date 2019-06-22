@@ -408,6 +408,19 @@ class Regalloc(BaseRegalloc):
     prepare_comp_op_uint_ge = prepare_int_cmp
     prepare_comp_op_uint_gt = prepare_int_cmp
 
+    def prepare_float_op(self, op, res_in_cc):
+        assert res_in_cc
+        loc1 = self.make_sure_var_in_reg(op.getarg(0))
+        loc2 = self.make_sure_var_in_reg(op.getarg(1))
+        return [loc1, loc2]
+
+    prepare_comp_op_float_lt = prepare_float_op
+    prepare_comp_op_float_le = prepare_float_op
+    prepare_comp_op_float_gt = prepare_float_op
+    prepare_comp_op_float_ge = prepare_float_op
+    prepare_comp_op_float_eq = prepare_float_op
+    prepare_comp_op_float_ne = prepare_float_op
+
     def prepare_op_int_le(self, op):
         return self.prepare_int_cmp(op, False)
 
@@ -671,11 +684,12 @@ class Regalloc(BaseRegalloc):
             arg = op.getarg(i)
             self.make_sure_var_in_reg(arg, args_so_far, selected_reg=reg)
             args_so_far.append(arg)
+        argloc = self.make_sure_var_in_reg(op.getarg(0), args_so_far)
 
         if op.type == 'v':
             # a plain COND_CALL.  Calls the function when args[0] is
             # true.  Often used just after a comparison operation.
-            return []
+            return [argloc]
         else:
             XXX
             # COND_CALL_VALUE_I/R.  Calls the function when args[0]

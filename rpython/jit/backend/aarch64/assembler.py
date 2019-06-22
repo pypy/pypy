@@ -530,6 +530,9 @@ class AssemblerARM64(ResOpAssembler):
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
         """ This builds a general call slowpath, for whatever call happens to
         come.
+
+        The address of function to call comes in ip1. the result is also stored
+        in ip1 or ivfp
         """
         mc = InstrBuilder()
         #
@@ -538,7 +541,7 @@ class AssemblerARM64(ResOpAssembler):
         mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
         mc.STR_ri(r.ip0.value, r.sp.value, WORD)
         mc.STR_ri(r.lr.value, r.sp.value, 0)
-        mc.BL(r.ip1.value)
+        mc.BLR_r(r.ip1.value)
         mc.MOV_rr(r.ip1.value, r.x0.value) # return comes back in ip1
         self._reload_frame_if_necessary(mc)
         self._pop_all_regs_from_jitframe(mc, [], supports_floats,
@@ -776,7 +779,7 @@ class AssemblerARM64(ResOpAssembler):
             if rop.has_no_side_effect(opnum) and op not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
             elif not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
-                regalloc.prepare_force_spill(op)
+                regalloc.force_spill_var(op.getarg(0))
             elif ((rop.returns_bool_result(opnum) or op.is_ovf()) and 
                   i < len(operations) - 1 and
                   regalloc.next_op_can_accept_cc(operations, i) or
