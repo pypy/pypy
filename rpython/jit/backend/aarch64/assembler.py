@@ -624,7 +624,8 @@ class AssemblerARM64(ResOpAssembler):
         self.mc.BL(target)
         return startpos
 
-    def push_gcmap(self, mc, gcmap):
+    def push_gcmap(self, mc, gcmap, store=True):
+        assert store
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         ptr = rffi.cast(lltype.Signed, gcmap)
         mc.gen_load_int(r.ip0.value, ptr)
@@ -796,7 +797,8 @@ class AssemblerARM64(ResOpAssembler):
                 if guard_op.is_guard(): # can be also cond_call
                     regalloc.possibly_free_vars(guard_op.getfailargs())
                 regalloc.possibly_free_vars_for_op(guard_op)
-            elif rop.is_call_may_force(op.getopnum()):
+            elif (rop.is_call_may_force(op.getopnum()) or
+                  rop.is_call_release_gil(op.getopnum())):
                 guard_op = operations[i + 1] # has to exist
                 guard_num = guard_op.getopnum()
                 assert guard_num in (rop.GUARD_NOT_FORCED, rop.GUARD_NOT_FORCED_2)

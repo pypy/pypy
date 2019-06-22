@@ -774,7 +774,8 @@ class ResOpAssembler(BaseAssembler):
     emit_op_call_f = _genop_call
     emit_op_call_n = _genop_call
 
-    def _emit_call(self, op, arglocs, is_call_release_gil=False):
+    def _emit_call(self, op, arglocs):
+        is_call_release_gil = rop.is_call_release_gil(op.getopnum())
         # args = [resloc, size, sign, args...]
         from rpython.jit.backend.llsupport.descr import CallDescr
 

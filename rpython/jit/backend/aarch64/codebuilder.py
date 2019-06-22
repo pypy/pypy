@@ -372,6 +372,9 @@ class AbstractAarch64Builder(object):
     def BRK(self):
         self.write32(0b11010100001 << 21)
 
+    def DMB(self):
+        self.write32(0b1101010100000011001111110111111)
+
     def gen_load_int_full(self, r, value):
         self.MOVZ_r_u16(r, value & 0xFFFF, 0)
         self.MOVK_r_u16(r, (value >> 16) & 0xFFFF, 16)

@@ -311,6 +311,8 @@ class Regalloc(BaseRegalloc):
         return []
 
     prepare_op_jit_debug = void
+    prepare_op_enter_portal_frame = void
+    prepare_op_leave_portal_frame = void
 
     def prepare_int_ri(self, op, res_in_cc):
         boxes = op.getarglist()
@@ -635,7 +637,11 @@ class Regalloc(BaseRegalloc):
             return self.rm.after_call(v)
 
     def prepare_guard_op_guard_not_forced(self, op, prev_op):
-        arglocs = self._prepare_call(prev_op, save_all_regs=True)
+        if rop.is_call_release_gil(prev_op.getopnum()):
+            arglocs = self._prepare_call(prev_op, save_all_regs=True,
+                                         first_arg_index=2)
+        else:
+            arglocs = self._prepare_call(prev_op, save_all_regs=True)
         guard_locs = self._guard_impl(op)
         return arglocs + guard_locs, len(arglocs)
 
