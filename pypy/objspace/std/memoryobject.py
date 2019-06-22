@@ -19,8 +19,10 @@ MEMORYVIEW_SCALAR   = 0x0008
 MEMORYVIEW_PIL      = 0x0010
 
 def is_multiindex(space, w_key):
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     if not space.isinstance_w(w_key, space.w_tuple):
         return 0
+    assert isinstance(w_key, W_AbstractTupleObject)
     length = space.len_w(w_key)
     i = 0
     while i < length:
@@ -31,8 +33,10 @@ def is_multiindex(space, w_key):
     return 1
 
 def is_multislice(space, w_key):
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     if not space.isinstance_w(w_key, space.w_tuple):
         return 0
+    assert isinstance(w_key, W_AbstractTupleObject)
     length = space.len_w(w_key)
     if length == 0:
         return 0
