@@ -895,6 +895,15 @@ class AssemblerARM64(ResOpAssembler):
         else:
             assert False, "wrong loc"
 
+    def mov_raw_stack_to_loc(self, pos, loc):
+        if loc.is_core_reg():
+            self.mc.LDR_ri(loc.value, r.sp.value, pos)
+        elif loc.is_stack():
+            self.mc.LDR_ri(r.ip0.value, r.sp.value, pos)
+            self.mc.STR_ri(r.ip0.value, r.fp.value, loc.value)
+        else:
+            assert False, "wrong loc"
+
     def _mov_imm_float_to_loc(self, prev_loc, loc):
         assert loc.is_vfp_reg()
         self.load(loc, prev_loc)
@@ -902,6 +911,24 @@ class AssemblerARM64(ResOpAssembler):
     def _mov_vfp_reg_to_loc(self, prev_loc, loc):
         assert loc.is_stack()
         self.mc.STR_di(prev_loc.value, r.fp.value, loc.value)
+
+    def push_locations(self, locs):
+        if not locs:
+            return
+        depth = len(locs) * WORD
+        depth += depth & WORD # align
+        self.mc.SUB_ri(r.sp.value, r.sp.value, depth)
+        for i, loc in enumerate(locs):
+            self.mov_loc_to_raw_stack(loc, i * WORD)
+
+    def pop_locations(self, locs):
+        if not locs:
+            return
+        depth = len(locs) * WORD
+        depth += depth & WORD # align
+        for i, loc in enumerate(locs):
+            self.mov_raw_stack_to_loc(i * WORD, loc)
+        self.mc.ADD_ri(r.sp.value, r.sp.value, depth)
 
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""

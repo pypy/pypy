@@ -27,5 +27,7 @@ vfp_argument_regs = caller_vfp_resp = all_vfp_regs[:8]
  d15, d16, d17, d18, d19, d20, d21, d22, d23, d24, d25, d26, d27,
  d28, d29, d30, d31] = vfpregisters
 
+vfp_ip = d15
+
 argument_regs = [x0, x1, x2, x3, x4, x5, x6, x7]
 caller_resp = argument_regs + [x8, x9, x10, x11, x12, x13, x14, x15]

@@ -841,7 +841,7 @@ class Regalloc(BaseRegalloc):
 
         # get temporary locs
         tmploc = r.ip0
-        vfptmploc = None # XXX r.vfp_ip
+        vfptmploc = r.vfp_ip
 
         # Part about non-floats
         src_locations1 = []
