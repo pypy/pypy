@@ -1,5 +1,6 @@
 
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.jit.metainterp.history import (AbstractFailDescr, ConstInt,
                                             INT, FLOAT, REF)
@@ -823,11 +824,21 @@ class ResOpAssembler(BaseAssembler):
         self.load_from_gc_table(r.ip0.value, faildescrindex)
         self.store_reg(self.mc, r.ip0, r.fp, ofs)
 
-    def emit_op_label(self, op, arglocs):
-        pass
+    def emit_op_guard_not_forced_2(self, op, arglocs):
+        self.store_force_descr(op, arglocs[1:], arglocs[0].value)
+
+    def store_force_descr(self, op, fail_locs, frame_depth):
+        pos = self.mc.currpos()
+        guard_token = self.build_guard_token(op, frame_depth, fail_locs, pos, c.AL)
+        self._finish_gcmap = guard_token.gcmap
+        self._store_force_index(op)
+        self.store_info_on_descr(pos, guard_token)
 
     def emit_op_force_token(self, op, arglocs):
         self.mc.MOV_rr(arglocs[0].value, r.fp.value)
+
+    def emit_op_label(self, op, arglocs):
+        pass
 
     def emit_op_jump(self, op, arglocs):
         target_token = op.getdescr()

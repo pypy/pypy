@@ -639,6 +639,12 @@ class Regalloc(BaseRegalloc):
         guard_locs = self._guard_impl(op)
         return arglocs + guard_locs, len(arglocs)
 
+    def prepare_op_guard_not_forced_2(self, op):
+        self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        self.vfprm.before_call(op.getfailargs(), save_all_regs=True)
+        fail_locs = self._guard_impl(op)
+        return fail_locs
+
     def prepare_op_label(self, op):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
