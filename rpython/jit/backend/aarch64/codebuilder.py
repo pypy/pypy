@@ -116,9 +116,15 @@ class AbstractAarch64Builder(object):
 
     def LDR_ri(self, rt, rn, immed):
         base = 0b1111100101
-        assert 0 <= immed <= 1<<15
+        assert 0 <= immed < 1<<16
         assert immed & 0x7 == 0
         self.write32((base << 22) | (immed >> 3 << 10) | (rn << 5) | rt)
+
+    def LDR_uint32_ri(self, rt, rn, immed):
+        base = 0b1011100101
+        assert 0 <= immed < 1<<15
+        assert immed & 0x3 == 0
+        self.write32((base << 22) | (immed >> 2 << 10) | (rn << 5) | rt)
 
     def LDR_di(self, rt, rn, offset):
         assert offset & 0x7 == 0
@@ -132,7 +138,7 @@ class AbstractAarch64Builder(object):
 
     def LDRB_ri(self, rt, rn, immed):
         base = 0b0011100101
-        assert 0 <= immed <= 1<<12
+        assert 0 <= immed < 1<<12
         self.write32((base << 22) | (immed << 10) | (rn << 5) | rt)
 
     def LDRSH_ri(self, rt, rn, immed):
@@ -153,6 +159,12 @@ class AbstractAarch64Builder(object):
         base = 0b01111000011
         self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
 
+    def LDRH_ri(self, rt, rn, immed):
+        assert immed & 0b1 == 0
+        assert 0 <= immed < (1 << 13)
+        base = 0b0111100101
+        self.write32((base << 22) | (immed >> 1 << 10) | (rn << 5) | rt)
+
     def LDRB_rr(self, rt, rn, rm):
         base = 0b00111000011
         self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
@@ -161,6 +173,12 @@ class AbstractAarch64Builder(object):
         base = 0b10111000101
         self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
 
+    def LDRSW_ri(self, rt, rn, immed):
+        assert immed & 0x3 == 0
+        assert 0 <= immed < (1<<14)
+        base = 0b1011100110
+        self.write32((base << 22) | (immed >> 2 << 10) | (rn << 5) | rt)
+
     def LDRSH_rr(self, rt, rn, rm):
         base = 0b01111000101
         self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
@@ -168,6 +186,11 @@ class AbstractAarch64Builder(object):
     def LDRSB_rr(self, rt, rn, rm):
         base = 0b00111000101
         self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
+
+    def LDRSB_ri(self, rt, rn, immed):
+        base = 0b0011100110
+        assert 0 <= immed < 1 << 12
+        self.write32((base << 22) | (immed << 10) | (rn << 5) | rt)
 
     def LDR_r_literal(self, rt, offset):
         base = 0b01011000
