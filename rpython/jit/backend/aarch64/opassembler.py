@@ -481,11 +481,11 @@ class ResOpAssembler(BaseAssembler):
         else:
             self.mc.BRK()
 
-    def emit_guard_op_guard_true(self, guard_op, fcond, arglocs):
+    def emit_guard_op_guard_true(self, op, guard_op, fcond, arglocs):
         self._emit_guard(guard_op, fcond, arglocs)
     emit_guard_op_guard_no_overflow = emit_guard_op_guard_true
 
-    def emit_guard_op_guard_false(self, guard_op, fcond, arglocs):
+    def emit_guard_op_guard_false(self, op, guard_op, fcond, arglocs):
         self._emit_guard(guard_op, c.get_opposite_of(fcond), arglocs)
     emit_guard_op_guard_overflow = emit_guard_op_guard_false
 
@@ -647,7 +647,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_cond_call_value_i(self, op, arglocs):
         self._emit_op_cond_call(op, arglocs, c.NE)
 
-    def emit_guard_op_cond_call(self, op, fcond, arglocs):
+    def emit_guard_op_cond_call(self, prevop, op, fcond, arglocs):
         self._emit_op_cond_call(op, arglocs, c.get_opposite_of(fcond))
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False, is_frame=False):
@@ -804,8 +804,30 @@ class ResOpAssembler(BaseAssembler):
             else:
                 cb.emit_no_collect()
 
+    def emit_guard_op_guard_not_forced(self, op, guard_op, fcond, arglocs):
+        # arglocs is call locs + guard_locs, split them
+        assert fcond == op.numargs() + 3
+        call_args = arglocs[:fcond]
+        guard_locs = arglocs[fcond:]
+        self._store_force_index(guard_op)
+        self._emit_call(op, call_args)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.LDR_ri(r.ip0.value, r.fp.value, ofs)
+        self.mc.CMP_ri(r.ip0.value, 0)
+        self._emit_guard(guard_op, c.EQ, guard_locs)
+
+    def _store_force_index(self, guard_op):
+        faildescr = guard_op.getdescr()
+        faildescrindex = self.get_gcref_from_faildescr(faildescr)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
+        self.load_from_gc_table(r.ip0.value, faildescrindex)
+        self.store_reg(self.mc, r.ip0, r.fp, ofs)
+
     def emit_op_label(self, op, arglocs):
         pass
+
+    def emit_op_force_token(self, op, arglocs):
+        self.mc.MOV_rr(arglocs[0].value, r.fp.value)
 
     def emit_op_jump(self, op, arglocs):
         target_token = op.getdescr()

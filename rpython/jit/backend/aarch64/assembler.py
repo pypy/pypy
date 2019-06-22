@@ -791,10 +791,21 @@ class AssemblerARM64(ResOpAssembler):
                 guard_num = guard_op.getopnum()
                 arglocs, fcond = guard_operations[guard_num](regalloc, guard_op, op)
                 if arglocs is not None:
-                    asm_guard_operations[guard_num](self, guard_op, fcond, arglocs)
+                    asm_guard_operations[guard_num](self, op, guard_op, fcond, arglocs)
                 regalloc.next_instruction() # advance one more
                 if guard_op.is_guard(): # can be also cond_call
                     regalloc.possibly_free_vars(guard_op.getfailargs())
+                regalloc.possibly_free_vars_for_op(guard_op)
+            elif rop.is_call_may_force(op.getopnum()):
+                guard_op = operations[i + 1] # has to exist
+                guard_num = guard_op.getopnum()
+                assert guard_num in (rop.GUARD_NOT_FORCED, rop.GUARD_NOT_FORCED_2)
+                arglocs, fcond = guard_operations[guard_num](regalloc, guard_op, op)
+                if arglocs is not None:
+                    asm_guard_operations[guard_num](self, op, guard_op, fcond, arglocs)
+                # fcond is abused here to pass the number of args
+                regalloc.next_instruction() # advance one more
+                regalloc.possibly_free_vars(guard_op.getfailargs())
                 regalloc.possibly_free_vars_for_op(guard_op)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op)

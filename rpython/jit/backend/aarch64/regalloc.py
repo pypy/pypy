@@ -634,6 +634,11 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.after_call(v)
 
+    def prepare_guard_op_guard_not_forced(self, op, prev_op):
+        arglocs = self._prepare_call(prev_op, save_all_regs=True)
+        guard_locs = self._guard_impl(op)
+        return arglocs + guard_locs, len(arglocs)
+
     def prepare_op_label(self, op):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
@@ -719,6 +724,11 @@ class Regalloc(BaseRegalloc):
         fcond = self.assembler.dispatch_comparison(prevop)
         locs = self._prepare_op_cond_call(op, True)
         return locs, fcond
+
+    def prepare_op_force_token(self, op):
+        # XXX regular reg
+        res_loc = self.force_allocate_reg(op)
+        return [res_loc]
 
     def prepare_op_finish(self, op):
         # the frame is in fp, but we have to point where in the frame is

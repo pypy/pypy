@@ -2506,6 +2506,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_force_operations_returning_void(self):
         values = []
         def maybe_force(token, flag):
+            print "CALLED WITH " + str(flag)
             if flag:
                 deadframe = self.cpu.force(token)
                 values.append(self.cpu.get_latest_descr(deadframe))
