@@ -597,12 +597,11 @@ class ResOpAssembler(BaseAssembler):
                                      array=True)
 
     def _emit_op_cond_call(self, op, arglocs, fcond):
-        #if len(arglocs) == 2:
-        #    res_loc = arglocs[1]     # cond_call_value
-        #else:
-        #    res_loc = None           # cond_call
+        if len(arglocs) == 2:
+            res_loc = arglocs[1]     # cond_call_value
+        else:
+            res_loc = None           # cond_call
         # see x86.regalloc for why we skip res_loc in the gcmap
-        res_loc = None
 
         if arglocs[0] is not None: # otherwise result already in CC
             self.mc.CMP_ri(arglocs[0].value, 0)
@@ -631,8 +630,7 @@ class ResOpAssembler(BaseAssembler):
 
         self.mc.BL(cond_call_adr)
         # if this is a COND_CALL_VALUE, we need to move the result in place
-        # from its current location (which is, unusually, in r4: see
-        # cond_call_slowpath)
+        # from its current location
         if res_loc is not None:
             self.mc.MOV_rr(res_loc.value, r.ip1.value)
         #
@@ -645,6 +643,9 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_cond_call(self, op, arglocs):
         self._emit_op_cond_call(op, arglocs, c.EQ)
+
+    def emit_op_cond_call_value_i(self, op, arglocs):
+        self._emit_op_cond_call(op, arglocs, c.NE)
 
     def emit_guard_op_cond_call(self, op, fcond, arglocs):
         self._emit_op_cond_call(op, arglocs, c.get_opposite_of(fcond))

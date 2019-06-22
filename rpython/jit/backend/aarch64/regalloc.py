@@ -694,7 +694,6 @@ class Regalloc(BaseRegalloc):
             # true.  Often used just after a comparison operation.
             return [argloc]
         else:
-            XXX
             # COND_CALL_VALUE_I/R.  Calls the function when args[0]
             # is equal to 0 or NULL.  Returns the result from the
             # function call if done, or args[0] if it was not 0/NULL.
@@ -708,13 +707,13 @@ class Regalloc(BaseRegalloc):
             args = op.getarglist()
             resloc = self.rm.force_result_in_reg(op, args[0],
                                                  forbidden_vars=args[2:])
-            # Test the register for the result.
-            self.assembler.mc.CMP_ri(resloc.value, 0)
-            self.assembler.guard_success_cc = c.EQ
-            return [tmpreg, resloc]
+            return [argloc, resloc]
 
     def prepare_op_cond_call(self, op):
         return self._prepare_op_cond_call(op, False)
+
+    def prepare_op_cond_call_value_i(self, op):
+        return self._prepare_op_cond_call(op, False)        
 
     def prepare_guard_op_cond_call(self, op, prevop):
         fcond = self.assembler.dispatch_comparison(prevop)
