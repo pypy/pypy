@@ -174,6 +174,9 @@ class W_MemoryView(W_Root):
                     "cannot index %d-dimension view with %d-element tuple",
                     length, ndim)
 
+        elif is_multislice(space, w_index):
+            raise oefmt(space.w_NotImplementedError,
+                        "multi-dimensional slicing is not implemented")
         start = self._start_from_tuple(space, w_index)
         itemsize = self.getitemsize()
         val = self.view.bytes_from_value(space, w_obj)

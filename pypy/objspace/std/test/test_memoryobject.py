@@ -299,7 +299,9 @@ class AppTestMemoryView(object):
         raises(TypeError, m.__setitem__, (2, 3), bytearray(b'12'))
         # slices in 2d memoryviews are not supported at all
         raises(TypeError, m.__getitem__, (slice(None), 3))
-        raises(NotImplementedError, m.__getitem__, (slice(None),))
+        raises(TypeError, m.__setitem__, (slice(None), 3), ord('a'))
+        raises(NotImplementedError, m.__getitem__, (slice(0,1,1), slice(0,1,2)))
+        raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), ord('a'))
 
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])
