@@ -502,6 +502,8 @@ class ResOpAssembler(BaseAssembler):
         self._emit_guard(guard_op, c.get_opposite_of(fcond), arglocs)
     emit_guard_op_guard_overflow = emit_guard_op_guard_false
 
+    def emit_op_guard_not_invalidated(self, op, arglocs):
+        self._emit_guard(op, 0, arglocs, True)
 
     def load_condition_into_cc(self, loc):
         if not loc.is_core_reg():

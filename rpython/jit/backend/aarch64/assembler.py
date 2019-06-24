@@ -710,7 +710,6 @@ class AssemblerARM64(ResOpAssembler):
                 mc.B_ofs_cond(relative_offset, c.get_opposite_of(tok.fcond))
                 mc.copy_to_raw_memory(guard_pos)
             else:
-                XX
                 clt.invalidate_positions.append((guard_pos, relative_offset))
 
     def fixup_target_tokens(self, rawstart):
@@ -895,8 +894,13 @@ class AssemblerARM64(ResOpAssembler):
             XXX
 
     def _mov_imm_to_loc(self, prev_loc, loc):
-        assert loc.is_core_reg()
-        self.mc.gen_load_int(loc.value, prev_loc.value)
+        if loc.is_core_reg():
+            self.mc.gen_load_int(loc.value, prev_loc.value)
+        elif loc.is_stack():
+            self.mc.gen_load_int(r.ip0.value, prev_loc.value)
+            self.mc.STR_ri(r.ip0.value, r.fp.value, loc.value)
+        else:
+            assert False
 
     def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()

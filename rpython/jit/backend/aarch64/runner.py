@@ -4,6 +4,7 @@ from rpython.jit.backend.aarch64.assembler import AssemblerARM64
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.aarch64.regalloc import VFPRegisterManager
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.aarch64.codebuilder import InstrBuilder
 
 class CPU_ARM64(AbstractLLCPU):
     """ARM 64"""
@@ -39,6 +40,21 @@ class CPU_ARM64(AbstractLLCPU):
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
+
+    def invalidate_loop(self, looptoken):
+        """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
+        bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
+        after this call, they all fail.  Note that afterwards, if one such
+        guard fails often enough, it has a bridge attached to it; it is
+        possible then to re-call invalidate_loop() on the same looptoken,
+        which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
+        old one that already has a bridge attached to it."""
+        for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
+            mc = InstrBuilder()
+            mc.B_ofs(tgt)
+            mc.copy_to_raw_memory(jmp)
+        # positions invalidated
+        looptoken.compiled_loop_token.invalidate_positions = []
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
