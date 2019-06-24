@@ -30,7 +30,7 @@ from rpython.flowspace.model import Constant
 from rpython.flowspace.specialcase import register_flow_sc
 from pypy.module.sys.version import CPYTHON_VERSION
 
-PY3 = CPYTHON_VERSION[0] == 3
+PY2 = CPYTHON_VERSION[0] == 2
 
 # XXX: Also defined in object.h
 Py_LT = 0
@@ -849,7 +849,7 @@ def make_missing_slot(space, typedef, name, attr):
 missing_builtin_slots = [
     'tp_print', 'tp_compare', 'tp_getattr', 'tp_setattr', 'tp_setattro',
     'tp_finalize',
-    'tp_richcompare', 'tp_del', 'tp_as_buffer.c_bf_getwritebuffer',
+    'tp_richcompare', 'tp_del',
     'tp_as_number.c_nb_bool', 'tp_as_number.c_nb_coerce',
     'tp_as_number.c_nb_inplace_add', 'tp_as_number.c_nb_inplace_subtract',
     'tp_as_number.c_nb_inplace_multiply', 'tp_as_number.c_nb_inplace_divide',
@@ -863,7 +863,11 @@ missing_builtin_slots = [
     'tp_as_number.c_nb_inplace_matrix_multiply',
     'tp_as_sequence.c_sq_slice', 'tp_as_sequence.c_sq_ass_slice',
     'tp_as_sequence.c_sq_contains',
-    'tp_as_buffer.c_bf_getreadbuffer',
+    ]
+if PY2:
+    missing_builtin_slots += [
+        'tp_as_buffer.c_bf_getreadbuffer',
+        'tp_as_buffer.c_bf_getwritebuffer',
     ]
 for name in missing_builtin_slots:
     slot_factory(name)(make_missing_slot)
@@ -1151,7 +1155,7 @@ slotdefs += (
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", None, "wrap_getbuffer", ""),
 )
 
-if not PY3:
+if PY2:
     slotdefs += (
         TPSLOT("__rbuffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
         TPSLOT("__wbuffer__", "tp_as_buffer.c_bf_getwritebuffer", None, "wrap_getwritebuffer", ""),
