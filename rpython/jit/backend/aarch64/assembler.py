@@ -930,8 +930,13 @@ class AssemblerARM64(ResOpAssembler):
             assert False, "wrong loc"
 
     def _mov_imm_float_to_loc(self, prev_loc, loc):
-        assert loc.is_vfp_reg()
-        self.load(loc, prev_loc)
+        if loc.is_vfp_reg():
+            self.load(loc, prev_loc)
+        elif loc.is_stack():
+            self.load(r.vfp_ip, prev_loc)
+            self._mov_vfp_reg_to_loc(r.vfp_ip, loc)
+        else:
+            assert False, "wrong loc"
 
     def _mov_vfp_reg_to_loc(self, prev_loc, loc):
         assert loc.is_stack()
