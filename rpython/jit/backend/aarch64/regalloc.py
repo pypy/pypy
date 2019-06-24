@@ -485,6 +485,12 @@ class Regalloc(BaseRegalloc):
     prepare_op_cast_float_to_int = prepare_unary
     prepare_op_cast_int_to_float = prepare_unary
 
+    def _prepare_op_math_sqrt(self, op):
+        loc1 = self.make_sure_var_in_reg(op.getarg(1))
+        self.possibly_free_vars_for_op(op)
+        res = self.force_allocate_reg(op)
+        return [loc1, res]
+
     prepare_op_convert_float_bytes_to_longlong = prepare_unary
     prepare_op_convert_longlong_bytes_to_float = prepare_unary
 
@@ -563,6 +569,7 @@ class Regalloc(BaseRegalloc):
                             EffectInfo.OS_LLONG_AND,
                             EffectInfo.OS_LLONG_OR,
                             EffectInfo.OS_LLONG_XOR):
+                XXX
                 if self.cpu.cpuinfo.neon:
                     args = self._prepare_llong_binop_xx(op, fcond)
                     self.perform_extra(op, args, fcond)
@@ -572,8 +579,8 @@ class Regalloc(BaseRegalloc):
                 self.perform_extra(op, args, fcond)
                 return
             elif oopspecindex == EffectInfo.OS_MATH_SQRT:
-                args = self._prepare_op_math_sqrt(op, fcond)
-                self.perform_extra(op, args, fcond)
+                args = self._prepare_op_math_sqrt(op)
+                self.assembler.math_sqrt(op, args)
                 return
             elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
                 args = self._prepare_threadlocalref_get(op, fcond)

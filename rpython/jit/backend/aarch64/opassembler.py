@@ -273,6 +273,10 @@ class ResOpAssembler(BaseAssembler):
         arg, res = arglocs
         self.mc.INS_dr(res.value, arg.value)
 
+    def math_sqrt(self, op, arglocs):
+        arg, res = arglocs
+        self.mc.FSQRT_dd(res.value, arg.value)
+
     emit_op_float_lt = gen_float_comp_op('float_lt', c.VFP_LT)
     emit_op_float_le = gen_float_comp_op('float_le', c.VFP_LE)
     emit_op_float_eq = gen_float_comp_op('float_eq', c.EQ)
