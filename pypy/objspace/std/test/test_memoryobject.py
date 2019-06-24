@@ -176,6 +176,7 @@ class AppTestMemoryView(object):
         assert m[0] == 0
         m[0] = 1
         assert m[0] == 1
+        raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), 0)
 
     def test_int_array_slice(self):
         import array
