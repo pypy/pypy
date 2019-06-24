@@ -404,8 +404,7 @@ class AssemblerARM64(ResOpAssembler):
         # pop the values passed on the stack, gcmap -> r0, expected_size -> r1
         mc.LDP_rri(r.x0.value, r.x1.value, r.sp.value, 0)
         
-        # XXX # store return address and keep the stack aligned
-        # mc.PUSH([r.ip.value, r.lr.value])
+        mc.STR_ri(r.lr.value, r.sp.value, 0)
 
         # store the current gcmap(r0) in the jitframe
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
@@ -416,7 +415,7 @@ class AssemblerARM64(ResOpAssembler):
 
         # store a possibly present exception
         # we use a callee saved reg here as a tmp for the exc.
-        self._store_and_reset_exception(mc, None, r.x19, on_frame=True)
+        self._store_and_reset_exception(mc, None, r.ip1, on_frame=True)
 
         # call realloc_frame, it takes two arguments
         # arg0: the old jitframe
@@ -428,10 +427,11 @@ class AssemblerARM64(ResOpAssembler):
         mc.MOV_rr(r.fp.value, r.x0.value)
 
         # restore a possibly present exception
-        self._restore_exception(mc, None, r.x19)
+        self._restore_exception(mc, None, r.ip1)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
+            xxx
             self._load_shadowstack_top(mc, r.r5, gcrootmap)
             # store the new jitframe addr in the shadowstack
             mc.STR_ri(r.x0.value, r.r5.value, imm=-WORD)
@@ -444,8 +444,8 @@ class AssemblerARM64(ResOpAssembler):
         self._pop_all_regs_from_jitframe(mc, [], self.cpu.supports_floats)
 
         # return
+        mc.LDR_ri(r.lr.value, r.sp.value, 0)
         mc.ADD_ri(r.sp.value, r.sp.value, 2*WORD)
-        mc.LDR_ri(r.lr.value, r.sp.value, WORD)
         mc.RET_r(r.lr.value)
         self._frame_realloc_slowpath = mc.materialize(self.cpu, [])        
 
@@ -572,15 +572,15 @@ class AssemblerARM64(ResOpAssembler):
             for _ in range(mc.get_max_size_of_gen_load_int()):
                 mc.NOP()
         else:
-            mc.gen_load_int(r.lr.value, expected_size)
-        mc.CMP_rr(r.ip0.value, r.lr.value)
+            mc.gen_load_int(r.ip1.value, expected_size)
+        mc.CMP_rr(r.ip0.value, r.ip1.value)
 
         jg_location = mc.currpos()
         mc.BRK()
 
-        # the size value is still stored in lr
+        # the size value is still stored in ip1
         mc.SUB_ri(r.sp.value, r.sp.value, 2*WORD)
-        mc.STR_ri(r.lr.value, r.sp.value, WORD)
+        mc.STR_ri(r.ip1.value, r.sp.value, WORD)
 
         mc.gen_load_int(r.ip0.value, rffi.cast(lltype.Signed, gcmap))
         mc.STR_ri(r.ip0.value, r.sp.value, 0)
@@ -665,7 +665,7 @@ class AssemblerARM64(ResOpAssembler):
     def patch_stack_checks(self, framedepth, rawstart):
         for ofs in self.frame_depth_to_patch:
             mc = InstrBuilder()
-            mc.gen_load_int(r.lr.value, framedepth)
+            mc.gen_load_int(r.ip1.value, framedepth)
             mc.copy_to_raw_memory(ofs + rawstart)
 
     def load_from_gc_table(self, regnum, index):
@@ -914,6 +914,9 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.STR_ri(r.ip0.value, r.sp.value, pos)
         elif loc.is_vfp_reg():
             xxx
+        elif loc.is_imm():
+            self.mc.gen_load_int(r.ip0.value, loc.value)
+            self.mc.STR_ri(r.ip0.value, r.sp.value, pos)
         else:
             assert False, "wrong loc"
 

@@ -4972,7 +4972,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                     EffectInfo.MOST_GENERAL)
 
         def func2(a, b, c, d, e, f, g, h, i, j, k, l):
-            pass
+            print "CALLED"
 
         FUNC2 = self.FuncType([lltype.Signed] * 12, lltype.Void)
         FPTR2 = self.Ptr(FUNC2)
