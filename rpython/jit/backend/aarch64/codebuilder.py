@@ -63,6 +63,14 @@ class AbstractAarch64Builder(object):
     def MOV_rr(self, rd, rn):
         self.ORR_rr(rd, r.xzr.value, rn)
 
+    def UMOV_rd(self, rd, rn):
+        base = 0b0100111000001000001111
+        self.write32((base << 10) | (rn << 5) | rd)
+
+    def INS_dr(self, rd, rn):
+        base = 0b0100111000001000000111
+        self.write32((base << 10) | (rn << 5) | rd)
+
     def ORR_rr(self, rd, rn, rm):
         base = 0b10101010000
         self.write32((base << 21) | (rm << 16) |

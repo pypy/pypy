@@ -263,7 +263,15 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_float_truediv(self, op, arglocs):
         arg1, arg2, res = arglocs
-        self.mc.FDIV_dd(res.value, arg1.value, arg2.value)    
+        self.mc.FDIV_dd(res.value, arg1.value, arg2.value)
+
+    def emit_op_convert_float_bytes_to_longlong(self, op, arglocs):
+        arg, res = arglocs
+        self.mc.UMOV_rd(res.value, arg.value)
+
+    def emit_op_convert_longlong_bytes_to_float(self, op, arglocs):
+        arg, res = arglocs
+        self.mc.INS_dr(res.value, arg.value)
 
     emit_op_float_lt = gen_float_comp_op('float_lt', c.VFP_LT)
     emit_op_float_le = gen_float_comp_op('float_le', c.VFP_LE)
