@@ -246,6 +246,18 @@ class AbstractAarch64Builder(object):
         base = 0b1001111001100010
         self.write32((base << 16) | (rn << 5) | rd)
 
+    def SXTB_rr(self, rd, rn):
+        base = 0b1001001101000000000111
+        self.write32((base << 10) | (rn << 5) | rd)
+
+    def SXTH_rr(self, rd, rn):
+        base = 0b1001001101000000001111
+        self.write32((base << 10) | (rn << 5) | rd)        
+
+    def SXTW_rr(self, rd, rn):
+        base = 0b1001001101000000011111
+        self.write32((base << 10) | (rn << 5) | rd)        
+
     def FSQRT_dd(self, rd, rn):
         base = 0b0001111001100001110000
         self.write32((base << 10) | (rn << 5) | rd)

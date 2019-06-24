@@ -371,6 +371,17 @@ class Regalloc(BaseRegalloc):
     def prepare_comp_op_int_mul_ovf(self, op, res_in_cc):
         return self.prepare_op_int_mul(op)
 
+    def prepare_op_int_force_ge_zero(self, op):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        resloc = self.force_allocate_reg(op, [op.getarg(0)])
+        return [argloc, resloc]
+
+    def prepare_op_int_signext(self, op):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        numbytes = op.getarg(1).getint()
+        resloc = self.force_allocate_reg(op)
+        return [argloc, imm(numbytes), resloc]
+
     # some of those have forms of imm that they accept, but they're rather
     # obscure. Can be future optimization
     prepare_op_int_and = prepare_op_int_mul

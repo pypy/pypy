@@ -228,6 +228,26 @@ class ResOpAssembler(BaseAssembler):
         reg, res = arglocs
         self.mc.MVN_rr(res.value, reg.value)
 
+    def emit_op_int_force_ge_zero(self, op, arglocs):
+        arg, res = arglocs
+        self.mc.MOVZ_r_u16(res.value, 0, 0)
+        self.mc.CMP_ri(arg.value, 0)
+        self.mc.B_ofs_cond(8, c.LT) # jump over the next instruction
+        self.mc.MOV_rr(res.value, arg.value)
+        # jump here
+
+    def emit_op_int_signext(self, op, arglocs):
+        arg, numbytes, res = arglocs
+        assert numbytes.is_imm()
+        if numbytes.value == 1:
+            self.mc.SXTB_rr(res.value, arg.value)
+        elif numbytes.value == 2:
+            self.mc.SXTH_rr(res.value, arg.value)
+        elif numbytes.value == 4:
+            self.mc.SXTW_rr(res.value, arg.value)
+        else:
+            raise AssertionError("bad number of bytes")
+
     def emit_op_increment_debug_counter(self, op, arglocs):
         return # XXXX
         base_loc, value_loc = arglocs
