@@ -165,9 +165,13 @@ class ResOpAssembler(BaseAssembler):
         self.emit_int_comp_op(op, arglocs[0], arglocs[1])
         return c.EQ
 
+    emit_comp_op_ptr_eq = emit_comp_op_int_eq
+
     def emit_comp_op_int_ne(self, op, arglocs):
         self.emit_int_comp_op(op, arglocs[0], arglocs[1])
         return c.NE
+
+    emit_comp_op_ptr_ne = emit_comp_op_int_ne
 
     def emit_comp_op_uint_lt(self, op, arglocs):
         self.emit_int_comp_op(op, arglocs[0], arglocs[1])

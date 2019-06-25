@@ -379,6 +379,11 @@ class AbstractAarch64Builder(object):
         assert 0 <= imm <= 4095
         self.write32((base << 22) | (imm << 10) | (rn << 5) | 0b11111)
 
+    def CMP_wi(self, rn, imm):
+        base = 0b0111000100
+        assert 0 <= imm <= 4095
+        self.write32((base << 22) | (imm << 10) | (rn << 5) | 0b11111)
+
     def CSET_r_flag(self, rd, cond):
         base = 0b10011010100
         self.write32((base << 21) | (0b11111 << 16) | (cond << 12) | (1 << 10) |
@@ -388,6 +393,14 @@ class AbstractAarch64Builder(object):
         assert 0 <= shift <= 64
         base = 0b11101010000
         self.write32((base << 21) | (rm << 16) | (shift << 10) | (rn << 5) | 0b11111)
+
+    def LDAXR(self, rt, rn):
+        base = 0b1100100001011111111111
+        self.write32((base << 10) | (rn << 5) | rt)
+
+    def STLXR(self, rt, rn, rs):
+        base = 0b11001000000
+        self.write32((base << 21) | (rs << 16) | (0b111111 << 10) | (rn << 5) | rt)
 
     def NOP(self):
         self.write32(0b11010101000000110010000000011111)
@@ -405,7 +418,7 @@ class AbstractAarch64Builder(object):
     def B_ofs_cond(self, ofs, cond):
         base = 0b01010100
         assert ofs & 0x3 == 0
-        assert -1 << 10 < ofs < 1 << 10
+        assert -1 << 21 < ofs < 1 << 21
         imm = ofs >> 2
         if imm < 0:
             xxx
@@ -434,7 +447,7 @@ class AbstractAarch64Builder(object):
         self.write32(0b11010100001 << 21)
 
     def DMB(self):
-        self.write32(0b1101010100000011001111110111111)
+        self.write32(0b11010101000000110011111110111111)
 
     def gen_load_int_full(self, r, value):
         self.MOVZ_r_u16(r, value & 0xFFFF, 0)

@@ -3,6 +3,7 @@ from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.aarch64.arch import WORD
 from rpython.jit.metainterp.history import INT, FLOAT, REF
 from rpython.jit.backend.aarch64 import registers as r
+from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.aarch64.jump import remap_frame_layout # we use arm algo
 
 from rpython.rlib.objectmodel import we_are_translated
@@ -154,18 +155,25 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         #     r6 == fastgil
         #     XXX r7 == previous value of root_stack_top
         self.mc.gen_load_int(r.ip1.value, fastgil)
-        self.mc.LDREX(r.x0.value, r.r6.value)    # load the lock value
-        self.mc.MOV_ri(r.ip.value, 1)
-        self.mc.CMP_ri(r.r3.value, 0)            # is the lock free?
-        self.mc.STREX(r.r3.value, r.ip.value, r.r6.value, c=c.EQ)
+        self.mc.LDAXR(r.x1.value, r.ip1.value)    # load the lock value
+        self.mc.MOVZ_r_u16(r.ip0.value, 1, 0)
+        self.mc.CMP_ri(r.x1.value, 0)            # is the lock free?
+        if self.asm.cpu.gc_ll_descr.gcrootmap:
+            jump_val = XXX
+        else:
+            jump_val = 3 * 4
+        self.mc.B_ofs_cond(jump_val, c.NE)
+        # jump over the next few instructions directly to the call
+        self.mc.STLXR(r.ip0.value, r.ip1.value, r.x1.value)
                                                  # try to claim the lock
-        self.mc.CMP_ri(r.r3.value, 0, cond=c.EQ) # did this succeed?
-        if self.asm.cpu.cpuinfo.arch_version >= 7:
-            self.mc.DMB()
+        self.mc.CMP_wi(r.x1.value, 0) # did this succeed?
+        self.mc.DMB() # <- previous jump here
+        self.mc.B_ofs_cond((8 + 4)* 4, c.EQ) # jump over the call
         # the success of the lock acquisition is defined by
         # 'EQ is true', or equivalently by 'r3 == 0'.
         #
         if self.asm.cpu.gc_ll_descr.gcrootmap:
+            XXX
             # When doing a call_release_gil with shadowstack, there
             # is the risk that the 'rpy_fastgil' was free but the
             # current shadowstack can be the one of a different
@@ -183,18 +191,15 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             # by checking again r3.
             self.mc.CMP_ri(r.r3.value, 0)
             self.mc.STR_ri(r.r3.value, r.r6.value, cond=c.EQ)
-        else:
-            b1_location = self.mc.currpos()
-            self.mc.BKPT()                       # BEQ below
         #
         # save the result we just got
-        gpr_to_save, vfp_to_save = self.get_result_locs()
-        with saved_registers(self.mc, gpr_to_save, vfp_to_save):
-            self.mc.BL(self.asm.reacqgil_addr)
-
-        # replace b1_location with B(here, c.EQ)
-        pmc = OverwritingBuilder(self.mc, b1_location, WORD)
-        pmc.B_offs(self.mc.currpos(), c.EQ)
+        self.mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
+        self.mc.STR_di(r.d0.value, r.sp.value, 0)
+        self.mc.STR_ri(r.x0.value, r.sp.value, WORD)
+        self.mc.BL(self.asm.reacqgil_addr)
+        self.mc.LDR_ri(r.d0.value, r.sp.value, 0)
+        self.mc.LDR_ri(r.x0.value, r.sp.value, WORD)
+        self.mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
 
         if not we_are_translated():                    # for testing: now we can accesss
             self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
@@ -204,7 +209,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             return [], []
         if self.resloc.is_vfp_reg():
             if self.restype == 'L':      # long long
-                return [r.r0, r.r1], []
+                return [r.r0], []
             else:
                 return [], [r.d0]
         assert self.resloc.is_core_reg()

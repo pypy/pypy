@@ -914,7 +914,7 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.LDR_ri(r.ip0.value, r.fp.value, loc.value)
             self.mc.STR_ri(r.ip0.value, r.sp.value, pos)
         elif loc.is_vfp_reg():
-            xxx
+            self.mc.STR_di(loc.value, r.sp.value, pos)
         elif loc.is_imm():
             self.mc.gen_load_int(r.ip0.value, loc.value)
             self.mc.STR_ri(r.ip0.value, r.sp.value, pos)
