@@ -176,7 +176,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             self.mc.LDR_ri(r.x11.value, r.sp.value,
                            self.asm.saved_threadlocal_addr + self.current_sp)
             self.mc.LDR_ri(r.ip0.value, r.x11.value, p_errno)
-            self.mc.MOV_ri(r.x11.value, 0)
+            self.mc.MOVZ_r_u16(r.x11.value, 0, 0)
             self.mc.STR_ri(r.x11.value, r.ip0.value, 0)
 
     def read_real_errno(self, save_err):
