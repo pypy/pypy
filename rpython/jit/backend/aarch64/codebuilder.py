@@ -60,6 +60,15 @@ class AbstractAarch64Builder(object):
         base = 0b11100100
         self.write32((scale << 30) | (base << 22) | (imm >> scale << 10) | (rn << 5) | rt)
 
+    def STRB_ri(self, rt, rn, imm):
+        self.STR_size_ri(0, rt, rn, imm)
+
+    def STRH_ri(self, rt, rn, imm):
+        self.STR_size_ri(1, rt, rn, imm)
+
+    def STRW_ri(self, rt, rn, imm):
+        self.STR_size_ri(2, rt, rn, imm)
+
     def MOV_rr(self, rd, rn):
         self.ORR_rr(rd, r.xzr.value, rn)
 

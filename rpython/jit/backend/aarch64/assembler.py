@@ -405,6 +405,7 @@ class AssemblerARM64(ResOpAssembler):
         mc.LDP_rri(r.x0.value, r.x1.value, r.sp.value, 0)
         
         mc.STR_ri(r.lr.value, r.sp.value, 0)
+        mc.STR_ri(r.x19.value, r.sp.value, WORD)
 
         # store the current gcmap(r0) in the jitframe
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
@@ -414,8 +415,7 @@ class AssemblerARM64(ResOpAssembler):
         mc.MOV_rr(r.x0.value, r.fp.value)
 
         # store a possibly present exception
-        # we use a callee saved reg here as a tmp for the exc.
-        self._store_and_reset_exception(mc, None, r.ip1, on_frame=True)
+        self._store_and_reset_exception(mc, None, r.x19, on_frame=True)
 
         # call realloc_frame, it takes two arguments
         # arg0: the old jitframe
@@ -427,7 +427,7 @@ class AssemblerARM64(ResOpAssembler):
         mc.MOV_rr(r.fp.value, r.x0.value)
 
         # restore a possibly present exception
-        self._restore_exception(mc, None, r.ip1)
+        self._restore_exception(mc, None, r.x19)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -445,6 +445,7 @@ class AssemblerARM64(ResOpAssembler):
 
         # return
         mc.LDR_ri(r.lr.value, r.sp.value, 0)
+        mc.LDR_ri(r.x19.value, r.sp.value, WORD)
         mc.ADD_ri(r.sp.value, r.sp.value, 2*WORD)
         mc.RET_r(r.lr.value)
         self._frame_realloc_slowpath = mc.materialize(self.cpu, [])        

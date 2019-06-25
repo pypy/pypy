@@ -313,6 +313,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_jit_debug = void
     prepare_op_enter_portal_frame = void
     prepare_op_leave_portal_frame = void
+    prepare_op_zero_array = void # dealth with in opassembler.py
 
     def prepare_int_ri(self, op, res_in_cc):
         boxes = op.getarglist()
@@ -647,6 +648,10 @@ class Regalloc(BaseRegalloc):
         self.rm.before_call(save_all_regs=save_all_regs)
         resloc = self.after_call(op)
         return resloc
+
+    def before_call(self, save_all_regs=False):
+        self.rm.before_call(save_all_regs=save_all_regs)
+        self.vfprm.before_call(save_all_regs=save_all_regs)
 
     def after_call(self, v):
         if v.type == 'v':

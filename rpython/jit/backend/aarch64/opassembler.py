@@ -249,7 +249,6 @@ class ResOpAssembler(BaseAssembler):
             raise AssertionError("bad number of bytes")
 
     def emit_op_increment_debug_counter(self, op, arglocs):
-        return # XXXX
         base_loc, value_loc = arglocs
         self.mc.LDR_ri(value_loc.value, base_loc.value, 0)
         self.mc.ADD_ri(value_loc.value, value_loc.value, 1)
@@ -635,6 +634,111 @@ class ResOpAssembler(BaseAssembler):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
                                      array=True)
 
+        #from ../x86/regalloc.py:1388
+    def emit_op_zero_array(self, op, arglocs):
+        from rpython.jit.backend.llsupport.descr import unpack_arraydescr
+        assert len(arglocs) == 0
+        size_box = op.getarg(2)
+        if isinstance(size_box, ConstInt) and size_box.getint() == 0:
+            return
+        itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
+        args = op.getarglist()
+        #
+        # ZERO_ARRAY(base_loc, start, size, 1, 1)
+        # 'start' and 'size' are both expressed in bytes,
+        # and the two scaling arguments should always be ConstInt(1) on ARM.
+        assert args[3].getint() == 1
+        assert args[4].getint() == 1
+        #
+        base_loc = self._regalloc.rm.make_sure_var_in_reg(args[0], args)
+        startbyte_box = args[1]
+        if isinstance(startbyte_box, ConstInt):
+            startbyte_loc = None
+            startbyte = startbyte_box.getint()
+            assert startbyte >= 0
+        else:
+            startbyte_loc = self._regalloc.rm.make_sure_var_in_reg(startbyte_box,
+                                                                   args)
+            startbyte = -1
+
+        # base_loc and startbyte_loc are in two regs here (or startbyte_loc
+        # is an immediate).  Compute the dstaddr_loc, which is the raw
+        # address that we will pass as first argument to memset().
+        # It can be in the same register as either one, but not in
+        # args[2], because we're still needing the latter.
+        dstaddr_loc = r.ip1
+        if startbyte >= 0:    # a constant
+            ofs = baseofs + startbyte
+            reg = base_loc.value
+        else:
+            self.mc.ADD_rr(dstaddr_loc.value,
+                           base_loc.value, startbyte_loc.value)
+            ofs = baseofs
+            reg = dstaddr_loc.value
+        if check_imm_arg(ofs):
+            self.mc.ADD_ri(dstaddr_loc.value, reg, ofs)
+        else:
+            self.mc.gen_load_int(r.ip0.value, ofs)
+            self.mc.ADD_rr(dstaddr_loc.value, reg, r.ip0.value)
+
+        # We use STRB, STRH, STRW or STR based on whether we know the array
+        # item size is a multiple of 1, 2 or 4.
+        if   itemsize & 1: itemsize = 1
+        elif itemsize & 2: itemsize = 2
+        elif itemsize & 4: itemsize = 4
+        else:              itemsize = 8
+        limit = itemsize
+        next_group = -1
+        if itemsize < 8 and startbyte >= 0:
+            # we optimize STRB/STRH into STR, but this needs care:
+            # it only works if startindex_loc is a constant, otherwise
+            # we'd be doing unaligned accesses.
+            next_group = (-startbyte) & 7
+            limit = 8
+
+        if (isinstance(size_box, ConstInt) and
+                size_box.getint() <= 14 * limit):     # same limit as GCC
+            # Inline a series of STR operations, starting at 'dstaddr_loc'.
+            #
+            self.mc.gen_load_int(r.ip0.value, 0)
+            i = 0
+            adjustment = 0
+            needs_adjustment = itemsize < 8 and (startbyte % 8)
+            total_size = size_box.getint()
+            while i < total_size:
+                sz = itemsize
+                if i == next_group:
+                    next_group += 8
+                    if next_group <= total_size:
+                        sz = 8
+                if sz == 8:
+                    if needs_adjustment:
+                        self.mc.ADD_ri(dstaddr_loc.value, dstaddr_loc.value, i)
+                        adjustment = -i
+                        needs_adjustment = False
+                    self.mc.STR_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)                    
+                elif sz == 4:
+                    self.mc.STRW_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                elif sz == 2:
+                    self.mc.STRH_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                else:
+                    self.mc.STRB_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                i += sz
+
+        else:
+            if isinstance(size_box, ConstInt):
+                size_loc = self.imm(size_box.getint())
+            else:
+                # load size_loc in a register different than dstaddr_loc
+                size_loc = self._regalloc.rm.make_sure_var_in_reg(size_box,
+                                                            [])
+            #
+            # call memset()
+            self._regalloc.before_call()
+            self.simple_call_no_collect(self.imm(self.memset_addr),
+                                        [dstaddr_loc, self.imm(0), size_loc])
+            self._regalloc.rm.possibly_free_var(size_box)
+
     def _emit_op_cond_call(self, op, arglocs, fcond):
         if len(arglocs) == 2:
             res_loc = arglocs[1]     # cond_call_value
@@ -858,6 +962,10 @@ class ResOpAssembler(BaseAssembler):
                                      result_loc, result_type,
                                      result_size)
         cb.emit()
+
+    def simple_call_no_collect(self, fnloc, arglocs):
+        cb = Aarch64CallBuilder(self, fnloc, arglocs)
+        cb.emit_no_collect()
 
     def emit_guard_op_guard_not_forced(self, op, guard_op, fcond, arglocs):
         # arglocs is call locs + guard_locs, split them
