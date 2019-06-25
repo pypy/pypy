@@ -940,8 +940,12 @@ class AssemblerARM64(ResOpAssembler):
             assert False, "wrong loc"
 
     def _mov_vfp_reg_to_loc(self, prev_loc, loc):
-        assert loc.is_stack()
-        self.mc.STR_di(prev_loc.value, r.fp.value, loc.value)
+        if loc.is_stack():
+            self.mc.STR_di(prev_loc.value, r.fp.value, loc.value)
+        elif loc.is_vfp_reg():
+            self.mc.MOV_dd(prev_loc.value, loc.value)
+        else:
+            assert False, "wrong loc"
 
     def push_locations(self, locs):
         if not locs:
