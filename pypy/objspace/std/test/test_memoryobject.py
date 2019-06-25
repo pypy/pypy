@@ -289,20 +289,19 @@ class AppTestMemoryView(object):
         assert m2.shape == m1.shape
 
     def test_2d(self):
-        m = memoryview(bytearray(b'1234123412341234'))
-        assert m[3] == ord('4')
-        m[3] = ord('z')
-        assert m[3] == ord('z')
-        m = m.cast('B', shape=(4, 4))
-        assert m[2, 3] == ord('4')
-        m[2, 3] = ord('a')
-        assert m[2, 3] == ord('a') 
-        raises(TypeError, m.__setitem__, (2, 3), bytearray(b'12'))
+        import struct
+        a = list(range(16))
+        ba = bytearray(struct.pack("%di" % len(a), *a))
+        m = memoryview(ba).cast("i", shape=(4, 4))
+        assert m[2, 3] == 11
+        m[2, 3] = -1
+        assert m[2, 3] == -1
+        raises(TypeError, m.__setitem__, (2, 3), 'a')
         # slices in 2d memoryviews are not supported at all
         raises(TypeError, m.__getitem__, (slice(None), 3))
-        raises(TypeError, m.__setitem__, (slice(None), 3), ord('a'))
+        raises(TypeError, m.__setitem__, (slice(None), 3), 123)
         raises(NotImplementedError, m.__getitem__, (slice(0,1,1), slice(0,1,2)))
-        raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), ord('a'))
+        raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), 123)
 
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])

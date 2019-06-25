@@ -179,9 +179,8 @@ class W_MemoryView(W_Root):
                     length, ndim)
 
         start = self._start_from_tuple(space, w_index)
-        itemsize = self.getitemsize()
         val = self.view.bytes_from_value(space, w_obj)
-        self.view.setbytes(start * itemsize, val)
+        self.view.setbytes(start, val)
 
     def _decode_index(self, space, w_index, is_slice):
         shape = self.getshape()
