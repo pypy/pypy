@@ -27,9 +27,9 @@ class TestARM64(LLtypeBackendTest):
 
     add_loop_instructions = 'ldr; add; cmp; b.eq; b; brk;'
     bridge_loop_instructions = ('ldr; mov; nop; nop; nop; '
-                                'cmp; b.ge; sub; str; mov; movk; '
-                                'str; mov; movk; movk; movk; blr; '
-                                'mov; movk; movk; movk; br; brk;')
+                                'cmp; b.ge; sub; str; mov; (movk; )*'
+                                'str; mov; (movk; )*blr; '
+                                'mov; (movk; )*br; brk;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())

@@ -5,6 +5,7 @@ from rpython.jit.metainterp.history import INT, FLOAT, REF
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.aarch64.jump import remap_frame_layout # we use arm algo
+from rpython.jit.backend.llsupport import llerrno
 
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi
@@ -42,7 +43,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         if stack_locs:
             adj = len(stack_locs) + (len(stack_locs) & 1)
             self.mc.SUB_ri(r.sp.value, r.sp.value, adj * WORD)
-            self.current_sp = adj
+            self.current_sp = adj * WORD
             c = 0
             for loc in stack_locs:
                 self.asm.mov_loc_to_raw_stack(loc, c)
@@ -90,7 +91,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         assert self.current_sp & 1 == 0 # always adjusted to 16 bytes
         if self.current_sp == 0:
             return
-        self.mc.ADD_ri(r.sp.value, r.sp.value, self.current_sp * WORD)
+        self.mc.ADD_ri(r.sp.value, r.sp.value, self.current_sp)
         self.current_sp = 0
 
     def load_result(self):
@@ -154,13 +155,46 @@ class Aarch64CallBuilder(AbstractCallBuilder):
 
     def write_real_errno(self, save_err):
         if save_err & rffi.RFFI_READSAVED_ERRNO:
-            xxx
+            # Just before a call, read '*_errno' and write it into the
+            # real 'errno'.  The x0-x7 registers contain arguments to the
+            # future call;
+            # the x8-x10 registers contain various stuff. XXX what?
+            # We still have x11 and up.
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            self.mc.LDR_ri(r.x11.value, r.sp.value,
+                           self.asm.saved_threadlocal_addr + self.current_sp)
+            self.mc.LDR_ri(r.ip0.value, r.x11.value, p_errno)
+            self.mc.LDR_ri(r.x11.value, r.x11.value, rpy_errno)
+            self.mc.STR_ri(r.x11.value, r.ip0.value, 0)
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
-            yyy
+            # Same, but write zero.
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            self.mc.LDR_ri(r.x11.value, r.sp.value,
+                           self.asm.saved_threadlocal_addr + self.current_sp)
+            self.mc.LDR_ri(r.ip0.value, r.x11.value, p_errno)
+            self.mc.MOV_ri(r.x11.value, 0)
+            self.mc.STR_ri(r.x11.value, r.ip0.value, 0)
 
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:
-            xxx        
+            # Just after a call, read the real 'errno' and save a copy of
+            # it inside our thread-local '*_errno'.  Registers x11 and up
+            # are unused here, and registers x2-x3 never contain anything
+            # after the call.
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            self.mc.LDR_ri(r.x3.value, r.sp.value,
+                           self.asm.saved_threadlocal_addr)
+            self.mc.LDR_ri(r.ip0.value, r.x3.value, p_errno)
+            self.mc.LDR_ri(r.ip0.value, r.ip0.value, 0)
+            self.mc.STR_ri(r.ip0.value, r.x3.value, rpy_errno)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         # try to reacquire the lock.
