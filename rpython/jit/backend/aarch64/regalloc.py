@@ -417,7 +417,7 @@ class Regalloc(BaseRegalloc):
     prepare_comp_op_int_gt = prepare_int_cmp
     prepare_comp_op_int_ne = prepare_int_cmp
     prepare_comp_op_int_eq = prepare_int_cmp
-    prepare_comp_op_ptr_eq = prepare_int_cmp
+    prepare_comp_op_ptr_eq = prepare_comp_op_instance_ptr_eq = prepare_int_cmp
     prepare_comp_op_ptr_ne = prepare_int_cmp
     prepare_comp_op_uint_lt = prepare_int_cmp
     prepare_comp_op_uint_le = prepare_int_cmp
