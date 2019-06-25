@@ -2987,10 +2987,18 @@ class LLtypeBackendTest(BaseBackendTest):
                     getter_name,
                     primitive.cdecl(primitive.PrimitiveType[ARG], '*p'),
                     var_name))
+            c_source.append('#include <stdio.h>')
             c_source.append('')
             c_source.append('static void real%s(%s)' % (
                 fn_name, ', '.join(fn_args)))
             c_source.append('{')
+            for i in range(len(ARGTYPES)):
+                if ARGTYPES[i] is lltype.Float:
+                    c_source.append('    fprintf(stderr, "x%d = %%f\\n", x%d);' % (i, i))
+                elif ARGTYPES[i] is lltype.Signed:
+                    c_source.append('    fprintf(stderr, "x%d = %%ld\\n", x%d);' % (i, i))
+                elif ARGTYPES[i] is rffi.UINT:
+                    c_source.append('    fprintf(stderr, "x%d = %%u\\n", x%d);' % (i, i))                    
             for i in range(len(ARGTYPES)):
                 c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
             c_source.append('}')

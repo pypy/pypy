@@ -927,6 +927,8 @@ class AssemblerARM64(ResOpAssembler):
         elif loc.is_stack():
             self.mc.LDR_ri(r.ip0.value, r.sp.value, pos)
             self.mc.STR_ri(r.ip0.value, r.fp.value, loc.value)
+        elif loc.is_vfp_reg():
+            self.mc.LDR_di(loc.value, r.sp.value, pos)
         else:
             assert False, "wrong loc"
 
@@ -943,7 +945,7 @@ class AssemblerARM64(ResOpAssembler):
         if loc.is_stack():
             self.mc.STR_di(prev_loc.value, r.fp.value, loc.value)
         elif loc.is_vfp_reg():
-            self.mc.MOV_dd(prev_loc.value, loc.value)
+            self.mc.FMOV_dd(loc.value, prev_loc.value)
         else:
             assert False, "wrong loc"
 

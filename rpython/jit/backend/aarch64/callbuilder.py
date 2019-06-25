@@ -38,19 +38,32 @@ class Aarch64CallBuilder(AbstractCallBuilder):
                     non_float_regs.append(free_regs.pop())
                 else:
                     stack_locs.append(arg)
+
+        if stack_locs:
+            adj = len(stack_locs) + (len(stack_locs) & 1)
+            self.mc.SUB_ri(r.sp.value, r.sp.value, adj * WORD)
+            self.current_sp = adj
+            c = 0
+            for loc in stack_locs:
+                self.asm.mov_loc_to_raw_stack(loc, c)
+                c += WORD
+
+        move_back = False
+        if not self.fnloc.is_imm():
+            if self.fnloc.is_core_reg():
+                self.mc.MOV_rr(r.ip1.value, self.fnloc.value)
+            else:
+                assert self.fnloc.is_stack()
+                self.mc.LDR_ri(r.ip1.value, r.fp.value, self.fnloc.value)
+            self.fnloc = r.x8
+            move_back = True
+
         remap_frame_layout(self.asm, non_float_locs, non_float_regs, r.ip0)
         if float_locs:
             remap_frame_layout(self.asm, float_locs, float_regs, r.d8)
-        # move the remaining things to stack and adjust the stack
-        if not stack_locs:
-            return
-        adj = len(stack_locs) + (len(stack_locs) & 1)
-        self.mc.SUB_ri(r.sp.value, r.sp.value, adj * WORD)
-        self.current_sp = adj
-        c = 0
-        for loc in stack_locs:
-            self.asm.mov_loc_to_raw_stack(loc, c)
-            c += WORD
+
+        if move_back:
+            self.mc.MOV_rr(r.x8.value, r.ip1.value)
 
     def push_gcmap(self):
         noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
@@ -67,10 +80,10 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             self.mc.BL(self.fnloc.value)
             return
         if self.fnloc.is_stack():
-            self.mc.LDR_ri(r.ip0.value, r.fp.value, self.fnloc.value)
-            self.mc.BLR_r(r.ip0.value)
+            assert False, "we should never be here"
         else:
             assert self.fnloc.is_core_reg()
+            assert self.fnloc is r.x8
             self.mc.BLR_r(self.fnloc.value)
 
     def restore_stack_pointer(self):
@@ -197,7 +210,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         self.mc.STR_di(r.d0.value, r.sp.value, 0)
         self.mc.STR_ri(r.x0.value, r.sp.value, WORD)
         self.mc.BL(self.asm.reacqgil_addr)
-        self.mc.LDR_ri(r.d0.value, r.sp.value, 0)
+        self.mc.LDR_di(r.d0.value, r.sp.value, 0)
         self.mc.LDR_ri(r.x0.value, r.sp.value, WORD)
         self.mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
 
