@@ -14,6 +14,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr, FieldDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
 from rpython.jit.backend.llsupport.descr import get_array_descr
@@ -36,6 +37,11 @@ class GcLLDescription(GcCache):
             self.fielddescr_vtable = get_field_descr(self, rclass.OBJECT,
                                                      'typeptr')
         self._generated_functions = []
+        self.memcpy_fn = memcpy_fn
+        self.memcpy_descr = get_call_descr(self,
+            [lltype.Signed, lltype.Signed, lltype.Signed], lltype.Void,
+            EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                can_collect=False))
 
     def _setup_str(self):
         self.str_descr     = get_array_descr(self, rstr.STR)

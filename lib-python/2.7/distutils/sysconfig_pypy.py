@@ -86,6 +86,7 @@ def _init_posix():
             arch = platform.machine()
         g['LDSHARED'] += ' -undefined dynamic_lookup'
         g['CC'] += ' -arch %s' % (arch,)
+        g['MACOSX_DEPLOYMENT_TARGET'] = '10.14'
 
     global _config_vars
     _config_vars = g

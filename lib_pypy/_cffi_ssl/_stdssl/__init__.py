@@ -87,12 +87,12 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1 = 3
     PROTOCOL_TLSv1_1 = 4
     PROTOCOL_TLSv1_2 = 5
+# PROTOCOL_TLS_CLIENT = 0x10
+# PROTOCOL_TLS_SERVER = 0x11
 if lib.Cryptography_HAS_TLSv1_3:
     HAS_TLSv1_3 = True
 else:
     HAS_TLSv1_3 = False
-PROTOCOL_TLS_CLIENT = 0x10
-PROTOCOL_TLS_SERVER = 0x11
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
@@ -219,6 +219,7 @@ class _SSLSocket(object):
     def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, ssl_sock):
         self = _SSLSocket(sslctx)
         ctx = sslctx.ctx
+        self.owner = ssl_sock  # weakref
 
         if server_hostname:
             if isinstance(server_hostname, unicode):
@@ -289,7 +290,8 @@ class _SSLSocket(object):
     def owner(self, value):
         if value is None:
             self._owner = None
-        self._owner = weakref.ref(value)
+        else:
+            self._owner = weakref.ref(value)
 
     @property
     def context(self):
@@ -337,7 +339,7 @@ class _SSLSocket(object):
                 sockstate = SOCKET_OPERATION_OK
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise socket.timeout("The handshake operation timed out")
+                raise SSLError("The handshake operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 raise SSLError("Underlying socket has been closed.")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
@@ -781,10 +783,10 @@ class _SSLContext(object):
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
             method = lib.SSLv23_method()
-        elif protocol == PROTOCOL_TLS_CLIENT:
-            method = lib.SSLv23_client_method()
-        elif protocol == PROTOCOL_TLS_SERVER:
-            method = lib.SSLv23_server_method()
+        # elif protocol == PROTOCOL_TLS_CLIENT:
+        #     method = lib.SSLv23_client_method()
+        # elif protocol == PROTOCOL_TLS_SERVER:
+        #     method = lib.SSLv23_server_method()
         else:
             raise ValueError("invalid protocol version")
 
@@ -795,7 +797,7 @@ class _SSLContext(object):
 
         # Don't check host name by default
         self._check_hostname = False
-        if protocol == PROTOCOL_TLS_CLIENT:
+        if 0 and protocol == PROTOCOL_TLS_CLIENT:
             self._check_hostname = True
             self.verify_mode = CERT_REQUIRED
         else:
@@ -811,7 +813,7 @@ class _SSLContext(object):
         # Minimal security flags for server and client side context.
         # Client sockets ignore server-side parameters.
         options |= lib.SSL_OP_NO_COMPRESSION
-        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
+        # options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
         options |= lib.SSL_OP_SINGLE_DH_USE
         options |= lib.SSL_OP_SINGLE_ECDH_USE
         lib.SSL_CTX_set_options(self.ctx, options)

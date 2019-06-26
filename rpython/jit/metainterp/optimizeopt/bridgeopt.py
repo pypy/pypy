@@ -3,6 +3,7 @@ optimizer of the bridge attached to a guard. """
 
 from rpython.jit.metainterp import resumecode
 from rpython.jit.metainterp.history import Const, ConstInt, CONST_NULL
+from .info import getptrinfo
 
 
 # adds the following sections at the end of the resume code:
@@ -75,7 +76,7 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     for box in liveboxes:
         if box is None or box.type != "r":
             continue
-        info = optimizer.getptrinfo(box)
+        info = getptrinfo(box)
         known_class = info is not None and info.get_known_class(optimizer.cpu) is not None
         bitfield <<= 1
         bitfield |= known_class

@@ -12,10 +12,10 @@ a set of OIDs or the boolean True.
     """
     hStore = lib.CertOpenStore(lib.CERT_STORE_PROV_SYSTEM_A, 0, ffi.NULL,
                                lib.CERT_STORE_READONLY_FLAG | lib.CERT_SYSTEM_STORE_LOCAL_MACHINE,
-                               bytes(store_name, "ascii"))
+                               bytes(store_name))
     if hStore == ffi.NULL:
         raise WindowsError(*ffi.getwinerror())
-    
+
     result = []
     pCertCtx = ffi.NULL
     try:
@@ -47,7 +47,7 @@ encoding_type) tuples.  The encoding_type flag can be interpreted with
 X509_ASN_ENCODING or PKCS_7_ASN_ENCODING."""
     hStore = lib.CertOpenStore(lib.CERT_STORE_PROV_SYSTEM_A, 0, ffi.NULL,
                                lib.CERT_STORE_READONLY_FLAG | lib.CERT_SYSTEM_STORE_LOCAL_MACHINE,
-                               bytes(store_name, "ascii"))
+                               bytes(store_name))
     if hStore == ffi.NULL:
         raise WindowsError(*ffi.getwinerror())
 

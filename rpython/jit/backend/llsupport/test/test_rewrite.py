@@ -142,11 +142,16 @@ class RewriteTests(object):
         raw_sfdescr = get_array_descr(self.gc_ll_descr, RAW_SF)
         #
         strdescr     = self.gc_ll_descr.str_descr
+        str_basesize = self.gc_ll_descr.str_descr.basesize - 1
         unicodedescr = self.gc_ll_descr.unicode_descr
         strlendescr     = strdescr.lendescr
         unicodelendescr = unicodedescr.lendescr
         strhashdescr     = self.gc_ll_descr.str_hash_descr
         unicodehashdescr = self.gc_ll_descr.unicode_hash_descr
+        uni_basesize  = unicodedescr.basesize
+        uni_itemscale = {2: 1, 4: 2}[unicodedescr.itemsize]
+        memcpy_fn = self.gc_ll_descr.memcpy_fn
+        memcpy_descr = self.gc_ll_descr.memcpy_descr
 
         casmdescr = JitCellToken()
         clt = FakeLoopToken()
@@ -169,6 +174,7 @@ class RewriteTests(object):
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
+
         #
         guarddescr = AbstractFailDescr()
         #
@@ -200,6 +206,7 @@ class BaseFakeCPU(object):
 
     load_constant_offset = True
     load_supported_factors = (1,2,4,8)
+    supports_load_effective_address = True
 
     translate_support_code = None
 
@@ -236,6 +243,9 @@ class BaseFakeCPU(object):
             r = FieldDescr(fname, 1, 1, 1)
             self._cache[key] = r
             return r
+
+    def cast_adr_to_int(self, adr):
+        return llmemory.AddressAsInt(adr)
 
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
@@ -1436,3 +1446,57 @@ class TestFramework(RewriteTests):
             jump()
         """)
         assert len(self.gcrefs) == 2
+
+    def test_rewrite_copystrcontents(self):
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copystrcontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i2 = load_effective_address(p0, i0, %(str_basesize)s, 0)
+        i3 = load_effective_address(p1, i1, %(str_basesize)s, 0)
+        call_n(ConstClass(memcpy_fn), i3, i2, i_len, descr=memcpy_descr)
+        """)
+
+    def test_rewrite_copystrcontents_without_load_effective_address(self):
+        self.cpu.supports_load_effective_address = False
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copystrcontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i2b = int_add(p0, i0)
+        i2 = int_add(i2b, %(str_basesize)s)
+        i3b = int_add(p1, i1)
+        i3 = int_add(i3b, %(str_basesize)s)
+        call_n(ConstClass(memcpy_fn), i3, i2, i_len, descr=memcpy_descr)
+        """)
+
+    def test_rewrite_copyunicodecontents(self):
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copyunicodecontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i2 = load_effective_address(p0, i0, %(uni_basesize)s, %(uni_itemscale)d)
+        i3 = load_effective_address(p1, i1, %(uni_basesize)s, %(uni_itemscale)d)
+        i4 = int_lshift(i_len, %(uni_itemscale)d)
+        call_n(ConstClass(memcpy_fn), i3, i2, i4, descr=memcpy_descr)
+        """)
+
+    def test_rewrite_copyunicodecontents_without_load_effective_address(self):
+        self.cpu.supports_load_effective_address = False
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copyunicodecontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i0s = int_lshift(i0, %(uni_itemscale)d)
+        i2b = int_add(p0, i0s)
+        i2 = int_add(i2b, %(uni_basesize)s)
+        i1s = int_lshift(i1, %(uni_itemscale)d)
+        i3b = int_add(p1, i1s)
+        i3 = int_add(i3b, %(uni_basesize)s)
+        i4 = int_lshift(i_len, %(uni_itemscale)d)
+        call_n(ConstClass(memcpy_fn), i3, i2, i4, descr=memcpy_descr)
+        """)

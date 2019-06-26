@@ -5,7 +5,9 @@ from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
     IntLowerBound, IntUpperBound, ConstIntBound)
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
+from .info import getptrinfo
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -64,8 +66,8 @@ class OptIntBounds(Optimization):
     postprocess_GUARD_VALUE = _postprocess_guard_true_false_value
 
     def optimize_INT_OR_or_XOR(self, op):
-        v1 = self.get_box_replacement(op.getarg(0))
-        v2 = self.get_box_replacement(op.getarg(1))
+        v1 = get_box_replacement(op.getarg(0))
+        v2 = get_box_replacement(op.getarg(1))
         if v1 is v2:
             if op.getopnum() == rop.INT_OR:
                 self.make_equal_to(op, v1)
@@ -75,9 +77,9 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_OR_or_XOR(self, op):
-        v1 = self.get_box_replacement(op.getarg(0))
+        v1 = get_box_replacement(op.getarg(0))
         b1 = self.getintbound(v1)
-        v2 = self.get_box_replacement(op.getarg(1))
+        v2 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(v2)
         b = b1.or_bound(b2)
         self.getintbound(op).intersect(b)
@@ -108,8 +110,8 @@ class OptIntBounds(Optimization):
             self.getintbound(op).intersect(b)
 
     def optimize_INT_ADD(self, op):
-        arg1 = self.get_box_replacement(op.getarg(0))
-        arg2 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
         if self.is_raw_ptr(arg1) or self.is_raw_ptr(arg2):
             return self.emit(op)
         v1 = self.getintbound(arg1)
@@ -130,8 +132,8 @@ class OptIntBounds(Optimization):
             arg1 = self.optimizer.as_operation(arg1)
             if arg1 is not None:
                 if arg1.getopnum() == rop.INT_ADD:
-                    prod_arg1 = self.get_box_replacement(arg1.getarg(0))
-                    prod_arg2 = self.get_box_replacement(arg1.getarg(1))
+                    prod_arg1 = get_box_replacement(arg1.getarg(0))
+                    prod_arg2 = get_box_replacement(arg1.getarg(1))
                     prod_v1 = self.getintbound(prod_arg1)
                     prod_v2 = self.getintbound(prod_arg2)
 
@@ -196,9 +198,9 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_LSHIFT(self, op):
-        arg0 = self.get_box_replacement(op.getarg(0))
+        arg0 = get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg0)
-        arg1 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg1)
         r = self.getintbound(op)
         b = b1.lshift_bound(b2)
@@ -290,8 +292,8 @@ class OptIntBounds(Optimization):
         r.intersect(resbound)
 
     def optimize_INT_SUB_OVF(self, op):
-        arg0 = self.get_box_replacement(op.getarg(0))
-        arg1 = self.get_box_replacement(op.getarg(1))
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
         if arg0.same_box(arg1):
@@ -304,8 +306,8 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_SUB_OVF(self, op):
-        arg0 = self.get_box_replacement(op.getarg(0))
-        arg1 = self.get_box_replacement(op.getarg(1))
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
         resbound = b0.sub_bound(b1)
@@ -329,8 +331,8 @@ class OptIntBounds(Optimization):
         r.intersect(resbound)
 
     def optimize_INT_LT(self, op):
-        arg1 = self.get_box_replacement(op.getarg(0))
-        arg2 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
         if b1.known_lt(b2):
@@ -341,8 +343,8 @@ class OptIntBounds(Optimization):
             return self.emit(op)
 
     def optimize_INT_GT(self, op):
-        arg1 = self.get_box_replacement(op.getarg(0))
-        arg2 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
         if b1.known_gt(b2):
@@ -353,8 +355,8 @@ class OptIntBounds(Optimization):
             return self.emit(op)
 
     def optimize_INT_LE(self, op):
-        arg1 = self.get_box_replacement(op.getarg(0))
-        arg2 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
         if b1.known_le(b2) or arg1 is arg2:
@@ -365,8 +367,8 @@ class OptIntBounds(Optimization):
             return self.emit(op)
 
     def optimize_INT_GE(self, op):
-        arg1 = self.get_box_replacement(op.getarg(0))
-        arg2 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
         if b1.known_ge(b2) or arg1 is arg2:
@@ -377,9 +379,9 @@ class OptIntBounds(Optimization):
             return self.emit(op)
 
     def optimize_INT_EQ(self, op):
-        arg0 = self.get_box_replacement(op.getarg(0))
+        arg0 = get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg0)
-        arg1 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg1)
         if b1.known_gt(b2):
             self.make_constant_int(op, 0)
@@ -391,9 +393,9 @@ class OptIntBounds(Optimization):
             return self.emit(op)
 
     def optimize_INT_NE(self, op):
-        arg0 = self.get_box_replacement(op.getarg(0))
+        arg0 = get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg0)
-        arg1 = self.get_box_replacement(op.getarg(1))
+        arg1 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg1)
         if b1.known_gt(b2):
             self.make_constant_int(op, 1)
@@ -442,7 +444,7 @@ class OptIntBounds(Optimization):
 
     def postprocess_STRLEN(self, op):
         self.make_nonnull_str(op.getarg(0), vstring.mode_string)
-        array = self.getptrinfo(op.getarg(0))
+        array = getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_string))
 
     def optimize_UNICODELEN(self, op):
@@ -450,7 +452,7 @@ class OptIntBounds(Optimization):
 
     def postprocess_UNICODELEN(self, op):
         self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
-        array = self.getptrinfo(op.getarg(0))
+        array = getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_unicode))
 
     def optimize_STRGETITEM(self, op):
@@ -458,7 +460,7 @@ class OptIntBounds(Optimization):
 
     def postprocess_STRGETITEM(self, op):
         v1 = self.getintbound(op)
-        v2 = self.getptrinfo(op.getarg(0))
+        v2 = getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
         if (intbound.has_lower and v2 is not None and
             v2.getlenbound(vstring.mode_string) is not None):
@@ -523,7 +525,7 @@ class OptIntBounds(Optimization):
     def postprocess_UNICODEGETITEM(self, op):
         b1 = self.getintbound(op)
         b1.make_ge(IntLowerBound(0))
-        v2 = self.getptrinfo(op.getarg(0))
+        v2 = getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
         if (intbound.has_lower and v2 is not None and
             v2.getlenbound(vstring.mode_unicode) is not None):

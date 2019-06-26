@@ -253,3 +253,10 @@ class TestRfloat(BaseRtypingTest):
             return compute_hash(f)
         res = self.interpret(fn, [1.5])
         assert res == compute_hash(1.5)
+
+    def test_float_constant_inf(self):
+        from rpython.rlib.rfloat import INFINITY
+        def fn():
+            return INFINITY   # float('inf') is not supported by RPython so far
+        res = self.interpret(fn, [])
+        assert res == float('inf')

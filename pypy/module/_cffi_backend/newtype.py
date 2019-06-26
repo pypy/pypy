@@ -549,10 +549,11 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 if sflags & SF_GCC_BIG_ENDIAN:
                     bitshift = 8 * ftype.size - fbitsize- bitshift
 
-                fld = ctypestruct.W_CField(ftype, field_offset_bytes,
-                                           bitshift, fbitsize, fflags)
-                fields_list.append(fld)
-                fields_dict[fname] = fld
+                if fname != '':
+                    fld = ctypestruct.W_CField(ftype, field_offset_bytes,
+                                               bitshift, fbitsize, fflags)
+                    fields_list.append(fld)
+                    fields_dict[fname] = fld
 
         if boffset > boffsetmax:
             boffsetmax = boffset

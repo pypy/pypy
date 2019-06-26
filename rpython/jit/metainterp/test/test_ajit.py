@@ -9,6 +9,7 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.test.support import LLJitMixin, noConst
 from rpython.jit.metainterp.warmspot import get_stats
+from rpython.jit.metainterp.pyjitpl import MetaInterp
 from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
@@ -2883,10 +2884,11 @@ class BasicTests:
                 i += 1
             return i
         #
-        def my_optimize_trace(*args, **kwds):
-            raise InvalidLoop
-        old_optimize_trace = optimizeopt.optimize_trace
-        optimizeopt.optimize_trace = my_optimize_trace
+        def my_compile_loop(
+                self, original_boxes, live_arg_boxes, start, use_unroll):
+            return None
+        old_compile_loop = MetaInterp.compile_loop
+        MetaInterp.compile_loop = my_compile_loop
         try:
             res = self.meta_interp(f, [23, 4])
             assert res == 23
@@ -2898,11 +2900,11 @@ class BasicTests:
             self.check_trace_count(0)
             self.check_aborted_count(2)
         finally:
-            optimizeopt.optimize_trace = old_optimize_trace
+            MetaInterp.compile_loop = old_compile_loop
 
     def test_max_unroll_loops_retry_without_unroll(self):
-        from rpython.jit.metainterp.optimize import InvalidLoop
-        from rpython.jit.metainterp import optimizeopt
+        if not self.basic:
+            py.test.skip("unrolling")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
         #
         def f(n, limit):
@@ -2916,20 +2918,19 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, jitdriver_sd, data, memo=None):
-            seen.append('unroll' in data.enable_opts)
-            raise InvalidLoop
-        old_optimize_trace = optimizeopt.optimize_trace
-        optimizeopt.optimize_trace = my_optimize_trace
+        def my_compile_loop(
+                self, original_boxes, live_arg_boxes, start, use_unroll):
+            seen.append(use_unroll)
+            return None
+        old_compile_loop = MetaInterp.compile_loop
+        MetaInterp.compile_loop = my_compile_loop
         try:
-            if not self.basic:
-                py.test.skip("unrolling")
             res = self.meta_interp(f, [23, 4])
             assert res == 23
             assert False in seen
             assert True in seen
         finally:
-            optimizeopt.optimize_trace = old_optimize_trace
+            MetaInterp.compile_loop = old_compile_loop
 
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
@@ -4022,64 +4023,6 @@ class BaseLLtypeTests(BasicTests):
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
-    def test_tagged(self):
-        py.test.skip("tagged unsupported")
-        from rpython.rlib.objectmodel import UnboxedValue
-        class Base(object):
-            __slots__ = ()
-
-        class Int(UnboxedValue, Base):
-            __slots__ = ["a"]
-
-            def is_pos(self):
-                return self.a > 0
-
-            def dec(self):
-                try:
-                    return Int(self.a - 1)
-                except OverflowError:
-                    raise
-
-        class Float(Base):
-            def __init__(self, a):
-                self.a = a
-
-            def is_pos(self):
-                return self.a > 0
-
-            def dec(self):
-                return Float(self.a - 1)
-
-        driver = JitDriver(greens=['pc', 's'], reds=['o'])
-
-        def main(fl, n, s):
-            if s:
-                s = "--j"
-            else:
-                s = "---j"
-            if fl:
-                o = Float(float(n))
-            else:
-                o = Int(n)
-            pc = 0
-            while True:
-                driver.jit_merge_point(s=s, pc=pc, o=o)
-                c = s[pc]
-                if c == "j":
-                    driver.can_enter_jit(s=s, pc=pc, o=o)
-                    if o.is_pos():
-                        pc = 0
-                        continue
-                    else:
-                        break
-                elif c == "-":
-                    o = o.dec()
-                pc += 1
-            return pc
-        topt = {'taggedpointers': True}
-        res = self.meta_interp(main, [False, 100, True],
-                               translationoptions=topt)
-
     def test_rerased(self):
         eraseX, uneraseX = rerased.new_erasing_pair("X")
         #

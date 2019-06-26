@@ -689,7 +689,6 @@ class RefFrontendOp(RefOp, FrontendOp):
 
 
 class History(object):
-    ends_with_jump = False
     trace = None
 
     def __init__(self):

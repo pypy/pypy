@@ -858,18 +858,38 @@ class Parser(object):
                            "the actual array length in this context"
                            % exprnode.coord.line)
         #
-        if (isinstance(exprnode, pycparser.c_ast.BinaryOp) and
-                exprnode.op == '+'):
-            return (self._parse_constant(exprnode.left) +
-                    self._parse_constant(exprnode.right))
-        #
-        if (isinstance(exprnode, pycparser.c_ast.BinaryOp) and
-                exprnode.op == '-'):
-            return (self._parse_constant(exprnode.left) -
-                    self._parse_constant(exprnode.right))
+        if isinstance(exprnode, pycparser.c_ast.BinaryOp):
+            left = self._parse_constant(exprnode.left)
+            right = self._parse_constant(exprnode.right)
+            if exprnode.op == '+':
+                return left + right
+            elif exprnode.op == '-':
+                return left - right
+            elif exprnode.op == '*':
+                return left * right
+            elif exprnode.op == '/':
+                return self._c_div(left, right)
+            elif exprnode.op == '%':
+                return left - self._c_div(left, right) * right
+            elif exprnode.op == '<<':
+                return left << right
+            elif exprnode.op == '>>':
+                return left >> right
+            elif exprnode.op == '&':
+                return left & right
+            elif exprnode.op == '|':
+                return left | right
+            elif exprnode.op == '^':
+                return left ^ right
         #
         raise FFIError(":%d: unsupported expression: expected a "
                        "simple numeric constant" % exprnode.coord.line)
+
+    def _c_div(self, a, b):
+        result = a // b
+        if ((a < 0) ^ (b < 0)) and (a % b) != 0:
+            result += 1
+        return result
 
     def _build_enum_type(self, explicit_name, decls):
         if decls is not None:

@@ -7,12 +7,13 @@ Snapshot index for guards points to snapshot stored in _snapshots of trace
 """
 
 from rpython.jit.metainterp.history import (
-    ConstInt, Const, ConstFloat, ConstPtr, new_ref_dict)
+    ConstInt, Const, ConstFloat, ConstPtr, new_ref_dict, SwitchToBlackhole)
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
     ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp,\
     opclasses
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
 TAGINT, TAGCONSTPTR, TAGCONSTOTHER, TAGBOX = range(4)
@@ -301,7 +302,8 @@ class Trace(BaseTrace):
 
     def tracing_done(self):
         from rpython.rlib.debug import debug_start, debug_stop, debug_print
-        assert not self.tag_overflow
+        if self.tag_overflow:
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
         self._bigints_dict = {}
         self._refs_dict = new_ref_dict()
