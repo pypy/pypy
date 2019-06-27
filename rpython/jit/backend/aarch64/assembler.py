@@ -405,7 +405,6 @@ class AssemblerARM64(ResOpAssembler):
         mc.LDP_rri(r.x0.value, r.x1.value, r.sp.value, 0)
         
         mc.STR_ri(r.lr.value, r.sp.value, 0)
-        mc.STR_ri(r.x19.value, r.sp.value, WORD)
 
         # store the current gcmap(r0) in the jitframe
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
@@ -445,7 +444,6 @@ class AssemblerARM64(ResOpAssembler):
 
         # return
         mc.LDR_ri(r.lr.value, r.sp.value, 0)
-        mc.LDR_ri(r.x19.value, r.sp.value, WORD)
         mc.ADD_ri(r.sp.value, r.sp.value, 2*WORD)
         mc.RET_r(r.lr.value)
         self._frame_realloc_slowpath = mc.materialize(self.cpu, [])        

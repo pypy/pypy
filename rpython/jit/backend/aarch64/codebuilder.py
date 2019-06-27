@@ -4,8 +4,16 @@ from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.aarch64.locations import RegisterLocation
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.rlib.rarithmetic import intmask
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.udir import udir
+
+clear_cache = rffi.llexternal(
+    "__clear_cache",
+    [llmemory.Address, llmemory.Address],
+    lltype.Void,
+    _nowrapper=True,
+    sandboxsafe=True)
+
 
 class AbstractAarch64Builder(object):
     def write32(self, word):

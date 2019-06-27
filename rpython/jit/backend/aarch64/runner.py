@@ -10,7 +10,7 @@ class CPU_ARM64(AbstractLLCPU):
     """ARM 64"""
     backend_name = "aarch64"
     frame_reg = r.fp
-    all_reg_indexes = range(len(r.all_regs))
+    all_reg_indexes = range(16) + [-1, -1, -1, 16, 17]
     gen_regs = r.all_regs
     float_regs = VFPRegisterManager.all_regs
     supports_floats = True
