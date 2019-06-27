@@ -354,7 +354,7 @@ class AssemblerARM64(ResOpAssembler):
             for i in range(0, len(r.caller_resp), 2):
                 mc.STP_rri(r.caller_resp[i].value, r.caller_resp[i + 1].value, r.sp.value, i * WORD)
             cur_stack = len(r.caller_resp)
-            mc.STP_rri(exc0.value, exc1.value, cur_stack * WORD)
+            mc.STP_rri(exc0.value, exc1.value, r.sp.value, cur_stack * WORD)
             cur_stack += 2
             for i in range(len(r.caller_vfp_resp)):
                 mc.STR_di(r.caller_vfp_resp[i].value, r.sp.value, cur_stack * WORD)
@@ -373,7 +373,7 @@ class AssemblerARM64(ResOpAssembler):
             for i in range(0, len(r.caller_resp), 2):
                 mc.LDP_rri(r.caller_resp[i].value, r.caller_resp[i + 1].value, r.sp.value, i * WORD)
             cur_stack = len(r.caller_resp)
-            mc.LDP_rri(exc0.value, exc1.value, cur_stack * WORD)
+            mc.LDP_rri(exc0.value, exc1.value, r.sp.value, cur_stack * WORD)
             cur_stack += 2
             for i in range(len(r.caller_vfp_resp)):
                 mc.LDR_di(r.caller_vfp_resp[i].value, r.sp.value, cur_stack * WORD)
@@ -461,6 +461,12 @@ class AssemblerARM64(ResOpAssembler):
         mc.ADD_ri(r.sp.value, r.sp.value, 2*WORD)
         mc.RET_r(r.lr.value)
         self._frame_realloc_slowpath = mc.materialize(self.cpu, [])        
+
+    def _load_shadowstack_top(self, mc, reg, gcrootmap):
+        rst = gcrootmap.get_root_stack_top_addr()
+        mc.gen_load_int(reg.value, rst)
+        self.load_reg(mc, reg, reg)
+        return rst
 
     def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None,
                                    on_frame=False):
