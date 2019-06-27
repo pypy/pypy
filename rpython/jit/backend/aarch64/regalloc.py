@@ -314,6 +314,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_enter_portal_frame = void
     prepare_op_leave_portal_frame = void
     prepare_op_zero_array = void # dealth with in opassembler.py
+    prepare_op_keepalive = void
 
     def prepare_int_ri(self, op, res_in_cc):
         boxes = op.getarglist()
