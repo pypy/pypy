@@ -335,7 +335,6 @@ class AssemblerARM64(ResOpAssembler):
         # It must keep stack alignment accordingly.
         mc = InstrBuilder()
         #
-        exc0 = exc1 = None
         mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
         mc.STR_ri(r.ip0.value, r.sp.value, WORD)
         mc.STR_ri(r.lr.value, r.sp.value, 0)
@@ -349,10 +348,17 @@ class AssemblerARM64(ResOpAssembler):
             # we're possibly called from the slowpath of malloc
             # save the caller saved registers
             # assuming we do not collect here
-            exc0, exc1 = r.r4, r.r5
-            XXX
-            mc.PUSH([gpr.value for gpr in r.caller_resp] + [exc0.value, exc1.value])
-            mc.VPUSH([vfpr.value for vfpr in r.caller_vfp_resp])
+            exc0, exc1 = r.x19, r.x20
+            mc.SUB_ri(r.sp.value, r.sp.value, (len(r.caller_resp) + 2 + len(r.caller_vfp_resp)) * WORD)
+            cur_stack = 0
+            for i in range(0, len(r.caller_resp), 2):
+                mc.STP_rri(r.caller_resp[i].value, r.caller_resp[i + 1].value, r.sp.value, i * WORD)
+            cur_stack = len(r.caller_resp)
+            mc.STP_rri(exc0.value, exc1.value, cur_stack * WORD)
+            cur_stack += 2
+            for i in range(len(r.caller_vfp_resp)):
+                mc.STR_di(r.caller_vfp_resp[i].value, r.sp.value, cur_stack * WORD)
+                cur_stack += 1
 
             self._store_and_reset_exception(mc, exc0, exc1)
         mc.BL(func)
@@ -360,13 +366,22 @@ class AssemblerARM64(ResOpAssembler):
         if not for_frame:
             self._pop_all_regs_from_jitframe(mc, [], withfloats, callee_only=True)
         else:
-            XXX
+            exc0, exc1 = r.x19, r.x20
             self._restore_exception(mc, exc0, exc1)
-            mc.VPOP([vfpr.value for vfpr in r.caller_vfp_resp])
+
+            cur_stack = 0
+            for i in range(0, len(r.caller_resp), 2):
+                mc.LDP_rri(r.caller_resp[i].value, r.caller_resp[i + 1].value, r.sp.value, i * WORD)
+            cur_stack = len(r.caller_resp)
+            mc.LDP_rri(exc0.value, exc1.value, cur_stack * WORD)
+            cur_stack += 2
+            for i in range(len(r.caller_vfp_resp)):
+                mc.LDR_di(r.caller_vfp_resp[i].value, r.sp.value, cur_stack * WORD)
+                cur_stack += 1
+
             assert exc0 is not None
             assert exc1 is not None
-            mc.POP([gpr.value for gpr in r.caller_resp] +
-                            [exc0.value, exc1.value])
+
         #
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
@@ -430,10 +445,9 @@ class AssemblerARM64(ResOpAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            xxx
-            self._load_shadowstack_top(mc, r.r5, gcrootmap)
+            self._load_shadowstack_top(mc, r.x19, gcrootmap)
             # store the new jitframe addr in the shadowstack
-            mc.STR_ri(r.x0.value, r.r5.value, imm=-WORD)
+            mc.STR_ri(r.x0.value, r.x19.value, -WORD)
 
         # reset the jf_gcmap field in the jitframe
         mc.gen_load_int(r.ip0.value, 0)
@@ -600,14 +614,12 @@ class AssemblerARM64(ResOpAssembler):
     def _reload_frame_if_necessary(self, mc):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            YYY
             rst = gcrootmap.get_root_stack_top_addr()
-            mc.gen_load_int(r.ip.value, rst)
-            self.load_reg(mc, r.ip, r.ip)
-            self.load_reg(mc, r.fp, r.ip, ofs=-WORD)
+            mc.gen_load_int(r.ip0.value, rst)
+            self.load_reg(mc, r.ip0, r.ip0)
+            self.load_reg(mc, r.fp, r.ip0, -WORD)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
-            YYY
             # frame never uses card marking, so we enforce this is not
             # an array
             self._write_barrier_fastpath(mc, wbdescr, [r.fp], array=False,
@@ -680,8 +692,8 @@ class AssemblerARM64(ResOpAssembler):
         size = self.mc.get_relative_pos() 
         res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-        #self.cpu.codemap.register_codemap(
-        #    self.codemap.get_final_bytecode(res, size))
+        self.cpu.codemap.register_codemap(
+            self.codemap.get_final_bytecode(res, size))
         return res
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
@@ -723,16 +735,17 @@ class AssemblerARM64(ResOpAssembler):
         else:
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             # load stack end
-            self.mc.gen_load_int(r.ip.value, endaddr)          # load ip, [end]
-            self.mc.LDR_ri(r.ip.value, r.ip.value)             # LDR ip, ip
+            self.mc.gen_load_int(r.ip0.value, endaddr)           # load ip0, [end]
+            self.mc.LDR_ri(r.ip0.value, r.ip0.value)             # LDR ip0, ip0
             # load stack length
-            self.mc.gen_load_int(r.lr.value, lengthaddr)       # load lr, lengh
-            self.mc.LDR_ri(r.lr.value, r.lr.value)             # ldr lr, *lengh
+            self.mc.gen_load_int(r.ip1.value, lengthaddr)        # load ip1, lengh
+            self.mc.LDR_ri(r.ip1.value, r.ip1.value)             # ldr ip1, *lengh
             # calculate ofs
-            self.mc.SUB_rr(r.ip.value, r.ip.value, r.sp.value) # SUB ip, current
+            self.mc.SUB_rr(r.ip0.value, r.ip0.value, r.sp.value) # SUB ip, current
             # if ofs
-            self.mc.CMP_rr(r.ip.value, r.lr.value)             # CMP ip, lr
-            self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
+            self.mc.CMP_rr(r.ip0.value, r.ip1.value)             # CMP ip, lr
+            self.mc.B_ofs_cond(4 + 2, c.LS)
+            self.mc.B(self.stack_check_slowpath)                 # call if ip > lr
 
     def _call_header(self):
         stack_size = (len(r.callee_saved_registers) + 4) * WORD
@@ -890,7 +903,7 @@ class AssemblerARM64(ResOpAssembler):
         elif loc.is_stack():
             self.mc.STR_ri(prev_loc.value, r.fp.value, loc.value)
         else:
-            XXX
+            assert False
 
     def _mov_imm_to_loc(self, prev_loc, loc):
         if loc.is_core_reg():
@@ -1025,19 +1038,18 @@ class AssemblerARM64(ResOpAssembler):
         #    mc.gen_load_int(r.ip1, ofs)
         #    mc.STR_rr(source.value, base.value, r.ip1)
 
-    def load_reg(self, mc, target, base, ofs=0, helper=None):
+    def load_reg(self, mc, target, base, ofs=0, helper=r.ip0):
         if target.is_vfp_reg():
             return self._load_vfp_reg(mc, target, base, ofs)
         elif target.is_core_reg():
-            return self._load_core_reg(mc, target, base, ofs)
+            return self._load_core_reg(mc, target, base, ofs, helper)
 
-    def _load_core_reg(self, mc, target, base, ofs):
+    def _load_core_reg(self, mc, target, base, ofs, helper):
         if check_imm_arg(abs(ofs)):
             mc.LDR_ri(target.value, base.value, ofs)
         else:
-            XXX
-            mc.gen_load_int(helper.value, ofs, cond=cond)
-            mc.LDR_rr(target.value, base.value, helper.value, cond=cond)
+            mc.gen_load_int(helper.value, ofs)
+            mc.LDR_rr(target.value, base.value, helper.value)
 
     def check_frame_before_jump(self, target_token):
         if target_token in self.target_tokens_currently_compiling:

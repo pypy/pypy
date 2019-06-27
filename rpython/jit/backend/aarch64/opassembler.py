@@ -563,14 +563,17 @@ class ResOpAssembler(BaseAssembler):
                 loc = r.ip0
             else:
                 assert v1.is_stack()
-                yyy
+                self.mc.LDR_ri(r.ip0.value, r.fp.value, v1.value)
+                loc = r.ip0
             self.mc.CMP_rr(v0.value, loc.value)
         else:
             assert v0.is_vfp_reg()
             if v1.is_vfp_reg():
                 loc = v1
             else:
-                xxx
+                assert v1.is_stack()
+                loc = r.vfp_ip
+                self.mc.LDR_di(r.vfp_ip.value, r.fp.value, v1.value)
             self.mc.FCMP_dd(v0.value, loc.value)
         self._emit_guard(op, c.EQ, arglocs[2:])
 
