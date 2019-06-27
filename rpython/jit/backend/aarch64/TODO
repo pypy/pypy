@@ -2,4 +2,4 @@
 * int_cmp - IMM
 * guard_nonnull_class - think about a better way
 * cond_call and following guard_exception
-* we have a 3-register gap on JITFRAME
+* stack check

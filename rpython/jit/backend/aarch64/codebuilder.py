@@ -427,8 +427,7 @@ class AbstractAarch64Builder(object):
         assert ofs & 0x3 == 0
         assert -1 << 21 < ofs < 1 << 21
         imm = ofs >> 2
-        if imm < 0:
-            xxx
+        assert imm > 0 # we seem not to need the - jump
         self.write32((base << 24) | (imm << 5) | cond)
 
     def B(self, target):

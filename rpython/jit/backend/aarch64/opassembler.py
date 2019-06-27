@@ -80,9 +80,11 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_comp_op_int_add_ovf(self, op, arglocs):
         self.int_add_impl(op, arglocs, True)
+        return 0
 
     def emit_comp_op_int_sub_ovf(self, op, arglocs):
         self.int_sub_impl(op, arglocs, True)
+        return 0
 
     def emit_op_int_mul(self, op, arglocs):
         reg1, reg2, res = arglocs
@@ -93,6 +95,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.SMULH_rr(r.ip0.value, reg1.value, reg2.value)
         self.mc.MUL_rr(res.value, reg1.value, reg2.value)
         self.mc.CMP_rr_shifted(r.ip0.value, res.value, 63)
+        return 0
 
     def emit_op_int_and(self, op, arglocs):
         l0, l1, res = arglocs
@@ -130,13 +133,6 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_float_comp_op(self, op, l0, l1):
         self.mc.FCMP_dd(l0.value, l1.value)
-
-    emit_comp_op_float_lt = emit_float_comp_op
-    emit_comp_op_float_lt = emit_float_comp_op
-    emit_comp_op_float_lt = emit_float_comp_op
-    emit_comp_op_float_lt = emit_float_comp_op
-    emit_comp_op_float_lt = emit_float_comp_op
-    emit_comp_op_float_lt = emit_float_comp_op
 
     emit_comp_op_float_lt = gen_float_comp_op_cc('float_lt', c.VFP_LT)
     emit_comp_op_float_le = gen_float_comp_op_cc('float_le', c.VFP_LE)
