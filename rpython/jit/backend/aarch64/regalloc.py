@@ -161,7 +161,7 @@ def check_imm_arg(arg, size=DEFAULT_IMM_SIZE, allow_zero=True):
         lower_bound = i >= 0
     else:
         lower_bound = i > 0
-    return i <= size and lower_bound
+    return i < size and lower_bound
 
 def check_imm_box(arg, size=DEFAULT_IMM_SIZE, allow_zero=True):
     if isinstance(arg, ConstInt):
