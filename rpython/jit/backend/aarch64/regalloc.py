@@ -579,20 +579,6 @@ class Regalloc(BaseRegalloc):
         effectinfo = calldescr.get_extra_info()
         if effectinfo is not None:
             oopspecindex = effectinfo.oopspecindex
-            #if oopspecindex in (EffectInfo.OS_LLONG_ADD,
-            #                EffectInfo.OS_LLONG_SUB,
-            #                EffectInfo.OS_LLONG_AND,
-            #                EffectInfo.OS_LLONG_OR,
-            #                EffectInfo.OS_LLONG_XOR):
-            #    XXX
-            #    if self.cpu.cpuinfo.neon:
-            #        args = self._prepare_llong_binop_xx(op, fcond)
-            #        self.perform_extra(op, args, fcond)
-            #        return
-            #elif oopspecindex == EffectInfo.OS_LLONG_TO_INT:
-            #    args = self._prepare_llong_to_int(op, fcond)
-            #    self.perform_extra(op, args, fcond)
-            #    return
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 args = self._prepare_op_math_sqrt(op)
                 self.assembler.math_sqrt(op, args)
