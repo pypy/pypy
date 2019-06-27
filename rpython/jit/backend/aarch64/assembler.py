@@ -1015,6 +1015,13 @@ class AssemblerARM64(ResOpAssembler):
 
         mc.RET_r(r.lr.value)
 
+    def gen_footer_shadowstack(self, gcrootmap, mc):
+        rst = gcrootmap.get_root_stack_top_addr()
+        mc.gen_load_int(r.ip0.value, rst)
+        self.load_reg(mc, r.ip1, r.ip0)
+        mc.SUB_ri(r.ip1.value, r.ip1.value, WORD)
+        self.store_reg(mc, r.ip1, r.ip0)
+
     def store_reg(self, mc, source, base, ofs=0, helper=None):
         # uses r.ip1 as a temporary
         if source.is_vfp_reg():
