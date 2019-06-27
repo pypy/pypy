@@ -692,8 +692,8 @@ class AssemblerARM64(ResOpAssembler):
         size = self.mc.get_relative_pos() 
         res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-        self.cpu.codemap.register_codemap(
-            self.codemap.get_final_bytecode(res, size))
+        #self.cpu.codemap.register_codemap(
+        #    self.codemap.get_final_bytecode(res, size))
         return res
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
@@ -1039,12 +1039,7 @@ class AssemblerARM64(ResOpAssembler):
         #    mc.STR_rr(source.value, base.value, r.ip1)
 
     def load_reg(self, mc, target, base, ofs=0, helper=r.ip0):
-        if target.is_vfp_reg():
-            return self._load_vfp_reg(mc, target, base, ofs)
-        elif target.is_core_reg():
-            return self._load_core_reg(mc, target, base, ofs, helper)
-
-    def _load_core_reg(self, mc, target, base, ofs, helper):
+        assert target.is_core_reg()
         if check_imm_arg(abs(ofs)):
             mc.LDR_ri(target.value, base.value, ofs)
         else:
@@ -1101,7 +1096,7 @@ def notimplemented_comp_op(self, op, arglocs):
     print "[ARM64/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
-def notimplemented_guard_op(self, op, fcond, arglocs):
+def notimplemented_guard_op(self, op, guard_op, fcond, arglocs):
     print "[ARM64/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 

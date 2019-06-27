@@ -97,9 +97,11 @@ class Aarch64CallBuilder(AbstractCallBuilder):
     def load_result(self):
         resloc = self.resloc
         if self.restype == 'S':
+            assert False, "not supported yet"
             XXX
             self.mc.VMOV_sc(resloc.value, r.s0.value)
         elif self.restype == 'L':
+            assert False, "not possible on 64bit backend"
             YYY
             assert resloc.is_vfp_reg()
             self.mc.FMDRR(resloc.value, r.r0.value, r.r1.value)
@@ -139,10 +141,9 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         # Save this thread's shadowstack pointer into r7, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
-            XXX
             rst = gcrootmap.get_root_stack_top_addr()
-            self.mc.gen_load_int(r.r5.value, rst)
-            self.mc.LDR_ri(r.r7.value, r.r5.value)
+            self.mc.gen_load_int(r.x19.value, rst)
+            self.mc.LDR_ri(r.x20.value, r.x19.value)
 
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.DMB()
@@ -198,15 +199,14 @@ class Aarch64CallBuilder(AbstractCallBuilder):
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         # try to reacquire the lock.
-        #     XXX r5 == &root_stack_top
-        #     r6 == fastgil
-        #     XXX r7 == previous value of root_stack_top
+        #     x19 == &root_stack_top
+        #     x20 == previous value of root_stack_top
         self.mc.gen_load_int(r.ip1.value, fastgil)
         self.mc.LDAXR(r.x1.value, r.ip1.value)    # load the lock value
         self.mc.MOVZ_r_u16(r.ip0.value, 1, 0)
         self.mc.CMP_ri(r.x1.value, 0)            # is the lock free?
         if self.asm.cpu.gc_ll_descr.gcrootmap:
-            jump_val = XXX
+            jump_val = 0 # XXX
         else:
             jump_val = 3 * 4
         self.mc.B_ofs_cond(jump_val, c.NE)
@@ -220,15 +220,16 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         # 'EQ is true', or equivalently by 'r3 == 0'.
         #
         if self.asm.cpu.gc_ll_descr.gcrootmap:
-            XXX
+            raise Exception("not implemented yet")
             # When doing a call_release_gil with shadowstack, there
             # is the risk that the 'rpy_fastgil' was free but the
             # current shadowstack can be the one of a different
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
-            # in 'r7'), and if not, we fall back to 'reacqgil_addr'.
-            self.mc.LDR_ri(r.ip.value, r.r5.value, cond=c.EQ)
-            self.mc.CMP_rr(r.ip.value, r.r7.value, cond=c.EQ)
+            # in 'x20'), and if not, we fall back to 'reacqgil_addr'.
+            self.mc.LDR_ri(r.ip0.value, r.x19.value)
+            self.mc.CMP_rr(r.ip0.value, r.x20.value)
+            XXX
             b1_location = self.mc.currpos()
             self.mc.BKPT()                       # BEQ below
             # there are two cases here: either EQ was false from

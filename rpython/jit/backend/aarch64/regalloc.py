@@ -814,7 +814,7 @@ class Regalloc(BaseRegalloc):
         l1 = self.loc(op.getarg(1))
         imm_a1 = check_imm_box(op.getarg(1))
         if not imm_a1:
-            l1 = self.make_sure_var_in_reg(op.getarg(1), [arg])
+            l1 = self.make_sure_var_in_reg(op.getarg(1), [op.getarg(0)])
         arglocs = self._guard_impl(op)
         return [arg, l1] + arglocs
 
@@ -894,7 +894,7 @@ class Regalloc(BaseRegalloc):
         arg0 = self.make_sure_var_in_reg(args[0], args)
         arg1 = self.make_sure_var_in_reg(args[1], args)
         res = self.force_allocate_reg(op)
-        return [arg0, arg1, args[2], args[3], res]
+        return [arg0, arg1, imm(args[2].getint()), imm(args[3].getint()), res]
 
     def prepare_op_check_memory_error(self, op):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
