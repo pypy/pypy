@@ -1021,11 +1021,27 @@ class AssemblerARM64(ResOpAssembler):
 
         mc.RET_r(r.lr.value)
 
+    def gen_shadowstack_header(self, gcrootmap):
+        # we push two words, like the x86 backend does:
+        # the '1' is to benefit from the shadowstack 'is_minor' optimization
+        rst = gcrootmap.get_root_stack_top_addr()
+        self.mc.gen_load_int(r.ip1.value, rst)
+        # x8 = *ip1
+        self.load_reg(self.mc, r.x8, r.ip1)
+        # x8[0] = 1
+        self.mc.gen_load_int(r.ip0.value, 1)
+        self.store_reg(self.mc, r.ip0, r.x8)
+        # x8[1] = r.fp
+        self.store_reg(self.mc, r.fp, r.x8, WORD)
+        # *ip1 = x8 + 2 * WORD
+        self.mc.ADD_ri(r.x8.value, r.x8.value, 2 * WORD)
+        self.store_reg(self.mc, r.x8, r.ip1)
+
     def gen_footer_shadowstack(self, gcrootmap, mc):
         rst = gcrootmap.get_root_stack_top_addr()
         mc.gen_load_int(r.ip0.value, rst)
         self.load_reg(mc, r.ip1, r.ip0)
-        mc.SUB_ri(r.ip1.value, r.ip1.value, WORD)
+        mc.SUB_ri(r.ip1.value, r.ip1.value, 2 * WORD)   # two words, see above
         self.store_reg(mc, r.ip1, r.ip0)
 
     def store_reg(self, mc, source, base, ofs=0, helper=None):
