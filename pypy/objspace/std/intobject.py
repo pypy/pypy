@@ -156,7 +156,7 @@ class W_AbstractIntObject(W_Root):
         # efficient for W_IntObject
         from pypy.objspace.std.longobject import newlong
 
-        if w_ndigits is None:
+        if space.is_none(w_ndigits):
             return self.int(space)
 
         ndigits = space.bigint_w(space.index(w_ndigits))
