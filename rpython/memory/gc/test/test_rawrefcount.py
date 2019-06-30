@@ -62,10 +62,9 @@ class TestRawRefCount(BaseDirectGCTest):
 
         def rawrefcount_finalizer_type(gc):
             pyobj = self.pyobjs[self.gcobjs.index(gc)]
-            if pyobj in self.pyobjs and \
-                    self.pyobj_finalizer.has_key(self.pyobjs.index(pyobj)):
-                # TODO: improve test, so that NONE is returned, if finalizer
-                #       has already been called (only for modern)
+            index = self.pyobjs.index(pyobj)
+            if pyobj in self.pyobjs and self.pyobj_finalizer.has_key(index) \
+                and not self.pyobj_finalized.has_key(index):
                 return self.pyobj_finalizer[self.pyobjs.index(pyobj)]
             else:
                 return RAWREFCOUNT_FINALIZER_NONE

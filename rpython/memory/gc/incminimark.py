@@ -3456,7 +3456,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self._rrc_mark_garbage()
                 self._rrc_debug_check_consistency(print_label="end-legacy-fin")
             self.rrc_state = self.RAWREFCOUNT_STATE_DEFAULT
-            use_cylicrc = not self._rrc_find_finalizer() # modern finalizers
+            found_finalizer = self._rrc_find_finalizer() # modern finalizers
+            if found_finalizer:
+                self._rrc_gc_list_move(self.rrc_pyobj_old_list,
+                                       self.rrc_pyobj_isolate_list)
+            use_cylicrc = not found_finalizer
             self._rrc_debug_check_consistency(print_label="end-mark-cyclic")
         else:
             use_cylicrc = False # don't sweep any objects in cyclic isolates
@@ -3820,15 +3824,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_check_finalizer(self):
         # Check, if the cyclic isolate from the last collection cycle
         # is reachable from outside, after the finalizers have been
-        # executed.
-        self._rrc_collect_roots(self.rrc_pyobj_old_list)
-        found_alive = False
-        gchdr = self.rrc_pyobj_old_list.c_gc_next
-        while gchdr <> self.rrc_pyobj_old_list:
-            if (gchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT) > 0:
-                found_alive = True
-                break
-            gchdr = gchdr.c_gc_next
+        # executed (and if all finalizers have been executed).
+        found_alive = self._rrc_gc_list_is_empty(self.rrc_pyobj_isolate_list)
+        if not found_alive:
+            found_alive = self._rrc_find_finalizer()
+        if not found_alive:
+            self._rrc_collect_roots(self.rrc_pyobj_old_list)
+            gchdr = self.rrc_pyobj_old_list.c_gc_next
+            while gchdr <> self.rrc_pyobj_old_list:
+                if (gchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT) > 0:
+                    found_alive = True
+                    break
+                gchdr = gchdr.c_gc_next
         if found_alive:
             self._rrc_gc_list_merge(self.rrc_pyobj_old_list,
                                     self.rrc_pyobj_list)
@@ -3840,17 +3847,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return True
 
     def _rrc_find_finalizer(self):
-        found_finalizer = False
         gchdr = self.rrc_pyobj_old_list.c_gc_next
         while gchdr <> self.rrc_pyobj_old_list:
             if self.rrc_finalizer_type(gchdr) == \
                     self.RAWREFCOUNT_FINALIZER_MODERN:
-                found_finalizer = True
+                return True
             gchdr = gchdr.c_gc_next
-        if found_finalizer:
-            self._rrc_gc_list_move(self.rrc_pyobj_old_list,
-                                   self.rrc_pyobj_isolate_list)
-        return found_finalizer
+        return False
 
     def _rrc_visit(pyobj, self_ptr):
         from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
