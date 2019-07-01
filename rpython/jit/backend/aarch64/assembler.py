@@ -676,7 +676,7 @@ class AssemblerARM64(ResOpAssembler):
         # r0.
 
         self.mc.B_ofs_cond(10 * 4, c.LO) # 4 for gcmap load, 5 for BL, 1 for B_ofs_cond
-        self.mc.gen_load_int_full(r.ip1.value, gcmap)
+        self.mc.gen_load_int_full(r.ip1.value, rffi.cast(lltype.Signed, gcmap))
 
         self.mc.BL(self.malloc_slowpath)
 
@@ -699,7 +699,7 @@ class AssemblerARM64(ResOpAssembler):
         self.mc.CMP_rr(r.x1.value, r.ip0.value)
         #
         self.mc.B_ofs_cond(40, c.LO) # see calculations in malloc_cond
-        self.mc.gen_load_int_full(r.ip1.value, gcmap)
+        self.mc.gen_load_int_full(r.ip1.value, rffi.cast(lltype.Signed, gcmap))
 
         self.mc.BL(self.malloc_slowpath)
 
@@ -770,7 +770,7 @@ class AssemblerARM64(ResOpAssembler):
         pmc.B_ofs_cond(currpos - jmp_adr0, c.GT)
         #
         # save the gcmap
-        self.mc.gen_load_int_full(r.ip1.value, gcmap)
+        self.mc.gen_load_int_full(r.ip1.value, rffi.cast(lltype.Signed, gcmap))
         #
 
         if kind == rewrite.FLAG_ARRAY:
