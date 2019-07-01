@@ -447,7 +447,8 @@ class AssemblerARM64(ResOpAssembler):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._load_shadowstack_top(mc, r.x19, gcrootmap)
             # store the new jitframe addr in the shadowstack
-            mc.STR_ri(r.x0.value, r.x19.value, -WORD)
+            mc.SUB_ri(r.x19.value, r.x19.value, WORD)
+            mc.STR_ri(r.x0.value, r.x19.value, 0)
 
         # reset the jf_gcmap field in the jitframe
         mc.gen_load_int(r.ip0.value, 0)
