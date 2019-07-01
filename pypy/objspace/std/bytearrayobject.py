@@ -109,6 +109,8 @@ class W_BytearrayObject(W_Root):
     @staticmethod
     def _op_val(space, w_other, strict=None):
         # bytearray does not enforce the strict restriction (on strip at least)
+        if isinstance(w_other, W_BytesObject):
+            return w_other.str_w(space)
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
@@ -333,7 +335,7 @@ class W_BytearrayObject(W_Root):
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         elif isinstance(w_other, W_BytesObject):
-            other = self._op_val(space, w_other)
+            other = w_other.str_w(space)
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         else:
@@ -380,17 +382,8 @@ class W_BytearrayObject(W_Root):
             self._data += w_other.getdata()
             return self
 
-        if isinstance(w_other, W_BytesObject):
-            self._inplace_add(self._op_val(space, w_other))
-        else:
-            self._inplace_add(_get_buffer(space, w_other))
+        self._data += self._op_val(space, w_other)
         return self
-
-    @specialize.argtype(1)
-    def _inplace_add(self, other):
-        resizelist_hint(self._data, len(self._data) + len(other))
-        for i in range(len(other)):
-            self._data.append(other[i])
 
     def descr_inplace_mul(self, space, w_times):
         try:
@@ -452,8 +445,10 @@ class W_BytearrayObject(W_Root):
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             self._data += w_other.getdata()
+        elif isinstance(w_other, W_BytesObject):    # performance only
+            self._data += w_other.str_w(space)
         else:
-            self._inplace_add(makebytearraydata_w(space, w_other))
+            self._data += makebytearraydata_w(space, w_other)
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
@@ -492,20 +487,13 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytearrayObject):
             return self._new(self.getdata() + w_other.getdata())
 
-        if isinstance(w_other, W_BytesObject):
-            return self._add(self._op_val(space, w_other))
-
         try:
-            buffer = _get_buffer(space, w_other)
+            byte_string = self._op_val(space, w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        return self._add(buffer)
-
-    @specialize.argtype(1)
-    def _add(self, other):
-        return self._new(self.getdata() + [other[i] for i in range(len(other))])
+        return self._new(self.getdata() + list(byte_string))
 
     def descr_reverse(self, space):
         self.getdata().reverse()
