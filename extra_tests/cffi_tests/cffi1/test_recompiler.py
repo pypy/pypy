@@ -2360,3 +2360,56 @@ def test_from_buffer_struct():
     assert q[0].a == p.a
     assert q[0].b == p.b
     assert q == p
+
+def test_unnamed_bitfield_1():
+    ffi = FFI()
+    ffi.cdef("""struct A { char : 1; };""")
+    lib = verify(ffi, "test_unnamed_bitfield_1", """
+        struct A { char : 1; };
+    """)
+    p = ffi.new("struct A *")
+    assert ffi.sizeof(p[0]) == 1
+    # Note: on gcc, the type name is ignored for anonymous bitfields
+    # and that's why the result is 1.  On MSVC, the result is
+    # sizeof("char") which is also 1.
+
+def test_unnamed_bitfield_2():
+    ffi = FFI()
+    ffi.cdef("""struct A {
+        short c : 1; short : 1; short d : 1; short : 1; };""")
+    lib = verify(ffi, "test_unnamed_bitfield_2", """
+        struct A {
+            short c : 1; short : 1; short d : 1; short : 1;
+        };
+    """)
+    p = ffi.new("struct A *")
+    assert ffi.sizeof(p[0]) == ffi.sizeof("short")
+
+def test_unnamed_bitfield_3():
+    ffi = FFI()
+    ffi.cdef("""struct A { struct { char : 1; char : 1; } b; };""")
+    lib = verify(ffi, "test_unnamed_bitfield_3", """
+        struct A { struct { char : 1; char : 1; } b; };
+    """)
+    p = ffi.new("struct A *")
+    assert ffi.sizeof(p[0]) == 1
+    # Note: on gcc, the type name is ignored for anonymous bitfields
+    # and that's why the result is 1.  On MSVC, the result is
+    # sizeof("char") which is also 1.
+
+def test_unnamed_bitfield_4():
+    ffi = FFI()
+    ffi.cdef("""struct A { struct {
+        unsigned c : 1; unsigned : 1; unsigned d : 1; unsigned : 1; } a;
+        };
+        struct B { struct A a; };""")
+    lib = verify(ffi, "test_unnamed_bitfield_4", """
+        struct A { struct {
+            unsigned c : 1; unsigned : 1; unsigned d : 1; unsigned : 1; } a;
+        };
+        struct B { struct A a; };
+    """)
+    b = ffi.new("struct B *")
+    a = ffi.new("struct A *")
+    assert ffi.sizeof(a[0]) == ffi.sizeof("unsigned")
+    assert ffi.sizeof(b[0]) == ffi.sizeof(a[0])
