@@ -888,8 +888,8 @@ class AssemblerARM64(ResOpAssembler):
             rst = gcrootmap.get_root_stack_top_addr()
             mc.gen_load_int(r.ip0.value, rst)
             self.load_reg(mc, r.ip0, r.ip0)
-            mc.SUB_ri(r.ip0, r.ip0, WORD)
-            mc.LDR_ri(r.fp, r.ip0, 0)
+            mc.SUB_ri(r.ip0.value, r.ip0.value, WORD)
+            mc.LDR_ri(r.fp.value, r.ip0.value, 0)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
