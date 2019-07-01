@@ -886,7 +886,7 @@ class ResOpAssembler(BaseAssembler):
             tmp2 = arglocs[-1]  # the last item is a preallocated tmp
             # lr = byteofs
             s = 3 + descr.jit_wb_card_page_shift
-            mc.MVN_rr_shift(r.lr.value, loc_index.value, s, shifttype=shift.LSR)
+            mc.MVN_rr_shifted(r.lr.value, loc_index.value, s, shifttype=shift.LSR)
 
             # tmp1 = byte_index
             mc.MOVZ_r_u16(r.ip0.value, 7, 0)
