@@ -637,9 +637,9 @@ class AssemblerARM64(ResOpAssembler):
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.gen_load_int(r.x1.value, nursery_free_adr)
-        mc.LDR_ri(r.x1.value, r.x1.value)
+        mc.LDR_ri(r.x1.value, r.x1.value, 0)
         # clear the gc pattern
-        mc.gen_load_int(r.ip.value, 0)
+        mc.gen_load_int(r.ip0.value, 0)
         self.store_reg(mc, r.ip0, r.fp, ofs)
         # return
         mc.LDR_ri(r.lr.value, r.sp.value, 0)
@@ -654,7 +654,7 @@ class AssemblerARM64(ResOpAssembler):
         assert size & (WORD-1) == 0
 
         self.mc.gen_load_int(r.x0.value, nursery_free_adr)
-        self.mc.LDR_ri(r.x0.value, r.x0.value)
+        self.mc.LDR_ri(r.x0.value, r.x0.value, 0)
 
         if check_imm_arg(size):
             self.mc.ADD_ri(r.x1.value, r.x0.value, size)
@@ -663,7 +663,7 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.ADD_rr(r.x1.value, r.x0.value, r.x1.value)
 
         self.mc.gen_load_int(r.ip0.value, nursery_top_adr)
-        self.mc.LDR_ri(r.ip0.value, r.ip0.value)
+        self.mc.LDR_ri(r.ip0.value, r.ip0.value, 0)
 
         self.mc.CMP_rr(r.x1.value, r.ip0.value)
 
@@ -681,7 +681,7 @@ class AssemblerARM64(ResOpAssembler):
         self.mc.BL(self.malloc_slowpath)
 
         self.mc.gen_load_int(r.ip0.value, nursery_free_adr)
-        self.mc.STR_ri(r.x1.value, r.ip0.value)
+        self.mc.STR_ri(r.x1.value, r.ip0.value, 0)
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
@@ -689,12 +689,12 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.MOV_rr(r.x1.value, r.x0.value)
             sizeloc = r.x1
         self.mc.gen_load_int(r.x0.value, nursery_free_adr)
-        self.mc.LDR_ri(r.x0.value, r.x0.value)
+        self.mc.LDR_ri(r.x0.value, r.x0.value, 0)
         #
         self.mc.ADD_rr(r.x1.value, r.x0.value, sizeloc.value)
         #
         self.mc.gen_load_int(r.ip0.value, nursery_top_adr)
-        self.mc.LDR_ri(r.ip0.value, r.ip0.value)
+        self.mc.LDR_ri(r.ip0.value, r.ip0.value, 0)
 
         self.mc.CMP_rr(r.x1.value, r.ip0.value)
         #
@@ -704,7 +704,7 @@ class AssemblerARM64(ResOpAssembler):
         self.mc.BL(self.malloc_slowpath)
 
         self.mc.gen_load_int(r.ip0.value, nursery_free_adr)
-        self.mc.STR_ri(r.x1.value, r.ip0.value)
+        self.mc.STR_ri(r.x1.value, r.ip0.value, 0)
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
@@ -730,7 +730,7 @@ class AssemblerARM64(ResOpAssembler):
         self.mc.BKPT()
         #
         self.mc.gen_load_int(r.x0.value, nursery_free_adr)
-        self.mc.LDR_ri(r.x0.value, r.x0.value)
+        self.mc.LDR_ri(r.x0.value, r.x0.value, 0)
 
 
         if valid_addressing_size(itemsize):
@@ -758,7 +758,7 @@ class AssemblerARM64(ResOpAssembler):
         # of WORD, plus nursery_free_adr
         #
         self.mc.gen_load_int(r.ip0.value, nursery_top_adr)
-        self.mc.LDR_ri(r.ip0.value, r.ip0.value)
+        self.mc.LDR_ri(r.ip0.value, r.ip0.value, 0)
 
         self.mc.CMP_rr(r.x1.value, r.ip0.value)
         jmp_adr1 = self.mc.currpos()  # jump to (after-call)
@@ -796,11 +796,11 @@ class AssemblerARM64(ResOpAssembler):
         #
         # write down the tid, but not if it's the result of the CALL
         self.mc.gen_load_int(r.ip0.value, arraydescr.tid)
-        self.mc.STR_ri(r.ip0.value, r.x0.value)
+        self.mc.STR_ri(r.ip0.value, r.x0.value, 0)
 
         # while we're at it, this line is not needed if we've done the CALL
         self.mc.gen_load_int(r.ip0.value, nursery_free_adr)
-        self.mc.STR_ri(r.x1.value, r.ip0.value)
+        self.mc.STR_ri(r.x1.value, r.ip0.value, 0)
         # (done)
         # skip instructions after call
         currpos = self.mc.currpos()
@@ -1006,10 +1006,10 @@ class AssemblerARM64(ResOpAssembler):
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             # load stack end
             self.mc.gen_load_int(r.ip0.value, endaddr)           # load ip0, [end]
-            self.mc.LDR_ri(r.ip0.value, r.ip0.value)             # LDR ip0, ip0
+            self.mc.LDR_ri(r.ip0.value, r.ip0.value, 0)             # LDR ip0, ip0
             # load stack length
             self.mc.gen_load_int(r.ip1.value, lengthaddr)        # load ip1, lengh
-            self.mc.LDR_ri(r.ip1.value, r.ip1.value)             # ldr ip1, *lengh
+            self.mc.LDR_ri(r.ip1.value, r.ip1.value, 0)             # ldr ip1, *lengh
             # calculate ofs
             self.mc.SUB_rr(r.ip0.value, r.ip0.value, r.sp.value) # SUB ip, current
             # if ofs
