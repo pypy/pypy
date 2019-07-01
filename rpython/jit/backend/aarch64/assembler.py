@@ -774,7 +774,7 @@ class AssemblerARM64(ResOpAssembler):
         #
 
         if kind == rewrite.FLAG_ARRAY:
-            self.mc.gen_load_int(r.r0.value, arraydescr.tid)
+            self.mc.gen_load_int(r.x0.value, arraydescr.tid)
             self.regalloc_mov(lengthloc, r.x1)
             self.gen_load_int(r.ip0.value, imm(itemsize))
             addr = self.malloc_slowpath_varsize
