@@ -364,7 +364,7 @@ class AbstractAarch64Builder(object):
         base = 0b10101010001
         self.write32((base << 21) | (rm << 16) | (0b11111 << 5)| rd)
 
-    def MVN_rr_shift(self, rd, rm, shift=0, shifttype=0): # defaults to LSL
+    def MVN_rr_shifted(self, rd, rm, shift=0, shifttype=0): # defaults to LSL
         base = 0b10101010
         assert 0 <= shift < 64
         self.write32((base << 24) | (shifttype << 22) | (1 << 21) |
