@@ -11,10 +11,11 @@ def github_raw_file(repo, path, branch='master'):
 def get_list_of_files(shared):
     files = list(shared.visit('*.[ch]'))
     # in PyPy we checkin the result of ./configure; as such, these files are
-    # not in github and can be skipped
+    # not in github or different and can be skipped
     files.remove(shared.join('libbacktrace', 'config-x86_32.h'))
     files.remove(shared.join('libbacktrace', 'config-x86_64.h'))
     files.remove(shared.join('libbacktrace', 'gstdint.h'))
+    files.remove(shared.join('libbacktrace', 'config.h'))
     return files
 
 def test_same_file():
