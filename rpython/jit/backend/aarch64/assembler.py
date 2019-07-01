@@ -727,7 +727,7 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.gen_load_int(r.ip0.value, maxlength)
             self.mc.CMP_rr(varsizeloc.value, r.ip0.value)
         jmp_adr0 = self.mc.currpos()  # jump to (large)
-        self.mc.BKPT()
+        self.mc.BRK()
         #
         self.mc.gen_load_int(r.x0.value, nursery_free_adr)
         self.mc.LDR_ri(r.x0.value, r.x0.value, 0)
@@ -762,7 +762,7 @@ class AssemblerARM64(ResOpAssembler):
 
         self.mc.CMP_rr(r.x1.value, r.ip0.value)
         jmp_adr1 = self.mc.currpos()  # jump to (after-call)
-        self.mc.BKPT()
+        self.mc.BRK()
         #
         # (large)
         currpos = self.mc.currpos()
@@ -788,7 +788,7 @@ class AssemblerARM64(ResOpAssembler):
         self.mc.BL(addr)
         #
         jmp_location = self.mc.currpos()  # jump to (done)
-        self.mc.BKPT()
+        self.mc.BRK()
         # (after-call)
         currpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_adr1, WORD)
