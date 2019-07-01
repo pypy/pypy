@@ -532,22 +532,26 @@ class AssemblerARM(ResOpAssembler):
 
     def gen_shadowstack_header(self, gcrootmap):
         # lr = shadow stack top addr
-        # ip = *lr
+        # r4 = *lr
         rst = gcrootmap.get_root_stack_top_addr()
         self.mc.gen_load_int(r.lr.value, rst)
-        self.load_reg(self.mc, r.ip, r.lr)
-        # *ip = r.fp
-        self.store_reg(self.mc, r.fp, r.ip)
+        self.load_reg(self.mc, r.r4, r.lr)
+        # *r4 = 1
+        # the '1' is to benefit from the shadowstack 'is_minor' optimization
+        self.mc.gen_load_int(r.ip.value, 1)
+        self.store_reg(self.mc, r.ip, r.r4)
+        # *(r4+WORD) = r.fp
+        self.store_reg(self.mc, r.fp, r.r4, WORD)
         #
-        self.mc.ADD_ri(r.ip.value, r.ip.value, WORD)
-        # *lr = ip + WORD
-        self.store_reg(self.mc, r.ip, r.lr)
+        self.mc.ADD_ri(r.r4.value, r.r4.value, 2 * WORD)
+        # *lr = r4 + 2 * WORD
+        self.store_reg(self.mc, r.r4, r.lr)
 
     def gen_footer_shadowstack(self, gcrootmap, mc):
         rst = gcrootmap.get_root_stack_top_addr()
         mc.gen_load_int(r.ip.value, rst)
         self.load_reg(mc, r.r4, r.ip)
-        mc.SUB_ri(r.r4.value, r.r4.value, WORD)
+        mc.SUB_ri(r.r4.value, r.r4.value, 2 * WORD)
         self.store_reg(mc, r.r4, r.ip)
 
     def _dump(self, ops, type='loop'):

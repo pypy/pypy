@@ -833,8 +833,7 @@ def make_tp_descr_set(space, typedef, name, attr):
     return slot_tp_descr_set
 
 
-missing_wrappers = ['wrap_indexargfunc', 'wrap_del']
-for name in missing_wrappers:
+def _make_missing_wrapper(name):
     assert name not in globals()
     class missing_wrapper(W_PyCWrapperObject):
         def call(self, space, w_self, __args__):
@@ -842,6 +841,10 @@ for name in missing_wrappers:
             raise NotImplementedError("Slot wrapper " + name)
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
+
+missing_wrappers = ['wrap_indexargfunc', 'wrap_del']
+for name in missing_wrappers:
+    _make_missing_wrapper(name)
 
 def make_missing_slot(space, typedef, name, attr):
     return None
