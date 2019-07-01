@@ -946,6 +946,86 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
+    def prepare_op_call_malloc_nursery(self, op, fcond):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+        # hint: try to move unrelated registers away from x0 and x1 now
+        self.rm.spill_or_move_registers_before_call([r.x0, r.x1])
+
+        self.rm.force_allocate_reg(op, selected_reg=r.x0)
+        t = TempInt()
+        self.rm.force_allocate_reg(t, selected_reg=r.x1)
+
+        sizeloc = size_box.getint()
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = self.get_gcmap([r.x0, r.x1])
+        self.possibly_free_var(t)
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+
+    def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
+        size_box = op.getarg(0)
+        assert not isinstance(size_box, ConstInt) # we cannot have a const here!
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with r0 or r1)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.spill_or_move_registers_before_call([r.x0, r.x1]) # sizeloc safe
+        self.rm.possibly_free_var(size_box)
+        #
+        self.rm.force_allocate_reg(op, selected_reg=r.x0)
+        #
+        t = TempInt()
+        self.rm.force_allocate_reg(t, selected_reg=r.x1)
+        #
+        gcmap = self.get_gcmap([r.x0, r.x1])
+        self.possibly_free_var(t)
+        #
+        gc_ll_descr = self.cpu.gc_ll_descr
+        self.assembler.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+
+    def prepare_op_call_malloc_nursery_varsize(self, op, fcond):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        arraydescr = op.getdescr()
+        length_box = op.getarg(2)
+        assert not isinstance(length_box, Const) # we cannot have a const here!
+        # can only use spill_or_move_registers_before_call() as a hint if
+        # we are sure that length_box stays alive and won't be freed now
+        # (it should always be the case, see below, but better safe than sorry)
+        if self.rm.stays_alive(length_box):
+            self.rm.spill_or_move_registers_before_call([r.x0, r.x1])
+        # the result will be in r0
+        self.rm.force_allocate_reg(op, selected_reg=r.x0)
+        # we need r1 as a temporary
+        tmp_box = TempVar()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=r.x1)
+        gcmap = self.get_gcmap([r.x0, r.x1]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  It's
+        # fine to load it from the stack too, as long as it's != x0, x1.
+        lengthloc = self.rm.loc(length_box)
+        self.rm.possibly_free_var(length_box)
+        #
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
+
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None):
         if var.type == FLOAT:
             return self.vfprm.force_allocate_reg(var, forbidden_vars,

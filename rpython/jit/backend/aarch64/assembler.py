@@ -9,7 +9,7 @@ from rpython.jit.backend.aarch64.regalloc import (Regalloc, check_imm_arg,
     CoreRegisterManager, VFPRegisterManager)
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.arm import conditions as c
-from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import BaseAssembler
 from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_size
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -570,6 +570,270 @@ class AssemblerARM64(ResOpAssembler):
         mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
         mc.RET_r(r.ip0.value)
         return mc.materialize(self.cpu, [])
+
+    def _build_malloc_slowpath(self, kind):
+        """ While arriving on slowpath, we have a gcpattern on stack 0.
+        The arguments are passed in r0 and r10, as follows:
+
+        kind == 'fixed': nursery_head in r0 and the size in r1 - r0.
+
+        kind == 'str/unicode': length of the string to allocate in r0.
+
+        kind == 'var': length to allocate in r1, tid in r0,
+                       and itemsize on the stack.
+
+        This function must preserve all registers apart from r0 and r1.
+        """
+        assert kind in ['fixed', 'str', 'unicode', 'var']
+        mc = InstrBuilder()
+        #
+        self._push_all_regs_to_jitframe(mc, [r.x0, r.x1], True)
+        #
+        if kind == 'fixed':
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        elif kind == 'str':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_str')
+        elif kind == 'unicode':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
+        else:
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
+        if kind == 'fixed':
+            # At this point we know that the values we need to compute the size
+            # are stored in x0 and x1.
+            mc.SUB_rr(r.x0.value, r.x1.value, r.x0.value) # compute the size we want
+
+            if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                mc.MOV_rr(r.x1.value, r.fp.value)
+        elif kind == 'str' or kind == 'unicode':
+            mc.MOV_rr(r.x0.value, r.x1.value)
+        else:  # var
+            # tid is in x0
+            # length is in x1
+            # gcmap in ip1
+            # itemsize in ip0
+            mc.MOV_rr(r.x2.value, r.x1.value)
+            mc.MOV_rr(r.x1.value, r.x0.value)
+            mc.MOV_rr(r.x0.value, r.ip0.value) # load itemsize, ip0 now free
+        # store the gc pattern
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.STR_ri(r.ip1.value, r.fp.value, ofs)
+        #
+        # We need to push two registers here because we are going to make a
+        # call an therefore the stack needs to be 8-byte aligned
+        mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
+        mc.STR_ri(r.lr.value, r.sp.value, 0)
+        #
+        mc.BL(addr)
+        #
+        # If the slowpath malloc failed, we raise a MemoryError that
+        # always interrupts the current loop, as a "good enough"
+        # approximation.
+        mc.CMP_ri(r.x0.value, 0)
+        mc.B_ofs_cond(4 * 6, c.NE)
+        mc.B(self.propagate_exception_path)
+        # jump here
+        self._reload_frame_if_necessary(mc)
+        self._pop_all_regs_from_jitframe(mc, [r.x0, r.x1], self.cpu.supports_floats)
+        #
+        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        mc.gen_load_int(r.x1.value, nursery_free_adr)
+        mc.LDR_ri(r.x1.value, r.x1.value)
+        # clear the gc pattern
+        mc.gen_load_int(r.ip.value, 0)
+        self.store_reg(mc, r.ip0, r.fp, ofs)
+        # return
+        mc.LDR_ri(r.lr.value, r.sp.value, 0)
+        mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
+        mc.RET_r(r.lr.value)
+
+        #
+        rawstart = mc.materialize(self.cpu, [])
+        return rawstart
+
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
+        assert size & (WORD-1) == 0
+
+        self.mc.gen_load_int(r.x0.value, nursery_free_adr)
+        self.mc.LDR_ri(r.x0.value, r.x0.value)
+
+        if check_imm_arg(size):
+            self.mc.ADD_ri(r.x1.value, r.x0.value, size)
+        else:
+            self.mc.gen_load_int(r.x1.value, size)
+            self.mc.ADD_rr(r.x1.value, r.x0.value, r.x1.value)
+
+        self.mc.gen_load_int(r.ip0.value, nursery_top_adr)
+        self.mc.LDR_ri(r.ip0.value, r.ip0.value)
+
+        self.mc.CMP_rr(r.x1.value, r.ip0.value)
+
+        # We load into r0 the address stored at nursery_free_adr We calculate
+        # the new value for nursery_free_adr and store in r1 The we load the
+        # address stored in nursery_top_adr into IP If the value in r1 is
+        # (unsigned) bigger than the one in ip we conditionally call
+        # malloc_slowpath in case we called malloc_slowpath, which returns the
+        # new value of nursery_free_adr in r1 and the adr of the new object in
+        # r0.
+
+        self.mc.B_ofs_cond(10 * 4, c.LO) # 4 for gcmap load, 5 for BL, 1 for B_ofs_cond
+        self.mc.gen_load_int_full(r.ip1.value, gcmap)
+
+        self.mc.BL(self.malloc_slowpath)
+
+        self.mc.gen_load_int(r.ip0.value, nursery_free_adr)
+        self.mc.STR_ri(r.x1.value, r.ip0.value)
+
+    def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
+                                  sizeloc, gcmap):
+        if sizeloc is r.x0:
+            self.mc.MOV_rr(r.x1.value, r.x0.value)
+            sizeloc = r.x1
+        self.mc.gen_load_int(r.x0.value, nursery_free_adr)
+        self.mc.LDR_ri(r.x0.value, r.x0.value)
+        #
+        self.mc.ADD_rr(r.x1.value, r.x0.value, sizeloc.value)
+        #
+        self.mc.gen_load_int(r.ip0.value, nursery_top_adr)
+        self.mc.LDR_ri(r.ip0.value, r.ip0.value)
+
+        self.mc.CMP_rr(r.x1.value, r.ip0.value)
+        #
+        self.mc.B_ofs_cond(40, c.LO) # see calculations in malloc_cond
+        self.mc.gen_load_int_full(r.ip1.value, gcmap)
+
+        self.mc.BL(self.malloc_slowpath)
+
+        self.mc.gen_load_int(r.ip0.value, nursery_free_adr)
+        self.mc.STR_ri(r.x1.value, r.ip0.value)
+
+    def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
+                            lengthloc, itemsize, maxlength, gcmap,
+                            arraydescr):
+        from rpython.jit.backend.llsupport.descr import ArrayDescr
+        assert isinstance(arraydescr, ArrayDescr)
+
+        # lengthloc is the length of the array, which we must not modify!
+        assert lengthloc is not r.x0 and lengthloc is not r.x1
+        if lengthloc.is_core_reg():
+            varsizeloc = lengthloc
+        else:
+            assert lengthloc.is_stack()
+            self.regalloc_mov(lengthloc, r.x1)
+            varsizeloc = r.x1
+        #
+        if check_imm_arg(maxlength):
+            self.mc.CMP_ri(varsizeloc.value, maxlength)
+        else:
+            self.mc.gen_load_int(r.ip0.value, maxlength)
+            self.mc.CMP_rr(varsizeloc.value, r.ip0.value)
+        jmp_adr0 = self.mc.currpos()  # jump to (large)
+        self.mc.BKPT()
+        #
+        self.mc.gen_load_int(r.x0.value, nursery_free_adr)
+        self.mc.LDR_ri(r.x0.value, r.x0.value)
+
+
+        if valid_addressing_size(itemsize):
+            shiftsize = get_scale(itemsize)
+        else:
+            shiftsize = self._mul_const_scaled(self.mc, r.lr, varsizeloc,
+                                                itemsize)
+            varsizeloc = r.lr
+        # now varsizeloc is a register != x0.  The size of
+        # the variable part of the array is (varsizeloc << shiftsize)
+        assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
+        constsize = arraydescr.basesize + self.gc_size_of_header
+        force_realignment = (itemsize % WORD) != 0
+        if force_realignment:
+            constsize += WORD - 1
+        self.mc.gen_load_int(r.ip0.value, constsize)
+        # constsize + (varsizeloc << shiftsize)
+        self.mc.ADD_rr_shifted(r.x1.value, r.ip0.value, varsizeloc.value,
+                               shiftsize)
+        self.mc.ADD_rr(r.x1.value, r.x1.value, r.x0.value)
+        if force_realignment:
+            self.mc.MVN_rr_shifted(r.ip0.value, r.ip0.value, WORD - 1)
+            self.mc.AND_rr(r.x1.value, r.x1.value, r.ip0.value)
+        # now x1 contains the total size in bytes, rounded up to a multiple
+        # of WORD, plus nursery_free_adr
+        #
+        self.mc.gen_load_int(r.ip0.value, nursery_top_adr)
+        self.mc.LDR_ri(r.ip0.value, r.ip0.value)
+
+        self.mc.CMP_rr(r.x1.value, r.ip0.value)
+        jmp_adr1 = self.mc.currpos()  # jump to (after-call)
+        self.mc.BKPT()
+        #
+        # (large)
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_adr0, WORD)
+        pmc.B_ofs_cond(currpos - jmp_adr0, c.GT)
+        #
+        # save the gcmap
+        self.mc.gen_load_int_full(r.ip1.value, gcmap)
+        #
+
+        if kind == rewrite.FLAG_ARRAY:
+            self.mc.gen_load_int(r.r0.value, arraydescr.tid)
+            self.regalloc_mov(lengthloc, r.x1)
+            self.gen_load_int(r.ip0.value, imm(itemsize))
+            addr = self.malloc_slowpath_varsize
+        else:
+            if kind == rewrite.FLAG_STR:
+                addr = self.malloc_slowpath_str
+            else:
+                assert kind == rewrite.FLAG_UNICODE
+                addr = self.malloc_slowpath_unicode
+            self.regalloc_mov(lengthloc, r.x1)
+        self.mc.BL(addr)
+        #
+        jmp_location = self.mc.currpos()  # jump to (done)
+        self.mc.BKPT()
+        # (after-call)
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_adr1, WORD)
+        pmc.B_ofs_cond(currpos - jmp_adr1, c.LS)
+        #
+        # write down the tid, but not if it's the result of the CALL
+        self.mc.gen_load_int(r.ip0.value, arraydescr.tid)
+        self.mc.STR_ri(r.ip0.value, r.x0.value)
+
+        # while we're at it, this line is not needed if we've done the CALL
+        self.mc.gen_load_int(r.ip0.value, nursery_free_adr)
+        self.mc.STR_ri(r.x1.value, r.ip0.value)
+        # (done)
+        # skip instructions after call
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
+        pmc.B_ofs(currpos - jmp_location)
+
+    def _mul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
+        """Produce one operation to do roughly
+               targetreg = sourcereg * itemsize
+           except that the targetreg may still need shifting by 0,1,2,3.
+        """
+        if (itemsize & 7) == 0:
+            shiftsize = 3
+        elif (itemsize & 3) == 0:
+            shiftsize = 2
+        elif (itemsize & 1) == 0:
+            shiftsize = 1
+        else:
+            shiftsize = 0
+        itemsize >>= shiftsize
+        #
+        if valid_addressing_size(itemsize - 1):
+            self.mc.ADD_rr_shifted(targetreg.value, sourcereg.value, sourcereg.value,
+                                   get_scale(itemsize - 1))
+        elif valid_addressing_size(itemsize):
+            self.mc.LSL_ri(targetreg.value, sourcereg.value,
+                    get_scale(itemsize))
+        else:
+            mc.gen_load_int(targetreg.value, itemsize)
+            mc.MUL_rr(targetreg.value, sourcereg.value, targetreg.value)
+        #
+        return shiftsize
+
 
     def _build_stack_check_slowpath(self):
         self.stack_check_slowpath = 0  #XXX

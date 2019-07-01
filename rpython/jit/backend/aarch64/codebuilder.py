@@ -227,6 +227,12 @@ class AbstractAarch64Builder(object):
         base = 0b10001011000 | (s << 8)
         self.write32((base << 21) | (rm << 16) | (rn << 5) | (rd))
 
+    def ADD_rr_shifted(self, rd, rn, rm, imm):
+        # shifttype is LSL
+        base = 0b10001011000
+        assert 0 <= imm < 64
+        self.write32((base << 21) | (rm << 16) | (imm << 10) | (rn << 5) | (rd))
+
     def FMOV_dd(self, rd, rn):
         base = 0b0001111001100000010000
         self.write32((base << 10) | (rn << 5) | rd)
