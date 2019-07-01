@@ -398,11 +398,19 @@ class AppTestBytesArray:
         assert b == bytearray(b'obe')
 
     def test_iadd(self):
-        b = bytearray(b'abc')
+        b = b0 = bytearray(b'abc')
         b += b'def'
         assert b == b'abcdef'
-        assert isinstance(b, bytearray)
+        assert b is b0
         raises(TypeError, b.__iadd__, "")
+        #
+        b += bytearray(b'XX')
+        assert b == b'abcdefXX'
+        assert b is b0
+        #
+        b += memoryview(b'ABC')
+        assert b == b'abcdefXXABC'
+        assert b is b0
 
     def test_add(self):
         b1 = bytearray(b"abc")
@@ -470,6 +478,10 @@ class AppTestBytesArray:
         raises(TypeError, b.extend, object())
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, "unicode")
+
+        b = bytearray(b'abc')
+        b.extend(memoryview(b'def'))
+        assert b == bytearray(b'abcdef')
 
     def test_extend_calls_len_or_lengthhint(self):
         class BadLen(object):
