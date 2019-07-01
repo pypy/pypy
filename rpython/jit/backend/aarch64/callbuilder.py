@@ -143,7 +143,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         if gcrootmap:
             rst = gcrootmap.get_root_stack_top_addr()
             self.mc.gen_load_int(r.x19.value, rst)
-            self.mc.LDR_ri(r.x20.value, r.x19.value)
+            self.mc.LDR_ri(r.x20.value, r.x19.value, 0)
 
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.DMB()
@@ -227,7 +227,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in 'x20'), and if not, we fall back to 'reacqgil_addr'.
-            self.mc.LDR_ri(r.ip0.value, r.x19.value)
+            self.mc.LDR_ri(r.ip0.value, r.x19.value, 0)
             self.mc.CMP_rr(r.ip0.value, r.x20.value)
             XXX
             b1_location = self.mc.currpos()
