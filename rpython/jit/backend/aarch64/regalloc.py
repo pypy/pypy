@@ -946,7 +946,7 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
-    def prepare_op_call_malloc_nursery(self, op, fcond):
+    def prepare_op_call_malloc_nursery(self, op):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         # hint: try to move unrelated registers away from x0 and x1 now
@@ -967,7 +967,7 @@ class Regalloc(BaseRegalloc):
             gcmap
             )
 
-    def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
+    def prepare_op_call_malloc_nursery_varsize_frame(self, op):
         size_box = op.getarg(0)
         assert not isinstance(size_box, ConstInt) # we cannot have a const here!
         # sizeloc must be in a register, but we can free it now
@@ -992,7 +992,7 @@ class Regalloc(BaseRegalloc):
             gcmap
             )
 
-    def prepare_op_call_malloc_nursery_varsize(self, op, fcond):
+    def prepare_op_call_malloc_nursery_varsize(self, op):
         gc_ll_descr = self.cpu.gc_ll_descr
         if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
             raise Exception("unreachable code")
