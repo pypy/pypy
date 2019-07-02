@@ -3,3 +3,10 @@
 * guard_nonnull_class - think about a better way
 * cond_call and following guard_exception
 * stack check
+
+
+We can try to make generate_quick_failure() emit two instructions less:
+the two store_reg() [one in generate_quick_failure and the other in
+push_gcmap].  Instead we'd load the values in known unused registers,
+and the store_regs would occur inside self.failure_recovery_code
+(which 'target' points to).
