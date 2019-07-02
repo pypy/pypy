@@ -1020,7 +1020,7 @@ class AssemblerARM64(ResOpAssembler):
 
     def _call_header(self):
         stack_size = (len(r.callee_saved_registers) + 4) * WORD
-        self.mc.STP_rr_preindex(r.fp.value, r.lr.value, r.sp.value, -stack_size)
+        self.mc.STP_rr_preindex(r.lr.value, r.fp.value, r.sp.value, -stack_size)
         for i in range(0, len(r.callee_saved_registers), 2):
             self.mc.STP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
@@ -1281,7 +1281,7 @@ class AssemblerARM64(ResOpAssembler):
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
                             (i + 4) * WORD)
-        mc.LDP_rr_postindex(r.fp.value, r.lr.value, r.sp.value, stack_size)
+        mc.LDP_rr_postindex(r.lr.value, r.fp.value, r.sp.value, stack_size)
 
 
         mc.RET_r(r.lr.value)
