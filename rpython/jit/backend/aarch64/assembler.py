@@ -562,10 +562,11 @@ class AssemblerARM64(ResOpAssembler):
         mc.STR_ri(r.ip0.value, r.sp.value, WORD)
         mc.STR_ri(r.lr.value, r.sp.value, 0)
         mc.BLR_r(r.ip1.value)
-        mc.MOV_rr(r.ip1.value, r.x0.value) # return comes back in ip1
-        self._reload_frame_if_necessary(mc)
+        # callee saved
+        self._reload_frame_if_necessary(mc) # <- this will not touch x0
+        mc.MOV_rr(r.ip1.value, r.x0.value)
         self._pop_all_regs_from_jitframe(mc, [], supports_floats,
-                                         callee_only)
+                                         callee_only) # <- this does not touch ip1
         # return
         mc.LDR_ri(r.ip0.value, r.sp.value, 0)
         mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
