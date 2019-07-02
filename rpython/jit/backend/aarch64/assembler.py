@@ -611,10 +611,10 @@ class AssemblerARM64(ResOpAssembler):
             # tid is in x0
             # length is in x1
             # gcmap in ip1
-            # itemsize in ip0
+            # itemsize in ip2
             mc.MOV_rr(r.x2.value, r.x1.value)
             mc.MOV_rr(r.x1.value, r.x0.value)
-            mc.MOV_rr(r.x0.value, r.ip0.value) # load itemsize, ip0 now free
+            mc.MOV_rr(r.x0.value, r.ip2.value) # load itemsize, ip2 now free
         # store the gc pattern
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.STR_ri(r.ip1.value, r.fp.value, ofs)
@@ -775,7 +775,7 @@ class AssemblerARM64(ResOpAssembler):
         if kind == rewrite.FLAG_ARRAY:
             self.mc.gen_load_int(r.x0.value, arraydescr.tid)
             self.regalloc_mov(lengthloc, r.x1)
-            self.mc.gen_load_int(r.ip0.value, itemsize)
+            self.mc.gen_load_int(r.ip2.value, itemsize)
             addr = self.malloc_slowpath_varsize
         else:
             if kind == rewrite.FLAG_STR:

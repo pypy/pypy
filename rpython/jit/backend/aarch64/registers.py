@@ -11,7 +11,7 @@ sp = xzr = ZeroRegister()
 
 vfpregisters = [VFPRegisterLocation(i) for i in range(32)]
 all_vfp_regs = vfpregisters[:8]
-all_regs = registers[:16]+ [x19, x20] #, x21, x22]
+all_regs = registers[:14]+ [x19, x20] #, x21, x22]
 
 lr = x30
 fp = x29
@@ -20,6 +20,8 @@ fp = x29
 # nor we use them for regalloc
 ip1 = x17
 ip0 = x16
+ip2 = x15
+ip3 = x14   # not used so far, but 'caller_resp' needs to be even-length anyway
 
 callee_saved_registers = [x19, x20] # , x21, x22]
 vfp_argument_regs = caller_vfp_resp = all_vfp_regs[:8]
@@ -31,4 +33,4 @@ vfp_ip = d15
 
 argument_regs = [x0, x1, x2, x3, x4, x5, x6, x7]
 callee_resp = [x19, x20] # ,x21, x22]
-caller_resp = argument_regs + [x8, x9, x10, x11, x12, x13, x14, x15]
+caller_resp = argument_regs + [x8, x9, x10, x11, x12, x13]

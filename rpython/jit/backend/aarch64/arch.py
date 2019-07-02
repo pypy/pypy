@@ -8,5 +8,7 @@ WORD = 8
 # A jitframe is a jit.backend.llsupport.llmodel.jitframe.JITFRAME
 # Stack frame fixed area
 # Currently only the force_index
-JITFRAME_FIXED_SIZE = 16 + 2 + 8
-# 18 GPR + 8 VFP Regs # 20 if we want to use 4 extra x19..x22
+NUM_MANAGED_REGS = 16
+NUM_VFP_REGS = 8
+JITFRAME_FIXED_SIZE = NUM_MANAGED_REGS + NUM_VFP_REGS
+# 16 GPR + 8 VFP Regs, for now
