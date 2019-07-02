@@ -10,7 +10,7 @@ class CPU_ARM64(AbstractLLCPU):
     """ARM 64"""
     backend_name = "aarch64"
     frame_reg = r.fp
-    all_reg_indexes = range(16) + [-1, -1, -1, 16, 17]
+    all_reg_indexes = range(14) + [-1, -1, -1, -1, -1, 14, 15]
     gen_regs = r.all_regs
     float_regs = VFPRegisterManager.all_regs
     supports_floats = True
@@ -61,3 +61,9 @@ class CPU_ARM64(AbstractLLCPU):
         return CPU_ARM64.cast_adr_to_int(adr)
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
+
+
+for _i, _r in enumerate(r.all_regs):
+    assert CPU_ARM64.all_reg_indexes[_r.value] == _i
+from rpython.jit.backend.aarch64 import arch
+assert arch.NUM_MANAGED_REGS == len(r.all_regs)
