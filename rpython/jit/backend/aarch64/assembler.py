@@ -336,7 +336,6 @@ class AssemblerARM64(ResOpAssembler):
         mc = InstrBuilder()
         #
         mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
-        mc.STR_ri(r.ip0.value, r.sp.value, WORD)
         mc.STR_ri(r.lr.value, r.sp.value, 0)
         if not for_frame:
             self._push_all_regs_to_jitframe(mc, [], withfloats, callee_only=True)
@@ -393,7 +392,6 @@ class AssemblerARM64(ResOpAssembler):
             mc.MOVZ_r_u16(r.ip1.value, 0x80, 0)
             mc.TST_rr_shift(r.ip0.value, r.ip1.value, 0)
         #
-        mc.LDR_ri(r.ip0.value, r.sp.value, WORD)
         mc.LDR_ri(r.ip1.value, r.sp.value, 0)
         mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
         mc.RET_r(r.ip1.value)
@@ -621,8 +619,6 @@ class AssemblerARM64(ResOpAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.STR_ri(r.ip1.value, r.fp.value, ofs)
         #
-        # We need to push two registers here because we are going to make a
-        # call an therefore the stack needs to be 8-byte aligned
         mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
         mc.STR_ri(r.lr.value, r.sp.value, 0)
         #
@@ -1314,7 +1310,6 @@ class AssemblerARM64(ResOpAssembler):
         self.store_reg(mc, r.ip1, r.ip0)
 
     def store_reg(self, mc, source, base, ofs=0, helper=None):
-        # uses r.ip1 as a temporary
         if source.is_vfp_reg():
             return self._store_vfp_reg(mc, source, base, ofs)
         else:
@@ -1325,7 +1320,6 @@ class AssemblerARM64(ResOpAssembler):
         mc.STR_di(source.value, base.value, ofs)
 
     def _store_core_reg(self, mc, source, base, ofs):
-        # uses r.ip1 as a temporary
         # XXX fix:
         assert ofs & 0x7 == 0
         assert 0 <= ofs < 32768
