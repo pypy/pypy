@@ -752,7 +752,8 @@ class AssemblerARM64(ResOpAssembler):
                                shiftsize)
         self.mc.ADD_rr(r.x1.value, r.x1.value, r.x0.value)
         if force_realignment:
-            self.mc.MVN_rr_shifted(r.ip0.value, r.ip0.value, WORD - 1)
+            # -WORD = 0xfffffffffffffff8
+            self.mc.gen_load_int(r.ip0.value, -WORD)
             self.mc.AND_rr(r.x1.value, r.x1.value, r.ip0.value)
         # now x1 contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
