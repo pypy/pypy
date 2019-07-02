@@ -472,7 +472,10 @@ class AbstractAarch64Builder(object):
         register"""
         # XXX optimize!
         if value < 0:
-            self.gen_load_int_full(r, value)
+            if value < -65536:
+                self.gen_load_int_full(r, value)
+            else:
+                self.MOVN_r_u16(r, ~value)
             return
         self.MOVZ_r_u16(r, value & 0xFFFF, 0)
         value = value >> 16

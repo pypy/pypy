@@ -14,6 +14,10 @@
 
 * use STP instead of STR in all long sequences of STR.  Same with LDR
 
+* use "STR xzr, [..]" instead of "gen_load_int(ip, 0); STR ip, [..]".
+  Search around for gen_load_int(...0): it occurs at least in pop_gcmap()
+  _build_failure_recovery(), build_frame_realloc_slowpath(), etc.
+
 
 * here's what gcc uses to acquire and release a lock, instead of mc.DMB
   in callbuilder.py.  It would make the control flow mess easier, too,
