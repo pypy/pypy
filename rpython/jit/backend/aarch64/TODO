@@ -5,11 +5,15 @@
 * stack check
 
 
-We can try to make generate_quick_failure() emit two instructions less:
-the two store_reg() [one in generate_quick_failure and the other in
-push_gcmap].  Instead we'd load the values in known unused registers,
-and the store_regs would occur inside self.failure_recovery_code
-(which 'target' points to).
+* We can try to make generate_quick_failure() emit two instructions less:
+  the two store_reg() [one in generate_quick_failure and the other in
+  push_gcmap].  Instead we'd load the values in ip2 and ip3, and the
+  store_regs would occur inside self.failure_recovery_code
+  (which 'target' points to).
+
+
+* use STP instead of STR in all long sequences of STR.  Same with LDR
+
 
 * here's what gcc uses to acquire and release a lock, instead of mc.DMB
   in callbuilder.py.  It would make the control flow mess easier, too,
