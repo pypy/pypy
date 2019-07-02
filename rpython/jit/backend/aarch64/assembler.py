@@ -382,6 +382,8 @@ class AssemblerARM64(ResOpAssembler):
             assert exc0 is not None
             assert exc1 is not None
 
+            mc.ADD_ri(r.sp.value, r.sp.value, (len(r.caller_resp) + 2 + len(r.caller_vfp_resp)) * WORD)
+
         #
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
