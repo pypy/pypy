@@ -1125,7 +1125,7 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.gen_load_int(loc.value, value.getint())
         elif value.is_imm_float():
             self.mc.gen_load_int(r.ip0.value, value.getint())
-            self.mc.FMOV_dr(loc.value, r.ip0.value)
+            self.mc.LDR_di(loc.value, r.ip0.value, 0)
 
     def _mov_stack_to_loc(self, prev_loc, loc):
         offset = prev_loc.value
