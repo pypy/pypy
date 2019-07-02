@@ -237,6 +237,10 @@ class AbstractAarch64Builder(object):
         base = 0b0001111001100000010000
         self.write32((base << 10) | (rn << 5) | rd)
 
+    def FMOV_dr(self, rd, rn):
+        base = 0b1001111001100111000000
+        self.write32((base << 10) | (rn << 5) | rd)
+
     def FADD_dd(self, rd, rn, rm):
         base = 0b00011110011
         self.write32((base << 21) | (rm << 16) | (0b001010 << 10) | (rn << 5) | rd)
