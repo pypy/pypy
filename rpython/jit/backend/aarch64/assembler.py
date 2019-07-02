@@ -901,7 +901,8 @@ class AssemblerARM64(ResOpAssembler):
         startpos = self.mc.currpos()
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         self.load_from_gc_table(r.ip0.value, faildescrindex)
-        self.store_reg(self.mc, r.ip0, r.fp, WORD)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.store_reg(self.mc, r.ip0, r.fp, ofs)
         self.push_gcmap(self.mc, gcmap=guardtok.gcmap)
         assert target
         self.mc.BL(target)
