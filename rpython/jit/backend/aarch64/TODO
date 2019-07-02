@@ -10,3 +10,22 @@ the two store_reg() [one in generate_quick_failure and the other in
 push_gcmap].  Instead we'd load the values in known unused registers,
 and the store_regs would occur inside self.failure_recovery_code
 (which 'target' points to).
+
+* here's what gcc uses to acquire and release a lock, instead of mc.DMB
+  in callbuilder.py.  It would make the control flow mess easier, too,
+  because we can simply loop back to .L2 (rare case) instead of trying
+  to handle it as a 3rd path.
+  - to release a lock:
+                (x0 is the address of the lock)
+                stlr xzr, [x0]
+  - to acquire a lock:
+                (x1 is the address of the lock)
+                mov x2, 1
+           .L2: ldxr x0, [x1]
+                stxr w3, x2, [x1]
+                cbnz w3, .L2   (I think it's a rare case when it follows .L2)
+                dmb ish        (see below)
+                (we're left with x0 being the old value in the lock, 0 or 1)
+  - note that "dmb" only appears sometimes, depending on the exact gcc
+    intrinsic I use.  I *think* that it can be safely removed, and so
+    it should be.
