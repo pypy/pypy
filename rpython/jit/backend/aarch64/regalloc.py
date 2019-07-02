@@ -477,7 +477,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_two_regs_op(self, op):
         loc1 = self.make_sure_var_in_reg(op.getarg(0))
-        loc2 = self.make_sure_var_in_reg(op.getarg(1))
+        loc2 = self.make_sure_var_in_reg(op.getarg(1), op.getarglist())
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.force_allocate_reg(op)
