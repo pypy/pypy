@@ -6,6 +6,7 @@ from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.aarch64.jump import remap_frame_layout # we use arm algo
 from rpython.jit.backend.llsupport import llerrno
+from rpython.jit.backend.aarch64.codebuilder import OverwritingBuilder
 
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi
@@ -203,24 +204,22 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         #     x20 == previous value of root_stack_top
         self.mc.gen_load_int(r.ip1.value, fastgil)
         self.mc.LDAXR(r.x1.value, r.ip1.value)    # load the lock value
-        self.mc.MOVZ_r_u16(r.ip0.value, 1, 0)
         self.mc.CMP_ri(r.x1.value, 0)            # is the lock free?
-        if self.asm.cpu.gc_ll_descr.gcrootmap:
-            jump_val = 0 # XXX
-        else:
-            jump_val = 3 * 4
-        self.mc.B_ofs_cond(jump_val, c.NE)
+
+        b1_location = self.mc.currpos()
+        self.mc.BRK() # B.ne to the call
+
         # jump over the next few instructions directly to the call
         self.mc.STLXR(r.ip0.value, r.ip1.value, r.x1.value)
                                                  # try to claim the lock
         self.mc.CMP_wi(r.x1.value, 0) # did this succeed?
-        self.mc.DMB() # <- previous jump here
-        self.mc.B_ofs_cond((8 + 4)* 4, c.EQ) # jump over the call
-        # the success of the lock acquisition is defined by
-        # 'EQ is true', or equivalently by 'r3 == 0'.
+        self.mc.DMB() #
+
+        b2_location = self.mc.currpos()
+        self.mc.BRK() # B.ne to the call
+
         #
         if self.asm.cpu.gc_ll_descr.gcrootmap:
-            raise Exception("not implemented yet")
             # When doing a call_release_gil with shadowstack, there
             # is the risk that the 'rpy_fastgil' was free but the
             # current shadowstack can be the one of a different
@@ -229,18 +228,26 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             # in 'x20'), and if not, we fall back to 'reacqgil_addr'.
             self.mc.LDR_ri(r.ip0.value, r.x19.value, 0)
             self.mc.CMP_rr(r.ip0.value, r.x20.value)
-            XXX
-            b1_location = self.mc.currpos()
-            self.mc.BKPT()                       # BEQ below
-            # there are two cases here: either EQ was false from
-            # the beginning, or EQ was true at first but the CMP
-            # made it false.  In the second case we need to
-            # release the fastgil here.  We know which case it is
-            # by checking again r3.
-            self.mc.CMP_ri(r.r3.value, 0)
-            self.mc.STR_ri(r.r3.value, r.r6.value, cond=c.EQ)
+            b3_location = self.mc.currpos()
+            self.mc.BRK() # B.ne to the call
+        else:
+            b3_location = 0
         #
+
+        self.mc.B_ofs((4 + 7) * 4)
+        # <- this is where we jump to
+        jmp_ofs = self.mc.currpos()
+
+        pmc = OverwritingBuilder(self.mc, b1_location, WORD)
+        pmc.B_ofs_cond(jmp_ofs - b1_location, c.NE)
+        pmc = OverwritingBuilder(self.mc, b1_location, WORD)
+        pmc.B_ofs_cond(jmp_ofs - b2_location, c.NE)
+        if self.asm.cpu.gc_ll_descr.gcrootmap:
+            pmc = OverwritingBuilder(self.mc, b1_location, WORD)
+            pmc.B_ofs_cond(jmp_ofs - b3_location, c.NE)
+
         # save the result we just got
+        # call reacquire_gil
         self.mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
         self.mc.STR_di(r.d0.value, r.sp.value, 0)
         self.mc.STR_ri(r.x0.value, r.sp.value, WORD)
