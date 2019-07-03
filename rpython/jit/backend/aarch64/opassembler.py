@@ -486,7 +486,8 @@ class ResOpAssembler(BaseAssembler):
 
     # -------------------------------- guard --------------------------------
 
-    def build_guard_token(self, op, frame_depth, arglocs, offset, fcond):
+    def build_guard_token(self, op, frame_depth, arglocs, offset, fcond,
+                          extra_offset=-1, extra_cond=-1):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
 
@@ -499,12 +500,15 @@ class ResOpAssembler(BaseAssembler):
                                     frame_depth=frame_depth,
                                     faildescrindex=faildescrindex)
         token.fcond = fcond
+        token.extra_offset = extra_offset
+        token.extra_cond = extra_cond
         return token
 
-    def _emit_guard(self, op, fcond, arglocs, is_guard_not_invalidated=False):
+    def _emit_guard(self, op, fcond, arglocs, is_guard_not_invalidated=False,
+                    extra_offset=-1, extra_cond=-1):
         pos = self.mc.currpos()
         token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos,
-                                       fcond)
+                                       fcond, extra_offset, extra_cond)
         token.offset = pos
         self.pending_guards.append(token)
         assert token.guard_not_invalidated() == is_guard_not_invalidated
@@ -575,24 +579,49 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_guard_class(self, op, arglocs):
         offset = self.cpu.vtable_offset
-        assert offset is not None
-        self.mc.LDR_ri(r.ip0.value, arglocs[0].value, offset)
-        self.mc.gen_load_int(r.ip1.value, arglocs[1].value)
-        self.mc.CMP_rr(r.ip0.value, r.ip1.value)
+        if offset is not None:
+            self.mc.LDR_ri(r.ip0.value, arglocs[0].value, offset)
+            self.mc.gen_load_int(r.ip1.value, arglocs[1].value)
+            self.mc.CMP_rr(r.ip0.value, r.ip1.value)
+        else:
+            expected_typeid = (self.cpu.gc_ll_descr
+                    .get_typeid_from_classptr_if_gcremovetypeptr(arglocs[1].value))
+            self._cmp_guard_gc_type(arglocs[0], expected_typeid)
         self._emit_guard(op, c.EQ, arglocs[2:])
+
+    def _cmp_guard_gc_type(self, loc_ptr, expected_typeid):
+        # Note that the typeid half-word is at offset 0 on a little-endian
+        # machine; it would be at offset 2 or 4 on a big-endian machine.
+        assert self.cpu.supports_guard_gc_type
+        self.mc.LDRH_ri(r.ip0.value, loc_ptr.value)
+        self.mc.gen_load_int(r.ip1.value, expected_typeid)
+        self.mc.CMP_rr(r.ip0.value, r.ip1.value)
 
     def emit_op_guard_nonnull_class(self, op, arglocs):
         offset = self.cpu.vtable_offset
-        assert offset is not None
-        # XXX a bit obscure think about a better way
-        self.mc.MOVZ_r_u16(r.ip0.value, 1, 0)
-        self.mc.MOVZ_r_u16(r.ip1.value, 0, 0)
-        self.mc.CMP_ri(arglocs[0].value, 0)
-        self.mc.B_ofs_cond(4 * (4 + 2), c.EQ)
-        self.mc.LDR_ri(r.ip0.value, arglocs[0].value, offset)
-        self.mc.gen_load_int_full(r.ip1.value, arglocs[1].value)
-        self.mc.CMP_rr(r.ip0.value, r.ip1.value)
-        self._emit_guard(op, c.EQ, arglocs[2:])     
+        if offset is not None:
+            # this is inefficient, but does not matter since translation
+            # is always with gcremovetypeptr
+            self.mc.MOVZ_r_u16(r.ip0.value, 1, 0)
+            self.mc.MOVZ_r_u16(r.ip1.value, 0, 0)
+            self.mc.CMP_ri(arglocs[0].value, 0)
+            self.mc.B_ofs_cond(4 * (4 + 2), c.EQ)
+            self.mc.LDR_ri(r.ip0.value, arglocs[0].value, offset)
+            self.mc.gen_load_int_full(r.ip1.value, arglocs[1].value)
+            self.mc.CMP_rr(r.ip0.value, r.ip1.value)
+            self._emit_guard(op, c.EQ, arglocs[2:])     
+        else:
+            self.mc.CMP_ri(arglocs[0].value, 0)
+            extra_offset = self.mc.currpos()
+            self.mc.BRK()
+            expected_typeid = (self.cpu.gc_ll_descr
+                    .get_typeid_from_classptr_if_gcremovetypeptr(arglocs[1].value))
+            self._cmp_guard_gc_type(arglocs[0], expected_typeid)
+            self._emit_guard(op, c.EQ, arglocs[2:], extra_offset, c.NE)
+
+    def emit_op_guard_gc_type(self, op, arglocs):
+        self._cmp_guard_gc_type(arglocs[0], arglocs[1].value)
+        self._emit_guard(op, c.EQ, arglocs[2:])
 
     def emit_op_guard_exception(self, op, arglocs):
         loc, resloc, pos_exc_value, pos_exception = arglocs[:4]

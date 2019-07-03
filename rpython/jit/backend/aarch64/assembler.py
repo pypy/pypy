@@ -993,6 +993,12 @@ class AssemblerARM64(ResOpAssembler):
                 mc = InstrBuilder()
                 mc.B_ofs_cond(relative_offset, c.get_opposite_of(tok.fcond))
                 mc.copy_to_raw_memory(guard_pos)
+                if tok.extra_offset != -1:
+                    mc = InstrBuilder()
+                    relative_offset = tok.pos_recovery_stub - tok.extra_offset
+                    guard_pos = block_start + tok.extra_offset
+                    mc.B_ofs_cond(relative_offset, c.get_opposite_of(tok.extra_cond))
+                    mc.copy_to_raw_memory(guard_pos)
             else:
                 clt.invalidate_positions.append((guard_pos, relative_offset))
 
