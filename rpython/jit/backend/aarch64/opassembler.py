@@ -2,6 +2,7 @@
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper import rclass
 from rpython.jit.metainterp.history import (AbstractFailDescr, ConstInt,
                                             INT, FLOAT, REF, VOID)
 from rpython.jit.backend.aarch64 import registers as r
@@ -622,6 +623,70 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_guard_gc_type(self, op, arglocs):
         self._cmp_guard_gc_type(arglocs[0], arglocs[1].value)
         self._emit_guard(op, c.EQ, arglocs[2:])
+
+    def emit_op_guard_is_object(self, op, arglocs):
+        assert self.cpu.supports_guard_gc_type
+        loc_object = arglocs[0]
+        # idea: read the typeid, fetch one byte of the field 'infobits' from
+        # the big typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        self.mc.LDRH_ri(r.ip0.value, loc_object.value, 0)
+        #
+
+        base_type_info, shift_by, sizeof_ti = (
+            self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+        infobits_offset, IS_OBJECT_FLAG = (
+            self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
+
+        self.mc.gen_load_int(r.ip1.value, base_type_info + infobits_offset)
+        if shift_by > 0:
+            self.mc.LSL_ri(r.ip0.value, r.ip0.value, shift_by)
+        self.mc.LDRB_rr(r.ip0.value, r.ip0.value, r.ip1.value)
+        self.mc.MOVZ_r_u16(r.ip1.value, IS_OBJECT_FLAG & 0xff, 0)
+        self.mc.TST_rr_shift(r.ip0.value, r.ip1.value, 0)
+        self._emit_guard(op, c.NE, arglocs[1:])
+
+    def emit_op_guard_subclass(self, op, arglocs):
+        assert self.cpu.supports_guard_gc_type
+        loc_object = arglocs[0]
+        loc_check_against_class = arglocs[1]
+        offset = self.cpu.vtable_offset
+        offset2 = self.cpu.subclassrange_min_offset
+        if offset is not None:
+            # read this field to get the vtable pointer
+            self.mc.LDR_ri(r.ip0.value, loc_object.value, offset)
+            # read the vtable's subclassrange_min field
+            self.mc.LDR_ri(r.ip0.value, r.ip0.value, offset2)
+        else:
+            # read the typeid
+            self.mc.LDRH_ri(r.ip0.value, loc_object.value, 0)
+            # read the vtable's subclassrange_min field, as a single
+            # step with the correct offset
+            base_type_info, shift_by, sizeof_ti = (
+                self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+
+            self.mc.gen_load_int(r.ip1.value,
+                                 base_type_info + sizeof_ti + offset2)
+            if shift_by > 0:
+                self.mc.LSL_ri(r.ip0.value, r.ip0.value, shift_by)
+            self.mc.LDR_rr(r.ip0.value, r.ip0.value, r.ip1.value)
+
+        # get the two bounds to check against
+        vtable_ptr = loc_check_against_class.getint()
+        vtable_ptr = rffi.cast(rclass.CLASSTYPE, vtable_ptr)
+        check_min = vtable_ptr.subclassrange_min
+        check_max = vtable_ptr.subclassrange_max
+        assert check_max > check_min
+        check_diff = check_max - check_min - 1
+        # check by doing the unsigned comparison (tmp - min) < (max - min)
+        self.mc.gen_load_int(r.ip1.value, check_min)
+        self.mc.SUB_rr(r.ip0.value, r.ip0.value, r.ip1.value)
+        if check_diff <= 0xff:
+            self.mc.CMP_ri(r.ip0.value, check_diff)
+        else:
+            self.mc.gen_load_int(r.ip1.value, check_diff)
+            self.mc.CMP_rr(r.ip0.value, r.ip1.value)
+        # the guard passes if we get a result of "below or equal"
+        self._emit_guard(op, c.LS, arglocs[2:])
 
     def emit_op_guard_exception(self, op, arglocs):
         loc, resloc, pos_exc_value, pos_exception = arglocs[:4]

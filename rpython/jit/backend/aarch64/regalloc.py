@@ -829,6 +829,10 @@ class Regalloc(BaseRegalloc):
     prepare_op_guard_gc_type = prepare_op_guard_class
     prepare_op_guard_subclass = prepare_op_guard_class
 
+    def prepare_op_guard_is_object(self, op, fcond):
+        loc_object = self.make_sure_var_in_reg(op.getarg(0))
+        return [loc_object] + self._guard_impl(op)
+
     def prepare_op_guard_not_invalidated(self, op):
         return self._guard_impl(op)
 
