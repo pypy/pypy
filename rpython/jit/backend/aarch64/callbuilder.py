@@ -234,7 +234,8 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             b3_location = 0
         #
 
-        self.mc.B_ofs((4 + 7) * 4)
+        jmp_pos = self.mc.currpos()
+        self.mc.BRK()
         # <- this is where we jump to
         jmp_ofs = self.mc.currpos()
 
@@ -255,6 +256,9 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         self.mc.LDR_di(r.d0.value, r.sp.value, 0)
         self.mc.LDR_ri(r.x0.value, r.sp.value, WORD)
         self.mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
+
+        pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
+        pmc.B_ofs(self.mc.currpos() - jmp_pos, c.NE)
 
         if not we_are_translated():                    # for testing: now we can accesss
             self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
