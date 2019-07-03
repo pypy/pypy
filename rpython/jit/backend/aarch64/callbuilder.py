@@ -241,10 +241,10 @@ class Aarch64CallBuilder(AbstractCallBuilder):
 
         pmc = OverwritingBuilder(self.mc, b1_location, WORD)
         pmc.B_ofs_cond(jmp_ofs - b1_location, c.NE)
-        pmc = OverwritingBuilder(self.mc, b1_location, WORD)
+        pmc = OverwritingBuilder(self.mc, b2_location, WORD)
         pmc.B_ofs_cond(jmp_ofs - b2_location, c.NE)
         if self.asm.cpu.gc_ll_descr.gcrootmap:
-            pmc = OverwritingBuilder(self.mc, b1_location, WORD)
+            pmc = OverwritingBuilder(self.mc, b3_location, WORD)
             pmc.B_ofs_cond(jmp_ofs - b3_location, c.NE)
 
         # save the result we just got
@@ -258,7 +258,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         self.mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
 
         pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
-        pmc.B_ofs(self.mc.currpos() - jmp_pos, c.NE)
+        pmc.B_ofs(self.mc.currpos() - jmp_pos)
 
         if not we_are_translated():                    # for testing: now we can accesss
             self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
