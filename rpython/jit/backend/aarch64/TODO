@@ -45,3 +45,15 @@
   the future to be a bit shorter.  Rewrite this two places to use the
   proper way instead of a magic "40" (or at least assert that it was
   really 40).
+
+
+* use "CBNZ register, offset" (compare-and-branch-if-not-zero)
+  instead of a CMP+BNE pair.  Same with CBZ instead of CMP+BEQ
+
+
+* when we need to save things on the stack, we typically push two words
+  and pop them later.  It would be cheaper if we reserved two locations
+  in the stack from _call_header, then we could just write there.
+  *OR*
+  maybe it's enough if we use the form "str x0, [sp, !#offset]" which
+  combines in a single instruction the "str" with the change of sp

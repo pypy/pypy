@@ -172,3 +172,18 @@ class TestInstrBuilder(object):
         cb = CodeBuilder()
         cb.STXR(r.x6.value, r.x11.value, r.x22.value)
         assert cb.hexdump() == assemble("STXR w6, x11, [x22]")
+
+    def test_CBNZ(self):
+        cb = CodeBuilder()
+        cb.CBNZ(r.x6.value, -8)
+        assert cb.hexdump() == assemble("CBNZ x6, -8")
+
+    def test_CBNZ_w(self):
+        cb = CodeBuilder()
+        cb.CBNZ_w(r.x6.value, -8)
+        assert cb.hexdump() == assemble("CBNZ w6, -8")
+
+    def test_CBZ(self):
+        cb = CodeBuilder()
+        cb.CBZ(r.x25.value, -888)
+        assert cb.hexdump() == assemble("CBZ x25, -888")
