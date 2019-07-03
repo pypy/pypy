@@ -411,11 +411,25 @@ class AbstractAarch64Builder(object):
         base = 0b11101010000
         self.write32((base << 21) | (rm << 16) | (shift << 10) | (rn << 5) | 0b11111)
 
+    def STLR(self, rt, rn):
+        base = 0b11001000100
+        self.write32((base << 21) | (0b11111 << 16) | (0b111111 << 10) | (rn << 5) | rt)
+
+    def LDXR(self, rt, rn):
+        base = 0b1100100001011111011111
+        self.write32((base << 10) | (rn << 5) | rt)
+
+    def STXR(self, rs, rt, rn):
+        base = 0b11001000000
+        self.write32((base << 21) | (rs << 16) | (0b011111 << 10) | (rn << 5) | rt)
+
     def LDAXR(self, rt, rn):
+        # XXX DON'T USE
         base = 0b1100100001011111111111
         self.write32((base << 10) | (rn << 5) | rt)
 
     def STLXR(self, rt, rn, rs):
+        # XXX DON'T USE
         base = 0b11001000000
         self.write32((base << 21) | (rs << 16) | (0b111111 << 10) | (rn << 5) | rt)
 
@@ -463,6 +477,7 @@ class AbstractAarch64Builder(object):
         self.write32(0b11010100001 << 21)
 
     def DMB(self):
+        # XXX DON'T USE
         self.write32(0b11010101000000110011111110111111)
 
     def gen_load_int_full(self, r, value):

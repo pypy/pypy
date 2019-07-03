@@ -157,3 +157,18 @@ class TestInstrBuilder(object):
         cb = CodeBuilder()
         cb.BRK()
         assert cb.hexdump() == assemble("BRK 0")
+
+    def test_STLR(self):
+        cb = CodeBuilder()
+        cb.STLR(r.x11.value, r.x22.value)
+        assert cb.hexdump() == assemble("STLR x11, [x22]")
+
+    def test_LDXR(self):
+        cb = CodeBuilder()
+        cb.LDXR(r.x11.value, r.x22.value)
+        assert cb.hexdump() == assemble("LDXR x11, [x22]")
+
+    def test_STXR(self):
+        cb = CodeBuilder()
+        cb.STXR(r.x6.value, r.x11.value, r.x22.value)
+        assert cb.hexdump() == assemble("STXR w6, x11, [x22]")
