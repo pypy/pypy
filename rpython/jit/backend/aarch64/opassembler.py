@@ -618,7 +618,7 @@ class ResOpAssembler(BaseAssembler):
             expected_typeid = (self.cpu.gc_ll_descr
                     .get_typeid_from_classptr_if_gcremovetypeptr(arglocs[1].value))
             self._cmp_guard_gc_type(arglocs[0], expected_typeid)
-            self._emit_guard(op, c.EQ, arglocs[2:], extra_offset, c.NE)
+            self._emit_guard(op, c.EQ, arglocs[2:], False, extra_offset, c.NE)
 
     def emit_op_guard_gc_type(self, op, arglocs):
         self._cmp_guard_gc_type(arglocs[0], arglocs[1].value)
