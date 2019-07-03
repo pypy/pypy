@@ -68,7 +68,7 @@ def run_guards_translated(gcremovetypeptr):
 
     loop1a = parse("""
     [p0]
-    guard_class(p0, ConstInt(vtable_B), descr=faildescr) []
+    guard_nonnull_class(p0, ConstInt(vtable_B), descr=faildescr) []
     finish(descr=finaldescr)
     """, namespace={'finaldescr': finaldescr,
                     'faildescr': faildescr,
