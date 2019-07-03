@@ -146,6 +146,7 @@ def getcpufeatures(backend_name="auto"):
         MODEL_X86_NO_SSE2: ['longlong'],
         MODEL_X86_64: ['floats', 'singlefloats'],
         MODEL_ARM: ['floats', 'singlefloats', 'longlong'],
+        MODEL_ARM64: ['floats'],
         MODEL_PPC_64: ['floats'],
         MODEL_S390_64: ['floats'],
     }[backend_name]

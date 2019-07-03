@@ -423,15 +423,15 @@ class AbstractAarch64Builder(object):
         base = 0b11001000000
         self.write32((base << 21) | (rs << 16) | (0b011111 << 10) | (rn << 5) | rt)
 
-    def LDAXR(self, rt, rn):
-        # XXX DON'T USE
-        base = 0b1100100001011111111111
-        self.write32((base << 10) | (rn << 5) | rt)
+    #def LDAXR(self, rt, rn):
+    #    don't use any more
+    #    base = 0b1100100001011111111111
+    #    self.write32((base << 10) | (rn << 5) | rt)
 
-    def STLXR(self, rt, rn, rs):
-        # XXX DON'T USE
-        base = 0b11001000000
-        self.write32((base << 21) | (rs << 16) | (0b111111 << 10) | (rn << 5) | rt)
+    #def STLXR(self, rt, rn, rs):
+    #    don't use any more
+    #    base = 0b11001000000
+    #    self.write32((base << 21) | (rs << 16) | (0b111111 << 10) | (rn << 5) | rt)
 
     def NOP(self):
         self.write32(0b11010101000000110010000000011111)
@@ -439,7 +439,7 @@ class AbstractAarch64Builder(object):
     def B_ofs(self, ofs):
         base = 0b000101
         assert ofs & 0x3 == 0
-        assert -(1 << (26 + 2)) < ofs < 1<<(26 + 2)
+        assert -(1 << (26 + 2)) <= ofs < 1<<(26 + 2)
         if ofs < 0:
             ofs = (1 << 26) - (-ofs >> 2)
         else:
@@ -449,10 +449,32 @@ class AbstractAarch64Builder(object):
     def B_ofs_cond(self, ofs, cond):
         base = 0b01010100
         assert ofs & 0x3 == 0
-        assert -1 << 21 < ofs < 1 << 21
+        assert -1 << 21 <= ofs < 1 << 21
         imm = ofs >> 2
         assert imm > 0 # we seem not to need the - jump
         self.write32((base << 24) | (imm << 5) | cond)
+
+    def CBNZ(self, rt, ofs):
+        base = 0b10110101
+        assert -1 << 21 <= ofs < 1 << 21
+        imm = ofs >> 2
+        imm &= (1 << 19) - 1
+        self.write32((base << 24) | (imm << 5) | rt)
+
+    def CBNZ_w(self, rt, ofs):
+        # checks the 'w' part of the register (32 bits)
+        base = 0b00110101
+        assert -1 << 21 <= ofs < 1 << 21
+        imm = ofs >> 2
+        imm &= (1 << 19) - 1
+        self.write32((base << 24) | (imm << 5) | rt)
+
+    def CBZ(self, rt, ofs):
+        base = 0b10110100
+        assert -1 << 21 <= ofs < 1 << 21
+        imm = ofs >> 2
+        imm &= (1 << 19) - 1
+        self.write32((base << 24) | (imm << 5) | rt)
 
     def B(self, target):
         target = rffi.cast(lltype.Signed, target)
@@ -476,9 +498,9 @@ class AbstractAarch64Builder(object):
     def BRK(self):
         self.write32(0b11010100001 << 21)
 
-    def DMB(self):
-        # XXX DON'T USE
-        self.write32(0b11010101000000110011111110111111)
+    #def DMB(self):
+    #    don't use any more
+    #    self.write32(0b11010101000000110011111110111111)
 
     def gen_load_int_full(self, r, value):
         self.MOVZ_r_u16(r, value & 0xFFFF, 0)

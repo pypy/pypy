@@ -138,19 +138,19 @@ class Aarch64CallBuilder(AbstractCallBuilder):
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
         assert not self.asm._is_asmgcc()
+        RFASTGILPTR = r.x19    # constant &rpy_fastgil
+        RSHADOWOLD = r.x20     # old value of the shadowstack pointer,
+                               #    which we save here for later comparison
 
-        # Save this thread's shadowstack pointer into r7, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             rst = gcrootmap.get_root_stack_top_addr()
-            self.mc.gen_load_int(r.x19.value, rst)
-            self.mc.LDR_ri(r.x20.value, r.x19.value, 0)
+            self.mc.gen_load_int(r.ip1.value, rst)
+            self.mc.LDR_ri(RSHADOWOLD.value, r.ip1.value, 0)
 
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
-        self.mc.DMB()
-        self.mc.gen_load_int(r.ip1.value, fastgil)
-        self.mc.MOVZ_r_u16(r.ip0.value, 0, 0)
-        self.mc.STR_ri(r.ip0.value, r.ip1.value, 0)
+        self.mc.gen_load_int(RFASTGILPTR.value, fastgil)
+        self.mc.STLR(r.xzr.value, RFASTGILPTR.value)
 
         if not we_are_translated():                     # for testing: we should not access
             self.mc.ADD_ri(r.fp.value, r.fp.value, 1)   # fp any more
@@ -199,66 +199,82 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             self.mc.STR_ri(r.ip0.value, r.x3.value, rpy_errno)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
-        # try to reacquire the lock.
-        #     x19 == &root_stack_top
-        #     x20 == previous value of root_stack_top
-        self.mc.gen_load_int(r.ip1.value, fastgil)
-        self.mc.LDAXR(r.x1.value, r.ip1.value)    # load the lock value
-        self.mc.CMP_ri(r.x1.value, 0)            # is the lock free?
+        # try to reacquire the lock.  The following two values are saved
+        # across the call and are still alive now:
+        RFASTGILPTR = r.x19    # constant &rpy_fastgil
+        RSHADOWOLD = r.x20     # old value of the shadowstack pointer
+
+        # this comes from gcc compiling this code:
+        #    while (__atomic_test_and_set(&lock, __ATOMIC_ACQUIRE))
+        #        ;
+        self.mc.gen_load_int(r.x2.value, 1)
+        self.mc.LDXR(r.x1.value, RFASTGILPTR.value)
+        self.mc.STXR(r.x3.value, r.x2.value, RFASTGILPTR.value)
+        self.mc.CBNZ_w(r.x3.value, -8)
+        # now x1 is the old value of the lock, and the lock contains 1
 
         b1_location = self.mc.currpos()
-        self.mc.BRK() # B.ne to the call
+        self.mc.BRK()        # boehm: patched with a CBZ (jump if x1 == 0)
+                             # shadowstack: patched with CBNZ instead
 
-        # jump over the next few instructions directly to the call
-        self.mc.STLXR(r.ip0.value, r.ip1.value, r.x1.value)
-                                                 # try to claim the lock
-        self.mc.CMP_wi(r.x1.value, 0) # did this succeed?
-        self.mc.DMB() #
-
-        b2_location = self.mc.currpos()
-        self.mc.BRK() # B.ne to the call
-
-        #
-        if self.asm.cpu.gc_ll_descr.gcrootmap:
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
             # When doing a call_release_gil with shadowstack, there
             # is the risk that the 'rpy_fastgil' was free but the
             # current shadowstack can be the one of a different
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in 'x20'), and if not, we fall back to 'reacqgil_addr'.
-            self.mc.LDR_ri(r.ip0.value, r.x19.value, 0)
-            self.mc.CMP_rr(r.ip0.value, r.x20.value)
+            rst = gcrootmap.get_root_stack_top_addr()
+            self.mc.gen_load_int(r.ip1.value, rst)
+            self.mc.LDR_ri(r.ip0.value, r.ip1.value, 0)   # new shadowstack
+            self.mc.CMP_rr(r.ip0.value, RSHADOWOLD.value)
             b3_location = self.mc.currpos()
-            self.mc.BRK() # B.ne to the call
+            self.mc.BRK() # B.eq forward
+
+            # revert the rpy_fastgil acquired above, so that the
+            # general 'reacqgil_addr' below can acquire it again...
+            self.mc.STR_ri(r.xzr.value, RFASTGILPTR.value, 0)
+
+            # patch the b1_location above, with "CBNZ here"
+            pmc = OverwritingBuilder(self.mc, b1_location, WORD)
+            pmc.CBNZ(r.x1.value, self.mc.currpos() - b1_location)
+
+            open_location = b3_location
         else:
-            b3_location = 0
-        #
+            open_location = b1_location
 
-        jmp_pos = self.mc.currpos()
-        self.mc.BRK()
-        # <- this is where we jump to
-        jmp_ofs = self.mc.currpos()
-
-        pmc = OverwritingBuilder(self.mc, b1_location, WORD)
-        pmc.B_ofs_cond(jmp_ofs - b1_location, c.NE)
-        pmc = OverwritingBuilder(self.mc, b2_location, WORD)
-        pmc.B_ofs_cond(jmp_ofs - b2_location, c.NE)
-        if self.asm.cpu.gc_ll_descr.gcrootmap:
-            pmc = OverwritingBuilder(self.mc, b3_location, WORD)
-            pmc.B_ofs_cond(jmp_ofs - b3_location, c.NE)
-
+        # Yes, we need to call the reacqgil() function.
         # save the result we just got
-        # call reacquire_gil
-        self.mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
-        self.mc.STR_di(r.d0.value, r.sp.value, 0)
-        self.mc.STR_ri(r.x0.value, r.sp.value, WORD)
-        self.mc.BL(self.asm.reacqgil_addr)
-        self.mc.LDR_di(r.d0.value, r.sp.value, 0)
-        self.mc.LDR_ri(r.x0.value, r.sp.value, WORD)
-        self.mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
+        RSAVEDRES = RFASTGILPTR     # can reuse this reg here to save things
+        reg = self.resloc
+        if reg is not None:
+            if reg.is_core_reg():
+                self.mc.MOV_rr(RSAVEDRES.value, reg.value)
+            elif reg.is_vfp_reg():
+                self.mc.SUB_ri(r.sp.value, r.sp.value, 2 * WORD)
+                self.mc.STR_di(reg.value, r.sp.value, 0)
 
-        pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
-        pmc.B_ofs(self.mc.currpos() - jmp_pos)
+        # call the function
+        self.mc.BL(self.asm.reacqgil_addr)
+
+        # restore the saved register
+        if reg is not None:
+            if reg.is_core_reg():
+                self.mc.MOV_rr(reg.value, RSAVEDRES.value)
+            elif reg.is_vfp_reg():
+                self.mc.LDR_di(reg.value, r.sp.value, 0)
+                self.mc.ADD_ri(r.sp.value, r.sp.value, 2 * WORD)
+
+        # now patch the still-open jump above:
+        #     boehm: patch b1_location with a CBZ(x1)
+        #     shadowstack: patch b3_location with BEQ
+        pmc = OverwritingBuilder(self.mc, open_location, WORD)
+        offset = self.mc.currpos() - open_location
+        if gcrootmap:
+            pmc.B_ofs_cond(offset, c.EQ)
+        else:
+            pmc.CBZ(r.x1.value, offset)
 
         if not we_are_translated():                    # for testing: now we can accesss
             self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
