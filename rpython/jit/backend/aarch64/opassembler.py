@@ -593,7 +593,7 @@ class ResOpAssembler(BaseAssembler):
         # Note that the typeid half-word is at offset 0 on a little-endian
         # machine; it would be at offset 2 or 4 on a big-endian machine.
         assert self.cpu.supports_guard_gc_type
-        self.mc.LDRH_ri(r.ip0.value, loc_ptr.value)
+        self.mc.LDRH_ri(r.ip0.value, loc_ptr.value, 0)
         self.mc.gen_load_int(r.ip1.value, expected_typeid)
         self.mc.CMP_rr(r.ip0.value, r.ip1.value)
 
