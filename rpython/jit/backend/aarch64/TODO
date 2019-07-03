@@ -37,3 +37,11 @@
   - note that "dmb" only appears sometimes, depending on the exact gcc
     intrinsic I use.  I *think* that it can be safely removed, and so
     it should be.
+
+
+* malloc_cond() and malloc_cond_varsize_frame() hard-code forward jump
+  distances by guessing the number of instructions that follows.  Bad
+  idea because some of these instructions could easily be optimized in
+  the future to be a bit shorter.  Rewrite this two places to use the
+  proper way instead of a magic "40" (or at least assert that it was
+  really 40).
