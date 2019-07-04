@@ -594,7 +594,7 @@ class ResOpAssembler(BaseAssembler):
         # Note that the typeid half-word is at offset 0 on a little-endian
         # machine; it would be at offset 2 or 4 on a big-endian machine.
         assert self.cpu.supports_guard_gc_type
-        self.mc.LDRH_ri(r.ip0.value, loc_ptr.value, 0)
+        self.mc.LDR_uint32_ri(r.ip0.value, loc_ptr.value, 0)
         self.mc.gen_load_int(r.ip1.value, expected_typeid)
         self.mc.CMP_rr(r.ip0.value, r.ip1.value)
 
@@ -629,7 +629,7 @@ class ResOpAssembler(BaseAssembler):
         loc_object = arglocs[0]
         # idea: read the typeid, fetch one byte of the field 'infobits' from
         # the big typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
-        self.mc.LDRH_ri(r.ip0.value, loc_object.value, 0)
+        self.mc.LDR_uint32_ri(r.ip0.value, loc_object.value, 0)
         #
 
         base_type_info, shift_by, sizeof_ti = (
@@ -658,7 +658,7 @@ class ResOpAssembler(BaseAssembler):
             self.mc.LDR_ri(r.ip0.value, r.ip0.value, offset2)
         else:
             # read the typeid
-            self.mc.LDRH_ri(r.ip0.value, loc_object.value, 0)
+            self.mc.LDR_uint32_ri(r.ip0.value, loc_object.value, 0)
             # read the vtable's subclassrange_min field, as a single
             # step with the correct offset
             base_type_info, shift_by, sizeof_ti = (
