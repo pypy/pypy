@@ -886,6 +886,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_cond_call_value_i(self, op, arglocs):
         self._emit_op_cond_call(op, arglocs, c.NE)
+    emit_op_cond_call_value_r = emit_op_cond_call_value_i
 
     def emit_guard_op_cond_call(self, prevop, op, fcond, arglocs):
         self._emit_op_cond_call(op, arglocs, c.get_opposite_of(fcond))

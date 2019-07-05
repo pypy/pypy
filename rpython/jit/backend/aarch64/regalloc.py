@@ -750,7 +750,8 @@ class Regalloc(BaseRegalloc):
         return self._prepare_op_cond_call(op, False)
 
     def prepare_op_cond_call_value_i(self, op):
-        return self._prepare_op_cond_call(op, False)        
+        return self._prepare_op_cond_call(op, False)
+    prepare_op_cond_call_value_r = prepare_op_cond_call_value_i
 
     def prepare_guard_op_cond_call(self, op, prevop):
         fcond = self.assembler.dispatch_comparison(prevop)
