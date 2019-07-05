@@ -1091,7 +1091,7 @@ class Regalloc(BaseRegalloc):
             if box.type == REF and self.rm.is_still_alive(box):
                 assert not noregs
                 assert loc.is_core_reg()
-                val = loc.value
+                val = self.cpu.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
