@@ -350,13 +350,13 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     raw = buf.raw if buffering else buf
     raw.name = name
     # We normally use newline='\n' below, which turns off any translation.
-    # However, on Windows, and if unbuffered is false, then we must enable
+    # However, on Windows (independently of -u), then we must enable
     # the Universal Newline mode (set by newline = None): on input, \r\n
     # is translated into \n; on output, \n is translated into \r\n.
     # We must never enable the Universal Newline mode on POSIX: CPython
     # never interprets '\r\n' in stdin as meaning just '\n', unlike what
     # it does if you explicitly open a file in text mode.
-    newline = None if sys.platform == 'win32' and not unbuffered else '\n'
+    newline = None if sys.platform == 'win32' else '\n'
     stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
                               line_buffering=unbuffered or raw.isatty())
     stream.mode = mode
