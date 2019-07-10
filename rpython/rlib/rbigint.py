@@ -3013,7 +3013,7 @@ def gcd_lehmer(a, b):
         a, b = b, a
 
     while b.size > 1:
-        a_ms = a.digit(a.size-1)
+        a_ms = a.digit(abs(a.size-1))
 
         x = 0
         while a_ms & (0xFF << SHIFT-8) == 0:
@@ -3024,12 +3024,12 @@ def gcd_lehmer(a, b):
             a_ms <<= 1
             x += 1
 
-        a_ms |= a.digit(a.size-2) >> SHIFT-x
+        a_ms |= a.digit(abs(a.size-2)) >> SHIFT-x
 
         if a.size == b.size:
-            b_ms = (b.digit(b.size-1) << x) | (b.digit(b.size-2) >> SHIFT-x)
+            b_ms = (b.digit(abs(b.size-1)) << x) | (b.digit(abs(b.size-2)) >> SHIFT-x)
         elif a.size == b.size+1:
-            b_ms = b.digit(b.size-1) >> SHIFT-x
+            b_ms = b.digit(abs(b.size-1)) >> SHIFT-x
         else:
             b_ms = 0
 
