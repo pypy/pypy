@@ -373,6 +373,10 @@ class Regalloc(BaseRegalloc):
             if box.type == REF and self.rm.is_still_alive(box):
                 assert not noregs
                 assert loc.is_core_reg()
+                #val = self.cpu.all_reg_indexes[loc.value]
+                # ^^^ That is the correct way to write it down, but as a
+                #     special case in the arm backend only, this is equivalent
+                #     to just the line below:
                 val = loc.value
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
