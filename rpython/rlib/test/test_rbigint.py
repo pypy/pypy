@@ -11,12 +11,13 @@ import pytest
 from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
-    _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError)
+    _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
+    gcd_lehmer, lehmer_xgcd, gcd_binary)
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
-from hypothesis import given, strategies, example
+from hypothesis import given, strategies, example, settings
 
 longs = strategies.builds(
     long, strategies.integers())
@@ -836,6 +837,27 @@ class Test_rbigint(object):
         t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
         assert s == t
 
+    def test_gcd(self):
+        assert gcd_binary(2*3*7**2, 2**2*7) == 2*7
+        assert gcd_binary(-2*3*7**2, 2**2*7) == 2*7
+        assert gcd_binary(2*3*7**2, -2**2*7) == 2*7
+        assert gcd_binary(-2*3*7**2, -2**2*7) == 2*7
+        assert gcd_binary(1234, 5678) == 2
+        assert gcd_binary(13, 13**6) == 13
+        assert gcd_binary(12, 0) == 12
+        assert gcd_binary(0, 0) == 0
+
+        x = rbigint.fromlong(9969216677189303386214405760200)
+        y = rbigint.fromlong(16130531424904581415797907386349)
+        g = x.gcd(y)
+        assert g == rbigint.fromlong(1)
+
+        for x in gen_signs([12843440367927679363613699686751681643652809878241019930204617606850071260822269719878805]):
+            x = rbigint.fromlong(x)
+            for y in gen_signs([12372280584571061381380725743231391746505148712246738812788540537514927882776203827701778968535]):
+                y = rbigint.fromlong(y)
+                g = x.gcd(y)
+                assert g.tolong() == 18218089570126697993340888567155155527541105
 
 
 class TestInternalFunctions(object):
@@ -1255,3 +1277,52 @@ class TestHypothesis(object):
         assert lx.lt(ly) == (x < y)
         assert lx.eq(ly) == (x == y)
         assert lx.le(ly) == (x <= y)
+
+    @given(ints, ints, ints)
+    def test_gcd_binary(self, x, y, z):
+        x, y, z = abs(x), abs(y), abs(z)
+
+        def test(a, b, res):
+            g = gcd_binary(a, b)
+
+            assert g == res
+
+        a, b = x, y
+        while b:
+            a, b = b, a % b
+
+        gcd_x_y = a
+
+        test(x, y, gcd_x_y)
+        test(x, 0, x)
+        test(0, x, x)
+        test(x * z, y * z, gcd_x_y * z)
+        test(x * z, z, z)
+        test(z, y * z, z)
+
+    @given(biglongs, biglongs, biglongs)
+    @example(112233445566778899112233445566778899112233445566778899,
+             13579246801357924680135792468013579246801,
+             99887766554433221113)
+    @settings(max_examples=10)
+    def test_gcd(self, x, y, z):
+        print(x, y, z)
+        x, y, z = abs(x), abs(y), abs(z)
+
+        def test(a, b, res):
+            g = rbigint.fromlong(a).gcd(rbigint.fromlong(b)).tolong()
+
+            assert g == res
+
+        a, b = x, y
+        while b:
+            a, b = b, a % b
+
+        gcd_x_y = a
+
+        test(x, y, gcd_x_y)
+        test(x * z, y * z, gcd_x_y * z)
+        test(x * z, z, z)
+        test(z, y * z, z)
+        test(x, 0, x)
+        test(0, x, x)
