@@ -839,13 +839,13 @@ class Test_rbigint(object):
 
     def test_gcd(self):
         assert gcd_binary(2*3*7**2, 2**2*7) == 2*7
-        assert gcd_binary(-2*3*7**2, 2**2*7) == 2*7
         assert gcd_binary(2*3*7**2, -2**2*7) == 2*7
-        assert gcd_binary(-2*3*7**2, -2**2*7) == 2*7
         assert gcd_binary(1234, 5678) == 2
         assert gcd_binary(13, 13**6) == 13
         assert gcd_binary(12, 0) == 12
         assert gcd_binary(0, 0) == 0
+        assert pytest.raises(ValueError, gcd_binary, -10, 0)
+        assert pytest.raises(ValueError, gcd_binary, 10, -10)
 
         x = rbigint.fromlong(9969216677189303386214405760200)
         y = rbigint.fromlong(16130531424904581415797907386349)

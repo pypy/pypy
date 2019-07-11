@@ -2969,13 +2969,16 @@ def parse_string_from_binary_base(parser):
 
 
 def gcd_binary(a, b):
+    """ Compute the greatest common divisor of non-negative integers a and b
+    using the binary GCD algorithm. Raises ValueError on negative input. """
     if a == 0:
         return b
 
     if b == 0:
         return a
 
-    a, b = abs(a), abs(b)
+    if a < 0 or b < 0:
+        raise ValueError
 
     shift = 0
     while (a | b) & 1 == 0:
