@@ -489,13 +489,11 @@ only close to themselves."""
 def gcd(space, w_a, w_b):
     """greatest common divisor of a and b"""
     from rpython.rlib import rbigint
-    w_a = space.index(w_a)
-    w_b = space.index(w_b)
+    w_a = space.abs(space.index(w_a))
+    w_b = space.abs(space.index(w_b))
     try:
         a = space.int_w(w_a)
         b = space.int_w(w_b)
-        g = rbigint.gcd_binary(a, b)
-        return space.newint(g)
     except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
@@ -504,3 +502,6 @@ def gcd(space, w_a, w_b):
         b = space.bigint_w(w_b)
         g = a.gcd(b)
         return space.newlong_from_rbigint(g)
+    else:
+        g = rbigint.gcd_binary(a, b)
+        return space.newint(g)
