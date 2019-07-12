@@ -13,6 +13,8 @@ extern "C" {
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
 #define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
+#define Py_RETURN_NOTIMPLEMENTED \
+    return Py_INCREF(Py_NotImplemented), Py_NotImplemented
 
 /*
 CPython has this for backwards compatibility with really old extensions, and now
