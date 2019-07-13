@@ -558,6 +558,42 @@ class AppTestCoroutine:
         assert state == 2
     """
 
+    def test_async_aclose_await_in_finally_with_exception(self): """
+        import types
+
+        @types.coroutine
+        def coro():
+            yield 'coro'
+
+        state = 0
+        async def ag():
+            nonlocal state
+            try:
+                yield
+            finally:
+                state = 1
+                try:
+                    await coro()
+                except Exception as exc:
+                    state = exc
+
+        async def run():
+            a = ag()
+            async for i in a:
+                break
+            await a.aclose()
+        a = run()
+        assert state == 0
+        assert a.send(None) == 'coro'
+        assert state == 1
+        exc = RuntimeError()
+        try:
+            a.throw(exc)
+        except StopIteration:
+            pass
+        assert state == exc
+    """
+
     def test_async_aclose_in_finalize_hook_await_in_finally(self): """
         import gc
         import sys
