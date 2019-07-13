@@ -1076,8 +1076,11 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.SUB_rr(r.ip0.value, r.ip0.value, r.sp.value) # SUB ip, current
             # if ofs
             self.mc.CMP_rr(r.ip0.value, r.ip1.value)             # CMP ip, lr
-            self.mc.B_ofs_cond(4 + 2, c.LS)
+            pos = self.mc.currpos()
+            self.mc.BRK()
             self.mc.B(self.stack_check_slowpath)                 # call if ip > lr
+            pmc = OverwritingBuilder(self.mc, pos, WORD)
+            pmc.B_ofs_cond(self.mc.currpos() - pos, c.LS)
 
     def _call_header(self):
         stack_size = (len(r.callee_saved_registers) + 4) * WORD
