@@ -328,9 +328,14 @@ class W_ImportError(W_Exception):
         self.w_name = kw_w.pop('name', space.w_None)
         self.w_path = kw_w.pop('path', space.w_None)
         if kw_w:
-            # CPython displays this, but it's not quite right.
-            raise oefmt(space.w_TypeError,
-                        "ImportError does not take keyword arguments")
+            for keyword in __args__.keywords:
+                if keyword in kw_w:
+                    raise oefmt(
+                        space.w_TypeError,
+                        "'%s' is an invalid keyword argument for this function" % (
+                            keyword
+                        )
+                    )
         W_Exception.descr_init(self, space, args_w)
 
 
