@@ -1073,7 +1073,11 @@ class AssemblerARM64(ResOpAssembler):
             self.mc.gen_load_int(r.ip1.value, lengthaddr)        # load ip1, lengh
             self.mc.LDR_ri(r.ip1.value, r.ip1.value, 0)             # ldr ip1, *lengh
             # calculate ofs
-            self.mc.SUB_ri(r.ip0.value, r.sp.value, 0) # ip0 = sp, otherwise we can't use sp
+            # note that we use a small constant here, because in unlikely circumstances,
+            # the LL_stack_too_big is called with some stack consumed so it goes *just*
+            # past that and the check is below 0
+            self.mc.SUB_ri(r.ip0.value, r.sp.value, 4096) # ip0 = sp - small_const,
+                                                       # otherwise we can't use sp
             self.mc.SUB_rr(r.lr.value, r.lr.value, r.ip0.value) # lr = lr - ip0
             # if ofs
             self.mc.CMP_rr(r.lr.value, r.ip1.value)             # CMP ip0, ip1
