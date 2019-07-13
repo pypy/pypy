@@ -892,13 +892,6 @@ class AppTestArray(object):
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
-    def test_array_of_chars_equality(self):
-        input_bytes = '\x01\x63a\x00!'
-        a = self.array('c', input_bytes)
-        b = self.array('c', input_bytes)
-        b.byteswap()
-        assert a == b
-
     def test_unicode_outofrange(self):
         input_unicode = u'\x01\u263a\x00\ufeff'
         a = self.array('u', input_unicode)
