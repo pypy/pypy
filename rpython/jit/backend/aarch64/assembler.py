@@ -882,13 +882,13 @@ class AssemblerARM64(ResOpAssembler):
 
         # jump here
 
-        mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 2) * WORD)
-        mc.B(self.propagate_exception_path)
-        #
-
         pmc = OverwritingBuilder(mc, jmp, WORD)
         pmc.B_ofs_cond(mc.currpos() - jmp, c.NE)
 
+        mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 2) * WORD)
+        mc.B(self.propagate_exception_path)
+        #
+        
         rawstart = mc.materialize(self.cpu, [])
         self.stack_check_slowpath = rawstart
 
