@@ -887,7 +887,7 @@ class AssemblerARM64(ResOpAssembler):
         #
 
         pmc = OverwritingBuilder(mc, jmp, WORD)
-        pmc.B_ofs_cond(mc.currpos() - mc, c.NE)
+        pmc.B_ofs_cond(mc.currpos() - jmp, c.NE)
 
         rawstart = mc.materialize(self.cpu, [])
         self.stack_check_slowpath = rawstart
