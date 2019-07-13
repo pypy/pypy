@@ -372,15 +372,24 @@ class AppTestPosix:
         result = posix.listdir(unicode_dir)
         typed_result = [(type(x), x) for x in result]
         assert (unicode, u'somefile') in typed_result
+        file_system_encoding = sys.getfilesystemencoding()
         try:
-            u = "caf\xe9".decode(sys.getfilesystemencoding())
+            u = "caf\xe9".decode(file_system_encoding)
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
             if sys.platform != 'darwin':
                 assert (str, "caf\xe9") in typed_result
             else:
-                # darwin 'normalized' it
-                assert (unicode, 'caf%E9') in typed_result
+                # if the test is being run in an utf-8 encoded macOS
+                # the posix.listdir function is returning the name of
+                # the file properly.
+                # This test should be run in multiple macOS platforms to
+                # be sure that is working as expected.
+                if file_system_encoding == 'UTF-8':
+                    assert (unicode, 'cafxe9') in typed_result
+                else:
+                    # darwin 'normalized' it
+                    assert (unicode, 'caf%E9') in typed_result
         else:
             assert (unicode, u) in typed_result
 
