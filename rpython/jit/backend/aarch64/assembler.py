@@ -888,7 +888,7 @@ class AssemblerARM64(ResOpAssembler):
         mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 2) * WORD)
         mc.B(self.propagate_exception_path)
         #
-        
+
         rawstart = mc.materialize(self.cpu, [])
         self.stack_check_slowpath = rawstart
 
@@ -1067,18 +1067,19 @@ class AssemblerARM64(ResOpAssembler):
         else:
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             # load stack end
-            self.mc.gen_load_int(r.ip0.value, endaddr)           # load ip0, [end]
-            self.mc.LDR_ri(r.ip0.value, r.ip0.value, 0)             # LDR ip0, ip0
+            self.mc.gen_load_int(r.lr.value, endaddr)           # load lr, [end]
+            self.mc.LDR_ri(r.lr.value, r.lr.value, 0)             # LDR lr, lr
             # load stack length
             self.mc.gen_load_int(r.ip1.value, lengthaddr)        # load ip1, lengh
             self.mc.LDR_ri(r.ip1.value, r.ip1.value, 0)             # ldr ip1, *lengh
             # calculate ofs
-            self.mc.SUB_rr(r.ip0.value, r.ip0.value, r.sp.value) # SUB ip, current
+            self.mc.SUB_ri(r.ip0.value, r.sp.value, 0) # ip0 = sp, otherwise we can't use sp
+            self.mc.SUB_rr(r.lr.value, r.lr.value, r.ip0.value) # lr = lr - ip0
             # if ofs
-            self.mc.CMP_rr(r.ip0.value, r.ip1.value)             # CMP ip, lr
+            self.mc.CMP_rr(r.lr.value, r.ip1.value)             # CMP ip0, ip1
             pos = self.mc.currpos()
             self.mc.BRK()
-            self.mc.B(self.stack_check_slowpath)                 # call if ip > lr
+            self.mc.B(self.stack_check_slowpath)                 # call if ip0 > ip1
             pmc = OverwritingBuilder(self.mc, pos, WORD)
             pmc.B_ofs_cond(self.mc.currpos() - pos, c.LS)
 
