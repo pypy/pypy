@@ -837,7 +837,60 @@ class AssemblerARM64(ResOpAssembler):
 
 
     def _build_stack_check_slowpath(self):
-        self.stack_check_slowpath = 0  #XXX
+        _, _, slowpathaddr = self.cpu.insert_stack_check()
+        if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
+            return      # no stack check (for tests, or non-translated)
+        #
+        # make a "function" that is called immediately at the start of
+        # an assembler function.  In particular, the stack looks like:
+        #
+        #    |  retaddr of caller    |   <-- aligned to a multiple of 16
+        #    |  saved argument regs  |
+        #    |  my own retaddr       |    <-- sp
+        #    +-----------------------+
+        #
+        mc = InstrBuilder()
+        # save argument registers and return address
+        mc.SUB_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 2) * WORD)
+        mc.STR_ri(r.lr.value, r.sp.value, 0)
+        for i in range(0, len(r.argument_regs), 2):
+            mc.STP_rri(r.argument_regs[i].value, r.argument_regs[i + 1].value,
+                       r.sp.value, (i + 2) * WORD)
+        # stack is aligned here
+        # Pass current stack pointer as argument to the call
+        mc.MOV_rr(r.x0.value, r.sp.value)
+        #
+        mc.BL(slowpathaddr)
+
+        # check for an exception
+        mc.gen_load_int(r.x0.value, self.cpu.pos_exception())
+        mc.LDR_ri(r.x0.value, r.x0.value, 0)
+        mc.TST_rr_shift(r.x0.value, r.x0.value, 0)
+        #
+        # restore registers and return
+        # We check for c.EQ here, meaning all bits zero in this case
+
+        jmp = mc.currpos()
+        mc.BRK()
+
+        for i in range(0, len(r.argument_regs), 2):
+            mc.LDP_rri(r.argument_regs[i].value, r.argument_regs[i + 1].value,
+                       r.sp.value, (i + 2) * WORD)
+        mc.LDR_ri(r.ip0.value, r.sp.value, 0)
+        mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 2) * WORD)
+        mc.RET_r(r.ip0.value)
+
+        # jump here
+
+        mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 2) * WORD)
+        mc.B(self.propagate_exception_path)
+        #
+
+        pmc = OverwritingBuilder(mc, jmp, WORD)
+        pmc.B_ofs_cond(mc.currpos() - mc, c.NE)
+
+        rawstart = mc.materialize(self.cpu, [])
+        self.stack_check_slowpath = rawstart
 
     def _check_frame_depth_debug(self, mc):
         pass
