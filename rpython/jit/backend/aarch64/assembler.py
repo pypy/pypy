@@ -1076,7 +1076,7 @@ class AssemblerARM64(ResOpAssembler):
             # note that we use a small constant here, because in unlikely circumstances,
             # the LL_stack_too_big is called with some stack consumed so it goes *just*
             # past that and the check is below 0
-            self.mc.SUB_ri(r.ip0.value, r.sp.value, 4096) # ip0 = sp - small_const,
+            self.mc.SUB_ri(r.ip0.value, r.sp.value, 4095) # ip0 = sp - small_const,
                                                        # otherwise we can't use sp
             self.mc.SUB_rr(r.lr.value, r.lr.value, r.ip0.value) # lr = lr - ip0
             # if ofs
