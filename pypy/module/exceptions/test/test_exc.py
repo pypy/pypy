@@ -437,3 +437,24 @@ class AppTestExc(object):
                 exc = raises(SyntaxError, exec_, source)
                 assert (custom_msg not in exc.value.msg) == (
                     ('print (' in source or 'exec (' in source))
+
+    def test_importerror_kwarg_error(self):
+        msg = "'invalid' is an invalid keyword argument for this function"
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', invalid='keyword', another=True)
+        assert str(exc.value) == msg
+
+        exc = raises(TypeError, ImportError, 'test', invalid='keyword')
+        assert str(exc.value) == msg
+
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', name='name', invalid='keyword')
+        assert str(exc.value) == msg
+
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', path='path', invalid='keyword')
+        assert str(exc.value) == msg
+
