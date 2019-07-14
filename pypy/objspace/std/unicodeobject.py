@@ -398,46 +398,54 @@ class W_UnicodeObject(W_Root):
         return mod_format(space, w_values, self, fmt_type=FORMAT_UNICODE)
 
     def descr_swapcase(self, space):
-        value = self._utf8
+        return W_UnicodeObject._swapcase_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _swapcase_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         for ch, pos in rutf8.Utf8StringPosIterator(value):
             if unicodedb.isupper(ch):
-                codes = self._lower_char(ch, value, pos)
+                codes = W_UnicodeObject._lower_char(ch, value, pos)
             elif unicodedb.islower(ch):
                 codes = unicodedb.toupper_full(ch)
             else:
                 codes = [ch,]
             for c in codes:
                 builder.append_code(c)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_title(self, space):
-        if len(self._utf8) == 0:
-            return self
-        return self.title_unicode()
+        return W_UnicodeObject._title_unicode(self._utf8)
 
+    @staticmethod
     @jit.elidable
-    def title_unicode(self):
-        value = self._utf8
+    def _title_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         previous_is_cased = False
         for ch, pos in rutf8.Utf8StringPosIterator(value):
             if previous_is_cased:
-                codes = self._lower_char(ch, value, pos)
+                codes = W_UnicodeObject._lower_char(ch, value, pos)
             else:
                 codes = unicodedb.totitle_full(ch)
             for c in codes:
                 builder.append_code(c)
             previous_is_cased = unicodedb.iscased(ch)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
-    def _lower_char(self, ch, value, bytepos):
+    @staticmethod
+    def _lower_char(ch, value, bytepos):
         if ch == 0x3a3:
-            return [self._handle_capital_sigma(value, bytepos), ]
+            return [W_UnicodeObject._handle_capital_sigma(value, bytepos), ]
         else:
             return unicodedb.tolower_full(ch)
 
-    def _handle_capital_sigma(self, value, bytepos):
+    @staticmethod
+    def _handle_capital_sigma(value, bytepos):
         # U+03A3 is in the Final_Sigma context when, it is found like this:
         #\p{cased} \p{case-ignorable}* U+03A3 not(\p{case-ignorable}* \p{cased})
         # where \p{xxx} is a character with property xxx.
@@ -585,7 +593,13 @@ class W_UnicodeObject(W_Root):
         return space.is_w(space.type(w_obj), space.w_unicode)
 
     def descr_casefold(self, space):
-        value = self._utf8
+        return W_UnicodeObject._casefold_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _casefold_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         for ch in rutf8.Utf8StringIterator(value):
             folded = unicodedb.casefold_lookup(ch)
@@ -594,16 +608,22 @@ class W_UnicodeObject(W_Root):
             else:
                 for r in folded:
                     builder.append_code(r)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_lower(self, space):
-        value = self._utf8
+        return W_UnicodeObject._lower_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _lower_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         for ch, pos in rutf8.Utf8StringPosIterator(value):
-            codes = self._lower_char(ch, value, pos)
+            codes = W_UnicodeObject._lower_char(ch, value, pos)
             for c in codes:
                 builder.append_code(c)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
@@ -770,12 +790,19 @@ class W_UnicodeObject(W_Root):
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
-        builder = rutf8.Utf8StringBuilder(len(self._utf8))
-        for ch in rutf8.Utf8StringIterator(self._utf8):
+        return W_UnicodeObject._upper_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _upper_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
+        builder = rutf8.Utf8StringBuilder(len(value))
+        for ch in rutf8.Utf8StringIterator(value):
             codes = unicodedb.toupper_full(ch)
             for c in codes:
                 builder.append_code(c)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
@@ -874,10 +901,13 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(self._utf8[byte_start:byte_stop], stop - start)
 
     def descr_capitalize(self, space):
-        if self._len() == 0:
-            return self._empty()
+        return W_UnicodeObject._capitalize_unicode(self._utf8)
 
-        value = self._utf8
+    @staticmethod
+    @jit.elidable
+    def _capitalize_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         it = rutf8.Utf8StringPosIterator(value)
         uchar, _ = it.next()
@@ -886,10 +916,10 @@ class W_UnicodeObject(W_Root):
         for c in codes:
             builder.append_code(c)
         for ch, pos in it:
-            codes = self._lower_char(ch, value, pos)
+            codes = W_UnicodeObject._lower_char(ch, value, pos)
             for c in codes:
                 builder.append_code(c)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
     def descr_center(self, space, width, w_fillchar):

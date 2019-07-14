@@ -191,8 +191,9 @@ class TestString(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
         assert loop.match_by_id('callone', '''
-            p114 = call_r(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
+            p114 = call_r(ConstClass(_lower_unicode), p113, descr=<Callr . r EF=4>)
             guard_no_exception(descr=...)
+            guard_nonnull_class(p114, ConstClass(W_UnicodeObject), descr=...)
             ''')
         assert loop.match_by_id('calltwo', '')    # nothing
 
