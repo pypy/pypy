@@ -168,7 +168,10 @@ class TestString(BaseTestPyPyC):
             guard_no_exception(descr=...)
             p95 = call_r(..., descr=<Callr . r EF=5>)     # ll_build
             guard_no_exception(descr=...)
-            i96 = strlen(p95)
+            i96 = call_i(ConstClass(codepoints_in_utf8), p95, 0, _, descr=<Calli . rii EF=4>)
+            guard_no_exception(descr=...)
+            i969 = int_lt(i96, 0)
+            guard_false(i969, descr=...)
             i97 = int_add_ovf(i71, i96)
             guard_no_overflow(descr=...)
             i98 = int_sub(i74, 1)
