@@ -858,7 +858,7 @@ class AssemblerARM64(ResOpAssembler):
                        r.sp.value, (i + 2) * WORD)
         # stack is aligned here
         # Pass current stack pointer as argument to the call
-        mc.MOV_rr(r.x0.value, r.sp.value)
+        mc.SUB_ri(r.x0.value, r.sp.value, 0)
         #
         mc.BL(slowpathaddr)
 
