@@ -198,7 +198,11 @@ class TestString(BaseTestPyPyC):
         assert loop.match_by_id('calltwo', '')    # nothing
 
     def test_move_method_call_out_of_loop(self):
-        # XXX not implemented: lower() on unicodes is not considered elidable
+        # XXX this does not work: _lower_unicode() is found to be elidable,
+        # but it can raise (because of 'raise StopIteration' in
+        # Utf8StringIterator.next()---we don't detect that such an exception
+        # is always caught in the caller).  Raising elidable calls are not
+        # unroll-removed: see issue #2015.
         def main(n):
             lst = []
             s = 'Hello %d' % n
