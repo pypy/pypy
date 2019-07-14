@@ -453,6 +453,15 @@ class AppTestCoroutine:
         assert ex.value.args == expected
         """
 
+    def test_async_yield_athrow_send_after_exception(self): """
+        async def ag():
+            yield 42
+
+        athrow_coro = ag().athrow(ValueError)
+        raises(ValueError, athrow_coro.send, None)
+        raises(StopIteration, athrow_coro.send, None)
+        """
+
     def test_async_yield_athrow_throw(self): """
         async def ag():
             yield 42
