@@ -1,5 +1,4 @@
 * cond_call and following guard_exception
-* stack check
 
 
 * We can try to make generate_quick_failure() emit two instructions less:
