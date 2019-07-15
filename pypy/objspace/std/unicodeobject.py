@@ -674,9 +674,6 @@ class W_UnicodeObject(W_Root):
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
         value = self._utf8
-        if (start > 0 and not space.is_none(w_end) and
-                                space.getindex_w(w_end, None) == 0):
-            return space.w_False
         if space.isinstance_w(w_prefix, space.w_tuple):
             return self._startswith_tuple(space, value, w_prefix, start, end)
         try:
@@ -689,7 +686,7 @@ class W_UnicodeObject(W_Root):
 
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
-        if start > len(value):
+        if start > end:
             return False
         if len(prefix) == 0:
             return True
@@ -698,10 +695,6 @@ class W_UnicodeObject(W_Root):
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
         value = self._utf8
-        # match cpython behaviour
-        if (start > 0 and not space.is_none(w_end) and
-                                space.getindex_w(w_end, None) == 0):
-            return space.w_False
         if space.isinstance_w(w_suffix, space.w_tuple):
             return self._endswith_tuple(space, value, w_suffix, start, end)
         try:
@@ -714,7 +707,7 @@ class W_UnicodeObject(W_Root):
 
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
-        if start > len(value):
+        if start > end:
             return False
         if len(prefix) == 0:
             return True

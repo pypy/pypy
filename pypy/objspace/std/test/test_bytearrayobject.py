@@ -228,9 +228,11 @@ class AppTestBytesArray:
         assert bytearray(b'ab').startswith(bytearray(b'b'), 1) is True
         assert bytearray(b'ab').startswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').startswith(bytearray(b''), 3) is False
+        assert bytearray(b'0').startswith(bytearray(b''), 1, -1) is False
         assert bytearray(b'ab').endswith(bytearray(b'b'), 1) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 3) is False
+        assert bytearray(b'0').endswith(bytearray(b''), 1, -1) is False
 
     def test_startswith_self(self):
         b = bytearray(b'abcd')

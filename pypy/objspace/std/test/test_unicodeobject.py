@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-import py
+import py, os
 try:
     from hypothesis import given, strategies, settings, example
     HAS_HYPOTHESIS = True
@@ -605,6 +605,14 @@ class AppTestUnicodeString:
         assert 'ab'.startswith('b', 1) is True
         assert 'abc'.startswith('bc', 1, 2) is False
         assert 'abc'.startswith('c', -1, 4) is True
+        assert '0'.startswith('', 1, -1) is False
+        assert '0'.startswith('', 1, 0) is False
+        assert '0'.startswith('', 1) is True
+        assert '0'.startswith('', 1, None) is True
+        assert ''.startswith('', 1, -1) is False
+        assert ''.startswith('', 1, 0) is False
+        assert ''.startswith('', 1) is False
+        assert ''.startswith('', 1, None) is False
         try:
             'hello'.startswith(['o'])
         except TypeError as e:
@@ -662,6 +670,7 @@ class AppTestUnicodeString:
         assert 'abc'.endswith('bc', 1) is True
         assert 'abc'.endswith('bc', 2) is False
         assert 'abc'.endswith('b', -3, -1) is True
+        assert '0'.endswith('', 1, -1) is False
         try:
             'hello'.endswith(['o'])
         except TypeError as e:
@@ -1363,3 +1372,7 @@ class AppTestUnicodeString:
 
     def test_newlist_utf8_non_ascii(self):
         'ä'.split("\n")[0] # does not crash
+
+    with open(os.path.join(os.path.dirname(__file__), 'startswith.py')) as f:
+        exec 'def test_startswith_endswith_external(self): """%s"""\n' % (
+            f.read(),)
