@@ -980,9 +980,9 @@ class AssemblerARM64(ResOpAssembler):
 
     def reserve_gcref_table(self, allgcrefs):
         gcref_table_size = len(allgcrefs) * WORD
-	# align to a multiple of 16 and reserve space at the beginning
-	# of the machine code for the gc table.  This lets us write
-	# machine code with relative addressing (LDR literal).
+        # align to a multiple of 16 and reserve space at the beginning
+        # of the machine code for the gc table.  This lets us write
+        # machine code with relative addressing (LDR literal).
         gcref_table_size = (gcref_table_size + 15) & ~15
         mc = self.mc
         assert mc.get_relative_pos() == 0
