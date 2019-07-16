@@ -95,38 +95,6 @@ class TestUnicodeObject:
                                         space.newint(start + len1))
             assert space.int_w(w_index) == rexpected
 
-            expected = u.startswith(v, start)
-            if expected and start > len(u):
-                expected = False # python2 vs. python3
-            w_res = space.call_method(w_u, 'startswith', w_v,
-                                      space.newint(start))
-            assert w_res is space.newbool(expected)
-
-            expected = u.startswith(v, start, start + len1)
-            if ((expected and start > len(u)) or 
-                    (start > 0 and start + len1 ==0)): 
-                expected = False # python2 vs. python3
-            w_res = space.call_method(w_u, 'startswith', w_v,
-                                      space.newint(start),
-                                      space.newint(start + len1))
-            assert w_res is space.newbool(expected)
-
-            expected = u.endswith(v, start)
-            if expected and start > len(u):
-                expected = False # python2 vs. python3
-            w_res = space.call_method(w_u, 'endswith', w_v,
-                                      space.newint(start))
-            assert w_res is space.newbool(expected)
-
-            expected = u.endswith(v, start, start + len1)
-            if ((expected and start > len(u)) or 
-                    (start > 0 and start + len1 ==0)): 
-                expected = False # python2 vs. python3
-            w_res = space.call_method(w_u, 'endswith', w_v,
-                                      space.newint(start),
-                                      space.newint(start + len1))
-            assert w_res is space.newbool(expected)
-
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
