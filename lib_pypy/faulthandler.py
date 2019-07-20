@@ -9,7 +9,7 @@ def disable(*args, **kwargs):
     pass
 
 def is_enabled(*args, **kwargs):
-    return True
+    return False
 
 def register(*args, **kwargs):
     pass
