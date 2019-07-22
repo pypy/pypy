@@ -713,7 +713,10 @@ class BufferedMixin:
 
             while True:
                 self._reader_reset_buf()
-                have = self._fill_buffer(space)
+                try:
+                    have = self._fill_buffer(space)
+                except BlockingIOError:
+                    have = 0
                 if have == 0:
                     break
                 if limit >= 0 and have > limit:
