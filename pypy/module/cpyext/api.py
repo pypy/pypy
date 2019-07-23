@@ -986,8 +986,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
+    pygilstate_check = (gil == "pygilstate_check")
     assert (gil is None or gil_acquire or gil_release
-            or pygilstate_ensure or pygilstate_release)
+            or pygilstate_ensure or pygilstate_release or pygilstate_check)
     expected_nb_args = len(argtypesw) + pygilstate_ensure
 
     if isinstance(restype, lltype.Ptr) and error_value == 0:
@@ -1027,6 +1028,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
             else:
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
+        elif pygilstate_check:
+            result = cpyext_glob_tid_ptr[0] == tid
+            return rffi.cast(restype, result)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
                 no_gil_error(pname)
