@@ -2413,3 +2413,15 @@ def test_unnamed_bitfield_4():
     a = ffi.new("struct A *")
     assert ffi.sizeof(a[0]) == ffi.sizeof("unsigned")
     assert ffi.sizeof(b[0]) == ffi.sizeof(a[0])
+
+def test_struct_with_func_with_struct_arg():
+    ffi = FFI()
+    ffi.cdef("""struct BinaryTree {
+            int (* CompareKey)(struct BinaryTree tree);
+        };""")
+    lib = verify(ffi, "test_struct_with_func_with_struct_arg", """
+        struct BinaryTree {
+            int (* CompareKey)(struct BinaryTree tree);
+        };
+    """)
+    py.test.raises(RuntimeError, ffi.new, "struct BinaryTree *")
