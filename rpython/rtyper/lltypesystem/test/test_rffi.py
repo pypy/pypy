@@ -535,7 +535,7 @@ class BaseTestRffi:
     def test_nonmovingbuffer(self):
         d = 'some cool data that should not move'
         def f():
-            buf, flag = get_nonmovingbuffer(d)
+            buf, llobj, flag = get_nonmovingbuffer_ll(d)
             try:
                 counter = 0
                 for i in range(len(d)):
@@ -543,7 +543,7 @@ class BaseTestRffi:
                         counter += 1
                 return counter
             finally:
-                free_nonmovingbuffer(d, buf, flag)
+                free_nonmovingbuffer_ll(buf, llobj, flag)
         assert f() == len(d)
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == len(d)
@@ -553,13 +553,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf, flag = get_nonmovingbuffer(d)
+                buf, llobj, flag = get_nonmovingbuffer_ll(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf, flag)
+                    free_nonmovingbuffer_ll(buf, llobj, flag)
             return counter
         fn = self.compile(f, [], gcpolicy='semispace')
         # The semispace gc uses raw_malloc for its internal data structs
@@ -574,13 +574,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf, flag = get_nonmovingbuffer(d)
+                buf, llobj, flag = get_nonmovingbuffer_ll(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf, flag)
+                    free_nonmovingbuffer_ll(buf, llobj, flag)
             return counter
         fn = self.compile(f, [], gcpolicy='incminimark')
         # The incminimark gc uses raw_malloc for its internal data structs

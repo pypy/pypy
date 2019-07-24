@@ -10,6 +10,7 @@ from rpython.rlib.jit_libffi import (CIF_DESCRIPTION, CIF_DESCRIPTION_P,
 from rpython.rlib.objectmodel import we_are_translated, instantiate
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llstr
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module import _cffi_backend
@@ -163,9 +164,9 @@ class W_CTypeFunc(W_CTypePtrBase):
         cif_descr = self.cif_descr   # 'self' should have been promoted here
         size = cif_descr.exchange_size
         mustfree_max_plus_1 = 0
+        keepalives = [llstr(None)] * len(args_w)    # llstrings
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
-            keepalives = [None] * len(args_w)    # None or strings
             for i in range(len(args_w)):
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                 w_obj = args_w[i]
@@ -191,9 +192,10 @@ class W_CTypeFunc(W_CTypePtrBase):
                     if flag == 1:
                         lltype.free(raw_cdata, flavor='raw')
                     elif flag >= 4:
-                        value = keepalives[i]
-                        assert value is not None
-                        rffi.free_nonmovingbuffer(value, raw_cdata, chr(flag))
+                        llobj = keepalives[i]
+                        assert llobj     # not NULL
+                        rffi.free_nonmovingbuffer_ll(raw_cdata,
+                                                     llobj, chr(flag))
             lltype.free(buffer, flavor='raw')
             keepalive_until_here(args_w)
         return w_res
