@@ -145,12 +145,16 @@ def _preprocess_extern_python(csource):
     return ''.join(parts)
 
 def _warn_for_string_literal(csource):
-    if '"' in csource:
-        import warnings
-        warnings.warn("String literal found in cdef() or type source. "
-                      "String literals are ignored here, but you should "
-                      "remove them anyway because some character sequences "
-                      "confuse pre-parsing.")
+    if '"' not in csource:
+        return
+    for line in csource.splitlines():
+        if '"' in line and not line.lstrip().startswith('#'):
+            import warnings
+            warnings.warn("String literal found in cdef() or type source. "
+                          "String literals are ignored here, but you should "
+                          "remove them anyway because some character sequences "
+                          "confuse pre-parsing.")
+            break
 
 def _preprocess(csource):
     # Remove comments.  NOTE: this only work because the cdef() section

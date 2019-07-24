@@ -405,6 +405,20 @@ def realize_c_type_or_func(ffi, opcodes, index):
     if from_ffi and ffi.cached_types[index] is not None:
         return ffi.cached_types[index]
 
+    opcodes[index] = rffi.cast(rffi.VOIDP, 255)
+    try:
+        x = realize_c_type_or_func_now(ffi, op, opcodes, index)
+    finally:
+        if opcodes[index] == rffi.cast(rffi.VOIDP, 255):
+            opcodes[index] = op
+
+    if from_ffi:
+        assert ffi.cached_types[index] is None or ffi.cached_types[index] is x
+        ffi.cached_types[index] = x
+
+    return x
+
+def realize_c_type_or_func_now(ffi, op, opcodes, index):
     case = getop(op)
 
     if case == cffi_opcode.OP_PRIMITIVE:
@@ -446,12 +460,15 @@ def realize_c_type_or_func(ffi, opcodes, index):
                                       'c_type_index')
         x = realize_c_type_or_func(ffi, ffi.ctxobj.ctx.c_types, type_index)
 
+    elif case == 255:
+        raise oefmt(ffi.space.w_RuntimeError,
+            "found a situation in which we try to build a type recursively.  "
+            "This is known to occur e.g. in ``struct s { void(*callable)"
+            "(struct s); }''.  Please report if you get this error and "
+            "really need support for your case.")
+
     else:
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)
-
-    if from_ffi:
-        assert ffi.cached_types[index] is None or ffi.cached_types[index] is x
-        ffi.cached_types[index] = x
 
     return x
 
