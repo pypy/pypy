@@ -638,16 +638,18 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS', 'PyThread_init_thread',
     'PyThread_start_new_thread',
 
-    'PyStructSequence_InitType', 'PyStructSequence_New',
-    'PyStructSequence_UnnamedField',
+    'PyStructSequence_InitType', 'PyStructSequence_InitType2',
+    'PyStructSequence_New', 'PyStructSequence_UnnamedField',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
-    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_InteractiveFlag', 'Py_InspectFlag',
+    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_QuietFlag',
+    'Py_InteractiveFlag', 'Py_InspectFlag',
     'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
-    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
-    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
-    '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+    'Py_FrozenFlag', 'Py_IgnoreEnvironmentFlag',
+    'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
+    'Py_UnbufferedStdioFlag', 'Py_HashRandomizationFlag', 'Py_IsolatedFlag',
+    '_Py_PackageContext',
     'PyOS_InputHook',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
@@ -663,6 +665,8 @@ SYMBOLS_C = [
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc',
 ]
+if sys.platform == "win32":
+    SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
 TYPES = {}
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
@@ -982,8 +986,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
+    pygilstate_check = (gil == "pygilstate_check")
     assert (gil is None or gil_acquire or gil_release
-            or pygilstate_ensure or pygilstate_release)
+            or pygilstate_ensure or pygilstate_release or pygilstate_check)
     expected_nb_args = len(argtypesw) + pygilstate_ensure
 
     if isinstance(restype, lltype.Ptr) and error_value == 0:
@@ -1023,6 +1028,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
             else:
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
+        elif pygilstate_check:
+            result = cpyext_glob_tid_ptr[0] == tid
+            return rffi.cast(restype, result)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
                 no_gil_error(pname)
@@ -1191,7 +1199,9 @@ def attach_c_functions(space, eci, prefix):
     state.C.get_pyos_inputhook = rffi.llexternal(
         '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
-
+    state.C.tuple_new = rffi.llexternal(
+        'tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        compilation_info=eci, _nowrapper=True)
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)

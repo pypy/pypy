@@ -1,8 +1,9 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
-from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.jit.metainterp.history import AbstractDescr, ConstPtr, ConstInt,\
-     ConstFloat
+from rpython.rtyper.annlowlevel import (
+    cast_base_ptr_to_instance, cast_gcref_to_instance, cast_instance_to_gcref)
+from rpython.jit.metainterp.history import (
+    AbstractDescr, ConstPtr, ConstInt, ConstFloat)
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -18,7 +19,7 @@ def get_current_qmut_instance(cpu, gcref, mutatefielddescr):
     """
     qmut_gcref = cpu.bh_getfield_gc_r(gcref, mutatefielddescr)
     if qmut_gcref:
-        qmut = QuasiImmut.show(cpu, qmut_gcref)
+        qmut = QuasiImmut.show(qmut_gcref)
     else:
         qmut = QuasiImmut(cpu)
         cpu.bh_setfield_gc_r(gcref, qmut.hide(), mutatefielddescr)
@@ -42,9 +43,8 @@ def make_invalidation_function(STRUCT, mutatefieldname):
 def do_force_quasi_immutable(cpu, p, mutatefielddescr):
     qmut_ref = cpu.bh_getfield_gc_r(p, mutatefielddescr)
     if qmut_ref:
-        cpu.bh_setfield_gc_r(p, cpu.ts.NULLREF, mutatefielddescr)
-        qmut_ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, qmut_ref)
-        qmut = cast_base_ptr_to_instance(QuasiImmut, qmut_ptr)
+        cpu.bh_setfield_gc_r(p, ConstPtr.value, mutatefielddescr)
+        qmut = cast_gcref_to_instance(QuasiImmut, qmut_ref)
         qmut.invalidate()
 
 
@@ -60,13 +60,11 @@ class QuasiImmut(object):
         self.looptokens_wrefs = []
 
     def hide(self):
-        qmut_ptr = self.cpu.ts.cast_instance_to_base_ref(self)
-        return self.cpu.ts.cast_to_ref(qmut_ptr)
+        return cast_instance_to_gcref(self)
 
     @staticmethod
-    def show(cpu, qmut_gcref):
-        qmut_ptr = cpu.ts.cast_to_baseclass(qmut_gcref)
-        return cast_base_ptr_to_instance(QuasiImmut, qmut_ptr)
+    def show(qmut_gcref):
+        return cast_gcref_to_instance(QuasiImmut, qmut_gcref)
 
     def register_loop_token(self, wref_looptoken):
         if len(self.looptokens_wrefs) > self.compress_limit:
@@ -109,7 +107,7 @@ class QuasiImmutDescr(AbstractDescr):
     # fields
     struct = lltype.nullptr(llmemory.GCREF.TO)
     fielddescr = None
-    
+
     def __init__(self, cpu, struct, fielddescr, mutatefielddescr):
         self.cpu = cpu
         self.struct = struct

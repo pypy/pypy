@@ -112,9 +112,10 @@ def _fetch_as_write_buffer(space, w_x):
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, require_writable=int)
 def from_buffer(space, w_ctype, w_x, require_writable=0):
-    from pypy.module._cffi_backend import ctypearray
-    if not isinstance(w_ctype, ctypearray.W_CTypeArray):
-        raise oefmt(space.w_TypeError, "expected an array ctype, got '%s'",
+    from pypy.module._cffi_backend import ctypeptr, ctypearray
+    if not isinstance(w_ctype, ctypeptr.W_CTypePtrOrArray):
+        raise oefmt(space.w_TypeError,
+                    "expected a poiunter or array ctype, got '%s'",
                     w_ctype.name)
     if space.isinstance_w(w_x, space.w_unicode):
         raise oefmt(space.w_TypeError,
@@ -135,33 +136,36 @@ def from_buffer(space, w_ctype, w_x, require_writable=0):
                         "raw address on PyPy", w_x)
     #
     buffersize = buf.getlength()
-    arraylength = w_ctype.length
-    if arraylength >= 0:
-        # it's an array with a fixed length; make sure that the
-        # buffer contains enough bytes.
-        if buffersize < w_ctype.size:
-            raise oefmt(space.w_ValueError,
-                "buffer is too small (%d bytes) for '%s' (%d bytes)",
-                buffersize, w_ctype.name, w_ctype.size)
+    if not isinstance(w_ctype, ctypearray.W_CTypeArray):
+        arraylength = buffersize   # number of bytes, not used so far
     else:
-        # it's an open 'array[]'
-        itemsize = w_ctype.ctitem.size
-        if itemsize == 1:
-            # fast path, performance only
-            arraylength = buffersize
-        elif itemsize > 0:
-            # give it as many items as fit the buffer.  Ignore a
-            # partial last element.
-            arraylength = buffersize / itemsize
+        arraylength = w_ctype.length
+        if arraylength >= 0:
+            # it's an array with a fixed length; make sure that the
+            # buffer contains enough bytes.
+            if buffersize < w_ctype.size:
+                raise oefmt(space.w_ValueError,
+                    "buffer is too small (%d bytes) for '%s' (%d bytes)",
+                    buffersize, w_ctype.name, w_ctype.size)
         else:
-            # it's an array 'empty[]'.  Unsupported obscure case:
-            # the problem is that setting the length of the result
-            # to anything large (like SSIZE_T_MAX) is dangerous,
-            # because if someone tries to loop over it, it will
-            # turn effectively into an infinite loop.
-            raise oefmt(space.w_ZeroDivisionError,
-                "from_buffer('%s', ..): the actual length of the array "
-                "cannot be computed", w_ctype.name)
+            # it's an open 'array[]'
+            itemsize = w_ctype.ctitem.size
+            if itemsize == 1:
+                # fast path, performance only
+                arraylength = buffersize
+            elif itemsize > 0:
+                # give it as many items as fit the buffer.  Ignore a
+                # partial last element.
+                arraylength = buffersize / itemsize
+            else:
+                # it's an array 'empty[]'.  Unsupported obscure case:
+                # the problem is that setting the length of the result
+                # to anything large (like SSIZE_T_MAX) is dangerous,
+                # because if someone tries to loop over it, it will
+                # turn effectively into an infinite loop.
+                raise oefmt(space.w_ZeroDivisionError,
+                    "from_buffer('%s', ..): the actual length of the array "
+                    "cannot be computed", w_ctype.name)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, arraylength,
                                       w_ctype, buf, w_x)

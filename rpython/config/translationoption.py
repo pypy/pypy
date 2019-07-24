@@ -1,5 +1,6 @@
 import sys
 import os
+import platform as _stdlib_platform
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
@@ -30,7 +31,9 @@ SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
     False)
     # Windows doesn't work.  Please
     # add other platforms here if it works on them.
-
+MACHINE = _stdlib_platform.machine()
+if MACHINE == 'aarch64':
+    SUPPORT__THREAD = False
 # (*) NOTE: __thread on OS/X does not work together with
 # pthread_key_create(): when the destructor is called, the __thread is
 # already freed!

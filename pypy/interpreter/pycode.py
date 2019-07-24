@@ -39,7 +39,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 160 # bump it by 16
+pypy_incremental_magic = 176 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -58,8 +58,9 @@ def cpython_code_signature(code):
     assert argcount >= 0     # annotator hint
     assert kwonlyargcount >= 0
     argnames = list(varnames[:argcount])
-    if argcount < len(varnames):
+    if kwonlyargcount > 0:
         kwonlyargs = list(varnames[argcount:argcount + kwonlyargcount])
+        argcount += kwonlyargcount
     else:
         kwonlyargs = None
     if code.co_flags & CO_VARARGS:
@@ -68,7 +69,7 @@ def cpython_code_signature(code):
     else:
         varargname = None
     if code.co_flags & CO_VARKEYWORDS:
-        kwargname = code.co_varnames[argcount + kwonlyargcount]
+        kwargname = code.co_varnames[argcount]
     else:
         kwargname = None
     return Signature(argnames, varargname, kwargname, kwonlyargs)

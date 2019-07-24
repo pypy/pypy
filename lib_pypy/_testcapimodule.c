@@ -14,7 +14,7 @@
 #include <float.h>
 #include "structmember.h"
 #include "datetime.h"
-// #include "marshal.h"
+#include "marshal.h"
 #include <signal.h>
 
 #ifdef MS_WINDOWS

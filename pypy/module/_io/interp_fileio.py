@@ -256,6 +256,7 @@ class W_FileIO(W_RawIOBase):
         except:
             if not fd_is_own:
                 self.fd = -1
+            self._close(space)
             raise
 
     def _mode(self):

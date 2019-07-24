@@ -6,10 +6,9 @@ from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
-from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant,\
-     c_last_exception
+from rpython.jit.metainterp.support import ptr2int
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -1729,9 +1728,9 @@ class Transformer(object):
         (in which case the original call is written as a residual call).
         """
         if oopspec_name.startswith('new'):
-            LIST = deref(op.result.concretetype)
+            LIST = op.result.concretetype.TO
         else:
-            LIST = deref(args[0].concretetype)
+            LIST = args[0].concretetype.TO
         resizable = isinstance(LIST, lltype.GcStruct)
         assert resizable == (not isinstance(LIST, lltype.GcArray))
         if resizable:
@@ -1956,8 +1955,7 @@ class Transformer(object):
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
-            func = heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(op.args[0].value))
+            func = ptr2int(op.args[0].value)
             self.callcontrol.callinfocollection.add(oopspecindex,
                                                     calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
@@ -1984,8 +1982,7 @@ class Transformer(object):
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
-            func = heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(c_func.value))
+            func = ptr2int(c_func.value)
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_int_special(self, op, oopspec_name, args):

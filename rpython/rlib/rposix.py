@@ -1262,18 +1262,16 @@ def fchmod(fd, mode):
 @replace_os_function('rename')
 @specialize.argtype(0, 1)
 def rename(path1, path2):
-    if not _WIN32:
-        handle_posix_error('rename',
-                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
-    else:
+    if _WIN32:
         traits = _preferred_traits2(path1, path2)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
-        assert isinstance(path1, unicode)
-        assert isinstance(path2, unicode)
         if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
+    else:
+        handle_posix_error('rename',
+                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
 
 @specialize.argtype(0, 1)
 def replace(path1, path2):
@@ -1282,8 +1280,6 @@ def replace(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
-        assert isinstance(path1, unicode)
-        assert isinstance(path2, unicode)
         ret = win32traits.MoveFileEx(path1, path2,
                      win32traits.MOVEFILE_REPLACE_EXISTING)
         if not ret:

@@ -670,11 +670,14 @@ class W_CDataFromBuffer(W_CData):
         return self.length
 
     def _repr_extra(self):
-        if self.w_keepalive is not None:
-            name = self.space.type(self.w_keepalive).name
+        from pypy.module._cffi_backend import ctypearray
+        if self.w_keepalive is None:
+            return "buffer RELEASED"
+        obj_tp_name = self.space.type(self.w_keepalive).name
+        if isinstance(self.ctype, ctypearray.W_CTypeArray):
+            return "buffer len %d from '%s' object" % (self.length, obj_tp_name)
         else:
-            name = "(released)"
-        return "buffer len %d from '%s' object" % (self.length, name)
+            return "buffer from '%s' object" % (obj_tp_name,)
 
     def enter_exit(self, exit_now):
         # for now, limited effect on PyPy

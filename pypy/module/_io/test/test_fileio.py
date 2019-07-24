@@ -57,8 +57,11 @@ class AppTestFileIO:
 
     def test_open_directory(self):
         import _io
-        import os
-        raises(IOError, _io.FileIO, self.tmpdir, "rb")
+        import os, warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always', ResourceWarning)
+            raises(IOError, _io.FileIO, self.tmpdir, "rb")
+            assert len(w) == 0
         if os.name != 'nt':
             fd = os.open(self.tmpdir, os.O_RDONLY)
             raises(IOError, _io.FileIO, fd, "rb")

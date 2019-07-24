@@ -4,6 +4,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport import symbolic, support
 from rpython.jit.metainterp.history import AbstractDescr, getkind, FLOAT, INT
 from rpython.jit.metainterp import history
+from rpython.jit.metainterp.support import ptr2int, int2adr
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.longlong import is_longlong
 from rpython.jit.metainterp.optimizeopt import intbounds
@@ -84,7 +85,7 @@ class SizeDescr(AbstractDescr):
     def is_valid_class_for(self, struct):
         objptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         cls = llmemory.cast_adr_to_ptr(
-            heaptracker.int2adr(self.get_vtable()),
+            int2adr(self.get_vtable()),
             lltype.Ptr(rclass.OBJECT_VTABLE))
         # this first comparison is necessary, since we want to make sure
         # that vtable for JitVirtualRef is the same without actually reading
@@ -95,7 +96,7 @@ class SizeDescr(AbstractDescr):
         return self.immutable_flag
 
     def get_vtable(self):
-        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self.vtable))
+        return ptr2int(self.vtable)
 
     def get_type_id(self):
         assert self.tid

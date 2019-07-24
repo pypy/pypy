@@ -137,8 +137,8 @@ def get_L2cache_linux2():
         return get_L2cache_linux2_cpuinfo()
     if arch in ('alpha', 'ppc'):
         return get_L2cache_linux2_cpuinfo(label='L2 cache')
-    if arch in ('s390x'):
-        return get_L2cache_linux2_cpuinfo_s390x()
+    #if arch == 's390x':    untested
+    #    return get_L2cache_linux2_cpuinfo_s390x()
     if arch == 'ia64':
         return get_L2cache_linux2_ia64()
     if arch in ('parisc', 'parisc64'):

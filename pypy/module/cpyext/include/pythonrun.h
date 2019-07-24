@@ -9,6 +9,7 @@ extern "C" {
 PyAPI_FUNC(void) Py_FatalError(const char *msg);
 
 /* taken from Python-3.2.3/Include/pydebug.h */
+/* Note: they are always 0 for now, expect Py_DebugFlag which is always 1 */
 PyAPI_DATA(int) Py_DebugFlag;
 PyAPI_DATA(int) Py_VerboseFlag;
 PyAPI_DATA(int) Py_QuietFlag;
@@ -20,11 +21,17 @@ PyAPI_DATA(int) Py_BytesWarningFlag;
 PyAPI_DATA(int) Py_UseClassExceptionsFlag;
 PyAPI_DATA(int) Py_FrozenFlag;
 PyAPI_DATA(int) Py_IgnoreEnvironmentFlag;
-PyAPI_DATA(int) Py_DivisionWarningFlag;
 PyAPI_DATA(int) Py_DontWriteBytecodeFlag;
 PyAPI_DATA(int) Py_NoUserSiteDirectory;
 PyAPI_DATA(int) Py_UnbufferedStdioFlag;
 PyAPI_DATA(int) Py_HashRandomizationFlag;
+PyAPI_DATA(int) Py_IsolatedFlag;
+
+#ifdef MS_WINDOWS
+PyAPI_DATA(int) Py_LegacyWindowsStdioFlag;
+#endif
+
+#define Py_GETENV(s) (Py_IgnoreEnvironmentFlag ? NULL : getenv(s))
 
 
 typedef struct {

@@ -40,6 +40,11 @@ static const long Cryptography_HAS_RELEASE_BUFFERS;
  */
 static const long Cryptography_HAS_OP_NO_COMPRESSION;
 
+/* Internally invented symbol to tell us if SSL_OP_ENABLE_MIDDLEBOX_COMPAT is
+ * supported
+ */
+static const long Cryptography_HAS_OP_ENABLE_MIDDLEBOX_COMPAT;
+
 static const long Cryptography_HAS_SSL_OP_MSIE_SSLV2_RSA_PADDING;
 static const long Cryptography_HAS_SSL_SET_SSL_CTX;
 static const long Cryptography_HAS_SSL_OP_NO_TICKET;
@@ -71,7 +76,9 @@ static const long SSL_OP_EPHEMERAL_RSA;
 static const long SSL_OP_MICROSOFT_SESS_ID_BUG;
 static const long SSL_OP_NETSCAPE_CHALLENGE_BUG;
 static const long SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
+static const long SSL_OP_NO_SSLv2;
 static const long SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG;
+static const long SSL_OP_ENABLE_MIDDLEBOX_COMPAT;
 static const long SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER;
 static const long SSL_OP_MSIE_SSLV2_RSA_PADDING;
 static const long SSL_OP_SSLEAY_080_CLIENT_DH_BUG;
@@ -557,6 +564,13 @@ static const long Cryptography_HAS_OP_NO_COMPRESSION = 1;
 #else
 static const long Cryptography_HAS_OP_NO_COMPRESSION = 0;
 const long SSL_OP_NO_COMPRESSION = 0;
+#endif
+
+#ifdef SSL_OP_ENABLE_MIDDLEBOX_COMPAT
+static const long Cryptography_HAS_OP_ENABLE_MIDDLEBOX_COMPAT = 1;
+#else
+static const long Cryptography_HAS_OP_ENABLE_MIDDLEBOX_COMPAT = 0;
+const long SSL_OP_ENABLE_MIDDLEBOX_COMPAT = 0;
 #endif
 
 #ifdef SSL_OP_NO_TLSv1_1

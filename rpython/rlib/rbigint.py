@@ -1423,6 +1423,12 @@ class rbigint(object):
         bits = ovfcheck((i-1) * SHIFT) + msd_bits
         return bits
 
+    def gcd(self, other):
+        """ Compute the (always positive) greatest common divisor of self and
+        other """
+        return gcd_lehmer(self.abs(), other.abs())
+
+
     def __repr__(self):
         return "<rbigint digits=%s, sign=%s, size=%d, len=%d, %s>" % (self._digits,
                                             self.sign, self.numdigits(), len(self._digits),
@@ -2960,3 +2966,91 @@ def parse_string_from_binary_base(parser):
         z.setdigit(pdigit, accum)
     z._normalize()
     return z
+
+
+def gcd_binary(a, b):
+    """ Compute the greatest common divisor of non-negative integers a and b
+    using the binary GCD algorithm. Raises ValueError on negative input. """
+    if a < 0 or b < 0:
+        raise ValueError
+
+    if a == 0:
+        return b
+
+    if b == 0:
+        return a
+
+    shift = 0
+    while (a | b) & 1 == 0:
+        a >>= 1
+        b >>= 1
+        shift += 1
+
+    while a & 1 == 0:
+        a >>= 1
+
+    while b & 1 == 0:
+        b >>= 1
+
+    while a != b:
+        a, b = abs(a - b), min(a, b)
+        while a & 1 == 0:
+            a >>= 1
+
+    return a << shift
+
+def lehmer_xgcd(a, b):
+    s_old, s_new = 1, 0
+    t_old, t_new = 0, 1
+    while b >> (SHIFT >> 1):
+        q, r = a // b, a % b
+
+        a, b = b, r
+        s_old, s_new = s_new, s_old - q * s_new
+        t_old, t_new = t_new, t_old - q * t_new
+
+    return s_old, t_old, s_new, t_new
+
+def gcd_lehmer(a, b):
+    if a.lt(b):
+        a, b = b, a
+
+    while b.size > 1:
+        a_ms = a.digit(abs(a.size-1))
+
+        x = 0
+        while a_ms & (0xFF << SHIFT-8) == 0:
+            a_ms <<= 8
+            x += 8
+
+        while a_ms & (1 << SHIFT-1) == 0:
+            a_ms <<= 1
+            x += 1
+
+        a_ms |= a.digit(abs(a.size-2)) >> SHIFT-x
+
+        if a.size == b.size:
+            b_ms = (b.digit(abs(b.size-1)) << x) | (b.digit(abs(b.size-2)) >> SHIFT-x)
+        elif a.size == b.size+1:
+            b_ms = b.digit(abs(b.size-1)) >> SHIFT-x
+        else:
+            b_ms = 0
+
+        if b_ms >> (SHIFT+1 >> 1) == 0:
+            a, b = b, a.mod(b)
+            continue
+
+        s_old, t_old, s_new, t_new = lehmer_xgcd(a_ms, b_ms)
+
+        n_a = a.int_mul(s_new).add(b.int_mul(t_new)).abs()
+        b = a.int_mul(s_old).add(b.int_mul(t_old)).abs()
+        a = n_a
+
+        if a.lt(b):
+            a, b = b, a
+
+    if not b.tobool():
+        return a
+
+    a = a.mod(b)
+    return rbigint.fromint(gcd_binary(b.toint(), a.toint()))

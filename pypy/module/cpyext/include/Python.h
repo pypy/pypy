@@ -18,6 +18,7 @@
 # define PyAPI_DATA(RTYPE) extern PyAPI_FUNC(RTYPE)
 # define Py_LOCAL_INLINE(type) static inline type
 #else
+# include <stdint.h>
 # define MS_WIN32 1
 # define MS_WINDOWS 1
 # ifdef _MSC_VER

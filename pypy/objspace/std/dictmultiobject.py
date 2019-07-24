@@ -79,8 +79,9 @@ class W_DictMultiObject(W_Root):
             W_ModuleDictObject.__init__(w_obj, space, strategy, storage)
             return w_obj
         elif instance:
-            from pypy.objspace.std.mapdict import MapDictStrategy
-            strategy = space.fromcache(MapDictStrategy)
+            from pypy.objspace.std.mapdict import make_instance_dict
+            assert w_type is None
+            return make_instance_dict(space)
         elif strdict or module:
             assert w_type is None
             strategy = space.fromcache(UnicodeDictStrategy)
@@ -344,7 +345,7 @@ def _add_indirections():
                     popitem delitem clear copy \
                     length w_keys values items \
                     iterkeys itervalues iteritems \
-                    listview_bytes listview_utf8 listview_int \
+                    listview_bytes listview_ascii listview_int \
                     view_as_kwargs".split()
 
     def make_method(method):
@@ -491,7 +492,7 @@ class DictStrategy(object):
     def listview_bytes(self, w_dict):
         return None
 
-    def listview_utf8(self, w_dict):
+    def listview_ascii(self, w_dict):
         return None
 
     def listview_int(self, w_dict):
@@ -1202,7 +1203,8 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         assert key is not None
         return self.getitem(w_dict, self.space.newtext(key))
 
-    ## def listview_utf8(self, w_dict):
+    ## def listview_ascii(self, w_dict):
+    ##     XXX reimplement.  Also warning: must return a list of _ascii_
     ##     return self.unerase(w_dict.dstorage).keys()
 
     def wrapkey(space, key):

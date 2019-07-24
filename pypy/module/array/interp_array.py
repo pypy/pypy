@@ -14,6 +14,7 @@ from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, make_weakref_descr)
+from pypy.interpreter.unicodehelper import wcharpsize2utf8
 
 
 @unwrap_spec(typecode='text')
@@ -93,8 +94,8 @@ def compare_arrays(space, arr1, arr2, comp_op):
     lgt = min(arr1.len, arr2.len)
     for i in range(lgt):
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
-        w_elem1 = arr1.w_getitem(space, i)
-        w_elem2 = arr2.w_getitem(space, i)
+        w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
+        w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
         if comp_op == EQ:
             res = space.eq_w(w_elem1, w_elem2)
             if not res:
@@ -509,7 +510,8 @@ class W_ArrayBase(W_Root):
             if s < 0:
                 s = 0
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            return space.newutf8(rffi.wcharpsize2utf8(buf, s), s)
+            utf8 = wcharpsize2utf8(space, buf, s)
+            return space.newutf8(utf8, s)
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
@@ -767,8 +769,16 @@ class W_ArrayBase(W_Root):
         if self.len == 0:
             return space.newtext("array('%s')" % self.typecode)
         elif self.typecode == "u":
-            r = space.repr(self.descr_tounicode(space))
-            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            try:
+                w_unicode = self.descr_tounicode(space)
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                w_exc_value = e.get_w_value(space)
+                r = "<%s>" % (space.text_w(w_exc_value),)
+            else:
+                r = space.text_w(space.repr(w_unicode))
+            s = "array('%s', %s)" % (self.typecode, r)
             return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))
@@ -1132,10 +1142,11 @@ def make_array(mytype):
             else:
                 self.fromsequence(w_iterable)
 
-        def w_getitem(self, space, idx):
+        def w_getitem(self, space, idx, integer_instead_of_char=False):
             item = self.get_buffer()[idx]
             keepalive_until_here(self)
-            if mytype.typecode in 'bBhHil':
+            if mytype.typecode in 'bBhHil' or (
+                    integer_instead_of_char and mytype.typecode in 'cu'):
                 item = rffi.cast(lltype.Signed, item)
                 return space.newint(item)
             if mytype.typecode in 'ILqQ':
@@ -1146,11 +1157,15 @@ def make_array(mytype):
             elif mytype.typecode == 'c':
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
-                if ord(item) >= 0x110000:
+                code = r_uint(ord(item))
+                try:
+                    item = rutf8.unichr_as_utf8(code, allow_surrogates=True)
+                except rutf8.OutOfRange:
                     raise oefmt(space.w_ValueError,
-                                "array contains a unicode character out of "
-                                "range(0x110000)")
-                return space.newtext(rutf8.unichr_as_utf8(ord(item)), 1)
+                        "cannot operate on this array('u') because it contains"
+                        " character %s not in range [U+0000; U+10ffff]"
+                        " at index %d", 'U+%x' % code, idx)
+                return space.newtext(item, 1)
             assert 0, "unreachable"
 
         # interface

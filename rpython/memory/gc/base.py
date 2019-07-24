@@ -22,7 +22,7 @@ class GCBase(object):
     prebuilt_gc_objects_are_static_roots = True
     can_usually_pin_objects = False
     object_minimal_size = 0
-    gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
+    gcflag_extra = 0   # or a dedicated GC flag that the GC initializes to 0
     _totalroots_rpy = 0   # for inspector.py
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,

@@ -310,10 +310,10 @@ def main(args=None, *, _wrap_timer=None):
             return 0
     setup = "\n".join(setup) or "pass"
 
-    print("WARNING: timeit is a very unreliable tool. use perf or something else for real measurements")
+    print("WARNING: timeit is a very unreliable tool. use pyperf or something else for real measurements")
     executable = os.path.basename(sys.executable)
-    print("%s -m pip install perf" % executable)
-    print("%s -m perf timeit %s" % (
+    print("%s -m pip install pyperf" % executable)
+    print("%s -m pyperf timeit %s" % (
         executable,
         " ".join([(arg if arg.startswith("-") else repr(arg))
                         for arg in origargs]), ))

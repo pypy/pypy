@@ -192,8 +192,10 @@ class ExecutionContext(object):
                 addr += c
                 if c:
                     d.instr_lb = addr
-
-                line += ord(lineno[p + 1])
+                line_offset = ord(lineno[p + 1])
+                if line_offset >= 0x80:
+                    line_offset -= 0x100
+                line += line_offset
                 p += 2
                 size -= 1
 

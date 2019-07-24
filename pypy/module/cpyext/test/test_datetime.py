@@ -146,12 +146,59 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     2000, 6, 6, 6, 6, 6, 6, Py_None,
                     PyDateTimeAPI->DateTimeType);
              """),
+            ("new_datetime_fromtimestamp", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(200000.0);
+                 Py_INCREF(Py_None);
+                 PyObject *tsargs = PyTuple_Pack(2, ts, Py_None);
+                 PyObject *rv = PyDateTimeAPI->DateTime_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateTimeType, tsargs, NULL);
+                 Py_DECREF(tsargs);
+                 return rv;
+             """),
+            ("new_dt_fromts_tzinfo", "METH_O",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(200000.0);
+                 PyObject *tsargs = PyTuple_Pack(1, ts);
+                 PyObject *tskwargs = PyDict_New();
+
+                 Py_INCREF(args);
+                 PyDict_SetItemString(tskwargs, "tz", args);
+                 PyObject *rv = PyDateTimeAPI->DateTime_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateTimeType, tsargs, tskwargs);
+                 Py_DECREF(tsargs);
+                 Py_DECREF(tskwargs);
+                 return rv;
+             """),
+            ("new_date_fromtimestamp", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(1430366400.0);
+                 Py_INCREF(Py_None);
+                 PyObject *tsargs = PyTuple_Pack(1, ts);
+                 PyObject *rv = PyDateTimeAPI->Date_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateType, tsargs);
+                 Py_DECREF(tsargs);
+                 return rv;
+             """),
+
         ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.new_date() == datetime.date(2000, 6, 6)
         assert module.new_time() == datetime.time(6, 6, 6, 6)
         assert module.new_datetime() == datetime.datetime(
             2000, 6, 6, 6, 6, 6, 6)
+
+        utc = datetime.timezone.utc
+
+        # .fromtimestamp tests
+        assert (module.new_datetime_fromtimestamp() ==
+                datetime.datetime.fromtimestamp(200000.0))
+
+        assert (module.new_dt_fromts_tzinfo(utc) ==
+                datetime.datetime.fromtimestamp(200000.0, tz=utc))
+
+        assert (module.new_date_fromtimestamp() ==
+                datetime.date.fromtimestamp(1430366400.0))
 
     def test_macros(self):
         module = self.import_extension('foo', [
@@ -305,6 +352,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
              """),
         ], prologue='#include "datetime.h"\n')
         from datetime import tzinfo, datetime, timedelta, time
+
         # copied from datetime documentation
         class GMT1(tzinfo):
             def __del__(self):
@@ -315,6 +363,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                 return timedelta(0)
             def tzname(self,dt):
                 return "GMT +1"
+
         gmt1 = GMT1()
         dt1 = module.time_with_tzinfo(gmt1)
         assert dt1 == time(6, 6, 6, 6, gmt1)

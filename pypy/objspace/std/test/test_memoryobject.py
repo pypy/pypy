@@ -62,13 +62,15 @@ class AppTestMemoryView(object):
         assert w.tobytes() == bytes(w) == b'geb'
 
     def test_memoryview_attrs(self):
-        v = memoryview(b"a"*100)
+        b = b"a"*100
+        v = memoryview(b)
         assert v.format == "B"
         assert v.itemsize == 1
         assert v.shape == (100,)
         assert v.ndim == 1
         assert v.strides == (1,)
         assert v.nbytes == 100
+        assert v.obj is b
 
     def test_suboffsets(self):
         v = memoryview(b"a"*100)
@@ -174,6 +176,7 @@ class AppTestMemoryView(object):
         assert m[0] == 0
         m[0] = 1
         assert m[0] == 1
+        raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), 0)
 
     def test_int_array_slice(self):
         import array
@@ -284,6 +287,21 @@ class AppTestMemoryView(object):
         assert m2.strides == m1.strides
         assert m2.itemsize == m1.itemsize
         assert m2.shape == m1.shape
+
+    def test_2d(self):
+        import struct
+        a = list(range(16))
+        ba = bytearray(struct.pack("%di" % len(a), *a))
+        m = memoryview(ba).cast("i", shape=(4, 4))
+        assert m[2, 3] == 11
+        m[2, 3] = -1
+        assert m[2, 3] == -1
+        raises(TypeError, m.__setitem__, (2, 3), 'a')
+        # slices in 2d memoryviews are not supported at all
+        raises(TypeError, m.__getitem__, (slice(None), 3))
+        raises(TypeError, m.__setitem__, (slice(None), 3), 123)
+        raises(NotImplementedError, m.__getitem__, (slice(0,1,1), slice(0,1,2)))
+        raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), 123)
 
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])

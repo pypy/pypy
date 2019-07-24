@@ -10,7 +10,6 @@ from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
-from rpython.rlib.objectmodel import we_are_translated
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
 # py3k os.open uses subprocess, requiring the following per platform
@@ -96,10 +95,19 @@ class AppTestPosix:
             cls.w_confstr_result = space.wrap(os.confstr(confstr_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
         cls.w_python = space.wrap(sys.executable)
+        cls.w_platform = space.wrap(sys.platform)
         if hasattr(os, 'major'):
             cls.w_expected_major_12345 = space.wrap(os.major(12345))
             cls.w_expected_minor_12345 = space.wrap(os.minor(12345))
         cls.w_udir = space.wrap(str(udir))
+        cls.w_Path = space.appexec([], """():
+            class Path:
+                def __init__(self, _path):
+                    self._path =_path
+                def __fspath__(self):
+                    return self._path
+            return Path
+            """) 
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -310,7 +318,7 @@ class AppTestPosix:
         ex(self.posix.write, UNUSEDFD, b"x")
         ex(self.posix.close, UNUSEDFD)
         #UMPF cpython raises IOError ex(self.posix.ftruncate, UNUSEDFD, 123)
-        if sys.platform == 'win32' and not we_are_translated():
+        if sys.platform == 'win32' and self.runappdirect:
             # XXX kills the host interpreter untranslated
             ex(self.posix.fstat, UNUSEDFD)
             ex(self.posix.stat, "qweqwehello")
@@ -401,10 +409,7 @@ class AppTestPosix:
         path = self.path3
         with open(path, 'wb'):
             pass
-        class Path:
-            def __fspath__(self):
-                return path
-        os.unlink(Path())
+        os.unlink(path)
 
     def test_times(self):
         """
@@ -1076,7 +1081,7 @@ class AppTestPosix:
         os.closerange(start, stop)
         for fd in fds:
             os.close(fd)     # should not have been closed
-        if sys.platform == 'win32' and not we_are_translated():
+        if self.platform == 'win32' and self.runappdirect:
             # XXX kills the host interpreter untranslated
             for fd in range(start, stop):
                 raises(OSError, os.fstat, fd)   # should have been closed
@@ -1224,17 +1229,12 @@ class AppTestPosix:
                 posix.unlink(bytes_dir + '/somelink'.encode())
 
         def test_symlink_fspath(self):
-            class Path:
-                def __init__(self, b):
-                    self.path = b
-                def __fspath__(self):
-                    return self.path
             posix = self.posix
             bytes_dir = self.bytes_dir
             if bytes_dir is None:
                 skip("encoding not good enough")
-            dest = Path(bytes_dir + b"/file.txt")
-            posix.symlink(Path(bytes_dir + b"/somefile"), dest)
+            dest = self.Path(bytes_dir + b"/file.txt")
+            posix.symlink(self.Path(bytes_dir + b"/somefile"), dest)
             try:
                 with open(dest) as f:
                     data = f.read()
@@ -1461,7 +1461,7 @@ class AppTestPosix:
         with open(fname, "w") as f:
             f.write("this is a rename test")
         str_name = str(self.pdir) + '/test_rename.txt'
-        os.rename(self.path, str_name)
+        os.rename(fname, str_name)
         with open(str_name) as f:
             assert f.read() == 'this is a rename test'
         os.rename(str_name, fname)
@@ -1470,6 +1470,11 @@ class AppTestPosix:
         with open(unicode_name) as f:
             assert f.read() == 'this is a rename test'
         os.rename(unicode_name, fname)
+        
+        os.rename(bytes(fname, 'utf-8'), bytes(str_name, 'utf-8'))
+        with open(str_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(str_name, fname)
         with open(fname) as f:
             assert f.read() == 'this is a rename test'
         os.unlink(fname)
@@ -1548,6 +1553,7 @@ class AppTestPosix:
                 return 4
 
         raises(TypeError, self.posix.fspath, WrongSample())
+        raises(OSError, self.posix.replace, self.Path('nonexistentfile1'), 'bok')
 
     if hasattr(rposix, 'getxattr'):
         def test_xattr_simple(self):

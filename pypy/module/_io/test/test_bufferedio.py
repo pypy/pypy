@@ -4,9 +4,11 @@ from rpython.tool.udir import udir
 from pypy.module._io import interp_bufferedio
 from pypy.interpreter.error import OperationError
 import py.test
+import os
+
 
 class AppTestBufferedReader:
-    spaceconfig = dict(usemodules=['_io'])
+    spaceconfig = dict(usemodules=['_io', 'fcntl'])
 
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
@@ -15,6 +17,10 @@ class AppTestBufferedReader:
         bigtmpfile = udir.join('bigtmpfile')
         bigtmpfile.write("a\nb\nc" * 20, mode='wb')
         cls.w_bigtmpfile = cls.space.wrap(str(bigtmpfile))
+        #
+        cls.w_posix = cls.space.appexec([], """():
+            import %s as m;
+            return m""" % os.name)
 
     def test_simple_read(self):
         import _io
@@ -380,8 +386,21 @@ class AppTestBufferedReader:
         assert write_called
         assert rawio.getvalue() == data * 11 # all flushed
 
+    def test_readline_issue3042(self):
+        import _io as io
+        import fcntl
+        fdin, fdout = self.posix.pipe()
+        f = io.open(fdin, "rb")
+        fl = fcntl.fcntl(f, fcntl.F_GETFL)
+        fcntl.fcntl(f, fcntl.F_SETFL, fl | self.posix.O_NONBLOCK)
+        s = f.readline()
+        assert s == b''
+        f.close()
+        self.posix.close(fdout)
+
+
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
-    spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
+    spaceconfig = dict(usemodules=['_io', 'fcntl', 'thread', 'time'])
 
     def test_readinto_small_parts(self):
         import _io, os, _thread, time

@@ -1,5 +1,6 @@
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.interpreter.astcompiler.assemble import Instruction, ops
+from pypy.interpreter.astcompiler.assemble import _encode_lnotab_pair
 
 def test_mangle():
     assert mangle("foo", "Bar") == "foo"
@@ -61,3 +62,28 @@ def wrong1():
            assert err.filename is not None
            assert err.offset is not None
            assert err.msg is not None
+
+def test_encode_lnotab_pair():
+    l = []
+    _encode_lnotab_pair(0, 1, l)
+    assert l == ["\x00", "\x01"]
+
+    l = []
+    _encode_lnotab_pair(4, 1, l)
+    assert l == ["\x04", "\x01"]
+
+    l = []
+    _encode_lnotab_pair(4, -1, l)
+    assert l == ["\x04", "\xff"]
+
+    l = []
+    _encode_lnotab_pair(4, 127, l)
+    assert l == ["\x04", "\x7f"]
+
+    l = []
+    _encode_lnotab_pair(4, 128, l)
+    assert l == list("\x04\x7f\x00\x01")
+
+    l = []
+    _encode_lnotab_pair(4, -1000, l)
+    assert l == list("\x04\x80\x00\x80\x00\x80\x00\x80\x00\x80\x00\x80\x00\x80\x00\x98")

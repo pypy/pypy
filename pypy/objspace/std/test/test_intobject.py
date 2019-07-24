@@ -743,6 +743,14 @@ class AppTestInt(object):
         x = -b
         assert x.__rsub__(2) == (2 + b)
 
+    def test_round_special_method(self):
+        assert 567 .__round__(-1) == 570
+        assert 567 .__round__() == 567
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            assert 567 .__round__(None) == 567    # fails on CPython
+
+
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
 

@@ -802,18 +802,6 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         temp_loc = r.SCRATCH2
         return [base_loc, temp_loc]
 
-    def prepare_copystrcontent(self, op):
-        src_ptr_loc = self.ensure_reg(op.getarg(0))
-        dst_ptr_loc = self.ensure_reg(op.getarg(1))
-        src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
-        dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
-        length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))
-        self._spill_before_call(gc_level=0)
-        return [src_ptr_loc, dst_ptr_loc,
-                src_ofs_loc, dst_ofs_loc, length_loc]
-
-    prepare_copyunicodecontent = prepare_copystrcontent
-
     prepare_same_as_i = helper.prepare_unary_op
     prepare_same_as_r = helper.prepare_unary_op
     prepare_same_as_f = helper.prepare_unary_op

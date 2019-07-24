@@ -69,10 +69,10 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.bytesbuf0_w(self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
-        ret = self.space.fsdecode_w(self.w_obj)
+        ret = self.space.fsdecode_w(self.w_obj).decode('utf-8')
         if u'\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
@@ -2277,15 +2277,14 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
-        path = space.utf8_w(w_path)
         try:
-            result = nt._getfinalpathname(path)
+            s, lgt = dispatch_filename(nt._getfinalpathname)(space, w_path)
         except nt.LLNotImplemented as e:
             raise OperationError(space.w_NotImplementedError,
                                  space.newtext(e.msg))
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        return space.newtext(result)
+        return space.newtext(s, lgt)
 
 
 def chflags():

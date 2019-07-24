@@ -5,7 +5,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     appleveldefs = {
        'factorial' : 'app_math.factorial',
-       'gcd' :       'app_math.gcd',
     }
 
     interpleveldefs = {
@@ -57,5 +56,6 @@ class Module(MixedModule):
        'gamma'          : 'interp_math.gamma',
        'lgamma'         : 'interp_math.lgamma',
        'isclose'        : 'interp_math.isclose',
+       'gcd'            : 'interp_math.gcd',
 }
 

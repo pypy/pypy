@@ -83,7 +83,11 @@ if 1:
     __builtins__.py3k_skip = skip
     class ExceptionWrapper:
         pass
-    def raises(exc, func, *args, **kwargs):
+    def raises(exc, *args, **kwargs):
+        if not args:
+            return RaisesContext(exc)
+        func = args[0]
+        args = args[1:]
         import os
         try:
             if isinstance(func, str):
@@ -101,6 +105,22 @@ if 1:
             return res
         else:
             raise AssertionError("DID NOT RAISE")
+
+    class RaisesContext(object):
+        def __init__(self, expected_exception):
+            self.expected_exception = expected_exception
+            self.excinfo = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *tp):
+            __tracebackhide__ = True
+            if tp[0] is None:
+                pytest.fail("DID NOT RAISE")
+            self.value = tp[1]
+            return issubclass(tp[0], self.expected_exception)
+    
     __builtins__.raises = raises
     class Test:
         pass
