@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt
-from rpython.jit.codewriter import heaptracker
+from rpython.jit.metainterp.support import adr2int
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import base_int
 
@@ -8,7 +8,7 @@ class JitCode(AbstractDescr):
     _empty_i = []
     _empty_r = []
     _empty_f = []
-    
+
     def __init__(self, name, fnaddr=None, calldescr=None, called_from=None):
         self.name = name
         self.fnaddr = fnaddr
@@ -41,7 +41,7 @@ class JitCode(AbstractDescr):
         self._resulttypes = resulttypes   # debugging
 
     def get_fnaddr_as_int(self):
-        return heaptracker.adr2int(self.fnaddr)
+        return adr2int(self.fnaddr)
 
     def num_regs_i(self):
         return ord(self.c_num_regs_i)

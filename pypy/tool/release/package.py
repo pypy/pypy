@@ -83,7 +83,11 @@ def create_package(basedir, options, _fake=False):
     if not _fake and not pypy_runs(pypy_c):
         raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
-        failures = create_cffi_import_libraries(pypy_c, options, basedir)
+        failures = create_cffi_import_libraries(
+            str(pypy_c), options, str(basedir),
+            embed_dependencies=options.embed_dependencies,
+        )
+
         for key, module in failures:
             print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
                 You can either install development headers package,
@@ -94,7 +98,7 @@ def create_package(basedir, options, _fake=False):
 
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
-    binaries = [(pypy_c, rename_pypy_c)]
+    binaries = [(pypy_c, rename_pypy_c, None)]
 
     if (sys.platform != 'win32' and    # handled below
         not _fake and os.path.getsize(str(pypy_c)) < 500000):
@@ -106,10 +110,12 @@ def create_package(basedir, options, _fake=False):
         if not libpypy_c.check():
             raise PyPyCNotFound('Expected pypy to be mostly in %r, but did '
                                 'not find it' % (str(libpypy_c),))
-        binaries.append((libpypy_c, libpypy_name))
+        binaries.append((libpypy_c, libpypy_name, None))
     #
     builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
+    lib_pypy = pypydir.join('lib_pypy')
+    # do not create lib_pypy yet, it will be created by the copytree below
 
     includedir = basedir.join('include')
     shutil.copytree(str(includedir), str(pypydir.join('include')))
@@ -118,18 +124,19 @@ def create_package(basedir, options, _fake=False):
     if sys.platform == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
-        src,tgt = binaries[0]
+        src, tgt, _ = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():
             tgt = py.path.local(tgt)
-            binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename))
+            binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename, None))
             print "Picking %s" % str(pypyw)
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
-        win_extras = ['libpypy-c.dll', 'sqlite3.dll']
+        win_extras = [('libpypy-c.dll', None), ('sqlite3.dll', lib_pypy)]
         if not options.no_tk:
-            win_extras += ['tcl85.dll', 'tk85.dll']
+            tkinter_dir = lib_pypy.join('_tkinter')
+            win_extras += [('tcl85.dll', tkinter_dir), ('tk85.dll', tkinter_dir)]
 
-        for extra in win_extras:
+        for extra,target_dir in win_extras:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -137,7 +144,7 @@ def create_package(basedir, options, _fake=False):
                     print "%s not found, expect trouble if this is a shared build" % (extra,)
                     continue
             print "Picking %s" % p
-            binaries.append((p, p.basename))
+            binaries.append((p, p.basename, target_dir))
         libsdir = basedir.join('libs')
         if libsdir.exists():
             print 'Picking %s (and contents)' % libsdir
@@ -169,7 +176,7 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
                 raise MissingDependenciesError('Tk runtime')
 
     print '* Binaries:', [source.relto(str(basedir))
-                          for source, target in binaries]
+                          for source, target, target_dir in binaries]
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
@@ -177,15 +184,14 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
                     str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
-    shutil.copytree(str(basedir.join('lib_pypy')),
-                    str(pypydir.join('lib_pypy')),
+    shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
                                            '*_cffi.c', '*.o'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
         shutil.copyfile(str(basedir.join('lib_pypy', file)),
-                        str(pypydir.join('lib_pypy', file)))
+                        str(lib_pypy.join(file)))
     # Use original LICENCE file
     base_file = str(basedir.join('LICENSE'))
     with open(base_file) as fid:
@@ -201,8 +207,11 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
     else:
         bindir = pypydir.join('bin')
         bindir.ensure(dir=True)
-    for source, target in binaries:
-        archive = bindir.join(target)
+    for source, target, target_dir in binaries:
+        if target_dir:
+            archive = target_dir.join(target)
+        else:
+            archive = bindir.join(target)
         if not _fake:
             shutil.copy(str(source), str(archive))
         else:
@@ -214,8 +223,12 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
     try:
         os.chdir(str(builddir))
         if not _fake:
-            for source, target in binaries:
-                smartstrip(bindir.join(target), keep_debug=options.keep_debug)
+            for source, target, target_dir in binaries:
+                if target_dir:
+                    archive = target_dir.join(target)
+                else:
+                    archive = bindir.join(target)
+                smartstrip(archive, keep_debug=options.keep_debug)
         #
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -253,11 +266,16 @@ using another platform..."""
     return retval, builddir # for tests
 
 def package(*args, **kwds):
-    try:
-        import argparse
-    except ImportError:
-        import imp
-        argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
+    import argparse
+
+    class NegateAction(argparse.Action):
+        def __init__(self, option_strings, dest, nargs=0, **kwargs):
+            super(NegateAction, self).__init__(option_strings, dest, nargs,
+                                               **kwargs)
+
+        def __call__(self, parser, ns, values, option):
+            setattr(ns, self.dest, option[2:4] != 'no')
+
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
     else:
@@ -279,7 +297,7 @@ def package(*args, **kwds):
     parser.add_argument('--no-keep-debug', dest='keep_debug',
                         action='store_false', help='do not keep debug symbols')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
-        help='target executable name, defaults to "pypy"')
+        help='target executable name, defaults to "%s"' % pypy_exe)
     parser.add_argument('--archive-name', dest='name', type=str, default='',
         help='pypy-VER-PLATFORM')
     parser.add_argument('--builddir', type=str, default='',
@@ -287,13 +305,21 @@ def package(*args, **kwds):
     parser.add_argument('--targetdir', type=str, default='',
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
-        help='use as pypy exe instead of pypy/goal/pypy-c')
+        help='use as pypy3 exe instead of pypy/goal/pypy3-c')
+    parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
+                        dest='embed_dependencies',
+                        action=NegateAction,
+                        default=(sys.platform == 'darwin'),
+                        help='whether to embed dependencies for distribution '
+                        '(default on OS X)')
     options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
         options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
         options.no_tk = True
+    if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
+        options.embed_dependencies = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir

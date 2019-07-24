@@ -79,6 +79,9 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert str(buffer('a') + arr) == "a" + expected
         # python2 special cases empty-buffer + obj
         assert str(buffer('') + arr) == "array('i', [1, 2, 3, 4])"
+        # make sure buffer_attach is called
+        buf2 = module.passthrough(buf)
+        assert str(buf2) == str(buf)
 
     def test_releasebuffer(self):
         module = self.import_module(name='array')

@@ -20,7 +20,7 @@ def try_cast_gcref_to_w_root(gcref):
     # inherits from W_Root for internal reasons.  Such instances don't
     # have a typedef at all (or have a null typedef after translation).
     if not we_are_translated():
-        if not hasattr(w_obj, 'typedef'):
+        if getattr(w_obj, 'typedef', None) is None:
             return None
     else:
         if w_obj is None or not w_obj.typedef:

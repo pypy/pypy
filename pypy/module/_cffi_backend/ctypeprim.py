@@ -401,15 +401,22 @@ class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
         # bypass the method 'string' implemented in W_CTypePrimitive
         return W_CType.string(self, cdataobj, maxlen)
 
-    def convert_to_object(self, cdata):
-        space = self.space
+    def _read_bool_0_or_1(self, cdata):
+        """Read one byte, check it is 0 or 1, but return it as an integer"""
         value = ord(cdata[0])
-        if value < 2:
-            return space.newbool(value != 0)
-        else:
-            raise oefmt(space.w_ValueError,
+        if value >= 2:
+            raise oefmt(self.space.w_ValueError,
                         "got a _Bool of value %d, expected 0 or 1",
                         value)
+        return value
+
+    def convert_to_object(self, cdata):
+        value = self._read_bool_0_or_1(cdata)
+        return self.space.newbool(value != 0)
+
+    def cast_to_int(self, cdata):
+        value = self._read_bool_0_or_1(cdata)
+        return self.space.newint(value)
 
     def unpack_list_of_int_items(self, ptr, length):
         return None

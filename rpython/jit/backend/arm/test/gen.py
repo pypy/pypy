@@ -2,6 +2,7 @@ import os
 from rpython.tool.udir import udir
 import tempfile
 from rpython.jit.backend.arm.test.support import AS
+
 class ASMInstruction(object):
 
     asm_opts = '-mfpu=neon -mcpu=cortex-a8 -march=armv7-a'

@@ -332,7 +332,8 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             if do_unicode:
                 cp = rutf8.codepoint_at_pos(self.fmt, self.fmtpos - 1)
-                w_s = space.newutf8(rutf8.unichr_as_utf8(r_uint(cp)), 1)
+                w_s = space.newutf8(rutf8.unichr_as_utf8(r_uint(cp),
+                                                  allow_surrogates=True), 1)
             else:
                 cp = ord(self.fmt[self.fmtpos - 1])
                 w_s = space.newbytes(chr(cp))
@@ -472,7 +473,8 @@ def make_formatter_subclass(do_unicode):
                 n = space.int_w(w_value)
                 if do_unicode:
                     try:
-                        c = rutf8.unichr_as_utf8(r_uint(n))
+                        c = rutf8.unichr_as_utf8(r_uint(n),
+                                                 allow_surrogates=True)
                     except rutf8.OutOfRange:
                         raise oefmt(space.w_OverflowError,
                                     "unicode character code out of range")

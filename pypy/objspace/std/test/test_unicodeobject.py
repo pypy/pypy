@@ -711,6 +711,7 @@ class AppTestUnicodeString:
 
         raises(TypeError, u'hello'.translate)
         raises(TypeError, u'abababc'.translate, {ord('a'):''})
+        raises(TypeError, u'x'.translate, {ord('x'):0x110000})
 
     def test_unicode_from_encoded_object(self):
         assert unicode('x', 'utf-8') == u'x'
@@ -1146,8 +1147,8 @@ class AppTestUnicodeString:
     def test_format_repeat(self):
         assert format(u"abc", u"z<5") == u"abczz"
         assert format(u"abc", u"\u2007<5") == u"abc\u2007\u2007"
-        #CPython2 raises UnicodeEncodeError
-        assert format(123, u"\u2007<5") == u"123\u2007\u2007"
+        # raises UnicodeEncodeError, like CPython does
+        raises(UnicodeEncodeError, format, 123, u"\u2007<5")
 
     def test_formatting_char(self):
         for num in range(0x80,0x100):

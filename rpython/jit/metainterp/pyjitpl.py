@@ -2,17 +2,18 @@ import sys
 
 import py
 
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, TargetToken, MissingValue, SwitchToBlackhole)
+    ConstFloat, CONST_NULL, TargetToken, MissingValue, SwitchToBlackhole)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, GuardResOp
+from rpython.jit.metainterp.support import adr2int, ptr2int
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -23,7 +24,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper import rclass
 from rpython.rlib.objectmodel import compute_unique_id
-
 
 
 # ____________________________________________________________
@@ -136,9 +136,12 @@ class MIFrame(object):
             # is not defined yet.
             argcode = self._result_argcode
             index = ord(self.bytecode[self.pc - 1])
-            if   argcode == 'i': self.registers_i[index] = history.CONST_FALSE
-            elif argcode == 'r': self.registers_r[index] = history.CONST_NULL
-            elif argcode == 'f': self.registers_f[index] = history.CONST_FZERO
+            if argcode == 'i':
+                self.registers_i[index] = history.CONST_FALSE
+            elif argcode == 'r':
+                self.registers_r[index] = CONST_NULL
+            elif argcode == 'f':
+                self.registers_f[index] = history.CONST_FZERO
             self._result_argcode = '?'     # done
         #
         info = self.get_current_position_info()
@@ -269,11 +272,11 @@ class MIFrame(object):
 
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):
-        return self.execute(rop.PTR_NE, box, history.CONST_NULL)
+        return self.execute(rop.PTR_NE, box, CONST_NULL)
 
     @arguments("box")
     def opimpl_ptr_iszero(self, box):
-        return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
+        return self.execute(rop.PTR_EQ, box, CONST_NULL)
 
     @arguments("box")
     def opimpl_assert_not_none(self, box):
@@ -287,8 +290,19 @@ class MIFrame(object):
         from rpython.rtyper.lltypesystem import llmemory
         if self.metainterp.heapcache.is_class_known(box):
             return
-        self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
-        self.metainterp.heapcache.class_now_known(box)
+        if isinstance(clsbox, Const):
+            self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
+            self.metainterp.heapcache.class_now_known(box)
+            self.metainterp.heapcache.nullity_now_known(box)
+        elif have_debug_prints():
+            if len(self.metainterp.framestack) >= 2:
+                # caller of ll_record_exact_class
+                name = self.metainterp.framestack[-2].jitcode.name
+            else:
+                name = self.jitcode.name
+            loc = self.metainterp.jitdriver_sd.warmstate.get_location_str(self.greenkey)
+            debug_print("record_exact_class with non-constant second argument, ignored",
+                    name, loc)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
@@ -920,8 +934,7 @@ class MIFrame(object):
         token_descr = vinfo.vable_token_descr
         mi = self.metainterp
         tokenbox = mi.execute_and_record(rop.GETFIELD_GC_R, token_descr, box)
-        condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox,
-                                       history.CONST_NULL)
+        condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox, CONST_NULL)
         funcbox = ConstInt(rffi.cast(lltype.Signed, vinfo.clear_vable_ptr))
         calldescr = vinfo.clear_vable_descr
         self.execute_varargs(rop.COND_CALL, [condbox, funcbox, box],
@@ -1148,7 +1161,7 @@ class MIFrame(object):
                           assembler_call=False):
         portal_code = targetjitdriver_sd.mainjitcode
         k = targetjitdriver_sd.portal_runner_adr
-        funcbox = ConstInt(heaptracker.adr2int(k))
+        funcbox = ConstInt(adr2int(k))
         return self.do_residual_call(funcbox, allboxes, portal_code.calldescr, pc,
                                      assembler_call=assembler_call,
                                      assembler_call_jd=targetjitdriver_sd)
@@ -1269,8 +1282,11 @@ class MIFrame(object):
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not any_operation:
                 return
-            if self.metainterp.portal_call_depth or not self.metainterp.get_procedure_token(greenboxes, True):
-                if not jitdriver_sd.no_loop_header:
+            if not jitdriver_sd.no_loop_header:
+                if self.metainterp.portal_call_depth:
+                    return
+                ptoken = self.metainterp.get_procedure_token(greenboxes)
+                if not has_compiled_targets(ptoken):
                     return
             # automatically add a loop_header if there is none
             self.metainterp.seen_loop_header_for_jdindex = jdindex
@@ -1339,7 +1355,9 @@ class MIFrame(object):
         last_exc_value = metainterp.last_exc_value
         assert last_exc_value
         assert metainterp.class_of_last_exc_is_const
-        if not metainterp.cpu.ts.instanceOf(ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, last_exc_value)), vtablebox):
+        cls = llmemory.cast_adr_to_ptr(vtablebox.getaddr(), rclass.CLASSTYPE)
+        real_instance = rclass.ll_cast_to_object(last_exc_value)
+        if not rclass.ll_isinstance(real_instance, cls):
             self.pc = next_exc_target
 
     @arguments("box", "orgpc")
@@ -1367,7 +1385,8 @@ class MIFrame(object):
         exc_value = self.metainterp.last_exc_value
         assert exc_value
         assert self.metainterp.class_of_last_exc_is_const
-        return self.metainterp.cpu.ts.cls_of_box(ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, exc_value)))
+        exc_cls = rclass.ll_cast_to_object(exc_value).typeptr
+        return ConstInt(ptr2int(exc_cls))
 
     @arguments()
     def opimpl_last_exc_value(self):
@@ -1484,7 +1503,7 @@ class MIFrame(object):
         vref = vrefbox.getref_base()
         if vrefinfo.is_virtual_ref(vref):
             # XXX write a comment about nullbox
-            nullbox = self.metainterp.cpu.ts.CONST_NULL
+            nullbox = CONST_NULL
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
@@ -1567,7 +1586,7 @@ class MIFrame(object):
             return promoted_box
 
     def cls_of_box(self, box):
-        return self.metainterp.cpu.ts.cls_of_box(box)
+        return self.metainterp.cpu.cls_of_box(box)
 
     @specialize.arg(1)
     def execute(self, opnum, *argboxes):
@@ -1811,7 +1830,7 @@ class MIFrame(object):
         to handle an indirect_call that may need to be inlined."""
         if isinstance(funcbox, Const):
             sd = self.metainterp.staticdata
-            key = sd.cpu.ts.getaddr_for_box(funcbox)
+            key = funcbox.getaddr()
             jitcode = sd.bytecode_for_address(key)
             if jitcode is not None:
                 # we should follow calls to this graph
@@ -2118,7 +2137,7 @@ class MetaInterp(object):
             elif result_type == history.INT:
                 raise jitexc.DoneWithThisFrameInt(int(resultbox.getint()))
             elif result_type == history.REF:
-                raise jitexc.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
+                raise jitexc.DoneWithThisFrameRef(resultbox.getref_base())
             elif result_type == history.FLOAT:
                 raise jitexc.DoneWithThisFrameFloat(resultbox.getfloatstorage())
             else:
@@ -2152,7 +2171,8 @@ class MetaInterp(object):
             self.compile_exit_frame_with_exception(self.last_exc_box)
         except SwitchToBlackhole as stb:
             self.aborted_tracing(stb.reason)
-        raise jitexc.ExitFrameWithExceptionRef(self.cpu, lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
+        raise jitexc.ExitFrameWithExceptionRef(
+            lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
 
     def check_recursion_invariant(self):
         portal_call_depth = -1
@@ -2509,6 +2529,14 @@ class MetaInterp(object):
             else:
                 duplicates[box] = None
 
+    def cancelled_too_many_times(self):
+        if self.staticdata.warmrunnerdesc:
+            memmgr = self.staticdata.warmrunnerdesc.memory_manager
+            if memmgr:
+                if self.cancel_count > memmgr.max_unroll_loops:
+                    return True
+        return False
+
     def reached_loop_header(self, greenboxes, redboxes):
         self.heapcache.reset() #reset_virtuals=False)
         #self.heapcache.reset_keep_likely_virtuals()
@@ -2537,9 +2565,12 @@ class MetaInterp(object):
         #   that failed;
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
+        num_green_args = self.jitdriver_sd.num_green_args
         if not self.partial_trace:
             # FIXME: Support a retrace to be a bridge as well as a loop
-            self.compile_trace(live_arg_boxes)
+            ptoken = self.get_procedure_token(greenboxes)
+            if has_compiled_targets(ptoken):
+                self.compile_trace(live_arg_boxes, ptoken)
 
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
@@ -2548,35 +2579,47 @@ class MetaInterp(object):
         # green keys, representing the beginning of the same loop as the one
         # we end now.
 
-        num_green_args = self.jitdriver_sd.num_green_args
+        can_use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
+            'unroll' in self.jitdriver_sd.warmstate.enable_opts)
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
             assert len(original_boxes) == len(live_arg_boxes)
-            for i in range(num_green_args):
-                box1 = original_boxes[i]
-                box2 = live_arg_boxes[i]
-                assert isinstance(box1, Const)
-                if not box1.same_constant(box2):
-                    break
-            else:
-                if self.partial_trace:
-                    if start != self.retracing_from:
-                        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
-                # Found!  Compile it as a loop.
-                # raises in case it works -- which is the common case
-                self.compile_loop(original_boxes, live_arg_boxes, start,
-                                  exported_state=self.exported_state)
-                self.exported_state = None
+            if not same_greenkey(original_boxes, live_arg_boxes, num_green_args):
+                continue
+            if self.partial_trace:
+                if start != self.retracing_from:
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
+            # Found!  Compile it as a loop.
+            # raises in case it works -- which is the common case
+            self.history.trace.tracing_done()
+            if self.partial_trace:
+                target_token = self.compile_retrace(
+                    original_boxes, live_arg_boxes, start)
+                self.raise_if_successful(live_arg_boxes, target_token)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
-                if self.staticdata.warmrunnerdesc:
-                    memmgr = self.staticdata.warmrunnerdesc.memory_manager
-                    if memmgr:
-                        if self.cancel_count > memmgr.max_unroll_loops:
-                            self.compile_loop_or_abort(original_boxes,
-                                                       live_arg_boxes,
-                                                       start)
-                self.staticdata.log('cancelled, tracing more...')
+                if self.cancelled_too_many_times():
+                    self.staticdata.log('cancelled too many times!')
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+            else:
+                target_token = self.compile_loop(
+                    original_boxes, live_arg_boxes, start,
+                    use_unroll=can_use_unroll)
+                self.raise_if_successful(live_arg_boxes, target_token)
+                # creation of the loop was cancelled!
+                self.cancel_count += 1
+                if self.cancelled_too_many_times():
+                    if can_use_unroll:
+                        # try one last time without unrolling
+                        target_token = self.compile_loop(
+                            original_boxes, live_arg_boxes, start,
+                            use_unroll=False)
+                        self.raise_if_successful(live_arg_boxes, target_token)
+                    #
+                    self.staticdata.log('cancelled too many times!')
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+            self.exported_state = None
+            self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
         start = self.history.get_trace_position()
@@ -2619,17 +2662,31 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         num_red_args = self.jitdriver_sd.num_red_args
         for box in live_arg_boxes[num_green_args:num_green_args+num_red_args]:
-            if   box.type == history.INT: args.append(box.getint())
-            elif box.type == history.REF: args.append(box.getref_base())
-            elif box.type == history.FLOAT: args.append(box.getfloatstorage())
-            else: assert 0
+            if box.type == history.INT:
+                args.append(box.getint())
+            elif box.type == history.REF:
+                args.append(box.getref_base())
+            elif box.type == history.FLOAT:
+                args.append(box.getfloatstorage())
+            else:
+                assert 0
         res = self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
         kind = history.getkind(lltype.typeOf(res))
-        if kind == 'void':  raise jitexc.DoneWithThisFrameVoid()
-        if kind == 'int':   raise jitexc.DoneWithThisFrameInt(res)
-        if kind == 'ref':   raise jitexc.DoneWithThisFrameRef(self.cpu, res)
-        if kind == 'float': raise jitexc.DoneWithThisFrameFloat(res)
+        if kind == 'void':
+            raise jitexc.DoneWithThisFrameVoid()
+        if kind == 'int':
+            raise jitexc.DoneWithThisFrameInt(res)
+        if kind == 'ref':
+            raise jitexc.DoneWithThisFrameRef(res)
+        if kind == 'float':
+            raise jitexc.DoneWithThisFrameFloat(res)
         raise AssertionError(kind)
+
+    def raise_if_successful(self, live_arg_boxes, target_token):
+        if target_token is not None: # raise if it *worked* correctly
+            assert isinstance(target_token, TargetToken)
+            jitcell_token = target_token.targeting_jitcell_token
+            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
@@ -2651,8 +2708,7 @@ class MetaInterp(object):
 
             exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
             if exception_obj:
-                exc_class = heaptracker.adr2int(
-                    llmemory.cast_ptr_to_adr(exception_obj.typeptr))
+                exc_class = ptr2int(exception_obj.typeptr)
             else:
                 exc_class = 0
             assert self.history.trace is None
@@ -2674,94 +2730,54 @@ class MetaInterp(object):
             self.history.set_inputargs(inputargs, self.staticdata)
             assert not exception
 
-    def get_procedure_token(self, greenkey, with_compiled_targets=False):
+    def get_procedure_token(self, greenkey):
         JitCell = self.jitdriver_sd.warmstate.JitCell
         cell = JitCell.get_jit_cell_at_key(greenkey)
         if cell is None:
             return None
-        token = cell.get_procedure_token()
-        if with_compiled_targets:
-            if not token:
-                return None
-            if not token.target_tokens:
-                return None
-        return token
+        return cell.get_procedure_token()
 
-    def compile_loop(self, original_boxes, live_arg_boxes, start,
-                     try_disabling_unroll=False, exported_state=None):
+    def compile_loop(self, original_boxes, live_arg_boxes, start, use_unroll):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
-        if self.history.trace_tag_overflow():
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-        self.history.trace.tracing_done()
-        if not self.partial_trace:
-            ptoken = self.get_procedure_token(greenkey)
-            if ptoken is not None and ptoken.target_tokens is not None:
-                # XXX this path not tested, but shown to occur on pypy-c :-(
-                self.staticdata.log('cancelled: we already have a token now')
-                raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-        if self.partial_trace:
-            target_token = compile.compile_retrace(self, greenkey, start,
-                                                   original_boxes[num_green_args:],
-                                                   live_arg_boxes[num_green_args:],
-                                                   self.partial_trace,
-                                                   self.resumekey,
-                                                   exported_state)
-        else:
-            target_token = compile.compile_loop(self, greenkey, start,
-                                                original_boxes[num_green_args:],
-                                                live_arg_boxes[num_green_args:],
-                                     try_disabling_unroll=try_disabling_unroll)
-            if target_token is not None:
-                assert isinstance(target_token, TargetToken)
-                self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
-                self.staticdata.stats.add_jitcell_token(target_token.targeting_jitcell_token)
-
-        if target_token is not None: # raise if it *worked* correctly
+        ptoken = self.get_procedure_token(greenkey)
+        if has_compiled_targets(ptoken):
+            # XXX this path not tested, but shown to occur on pypy-c :-(
+            self.staticdata.log('cancelled: we already have a token now')
+            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+        target_token = compile.compile_loop(
+            self, greenkey, start, original_boxes[num_green_args:],
+            live_arg_boxes[num_green_args:], use_unroll=use_unroll)
+        if target_token is not None:
             assert isinstance(target_token, TargetToken)
-            jitcell_token = target_token.targeting_jitcell_token
-            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+            self.jitdriver_sd.warmstate.attach_procedure_to_interp(
+                greenkey, target_token.targeting_jitcell_token)
+            self.staticdata.stats.add_jitcell_token(
+                target_token.targeting_jitcell_token)
+        return target_token
 
-    def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
-                              start):
-        """Called after we aborted more than 'max_unroll_loops' times.
-        As a last attempt, try to compile the loop with unrolling disabled.
-        """
-        if not self.partial_trace:
-            self.compile_loop(original_boxes, live_arg_boxes, start,
-                              try_disabling_unroll=True)
-        #
-        self.staticdata.log('cancelled too many times!')
-        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-
-    def compile_trace(self, live_arg_boxes):
+    def compile_retrace(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.jitdriver_sd.num_green_args
-        greenkey = live_arg_boxes[:num_green_args]
-        target_jitcell_token = self.get_procedure_token(greenkey, True)
-        if not target_jitcell_token:
-            return
+        greenkey = original_boxes[:num_green_args]
+        return compile.compile_retrace(
+            self, greenkey, start, original_boxes[num_green_args:],
+            live_arg_boxes[num_green_args:], self.partial_trace,
+            self.resumekey, self.exported_state)
 
+    def compile_trace(self, live_arg_boxes, ptoken):
+        num_green_args = self.jitdriver_sd.num_green_args
         cut_at = self.history.get_trace_position()
         self.potential_retrace_position = cut_at
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
-                            descr=target_jitcell_token)
-        self.history.ends_with_jump = True
-        if self.history.trace_tag_overflow():
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-        self.history.trace.tracing_done()
+                            descr=ptoken)
         try:
             target_token = compile.compile_trace(self, self.resumekey,
-                live_arg_boxes[num_green_args:])
+                live_arg_boxes[num_green_args:], ends_with_jump=True)
         finally:
-            self.history.cut(cut_at) # pop the jump
-            self.history.ends_with_jump = False
-        if target_token is not None: # raise if it *worked* correctly
-            assert isinstance(target_token, TargetToken)
-            jitcell_token = target_token.targeting_jitcell_token
-            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+            self.history.cut(cut_at)  # pop the jump
+        self.raise_if_successful(live_arg_boxes, target_token)
 
     def compile_done_with_this_frame(self, exitbox):
-        # temporarily put a JUMP to a pseudo-loop
         self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
@@ -2780,11 +2796,7 @@ class MetaInterp(object):
             token = sd.done_with_this_frame_descr_float
         else:
             assert False
-        # FIXME: can we call compile_trace?
         self.history.record(rop.FINISH, exits, None, descr=token)
-        if self.history.trace_tag_overflow():
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
@@ -2810,9 +2822,6 @@ class MetaInterp(object):
         sd = self.staticdata
         token = sd.exit_frame_with_exception_descr_ref
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
-        if self.history.trace_tag_overflow():
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])
         if target_token is not token:
             compile.giveup()
@@ -2946,12 +2955,11 @@ class MetaInterp(object):
         # CALL_xxx is recorded
         self.history.record(rop.VIRTUAL_REF_FINISH, [vrefbox, virtualbox], None)
         # mark this situation by replacing the vrefbox with ConstPtr(NULL)
-        self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
+        self.virtualref_boxes[i+1] = CONST_NULL
 
     def handle_possible_exception(self):
         if self.last_exc_value:
-            exception_box = ConstInt(heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(self.last_exc_value.typeptr)))
+            exception_box = ConstInt(ptr2int(self.last_exc_value.typeptr))
             op = self.generate_guard(rop.GUARD_EXCEPTION,
                                      None, [exception_box])
             val = lltype.cast_opaque_ptr(llmemory.GCREF, self.last_exc_value)
@@ -3064,7 +3072,7 @@ class MetaInterp(object):
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
             # we're during tracing, so we should not execute it
-            self.history.record(rop.SETFIELD_GC, [vbox, self.cpu.ts.CONST_NULL],
+            self.history.record(rop.SETFIELD_GC, [vbox, CONST_NULL],
                                 None, descr=vinfo.vable_token_descr)
 
     def replace_box(self, oldbox, newbox):
@@ -3245,7 +3253,7 @@ class MetaInterp(object):
             calldescr._original_func_ = argboxes[0].getint()
         effectinfo = calldescr.get_extra_info()
         realfuncaddr, saveerr = effectinfo.call_release_gil_target
-        funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
+        funcbox = ConstInt(adr2int(realfuncaddr))
         savebox = ConstInt(saveerr)
         opnum = rop.call_release_gil_for_descr(calldescr)
         return self.history.record_nospec(opnum,
@@ -3418,3 +3426,16 @@ def put_back_list_of_boxes3(frame, position, newvalue):
     frame._put_back_list_of_boxes(newvalue, 0, position)
     frame._put_back_list_of_boxes(newvalue, length1, position2)
     frame._put_back_list_of_boxes(newvalue, length1 + length2, position3)
+
+def same_greenkey(original_boxes, live_arg_boxes, num_green_args):
+    for i in range(num_green_args):
+        box1 = original_boxes[i]
+        box2 = live_arg_boxes[i]
+        assert isinstance(box1, Const)
+        if not box1.same_constant(box2):
+            return False
+    else:
+        return True
+
+def has_compiled_targets(token):
+    return bool(token) and bool(token.target_tokens)

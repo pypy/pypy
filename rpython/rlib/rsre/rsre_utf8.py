@@ -40,17 +40,23 @@ class Utf8MatchContext(AbstractMatchContext):
     prev_indirect = prev
 
     def next_n(self, position, n, end_position):
-        for i in range(n):
+        i = 0
+        # avoid range(n) since n can be quite large
+        while i < n:
             if position >= end_position:
                 raise EndOfString
             position = rutf8.next_codepoint_pos(self._utf8, position)
+            i += 1
         return position
 
     def prev_n(self, position, n, start_position):
-        for i in range(n):
+        i = 0
+        # avoid range(n) since n can be quite large
+        while i < n:
             if position <= start_position:
                 raise EndOfString
             position = rutf8.prev_codepoint_pos(self._utf8, position)
+            i += 1
         assert position >= 0
         return position
 

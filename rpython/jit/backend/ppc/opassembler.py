@@ -966,72 +966,6 @@ class FieldOpAssembler(object):
         pmc.overwrite()
 
 
-class StrOpAssembler(object):
-
-    _mixin_ = True
-
-    def emit_copystrcontent(self, op, arglocs, regalloc):
-        self._emit_copycontent(arglocs, is_unicode=False)
-
-    def emit_copyunicodecontent(self, op, arglocs, regalloc):
-        self._emit_copycontent(arglocs, is_unicode=True)
-
-    def _emit_load_for_copycontent(self, dst, src_ptr, src_ofs, scale):
-        if src_ofs.is_imm():
-            value = src_ofs.value << scale
-            if value < 32768:
-                self.mc.addi(dst.value, src_ptr.value, value)
-            else:
-                self.mc.load_imm(dst, value)
-                self.mc.add(dst.value, src_ptr.value, dst.value)
-        elif scale == 0:
-            self.mc.add(dst.value, src_ptr.value, src_ofs.value)
-        else:
-            self.mc.sldi(dst.value, src_ofs.value, scale)
-            self.mc.add(dst.value, src_ptr.value, dst.value)
-
-    def _emit_copycontent(self, arglocs, is_unicode):
-        [src_ptr_loc, dst_ptr_loc,
-         src_ofs_loc, dst_ofs_loc, length_loc] = arglocs
-
-        if is_unicode:
-            basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                        self.cpu.translate_support_code)
-            if   itemsize == 2: scale = 1
-            elif itemsize == 4: scale = 2
-            else: raise AssertionError
-        else:
-            basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                        self.cpu.translate_support_code)
-            assert itemsize == 1
-            basesize -= 1     # for the extra null character
-            scale = 0
-
-        self._emit_load_for_copycontent(r.r0, src_ptr_loc, src_ofs_loc, scale)
-        self._emit_load_for_copycontent(r.r2, dst_ptr_loc, dst_ofs_loc, scale)
-
-        if length_loc.is_imm():
-            length = length_loc.getint()
-            self.mc.load_imm(r.r5, length << scale)
-        else:
-            if scale > 0:
-                self.mc.sldi(r.r5.value, length_loc.value, scale)
-            elif length_loc is not r.r5:
-                self.mc.mr(r.r5.value, length_loc.value)
-
-        self.mc.mr(r.r4.value, r.r0.value)
-        self.mc.addi(r.r4.value, r.r4.value, basesize)
-        self.mc.addi(r.r3.value, r.r2.value, basesize)
-
-        self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
-        self.mc.raw_call()
-
-
-class UnicodeOpAssembler(object):
-    _mixin_ = True
-    # empty!
-
-
 class AllocOpAssembler(object):
 
     _mixin_ = True
@@ -1336,8 +1270,7 @@ class ForceOpAssembler(object):
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
-                  StrOpAssembler, CallOpAssembler,
-                  UnicodeOpAssembler, ForceOpAssembler,
+                  CallOpAssembler, ForceOpAssembler,
                   AllocOpAssembler, FloatOpAssembler,
                   VectorAssembler):
     _mixin_ = True

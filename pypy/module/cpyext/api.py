@@ -1188,7 +1188,9 @@ def attach_c_functions(space, eci, prefix):
     state.C.get_pyos_inputhook = rffi.llexternal(
         '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
-
+    state.C.tuple_new = rffi.llexternal(
+        'tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        compilation_info=eci, _nowrapper=True)
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)

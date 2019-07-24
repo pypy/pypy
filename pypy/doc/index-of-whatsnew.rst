@@ -7,6 +7,7 @@ CPython 2.7 compatible versions
 .. toctree::
 
    whatsnew-head.rst
+   whatsnew-pypy2-7.1.0.rst
    whatsnew-pypy2-7.0.0.rst
    whatsnew-pypy2-6.0.0.rst
    whatsnew-pypy2-5.10.0.rst

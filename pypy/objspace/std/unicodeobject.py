@@ -1,5 +1,7 @@
 """The builtin unicode implementation"""
 
+import sys
+
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
     enforceargs, newlist_hint, specialize, we_are_translated)
@@ -41,15 +43,11 @@ class W_UnicodeObject(W_Root):
         self._utf8 = utf8str
         self._length = length
         self._index_storage = rutf8.null_storage()
-        if not we_are_translated():
-            try:
-                # best effort, too expensive to handle surrogates
-                ulength = rutf8.codepoints_in_utf(utf8str)
-            except:
-                ulength = length 
-            assert ulength == length
-
-
+        if not we_are_translated() and not sys.platform == 'win32':
+            # utf8str must always be a valid utf8 string, except maybe with
+            # explicit surrogate characters---which .decode('utf-8') doesn't
+            # special-case in Python 2, which is exactly what we want here
+            assert length == len(utf8str.decode('utf-8'))
 
     @staticmethod
     def from_utf8builder(builder):
@@ -385,7 +383,7 @@ class W_UnicodeObject(W_Root):
                                 "or unicode")
             try:
                 builder.append_code(codepoint)
-            except ValueError:
+            except rutf8.OutOfRange:
                 raise oefmt(space.w_TypeError,
                             "character mapping must be in range(0x110000)")
         return self.from_utf8builder(builder)
@@ -1098,11 +1096,11 @@ def encode_object(space, w_obj, encoding, errors):
             if rutf8.has_surrogates(utf8):
                 utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
             return space.newbytes(utf8)
-    return encode(space, w_obj, encoding, errors) 
+    return encode(space, w_obj, encoding, errors)
 
 
 def decode_object(space, w_obj, encoding, errors):
-    from pypy.module._codecs.interp_codecs import lookup_codec, decode 
+    from pypy.module._codecs.interp_codecs import lookup_codec, decode
     if errors is None or errors == 'strict':
         # fast paths
         if encoding is None:
@@ -1112,7 +1110,7 @@ def decode_object(space, w_obj, encoding, errors):
             unicodehelper.check_ascii_or_raise(space, s)
             return space.newutf8(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
-            if (space.isinstance_w(w_obj, space.w_unicode) or 
+            if (space.isinstance_w(w_obj, space.w_unicode) or
                 space.isinstance_w(w_obj, space.w_bytes)):
                 s = space.utf8_w(w_obj)
             else:
@@ -1721,34 +1719,28 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    unistr = w_unistr._utf8
-    result = ['\0'] * w_unistr._length
-    digits = ['0', '1', '2', '3', '4',
-              '5', '6', '7', '8', '9']
-    res_pos = 0
-    iter = rutf8.Utf8StringIterator(unistr)
-    for uchr in iter:
+    utf8 = w_unistr._utf8
+    result = StringBuilder(w_unistr._len())
+    it = rutf8.Utf8StringIterator(utf8)
+    for uchr in it:
         if W_UnicodeObject._isspace(uchr):
-            result[res_pos] = ' '
-            res_pos += 1
+            result.append(' ')
             continue
-        try:
-            result[res_pos] = digits[unicodedb.decimal(uchr)]
-        except KeyError:
-            if 0 < uchr < 256:
-                result[res_pos] = chr(uchr)
-            else:
+        if not (0 < uchr < 256):
+            try:
+                uchr = ord('0') + unicodedb.decimal(uchr)
+            except KeyError:
                 w_encoding = space.newtext('decimal')
-                pos = iter.get_pos()
+                pos = it.get_pos()
                 w_start = space.newint(pos)
-                w_end = space.newint(pos+1)
+                w_end = space.newint(pos + 1)
                 w_reason = space.newtext('invalid decimal Unicode string')
                 raise OperationError(space.w_UnicodeEncodeError,
-                                     space.newtuple([w_encoding, w_unistr,
-                                                     w_start, w_end,
-                                                     w_reason]))
-        res_pos += 1
-    return ''.join(result)
+                                        space.newtuple([w_encoding, w_unistr,
+                                                        w_start, w_end,
+                                                        w_reason]))
+        result.append(chr(uchr))
+    return result.build()
 
 
 _repr_function = rutf8.make_utf8_escape_function(

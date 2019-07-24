@@ -61,20 +61,22 @@ else:
                       DeprecationWarning, stacklevel=2)
         return _realssl.sslwrap_simple(sock, keyfile, certfile)
 
-    # we need to import the same constants we used to...
-    from _ssl import SSLError as sslerror
-    from _ssl import \
-         RAND_add, \
-         RAND_status, \
-         SSL_ERROR_ZERO_RETURN, \
-         SSL_ERROR_WANT_READ, \
-         SSL_ERROR_WANT_WRITE, \
-         SSL_ERROR_WANT_X509_LOOKUP, \
-         SSL_ERROR_SYSCALL, \
-         SSL_ERROR_SSL, \
-         SSL_ERROR_WANT_CONNECT, \
-         SSL_ERROR_EOF, \
-         SSL_ERROR_INVALID_ERROR_CODE
+    # we need to import the same constants we used to, 
+    # see lib_pypy/_cffi_ssl/_stdssl/error.py and __init__.py to prevent
+    # circular import
+    # from _ssl import SSLError as sslerror
+    # from _ssl import \
+         # RAND_add, \
+         # RAND_status
+         # SSL_ERROR_ZERO_RETURN, \
+         # SSL_ERROR_WANT_READ, \
+         # SSL_ERROR_WANT_WRITE, \
+         # SSL_ERROR_WANT_X509_LOOKUP, \
+         # SSL_ERROR_SYSCALL, \
+         # SSL_ERROR_SSL, \
+         # SSL_ERROR_WANT_CONNECT, \
+         # SSL_ERROR_EOF, \
+         # SSL_ERROR_INVALID_ERROR_CODE
     try:
         from _ssl import RAND_egd
     except ImportError:

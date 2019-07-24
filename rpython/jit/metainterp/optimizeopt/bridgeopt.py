@@ -2,6 +2,8 @@
 optimizer of the bridge attached to a guard. """
 
 from rpython.jit.metainterp import resumecode
+from rpython.jit.metainterp.history import Const, ConstInt, CONST_NULL
+from .info import getptrinfo
 
 
 # adds the following sections at the end of the resume code:
@@ -34,7 +36,6 @@ from rpython.jit.metainterp import resumecode
 # maybe should be delegated to the optimization classes?
 
 def tag_box(box, liveboxes_from_env, memo):
-    from rpython.jit.metainterp.history import Const
     if isinstance(box, Const):
         return memo.getconst(box)
     else:
@@ -43,13 +44,12 @@ def tag_box(box, liveboxes_from_env, memo):
 def decode_box(resumestorage, tagged, liveboxes, cpu):
     from rpython.jit.metainterp.resume import untag, TAGCONST, TAGINT, TAGBOX
     from rpython.jit.metainterp.resume import NULLREF, TAG_CONST_OFFSET, tagged_eq
-    from rpython.jit.metainterp.history import ConstInt
     num, tag = untag(tagged)
     # NB: the TAGVIRTUAL case can't happen here, because this code runs after
     # virtuals are already forced again
     if tag == TAGCONST:
         if tagged_eq(tagged, NULLREF):
-            box = cpu.ts.CONST_NULL
+            box = CONST_NULL
         else:
             box = resumestorage.rd_consts[num - TAG_CONST_OFFSET]
     elif tag == TAGINT:
@@ -61,7 +61,6 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
     return box
 
 def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
-    from rpython.jit.metainterp.history import ConstInt
     available_boxes = {}
     for box in liveboxes:
         if box is not None and box in liveboxes_from_env:
@@ -77,7 +76,7 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     for box in liveboxes:
         if box is None or box.type != "r":
             continue
-        info = optimizer.getptrinfo(box)
+        info = getptrinfo(box)
         known_class = info is not None and info.get_known_class(optimizer.cpu) is not None
         bitfield <<= 1
         bitfield |= known_class
@@ -124,7 +123,6 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.append_int(0)
 
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
-    from rpython.jit.metainterp.history import ConstInt
     reader = resumecode.Reader(resumestorage.rd_numb)
     assert len(frontend_boxes) == len(liveboxes)
     metainterp_sd = optimizer.metainterp_sd
@@ -145,7 +143,7 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         class_known = bitfield & mask
         mask >>= 1
         if class_known:
-            cls = optimizer.cpu.ts.cls_of_box(frontend_boxes[i])
+            cls = optimizer.cpu.cls_of_box(frontend_boxes[i])
             optimizer.make_constant_class(box, cls)
 
     # heap knowledge

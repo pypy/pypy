@@ -290,7 +290,11 @@ def get_format_str(typ):
         else:
             bo = byteorder[sys.byteorder]
         flds = []
+        cum_size = 0
         for name, obj in typ._fields_:
+            padding = typ._ffistruct_.fieldoffset(name) - cum_size
+            if padding:
+                flds.append('%dx' % padding)
             # Trim off the leading '<' or '>'
             ch = get_format_str(obj)[1:]
             if (ch) == 'B':
@@ -301,6 +305,7 @@ def get_format_str(typ):
             flds.append(':')
             flds.append(name)
             flds.append(':')
+            cum_size += typ._ffistruct_.fieldsize(name)
         return 'T{' + ''.join(flds) + '}'
     elif hasattr(typ, '_type_'):
         ch = typ._type_

@@ -11,8 +11,10 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, ConstInt
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr, FieldDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
 from rpython.jit.backend.llsupport.descr import get_array_descr
@@ -35,6 +37,11 @@ class GcLLDescription(GcCache):
             self.fielddescr_vtable = get_field_descr(self, rclass.OBJECT,
                                                      'typeptr')
         self._generated_functions = []
+        self.memcpy_fn = memcpy_fn
+        self.memcpy_descr = get_call_descr(self,
+            [lltype.Signed, lltype.Signed, lltype.Signed], lltype.Void,
+            EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                can_collect=False))
 
     def _setup_str(self):
         self.str_descr     = get_array_descr(self, rstr.STR)
@@ -66,7 +73,7 @@ class GcLLDescription(GcCache):
     @specialize.arg(1)
     def get_malloc_fn_addr(self, funcname):
         ll_func = self.get_malloc_fn(funcname)
-        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(ll_func))
+        return ptr2int(ll_func)
 
     def _freeze_(self):
         return True
