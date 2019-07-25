@@ -506,6 +506,10 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         return [loc1, res]
 
+    def _prepare_threadlocalref_get(self, op):
+        res_loc = self.force_allocate_reg(op)
+        return [res_loc]
+
     prepare_op_convert_float_bytes_to_longlong = prepare_unary
     prepare_op_convert_longlong_bytes_to_float = prepare_unary
 
@@ -583,10 +587,10 @@ class Regalloc(BaseRegalloc):
                 args = self._prepare_op_math_sqrt(op)
                 self.assembler.math_sqrt(op, args)
                 return
-            #elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
-            #    args = self._prepare_threadlocalref_get(op, fcond)
-            #    self.perform_extra(op, args, fcond)
-            #    return
+            elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+                args = self._prepare_threadlocalref_get(op)
+                self.assembler.threadlocalref_get(op, args)
+                return
             #elif oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
             #    ...
         return self._prepare_call(op)

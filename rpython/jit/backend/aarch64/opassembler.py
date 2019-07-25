@@ -297,6 +297,16 @@ class ResOpAssembler(BaseAssembler):
         arg, res = arglocs
         self.mc.FSQRT_dd(res.value, arg.value)
 
+    def threadlocalref_get(self, op, arglocs):
+        res_loc, = arglocs
+        ofs_loc = self.imm(op.getarg(1).getint())
+        calldescr = op.getdescr()
+        ofs = self.saved_threadlocal_addr
+        self.load_reg(self.mc, res_loc, r.sp, ofs)
+        scale = get_scale(calldescr.get_result_size())
+        signed = (calldescr.is_result_signed() != 0)
+        self._load_from_mem(res_loc, res_loc, ofs_loc, scale, signed)
+
     emit_op_float_lt = gen_float_comp_op('float_lt', c.VFP_LT)
     emit_op_float_le = gen_float_comp_op('float_le', c.VFP_LE)
     emit_op_float_eq = gen_float_comp_op('float_eq', c.EQ)

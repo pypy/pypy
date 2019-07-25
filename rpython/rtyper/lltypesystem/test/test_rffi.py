@@ -917,6 +917,15 @@ def test_scoped_view_charp():
         assert buf[2] == 'r'
         assert buf[3] == '\x00'
 
+def test_scoped_nonmoving_unicodebuffer():
+    s = u'bar'
+    with scoped_nonmoving_unicodebuffer(s) as buf:
+        assert buf[0] == u'b'
+        assert buf[1] == u'a'
+        assert buf[2] == u'r'
+        with py.test.raises(IndexError):
+            buf[3]
+
 def test_wcharp2utf8n():
     w = 'hello\x00\x00\x00\x00'
     u, i = wcharp2utf8n(w, len(w))

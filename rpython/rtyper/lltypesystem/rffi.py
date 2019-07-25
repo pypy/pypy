@@ -1365,12 +1365,11 @@ class scoped_view_charp:
 
 class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
-        self.data = data
+        self.buf, self.llobj, self.flag = get_nonmoving_unicodebuffer_ll(data)
     def __enter__(self):
-        self.buf, self.flag = get_nonmoving_unicodebuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmoving_unicodebuffer(self.data, self.buf, self.flag)
+        free_nonmoving_unicodebuffer_ll(self.buf, self.llobj, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
