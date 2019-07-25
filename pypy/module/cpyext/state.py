@@ -45,6 +45,13 @@ class State:
         # XXX will leak if _PyDateTime_Import already called
         self.datetimeAPI = []
 
+        self.cpyext_is_imported = False
+
+    def make_sure_cpyext_is_imported(self):
+        if not self.cpyext_is_imported:
+            self.space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
+            self.cpyext_is_imported = True
+
     def set_exception(self, operror):
         self.clear_exception()
         ec = self.space.getexecutioncontext()
