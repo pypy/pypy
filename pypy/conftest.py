@@ -45,13 +45,17 @@ def pytest_addhooks(pluginmanager):
 def pytest_configure(config):
     global option
     option = config.option
-    config.addinivalue_line('python_files', APPLEVEL_FN)
+    if config.getoption('direct_apptest') or not config.getoption('runappdirect'):
+        config.addinivalue_line('python_files', APPLEVEL_FN)
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
-           help="run applevel tests directly on python interpreter (not through PyPy)")
+           help="run legacy applevel tests directly on python interpreter (not through PyPy)")
+    group.addoption('-D', '--direct-apptest', action="store_true",
+           default=False, dest="direct_apptest",
+           help="run applevel_XXX.py tests directly on host interpreter")
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")
@@ -92,7 +96,7 @@ def pytest_sessionstart(session):
 
 def pytest_pycollect_makemodule(path, parent):
     if path.fnmatch(APPLEVEL_FN):
-        if parent.config.getoption('runappdirect'):
+        if parent.config.getoption('direct_apptest'):
             return
         from pypy.tool.pytest.apptest2 import AppTestModule
         rewrite = parent.config.getoption('applevel_rewrite')
@@ -196,6 +200,8 @@ def pytest_runtest_setup(item):
                 appclass.obj.space = LazyObjSpaceGetter()
             appclass.obj.runappdirect = option.runappdirect
 
-
 def pytest_ignore_collect(path, config):
+    if (config.getoption('direct_apptest') and not path.isdir()
+            and not path.fnmatch(APPLEVEL_FN)):
+        return True
     return path.check(link=1)
