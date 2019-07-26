@@ -38,6 +38,11 @@ py.code.Source.deindent = braindead_deindent
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_cmdline_preparse(config, args):
+    if not (set(args) & {'-D', '--direct-apptest'}):
+        args.append('--assert=reinterp')
+
 def pytest_configure(config):
     global option
     option = config.option
@@ -48,7 +53,6 @@ def pytest_configure(config):
     if not mode_A and not mode_D:  # 'own' tests
         from rpython.conftest import LeakFinder
         config.pluginmanager.register(LeakFinder())
-        config.addinivalue_line('addopts', '--assert=reinterp')
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
