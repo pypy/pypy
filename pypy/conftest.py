@@ -38,15 +38,17 @@ py.code.Source.deindent = braindead_deindent
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
-def pytest_addhooks(pluginmanager):
-    from rpython.conftest import LeakFinder
-    pluginmanager.register(LeakFinder())
-
 def pytest_configure(config):
     global option
     option = config.option
-    if config.getoption('direct_apptest') or not config.getoption('runappdirect'):
+    mode_A = config.getoption('runappdirect')
+    mode_D = config.getoption('direct_apptest')
+    if mode_D or not mode_A:
         config.addinivalue_line('python_files', APPLEVEL_FN)
+    if not mode_A and not mode_D:  # 'own' tests
+        from rpython.conftest import LeakFinder
+        config.pluginmanager.register(LeakFinder())
+        config.addinivalue_line('addopts', '--assert=reinterp')
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
@@ -109,7 +111,7 @@ def is_applevel(item):
     return isinstance(item, AppTestFunction)
 
 def pytest_collection_modifyitems(config, items):
-    if config.option.runappdirect:
+    if config.getoption('runappdirect') or config.getoption('direct_apptest'):
         return
     for item in items:
         if isinstance(item, py.test.Function):
