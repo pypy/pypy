@@ -843,13 +843,14 @@ class CWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
 class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
     module = py_warnings
 
+    @support.cpython_only  # no tracemalloc on pypy
     def test_tracemalloc(self):
         self.addCleanup(support.unlink, support.TESTFN)
 
         with open(support.TESTFN, 'w') as fp:
             fp.write(textwrap.dedent("""
                 import gc
-                
+
                 def func():
                     f = open(__file__)
                     # Fully initialise GC for clearer error
@@ -868,8 +869,8 @@ class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
         stderr = '\n'.join(stderr.splitlines())
         stderr = re.sub('<.*>', '<...>', stderr)
         expected = textwrap.dedent('''
-            {fname}:9: ResourceWarning: unclosed file <...>
-              f = None
+            {fname}:10: ResourceWarning: unclosed file <...>
+              gc.collect()
             Object allocated at (most recent call first):
               File "{fname}", lineno 5
                 f = open(__file__)
