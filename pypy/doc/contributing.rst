@@ -335,7 +335,7 @@ directly on the host python. This is very convenient for modules such as
 `cpyext`, to compare and contrast test results between CPython and PyPy.
 
 App-level tests run directly on the host interpreter when passing `-D` or
-`--apptest-direct` to `pytest`::
+`--direct-apptest` to `pytest`::
 
     pypy3 -m pytest -D pypy/interpreter/test/apptest_pyframe.py
 
