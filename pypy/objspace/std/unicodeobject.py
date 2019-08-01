@@ -18,7 +18,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format

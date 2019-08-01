@@ -6,7 +6,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rutf8
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper.lltypesystem import rffi
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 
 @specialize.memo()
 def decode_error_handler(space):
@@ -233,7 +233,7 @@ if sys.platform == 'win32':
         slen = len(s)
         res = runicode.unicode_encode_mbcs(s, slen, errors, errorhandler)
         return res
-        
+
     def str_decode_mbcs(s, errors, final, errorhandler):
         from rpython.rlib import runicode
         slen = len(s)

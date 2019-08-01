@@ -23,10 +23,16 @@ def test_pypy_collection(testdir):
             def test_method(self):
                 pass
     """)
+    testdir.makepyfile(apptest_collection="""
+        def test_app():
+            pass
+    """)
     setpypyconftest(testdir)
     result = testdir.runpytest("--collectonly")
     assert result.ret == 0
     result.stdout.fnmatch_lines([
+        "*AppTestModule*apptest_collection*",
+        "*AppTestFunction*test_app*",
         "*Function*test_func*",
         "*Class*TestClassInt*",
         "*Function*test_method*",
@@ -106,6 +112,47 @@ def test_applevel_raise_keyerror(testdir):
     result.stdout.fnmatch_lines([
         "*E*application-level*KeyError*42*",
     ])
+
+def test_apptest_raise(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_raise="""
+        def test_raise():
+            raise KeyError(42)
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*KeyError*42*",
+    ])
+
+def test_apptest_fail_plain(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_fail="""
+        def test_fail():
+            x = 'foo'
+            assert x == 'bar'
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*(application-level) AssertionError",
+    ])
+
+def test_apptest_fail_rewrite(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_fail_rewrite="""
+        def test_fail():
+            x = 'foo'
+            assert x == 'bar'
+    """)
+    result = testdir.runpytest(p, "--applevel-rewrite")
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*AssertionError: assert 'foo' == 'bar'",
+        "*E*- foo*",
+        "*E*+ bar*",
+    ])
+
 
 def app_test_raises():
     info = raises(TypeError, id)

@@ -1,8 +1,7 @@
 
 # -*- coding: utf-8 -*-
 
-from __future__ import with_statement
-from pypy.objspace.std import StdObjSpace
+from pypy.objspace.std.objspace import StdObjSpace
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy import pypydir
@@ -1213,7 +1212,7 @@ class AppTestPosix:
             assert f.read() == 'this is a rename test'
         os.unlink(self.path)
 
-        
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):

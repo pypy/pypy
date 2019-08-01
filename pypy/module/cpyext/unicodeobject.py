@@ -6,7 +6,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import (
     wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
     unicode_encode_decimal)
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
     bootstrap_function, CONST_STRING, INTP_real,

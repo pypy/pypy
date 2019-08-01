@@ -41,15 +41,14 @@ def pytest_ignore_collect(path, config):
 disabled = None
 
 def pytest_configure(config):
+    if config.getoption('runappdirect') or config.getoption('direct_apptest'):
+        return       # "can't run dummy tests in -A"
     if py.path.local.sysfind('genreflex') is None:
         import pypy.module._cppyy.capi.loadable_capi as lcapi
         try:
             import ctypes
             ctypes.CDLL(lcapi.backend_library)
         except Exception as e:
-            if config.option.runappdirect:
-                return       # "can't run dummy tests in -A"
-
             # build dummy backend (which has reflex info and calls hard-wired)
             import os
             from rpython.translator.tool.cbuild import ExternalCompilationInfo
