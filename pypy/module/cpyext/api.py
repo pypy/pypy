@@ -1021,6 +1021,12 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 deadlock_error(pname)
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
+            if gil_auto_workaround:
+                # while we're in workaround-land, detect when a regular PyXxx()
+                # function is invoked at .so load-time, e.g. by a C++ global
+                # variable with an initializer, and in this case make sure we
+                # initialize things.
+                space.fromcache(State).make_sure_cpyext_is_imported()
         elif pygilstate_ensure:
             if cpyext_glob_tid_ptr[0] == tid:
                 cpyext_glob_tid_ptr[0] = 0
@@ -1749,8 +1755,8 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     from rpython.rlib import rdynload
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 
-    space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
+    state.make_sure_cpyext_is_imported()
     w_mod = state.find_extension(name, path)
     if w_mod is not None:
         rdynload.dlclose(dll)
