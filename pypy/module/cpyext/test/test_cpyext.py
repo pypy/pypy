@@ -14,6 +14,8 @@ from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 from rpython.tool.udir import udir
 
+import pypy.module.cpyext.moduledef  # Make sure all the functions are registered
+
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 @api.cpython_api([], api.PyObject)

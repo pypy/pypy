@@ -8,7 +8,7 @@ from rpython.rlib.runicode import raw_unicode_escape_helper
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter import unicodehelper
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 
 
 class VersionTag(object):

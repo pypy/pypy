@@ -13,7 +13,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llstr
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import (
+    FFI_DEFAULT_ABI, has_stdcall, FFI_STDCALL)
 from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
@@ -32,7 +33,7 @@ class W_CTypeFunc(W_CTypePtrBase):
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
     def __init__(self, space, fargs, fresult, ellipsis,
-                 abi=_cffi_backend.FFI_DEFAULT_ABI):
+                 abi=FFI_DEFAULT_ABI):
         assert isinstance(ellipsis, bool)
         extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
@@ -99,10 +100,9 @@ class W_CTypeFunc(W_CTypePtrBase):
             lltype.free(self.cif_descr, flavor='raw')
 
     def _compute_extra_text(self, fargs, fresult, ellipsis, abi):
-        from pypy.module._cffi_backend import newtype
         argnames = ['(*)(']
         xpos = 2
-        if _cffi_backend.has_stdcall and abi == _cffi_backend.FFI_STDCALL:
+        if has_stdcall and abi == FFI_STDCALL:
             argnames[0] = '(__stdcall *)('
             xpos += len('__stdcall ')
         for i, farg in enumerate(fargs):

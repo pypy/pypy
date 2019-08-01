@@ -8,7 +8,7 @@ from rpython.rlib import jit, rweakref, clibffi
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import FFI_DEFAULT_ABI
 from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
     ctypearray, ctypestruct, ctypevoid, ctypeenum)
 
@@ -656,7 +656,7 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 @unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int, abi=int)
 def new_function_type(space, w_fargs, w_fresult, ellipsis=0,
-                      abi=_cffi_backend.FFI_DEFAULT_ABI):
+                      abi=FFI_DEFAULT_ABI):
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         if not isinstance(w_farg, ctypeobj.W_CType):

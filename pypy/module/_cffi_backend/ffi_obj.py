@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit, rgc
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-from pypy.module._cffi_backend import get_dict_rtld_constants
+from pypy.module._cffi_backend.moduledef import get_dict_rtld_constants
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
