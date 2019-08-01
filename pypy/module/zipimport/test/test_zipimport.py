@@ -462,6 +462,11 @@ def get_co_filename():
         foo = __import__('foo.bar.one', None, None, [])
         assert foo.bar.one.attr == 'portion1 foo one'
 
+    def test___spec__(self):
+        self.writefile('uvwv.py', 'spec = __spec__')
+        mod = __import__('uvwv', globals(), locals(), [])
+        assert mod.spec is not None
+
 
 if os.sep != '/':
     class AppTestNativePathSep(AppTestZipimport):

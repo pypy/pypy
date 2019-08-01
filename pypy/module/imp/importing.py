@@ -266,6 +266,20 @@ def exec_code_module(space, w_mod, code_w, pathname, cpathname,
             w_cpathname = space.w_None
         space.setitem(w_dict, space.newtext("__file__"), w_pathname)
         space.setitem(w_dict, space.newtext("__cached__"), w_cpathname)
+        #
+        # like PyImport_ExecCodeModuleObject(), we invoke
+        # _bootstrap_external._fix_up_module() here, which should try to
+        # fix a few more attributes (also __file__ and __cached__, but
+        # let's keep the logic that also sets them explicitly above, just
+        # in case)
+        space.appexec([w_dict, w_pathname, w_cpathname],
+            """(d, pathname, cpathname):
+                from importlib._bootstrap_external import _fix_up_module
+                name = d.get('__name__')
+                if name is not None:
+                    _fix_up_module(d, name, pathname, cpathname)
+            """)
+        #
     code_w.exec_code(space, w_dict, w_dict)
 
 def rightmost_sep(filename):
