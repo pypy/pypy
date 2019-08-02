@@ -59,7 +59,7 @@ kind_to_name = {
     2: '_2BYTE_KIND',
     4: '_4BYTE_KIND',
     }
-                
+
 
 def new_empty_unicode(space, length):
     """
@@ -1089,7 +1089,7 @@ def PyUnicode_AsUCS4(space, ref, pbuffer, buflen, copy_null):
     c_length = get_wsize(ref)
 
     size = c_length
-    if copy_null:
+    if rffi.cast(lltype.Signed, copy_null):
         size += 1
     if not pbuffer:   # internal, for PyUnicode_AsUCS4Copy()
         pbuffer = lltype.malloc(rffi.CArray(Py_UCS4), size,
