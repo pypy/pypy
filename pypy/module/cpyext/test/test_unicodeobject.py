@@ -1008,3 +1008,32 @@ class TestUnicode(BaseApiTest):
         _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 4
         assert get_ascii(py_str) == 0
+
+    def test_as_ucs4(self, space):
+        w_x = space.wrap(u"ab\u0660")
+        count1 = space.int_w(space.len(w_x))
+        x_chunk = PyUnicode_AsUCS4Copy(space, w_x)
+        assert x_chunk[0] == ord('a')
+        assert x_chunk[1] == ord('b')
+        assert x_chunk[2] == 0x0660
+        assert x_chunk[3] == 0
+        Py_UCS4 = lltype.typeOf(x_chunk).TO.OF
+        lltype.free(x_chunk, flavor='raw', track_allocation=False)
+
+        target_chunk = lltype.malloc(rffi.CArray(Py_UCS4), 4, flavor='raw')
+        target_chunk[3] = rffi.cast(Py_UCS4, 99999)
+        x_chunk = PyUnicode_AsUCS4(space, w_x, target_chunk, 3, 0)
+        assert x_chunk == target_chunk
+        assert x_chunk[0] == ord('a')
+        assert x_chunk[1] == ord('b')
+        assert x_chunk[2] == 0x0660
+        assert x_chunk[3] == 99999
+
+        x_chunk[2] = rffi.cast(Py_UCS4, 77777)
+        x_chunk = PyUnicode_AsUCS4(space, w_x, target_chunk, 4, 1)
+        assert x_chunk == target_chunk
+        assert x_chunk[0] == ord('a')
+        assert x_chunk[1] == ord('b')
+        assert x_chunk[2] == 0x0660
+        assert x_chunk[3] == 0
+        lltype.free(target_chunk, flavor='raw')

@@ -29,6 +29,7 @@ import sys
 cts.parse_header(parse_dir / 'cpyext_unicodeobject.h')
 PyUnicodeObject = cts.gettype('PyUnicodeObject*')
 Py_UNICODE = cts.gettype('Py_UNICODE')
+Py_UCS4 = cts.gettype('Py_UCS4')
 INT_realP = lltype.Ptr(lltype.Array(rffi.INT_real, hints={'nolength': True}))
 
 @bootstrap_function
@@ -1081,3 +1082,28 @@ def PyUnicode_Substring(space, w_str, start, end):
     return space.call_method(w_str, '__getitem__',
                          space.newslice(space.newint(start), space.newint(end),
                                         space.newint(1)))
+
+@cts.decl("Py_UCS4 *PyUnicode_AsUCS4(PyObject *u, Py_UCS4 *buffer, Py_ssize_t buflen, int copy_null)")
+def PyUnicode_AsUCS4(space, ref, pbuffer, buflen, copy_null):
+    c_buffer = PyUnicode_AsUnicode(space, ref)
+    c_length = get_wsize(ref)
+
+    size = c_length
+    if copy_null:
+        size += 1
+    if not pbuffer:   # internal, for PyUnicode_AsUCS4Copy()
+        pbuffer = lltype.malloc(rffi.CArray(Py_UCS4), size,
+                                flavor='raw', track_allocation=False)
+    elif buflen < size:
+        raise oefmt(space.w_SystemError, "PyUnicode_AsUCS4: buflen too short")
+
+    i = 0
+    while i < size:
+        pbuffer[i] = rffi.cast(Py_UCS4, c_buffer[i])
+        i += 1
+    return pbuffer
+
+@cts.decl("Py_UCS4 *PyUnicode_AsUCS4Copy(PyObject *u)")
+def PyUnicode_AsUCS4Copy(space, ref):
+    return PyUnicode_AsUCS4(space, ref, cts.cast('Py_UCS4*', 0), 0,
+                            rffi.cast(rffi.INT_real, 1))
