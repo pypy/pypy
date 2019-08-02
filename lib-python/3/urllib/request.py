@@ -199,7 +199,7 @@ def urlopen(url, data=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
     global _opener
     if cafile or capath or cadefault:
         import warnings
-        warnings.warn("cafile, cpath and cadefault are deprecated, use a "
+        warnings.warn("cafile, capath and cadefault are deprecated, use a "
                       "custom context instead.", DeprecationWarning, 2)
         if context is not None:
             raise ValueError(
@@ -1488,7 +1488,6 @@ class FileHandler(BaseHandler):
                     origurl = 'file://' + filename
                 return addinfourl(open(localfile, 'rb'), headers, origurl)
         except OSError as exp:
-            # users shouldn't expect OSErrors coming from urlopen()
             raise URLError(exp)
         raise URLError('file not on local host')
 
@@ -1658,14 +1657,10 @@ else:
         of the 'file' scheme; not recommended for general use."""
         return quote(pathname)
 
-# This really consists of two pieces:
-# (1) a class which handles opening of all sorts of URLs
-#     (plus assorted utilities etc.)
-# (2) a set of functions for parsing URLs
-# XXX Should these be separated out into different modules?
-
 
 ftpcache = {}
+
+
 class URLopener:
     """Class to open URLs.
     This is a class rather than just a subroutine because we may need
@@ -1752,7 +1747,7 @@ class URLopener:
         name = 'open_' + urltype
         self.type = urltype
         name = name.replace('-', '_')
-        if not hasattr(self, name):
+        if not hasattr(self, name) or name == 'open_local_file':
             if proxy:
                 return self.open_unknown_proxy(proxy, fullurl, data)
             else:

@@ -606,7 +606,7 @@ Filename:          (.*)
 Argument count:    0
 Kw-only arguments: 0
 Number of locals:  2
-Stack size:        (17|7)
+Stack size:        (16|7)
 Flags:             OPTIMIZED, NEWLOCALS, NOFREE, COROUTINE
 Constants:
    0: None

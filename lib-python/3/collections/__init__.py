@@ -85,9 +85,7 @@ class OrderedDict(dict):
 
     def __init__(*args, **kwds):
         '''Initialize an ordered dictionary.  The signature is the same as
-        regular dictionaries, but keyword arguments are not recommended because
-        their insertion order is arbitrary.
-
+        regular dictionaries.  Keyword argument order is preserved.
         '''
         if not args:
             raise TypeError("descriptor '__init__' of 'OrderedDict' object "
@@ -157,9 +155,9 @@ class OrderedDict(dict):
         dict.clear(self)
 
     def popitem(self, last=True):
-        '''od.popitem() -> (k, v), return and remove a (key, value) pair.
-        Pairs are returned in LIFO order if last is true or FIFO order if false.
+        '''Remove and return a (key, value) pair from the dictionary.
 
+        Pairs are returned in LIFO order if last is true or FIFO order if false.
         '''
         if not self:
             raise KeyError('dictionary is empty')

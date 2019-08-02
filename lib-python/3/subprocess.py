@@ -38,7 +38,7 @@ check_output(...): Same as check_call() but returns the contents of
 getoutput(...): Runs a command in the shell, waits for it to complete,
     then returns the output
 getstatusoutput(...): Runs a command in the shell, waits for it to complete,
-    then returns a (status, output) tuple
+    then returns a (exitcode, output) tuple
 """
 
 import sys
@@ -232,15 +232,13 @@ def _optim_args_from_interpreter_flags():
 
 def _args_from_interpreter_flags():
     """Return a list of command-line arguments reproducing the current
-    settings in sys.flags and sys.warnoptions."""
+    settings in sys.flags, sys.warnoptions and sys._xoptions."""
     flag_opt_map = {
         'debug': 'd',
         # 'inspect': 'i',
         # 'interactive': 'i',
         'dont_write_bytecode': 'B',
-        'no_user_site': 's',
         'no_site': 'S',
-        'ignore_environment': 'E',
         'verbose': 'v',
         'bytes_warning': 'b',
         'quiet': 'q',
@@ -251,8 +249,30 @@ def _args_from_interpreter_flags():
         v = getattr(sys.flags, flag)
         if v > 0:
             args.append('-' + opt * v)
+
+    if sys.flags.isolated:
+        args.append('-I')
+    else:
+        if sys.flags.ignore_environment:
+            args.append('-E')
+        if sys.flags.no_user_site:
+            args.append('-s')
+
     for opt in sys.warnoptions:
         args.append('-W' + opt)
+
+    # -X options
+    xoptions = getattr(sys, '_xoptions', {})
+    for opt in ('faulthandler', 'tracemalloc',
+                'showalloccount', 'showrefcount', 'utf8'):
+        if opt in xoptions:
+            value = xoptions[opt]
+            if value is True:
+                arg = opt
+            else:
+                arg = '%s=%s' % (opt, value)
+            args.extend(('-X', arg))
+
     return args
 
 
@@ -493,7 +513,7 @@ def list2cmdline(seq):
 #
 
 def getstatusoutput(cmd):
-    """    Return (status, output) of executing cmd in a shell.
+    """Return (exitcode, output) of executing cmd in a shell.
 
     Execute the string 'cmd' in a shell with 'check_output' and
     return a 2-tuple (status, output). The locale encoding is used
@@ -507,19 +527,21 @@ def getstatusoutput(cmd):
     >>> subprocess.getstatusoutput('ls /bin/ls')
     (0, '/bin/ls')
     >>> subprocess.getstatusoutput('cat /bin/junk')
-    (256, 'cat: /bin/junk: No such file or directory')
+    (1, 'cat: /bin/junk: No such file or directory')
     >>> subprocess.getstatusoutput('/bin/junk')
-    (256, 'sh: /bin/junk: not found')
+    (127, 'sh: /bin/junk: not found')
+    >>> subprocess.getstatusoutput('/bin/kill $$')
+    (-15, '')
     """
     try:
         data = check_output(cmd, shell=True, universal_newlines=True, stderr=STDOUT)
-        status = 0
+        exitcode = 0
     except CalledProcessError as ex:
         data = ex.output
-        status = ex.returncode
+        exitcode = ex.returncode
     if data[-1:] == '\n':
         data = data[:-1]
-    return status, data
+    return exitcode, data
 
 def getoutput(cmd):
     """Return output (stdout or stderr) of executing cmd in a shell.
@@ -740,7 +762,10 @@ class Popen(object):
                     to_close.append(self._devnull)
                 for fd in to_close:
                     try:
-                        os.close(fd)
+                        if _mswindows and isinstance(fd, Handle):
+                            fd.Close()
+                        else:
+                            os.close(fd)
                     except OSError:
                         pass
 
@@ -791,19 +816,21 @@ class Popen(object):
                 self.stdin.write(input)
             except BrokenPipeError:
                 pass  # communicate() must ignore broken pipe errors.
-            except OSError as e:
-                if e.errno == errno.EINVAL and self.poll() is not None:
-                    # Issue #19612: On Windows, stdin.write() fails with EINVAL
-                    # if the process already exited before the write
+            except OSError as exc:
+                if exc.errno == errno.EINVAL:
+                    # bpo-19612, bpo-30418: On Windows, stdin.write() fails
+                    # with EINVAL if the child process exited or if the child
+                    # process is still running but closed the pipe.
                     pass
                 else:
                     raise
+
         try:
             self.stdin.close()
         except BrokenPipeError:
             pass  # communicate() must ignore broken pipe errors.
-        except OSError as e:
-            if e.errno == errno.EINVAL and self.poll() is not None:
+        except OSError as exc:
+            if exc.errno == errno.EINVAL:
                 pass
             else:
                 raise
@@ -1014,7 +1041,7 @@ class Popen(object):
                                          int(not close_fds),
                                          creationflags,
                                          env,
-                                         cwd,
+                                         os.fspath(cwd) if cwd is not None else None,
                                          startupinfo)
             finally:
                 # Child is launched. Close the parent's copy of those pipe
@@ -1031,6 +1058,9 @@ class Popen(object):
                     errwrite.Close()
                 if hasattr(self, '_devnull'):
                     os.close(self._devnull)
+                # Prevent a double close of these handles/fds from __init__
+                # on error.
+                self._closed_child_pipe_fds = True
 
             # Retain the process handle, but close the thread handle
             self._child_created = True
@@ -1265,8 +1295,12 @@ class Popen(object):
                     # and pass it to fork_exec()
 
                     if env is not None:
-                        env_list = [os.fsencode(k) + b'=' + os.fsencode(v)
-                                    for k, v in env.items()]
+                        env_list = []
+                        for k, v in env.items():
+                            k = os.fsencode(k)
+                            if b'=' in k:
+                                raise ValueError("illegal environment variable name")
+                            env_list.append(k + b'=' + os.fsencode(v))
                     else:
                         env_list = None  # Use execv instead of execve.
                     executable = os.fsencode(executable)
@@ -1281,7 +1315,8 @@ class Popen(object):
                     fds_to_keep.add(errpipe_write)
                     self.pid = _posixsubprocess.fork_exec(
                             args, executable_list,
-                            close_fds, sorted(fds_to_keep), cwd, env_list,
+                            close_fds, tuple(sorted(map(int, fds_to_keep))),
+                            cwd, env_list,
                             p2cread, p2cwrite, c2pread, c2pwrite,
                             errread, errwrite,
                             errpipe_read, errpipe_write,
@@ -1329,29 +1364,32 @@ class Popen(object):
                 try:
                     exception_name, hex_errno, err_msg = (
                             errpipe_data.split(b':', 2))
+                    # The encoding here should match the encoding
+                    # written in by the subprocess implementations
+                    # like _posixsubprocess
+                    err_msg = err_msg.decode()
                 except ValueError:
                     exception_name = b'SubprocessError'
                     hex_errno = b'0'
-                    err_msg = (b'Bad exception data from child: ' +
-                               repr(errpipe_data))
+                    err_msg = 'Bad exception data from child: {!r}'.format(
+                                  bytes(errpipe_data))
                 child_exception_type = getattr(
                         builtins, exception_name.decode('ascii'),
                         SubprocessError)
-                err_msg = err_msg.decode(errors="surrogatepass")
                 if issubclass(child_exception_type, OSError) and hex_errno:
                     errno_num = int(hex_errno, 16)
                     child_exec_never_called = (err_msg == "noexec")
                     if child_exec_never_called:
                         err_msg = ""
+                        # The error must be from chdir(cwd).
+                        err_filename = cwd
+                    else:
+                        err_filename = orig_executable
                     if errno_num != 0:
                         err_msg = os.strerror(errno_num)
                         if errno_num == errno.ENOENT:
-                            if child_exec_never_called:
-                                # The error must be from chdir(cwd).
-                                err_msg += ': ' + repr(cwd)
-                            else:
-                                err_msg += ': ' + repr(orig_executable)
-                    raise child_exception_type(errno_num, err_msg)
+                            err_msg += ': ' + repr(err_filename)
+                    raise child_exception_type(errno_num, err_msg, err_filename)
                 raise child_exception_type(err_msg)
 
 

@@ -196,19 +196,33 @@ class ReadTest(MixInCheckStateHandling):
         self.assertEqual(f.read(), ''.join(lines[1:]))
         self.assertEqual(f.read(), '')
 
+        # Issue #32110: Test readline() followed by read(n)
+        f = getreader()
+        self.assertEqual(f.readline(), lines[0])
+        self.assertEqual(f.read(1), lines[1][0])
+        self.assertEqual(f.read(0), '')
+        self.assertEqual(f.read(100), data[len(lines[0]) + 1:][:100])
+
         # Issue #16636: Test readline() followed by readlines()
         f = getreader()
         self.assertEqual(f.readline(), lines[0])
         self.assertEqual(f.readlines(), lines[1:])
         self.assertEqual(f.read(), '')
 
-        # Test read() followed by read()
+        # Test read(n) followed by read()
         f = getreader()
         self.assertEqual(f.read(size=40, chars=5), data[:5])
         self.assertEqual(f.read(), data[5:])
         self.assertEqual(f.read(), '')
 
-        # Issue #12446: Test read() followed by readlines()
+        # Issue #32110: Test read(n) followed by read(n)
+        f = getreader()
+        self.assertEqual(f.read(size=40, chars=5), data[:5])
+        self.assertEqual(f.read(1), data[5])
+        self.assertEqual(f.read(0), '')
+        self.assertEqual(f.read(100), data[6:106])
+
+        # Issue #12446: Test read(n) followed by readlines()
         f = getreader()
         self.assertEqual(f.read(size=40, chars=5), data[:5])
         self.assertEqual(f.readlines(), [lines[0][5:]] + lines[1:])
@@ -1203,6 +1217,8 @@ class EscapeDecodeTest(unittest.TestCase):
             check(br"\8", b"\\8")
         with self.assertWarns(DeprecationWarning):
             check(br"\9", b"\\9")
+        with self.assertWarns(DeprecationWarning):
+            check(b"\\\xfa", b"\\\xfa")
 
     def test_errors(self):
         decode = codecs.escape_decode
@@ -2475,6 +2491,8 @@ class UnicodeEscapeTest(unittest.TestCase):
             check(br"\8", "\\8")
         with self.assertWarns(DeprecationWarning):
             check(br"\9", "\\9")
+        with self.assertWarns(DeprecationWarning):
+            check(b"\\\xfa", "\\\xfa")
 
     def test_decode_errors(self):
         decode = codecs.unicode_escape_decode
@@ -3173,6 +3191,24 @@ class CodePageTest(unittest.TestCase):
             self.assertEqual(codec.name, 'mbcs')
         finally:
             _bootlocale.getpreferredencoding = old_getpreferredencoding
+
+    @support.bigmemtest(size=2**31, memuse=7, dry_run=False)
+    def test_large_input(self):
+        # Test input longer than INT_MAX.
+        # Input should contain undecodable bytes before and after
+        # the INT_MAX limit.
+        encoded = (b'01234567' * (2**28-1) +
+                   b'\x85\x86\xea\xeb\xec\xef\xfc\xfd\xfe\xff')
+        self.assertEqual(len(encoded), 2**31+2)
+        decoded = codecs.code_page_decode(932, encoded, 'surrogateescape', True)
+        self.assertEqual(decoded[1], len(encoded))
+        del encoded
+        self.assertEqual(len(decoded[0]), decoded[1])
+        self.assertEqual(decoded[0][:10], '0123456701')
+        self.assertEqual(decoded[0][-20:],
+                         '6701234567'
+                         '\udc85\udc86\udcea\udceb\udcec'
+                         '\udcef\udcfc\udcfd\udcfe\udcff')
 
 
 class ASCIITest(unittest.TestCase):
