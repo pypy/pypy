@@ -162,16 +162,16 @@ def _get_module_lock(name):
 
     _imp.acquire_lock()
     try:
-    try:
-        lock = _module_locks[name]()
-    except KeyError:
+        try:
+            lock = _module_locks[name]()
+        except KeyError:
             lock = None
 
-    if lock is None:
-        if _thread is None:
-            lock = _DummyModuleLock(name)
-        else:
-            lock = _ModuleLock(name)
+        if lock is None:
+            if _thread is None:
+                lock = _DummyModuleLock(name)
+            else:
+                lock = _ModuleLock(name)
 
             def cb(ref, name=name):
                 _imp.acquire_lock()
@@ -180,11 +180,11 @@ def _get_module_lock(name):
                     # after the previous lock was destroyed
                     # but before the weakref callback was called.
                     if _module_locks.get(name) is ref:
-            del _module_locks[name]
+                        del _module_locks[name]
                 finally:
                     _imp.release_lock()
 
-        _module_locks[name] = _weakref.ref(lock, cb)
+            _module_locks[name] = _weakref.ref(lock, cb)
     finally:
         _imp.release_lock()
 
@@ -968,7 +968,7 @@ def _find_and_load(name, import_):
     with _ModuleLockManager(name):
         module = sys.modules.get(name, _NEEDS_LOADING)
         if module is _NEEDS_LOADING:
-        return _find_and_load_unlocked(name, import_)
+            return _find_and_load_unlocked(name, import_)
 
     if module is None:
         message = ('import of {} halted; '
@@ -991,7 +991,7 @@ def _gcd_import(name, package=None, level=0):
     _sanity_check(name, package, level)
     if level > 0:
         name = _resolve_name(name, package, level)
-        return _find_and_load(name, _gcd_import)
+    return _find_and_load(name, _gcd_import)
 
 
 def _handle_fromlist(module, fromlist, import_, *, recursive=False):
