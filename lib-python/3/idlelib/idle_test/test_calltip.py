@@ -1,9 +1,12 @@
+"Test calltip, coverage 60%"
+
+from idlelib import calltip
 import unittest
-import idlelib.calltips as ct
 import textwrap
 import types
 
-default_tip = ct._default_callable_argspec
+default_tip = calltip._default_callable_argspec
+
 
 # Test Class TC is used in multiple get_argspec test methods
 class TC():
@@ -31,9 +34,11 @@ class TC():
     @staticmethod
     def sm(b): 'doc'
 
-tc = TC()
 
-signature = ct.get_argspec  # 2.7 and 3.x use different functions
+tc = TC()
+signature = calltip.get_argspec  # 2.7 and 3.x use different functions
+
+
 class Get_signatureTest(unittest.TestCase):
     # The signature function must return a string, even if blank.
     # Test a variety of objects to be sure that none cause it to raise
@@ -46,6 +51,7 @@ class Get_signatureTest(unittest.TestCase):
 
         # Python class that inherits builtin methods
         class List(list): "List() doc"
+
         # Simulate builtin with no docstring for default tip test
         class SB:  __call__ = None
 
@@ -53,11 +59,15 @@ class Get_signatureTest(unittest.TestCase):
             self.assertEqual(signature(obj), out)
 
         if List.__doc__ is not None:
-            gtest(List, List.__doc__)
+            gtest(List, List.__doc__)  # This and append_doc changed in 3.7.
         gtest(list.__new__,
-               'Create and return a new object.  See help(type) for accurate signature.')
+              '(*args, **kwargs)\n'
+              'Create and return a new object.'
+              '  See help(type) for accurate signature.')
         gtest(list.__init__,
-               'Initialize self.  See help(type(self)) for accurate signature.')
+              '(self, /, *args, **kwargs)'
+              + calltip._argument_positional + '\n' +
+              'Initialize self.  See help(type(self)) for accurate signature.')
         append_doc =  "L.append(object) -> None -- append object to end"
         gtest(list.append, append_doc)
         gtest([].append, append_doc)
@@ -65,6 +75,19 @@ class Get_signatureTest(unittest.TestCase):
 
         gtest(types.MethodType, "method(function, instance)")
         gtest(SB(), default_tip)
+        import re
+        p = re.compile('')
+        gtest(re.sub, '''\
+(pattern, repl, string, count=0, flags=0)
+Return the string obtained by replacing the leftmost
+non-overlapping occurrences of the pattern in string by the
+replacement repl.  repl can be either a string or a callable;
+if a string, backslash escapes in it are processed.  If it is
+a callable, it's passed the match object and must return''')
+        gtest(p.sub, '''\
+(repl, string, count=0)
+Return the string obtained by replacing the leftmost \
+non-overlapping occurrences o...''')
 
     def test_signature_wrap(self):
         if textwrap.TextWrapper.__doc__ is not None:
@@ -77,13 +100,13 @@ class Get_signatureTest(unittest.TestCase):
     def test_docline_truncation(self):
         def f(): pass
         f.__doc__ = 'a'*300
-        self.assertEqual(signature(f), '()\n' + 'a' * (ct._MAX_COLS-3) + '...')
+        self.assertEqual(signature(f), '()\n' + 'a' * (calltip._MAX_COLS-3) + '...')
 
     def test_multiline_docstring(self):
         # Test fewer lines than max.
-        self.assertEqual(signature(list),
-                "list() -> new empty list\n"
-                "list(iterable) -> new list initialized from iterable's items")
+        self.assertEqual(signature(range),
+                "range(stop) -> range object\n"
+                "range(start, stop[, step]) -> range object")
 
         # Test max lines
         self.assertEqual(signature(bytes), '''\
@@ -96,7 +119,7 @@ bytes() -> empty bytes object''')
         # Test more than max lines
         def f(): pass
         f.__doc__ = 'a\n' * 15
-        self.assertEqual(signature(f), '()' + '\na' * ct._MAX_LINES)
+        self.assertEqual(signature(f), '()' + '\na' * calltip._MAX_LINES)
 
     def test_functions(self):
         def t1(): 'doc'
@@ -124,25 +147,34 @@ bytes() -> empty bytes object''')
     def test_bound_methods(self):
         # test that first parameter is correctly removed from argspec
         doc = '\ndoc' if TC.__doc__ is not None else ''
-        for meth, mtip  in ((tc.t1, "()"), (tc.t4, "(*args)"), (tc.t6, "(self)"),
-                            (tc.__call__, '(ci)'), (tc, '(ci)'), (TC.cm, "(a)"),):
+        for meth, mtip  in ((tc.t1, "()"), (tc.t4, "(*args)"),
+                            (tc.t6, "(self)"), (tc.__call__, '(ci)'),
+                            (tc, '(ci)'), (TC.cm, "(a)"),):
             self.assertEqual(signature(meth), mtip + doc)
 
     def test_starred_parameter(self):
         # test that starred first parameter is *not* removed from argspec
         class C:
             def m1(*args): pass
-            def m2(**kwds): pass
         c = C()
-        for meth, mtip  in ((C.m1, '(*args)'), (c.m1, "(*args)"),
-                                      (C.m2, "(**kwds)"), (c.m2, "(**kwds)"),):
+        for meth, mtip  in ((C.m1, '(*args)'), (c.m1, "(*args)"),):
             self.assertEqual(signature(meth), mtip)
+
+    def test_invalid_method_signature(self):
+        class C:
+            def m2(**kwargs): pass
+        class Test:
+            def __call__(*, a): pass
+
+        mtip = calltip._invalid_method
+        self.assertEqual(signature(C().m2), mtip)
+        self.assertEqual(signature(Test()), mtip)
 
     def test_non_ascii_name(self):
         # test that re works to delete a first parameter name that
         # includes non-ascii chars, such as various forms of A.
         uni = "(A\u0391\u0410\u05d0\u0627\u0905\u1e00\u3042, a)"
-        assert ct._first_param.sub('', uni) == '(a)'
+        assert calltip._first_param.sub('', uni) == '(a)'
 
     def test_no_docstring(self):
         def nd(s):
@@ -156,22 +188,29 @@ bytes() -> empty bytes object''')
         class NoCall:
             def __getattr__(self, name):
                 raise BaseException
-        class Call(NoCall):
+        class CallA(NoCall):
+            def __call__(oui, a, b, c):
+                pass
+        class CallB(NoCall):
             def __call__(self, ci):
                 pass
-        for meth, mtip  in ((NoCall, default_tip), (Call, default_tip),
-                            (NoCall(), ''), (Call(), '(ci)')):
+
+        for meth, mtip  in ((NoCall, default_tip), (CallA, default_tip),
+                            (NoCall(), ''), (CallA(), '(a, b, c)'),
+                            (CallB(), '(ci)')):
             self.assertEqual(signature(meth), mtip)
 
     def test_non_callables(self):
         for obj in (0, 0.0, '0', b'0', [], {}):
             self.assertEqual(signature(obj), '')
 
+
 class Get_entityTest(unittest.TestCase):
     def test_bad_entity(self):
-        self.assertIsNone(ct.get_entity('1/0'))
+        self.assertIsNone(calltip.get_entity('1/0'))
     def test_good_entity(self):
-        self.assertIs(ct.get_entity('int'), int)
+        self.assertIs(calltip.get_entity('int'), int)
+
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2, exit=False)
+    unittest.main(verbosity=2)
