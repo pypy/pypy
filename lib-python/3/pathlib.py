@@ -330,7 +330,7 @@ class _PosixFlavour(_Flavour):
                     target = accessor.readlink(newpath)
                 except OSError as e:
                     if e.errno != EINVAL and strict:
-                            raise
+                        raise
                     # Not a symlink, or non-strict mode. We just leave the path
                     # untouched.
                     path = newpath
@@ -1244,18 +1244,18 @@ class Path(PurePath):
         """
         if self._closed:
             self._raise_closed()
-            try:
-                self._accessor.mkdir(self, mode)
+        try:
+            self._accessor.mkdir(self, mode)
         except FileNotFoundError:
             if not parents or self.parent == self:
-                    raise
+                raise
             self.parent.mkdir(parents=True, exist_ok=True)
             self.mkdir(mode, parents=False, exist_ok=exist_ok)
         except OSError:
             # Cannot rely on checking for EEXIST, since the operating system
             # could give priority to other errors like EACCES or EROFS
-                if not exist_ok or not self.is_dir():
-                    raise
+            if not exist_ok or not self.is_dir():
+                raise
 
     def chmod(self, mode):
         """
