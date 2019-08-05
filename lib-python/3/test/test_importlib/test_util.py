@@ -762,6 +762,7 @@ class MagicNumberTests(unittest.TestCase):
     """
     Test release compatibility issues relating to importlib
     """
+    @support.cpython_only
     @unittest.skipUnless(
         sys.version_info.releaselevel in ('candidate', 'final'),
         'only applies to candidate or final python release levels'
