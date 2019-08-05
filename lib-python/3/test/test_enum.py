@@ -1506,6 +1506,23 @@ class TestEnum(unittest.TestCase):
             yellow = 6
         self.assertEqual(MoreColor.magenta.hex(), '5 hexlified!')
 
+    def test_subclass_duplicate_name(self):
+        class Base(Enum):
+            def test(self):
+                pass
+        class Test(Base):
+            test = 1
+        self.assertIs(type(Test.test), Test)
+
+    def test_subclass_duplicate_name_dynamic(self):
+        from types import DynamicClassAttribute
+        class Base(Enum):
+            @DynamicClassAttribute
+            def test(self):
+                return 'dynamic'
+        class Test(Base):
+            test = 1
+        self.assertEqual(Test.test.test, 'dynamic')
 
     def test_no_duplicates(self):
         class UniqueEnum(Enum):
@@ -2290,6 +2307,26 @@ class TestIntFlag(unittest.TestCase):
             self.assertIn(e, Perm)
             self.assertIs(type(e), Perm)
 
+
+    def test_programatic_function_from_empty_list(self):
+        Perm = enum.IntFlag('Perm', [])
+        lst = list(Perm)
+        self.assertEqual(len(lst), len(Perm))
+        self.assertEqual(len(Perm), 0, Perm)
+        Thing = enum.Enum('Thing', [])
+        lst = list(Thing)
+        self.assertEqual(len(lst), len(Thing))
+        self.assertEqual(len(Thing), 0, Thing)
+
+
+    def test_programatic_function_from_empty_tuple(self):
+        Perm = enum.IntFlag('Perm', ())
+        lst = list(Perm)
+        self.assertEqual(len(lst), len(Perm))
+        self.assertEqual(len(Perm), 0, Perm)
+        Thing = enum.Enum('Thing', ())
+        self.assertEqual(len(lst), len(Thing))
+        self.assertEqual(len(Thing), 0, Thing)
 
     def test_containment(self):
         Perm = self.Perm

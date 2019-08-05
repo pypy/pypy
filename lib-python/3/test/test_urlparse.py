@@ -1,3 +1,5 @@
+import sys
+import unicodedata
 import unittest
 import urllib.parse
 
@@ -6,8 +8,8 @@ RFC2396_BASE = "http://a/b/c/d;p?q"
 RFC3986_BASE = 'http://a/b/c/d;p?q'
 SIMPLE_BASE  = 'http://a/b/c/d'
 
-# A list of test cases.  Each test case is a two-tuple that contains
-# a string with the query and a dictionary with the expected result.
+# Each parse_qsl testcase is a two-tuple that contains
+# a string with the query and a list with the expected result.
 
 parse_qsl_test_cases = [
     ("", []),
@@ -41,6 +43,9 @@ parse_qsl_test_cases = [
     (b"a=a+b;b=b+c", [(b'a', b'a b'), (b'b', b'b c')]),
     (b"a=1;a=2", [(b'a', b'1'), (b'a', b'2')]),
 ]
+
+# Each parse_qs testcase is a two-tuple that contains
+# a string with the query and a dictionary with the expected result.
 
 parse_qs_test_cases = [
     ("", {}),
@@ -290,7 +295,6 @@ class UrlParseTestCase(unittest.TestCase):
     def test_RFC2396(self):
         # cases from RFC 2396
 
-
         self.checkJoin(RFC2396_BASE, 'g:h', 'g:h')
         self.checkJoin(RFC2396_BASE, 'g', 'http://a/b/c/g')
         self.checkJoin(RFC2396_BASE, './g', 'http://a/b/c/g')
@@ -333,9 +337,7 @@ class UrlParseTestCase(unittest.TestCase):
         # self.checkJoin(RFC2396_BASE, '/./g', 'http://a/./g')
         # self.checkJoin(RFC2396_BASE, '/../g', 'http://a/../g')
 
-
     def test_RFC3986(self):
-        # Test cases from RFC3986
         self.checkJoin(RFC3986_BASE, '?y','http://a/b/c/d;p?y')
         self.checkJoin(RFC3986_BASE, ';x', 'http://a/b/c/;x')
         self.checkJoin(RFC3986_BASE, 'g:h','g:h')
@@ -363,7 +365,7 @@ class UrlParseTestCase(unittest.TestCase):
         self.checkJoin(RFC3986_BASE, '../../g','http://a/g')
         self.checkJoin(RFC3986_BASE, '../../../g', 'http://a/g')
 
-        #Abnormal Examples
+        # Abnormal Examples
 
         # The 'abnormal scenarios' are incompatible with RFC2986 parsing
         # Tests are here for reference.
@@ -519,6 +521,15 @@ class UrlParseTestCase(unittest.TestCase):
             self.assertEqual(result, (defrag, frag))
             self.assertEqual(result.url, defrag)
             self.assertEqual(result.fragment, frag)
+
+    def test_urlsplit_scoped_IPv6(self):
+        p = urllib.parse.urlsplit('http://[FE80::822a:a8ff:fe49:470c%tESt]:1234')
+        self.assertEqual(p.hostname, "fe80::822a:a8ff:fe49:470c%tESt")
+        self.assertEqual(p.netloc, '[FE80::822a:a8ff:fe49:470c%tESt]:1234')
+
+        p = urllib.parse.urlsplit(b'http://[FE80::822a:a8ff:fe49:470c%tESt]:1234')
+        self.assertEqual(p.hostname, b"fe80::822a:a8ff:fe49:470c%tESt")
+        self.assertEqual(p.netloc, b'[FE80::822a:a8ff:fe49:470c%tESt]:1234')
 
     def test_urlsplit_attributes(self):
         url = "HTTP://WWW.PYTHON.ORG/doc/#frag"
@@ -755,28 +766,35 @@ class UrlParseTestCase(unittest.TestCase):
     def test_parse_fragments(self):
         # Exercise the allow_fragments parameter of urlparse() and urlsplit()
         tests = (
-            ("http:#frag", "path"),
-            ("//example.net#frag", "path"),
-            ("index.html#frag", "path"),
-            (";a=b#frag", "params"),
-            ("?a=b#frag", "query"),
-            ("#frag", "path"),
+            ("http:#frag", "path", "frag"),
+            ("//example.net#frag", "path", "frag"),
+            ("index.html#frag", "path", "frag"),
+            (";a=b#frag", "params", "frag"),
+            ("?a=b#frag", "query", "frag"),
+            ("#frag", "path", "frag"),
+            ("abc#@frag", "path", "@frag"),
+            ("//abc#@frag", "path", "@frag"),
+            ("//abc:80#@frag", "path", "@frag"),
+            ("//abc#@frag:80", "path", "@frag:80"),
         )
-        for url, attr in tests:
+        for url, attr, expected_frag in tests:
             for func in (urllib.parse.urlparse, urllib.parse.urlsplit):
                 if attr == "params" and func is urllib.parse.urlsplit:
                     attr = "path"
                 with self.subTest(url=url, function=func):
                     result = func(url, allow_fragments=False)
                     self.assertEqual(result.fragment, "")
-                    self.assertTrue(getattr(result, attr).endswith("#frag"))
+                    self.assertTrue(
+                            getattr(result, attr).endswith("#" + expected_frag))
                     self.assertEqual(func(url, "", False).fragment, "")
 
                     result = func(url, allow_fragments=True)
-                    self.assertEqual(result.fragment, "frag")
-                    self.assertFalse(getattr(result, attr).endswith("frag"))
-                    self.assertEqual(func(url, "", True).fragment, "frag")
-                    self.assertEqual(func(url).fragment, "frag")
+                    self.assertEqual(result.fragment, expected_frag)
+                    self.assertFalse(
+                            getattr(result, attr).endswith(expected_frag))
+                    self.assertEqual(func(url, "", True).fragment,
+                                     expected_frag)
+                    self.assertEqual(func(url).fragment, expected_frag)
 
     def test_mixed_types_rejected(self):
         # Several functions that process either strings or ASCII encoded bytes
@@ -862,6 +880,13 @@ class UrlParseTestCase(unittest.TestCase):
         result = urllib.parse.parse_qsl("key=\u0141%E9-", encoding="ascii",
                                                           errors="ignore")
         self.assertEqual(result, [('key', '\u0141-')])
+
+    def test_parse_qsl_max_num_fields(self):
+        with self.assertRaises(ValueError):
+            urllib.parse.parse_qs('&'.join(['a=a']*11), max_num_fields=10)
+        with self.assertRaises(ValueError):
+            urllib.parse.parse_qs(';'.join(['a=a']*11), max_num_fields=10)
+        urllib.parse.parse_qs('&'.join(['a=a']*10), max_num_fields=10)
 
     def test_urlencode_sequences(self):
         # Other tests incidentally urlencode things; test non-covered cases:
@@ -961,6 +986,34 @@ class UrlParseTestCase(unittest.TestCase):
                 expected.append(name)
         self.assertCountEqual(urllib.parse.__all__, expected)
 
+    def test_urlsplit_normalization(self):
+        # Certain characters should never occur in the netloc,
+        # including under normalization.
+        # Ensure that ALL of them are detected and cause an error
+        illegal_chars = '/:#?@'
+        hex_chars = {'{:04X}'.format(ord(c)) for c in illegal_chars}
+        denorm_chars = [
+            c for c in map(chr, range(128, sys.maxunicode))
+            if (hex_chars & set(unicodedata.decomposition(c).split()))
+            and c not in illegal_chars
+        ]
+        # Sanity check that we found at least one such character
+        self.assertIn('\u2100', denorm_chars)
+        self.assertIn('\uFF03', denorm_chars)
+
+        # bpo-36742: Verify port separators are ignored when they
+        # existed prior to decomposition
+        urllib.parse.urlsplit('http://\u30d5\u309a:80')
+        with self.assertRaises(ValueError):
+            urllib.parse.urlsplit('http://\u30d5\u309a\ufe1380')
+
+        for scheme in ["http", "https", "ftp"]:
+            for netloc in ["netloc{}false.netloc", "n{}user@netloc"]:
+                for c in denorm_chars:
+                    url = "{}://{}/path".format(scheme, netloc.format(c))
+                    with self.subTest(url=url, char='{:04X}'.format(ord(c))):
+                        with self.assertRaises(ValueError):
+                            urllib.parse.urlsplit(url)
 
 class Utility_Tests(unittest.TestCase):
     """Testcase to test the various utility functions in the urllib."""
@@ -982,6 +1035,26 @@ class Utility_Tests(unittest.TestCase):
                          ('www.example.org:80', ''))
         self.assertEqual(splithost('/foo/bar/baz.html'),
                          (None, '/foo/bar/baz.html'))
+
+        # bpo-30500: # starts a fragment.
+        self.assertEqual(splithost('//127.0.0.1#@host.com'),
+                         ('127.0.0.1', '/#@host.com'))
+        self.assertEqual(splithost('//127.0.0.1#@host.com:80'),
+                         ('127.0.0.1', '/#@host.com:80'))
+        self.assertEqual(splithost('//127.0.0.1:80#@host.com'),
+                         ('127.0.0.1:80', '/#@host.com'))
+
+        # Empty host is returned as empty string.
+        self.assertEqual(splithost("///file"),
+                         ('', '/file'))
+
+        # Trailing semicolon, question mark and hash symbol are kept.
+        self.assertEqual(splithost("//example.net/file;"),
+                         ('example.net', '/file;'))
+        self.assertEqual(splithost("//example.net/file?"),
+                         ('example.net', '/file?'))
+        self.assertEqual(splithost("//example.net/file#"),
+                         ('example.net', '/file#'))
 
     def test_splituser(self):
         splituser = urllib.parse.splituser
