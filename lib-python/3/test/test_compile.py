@@ -513,7 +513,7 @@ if 1:
         self.assertInvalidSingle('1\n2')
         if check_impl_detail():
             # it's a single statment in PyPy
-        self.assertInvalidSingle('def f(): pass')
+            self.assertInvalidSingle('def f(): pass')
         self.assertInvalidSingle('a = 13\nb = 187')
         self.assertInvalidSingle('del x\ndel y')
         self.assertInvalidSingle('f()\ng()')
