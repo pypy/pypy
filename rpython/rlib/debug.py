@@ -6,7 +6,6 @@ from rpython.rlib.objectmodel import enforceargs
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rarithmetic import is_valid_int, r_longlong
-from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -460,7 +459,10 @@ class Entry(ExtRegistryEntry):
 
 
 def attach_gdb():
-    import pdb; pdb.set_trace()
+    if not we_are_translated():
+        import pdb; pdb.set_trace()
+    else:
+        impl_attach_gdb()
 
 if not sys.platform.startswith('win'):
     if sys.platform.startswith('linux'):
@@ -586,11 +588,8 @@ extern "C" RPY_EXPORTED void AttachToVS() {
         d['separate_module_files'] = [cppfile]
         return ExternalCompilationInfo(**d)
 
-    ll_attach = rffi.llexternal("AttachToVS", [], lltype.Void,
-                                compilation_info=make_vs_attach_eci())
+    #ll_attach = rffi.llexternal("AttachToVS", [], lltype.Void,
+    #                            compilation_info=make_vs_attach_eci())
     def impl_attach_gdb():
         #ll_attach()
         print "AttachToVS is disabled at the moment (compilation failure)"
-
-register_external(attach_gdb, [], result=None,
-                  export_name="impl_attach_gdb", llimpl=impl_attach_gdb)

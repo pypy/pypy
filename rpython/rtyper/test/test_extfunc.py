@@ -18,7 +18,7 @@ class TestExtFuncEntry:
             "NOT_RPYTHON"
             return eval("x+40")
 
-        register_external(b, [int], result=int)
+        register_external(b, [int], result=int, sandboxsafe=True)
 
         def f():
             return b(2)
@@ -42,7 +42,7 @@ class TestExtFuncEntry:
             return y + x
 
         register_external(c, [int, int], result=int, llimpl=llimpl,
-                          export_name='ccc')
+                          export_name='ccc', sandboxsafe=True)
 
         def f():
             return c(3, 4)
@@ -62,7 +62,8 @@ class TestExtFuncEntry:
             tuple as an argument so that register_external's behavior for
             tuple-taking functions can be verified.
             """
-        register_external(function_with_tuple_arg, [(int,)], int)
+        register_external(function_with_tuple_arg, [(int,)], int,
+                          sandboxsafe=True)
 
         def f():
             return function_with_tuple_arg((1,))
@@ -82,11 +83,11 @@ class TestExtFuncEntry:
         """
         def function_with_list():
             pass
-        register_external(function_with_list, [[int]], int)
+        register_external(function_with_list, [[int]], int, sandboxsafe=True)
 
         def function_returning_list():
             pass
-        register_external(function_returning_list, [], [int])
+        register_external(function_returning_list, [], [int], sandboxsafe=True)
 
         def f():
             return function_with_list(function_returning_list())
@@ -100,7 +101,7 @@ class TestExtFuncEntry:
         str0 = SomeString(no_nul=True)
         def os_open(s):
             pass
-        register_external(os_open, [str0], None)
+        register_external(os_open, [str0], None, sandboxsafe=True)
         def f(s):
             return os_open(s)
         policy = AnnotatorPolicy()
@@ -121,7 +122,7 @@ class TestExtFuncEntry:
         def os_execve(l):
             pass
 
-        register_external(os_execve, [[str0]], None)
+        register_external(os_execve, [[str0]], None, sandboxsafe=True)
 
         def f(l):
             return os_execve(l)
@@ -149,7 +150,7 @@ class TestExtFuncEntry:
         def a_llfakeimpl(i):
             return i * 3
         register_external(a, [int], int, llimpl=a_llimpl,
-                          llfakeimpl=a_llfakeimpl)
+                          llfakeimpl=a_llfakeimpl, sandboxsafe=True)
         def f(i):
             return a(i)
 

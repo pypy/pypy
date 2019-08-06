@@ -5,7 +5,6 @@ from rpython.rlib._os_support import _WIN32, StringTraits, UnicodeTraits
 from rpython.rlib.objectmodel import enforceargs
 # importing rposix here creates a cycle on Windows
 from rpython.rtyper.controllerentry import Controller
-from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -97,9 +96,6 @@ else:
 # Lower-level interface: dummy placeholders and external registations
 
 def r_envkeys():
-    just_a_placeholder
-
-def envkeys_llimpl():
     environ = os_get_environ()
     result = []
     i = 0
@@ -110,10 +106,6 @@ def envkeys_llimpl():
             result.append(name_value[:p])
         i += 1
     return result
-
-register_external(r_envkeys, [], [str0],   # returns a list of strings
-                  export_name='ll_os.ll_os_envkeys',
-                  llimpl=envkeys_llimpl)
 
 # ____________________________________________________________
 
@@ -190,18 +182,7 @@ def make_env_impls(win32=False):
 
     return envitems_llimpl, getenv_llimpl, putenv_llimpl
 
-envitems_llimpl, getenv_llimpl, putenv_llimpl = make_env_impls()
-
-register_external(r_envitems, [], [(str0, str0)],
-                  export_name='ll_os.ll_os_envitems',
-                  llimpl=envitems_llimpl)
-register_external(r_getenv, [str0],
-                  annmodel.SomeString(can_be_None=True, no_nul=True),
-                  export_name='ll_os.ll_os_getenv',
-                  llimpl=getenv_llimpl)
-register_external(r_putenv, [str0, str0], annmodel.s_None,
-                  export_name='ll_os.ll_os_putenv',
-                  llimpl=putenv_llimpl)
+r_envitems, r_getenv, r_putenv = make_env_impls()
 
 # ____________________________________________________________
 
@@ -215,7 +196,7 @@ if hasattr(__import__(os.name), 'unsetenv'):
     os_unsetenv = llexternal('unsetenv', [rffi.CCHARP], rffi.INT,
                                   save_err=rffi.RFFI_SAVE_ERRNO)
 
-    def unsetenv_llimpl(name):
+    def r_unsetenv(name):
         with rffi.scoped_str2charp(name) as l_name:
             error = rffi.cast(lltype.Signed, os_unsetenv(l_name))
         if error:
@@ -229,7 +210,4 @@ if hasattr(__import__(os.name), 'unsetenv'):
             del envkeepalive.byname[name]
             rffi.free_charp(l_oldstring)
 
-    register_external(r_unsetenv, [str0], annmodel.s_None,
-                      export_name='ll_os.ll_os_unsetenv',
-                      llimpl=unsetenv_llimpl)
     REAL_UNSETENV = True

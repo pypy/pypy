@@ -584,7 +584,8 @@ def test_raising_llimpl():
     def raising():
         raise OSError(15, "abcd")
 
-    ext = register_external(external, [], llimpl=raising, llfakeimpl=raising)
+    ext = register_external(external, [], llimpl=raising, llfakeimpl=raising,
+                            sandboxsafe=True)
 
     def f():
         # this is a useful llfakeimpl that raises an exception

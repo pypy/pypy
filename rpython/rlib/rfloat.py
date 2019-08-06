@@ -5,7 +5,6 @@ from math import acosh, asinh, atanh, log1p, expm1
 
 from rpython.annotator.model import SomeString, SomeChar
 from rpython.rlib import objectmodel, unroll
-from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import not_rpython
