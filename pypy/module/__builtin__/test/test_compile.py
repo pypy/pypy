@@ -30,9 +30,3 @@ class TestOptimizeO:
         space.appexec([], """():
             exec(compile('assert False', '', 'exec', optimize=-1))
         """)
-
-
-# TODO: Check the value of __debug__ inside of the compiled block!
-#       According to the documentation, it should follow the optimize flag.
-#       However, cpython3.5.0a0 behaves the same way as PyPy (__debug__ follows
-#       -O, -OO flags of the interpreter).
