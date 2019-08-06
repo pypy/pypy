@@ -108,31 +108,32 @@ def test_compile_regression():
     try:
         assert False
     except AssertionError:
-        return (True, f.__doc__)
+        return (True, f.__doc__, __debug__)
     else:
-        return (False, f.__doc__)
+        return (False, f.__doc__, __debug__)
     '''
 
-    def f(): """doc"""
-    values = [(-1, __debug__, f.__doc__),
-                (0, True, 'doc'),
-                (1, False, 'doc'),
-                (2, False, None)]
+    def f():
+        """doc"""
 
-    for optval, debugval, docstring in values:
+    values = [(-1, __debug__, f.__doc__, __debug__),
+        (0, True, 'doc', True),
+        (1, False, 'doc', False),
+        (2, False, None, False)]
+
+    for optval, *expected in values:
         # test both direct compilation and compilation via AST
         codeobjs = []
-        codeobjs.append(
-                compile(codestr, "<test>", "exec", optimize=optval))
+        codeobjs.append(compile(codestr, "<test>", "exec", optimize=optval))
         tree = ast.parse(codestr)
         codeobjs.append(compile(tree, "<test>", "exec", optimize=optval))
-
         for i, code in enumerate(codeobjs):
-            print(optval, debugval, docstring, i)
+            print(optval, *expected, i)
             ns = {}
             exec(code, ns)
             rv = ns['f']()
-            assert rv == (debugval, docstring)
+            print(rv)
+            assert rv == tuple(expected)
 
 def test_assert_remove():
     """Test removal of the asserts with optimize=1."""
