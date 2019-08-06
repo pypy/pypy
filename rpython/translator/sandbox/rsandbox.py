@@ -5,87 +5,23 @@ and wait for an answer on STDIN.  Enable with 'translate.py --sandbox'.
 """
 import py
 
-from rpython.rlib import rmarshal, types
+from rpython.rlib import types
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.signature import signature
+from rpython.rlib.unroll import unrolling_iterable
 
 # ____________________________________________________________
 #
 # Sandboxing code generator for external functions
 #
 
-from rpython.rlib import rposix
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.ansi_print import AnsiLogger
 
 log = AnsiLogger("sandbox")
 
-
-# a version of os.read() and os.write() that are not mangled
-# by the sandboxing mechanism
-ll_read_not_sandboxed = rposix.external('read',
-                                        [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
-                                        rffi.SIZE_T,
-                                        sandboxsafe=True,
-                                        _nowrapper=True)
-
-ll_write_not_sandboxed = rposix.external('write',
-                                         [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
-                                         rffi.SIZE_T,
-                                         sandboxsafe=True,
-                                         _nowrapper=True)
-
-
-@signature(types.int(), types.ptr(rffi.CCHARP.TO), types.int(),
-    returns=types.none())
-def writeall_not_sandboxed(fd, buf, length):
-    fd = rffi.cast(rffi.INT, fd)
-    while length > 0:
-        size = rffi.cast(rffi.SIZE_T, length)
-        count = rffi.cast(lltype.Signed, ll_write_not_sandboxed(fd, buf, size))
-        if count <= 0:
-            raise IOError
-        length -= count
-        buf = lltype.direct_ptradd(lltype.direct_arrayitems(buf), count)
-        buf = rffi.cast(rffi.CCHARP, buf)
-
-
-class FdLoader(rmarshal.Loader):
-    def __init__(self, fd):
-        rmarshal.Loader.__init__(self, "")
-        self.fd = fd
-        self.buflen = 4096
-
-    def need_more_data(self):
-        buflen = self.buflen
-        with lltype.scoped_alloc(rffi.CCHARP.TO, buflen) as buf:
-            buflen = rffi.cast(rffi.SIZE_T, buflen)
-            fd = rffi.cast(rffi.INT, self.fd)
-            count = ll_read_not_sandboxed(fd, buf, buflen)
-            count = rffi.cast(lltype.Signed, count)
-            if count <= 0:
-                raise IOError
-            self.buf += ''.join([buf[i] for i in range(count)])
-            self.buflen *= 2
-
-def sandboxed_io(buf):
-    STDIN = 0
-    STDOUT = 1
-    # send the buffer with the marshalled fnname and input arguments to STDOUT
-    with lltype.scoped_alloc(rffi.CCHARP.TO, len(buf)) as p:
-        for i in range(len(buf)):
-            p[i] = buf[i]
-        writeall_not_sandboxed(STDOUT, p, len(buf))
-    # build a Loader that will get the answer from STDIN
-    loader = FdLoader(STDIN)
-    # check for errors
-    error = load_int(loader)
-    if error != 0:
-        reraise_error(error, loader)
-    else:
-        # no exception; the caller will decode the actual result
-        return loader
 
 def reraise_error(error, loader):
     if error == 1:
@@ -108,21 +44,51 @@ def reraise_error(error, loader):
         raise RuntimeError
 
 
-@signature(types.str(), returns=types.impossible())
-def not_implemented_stub(msg):
-    STDERR = 2
-    with rffi.scoped_str2charp(msg + '\n') as buf:
-        writeall_not_sandboxed(STDERR, buf, len(msg) + 1)
-    raise RuntimeError(msg)  # XXX in RPython, the msg is ignored
+def getkind(TYPE, parent_function):
+    if TYPE is lltype.Void:
+        return 'v'
+    elif isinstance(TYPE, lltype.Primitive):
+        if TYPE is lltype.Float or TYPE is lltype.SingleFloat:
+            return 'f'
+        if TYPE is lltype.LongFloat:
+            log.WARNING("%r uses a 'long double' argument or return value; "
+                        "sandboxing will export it only as 'double'" %
+                        (parent_function,))
+            return 'f'
+        if TYPE == llmemory.Address:
+            return 'p'
+        return 'i'
+    elif isinstance(TYPE, lltype.Ptr):
+        return 'p'
+    else:
+        log.WARNING("%r: sandboxing does not support argument "
+                    "or return type %r" % (parent_function, TYPE))
+        return 'v'
 
-def make_stub(fnname, msg):
-    """Build always-raising stub function to replace unsupported external."""
-    log.WARNING(msg)
 
-    def execute(*args):
-        not_implemented_stub(msg)
-    execute.__name__ = 'sandboxed_%s' % (fnname,)
-    return execute
+eci = rffi.ExternalCompilationInfo(separate_module_sources=[
+            py.path.local(__file__).join('..', 'src', 'rsandbox.c').read(),
+        ],
+        post_include_bits=[
+            py.path.local(__file__).join('..', 'src', 'rsandbox.h').read(),
+        ])
+def external(funcname, ARGS, RESULT):
+    return rffi.llexternal(funcname, ARGS, RESULT,
+                           compilation_info=eci, sandboxsafe=True,
+                           _nowrapper=True)
+
+rpy_sandbox_arg = {
+    'i': external('rpy_sandbox_arg_i', [lltype.UnsignedLongLong], lltype.Void),
+    'f': external('rpy_sandbox_arg_f', [lltype.Float],            lltype.Void),
+    'p': external('rpy_sandbox_arg_p', [llmemory.Address],        lltype.Void),
+}
+rpy_sandbox_res = {
+    'v': external('rpy_sandbox_res_v', [rffi.CCHARP], lltype.Void),
+    'i': external('rpy_sandbox_res_i', [rffi.CCHARP], lltype.UnsignedLongLong),
+    'f': external('rpy_sandbox_res_f', [rffi.CCHARP], lltype.Float),
+    'p': external('rpy_sandbox_res_p', [rffi.CCHARP], llmemory.Address),
+}
+
 
 def sig_ll(fnobj):
     FUNCTYPE = lltype.typeOf(fnobj)
@@ -130,47 +96,48 @@ def sig_ll(fnobj):
     s_result = lltype_to_annotation(FUNCTYPE.RESULT)
     return args_s, s_result
 
-dump_string = rmarshal.get_marshaller(str)
-load_int = rmarshal.get_loader(int)
-
 def get_sandbox_stub(fnobj, rtyper):
     fnname = fnobj._name
+    FUNCTYPE = lltype.typeOf(fnobj)
+    arg_kinds = [getkind(ARG, fnname) for ARG in FUNCTYPE.ARGS]
+    result_kind = getkind(FUNCTYPE.RESULT, fnname)
+
+    unroll_args = unrolling_iterable([
+        (arg_kind, rpy_sandbox_arg[arg_kind],
+         lltype.typeOf(rpy_sandbox_arg[arg_kind]).TO.ARGS[0])
+        for arg_kind in arg_kinds])
+
+    result_func = rpy_sandbox_res[result_kind]
+    RESTYPE = FUNCTYPE.RESULT
+
+    name_and_sig = '%s(%s)%s' % (fnname, ''.join(arg_kinds), result_kind)
+    log(name_and_sig)
+    name_and_sig = rffi.str2charp(name_and_sig, track_allocation=False)
+
+    def execute(*args):
+        #
+        # serialize the arguments
+        i = 0
+        for arg_kind, func, ARGTYPE in unroll_args:
+            if arg_kind == 'v':
+                continue
+            func(rffi.cast(ARGTYPE, args[i]))
+            i = i + 1
+        #
+        # send the function name and the arguments and wait for an answer
+        result = result_func(name_and_sig)
+        #
+        # result the answer, if any
+        if RESTYPE is not lltype.Void:
+            return rffi.cast(RESTYPE, result)
+    execute.__name__ = 'sandboxed_%s' % (fnname,)
+    #
     args_s, s_result = sig_ll(fnobj)
-    msg = "Not implemented: sandboxing for external function '%s'" % (fnname,)
-    execute = make_stub(fnname, msg)
     return _annotate(rtyper, execute, args_s, s_result)
-
-def make_sandbox_trampoline(fnname, args_s, s_result):
-    """Create a trampoline function with the specified signature.
-
-    The trampoline is meant to be used in place of real calls to the external
-    function named 'fnname'.  It marshals its input arguments, dumps them to
-    STDOUT, and waits for an answer on STDIN.
-    """
-    try:
-        dump_arguments = rmarshal.get_marshaller(tuple(args_s))
-        load_result = rmarshal.get_loader(s_result)
-    except (rmarshal.CannotMarshal, rmarshal.CannotUnmarshall) as e:
-        msg = "Cannot sandbox function '%s': %s" % (fnname, e)
-        execute = make_stub(fnname, msg)
-    else:
-        def execute(*args):
-            # marshal the function name and input arguments
-            buf = []
-            dump_string(buf, fnname)
-            dump_arguments(buf, args)
-            # send the buffer and wait for the answer
-            loader = sandboxed_io(buf)
-            # decode the answer
-            result = load_result(loader)
-            loader.check_finished()
-            return result
-        execute.__name__ = 'sandboxed_%s' % (fnname,)
-    return execute
-
 
 def _annotate(rtyper, f, args_s, s_result):
     ann = MixLevelHelperAnnotator(rtyper)
     graph = ann.getgraph(f, args_s, s_result)
     ann.finish()
+    ann.backend_optimize()
     return graph

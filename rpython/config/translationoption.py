@@ -115,8 +115,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
                requires=[("translation.thread", False)],
-               suggests=[("translation.gc", "generation"),
-                         ("translation.gcrootfinder", "shadowstack")]),
+               suggests=[]),
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
