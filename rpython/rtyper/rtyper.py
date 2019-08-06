@@ -569,17 +569,6 @@ class RPythonTyper(object):
     def getcallable(self, graph):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
-        if self.annotator.translator.config.translation.sandbox:
-            try:
-                name = graph.func._sandbox_external_name
-            except AttributeError:
-                pass
-            else:
-                args_s = [v.annotation for v in graph.getargs()]
-                s_result = graph.getreturnvar().annotation
-                sandboxed = make_sandbox_trampoline(name, args_s, s_result)
-                return self.getannmixlevel().delayedfunction(
-                        sandboxed, args_s, s_result)
 
         return getfunctionptr(graph, getconcretetype)
 

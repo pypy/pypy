@@ -311,19 +311,12 @@ def we_are_translated():
 def sc_we_are_translated(ctx):
     return Constant(True)
 
-def register_replacement_for(replaced_function, sandboxed_name=None):
+def register_replacement_for(replaced_function):
     def wrap(func):
         from rpython.rtyper.extregistry import ExtRegistryEntry
-        # to support calling func directly
-        func._sandbox_external_name = sandboxed_name
         class ExtRegistry(ExtRegistryEntry):
             _about_ = replaced_function
             def compute_annotation(self):
-                if sandboxed_name:
-                    config = self.bookkeeper.annotator.translator.config
-                    if config.translation.sandbox:
-                        func._sandbox_external_name = sandboxed_name
-                        func._dont_inline_ = True
                 return self.bookkeeper.immutablevalue(func)
         return func
     return wrap
