@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 
 #define RPY_SANDBOX_ARGBUF    512
@@ -42,7 +43,8 @@ static void sand_readall(char *buf, size_t count)
         ssize_t result = read(RPY_FD_STDIN, buf, count);
         if (result <= 0) {
             if (result == 0) {
-                fprintf(stderr, "sandbox: stdin was closed\n");
+                fprintf(stderr, "sandbox: stdin is closed, subprocess "
+                                "interrupted\n");
             }
             else {
                 perror("sandbox: read(stdin)");
@@ -95,6 +97,8 @@ struct sand_data_s {
 static void sand_interact(const char *name_and_sig, char expected_result,
                           void *result, size_t result_size)
 {
+    int saved_errno = errno;
+
     size_t name_len = strlen(name_and_sig);
     assert(name_len > 0);
     if (name_len > RPY_SANDBOX_NAMEMAX - 1) {
@@ -113,6 +117,8 @@ static void sand_interact(const char *name_and_sig, char expected_result,
     sand_nextarg = RPY_SANDBOX_NAMEMAX;
 
     while (1) {
+        size_t n1;
+        void *p1;
         struct sand_data_s data_hdr;
         char command = 0;
         sand_readall(&command, 1);
@@ -129,6 +135,7 @@ static void sand_interact(const char *name_and_sig, char expected_result,
                     abort();
                 }
                 sand_readall((char *)result, result_size);
+                errno = saved_errno;
                 return;
 
             case 'R':
@@ -136,9 +143,40 @@ static void sand_interact(const char *name_and_sig, char expected_result,
                 sand_writeall(data_hdr.data, data_hdr.size);
                 break;
 
+            case 'Z':
+                sand_readall((char *)&data_hdr, sizeof(data_hdr));
+                if (data_hdr.size == (size_t)-1)
+                    n1 = strlen((char *)data_hdr.data);
+                else
+                    n1 = strnlen((char *)data_hdr.data, data_hdr.size);
+                sand_writeall((char *)&n1, sizeof(n1));
+                sand_writeall(data_hdr.data, n1);
+                break;
+
             case 'W':
                 sand_readall((char *)&data_hdr, sizeof(data_hdr));
                 sand_readall(data_hdr.data, data_hdr.size);
+                break;
+
+            case 'M':
+                sand_readall((char *)&n1, sizeof(n1));
+                p1 = malloc(n1);
+                if (p1 == NULL) {
+                    fprintf(stderr, "sandbox: command M: failed to allocate "
+                                    "%zd bytes\n", n1);
+                    abort();
+                }
+                sand_readall((char *)p1, n1);
+                sand_writeall((char *)&p1, sizeof(p1));
+                break;
+
+            case 'F':
+                sand_readall((char *)&p1, sizeof(p1));
+                free(p1);
+                break;
+
+            case 'E':
+                sand_readall((char *)&saved_errno, sizeof(saved_errno));
                 break;
 
             default:
