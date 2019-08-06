@@ -273,12 +273,6 @@ class OptimizingVisitor(ast.ASTVisitor):
         space = self.space
         iden = name.id
         w_const = None
-        if iden == "None":
-            w_const = space.w_None
-        elif iden == "True":
-            w_const = space.w_True
-        elif iden == "False":
-            w_const = space.w_False
         if w_const is not None:
             return ast.NameConstant(w_const, name.lineno, name.col_offset)
         return name
