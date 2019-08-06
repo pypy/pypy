@@ -64,9 +64,8 @@ class __extend__(ast.Bytes):
 
 
 class __extend__(ast.Ellipsis):
-
-    def as_constant_truth(self, space, compile_info):
-        return True
+    def as_constant(self, space, compile_info):
+        return space.w_Ellipsis
 
 
 class __extend__(ast.Constant):
