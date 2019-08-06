@@ -73,8 +73,15 @@ class __extend__(ast.Constant):
     def as_constant(self, space, compile_info):
         return self.value
 
-class __extend__(ast.NameConstant):
+class __extend__(ast.Name):
+    def as_constant(self, space, compile_info):
+        if self.id == '__debug__':
+            return space.newbool(compile_info.optimize == 0)
+        else:
+            return None
 
+
+class __extend__(ast.NameConstant):
     def as_constant(self, space, compile_info):
         return self.value
 
@@ -271,8 +278,9 @@ class OptimizingVisitor(ast.ASTVisitor):
         if name.ctx == ast.Del:
             return name
         space = self.space
-        iden = name.id
         w_const = None
+        if name.id == '__debug__':
+            w_const = space.newbool(self.compile_info.optimize == 0)
         if w_const is not None:
             return ast.NameConstant(w_const, name.lineno, name.col_offset)
         return name
