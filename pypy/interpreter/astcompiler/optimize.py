@@ -267,13 +267,6 @@ class OptimizingVisitor(ast.ASTVisitor):
             return values[0]
         return bop
 
-    def visit_Repr(self, rep):
-        w_const = rep.value.as_constant(self.space, self.compile_info)
-        if w_const is not None:
-            w_repr = self.space.repr(w_const)
-            return ast.Constant(w_repr, rep.lineno, rep.col_offset)
-        return rep
-
     def visit_Name(self, name):
         """Turn loading None, True, and False into a constant lookup."""
         if name.ctx == ast.Del:
