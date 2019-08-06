@@ -540,10 +540,6 @@ def parse_command_line(argv):
         sys.flags = type(sys.flags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
-        if sys.flags.optimize >= 1:
-            import __pypy__
-            __pypy__.set_debug(False)
-
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
 

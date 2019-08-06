@@ -42,6 +42,10 @@ in addition to any features explicitly specified.
         raise oefmt(space.w_ValueError,
                     "compile() arg 3 must be 'exec', 'eval' or 'single'")
 
+    if optimize < -1 or optimize > 2:
+        raise oefmt(space.w_ValueError,
+            "compile(): invalid optimize value")
+
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         if flags & consts.PyCF_ONLY_AST:
             return w_source

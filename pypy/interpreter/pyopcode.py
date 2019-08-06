@@ -1181,7 +1181,7 @@ class __extend__(pyframe.PyFrame):
         return next_instr
 
     def JUMP_IF_NOT_DEBUG(self, jumpby, next_instr):
-        if not self.space.sys.debug:
+        if self.space.sys.get_optimize():
             next_instr += jumpby
         return next_instr
 

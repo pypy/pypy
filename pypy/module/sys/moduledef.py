@@ -25,7 +25,6 @@ class Module(MixedModule):
         self.recursionlimit = 1000
         self.defaultencoding = "utf-8"
         self.filesystemencoding = None
-        self.debug = True
         self.track_resources = False
         self.finalizing = False
         self.dlopenflags = rdynload._dlopen_default_mode()
@@ -239,3 +238,9 @@ class Module(MixedModule):
     def get_state(self, space):
         from pypy.module.sys import state
         return state.get(space)
+
+    def get_optimize(self):
+        try:
+            return self.get_flag('optimize')
+        except RuntimeError:  # bootstrapping
+            return 0

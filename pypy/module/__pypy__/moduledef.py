@@ -72,7 +72,7 @@ class PyPyBufferable(MixedModule):
     interpleveldefs = {
         'bufferable': 'interp_buffer.W_Bufferable',
     }
-        
+
 
 class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
@@ -106,7 +106,6 @@ class Module(MixedModule):
         'delitem_if_value_is'       : 'interp_dict.delitem_if_value_is',
         'move_to_end'               : 'interp_dict.move_to_end',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
-        'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
         'set_code_callback'         : 'interp_magic.set_code_callback',
         'decode_long'               : 'interp_magic.decode_long',

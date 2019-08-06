@@ -3,12 +3,18 @@ class TestOptimizeO:
 
     def setup_method(self, method):
         space = self.space
-        self._sys_debug = space.sys.debug
+        self._w_flags = space.sys.get('flags')
         # imitate -O
-        space.sys.debug = False
+        space.appexec([], """():
+            import sys
+            flags = list(sys.flags)
+            flags[3] = 1
+            sys.flags = type(sys.flags)(flags)
+            """)
 
     def teardown_method(self, method):
-        self.space.sys.debug = self._sys_debug
+        space = self.space
+        space.setitem(space.sys.w_dict, space.newtext('flags'), self._w_flags)
 
     def test_O_optmize_0(self):
         """Test that assert is not ignored if -O flag is set but optimize=0."""
