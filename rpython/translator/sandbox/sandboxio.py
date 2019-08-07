@@ -34,7 +34,8 @@ class SandboxedIO(object):
     def close(self):
         """Kill the subprocess and close the file descriptors to the pipe.
         """
-        self.popen.terminate()
+        if self.popen.returncode is None:
+            self.popen.terminate()
         self.child_stdin.close()
         self.child_stdout.close()
 

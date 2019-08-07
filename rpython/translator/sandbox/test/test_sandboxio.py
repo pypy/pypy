@@ -57,6 +57,7 @@ def expect(sandio, fnname, expected_args, result=_NO_RESULT):
 def expect_done(sandio):
     with py.test.raises(EOFError):
         sandio.read_message()
+    assert sandio.popen.wait() == 0   # exit code 0
     sandio.close()
 
 def compile(f, gc='ref', **kwds):
@@ -126,13 +127,10 @@ def test_dup2_access():
         return 1 - y
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_dup2",   (34, 56, True), None)
-    expect(f, g, "ll_os.ll_os_access", ("spam", 77), True)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "dup2(ii)i",   (34, 56), 0)
+    expect(sandio, "access(pi)i", ("spam", 77), 0)
+    expect_done(sandio)
 
 def test_stat_ftruncate():
     from rpython.translator.sandbox.sandlib import RESULTTYPE_STATRESULT
