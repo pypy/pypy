@@ -23,6 +23,14 @@ if 0:#hasattr(signal, 'alarm'):
             signal.alarm(0)
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
 
+class OUT(object):
+    def __init__(self, raw):
+        self.raw = raw
+
+class RAW(object):
+    def __init__(self, raw):
+        self.raw = raw
+
 _NO_RESULT = object()
 
 def expect(sandio, fnname, expected_args, result=_NO_RESULT):
@@ -34,10 +42,22 @@ def expect(sandio, fnname, expected_args, result=_NO_RESULT):
             assert type(arg) is Ptr
             arg_str = sandio.read_charp(arg, len(expected_arg) + 100)
             assert arg_str == expected_arg
+        elif type(expected_arg) is OUT:
+            assert type(arg) is Ptr
+            sandio.write_buffer(arg, expected_arg.raw)
+        elif type(expected_arg) is RAW:
+            assert type(arg) is Ptr
+            arg_str = sandio.read_buffer(arg, len(expected_arg.raw))
+            assert arg_str == expected_arg.raw
         else:
             assert arg == expected_arg
     if result is not _NO_RESULT:
         sandio.write_result(result)
+
+def expect_done(sandio):
+    with py.test.raises(EOFError):
+        sandio.read_message()
+    sandio.close()
 
 def compile(f, gc='ref', **kwds):
     t = Translation(f, backend='c', sandbox=True, gc=gc,
@@ -62,9 +82,7 @@ def test_open_dup():
     sandio = run_in_subprocess(exe)
     expect(sandio, "open(pii)i", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
     expect(sandio, "dup(i)i", (77,), 78)
-    with py.test.raises(EOFError):
-        sandio.read_message()
-    sandio.close()
+    expect_done(sandio)
 
 def test_open_dup_rposix():
     from rpython.rlib import rposix
@@ -78,10 +96,8 @@ def test_open_dup_rposix():
     exe = compile(entry_point)
     sandio = run_in_subprocess(exe)
     expect(sandio, "open(pii)i", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
-    expect(sandio, "dup(i)i",  (77, True), 78)
-    with py.test.raises(EOFError):
-        sandio.read_message()
-    sandio.close()
+    expect(sandio, "dup(i)i",  (77,), 78)
+    expect_done(sandio)
 
 def test_read_write():
     def entry_point(argv):
@@ -95,15 +111,13 @@ def test_read_write():
         return 0
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_open",  ("/tmp/foobar", os.O_RDONLY, 0777), 77)
-    expect(f, g, "ll_os.ll_os_read",  (77, 123), "he\x00llo")
-    expect(f, g, "ll_os.ll_os_write", (77, "world\x00!\x00"), 42)
-    expect(f, g, "ll_os.ll_os_close", (77,), None)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "open(pii)i", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(sandio, "read(ipi)i", (77, OUT("he\x00llo"), 123), len("he\x00llo"))
+    sz = len("world\x00!\x00")
+    expect(sandio, "write(ipi)i", (77, RAW("world\x00!\x00"), sz), 42)
+    expect(sandio, "close(i)i", (77,), 0)
+    expect_done(sandio)
 
 def test_dup2_access():
     def entry_point(argv):

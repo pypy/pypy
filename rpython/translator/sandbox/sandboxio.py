@@ -110,6 +110,12 @@ class SandboxedIO(object):
         length = _unpack_one_ptr(self._read(_ptr_size))[0]
         return self._read(length)
 
+    def write_buffer(self, ptr, bytes_data):
+        g = self.child_stdin
+        g.write("W" + _pack_two_ptrs(ptr.addr, len(bytes_data)))
+        g.write(bytes_data)
+        # g.flush() not necessary here
+
     def write_result(self, result):
         g = self.child_stdin
         if result is None:
