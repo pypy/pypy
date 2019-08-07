@@ -18,6 +18,7 @@ _ptr_code = 'q' if _ptr_size == 8 else 'i'
 _pack_one_ptr = struct.Struct("=" + _ptr_code).pack
 _pack_one_longlong = struct.Struct("=q").pack
 _pack_one_double = struct.Struct("=d").pack
+_pack_one_int = struct.Struct("=i").pack
 _pack_two_ptrs = struct.Struct("=" + _ptr_code + _ptr_code).pack
 _unpack_one_ptr = struct.Struct("=" + _ptr_code).unpack
 
@@ -128,3 +129,21 @@ class SandboxedIO(object):
         else:
             g.write('i' + _pack_one_longlong(result))
         g.flush()
+
+    def set_errno(self, err):
+        g = self.child_stdin
+        g.write("E" + _pack_one_int(err))
+        # g.flush() not necessary here
+
+    def malloc(self, bytes_data):
+        g = self.child_stdin
+        g.write("M" + _pack_one_ptr(len(bytes_data)))
+        g.write(bytes_data)
+        g.flush()
+        addr = _unpack_one_ptr(self._read(_ptr_size))[0]
+        return Ptr(addr)
+
+    def free(self, ptr):
+        g = self.child_stdin
+        g.write("F" + _pack_one_ptr(ptr.addr))
+        # g.flush() not necessary here

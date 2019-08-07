@@ -1,5 +1,5 @@
 import py
-import sys, os, time
+import sys, os, time, errno
 import struct
 import subprocess
 import signal
@@ -31,9 +31,19 @@ class RAW(object):
     def __init__(self, raw):
         self.raw = raw
 
+class ARG(object):
+    def __init__(self, index):
+        self.index = index
+
+class MALLOC_FREE(object):
+    def __init__(self, raw):
+        self.raw = raw
+
+ANY = object()
+NULL = object()
 _NO_RESULT = object()
 
-def expect(sandio, fnname, expected_args, result=_NO_RESULT):
+def expect(sandio, fnname, expected_args, result=_NO_RESULT, errno=_NO_RESULT):
     msg, args = sandio.read_message()
     assert msg == fnname
     assert len(args) == len(expected_args)
@@ -49,10 +59,24 @@ def expect(sandio, fnname, expected_args, result=_NO_RESULT):
             assert type(arg) is Ptr
             arg_str = sandio.read_buffer(arg, len(expected_arg.raw))
             assert arg_str == expected_arg.raw
+        elif expected_arg is ANY:
+            pass
+        elif expected_arg is NULL:
+            assert type(arg) is Ptr
+            assert arg.addr == 0
         else:
             assert arg == expected_arg
+    if errno is not _NO_RESULT:
+        sandio.set_errno(errno)
     if result is not _NO_RESULT:
-        sandio.write_result(result)
+        if type(result) is ARG:
+            result = args[result.index]
+        if type(result) is MALLOC_FREE:
+            ptr = sandio.malloc(result.raw)
+            sandio.write_result(ptr)
+            sandio.free(ptr)
+        else:
+            sandio.write_result(result)
 
 def expect_done(sandio):
     with py.test.raises(EOFError):
@@ -132,6 +156,7 @@ def test_dup2_access():
     expect(sandio, "access(pi)i", ("spam", 77), 0)
     expect_done(sandio)
 
+@py.test.mark.skip()
 def test_stat_ftruncate():
     from rpython.translator.sandbox.sandlib import RESULTTYPE_STATRESULT
     from rpython.rlib.rarithmetic import r_longlong
@@ -159,32 +184,27 @@ def test_stat_ftruncate():
 def test_time():
     def entry_point(argv):
         t = time.time()
-        os.dup(int(t*1000))
+        os.dup(int(t))
         return 0
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_time.ll_time_time", (), 3.141592)
-    expect(f, g, "ll_os.ll_os_dup", (3141, True), 3)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "gettimeofday(pp)i", (ANY, ANY), -1, errno=errno.ENOSYS)
+    expect(sandio, "time(p)i", (NULL,), 314159)
+    expect(sandio, "dup(i)i", (314159,), 3)
+    expect_done(sandio)
 
 def test_getcwd():
     def entry_point(argv):
         t = os.getcwd()
-        os.dup(len(t))
+        os.open(t, os.O_RDONLY, 0777)
         return 0
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_getcwd", (), "/tmp/foo/bar")
-    expect(f, g, "ll_os.ll_os_dup", (len("/tmp/foo/bar"), True), 3)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "getcwd(pi)p", (OUT("/tmp/foo/bar"), ANY), ARG(0))
+    expect(sandio, "open(pii)i", ("/tmp/foo/bar", os.O_RDONLY, 0777), 77)
+    expect_done(sandio)
 
 def test_oserror():
     def entry_point(argv):
@@ -195,37 +215,22 @@ def test_oserror():
         return 0
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_stat", ("somewhere",), OSError(6321, "egg"))
-    expect(f, g, "ll_os.ll_os_close", (6321,), None)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "stat64(pp)i", ("somewhere", ANY), -1, errno=6321)
+    expect(sandio, "close(i)i", (6321,), 0)
+    expect_done(sandio)
 
-def test_hybrid_gc():
+def test_getenv():
     def entry_point(argv):
-        l = []
-        for i in range(int(argv[1])):
-            l.append("x" * int(argv[2]))
-        return int(len(l) > 1000)
+        s = os.environ["FOOBAR"]
+        os.open(s, 0, 0)
+        return 0
 
-    exe = compile(entry_point, gc='hybrid', lldebug=True)
-    pipe = subprocess.Popen([exe, '10', '10000'], stdout=subprocess.PIPE,
-                            stdin=subprocess.PIPE)
-    g = pipe.stdin
-    f = pipe.stdout
-    expect(f, g, "ll_os.ll_os_getenv", ("PYPY_GENERATIONGC_NURSERY",), None)
-    #if sys.platform.startswith('linux'):
-    #    expect(f, g, "ll_os.ll_os_open", ("/proc/cpuinfo", 0, 420),
-    #           OSError(5232, "xyz"))
-    expect(f, g, "ll_os.ll_os_getenv", ("PYPY_GC_DEBUG",), None)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
-    rescode = pipe.wait()
-    assert rescode == 0
+    exe = compile(entry_point)
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "getenv(p)p", ("FOOBAR",), MALLOC_FREE("tmp_foo_bar"))
+    expect(sandio, "open(pii)i", ("tmp_foo_bar", 0, 0), 0)
+    expect_done(sandio)
 
 def test_segfault_1():
     class A:
