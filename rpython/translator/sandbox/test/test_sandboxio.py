@@ -1,5 +1,5 @@
 import py
-import sys, os, time, errno
+import sys, os, time, errno, select
 import struct
 import subprocess
 import signal
@@ -41,6 +41,7 @@ class MALLOC_FREE(object):
 
 ANY = object()
 NULL = object()
+EMPTY_ENVIRON = object()
 _NO_RESULT = object()
 
 def expect(sandio, fnname, expected_args, result=_NO_RESULT, errno=_NO_RESULT):
@@ -71,6 +72,8 @@ def expect(sandio, fnname, expected_args, result=_NO_RESULT, errno=_NO_RESULT):
     if result is not _NO_RESULT:
         if type(result) is ARG:
             result = args[result.index]
+        if result is EMPTY_ENVIRON:
+            result = sandio.malloc("\x00" * 16)
         if type(result) is MALLOC_FREE:
             ptr = sandio.malloc(result.raw)
             sandio.write_result(ptr)
@@ -84,6 +87,14 @@ def expect_done(sandio):
     assert sandio.popen.wait() == 0   # exit code 0
     sandio.close()
 
+def expect_failure(sandio, expected_error_text):
+    h, _, _ = select.select([sandio.popen.stdout, sandio.popen.stderr], [], [])
+    assert sandio.popen.stderr in h
+    error_text = sandio.popen.stderr.read()
+    assert expected_error_text in error_text
+    assert sandio.popen.wait() != 0   # exit code != 0
+    sandio.close()
+
 def compile(f, gc='ref', **kwds):
     t = Translation(f, backend='c', sandbox=True, gc=gc,
                     check_str_without_nul=True, **kwds)
@@ -92,7 +103,7 @@ def compile(f, gc='ref', **kwds):
 def run_in_subprocess(exe):
     popen = subprocess.Popen(exe, stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
+                             stderr=subprocess.PIPE)
     return SandboxedIO(popen)
 
 def test_open_dup():
@@ -245,11 +256,8 @@ def test_segfault_1():
         return int(x.m)
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert 'Invalid RPython operation' in tail
+    sandio = run_in_subprocess(exe)
+    expect_failure(sandio, 'Invalid RPython operation')
 
 def test_segfault_2():
     py.test.skip("hum, this is one example, but we need to be very careful")
@@ -292,16 +300,8 @@ def test_safe_alloc():
         return 0
 
     exe = compile(entry_point)
-    pipe = subprocess.Popen([exe], stdout=subprocess.PIPE,
-                            stdin=subprocess.PIPE)
-    g = pipe.stdin
-    f = pipe.stdout
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
-    rescode = pipe.wait()
-    assert rescode == 0
+    sandio = run_in_subprocess(exe)
+    expect_done(sandio)
 
 def test_unsafe_mmap():
     py.test.skip("Since this stuff is unimplemented, it won't work anyway "
@@ -334,13 +334,10 @@ def test_environ_items():
         return 0
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_envitems", (), [])
-    expect(f, g, "ll_os.ll_os_write", (1, "[]\n"), 3)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "get_environ()p", (), EMPTY_ENVIRON)
+    expect(sandio, "write(ipi)i", (1, RAW("[]\n"), 3), 3)
+    expect_done(sandio)
 
 
 class TestPrintedResults:

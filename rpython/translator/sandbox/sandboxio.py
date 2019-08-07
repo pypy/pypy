@@ -39,6 +39,7 @@ class SandboxedIO(object):
             self.popen.terminate()
         self.child_stdin.close()
         self.child_stdout.close()
+        self.popen.stderr.close()
 
     def _read(self, count):
         result = self.child_stdout.read(count)
