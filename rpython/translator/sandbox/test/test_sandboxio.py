@@ -1,5 +1,5 @@
 import py
-import sys, os, time, errno, select
+import sys, os, time, errno, select, math
 import struct
 import subprocess
 import signal
@@ -100,8 +100,8 @@ def compile(f, gc='ref', **kwds):
                     check_str_without_nul=True, **kwds)
     return str(t.compile())
 
-def run_in_subprocess(exe):
-    popen = subprocess.Popen(exe, stdin=subprocess.PIPE,
+def run_in_subprocess(exe, *args):
+    popen = subprocess.Popen([exe] + list(args), stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
     return SandboxedIO(popen)
@@ -339,49 +339,53 @@ def test_environ_items():
     expect(sandio, "write(ipi)i", (1, RAW("[]\n"), 3), 3)
     expect_done(sandio)
 
+def test_safefuncs():
+    def entry_point(argv):
+        a = float(argv[1])
+        print int(math.floor(a - 0.2)),
+        print int(math.ceil(a)),
+        print int(100.0 * math.sin(a)),
+        mantissa, exponent = math.frexp(a)
+        print int(100.0 * mantissa), exponent,
+        fracpart, intpart = math.modf(a)
+        print int(100.0 * fracpart), int(intpart),
+        print
+        return 0
 
-class TestPrintedResults:
+    exe = compile(entry_point)
+    sandio = run_in_subprocess(exe, "3.011")
+    out = "2 4 13 75 2 1 3\n"
+    expect(sandio, "write(ipi)i", (1, RAW(out), len(out)), len(out))
+    expect_done(sandio)
 
-    def run(self, entry_point, args, expected):
-        exe = compile(entry_point)
-        from rpython.translator.sandbox.sandlib import SimpleIOSandboxedProc
-        proc = SimpleIOSandboxedProc([exe] + args)
-        output, error = proc.communicate()
-        assert error == ''
-        assert output == expected
+def test_safefuncs_exception():
+    def entry_point(argv):
+        a = float(argv[1])
+        x = math.log(a)
+        print int(x * 100.0)
+        try:
+            math.log(-a)
+        except ValueError:
+            print 'as expected, got a ValueError'
+        else:
+            print 'did not get a ValueError!'
+        return 0
 
-    def test_safefuncs(self):
-        import math
-        def entry_point(argv):
-            a = float(argv[1])
-            print int(math.floor(a - 0.2)),
-            print int(math.ceil(a)),
-            print int(100.0 * math.sin(a)),
-            mantissa, exponent = math.frexp(a)
-            print int(100.0 * mantissa), exponent,
-            fracpart, intpart = math.modf(a)
-            print int(100.0 * fracpart), int(intpart),
-            print
-            return 0
-        self.run(entry_point, ["3.011"], "2 4 13 75 2 1 3\n")
+    exe = compile(entry_point)
+    sandio = run_in_subprocess(exe, "3.011")
+    out = "110\n"
+    expect(sandio, "write(ipi)i", (1, RAW(out), len(out)), len(out))
+    out = "as expected, got a ValueError\n"
+    expect(sandio, "write(ipi)i", (1, RAW(out), len(out)), len(out))
+    expect_done(sandio)
 
-    def test_safefuncs_exception(self):
-        import math
-        def entry_point(argv):
-            a = float(argv[1])
-            x = math.log(a)
-            print int(x * 100.0)
-            try:
-                math.log(-a)
-            except ValueError:
-                print 'as expected, got a ValueError'
-            else:
-                print 'did not get a ValueError!'
-            return 0
-        self.run(entry_point, ["3.011"], "110\nas expected, got a ValueError\n")
+def test_os_path_safe():
+    def entry_point(argv):
+        print os.path.join('tmp', argv[1])
+        return 0
 
-    def test_os_path_safe(self):
-        def entry_point(argv):
-            print os.path.join('tmp', argv[1])
-            return 0
-        self.run(entry_point, ["spam"], os.path.join("tmp", "spam")+'\n')
+    exe = compile(entry_point)
+    sandio = run_in_subprocess(exe, "spam")
+    out = os.path.join("tmp", "spam") + '\n'
+    expect(sandio, "write(ipi)i", (1, RAW(out), len(out)), len(out))
+    expect_done(sandio)
