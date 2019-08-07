@@ -723,7 +723,6 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP: 0,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
-    ops.JUMP_IF_NOT_DEBUG: 0,
 
     ops.SETUP_ANNOTATIONS: 0,
     ops.STORE_ANNOTATION: -1,
