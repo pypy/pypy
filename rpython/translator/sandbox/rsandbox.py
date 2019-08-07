@@ -116,7 +116,7 @@ def get_sandbox_stub(fnobj, rtyper):
 
 def _annotate(rtyper, f, args_s, s_result):
     ann = MixLevelHelperAnnotator(rtyper)
-    graph = ann.getgraph(f, args_s, s_result)
+    llfunc = ann.delayedfunction(f, args_s, s_result, needtype=True)
     ann.finish()
     ann.backend_optimize()
-    return graph
+    return llfunc
