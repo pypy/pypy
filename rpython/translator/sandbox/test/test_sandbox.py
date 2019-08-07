@@ -6,10 +6,9 @@ import signal
 
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.interactive import Translation
-from rpython.translator.sandbox.sandlib import read_message, write_message
-from rpython.translator.sandbox.sandlib import write_exception
+from rpython.translator.sandbox.sandboxio import SandboxedIO, Ptr
 
-if hasattr(signal, 'alarm'):
+if 0:#hasattr(signal, 'alarm'):
     _orig_read_message = read_message
 
     def _timed_out(*args):
@@ -24,18 +23,21 @@ if hasattr(signal, 'alarm'):
             signal.alarm(0)
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
 
-def expect(f, g, fnname, args, result, resulttype=None):
-    msg = read_message(f)
+_NO_RESULT = object()
+
+def expect(sandio, fnname, expected_args, result=_NO_RESULT):
+    msg, args = sandio.read_message()
     assert msg == fnname
-    msg = read_message(f)
-    assert msg == args
-    assert [type(x) for x in msg] == [type(x) for x in args]
-    if isinstance(result, Exception):
-        write_exception(g, result)
-    else:
-        write_message(g, 0)
-        write_message(g, result, resulttype)
-    g.flush()
+    assert len(args) == len(expected_args)
+    for arg, expected_arg in zip(args, expected_args):
+        if type(expected_arg) is bytes:
+            assert type(arg) is Ptr
+            arg_str = sandio.read_charp(arg, len(expected_arg) + 100)
+            assert arg_str == expected_arg
+        else:
+            assert arg == expected_arg
+    if result is not _NO_RESULT:
+        sandio.write_result(result)
 
 def compile(f, gc='ref', **kwds):
     t = Translation(f, backend='c', sandbox=True, gc=gc,
@@ -46,7 +48,7 @@ def run_in_subprocess(exe):
     popen = subprocess.Popen(exe, stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
-    return popen.stdin, popen.stdout
+    return SandboxedIO(popen)
 
 def test_open_dup():
     def entry_point(argv):
@@ -57,13 +59,12 @@ def test_open_dup():
         return 0
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
-    expect(f, g, "ll_os.ll_os_dup",  (77, True), 78)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "open(pii)i", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(sandio, "dup(i)i", (77,), 78)
+    with py.test.raises(EOFError):
+        sandio.read_message()
+    sandio.close()
 
 def test_open_dup_rposix():
     from rpython.rlib import rposix
@@ -75,13 +76,12 @@ def test_open_dup_rposix():
         return 0
 
     exe = compile(entry_point)
-    g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
-    expect(f, g, "ll_os.ll_os_dup",  (77, True), 78)
-    g.close()
-    tail = f.read()
-    f.close()
-    assert tail == ""
+    sandio = run_in_subprocess(exe)
+    expect(sandio, "open(pii)i", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(sandio, "dup(i)i",  (77, True), 78)
+    with py.test.raises(EOFError):
+        sandio.read_message()
+    sandio.close()
 
 def test_read_write():
     def entry_point(argv):

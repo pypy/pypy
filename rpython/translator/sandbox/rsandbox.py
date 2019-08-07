@@ -23,27 +23,6 @@ from rpython.tool.ansi_print import AnsiLogger
 log = AnsiLogger("sandbox")
 
 
-def reraise_error(error, loader):
-    if error == 1:
-        raise OSError(load_int(loader), "external error")
-    elif error == 2:
-        raise IOError
-    elif error == 3:
-        raise OverflowError
-    elif error == 4:
-        raise ValueError
-    elif error == 5:
-        raise ZeroDivisionError
-    elif error == 6:
-        raise MemoryError
-    elif error == 7:
-        raise KeyError
-    elif error == 8:
-        raise IndexError
-    else:
-        raise RuntimeError
-
-
 def getkind(TYPE, parent_function):
     if TYPE is lltype.Void:
         return 'v'
