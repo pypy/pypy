@@ -1654,8 +1654,7 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = self.bytes_w(w_obj)
         if '\x00' in result:
-            raise oefmt(self.w_ValueError,
-                        "argument must be a string without NUL characters")
+            raise oefmt(self.w_ValueError, "embedded null byte")
         return rstring.assert_str0(result)
 
     def text0_w(self, w_obj):
@@ -1663,8 +1662,7 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = self.text_w(w_obj)
         if '\x00' in result:
-            raise oefmt(self.w_ValueError,
-                        "argument must be a string without NUL characters")
+            raise oefmt(self.w_ValueError, "embedded null character")
         return rstring.assert_str0(result)
 
     def fsencode_or_none_w(self, w_obj):
@@ -1814,8 +1812,7 @@ class ObjSpace(object):
                 raise
             result = self.buffer_w(w_obj, self.BUF_FULL_RO).as_str()
         if '\x00' in result:
-            raise oefmt(self.w_ValueError,
-                        "argument must be a string without NUL characters")
+            raise oefmt(self.w_ValueError, "embedded null byte")
         return rstring.assert_str0(result)
 
     def fsdecode_w(self, w_obj):
