@@ -117,14 +117,6 @@ def newlist_hint(space, sizehint):
     """ Create a new empty list that has an underlying storage of length sizehint """
     return space.newlist_hint(sizehint)
 
-@unwrap_spec(debug=int)
-def set_debug(space, debug):
-    debug = bool(debug)
-    space.sys.debug = debug
-    space.setitem(space.builtin.w_dict,
-                  space.newtext('__debug__'),
-                  space.newbool(debug))
-
 @unwrap_spec(estimate=int)
 def add_memory_pressure(space, estimate):
     """ Add memory pressure of estimate bytes. Useful when calling a C function

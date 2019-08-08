@@ -13,7 +13,7 @@ from pypy.interpreter.function import Function
 @unwrap_spec(filename='fsencode', mode='text', flags=int, dont_inherit=int,
              optimize=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
-            optimize=0):
+            optimize=-1):
     """Compile the source string (a Python module, statement or expression)
 into a code object that can be executed by the exec statement or eval().
 The filename will be used for run-time error messages.
@@ -41,6 +41,10 @@ in addition to any features explicitly specified.
     if mode not in ('exec', 'eval', 'single'):
         raise oefmt(space.w_ValueError,
                     "compile() arg 3 must be 'exec', 'eval' or 'single'")
+
+    if optimize < -1 or optimize > 2:
+        raise oefmt(space.w_ValueError,
+            "compile(): invalid optimize value")
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         if flags & consts.PyCF_ONLY_AST:

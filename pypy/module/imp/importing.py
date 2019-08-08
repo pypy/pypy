@@ -402,11 +402,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
-    try:
-        optimize = space.sys.get_flag('optimize')
-    except RuntimeError:
-        # during bootstrapping
-        optimize = 0
+    optimize = space.sys.get_optimize()
     if optimize >= 2:
         code_w.remove_docstrings(space)
 
