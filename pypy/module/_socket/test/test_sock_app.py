@@ -872,6 +872,14 @@ class AppTestSocketTCP:
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
 
+    def test_missing_error_catching(self):
+        from _socket import socket, error
+        s = socket()
+        s.close()
+        s.settimeout(1)          # EBADF, but ignored on Python 2
+        s.setblocking(True)      # EBADF, but ignored on Python 2
+        raises(error, s.getsockopt, 42, 84, 8)    # EBADF
+
 
 class AppTestErrno:
     spaceconfig = {'usemodules': ['_socket']}
