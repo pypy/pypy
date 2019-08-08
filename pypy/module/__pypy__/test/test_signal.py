@@ -28,17 +28,17 @@ class AppTestThreadSignal(GenericTestThread):
         import __pypy__, _thread, signal, time, sys
 
         def subthread():
-            print('subthread started')
+            sys.stderr.write('subthread started')
             try:
                 with __pypy__.thread.signals_enabled:
                     _thread.interrupt_main()
                     for i in range(10):
-                        print('x')
+                        sys.stderr.write('x')
                         time.sleep(0.25)
             except BaseException as e:
                 interrupted.append(e)
             finally:
-                print('subthread stops, interrupted=%r' % (interrupted,))
+                sys.stderr.write('subthread stops, interrupted=%r' % (interrupted,))
                 done.append(None)
 
         # This is normally called by app_main.py
@@ -47,20 +47,20 @@ class AppTestThreadSignal(GenericTestThread):
         if sys.platform.startswith('win'):
             # Windows seems to hang on _setmode when the first print comes from
             # a thread, so make sure we've initialized io
-            sys.stdout
+            sys.stderr
 
         for i in range(10):
             __pypy__.thread._signals_exit()
             try:
                 done = []
                 interrupted = []
-                print('--- start ---')
+                sys.stderr.write('--- start ---')
                 _thread.start_new_thread(subthread, ())
                 for j in range(30):
                     if len(done): break
-                    print('.')
+                    sys.stderr.write('.')
                     time.sleep(0.25)
-                print('main thread loop done')
+                sys.stderr.write('main thread loop done')
                 assert len(done) == 1
                 assert len(interrupted) == 1
                 assert 'KeyboardInterrupt' in interrupted[0].__class__.__name__
