@@ -878,7 +878,8 @@ def _retry_to_w_long(space, parser, w_inttype, w_source):
 
 
 def _new_int(space, w_inttype, w_x, w_base=None):
-    from pypy.objspace.std.longobject import W_LongObject, newbigint
+    from pypy.objspace.std.longobject import (
+        W_AbstractLongObject, W_LongObject, newlong, newbigint)
     if space.config.objspace.std.withsmalllong:
         from pypy.objspace.std.smalllongobject import W_SmallLongObject
     else:
@@ -888,6 +889,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
     w_value = w_x     # 'x' is the keyword argument name in CPython
     value = 0
     if w_base is None:
+        #import pdb; pdb.set_trace()
         # check for easy cases
         if type(w_value) is W_IntObject:
             if space.is_w(w_inttype, space.w_int):
@@ -905,7 +907,19 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                 return w_value
             return newbigint(space, w_inttype, space.bigint_w(w_value))
         elif space.lookup(w_value, '__int__') is not None:
-            return _from_intlike(space, w_inttype, space.int(w_value))
+            w_intvalue = space.int(w_value)
+            if isinstance(w_intvalue, W_IntObject):
+                if type(w_intvalue) is not W_IntObject:
+                    w_intvalue = wrapint(space, w_intvalue.intval)
+                return _new_int(space, w_inttype, w_intvalue)
+            elif isinstance(w_intvalue, W_AbstractLongObject):
+                if type(w_intvalue) is not W_LongObject:
+                    w_intvalue = newlong(space, w_intvalue.asbigint())
+                return _new_int(space, w_inttype, w_intvalue)
+            else:
+                # shouldn't happen
+                raise oefmt(space.w_RuntimeError,
+                    "internal error in int.__new__()")
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
             if not space.is_w(space.type(w_obj), space.w_int):

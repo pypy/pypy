@@ -709,6 +709,40 @@ class AppTestInt(object):
         assert m is False
         assert len(log) == 2
 
+    def test_deprecation_warning_2(self):
+        import warnings, _operator
+        class BadInt(int):
+            def __int__(self):
+                return self
+            def __index__(self):
+                return self
+        bad = BadInt(1)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            n = int(bad)
+            m = _operator.index(bad)  # no warning
+        assert n == 1 and type(n) is int
+        assert m is bad
+        assert len(log) == 1
+        assert log[0].message.args[0].startswith('__int__')
+
+    def test_deprecation_warning_3(self):
+        import warnings, _operator
+        class BadInt(int):
+            def __int__(self):
+                return self
+            def __index__(self):
+                return self
+        bad = BadInt(2**100)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            n = int(bad)
+            m = _operator.index(bad)  # no warning
+        assert n == bad and type(n) is int
+        assert m is bad
+        assert len(log) == 1
+        assert log[0].message.args[0].startswith('__int__')
+
     def test_int_nonstr_with_base(self):
         assert int(b'100', 2) == 4
         assert int(bytearray(b'100'), 2) == 4
