@@ -746,6 +746,7 @@ class W_TextIOWrapper(W_TextIOBase):
         check_decoded(space, w_decoded)
         w_result = space.newtext(self.decoded.get_chars(-1))
         w_final = space.add(w_result, w_decoded)
+        self.decoded.reset()
         self.snapshot = None
         return w_final
 
@@ -892,6 +893,7 @@ class W_TextIOWrapper(W_TextIOBase):
         if needflush:
             space.call_method(self.w_buffer, "flush")
 
+        self.decoded.reset()
         self.snapshot = None
 
         if self.w_decoder:
