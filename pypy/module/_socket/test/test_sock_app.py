@@ -949,6 +949,13 @@ class AppTestSocketTCP:
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
 
+    def test_missing_error_catching(self):
+        from _socket import socket, error
+        s = socket()
+        s.close()
+        raises(error, s.settimeout, 1)            # EBADF
+        raises(error, s.setblocking, True)        # EBADF
+        raises(error, s.getsockopt, 42, 84, 8)    # EBADF
 
     def test_accept_non_inheritable(self):
         import _socket, os

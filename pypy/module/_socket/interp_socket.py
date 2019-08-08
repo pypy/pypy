@@ -398,7 +398,10 @@ class W_Socket(W_Root):
                 raise converted_error(space, e)
         if buflen < 0 or buflen > 1024:
             raise explicit_socket_error(space, "getsockopt buflen out of range")
-        return space.newbytes(self.sock.getsockopt(level, optname, buflen))
+        try:
+            return space.newbytes(self.sock.getsockopt(level, optname, buflen))
+        except SocketError as e:
+            raise converted_error(space, e)
 
     def gettimeout_w(self, space):
         """gettimeout() -> timeout
