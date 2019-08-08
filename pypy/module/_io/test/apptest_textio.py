@@ -255,6 +255,19 @@ def test_uninitialized():
     t.__init__(_io.BytesIO())
     assert t.read(0) == u''
 
+def test_issue25862():
+    # CPython issue #25862
+    # Assertion failures occurred in tell() after read() and write().
+    from _io import TextIOWrapper, BytesIO
+    t = TextIOWrapper(BytesIO(b'test'), encoding='ascii')
+    t.read(1)
+    t.read()
+    t.tell()
+    t = TextIOWrapper(BytesIO(b'test'), encoding='ascii')
+    t.read(1)
+    t.write(u'x')
+    t.tell()
+
 def test_newline_decoder():
     def check_newline_decoding_utf8(decoder):
         # UTF-8 specific tests for a newline decoder
