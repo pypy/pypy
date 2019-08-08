@@ -1,6 +1,9 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 
 #define RPY_SANDBOX_ARGBUF    512
@@ -11,6 +14,7 @@
 
 static char sand_argbuf[RPY_SANDBOX_ARGBUF];
 static size_t sand_nextarg = RPY_SANDBOX_NAMEMAX;
+static int sand_dump_checked = 0;
 
 
 static void sand_writeall(const char *buf, size_t count)
@@ -89,18 +93,39 @@ void rpy_sandbox_arg_p(void *p)
     *(void **)sand_arg_output(sizeof(void *)) = p;
 }
 
+static void sand_dump_check(void)
+{
+    const char *p = getenv("RPY_SANDBOX_DUMP");
+    if (p && p[0]) {
+        puts(RPY_SANDBOX_DUMP);
+        exit(0);
+    }
+    sand_dump_checked = 1;
+}
+
 struct sand_data_s {
     void *data;
     size_t size;
 };
+
+static void sand_assert(int condition)
+{
+    if (!condition) {
+        fprintf(stderr, "sandbox: internal assert failed\n");
+        abort();
+    }
+}
 
 static void sand_interact(const char *name_and_sig, char expected_result,
                           void *result, size_t result_size)
 {
     int saved_errno = errno;
 
+    if (!sand_dump_checked)
+        sand_dump_check();
+
     size_t name_len = strlen(name_and_sig);
-    assert(name_len > 0);
+    sand_assert(name_len > 0);
     if (name_len > RPY_SANDBOX_NAMEMAX - 1) {
         fprintf(stderr,
              "sandbox: function name buffer overflow (RPY_SANDBOX_NAMEMAX)\n");
@@ -110,8 +135,8 @@ static void sand_interact(const char *name_and_sig, char expected_result,
     *p = name_len;
     memcpy(p + 1, name_and_sig, name_len);
 
-    assert(sand_nextarg >= RPY_SANDBOX_NAMEMAX);
-    assert(sand_nextarg <= RPY_SANDBOX_ARGBUF);
+    sand_assert(sand_nextarg >= RPY_SANDBOX_NAMEMAX);
+    sand_assert(sand_nextarg <= RPY_SANDBOX_ARGBUF);
 
     sand_writeall(p, sand_nextarg - (p - sand_argbuf));
     sand_nextarg = RPY_SANDBOX_NAMEMAX;

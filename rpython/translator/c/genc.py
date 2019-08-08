@@ -928,6 +928,10 @@ def gen_source(database, modulename, targetdir,
     fi = incfilename.open('w')
     fi.write('#ifndef _PY_COMMON_HEADER_H\n#define _PY_COMMON_HEADER_H\n')
 
+    if database.sandbox:
+        from rpython.translator.sandbox import rsandbox
+        eci = eci.merge(rsandbox.extra_eci(database.translator.rtyper))
+
     #
     # Header
     #

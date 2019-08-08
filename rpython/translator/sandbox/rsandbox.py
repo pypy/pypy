@@ -4,6 +4,7 @@ trampolines that marshal their input arguments, dump them to STDOUT,
 and wait for an answer on STDIN.  Enable with 'translate.py --sandbox'.
 """
 import py
+import sys
 
 from rpython.rlib import types
 from rpython.rlib.objectmodel import specialize
@@ -45,16 +46,28 @@ def getkind(TYPE, parent_function):
         return 'v'
 
 
-eci = rffi.ExternalCompilationInfo(separate_module_sources=[
+def extra_eci(rtyper):
+    from rpython.translator.c.support import c_string_constant
+
+    sandboxed_functions = getattr(rtyper, '_sandboxed_functions', [])
+    dump = (
+        "Version: 20001\n" +
+        "Platform: %s\n" % sys.platform +
+        "Funcs: %s" % ' '.join(sorted(sandboxed_functions))
+    )
+    dump = c_string_constant(dump).replace('\n', '\\\n')
+
+    return rffi.ExternalCompilationInfo(separate_module_sources=[
+            '#define RPY_SANDBOX_DUMP %s\n' % (dump,) +
             py.path.local(__file__).join('..', 'src', 'rsandbox.c').read(),
         ],
         post_include_bits=[
             py.path.local(__file__).join('..', 'src', 'rsandbox.h').read(),
         ])
+
 def external(funcname, ARGS, RESULT):
     return rffi.llexternal(funcname, ARGS, RESULT,
-                           compilation_info=eci, sandboxsafe=True,
-                           _nowrapper=True)
+                           sandboxsafe=True, _nowrapper=True)
 
 rpy_sandbox_arg = {
     'i': external('rpy_sandbox_arg_i', [lltype.UnsignedLongLong], lltype.Void),
@@ -89,7 +102,12 @@ def get_sandbox_stub(fnobj, rtyper):
     result_func = rpy_sandbox_res[result_kind]
     RESTYPE = FUNCTYPE.RESULT
 
+    try:
+        lst = rtyper._sandboxed_functions
+    except AttributeError:
+        lst = rtyper._sandboxed_functions = []
     name_and_sig = '%s(%s)%s' % (fnname, ''.join(arg_kinds), result_kind)
+    lst.append(name_and_sig)
     log(name_and_sig)
     name_and_sig = rffi.str2charp(name_and_sig, track_allocation=False)
 

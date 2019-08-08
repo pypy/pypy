@@ -389,3 +389,17 @@ def test_os_path_safe():
     out = os.path.join("tmp", "spam") + '\n'
     expect(sandio, "write(ipi)i", (1, RAW(out), len(out)), len(out))
     expect_done(sandio)
+
+def test_sandbox_dump():
+    def entry_point(argv):
+        print "hello world!\n"
+        os.close(42)
+        return 0
+
+    exe = compile(entry_point)
+    popen = subprocess.Popen([exe], stdout=subprocess.PIPE,
+                             env={"RPY_SANDBOX_DUMP": "1"})
+    dump = popen.stdout.read()
+    popen.wait()
+    assert dump == ("Version: 20001\nPlatform: %s\n" % (sys.platform,) +
+                    "Funcs: close(i)i write(ipi)i\n")
