@@ -301,9 +301,9 @@ class JSONEncoder(object):
             elif isinstance(key, float):
                 key = self.__floatstr(key)
             elif key is True:
-                key = 'true'
+                key = 'True'      # XXX != 'true', bug-to-bug compatibility
             elif key is False:
-                key = 'false'
+                key = 'False'     # XXX != 'false', bug-to-bug compatibility
             elif key is None:
                 key = 'null'
             elif isinstance(key, (int, long)):
