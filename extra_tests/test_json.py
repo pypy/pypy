@@ -46,3 +46,7 @@ def test_skipkeys():
                  == '{"3": 4, "5": 6}'
     assert json.dumps({Ellipsis: 42, 3: 4, 5: 6}, skipkeys=True) \
                  == '{"3": 4, "5": 6}'
+
+def test_boolean_as_dict_key():
+    assert json.dumps({True: 5}) == '{"true": 5}'
+    assert json.dumps({False: 5}) == '{"false": 5}'
