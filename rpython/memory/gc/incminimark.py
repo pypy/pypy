@@ -519,10 +519,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
             bigobj = self.nonlarge_max + 1
             self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
 
+    def safer_variant(self):
+        # When running in sandbox mode, turn off two features: incrementality
+        # and object pinning.  This should be done in a way that cannot *add*
+        # any security bug, but it could in theory avoid bugs in this complex
+        # logic.
+        return self.config.sandbox
+
     def enable(self):
         self.enabled = True
 
     def disable(self):
+        if self.safer_variant():
+            # gc.disable() is ignored in this mode.  It should not be
+            # allowed to disable major collections.
+            return
         self.enabled = False
 
     def isenabled(self):
@@ -763,6 +774,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def collect(self, gen=2):
         """Do a minor (gen=0), start a major (gen=1), or do a full
         major (gen>=2) collection."""
+        self.check_safe_gc_state()
+        if self.safer_variant():
+            # gen < 0 is dangerous, and gen == 1 leaves the GC in the
+            # middle of a major collection.  We disable these two modes
+            # in the safer variant.
+            if gen <= 0:
+                gen = 0
+            else:
+                gen = 2
+        #
         if gen < 0:
             # Dangerous! this makes no progress on the major GC cycle.
             # If called too often, the memory usage will keep increasing,
@@ -786,6 +807,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # This does a complete minor and major collection.
             self.minor_and_major_collection()
         self.rrc_invoke_callback()
+        self.check_safe_gc_state()
 
     def collect_step(self):
         """
@@ -795,11 +817,25 @@ class IncrementalMiniMarkGC(MovingGCBase):
         This is meant to be used together with gc.disable(), to have a
         fine-grained control on when the GC runs.
         """
+        # This function should never be called in safer_variant() mode,
+        # because it leaves the GC in the middle of an incremental step.
+        # In PyPy the function gc.collect_step() is removed from --sandbox.
+        if self.safer_variant():
+            out_of_memory("sandbox: collect_step() has been disabled")
+            return False
+        #
         old_state = self.gc_state
         self._minor_collection()
         self.major_collection_step()
         self.rrc_invoke_callback()
         return rgc._encode_states(old_state, self.gc_state)
+
+    def check_safe_gc_state(self):
+        if self.safer_variant():
+            # in this variant, gc_state should always be SCANNING when the
+            # mutator runs
+            if self.gc_state != STATE_SCANNING:
+                out_of_memory("sandbox: unexpected internal GC state")
 
     def minor_collection_with_major_progress(self, extrasize=0,
                                              force_enabled=False):
@@ -808,6 +844,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         step.  If there is no major GC but the threshold is reached, start a
         major GC.
         """
+        self.check_safe_gc_state()
         self._minor_collection()
         if not self.enabled and not force_enabled:
             return
@@ -826,6 +863,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.gc_state != STATE_SCANNING or self.threshold_reached(extrasize):
             self.major_collection_step(extrasize)
 
+            if self.safer_variant():
+                # finish the just-started major collection immediately
+                self.gc_step_until(STATE_SCANNING)
+
             # See documentation in major_collection_step() for target invariants
             while self.gc_state != STATE_SCANNING:    # target (A1)
                 threshold = self.threshold_objects_made_old
@@ -840,6 +881,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.major_collection_step(extrasize)
 
         self.rrc_invoke_callback()
+        self.check_safe_gc_state()
 
 
     def collect_and_reserve(self, totalsize):
@@ -1098,6 +1140,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return self.is_in_nursery(obj)
 
     def pin(self, obj):
+        if self.safer_variant():    # no pinning in the safer variant
+            return False
         if self.pinned_objects_in_nursery >= self.max_number_of_pinned_objects:
             return False
         if not self.is_in_nursery(obj):
@@ -3074,6 +3118,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def rawrefcount_init(self, dealloc_trigger_callback):
         # see pypy/doc/discussion/rawrefcount.rst
+        if self.safer_variant():
+            out_of_memory("sandbox: rawrefcount_init() not supported")
+            return
         if not self.rrc_enabled:
             self.rrc_p_list_young = self.AddressStack()
             self.rrc_p_list_old   = self.AddressStack()
