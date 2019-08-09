@@ -16,6 +16,9 @@ class AppTestMinimal:
 class AppTestThreadSignal(GenericTestThread):
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])
 
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_exit_twice(self):
         import __pypy__, _thread
         __pypy__.thread._signals_exit()
@@ -25,20 +28,23 @@ class AppTestThreadSignal(GenericTestThread):
             __pypy__.thread._signals_enter()
 
     def test_enable_signals(self):
+        if not self.runappdirect:
+            skip("test is flaky when untranslated on bencher4 and aarch64")
+
         import __pypy__, _thread, signal, time, sys
 
         def subthread():
-            sys.stderr.write('subthread started')
+            print('subthread started')
             try:
                 with __pypy__.thread.signals_enabled:
                     _thread.interrupt_main()
                     for i in range(10):
-                        sys.stderr.write('x')
+                        print('x')
                         time.sleep(0.25)
             except BaseException as e:
                 interrupted.append(e)
             finally:
-                sys.stderr.write('subthread stops, interrupted=%r' % (interrupted,))
+                print('subthread stops, interrupted=%r' % (interrupted,))
                 done.append(None)
 
         # This is normally called by app_main.py
@@ -54,13 +60,13 @@ class AppTestThreadSignal(GenericTestThread):
             try:
                 done = []
                 interrupted = []
-                sys.stderr.write('--- start ---')
+                print('--- start ---')
                 _thread.start_new_thread(subthread, ())
                 for j in range(30):
                     if len(done): break
-                    sys.stderr.write('.')
+                    print('.')
                     time.sleep(0.25)
-                sys.stderr.write('main thread loop done')
+                print('main thread loop done')
                 assert len(done) == 1
                 assert len(interrupted) == 1
                 assert 'KeyboardInterrupt' in interrupted[0].__class__.__name__
