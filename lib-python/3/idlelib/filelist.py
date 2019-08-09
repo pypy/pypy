@@ -120,7 +120,7 @@ def _test():  # TODO check and convert to htest
     fixwordbreaks(root)
     root.withdraw()
     flist = FileList(root)
-        flist.new()
+    flist.new()
     if flist.inversedict:
         root.mainloop()
 

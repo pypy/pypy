@@ -13,8 +13,8 @@ except ImportError:
 # https://msdn.microsoft.com/en-us/library/windows/desktop/dn280512(v=vs.85).aspx
 if sys.platform == 'win32':
     try:
-    import ctypes
-    PROCESS_SYSTEM_DPI_AWARE = 1
+        import ctypes
+        PROCESS_SYSTEM_DPI_AWARE = 1
         ctypes.OleDLL('shcore').SetProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE)
     except (ImportError, AttributeError, OSError):
         pass
