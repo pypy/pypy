@@ -11,6 +11,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.streamutil import wrap_streamerror
 from rpython.rlib import streamio, jit
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
@@ -659,13 +660,14 @@ def load_module(space, w_modulename, find_info, reuse=False):
             if find_info.modtype == PY_SOURCE:
                 return load_source_module(
                     space, w_modulename, w_mod,
-                    find_info.filename, find_info.stream.readall(),
+                    find_info.filename, _wrap_readall(space, find_info.stream),
                     find_info.stream.try_to_find_file_descriptor())
             elif find_info.modtype == PY_COMPILED:
-                magic = _r_long(find_info.stream)
-                timestamp = _r_long(find_info.stream)
+                magic = _wrap_r_long(space, find_info.stream)
+                timestamp = _wrap_r_long(space, find_info.stream)
                 return load_compiled_module(space, w_modulename, w_mod, find_info.filename,
-                                     magic, timestamp, find_info.stream.readall())
+                                     magic, timestamp,
+                                     _wrap_readall(space, find_info.stream))
             elif find_info.modtype == PKG_DIRECTORY:
                 w_path = space.newlist([space.newtext(find_info.filename)])
                 space.setattr(w_mod, space.newtext('__path__'), w_path)
@@ -677,10 +679,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
                     w_mod = load_module(space, w_modulename, find_info,
                                         reuse=True)
                 finally:
-                    try:
-                        find_info.stream.close()
-                    except StreamErrors:
-                        pass
+                    _close_ignore(find_info.stream)
                 return w_mod
             elif find_info.modtype == C_EXTENSION and has_so_extension(space):
                 return load_c_extension(space, find_info.filename,
@@ -712,10 +711,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             if find_info:
                 stream = find_info.stream
                 if stream:
-                    try:
-                        stream.close()
-                    except StreamErrors:
-                        pass
+                    _close_ignore(stream)
 
     if tentative:
         return None
@@ -770,7 +766,7 @@ def reload(space, w_module):
                 return load_module(space, w_modulename, find_info, reuse=True)
             finally:
                 if find_info.stream:
-                    find_info.stream.close()
+                    _wrap_close(space, find_info.stream)
         except:
             # load_module probably removed name from modules because of
             # the error.  Put back the original module object.
@@ -936,12 +932,10 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     if stream:
         # existing and up-to-date .pyc file
         try:
-            code_w = read_compiled_module(space, cpathname, stream.readall())
+            code_w = read_compiled_module(space, cpathname,
+                                          _wrap_readall(space, stream))
         finally:
-            try:
-                stream.close()
-            except StreamErrors:
-                pass
+            _close_ignore(stream)
         space.setattr(w_mod, space.newtext('__file__'), space.newtext(cpathname))
     else:
         code_w = parse_source_module(space, pathname, source)
@@ -1007,6 +1001,35 @@ def _w_long(stream, x):
     d = x & 0xff
     stream.write(chr(a) + chr(b) + chr(c) + chr(d))
 
+def _wrap_r_long(space, stream):
+    """like _r_long(), but raising app-level exceptions"""
+    try:
+        return _r_long(stream)
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _wrap_readall(space, stream):
+    """stream.readall(), but raising app-level exceptions"""
+    try:
+        return stream.readall()
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _wrap_close(space, stream):
+    """stream.close(), but raising app-level exceptions"""
+    try:
+        stream.close()
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _close_ignore(stream):
+    """stream.close(), but ignoring any stream exception"""
+    try:
+        stream.close()
+    except StreamErrors as e:
+        pass
+
+
 def check_compiled_module(space, pycfilename, expected_mtime):
     """
     Check if a pyc file's magic number and mtime match.
@@ -1025,10 +1048,7 @@ def check_compiled_module(space, pycfilename, expected_mtime):
         return stream
     except StreamErrors:
         if stream:
-            try:
-                stream.close()
-            except StreamErrors:
-                pass
+            _close_ignore(stream)
         return None    # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.
 
