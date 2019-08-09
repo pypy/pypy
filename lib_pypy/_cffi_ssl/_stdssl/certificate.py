@@ -265,6 +265,8 @@ def _get_crl_dp(certificate):
     count = lib.sk_DIST_POINT_num(dps)
     for i in range(count):
         dp = lib.sk_DIST_POINT_value(dps, i);
+        if not dp.distpoint:
+            return None
         gns = dp.distpoint.name.fullname;
 
         jcount = lib.sk_GENERAL_NAME_num(gns)

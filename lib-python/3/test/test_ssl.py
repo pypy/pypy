@@ -3013,12 +3013,15 @@ if _have_threads:
                 self.assertEqual(s.read(-1, buffer), len(data))
                 self.assertEqual(buffer, data)  # sendall accepts bytes-like objects
 
-                if ctypes is not None:
-                    ubyte = ctypes.c_ubyte * len(data)
-                    byteslike = ubyte.from_buffer_copy(data)
-                    s.sendall(byteslike)
-                    self.assertEqual(s.read(), data)
-
+                try:
+                    if ctypes is not None:
+                        ubyte = ctypes.c_ubyte * len(data)
+                        byteslike = ubyte.from_buffer_copy(data)
+                        s.sendall(byteslike)
+                        self.assertEqual(s.read(), data)
+                except:
+                    s.close()
+                    raise
                 # Make sure sendmsg et al are disallowed to avoid
                 # inadvertent disclosure of data and/or corruption
                 # of the encrypted data stream
