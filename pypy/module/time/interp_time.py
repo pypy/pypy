@@ -639,7 +639,7 @@ def strftime(space, format, w_tup=None):
     if rffi.getintfield(buf_value, 'c_tm_isdst') < -1 or rffi.getintfield(buf_value, 'c_tm_isdst') > 1:
         raise oefmt(space.w_ValueError, "daylight savings flag out of range")
 
-    if _WIN:
+    if _WIN or space.config.translation.sandbox:
         # check that the format string contains only valid directives
         length = len(format)
         i = 0
