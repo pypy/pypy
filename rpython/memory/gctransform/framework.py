@@ -479,7 +479,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
 
-        if hasattr(GCClass, 'rawrefcount_init'):
+        if (hasattr(GCClass, 'rawrefcount_init')
+                and not self.translator.config.translation.sandbox):
             self.rawrefcount_init_ptr = getfn(
                 GCClass.rawrefcount_init,
                 [s_gc, SomePtr(GCClass.RAWREFCOUNT_DEALLOC_TRIGGER)],

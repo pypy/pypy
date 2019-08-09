@@ -3119,6 +3119,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def rawrefcount_init(self, dealloc_trigger_callback):
         # see pypy/doc/discussion/rawrefcount.rst
         if self.safer_variant():
+            # note that the rawrefcount_xxx() functions should not be callable
+            # if sandbox is enabled; see gctransform/framework.py
             out_of_memory("sandbox: rawrefcount_init() not supported")
             return
         if not self.rrc_enabled:

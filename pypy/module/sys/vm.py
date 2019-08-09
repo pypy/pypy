@@ -62,8 +62,8 @@ threads you can configure the limit by calling "threading.stack_size()".
     #
     if space.config.translation.sandbox:
         if new_limit > space.sys.recursionlimit:
-            raise oefmt(space.w_RuntimeError, "sandbox: cannot increase the "
-                                              "recursion limit")
+            msg = "sandbox: cannot increase the recursion limit" 
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
         return
     #
     space.sys.recursionlimit = new_limit
