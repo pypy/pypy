@@ -277,11 +277,11 @@ def test_trace_exc():
 def test_trace_ignore_hidden():
     import sys
     import _testing
+    _testing.Hidden  # avoid module lazy-loading weirdness when untranslated
 
     l = []
     def trace(a,b,c):
-        if a.f_code.co_name != "decode":
-            l.append((a,b,c))
+        l.append((a,b,c))
 
     def f():
         h = _testing.Hidden()
