@@ -7,7 +7,7 @@ import sys, os, stat
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
@@ -923,7 +923,10 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     log_pyverbose(space, 1, "import %s # from %s\n" %
                   (space.text_w(w_modulename), pathname))
 
-    src_stat = os.fstat(fd)
+    try:
+        src_stat = os.fstat(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e, pathname)   # better report this error
     cpathname = pathname + 'c'
     mtime = int(src_stat[stat.ST_MTIME])
     mode = src_stat[stat.ST_MODE]
