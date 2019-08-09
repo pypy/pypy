@@ -27,3 +27,22 @@ jsondata = strategies.recursive(
 @given(jsondata)
 def test_roundtrip(d):
     assert json.loads(json.dumps(d)) == d
+
+def test_skipkeys():
+    assert json.dumps({Ellipsis: 42}, skipkeys=True) == '{}'
+    assert json.dumps({Ellipsis: 42, 3: 4}, skipkeys=True) == '{"3": 4}'
+    assert json.dumps({3: 4, Ellipsis: 42}, skipkeys=True) == '{"3": 4}'
+    assert json.dumps({Ellipsis: 42, NotImplemented: 43}, skipkeys=True) \
+                 == '{}'
+    assert json.dumps({3: 4, Ellipsis: 42, NotImplemented: 43}, skipkeys=True)\
+                 == '{"3": 4}'
+    assert json.dumps({Ellipsis: 42, 3: 4, NotImplemented: 43}, skipkeys=True)\
+                 == '{"3": 4}'
+    assert json.dumps({Ellipsis: 42, NotImplemented: 43, 3: 4}, skipkeys=True)\
+                 == '{"3": 4}'
+    assert json.dumps({3: 4, 5: 6, Ellipsis: 42}, skipkeys=True) \
+                 == '{"3": 4, "5": 6}'
+    assert json.dumps({3: 4, Ellipsis: 42, 5: 6}, skipkeys=True) \
+                 == '{"3": 4, "5": 6}'
+    assert json.dumps({Ellipsis: 42, 3: 4, 5: 6}, skipkeys=True) \
+                 == '{"3": 4, "5": 6}'
