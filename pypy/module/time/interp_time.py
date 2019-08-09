@@ -112,7 +112,6 @@ class CConfig:
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
-    has_gettimeofday = platform.Has('gettimeofday')
 
 if _POSIX:
     calling_conv = 'c'
@@ -167,19 +166,17 @@ clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
-if cConfig.has_gettimeofday:
-    c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
-c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)
+c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP, sandboxsafe=True)
 c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
-c_mktime = external('mktime', [TM_P], rffi.TIME_T)
-c_asctime = external('asctime', [TM_P], rffi.CCHARP)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe=True)
+c_mktime = external('mktime', [TM_P], rffi.TIME_T, sandboxsafe=True)
+c_asctime = external('asctime', [TM_P], rffi.CCHARP, sandboxsafe=True)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
+                       save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe=True)
 if _POSIX:
-    c_tzset = external('tzset', [], lltype.Void)
+    c_tzset = external('tzset', [], lltype.Void, sandboxsafe=True)
 if _WIN:
     win_eci = ExternalCompilationInfo(
         includes = ["time.h"],
@@ -218,7 +215,7 @@ if _WIN:
                             rffi.INT, win_eci, calling_conv='c')
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
-                      rffi.SIZE_T)
+                      rffi.SIZE_T, sandboxsafe=True)
 
 def _init_accept2dyear(space):
     if os.environ.get("PYTHONY2K"):
