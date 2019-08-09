@@ -1347,8 +1347,8 @@ class time(timeinterop):
             tzinfo = self.tzinfo
         if fold is None:
             fold = self._fold
-        return time.__new__(type(self),
-                            hour, minute, second, microsecond, tzinfo)
+        return time.__new__(
+            type(self), hour, minute, second, microsecond, tzinfo, fold=fold)
 
     # Pickle support.
 
@@ -1647,8 +1647,9 @@ class datetime(date):
             tzinfo = self.tzinfo
         if fold is None:
             fold = self.fold
-        return datetime.__new__(type(self), year, month, day, hour, minute,
-                                second, microsecond, tzinfo)
+        return datetime.__new__(
+            type(self), year, month, day, hour, minute, second, microsecond,
+            tzinfo, fold=fold)
 
     def _local_timezone(self):
         if self.tzinfo is None:
