@@ -1405,12 +1405,14 @@ c_memcpy = llexternal("memcpy",
             lltype.Void,
             releasegil=False,
             calling_conv='c',
+            sandboxsafe=True,
         )
 c_memset = llexternal("memset",
             [VOIDP, lltype.Signed, SIZE_T],
             lltype.Void,
             releasegil=False,
             calling_conv='c',
+            sandboxsafe=True,
         )
 
 
