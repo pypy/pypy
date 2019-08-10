@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys, os
+import socket
 import pytest
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
@@ -10,8 +11,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct',
                                             'unicodedata'])
-    global socket
-    import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
     mod.path = udir.join('fd')
     mod.path.write('fo')
@@ -57,15 +56,11 @@ def test_getservbyname():
                         "(_socket, name): return _socket.getservbyname(name, 'tcp')")
     assert space.unwrap(port) == 25
     # 1 arg version
-    if sys.version_info < (2, 4):
-        pytest.skip("getservbyname second argument is not optional before python 2.4")
     port = space.appexec([w_socket, space.wrap(name)],
                         "(_socket, name): return _socket.getservbyname(name)")
     assert space.unwrap(port) == 25
 
 def test_getservbyport():
-    if sys.version_info < (2, 4):
-        pytest.skip("getservbyport does not exist before python 2.4")
     port = 25
     # 2 args version
     name = space.appexec([w_socket, space.wrap(port)],
@@ -90,6 +85,7 @@ def test_getprotobyname():
                         "(_socket, name): return _socket.getprotobyname(name)")
     assert space.unwrap(w_n) == socket.IPPROTO_TCP
 
+@pytest.mark.skipif("not hasattr(socket, 'fromfd')")
 def test_ntohs():
     w_n = space.appexec([w_socket, space.wrap(125)],
                         "(_socket, x): return _socket.ntohs(x)")
@@ -132,9 +128,8 @@ def test_aton_ntoa():
                          "(_socket, p): return _socket.inet_ntoa(p)")
     assert space.utf8_w(w_ip) == ip
 
+@pytest.mark.skipif("not hasattr(socket, 'inet_pton')")
 def test_pton_ntop_ipv4():
-    if not hasattr(socket, 'inet_pton'):
-        pytest.skip('No socket.inet_pton on this platform')
     tests = [
         ("123.45.67.89", "\x7b\x2d\x43\x59"),
         ("0.0.0.0", "\x00" * 4),
@@ -190,11 +185,6 @@ def test_pton_ipv6():
         w_packed = space.appexec([w_socket, space.wrap(ip)],
             "(_socket, ip): return _socket.inet_pton(_socket.AF_INET6, ip)")
         assert space.unwrap(w_packed) == packed
-
-def test_has_ipv6():
-    pytest.skip("has_ipv6 is always True on PyPy for now")
-    res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
-    assert space.unwrap(res) == socket.has_ipv6
 
 def test_getaddrinfo():
     host = b"localhost"
@@ -311,7 +301,7 @@ class AppTestSocket:
                                    'unicodedata'])
 
     def setup_class(cls):
-        cls.space = space
+        space = cls.space
         cls.w_udir = space.wrap(str(udir))
 
     def teardown_class(cls):
@@ -762,10 +752,11 @@ class AppTestSocket:
         raises(TypeError, s.connect, (domain + '\x00', 80))
 
 
+@pytest.mark.skipif(not hasattr(os, 'getpid'),
+    reason="AF_NETLINK needs os.getpid()")
 class AppTestNetlink:
     def setup_class(cls):
-        if not hasattr(os, 'getpid'):
-            pytest.skip("AF_NETLINK needs os.getpid()")
+        cls.space = space
 
         if cls.runappdirect:
             import _socket
@@ -775,7 +766,6 @@ class AppTestNetlink:
                                  "return hasattr(_socket, 'AF_NETLINK')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_NETLINK on this platform")
-        cls.space = space
 
     def test_connect_to_kernel_netlink_routing_socket(self):
         import _socket, os
@@ -788,10 +778,11 @@ class AppTestNetlink:
         assert b == 0
 
 
+@pytest.mark.skipif(not hasattr(os, 'getuid') or os.getuid() != 0,
+    reason="AF_PACKET needs to be root for testing")
 class AppTestPacket:
     def setup_class(cls):
-        if not hasattr(os, 'getuid') or os.getuid() != 0:
-            pytest.skip("AF_PACKET needs to be root for testing")
+        cls.space = space
         if cls.runappdirect:
             import _socket
             w_ok = hasattr(_socket, 'AF_PACKET')
@@ -800,7 +791,6 @@ class AppTestPacket:
                                  "return hasattr(_socket, 'AF_PACKET')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_PACKET on this platform")
-        cls.space = space
 
     def test_convert_between_tuple_and_sockaddr_ll(self):
         import _socket
