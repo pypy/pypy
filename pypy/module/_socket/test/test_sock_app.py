@@ -292,10 +292,10 @@ def test_timeout():
 
 
 class AppTestSocket:
-    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct'])
+    spaceconfig = dict(usemodules=['_socket', 'struct'])
 
     def setup_class(cls):
-        cls.space = space
+        space = cls.space
         cls.w_udir = space.wrap(str(udir))
         cls.w_regex_search = space.wrap(interp2app(regex_search))
 
