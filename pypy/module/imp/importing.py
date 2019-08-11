@@ -7,7 +7,7 @@ import sys, os, stat, re, platform
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
@@ -77,6 +77,22 @@ def check_sys_modules_w(space, modulename):
 lib_pypy = os.path.join(os.path.dirname(__file__),
                         '..', '..', '..', 'lib_pypy')
 
+def _readall(space, filename):
+    try:
+        fd = os.open(filename, os.O_RDONLY, 0400)
+        try:
+            result = []
+            while True:
+                data = os.read(fd, 8192)
+                if not data:
+                    break
+                result.append(data)
+        finally:
+            os.close(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e, filename)
+    return ''.join(result)
+
 @unwrap_spec(modulename='fsencode', level=int)
 def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None, level=0):
     # A minimal version, that can only import builtin and lib_pypy modules!
@@ -94,8 +110,7 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
             return space.getbuiltinmodule(modulename)
 
         ec = space.getexecutioncontext()
-        with open(os.path.join(lib_pypy, modulename + '.py')) as fp:
-            source = fp.read()
+        source = _readall(space, os.path.join(lib_pypy, modulename + '.py'))
         pathname = "<frozen %s>" % modulename
         code_w = ec.compiler.compile(source, pathname, 'exec', 0)
         w_mod = add_module(space, space.newtext(modulename))
