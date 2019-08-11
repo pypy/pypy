@@ -16,6 +16,10 @@ import unicodedata
 
 SMALLBUF = 4
 
+def err_closed(space):
+    raise oefmt(space.w_ValueError,
+                "I/O operation on closed file")
+
 def _get_console_type(handle):
     mode = lltype.malloc(rwin32.LPDWORD.TO,0,flavor='raw')
     peek_count = lltype.malloc(rwin32.LPDWORD.TO,0,flavor='raw')
@@ -42,7 +46,7 @@ def _pyio_get_console_type(space, w_path_or_fd):
             return '\0'
         return _get_console_type(handle)
 
-
+    return None
     decoded = space.fsdecode_w(w_path_or_fd)
     if not decoded:
         return '\0'
@@ -54,13 +58,14 @@ def _pyio_get_console_type(space, w_path_or_fd):
     m = '\0'
     
     # In CPython the _wcsicmp function is used to perform case insensitive comparison
-    normdecoded = unicodedata.normalize("NFKD", decoded.lower())
-    if normdecoded == unicodedata.normalize("NFKD", "CONIN$".lower()):
+    decoded.lower()
+    if not rwin32.wcsicmp(decoded_wstr, "CONIN$"):
         m = 'r'
-    elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".lower()):
+    elif not rwin32.wcsicmp(decoded_wstr, "CONOUT$"):
         m = 'w'
-    elif normdecoded == unicodedata.normalize("NFKD", "CON".lower()):
+    elif not rwin32.wcsicmp(decoded_wstr, "CON"):
         m = 'x'
+
 
     if m != '\0':
         return m
@@ -85,15 +90,13 @@ def _pyio_get_console_type(space, w_path_or_fd):
         if length >= 4 and pname_buf[3] == '\\' and \
            (pname_buf[2] == '.' or pname_buf[2] == '?') and \
            pname_buf[1] == '\\' and pname_buf[0] == '\\':
-           pname_buf += 4
-        normdecoded = unicodedata.normalize("NFKD", decoded.lower())
-        if normdecoded == unicodedata.normalize("NFKD", "CONIN$".lower()):
-            m = 'r'
-        elif normdecoded == unicodedata.normalize("NFKD", "CONOUT$".lower()):
-            m = 'w'
-        elif normdecoded == unicodedata.normalize("NFKD", "CON".lower()):
-            m = 'x'
-           
+            pname_buf += 4
+            if not rwin32.wcsicmp(decoded_wstr, "CONIN$"):
+                m = 'r'
+            elif not rwin32.wcsicmp(decoded_wstr, "CONOUT$"):
+                m = 'w'
+            elif not rwin32.wcsicmp(decoded_wstr, "CON"):
+                m = 'x'
     lltype.free(pname_buf, flavor='raw')
     return m
 
@@ -109,11 +112,12 @@ class W_WinConsoleIO(W_RawIOBase):
         self.closehandle = 0
         self.blksize = 0
 
-    def _internal_close(self, space):
-        pass
+    # def _internal_close(self, space):
+        # pass
         
     @unwrap_spec(w_mode=WrappedDefault("r"), w_closefd=WrappedDefault(True), w_opener=WrappedDefault(None))
     def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
+        return None
         #self.fd = -1
         #self.created = 0
         name = None
@@ -220,7 +224,22 @@ class W_WinConsoleIO(W_RawIOBase):
            lltype.free(self.buf, flavor='raw')
         
         return None
-        
+    
+    def readable_w(self, space):
+        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            return err_closed(space)
+        return space.newbool(self.readable)
+    
+    def writable_w(self, space):
+        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            return err_closed(space)
+        return space.newbool(self.writable)
+    
+    def isatty_w(self, space):
+        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            return err_closed(space)
+        return space.newbool(True)
+    
     def repr_w(self, space):
         typename = space.type(self).name
         try:
@@ -241,12 +260,26 @@ class W_WinConsoleIO(W_RawIOBase):
                 self.fd = rwin32.open_osfhandle(self.handle, rwin32._O_RDONLY | rwin32._O_BINARY)
         if self.fd < 0:
             return err_mode("fileno")
-         
         return space.newint(self.fd)
-
+        
+    def readinto_w(self, space):
+        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            return err_closed(space)
+            
+       
+    def get_blksize(self,space):
+        return space.newint(self.blksize)
+        
 W_WinConsoleIO.typedef = TypeDef(
-    '_io._WinConsoleIO', W_WinConsoleIO.typedef,
+    '_io.WinConsoleIO', W_RawIOBase.typedef,
     __new__  = generic_new_descr(W_WinConsoleIO),
     __init__  = interp2app(W_WinConsoleIO.descr_init),
     __repr__ = interp2app(W_WinConsoleIO.repr_w),
+    
+    readable = interp2app(W_WinConsoleIO.readable_w),
+    writable = interp2app(W_WinConsoleIO.writable_w),
+    isatty = interp2app(W_WinConsoleIO.isatty_w),
+    readinto = interp2app(W_WinConsoleIO.readinto_w),
+    
+    _blksize = GetSetProperty(W_WinConsoleIO.get_blksize),
     )

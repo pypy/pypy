@@ -23,7 +23,7 @@ class Module(MixedModule):
         'BufferedRWPair': 'interp_bufferedio.W_BufferedRWPair',
         'BufferedRandom': 'interp_bufferedio.W_BufferedRandom',
         'TextIOWrapper': 'interp_textio.W_TextIOWrapper',
-        '_WindowsConsoleIO': 'interp_win32consoleio.W_WinConsoleIO',
+        'WindowsConsoleIO': 'interp_win32consoleio.W_WinConsoleIO',
 
         'open': 'interp_io.open',
         'IncrementalNewlineDecoder': 'interp_textio.W_IncrementalNewlineDecoder',

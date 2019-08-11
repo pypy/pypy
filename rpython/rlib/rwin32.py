@@ -255,6 +255,8 @@ if WIN32:
         fd = _open_osfhandle(handle, flags)
         with FdValidator(fd):
             return fd
+  
+    wcsicmp = rffi.llexternal('_wcsicmp', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.
