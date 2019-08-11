@@ -6,6 +6,7 @@ DIRS_SPLIT = [
     'memory/test', 'jit/metainterp',
     'jit/backend/arm', 'jit/backend/x86',
     'jit/backend/zarch', 'module/cpyext/test',
+    'jit/backend/aarch64',
     # python3 slowness ...
     'module/_cffi_backend/test', 'module/__pypy__/test',
 ]

@@ -62,6 +62,12 @@ class CPU_ARM64(AbstractLLCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
+    def build_regalloc(self):
+        ''' for tests'''
+        from rpython.jit.backend.aarch64.regalloc import Regalloc
+        assert self.assembler is not None
+        return Regalloc(self.assembler)
+
 
 for _i, _r in enumerate(r.all_regs):
     assert CPU_ARM64.all_reg_indexes[_r.value] == _i
