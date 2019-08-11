@@ -47,7 +47,7 @@ def scandir(space, w_path=None):
             path_prefix += u'\\'
         w_path_prefix = space.newtext(path_prefix)
     if rposix.HAVE_FSTATAT:
-        dirfd = rposix.c_dirfd(dirp)
+        dirfd = rposix.c_dirfd(dirp)    # may return -1; errors are ignored
     else:
         dirfd = -1
     return W_ScandirIterator(space, dirp, dirfd, w_path_prefix, result_is_bytes)
