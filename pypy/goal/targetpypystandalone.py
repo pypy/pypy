@@ -326,7 +326,8 @@ class PyPyTarget(object):
             config.translation.jit = True
 
         if config.translation.sandbox:
-            config.objspace.lonepycfiles = False
+            #config.objspace.lonepycfiles = False --- not available in py3.x
+            pass
 
         if config.objspace.usemodules.cpyext:
             if config.translation.gc not in ('incminimark', 'boehm'):
