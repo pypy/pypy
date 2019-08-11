@@ -316,15 +316,15 @@ else:
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
 c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
-c_mktime = external('mktime', [TM_P], rffi.TIME_T)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe=True)
+c_mktime = external('mktime', [TM_P], rffi.TIME_T, sandboxsafe=True)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
+                       save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe=True)
 if HAS_CLOCK_GETTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
     from rpython.rlib.rtime import c_clock_settime, c_clock_getres
 if _POSIX:
-    c_tzset = external('tzset', [], lltype.Void)
+    c_tzset = external('tzset', [], lltype.Void, sandboxsafe=True)
 if _WIN:
     win_eci = ExternalCompilationInfo(
         includes = ["time.h"],
@@ -363,7 +363,7 @@ if _WIN:
                             rffi.INT, win_eci, calling_conv='c')
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
-                      rffi.SIZE_T)
+                      rffi.SIZE_T, sandboxsafe=True)
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0
@@ -853,7 +853,7 @@ def strftime(space, format, w_tup=None):
     rffi.setintfield(buf_value, "c_tm_year",
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
-    if _WIN:
+    if _WIN or space.config.translation.sandbox:
         # check that the format string contains only valid directives
         length = len(format)
         i = 0

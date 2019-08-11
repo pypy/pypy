@@ -44,6 +44,12 @@ working_modules.update([
     #" _ssl", "_hashlib", "crypt"
 ])
 
+# --sandbox
+sandbox_modules = default_modules.copy()
+sandbox_modules.update([
+    "array", "binascii",
+])
+
 import rpython.rlib.rvmprof.cintf
 if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
     working_modules.add('_vmprof')
@@ -271,7 +277,7 @@ def set_pypy_opt_level(config, level):
 def enable_allworkingmodules(config):
     modules = working_modules.copy()
     if config.translation.sandbox:
-        modules = default_modules
+        modules = sandbox_modules.copy()
     if config.translation.reverse_debugger:
         for mod in reverse_debugger_disable_modules:
             setattr(config.objspace.usemodules, mod, False)

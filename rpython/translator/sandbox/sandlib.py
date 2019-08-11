@@ -18,65 +18,6 @@ def create_log():
     from rpython.tool.ansi_print import AnsiLogger
     return AnsiLogger("sandlib")
 
-# Note: we use lib_pypy/marshal.py instead of the built-in marshal
-# for two reasons.  The built-in module could be made to segfault
-# or be attackable in other ways by sending malicious input to
-# load().  Also, marshal.load(f) blocks with the GIL held when
-# f is a pipe with no data immediately avaialble, preventing the
-# _waiting_thread to run.
-from rpython.translator.sandbox import _marshal as marshal
-
-# Non-marshal result types
-RESULTTYPE_STATRESULT = object()
-RESULTTYPE_LONGLONG = object()
-
-def read_message(f):
-    return marshal.load(f)
-
-def write_message(g, msg, resulttype=None):
-    if resulttype is None:
-        if sys.version_info < (2, 4):
-            marshal.dump(msg, g)
-        else:
-            marshal.dump(msg, g, 0)
-    elif resulttype is RESULTTYPE_STATRESULT:
-        # Hand-coded marshal for stat results that mimics what rmarshal expects.
-        # marshal.dump(tuple(msg)) would have been too easy. rmarshal insists
-        # on 64-bit ints at places, even when the value fits in 32 bits.
-        import struct
-        st = tuple(msg)
-        fmt = "iIIiiiIfff"
-        buf = []
-        buf.append(struct.pack("<ci", '(', len(st)))
-        for c, v in zip(fmt, st):
-            if c == 'i':
-                buf.append(struct.pack("<ci", c, v))
-            elif c == 'I':
-                buf.append(struct.pack("<cq", c, v))
-            elif c == 'f':
-                fstr = "%g" % v
-                buf.append(struct.pack("<cB", c, len(fstr)))
-                buf.append(fstr)
-        g.write(''.join(buf))
-    elif resulttype is RESULTTYPE_LONGLONG:
-        import struct
-        g.write(struct.pack("<cq", 'I', msg))
-    else:
-        raise Exception("Can't marshal: %r (%r)" % (msg, resulttype))
-
-# keep the table in sync with rsandbox.reraise_error()
-EXCEPTION_TABLE = [
-    (1, OSError),
-    (2, IOError),
-    (3, OverflowError),
-    (4, ValueError),
-    (5, ZeroDivisionError),
-    (6, MemoryError),
-    (7, KeyError),
-    (8, IndexError),
-    (9, RuntimeError),
-    ]
-
 def write_exception(g, exception, tb=None):
     for i, excclass in EXCEPTION_TABLE:
         if isinstance(exception, excclass):

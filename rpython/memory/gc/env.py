@@ -132,7 +132,10 @@ else:
 # ---------- Linux2 ----------
 
 def get_L2cache_linux2():
-    arch = os.uname()[4]  # machine
+    try:
+        arch = os.uname()[4]  # machine
+    except OSError:   # we may simulate a failure from sandboxing, for example
+        return -1
     if arch.endswith('86') or arch == 'x86_64':
         return get_L2cache_linux2_cpuinfo()
     if arch in ('alpha', 'ppc'):

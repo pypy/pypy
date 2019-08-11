@@ -461,9 +461,7 @@ def replace_os_function(name):
     func = getattr(os, name, None)
     if func is None:
         return lambda f: f
-    return register_replacement_for(
-        func,
-        sandboxed_name='ll_os.ll_os_%s' % name)
+    return register_replacement_for(func)
 
 @specialize.arg(0)
 def handle_posix_error(name, result):
@@ -1081,7 +1079,7 @@ def _make_waitmacro(name):
     # for more details. If this get's fixed we can use lltype.Signed
     # again.  (The exact same issue occurs on ppc64 big-endian.)
     c_func = external(name, [rffi.INT], lltype.Signed,
-                      macro=_MACRO_ON_POSIX)
+                      macro=_MACRO_ON_POSIX, sandboxsafe=True)
     returning_int = name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG')
 
     @replace_os_function(name)
@@ -1992,9 +1990,12 @@ def uname():
 
 if sys.platform != 'win32':
     # These are actually macros on some/most systems
-    c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
-    c_major = external('major', [rffi.INT], rffi.INT, macro=True)
-    c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
+    c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True,
+                         sandboxsafe=True)
+    c_major = external('major', [rffi.INT], rffi.INT, macro=True,
+                       sandboxsafe=True)
+    c_minor = external('minor', [rffi.INT], rffi.INT, macro=True,
+                       sandboxsafe=True)
 
     @replace_os_function('makedev')
     def makedev(maj, min):

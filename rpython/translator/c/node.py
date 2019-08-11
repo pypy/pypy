@@ -885,11 +885,18 @@ def new_funcnode(db, T, obj, forcename=None):
     if db.sandbox:
         if (getattr(obj, 'external', None) is not None and
                 not obj._safe_not_sandboxed):
-            from rpython.translator.sandbox import rsandbox
-            obj.__dict__['graph'] = rsandbox.get_sandbox_stub(
-                obj, db.translator.rtyper)
-            obj.__dict__.pop('_safe_not_sandboxed', None)
-            obj.__dict__.pop('external', None)
+            try:
+                sandbox_mapping = db.sandbox_mapping
+            except AttributeError:
+                sandbox_mapping = db.sandbox_mapping = {}
+            try:
+                obj = sandbox_mapping[obj]
+            except KeyError:
+                from rpython.translator.sandbox import rsandbox
+                llfunc = rsandbox.get_sandbox_stub(
+                    obj, db.translator.rtyper)
+                sandbox_mapping[obj] = llfunc._obj
+                obj = llfunc._obj
     if forcename:
         name = forcename
     else:

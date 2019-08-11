@@ -16,7 +16,11 @@ class Module(MixedModule):
 
     def __init__(self, space, w_name):
         if (not space.config.translating or
-                space.config.translation.gctransformer == "framework"):
+                (space.config.translation.gctransformer == "framework"
+                 and not space.config.translation.sandbox)):
+            # some of these functions allow app-level code to do invalid
+            # things by trying hard enough.  For safety, in sandbox mode
+            # we don't provide any of them.
             self.appleveldefs.update({
                 'dump_rpy_heap': 'app_referents.dump_rpy_heap',
                 'get_stats': 'app_referents.get_stats',

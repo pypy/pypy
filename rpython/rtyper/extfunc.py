@@ -95,9 +95,7 @@ class ExtFuncEntry(ExtRegistryEntry):
     def compute_annotation(self):
         s_result = SomeExternalFunction(
             self.name, self.signature_args, self.signature_result)
-        if (self.bookkeeper.annotator.translator.config.translation.sandbox
-                and not self.safe_not_sandboxed):
-            s_result.needs_sandboxing = True
+        assert self.safe_not_sandboxed
         return s_result
 
 
@@ -112,6 +110,12 @@ def register_external(function, args, result=None, export_name=None,
     llfakeimpl: optional; if provided, called by the llinterpreter
     sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
     """
+
+    if not sandboxsafe:
+        raise Exception("Don't use the outdated register_external() protocol "
+                        "to invoke external function; use instead "
+                        "rffi.llexternal().  The old register_external() is "
+                        "now only supported with safeboxsafe=True.")
 
     if export_name is None:
         export_name = function.__name__

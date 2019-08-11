@@ -326,9 +326,7 @@ class PyPyTarget(object):
             config.translation.jit = True
 
         if config.translation.sandbox:
-            assert 0, ("--sandbox is not tested nor maintained.  If you "
-                       "really want to try it anyway, remove this line in "
-                       "pypy/goal/targetpypystandalone.py.")
+            config.objspace.lonepycfiles = False
 
         if config.objspace.usemodules.cpyext:
             if config.translation.gc not in ('incminimark', 'boehm'):
@@ -387,6 +385,8 @@ class PyPyTarget(object):
         from pypy.module.gc.hook import LowLevelGcHooks
         if self.space is None:
             raise Exception("get_gchooks must be called after get_entry_point")
+        if self.space.config.translation.sandbox:
+            return None
         return self.space.fromcache(LowLevelGcHooks)
 
     def get_entry_point(self, config):

@@ -66,6 +66,13 @@ threads you can configure the limit by calling "threading.stack_size()".
     from rpython.rlib.rgc import increase_root_stack_depth
     if new_limit <= 0:
         raise oefmt(space.w_ValueError, "recursion limit must be positive")
+    #
+    if space.config.translation.sandbox:
+        if new_limit > space.sys.recursionlimit:
+            msg = "sandbox: cannot increase the recursion limit" 
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
+        return
+    #
     try:
         _stack_set_length_fraction(new_limit * 0.001)
         _stack_check_noinline()
