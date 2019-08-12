@@ -461,14 +461,14 @@ class AppTestImport(BaseFSEncodeTest):
                     print('__name__ =', __name__)
                     from .struct import inpackage
         """, ns)
-        raises(SystemError, ns['imp'])
+        raises(ImportError, ns['imp'])
 
     def test_future_relative_import_error_when_in_non_package2(self):
         ns = {'__name__': __name__}
         exec("""def imp():
                     from .. import inpackage
         """, ns)
-        raises(SystemError, ns['imp'])
+        raises(ImportError, ns['imp'])
 
     def test_relative_import_with___name__(self):
         import sys
@@ -517,12 +517,12 @@ class AppTestImport(BaseFSEncodeTest):
         # Check relative fails with only __package__ wrong
         ns = dict(__package__='foo', __name__='pkg.notarealmodule')
         check_absolute() # XXX check warnings
-        raises(SystemError, check_relative)
+        raises(ModuleNotFoundError, check_relative)
 
         # Check relative fails with __package__ and __name__ wrong
         ns = dict(__package__='foo', __name__='notarealpkg.notarealmodule')
         check_absolute() # XXX check warnings
-        raises(SystemError, check_relative)
+        raises(ModuleNotFoundError, check_relative)
 
         # Check relative fails when __package__ set to a non-string
         ns = dict(__package__=object())
