@@ -1608,6 +1608,7 @@ def parse_utime_args(space, w_times, w_ns):
         mtime_s, mtime_ns = convert_ns(space, args_w[1])
     return now, atime_s, atime_ns, mtime_s, mtime_ns
 
+@specialize.arg(1)
 def do_utimens(space, func, arg, utime, *args):
     """Common implementation for futimens/utimensat etc."""
     now, atime_s, atime_ns, mtime_s, mtime_ns = utime
