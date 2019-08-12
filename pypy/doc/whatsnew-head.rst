@@ -47,6 +47,7 @@ new basic operation, ``load_effective_address``, which the backend can
 even decide not to implement.
 
 .. branch: arm64
+
 Add a JIT backend for ARM64 (aarch64)
 
 .. branch: fix-test-vmprof-closed-file

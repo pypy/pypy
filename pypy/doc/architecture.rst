@@ -88,7 +88,9 @@ Python is a meta programming language for RPython.
 
 The RPython standard library is to be found in the ``rlib`` subdirectory.
 
-Consult `Getting Started with RPython`_ for further reading
+Consult `Getting Started with RPython`_ for further reading or `RPython By
+Example`_ for another take on what can be done using RPython without writing an
+interpreter over it.
 
 Translation
 ~~~~~~~~~~~
@@ -132,4 +134,6 @@ during translation.  Moreover, this is not reference counting; it is a real
 GC written as more RPython code.  The best one we have so far is in
 ``rpython/memory/gc/incminimark.py``.
 
-.. _`Getting started with RPython`: http://rpython.readthedocs.org/en/latest/getting-started.html
+.. _`Getting Started with RPython`: http://rpython.readthedocs.org/en/latest/getting-started.html
+.. _RPython By Example: http://mesapy.org/rpython-by-example/
+
