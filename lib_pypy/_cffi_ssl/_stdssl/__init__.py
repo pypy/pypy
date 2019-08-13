@@ -70,6 +70,9 @@ for name in dir(lib):
 
 OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 OP_NO_SSLv2 = lib.SSL_OP_NO_SSLv2
+OP_NO_SSLv3 = lib.SSL_OP_NO_SSLv3
+OP_NO_TLSv1_3 = lib.SSL_OP_NO_TLSv1_3
+ 
 
 SSL_CLIENT = 0
 SSL_SERVER = 1

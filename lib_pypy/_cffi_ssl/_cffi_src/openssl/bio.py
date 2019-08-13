@@ -27,10 +27,12 @@ int BIO_up_ref(BIO *);
 
 BIO *BIO_new(BIO_METHOD *);
 BIO_METHOD *BIO_s_mem(void);
+BIO_METHOD *BIO_s_file(void);
 BIO_METHOD *BIO_s_datagram(void);
 BIO *BIO_new_mem_buf(const void *, int);
 long BIO_set_mem_eof_return(BIO *, int);
 long BIO_get_mem_data(BIO *, char **);
+long BIO_read_filename(BIO *, char *);
 int BIO_should_read(BIO *);
 int BIO_should_write(BIO *);
 int BIO_should_io_special(BIO *);
