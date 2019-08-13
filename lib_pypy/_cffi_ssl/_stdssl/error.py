@@ -125,12 +125,12 @@ def pyssl_error(obj, ret):
                     errstr = "Some I/O error occurred"
                     errval = SSL_ERROR_SYSCALL
             else:
-                errstr = _str_from_buf(lib.ERR_error_string(e, ffi.NULL))
+                errstr = _str_from_buf(lib.ERR_lib_error_string(e))
                 errval = SSL_ERROR_SYSCALL
         elif err == SSL_ERROR_SSL:
             errval = SSL_ERROR_SSL
             if errcode != 0:
-                errstr = _str_from_buf(lib.ERR_error_string(errcode, ffi.NULL))
+                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
             else:
                 errstr = "A failure in the SSL library occurred"
         else:

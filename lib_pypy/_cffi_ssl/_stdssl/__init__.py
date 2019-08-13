@@ -42,7 +42,7 @@ OPENSSL_VERSION_INFO = version_info
 _OPENSSL_API_VERSION = version_info
 del ver, version_info, status, patch, fix, minor, major
 
-HAS_ECDH = bool(lib.Cryptography_HAS_ECDH)
+HAS_ECDH = True
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
 HAS_NPN = bool(lib.OPENSSL_NPN_NEGOTIATED)
@@ -110,7 +110,7 @@ for name in error.SSL_AD_NAMES:
 # init open ssl
 lib.SSL_load_error_strings()
 lib.SSL_library_init()
-lib._setup_ssl_threads()
+lib.Cryptography_setup_ssl_threads()
 lib.OpenSSL_add_all_algorithms()
 
 def check_signals():
@@ -252,8 +252,7 @@ class _SSLSocket(object):
         #
         timeout = _socket_timeout(sock)
         if sock and timeout >= 0:
-            lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), 1)
-            lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), 1)
+            lib.SSL_set_bio(ssl, lib.SSL_get_rbio(ssl), lib.SSL_get_wbio(ssl))
 
         if socket_type == SSL_CLIENT:
             lib.SSL_set_connect_state(ssl)
@@ -314,8 +313,7 @@ class _SSLSocket(object):
         timeout = _socket_timeout(sock)
         if sock:
             nonblocking = timeout >= 0
-            lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
-            lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
+            lib.SSL_set_bio(ssl, lib.SSL_get_rbio(ssl), lib.SSL_get_wbio(ssl))
 
         # Actually negotiate SSL connection
         # XXX If SSL_do_handshake() returns 0, it's also a failure.
@@ -383,8 +381,7 @@ class _SSLSocket(object):
         timeout = _socket_timeout(sock)
         if sock:
             nonblocking = timeout >= 0
-            lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
-            lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
+            lib.SSL_set_bio(ssl, lib.SSL_get_rbio(ssl), lib.SSL_get_wbio(ssl))
 
         sockstate = _ssl_select(sock, 1, timeout)
         if sockstate == SOCKET_HAS_TIMED_OUT:
@@ -446,8 +443,7 @@ class _SSLSocket(object):
         if sock:
             timeout = _socket_timeout(sock)
             nonblocking = timeout >= 0
-            lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
-            lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
+            lib.SSL_set_bio(ssl, lib.SSL_get_rbio(ssl), lib.SSL_get_wbio(ssl))
 
         deadline = 0
         timeout = _socket_timeout(sock)
@@ -568,8 +564,7 @@ class _SSLSocket(object):
             timeout = _socket_timeout(sock)
             nonblocking = timeout >= 0
             if sock and timeout >= 0:
-                lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
-                lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
+                lib.SSL_set_bio(ssl, lib.SSL_get_rbio(ssl), lib.SSL_get_wbio(ssl))
         else:
             timeout = 0
 
