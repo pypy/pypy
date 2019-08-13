@@ -767,7 +767,7 @@ class _SSLContext(object):
         self.ctx = ffi.NULL
         if protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
-        elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_1:
+        elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
             method = lib.TLSv1_2_method()
