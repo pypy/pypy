@@ -162,7 +162,7 @@ def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
     ffi.memmove(buf, password, len(password))
     return len(password)
 
-if lib.Cryptography_STATIC_CALLBACKS:
+if 0:
     ffi.def_extern(_Cryptography_pem_password_cb)
     Cryptography_pem_password_cb = lib.Cryptography_pem_password_cb
 else:
@@ -749,6 +749,51 @@ def cipher_to_tuple(cipher):
     bits = lib.SSL_CIPHER_get_bits(cipher, ffi.NULL)
     return (cipher_name, cipher_protocol, bits)
 
+def cipher_to_dict(cipher):
+    ccipher_name = lib.SSL_CIPHER_get_name(cipher)
+    buf = ffi.new('char[512]')
+    alg_bits = ffi.new('int[4]')
+    if ccipher_name == ffi.NULL:
+        cipher_name = None
+    else:
+        cipher_name = _str_from_buf(ccipher_name)
+
+    ccipher_protocol = lib.SSL_CIPHER_get_version(cipher)
+    if ccipher_protocol == ffi.NULL:
+        cipher_protocol = None
+    else:
+        cipher_protocol = _str_from_buf(ccipher_protocol)
+
+    cipher_id = lib.SSL_CIPHER_get_id(cipher);
+    lib.SSL_CIPHER_description(cipher, buf, 511)
+    description = _str_from_buf(buf)
+    strength_bits = lib.SSL_CIPHER_get_bits(cipher, alg_bits)
+    ret = {
+            'id'           : cipher_id,
+            'name'         : cipher_name,
+            'protocol'     : cipher_protocol,
+            'description'  : description,
+            'strength_bits': strength_bits,
+            'alg_bits'     : alg_bits[0],
+           }
+    if OPENSSL_VERSION_INFO > (1, 1, 0, 0, 0):
+        aead = lib.SSL_CIPHER_is_aead(cipher)
+        nid = lib.SSL_CIPHER_get_cipher_nid(cipher)
+        skcipher = OBJ_nid2ln(nid) if nid != NID_undef else None
+        nid = lib.SSL_CIPHER_get_digest_nid(cipher);
+        digest = OBJ_nid2ln(nid) if nid != NID_undef else None
+        nid = lib.SSL_CIPHER_get_kx_nid(cipher);
+        kx = OBJ_nid2ln(nid) if nid != NID_undef else None
+        nid = SSL_CIPHER_get_auth_nid(cipher);
+        auth = OBJ_nid2ln(nid) if nid != NID_undef else None
+        ret.update({'aead' : bool(aead),
+            'symmmetric'   : skcipher,
+            'digest'       : digest,
+            'kea'          : kx,
+            'auth'         : auth,
+           })
+    return ret
+
 
 class SSLSession(object):
     def __new__(cls, ssl):
@@ -974,6 +1019,20 @@ class _SSLContext(object):
             lib.ERR_clear_error()
             raise ssl_error("No cipher can be selected.")
 
+    def get_ciphers(self):
+        ssl = lib.SSL_new(self.ctx)
+        try:
+            ciphers = lib.SSL_get_ciphers(ssl)
+            if ciphers == ffi.NULL:
+                return None
+            count = lib.sk_SSL_CIPHER_num(ciphers)
+            res = [None] * count
+            for i in range(count):
+                dct = cipher_to_dict(lib.sk_SSL_CIPHER_value(ciphers, i))
+                res[i] = dct
+            return res
+        finally:
+            lib.SSL_free(ssl)
 
     def load_cert_chain(self, certfile, keyfile=None, password=None):
         if keyfile is None:
