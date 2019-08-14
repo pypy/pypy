@@ -147,8 +147,8 @@ def fill_sslerror(errtype, ssl_errno, errstr, errcode):
         err_reason = lib.ERR_GET_REASON(errcode)
         reason_str = ERR_CODES_TO_NAMES.get((err_lib, err_reason), None)
         lib_str = LIB_CODES_TO_NAMES.get(err_lib, None)
-        if errstr is None:
-            errstr = _str_from_buf(lib.ERR_reason_error_string(errcode))
+        # Set last part of msg to a lower-case version of reason_str
+        errstr = _str_from_buf(lib.ERR_reason_error_string(errcode))
     msg = errstr
     if not errstr:
         msg = "unknown error"
