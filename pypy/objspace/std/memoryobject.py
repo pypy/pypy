@@ -482,8 +482,8 @@ class W_MemoryView(W_Root):
                     " with an optional '@'")
 
         origfmt = view.getformat()
-        if self.get_native_fmtchar(origfmt) < 0 or \
-           (not is_byte_format(fmt) and not is_byte_format(origfmt)):
+        if (self.get_native_fmtchar(origfmt) < 0 or \
+           (not is_byte_format(origfmt))) and (not is_byte_format(fmt)):
             raise oefmt(space.w_TypeError,
                     "memoryview: cannot cast between"
                     " two non-byte formats")
