@@ -21,26 +21,31 @@ def choose_rrc_gc_from_config(config):
         return None
 
 class RawRefCountBaseGC(object):
-    # Default state, no rawrefcount specific code is executed during normal marking.
+    # Default state.
     STATE_DEFAULT = 0
 
-    # Here cyclic garbage only reachable from legacy finalizers is marked.
+    # Marking state.
     STATE_MARKING = 1
+
+    # Here cyclic garbage only reachable from legacy finalizers is marked.
+    STATE_GARBAGE_MARKING = 2
 
     # The state in which cyclic garbage with legacy finalizers is traced.
     # Do not mark objects during this state, because we remove the flag
     # during tracing and we do not want to trace those objects again. Also
     # during this phase no new objects can be marked, as we are only building
     # the list of cyclic garbage.
-    STATE_GARBAGE = 2
+    STATE_GARBAGE = 3
 
     _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
     PYOBJ_SNAPSHOT_OBJ = lltype.Struct('PyObject_Snapshot',
                                        ('pyobj', llmemory.Address),
                                        ('refcnt', lltype.Signed),
-                                       ('refcnt_internal', lltype.Signed),
+                                       ('refcnt_external', lltype.Signed),
                                        ('refs_index', lltype.Signed),
-                                       ('refs_len', lltype.Signed))
+                                       ('refs_len', lltype.Signed),
+                                       ('pypy_link', lltype.Signed))
+    PYOBJ_SNAPSHOT_OBJ_PTR = lltype.Ptr(PYOBJ_SNAPSHOT_OBJ)
     PYOBJ_SNAPSHOT = lltype.Array(PYOBJ_SNAPSHOT_OBJ,
                                   hints={'nolength': True})
     PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
@@ -327,57 +332,8 @@ class RawRefCountBaseGC(object):
             self._pyobj(pyobject).c_ob_refcnt = rc
     _free._always_inline_ = True
 
-    def major_collection_trace(self):
-        if not self.cycle_enabled:
-            self._debug_check_consistency(print_label="begin-mark")
-
-        # First, untrack all tuples with only non-gc rrc objects and promote
-        # all other tuples to the pyobj_list
-        self._untrack_tuples()
-
-        # Only trace and mark rawrefcounted object if we are not doing
-        # something special, like building gc.garbage.
-        if (self.state == self.STATE_DEFAULT and self.cycle_enabled):
-            merged_old_list = False
-            # check objects with finalizers from last collection cycle
-            if not self._gc_list_is_empty(self.pyobj_old_list):
-                merged_old_list = self._check_finalizer()
-            # collect all rawrefcounted roots
-            self._collect_roots(self.pyobj_list) # TODO: from snapshot
-            if merged_old_list:
-                # set all refcounts to zero for objects in dead list
-                # (might have been incremented) by fix_refcnt
-                gchdr = self.pyobj_dead_list.c_gc_next
-                while gchdr <> self.pyobj_dead_list:
-                    gchdr.c_gc_refs = 0
-                    gchdr = gchdr.c_gc_next
-            self._debug_check_consistency(print_label="roots-marked")
-            # mark all objects reachable from rawrefcounted roots
-            self._mark_rawrefcount() # TODO: from snapshot
-            self._debug_check_consistency(print_label="before-fin")
-            self.state = self.STATE_MARKING
-            if self._find_garbage(): # handle legacy finalizers # TODO: from snapshot
-                self._mark_garbage() # TODO: from snapshot
-                self._debug_check_consistency(print_label="end-legacy-fin")
-            self.state = self.STATE_DEFAULT
-            found_finalizer = self._find_finalizer() # modern finalizers # TODO: from snapshot
-            if found_finalizer:
-                self._gc_list_move(self.pyobj_old_list,
-                                   self.pyobj_isolate_list)
-            use_cylicrc = not found_finalizer
-            self._debug_check_consistency(print_label="end-mark-cyclic")
-        else:
-            use_cylicrc = False # don't sweep any objects in cyclic isolates
-
-        # now mark all pypy objects at the border, depending on the results
-        debug_print("use_cylicrc", use_cylicrc)
-        self.p_list_old.foreach(self._major_trace, use_cylicrc)
-        self._debug_check_consistency(print_label="end-mark")
-
-        # fix refcnt back
-        self.refcnt_dict.foreach(self._fix_refcnt_back, None) # TODO: from snapshot?
-        self.refcnt_dict.delete()
-        self.refcnt_dict = self.gc.AddressDict()
+    def major_collection_trace_step(self):
+        return True
 
     def _fix_refcnt_back(self, pyobject, link, ignore):
         pyobj = self._pyobj(pyobject)
@@ -385,9 +341,10 @@ class RawRefCountBaseGC(object):
         pyobj.c_ob_refcnt = pyobj.c_ob_pypy_link
         pyobj.c_ob_pypy_link = link_int
 
-    def _major_trace(self, pyobject, use_cylicrefcnt):
+    def _major_trace(self, pyobject, flags):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        (use_cylicrefcnt, use_dict) = flags
         #
         pyobj = self._pyobj(pyobject)
         cyclic_rc = -42
@@ -410,11 +367,15 @@ class RawRefCountBaseGC(object):
             # force the corresponding object to be alive
             debug_print("pyobj stays alive", pyobj, "rc", rc, "cyclic_rc",
                         cyclic_rc)
-            obj = self.refcnt_dict.get(pyobject)
+            if use_dict:
+                obj = self.refcnt_dict.get(pyobject)
+            else:
+                intobj = pyobj.c_ob_pypy_link
+                obj = llmemory.cast_int_to_adr(intobj)
             self.gc.objects_to_trace.append(obj)
             self.gc.visit_all_objects()
 
-    def _major_trace_nongc(self, pyobject, ignore):
+    def _major_trace_nongc(self, pyobject, use_dict):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
         #
@@ -433,9 +394,11 @@ class RawRefCountBaseGC(object):
         else:
             # force the corresponding object to be alive
             debug_print("pyobj stays alive", pyobj, "rc", rc)
-            #intobj = pyobj.c_ob_pypy_link
-            #obj = llmemory.cast_int_to_adr(intobj)
-            obj = self.refcnt_dict.get(pyobject)
+            if use_dict:
+                obj = self.refcnt_dict.get(pyobject)
+            else:
+                intobj = pyobj.c_ob_pypy_link
+                obj = llmemory.cast_int_to_adr(intobj)
             self.gc.objects_to_trace.append(obj)
             self.gc.visit_all_objects()
 
@@ -507,7 +470,7 @@ class RawRefCountBaseGC(object):
 
         # For all non-gc pyobjects which have a refcount > 0,
         # mark all reachable objects on the pypy side
-        self.p_list_old.foreach(self._major_trace_nongc, None)
+        self.p_list_old.foreach(self._major_trace_nongc, True)
 
         # For every object in this set, if it is marked, add 1 as a real
         # refcount (p_list => pyobj stays alive if obj stays alive).

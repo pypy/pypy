@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as IncMiniMark
 from rpython.memory.gc.rrc.base import RawRefCountBaseGC
 from rpython.memory.gc.rrc.mark import RawRefCountMarkGC
+from rpython.memory.gc.rrc.incmark import RawRefCountIncMarkGC
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT
 
@@ -25,7 +26,8 @@ S.become(lltype.GcStruct('S',
 
 class TestRawRefCount(BaseDirectGCTest):
     GCClass = IncMiniMark
-    RRCGCClass = RawRefCountMarkGC
+    RRCGCClass = RawRefCountIncMarkGC
+    #RRCGCClass = RawRefCountMarkGC
 
     def setup_method(self, method):
         BaseDirectGCTest.setup_method(self, method)

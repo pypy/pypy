@@ -2392,22 +2392,28 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self.more_objects_to_trace = swap
                     self.visit_all_objects()
 
+            rrc_finished = False
+            if (not self.objects_to_trace.non_empty() and
+                    not self.more_objects_to_trace.non_empty()):
+                #
+                # 'prebuilt_root_objects' might have grown since
+                # we scanned it in collect_roots() (rare case).  Rescan.
+                self.collect_nonstack_roots()
+                self.visit_all_objects()
+                #
+                # If enabled, do a major collection step for rrc objects.
+                if self.rrc_enabled:
+                    while not rrc_finished: # TODO: remove this line to do incremental collection
+                        rrc_finished = self.rrc_gc.major_collection_trace_step()
+                else:
+                    rrc_finished = True
+
             # XXX A simplifying assumption that should be checked,
             # finalizers/weak references are rare and short which means that
             # they do not need a separate state and do not need to be
             # made incremental.
             # For now, the same applies to rawrefcount'ed objects.
-            if (not self.objects_to_trace.non_empty() and
-                not self.more_objects_to_trace.non_empty()):
-                #
-                # First, 'prebuilt_root_objects' might have grown since
-                # we scanned it in collect_roots() (rare case).  Rescan.
-                self.collect_nonstack_roots()
-                self.visit_all_objects()
-                #
-                if self.rrc_enabled:
-                    self.rrc_gc.major_collection_trace()
-                #
+            if rrc_finished:
                 ll_assert(not (self.probably_young_objects_with_finalizers
                                .non_empty()),
                     "probably_young_objects_with_finalizers should be empty")
@@ -2723,7 +2729,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         hdr.tid |= GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS
 
         if self.rrc_enabled and \
-                self.rrc_gc.state == RawRefCountBaseGC.STATE_MARKING:
+                self.rrc_gc.state == RawRefCountBaseGC.STATE_GARBAGE_MARKING:
             hdr.tid |= GCFLAG_GARBAGE
 
         if self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
@@ -3155,7 +3161,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def rawrefcount_end_garbage(self):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")
-        self.rrc_gc.state = RawRefCountBaseGC.STATE_DEFAULT
+        self.rrc_gc.state = RawRefCountBaseGC.STATE_MARKING
 
     def rawrefcount_next_garbage_pypy(self):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")
