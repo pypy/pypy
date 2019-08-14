@@ -43,7 +43,7 @@ OPENSSL_VERSION_INFO = version_info
 _OPENSSL_API_VERSION = version_info
 del ver, version_info, status, patch, fix, minor, major
 
-HAS_ECDH = bool(lib.Cryptography_HAS_ECDH)
+HAS_ECDH = True
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
 HAS_NPN = bool(lib.OPENSSL_NPN_NEGOTIATED)
@@ -71,6 +71,9 @@ for name in dir(lib):
 
 OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 OP_NO_SSLv2 = lib.SSL_OP_NO_SSLv2
+OP_NO_SSLv3 = lib.SSL_OP_NO_SSLv3
+OP_NO_TLSv1_3 = lib.SSL_OP_NO_TLSv1_3
+ 
 
 SSL_CLIENT = 0
 SSL_SERVER = 1
@@ -111,7 +114,7 @@ for name in error.SSL_AD_NAMES:
 # init open ssl
 lib.SSL_load_error_strings()
 lib.SSL_library_init()
-lib._setup_ssl_threads()
+lib.Cryptography_setup_ssl_threads()
 lib.OpenSSL_add_all_algorithms()
 
 def check_signals():
@@ -805,7 +808,7 @@ class _SSLContext(object):
         self.ctx = ffi.NULL
         if protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
-        elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_1:
+        elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
             method = lib.TLSv1_2_method()
