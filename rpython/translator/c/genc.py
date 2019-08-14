@@ -190,10 +190,10 @@ class CBuilder(object):
         defines = defines.copy()
         if self.config.translation.countmallocs:
             defines['COUNT_OP_MALLOCS'] = 1
-        if self.config.translation.cpyextgc == "boehm":
-            defines['CPYEXT_BOEHM'] = 1
-        if self.config.translation.cpyextgc == "trialdeletion":
-            defines['CPYEXT_TRIALDELETION'] = 1
+        if self.config.translation.rrcgc == "mark":
+            defines['CPYEXT_MARK'] = 1
+        if self.config.translation.rrcgc == "incmark":
+            defines['CPYEXT_INCMARK'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
         if self.config.translation.reverse_debugger:

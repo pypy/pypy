@@ -85,6 +85,7 @@ class BaseDirectGCTest(object):
         GC_PARAMS.update(self.get_extra_gc_params())
         self.gc = self.GCClass(config, **GC_PARAMS)
         self.gc.DEBUG = True
+        self.gc.rrc_gc = self.RRCGCClass()
         self.rootwalker = DirectRootWalker(self)
         self.gc.set_root_walker(self.rootwalker)
         self.layoutbuilder = TypeLayoutBuilder(self.GCClass)

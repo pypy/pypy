@@ -105,14 +105,14 @@ translation_optiondescription = OptionDescription(
                      "asmgcc": [("translation.gctransformer", "framework"),
                                 ("translation.backend", "c")],
                     }),
-    ChoiceOption("cpyextgc", "Garbage Collection Strategy for cpyext",
-                 ["boehm", "trialdeletion", "none"],
-                 default="trialdeletion",
+    ChoiceOption("rrcgc", "Garbage Collection Strategy for raw refcounted objects in cpyext",
+                 ["mark", "incmark", "none"],
+                 default="mark",
                  requires={
-                    "boehm": [("translation.gc", "incminimark")],
-                    "trialdeletion": [("translation.gc", "incminimark")],
+                    "mark": [("translation.gc", "incminimark")],
+                    "incmark": [("translation.gc", "incminimark")],
                  },
-                 cmdline="--cpyextgc"),
+                 cmdline="--rrcgc"),
 
     # other noticeable options
     BoolOption("thread", "enable use of threading primitives",

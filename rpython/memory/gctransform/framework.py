@@ -118,6 +118,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def __init__(self, translator, gchooks=None):
         from rpython.memory.gc.base import choose_gc_from_config
+        from rpython.memory.gc.rrc.base import choose_rrc_gc_from_config
 
         super(BaseFrameworkGCTransformer, self).__init__(translator,
                                                          inline=True)
@@ -129,6 +130,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             # for regular translation: pick the GC from the config
             GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
             self.GCClass = GCClass
+
+        RRCGCClass = choose_rrc_gc_from_config(translator.config)
 
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
@@ -164,6 +167,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         gcdata.gc = GCClass(translator.config.translation, hooks=gchooks,
                             **GC_PARAMS)
+        if RRCGCClass:
+            gcdata.gc.rrc_gc = RRCGCClass()
+
         root_walker = self.build_root_walker()
         root_walker.finished_minor_collection_func = finished_minor_collection
         self.root_walker = root_walker

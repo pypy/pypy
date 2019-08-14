@@ -1,18 +1,20 @@
 import os, py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as IncMiniMark
+from rpython.memory.gc.rrc.base import RawRefCountBaseGC
+from rpython.memory.gc.rrc.mark import RawRefCountMarkGC
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT
 
-PYOBJ_HDR = IncMiniMark.PYOBJ_HDR
-PYOBJ_HDR_PTR = IncMiniMark.PYOBJ_HDR_PTR
-RAWREFCOUNT_VISIT = IncMiniMark.RAWREFCOUNT_VISIT
-PYOBJ_GC_HDR = IncMiniMark.PYOBJ_GC_HDR
-PYOBJ_GC_HDR_PTR = IncMiniMark.PYOBJ_GC_HDR_PTR
-RAWREFCOUNT_FINALIZER_MODERN = IncMiniMark.RAWREFCOUNT_FINALIZER_MODERN
-RAWREFCOUNT_FINALIZER_LEGACY = IncMiniMark.RAWREFCOUNT_FINALIZER_LEGACY
-RAWREFCOUNT_FINALIZER_NONE = IncMiniMark.RAWREFCOUNT_FINALIZER_NONE
-RAWREFCOUNT_REFS_UNTRACKED = IncMiniMark.RAWREFCOUNT_REFS_UNTRACKED
+PYOBJ_HDR = RawRefCountBaseGC.PYOBJ_HDR
+PYOBJ_HDR_PTR = RawRefCountBaseGC.PYOBJ_HDR_PTR
+RAWREFCOUNT_VISIT = RawRefCountBaseGC.RAWREFCOUNT_VISIT
+PYOBJ_GC_HDR = RawRefCountBaseGC.PYOBJ_GC_HDR
+PYOBJ_GC_HDR_PTR = RawRefCountBaseGC.PYOBJ_GC_HDR_PTR
+RAWREFCOUNT_FINALIZER_MODERN = RawRefCountBaseGC.RAWREFCOUNT_FINALIZER_MODERN
+RAWREFCOUNT_FINALIZER_LEGACY = RawRefCountBaseGC.RAWREFCOUNT_FINALIZER_LEGACY
+RAWREFCOUNT_FINALIZER_NONE = RawRefCountBaseGC.RAWREFCOUNT_FINALIZER_NONE
+RAWREFCOUNT_REFS_UNTRACKED = RawRefCountBaseGC.RAWREFCOUNT_REFS_UNTRACKED
 
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('S',
@@ -23,6 +25,7 @@ S.become(lltype.GcStruct('S',
 
 class TestRawRefCount(BaseDirectGCTest):
     GCClass = IncMiniMark
+    RRCGCClass = RawRefCountMarkGC
 
     def setup_method(self, method):
         BaseDirectGCTest.setup_method(self, method)
@@ -110,7 +113,7 @@ class TestRawRefCount(BaseDirectGCTest):
         else:
             self.gc._minor_collection()
         count1 = len(self.trigger)
-        self.gc.rrc_invoke_callback()
+        self.gc.rrc_gc.invoke_callback()
         count2 = len(self.trigger)
         # TODO: fix assertion
         # assert count2 - count1 == expected_trigger
@@ -648,7 +651,7 @@ class TestRawRefCount(BaseDirectGCTest):
             dests_target = dests_by_source[source]
             def append(pyobj, ignore):
                 dests_target.remove(pyobj)
-            self.gc.rrc_tp_traverse(source.r, append, None)
+            self.gc.rrc_gc.tp_traverse(source.r, append, None)
             assert len(dests_target) == 0
 
         garbage_pypy = []
@@ -675,14 +678,14 @@ class TestRawRefCount(BaseDirectGCTest):
                         decref(r, None)
 
             def decref_children(pyobj):
-                self.gc.rrc_tp_traverse(pyobj, decref, None)
+                self.gc.rrc_gc.tp_traverse(pyobj, decref, None)
 
             def decref(pyobj, ignore):
                 pyobj.c_ob_refcnt -= 1
                 if pyobj.c_ob_refcnt == 0:
                     finalize_modern(pyobj)
                 if pyobj.c_ob_refcnt == 0:
-                    gchdr = self.gc.rrc_pyobj_as_gc(pyobj)
+                    gchdr = self.gc.rrc_gc.pyobj_as_gc(pyobj)
                     if gchdr != lltype.nullptr(PYOBJ_GC_HDR) and \
                         gchdr.c_gc_refs != RAWREFCOUNT_REFS_UNTRACKED:
                         next = gchdr.c_gc_next
@@ -696,14 +699,14 @@ class TestRawRefCount(BaseDirectGCTest):
             next_dead = self.gc.rawrefcount_next_dead()
             while next_dead <> llmemory.NULL:
                 pyobj = llmemory.cast_adr_to_ptr(next_dead,
-                                                 self.gc.PYOBJ_HDR_PTR)
+                                                 self.gc.rrc_gc.PYOBJ_HDR_PTR)
                 decref(pyobj, None)
                 next_dead = self.gc.rawrefcount_next_dead()
 
             next = self.gc.rawrefcount_next_cyclic_isolate()
             while next <> llmemory.NULL:
                 pyobj = llmemory.cast_adr_to_ptr(next,
-                                                 self.gc.PYOBJ_HDR_PTR)
+                                                 self.gc.rrc_gc.PYOBJ_HDR_PTR)
                 pyobj.c_ob_refcnt += 1
                 finalize_modern(pyobj)
                 decref(pyobj, None)
@@ -712,7 +715,7 @@ class TestRawRefCount(BaseDirectGCTest):
             next_dead = self.gc.rawrefcount_cyclic_garbage_head()
             while next_dead <> llmemory.NULL:
                 pyobj = llmemory.cast_adr_to_ptr(next_dead,
-                                                 self.gc.PYOBJ_HDR_PTR)
+                                                 self.gc.rrc_gc.PYOBJ_HDR_PTR)
                 pyobj.c_ob_refcnt += 1
 
                 def clear(pyobj_to, pyobj_from):
@@ -724,7 +727,7 @@ class TestRawRefCount(BaseDirectGCTest):
                     else:
                         pass # weakref
 
-                self.gc.rrc_tp_traverse(pyobj, clear, pyobj)
+                self.gc.rrc_gc.tp_traverse(pyobj, clear, pyobj)
 
                 decref(pyobj, None)
 
@@ -749,7 +752,7 @@ class TestRawRefCount(BaseDirectGCTest):
         # do a collection to find cyclic isolates and clean them, if there are
         # no finalizers
         self.gc.collect()
-        self.gc.rrc_invoke_callback()
+        self.gc.rrc_gc.invoke_callback()
         if self.trigger <> []:
             cleanup()
 
@@ -757,7 +760,7 @@ class TestRawRefCount(BaseDirectGCTest):
             # now do another collection, to clean up cyclic trash, if there
             # were finalizers involved
             self.gc.collect()
-            self.gc.rrc_invoke_callback()
+            self.gc.rrc_gc.invoke_callback()
             if self.trigger <> []:
                 cleanup()
 
