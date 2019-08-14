@@ -55,3 +55,14 @@ Add a JIT backend for ARM64 (aarch64)
 
 .. branch: fix_darwin_list_dir_test
 
+.. branch: apptest-file
+
+New mechanism for app-level testing using -D to test all apptest_*.py files
+
+.. branch: feature_closed_prop_to_rfile
+
+Add RFile.closed
+
+.. branch: cryptograhpt-2.7
+
+Update vendored cryptography used for _ssl to 2.7
