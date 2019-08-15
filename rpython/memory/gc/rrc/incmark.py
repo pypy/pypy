@@ -55,12 +55,6 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             self.state = self.STATE_GARBAGE_MARKING
             return False
 
-        elif self.state == self.STATE_GARBAGE_MARKING:
-            #if self._find_garbage():  # handle legacy finalizers # TODO: from snapshot
-            #    self._mark_garbage()  # TODO: from snapshot
-            #    self._debug_check_consistency(print_label="end-legacy-fin")
-            self.state = self.STATE_DEFAULT
-
         # now move all dead objs still in pyob_list to garbage
         # dead -> pyobj_old_list
         # live -> set cyclic refcount to > 0
@@ -80,6 +74,11 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             else:
                 pygchdr.c_gc_refs = 1 # new object, keep alive
             pygchdr = next_old
+
+        if self._find_garbage(False):  # handle legacy finalizers
+            self._mark_garbage(False)
+            self._debug_check_consistency(print_label="end-legacy-fin")
+        self.state = self.STATE_DEFAULT
 
         # We are finished with marking, now finish things up
         found_finalizer = self._find_finalizer()  # modern finalizers
@@ -127,7 +126,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         # refcount > 0 or are marked
 
     def _mark_rawrefcount_obj(self, snapobj):
-        if snapobj.refcnt == 0: # hack
+        if snapobj.status == 0:
             return False
 
         alive = snapobj.refcnt_external > 0
@@ -149,9 +148,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             if snapobj.pypy_link <> 0:
                 self.gc.objects_to_trace.append(obj)
                 self.gc.visit_all_objects()
-
-            # remove from old list, TODO: hack -> working set might be better
-            snapobj.refcnt = 0
+            # mark as processed
+            snapobj.status = 0
         return alive
 
     def _take_snapshot(self, pygclist):
@@ -196,7 +194,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             pygchdr.c_gc_refs = objs_index + 1
             obj = self.snapshot_objs[objs_index]
             obj.pyobj = llmemory.cast_ptr_to_adr(pyobj)
-            obj.refcnt = 1
+            obj.status = 1
             obj.refcnt_external = refcnt
             obj.refs_index = refs_index
             obj.refs_len = 0
