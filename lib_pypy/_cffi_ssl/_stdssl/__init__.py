@@ -82,8 +82,15 @@ SSL_CB_MAXLEN=128
 
 if lib.Cryptography_HAS_SSL2:
     PROTOCOL_SSLv2  = 0
+SSLv3_method_ok = False
 if lib.Cryptography_HAS_SSL3_METHOD:
-    PROTOCOL_SSLv3  = 1
+    # Some Ubuntu systems disable SSLv3
+    ctx = lib.SSL_CTX_new(lib.SSLv3_method())
+    if ctx:
+        PROTOCOL_SSLv3  = 1
+        lib.SSL_CTX_free(ctx)
+        SSLv3_method_ok = True
+        
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
@@ -857,7 +864,7 @@ class _SSLContext(object):
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
             method = lib.TLSv1_2_method()
-        elif lib.Cryptography_HAS_SSL3_METHOD and protocol == PROTOCOL_SSLv3:
+        elif SSLv3_method_ok and protocol == PROTOCOL_SSLv3:
             method = lib.SSLv3_method()
         elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
@@ -888,7 +895,7 @@ class _SSLContext(object):
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if not lib.Cryptography_HAS_SSL2 or protocol != PROTOCOL_SSLv2:
             options |= lib.SSL_OP_NO_SSLv2
-        if not lib.Cryptography_HAS_SSL3_METHOD or protocol != PROTOCOL_SSLv3:
+        if not SSLv3_method_ok or protocol != PROTOCOL_SSLv3:
             options |= lib.SSL_OP_NO_SSLv3
         # Minimal security flags for server and client side context.
         # Client sockets ignore server-side parameters.

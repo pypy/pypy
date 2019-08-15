@@ -53,7 +53,6 @@ ffi = build_ffi_for_binding(
         "callbacks",
     ] + pypy_win32_extra,
     libraries=_get_openssl_libraries(sys.platform),
-    extra_compile_args=['-DOPENSSL_NO_SSL3_METHOD'],
     extra_link_args=extra_link_args(compiler_type()),
 )
 
