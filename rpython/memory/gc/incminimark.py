@@ -3161,7 +3161,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def rawrefcount_end_garbage(self):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")
-        self.rrc_gc.state = RawRefCountBaseGC.STATE_MARKING
+        self.rrc_gc.state = RawRefCountBaseGC.STATE_DEFAULT
 
     def rawrefcount_next_garbage_pypy(self):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")

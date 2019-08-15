@@ -61,30 +61,32 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             #    self._debug_check_consistency(print_label="end-legacy-fin")
             self.state = self.STATE_DEFAULT
 
-        # We are finished with marking, now finish things up
-        #found_finalizer = self._find_finalizer()  # modern finalizers # TODO: from snapshot
-        #if found_finalizer:
-        #    self._gc_list_move(self.pyobj_old_list,
-        #                       self.pyobj_isolate_list)
-        #use_cylicrc = not found_finalizer
-        use_cylicrc = True
-
         # now move all dead objs still in pyob_list to garbage
         # dead -> pyobj_old_list
         # live -> set cyclic refcount to > 0
         pygchdr = self.pyobj_list.c_gc_next
         while pygchdr <> self.pyobj_list:
             next_old = pygchdr.c_gc_next
-            snapobj = self.snapshot_objs[pygchdr.c_gc_refs - 1]
-            pygchdr.c_gc_refs = snapobj.refcnt_external
-            if snapobj.refcnt_external == 0:
-                # remove from old list
-                next = pygchdr.c_gc_next
-                next.c_gc_prev = pygchdr.c_gc_prev
-                pygchdr.c_gc_prev.c_gc_next = next
-                # add to new list (or not, if it is a tuple)
-                self._gc_list_add(self.pyobj_old_list, pygchdr)
+            if pygchdr.c_gc_refs > 0:
+                snapobj = self.snapshot_objs[pygchdr.c_gc_refs - 1]
+                pygchdr.c_gc_refs = snapobj.refcnt_external
+                if snapobj.refcnt_external == 0:
+                    # remove from old list
+                    next = pygchdr.c_gc_next
+                    next.c_gc_prev = pygchdr.c_gc_prev
+                    pygchdr.c_gc_prev.c_gc_next = next
+                    # add to new list (or not, if it is a tuple)
+                    self._gc_list_add(self.pyobj_old_list, pygchdr)
+            else:
+                pygchdr.c_gc_refs = 1 # new object, keep alive
             pygchdr = next_old
+
+        # We are finished with marking, now finish things up
+        found_finalizer = self._find_finalizer()  # modern finalizers
+        if found_finalizer:
+            self._gc_list_move(self.pyobj_old_list,
+                               self.pyobj_isolate_list)
+        use_cylicrc = not found_finalizer
 
         # now mark all pypy objects at the border, depending on the results
         self._debug_check_consistency(print_label="end-mark-cyclic")
