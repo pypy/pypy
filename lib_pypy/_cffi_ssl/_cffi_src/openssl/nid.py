@@ -23,6 +23,7 @@ static const int NID_ED25519;
 static const int NID_ED448;
 static const int NID_poly1305;
 
+static const int NID_X9_62_prime256v1;
 static const int NID_info_access;
 static const int NID_subject_alt_name;
 static const int NID_crl_distribution_points;
