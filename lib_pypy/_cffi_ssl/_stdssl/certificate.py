@@ -294,7 +294,7 @@ def _test_decode_cert(path):
         lib.BIO_free(cert)
         raise ssl_error("Can't open file")
 
-    x = lib.PEM_read_bio_X509_AUX(cert, ffi.NULL, ffi.NULL, ffi.NULL)
+    x = lib.PEM_read_bio_X509(cert, ffi.NULL, ffi.NULL, ffi.NULL)
     if x is ffi.NULL:
         ssl_error("Error decoding PEM-encoded file")
 
