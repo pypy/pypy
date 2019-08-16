@@ -146,6 +146,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 obj_ref.refcnt_external += 1
             # mark recursively, if it is a pypyobj
             if snapobj.pypy_link <> 0:
+                intobj = snapobj.pypy_link
+                obj = llmemory.cast_int_to_adr(intobj)
                 self.gc.objects_to_trace.append(obj)
                 self.gc.visit_all_objects()
             # mark as processed
@@ -215,7 +217,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         #
         self_adr = rffi.cast(llmemory.Address, self_ptr)
         self = cast_adr_to_nongc_instance(RawRefCountIncMarkGC, self_adr)
-        self._rrc_visit_snapshot_action(pyobj, None)
+        self._take_snapshot_visit_action(pyobj, None)
         return rffi.cast(rffi.INT_real, 0)
 
     def _take_snapshot_visit_action(self, pyobj, ignore):
