@@ -2844,10 +2844,6 @@ if _have_threads:
                 else:
                     s.close()
 
-        def test_socketserver_urlib_uses_bisect(self):
-            b = urllib.request.bisect
-            raise ValueError('urllib.request.bisect is %s' % str(b))
-
         def test_socketserver(self):
             """Using socketserver to create and manage SSL connections."""
             server = make_https_server(self, certfile=CERTFILE)
