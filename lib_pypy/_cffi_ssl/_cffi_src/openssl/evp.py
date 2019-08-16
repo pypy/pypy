@@ -90,7 +90,6 @@ int EVP_DigestSignFinal(EVP_MD_CTX *, unsigned char *, size_t *);
 int EVP_DigestVerifyInit(EVP_MD_CTX *, EVP_PKEY_CTX **, const EVP_MD *,
                          ENGINE *, EVP_PKEY *);
 
-
 int PKCS5_PBKDF2_HMAC_SHA1(const char *, int, const unsigned char *, int, int,
                            int, unsigned char *);
 
@@ -147,6 +146,8 @@ int EVP_PKEY_assign_RSA(EVP_PKEY *, RSA *);
 EC_KEY *EVP_PKEY_get1_EC_KEY(EVP_PKEY *);
 int EVP_PKEY_set1_EC_KEY(EVP_PKEY *, EC_KEY *);
 
+int EVP_MD_CTX_block_size(const EVP_MD_CTX *);
+int EVP_CIPHER_CTX_block_size(const EVP_CIPHER_CTX *);
 int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *, int, int, void *);
 
 int PKCS5_PBKDF2_HMAC(const char *, int, const unsigned char *, int, int,
