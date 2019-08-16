@@ -381,7 +381,7 @@ def add_operators(space, dict_w, pto, name):
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
         raw_doc = rffi.charp2str(cts.cast('char*', pto.c_tp_doc))
-        dict_w['__doc__'] = space.newtext(extract_doc(raw_doc, name))
+        dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
