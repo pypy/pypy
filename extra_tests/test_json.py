@@ -48,5 +48,10 @@ def test_skipkeys():
                  == '{"3": 4, "5": 6}'
 
 def test_boolean_as_dict_key():
+    # In CPython 2.x, dumps({True:...}) gives {"True":...}.  It should be
+    # "true" instead; it's a bug as far as I can tell.  In 3.x it was fixed.
+    # BUT! if we call dumps() with sort_keys=True, then CPython (any version)
+    # gives "true" instead of "True".  Surprize!
+    # I don't want to understand why, let's just not attempt to reproduce that.
     assert json.dumps({True: 5}) == '{"true": 5}'
     assert json.dumps({False: 5}) == '{"false": 5}'
