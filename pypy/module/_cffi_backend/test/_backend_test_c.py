@@ -4425,3 +4425,10 @@ def test_int_doesnt_give_bool():
         float(cast(BBool, 42))
     with pytest.raises(TypeError):
         complex(cast(BBool, 42))
+
+def test_cannot_call_null_function_pointer():
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BInt, BInt), BInt, False)
+    f = cast(BFunc, 0)
+    with pytest.raises(RuntimeError):
+        f(40, 2)
