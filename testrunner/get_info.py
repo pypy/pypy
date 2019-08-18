@@ -13,7 +13,6 @@ if sys.platform.startswith('win'):
     # PyPy uses bin as of PR https://github.com/pypa/virtualenv/pull/1400
     TARGET_DIR = 'bin'
 else:
-    TARGET_NAME = 'pypy-c'
     TARGET_NAME = 'pypy3-c'
     TARGET_DIR = 'bin'
 VENV_DIR = 'pypy-venv'
