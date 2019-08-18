@@ -150,8 +150,11 @@ class W_BaseException(W_Root):
 
     def descr_repr(self, space):
         if self.args_w:
-            args_repr = space.utf8_w(
-                space.repr(space.newtuple(self.args_w)))
+            if len(self.args_w) == 1:
+                args_repr = b"(%s)" % (space.utf8_w(space.repr(self.args_w[0])), )
+            else:
+                args_repr = space.utf8_w(
+                    space.repr(space.newtuple(self.args_w)))
         else:
             args_repr = b"()"
         clsname = self.getclass(space).getname(space)
