@@ -16,9 +16,6 @@ class AppTestMinimal:
 class AppTestThreadSignal(GenericTestThread):
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])
 
-    def setup_class(cls):
-        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
-
     def test_exit_twice(self):
         import __pypy__, _thread
         __pypy__.thread._signals_exit()
@@ -109,8 +106,7 @@ class AppTestThreadSignalLock:
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal'])
 
     def setup_class(cls):
-        if (not cls.runappdirect or
-                '__pypy__' not in sys.builtin_module_names):
+        if (not cls.runappdirect):
             import py
             py.test.skip("this is only a test for -A runs on top of pypy")
 
