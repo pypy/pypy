@@ -322,6 +322,7 @@ class W_ImportError(W_Exception):
     """Import can't find module, or can't find name in module."""
     w_name = None
     w_path = None
+    w_msg = None
 
     @jit.unroll_safe
     def descr_init(self, space, __args__):
@@ -335,6 +336,10 @@ class W_ImportError(W_Exception):
                         space.w_TypeError,
                         "'%s' is an invalid keyword argument for this function",
                         keyword)
+        if len(args_w) == 1:
+            self.w_msg = args_w[0]
+        else:
+            self.w_msg = space.w_None
         W_Exception.descr_init(self, space, args_w)
 
 
@@ -347,6 +352,7 @@ W_ImportError.typedef = TypeDef(
     __init__ = interp2app(W_ImportError.descr_init),
     name = readwrite_attrproperty_w('w_name', W_ImportError),
     path = readwrite_attrproperty_w('w_path', W_ImportError),
+    msg = readwrite_attrproperty_w('w_msg', W_ImportError),
 )
 
 
