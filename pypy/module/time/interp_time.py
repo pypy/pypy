@@ -677,8 +677,7 @@ def time(space, w_info=None):
                         _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
                                  res, False, True)
                 return space.newfloat(_timespec_to_seconds(timespec))
-    else:
-        return gettimeofday(space, w_info)
+    return gettimeofday(space, w_info)
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
