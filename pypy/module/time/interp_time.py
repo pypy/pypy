@@ -299,7 +299,7 @@ else:
                     return space.newfloat(
                         widen(timeval.c_tv_sec) +
                         widen(timeval.c_tv_usec) * 1e-6)
-        if HAVE_FTIME:
+        if HAVE_FTIME and not space.config.translation.sandbox:
             with lltype.scoped_alloc(TIMEB) as t:
                 c_ftime(t)
                 result = (widen(t.c_time) +
