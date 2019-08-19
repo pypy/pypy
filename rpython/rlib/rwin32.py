@@ -575,3 +575,8 @@ if WIN32:
         
     GetNumberOfConsoleInputEvents = winexternal(
         'GetNumberOfConsoleInputEvents', [HANDLE, LPDWORD], BOOL)
+
+    WideCharToMultiByte = winexternal(
+        'WideCharToMultiByte', [rffi.UINT, DWORD, rffi.CWCHARP, rffi.INT,
+                                LPSTR, rffi.INT, rffi.CCHARP, LPBOOL], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)

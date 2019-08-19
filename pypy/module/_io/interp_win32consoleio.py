@@ -15,10 +15,21 @@ from rpython.rlib.rwin32file import make_win32_traits
 import unicodedata
 
 SMALLBUF = 4
+BUFMAX = (32*1024*1024)
 
 def err_closed(space):
     raise oefmt(space.w_ValueError,
                 "I/O operation on closed file")
+
+def err_mode(space, state):
+    # TODO sort out the state
+    raise oefmt(space.w_ValueError,
+                "I/O operation on closed file")
+
+
+def read_console_w(handle, maxlen, readlen):
+    #TODO implement me
+    pass
 
 def _get_console_type(handle):
     mode = lltype.malloc(rwin32.LPDWORD.TO,0,flavor='raw')
@@ -115,6 +126,10 @@ class W_WinConsoleIO(W_RawIOBase):
     # def _internal_close(self, space):
         # pass
         
+    def _copyfrombuf(self, buf, len):
+        # TODO implement me.
+        pass
+    
     @unwrap_spec(w_mode=WrappedDefault("r"), w_closefd=WrappedDefault(True), w_opener=WrappedDefault(None))
     def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
         return None
@@ -262,9 +277,49 @@ class W_WinConsoleIO(W_RawIOBase):
             return err_mode("fileno")
         return space.newint(self.fd)
         
-    def readinto_w(self, space):
+    def readinto_w(self, space, w_buffer):
+        rwbuffer = space.writebuf_w(w_buffer)
+        length = rwbuffer.getlength()
+        
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
             return err_closed(space)
+            
+        if not self.readable:
+            err_mode(space, "reading")
+            
+        if not length:
+            return space.newint(0)
+            
+        if length > BUFMAX:
+            raise oefmt(space.w_ValueError,
+                        "cannot read more than %d bytes", BUFMAX)
+                        
+        wlen = rffi.cast(rffi.DWORD, length / 4)
+        if not wlen:
+            wlen = 1
+            
+        read_len = _copyfrombuf(self, buf, rffi.cast(rffi.DWORD, length))
+        if read_len:
+            buf.setslice(read_len, length)
+            length = length - read_len
+            wlen = wlen - 1
+            
+        if length == read_len or not wlen:
+            return read_len
+            
+        with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
+            wbuf = read_console_w(self.handle, wlen , n)
+            
+            if not wbuf:
+                return -1
+                
+            if n == 0:
+                return read_len
+                
+            u8n = 0
+            
+            ##if len < 4:
+                
             
        
     def get_blksize(self,space):
