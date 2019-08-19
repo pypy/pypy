@@ -31,6 +31,7 @@ class AssemblerARM64(ResOpAssembler):
         ResOpAssembler.__init__(self, cpu, translate_support_code)
         self.failure_recovery_code = [0, 0, 0, 0]
         self.wb_slowpath = [0, 0, 0, 0, 0]
+        self.stack_check_slowpath = 0
 
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
@@ -675,7 +676,7 @@ class AssemblerARM64(ResOpAssembler):
         # new value of nursery_free_adr in r1 and the adr of the new object in
         # r0.
 
-        self.mc.B_ofs_cond(10 * 4, c.LO) # 4 for gcmap load, 5 for BL, 1 for B_ofs_cond
+        self.mc.B_ofs_cond(10 * 4, c.LS) # 4 for gcmap load, 5 for BL, 1 for B_ofs_cond
         self.mc.gen_load_int_full(r.ip1.value, rffi.cast(lltype.Signed, gcmap))
 
         self.mc.BL(self.malloc_slowpath)
@@ -698,7 +699,7 @@ class AssemblerARM64(ResOpAssembler):
 
         self.mc.CMP_rr(r.x1.value, r.ip0.value)
         #
-        self.mc.B_ofs_cond(40, c.LO) # see calculations in malloc_cond
+        self.mc.B_ofs_cond(40, c.LS) # see calculations in malloc_cond
         self.mc.gen_load_int_full(r.ip1.value, rffi.cast(lltype.Signed, gcmap))
 
         self.mc.BL(self.malloc_slowpath)

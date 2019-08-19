@@ -422,6 +422,8 @@ class _TestProcess(BaseTestCase):
         del c
         p.start()
         p.join()
+        for i in range(3):
+            gc.collect()
         self.assertIs(wr(), None)
         self.assertEqual(q.get(), 5)
         close_queue(q)
@@ -2283,6 +2285,8 @@ class _TestPool(BaseTestCase):
         self.pool.map(identity, objs)
 
         del objs
+        for i in range(3):
+            gc.collect()
         time.sleep(DELTA)  # let threaded cleanup code run
         self.assertEqual(set(wr() for wr in refs), {None})
         # With a process pool, copies of the objects are returned, check
@@ -3276,6 +3280,8 @@ class _TestFinalize(BaseTestCase):
         util._finalizer_registry.clear()
 
     def tearDown(self):
+        for i in range(3):
+            gc.collect()
         self.assertFalse(util._finalizer_registry)
         util._finalizer_registry.update(self.registry_backup)
 
@@ -3330,6 +3336,7 @@ class _TestFinalize(BaseTestCase):
         result = [obj for obj in iter(conn.recv, 'STOP')]
         self.assertEqual(result, ['a', 'b', 'd10', 'd03', 'd02', 'd01', 'e'])
 
+    @test.support.cpython_only
     def test_thread_safety(self):
         # bpo-24484: _run_finalizers() should be thread-safe
         def cb():

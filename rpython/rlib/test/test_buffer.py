@@ -125,8 +125,8 @@ class TestTypedReadDirect(BaseTypedReadTest):
 class TestSubBufferTypedReadDirect(BaseTypedReadTest):
 
     def read(self, TYPE, data, offset):
-        buf = StringBuffer('xx' + data)
-        subbuf = SubBuffer(buf, 2, len(data))
+        buf = StringBuffer('x' * 16 + data)
+        subbuf = SubBuffer(buf, 16, len(data))
         return subbuf.typed_read(TYPE, offset)
 
 

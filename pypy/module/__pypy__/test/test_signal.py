@@ -16,9 +16,6 @@ class AppTestMinimal:
 class AppTestThreadSignal(GenericTestThread):
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])
 
-    def setup_class(cls):
-        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
-
     def test_exit_twice(self):
         import __pypy__, _thread
         __pypy__.thread._signals_exit()
@@ -75,19 +72,19 @@ class AppTestThreadSignal(GenericTestThread):
 
     def test_thread_fork_signals(self):
         import __pypy__
-        import os, _thread, signal
+        import os, _thread, signal, time
 
         if not hasattr(os, 'fork'):
             skip("No fork on this platform")
 
         def fork():
+            time.sleep(0.1)
             with __pypy__.thread.signals_enabled:
                 return os.fork()
 
         def threadfunction():
             pid = fork()
             if pid == 0:
-                print('in child')
                 # signal() only works from the 'main' thread
                 signal.signal(signal.SIGUSR1, signal.SIG_IGN)
                 os._exit(42)
@@ -98,6 +95,7 @@ class AppTestThreadSignal(GenericTestThread):
 
         feedback = []
         _thread.start_new_thread(threadfunction, ())
+        time.sleep(3)
         self.waitfor(lambda: feedback)
         # if 0, an (unraisable) exception was raised from the forked thread.
         # if 9, process was killed by timer.
@@ -109,8 +107,7 @@ class AppTestThreadSignalLock:
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal'])
 
     def setup_class(cls):
-        if (not cls.runappdirect or
-                '__pypy__' not in sys.builtin_module_names):
+        if (not cls.runappdirect):
             import py
             py.test.skip("this is only a test for -A runs on top of pypy")
 

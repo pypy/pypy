@@ -1814,7 +1814,8 @@ class SimpleBackgroundTests(unittest.TestCase):
         sslobj = ctx.wrap_bio(incoming, outgoing, False, 'localhost')
         self.assertIs(sslobj._sslobj.owner, sslobj)
         self.assertIsNone(sslobj.cipher())
-        self.assertIsNone(sslobj.version())
+        # cypthon implementation detail
+        # self.assertIsNone(sslobj.version())
         self.assertIsNotNone(sslobj.shared_ciphers())
         self.assertRaises(ValueError, sslobj.getpeercert)
         if 'tls-unique' in ssl.CHANNEL_BINDING_TYPES:
@@ -3209,7 +3210,7 @@ if _have_threads:
                         server_hostname="localhost") as s:
                     with self.assertRaises(OSError):
                         s.connect((HOST, server.port))
-            self.assertEqual("NO_SHARED_CIPHER", server.conn_errors[0].reason)
+            self.assertIn("no shared cipher", server.conn_errors[0])
 
         def test_version_basic(self):
             """

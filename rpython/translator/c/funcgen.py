@@ -5,7 +5,7 @@ from rpython.translator.c.support import c_string_constant, barebonearray
 from rpython.flowspace.model import Variable, Constant, mkentrymap
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
-    Array, FixedSizeArray, ForwardReference, FuncType)
+    Array, FixedSizeArray, ForwardReference, FuncType, typeOf)
 from rpython.rtyper.lltypesystem.rffi import INT
 from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.translator.backendopt.ssa import SSI_to_SSA
@@ -471,7 +471,10 @@ class FunctionCodeGenerator(object):
             targets = [fn.value._obj.graph]
         except AttributeError:
             targets = None
-        return self.generic_call(fn.concretetype, self.expr(fn),
+        FN_TYPE = fn.concretetype
+        if FN_TYPE is Void:    # XXX no idea how this is possible
+            FN_TYPE = typeOf(fn.value)
+        return self.generic_call(FN_TYPE, self.expr(fn),
                                  op.args[1:], op.result, targets)
 
     def OP_INDIRECT_CALL(self, op):

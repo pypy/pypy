@@ -487,6 +487,32 @@ class AppTestMemoryViewMockBuffer(object):
         assert list(reversed(view)) == revlist
         assert list(reversed(view)) == view[::-1].tolist()
 
+
+class AppTestMemoryViewMockBuffer(object):
+    spaceconfig = dict(usemodules=['__pypy__'])
+        
+    def test_cast_with_byteorder(self):
+        import sys
+        if '__pypy__' not in sys.modules:
+            skip('PyPy-only test')
+
+        # create a memoryview with format '<B' (like ctypes does)
+        from __pypy__ import bufferable, newmemoryview
+        class B(bufferable.bufferable):
+            def __init__(self):
+                self.data = bytearray(b'abc')
+
+            def __buffer__(self, flags):
+                return newmemoryview(memoryview(self.data), 1, '<B')
+
+
+        obj = B()
+        buf = memoryview(obj)
+        assert buf.format == '<B'
+        # ensure we can cast this even though the format starts with '<'
+        assert buf.cast('B')[0] == ord('a')
+
+
 class AppTestMemoryViewReversed(object):
     spaceconfig = dict(usemodules=['array'])
     def test_reversed_non_bytes(self):

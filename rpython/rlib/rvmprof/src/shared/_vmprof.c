@@ -383,8 +383,22 @@ static PyObject * vmp_get_profile_path(PyObject *module, PyObject *noargs) {
 
 #ifdef VMPROF_UNIX
 static PyObject *
-insert_real_time_thread(PyObject *module, PyObject * noargs) {
+insert_real_time_thread(PyObject *module, PyObject * args) {
     ssize_t thread_count;
+    unsigned long thread_id = 0;
+    pthread_t th = pthread_self();
+
+    if (!PyArg_ParseTuple(args, "|k", &thread_id)) {
+        return NULL;
+    }
+
+    if (thread_id) {
+#if SIZEOF_LONG <= SIZEOF_PTHREAD_T
+        th = (pthread_t) thread_id;
+#else
+        th = (pthread_t) *(unsigned long *) &thread_id;
+#endif
+    }
 
     if (!vmprof_is_enabled()) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
@@ -397,15 +411,29 @@ insert_real_time_thread(PyObject *module, PyObject * noargs) {
     }
 
     vmprof_aquire_lock();
-    thread_count = insert_thread(pthread_self(), -1);
+    thread_count = insert_thread(th, -1);
     vmprof_release_lock();
 
     return PyLong_FromSsize_t(thread_count);
 }
 
 static PyObject *
-remove_real_time_thread(PyObject *module, PyObject * noargs) {
+remove_real_time_thread(PyObject *module, PyObject * args) {
     ssize_t thread_count;
+    unsigned long thread_id = 0;
+    pthread_t th = pthread_self();
+
+    if (!PyArg_ParseTuple(args, "|k", &thread_id)) {
+        return NULL;
+    }
+
+    if (thread_id) {
+#if SIZEOF_LONG <= SIZEOF_PTHREAD_T
+        th = (pthread_t) thread_id;
+#else
+        th = (pthread_t) *(unsigned long *) &thread_id;
+#endif
+    }
 
     if (!vmprof_is_enabled()) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
@@ -418,7 +446,7 @@ remove_real_time_thread(PyObject *module, PyObject * noargs) {
     }
 
     vmprof_aquire_lock();
-    thread_count = remove_thread(pthread_self(), -1);
+    thread_count = remove_thread(th, -1);
     vmprof_release_lock();
 
     return PyLong_FromSsize_t(thread_count);
@@ -445,9 +473,9 @@ static PyMethodDef VMProfMethods[] = {
 #ifdef VMPROF_UNIX
     {"get_profile_path", vmp_get_profile_path, METH_NOARGS,
         "Profile path the profiler logs to."},
-    {"insert_real_time_thread", insert_real_time_thread, METH_NOARGS,
+    {"insert_real_time_thread", insert_real_time_thread, METH_VARARGS,
         "Insert a thread into the real time profiling list."},
-    {"remove_real_time_thread", remove_real_time_thread, METH_NOARGS,
+    {"remove_real_time_thread", remove_real_time_thread, METH_VARARGS,
         "Remove a thread from the real time profiling list."},
 #endif
     {NULL, NULL, 0, NULL}        /* Sentinel */

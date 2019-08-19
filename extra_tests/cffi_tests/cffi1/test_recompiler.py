@@ -2414,6 +2414,18 @@ def test_unnamed_bitfield_4():
     assert ffi.sizeof(a[0]) == ffi.sizeof("unsigned")
     assert ffi.sizeof(b[0]) == ffi.sizeof(a[0])
 
+def test_struct_with_func_with_struct_pointer_arg():
+    ffi = FFI()
+    ffi.cdef("""struct BinaryTree {
+            int (* CompareKey)(struct BinaryTree *tree);
+        };""")
+    lib = verify(ffi, "test_struct_with_func_with_struct_pointer_arg", """
+        struct BinaryTree {
+            int (* CompareKey)(struct BinaryTree *tree);
+        };
+    """)
+    ffi.new("struct BinaryTree *")
+
 def test_struct_with_func_with_struct_arg():
     ffi = FFI()
     ffi.cdef("""struct BinaryTree {

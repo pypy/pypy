@@ -298,6 +298,11 @@ class AppTestExc(object):
         assert ImportError("message", name="x").name == "x"
         assert ImportError("message", path="y").path == "y"
         raises(TypeError, ImportError, invalid="z")
+        assert ImportError("message").msg == "message"
+        assert ImportError("message").args == ("message", )
+        assert ImportError("message", "foo").msg is None
+        assert ImportError("message", "foo").args == ("message", "foo")
+
 
     def test_modulenotfounderror(self):
         assert ModuleNotFoundError("message").name is None
