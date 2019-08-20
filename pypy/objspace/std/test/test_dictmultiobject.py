@@ -722,6 +722,19 @@ class AppTest_DictObject:
         # pointless waste of time.  So the following test fails now.
         assert list(dict(abcdef=1))[0] is 'abcdef'
 
+    def test_dict_copy(self):
+        class my_dict_1(dict):
+            def keys(self):
+                return iter(['b'])
+
+        class my_dict_2(my_dict_1):
+            __iter__ = 42
+
+        d1 = my_dict_1({'a': 1, 'b': 2})
+        assert dict(d1) == {'a': 1, 'b': 2}  # doesn't use overridden keys()
+
+        d2 = my_dict_2({'a': 1, 'b': 2})
+        assert dict(d2) == {'b': 2}  # uses overridden keys()
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 

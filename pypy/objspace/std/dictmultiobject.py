@@ -1265,7 +1265,13 @@ create_iterator_classes(IntDictStrategy)
 
 
 def update1(space, w_dict, w_data):
-    if isinstance(w_data, W_DictMultiObject):    # optimization case only
+    # CPython 'logic' for copying from a dict subclass: use the fast path iff
+    # __iter__ hasn't been overridden, otherwise fall back to using keys().
+    w_st_iter = space.newtext("__iter__")
+    if (isinstance(w_data, W_DictMultiObject) and
+            space.is_w(
+                space.findattr(space.type(w_data), w_st_iter),
+                space.findattr(space.w_dict, w_st_iter))):
         update1_dict_dict(space, w_dict, w_data)
         return
     w_method = space.findattr(w_data, space.newtext("keys"))
