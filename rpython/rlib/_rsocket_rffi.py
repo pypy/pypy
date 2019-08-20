@@ -1217,21 +1217,21 @@ getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
 if sys.platform.startswith("openbsd") or sys.platform.startswith("darwin"):
-    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
-    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
-    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
-    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
+    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True, sandboxsafe=True)
+    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True, sandboxsafe=True)
+    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True, sandboxsafe=True)
+    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True, sandboxsafe=True)
 else:
-    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False)
-    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False)
-    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False)
-    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False)
+    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False, sandboxsafe=True)
+    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False, sandboxsafe=True)
+    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False, sandboxsafe=True)
+    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False, sandboxsafe=True)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],
-                                rffi.INT)
+                                rffi.INT, sandboxsafe=True)
 
-inet_ntoa = external('inet_ntoa', [in_addr], rffi.CCHARP)
+inet_ntoa = external('inet_ntoa', [in_addr], rffi.CCHARP, sandboxsafe=True)
 
 
 inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
@@ -1242,7 +1242,7 @@ inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
                                    socklen_t], CCHARP,
                      save_err=SAVE_ERR)
 
-inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
+inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT, sandboxsafe=True)
 socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
 socketaccept = external('accept', [socketfd_type, sockaddr_ptr,
                                    socklen_t_ptr], socketfd_type,
