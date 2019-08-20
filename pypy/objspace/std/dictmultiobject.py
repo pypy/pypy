@@ -1530,11 +1530,6 @@ class W_DictViewObject(W_Root):
 
     def descr_repr(self, space):
         return viewrepr(space, space.get_objects_in_repr(), self)
-        w_seq = space.call_function(space.w_list, self)
-
-        w_repr = space.repr(w_seq)
-        return space.newtext("%s(%s)" % (space.type(self).getname(space),
-                                         space.text_w(w_repr)))
 
     def descr_len(self, space):
         return space.len(self.w_dict)
