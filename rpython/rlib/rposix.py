@@ -1172,7 +1172,7 @@ def ttyname(fd):
     return rffi.charp2str(l_name)
 
 c_strerror = external('strerror', [rffi.INT], rffi.CCHARP,
-                      releasegil=False)
+                      releasegil=False, sandboxsafe=True)
 
 @replace_os_function('strerror')
 def strerror(errnum):

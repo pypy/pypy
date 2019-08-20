@@ -6,7 +6,7 @@ import os, sys
 import errno
 
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.objectmodel import not_rpython
+from rpython.rlib.objectmodel import not_rpython, fetch_translated_config
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 
@@ -148,7 +148,9 @@ else:  # Posix implementation
         # initialize the random seed of string hashes
         result = []
         if SYS_getrandom is not None:
-            n = _getrandom(n, result, signal_checker)
+            config = fetch_translated_config()
+            if config is None or not config.translation.sandbox:
+                n = _getrandom(n, result, signal_checker)
         if n <= 0:
             return ''.join(result)
 
