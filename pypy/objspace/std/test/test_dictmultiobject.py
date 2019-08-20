@@ -895,6 +895,11 @@ class AppTestDictViews:
         d = {'日本': '日本国'}
         assert repr(d.items()) == "dict_items([('日本', '日本国')])"
 
+    def test_recursive_repr(self):
+        d = {1: 2}
+        d[2] = d.values()
+        assert repr(d) == '{1: 2, 2: dict_values([2, ...])}'
+
     def test_keys_set_operations(self):
         d1 = {'a': 1, 'b': 2}
         d2 = {'b': 3, 'c': 2}
