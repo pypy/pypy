@@ -1185,7 +1185,7 @@ def external_c(name, args, result, **kwargs):
 
 if _POSIX:
     dup = external('dup', [socketfd_type], socketfd_type, save_err=SAVE_ERR)
-    gai_strerror = external('gai_strerror', [rffi.INT], CCHARP)
+    gai_strerror = external('gai_strerror', [rffi.INT], CCHARP, sandboxsafe=True)
 
 #h_errno = c_int.in_dll(socketdll, 'h_errno')
 #
@@ -1333,10 +1333,10 @@ select = external('select',
                   rffi.INT,
                   save_err=SAVE_ERR)
 
-FD_CLR = external_c('FD_CLR', [rffi.INT, fd_set], lltype.Void, macro=True)
-FD_ISSET = external_c('FD_ISSET', [rffi.INT, fd_set], rffi.INT, macro=True)
-FD_SET = external_c('FD_SET', [rffi.INT, fd_set], lltype.Void, macro=True)
-FD_ZERO = external_c('FD_ZERO', [fd_set], lltype.Void, macro=True)
+FD_CLR = external_c('FD_CLR', [rffi.INT, fd_set], lltype.Void, macro=True, sandboxsafe=True)
+FD_ISSET = external_c('FD_ISSET', [rffi.INT, fd_set], rffi.INT, macro=True, sandboxsafe=True)
+FD_SET = external_c('FD_SET', [rffi.INT, fd_set], lltype.Void, macro=True, sandboxsafe=True)
+FD_ZERO = external_c('FD_ZERO', [fd_set], lltype.Void, macro=True, sandboxsafe=True)
 
 if _POSIX:
     pollfdarray = rffi.CArray(pollfd)

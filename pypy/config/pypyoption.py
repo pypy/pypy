@@ -47,7 +47,7 @@ working_modules.update([
 # --sandbox
 sandbox_modules = default_modules.copy()
 sandbox_modules.update([
-    "array", "binascii", "_socket",
+    "array", "binascii", "_socket", "select",
 ])
 
 import rpython.rlib.rvmprof.cintf

@@ -43,3 +43,8 @@ class Module(MixedModule):
             Module.interpleveldefs[name] = "space.wrap(%r)" % value
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)
+
+    def __init__(self, space, w_name):
+        if space.config.translating and space.config.translation.sandbox:
+            self.__class__.interpleveldefs.pop('epoll', None)
+        super(Module, self).__init__(space, w_name)
