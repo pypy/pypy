@@ -964,7 +964,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                 s = unicode_to_decimal_w(space, w_value)
             except Exception:
                 raise oefmt(space.w_ValueError,
-                            'invalid literal for int() with base %d: %S',
+                            'invalid literal for int() with base %d: %R',
                             base, w_value)
         elif (space.isinstance_w(w_value, space.w_bytes) or
               space.isinstance_w(w_value, space.w_bytearray)):
