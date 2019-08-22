@@ -562,7 +562,7 @@ class FunctionCodeGenerator(object):
             return '%s = %d;' % (self.expr(op.result),
                                  ARRAY.length)
         else:
-            return self.generic_get(op, '%s->length;' % self.expr(op.args[0]))
+            return self.generic_get(op, '%s->length' % self.expr(op.args[0]))
 
     def OP_GETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO

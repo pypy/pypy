@@ -14,6 +14,8 @@ W_GcRef.typedef = TypeDef("GcRef")
 
 
 def try_cast_gcref_to_w_root(gcref):
+    if rgc.get_gcflag_dummy(gcref):
+        return None
     w_obj = rgc.try_cast_gcref_to_instance(W_Root, gcref)
     # Ignore the instances of W_Root that are not really valid as Python
     # objects.  There is e.g. WeakrefLifeline in module/_weakref that
