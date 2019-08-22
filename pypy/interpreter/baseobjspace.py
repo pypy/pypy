@@ -296,7 +296,6 @@ class W_Root(object):
                     "expected %s, got %T object", expected, self)
 
     def int(self, space):
-        from pypy.objspace.std.intobject import _new_int
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
             self._typed_unwrap_error(space, "integer")

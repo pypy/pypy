@@ -533,6 +533,19 @@ class AppTestInt(object):
             assert n == 1
             assert type(n) is int
 
+    def test_trunc_returns_int_subclass_2(self):
+        class BadInt:
+            def __int__(self):
+                return True
+
+        class TruncReturnsBadInt:
+            def __trunc__(self):
+                return BadInt()
+        bad_int = TruncReturnsBadInt()
+        n = int(bad_int)
+        assert n == 1
+        assert type(n) is int
+
     def test_int_before_string(self):
         class Integral(str):
             def __int__(self):
