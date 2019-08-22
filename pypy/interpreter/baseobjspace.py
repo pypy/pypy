@@ -296,14 +296,17 @@ class W_Root(object):
                     "expected %s, got %T object", expected, self)
 
     def int(self, space):
+        from pypy.objspace.std.intobject import W_AbstractIntObject
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
             self._typed_unwrap_error(space, "integer")
         w_result = space.get_and_call_function(w_impl, self)
 
         if space.is_w(space.type(w_result), space.w_int):
+            assert isinstance(w_result, W_AbstractIntObject)
             return w_result
         if space.isinstance_w(w_result, space.w_int):
+            assert isinstance(w_result, W_AbstractIntObject)
             tp = space.type(w_result).name
             space.warn(space.newtext(
                 "__int__ returned non-int (type %s).  "
@@ -815,7 +818,7 @@ class ObjSpace(object):
             return self.w_None
         return w_obj
 
-    @signature(types.any(), types.bool(), returns=types.instance(W_Root))
+    @signature(types.any(), types.bool(), returns=types.any())
     def newbool(self, b):
         if b:
             return self.w_True

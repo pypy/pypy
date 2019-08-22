@@ -960,7 +960,7 @@ def _as_subint(space, w_inttype, w_value):
     elif W_SmallLongObject and type(w_value) is W_SmallLongObject:
         return newbigint(space, w_inttype, space.bigint_w(w_value))
 
-#@enforceargs(None, W_AbstractIntObject, typecheck=False)
+@enforceargs(None, W_AbstractIntObject, typecheck=False)
 def _ensure_baseint(space, w_intvalue):
     from pypy.objspace.std.longobject import (
         W_LongObject, W_AbstractLongObject, newlong)
