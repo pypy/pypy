@@ -835,6 +835,11 @@ def toggle_gcflag_extra(gcref):
         _gcflag_extras.add(gcref)
 toggle_gcflag_extra._subopnum = 3
 
+@not_rpython
+def get_gcflag_dummy(gcref):
+    return False
+get_gcflag_dummy._subopnum = 4
+
 def assert_no_more_gcflags():
     if not we_are_translated():
         assert not _gcflag_extras
@@ -1079,7 +1084,8 @@ class Entry(ExtRegistryEntry):
         return hop.genop('gc_typeids_list', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
-    _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra)
+    _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra,
+               get_gcflag_dummy)
     def compute_result_annotation(self, s_arg=None):
         from rpython.annotator.model import s_Bool
         return s_Bool
