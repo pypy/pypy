@@ -226,6 +226,8 @@ def _print_jit_help():
     print '    turn off the JIT'
     print ' help'
     print '    print this page'
+    print
+    print 'The "pypyjit" module can be used to control the JIT from inside python'
 
 def print_version(*args):
     print >> sys.stderr, "Python", sys.version
