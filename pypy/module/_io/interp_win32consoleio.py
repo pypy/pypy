@@ -28,8 +28,22 @@ def err_mode(space, state):
 
 
 def read_console_w(handle, maxlen, readlen):
-    #TODO implement me
-    pass
+    err = 0
+    sig = 0
+    buf = lltype.malloc(rwin32.CWCHARP, maxlen, flavor='raw')
+    try:
+        if not buf:
+            return None
+        
+        off = 0
+        while off < maxlen:
+            n = rffi.cast(rwin32.DWORD, -1)
+            len = m
+    finally:
+        lltype.free(buf, flavor='raw')
+        
+        
+   
 
 def _get_console_type(handle):
     mode = lltype.malloc(rwin32.LPDWORD.TO,0,flavor='raw')
@@ -294,32 +308,63 @@ class W_WinConsoleIO(W_RawIOBase):
             raise oefmt(space.w_ValueError,
                         "cannot read more than %d bytes", BUFMAX)
                         
-        wlen = rffi.cast(rffi.DWORD, length / 4)
+        wlen = rffi.cast(rwin32.DWORD, length / 4)
         if not wlen:
             wlen = 1
             
-        read_len = _copyfrombuf(self, buf, rffi.cast(rffi.DWORD, length))
+        read_len = self._copyfrombuf(rwbuffer, rffi.cast(rwin32.DWORD, length))
         if read_len:
-            buf.setslice(read_len, length)
+            rwbuffer.setslice(read_len, length)
             length = length - read_len
             wlen = wlen - 1
             
         if length == read_len or not wlen:
-            return read_len
+            return space.newint(read_len)
             
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
             wbuf = read_console_w(self.handle, wlen , n)
             
             if not wbuf:
-                return -1
+                return space.newint(-1)
                 
             if n == 0:
-                return read_len
+                return space.newint(read_len)
                 
             u8n = 0
             
-            ##if len < 4:
+            if len < 4:
+                if rwin32.WideCharToMultiByte(rwin32.CP_UTF8,
+                                           0, wbuf, n, self.buf,
+                                           rffi.sizeof(self.buf)/ rffi.sizeof(self.buf[0]),
+                                           rffi.NULL, rffi.NULL):
+                    u8n = self._copyfrombuf(rwbuffer, len)
+                else:
+                    u8n = rwin32.WideCharToMultiByte(rwin32.CP_UTF8,
+                                                    0, wbuf, n, buf, len,
+                                                    rffi.NULL, rffi.NULL)
+                                                    
+            if u8n:
+                read_len += u8n
+                u8n = 0
+            else:
+                err = rwin32.GetLastError_saved()
+                if err == rwin32.ERROR_INSUFFICIENT_BUFFER:
+                    u8n = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf,
+                                                     n, rffi.NULL, 0, rffi.NULL, rffi.NULL)
                 
+            if u8n:
+                raise oefmt(space.w_ValueError,
+                        "Buffer had room for %d bytes but %d bytes required",
+                        len, u8n)
+                        
+            if err:
+                raise oefmt(space.w_WindowsError,
+                        err)
+            
+            if len < 0:
+                return None
+            
+            return space.newint(read_len)
             
        
     def get_blksize(self,space):

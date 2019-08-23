@@ -576,6 +576,8 @@ if WIN32:
     GetNumberOfConsoleInputEvents = winexternal(
         'GetNumberOfConsoleInputEvents', [HANDLE, LPDWORD], BOOL)
 
+    ERROR_INSUFFICIENT_BUFFER = 122
+    CP_UTF8 = 65001 
     WideCharToMultiByte = winexternal(
         'WideCharToMultiByte', [rffi.UINT, DWORD, rffi.CWCHARP, rffi.INT,
                                 LPSTR, rffi.INT, rffi.CCHARP, LPBOOL], rffi.INT,
