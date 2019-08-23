@@ -319,7 +319,6 @@ class BufferedMixin:
         with self.lock:
             if self.writable:
                 self._writer_flush_unlocked(space)
-                self._writer_reset_buf()
 
             if whence == 1:
                 pos -= self._raw_offset()
@@ -371,6 +370,7 @@ class BufferedMixin:
 
     def _writer_flush_unlocked(self, space):
         if self.write_end == -1 or self.write_pos == self.write_end:
+            self._writer_reset_buf()
             return
         # First, rewind
         rewind = self._raw_offset() + (self.pos - self.write_pos)
