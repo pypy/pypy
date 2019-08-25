@@ -87,10 +87,12 @@ class W_Epoll(W_Root):
         self.register_finalizer(space)
 
     @unwrap_spec(sizehint=int, flags=int)
-    def descr__new__(space, w_subtype, sizehint=0, flags=0):
-        if sizehint < 0:     # 'sizehint' is otherwise ignored
+    def descr__new__(space, w_subtype, sizehint=-1, flags=0):
+        if sizehint == -1:
+            sizehint = FD_SETSIZE - 1
+        elif sizehint <= 0:     # 'sizehint' is otherwise ignored
             raise oefmt(space.w_ValueError,
-                        "sizehint must be greater than zero, got %d", sizehint)
+                        "sizehint must be positive or -1")
         epfd = epoll_create1(flags | EPOLL_CLOEXEC)
         if epfd < 0:
             raise exception_from_saved_errno(space, space.w_IOError)
