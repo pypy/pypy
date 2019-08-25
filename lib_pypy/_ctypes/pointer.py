@@ -40,14 +40,17 @@ class PointerType(_CDataMeta):
     def from_param(self, value):
         if value is None:
             return self(None)
-        # If we expect POINTER(<type>), but receive a <type> instance, accept
-        # it by calling byref(<type>).
-        if isinstance(value, self._type_):
-            return byref(value)
-        # Array instances are also pointers when the item types are the same.
-        if isinstance(value, (_Pointer, Array)):
-            if issubclass(type(value)._type_, self._type_):
-                return value
+        if isinstance(value, self):
+            return value
+        if hasattr(self, '_type_'):
+            # If we expect POINTER(<type>), but receive a <type> instance, accept
+            # it by calling byref(<type>).
+            if isinstance(value, self._type_):
+                return byref(value)
+            # Array instances are also pointers when the item types are the same.
+            if isinstance(value, (_Pointer, Array)):
+                if issubclass(type(value)._type_, self._type_):
+                    return value
         return _CDataMeta.from_param(self, value)
 
     def _sizeofinstances(self):
@@ -60,6 +63,8 @@ class PointerType(_CDataMeta):
         return True
 
     def set_type(self, TP):
+        if self._is_abstract():
+            raise TypeError('abstract class')
         ffiarray = _rawffi.Array('P')
         def __init__(self, value=None):
             if not hasattr(self, '_buffer'):
@@ -179,6 +184,7 @@ def POINTER(cls):
         klass = type(_Pointer)("LP_%s" % cls,
                                (_Pointer,),
                                {})
+        klass._type_ = 'P'
         _pointer_type_cache[id(klass)] = klass
         return klass
     else:
