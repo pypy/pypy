@@ -887,12 +887,14 @@ class BufferedReaderMixin(BufferedMixin):
         with self.lock:
             have = self._readahead()
             if have >= length:
-                rwbuffer.setslice(0, self.buffer[self.pos:self.pos + length])
+                self.output_slice(space, rwbuffer,
+                    0, self.buffer[self.pos:self.pos + length])
                 self.pos += length
                 return space.newint(length)
             written = 0
             if have > 0:
-                rwbuffer.setslice(0, self.buffer[self.pos:self.read_end])
+                self.output_slice(space, rwbuffer,
+                    0, self.buffer[self.pos:self.read_end])
                 written = have
 
             while written < length:
@@ -920,7 +922,8 @@ class BufferedReaderMixin(BufferedMixin):
                         break
                     endpos = min(have, length - written)
                     assert endpos >= 0
-                    rwbuffer.setslice(written, self.buffer[0:endpos])
+                    self.output_slice(space, rwbuffer,
+                        written, self.buffer[0:endpos])
                     written += endpos
                     self.pos = endpos
                 if read_once:
