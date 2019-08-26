@@ -123,8 +123,11 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self):
         translator = self.bookkeeper.annotator.translator
-        if translator.config.translation.reverse_debugger:
-            return    # ignore and use the regular hash, with reverse-debugger
+        # you should not call enable_siphash24() when translating with the
+        # reverse-debugger, or with sandbox.
+        assert not translator.config.translation.reverse_debugger
+        assert not translator.config.translation.sandbox
+        #
         if hasattr(translator, 'll_hash_string'):
             assert translator.ll_hash_string == ll_hash_string_siphash24
         else:

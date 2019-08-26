@@ -1104,6 +1104,7 @@ def wcharp2utf8n(w, maxlen):
         i += 1
     return s.build(), i
 
+@sandbox_review(reviewed=True)
 def utf82wcharp(utf8, utf8len, track_allocation=True):
     from rpython.rlib import rutf8
 
@@ -1115,6 +1116,7 @@ def utf82wcharp(utf8, utf8len, track_allocation=True):
     for ch in rutf8.Utf8StringIterator(utf8):
         w[index] = unichr(ch)
         index += 1
+    assert index == utf8len
     w[index] = unichr(0)
     return w
 utf82wcharp._annenforceargs_ = [str, int, bool]
