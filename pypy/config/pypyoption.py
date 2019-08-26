@@ -273,6 +273,9 @@ def set_pypy_opt_level(config, level):
     if level == 'jit':
         pass # none at the moment
 
+    if config.translation.sandbox or config.translation.reverse_debugger:
+        config.objspace.hash = "fnv"
+
 
 def enable_allworkingmodules(config):
     modules = working_modules.copy()

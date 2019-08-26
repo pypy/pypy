@@ -475,6 +475,7 @@ if not _WIN:
     from rpython.rlib.rtime import c_select
 from rpython.rlib import rwin32
 
+@sandbox_review(reviewed=True)
 def sleep(space, w_secs):
     ns = timestamp_w(space, w_secs)
     if not (ns >= 0):
@@ -800,6 +801,7 @@ if HAS_CLOCK_GETTIME:
             secs = _timespec_to_seconds(timespec)
         return space.newfloat(secs)
 
+    @sandbox_review(reviewed=True)
     @unwrap_spec(clk_id='c_int', secs=float)
     def clock_settime(space, clk_id, secs):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
@@ -839,6 +841,7 @@ if _POSIX:
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
 
+@sandbox_review(reviewed=True)
 @unwrap_spec(format='text')
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string

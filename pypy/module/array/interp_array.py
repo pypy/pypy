@@ -439,6 +439,7 @@ class W_ArrayBase(W_Root):
         s = space.charbuf_w(w_s)
         self._frombytes(space, s)
 
+    @sandbox_review(reviewed=True)
     def _frombytes(self, space, s):
         if len(s) % self.itemsize != 0:
             raise oefmt(space.w_ValueError,

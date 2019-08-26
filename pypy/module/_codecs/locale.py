@@ -5,7 +5,7 @@ by PyUnicode_Decode/EncodeFSDefault during interpreter bootstrap
 import os
 import py
 import sys
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, sandbox_review
 from rpython.rlib.rstring import StringBuilder, assert_str0
 from rpython.rlib.runicode import (
     default_unicode_error_decode, default_unicode_error_encode)
@@ -103,6 +103,7 @@ class scoped_unicode2rawwcharp:
         if self.buf:
             lltype.free(self.buf, flavor='raw')
 
+@sandbox_review(reviewed=True)
 def unicode2rawwcharp(u):
     """unicode -> raw wchar_t*"""
     if _should_merge_surrogates():
@@ -115,6 +116,7 @@ def unicode2rawwcharp(u):
     return array
 unicode2rawwcharp._annenforceargs_ = [unicode]
 
+@sandbox_review(check_caller=True)
 def _unicode2rawwcharp_loop(u, array):
     ulen = len(u)
     count = i = 0
