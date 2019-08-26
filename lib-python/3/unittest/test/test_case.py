@@ -1287,6 +1287,8 @@ test case
         with self.assertRaises(TypeError):
             self.assertRaises((ValueError, object))
 
+    @unittest.skipUnless(hasattr(sys, 'getrefcount'),
+                         'test needs sys.getrefcount()')
     def testAssertRaisesRefcount(self):
         # bpo-23890: assertRaises() must not keep objects alive longer
         # than expected
