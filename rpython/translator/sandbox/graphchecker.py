@@ -105,7 +105,7 @@ class GraphChecker(object):
             elif opname in ('cast_ptr_to_adr', 'force_cast',
                             'cast_int_to_ptr'):
                 if is_gc_ptr(op.result.concretetype):
-                    return "result is a GC ptr: %r" % (opname,)
+                    return "result is a GC ptr: %r" % (op,)
 
             else:
                 return "unsupported llop: %r" % (opname,)
