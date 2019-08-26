@@ -373,7 +373,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO
-    if not lltype_is_gc(TP) and sandboxed_translation():
+    if TP._gckind != 'gc' and sandboxed_translation():
         _ll_arraycopy_of_nongc_not_for_sandboxed()
 
     # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
