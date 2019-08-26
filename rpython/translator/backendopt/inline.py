@@ -617,8 +617,7 @@ def make_dont_inline_checker(translator):
     def dont_inline(funcobj):
         func = getattr(funcobj, '_callable', None)
         if sandbox:
-            review = getattr(func, '_sandbox_review_', None)
-            if review is not None and review != 'check_caller':
+            if hasattr(func, '_sandbox_review_'):
                 return True
         return getattr(func, '_dont_inline_', False)
     return dont_inline

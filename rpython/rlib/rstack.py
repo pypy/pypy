@@ -16,7 +16,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 
 def llexternal(name, args, res, _callable=None):
     return rffi.llexternal(name, args, res,
-                           sandboxsafe=True, _nowrapper=True,
+                           sandboxsafe='check_caller', _nowrapper=True,
                            _callable=_callable)
 
 _stack_get_end = llexternal('LL_stack_get_end', [], lltype.Signed,

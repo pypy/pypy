@@ -7,6 +7,7 @@ from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.lltypesystem.rlist import LIST_OF
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rlib import jit
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
                               nonmoving_raw_ptr_for_resizable_list,
@@ -143,6 +144,7 @@ class RawBuffer(Buffer):
         ptr = self.get_raw_address()
         return llop.raw_load(TP, ptr, byte_offset)
 
+    @sandbox_review(check_caller=True)
     @specialize.ll_and_arg(1)
     def typed_write(self, TP, byte_offset, value):
         """
@@ -179,6 +181,7 @@ class GCBuffer(Buffer):
         base_ofs = targetcls._get_gc_data_offset()
         scale_factor = llmemory.sizeof(lltype.Char)
 
+        @sandbox_review(check_caller=True)
         @specialize.ll_and_arg(1)
         def typed_read(self, TP, byte_offset):
             if not is_alignment_correct(TP, byte_offset):
@@ -188,6 +191,7 @@ class GCBuffer(Buffer):
             return llop.gc_load_indexed(TP, lldata, byte_offset,
                                         scale_factor, base_ofs)
 
+        @sandbox_review(check_caller=True)
         @specialize.ll_and_arg(1)
         def typed_write(self, TP, byte_offset, value):
             if self.readonly or not is_alignment_correct(TP, byte_offset):
@@ -362,10 +366,12 @@ class SubBuffer(Buffer):
         ptr = self.buffer.get_raw_address()
         return rffi.ptradd(ptr, self.offset)
 
+    @sandbox_review(check_caller=True)
     @specialize.ll_and_arg(1)
     def typed_read(self, TP, byte_offset):
         return self.buffer.typed_read(TP, byte_offset + self.offset)
 
+    @sandbox_review(check_caller=True)
     @specialize.ll_and_arg(1)
     def typed_write(self, TP, byte_offset, value):
         return self.buffer.typed_write(TP, byte_offset + self.offset, value)

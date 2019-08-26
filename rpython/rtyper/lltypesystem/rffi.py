@@ -98,6 +98,12 @@ def llexternal(name, args, result, _callable=None,
                 don't bother releasing the GIL.  An explicit True or False
                 overrides this logic.
 
+    sandboxsafe: if True, the process really calls the C function even if it
+                 is sandboxed.  If False, it will turn into a stdin/stdout
+                 communication with the parent process.  If "check_caller",
+                 it is like True but we call @sandbox_review(check_caller=True)
+                 which means that we need to also check the callers.
+
     calling_conv: if 'unknown' or 'win', the C function is not directly seen
                   by the JIT.  If 'c', it can be seen (depending on
                   releasegil=False).  For tests only, or if _nowrapper,
@@ -334,7 +340,13 @@ def llexternal(name, args, result, _callable=None,
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
-    wrapper = sandbox_review(reviewed=True)(wrapper)
+    if sandboxsafe == 'check_caller':
+        wrapper = sandbox_review(check_caller=True)(wrapper)
+    elif sandboxsafe == 'abort':
+        wrapper = sandbox_review(abort=True)(wrapper)
+    else:
+        assert isinstance(sandboxsafe, bool)
+        wrapper = sandbox_review(reviewed=True)(wrapper)
     return wrapper
 
 def sandbox_check_type(TYPE):
@@ -1111,6 +1123,7 @@ utf82wcharp._annenforceargs_ = [str, int, bool]
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
 CWCHARPP = lltype.Ptr(lltype.Array(CWCHARP, hints={'nolength': True}))
 
+@sandbox_review(reviewed=True)
 def liststr2charpp(l):
     """ list[str] -> char**, NULL terminated
     """
@@ -1256,6 +1269,7 @@ class MakeEntry(ExtRegistryEntry):
         return v_ptr
 
 
+@sandbox_review(check_caller=True)
 def structcopy(pdst, psrc):
     """Copy all the fields of the structure given by 'psrc'
     into the structure given by 'pdst'.
@@ -1273,6 +1287,7 @@ def _get_structcopy_fn(PDST, PSRC):
                                              if name not in padding]
         unrollfields = unrolling_iterable(fields)
 
+        @sandbox_review(check_caller=True)
         def copyfn(pdst, psrc):
             for name, TYPE in unrollfields:
                 if isinstance(TYPE, lltype.ContainerType):
@@ -1286,6 +1301,7 @@ def _get_structcopy_fn(PDST, PSRC):
 _get_structcopy_fn._annspecialcase_ = 'specialize:memo'
 
 
+@sandbox_review(check_caller=True)
 def setintfield(pdst, fieldname, value):
     """Maybe temporary: a helper to set an integer field into a structure,
     transparently casting between the various integer types.
@@ -1420,14 +1436,14 @@ c_memcpy = llexternal("memcpy",
             lltype.Void,
             releasegil=False,
             calling_conv='c',
-            sandboxsafe=True,
+            sandboxsafe='check_caller',
         )
 c_memset = llexternal("memset",
             [VOIDP, lltype.Signed, SIZE_T],
             lltype.Void,
             releasegil=False,
             calling_conv='c',
-            sandboxsafe=True,
+            sandboxsafe='check_caller',
         )
 
 

@@ -10,7 +10,8 @@ from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
     _prefer_unicode, _preferred_traits, _preferred_traits2)
 from rpython.rlib.objectmodel import (
-    specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
+    specialize, enforceargs, register_replacement_for, NOT_CONSTANT,
+    sandbox_review)
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
@@ -988,6 +989,7 @@ c_forkpty = external('forkpty',
                      [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
                      rffi.PID_T, _nowrapper = True)
 
+@sandbox_review(abort=True)
 @replace_os_function('fork')
 @jit.dont_look_inside
 def fork():
@@ -1017,6 +1019,7 @@ def openpty():
         lltype.free(master_p, flavor='raw')
         lltype.free(slave_p, flavor='raw')
 
+@sandbox_review(abort=True)
 @replace_os_function('forkpty')
 @jit.dont_look_inside
 def forkpty():
@@ -1058,6 +1061,7 @@ else:
                          [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T,
                          save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('waitpid')
 def waitpid(pid, options):
     status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
@@ -1743,6 +1747,7 @@ def getgroups():
     finally:
         lltype.free(groups, flavor='raw')
 
+@sandbox_review(reviewed=True)
 @replace_os_function('setgroups')
 def setgroups(gids):
     n = len(gids)

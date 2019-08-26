@@ -7,7 +7,7 @@ The format table for standard sizes and alignments.
 
 import struct
 
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, sandbox_review
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
@@ -30,6 +30,7 @@ def pack_fastpath(TYPE):
     Create a fast path packer for TYPE. The packer returns True is it succeded
     or False otherwise.
     """
+    @sandbox_review(reviewed=True)
     @specialize.argtype(0)
     def do_pack_fastpath(fmtiter, value):
         size = rffi.sizeof(TYPE)
@@ -39,6 +40,7 @@ def pack_fastpath(TYPE):
             raise CannotWrite
         #
         # typed_write() might raise CannotWrite
+        # (note that we assume the write cannot overflow its buffer)
         fmtiter.wbuf.typed_write(TYPE, fmtiter.pos, value)
         if not ALLOW_FASTPATH:
             # if we are here it means that typed_write did not raise, and thus
@@ -211,6 +213,7 @@ def make_int_packer(size, signed, _memo={}):
 
 @specialize.memo()
 def unpack_fastpath(TYPE):
+    @sandbox_review(reviewed=True)
     @specialize.argtype(0)
     def do_unpack_fastpath(fmtiter):
         size = rffi.sizeof(TYPE)
@@ -289,9 +292,15 @@ def make_ieee_unpacker(TYPE):
             # because of alignment issues. So we copy the slice into a new
             # string, which is guaranteed to be properly aligned, and read the
             # float/double from there
-            input = fmtiter.read(size)
-            val = StringBuffer(input).typed_read(TYPE, 0)
+            val = read_slowpath(fmtiter)
         fmtiter.appendobj(float(val))
+
+    @sandbox_review(reviewed=True)
+    def read_slowpath(fmtiter):
+        size = rffi.sizeof(TYPE)
+        input = fmtiter.read(size)
+        return StringBuffer(input).typed_read(TYPE, 0)
+
     return unpack_ieee
 
 @specialize.argtype(0)

@@ -1,6 +1,6 @@
 from rpython.rlib import jit, rgc, rutf8
 from rpython.rlib.buffer import RawBuffer
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, sandbox_review
 from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import llstr
@@ -159,6 +159,7 @@ class W_ArrayBase(W_Root):
         if self._buffer:
             lltype.free(self._buffer, flavor='raw')
 
+    @sandbox_review(reviewed=True)
     def setlen(self, size, zero=False, overallocate=True):
         if self._buffer:
             delta_memory_pressure = -self.allocated * self.itemsize
@@ -233,6 +234,7 @@ class W_ArrayBase(W_Root):
     def _charbuf_stop(self):
         keepalive_until_here(self)
 
+    @sandbox_review(reviewed=True)
     def delitem(self, space, i, j):
         if i < 0:
             i += self.len
@@ -378,6 +380,7 @@ class W_ArrayBase(W_Root):
         self._charbuf_stop()
         return self.space.newbytes(s)
 
+    @sandbox_review(reviewed=True)
     def descr_fromstring(self, space, w_s):
         """ fromstring(string)
 
@@ -496,6 +499,7 @@ class W_ArrayBase(W_Root):
             w_dict = space.w_None
         return space.newtuple([space.type(self), space.newtuple(args), w_dict])
 
+    @sandbox_review(reviewed=True)
     def descr_copy(self, space):
         """ copy(array)
 
@@ -510,6 +514,7 @@ class W_ArrayBase(W_Root):
         )
         return w_a
 
+    @sandbox_review(reviewed=True)
     def descr_byteswap(self, space):
         """ byteswap()
 
@@ -602,6 +607,7 @@ class W_ArrayBase(W_Root):
     def descr_iter(self, space):
         return space.newseqiter(self)
 
+    @sandbox_review(reviewed=True)
     def descr_add(self, space, w_other):
         if (not isinstance(w_other, W_ArrayBase)
                 or w_other.typecode != self.typecode):
@@ -625,6 +631,7 @@ class W_ArrayBase(W_Root):
         keepalive_until_here(a)
         return a
 
+    @sandbox_review(reviewed=True)
     def descr_inplace_add(self, space, w_other):
         if (not isinstance(w_other, W_ArrayBase)
                 or w_other.typecode != self.typecode):
@@ -643,6 +650,7 @@ class W_ArrayBase(W_Root):
         keepalive_until_here(w_other)
         return self
 
+    @sandbox_review(reviewed=True)
     def _mul_helper(self, space, w_repeat, is_inplace):
         try:
             repeat = space.getindex_w(w_repeat, space.w_OverflowError)
@@ -965,6 +973,7 @@ def make_array(mytype):
                                          self.space.newtext(msg))
             return result
 
+        @sandbox_review(reviewed=True)
         def fromsequence(self, w_seq):
             space = self.space
             oldlen = self.len
@@ -1013,6 +1022,7 @@ def make_array(mytype):
 
             self._fromiterable(w_seq)
 
+        @sandbox_review(reviewed=True)
         def extend(self, w_iterable, accept_different_array=False):
             space = self.space
             if isinstance(w_iterable, W_Array):
@@ -1070,6 +1080,7 @@ def make_array(mytype):
 
         # interface
 
+        @sandbox_review(reviewed=True)
         def descr_append(self, space, w_x):
             x = self.item_w(w_x)
             index = self.len
@@ -1079,12 +1090,14 @@ def make_array(mytype):
 
         # List interface
 
+        @sandbox_review(reviewed=True)
         def descr_reverse(self, space):
             b = self.get_buffer()
             for i in range(self.len / 2):
                 b[i], b[self.len - i - 1] = b[self.len - i - 1], b[i]
             keepalive_until_here(self)
 
+        @sandbox_review(reviewed=True)
         def descr_pop(self, space, i):
             if i < 0:
                 i += self.len
@@ -1099,6 +1112,7 @@ def make_array(mytype):
             self.setlen(self.len - 1)
             return w_val
 
+        @sandbox_review(reviewed=True)
         def descr_insert(self, space, idx, w_val):
             if idx < 0:
                 idx += self.len
@@ -1117,6 +1131,7 @@ def make_array(mytype):
             b[i] = val
             keepalive_until_here(self)
 
+        @sandbox_review(reviewed=True)
         def getitem_slice(self, space, w_idx):
             start, stop, step, size = space.decode_index4(w_idx, self.len)
             w_a = mytype.w_class(self.space)
@@ -1132,6 +1147,7 @@ def make_array(mytype):
             keepalive_until_here(w_a)
             return w_a
 
+        @sandbox_review(reviewed=True)
         def setitem(self, space, w_idx, w_item):
             idx, stop, step = space.decode_index(w_idx, self.len)
             if step != 0:
@@ -1141,6 +1157,7 @@ def make_array(mytype):
             self.get_buffer()[idx] = item
             keepalive_until_here(self)
 
+        @sandbox_review(reviewed=True)
         def setitem_slice(self, space, w_idx, w_item):
             if not isinstance(w_item, W_Array):
                 raise oefmt(space.w_TypeError,
@@ -1168,6 +1185,7 @@ def make_array(mytype):
                 keepalive_until_here(w_item)
                 keepalive_until_here(self)
 
+        @sandbox_review(check_caller=True)
         def _repeat_single_item(self, a, start, repeat):
             # <a performance hack>
             assert isinstance(a, W_Array)

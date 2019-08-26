@@ -21,11 +21,11 @@ class TestGraphIsUnsafe(object):
 
     def check_safe(self, fn, signature=[]):
         result = self.graph_is_unsafe(fn, signature)
-        assert result is None, repr(fn)
+        assert result is None
 
     def check_unsafe(self, error_substring, fn, signature=[]):
         result = self.graph_is_unsafe(fn, signature)
-        assert result is not None, repr(fn)
+        assert result is not None
         assert error_substring in result
 
     def test_simple(self):
@@ -60,7 +60,7 @@ class TestGraphIsUnsafe(object):
             pass
         def f():
             g()
-        self.check_unsafe("caller has not been checked", f)
+        self.check_unsafe("direct_call to a graph with check_caller=True", f)
 
     def test_direct_call_to_reviewed(self):
         @sandbox_review(reviewed=True)
@@ -78,20 +78,46 @@ class TestGraphIsUnsafe(object):
             g()
         self.check_safe(f)
 
+    def test_indirect_call_to_check_caller(self):
+        class A:
+            def meth(self, i):
+                pass
+        class B(A):
+            def meth(self, i):
+                pass
+        class C(A):
+            @sandbox_review(check_caller=True)
+            def meth(self, i):
+                pass
+        def f(i):
+            if i > 5:
+                x = B()
+            else:
+                x = C()
+            x.meth(i)
+        self.check_unsafe("indirect_call that can go to at least one "
+                          "graph with check_caller=True", f, [int])
+
     def test_direct_call_external(self):
         llfn1 = rffi.llexternal("foobar", [], lltype.Void, sandboxsafe=True,
                                 _nowrapper=True)
-        self.check_safe(lambda: llfn1)
+        self.check_safe(lambda: llfn1())
         #
         llfn2 = rffi.llexternal("foobar", [], lltype.Void, sandboxsafe=False,
                                 _nowrapper=True)
-        self.check_safe(lambda: llfn2)   # will be turned into an I/O stub
+        self.check_safe(lambda: llfn2())   # will be turned into an I/O stub
+        #
+        llfn2b = rffi.llexternal("foobar", [], lltype.Void,
+                                 sandboxsafe="check_caller",
+                                 _nowrapper=True)
+        self.check_unsafe("direct_call to llfunc with "
+                          "sandboxsafe='check_caller'", lambda: llfn2b())
         #
         llfn3 = rffi.llexternal("foobar", [], lltype.Void, sandboxsafe=True)
-        self.check_safe(lambda: llfn3)
+        self.check_safe(lambda: llfn3())
         #
         llfn4 = rffi.llexternal("foobar", [], lltype.Void, sandboxsafe=False)
-        self.check_safe(lambda: llfn4)
+        self.check_safe(lambda: llfn4())
 
     def test_make_abort_graph(self):
         def dummy():

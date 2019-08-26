@@ -19,10 +19,19 @@ log = AnsiLogger("sandbox")
 safe_operations = set([
     'keepalive', 'threadlocalref_get', 'threadlocalref_store',
     'malloc', 'malloc_varsize', 'free',
-    'getfield', 'getarrayitem', 'getinteriorfield',
-    'gc_thread_run',
-    'shrink_array', 'gc_pin', 'gc_unpin', 'gc_can_move',
-    'debug_fatalerror',
+    'getfield', 'getarrayitem', 'getinteriorfield', 'raw_load',
+    'cast_opaque_ptr', 'cast_ptr_to_int',
+    'gc_thread_run', 'gc_stack_bottom', 'gc_thread_after_fork',
+    'shrink_array', 'gc_pin', 'gc_unpin', 'gc_can_move', 'gc_id',
+    'gc_identityhash', 'weakref_create', 'weakref_deref',
+    'gc_fq_register', 'gc_fq_next_dead',
+    'gc_set_max_heap_size', 'gc_ignore_finalizer', 'gc_add_memory_pressure',
+    'gc_writebarrier', 'gc__collect',
+    'length_of_simple_gcarray_from_opaque',
+    'debug_fatalerror', 'debug_print_traceback', 'debug_flush',
+    'hint', 'debug_start', 'debug_stop', 'debug_print', 'debug_offset',
+    'jit_force_quasi_immutable', 'jit_force_virtual', 'jit_marker',
+    'jit_is_virtual',
     ])
 gc_set_operations = set([
     'setfield', 'setarrayitem', 'setinteriorfield',
@@ -69,9 +78,13 @@ class GraphChecker(object):
                 if hasattr(obj, 'graph'):
                     g2 = obj.graph
                     if graph_review(g2) == 'check_caller':
-                        return "caller has not been checked: %r" % (op,)
-                elif getattr(obj, 'sandboxsafe', False):
-                    pass
+                        return ("direct_call to a graph with "
+                                "check_caller=True: %r" % (op,))
+                elif getattr(obj, '_safe_not_sandboxed', False) is not False:
+                    ss = obj._safe_not_sandboxed
+                    if ss is not True:
+                        return ("direct_call to llfunc with "
+                                "sandboxsafe=%r: %r" % (ss, obj))
                 elif getattr(obj, 'external', None) is not None:
                     # either obj._safe_not_sandboxed is True, and then it's
                     # fine; or obj._safe_not_sandboxed is False, and then
@@ -81,7 +94,15 @@ class GraphChecker(object):
                     # not 'external', but no 'graph' either?
                     return "direct_call to %r" % (obj,)
 
-            elif opname in ('cast_ptr_to_adr', 'force_cast'):
+            elif opname == 'indirect_call':
+                graph_list = op.args[-1].value
+                for g2 in graph_list:
+                    if graph_review(g2) == 'check_caller':
+                        return ("indirect_call that can go to at least one "
+                                "graph with check_caller=True: %r" % (op,))
+
+            elif opname in ('cast_ptr_to_adr', 'force_cast',
+                            'cast_int_to_ptr'):
                 if is_gc_ptr(op.args[0].concretetype):
                     return "argument is a GC ptr: %r" % (opname,)
                 if is_gc_ptr(op.result.concretetype):

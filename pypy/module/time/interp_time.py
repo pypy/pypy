@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rposix, rtime
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import math
 import os
@@ -224,6 +225,7 @@ def _init_accept2dyear(space):
         accept2dyear = 1
     _set_module_object(space, "accept2dyear", space.newint(accept2dyear))
 
+@sandbox_review(reviewed=True)
 def _init_timezone(space):
     timezone = daylight = altzone = 0
     tzname = ["", ""]
@@ -413,6 +415,7 @@ def _tm_to_tuple(space, t):
     w_time_tuple = space.newtuple(time_tuple)
     return space.call_function(w_struct_time, w_time_tuple)
 
+@sandbox_review(reviewed=True)
 def _gettmarg(space, w_tup, allowNone=True):
     if space.is_none(w_tup):
         if not allowNone:
@@ -507,6 +510,7 @@ def clock(space):
 
     return space.newfloat(pytime.clock())
 
+@sandbox_review(reviewed=True)
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
 
@@ -540,6 +544,7 @@ def asctime(space, w_tup=None):
 
     return space.newtext(rffi.charp2str(p)[:-1]) # get rid of new line
 
+@sandbox_review(reviewed=True)
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
                           tm_sec, tm_wday, tm_yday, tm_isdst)
@@ -560,6 +565,7 @@ def gmtime(space, w_seconds=None):
         raise OperationError(space.w_ValueError, space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
+@sandbox_review(reviewed=True)
 def localtime(space, w_seconds=None):
     """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
                              tm_sec, tm_wday, tm_yday, tm_isdst)
@@ -577,6 +583,7 @@ def localtime(space, w_seconds=None):
         raise OperationError(space.w_ValueError, space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
+@sandbox_review(reviewed=True)
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number
 

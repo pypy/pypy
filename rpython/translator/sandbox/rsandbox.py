@@ -6,7 +6,7 @@ and wait for an answer on STDIN.  Enable with 'translate.py --sandbox'.
 import py
 import sys
 
-from rpython.rlib import types
+from rpython.rlib import types, debug
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.signature import signature
 from rpython.rlib.unroll import unrolling_iterable
@@ -20,6 +20,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.ansi_print import AnsiLogger
+from rpython.translator.sandbox.graphchecker import make_abort_graph
 
 log = AnsiLogger("sandbox")
 
@@ -99,34 +100,43 @@ def get_sandbox_stub(fnobj, rtyper):
          lltype.typeOf(rpy_sandbox_arg[arg_kind]).TO.ARGS[0])
         for arg_kind in arg_kinds])
 
-    result_func = rpy_sandbox_res[result_kind]
-    RESTYPE = FUNCTYPE.RESULT
+    if fnobj._safe_not_sandboxed == 'abort':
 
-    try:
-        lst = rtyper._sandboxed_functions
-    except AttributeError:
-        lst = rtyper._sandboxed_functions = []
-    name_and_sig = '%s(%s)%s' % (fnname, ''.join(arg_kinds), result_kind)
-    lst.append(name_and_sig)
-    log(name_and_sig)
-    name_and_sig = rffi.str2charp(name_and_sig, track_allocation=False)
+        msg = "sandboxed subprocess aborts on call to %r" % (fnname,)
+        def execute(*args):
+            debug.fatalerror(msg)
 
-    def execute(*args):
-        #
-        # serialize the arguments
-        i = 0
-        for arg_kind, func, ARGTYPE in unroll_args:
-            if arg_kind == 'v':
-                continue
-            func(rffi.cast(ARGTYPE, args[i]))
-            i = i + 1
-        #
-        # send the function name and the arguments and wait for an answer
-        result = result_func(name_and_sig)
-        #
-        # result the answer, if any
-        if RESTYPE is not lltype.Void:
-            return rffi.cast(RESTYPE, result)
+    else:
+
+        result_func = rpy_sandbox_res[result_kind]
+        RESTYPE = FUNCTYPE.RESULT
+
+        try:
+            lst = rtyper._sandboxed_functions
+        except AttributeError:
+            lst = rtyper._sandboxed_functions = []
+        name_and_sig = '%s(%s)%s' % (fnname, ''.join(arg_kinds), result_kind)
+        lst.append(name_and_sig)
+        log(name_and_sig)
+        name_and_sig = rffi.str2charp(name_and_sig, track_allocation=False)
+
+        def execute(*args):
+            #
+            # serialize the arguments
+            i = 0
+            for arg_kind, func, ARGTYPE in unroll_args:
+                if arg_kind == 'v':
+                    continue
+                func(rffi.cast(ARGTYPE, args[i]))
+                i = i + 1
+            #
+            # send the function name and the arguments and wait for an answer
+            result = result_func(name_and_sig)
+            #
+            # result the answer, if any
+            if RESTYPE is not lltype.Void:
+                return rffi.cast(RESTYPE, result)
+    #
     execute.__name__ = 'sandboxed_%s' % (fnname,)
     #
     args_s, s_result = sig_ll(fnobj)

@@ -6,7 +6,7 @@ import types
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
-from rpython.rlib.objectmodel import sandbox_review
+from rpython.rlib.objectmodel import sandbox_review, sandboxed_translation
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -359,14 +359,22 @@ def _contains_gcptr(TP):
             return True
     return False
 
+@not_rpython
+def _ll_arraycopy_of_nongc_not_for_sandboxed():
+    pass
 
 @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
 @enforceargs(None, None, int, int, int)
-@sandbox_review(check_caller=True)
+@sandbox_review(reviewed=True)
 @specialize.ll()
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rlib.objectmodel import keepalive_until_here
+
+    TP = lltype.typeOf(source).TO
+    assert TP == lltype.typeOf(dest).TO
+    if not lltype_is_gc(TP) and sandboxed_translation():
+        _ll_arraycopy_of_nongc_not_for_sandboxed()
 
     # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
     # and also, maybe, speed up very small cases
@@ -380,9 +388,6 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
         if source == dest:
             assert (source_start + length <= dest_start or
                     dest_start + length <= source_start)
-
-    TP = lltype.typeOf(source).TO
-    assert TP == lltype.typeOf(dest).TO
 
     slowpath = False
     if must_split_gc_address_space():
@@ -1094,6 +1099,7 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_gcflag_extra', vlist, resulttype = hop.r_result)
 
+@specialize.memo()
 def lltype_is_gc(TP):
     return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'
 
@@ -1417,7 +1423,7 @@ def resizable_list_supporting_raw_ptr(lst):
     return _ResizableListSupportingRawPtr(lst)
 
 def nonmoving_raw_ptr_for_resizable_list(lst):
-    if must_split_gc_address_space():
+    if must_split_gc_address_space() or sandboxed_translation():
         raise ValueError
     return _nonmoving_raw_ptr_for_resizable_list(lst)
 
@@ -1499,6 +1505,7 @@ class Entry(ExtRegistryEntry):
 
 
 @jit.dont_look_inside
+@sandbox_review(check_caller=True)
 def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
     """
     WARNING: dragons ahead.

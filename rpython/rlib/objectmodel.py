@@ -248,7 +248,7 @@ def sandbox_review(reviewed=False, check_caller=False, abort=False):
     """
     assert reviewed + check_caller + abort == 1
     def wrap(func):
-        assert not hasattr(func, '_sandbox_review_')
+        assert not hasattr(func, '_sandbox_review_') or abort
         if reviewed:
             func._sandbox_review_ = 'reviewed'
         if check_caller:
@@ -378,6 +378,10 @@ class Entry(ExtRegistryEntry):
 def int_to_bytearray(i):
     # XXX this can be made more efficient in the future
     return bytearray(str(i))
+
+def sandboxed_translation():
+    config = fetch_translated_config()
+    return config is not None and config.translation.sandbox
 
 def fetch_translated_config():
     """Returns the config that is current when translating.
