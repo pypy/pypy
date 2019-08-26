@@ -113,7 +113,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
     if config.profile_based_inline and not secondary:
         threshold = config.profile_based_inline_threshold
         heuristic = get_function(config.profile_based_inline_heuristic)
-        inline.instrument_inline_candidates(graphs, threshold)
+        inline.instrument_inline_candidates(translator, graphs, threshold)
         counters = translator.driver_instrument_result(
             config.profile_based_inline)
         n = len(counters)

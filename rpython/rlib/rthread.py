@@ -6,6 +6,7 @@ from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -225,7 +226,7 @@ class Entry(ExtRegistryEntry):
 
 get_stacksize = llexternal('RPyThreadGetStackSize', [], lltype.Signed)
 set_stacksize = llexternal('RPyThreadSetStackSize', [lltype.Signed],
-                           lltype.Signed)
+                           lltype.Signed, sandboxsafe='abort')
 
 # ____________________________________________________________
 #

@@ -8,7 +8,7 @@ import time as pytime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.objectmodel import register_replacement_for
+from rpython.rlib.objectmodel import register_replacement_for, sandbox_review
 from rpython.rlib.rarithmetic import intmask, UINT_MAX
 from rpython.rlib import rposix
 
@@ -262,6 +262,7 @@ else:
                                    lltype.Ptr(TIMEVAL)], rffi.INT,
                         save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_time_function('sleep')
 def sleep(secs):
     if _WIN32:

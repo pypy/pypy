@@ -12,6 +12,7 @@ from rpython.rlib.rarithmetic import (
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import math
 import os
@@ -365,6 +366,7 @@ if _WIN:
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T, sandboxsafe=True)
 
+@sandbox_review(reviewed=True)
 def _init_timezone(space):
     timezone = daylight = altzone = 0
     tzname = ["", ""]
@@ -564,6 +566,7 @@ def _tm_to_tuple(space, t):
     w_obj = space.call_function(w_struct_time, w_time_tuple)
     return w_obj
 
+@sandbox_review(reviewed=True)
 def _gettmarg(space, w_tup, allowNone=True):
     if space.is_none(w_tup):
         if not allowNone:
@@ -679,6 +682,7 @@ def time(space, w_info=None):
                 return space.newfloat(_timespec_to_seconds(timespec))
     return gettimeofday(space, w_info)
 
+@sandbox_review(reviewed=True)
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
 
@@ -725,6 +729,7 @@ def _asctime(space, t_ref):
     return space.mod(space.newtext("%.3s %.3s%3d %.2d:%.2d:%.2d %d"),
                      space.newtuple(args))
 
+@sandbox_review(reviewed=True)
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
                           tm_sec, tm_wday, tm_yday, tm_isdst)
@@ -746,6 +751,7 @@ def gmtime(space, w_seconds=None):
                              space.newtext(*_get_error_msg()))
     return _tm_to_tuple(space, p)
 
+@sandbox_review(reviewed=True)
 def localtime(space, w_seconds=None):
     """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
                              tm_sec, tm_wday, tm_yday, tm_isdst)
@@ -764,6 +770,7 @@ def localtime(space, w_seconds=None):
                              space.newtext(*_get_error_msg()))
     return _tm_to_tuple(space, p)
 
+@sandbox_review(reviewed=True)
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number
 

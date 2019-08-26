@@ -548,7 +548,8 @@ def inlining_heuristic(graph):
     return (0.9999 * measure_median_execution_cost(graph) +
             count), True       # may be NaN
 
-def inlinable_static_callers(graphs, store_calls=False, ok_to_call=None):
+def inlinable_static_callers(translator, graphs, store_calls=False,
+                             ok_to_call=None):
     if ok_to_call is None:
         ok_to_call = set(graphs)
     result = []
@@ -558,6 +559,7 @@ def inlinable_static_callers(graphs, store_calls=False, ok_to_call=None):
         else:
             result.append((parentgraph, graph))
     #
+    dont_inline = make_dont_inline_checker(translator)
     for parentgraph in graphs:
         for block in parentgraph.iterblocks():
             for op in block.operations:
@@ -565,13 +567,12 @@ def inlinable_static_callers(graphs, store_calls=False, ok_to_call=None):
                     funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None and graph in ok_to_call:
-                        if getattr(getattr(funcobj, '_callable', None),
-                                   '_dont_inline_', False):
+                        if dont_inline(funcobj):
                             continue
                         add(parentgraph, block, op, graph)
     return result
 
-def instrument_inline_candidates(graphs, threshold):
+def instrument_inline_candidates(translator, graphs, threshold):
     cache = {None: False}
     def candidate(graph):
         try:
@@ -581,6 +582,7 @@ def instrument_inline_candidates(graphs, threshold):
             cache[graph] = res
             return res
     n = 0
+    dont_inline = make_dont_inline_checker(translator)
     for parentgraph in graphs:
         for block in parentgraph.iterblocks():
             ops = block.operations
@@ -592,8 +594,7 @@ def instrument_inline_candidates(graphs, threshold):
                     funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:
-                        if getattr(getattr(funcobj, '_callable', None),
-                                   '_dont_inline_', False):
+                        if dont_inline(funcobj):
                             continue
                     if candidate(graph):
                         tag = Constant('inline', Void)
@@ -610,6 +611,17 @@ def always_inline(graph):
     return (hasattr(graph, 'func') and
             getattr(graph.func, '_always_inline_', None))
 
+def make_dont_inline_checker(translator):
+    sandbox = translator.config.translation.sandbox
+
+    def dont_inline(funcobj):
+        func = getattr(funcobj, '_callable', None)
+        if sandbox:
+            if hasattr(func, '_sandbox_review_'):
+                return True
+        return getattr(func, '_dont_inline_', False)
+    return dont_inline
+
 def auto_inlining(translator, threshold=None,
                   callgraph=None,
                   call_count_pred=None,
@@ -621,7 +633,7 @@ def auto_inlining(translator, threshold=None,
     callers = {}     # {graph: {graphs-that-call-it}}
     callees = {}     # {graph: {graphs-that-it-calls}}
     if callgraph is None:
-        callgraph = inlinable_static_callers(translator.graphs)
+        callgraph = inlinable_static_callers(translator, translator.graphs)
     for graph1, graph2 in callgraph:
         callers.setdefault(graph2, {})[graph1] = True
         callees.setdefault(graph1, {})[graph2] = True
@@ -727,7 +739,8 @@ def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None,
                                 if not hasattr(graph, 'exceptiontransformed')])
     else:
         ok_to_call = None
-    callgraph = inlinable_static_callers(graphs, ok_to_call=ok_to_call)
+    callgraph = inlinable_static_callers(translator, graphs,
+                                         ok_to_call=ok_to_call)
     count = auto_inlining(translator, threshold, callgraph=callgraph,
                           heuristic=heuristic,
                           call_count_pred=call_count_pred)

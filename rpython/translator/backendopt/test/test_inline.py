@@ -100,7 +100,7 @@ class TestInline(BaseRtypingTest):
         call_count_pred = None
         if call_count_check:
             call_count_pred = lambda lbl: True
-            instrument_inline_candidates(t.graphs, threshold)
+            instrument_inline_candidates(t, t.graphs, threshold)
 
         if remove_same_as:
             for graph in t.graphs:

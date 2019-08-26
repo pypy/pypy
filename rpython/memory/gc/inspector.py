@@ -89,7 +89,7 @@ def is_rpy_instance(gc, gcref):
 raw_os_write = rffi.llexternal(rposix.UNDERSCORE_ON_WIN32 + 'write',
                                [rffi.INT, llmemory.Address, rffi.SIZE_T],
                                rffi.SIZE_T,
-                               sandboxsafe=True, _nowrapper=True)
+                               _nowrapper=True)
 
 AddressStack = get_address_stack()
 

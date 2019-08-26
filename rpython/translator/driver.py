@@ -412,6 +412,10 @@ class TranslationDriver(SimpleTaskEngine):
         if translator.annotator is not None:
             translator.frozen = True
 
+        if self.config.translation.sandbox:
+            from rpython.translator.sandbox import graphchecker
+            graphchecker.check_all_graphs(self.translator)
+
         standalone = self.standalone
         get_gchooks = self.extra.get('get_gchooks', lambda: None)
         gchooks = get_gchooks()

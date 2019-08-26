@@ -65,6 +65,11 @@ class CBuilder(object):
 
     def __init__(self, translator, entrypoint, config, gcpolicy=None,
                  gchooks=None, secondary_entrypoints=()):
+        #
+        if config.translation.sandbox:
+            assert not config.translation.thread
+            gchooks = None     # no custom gc hooks
+        #
         self.translator = translator
         self.entrypoint = entrypoint
         self.entrypoint_name = getattr(self.entrypoint, 'func_name', None)

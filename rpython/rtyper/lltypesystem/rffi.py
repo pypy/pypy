@@ -9,6 +9,7 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic, specialize, not_rpython
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rlib import rarithmetic, rgc
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.unroll import unrolling_iterable
@@ -96,6 +97,12 @@ def llexternal(name, args, result, _callable=None,
                 we consider that the function is really short-running and
                 don't bother releasing the GIL.  An explicit True or False
                 overrides this logic.
+
+    sandboxsafe: if True, the process really calls the C function even if it
+                 is sandboxed.  If False, it will turn into a stdin/stdout
+                 communication with the parent process.  If "check_caller",
+                 it is like True but we call @sandbox_review(check_caller=True)
+                 which means that we need to also check the callers.
 
     calling_conv: if 'unknown' or 'win', the C function is not directly seen
                   by the JIT.  If 'c', it can be seen (depending on
@@ -214,6 +221,8 @@ def llexternal(name, args, result, _callable=None,
         #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
+        call_external_function = sandbox_review(check_caller=True)(
+            call_external_function)
         # don't inline, as a hack to guarantee that no GC pointer is alive
         # anywhere in call_external_function
     else:
@@ -250,6 +259,8 @@ def llexternal(name, args, result, _callable=None,
             call_external_function = func_with_new_name(call_external_function,
                                                         'ccall_' + name)
             call_external_function = jit.dont_look_inside(
+                call_external_function)
+            call_external_function = sandbox_review(check_caller=True)(
                 call_external_function)
 
     def _oops():
@@ -329,7 +340,17 @@ def llexternal(name, args, result, _callable=None,
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
+    if sandboxsafe == 'check_caller':
+        wrapper = sandbox_review(check_caller=True)(wrapper)
+    elif sandboxsafe == 'abort':
+        wrapper = sandbox_review(abort=True)(wrapper)
+    else:
+        assert isinstance(sandboxsafe, bool)
+        wrapper = sandbox_review(reviewed=True)(wrapper)
     return wrapper
+
+def sandbox_check_type(TYPE):
+    return not isinstance(TYPE, lltype.Primitive) or TYPE == llmemory.Address
 
 
 class CallbackHolder:
@@ -792,6 +813,7 @@ def make_string_mappings(strtype):
         lastchar = u'\x00'
 
     # str -> char*
+    @sandbox_review(reviewed=True)
     def str2charp(s, track_allocation=True):
         """ str -> char*
         """
@@ -806,6 +828,7 @@ def make_string_mappings(strtype):
         return array
     str2charp._annenforceargs_ = [strtype, bool]
 
+    @sandbox_review(reviewed=True)
     def free_charp(cp, track_allocation=True):
         if track_allocation:
             lltype.free(cp, flavor='raw', track_allocation=True)
@@ -838,6 +861,7 @@ def make_string_mappings(strtype):
 
     # str -> (buf, llobj, flag)
     # Can't inline this because of the raw address manipulation.
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def get_nonmovingbuffer_ll(data):
         """
@@ -891,6 +915,7 @@ def make_string_mappings(strtype):
     get_nonmovingbuffer_ll._annenforceargs_ = [strtype]
 
 
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def get_nonmovingbuffer_ll_final_null(data):
         tup = get_nonmovingbuffer_ll(data)
@@ -902,6 +927,7 @@ def make_string_mappings(strtype):
 
     # args-from-tuple-returned-by-get_nonmoving_buffer() -> None
     # Can't inline this because of the raw address manipulation.
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def free_nonmovingbuffer_ll(buf, llobj, flag):
         """
@@ -918,6 +944,7 @@ def make_string_mappings(strtype):
 
     # int -> (char*, str, int)
     # Can't inline this because of the raw address manipulation.
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def alloc_buffer(count):
         """
@@ -1096,6 +1123,7 @@ utf82wcharp._annenforceargs_ = [str, int, bool]
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
 CWCHARPP = lltype.Ptr(lltype.Array(CWCHARP, hints={'nolength': True}))
 
+@sandbox_review(reviewed=True)
 def liststr2charpp(l):
     """ list[str] -> char**, NULL terminated
     """
@@ -1241,6 +1269,7 @@ class MakeEntry(ExtRegistryEntry):
         return v_ptr
 
 
+@sandbox_review(check_caller=True)
 def structcopy(pdst, psrc):
     """Copy all the fields of the structure given by 'psrc'
     into the structure given by 'pdst'.
@@ -1258,6 +1287,7 @@ def _get_structcopy_fn(PDST, PSRC):
                                              if name not in padding]
         unrollfields = unrolling_iterable(fields)
 
+        @sandbox_review(check_caller=True)
         def copyfn(pdst, psrc):
             for name, TYPE in unrollfields:
                 if isinstance(TYPE, lltype.ContainerType):
@@ -1271,6 +1301,7 @@ def _get_structcopy_fn(PDST, PSRC):
 _get_structcopy_fn._annspecialcase_ = 'specialize:memo'
 
 
+@sandbox_review(check_caller=True)
 def setintfield(pdst, fieldname, value):
     """Maybe temporary: a helper to set an integer field into a structure,
     transparently casting between the various integer types.
@@ -1405,14 +1436,14 @@ c_memcpy = llexternal("memcpy",
             lltype.Void,
             releasegil=False,
             calling_conv='c',
-            sandboxsafe=True,
+            sandboxsafe='check_caller',
         )
 c_memset = llexternal("memset",
             [VOIDP, lltype.Signed, SIZE_T],
             lltype.Void,
             releasegil=False,
             calling_conv='c',
-            sandboxsafe=True,
+            sandboxsafe='check_caller',
         )
 
 

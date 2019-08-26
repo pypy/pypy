@@ -3,7 +3,8 @@ from weakref import WeakValueDictionary
 from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types, objectmodel, rgc
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
-    ll_hash_string, keepalive_until_here, specialize, enforceargs, dont_inline)
+    ll_hash_string, keepalive_until_here, specialize, enforceargs, dont_inline,
+    sandbox_review)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
@@ -59,6 +60,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
                 llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
 
+    @sandbox_review(check_caller=True)
     @signature(types.any(), types.any(), types.int(), returns=types.any())
     @specialize.arg(0)
     def _get_raw_buf(TP, src, ofs):
@@ -75,6 +77,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     _get_raw_buf._always_inline_ = True
 
     @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
+    @sandbox_review(reviewed=True)
     @signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
     def copy_string_contents(src, dst, srcstart, dststart, length):
         """Copies 'length' characters from the 'src' string to the 'dst'
@@ -112,6 +115,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_contents = func_with_new_name(copy_string_contents,
                                               'copy_%s_contents' % name)
 
+    @sandbox_review(check_caller=True)
     @jit.oopspec('stroruni.copy_string_to_raw(src, ptrdst, srcstart, length)')
     def copy_string_to_raw(src, ptrdst, srcstart, length):
         """
@@ -141,6 +145,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_to_raw._always_inline_ = True
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     @signature(types.any(), types.any(), types.int(), types.int(),
                returns=types.none())
@@ -1258,6 +1263,7 @@ class LLHelpers(AbstractLLHelpers):
         return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
 
     @staticmethod
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def ll_string2list(RESLIST, src):
         length = len(src.chars)

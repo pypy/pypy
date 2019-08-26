@@ -6,6 +6,7 @@ RPython-compliant way.  It is mainly about the stack_check() function.
 import py
 
 from rpython.rlib.objectmodel import we_are_translated, fetch_translated_config
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -15,7 +16,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 
 def llexternal(name, args, res, _callable=None):
     return rffi.llexternal(name, args, res,
-                           sandboxsafe=True, _nowrapper=True,
+                           sandboxsafe='check_caller', _nowrapper=True,
                            _callable=_callable)
 
 _stack_get_end = llexternal('LL_stack_get_end', [], lltype.Signed,
@@ -39,6 +40,7 @@ _stack_criticalcode_start = llexternal('LL_stack_criticalcode_start', [],
 _stack_criticalcode_stop = llexternal('LL_stack_criticalcode_stop', [],
                                       lltype.Void, lambda: None)
 
+@sandbox_review(reviewed=True)
 def stack_check():
     if not we_are_translated():
         return
@@ -64,6 +66,7 @@ def stack_check():
 stack_check._always_inline_ = True
 stack_check._dont_insert_stackcheck_ = True
 
+@sandbox_review(check_caller=True)
 @rgc.no_collect
 def stack_check_slowpath(current):
     if ord(_stack_too_big_slowpath(current)):
@@ -72,6 +75,7 @@ def stack_check_slowpath(current):
 stack_check_slowpath._dont_inline_ = True
 stack_check_slowpath._dont_insert_stackcheck_ = True
 
+@sandbox_review(reviewed=True)
 def stack_almost_full():
     """Return True if the stack is more than 15/16th full."""
     if not we_are_translated():

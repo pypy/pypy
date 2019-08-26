@@ -882,9 +882,9 @@ class ExternalFuncNode(FuncNodeBase):
 
 def new_funcnode(db, T, obj, forcename=None):
     from rpython.rtyper.rtyper import llinterp_backend
-    if db.sandbox:
-        if (getattr(obj, 'external', None) is not None and
-                not obj._safe_not_sandboxed):
+    if db.sandbox and getattr(obj, 'external', None) is not None:
+        safe_flag = obj._safe_not_sandboxed
+        if not (safe_flag is True or safe_flag == "check_caller"):
             try:
                 sandbox_mapping = db.sandbox_mapping
             except AttributeError:
