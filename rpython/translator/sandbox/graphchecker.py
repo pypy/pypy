@@ -7,7 +7,6 @@ graphs that are assumed to be safe.
 from rpython.flowspace.model import SpaceOperation, Constant
 from rpython.rtyper.rmodel import inputconst
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
-from rpython.rtyper.lltypesystem.rffi import sandbox_check_type
 from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
 from rpython.translator.unsimplify import varoftype
 from rpython.tool.ansi_print import AnsiLogger
@@ -22,6 +21,8 @@ safe_operations = set([
     'malloc', 'malloc_varsize', 'free',
     'getfield', 'getarrayitem', 'getinteriorfield',
     'gc_thread_run',
+    'shrink_array', 'gc_pin', 'gc_unpin', 'gc_can_move',
+    'debug_fatalerror',
     ])
 gc_set_operations = set([
     'setfield', 'setarrayitem', 'setinteriorfield',
@@ -39,6 +40,8 @@ def make_abort_graph(graph):
     op = SpaceOperation('debug_fatalerror', [c_err], varoftype(lltype.Void))
     graph.startblock.operations.insert(0, op)
 
+def is_gc_ptr(TYPE):
+    return isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc'
 
 
 class GraphChecker(object):
@@ -77,11 +80,12 @@ class GraphChecker(object):
                 else:
                     return "direct_call to %r" % (obj,)
 
-            elif opname == 'force_cast':
-                if sandbox_check_type(op.result.concretetype):
-                    return "force_cast to pointer type: %r" % (op,)
-                if sandbox_check_type(op.args[0].concretetype):
-                    return "force_cast from pointer type: %r" % (op,)
+            elif opname in ('cast_ptr_to_adr', 'force_cast'):
+                if is_gc_ptr(op.args[0].concretetype):
+                    return "argument is a GC ptr: %r" % (opname,)
+                if is_gc_ptr(op.result.concretetype):
+                    return "result is a GC ptr: %r" % (opname,)
+
             else:
                 return "unsupported llop: %r" % (opname,)
 

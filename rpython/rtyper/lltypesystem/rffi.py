@@ -801,6 +801,7 @@ def make_string_mappings(strtype):
         lastchar = u'\x00'
 
     # str -> char*
+    @sandbox_review(reviewed=True)
     def str2charp(s, track_allocation=True):
         """ str -> char*
         """
@@ -815,6 +816,7 @@ def make_string_mappings(strtype):
         return array
     str2charp._annenforceargs_ = [strtype, bool]
 
+    @sandbox_review(reviewed=True)
     def free_charp(cp, track_allocation=True):
         if track_allocation:
             lltype.free(cp, flavor='raw', track_allocation=True)
@@ -930,6 +932,7 @@ def make_string_mappings(strtype):
 
     # int -> (char*, str, int)
     # Can't inline this because of the raw address manipulation.
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def alloc_buffer(count):
         """

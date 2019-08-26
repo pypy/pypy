@@ -6,6 +6,7 @@ import types
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -361,6 +362,7 @@ def _contains_gcptr(TP):
 
 @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
 @enforceargs(None, None, int, int, int)
+@sandbox_review(check_caller=True)
 @specialize.ll()
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     from rpython.rtyper.lltypesystem.lloperation import llop
@@ -415,6 +417,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
 @jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
 @enforceargs(None, int)
+@sandbox_review(reviewed=True)
 @specialize.ll()
 def ll_shrink_array(p, smallerlength):
     from rpython.rtyper.lltypesystem.lloperation import llop
@@ -454,6 +457,7 @@ def ll_shrink_array(p, smallerlength):
     return newp
 
 @jit.dont_look_inside
+@sandbox_review(reviewed=True)
 @specialize.ll()
 def ll_arrayclear(p):
     # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.

@@ -1171,6 +1171,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def unpin(self, obj):
+        if self.safer_variant():
+            out_of_memory("unpin() unexpected")
         ll_assert(self._is_pinned(obj),
             "unpin: object is already not pinned")
         #
@@ -1181,6 +1183,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return (self.header(obj).tid & GCFLAG_PINNED) != 0
 
     def shrink_array(self, obj, smallerlength):
+        if self.safer_variant():    # no shrinking in the safer variant
+            return False       # (because the original 'obj' is kind of broken)
         #
         # Only objects in the nursery can be "resized".  Resizing them
         # means recording that they have a smaller size, so that when

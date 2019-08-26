@@ -115,7 +115,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_contents = func_with_new_name(copy_string_contents,
                                               'copy_%s_contents' % name)
 
-    @sandbox_review(reviewed=True)
+    @sandbox_review(check_caller=True)
     @jit.oopspec('stroruni.copy_string_to_raw(src, ptrdst, srcstart, length)')
     def copy_string_to_raw(src, ptrdst, srcstart, length):
         """

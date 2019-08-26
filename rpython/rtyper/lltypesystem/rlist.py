@@ -10,6 +10,7 @@ from rpython.rtyper.rlist import (AbstractBaseListRepr, AbstractListRepr,
     ADTIList, ADTIFixedList, dum_nocheck)
 from rpython.rtyper.rmodel import Repr, inputconst, externalvsinternal
 from rpython.tool.pairtype import pairtype, pair
+from rpython.rlib.objectmodel import sandbox_review
 
 
 # ____________________________________________________________
@@ -196,6 +197,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 # adapted C code
 
 @jit.look_inside_iff(lambda l, newsize, overallocate: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@sandbox_review(reviewed=True)
 @signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_hint_really(l, newsize, overallocate):
     """
