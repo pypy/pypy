@@ -1042,6 +1042,11 @@ class W_UnicodeObject(W_Root):
         return rutf8.codepoint_position_at_index(
             self._utf8, self._get_index_storage(), index)
 
+    def _codepoints_in_utf8(self, start, end):
+        if self.is_ascii():
+            return end - start
+        return rutf8.codepoints_in_utf8(self._utf8, start, end)
+
     @always_inline
     def _unwrap_and_search(self, space, w_sub, w_start, w_end, forward=True):
         w_sub = self.convert_arg_to_w_unicode(space, w_sub)
@@ -1063,7 +1068,7 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = rutf8.codepoints_in_utf8(self._utf8, start_index, res_index)
+            skip = self._codepoints_in_utf8(start_index, res_index)
             res = start + skip
             assert res >= 0
             return space.newint(res)
@@ -1071,7 +1076,7 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.rfind(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = rutf8.codepoints_in_utf8(self._utf8, res_index, end_index)
+            skip = self._codepoints_in_utf8(res_index, end_index)
             res = end - skip
             assert res >= 0
             return space.newint(res)
