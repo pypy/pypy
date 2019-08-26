@@ -9,6 +9,7 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic, specialize, not_rpython
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rlib import rarithmetic, rgc
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.unroll import unrolling_iterable
@@ -214,6 +215,8 @@ def llexternal(name, args, result, _callable=None,
         #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
+        call_external_function = sandbox_review(check_caller=True)(
+            call_external_function)
         # don't inline, as a hack to guarantee that no GC pointer is alive
         # anywhere in call_external_function
     else:
@@ -250,6 +253,8 @@ def llexternal(name, args, result, _callable=None,
             call_external_function = func_with_new_name(call_external_function,
                                                         'ccall_' + name)
             call_external_function = jit.dont_look_inside(
+                call_external_function)
+            call_external_function = sandbox_review(check_caller=True)(
                 call_external_function)
 
     def _oops():
@@ -329,7 +334,11 @@ def llexternal(name, args, result, _callable=None,
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
+    wrapper = sandbox_review(reviewed=True)(wrapper)
     return wrapper
+
+def sandbox_check_type(TYPE):
+    return not isinstance(TYPE, lltype.Primitive) or TYPE == llmemory.Address
 
 
 class CallbackHolder:
@@ -838,6 +847,7 @@ def make_string_mappings(strtype):
 
     # str -> (buf, llobj, flag)
     # Can't inline this because of the raw address manipulation.
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def get_nonmovingbuffer_ll(data):
         """
@@ -891,6 +901,7 @@ def make_string_mappings(strtype):
     get_nonmovingbuffer_ll._annenforceargs_ = [strtype]
 
 
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def get_nonmovingbuffer_ll_final_null(data):
         tup = get_nonmovingbuffer_ll(data)
@@ -902,6 +913,7 @@ def make_string_mappings(strtype):
 
     # args-from-tuple-returned-by-get_nonmoving_buffer() -> None
     # Can't inline this because of the raw address manipulation.
+    @sandbox_review(reviewed=True)
     @jit.dont_look_inside
     def free_nonmovingbuffer_ll(buf, llobj, flag):
         """

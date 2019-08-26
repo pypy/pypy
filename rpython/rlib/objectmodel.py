@@ -226,6 +226,38 @@ def not_rpython(func):
     func._not_rpython_ = True
     return func
 
+def sandbox_review(reviewed=False, check_caller=False, abort=False):
+    """Mark a function as reviewed for sandboxing purposes.
+    This should not be necessary on any function written in "normal" RPython
+    code, but only on functions using some lloperation that is not
+    whitelisted in rpython.translator.sandbox.graphchecker.
+
+    Call this with one of the three flags set to True:
+
+      *reviewed*: This function is fine and any other code can call it.
+      If the function contains external calls, they will still be replaced with
+      stubs using I/O to communicate with the parent process (as long as they
+      are not marked sandboxsafe themselves).
+
+      *check_caller*: This function is fine, but you should still check the
+      callers; they must all have a sandbox_review() as well.
+
+      *abort*: An abort is prepended to the function's code, making the
+      whole process abort if it is called at runtime.
+
+    """
+    assert reviewed + check_caller + abort == 1
+    def wrap(func):
+        assert not hasattr(func, '_sandbox_review_')
+        if reviewed:
+            func._sandbox_review_ = 'reviewed'
+        if check_caller:
+            func._sandbox_review_ = 'check_caller'
+        if abort:
+            func._sandbox_review_ = 'abort'
+        return func
+    return wrap
+
 
 # ____________________________________________________________
 
