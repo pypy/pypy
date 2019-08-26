@@ -546,7 +546,7 @@ class CommonTest(seq_tests.CommonTest):
         u += "eggs"
         self.assertEqual(u, self.type2test("spameggs"))
 
-        self.assertRaises(TypeError, u.__iadd__, None)
+        self.assertRaises(TypeError, "u += None")  # PyPy change
 
     def test_imul(self):
         u = self.type2test([0, 1])

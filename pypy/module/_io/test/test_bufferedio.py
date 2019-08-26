@@ -513,6 +513,17 @@ class AppTestBufferedWriter:
         assert b.truncate() == 8
         assert b.tell() == 8
 
+    def test_truncate_after_write(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'rb+')
+        raw.write(b'\x00' * 50)
+        raw.seek(0)
+        b = _io.BufferedRandom(raw, 10)
+        b.write(b'\x00' * 11)
+        b.read(1)
+        b.truncate()
+        assert b.tell() == 12
+
     def test_write_non_blocking(self):
         import _io, io
         class MockNonBlockWriterIO(io.RawIOBase):

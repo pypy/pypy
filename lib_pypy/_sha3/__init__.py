@@ -64,6 +64,8 @@ class _sha3:
 
 class _shake(_sha3):
     def digest(self, length):
+        if length >= (1 << 29):
+            raise ValueError("length is too large")
         # ExtractLane needs at least SHA3_MAX_DIGESTSIZE + SHA3_LANESIZE and
         # SHA_LANESIZE extra space.
         digest = _ffi.new("char[]", length + SHA3_LANESIZE)
@@ -79,7 +81,7 @@ class _shake(_sha3):
 
     def hexdigest(self, length):
         return codecs.encode(self.digest(length), 'hex').decode()
-        
+
 
 class sha3_224(_sha3):
     name = "sha3_224"

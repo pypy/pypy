@@ -162,7 +162,11 @@ GCFLAG_IGNORE_FINALIZER = first_gcflag << 10
 # It does not need an additional copy in trace out
 GCFLAG_SHADOW_INITIALIZED   = first_gcflag << 11
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 12    # the first unused bit
+# another flag set only on specific objects: the ll_dummy_value from
+# rpython.rtyper.rmodel
+GCFLAG_DUMMY        = first_gcflag << 12
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 13    # the first unused bit
 
 
 # States for the incremental GC
@@ -203,6 +207,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     can_usually_pin_objects = True
     malloc_zero_filled = False
     gcflag_extra = GCFLAG_EXTRA
+    gcflag_dummy = GCFLAG_DUMMY
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains

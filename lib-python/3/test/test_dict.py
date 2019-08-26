@@ -1097,6 +1097,7 @@ class DictTest(unittest.TestCase):
         support.check_free_after_iterating(self, lambda d: iter(d.values()), dict)
         support.check_free_after_iterating(self, lambda d: iter(d.items()), dict)
 
+    @support.cpython_only
     def test_equal_operator_modifying_operand(self):
         # test fix for seg fault reported in issue 27945 part 3.
         class X():
@@ -1179,10 +1180,10 @@ class DictTest(unittest.TestCase):
             for result in d.items():
                 if result[0] == 2:
                     d[2] = None # free d[2] --> X(2).__del__ was called
+                gc.collect()
 
         self.assertRaises(RuntimeError, iter_and_mutate)
 
-    @support.cpython_only
     def test_dict_copy_order(self):
         # bpo-34320
         od = collections.OrderedDict([('a', 1), ('b', 2)])

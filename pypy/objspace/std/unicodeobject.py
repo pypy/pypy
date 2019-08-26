@@ -1042,6 +1042,11 @@ class W_UnicodeObject(W_Root):
         return rutf8.codepoint_position_at_index(
             self._utf8, self._get_index_storage(), index)
 
+    def _codepoints_in_utf8(self, start, end):
+        if self.is_ascii():
+            return end - start
+        return rutf8.codepoints_in_utf8(self._utf8, start, end)
+
     @always_inline
     def _unwrap_and_search(self, space, w_sub, w_start, w_end, forward=True):
         w_sub = self.convert_arg_to_w_unicode(space, w_sub)
@@ -1063,7 +1068,7 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = rutf8.codepoints_in_utf8(self._utf8, start_index, res_index)
+            skip = self._codepoints_in_utf8(start_index, res_index)
             res = start + skip
             assert res >= 0
             return space.newint(res)
@@ -1071,7 +1076,7 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.rfind(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = rutf8.codepoints_in_utf8(self._utf8, res_index, end_index)
+            skip = self._codepoints_in_utf8(res_index, end_index)
             res = end - skip
             assert res >= 0
             return space.newint(res)
@@ -1236,7 +1241,7 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
     return encoding, errors
 
 def encode_object(space, w_obj, encoding, errors):
-    from pypy.module._codecs.interp_codecs import encode
+    from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
     if errors is None or errors == 'strict':
         # fast paths
         utf8 = space.utf8_w(w_obj)
@@ -1258,7 +1263,11 @@ def encode_object(space, w_obj, encoding, errors):
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(utf8)
-    w_retval = encode(space, w_obj, encoding, errors)
+    if encoding is None:
+        encoding = space.sys.defaultencoding
+    w_codec_info = lookup_text_codec(space, 'encode', encoding)
+    w_encfunc = space.getitem(w_codec_info, space.newint(0))
+    w_retval = _call_codec(space, w_encfunc, w_obj, "encoding", encoding, errors)
     if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
                     "'%s' encoder returned '%T' instead of 'bytes'; "
@@ -1269,6 +1278,7 @@ def encode_object(space, w_obj, encoding, errors):
 
 
 def decode_object(space, w_obj, encoding, errors=None):
+    from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
     if errors == 'strict' or errors is None:
         # fast paths
         if encoding == 'ascii':
@@ -1279,8 +1289,11 @@ def decode_object(space, w_obj, encoding, errors=None):
             s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
-    from pypy.module._codecs.interp_codecs import decode
-    w_retval = decode(space, w_obj, encoding, errors)
+    if encoding is None:
+        encoding = space.sys.defaultencoding
+    w_codec_info = lookup_text_codec(space, 'decode', encoding)
+    w_encfunc = space.getitem(w_codec_info, space.newint(1))
+    w_retval = _call_codec(space, w_encfunc, w_obj, "decoding", encoding, errors)
     if not isinstance(w_retval, W_UnicodeObject):
         raise oefmt(space.w_TypeError,
                     "'%s' decoder returned '%T' instead of 'str'; "

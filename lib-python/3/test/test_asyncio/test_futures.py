@@ -534,7 +534,7 @@ class BaseFutureTests:
 @unittest.skipUnless(hasattr(futures, '_CFuture'),
                      'requires the C _asyncio module')
 class CFutureTests(BaseFutureTests, test_utils.TestCase):
-    cls = getattr(futures, '_CFuture')
+    cls = getattr(futures, '_CFuture', None)
 
 
 class PyFutureTests(BaseFutureTests, test_utils.TestCase):
