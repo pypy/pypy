@@ -296,7 +296,6 @@ class rbigint(object):
     def fromstr(s, base=0, allow_underscores=False):
         """As string_to_int(), but ignores an optional 'l' or 'L' suffix
         and returns an rbigint."""
-        from rpython.rlib.rstring import NumberStringParser
         from rpython.rlib.rstring import NumberStringParser, \
             strip_spaces
         s = literal = strip_spaces(s) # XXX could get rid of this slice
