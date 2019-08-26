@@ -920,9 +920,11 @@ class ArrayBuffer(RawBuffer):
         w_array._charbuf_stop()
         return char
 
+    @sandbox_review(reviewed=True)
     def setitem(self, index, char):
         w_array = self.w_array
         data = w_array._charbuf_start()
+        assert 0 <= index < w_array.len
         data[index] = char
         w_array._charbuf_stop()
 

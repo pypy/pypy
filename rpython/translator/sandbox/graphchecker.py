@@ -21,7 +21,8 @@ safe_operations = set([
     'malloc', 'malloc_varsize', 'free',
     'getfield', 'getarrayitem', 'getinteriorfield', 'raw_load',
     'cast_opaque_ptr', 'cast_ptr_to_int',
-    'gc_thread_run', 'gc_stack_bottom', 'gc_thread_after_fork',
+    'gc_thread_run', 'gc_stack_bottom',
+    'gc_thread_before_fork', 'gc_thread_after_fork',
     'shrink_array', 'gc_pin', 'gc_unpin', 'gc_can_move', 'gc_id',
     'gc_identityhash', 'weakref_create', 'weakref_deref',
     'gc_fq_register', 'gc_fq_next_dead',
@@ -103,8 +104,6 @@ class GraphChecker(object):
 
             elif opname in ('cast_ptr_to_adr', 'force_cast',
                             'cast_int_to_ptr'):
-                if is_gc_ptr(op.args[0].concretetype):
-                    return "argument is a GC ptr: %r" % (opname,)
                 if is_gc_ptr(op.result.concretetype):
                     return "result is a GC ptr: %r" % (opname,)
 
