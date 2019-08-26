@@ -78,6 +78,7 @@ class GraphChecker(object):
                     # this will be transformed into a stdin/stdout stub
                     pass
                 else:
+                    # not 'external', but no 'graph' either?
                     return "direct_call to %r" % (obj,)
 
             elif opname in ('cast_ptr_to_adr', 'force_cast'):
