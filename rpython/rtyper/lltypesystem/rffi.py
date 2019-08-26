@@ -1450,6 +1450,7 @@ c_memset = llexternal("memset",
 # NOTE: This is not a weak key dictionary, thus keeping a lot of stuff alive.
 TEST_RAW_ADDR_KEEP_ALIVE = {}
 
+@sandbox_review(reviewed=True)
 @jit.dont_look_inside
 def get_raw_address_of_string(string):
     """Returns a 'char *' that is valid as long as the rpython string object is alive.

@@ -1482,6 +1482,7 @@ if _WIN32:
         calling_conv='win')
 
 
+@sandbox_review(reviewed=True)
 @replace_os_function('utime')
 @specialize.argtype(0, 1)
 def utime(path, times):
@@ -1540,11 +1541,13 @@ def utime(path, times):
             lltype.free(atime, flavor='raw')
             lltype.free(mtime, flavor='raw')
 
+@sandbox_review(check_caller=True)
 def times_to_timeval2p(times, l_timeval2p):
     actime, modtime = times
     _time_to_timeval(actime, l_timeval2p[0])
     _time_to_timeval(modtime, l_timeval2p[1])
 
+@sandbox_review(check_caller=True)
 def _time_to_timeval(t, l_timeval):
     import math
     fracpart, intpart = math.modf(t)
@@ -2255,6 +2258,7 @@ if HAVE_LUTIMES:
         [rffi.CCHARP, TIMEVAL2P], rffi.INT,
         save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     @specialize.argtype(1)
     def lutimes(pathname, times):
         if times is None:
@@ -2270,6 +2274,7 @@ if HAVE_FUTIMES:
         [rffi.INT, TIMEVAL2P], rffi.INT,
         save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     @specialize.argtype(1)
     def futimes(fd, times):
         if times is None:

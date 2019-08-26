@@ -4,7 +4,7 @@ import sys
 
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
-    enforceargs, newlist_hint, specialize, we_are_translated)
+    enforceargs, newlist_hint, specialize, we_are_translated, sandbox_review)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rarithmetic import ovfcheck
@@ -94,6 +94,7 @@ class W_UnicodeObject(W_Root):
     def utf8_w(self, space):
         return self._utf8
 
+    @sandbox_review(reviewed=True)
     def readbuf_w(self, space):
         # XXX for now
         from rpython.rlib.rstruct.unichar import pack_codepoint, UNICODE_SIZE
