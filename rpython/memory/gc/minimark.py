@@ -122,7 +122,11 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 8    # the first unused bit
+# another flag set only on specific objects: the ll_dummy_value from
+# rpython.rtyper.rmodel
+GCFLAG_DUMMY        = first_gcflag << 8
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 9    # the first unused bit
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -140,6 +144,7 @@ class MiniMarkGC(MovingGCBase):
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx experiment with False
     gcflag_extra = GCFLAG_EXTRA
+    gcflag_dummy = GCFLAG_DUMMY
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains

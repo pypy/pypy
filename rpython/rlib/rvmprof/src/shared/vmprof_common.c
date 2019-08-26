@@ -244,9 +244,9 @@ ssize_t insert_thread(pthread_t tid, ssize_t i)
         return -1;
     if (thread_count == threads_size) {
         threads_size += threads_size_step;
-        threads = realloc(threads, sizeof(pid_t) * threads_size);
+        threads = realloc(threads, sizeof(pthread_t) * threads_size);
         assert(threads != NULL);
-        memset(threads + thread_count, 0, sizeof(pid_t) * threads_size_step);
+        memset(threads + thread_count, 0, sizeof(pthread_t) * threads_size_step);
     }
     threads[thread_count++] = tid;
     return thread_count;

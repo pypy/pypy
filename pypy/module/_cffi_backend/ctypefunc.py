@@ -128,6 +128,10 @@ class W_CTypeFunc(W_CTypePtrBase):
         return W_CTypePtrBase._fget(self, attrchar)
 
     def call(self, funcaddr, args_w):
+        if not funcaddr:
+            raise oefmt(self.space.w_RuntimeError,
+                        "cannot call null function pointer from cdata '%s'",
+                        self.name)
         if self.cif_descr:
             # regular case: this function does not take '...' arguments
             self = jit.promote(self)

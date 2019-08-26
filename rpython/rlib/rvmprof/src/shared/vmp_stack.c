@@ -280,7 +280,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             // this is possible because compiler align to 8 bytes.
             //
             if (func_addr != 0x0) {
-                depth = _write_native_stack((void*)(((intptr_t)func_addr) | 0x1), result, depth, max_depth);
+                depth = _write_native_stack((void*)(((uint64_t)func_addr) | 0x1), result, depth, max_depth);
             }
         }
 

@@ -294,10 +294,6 @@ class JSONEncoder(object):
             items = d.iteritems()
 
         for key, v in items:
-            if first:
-                first = False
-            else:
-                builder.append(separator)
             if isinstance(key, basestring):
                 pass
             # JavaScript is weakly typed for these, so it makes sense to
@@ -316,6 +312,10 @@ class JSONEncoder(object):
                 continue
             else:
                 raise TypeError("key " + repr(key) + " is not a string")
+            if first:
+                first = False
+            else:
+                builder.append(separator)
             builder.append('"')
             builder.append(self.__encoder(key))
             builder.append('"')
