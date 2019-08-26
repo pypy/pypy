@@ -158,6 +158,8 @@ class SimpleType(_CDataMeta):
                     break
             else:
                 raise AttributeError("cannot find _type_ attribute")
+        if tp == 'abstract':
+            tp = 'i'
         if (not isinstance(tp, str) or
             not len(tp) == 1 or
             tp not in SIMPLE_TYPE_CHARS):
@@ -341,7 +343,8 @@ class SimpleType(_CDataMeta):
     def from_param(self, value):
         if isinstance(value, self):
             return value
-
+        if self._type_ == 'abstract':
+            raise TypeError('abstract class')
         from_param_f = FROM_PARAM_BY_TYPE.get(self._type_)
         if from_param_f:
             res = from_param_f(self, value)
@@ -371,7 +374,7 @@ class SimpleType(_CDataMeta):
         return self._type_ in "sPzUZXO"
 
 class _SimpleCData(_CData, metaclass=SimpleType):
-    _type_ = 'i'
+    _type_ = 'abstract'
 
     def __init__(self, value=DEFAULT_VALUE):
         if not hasattr(self, '_buffer'):

@@ -71,6 +71,22 @@ class AppTestTypeObject:
         raises(AttributeError, getattr, type, "__abstractmethods__")
         raises(TypeError, "int.__abstractmethods__ = ('abc', )")
 
+    def test_is_abstract_flag(self):
+        # IS_ABSTRACT flag should always be in sync with
+        # cls.__dict__['__abstractmethods__']
+        FLAG_IS_ABSTRACT = 1 << 20
+
+        class Base:
+            pass
+        Base.__abstractmethods__ = {'x'}
+        assert Base.__flags__ & FLAG_IS_ABSTRACT
+
+        class Derived(Base):
+            pass
+        assert not (Derived.__flags__ & FLAG_IS_ABSTRACT)
+        Derived.__abstractmethods__ = {'x'}
+        assert Derived.__flags__ & FLAG_IS_ABSTRACT
+
     def test_attribute_error(self):
         class X(object):
             __module__ = 'test'

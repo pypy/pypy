@@ -618,10 +618,10 @@ def register_error(space, errors, w_handler):
 # ____________________________________________________________
 # Helpers for unicode.encode() and bytes.decode()
 def lookup_text_codec(space, action, encoding):
-    codec_info = lookup_codec(space, encoding)
+    w_codec_info = lookup_codec(space, encoding)
     try:
         is_text_encoding = space.is_true(
-                space.getattr(codec_info, space.newtext('_is_text_encoding')))
+                space.getattr(w_codec_info, space.newtext('_is_text_encoding')))
     except OperationError as e:
         if e.match(space, space.w_AttributeError):
             is_text_encoding = True
@@ -630,8 +630,8 @@ def lookup_text_codec(space, action, encoding):
     if not is_text_encoding:
         raise oefmt(space.w_LookupError,
                     "'%s' is not a text encoding; "
-                    "use %s to handle arbitrary codecs", encoding, action)
-    return codec_info
+                    "use codecs.%s() to handle arbitrary codecs", encoding, action)
+    return w_codec_info
 
 # ____________________________________________________________
 

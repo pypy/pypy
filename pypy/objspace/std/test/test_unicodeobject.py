@@ -780,6 +780,11 @@ class AppTestUnicodeString:
         raises(UnicodeError, b"\xc2".decode, "utf-8")
         assert b'\xe1\x80'.decode('utf-8', 'replace') == "\ufffd"
 
+    def test_invalid_lookup(self):
+
+        raises(LookupError, u"abcd".encode, "hex")
+        raises(LookupError, b"abcd".decode, "hex")
+
     def test_repr_printable(self):
         # PEP 3138: __repr__ respects printable characters.
         x = '\u027d'

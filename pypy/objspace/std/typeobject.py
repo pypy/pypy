@@ -816,7 +816,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
             return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
         w_typetype = w_winner
 
-    name = space.text_w(w_name) 
+    name = space.text_w(w_name)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     pos = surrogate_in_utf8(name)
@@ -1339,7 +1339,6 @@ def setup_user_defined_type(w_self, force_new_layout):
         if not isinstance(w_base, W_TypeObject):
             continue
         w_self.flag_cpytype |= w_base.flag_cpytype
-        w_self.flag_abstract |= w_base.flag_abstract
         if w_self.flag_map_or_seq == '?':
             w_self.flag_map_or_seq = w_base.flag_map_or_seq
 

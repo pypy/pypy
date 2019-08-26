@@ -1241,7 +1241,7 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
     return encoding, errors
 
 def encode_object(space, w_obj, encoding, errors):
-    from pypy.module._codecs.interp_codecs import encode
+    from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
     if errors is None or errors == 'strict':
         # fast paths
         utf8 = space.utf8_w(w_obj)
@@ -1263,7 +1263,11 @@ def encode_object(space, w_obj, encoding, errors):
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(utf8)
-    w_retval = encode(space, w_obj, encoding, errors)
+    if encoding is None:
+        encoding = space.sys.defaultencoding
+    w_codec_info = lookup_text_codec(space, 'encode', encoding)
+    w_encfunc = space.getitem(w_codec_info, space.newint(0))
+    w_retval = _call_codec(space, w_encfunc, w_obj, "encoding", encoding, errors)
     if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
                     "'%s' encoder returned '%T' instead of 'bytes'; "
@@ -1274,6 +1278,7 @@ def encode_object(space, w_obj, encoding, errors):
 
 
 def decode_object(space, w_obj, encoding, errors=None):
+    from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
     if errors == 'strict' or errors is None:
         # fast paths
         if encoding == 'ascii':
@@ -1284,8 +1289,11 @@ def decode_object(space, w_obj, encoding, errors=None):
             s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
-    from pypy.module._codecs.interp_codecs import decode
-    w_retval = decode(space, w_obj, encoding, errors)
+    if encoding is None:
+        encoding = space.sys.defaultencoding
+    w_codec_info = lookup_text_codec(space, 'decode', encoding)
+    w_encfunc = space.getitem(w_codec_info, space.newint(1))
+    w_retval = _call_codec(space, w_encfunc, w_obj, "decoding", encoding, errors)
     if not isinstance(w_retval, W_UnicodeObject):
         raise oefmt(space.w_TypeError,
                     "'%s' decoder returned '%T' instead of 'str'; "
