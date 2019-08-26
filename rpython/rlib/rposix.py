@@ -2214,6 +2214,7 @@ if HAVE_FUTIMENS:
     c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     def futimens(fd, atime, atime_ns, mtime, mtime_ns):
         l_times = lltype.malloc(TIMESPEC2P.TO, 2, flavor='raw')
         rffi.setintfield(l_times[0], 'c_tv_sec', atime)
@@ -2230,6 +2231,7 @@ if HAVE_UTIMENSAT:
         [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT,
         save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     def utimensat(pathname, atime, atime_ns, mtime, mtime_ns,
             dir_fd=AT_FDCWD, follow_symlinks=True):
         """Wrapper around utimensat(2)
@@ -2643,6 +2645,7 @@ if not _WIN32:
             rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
             compilation_info=sendfile_eci)
 
+    @sandbox_review(reviewed=True)
     def sendfile(out_fd, in_fd, offset, count):
         with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_offset:
             p_offset[0] = rffi.cast(OFF_T, offset)
