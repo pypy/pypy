@@ -389,7 +389,7 @@ class W_FileIO(W_RawIOBase):
                     return space.w_None
                 raise wrap_oserror(space, e,
                                    exception_name='w_IOError')
-            rwbuffer.setslice(0, buf)
+            self.output_slice(space, rwbuffer, 0, buf)
             return space.newint(len(buf))
         else:
             # optimized case: reading more than 64 bytes into a rwbuffer

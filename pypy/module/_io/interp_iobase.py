@@ -275,6 +275,14 @@ class W_IOBase(W_Root):
                 else:
                     break
 
+    @staticmethod
+    def output_slice(space, rwbuffer, target_pos, data):
+        if target_pos + len(data) > rwbuffer.getlength():
+            raise oefmt(space.w_RuntimeError,
+                        "target buffer has shrunk during operation")
+        rwbuffer.setslice(target_pos, data)
+
+
 W_IOBase.typedef = TypeDef(
     '_io._IOBase',
     __new__ = generic_new_descr(W_IOBase),
