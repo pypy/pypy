@@ -18,6 +18,7 @@ from rpython.rtyper.error import TyperError
 
 from rpython.rlib._os_support import _preferred_traits, string_traits
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
@@ -534,6 +535,7 @@ if not _WIN32:
                               compilation_info=compilation_info,
                               save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('fstat')
 def fstat(fd):
     if not _WIN32:
@@ -574,6 +576,7 @@ def fstat(fd):
         finally:
             lltype.free(info, flavor='raw')
 
+@sandbox_review(reviewed=True)
 @replace_os_function('stat')
 @specialize.argtype(0)
 def stat(path):
@@ -587,6 +590,7 @@ def stat(path):
         path = traits.as_str0(path)
         return win32_xstat(traits, path, traverse=True)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('lstat')
 @specialize.argtype(0)
 def lstat(path):
@@ -639,12 +643,14 @@ if rposix.HAVE_FSTATAT:
             handle_posix_error('fstatat', error)
             return build_stat_result(stresult)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('fstatvfs')
 def fstatvfs(fd):
     with lltype.scoped_alloc(STATVFS_STRUCT.TO) as stresult:
         handle_posix_error('fstatvfs', c_fstatvfs(fd, stresult))
         return build_statvfs_result(stresult)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('statvfs')
 @specialize.argtype(0)
 def statvfs(path):

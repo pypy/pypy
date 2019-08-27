@@ -395,12 +395,14 @@ c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT,
                   save_err=rffi.RFFI_SAVE_ERRNO)
 c_open = external(UNDERSCORE_ON_WIN32 + 'open',
                   [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
-                  save_err=rffi.RFFI_SAVE_ERRNO)
+                  save_err=rffi.RFFI_SAVE_ERRNO,
+                  sandboxsafe="nowrite")
 
 # Win32 Unicode functions
 c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
                    [rffi.CWCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
-                   save_err=rffi.RFFI_SAVE_ERRNO)
+                   save_err=rffi.RFFI_SAVE_ERRNO,
+                   sandboxsafe="nowrite")
 
 #___________________________________________________________________
 # Wrappers around posix functions, that accept either strings, or
@@ -514,6 +516,7 @@ c_write = external(UNDERSCORE_ON_WIN32 + 'write',
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('read')
 @signature(types.int(), types.int(), returns=types.any())
 def read(fd, count):
@@ -525,6 +528,7 @@ def read(fd, count):
             got = handle_posix_error('read', c_read(fd, void_buf, count))
             return buf.str(got)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('write')
 @signature(types.int(), types.any(), returns=types.any())
 def write(fd, data):
@@ -649,13 +653,13 @@ def sync():
 #___________________________________________________________________
 
 c_chdir = external('chdir', [rffi.CCHARP], rffi.INT,
-                   save_err=rffi.RFFI_SAVE_ERRNO)
+                   save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_fchdir = external('fchdir', [rffi.INT], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
 c_access = external(UNDERSCORE_ON_WIN32 + 'access',
-                    [rffi.CCHARP, rffi.INT], rffi.INT)
+                    [rffi.CCHARP, rffi.INT], rffi.INT, sandboxsafe="nowrite")
 c_waccess = external(UNDERSCORE_ON_WIN32 + 'waccess',
-                     [rffi.CWCHARP, rffi.INT], rffi.INT)
+                     [rffi.CWCHARP, rffi.INT], rffi.INT, sandboxsafe="nowrite")
 
 @replace_os_function('chdir')
 @specialize.argtype(0)
@@ -753,6 +757,7 @@ c_wgetcwd = external(UNDERSCORE_ON_WIN32 + 'wgetcwd',
                      [rffi.CWCHARP, rffi.SIZE_T], rffi.CWCHARP,
                      save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('getcwd')
 def getcwd():
     bufsize = 256
@@ -773,6 +778,7 @@ def getcwd():
     lltype.free(buf, flavor='raw')
     return result
 
+@sandbox_review(reviewed=True)
 @replace_os_function('getcwdu')
 def getcwdu():
     bufsize = 256
@@ -811,9 +817,11 @@ if not _WIN32:
     DIRENT = dirent_config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
     c_opendir = external('opendir',
-        [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+        [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO,
+        sandboxsafe="nowrite")
     c_fdopendir = external('fdopendir',
-        [rffi.INT], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+        [rffi.INT], DIRP, save_err=rffi.RFFI_SAVE_ERRNO,
+        sandboxsafe="nowrite")
     c_rewinddir = external('rewinddir',
         [DIRP], lltype.Void, releasegil=False)
     # XXX macro=True is hack to make sure we get the correct kind of
@@ -828,6 +836,7 @@ if not _WIN32:
 else:
     dirent_config = {}
 
+@sandbox_review(reviewed=True)
 def _listdir(dirp, rewind=False):
     result = []
     while True:
@@ -847,6 +856,7 @@ def _listdir(dirp, rewind=False):
     return result
 
 if not _WIN32:
+    @sandbox_review(reviewed=True)
     def fdlistdir(dirfd):
         """
         Like listdir(), except that the directory is specified as an open
@@ -921,17 +931,17 @@ def listdir(path):
 #___________________________________________________________________
 
 c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT,
-                   save_err=rffi.RFFI_SAVE_ERRNO)
+                   save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_execve = external('execve',
                     [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_spawnv = external(UNDERSCORE_ON_WIN32 + 'spawnv',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_spawnve = external(UNDERSCORE_ON_WIN32 + 'spawnve',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
                      rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+                     save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
 @replace_os_function('execv')
 def execv(path, args):
@@ -1006,6 +1016,7 @@ def fork():
         debug.debug_forked(ofs)
     return childpid
 
+@sandbox_review(reviewed=True)
 @replace_os_function('openpty')
 @jit.dont_look_inside
 def openpty():
@@ -1110,6 +1121,7 @@ c_getlogin = external('getlogin', [], rffi.CCHARP,
 c_getloadavg = external('getloadavg',
                         [rffi.CArrayPtr(lltype.Float), rffi.INT], rffi.INT)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('getlogin')
 def getlogin():
     result = c_getlogin()
@@ -1117,6 +1129,7 @@ def getlogin():
         raise OSError(get_saved_errno(), "getlogin failed")
     return rffi.charp2str(result)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('getloadavg')
 def getloadavg():
     load = lltype.malloc(rffi.CArrayPtr(lltype.Float).TO, 3, flavor='raw')
@@ -1134,6 +1147,7 @@ c_readlink = external('readlink',
                       [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
                       save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('readlink')
 def readlink(path):
     path = _as_bytes0(path)
@@ -1168,6 +1182,7 @@ c_ttyname = external('ttyname', [lltype.Signed], rffi.CCHARP,
                      releasegil=False,
                      save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('ttyname')
 def ttyname(fd):
     l_name = c_ttyname(fd)
@@ -1178,6 +1193,7 @@ def ttyname(fd):
 c_strerror = external('strerror', [rffi.INT], rffi.CCHARP,
                       releasegil=False, sandboxsafe=True)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('strerror')
 def strerror(errnum):
     res = c_strerror(errnum)
@@ -1185,20 +1201,20 @@ def strerror(errnum):
         raise ValueError("os_strerror failed")
     return rffi.charp2str(res)
 
-c_system = external('system', [rffi.CCHARP], rffi.INT)
+c_system = external('system', [rffi.CCHARP], rffi.INT, sandboxsafe="nowrite")
 
 @replace_os_function('system')
 def system(command):
     return widen(c_system(command))
 
 c_unlink = external('unlink', [rffi.CCHARP], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_mkdir = external('mkdir', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
-                   save_err=rffi.RFFI_SAVE_ERRNO)
+                   save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_rmdir = external(UNDERSCORE_ON_WIN32 + 'rmdir', [rffi.CCHARP], rffi.INT,
-                   save_err=rffi.RFFI_SAVE_ERRNO)
+                   save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_wrmdir = external(UNDERSCORE_ON_WIN32 + 'wrmdir', [rffi.CWCHARP], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
 @replace_os_function('unlink')
 @specialize.argtype(0)
@@ -1232,11 +1248,11 @@ def rmdir(path):
         handle_posix_error('rmdir', c_rmdir(_as_bytes0(path)))
 
 c_chmod = external('chmod', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
-                   save_err=rffi.RFFI_SAVE_ERRNO)
+                   save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_fchmod = external('fchmod', [rffi.INT, rffi.MODE_T], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO,)
 c_rename = external('rename', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
 @replace_os_function('chmod')
 @specialize.argtype(0)
@@ -1293,10 +1309,11 @@ def replace(path1, path2):
 #___________________________________________________________________
 
 c_mkfifo = external('mkfifo', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_mknod = external('mknod', [rffi.CCHARP, rffi.MODE_T, rffi.INT], rffi.INT,
 #                                           # xxx: actually ^^^ dev_t
-                   macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
+                   macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO,
+                   sandboxsafe="nowrite")
 
 @replace_os_function('mkfifo')
 @specialize.argtype(0)
@@ -1337,6 +1354,7 @@ else:
         c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('pipe')
 def pipe(flags=0):
     # 'flags' might be ignored.  Check the result.
@@ -1373,6 +1391,7 @@ def pipe(flags=0):
         finally:
             lltype.free(filedes, flavor='raw')
 
+@sandbox_review(reviewed=True)
 def pipe2(flags):
     # Only available if there is really a c_pipe2 function.
     # No fallback to pipe() if we get ENOSYS.
@@ -1385,9 +1404,9 @@ def pipe2(flags):
         lltype.free(filedes, flavor='raw')
 
 c_link = external('link', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
-                  save_err=rffi.RFFI_SAVE_ERRNO,)
+                  save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_symlink = external('symlink', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+                     save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
 #___________________________________________________________________
 
@@ -1420,9 +1439,9 @@ def umask(newmask):
     return widen(c_umask(newmask))
 
 c_chown = external('chown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT,
-                   save_err=rffi.RFFI_SAVE_ERRNO)
+                   save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_lchown = external('lchown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+                    save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 c_fchown = external('fchown', [rffi.INT, rffi.INT, rffi.INT], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
 
@@ -1581,6 +1600,7 @@ else:
             lltype.Ptr(rwin32.FILETIME), lltype.Ptr(rwin32.FILETIME)],
         rwin32.BOOL, calling_conv='win')
 
+@sandbox_review(reviewed=True)
 @replace_os_function('times')
 def times():
     if not _WIN32:
@@ -1680,12 +1700,14 @@ def nice(inc):
 
 c_ctermid = external('ctermid', [rffi.CCHARP], rffi.CCHARP)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('ctermid')
 def ctermid():
     return rffi.charp2str(c_ctermid(lltype.nullptr(rffi.CCHARP.TO)))
 
 c_tmpnam = external('tmpnam', [rffi.CCHARP], rffi.CCHARP)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('tmpnam')
 def tmpnam():
     return rffi.charp2str(c_tmpnam(lltype.nullptr(rffi.CCHARP.TO)))
@@ -1737,8 +1759,10 @@ if not _WIN32:
     c_setgroups = external('setgroups', [rffi.SIZE_T, GID_GROUPS_T], rffi.INT,
                            save_err=rffi.RFFI_SAVE_ERRNO)
     c_initgroups = external('initgroups', [rffi.CCHARP, GID_T], rffi.INT,
-                            save_err=rffi.RFFI_SAVE_ERRNO)
+                            save_err=rffi.RFFI_SAVE_ERRNO,
+                            sandboxsafe="nowrite")
 
+@sandbox_review(reviewed=True)
 @replace_os_function('getgroups')
 def getgroups():
     n = handle_posix_error('getgroups',
@@ -1886,6 +1910,7 @@ if not _WIN32:
     c_setresgid = external('setresgid', [GID_T] * 3, rffi.INT,
                            save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     @replace_os_function('getresuid')
     def getresuid():
         out = lltype.malloc(UID_T_P.TO, 3, flavor='raw')
@@ -1898,6 +1923,7 @@ if not _WIN32:
         finally:
             lltype.free(out, flavor='raw')
 
+    @sandbox_review(reviewed=True)
     @replace_os_function('getresgid')
     def getresgid():
         out = lltype.malloc(GID_T_P.TO, 3, flavor='raw')
@@ -1956,6 +1982,7 @@ if not _WIN32:
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO,
                     macro=_MACRO_ON_POSIX,
+                    sandboxsafe="nowrite",
                     compilation_info=ExternalCompilationInfo(includes=['unistd.h']))
 
 @replace_os_function('chroot')
@@ -1981,6 +2008,7 @@ if not _WIN32:
                        compilation_info=CConfig._compilation_info_,
                        save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('uname')
 def uname():
     l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
@@ -2024,7 +2052,8 @@ c_sysconf = external('sysconf', [rffi.INT], rffi.LONG,
 c_fpathconf = external('fpathconf', [rffi.INT, rffi.INT], rffi.LONG,
                        save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 c_pathconf = external('pathconf', [rffi.CCHARP, rffi.INT], rffi.LONG,
-                      save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+                      save_err=rffi.RFFI_FULL_ERRNO_ZERO,
+                      sandboxsafe="nowrite")
 c_confstr = external('confstr',
                      [rffi.INT, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T,
                       save_err=rffi.RFFI_FULL_ERRNO_ZERO)
@@ -2056,6 +2085,7 @@ def pathconf(path, value):
             raise OSError(errno, "pathconf failed")
     return res
 
+@sandbox_review(reviewed=True)
 @replace_os_function('confstr')
 def confstr(value):
     n = intmask(c_confstr(value, lltype.nullptr(rffi.CCHARP.TO), 0))
@@ -2129,7 +2159,8 @@ if not _WIN32:
 
 if HAVE_FACCESSAT:
     c_faccessat = external('faccessat',
-        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT,
+        sandboxsafe="nowrite")
 
     def faccessat(pathname, mode, dir_fd=AT_FDCWD,
             effective_ids=False, follow_symlinks=True):
@@ -2147,7 +2178,7 @@ if HAVE_FACCESSAT:
 if HAVE_FCHMODAT:
     c_fchmodat = external('fchmodat',
         [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO,)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def fchmodat(path, mode, dir_fd=AT_FDCWD, follow_symlinks=True):
         if follow_symlinks:
@@ -2160,7 +2191,7 @@ if HAVE_FCHMODAT:
 if HAVE_FCHOWNAT:
     c_fchownat = external('fchownat',
         [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT, rffi.INT], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO,)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def fchownat(path, owner, group, dir_fd=AT_FDCWD,
             follow_symlinks=True, empty_path=False):
@@ -2175,7 +2206,7 @@ if HAVE_FCHOWNAT:
 if HAVE_FEXECVE:
     c_fexecve = external('fexecve',
         [rffi.INT, rffi.CCHARPP, rffi.CCHARPP], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def fexecve(fd, args, env):
         envstrs = []
@@ -2196,7 +2227,7 @@ if HAVE_LINKAT:
     c_linkat = external(
         'linkat',
         [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD,
             follow_symlinks=True):
@@ -2290,7 +2321,7 @@ if HAVE_FUTIMES:
 if HAVE_MKDIRAT:
     c_mkdirat = external('mkdirat',
         [rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def mkdirat(pathname, mode, dir_fd=AT_FDCWD):
         error = c_mkdirat(dir_fd, pathname, mode)
@@ -2299,7 +2330,7 @@ if HAVE_MKDIRAT:
 if HAVE_UNLINKAT:
     c_unlinkat = external('unlinkat',
         [rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def unlinkat(pathname, dir_fd=AT_FDCWD, removedir=False):
         flag = AT_REMOVEDIR if removedir else 0
@@ -2337,7 +2368,7 @@ if HAVE_RENAMEAT:
     c_renameat = external(
         'renameat',
         [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def renameat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD):
         error = c_renameat(src_dir_fd, src, dst_dir_fd, dst)
@@ -2347,7 +2378,7 @@ if HAVE_RENAMEAT:
 if HAVE_SYMLINKAT:
     c_symlinkat = external('symlinkat',
         [rffi.CCHARP, rffi.INT, rffi.CCHARP], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def symlinkat(src, dst, dir_fd=AT_FDCWD):
         error = c_symlinkat(src, dir_fd, dst)
@@ -2356,7 +2387,7 @@ if HAVE_SYMLINKAT:
 if HAVE_OPENAT:
     c_openat = external('openat',
         [rffi.INT, rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     @enforceargs(s_Str0, int, int, int, typecheck=False)
     def openat(path, flags, mode, dir_fd=AT_FDCWD):
@@ -2366,7 +2397,7 @@ if HAVE_OPENAT:
 if HAVE_MKFIFOAT:
     c_mkfifoat = external('mkfifoat',
         [rffi.INT, rffi.CCHARP, rffi.MODE_T], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def mkfifoat(path, mode, dir_fd=AT_FDCWD):
         error = c_mkfifoat(dir_fd, path, mode)
@@ -2375,7 +2406,7 @@ if HAVE_MKFIFOAT:
 if HAVE_MKNODAT:
     c_mknodat = external('mknodat',
         [rffi.INT, rffi.CCHARP, rffi.MODE_T, rffi.INT], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
 
     def mknodat(path, mode, device, dir_fd=AT_FDCWD):
         error = c_mknodat(dir_fd, path, mode, device)
@@ -2687,29 +2718,29 @@ if sys.platform.startswith('linux'):
         [rffi.INT, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
         rffi.INT,
         compilation_info=CConfig._compilation_info_,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
     c_setxattr = external('setxattr',
         [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
         rffi.INT,
         compilation_info=CConfig._compilation_info_,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
     c_lsetxattr = external('lsetxattr',
         [rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T, rffi.INT],
         rffi.INT,
         compilation_info=CConfig._compilation_info_,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
     c_fremovexattr = external('fremovexattr',
         [rffi.INT, rffi.CCHARP], rffi.INT,
         compilation_info=CConfig._compilation_info_,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
     c_removexattr = external('removexattr',
         [rffi.CCHARP, rffi.CCHARP], rffi.INT,
         compilation_info=CConfig._compilation_info_,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
     c_lremovexattr = external('lremovexattr',
         [rffi.CCHARP, rffi.CCHARP], rffi.INT,
         compilation_info=CConfig._compilation_info_,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        save_err=rffi.RFFI_SAVE_ERRNO, sandboxsafe="nowrite")
     c_flistxattr = external('flistxattr',
         [rffi.INT, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
         compilation_info=CConfig._compilation_info_,
@@ -2724,6 +2755,7 @@ if sys.platform.startswith('linux'):
         save_err=rffi.RFFI_SAVE_ERRNO)
     buf_sizes = [256, XATTR_SIZE_MAX]
 
+    @sandbox_review(reviewed=True)
     def fgetxattr(fd, name):
         for size in buf_sizes:
             with rffi.scoped_alloc_buffer(size) as buf:
@@ -2738,6 +2770,7 @@ if sys.platform.startswith('linux'):
         else:
             raise OSError(errno.ERANGE, 'fgetxattr failed')
 
+    @sandbox_review(reviewed=True)
     def getxattr(path, name, follow_symlinks=True):
         for size in buf_sizes:
             with rffi.scoped_alloc_buffer(size) as buf:
@@ -2783,6 +2816,7 @@ if sys.platform.startswith('linux'):
         del result[-1]
         return result
 
+    @sandbox_review(reviewed=True)
     def flistxattr(fd):
         for size in buf_sizes:
             with rffi.scoped_alloc_buffer(size) as buf:
@@ -2796,6 +2830,7 @@ if sys.platform.startswith('linux'):
         else:
             raise OSError(errno.ERANGE, 'flistxattr failed')
 
+    @sandbox_review(reviewed=True)
     def listxattr(path, follow_symlinks=True):
         for size in buf_sizes:
             with rffi.scoped_alloc_buffer(size) as buf:

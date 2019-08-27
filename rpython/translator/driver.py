@@ -344,6 +344,12 @@ class TranslationDriver(SimpleTaskEngine):
         rtyper = self.translator.buildrtyper()
         rtyper.specialize(dont_simplify_again=True)
 
+        # we do the sandbox review checking here, before inlining graphs
+        # inside each other (and later generating extra graphs for the GC).
+        if self.config.translation.sandbox:
+            from rpython.translator.sandbox import graphchecker
+            graphchecker.check_all_graphs(self.translator)
+
     @taskdef([RTYPE], "JIT compiler generation")
     def task_pyjitpl_lltype(self):
         """ Generate bytecodes for JIT and flow the JIT helper functions
@@ -411,10 +417,6 @@ class TranslationDriver(SimpleTaskEngine):
         translator = self.translator
         if translator.annotator is not None:
             translator.frozen = True
-
-        if self.config.translation.sandbox:
-            from rpython.translator.sandbox import graphchecker
-            graphchecker.check_all_graphs(self.translator)
 
         standalone = self.standalone
         get_gchooks = self.extra.get('get_gchooks', lambda: None)

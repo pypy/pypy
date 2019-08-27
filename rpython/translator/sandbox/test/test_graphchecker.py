@@ -52,7 +52,11 @@ class TestGraphIsUnsafe(object):
             return llop.force_cast(lltype.Signed, x)
         self.check_safe(f, [float])
         self.check_safe(f, [lltype.Ptr(SRAW)])
-        self.check_unsafe("argument is a GC ptr", f, [lltype.Ptr(SGC)])
+        self.check_safe(f, [lltype.Ptr(SGC)])
+        #
+        def g(x):
+            return llop.force_cast(lltype.Ptr(SGC), x)
+        self.check_unsafe("result is a GC ptr", g, [int])
 
     def test_direct_call_to_check_caller(self):
         @sandbox_review(check_caller=True)

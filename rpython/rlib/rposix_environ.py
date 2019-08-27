@@ -2,7 +2,7 @@ import os
 import sys
 from rpython.annotator import model as annmodel
 from rpython.rlib._os_support import _WIN32, StringTraits, UnicodeTraits
-from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.objectmodel import enforceargs, sandbox_review
 # importing rposix here creates a cycle on Windows
 from rpython.rtyper.controllerentry import Controller
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -148,6 +148,7 @@ def make_env_impls(win32=False):
         byname, eq = envkeepalive.bywname, u'='
         from rpython.rlib.rwin32 import lastSavedWindowsError as last_error
 
+    @sandbox_review(reviewed=True)
     def envitems_llimpl():
         environ = get_environ()
         result = []
@@ -162,11 +163,13 @@ def make_env_impls(win32=False):
             i += 1
         return result
 
+    @sandbox_review(reviewed=True)
     def getenv_llimpl(name):
         with traits.scoped_str2charp(name) as l_name:
             l_result = getenv(l_name)
             return traits.charp2str(l_result) if l_result else None
 
+    @sandbox_review(reviewed=True)
     def putenv_llimpl(name, value):
         l_string = traits.str2charp(name + eq + value)
         error = rffi.cast(lltype.Signed, putenv(l_string))
@@ -196,6 +199,7 @@ if hasattr(__import__(os.name), 'unsetenv'):
     os_unsetenv = llexternal('unsetenv', [rffi.CCHARP], rffi.INT,
                                   save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     def r_unsetenv(name):
         with rffi.scoped_str2charp(name) as l_name:
             error = rffi.cast(lltype.Signed, os_unsetenv(l_name))

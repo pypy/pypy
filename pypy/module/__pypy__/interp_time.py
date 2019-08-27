@@ -6,10 +6,12 @@ from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rtime
 from rpython.rlib.rtime import HAS_CLOCK_GETTIME
+from rpython.rlib.objectmodel import sandbox_review
 
 
 if HAS_CLOCK_GETTIME:
 
+    @sandbox_review(reviewed=True)
     @unwrap_spec(clk_id="c_int")
     def clock_gettime(space, clk_id):
         with lltype.scoped_alloc(rtime.TIMESPEC) as tp:
@@ -20,6 +22,7 @@ if HAS_CLOCK_GETTIME:
                  float(rffi.getintfield(tp, 'c_tv_nsec')) * 0.000000001)
         return space.newfloat(t)
 
+    @sandbox_review(reviewed=True)
     @unwrap_spec(clk_id="c_int")
     def clock_getres(space, clk_id):
         with lltype.scoped_alloc(rtime.TIMESPEC) as tp:
