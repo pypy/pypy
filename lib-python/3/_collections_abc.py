@@ -61,12 +61,10 @@ coroutine = type(_coro)
 _coro.close()  # Prevent ResourceWarning
 del _coro
 ## asynchronous generator ##
-## This should be reverted, once async generators are supported.
-## Temporary fix.
-#async def _ag(): yield
-#_ag = _ag()
-#async_generator = type(_ag)
-#del _ag
+async def _ag(): yield
+_ag = _ag()
+async_generator = type(_ag)
+del _ag
 
 
 ### ONE-TRICK PONIES ###
@@ -239,7 +237,7 @@ class AsyncGenerator(AsyncIterator):
         return NotImplemented
 
 
-# AsyncGenerator.register(async_generator)
+AsyncGenerator.register(async_generator)
 
 
 class Iterable(metaclass=ABCMeta):
