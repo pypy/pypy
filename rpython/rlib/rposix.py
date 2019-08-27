@@ -1016,6 +1016,7 @@ def fork():
         debug.debug_forked(ofs)
     return childpid
 
+@sandbox_review(reviewed=True)
 @replace_os_function('openpty')
 @jit.dont_look_inside
 def openpty():
@@ -1353,6 +1354,7 @@ else:
         c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('pipe')
 def pipe(flags=0):
     # 'flags' might be ignored.  Check the result.
@@ -1389,6 +1391,7 @@ def pipe(flags=0):
         finally:
             lltype.free(filedes, flavor='raw')
 
+@sandbox_review(reviewed=True)
 def pipe2(flags):
     # Only available if there is really a c_pipe2 function.
     # No fallback to pipe() if we get ENOSYS.
@@ -1906,6 +1909,7 @@ if not _WIN32:
     c_setresgid = external('setresgid', [GID_T] * 3, rffi.INT,
                            save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     @replace_os_function('getresuid')
     def getresuid():
         out = lltype.malloc(UID_T_P.TO, 3, flavor='raw')
@@ -1918,6 +1922,7 @@ if not _WIN32:
         finally:
             lltype.free(out, flavor='raw')
 
+    @sandbox_review(reviewed=True)
     @replace_os_function('getresgid')
     def getresgid():
         out = lltype.malloc(GID_T_P.TO, 3, flavor='raw')

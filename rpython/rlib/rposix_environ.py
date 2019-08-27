@@ -169,6 +169,7 @@ def make_env_impls(win32=False):
             l_result = getenv(l_name)
             return traits.charp2str(l_result) if l_result else None
 
+    @sandbox_review(reviewed=True)
     def putenv_llimpl(name, value):
         l_string = traits.str2charp(name + eq + value)
         error = rffi.cast(lltype.Signed, putenv(l_string))

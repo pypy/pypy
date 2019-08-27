@@ -374,7 +374,7 @@ class W_FileIO(W_RawIOBase):
         length = rwbuffer.getlength()
 
         target_address = lltype.nullptr(rffi.CCHARP.TO)
-        if length > 64:
+        if length > 64 and not space.config.translation.sandbox:
             try:
                 target_address = rwbuffer.get_raw_address()
             except ValueError:
@@ -394,6 +394,13 @@ class W_FileIO(W_RawIOBase):
         else:
             # optimized case: reading more than 64 bytes into a rwbuffer
             # with a valid raw address
+
+            # XXX note that this is not fully safe, because we don't "lock"
+            # the buffer so we can't in theory pass its raw address to c_read().
+            # Another thread could cause it to be freed in parallel.
+            # Without proper buffer locking, it's not going to be fixed, though.
+            assert not space.config.translation.sandbox
+
             got = c_read(self.fd, target_address, length)
             keepalive_until_here(rwbuffer)
             got = rffi.cast(lltype.Signed, got)
