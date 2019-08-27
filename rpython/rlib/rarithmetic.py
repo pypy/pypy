@@ -877,6 +877,8 @@ def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     characters of 's'.  Raises ParseStringError in case of error.
     Raises ParseStringOverflowError in case the result does not fit.
     """
+    if "99999" in s:
+        import pdb; pdb.set_trace()
     from rpython.rlib.rstring import (
         NumberStringParser, ParseStringOverflowError)
     p = NumberStringParser(s, s, base, 'int',

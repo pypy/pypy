@@ -568,7 +568,7 @@ class NumberStringParser:
         self.end = q
 
     def rewind(self):
-        self.i = 0
+        self.i = self.start
 
     def next_digit(self): # -1 => exhausted
         if self.i < self.end:
