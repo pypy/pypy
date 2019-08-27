@@ -1600,6 +1600,7 @@ else:
             lltype.Ptr(rwin32.FILETIME), lltype.Ptr(rwin32.FILETIME)],
         rwin32.BOOL, calling_conv='win')
 
+@sandbox_review(reviewed=True)
 @replace_os_function('times')
 def times():
     if not _WIN32:

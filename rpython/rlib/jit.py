@@ -3,7 +3,9 @@ import sys
 import py
 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython, we_are_translated
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here
+from rpython.rlib.objectmodel import specialize, not_rpython, we_are_translated
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
@@ -1196,6 +1198,7 @@ class Entry(ExtRegistryEntry):
 def _jit_conditional_call(condition, function, *args):
     pass           # special-cased below
 
+@sandbox_review(reviewed=True)   # for the llop.jit_conditional_call
 @specialize.call_location()
 def conditional_call(condition, function, *args):
     """Does the same as:
@@ -1217,6 +1220,7 @@ conditional_call._always_inline_ = 'try'
 def _jit_conditional_call_value(value, function, *args):
     return value    # special-cased below
 
+@sandbox_review(reviewed=True)   # for the llop.jit_conditional_call_value
 @specialize.call_location()
 def conditional_call_elidable(value, function, *args):
     """Does the same as:
