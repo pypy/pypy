@@ -198,6 +198,7 @@ if hasattr(__import__(os.name), 'unsetenv'):
     os_unsetenv = llexternal('unsetenv', [rffi.CCHARP], rffi.INT,
                                   save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     def r_unsetenv(name):
         with rffi.scoped_str2charp(name) as l_name:
             error = rffi.cast(lltype.Signed, os_unsetenv(l_name))

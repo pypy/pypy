@@ -535,6 +535,7 @@ if not _WIN32:
                               compilation_info=compilation_info,
                               save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('fstat')
 def fstat(fd):
     if not _WIN32:
@@ -642,12 +643,14 @@ if rposix.HAVE_FSTATAT:
             handle_posix_error('fstatat', error)
             return build_stat_result(stresult)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('fstatvfs')
 def fstatvfs(fd):
     with lltype.scoped_alloc(STATVFS_STRUCT.TO) as stresult:
         handle_posix_error('fstatvfs', c_fstatvfs(fd, stresult))
         return build_statvfs_result(stresult)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('statvfs')
 @specialize.argtype(0)
 def statvfs(path):

@@ -236,6 +236,7 @@ def win_perf_counter():
         diff = a[0] - state.counter_start
     return float(diff) / state.divisor
 
+@sandbox_review(reviewed=True)
 @replace_time_function('clock')
 def clock():
     if _WIN32:
