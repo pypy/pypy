@@ -1,5 +1,5 @@
 from rpython.rlib import rposix, rwin32
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, sandbox_review
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import intmask
 
@@ -16,11 +16,13 @@ if not rwin32.WIN32:
             raise OSError(rposix.get_saved_errno(), "opendir failed")
         return dirp
 
+    @sandbox_review(check_caller=True)
     def closedir(dirp):
         rposix.c_closedir(dirp)
 
     NULL_DIRP = lltype.nullptr(rposix.DIRP.TO)
 
+    @sandbox_review(check_caller=True)
     def nextentry(dirp):
         """Read the next entry and returns an opaque object.
         Use the methods has_xxx() and get_xxx() to read from that

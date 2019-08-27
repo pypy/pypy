@@ -5,7 +5,7 @@ python builtin open()
 
 import os, stat, errno, sys
 from rpython.rlib import rposix, rgc
-from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.objectmodel import enforceargs, sandbox_review
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -242,6 +242,7 @@ class RFile(object):
     _newlinetypes = NEWLINE_UNKNOWN
     _skipnextlf = False
 
+    @sandbox_review(check_caller=True)
     def __init__(self, ll_file, mode=None, close2=_fclose2):
         self._ll_file = ll_file
         if mode is not None:
@@ -548,6 +549,7 @@ class RFile(object):
                 c_ungetc(c, self._ll_file)
         return res
 
+    @sandbox_review(reviewed=True)
     def fileno(self):
         self._check_closed()
         return intmask(c_fileno(self._ll_file))
