@@ -4218,12 +4218,12 @@ class UnbufferedFileObjectClassTestCase(FileObjectClassTestCase):
         self.write_file.write(self.write_msg)
         self.write_file.flush()
 
+    @support.refcount_test
     def testMakefileCloseSocketDestroy(self):
-        if hasattr(sys, "getrefcount"):
-            refcount_before = sys.getrefcount(self.cli_conn)
-            self.read_file.close()
-            refcount_after = sys.getrefcount(self.cli_conn)
-            self.assertEqual(refcount_before - 1, refcount_after)
+        refcount_before = sys.getrefcount(self.cli_conn)
+        self.read_file.close()
+        refcount_after = sys.getrefcount(self.cli_conn)
+        self.assertEqual(refcount_before - 1, refcount_after)
 
     def _testMakefileCloseSocketDestroy(self):
         pass
