@@ -2,11 +2,14 @@
 # This is pure Python code that handles the main entry point into "pypy3".
 # See test/test_app_main.
 
-# Missing vs CPython: -b, -d, -x
+# Missing vs CPython: -x
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
+-b     : issue warnings about str(bytes_instance), str(bytearray_instance)\n\
+         and comparing bytes/bytearray with str. (-bb: issue errors)\n\
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
+-d     : debug output from parser; also PYTHONDEBUG=x\n\
 -E     : ignore PYTHON* environment variables (such as PYTHONPATH)
 -h     : print this help message and exit (also --help)
 -i     : inspect interactively after running script; forces a prompt even
