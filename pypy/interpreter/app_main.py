@@ -5,8 +5,8 @@
 # Missing vs CPython: -x
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
--b     : issue warnings about str(bytes_instance), str(bytearray_instance)\n\
-         and comparing bytes/bytearray with str. (-bb: issue errors)\n\
+-b     : issue warnings about str(bytes_instance), str(bytearray_instance)
+         and comparing bytes/bytearray with str. (-bb: issue errors)
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
 -d     : debug output from parser; also PYTHONDEBUG=x\n\
@@ -16,8 +16,10 @@ Options and arguments (and corresponding environment variables):
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -I     : isolate Python from the user's environment (implies -E and -s)
 -m mod : run library module as a script (terminates option list)
--O     : skip assert statements; also PYTHONOPTIMIZE=x
--OO    : remove docstrings when importing modules in addition to -O
+-O     : remove assert and __debug__-dependent statements; add .opt-1 before
+         .pyc extension; also PYTHONOPTIMIZE=x
+-OO    : do -O changes and also discard docstrings; add .opt-2 before
+         .pyc extension
 -q     : don't print version and copyright messages on interactive startup
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
