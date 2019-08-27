@@ -10,7 +10,7 @@ except ImportError:
 
 from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
-from rpython.rlib.objectmodel import specialize, not_rpython
+from rpython.rlib.objectmodel import specialize, not_rpython, sandbox_review
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype
@@ -2432,6 +2432,7 @@ for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
 if _WIN32:
     have_functions.append("HAVE_MS_WINDOWS")
 
+@sandbox_review(reviewed=True)
 def _get_terminal_size(space, w_fd=None):
     if w_fd is None:
         fd = rfile.RFile(rfile.c_stdout(), close2=(None, None)).fileno()

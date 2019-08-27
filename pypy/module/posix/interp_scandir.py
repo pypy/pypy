@@ -2,6 +2,7 @@ import stat
 from errno import ENOENT
 from rpython.rlib import rgc
 from rpython.rlib import rposix, rposix_scandir, rposix_stat
+from rpython.rlib.objectmodel import sandbox_review
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, interp2app
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror2
@@ -11,6 +12,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 
 
+@sandbox_review(reviewed=True)
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
     if space.is_none(w_path):
@@ -78,6 +80,7 @@ class W_ScandirIterator(W_Root):
                 e.write_unraisable(space, '', self)
         self._close()
 
+    @sandbox_review(reviewed=True)
     def _close(self):
         dirp = self.dirp
         if dirp:
@@ -87,6 +90,7 @@ class W_ScandirIterator(W_Root):
     def iter_w(self):
         return self
 
+    @sandbox_review(reviewed=True)
     def fail(self, err=None):
         dirp = self.dirp
         if dirp:
@@ -98,6 +102,7 @@ class W_ScandirIterator(W_Root):
         else:
             raise err
 
+    @sandbox_review(reviewed=True)
     def next_w(self):
         if not self.dirp:
             raise self.fail()

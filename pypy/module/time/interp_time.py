@@ -286,6 +286,7 @@ else:
         else:
             c_gettimeofday = external('gettimeofday',
                                       [lltype.Ptr(TIMEVAL), rffi.VOIDP], rffi.INT)
+    @sandbox_review(reviewed=True)
     def gettimeofday(space, w_info=None):
         if HAVE_GETTIMEOFDAY:
             with lltype.scoped_alloc(TIMEVAL) as timeval:
@@ -662,6 +663,7 @@ def _checktm(space, t_ref):
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
         raise oefmt(space.w_ValueError, "day of year out of range")
 
+@sandbox_review(reviewed=True)
 def time(space, w_info=None):
     """time() -> floating point number
 
@@ -792,6 +794,7 @@ if HAS_CLOCK_GETTIME:
     def _timespec_to_seconds(timespec):
         return widen(timespec.c_tv_sec) + widen(timespec.c_tv_nsec) * 1e-9
 
+    @sandbox_review(reviewed=True)
     @unwrap_spec(clk_id='c_int')
     def clock_gettime(space, clk_id):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
@@ -813,6 +816,7 @@ if HAS_CLOCK_GETTIME:
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
 
+    @sandbox_review(reviewed=True)
     @unwrap_spec(clk_id='c_int')
     def clock_getres(space, clk_id):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
@@ -955,6 +959,7 @@ if HAS_MONOTONIC:
 
     else:
         assert _POSIX
+        @sandbox_review(reviewed=True)
         def monotonic(space, w_info=None):
             if rtime.CLOCK_HIGHRES is not None:
                 clk_id = rtime.CLOCK_HIGHRES
@@ -1045,6 +1050,7 @@ if _WIN:
 else:
     have_times = hasattr(rposix, 'c_times')
 
+    @sandbox_review(reviewed=True)
     def process_time(space, w_info=None):
         if HAS_CLOCK_GETTIME and (
                 rtime.CLOCK_PROF is not None or
