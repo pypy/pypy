@@ -633,6 +633,7 @@ if rposix.HAVE_FSTATAT:
         compilation_info=compilation_info,
         save_err=rffi.RFFI_SAVE_ERRNO, macro=True)
 
+    @sandbox_review(reviewed=True)
     def fstatat(pathname, dir_fd=AT_FDCWD, follow_symlinks=True):
         if follow_symlinks:
             flags = 0

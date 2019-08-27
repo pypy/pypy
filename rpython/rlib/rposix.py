@@ -570,6 +570,7 @@ if not _WIN32:
                        save_err=rffi.RFFI_SAVE_ERRNO)
 
     @enforceargs(int, int, None)
+    @sandbox_review(reviewed=True)
     def pread(fd, count, offset):
         if count < 0:
             raise OSError(errno.EINVAL, None)
@@ -578,6 +579,7 @@ if not _WIN32:
             return buf.str(handle_posix_error('pread', c_pread(fd, void_buf, count, offset)))
 
     @enforceargs(int, None, None)
+    @sandbox_review(reviewed=True)
     def pwrite(fd, data, offset):
         count = len(data)
         with rffi.scoped_nonmovingbuffer(data) as buf:
@@ -2343,6 +2345,7 @@ if HAVE_READLINKAT:
         [rffi.INT, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
         save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @sandbox_review(reviewed=True)
     def readlinkat(pathname, dir_fd=AT_FDCWD):
         pathname = _as_bytes0(pathname)
         bufsize = 1023
@@ -2683,6 +2686,7 @@ if not _WIN32:
             res = c_sendfile(out_fd, in_fd, p_offset, count)
         return handle_posix_error('sendfile', res)
 
+    @sandbox_review(reviewed=True)
     def sendfile_no_offset(out_fd, in_fd, count):
         """Passes offset==NULL; not support on all OSes"""
         res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
