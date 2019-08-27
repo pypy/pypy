@@ -360,7 +360,6 @@ class Test_rbigint(object):
         from rpython.rlib.rstring import NumberStringParser
         s = "-99"
         p = NumberStringParser(s, s, 10, 'int')
-        import pdb; pdb.set_trace()
         assert p.sign == -1
         res = p.next_digit()
         assert res == 9
