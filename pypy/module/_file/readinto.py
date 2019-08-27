@@ -22,7 +22,7 @@ def direct_readinto(self, w_rwbuffer):
     fd = -1
     target_pos = 0
 
-    if size > 64:
+    if size > 64 and not self.space.config.translation.sandbox:
         try:
             target_address = rwbuffer.get_raw_address()
         except ValueError:
@@ -48,6 +48,13 @@ def direct_readinto(self, w_rwbuffer):
     else:
         # optimized case: reading more than 64 bytes into a rwbuffer
         # with a valid raw address
+
+        # XXX note that this is not fully safe, because we don't "lock"
+        # the buffer so we can't in theory pass its raw address to c_read().
+        # Another thread could cause it to be freed in parallel.
+        # Without proper buffer locking, it's not going to be fixed, though.
+        assert not self.space.config.translation.sandbox
+
         self.check_readable()
 
         # first "read" the part that is already sitting in buffers, if any

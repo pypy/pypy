@@ -346,11 +346,15 @@ def llexternal(name, args, result, _callable=None,
         wrapper = sandbox_review(abort=True)(wrapper)
     else:
         assert isinstance(sandboxsafe, bool)
-        wrapper = sandbox_review(reviewed=True)(wrapper)
+        if sandboxsafe or (all(_sandbox_type_safe(ARG) for ARG in args) and
+                           _sandbox_type_safe(result)):
+            wrapper = sandbox_review(reviewed=True)(wrapper)
+        else:
+            wrapper = sandbox_review(check_caller=True)(wrapper)
     return wrapper
 
-def sandbox_check_type(TYPE):
-    return not isinstance(TYPE, lltype.Primitive) or TYPE == llmemory.Address
+def _sandbox_type_safe(TYPE):
+    return isinstance(TYPE, lltype.Primitive) and TYPE != llmemory.Address
 
 
 class CallbackHolder:

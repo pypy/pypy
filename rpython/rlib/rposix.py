@@ -495,6 +495,7 @@ def dup2(fd, newfd, inheritable=True):
 
 #___________________________________________________________________
 
+@sandbox_review(reviewed=True)
 @replace_os_function('open')
 @specialize.argtype(0)
 @enforceargs(NOT_CONSTANT, int, int, typecheck=False)
@@ -514,6 +515,7 @@ c_write = external(UNDERSCORE_ON_WIN32 + 'write',
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('read')
 @signature(types.int(), types.int(), returns=types.any())
 def read(fd, count):
@@ -525,6 +527,7 @@ def read(fd, count):
             got = handle_posix_error('read', c_read(fd, void_buf, count))
             return buf.str(got)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('write')
 @signature(types.int(), types.any(), returns=types.any())
 def write(fd, data):
@@ -711,6 +714,7 @@ def fchdir(fd):
     with FdValidator(fd):
         handle_posix_error('fchdir', c_fchdir(fd))
 
+@sandbox_review(reviewed=True)
 @replace_os_function('access')
 @specialize.argtype(0)
 def access(path, mode):
@@ -753,6 +757,7 @@ c_wgetcwd = external(UNDERSCORE_ON_WIN32 + 'wgetcwd',
                      [rffi.CWCHARP, rffi.SIZE_T], rffi.CWCHARP,
                      save_err=rffi.RFFI_SAVE_ERRNO)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('getcwd')
 def getcwd():
     bufsize = 256
@@ -773,6 +778,7 @@ def getcwd():
     lltype.free(buf, flavor='raw')
     return result
 
+@sandbox_review(reviewed=True)
 @replace_os_function('getcwdu')
 def getcwdu():
     bufsize = 256

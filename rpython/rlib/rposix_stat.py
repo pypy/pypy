@@ -18,6 +18,7 @@ from rpython.rtyper.error import TyperError
 
 from rpython.rlib._os_support import _preferred_traits, string_traits
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
@@ -574,6 +575,7 @@ def fstat(fd):
         finally:
             lltype.free(info, flavor='raw')
 
+@sandbox_review(reviewed=True)
 @replace_os_function('stat')
 @specialize.argtype(0)
 def stat(path):
@@ -587,6 +589,7 @@ def stat(path):
         path = traits.as_str0(path)
         return win32_xstat(traits, path, traverse=True)
 
+@sandbox_review(reviewed=True)
 @replace_os_function('lstat')
 @specialize.argtype(0)
 def lstat(path):
