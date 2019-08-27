@@ -156,6 +156,9 @@ if osname == 'posix':
         Return a string of n random bytes suitable for cryptographic use.
 
         """
+        # NOTE: we also have interp_posix.urandom(), which we use on Windows.
+        # XXX unsure we shouldn't be removing the code below, though, because
+        # the interp version seems more complete
         try:
             with open('/dev/urandom', 'rb', buffering=0) as fd:
                 return fd.read(n)

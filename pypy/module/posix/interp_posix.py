@@ -2217,6 +2217,10 @@ def urandom(space, size):
 
     Return a string of 'size' random bytes suitable for cryptographic use.
     """
+    # NOTE: this is not used for 'os.urandom' on POSIX; instead,
+    # app_posix.urandom() is.  However, module/_random/ actually
+    # calls this code directly.  XXX Unsure the version in app_posix
+    # is needed (or complete enough) nowadays.
     context = get(space).random_context
     try:
         # urandom() takes a final argument that should be a regular function,

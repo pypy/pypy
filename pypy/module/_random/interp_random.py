@@ -30,7 +30,8 @@ class W_Random(W_Root):
             try:
                 w_n = interp_posix.urandom(space, 8)
             except OperationError as e:
-                if not e.match(space, space.w_OSError):
+                if not (e.match(space, space.w_NotImplementedError) or
+                        e.match(space, space.w_OSError)):
                     raise
                 w_n = space.newint(int(time.time() * 256))
         if space.isinstance_w(w_n, space.w_int):
