@@ -298,12 +298,14 @@ class rbigint(object):
         and returns an rbigint."""
         from rpython.rlib.rstring import NumberStringParser, \
             strip_spaces
-        s = literal = strip_spaces(s)
+        s = literal = strip_spaces(s) # XXX could get rid of this slice
+        end = len(s)
         if (s.endswith('l') or s.endswith('L')) and base < 22:
             # in base 22 and above, 'L' is a valid digit!  try: long('L',22)
-            s = s[:-1]
+            end -= 1
         parser = NumberStringParser(s, literal, base, 'long',
-                                    allow_underscores=allow_underscores)
+                                    allow_underscores=allow_underscores,
+                                    end=end)
         return rbigint._from_numberstring_parser(parser)
 
     @staticmethod

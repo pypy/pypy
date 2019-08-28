@@ -2225,9 +2225,12 @@ def urandom(space, size):
         _sigcheck.space = space
         return space.newbytes(rurandom.urandom(context, size, _signal_checker))
     except OSError as e:
-        # 'rurandom' should catch and retry internally if it gets EINTR
-        # (at least in os.read(), which is probably enough in practice)
-        raise wrap_oserror(space, e, eintr_retry=False)
+        # CPython raises NotImplementedError if /dev/urandom cannot be found.
+        # To maximize compatibility, we should also raise NotImplementedError
+        # and not OSError (although CPython also raises OSError in case it
+        # could open /dev/urandom but there are further problems).
+        raise wrap_oserror(space, e,
+            w_exception_class=space.w_NotImplementedError, einter_retry=False)
 
 def ctermid(space):
     """ctermid() -> string

@@ -356,6 +356,29 @@ class Test_rbigint(object):
         assert rbigint.fromstr('123L', 21).tolong() == 441 + 42 + 3
         assert rbigint.fromstr('1891234174197319').tolong() == 1891234174197319
 
+    def test__from_numberstring_parser_rewind_bug(self):
+        from rpython.rlib.rstring import NumberStringParser
+        s = "-99"
+        p = NumberStringParser(s, s, 10, 'int')
+        assert p.sign == -1
+        res = p.next_digit()
+        assert res == 9
+        res = p.next_digit()
+        assert res == 9
+        res = p.next_digit()
+        assert res == -1
+        p.rewind()
+        res = p.next_digit()
+        assert res == 9
+        res = p.next_digit()
+        assert res == 9
+        res = p.next_digit()
+        assert res == -1
+
+    @given(longs)
+    def test_fromstr_hypothesis(self, l):
+        assert rbigint.fromstr(str(l)).tolong() == l
+
     def test_from_numberstring_parser(self):
         from rpython.rlib.rstring import NumberStringParser
         parser = NumberStringParser("1231231241", "1231231241", 10, "long")
