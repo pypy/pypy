@@ -12,9 +12,9 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             self._debug_check_consistency(print_label="end-mark")
             return True
 
-        elif self.state == self.STATE_DEFAULT:
-            # First, untrack all tuples with only non-gc rrc objects and promote
-            # all other tuples to the pyobj_list
+        if self.state == self.STATE_DEFAULT:
+            # First, untrack all tuples with only non-gc rrc objects and
+            # promote all other tuples to the pyobj_list
             self._untrack_tuples()
 
             merged_old_list = False
@@ -47,17 +47,25 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             self.state = self.STATE_MARKING
             return False
 
-        elif self.state == self.STATE_MARKING:
+        if self.state == self.STATE_MARKING:
             # mark all objects reachable from rawrefcounted roots
-            self._mark_rawrefcount()
+            all_rrc_marked = self._mark_rawrefcount()
 
-            self._debug_check_consistency(print_label="before-fin")
-            self.state = self.STATE_GARBAGE_MARKING
+            if (all_rrc_marked and not self.gc.objects_to_trace.non_empty() and
+                    not self.gc.more_objects_to_trace.non_empty()):
+                # all objects have been marked, dead objects will stay dead
+                self._debug_check_consistency(print_label="before-fin")
+                self.state = self.STATE_GARBAGE_MARKING
+
             return False
 
-        # now move all dead objs still in pyob_list to garbage
-        # dead -> pyobj_old_list
-        # live -> set cyclic refcount to > 0
+        # we are finished with marking, now finish things up
+        ll_assert(self.state == self.STATE_GARBAGE_MARKING, "invalid state")
+
+        # sync snapshot with pyob_list:
+        #  * move all dead objs still in pyob_list to pyobj_old_list
+        #  * for all other objects (in snapshot and new),
+        #    set their cyclic refcount to > 0, to mark them as live
         pygchdr = self.pyobj_list.c_gc_next
         while pygchdr <> self.pyobj_list:
             next_old = pygchdr.c_gc_next
@@ -75,13 +83,15 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 pygchdr.c_gc_refs = 1 # new object, keep alive
             pygchdr = next_old
 
-        if self._find_garbage(False):  # handle legacy finalizers
+        # handle legacy finalizers (assumption: not a lot of legacy finalizers,
+        # so no need to do it incrementally)
+        if self._find_garbage(False):
             self._mark_garbage(False)
             self._debug_check_consistency(print_label="end-legacy-fin")
         self.state = self.STATE_DEFAULT
 
-        # We are finished with marking, now finish things up
-        found_finalizer = self._find_finalizer()  # modern finalizers
+        # handle modern finalizers
+        found_finalizer = self._find_finalizer()
         if found_finalizer:
             self._gc_list_move(self.pyobj_old_list,
                                self.pyobj_isolate_list)
@@ -114,19 +124,22 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         # as long as new objects with cyclic a refcount > 0 or alive border
         # objects are found, increment the refcount of all referenced objects
         # of those newly found objects
+        reached_limit = False
         found_alive = True
+        simple_limit = 0
         #
-        while found_alive: # TODO: working set to improve performance?
+        while found_alive and not reached_limit: # TODO: working set to improve performance?
             found_alive = False
             for i in range(0, self.total_objs):
                 obj = self.snapshot_objs[i]
                 found_alive |= self._mark_rawrefcount_obj(obj)
-        #
-        # now all rawrefcounted objects, which are alive, have a cyclic
-        # refcount > 0 or are marked
+            simple_limit += 1
+            if simple_limit > 3:
+                reached_limit
+        return not reached_limit # are there any objects left?
 
     def _mark_rawrefcount_obj(self, snapobj):
-        if snapobj.status == 0:
+        if snapobj.status == 0: # already processed
             return False
 
         alive = snapobj.refcnt_external > 0
@@ -149,7 +162,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 intobj = snapobj.pypy_link
                 obj = llmemory.cast_int_to_adr(intobj)
                 self.gc.objects_to_trace.append(obj)
-                self.gc.visit_all_objects()
+                self.gc.visit_all_objects()  # TODO: remove to improve pause times
             # mark as processed
             snapobj.status = 0
         return alive

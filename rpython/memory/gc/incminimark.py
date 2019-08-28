@@ -2402,9 +2402,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.visit_all_objects()
                 #
                 # If enabled, do a major collection step for rrc objects.
+                # TODO: move up before "if remaining >= estimate // 2" to
+                #       improve pause times, issues:
+                #         - (non-inc) mark expects all objects to be marked
+                #         - both do not rescan nonstack-roots
                 if self.rrc_enabled:
-                    while not rrc_finished: # TODO: remove this line to do incremental collection
-                        rrc_finished = self.rrc_gc.major_collection_trace_step()
+                    rrc_finished = self.rrc_gc.major_collection_trace_step()
                 else:
                     rrc_finished = True
 
