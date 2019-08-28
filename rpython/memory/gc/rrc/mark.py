@@ -17,7 +17,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
 
         # Only trace and mark rawrefcounted object if we are not doing
         # something special, like building gc.garbage.
-        if (self.state == self.STATE_MARKING and self.cycle_enabled):
+        if self.state == self.STATE_MARKING and self.cycle_enabled:
             merged_old_list = False
             # check objects with finalizers from last collection cycle
             if not self._gc_list_is_empty(self.pyobj_old_list):
@@ -58,9 +58,18 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         self.refcnt_dict.foreach(self._fix_refcnt_back, None)
         self.refcnt_dict.delete()
         self.refcnt_dict = self.gc.AddressDict()
+        self.use_refcntdict = False
 
         self.state = self.STATE_DEFAULT
         return True
+
+    def to_obj(self, pyobject):
+        if self.use_refcntdict:
+            obj = self.refcnt_dict.get(pyobject)
+        else:
+            obj = llmemory.cast_int_to_adr(
+                self._pyobj(pyobject).c_ob_pypy_link)
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def _collect_roots(self, pygclist):
         # Initialize the cyclic refcount with the real refcount.
@@ -69,6 +78,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         # Save the real refcount of objects at border
         self.p_list_old.foreach(self._obj_save_refcnt, None)
         self.o_list_old.foreach(self._obj_save_refcnt, None)
+        self.use_refcntdict = True
 
         # Subtract all internal refcounts from the cyclic refcount
         # of rawrefcounted objects

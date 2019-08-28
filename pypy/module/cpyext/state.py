@@ -192,7 +192,7 @@ class State:
 
                     # special traverse for list
                     if self.C._PyList_CheckExact(pyobj) != 0:
-                        if pyobj.c_ob_pypy_link != 0:
+                        if pyobj.c_ob_pypy_link != 0: # actually a refcount now
                             w_obj = from_ref(space, pyobj)
                             if w_obj:
                                 debug_print('rrc list traverse ', pyobj)
