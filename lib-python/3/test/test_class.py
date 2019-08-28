@@ -588,7 +588,7 @@ class ClassTests(unittest.TestCase):
         self.assertEqual(A() + 1, 'summa')
 
         name2 = str(b'__add__', 'ascii')
-        if support.check_impl_detail()::
+        if support.check_impl_detail():
             self.assertIsNot(name2, '__add__')
             self.assertIsNot(name2, name)
         type.__delattr__(A, name2)
