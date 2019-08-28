@@ -2230,7 +2230,7 @@ def urandom(space, size):
         # and not OSError (although CPython also raises OSError in case it
         # could open /dev/urandom but there are further problems).
         raise wrap_oserror(space, e,
-            w_exception_class=space.w_NotImplementedError, einter_retry=False)
+            w_exception_class=space.w_NotImplementedError, eintr_retry=False)
 
 def ctermid(space):
     """ctermid() -> string
