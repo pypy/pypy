@@ -1215,21 +1215,22 @@ def utf8_encode_utf_16_helper(s, errors,
     while pos < size:
         try:
             cp = rutf8.codepoint_at_pos(s, pos)
+            pos = rutf8.next_codepoint_pos(s, pos)
         except IndexError:
             # malformed codepoint, blindly use ch
             pos += 1
             if errorhandler:
                 r, newindex, rettype = errorhandler(
                     errors, public_encoding_name, 'malformed unicode',
-                    s, pos - 1, pos)
+                    s, index, index + 1)
                 if rettype == 'u':
                     for cp in rutf8.Utf8StringIterator(r):
                         if cp < 0xD800:
                             _STORECHAR(result, cp, byteorder)
                         else:
-                            errorhandler('strict', public_encoding_name,
-                                         'malformed unicode',
-                                     s, pos-1, pos)
+                            errorhandler(
+                                'strict', public_encoding_name,
+                                'malformed unicode', s, index, index + 1)
                 else:
                     for ch in r:
                         cp = ord(ch)
@@ -1238,7 +1239,7 @@ def utf8_encode_utf_16_helper(s, errors,
                         else:
                             errorhandler('strict', public_encoding_name,
                                          'malformed unicode',
-                                     s, pos-1, pos)
+                                     s, index, index + 1)
             else:
                 cp = ord(s[pos])
                 _STORECHAR(result, cp, byteorder)
@@ -1253,7 +1254,7 @@ def utf8_encode_utf_16_helper(s, errors,
         else:
             r, newindex, rettype = errorhandler(
                 errors, public_encoding_name, 'surrogates not allowed',
-                s, pos, pos+1)
+                s, index, index+1)
             if rettype == 'u':
                 for cp in rutf8.Utf8StringIterator(r):
                     if cp < 0xD800 or allow_surrogates:
@@ -1261,7 +1262,7 @@ def utf8_encode_utf_16_helper(s, errors,
                     else:
                         errorhandler('strict', public_encoding_name,
                                      'surrogates not allowed',
-                                     s, pos, pos+1)
+                                     s, index, index+1)
             else:
                 for ch in r:
                     cp = ord(ch)
@@ -1270,13 +1271,11 @@ def utf8_encode_utf_16_helper(s, errors,
                     else:
                         errorhandler('strict', public_encoding_name,
                                      'surrogates not allowed',
-                                 s, pos, pos+1)
+                                 s, index, index+1)
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
             continue
-
-        pos = rutf8.next_codepoint_pos(s, pos)
         index += 1
 
     return result.build()
@@ -1516,19 +1515,19 @@ def utf8_encode_utf_32_helper(s, errors,
     return result.build()
 
 def utf8_encode_utf_32(s, errors,
-                          errorhandler=None, allow_surrogates=True):
+                       errorhandler=None, allow_surrogates=True):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "native",
                                         'utf-32-' + BYTEORDER2)
 
 def utf8_encode_utf_32_be(s, errors,
-                                  errorhandler=None, allow_surrogates=True):
+                          errorhandler=None, allow_surrogates=True):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "big",
                                         'utf-32-be')
 
 def utf8_encode_utf_32_le(s, errors,
-                                  errorhandler=None, allow_surrogates=True):
+                          errorhandler=None, allow_surrogates=True):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "little",
                                         'utf-32-le')
