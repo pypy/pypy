@@ -171,6 +171,7 @@ def_op('STORE_FAST', 125)       # Local variable number
 haslocal.append(125)
 def_op('DELETE_FAST', 126)      # Local variable number
 haslocal.append(126)
+name_op('STORE_ANNOTATION', 127) # Index in name list XXX: removed in CPython 3.7
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
 def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
@@ -218,14 +219,14 @@ def_op('FORMAT_VALUE', 155)   # in CPython 3.6, but available in PyPy from 3.5
 def_op('BUILD_CONST_KEY_MAP', 156)
 def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
 
+#name_op('LOAD_METHOD', 160)
+#def_op('CALL_METHOD', 161)
+
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
 def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
 def_op('LOAD_REVDB_VAR', 205)         # reverse debugger (syntax example: $5)
-
-name_op('LOAD_METHOD', 160)
-def_op('CALL_METHOD', 161)
 
 del def_op, name_op, jrel_op, jabs_op
