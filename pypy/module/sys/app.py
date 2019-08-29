@@ -56,7 +56,7 @@ If the exitcode is numeric, it will be used as the system exit status.
 If it is another kind of object, it will be printed and the system
 exit status will be one (i.e., failure)."""
     # note that we cannot simply use SystemExit(exitcode) here.
-    # in the default branch, we use "raise SystemExit, exitcode", 
+    # in the default branch, we use "raise SystemExit, exitcode",
     # which leads to an extra de-tupelizing
     # in normalize_exception, which is exactly like CPython's.
     if isinstance(exitcode, tuple):
@@ -106,8 +106,10 @@ class sysflags(metaclass=structseqtype):
     quiet = structseqfield(10)
     hash_randomization = structseqfield(11)
     isolated = structseqfield(12)
+    dev_mode = structseqfield(13)
+    utf8_mode = structseqfield(14)
 
-null_sysflags = sysflags((0,)*13)
+null_sysflags = sysflags((0,)*15)
 null__xoptions = {}
 
 
