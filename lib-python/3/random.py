@@ -46,6 +46,7 @@ from _collections_abc import Set as _Set, Sequence as _Sequence
 from hashlib import sha512 as _sha512
 import itertools as _itertools
 import bisect as _bisect
+import os as _os
 
 __all__ = ["Random","seed","random","uniform","randint","choice","sample",
            "randrange","shuffle","normalvariate","lognormvariate",
@@ -392,7 +393,7 @@ class Random(_random.Random):
             u = 1.0 - u
             c = 1.0 - c
             low, high = high, low
-        return low + (high - low) * (u * c) ** 0.5
+        return low + (high - low) * _sqrt(u * c)
 
 ## -------------------- normal distribution --------------------
 
@@ -544,7 +545,7 @@ class Random(_random.Random):
                     return x * beta
 
         elif alpha == 1.0:
-            # expovariate(1)
+            # expovariate(1/beta)
             u = random()
             while u <= 1e-7:
                 u = random()
@@ -705,14 +706,14 @@ def _test_generator(n, func, args):
     sqsum = 0.0
     smallest = 1e10
     largest = -1e10
-    t0 = time.time()
+    t0 = time.perf_counter()
     for i in range(n):
         x = func(*args)
         total += x
         sqsum = sqsum + x*x
         smallest = min(x, smallest)
         largest = max(x, largest)
-    t1 = time.time()
+    t1 = time.perf_counter()
     print(round(t1-t0, 3), 'sec,', end=' ')
     avg = total/n
     stddev = _sqrt(sqsum/n - avg*avg)
@@ -767,6 +768,10 @@ weibullvariate = _inst.weibullvariate
 getstate = _inst.getstate
 setstate = _inst.setstate
 getrandbits = _inst.getrandbits
+
+if hasattr(_os, "fork"):
+    _os.register_at_fork(after_in_child=_inst.seed)
+
 
 if __name__ == '__main__':
     _test()

@@ -415,7 +415,8 @@ class Float_TestCase(unittest.TestCase):
         self.assertEqual(getargs_D(ComplexSubclass(7.5+0.25j)), 7.5+0.25j)
         self.assertEqual(getargs_D(ComplexSubclass2(7.5+0.25j)), 7.5+0.25j)
         self.assertRaises(TypeError, getargs_D, BadComplex())
-        self.assertEqual(getargs_D(BadComplex2()), 4.25+0.5j)
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(getargs_D(BadComplex2()), 4.25+0.5j)
         self.assertEqual(getargs_D(BadComplex3(7.5+0.25j)), 7.5+0.25j)
 
         for x in (DBL_MIN, -DBL_MIN, DBL_MAX, -DBL_MAX, INF, -INF):
@@ -559,7 +560,8 @@ class Keywords_TestCase(unittest.TestCase):
         try:
             getargs_keywords(arg1=(1,2))
         except TypeError as err:
-            self.assertEqual(str(err), "Required argument 'arg2' (pos 2) not found")
+            self.assertEqual(
+                str(err), "function missing required argument 'arg2' (pos 2)")
         else:
             self.fail('TypeError should have been raised')
 
@@ -632,16 +634,16 @@ class KeywordOnly_TestCase(unittest.TestCase):
             )
         # required arg missing
         with self.assertRaisesRegex(TypeError,
-            r"Required argument 'required' \(pos 1\) not found"):
+            r"function missing required argument 'required' \(pos 1\)"):
             getargs_keyword_only(optional=2)
 
         with self.assertRaisesRegex(TypeError,
-            r"Required argument 'required' \(pos 1\) not found"):
+            r"function missing required argument 'required' \(pos 1\)"):
             getargs_keyword_only(keyword_only=3)
 
     def test_too_many_args(self):
         with self.assertRaisesRegex(TypeError,
-            r"Function takes at most 2 positional arguments \(3 given\)"):
+            r"function takes at most 2 positional arguments \(3 given\)"):
             getargs_keyword_only(1, 2, 3)
 
         with self.assertRaisesRegex(TypeError,
@@ -680,11 +682,11 @@ class PositionalOnlyAndKeywords_TestCase(unittest.TestCase):
         self.assertEqual(self.getargs(1), (1, -1, -1))
         # required positional arg missing
         with self.assertRaisesRegex(TypeError,
-            r"Function takes at least 1 positional arguments \(0 given\)"):
+            r"function takes at least 1 positional arguments \(0 given\)"):
             self.getargs()
 
         with self.assertRaisesRegex(TypeError,
-            r"Function takes at least 1 positional arguments \(0 given\)"):
+            r"function takes at least 1 positional arguments \(0 given\)"):
             self.getargs(keyword=3)
 
     def test_empty_keyword(self):
@@ -1106,19 +1108,19 @@ class ParseTupleAndKeywords_Test(unittest.TestCase):
         parse((1, 2, 3), {}, 'OOO', ['', '', 'a'])
         parse((1, 2), {'a': 3}, 'OOO', ['', '', 'a'])
         with self.assertRaisesRegex(TypeError,
-               r'Function takes at least 2 positional arguments \(1 given\)'):
+               r'function takes at least 2 positional arguments \(1 given\)'):
             parse((1,), {'a': 3}, 'OOO', ['', '', 'a'])
         parse((1,), {}, 'O|OO', ['', '', 'a'])
         with self.assertRaisesRegex(TypeError,
-               r'Function takes at least 1 positional arguments \(0 given\)'):
+               r'function takes at least 1 positional arguments \(0 given\)'):
             parse((), {}, 'O|OO', ['', '', 'a'])
         parse((1, 2), {'a': 3}, 'OO$O', ['', '', 'a'])
         with self.assertRaisesRegex(TypeError,
-               r'Function takes exactly 2 positional arguments \(1 given\)'):
+               r'function takes exactly 2 positional arguments \(1 given\)'):
             parse((1,), {'a': 3}, 'OO$O', ['', '', 'a'])
         parse((1,), {}, 'O|O$O', ['', '', 'a'])
         with self.assertRaisesRegex(TypeError,
-               r'Function takes at least 1 positional arguments \(0 given\)'):
+               r'function takes at least 1 positional arguments \(0 given\)'):
             parse((), {}, 'O|O$O', ['', '', 'a'])
         with self.assertRaisesRegex(SystemError, r'Empty parameter name after \$'):
             parse((1,), {}, 'O|$OO', ['', '', 'a'])

@@ -126,12 +126,8 @@ __version__ = "0.4"
 import socket
 import selectors
 import os
-import errno
 import sys
-try:
-    import threading
-except ImportError:
-    import dummy_threading as threading
+import threading
 from io import BufferedIOBase
 from time import monotonic as time
 
@@ -551,7 +547,7 @@ if hasattr(os, "fork"):
         active_children = None
         max_children = 40
         # If true, server_close() waits until all child processes complete.
-        _block_on_close = False
+        block_on_close = True
 
         def collect_children(self, *, blocking=False):
             """Internal routine to wait for children that have exited."""
@@ -598,7 +594,7 @@ if hasattr(os, "fork"):
         def service_actions(self):
             """Collect the zombie child processes regularly in the ForkingMixIn.
 
-            service_actions is called in the BaseServer's serve_forver loop.
+            service_actions is called in the BaseServer's serve_forever loop.
             """
             self.collect_children()
 
@@ -629,7 +625,7 @@ if hasattr(os, "fork"):
 
         def server_close(self):
             super().server_close()
-            self.collect_children(blocking=self._block_on_close)
+            self.collect_children(blocking=self.block_on_close)
 
 
 class ThreadingMixIn:
@@ -639,7 +635,7 @@ class ThreadingMixIn:
     # main process
     daemon_threads = False
     # If true, server_close() waits until all non-daemonic threads terminate.
-    _block_on_close = False
+    block_on_close = True
     # For non-daemonic threads, list of threading.Threading objects
     # used by server_close() to wait for all threads completion.
     _threads = None
@@ -662,7 +658,7 @@ class ThreadingMixIn:
         t = threading.Thread(target = self.process_request_thread,
                              args = (request, client_address))
         t.daemon = self.daemon_threads
-        if not t.daemon and self._block_on_close:
+        if not t.daemon and self.block_on_close:
             if self._threads is None:
                 self._threads = []
             self._threads.append(t)
@@ -670,7 +666,7 @@ class ThreadingMixIn:
 
     def server_close(self):
         super().server_close()
-        if self._block_on_close:
+        if self.block_on_close:
             threads = self._threads
             self._threads = None
             if threads:

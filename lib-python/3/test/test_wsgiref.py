@@ -18,6 +18,7 @@ import os
 import re
 import signal
 import sys
+import threading
 import unittest
 
 
@@ -253,7 +254,6 @@ class IntegrationTests(TestCase):
         # BaseHandler._write() and _flush() have to write all data, even if
         # it takes multiple send() calls.  Test this by interrupting a send()
         # call with a Unix signal.
-        threading = support.import_module("threading")
         pthread_kill = support.get_attribute(signal, "pthread_kill")
 
         def app(environ, start_response):
@@ -779,6 +779,49 @@ class HandlerTests(TestCase):
             b"\r\n"
             b"Hello, world!",
             written)
+
+    def testClientConnectionTerminations(self):
+        environ = {"SERVER_PROTOCOL": "HTTP/1.0"}
+        for exception in (
+            ConnectionAbortedError,
+            BrokenPipeError,
+            ConnectionResetError,
+        ):
+            with self.subTest(exception=exception):
+                class AbortingWriter:
+                    def write(self, b):
+                        raise exception
+
+                stderr = StringIO()
+                h = SimpleHandler(BytesIO(), AbortingWriter(), stderr, environ)
+                h.run(hello_app)
+
+                self.assertFalse(stderr.getvalue())
+
+    def testDontResetInternalStateOnException(self):
+        class CustomException(ValueError):
+            pass
+
+        # We are raising CustomException here to trigger an exception
+        # during the execution of SimpleHandler.finish_response(), so
+        # we can easily test that the internal state of the handler is
+        # preserved in case of an exception.
+        class AbortingWriter:
+            def write(self, b):
+                raise CustomException
+
+        stderr = StringIO()
+        environ = {"SERVER_PROTOCOL": "HTTP/1.0"}
+        h = SimpleHandler(BytesIO(), AbortingWriter(), stderr, environ)
+        h.run(hello_app)
+
+        self.assertIn("CustomException", stderr.getvalue())
+
+        # Test that the internal state of the handler is preserved.
+        self.assertIsNotNone(h.result)
+        self.assertIsNotNone(h.headers)
+        self.assertIsNotNone(h.status)
+        self.assertIsNotNone(h.environ)
 
 
 if __name__ == "__main__":

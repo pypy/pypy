@@ -16,6 +16,8 @@ import warnings as original_warnings
 py_warnings = support.import_fresh_module('warnings', blocked=['_warnings'])
 c_warnings = support.import_fresh_module('warnings', fresh=['_warnings'])
 
+Py_DEBUG = hasattr(sys, 'gettotalrefcount')
+
 @contextmanager
 def warnings_state(module):
     """Use a specific warnings implementation in warning_tests."""
@@ -125,6 +127,7 @@ class FilterTests(BaseTest):
             self.module.filterwarnings("ignore", category=UserWarning)
             self.module.warn("FilterTests.test_ignore", UserWarning)
             self.assertEqual(len(w), 0)
+            self.assertEqual(list(__warningregistry__), ['version'])
 
     def test_ignore_after_default(self):
         with original_warnings.catch_warnings(record=True,
@@ -219,6 +222,27 @@ class FilterTests(BaseTest):
                                     42)
             self.assertEqual(len(w), 0)
 
+    def test_module_globals(self):
+        with original_warnings.catch_warnings(record=True,
+                module=self.module) as w:
+            self.module.simplefilter("always", UserWarning)
+
+            # bpo-33509: module_globals=None must not crash
+            self.module.warn_explicit('msg', UserWarning, "filename", 42,
+                                      module_globals=None)
+            self.assertEqual(len(w), 1)
+
+            # Invalid module_globals type
+            with self.assertRaises(TypeError):
+                self.module.warn_explicit('msg', UserWarning, "filename", 42,
+                                          module_globals=True)
+            self.assertEqual(len(w), 1)
+
+            # Empty module_globals
+            self.module.warn_explicit('msg', UserWarning, "filename", 42,
+                                      module_globals={})
+            self.assertEqual(len(w), 2)
+
     def test_inheritance(self):
         with original_warnings.catch_warnings(module=self.module) as w:
             self.module.resetwarnings()
@@ -252,7 +276,7 @@ class FilterTests(BaseTest):
             text = 'handle normally'
             self.module.warn(text)
             self.assertEqual(str(w[-1].message), text)
-            self.assertTrue(w[-1].category is UserWarning)
+            self.assertIs(w[-1].category, UserWarning)
 
             self.module.filterwarnings("ignore", "", Warning, "", 0)
             text = 'filtered out'
@@ -265,7 +289,7 @@ class FilterTests(BaseTest):
             text = 'nonmatching text'
             self.module.warn(text)
             self.assertEqual(str(w[-1].message), text)
-            self.assertTrue(w[-1].category is UserWarning)
+            self.assertIs(w[-1].category, UserWarning)
 
     def test_message_matching(self):
         with original_warnings.catch_warnings(record=True,
@@ -323,6 +347,7 @@ class FilterTests(BaseTest):
                 self.module.filters[0][0], "error",
                 "simplefilter did not promote filter to the beginning of list"
             )
+
     def test_append_duplicate(self):
         with original_warnings.catch_warnings(module=self.module,
                 record=True) as w:
@@ -357,7 +382,7 @@ class WarnTests(BaseTest):
                 text = 'multi %d' %i  # Different text on each call.
                 self.module.warn(text)
                 self.assertEqual(str(w[-1].message), text)
-                self.assertTrue(w[-1].category is UserWarning)
+                self.assertIs(w[-1].category, UserWarning)
 
     # Issue 3639
     def test_warn_nonstandard_types(self):
@@ -579,7 +604,7 @@ class CWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.support.import_fresh_module utility function
     def test_accelerated(self):
-        self.assertFalse(original_warnings is self.module)
+        self.assertIsNot(original_warnings, self.module)
         self.assertFalse(hasattr(self.module.warn, '__code__'))
 
 class PyWarnTests(WarnTests, unittest.TestCase):
@@ -588,7 +613,7 @@ class PyWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.support.import_fresh_module utility function
     def test_pure_python(self):
-        self.assertFalse(original_warnings is self.module)
+        self.assertIsNot(original_warnings, self.module)
         self.assertTrue(hasattr(self.module.warn, '__code__'))
 
 
@@ -915,6 +940,25 @@ class WarningsDisplayTests(BaseTest):
                                 file_object, expected_file_line)
         self.assertEqual(expect, file_object.getvalue())
 
+    def test_formatwarning_override(self):
+        # bpo-35178: Test that a custom formatwarning function gets the 'line'
+        # argument as a positional argument, and not only as a keyword argument
+        def myformatwarning(message, category, filename, lineno, text):
+            return f'm={message}:c={category}:f={filename}:l={lineno}:t={text}'
+
+        file_name = os.path.splitext(warning_tests.__file__)[0] + '.py'
+        line_num = 3
+        file_line = linecache.getline(file_name, line_num).strip()
+        message = 'msg'
+        category = Warning
+        file_object = StringIO()
+        expected = f'm={message}:c={category}:f={file_name}:l={line_num}' + \
+                   f':t={file_line}'
+        with support.swap_attr(self.module, 'formatwarning', myformatwarning):
+            self.module.showwarning(message, category, file_name, line_num,
+                                    file_object, file_line)
+            self.assertEqual(file_object.getvalue(), expected)
+
 
 class CWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
     module = c_warnings
@@ -935,20 +979,35 @@ class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
                 func()
             """))
 
-        res = assert_python_ok('-Wd', '-X', 'tracemalloc=2', support.TESTFN)
+        def run(*args):
+            res = assert_python_ok(*args)
+            stderr = res.err.decode('ascii', 'replace')
+            stderr = '\n'.join(stderr.splitlines())
 
-        stderr = res.err.decode('ascii', 'replace')
-        # normalize newlines
-        stderr = '\n'.join(stderr.splitlines())
-        stderr = re.sub('<.*>', '<...>', stderr)
+            # normalize newlines
+            stderr = re.sub('<.*>', '<...>', stderr)
+            return stderr
+
+        # tracemalloc disabled
+        stderr = run('-Wd', support.TESTFN)
         expected = textwrap.dedent('''
             {fname}:5: ResourceWarning: unclosed file <...>
               f = None
-            Object allocated at (most recent call first):
-              File "{fname}", lineno 3
-                f = open(__file__)
+            ResourceWarning: Enable tracemalloc to get the object allocation traceback
+        ''')
+        expected = expected.format(fname=support.TESTFN).strip()
+        self.assertEqual(stderr, expected)
+
+        # tracemalloc enabled
+        stderr = run('-Wd', '-X', 'tracemalloc=2', support.TESTFN)
+        expected = textwrap.dedent('''
+            {fname}:5: ResourceWarning: unclosed file <...>
+              f = None
+            Object allocated at (most recent call last):
               File "{fname}", lineno 7
                 func()
+              File "{fname}", lineno 3
+                f = open(__file__)
         ''')
         expected = expected.format(fname=support.TESTFN).strip()
         self.assertEqual(stderr, expected)
@@ -965,20 +1024,20 @@ class CatchWarningTests(BaseTest):
         # Ensure both showwarning and filters are restored when recording
         with wmod.catch_warnings(module=wmod, record=True):
             wmod.filters = wmod.showwarning = object()
-        self.assertTrue(wmod.filters is orig_filters)
-        self.assertTrue(wmod.showwarning is orig_showwarning)
+        self.assertIs(wmod.filters, orig_filters)
+        self.assertIs(wmod.showwarning, orig_showwarning)
         # Same test, but with recording disabled
         with wmod.catch_warnings(module=wmod, record=False):
             wmod.filters = wmod.showwarning = object()
-        self.assertTrue(wmod.filters is orig_filters)
-        self.assertTrue(wmod.showwarning is orig_showwarning)
+        self.assertIs(wmod.filters, orig_filters)
+        self.assertIs(wmod.showwarning, orig_showwarning)
 
     def test_catch_warnings_recording(self):
         wmod = self.module
         # Ensure warnings are recorded when requested
         with wmod.catch_warnings(module=wmod, record=True) as w:
             self.assertEqual(w, [])
-            self.assertTrue(type(w) is list)
+            self.assertIs(type(w), list)
             wmod.simplefilter("always")
             wmod.warn("foo")
             self.assertEqual(str(w[-1].message), "foo")
@@ -991,8 +1050,8 @@ class CatchWarningTests(BaseTest):
         # Ensure warnings are not recorded when not requested
         orig_showwarning = wmod.showwarning
         with wmod.catch_warnings(module=wmod, record=False) as w:
-            self.assertTrue(w is None)
-            self.assertTrue(wmod.showwarning is orig_showwarning)
+            self.assertIsNone(w)
+            self.assertIs(wmod.showwarning, orig_showwarning)
 
     def test_catch_warnings_reentry_guard(self):
         wmod = self.module
@@ -1013,20 +1072,20 @@ class CatchWarningTests(BaseTest):
         orig_showwarning = wmod.showwarning
         # Ensure default behaviour is not to record warnings
         with wmod.catch_warnings(module=wmod) as w:
-            self.assertTrue(w is None)
-            self.assertTrue(wmod.showwarning is orig_showwarning)
-            self.assertTrue(wmod.filters is not orig_filters)
-        self.assertTrue(wmod.filters is orig_filters)
+            self.assertIsNone(w)
+            self.assertIs(wmod.showwarning, orig_showwarning)
+            self.assertIsNot(wmod.filters, orig_filters)
+        self.assertIs(wmod.filters, orig_filters)
         if wmod is sys.modules['warnings']:
             # Ensure the default module is this one
             with wmod.catch_warnings() as w:
-                self.assertTrue(w is None)
-                self.assertTrue(wmod.showwarning is orig_showwarning)
-                self.assertTrue(wmod.filters is not orig_filters)
-            self.assertTrue(wmod.filters is orig_filters)
+                self.assertIsNone(w)
+                self.assertIs(wmod.showwarning, orig_showwarning)
+                self.assertIsNot(wmod.filters, orig_filters)
+            self.assertIs(wmod.filters, orig_filters)
 
     def test_record_override_showwarning_before(self):
-        # Issue #28835: If warnings.showwarning() was overriden, make sure
+        # Issue #28835: If warnings.showwarning() was overridden, make sure
         # that catch_warnings(record=True) overrides it again.
         text = "This is a warning"
         wmod = self.module
@@ -1113,20 +1172,23 @@ class EnvironmentVariableTests(BaseTest):
     def test_single_warning(self):
         rc, stdout, stderr = assert_python_ok("-c",
             "import sys; sys.stdout.write(str(sys.warnoptions))",
-            PYTHONWARNINGS="ignore::DeprecationWarning")
+            PYTHONWARNINGS="ignore::DeprecationWarning",
+            PYTHONDEVMODE="")
         self.assertEqual(stdout, b"['ignore::DeprecationWarning']")
 
     def test_comma_separated_warnings(self):
         rc, stdout, stderr = assert_python_ok("-c",
             "import sys; sys.stdout.write(str(sys.warnoptions))",
-            PYTHONWARNINGS="ignore::DeprecationWarning,ignore::UnicodeWarning")
+            PYTHONWARNINGS="ignore::DeprecationWarning,ignore::UnicodeWarning",
+            PYTHONDEVMODE="")
         self.assertEqual(stdout,
             b"['ignore::DeprecationWarning', 'ignore::UnicodeWarning']")
 
     def test_envvar_and_command_line(self):
         rc, stdout, stderr = assert_python_ok("-Wignore::UnicodeWarning", "-c",
             "import sys; sys.stdout.write(str(sys.warnoptions))",
-            PYTHONWARNINGS="ignore::DeprecationWarning")
+            PYTHONWARNINGS="ignore::DeprecationWarning",
+            PYTHONDEVMODE="")
         self.assertEqual(stdout,
             b"['ignore::DeprecationWarning', 'ignore::UnicodeWarning']")
 
@@ -1134,7 +1196,8 @@ class EnvironmentVariableTests(BaseTest):
         rc, stdout, stderr = assert_python_failure("-Werror::DeprecationWarning", "-c",
             "import sys, warnings; sys.stdout.write(str(sys.warnoptions)); "
             "warnings.warn('Message', DeprecationWarning)",
-            PYTHONWARNINGS="default::DeprecationWarning")
+            PYTHONWARNINGS="default::DeprecationWarning",
+            PYTHONDEVMODE="")
         self.assertEqual(stdout,
             b"['default::DeprecationWarning', 'error::DeprecationWarning']")
         self.assertEqual(stderr.splitlines(),
@@ -1142,13 +1205,45 @@ class EnvironmentVariableTests(BaseTest):
              b"  File \"<string>\", line 1, in <module>",
              b"DeprecationWarning: Message"])
 
+    def test_default_filter_configuration(self):
+        pure_python_api = self.module is py_warnings
+        if Py_DEBUG:
+            expected_default_filters = []
+        else:
+            if pure_python_api:
+                main_module_filter = re.compile("__main__")
+            else:
+                main_module_filter = "__main__"
+            expected_default_filters = [
+                ('default', None, DeprecationWarning, main_module_filter, 0),
+                ('ignore', None, DeprecationWarning, None, 0),
+                ('ignore', None, PendingDeprecationWarning, None, 0),
+                ('ignore', None, ImportWarning, None, 0),
+                ('ignore', None, ResourceWarning, None, 0),
+            ]
+        expected_output = [str(f).encode() for f in expected_default_filters]
+
+        if pure_python_api:
+            # Disable the warnings acceleration module in the subprocess
+            code = "import sys; sys.modules.pop('warnings', None); sys.modules['_warnings'] = None; "
+        else:
+            code = ""
+        code += "import warnings; [print(f) for f in warnings.filters]"
+
+        rc, stdout, stderr = assert_python_ok("-c", code, __isolated=True)
+        stdout_lines = [line.strip() for line in stdout.splitlines()]
+        self.maxDiff = None
+        self.assertEqual(stdout_lines, expected_output)
+
+
     @unittest.skipUnless(sys.getfilesystemencoding() != 'ascii',
                          'requires non-ascii filesystemencoding')
     def test_nonascii(self):
         rc, stdout, stderr = assert_python_ok("-c",
             "import sys; sys.stdout.write(str(sys.warnoptions))",
             PYTHONIOENCODING="utf-8",
-            PYTHONWARNINGS="ignore:DeprecaciónWarning")
+            PYTHONWARNINGS="ignore:DeprecaciónWarning",
+            PYTHONDEVMODE="")
         self.assertEqual(stdout,
             "['ignore:DeprecaciónWarning']".encode('utf-8'))
 
@@ -1190,7 +1285,7 @@ a=A()
         rc, out, err = assert_python_ok("-c", code)
         # note: "__main__" filename is not correct, it should be the name
         # of the script
-        self.assertEqual(err, b'__main__:7: UserWarning: test')
+        self.assertEqual(err.decode(), '__main__:7: UserWarning: test')
 
     def test_late_resource_warning(self):
         # Issue #21925: Emitting a ResourceWarning late during the Python

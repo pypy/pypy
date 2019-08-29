@@ -279,7 +279,15 @@ def create_unicode_buffer(init, size=None):
     """
     if isinstance(init, str):
         if size is None:
-            size = len(init)+1
+            if sizeof(c_wchar) == 2:
+                # UTF-16 requires a surrogate pair (2 wchar_t) for non-BMP
+                # characters (outside [U+0000; U+FFFF] range). +1 for trailing
+                # NUL character.
+                size = sum(2 if ord(c) > 0xFFFF else 1 for c in init) + 1
+            else:
+                # 32-bit wchar_t (1 wchar_t per Unicode character). +1 for
+                # trailing NUL character.
+                size = len(init) + 1
         buftype = c_wchar * size
         buf = buftype()
         buf.value = init
@@ -338,6 +346,14 @@ class CDLL(object):
             flags |= _FUNCFLAG_USE_ERRNO
         if use_last_error:
             flags |= _FUNCFLAG_USE_LASTERROR
+        if _sys.platform.startswith("aix"):
+            """When the name contains ".a(" and ends with ")",
+               e.g., "libFOO.a(libFOO.so)" - this is taken to be an
+               archive(member) syntax for dlopen(), and the mode is adjusted.
+               Otherwise, name is presented to dlopen() as a file argument.
+            """
+            if name and name.endswith(")") and ".a(" in name:
+                mode |= ( _os.RTLD_MEMBER | _os.RTLD_NOW )
 
         class _FuncPtr(_CFuncPtr):
             _flags_ = flags
@@ -440,10 +456,7 @@ if _os.name == "nt":
     windll = LibraryLoader(WinDLL)
     oledll = LibraryLoader(OleDLL)
 
-    if _os.name == "nt":
-        GetLastError = windll.kernel32.GetLastError
-    else:
-        GetLastError = windll.coredll.GetLastError
+    GetLastError = windll.kernel32.GetLastError
     from _ctypes import get_last_error, set_last_error
 
     def WinError(code=None, descr=None):

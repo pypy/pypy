@@ -34,16 +34,11 @@ import numbers
 import locale
 from test.support import (run_unittest, run_doctest, is_resource_enabled,
                           requires_IEEE_754, requires_docstrings)
-from test.support import (check_warnings, import_fresh_module, TestFailed,
+from test.support import (import_fresh_module, TestFailed,
                           run_with_locale, cpython_only)
 import random
-import time
-import warnings
 import inspect
-try:
-    import threading
-except ImportError:
-    threading = None
+import threading
 
 
 C = import_fresh_module('decimal', fresh=['_decimal'])
@@ -1172,7 +1167,6 @@ class FormatTest(unittest.TestCase):
     @run_with_locale('LC_ALL', 'ps_AF')
     def test_wide_char_separator_decimal_point(self):
         # locale with wide char separator and decimal point
-        import locale
         Decimal = self.decimal.Decimal
 
         decimal_point = locale.localeconv()['decimal_point']
@@ -1186,6 +1180,16 @@ class FormatTest(unittest.TestCase):
 
         self.assertEqual(format(Decimal('100000000.123'), 'n'),
                          '100\u066c000\u066c000\u066b123')
+
+    def test_decimal_from_float_argument_type(self):
+        class A(self.decimal.Decimal):
+            def __init__(self, a):
+                self.a_type = type(a)
+        a = A.from_float(42.5)
+        self.assertEqual(self.decimal.Decimal, a.a_type)
+
+        a = A.from_float(42)
+        self.assertEqual(self.decimal.Decimal, a.a_type)
 
 class CFormatTest(FormatTest):
     decimal = C
@@ -1621,10 +1625,10 @@ class ThreadingTest(unittest.TestCase):
         DefaultContext.Emax = save_emax
         DefaultContext.Emin = save_emin
 
-@unittest.skipUnless(threading, 'threading required')
+
 class CThreadingTest(ThreadingTest):
     decimal = C
-@unittest.skipUnless(threading, 'threading required')
+
 class PyThreadingTest(ThreadingTest):
     decimal = P
 

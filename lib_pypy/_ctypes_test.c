@@ -63,7 +63,7 @@ typedef struct {
 } TestReg;
 
 
-EXPORT(TestReg) last_tfrsuv_arg;
+EXPORT(TestReg) last_tfrsuv_arg = {0};
 
 
 EXPORT(void)
@@ -394,8 +394,7 @@ PyObject *py_func_si(PyObject *self, PyObject *args)
     int i;
     if (!PyArg_ParseTuple(args, "si", &name, &i))
         return NULL;
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 EXPORT(void) _py_func_si(char *s, int i)
@@ -404,16 +403,15 @@ EXPORT(void) _py_func_si(char *s, int i)
 
 PyObject *py_func(PyObject *self, PyObject *args)
 {
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 EXPORT(void) _py_func(void)
 {
 }
 
-EXPORT(long long) last_tf_arg_s;
-EXPORT(unsigned long long) last_tf_arg_u;
+EXPORT(long long) last_tf_arg_s = 0;
+EXPORT(unsigned long long) last_tf_arg_u = 0;
 
 struct BITS {
     int A: 1, B:2, C:3, D:4, E: 5, F: 6, G: 7, H: 8, I: 9;

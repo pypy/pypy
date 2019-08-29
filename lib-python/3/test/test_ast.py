@@ -27,8 +27,12 @@ def to_tuple(t):
 exec_tests = [
     # None
     "None",
+    # Module docstring
+    "'module docstring'",
     # FunctionDef
     "def f(): pass",
+    # FunctionDef with docstring
+    "def f(): 'function docstring'",
     # FunctionDef with arg
     "def f(a): pass",
     # FunctionDef with arg and default value
@@ -37,10 +41,12 @@ exec_tests = [
     "def f(*args): pass",
     # FunctionDef with kwargs
     "def f(**kwargs): pass",
-    # FunctionDef with all kind of args
-    "def f(a, b=1, c=None, d=[], e={}, *args, f=42, **kwargs): pass",
+    # FunctionDef with all kind of args and docstring
+    "def f(a, b=1, c=None, d=[], e={}, *args, f=42, **kwargs): 'doc for f()'",
     # ClassDef
     "class C:pass",
+    # ClassDef with docstring
+    "class C: 'docstring for class C'",
     # ClassDef, new style class
     "class C(object): pass",
     # Return
@@ -108,7 +114,7 @@ exec_tests = [
     # setcomp with naked tuple
     "{r for l,m in x}",
     # AsyncFunctionDef
-    "async def f():\n await something()",
+    "async def f():\n 'async function'\n await something()",
     # AsyncFor
     "async def f():\n async for e in i: 1\n else: 2",
     # AsyncWith
@@ -352,12 +358,8 @@ class AST_Tests(unittest.TestCase):
         self.assertEqual(x.right, 3)
         self.assertEqual(x.lineno, 0)
 
-        # node raises exception when not given enough arguments
-        self.assertRaises(TypeError, ast.BinOp, 1, 2)
         # node raises exception when given too many arguments
         self.assertRaises(TypeError, ast.BinOp, 1, 2, 3, 4)
-        # node raises exception when not given enough arguments
-        self.assertRaises(TypeError, ast.BinOp, 1, 2, lineno=0)
         # node raises exception when given too many arguments
         self.assertRaises(TypeError, ast.BinOp, 1, 2, 3, 4, lineno=0)
 
@@ -405,13 +407,6 @@ class AST_Tests(unittest.TestCase):
         with self.assertRaises(TypeError) as cm:
             compile(m, "<test>", "exec")
         self.assertIn("identifier must be of type str", str(cm.exception))
-
-    def test_invalid_string(self):
-        m = ast.Module([ast.Expr(ast.Str(42))])
-        ast.fix_missing_locations(m)
-        with self.assertRaises(TypeError) as cm:
-            compile(m, "<test>", "exec")
-        self.assertIn("string must be of type str", str(cm.exception))
 
     def test_empty_yield_from(self):
         # Issue 16546: yield from value is not optional.
@@ -526,12 +521,44 @@ class ASTHelpers_Test(unittest.TestCase):
         )
 
     def test_get_docstring(self):
+        node = ast.parse('"""line one\n  line two"""')
+        self.assertEqual(ast.get_docstring(node),
+                         'line one\nline two')
+
+        node = ast.parse('class foo:\n  """line one\n  line two"""')
+        self.assertEqual(ast.get_docstring(node.body[0]),
+                         'line one\nline two')
+
         node = ast.parse('def foo():\n  """line one\n  line two"""')
         self.assertEqual(ast.get_docstring(node.body[0]),
                          'line one\nline two')
 
         node = ast.parse('async def foo():\n  """spam\n  ham"""')
         self.assertEqual(ast.get_docstring(node.body[0]), 'spam\nham')
+
+    def test_get_docstring_none(self):
+        self.assertIsNone(ast.get_docstring(ast.parse('')))
+        node = ast.parse('x = "not docstring"')
+        self.assertIsNone(ast.get_docstring(node))
+        node = ast.parse('def foo():\n  pass')
+        self.assertIsNone(ast.get_docstring(node))
+
+        node = ast.parse('class foo:\n  pass')
+        self.assertIsNone(ast.get_docstring(node.body[0]))
+        node = ast.parse('class foo:\n  x = "not docstring"')
+        self.assertIsNone(ast.get_docstring(node.body[0]))
+        node = ast.parse('class foo:\n  def bar(self): pass')
+        self.assertIsNone(ast.get_docstring(node.body[0]))
+
+        node = ast.parse('def foo():\n  pass')
+        self.assertIsNone(ast.get_docstring(node.body[0]))
+        node = ast.parse('def foo():\n  x = "not docstring"')
+        self.assertIsNone(ast.get_docstring(node.body[0]))
+
+        node = ast.parse('async def foo():\n  pass')
+        self.assertIsNone(ast.get_docstring(node.body[0]))
+        node = ast.parse('async def foo():\n  x = "not docstring"')
+        self.assertIsNone(ast.get_docstring(node.body[0]))
 
     def test_literal_eval(self):
         self.assertEqual(ast.literal_eval('[1, 2, 3]'), [1, 2, 3])
@@ -540,14 +567,37 @@ class ASTHelpers_Test(unittest.TestCase):
         self.assertEqual(ast.literal_eval('{1, 2, 3}'), {1, 2, 3})
         self.assertEqual(ast.literal_eval('b"hi"'), b"hi")
         self.assertRaises(ValueError, ast.literal_eval, 'foo()')
+        self.assertEqual(ast.literal_eval('6'), 6)
+        self.assertEqual(ast.literal_eval('+6'), 6)
         self.assertEqual(ast.literal_eval('-6'), -6)
-        self.assertEqual(ast.literal_eval('-6j+3'), 3-6j)
         self.assertEqual(ast.literal_eval('3.25'), 3.25)
+        self.assertEqual(ast.literal_eval('+3.25'), 3.25)
+        self.assertEqual(ast.literal_eval('-3.25'), -3.25)
+        self.assertEqual(repr(ast.literal_eval('-0.0')), '-0.0')
+        self.assertRaises(ValueError, ast.literal_eval, '++6')
+        self.assertRaises(ValueError, ast.literal_eval, '+True')
+        self.assertRaises(ValueError, ast.literal_eval, '2+3')
 
-    def test_literal_eval_issue4907(self):
-        self.assertEqual(ast.literal_eval('2j'), 2j)
-        self.assertEqual(ast.literal_eval('10 + 2j'), 10 + 2j)
-        self.assertEqual(ast.literal_eval('1.5 - 2j'), 1.5 - 2j)
+    def test_literal_eval_complex(self):
+        # Issue #4907
+        self.assertEqual(ast.literal_eval('6j'), 6j)
+        self.assertEqual(ast.literal_eval('-6j'), -6j)
+        self.assertEqual(ast.literal_eval('6.75j'), 6.75j)
+        self.assertEqual(ast.literal_eval('-6.75j'), -6.75j)
+        self.assertEqual(ast.literal_eval('3+6j'), 3+6j)
+        self.assertEqual(ast.literal_eval('-3+6j'), -3+6j)
+        self.assertEqual(ast.literal_eval('3-6j'), 3-6j)
+        self.assertEqual(ast.literal_eval('-3-6j'), -3-6j)
+        self.assertEqual(ast.literal_eval('3.25+6.75j'), 3.25+6.75j)
+        self.assertEqual(ast.literal_eval('-3.25+6.75j'), -3.25+6.75j)
+        self.assertEqual(ast.literal_eval('3.25-6.75j'), 3.25-6.75j)
+        self.assertEqual(ast.literal_eval('-3.25-6.75j'), -3.25-6.75j)
+        self.assertEqual(ast.literal_eval('(3+6j)'), 3+6j)
+        self.assertRaises(ValueError, ast.literal_eval, '-6j+3')
+        self.assertRaises(ValueError, ast.literal_eval, '-6j+3j')
+        self.assertRaises(ValueError, ast.literal_eval, '3+-6j')
+        self.assertRaises(ValueError, ast.literal_eval, '3+(0+6j)')
+        self.assertRaises(ValueError, ast.literal_eval, '-(3+6j)')
 
     def test_bad_integer(self):
         # issue13436: Bad error message with invalid numeric values
@@ -1019,9 +1069,6 @@ class ConstantTests(unittest.TestCase):
         tree = ast.parse("'docstring'\nx = 1")
         self.assertEqual(ast.get_docstring(tree), 'docstring')
 
-        tree.body[0].value = ast.Constant(value='constant docstring')
-        self.assertEqual(ast.get_docstring(tree), 'constant docstring')
-
     def get_load_const(self, tree):
         # Compile to bytecode, disassemble and get parameter of LOAD_CONST
         # instructions
@@ -1069,11 +1116,11 @@ class ConstantTests(unittest.TestCase):
         ast.copy_location(new_left, binop.left)
         binop.left = new_left
 
-        new_right = ast.Constant(value=20)
+        new_right = ast.Constant(value=20j)
         ast.copy_location(new_right, binop.right)
         binop.right = new_right
 
-        self.assertEqual(ast.literal_eval(binop), 30)
+        self.assertEqual(ast.literal_eval(binop), 10+20j)
 
 
 def main():
@@ -1094,13 +1141,16 @@ def main():
 #### EVERYTHING BELOW IS GENERATED #####
 exec_results = [
 ('Module', [('Expr', (1, 0), ('NameConstant', (1, 0), None))]),
+('Module', [('Expr', (1, 0), ('Str', (1, 0), 'module docstring'))]),
 ('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Pass', (1, 9))], [], None)]),
+('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Expr', (1, 9), ('Str', (1, 9), 'function docstring'))], [], None)]),
 ('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [('arg', (1, 6), 'a', None)], None, [], [], None, []), [('Pass', (1, 10))], [], None)]),
 ('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [('arg', (1, 6), 'a', None)], None, [], [], None, [('Num', (1, 8), 0)]), [('Pass', (1, 12))], [], None)]),
 ('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [], ('arg', (1, 7), 'args', None), [], [], None, []), [('Pass', (1, 14))], [], None)]),
 ('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], ('arg', (1, 8), 'kwargs', None), []), [('Pass', (1, 17))], [], None)]),
-('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [('arg', (1, 6), 'a', None), ('arg', (1, 9), 'b', None), ('arg', (1, 14), 'c', None), ('arg', (1, 22), 'd', None), ('arg', (1, 28), 'e', None)], ('arg', (1, 35), 'args', None), [('arg', (1, 41), 'f', None)], [('Num', (1, 43), 42)], ('arg', (1, 49), 'kwargs', None), [('Num', (1, 11), 1), ('NameConstant', (1, 16), None), ('List', (1, 24), [], ('Load',)), ('Dict', (1, 30), [], [])]), [('Pass', (1, 58))], [], None)]),
+('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [('arg', (1, 6), 'a', None), ('arg', (1, 9), 'b', None), ('arg', (1, 14), 'c', None), ('arg', (1, 22), 'd', None), ('arg', (1, 28), 'e', None)], ('arg', (1, 35), 'args', None), [('arg', (1, 41), 'f', None)], [('Num', (1, 43), 42)], ('arg', (1, 49), 'kwargs', None), [('Num', (1, 11), 1), ('NameConstant', (1, 16), None), ('List', (1, 24), [], ('Load',)), ('Dict', (1, 30), [], [])]), [('Expr', (1, 58), ('Str', (1, 58), 'doc for f()'))], [], None)]),
 ('Module', [('ClassDef', (1, 0), 'C', [], [], [('Pass', (1, 8))], [])]),
+('Module', [('ClassDef', (1, 0), 'C', [], [], [('Expr', (1, 9), ('Str', (1, 9), 'docstring for class C'))], [])]),
 ('Module', [('ClassDef', (1, 0), 'C', [('Name', (1, 8), 'object', ('Load',))], [], [('Pass', (1, 17))], [])]),
 ('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Return', (1, 8), ('Num', (1, 15), 1))], [], None)]),
 ('Module', [('Delete', (1, 0), [('Name', (1, 4), 'v', ('Del',))])]),
@@ -1131,12 +1181,12 @@ exec_results = [
 ('Module', [('Expr', (1, 0), ('DictComp', (1, 0), ('Name', (1, 1), 'a', ('Load',)), ('Name', (1, 5), 'b', ('Load',)), [('comprehension', ('Tuple', (1, 11), [('Name', (1, 11), 'v', ('Store',)), ('Name', (1, 13), 'w', ('Store',))], ('Store',)), ('Name', (1, 18), 'x', ('Load',)), [], 0)]))]),
 ('Module', [('Expr', (1, 0), ('SetComp', (1, 0), ('Name', (1, 1), 'r', ('Load',)), [('comprehension', ('Name', (1, 7), 'l', ('Store',)), ('Name', (1, 12), 'x', ('Load',)), [('Name', (1, 17), 'g', ('Load',))], 0)]))]),
 ('Module', [('Expr', (1, 0), ('SetComp', (1, 0), ('Name', (1, 1), 'r', ('Load',)), [('comprehension', ('Tuple', (1, 7), [('Name', (1, 7), 'l', ('Store',)), ('Name', (1, 9), 'm', ('Store',))], ('Store',)), ('Name', (1, 14), 'x', ('Load',)), [], 0)]))]),
-('Module', [('AsyncFunctionDef', (1, 6), 'f', ('arguments', [], None, [], [], None, []), [('Expr', (2, 1), ('Await', (2, 1), ('Call', (2, 7), ('Name', (2, 7), 'something', ('Load',)), [], [])))], [], None)]),
-('Module', [('AsyncFunctionDef', (1, 6), 'f', ('arguments', [], None, [], [], None, []), [('AsyncFor', (2, 7), ('Name', (2, 11), 'e', ('Store',)), ('Name', (2, 16), 'i', ('Load',)), [('Expr', (2, 19), ('Num', (2, 19), 1))], [('Expr', (3, 7), ('Num', (3, 7), 2))])], [], None)]),
-('Module', [('AsyncFunctionDef', (1, 6), 'f', ('arguments', [], None, [], [], None, []), [('AsyncWith', (2, 7), [('withitem', ('Name', (2, 12), 'a', ('Load',)), ('Name', (2, 17), 'b', ('Store',)))], [('Expr', (2, 20), ('Num', (2, 20), 1))])], [], None)]),
+('Module', [('AsyncFunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Expr', (2, 1), ('Str', (2, 1), 'async function')), ('Expr', (3, 1), ('Await', (3, 1), ('Call', (3, 7), ('Name', (3, 7), 'something', ('Load',)), [], [])))], [], None)]),
+('Module', [('AsyncFunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('AsyncFor', (2, 1), ('Name', (2, 11), 'e', ('Store',)), ('Name', (2, 16), 'i', ('Load',)), [('Expr', (2, 19), ('Num', (2, 19), 1))], [('Expr', (3, 7), ('Num', (3, 7), 2))])], [], None)]),
+('Module', [('AsyncFunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('AsyncWith', (2, 1), [('withitem', ('Name', (2, 12), 'a', ('Load',)), ('Name', (2, 17), 'b', ('Store',)))], [('Expr', (2, 20), ('Num', (2, 20), 1))])], [], None)]),
 ('Module', [('Expr', (1, 0), ('Dict', (1, 0), [None, ('Num', (1, 10), 2)], [('Dict', (1, 3), [('Num', (1, 4), 1)], [('Num', (1, 6), 2)]), ('Num', (1, 12), 3)]))]),
 ('Module', [('Expr', (1, 0), ('Set', (1, 0), [('Starred', (1, 1), ('Set', (1, 2), [('Num', (1, 3), 1), ('Num', (1, 6), 2)]), ('Load',)), ('Num', (1, 10), 3)]))]),
-('Module', [('AsyncFunctionDef', (1, 6), 'f', ('arguments', [], None, [], [], None, []), [('Expr', (2, 1), ('ListComp', (2, 2), ('Name', (2, 2), 'i', ('Load',)), [('comprehension', ('Name', (2, 14), 'b', ('Store',)), ('Name', (2, 19), 'c', ('Load',)), [], 1)]))], [], None)]),
+('Module', [('AsyncFunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Expr', (2, 1), ('ListComp', (2, 2), ('Name', (2, 2), 'i', ('Load',)), [('comprehension', ('Name', (2, 14), 'b', ('Store',)), ('Name', (2, 19), 'c', ('Load',)), [], 1)]))], [], None)]),
 ]
 single_results = [
 ('Interactive', [('Expr', (1, 0), ('BinOp', (1, 0), ('Num', (1, 0), 1), ('Add',), ('Num', (1, 2), 2)))]),

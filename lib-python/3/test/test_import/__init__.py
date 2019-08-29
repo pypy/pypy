@@ -16,7 +16,6 @@ import unittest
 import unittest.mock as mock
 import textwrap
 import errno
-import shutil
 import contextlib
 
 import test.support
@@ -83,6 +82,35 @@ class ImportTests(unittest.TestCase):
     def test_from_import_missing_attr_raises_ImportError(self):
         with self.assertRaises(ImportError):
             from importlib import something_that_should_not_exist_anywhere
+
+    def test_from_import_missing_attr_has_name_and_path(self):
+        with self.assertRaises(ImportError) as cm:
+            from os import i_dont_exist
+        self.assertEqual(cm.exception.name, 'os')
+        self.assertEqual(cm.exception.path, os.__file__)
+        self.assertRegex(str(cm.exception), r"cannot import name 'i_dont_exist' from 'os' \(.*os.py\)")
+
+    @cpython_only
+    def test_from_import_missing_attr_has_name_and_so_path(self):
+        import _testcapi
+        with self.assertRaises(ImportError) as cm:
+            from _testcapi import i_dont_exist
+        self.assertEqual(cm.exception.name, '_testcapi')
+        self.assertEqual(cm.exception.path, _testcapi.__file__)
+        self.assertRegex(str(cm.exception), r"cannot import name 'i_dont_exist' from '_testcapi' \(.*\.(so|pyd)\)")
+
+    def test_from_import_missing_attr_has_name(self):
+        with self.assertRaises(ImportError) as cm:
+            # _warning has no path as it's a built-in module.
+            from _warning import i_dont_exist
+        self.assertEqual(cm.exception.name, '_warning')
+        self.assertIsNone(cm.exception.path)
+
+    def test_from_import_missing_attr_path_is_canonical(self):
+        with self.assertRaises(ImportError) as cm:
+            from os.path import i_dont_exist
+        self.assertIn(cm.exception.name, {'posixpath', 'ntpath'})
+        self.assertIsNotNone(cm.exception)
 
     def test_case_sensitivity(self):
         # Brief digression to test that import is case-sensitive:  if we got
@@ -209,6 +237,23 @@ class ImportTests(unittest.TestCase):
         # import x.y.z as w binds z as w
         import test.support as y
         self.assertIs(y, test.support, y.__name__)
+
+    def test_issue31286(self):
+        # import in a 'finally' block resulted in SystemError
+        try:
+            x = ...
+        finally:
+            import test.support.script_helper as x
+
+        # import in a 'while' loop resulted in stack overflow
+        i = 0
+        while i < 10:
+            import test.support.script_helper as x
+            i += 1
+
+        # import in a 'for' loop resulted in segmentation fault
+        for i in range(2):
+            import test.support.script_helper as x
 
     def test_failing_reload(self):
         # A failing reload should leave the module object in sys.modules.
@@ -350,8 +395,11 @@ class ImportTests(unittest.TestCase):
         module_name = 'test_from_import_AttributeError'
         self.addCleanup(unload, module_name)
         sys.modules[module_name] = AlwaysAttributeError()
-        with self.assertRaises(ImportError):
+        with self.assertRaises(ImportError) as cm:
             from test_from_import_AttributeError import does_not_exist
+
+        self.assertEqual(str(cm.exception),
+            "cannot import name 'does_not_exist' from '<unknown module name>' (unknown location)")
 
     @cpython_only
     def test_issue31492(self):
@@ -551,7 +599,7 @@ func_filename = func.__code__.co_filename
     def test_foreign_code(self):
         py_compile.compile(self.file_name)
         with open(self.compiled_name, "rb") as f:
-            header = f.read(12)
+            header = f.read(16)
             code = marshal.load(f)
         constants = list(code.co_consts)
         foreign_code = importlib.import_module.__code__
@@ -1195,6 +1243,12 @@ class CircularImportTests(unittest.TestCase):
             self.fail('circular import with rebinding of module attribute failed')
         from test.test_import.data.circular_imports.subpkg import util
         self.assertIs(util.util, rebinding.util)
+
+    def test_binding(self):
+        try:
+            import test.test_import.data.circular_imports.binding
+        except ImportError:
+            self.fail('circular import with binding a submodule to a name failed')
 
 
 if __name__ == '__main__':

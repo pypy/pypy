@@ -745,7 +745,7 @@ class BaseTest:
         # Test extended slicing by comparing with list slicing
         # (Assumes list conversion works correctly, too)
         a = array.array(self.typecode, self.example)
-        indices = (0, None, 1, 3, 19, 100, -1, -2, -31, -100)
+        indices = (0, None, 1, 3, 19, 100, sys.maxsize, -1, -2, -31, -100)
         for start in indices:
             for stop in indices:
                 # Everything except the initial 0 (invalid step)
@@ -843,7 +843,7 @@ class BaseTest:
         self.assertRaises(TypeError, a.__setitem__, slice(0, 1), b)
 
     def test_extended_set_del_slice(self):
-        indices = (0, None, 1, 3, 19, 100, -1, -2, -31, -100)
+        indices = (0, None, 1, 3, 19, 100, sys.maxsize, -1, -2, -31, -100)
         for start in indices:
             for stop in indices:
                 # Everything except the initial 0 (invalid step)
@@ -1341,6 +1341,16 @@ class FPTest(NumberTest):
 
     def assertEntryEqual(self, entry1, entry2):
         self.assertAlmostEqual(entry1, entry2)
+
+    def test_nan(self):
+        a = array.array(self.typecode, [float('nan')])
+        b = array.array(self.typecode, [float('nan')])
+        self.assertIs(a != b, True)
+        self.assertIs(a == b, False)
+        self.assertIs(a > b, False)
+        self.assertIs(a >= b, False)
+        self.assertIs(a < b, False)
+        self.assertIs(a <= b, False)
 
     def test_byteswap(self):
         a = array.array(self.typecode, self.example)

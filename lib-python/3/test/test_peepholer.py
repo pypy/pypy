@@ -1,7 +1,4 @@
 import dis
-import re
-import sys
-import textwrap
 import unittest
 
 from test.bytecode_helper import BytecodeTestCase
@@ -313,6 +310,13 @@ class TestTranforms(BytecodeTestCase):
                 self.assertFalse(instr.opname.startswith('UNARY_'))
                 self.assertFalse(instr.opname.startswith('BINARY_'))
                 self.assertFalse(instr.opname.startswith('BUILD_'))
+
+    def test_condition_with_binop_with_bools(self):
+        def f():
+            if True or False:
+                return 1
+            return 0
+        self.assertEqual(f(), 1)
 
 
 class TestBuglets(unittest.TestCase):

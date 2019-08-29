@@ -1,13 +1,13 @@
 """Test suite for the cProfile module."""
 
 import sys
-import unittest
 from test.support import run_unittest, TESTFN, unlink
-from test.support.script_helper import assert_python_failure
+import unittest
 
 # rip off all interesting stuff from test_profile
 import cProfile
 from test.test_profile import ProfileTest, regenerate_expected_output
+from test.support.script_helper import assert_python_failure, assert_python_ok
 
 
 class CProfileTest(ProfileTest):
@@ -37,13 +37,25 @@ class CProfileTest(ProfileTest):
         finally:
             unlink(TESTFN)
 
+    # Issue 21862
+    def test_module_path_option(self):
+        # Test -m switch with modules
+
+        # Test that -m switch needs an argument
+        assert_python_failure('-m', 'cProfile', '-m')
+
+        # Test failure for not-existent module
+        assert_python_failure('-m', 'cProfile', '-m', 'random_module_xyz')
+
+        # Test successful run
+        assert_python_ok('-m', 'cProfile', '-m', 'timeit', '-n', '1')
+
 
 class TestCommandLine(unittest.TestCase):
     def test_sort(self):
         rc, out, err = assert_python_failure('-m', 'cProfile', '-s', 'demo')
         self.assertGreater(rc, 0)
         self.assertIn(b"option -s: invalid choice: 'demo'", err)
-
 
 def test_main():
     run_unittest(CProfileTest, TestCommandLine)

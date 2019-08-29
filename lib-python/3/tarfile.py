@@ -31,8 +31,6 @@
 
 version     = "0.9.0"
 __author__  = "Lars Gust\u00e4bel (lars@gustaebel.de)"
-__date__    = "$Date: 2011-02-25 17:42:01 +0200 (Fri, 25 Feb 2011) $"
-__cvsid__   = "$Id: tarfile.py 88586 2011-02-25 15:42:01Z marc-andre.lemburg $"
 __credits__ = "Gustavo Niemeyer, Niels Gust\u00e4bel, Richard Townsend."
 
 #---------
@@ -764,17 +762,21 @@ class TarInfo(object):
 
     # In pax headers the "name" and "linkname" field are called
     # "path" and "linkpath".
-    def _getpath(self):
+    @property
+    def path(self):
         return self.name
-    def _setpath(self, name):
-        self.name = name
-    path = property(_getpath, _setpath)
 
-    def _getlinkpath(self):
+    @path.setter
+    def path(self, name):
+        self.name = name
+
+    @property
+    def linkpath(self):
         return self.linkname
-    def _setlinkpath(self, linkname):
+
+    @linkpath.setter
+    def linkpath(self, linkname):
         self.linkname = linkname
-    linkpath = property(_getlinkpath, _setlinkpath)
 
     def __repr__(self):
         return "<%s %r at %#x>" % (self.__class__.__name__,self.name,id(self))
@@ -1900,13 +1902,12 @@ class TarFile(object):
                     _safe_print("link to " + tarinfo.linkname)
             print()
 
-    def add(self, name, arcname=None, recursive=True, exclude=None, *, filter=None):
+    def add(self, name, arcname=None, recursive=True, *, filter=None):
         """Add the file `name' to the archive. `name' may be any type of file
            (directory, fifo, symbolic link, etc.). If given, `arcname'
            specifies an alternative name for the file in the archive.
            Directories are added recursively by default. This can be avoided by
-           setting `recursive' to False. `exclude' is a function that should
-           return True for each filename to be excluded. `filter' is a function
+           setting `recursive' to False. `filter' is a function
            that expects a TarInfo object argument and returns the changed
            TarInfo object, if it returns None the TarInfo object will be
            excluded from the archive.
@@ -1915,15 +1916,6 @@ class TarFile(object):
 
         if arcname is None:
             arcname = name
-
-        # Exclude pathnames.
-        if exclude is not None:
-            import warnings
-            warnings.warn("use the filter argument instead",
-                    DeprecationWarning, 2)
-            if exclude(name):
-                self._dbg(2, "tarfile: Excluded %r" % name)
-                return
 
         # Skip if somebody tries to archive the archive...
         if self.name is not None and os.path.abspath(name) == self.name:
@@ -1954,9 +1946,9 @@ class TarFile(object):
         elif tarinfo.isdir():
             self.addfile(tarinfo)
             if recursive:
-                for f in os.listdir(name):
+                for f in sorted(os.listdir(name)):
                     self.add(os.path.join(name, f), os.path.join(arcname, f),
-                            recursive, exclude, filter=filter)
+                            recursive, filter=filter)
 
         else:
             self.addfile(tarinfo)
@@ -2459,11 +2451,11 @@ open = TarFile.open
 def main():
     import argparse
 
-    description = 'A simple command line interface for tarfile module.'
+    description = 'A simple command-line interface for tarfile module.'
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='Verbose output')
-    group = parser.add_mutually_exclusive_group()
+    group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-l', '--list', metavar='<tarfile>',
                        help='Show listing of a tarfile')
     group.add_argument('-e', '--extract', nargs='+',
@@ -2476,7 +2468,7 @@ def main():
                        help='Test if a tarfile is valid')
     args = parser.parse_args()
 
-    if args.test:
+    if args.test is not None:
         src = args.test
         if is_tarfile(src):
             with open(src, 'r') as tar:
@@ -2487,7 +2479,7 @@ def main():
         else:
             parser.exit(1, '{!r} is not a tar archive.\n'.format(src))
 
-    elif args.list:
+    elif args.list is not None:
         src = args.list
         if is_tarfile(src):
             with TarFile.open(src, 'r:*') as tf:
@@ -2495,7 +2487,7 @@ def main():
         else:
             parser.exit(1, '{!r} is not a tar archive.\n'.format(src))
 
-    elif args.extract:
+    elif args.extract is not None:
         if len(args.extract) == 1:
             src = args.extract[0]
             curdir = os.curdir
@@ -2517,7 +2509,7 @@ def main():
         else:
             parser.exit(1, '{!r} is not a tar archive.\n'.format(src))
 
-    elif args.create:
+    elif args.create is not None:
         tar_name = args.create.pop(0)
         _, ext = os.path.splitext(tar_name)
         compressions = {
@@ -2542,9 +2534,6 @@ def main():
 
         if args.verbose:
             print('{!r} file created.'.format(tar_name))
-
-    else:
-        parser.exit(1, parser.format_help())
 
 if __name__ == '__main__':
     main()

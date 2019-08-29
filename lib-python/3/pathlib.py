@@ -6,9 +6,8 @@ import os
 import posixpath
 import re
 import sys
-from collections import Sequence
-from contextlib import contextmanager
-from errno import EINVAL, ENOENT, ENOTDIR
+from _collections_abc import Sequence
+from errno import EINVAL, ENOENT, ENOTDIR, EBADF, ELOOP
 from operator import attrgetter
 from stat import S_ISDIR, S_ISLNK, S_ISREG, S_ISSOCK, S_ISBLK, S_ISCHR, S_ISFIFO
 from urllib.parse import quote_from_bytes as urlquote_from_bytes
@@ -34,6 +33,19 @@ __all__ = [
 #
 # Internals
 #
+
+# EBADF - guard against macOS `stat` throwing EBADF
+_IGNORED_ERROS = (ENOENT, ENOTDIR, EBADF, ELOOP)
+
+_IGNORED_WINERRORS = (
+    21,  # ERROR_NOT_READY - drive exists but is not accessible
+    1921,  # ERROR_CANT_RESOLVE_FILENAME - fix for broken symlink pointing to itself
+)
+
+def _ignore_error(exception):
+    return (getattr(exception, 'errno', None) in _IGNORED_ERROS or
+            getattr(exception, 'winerror', None) in _IGNORED_WINERRORS)
+
 
 def _is_wildcard_pattern(pat):
     # Whether this pattern needs actual matching using fnmatch, or can
@@ -115,10 +127,7 @@ class _WindowsFlavour(_Flavour):
 
     is_supported = (os.name == 'nt')
 
-    drive_letters = (
-        set(chr(x) for x in range(ord('a'), ord('z') + 1)) |
-        set(chr(x) for x in range(ord('A'), ord('Z') + 1))
-    )
+    drive_letters = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
     ext_namespace_prefix = '\\\\?\\'
 
     reserved_names = (
@@ -381,49 +390,37 @@ class _Accessor:
 
 class _NormalAccessor(_Accessor):
 
-    def _wrap_strfunc(strfunc):
-        @functools.wraps(strfunc)
-        def wrapped(pathobj, *args):
-            return strfunc(str(pathobj), *args)
-        return staticmethod(wrapped)
+    stat = os.stat
 
-    def _wrap_binary_strfunc(strfunc):
-        @functools.wraps(strfunc)
-        def wrapped(pathobjA, pathobjB, *args):
-            return strfunc(str(pathobjA), str(pathobjB), *args)
-        return staticmethod(wrapped)
+    lstat = os.lstat
 
-    stat = _wrap_strfunc(os.stat)
+    open = os.open
 
-    lstat = _wrap_strfunc(os.lstat)
+    listdir = os.listdir
 
-    open = _wrap_strfunc(os.open)
+    scandir = os.scandir
 
-    listdir = _wrap_strfunc(os.listdir)
-
-    scandir = _wrap_strfunc(os.scandir)
-
-    chmod = _wrap_strfunc(os.chmod)
+    chmod = os.chmod
 
     if hasattr(os, "lchmod"):
-        lchmod = _wrap_strfunc(os.lchmod)
+        lchmod = os.lchmod
     else:
         def lchmod(self, pathobj, mode):
             raise NotImplementedError("lchmod() not available on this system")
 
-    mkdir = _wrap_strfunc(os.mkdir)
+    mkdir = os.mkdir
 
-    unlink = _wrap_strfunc(os.unlink)
+    unlink = os.unlink
 
-    rmdir = _wrap_strfunc(os.rmdir)
+    rmdir = os.rmdir
 
-    rename = _wrap_binary_strfunc(os.rename)
+    rename = os.rename
 
-    replace = _wrap_binary_strfunc(os.replace)
+    replace = os.replace
 
     if nt:
         if supports_symlinks:
-            symlink = _wrap_binary_strfunc(os.symlink)
+            symlink = os.symlink
         else:
             def symlink(a, b, target_is_directory):
                 raise NotImplementedError("symlink() not available on this system")
@@ -431,9 +428,9 @@ class _NormalAccessor(_Accessor):
         # Under POSIX, os.symlink() takes two args
         @staticmethod
         def symlink(a, b, target_is_directory):
-            return os.symlink(str(a), str(b))
+            return os.symlink(a, b)
 
-    utime = _wrap_strfunc(os.utime)
+    utime = os.utime
 
     # Helper for resolve()
     def readlink(self, path):
@@ -522,7 +519,13 @@ class _WildcardSelector(_Selector):
             cf = parent_path._flavour.casefold
             entries = list(scandir(parent_path))
             for entry in entries:
-                if not self.dironly or entry.is_dir():
+                entry_is_dir = False
+                try:
+                    entry_is_dir = entry.is_dir()
+                except OSError as e:
+                    if not _ignore_error(e):
+                        raise
+                if not self.dironly or entry_is_dir:
                     name = entry.name
                     casefolded = cf(name)
                     if self.pat.match(casefolded):
@@ -544,7 +547,13 @@ class _RecursiveWildcardSelector(_Selector):
         try:
             entries = list(scandir(parent_path))
             for entry in entries:
-                if entry.is_dir() and not entry.is_symlink():
+                entry_is_dir = False
+                try:
+                    entry_is_dir = entry.is_dir()
+                except OSError as e:
+                    if not _ignore_error(e):
+                        raise
+                if entry_is_dir and not entry.is_symlink():
                     path = parent_path._make_child_relpath(entry.name)
                     for p in self._iterate_directories(path, is_dir, scandir):
                         yield p
@@ -710,7 +719,7 @@ class PurePath(object):
     def __bytes__(self):
         """Return the bytes representation of the path.  This is only
         recommended to use under Unix."""
-        return os.fsencode(str(self))
+        return os.fsencode(self)
 
     def __repr__(self):
         return "{}({!r})".format(self.__class__.__name__, self.as_posix())
@@ -829,7 +838,7 @@ class PurePath(object):
         """
         f = self._flavour
         if f.sep in suffix or f.altsep and f.altsep in suffix:
-            raise ValueError("Invalid suffix %r" % (suffix))
+            raise ValueError("Invalid suffix %r" % (suffix,))
         if suffix and not suffix.startswith('.') or suffix == '.':
             raise ValueError("Invalid suffix %r" % (suffix))
         name = self.name
@@ -1088,7 +1097,7 @@ class Path(PurePath):
 
     def glob(self, pattern):
         """Iterate over this subtree and yield all existing files (of any
-        kind, including directories) matching the given pattern.
+        kind, including directories) matching the given relative pattern.
         """
         if not pattern:
             raise ValueError("Unacceptable pattern: {!r}".format(pattern))
@@ -1102,7 +1111,8 @@ class Path(PurePath):
 
     def rglob(self, pattern):
         """Recursively yield all existing files (of any kind, including
-        directories) matching the given pattern, anywhere in this subtree.
+        directories) matching the given relative pattern, anywhere in
+        this subtree.
         """
         pattern = self._flavour.casefold(pattern)
         drv, root, pattern_parts = self._flavour.parse_parts((pattern,))
@@ -1179,7 +1189,7 @@ class Path(PurePath):
         """
         if self._closed:
             self._raise_closed()
-        return io.open(str(self), mode, buffering, encoding, errors, newline,
+        return io.open(self, mode, buffering, encoding, errors, newline,
                        opener=self._opener)
 
     def read_bytes(self):
@@ -1335,7 +1345,7 @@ class Path(PurePath):
         try:
             self.stat()
         except OSError as e:
-            if e.errno not in (ENOENT, ENOTDIR):
+            if not _ignore_error(e):
                 raise
             return False
         return True
@@ -1347,7 +1357,7 @@ class Path(PurePath):
         try:
             return S_ISDIR(self.stat().st_mode)
         except OSError as e:
-            if e.errno not in (ENOENT, ENOTDIR):
+            if not _ignore_error(e):
                 raise
             # Path doesn't exist or is a broken symlink
             # (see https://bitbucket.org/pitrou/pathlib/issue/12/)
@@ -1361,11 +1371,32 @@ class Path(PurePath):
         try:
             return S_ISREG(self.stat().st_mode)
         except OSError as e:
-            if e.errno not in (ENOENT, ENOTDIR):
+            if not _ignore_error(e):
                 raise
             # Path doesn't exist or is a broken symlink
             # (see https://bitbucket.org/pitrou/pathlib/issue/12/)
             return False
+
+    def is_mount(self):
+        """
+        Check if this path is a POSIX mount point
+        """
+        # Need to exist and be a dir
+        if not self.exists() or not self.is_dir():
+            return False
+
+        parent = Path(self.parent)
+        try:
+            parent_dev = parent.stat().st_dev
+        except OSError:
+            return False
+
+        dev = self.stat().st_dev
+        if dev != parent_dev:
+            return True
+        ino = self.stat().st_ino
+        parent_ino = parent.stat().st_ino
+        return ino == parent_ino
 
     def is_symlink(self):
         """
@@ -1374,7 +1405,7 @@ class Path(PurePath):
         try:
             return S_ISLNK(self.lstat().st_mode)
         except OSError as e:
-            if e.errno not in (ENOENT, ENOTDIR):
+            if not _ignore_error(e):
                 raise
             # Path doesn't exist
             return False
@@ -1386,7 +1417,7 @@ class Path(PurePath):
         try:
             return S_ISBLK(self.stat().st_mode)
         except OSError as e:
-            if e.errno not in (ENOENT, ENOTDIR):
+            if not _ignore_error(e):
                 raise
             # Path doesn't exist or is a broken symlink
             # (see https://bitbucket.org/pitrou/pathlib/issue/12/)
@@ -1399,7 +1430,7 @@ class Path(PurePath):
         try:
             return S_ISCHR(self.stat().st_mode)
         except OSError as e:
-            if e.errno not in (ENOENT, ENOTDIR):
+            if not _ignore_error(e):
                 raise
             # Path doesn't exist or is a broken symlink
             # (see https://bitbucket.org/pitrou/pathlib/issue/12/)
@@ -1412,7 +1443,7 @@ class Path(PurePath):
         try:
             return S_ISFIFO(self.stat().st_mode)
         except OSError as e:
-            if e.errno not in (ENOENT, ENOTDIR):
+            if not _ignore_error(e):
                 raise
             # Path doesn't exist or is a broken symlink
             # (see https://bitbucket.org/pitrou/pathlib/issue/12/)
@@ -1425,7 +1456,7 @@ class Path(PurePath):
         try:
             return S_ISSOCK(self.stat().st_mode)
         except OSError as e:
-            if e.errno not in (ENOENT, ENOTDIR):
+            if not _ignore_error(e):
                 raise
             # Path doesn't exist or is a broken symlink
             # (see https://bitbucket.org/pitrou/pathlib/issue/12/)
@@ -1462,3 +1493,6 @@ class WindowsPath(Path, PureWindowsPath):
 
     def group(self):
         raise NotImplementedError("Path.group() is unsupported on this system")
+
+    def is_mount(self):
+        raise NotImplementedError("Path.is_mount() is unsupported on this system")

@@ -766,7 +766,7 @@ FF
 
         with self.assertRaises(urllib.error.ContentTooShortError):
             try:
-                urllib.request.urlretrieve('http://example.com/',
+                urllib.request.urlretrieve(support.TEST_HTTP_URL,
                                            reporthook=_reporthook)
             finally:
                 self.unfakehttp()
@@ -783,7 +783,7 @@ FF
 ''')
         with self.assertRaises(urllib.error.ContentTooShortError):
             try:
-                urllib.request.urlretrieve('http://example.com/')
+                urllib.request.urlretrieve(support.TEST_HTTP_URL)
             finally:
                 self.unfakehttp()
 
@@ -791,7 +791,7 @@ FF
 class QuotingTests(unittest.TestCase):
     r"""Tests for urllib.quote() and urllib.quote_plus()
 
-    According to RFC 2396 (Uniform Resource Identifiers), to escape a
+    According to RFC 3986 (Uniform Resource Identifiers), to escape a
     character you write it as '%' + <2 character US-ASCII hex value>.
     The Python code of ``'%' + hex(ord(<character>))[2:]`` escapes a
     character properly. Case does not matter on the hex letters.
@@ -819,7 +819,7 @@ class QuotingTests(unittest.TestCase):
         do_not_quote = '' .join(["ABCDEFGHIJKLMNOPQRSTUVWXYZ",
                                  "abcdefghijklmnopqrstuvwxyz",
                                  "0123456789",
-                                 "_.-"])
+                                 "_.-~"])
         result = urllib.parse.quote(do_not_quote)
         self.assertEqual(do_not_quote, result,
                          "using quote(): %r != %r" % (do_not_quote, result))

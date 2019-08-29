@@ -3,7 +3,6 @@
 import collections
 import copy
 import doctest
-import inspect
 import keyword
 import operator
 import pickle
@@ -39,6 +38,20 @@ class TestUserObjects(unittest.TestCase):
                 b=b.__name__,
             ),
         )
+
+    def _copy_test(self, obj):
+        # Test internal copy
+        obj_copy = obj.copy()
+        self.assertIsNot(obj.data, obj_copy.data)
+        self.assertEqual(obj.data, obj_copy.data)
+
+        # Test copy.copy
+        obj.test = [1234]  # Make sure instance vars are also copied.
+        obj_copy = copy.copy(obj)
+        self.assertIsNot(obj.data, obj_copy.data)
+        self.assertEqual(obj.data, obj_copy.data)
+        self.assertIs(obj.test, obj_copy.test)
+
     def test_str_protocol(self):
         self._superset_test(UserString, str)
 
@@ -47,6 +60,16 @@ class TestUserObjects(unittest.TestCase):
 
     def test_dict_protocol(self):
         self._superset_test(UserDict, dict)
+
+    def test_list_copy(self):
+        obj = UserList()
+        obj.append(123)
+        self._copy_test(obj)
+
+    def test_dict_copy(self):
+        obj = UserDict()
+        obj[123] = "abc"
+        self._copy_test(obj)
 
 
 ################################################################################
@@ -115,6 +138,20 @@ class TestChainMap(unittest.TestCase):
         self.assertEqual(f['b'], 5)                                    # find first in chain
         self.assertEqual(f.parents['b'], 2)                            # look beyond maps[0]
 
+    def test_ordering(self):
+        # Combined order matches a series of dict updates from last to first.
+        # This test relies on the ordering of the underlying dicts.
+
+        baseline = {'music': 'bach', 'art': 'rembrandt'}
+        adjustments = {'art': 'van gogh', 'opera': 'carmen'}
+
+        cm = ChainMap(adjustments, baseline)
+
+        combined = baseline.copy()
+        combined.update(adjustments)
+
+        self.assertEqual(list(combined.items()), list(cm.items()))
+
     def test_constructor(self):
         self.assertEqual(ChainMap().maps, [{}])                        # no-args --> one new dict
         self.assertEqual(ChainMap({1:2}).maps, [{1:2}])                # 1 arg --> list
@@ -141,6 +178,23 @@ class TestChainMap(unittest.TestCase):
         self.assertEqual(d.popitem(), ('b', 2))                        # check popitem() w/missing
         with self.assertRaises(KeyError):
             d.popitem()
+
+    def test_order_preservation(self):
+        d = ChainMap(
+                OrderedDict(j=0, h=88888),
+                OrderedDict(),
+                OrderedDict(i=9999, d=4444, c=3333),
+                OrderedDict(f=666, b=222, g=777, c=333, h=888),
+                OrderedDict(),
+                OrderedDict(e=55, b=22),
+                OrderedDict(a=1, b=2, c=3, d=4, e=5),
+                OrderedDict(),
+            )
+        self.assertEqual(''.join(d), 'abcdefghij')
+        self.assertEqual(list(d.items()),
+            [('a', 1), ('b', 222), ('c', 3333), ('d', 4444),
+             ('e', 55), ('f', 666), ('g', 777), ('h', 88888),
+             ('i', 9999), ('j', 0)])
 
     def test_dict_coercion(self):
         d = ChainMap(dict(a=1, b=2), dict(b=20, c=30))
@@ -195,7 +249,6 @@ class TestNamedTuple(unittest.TestCase):
         self.assertEqual(Point.__module__, __name__)
         self.assertEqual(Point.__getitem__, tuple.__getitem__)
         self.assertEqual(Point._fields, ('x', 'y'))
-        self.assertIn('class Point(tuple)', Point._source)
 
         self.assertRaises(ValueError, namedtuple, 'abc%', 'efg ghi')       # type has non-alpha char
         self.assertRaises(ValueError, namedtuple, 'class', 'efg ghi')      # type has keyword
@@ -217,6 +270,57 @@ class TestNamedTuple(unittest.TestCase):
 
         self.assertRaises(TypeError, Point._make, [11])                     # catch too few args
         self.assertRaises(TypeError, Point._make, [11, 22, 33])             # catch too many args
+
+    def test_defaults(self):
+        Point = namedtuple('Point', 'x y', defaults=(10, 20))              # 2 defaults
+        self.assertEqual(Point._field_defaults, {'x': 10, 'y': 20})
+        self.assertEqual(Point(1, 2), (1, 2))
+        self.assertEqual(Point(1), (1, 20))
+        self.assertEqual(Point(), (10, 20))
+
+        Point = namedtuple('Point', 'x y', defaults=(20,))                 # 1 default
+        self.assertEqual(Point._field_defaults, {'y': 20})
+        self.assertEqual(Point(1, 2), (1, 2))
+        self.assertEqual(Point(1), (1, 20))
+
+        Point = namedtuple('Point', 'x y', defaults=())                     # 0 defaults
+        self.assertEqual(Point._field_defaults, {})
+        self.assertEqual(Point(1, 2), (1, 2))
+        with self.assertRaises(TypeError):
+            Point(1)
+
+        with self.assertRaises(TypeError):                                  # catch too few args
+            Point()
+        with self.assertRaises(TypeError):                                  # catch too many args
+            Point(1, 2, 3)
+        with self.assertRaises(TypeError):                                  # too many defaults
+            Point = namedtuple('Point', 'x y', defaults=(10, 20, 30))
+        with self.assertRaises(TypeError):                                  # non-iterable defaults
+            Point = namedtuple('Point', 'x y', defaults=10)
+        with self.assertRaises(TypeError):                                  # another non-iterable default
+            Point = namedtuple('Point', 'x y', defaults=False)
+
+        Point = namedtuple('Point', 'x y', defaults=None)                   # default is None
+        self.assertEqual(Point._field_defaults, {})
+        self.assertIsNone(Point.__new__.__defaults__, None)
+        self.assertEqual(Point(10, 20), (10, 20))
+        with self.assertRaises(TypeError):                                  # catch too few args
+            Point(10)
+
+        Point = namedtuple('Point', 'x y', defaults=[10, 20])               # allow non-tuple iterable
+        self.assertEqual(Point._field_defaults, {'x': 10, 'y': 20})
+        self.assertEqual(Point.__new__.__defaults__, (10, 20))
+        self.assertEqual(Point(1, 2), (1, 2))
+        self.assertEqual(Point(1), (1, 20))
+        self.assertEqual(Point(), (10, 20))
+
+        Point = namedtuple('Point', 'x y', defaults=iter([10, 20]))         # allow plain iterator
+        self.assertEqual(Point._field_defaults, {'x': 10, 'y': 20})
+        self.assertEqual(Point.__new__.__defaults__, (10, 20))
+        self.assertEqual(Point(1, 2), (1, 2))
+        self.assertEqual(Point(1), (1, 20))
+        self.assertEqual(Point(), (10, 20))
+
 
     @unittest.skipIf(sys.flags.optimize >= 2,
                      "Docstrings are omitted with -O2 and above")
@@ -319,8 +423,7 @@ class TestNamedTuple(unittest.TestCase):
         self.assertEqual(Dot(1)._replace(d=999), (999,))
         self.assertEqual(Dot(1)._fields, ('d',))
 
-        # n = 5000
-        n = 254 # SyntaxError: more than 255 arguments:
+        n = 5000
         names = list(set(''.join([choice(string.ascii_letters)
                                   for j in range(10)]) for i in range(n)))
         n = len(names)
@@ -368,11 +471,37 @@ class TestNamedTuple(unittest.TestCase):
         newt = t._replace(itemgetter=10, property=20, self=30, cls=40, tuple=50)
         self.assertEqual(newt, (10,20,30,40,50))
 
-        # Broader test of all interesting names in a template
-        with support.captured_stdout() as template:
-            T = namedtuple('T', 'x', verbose=True)
-        words = set(re.findall('[A-Za-z]+', template.getvalue()))
-        words -= set(keyword.kwlist)
+       # Broader test of all interesting names taken from the code, old
+       # template, and an example
+        words = {'Alias', 'At', 'AttributeError', 'Build', 'Bypass', 'Create',
+        'Encountered', 'Expected', 'Field', 'For', 'Got', 'Helper',
+        'IronPython', 'Jython', 'KeyError', 'Make', 'Modify', 'Note',
+        'OrderedDict', 'Point', 'Return', 'Returns', 'Type', 'TypeError',
+        'Used', 'Validate', 'ValueError', 'Variables', 'a', 'accessible', 'add',
+        'added', 'all', 'also', 'an', 'arg_list', 'args', 'arguments',
+        'automatically', 'be', 'build', 'builtins', 'but', 'by', 'cannot',
+        'class_namespace', 'classmethod', 'cls', 'collections', 'convert',
+        'copy', 'created', 'creation', 'd', 'debugging', 'defined', 'dict',
+        'dictionary', 'doc', 'docstring', 'docstrings', 'duplicate', 'effect',
+        'either', 'enumerate', 'environments', 'error', 'example', 'exec', 'f',
+        'f_globals', 'field', 'field_names', 'fields', 'formatted', 'frame',
+        'function', 'functions', 'generate', 'get', 'getter', 'got', 'greater',
+        'has', 'help', 'identifiers', 'index', 'indexable', 'instance',
+        'instantiate', 'interning', 'introspection', 'isidentifier',
+        'isinstance', 'itemgetter', 'iterable', 'join', 'keyword', 'keywords',
+        'kwds', 'len', 'like', 'list', 'map', 'maps', 'message', 'metadata',
+        'method', 'methods', 'module', 'module_name', 'must', 'name', 'named',
+        'namedtuple', 'namedtuple_', 'names', 'namespace', 'needs', 'new',
+        'nicely', 'num_fields', 'number', 'object', 'of', 'operator', 'option',
+        'p', 'particular', 'pickle', 'pickling', 'plain', 'pop', 'positional',
+        'property', 'r', 'regular', 'rename', 'replace', 'replacing', 'repr',
+        'repr_fmt', 'representation', 'result', 'reuse_itemgetter', 's', 'seen',
+        'self', 'sequence', 'set', 'side', 'specified', 'split', 'start',
+        'startswith', 'step', 'str', 'string', 'strings', 'subclass', 'sys',
+        'targets', 'than', 'the', 'their', 'this', 'to', 'tuple', 'tuple_new',
+        'type', 'typename', 'underscore', 'unexpected', 'unpack', 'up', 'use',
+        'used', 'user', 'valid', 'values', 'variable', 'verbose', 'where',
+        'which', 'work', 'x', 'y', 'z', 'zip'}
         T = namedtuple('T', words)
         # test __new__
         values = tuple(range(len(words)))
@@ -398,30 +527,15 @@ class TestNamedTuple(unittest.TestCase):
         self.assertEqual(t.__getnewargs__(), values)
 
     def test_repr(self):
-        with support.captured_stdout() as template:
-            A = namedtuple('A', 'x', verbose=True)
+        A = namedtuple('A', 'x')
         self.assertEqual(repr(A(1)), 'A(x=1)')
         # repr should show the name of the subclass
         class B(A):
             pass
         self.assertEqual(repr(B(1)), 'B(x=1)')
 
-    def test_source(self):
-        # verify that _source can be run through exec()
-        tmp = namedtuple('NTColor', 'red green blue')
-        globals().pop('NTColor', None)          # remove artifacts from other tests
-        exec(tmp._source, globals())
-        self.assertIn('NTColor', globals())
-        c = NTColor(10, 20, 30)
-        self.assertEqual((c.red, c.green, c.blue), (10, 20, 30))
-        self.assertEqual(NTColor._fields, ('red', 'green', 'blue'))
-        globals().pop('NTColor', None)          # clean-up after this test
-
     def test_keyword_only_arguments(self):
         # See issue 25628
-        with support.captured_stdout() as template:
-            NT = namedtuple('NT', ['x', 'y'], verbose=True)
-        self.assertIn('class NT', NT._source)
         with self.assertRaises(TypeError):
             NT = namedtuple('NT', ['x', 'y'], True)
 
@@ -652,7 +766,7 @@ class TestOneTrickPonyABCs(ABCTestCase):
 
     def test_AsyncIterable(self):
         class AI:
-            async def __aiter__(self):
+            def __aiter__(self):
                 return self
         self.assertTrue(isinstance(AI(), AsyncIterable))
         self.assertTrue(issubclass(AI, AsyncIterable))
@@ -666,7 +780,7 @@ class TestOneTrickPonyABCs(ABCTestCase):
 
     def test_AsyncIterator(self):
         class AI:
-            async def __aiter__(self):
+            def __aiter__(self):
                 return self
             async def __anext__(self):
                 raise StopAsyncIteration
@@ -784,13 +898,13 @@ class TestOneTrickPonyABCs(ABCTestCase):
             self.assertFalse(issubclass(type(x), Collection), repr(type(x)))
         # Check some non-collection iterables
         non_col_iterables = [_test_gen(), iter(b''), iter(bytearray()),
-                             (x for x in []), dict().values()]
+                             (x for x in [])]
         for x in non_col_iterables:
             self.assertNotIsInstance(x, Collection)
             self.assertFalse(issubclass(type(x), Collection), repr(type(x)))
         # Check some collections
         samples = [set(), frozenset(), dict(), bytes(), str(), tuple(),
-                   list(), dict().keys(), dict().items()]
+                   list(), dict().keys(), dict().items(), dict().values()]
         for x in samples:
             self.assertIsInstance(x, Collection)
             self.assertTrue(issubclass(type(x), Collection), repr(type(x)))

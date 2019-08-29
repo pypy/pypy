@@ -70,14 +70,14 @@ class LockTests(unittest.TestCase):
             to_unlock.release()
 
         self.lock.acquire()
-        start_time = int(time.time())
+        start_time = int(time.monotonic())
         _thread.start_new_thread(delay_unlock,(self.lock, DELAY))
         if support.verbose:
             print()
             print("*** Waiting for thread to release the lock "\
             "(approx. %s sec.) ***" % DELAY)
         self.lock.acquire()
-        end_time = int(time.time())
+        end_time = int(time.monotonic())
         if support.verbose:
             print("done")
         self.assertGreaterEqual(end_time - start_time, DELAY,
@@ -102,6 +102,24 @@ class LockTests(unittest.TestCase):
         self.assertIn("unlocked", repr(self.lock))
 
 
+class RLockTests(unittest.TestCase):
+    """Test dummy RLock objects."""
+
+    def setUp(self):
+        self.rlock = _thread.RLock()
+
+    def test_multiple_acquire(self):
+        self.assertIn("unlocked", repr(self.rlock))
+        self.rlock.acquire()
+        self.rlock.acquire()
+        self.assertIn("locked", repr(self.rlock))
+        self.rlock.release()
+        self.assertIn("locked", repr(self.rlock))
+        self.rlock.release()
+        self.assertIn("unlocked", repr(self.rlock))
+        self.assertRaises(RuntimeError, self.rlock.release)
+
+
 class MiscTests(unittest.TestCase):
     """Miscellaneous tests."""
 
@@ -111,8 +129,7 @@ class MiscTests(unittest.TestCase):
     def test_ident(self):
         self.assertIsInstance(_thread.get_ident(), int,
                               "_thread.get_ident() returned a non-integer")
-        self.assertNotEqual(_thread.get_ident(), 0,
-                        "_thread.get_ident() returned 0")
+        self.assertGreater(_thread.get_ident(), 0)
 
     def test_LockType(self):
         self.assertIsInstance(_thread.allocate_lock(), _thread.LockType,
@@ -254,3 +271,6 @@ class ThreadTests(unittest.TestCase):
         func = mock.Mock(side_effect=Exception)
         _thread.start_new_thread(func, tuple())
         self.assertTrue(mock_print_exc.called)
+
+if __name__ == '__main__':
+    unittest.main()

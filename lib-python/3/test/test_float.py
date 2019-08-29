@@ -51,7 +51,7 @@ class GeneralFloatCases(unittest.TestCase):
         self.assertRaises(TypeError, float, {})
         self.assertRaisesRegex(TypeError, "not 'dict'", float, {})
         # Lone surrogate
-        self.assertRaises(UnicodeEncodeError, float, '\uD8F0')
+        self.assertRaises(ValueError, float, '\uD8F0')
         # check that we don't accept alternate exponent markers
         self.assertRaises(ValueError, float, "-1.7d29")
         self.assertRaises(ValueError, float, "3D-14")
@@ -222,6 +222,10 @@ class GeneralFloatCases(unittest.TestCase):
             self.assertEqual(FloatSubclass(F()), 42.)
         with self.assertWarns(DeprecationWarning):
             self.assertIs(type(FloatSubclass(F())), FloatSubclass)
+
+    def test_keyword_args(self):
+        with self.assertRaisesRegex(TypeError, 'keyword argument'):
+            float(x='3.14')
 
     def test_is_integer(self):
         self.assertFalse((1.1).is_integer())
@@ -696,6 +700,25 @@ class FormatTestCase(unittest.TestCase):
         self.assertEqual(format(123.456, '.4'), '123.5')
         self.assertEqual(format(1234.56, '.4'), '1.235e+03')
         self.assertEqual(format(12345.6, '.4'), '1.235e+04')
+
+    def test_issue35560(self):
+        self.assertEqual(format(123.0, '00'), '123.0')
+        self.assertEqual(format(123.34, '00f'), '123.340000')
+        self.assertEqual(format(123.34, '00e'), '1.233400e+02')
+        self.assertEqual(format(123.34, '00g'), '123.34')
+        self.assertEqual(format(123.34, '00.10f'), '123.3400000000')
+        self.assertEqual(format(123.34, '00.10e'), '1.2334000000e+02')
+        self.assertEqual(format(123.34, '00.10g'), '123.34')
+        self.assertEqual(format(123.34, '01f'), '123.340000')
+
+        self.assertEqual(format(-123.0, '00'), '-123.0')
+        self.assertEqual(format(-123.34, '00f'), '-123.340000')
+        self.assertEqual(format(-123.34, '00e'), '-1.233400e+02')
+        self.assertEqual(format(-123.34, '00g'), '-123.34')
+        self.assertEqual(format(-123.34, '00.10f'), '-123.3400000000')
+        self.assertEqual(format(-123.34, '00.10f'), '-123.3400000000')
+        self.assertEqual(format(-123.34, '00.10e'), '-1.2334000000e+02')
+        self.assertEqual(format(-123.34, '00.10g'), '-123.34')
 
 class ReprTestCase(unittest.TestCase):
     def test_repr(self):

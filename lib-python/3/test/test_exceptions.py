@@ -566,7 +566,7 @@ class ExceptionTests(unittest.TestCase):
             pass
         obj = None
         obj = wr()
-        self.assertTrue(obj is None, "%s" % obj)
+        self.assertIsNone(obj)
 
         # Qualified "except" without "as"
         obj = MyObj()
@@ -577,7 +577,7 @@ class ExceptionTests(unittest.TestCase):
             pass
         obj = None
         obj = wr()
-        self.assertTrue(obj is None, "%s" % obj)
+        self.assertIsNone(obj)
 
         # Bare "except"
         obj = MyObj()
@@ -588,7 +588,7 @@ class ExceptionTests(unittest.TestCase):
             pass
         obj = None
         obj = wr()
-        self.assertTrue(obj is None, "%s" % obj)
+        self.assertIsNone(obj)
 
         # "except" with premature block leave
         obj = MyObj()
@@ -600,7 +600,7 @@ class ExceptionTests(unittest.TestCase):
                 break
         obj = None
         obj = wr()
-        self.assertTrue(obj is None, "%s" % obj)
+        self.assertIsNone(obj)
 
         # "except" block raising another exception
         obj = MyObj()
@@ -621,7 +621,7 @@ class ExceptionTests(unittest.TestCase):
             # guarantee no ref cycles on CPython (don't gc_collect)
             if check_impl_detail(cpython=False):
                 gc_collect()
-            self.assertTrue(obj is None, "%s" % obj)
+            self.assertIsNone(obj)
 
         # Some complicated construct
         obj = MyObj()
@@ -640,7 +640,7 @@ class ExceptionTests(unittest.TestCase):
         if check_impl_detail(cpython=False):
             gc_collect()
         obj = wr()
-        self.assertTrue(obj is None, "%s" % obj)
+        self.assertIsNone(obj)
 
         # Inside an exception-silencing "with" block
         class Context:
@@ -656,7 +656,7 @@ class ExceptionTests(unittest.TestCase):
         if check_impl_detail(cpython=False):
             gc_collect()
         obj = wr()
-        self.assertTrue(obj is None, "%s" % obj)
+        self.assertIsNone(obj)
 
     def test_exception_target_in_nested_scope(self):
         # issue 4617: This used to raise a SyntaxError
@@ -808,7 +808,7 @@ class ExceptionTests(unittest.TestCase):
         testfunc(g)
         g = obj = None
         obj = wr()
-        self.assertIs(obj, None)
+        self.assertIsNone(obj)
 
     def test_generator_throw_cleanup_exc_state(self):
         def do_throw(g):
@@ -933,7 +933,7 @@ class ExceptionTests(unittest.TestCase):
             except RecursionError:
                 return sys.exc_info()
         e, v, tb = g()
-        self.assertTrue(isinstance(v, RecursionError), type(v))
+        self.assertIsInstance(v, RecursionError, type(v))
         self.assertIn("maximum recursion depth exceeded", str(v))
 
     @cpython_only
@@ -943,7 +943,7 @@ class ExceptionTests(unittest.TestCase):
         # equal to recursion_limit in PyErr_NormalizeException() and check
         # that a ResourceWarning is printed.
         # Prior to #22898, the recursivity of PyErr_NormalizeException() was
-        # controled by tstate->recursion_depth and a PyExc_RecursionErrorInst
+        # controlled by tstate->recursion_depth and a PyExc_RecursionErrorInst
         # singleton was being used in that case, that held traceback data and
         # locals indefinitely and would cause a segfault in _PyExc_Fini() upon
         # finalization of these locals.
@@ -1151,27 +1151,20 @@ class ExceptionTests(unittest.TestCase):
                 # The following line is included in the traceback report:
                 raise exc
 
-        class BrokenRepr(BrokenDel):
-            def __repr__(self):
-                raise AttributeError("repr() is broken")
-
         class BrokenExceptionDel:
             def __del__(self):
                 exc = BrokenStrException()
                 # The following line is included in the traceback report:
                 raise exc
 
-        for test_class in (BrokenDel, BrokenRepr, BrokenExceptionDel):
+        for test_class in (BrokenDel, BrokenExceptionDel):
             with self.subTest(test_class):
                 obj = test_class()
                 with captured_stderr() as stderr:
                     del obj
                 report = stderr.getvalue()
                 self.assertIn("Exception ignored", report)
-                if test_class is BrokenRepr:
-                    self.assertIn("<object repr() failed>", report)
-                else:
-                    self.assertIn(test_class.__del__.__qualname__, report)
+                self.assertIn(test_class.__del__.__qualname__, report)
                 self.assertIn("test_exceptions.py", report)
                 self.assertIn("raise exc", report)
                 if test_class is BrokenExceptionDel:
@@ -1220,6 +1213,62 @@ class ExceptionTests(unittest.TestCase):
             self.assertIn(rc, (1, 120))
             self.assertIn(b'MemoryError', err)
 
+    def test_yield_in_nested_try_excepts(self):
+        #Issue #25612
+        class MainError(Exception):
+            pass
+
+        class SubError(Exception):
+            pass
+
+        def main():
+            try:
+                raise MainError()
+            except MainError:
+                try:
+                    yield
+                except SubError:
+                    pass
+                raise
+
+        coro = main()
+        coro.send(None)
+        with self.assertRaises(MainError):
+            coro.throw(SubError())
+
+    def test_generator_doesnt_retain_old_exc2(self):
+        #Issue 28884#msg282532
+        def g():
+            try:
+                raise ValueError
+            except ValueError:
+                yield 1
+            self.assertEqual(sys.exc_info(), (None, None, None))
+            yield 2
+
+        gen = g()
+
+        try:
+            raise IndexError
+        except IndexError:
+            self.assertEqual(next(gen), 1)
+        self.assertEqual(next(gen), 2)
+
+    def test_raise_in_generator(self):
+        #Issue 25612#msg304117
+        def g():
+            yield 1
+            raise
+            yield 2
+
+        with self.assertRaises(ZeroDivisionError):
+            i = g()
+            try:
+                1/0
+            except:
+                next(i)
+                next(i)
+
 
 class ImportErrorTests(unittest.TestCase):
 
@@ -1241,7 +1290,7 @@ class ImportErrorTests(unittest.TestCase):
         self.assertEqual(exc.name, 'somename')
         self.assertEqual(exc.path, 'somepath')
 
-        msg = "'invalid' is an invalid keyword argument for this function"
+        msg = "'invalid' is an invalid keyword argument for ImportError"
         with self.assertRaisesRegex(TypeError, msg):
             ImportError('test', invalid='keyword')
 
@@ -1256,6 +1305,20 @@ class ImportErrorTests(unittest.TestCase):
 
         with self.assertRaisesRegex(TypeError, msg):
             ImportError('test', invalid='keyword', another=True)
+
+    def test_reset_attributes(self):
+        exc = ImportError('test', name='name', path='path')
+        self.assertEqual(exc.args, ('test',))
+        self.assertEqual(exc.msg, 'test')
+        self.assertEqual(exc.name, 'name')
+        self.assertEqual(exc.path, 'path')
+
+        # Reset not specified attributes
+        exc.__init__()
+        self.assertEqual(exc.args, ())
+        self.assertEqual(exc.msg, None)
+        self.assertEqual(exc.name, None)
+        self.assertEqual(exc.path, None)
 
     def test_non_str_argument(self):
         # Issue #15778

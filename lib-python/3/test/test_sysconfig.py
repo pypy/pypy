@@ -5,8 +5,7 @@ import subprocess
 import shutil
 from copy import copy
 
-from test.support import (run_unittest,
-                          import_module, TESTFN, unlink, check_warnings,
+from test.support import (import_module, TESTFN, unlink, check_warnings,
                           captured_stdout, skip_unless_symlink, change_cwd)
 
 import sysconfig
@@ -119,13 +118,6 @@ class TestSysConfig(unittest.TestCase):
                        '[MSC v.1310 32 bit (Amd64)]')
         sys.platform = 'win32'
         self.assertEqual(get_platform(), 'win-amd64')
-
-        # windows XP, itanium
-        os.name = 'nt'
-        sys.version = ('2.4.4 (#71, Oct 18 2006, 08:34:43) '
-                       '[MSC v.1310 32 bit (Itanium)]')
-        sys.platform = 'win32'
-        self.assertEqual(get_platform(), 'win-ia64')
 
         # macbook
         os.name = 'posix'
@@ -241,16 +233,26 @@ class TestSysConfig(unittest.TestCase):
 
     @skip_unless_symlink
     def test_symlink(self):
+        if sys.platform == "win32" and not os.path.exists(sys.executable):
+            # App symlink appears to not exist, but we want the
+            # real executable here anyway
+            import _winapi
+            real = _winapi.GetModuleFileName(0)
+        else:
+            real = os.path.realpath(sys.executable)
+        link = os.path.abspath(TESTFN)
+        os.symlink(real, link)
+
         # On Windows, the EXE needs to know where pythonXY.dll is at so we have
         # to add the directory to the path.
         env = None
         if sys.platform == "win32":
             env = {k.upper(): os.environ[k] for k in os.environ}
             env["PATH"] = "{};{}".format(
-                os.path.dirname(sys.executable), env.get("PATH", ""))
+                os.path.dirname(real), env.get("PATH", ""))
             # Requires PYTHONHOME as well since we locate stdlib from the
             # EXE path and not the DLL path (which should be fixed)
-            env["PYTHONHOME"] = os.path.dirname(sys.executable)
+            env["PYTHONHOME"] = os.path.dirname(real)
             if sysconfig.is_python_build(True):
                 env["PYTHONPATH"] = os.path.dirname(os.__file__)
 
@@ -266,9 +268,6 @@ class TestSysConfig(unittest.TestCase):
                 self.fail('Non-zero return code {0} (0x{0:08X})'
                             .format(p.returncode))
             return out, err
-        real = os.path.realpath(sys.executable)
-        link = os.path.abspath(TESTFN)
-        os.symlink(real, link)
         try:
             self.assertEqual(get(real), get(link, env))
         finally:
@@ -451,8 +450,5 @@ class MakefileTests(unittest.TestCase):
         })
 
 
-def test_main():
-    run_unittest(TestSysConfig, MakefileTests)
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

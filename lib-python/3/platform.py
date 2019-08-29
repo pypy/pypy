@@ -72,7 +72,7 @@
 #            type information
 #    0.4.0 - added win32_ver() and modified the platform() output for WinXX
 #    0.3.4 - fixed a bug in _follow_symlinks()
-#    0.3.3 - fixed popen() and "file" command invokation bugs
+#    0.3.3 - fixed popen() and "file" command invocation bugs
 #    0.3.2 - added architecture() API and support for it in platform()
 #    0.3.1 - fixed syscmd_ver() RE to support Windows NT
 #    0.3.0 - added system alias support
@@ -334,7 +334,7 @@ def linux_distribution(distname='', version='', id='',
                        full_distribution_name=1):
     import warnings
     warnings.warn("dist() and linux_distribution() functions are deprecated "
-                  "in Python 3.5", PendingDeprecationWarning, stacklevel=2)
+                  "in Python 3.5", DeprecationWarning, stacklevel=2)
     return _linux_distribution(distname, version, id, supported_dists,
                                full_distribution_name)
 
@@ -408,7 +408,7 @@ def dist(distname='', version='', id='',
     """
     import warnings
     warnings.warn("dist() and linux_distribution() functions are deprecated "
-                  "in Python 3.5", PendingDeprecationWarning, stacklevel=2)
+                  "in Python 3.5", DeprecationWarning, stacklevel=2)
     return _linux_distribution(distname, version, id,
                                supported_dists=supported_dists,
                                full_distribution_name=0)
@@ -535,10 +535,6 @@ def win32_ver(release='', version='', csd='', ptype=''):
         from sys import getwindowsversion
     except ImportError:
         return release, version, csd, ptype
-    try:
-        from winreg import OpenKeyEx, QueryValueEx, CloseKey, HKEY_LOCAL_MACHINE
-    except ImportError:
-        from _winreg import OpenKeyEx, QueryValueEx, CloseKey, HKEY_LOCAL_MACHINE
 
     winver = getwindowsversion()
     maj, min, build = winver.platform_version or winver[:3]
@@ -564,16 +560,20 @@ def win32_ver(release='', version='', csd='', ptype=''):
                    _WIN32_SERVER_RELEASES.get((maj, None)) or
                    release)
 
-    key = None
     try:
-        key = OpenKeyEx(HKEY_LOCAL_MACHINE,
-                        r'SOFTWARE\Microsoft\Windows NT\CurrentVersion')
-        ptype = QueryValueEx(key, 'CurrentType')[0]
-    except:
+        try:
+            import winreg
+        except ImportError:
+            import _winreg as winreg
+    except ImportError:
         pass
-    finally:
-        if key:
-            CloseKey(key)
+    else:
+        try:
+            cvkey = r'SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+            with winreg.OpenKeyEx(HKEY_LOCAL_MACHINE, cvkey) as key:
+                ptype = QueryValueEx(key, 'CurrentType')[0]
+        except:
+            pass
 
     return release, version, csd, ptype
 
@@ -1235,9 +1235,6 @@ def _sys_version(sys_version=None):
         _, branch, revision = sys._git
     elif hasattr(sys, '_mercurial'):
         _, branch, revision = sys._mercurial
-    elif hasattr(sys, 'subversion'):
-        # sys.subversion was added in Python 2.5
-        _, branch, revision = sys.subversion
     else:
         branch = ''
         revision = ''
@@ -1292,7 +1289,7 @@ def python_branch():
     """ Returns a string identifying the Python implementation
         branch.
 
-        For CPython this is the Subversion branch from which the
+        For CPython this is the SCM branch from which the
         Python binary was built.
 
         If not available, an empty string is returned.
@@ -1306,7 +1303,7 @@ def python_revision():
     """ Returns a string identifying the Python implementation
         revision.
 
-        For CPython this is the Subversion revision from which the
+        For CPython this is the SCM revision from which the
         Python binary was built.
 
         If not available, an empty string is returned.
@@ -1381,7 +1378,7 @@ def platform(aliased=0, terse=0):
                 'ignore',
                 r'dist\(\) and linux_distribution\(\) '
                 'functions are deprecated .*',
-                PendingDeprecationWarning,
+                DeprecationWarning,
             )
             distname, distversion, distid = dist('')
         if distname and not terse:

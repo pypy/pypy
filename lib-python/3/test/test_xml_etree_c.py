@@ -1,4 +1,5 @@
 # xml.etree test for cElementTree
+import io
 import struct
 from test import support
 from test.support import import_fresh_module
@@ -8,7 +9,8 @@ import unittest
 cET = import_fresh_module('xml.etree.ElementTree',
                           fresh=['_elementtree'])
 cET_alias = import_fresh_module('xml.etree.cElementTree',
-                                fresh=['_elementtree', 'xml.etree'])
+                                fresh=['_elementtree', 'xml.etree'],
+                                deprecated=True)
 
 
 @unittest.skipUnless(cET, 'requires _elementtree')
@@ -131,6 +133,26 @@ class MiscTests(unittest.TestCase):
         self.assertEqual(list(elem.attrib.items()), [('bar', 42)])
         self.assertEqual(len(elem), 1)
         self.assertEqual(elem[0].tag, 'child')
+
+    def test_iterparse_leaks(self):
+        # Test reference leaks in TreeBuilder (issue #35502).
+        # The test is written to be executed in the hunting reference leaks
+        # mode.
+        XML = '<a></a></b>'
+        parser = cET.iterparse(io.StringIO(XML))
+        next(parser)
+        del parser
+        support.gc_collect()
+
+    def test_xmlpullparser_leaks(self):
+        # Test reference leaks in TreeBuilder (issue #35502).
+        # The test is written to be executed in the hunting reference leaks
+        # mode.
+        XML = '<a></a></b>'
+        parser = cET.XMLPullParser()
+        parser.feed(XML)
+        del parser
+        support.gc_collect()
 
 
 @unittest.skipUnless(cET, 'requires _elementtree')

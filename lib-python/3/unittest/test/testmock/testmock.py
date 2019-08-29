@@ -870,6 +870,15 @@ class MockTest(unittest.TestCase):
             patcher.stop()
 
 
+    def test_dir_does_not_include_deleted_attributes(self):
+        mock = Mock()
+        mock.child.return_value = 1
+
+        self.assertIn('child', dir(mock))
+        del mock.child
+        self.assertNotIn('child', dir(mock))
+
+
     def test_configure_mock(self):
         mock = Mock(foo='bar')
         self.assertEqual(mock.foo, 'bar')
@@ -1404,6 +1413,23 @@ class MockTest(unittest.TestCase):
         m = mock.create_autospec(object(), name='sweet_func')
         self.assertIn('sweet_func', repr(m))
 
+    #Issue23078
+    def test_create_autospec_classmethod_and_staticmethod(self):
+        class TestClass:
+            @classmethod
+            def class_method(cls):
+                pass
+
+            @staticmethod
+            def static_method():
+                pass
+        for method in ('class_method', 'static_method'):
+            with self.subTest(method=method):
+                mock_method = mock.create_autospec(getattr(TestClass, method))
+                mock_method()
+                mock_method.assert_called_once_with()
+                self.assertRaises(TypeError, mock_method, 'extra_arg')
+
     #Issue21238
     def test_mock_unsafe(self):
         m = Mock()
@@ -1623,6 +1649,29 @@ class MockTest(unittest.TestCase):
         f2_data = f2.read()
         self.assertEqual(f1_data, f2_data)
 
+    def test_mock_open_dunder_iter_issue(self):
+        # Test dunder_iter method generates the expected result and
+        # consumes the iterator.
+        mocked_open = mock.mock_open(read_data='Remarkable\nNorwegian Blue')
+        f1 = mocked_open('a-name')
+        lines = [line for line in f1]
+        self.assertEqual(lines[0], 'Remarkable\n')
+        self.assertEqual(lines[1], 'Norwegian Blue')
+        self.assertEqual(list(f1), [])
+
+    def test_mock_open_using_next(self):
+        mocked_open = mock.mock_open(read_data='1st line\n2nd line\n3rd line')
+        f1 = mocked_open('a-name')
+        line1 = next(f1)
+        line2 = f1.__next__()
+        lines = [line for line in f1]
+        self.assertEqual(line1, '1st line\n')
+        self.assertEqual(line2, '2nd line\n')
+        self.assertEqual(lines[0], '3rd line')
+        self.assertEqual(list(f1), [])
+        with self.assertRaises(StopIteration):
+            next(f1)
+
     def test_mock_open_write(self):
         # Test exception in file writing write()
         mock_namedtemp = mock.mock_open(mock.MagicMock(name='JLV'))
@@ -1729,6 +1778,33 @@ class MockTest(unittest.TestCase):
             self.assertRaises(AttributeError, getattr, mock, 'f')
 
 
+    def test_mock_does_not_raise_on_repeated_attribute_deletion(self):
+        # bpo-20239: Assigning and deleting twice an attribute raises.
+        for mock in (Mock(), MagicMock(), NonCallableMagicMock(),
+                     NonCallableMock()):
+            mock.foo = 3
+            self.assertTrue(hasattr(mock, 'foo'))
+            self.assertEqual(mock.foo, 3)
+
+            del mock.foo
+            self.assertFalse(hasattr(mock, 'foo'))
+
+            mock.foo = 4
+            self.assertTrue(hasattr(mock, 'foo'))
+            self.assertEqual(mock.foo, 4)
+
+            del mock.foo
+            self.assertFalse(hasattr(mock, 'foo'))
+
+
+    def test_mock_raises_when_deleting_nonexistent_attribute(self):
+        for mock in (Mock(), MagicMock(), NonCallableMagicMock(),
+                     NonCallableMock()):
+            del mock.foo
+            with self.assertRaises(AttributeError):
+                del mock.foo
+
+
     def test_reset_mock_does_not_raise_on_attr_deletion(self):
         # bpo-31177: reset_mock should not raise AttributeError when attributes
         # were deleted in a mock instance
@@ -1760,6 +1836,57 @@ class MockTest(unittest.TestCase):
         self.assertIsNotNone(call.parent)
         self.assertEqual(type(call.parent), _Call)
         self.assertEqual(type(call.parent().parent), _Call)
+
+
+    def test_parent_propagation_with_create_autospec(self):
+
+        def foo(a, b):
+            pass
+
+        mock = Mock()
+        mock.child = create_autospec(foo)
+        mock.child(1, 2)
+
+        self.assertRaises(TypeError, mock.child, 1)
+        self.assertEqual(mock.mock_calls, [call.child(1, 2)])
+
+    def test_isinstance_under_settrace(self):
+        # bpo-36593 : __class__ is not set for a class that has __class__
+        # property defined when it's used with sys.settrace(trace) set.
+        # Delete the module to force reimport with tracing function set
+        # restore the old reference later since there are other tests that are
+        # dependent on unittest.mock.patch. In testpatch.PatchTest
+        # test_patch_dict_test_prefix and test_patch_test_prefix not restoring
+        # causes the objects patched to go out of sync
+
+        old_patch = unittest.mock.patch
+
+        # Directly using __setattr__ on unittest.mock causes current imported
+        # reference to be updated. Use a lambda so that during cleanup the
+        # re-imported new reference is updated.
+        self.addCleanup(lambda patch: setattr(unittest.mock, 'patch', patch),
+                        old_patch)
+
+        with patch.dict('sys.modules'):
+            del sys.modules['unittest.mock']
+
+            def trace(frame, event, arg):
+                return trace
+
+            sys.settrace(trace)
+            self.addCleanup(sys.settrace, None)
+
+            from unittest.mock import (
+                Mock, MagicMock, NonCallableMock, NonCallableMagicMock
+            )
+
+            mocks = [
+                Mock, MagicMock, NonCallableMock, NonCallableMagicMock
+            ]
+
+            for mock in mocks:
+                obj = mock(spec=Something)
+                self.assertIsInstance(obj, Something)
 
 
 if __name__ == '__main__':

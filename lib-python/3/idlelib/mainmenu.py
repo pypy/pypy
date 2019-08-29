@@ -76,11 +76,15 @@ menudefs = [
    ('Python Shell', '<<open-python-shell>>'),
    ('C_heck Module', '<<check-module>>'),
    ('R_un Module', '<<run-module>>'),
+   ('Run... _Customized', '<<run-custom>>'),
    ]),
 
  ('shell', [
    ('_View Last Restart', '<<view-restart>>'),
    ('_Restart Shell', '<<restart-shell>>'),
+   None,
+   ('_Previous History', '<<history-previous>>'),
+   ('_Next History', '<<history-next>>'),
    None,
    ('_Interrupt Execution', '<<interrupt-execution>>'),
    ]),
@@ -94,11 +98,12 @@ menudefs = [
 
  ('options', [
    ('Configure _IDLE', '<<open-config-dialog>>'),
-   ('_Code Context', '<<toggle-code-context>>'),
+   None,
+   ('Show _Code Context', '<<toggle-code-context>>'),
+   ('Zoom Height', '<<zoom-height>>'),
    ]),
 
  ('window', [
-   ('Zoom Height', '<<zoom-height>>'),
    ]),
 
  ('help', [

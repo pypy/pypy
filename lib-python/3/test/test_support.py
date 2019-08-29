@@ -1,5 +1,7 @@
+import contextlib
 import errno
 import importlib
+import io
 import os
 import shutil
 import socket
@@ -8,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 from test import support
 from test.support import script_helper
@@ -158,8 +161,11 @@ class TestSupport(unittest.TestCase):
         finally:
             shutil.rmtree(path)
 
-        expected = ['tests may fail, unable to create temp dir: ' + path]
-        self.assertEqual(warnings, expected)
+        self.assertEqual(len(warnings), 1, warnings)
+        warn = warnings[0]
+        self.assertTrue(warn.startswith(f'tests may fail, unable to create '
+                                        f'temporary directory {path!r}: '),
+                        warn)
 
     @unittest.skipUnless(hasattr(os, "fork"), "test requires os.fork")
     def test_temp_dir__forked_child(self):
@@ -227,8 +233,12 @@ class TestSupport(unittest.TestCase):
                     self.assertEqual(os.getcwd(), new_cwd)
                 warnings = [str(w.message) for w in recorder.warnings]
 
-        expected = ['tests may fail, unable to change CWD to: ' + bad_dir]
-        self.assertEqual(warnings, expected)
+        self.assertEqual(len(warnings), 1, warnings)
+        warn = warnings[0]
+        self.assertTrue(warn.startswith(f'tests may fail, unable to change '
+                                        f'the current working directory '
+                                        f'to {bad_dir!r}: '),
+                        warn)
 
     # Tests for change_cwd()
 
@@ -239,7 +249,13 @@ class TestSupport(unittest.TestCase):
             with support.change_cwd(path=path, quiet=True):
                 pass
             messages = [str(w.message) for w in recorder.warnings]
-        self.assertEqual(messages, ['tests may fail, unable to change CWD to: ' + path])
+
+        self.assertEqual(len(messages), 1, messages)
+        msg = messages[0]
+        self.assertTrue(msg.startswith(f'tests may fail, unable to change '
+                                       f'the current working directory '
+                                       f'to {path!r}: '),
+                        msg)
 
     # Tests for temp_cwd()
 
@@ -395,6 +411,51 @@ class TestSupport(unittest.TestCase):
 
         self.assertRaises(AssertionError, support.check__all__, self, unittest)
 
+    @unittest.skipUnless(hasattr(os, 'waitpid') and hasattr(os, 'WNOHANG'),
+                         'need os.waitpid() and os.WNOHANG')
+    def test_reap_children(self):
+        # Make sure that there is no other pending child process
+        support.reap_children()
+
+        # Create a child process
+        pid = os.fork()
+        if pid == 0:
+            # child process: do nothing, just exit
+            os._exit(0)
+
+        t0 = time.monotonic()
+        deadline = time.monotonic() + 60.0
+
+        was_altered = support.environment_altered
+        try:
+            support.environment_altered = False
+            stderr = io.StringIO()
+
+            while True:
+                if time.monotonic() > deadline:
+                    self.fail("timeout")
+
+                with contextlib.redirect_stderr(stderr):
+                    support.reap_children()
+
+                # Use environment_altered to check if reap_children() found
+                # the child process
+                if support.environment_altered:
+                    break
+
+                # loop until the child process completed
+                time.sleep(0.100)
+
+            msg = "Warning -- reap_children() reaped child process %s" % pid
+            self.assertIn(msg, stderr.getvalue())
+            self.assertTrue(support.environment_altered)
+        finally:
+            support.environment_altered = was_altered
+
+        # Just in case, check again that there is no other
+        # pending child process
+        support.reap_children()
+
     def check_options(self, args, func, expected=None):
         code = f'from test.support import {func}; print(repr({func}()))'
         cmd = [sys.executable, *args, '-c', code]
@@ -430,7 +491,10 @@ class TestSupport(unittest.TestCase):
             # -W options
             ['-Wignore'],
             # -X options
+            ['-X', 'dev'],
+            ['-Wignore', '-X', 'dev'],
             ['-X', 'faulthandler'],
+            ['-X', 'importtime'],
             ['-X', 'showalloccount'],
             ['-X', 'showrefcount'],
             ['-X', 'tracemalloc'],
@@ -543,7 +607,6 @@ class TestSupport(unittest.TestCase):
     # run_doctest
     # threading_cleanup
     # reap_threads
-    # reap_children
     # strip_python_stderr
     # can_symlink
     # skip_unless_symlink
