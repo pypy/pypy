@@ -9,7 +9,7 @@ import sys
 import unittest
 from test.support.script_helper import assert_python_ok
 from test.support import impl_detail, check_impl_detail
-from collections import Hashable
+from collections.abc import Hashable
 
 IS_64BIT = sys.maxsize > 2**32
 
@@ -208,7 +208,7 @@ class StringlikeHashRandomizationTests(HashRandomizationTests):
             [-678966196, 573763426263223372, -820489388, -4282905804826039665],
             ],
         'siphash24': [
-            # NOTE: PyUCS2 layout depends on endianess
+            # NOTE: PyUCS2 layout depends on endianness
             # seed 0, 'abc'
             [1198583518, 4596069200710135518, 1198583518, 4596069200710135518],
             # seed 42, 'abc'

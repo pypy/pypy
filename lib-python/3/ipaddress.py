@@ -776,8 +776,7 @@ class _BaseNetwork(_IPAddressBase):
         if not isinstance(other, _BaseNetwork):
             raise TypeError("%s is not a network object" % other)
 
-        if not (other.network_address >= self.network_address and
-                other.broadcast_address <= self.broadcast_address):
+        if not other.subnet_of(self):
             raise ValueError('%s not contained in %s' % (other, self))
         if other == self:
             return
@@ -788,12 +787,10 @@ class _BaseNetwork(_IPAddressBase):
 
         s1, s2 = self.subnets()
         while s1 != other and s2 != other:
-            if (other.network_address >= s1.network_address and
-                other.broadcast_address <= s1.broadcast_address):
+            if other.subnet_of(s1):
                 yield s2
                 s1, s2 = s1.subnets()
-            elif (other.network_address >= s2.network_address and
-                  other.broadcast_address <= s2.broadcast_address):
+            elif other.subnet_of(s2):
                 yield s1
                 s1, s2 = s2.subnets()
             else:
@@ -975,6 +972,26 @@ class _BaseNetwork(_IPAddressBase):
         return (self.network_address.is_multicast and
                 self.broadcast_address.is_multicast)
 
+    @staticmethod
+    def _is_subnet_of(a, b):
+        try:
+            # Always false if one is v4 and the other is v6.
+            if a._version != b._version:
+                raise TypeError(f"{a} and {b} are not of the same version")
+            return (b.network_address <= a.network_address and
+                    b.broadcast_address >= a.broadcast_address)
+        except AttributeError:
+            raise TypeError(f"Unable to test subnet containment "
+                            f"between {a} and {b}")
+
+    def subnet_of(self, other):
+        """Return True if this network is a subnet of other."""
+        return self._is_subnet_of(self, other)
+
+    def supernet_of(self, other):
+        """Return True if this network is a supernet of other."""
+        return self._is_subnet_of(other, self)
+
     @property
     def is_reserved(self):
         """Test if the address is otherwise IETF reserved.
@@ -1084,6 +1101,8 @@ class _BaseV4:
         if arg not in cls._netmask_cache:
             if isinstance(arg, int):
                 prefixlen = arg
+                if not (0 <= prefixlen <= cls._max_prefixlen):
+                    cls._report_invalid_netmask(prefixlen)
             else:
                 try:
                     # Check for a netmask in prefix length form
@@ -1605,6 +1624,8 @@ class _BaseV6:
         if arg not in cls._netmask_cache:
             if isinstance(arg, int):
                 prefixlen = arg
+                if not (0 <= prefixlen <= cls._max_prefixlen):
+                    cls._report_invalid_netmask(prefixlen)
             else:
                 prefixlen = cls._prefix_from_prefix_string(arg)
             netmask = IPv6Address(cls._ip_int_from_prefix(prefixlen))

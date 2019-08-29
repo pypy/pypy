@@ -1,5 +1,5 @@
 """ Test suite for the code in msilib """
-import os.path
+import os
 import unittest
 from test.support import TESTFN, import_module, unlink
 msilib = import_module('msilib')
@@ -32,6 +32,7 @@ class MsiDatabaseTestCase(unittest.TestCase):
                 break
             properties.append(record.GetString(1))
         view.Close()
+        db.Close()
         self.assertEqual(
             properties,
             [
@@ -40,6 +41,29 @@ class MsiDatabaseTestCase(unittest.TestCase):
             ]
         )
         self.addCleanup(unlink, db_path)
+
+    def test_summaryinfo_getproperty_issue1104(self):
+        db, db_path = init_database()
+        try:
+            sum_info = db.GetSummaryInformation(99)
+            title = sum_info.GetProperty(msilib.PID_TITLE)
+            self.assertEqual(title, b"Installation Database")
+
+            sum_info.SetProperty(msilib.PID_TITLE, "a" * 999)
+            title = sum_info.GetProperty(msilib.PID_TITLE)
+            self.assertEqual(title, b"a" * 999)
+
+            sum_info.SetProperty(msilib.PID_TITLE, "a" * 1000)
+            title = sum_info.GetProperty(msilib.PID_TITLE)
+            self.assertEqual(title, b"a" * 1000)
+
+            sum_info.SetProperty(msilib.PID_TITLE, "a" * 1001)
+            title = sum_info.GetProperty(msilib.PID_TITLE)
+            self.assertEqual(title, b"a" * 1001)
+        finally:
+            db = None
+            sum_info = None
+            os.unlink(db_path)
 
     def test_database_open_failed(self):
         with self.assertRaises(msilib.MSIError) as cm:
@@ -56,8 +80,17 @@ class MsiDatabaseTestCase(unittest.TestCase):
         db, db_path = init_database()
         summary = db.GetSummaryInformation(0)
         self.assertIsNone(summary.GetProperty(msilib.PID_SECURITY))
-        del db
+        db.Close()
         self.addCleanup(unlink, db_path)
+
+    def test_directory_start_component_keyfile(self):
+        db, db_path = init_database()
+        self.addCleanup(db.Close)
+        feature = msilib.Feature(db, 0, 'Feature', 'A feature', 'Python')
+        cab = msilib.CAB('CAB')
+        dir = msilib.Directory(db, cab, None, TESTFN, 'TARGETDIR',
+                               'SourceDir', 0)
+        dir.start_component(None, feature, None, 'keyfile')
 
 
 class Test_make_id(unittest.TestCase):
@@ -91,7 +124,7 @@ class Test_make_id(unittest.TestCase):
     def test_invalid_any_char(self):
         self.assertEqual(
             msilib.make_id(".s\x82ort"), "_.s_ort")
-        self.assertEqual    (
+        self.assertEqual(
             msilib.make_id(".s\x82o?*+rt"), "_.s_o___rt")
 
 

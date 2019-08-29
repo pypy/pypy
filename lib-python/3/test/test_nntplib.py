@@ -7,6 +7,7 @@ import functools
 import contextlib
 import os.path
 import re
+import threading
 
 from test import support
 from nntplib import NNTP, GroupInfo
@@ -16,10 +17,7 @@ try:
     import ssl
 except ImportError:
     ssl = None
-try:
-    import threading
-except ImportError:
-    threading = None
+
 
 TIMEOUT = 30
 certfile = os.path.join(os.path.dirname(__file__), 'keycert3.pem')
@@ -291,6 +289,11 @@ class NetworkedNNTPTestsMixin:
 NetworkedNNTPTestsMixin.wrap_methods()
 
 
+EOF_ERRORS = (EOFError,)
+if ssl is not None:
+    EOF_ERRORS += (ssl.SSLEOFError,)
+
+
 class NetworkedNNTPTests(NetworkedNNTPTestsMixin, unittest.TestCase):
     # This server supports STARTTLS (gmane doesn't)
     NNTP_HOST = 'news.trigofacile.com'
@@ -312,7 +315,7 @@ class NetworkedNNTPTests(NetworkedNNTPTestsMixin, unittest.TestCase):
                     raise unittest.SkipTest(f"{cls} got {ssl_err} connecting "
                                             f"to {cls.NNTP_HOST!r}")
                 raise
-            except EOFError:
+            except EOF_ERRORS:
                 raise unittest.SkipTest(f"{cls} got EOF error on connecting "
                                         f"to {cls.NNTP_HOST!r}")
 
@@ -1538,7 +1541,7 @@ class MockSslTests(MockSocketTests):
     def nntp_class(*pos, **kw):
         return nntplib.NNTP_SSL(*pos, ssl_context=bypass_context, **kw)
 
-@unittest.skipUnless(threading, 'requires multithreading')
+
 class LocalServerTests(unittest.TestCase):
     def setUp(self):
         sock = socket.socket()

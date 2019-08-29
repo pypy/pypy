@@ -16,12 +16,15 @@ backslash on Windows) it is treated as the path to a Python source file.
 Run "pydoc -k <keyword>" to search for a keyword in the synopsis lines
 of all available modules.
 
+Run "pydoc -n <hostname>" to start an HTTP server with the given
+hostname (default: localhost) on the local machine.
+
 Run "pydoc -p <port>" to start an HTTP server on the given port on the
 local machine.  Port number 0 can be used to get an arbitrary unused port.
 
 Run "pydoc -b" to start an HTTP server on an arbitrary unused port and
-open a Web browser to interactively browse documentation.  The -p option
-can be used with the -b option to explicitly specify the server port.
+open a Web browser to interactively browse documentation.  Combine with
+the -n and -p options to control the hostname and port used.
 
 Run "pydoc -w <name>" to write out the HTML documentation for a module
 to a file named "<name>.html".
@@ -909,7 +912,21 @@ class HTMLDoc(Doc):
             for base in bases:
                 parents.append(self.classlink(base, object.__module__))
             title = title + '(%s)' % ', '.join(parents)
-        doc = self.markup(getdoc(object), self.preformat, funcs, classes, mdict)
+
+        decl = ''
+        try:
+            signature = inspect.signature(object)
+        except (ValueError, TypeError):
+            signature = None
+        if signature:
+            argspec = str(signature)
+            if argspec and argspec != '()':
+                decl = name + self.escape(argspec) + '\n\n'
+
+        doc = getdoc(object)
+        if decl:
+            doc = decl + (doc or '')
+        doc = self.markup(doc, self.preformat, funcs, classes, mdict)
         doc = doc and '<tt>%s<br>&nbsp;</tt>' % doc
 
         return self.section(title, '#000000', '#ffc8d8', contents, 3, doc)
@@ -1212,9 +1229,21 @@ location listed above.
             parents = map(makename, bases)
             title = title + '(%s)' % ', '.join(parents)
 
-        doc = getdoc(object)
-        contents = doc and [doc + '\n'] or []
+        contents = []
         push = contents.append
+
+        try:
+            signature = inspect.signature(object)
+        except (ValueError, TypeError):
+            signature = None
+        if signature:
+            argspec = str(signature)
+            if argspec and argspec != '()':
+                push(name + argspec + '\n')
+
+        doc = getdoc(object)
+        if doc:
+            push(doc + '\n')
 
         # List the mro, if non-trivial.
         mro = deque(inspect.getmro(object))
@@ -1672,7 +1701,7 @@ class Helper:
     # in pydoc_data/topics.py.
     #
     # CAUTION: if you change one of these dictionaries, be sure to adapt the
-    #          list of needed labels in Doc/tools/pyspecific.py and
+    #          list of needed labels in Doc/tools/extensions/pyspecific.py and
     #          regenerate the pydoc_data/topics.py file by running
     #              make pydoc-topics
     #          in Doc/ and copying the output file into the Lib/ directory.
@@ -1684,6 +1713,8 @@ class Helper:
         'and': 'BOOLEAN',
         'as': 'with',
         'assert': ('assert', ''),
+        'async': ('async', ''),
+        'await': ('await', ''),
         'break': ('break', 'while for'),
         'class': ('class', 'CLASSES SPECIALMETHODS'),
         'continue': ('continue', 'while for'),
@@ -1841,8 +1872,13 @@ class Helper:
         self._input = input
         self._output = output
 
-    input  = property(lambda self: self._input or sys.stdin)
-    output = property(lambda self: self._output or sys.stdout)
+    @property
+    def input(self):
+        return self._input or sys.stdin
+
+    @property
+    def output(self):
+        return self._output or sys.stdout
 
     def __repr__(self):
         if inspect.stack()[1][3] == '?':
@@ -2137,7 +2173,7 @@ def apropos(key):
 
 # --------------------------------------- enhanced Web browser interface
 
-def _start_server(urlhandler, port):
+def _start_server(urlhandler, hostname, port):
     """Start an HTTP server thread on a specific port.
 
     Start an HTML/text server thread, so HTML or text documents can be
@@ -2177,14 +2213,14 @@ def _start_server(urlhandler, port):
         Let the server do its thing. We just need to monitor its status.
         Use time.sleep so the loop doesn't hog the CPU.
 
-        >>> starttime = time.time()
+        >>> starttime = time.monotonic()
         >>> timeout = 1                    #seconds
 
         This is a short timeout for testing purposes.
 
         >>> while serverthread.serving:
         ...     time.sleep(.01)
-        ...     if serverthread.serving and time.time() - starttime > timeout:
+        ...     if serverthread.serving and time.monotonic() - starttime > timeout:
         ...          serverthread.stop()
         ...          break
 
@@ -2222,8 +2258,8 @@ def _start_server(urlhandler, port):
 
     class DocServer(http.server.HTTPServer):
 
-        def __init__(self, port, callback):
-            self.host = 'localhost'
+        def __init__(self, host, port, callback):
+            self.host = host
             self.address = (self.host, port)
             self.callback = callback
             self.base.__init__(self, self.address, self.handler)
@@ -2243,8 +2279,9 @@ def _start_server(urlhandler, port):
 
     class ServerThread(threading.Thread):
 
-        def __init__(self, urlhandler, port):
+        def __init__(self, urlhandler, host, port):
             self.urlhandler = urlhandler
+            self.host = host
             self.port = int(port)
             threading.Thread.__init__(self)
             self.serving = False
@@ -2257,7 +2294,7 @@ def _start_server(urlhandler, port):
                 DocServer.handler = DocHandler
                 DocHandler.MessageClass = email.message.Message
                 DocHandler.urlhandler = staticmethod(self.urlhandler)
-                docsvr = DocServer(self.port, self.ready)
+                docsvr = DocServer(self.host, self.port, self.ready)
                 self.docserver = docsvr
                 docsvr.serve_until_quit()
             except Exception as e:
@@ -2279,7 +2316,7 @@ def _start_server(urlhandler, port):
             self.serving = False
             self.url = None
 
-    thread = ServerThread(urlhandler, port)
+    thread = ServerThread(urlhandler, hostname, port)
     thread.start()
     # Wait until thread.serving is True to make sure we are
     # really up before returning.
@@ -2543,14 +2580,14 @@ def _url_handler(url, content_type="text/html"):
     raise TypeError('unknown content type %r for url %s' % (content_type, url))
 
 
-def browse(port=0, *, open_browser=True):
+def browse(port=0, *, open_browser=True, hostname='localhost'):
     """Start the enhanced pydoc Web server and open a Web browser.
 
     Use port '0' to start the server on an arbitrary port.
     Set open_browser to False to suppress opening a browser.
     """
     import webbrowser
-    serverthread = _start_server(_url_handler, port)
+    serverthread = _start_server(_url_handler, hostname, port)
     if serverthread.error:
         print(serverthread.error)
         return
@@ -2583,25 +2620,58 @@ def browse(port=0, *, open_browser=True):
 def ispath(x):
     return isinstance(x, str) and x.find(os.sep) >= 0
 
+def _get_revised_path(given_path, argv0):
+    """Ensures current directory is on returned path, and argv0 directory is not
+
+    Exception: argv0 dir is left alone if it's also pydoc's directory.
+
+    Returns a new path entry list, or None if no adjustment is needed.
+    """
+    # Scripts may get the current directory in their path by default if they're
+    # run with the -m switch, or directly from the current directory.
+    # The interactive prompt also allows imports from the current directory.
+
+    # Accordingly, if the current directory is already present, don't make
+    # any changes to the given_path
+    if '' in given_path or os.curdir in given_path or os.getcwd() in given_path:
+        return None
+
+    # Otherwise, add the current directory to the given path, and remove the
+    # script directory (as long as the latter isn't also pydoc's directory.
+    stdlib_dir = os.path.dirname(__file__)
+    script_dir = os.path.dirname(argv0)
+    revised_path = given_path.copy()
+    if script_dir in given_path and not os.path.samefile(script_dir, stdlib_dir):
+        revised_path.remove(script_dir)
+    revised_path.insert(0, os.getcwd())
+    return revised_path
+
+
+# Note: the tests only cover _get_revised_path, not _adjust_cli_path itself
+def _adjust_cli_sys_path():
+    """Ensures current directory is on sys.path, and __main__ directory is not.
+
+    Exception: __main__ dir is left alone if it's also pydoc's directory.
+    """
+    revised_path = _get_revised_path(sys.path, sys.argv[0])
+    if revised_path is not None:
+        sys.path[:] = revised_path
+
+
 def cli():
     """Command-line interface (looks at sys.argv to decide what to do)."""
     import getopt
     class BadUsage(Exception): pass
 
-    # Scripts don't get the current directory in their path by default
-    # unless they are run with the '-m' switch
-    if '' not in sys.path:
-        scriptdir = os.path.dirname(sys.argv[0])
-        if scriptdir in sys.path:
-            sys.path.remove(scriptdir)
-        sys.path.insert(0, '.')
+    _adjust_cli_sys_path()
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'bk:p:w')
+        opts, args = getopt.getopt(sys.argv[1:], 'bk:n:p:w')
         writing = False
         start_server = False
         open_browser = False
-        port = None
+        port = 0
+        hostname = 'localhost'
         for opt, val in opts:
             if opt == '-b':
                 start_server = True
@@ -2614,11 +2684,12 @@ def cli():
                 port = val
             if opt == '-w':
                 writing = True
+            if opt == '-n':
+                start_server = True
+                hostname = val
 
         if start_server:
-            if port is None:
-                port = 0
-            browse(port, open_browser=open_browser)
+            browse(port, hostname=hostname, open_browser=open_browser)
             return
 
         if not args: raise BadUsage
@@ -2654,14 +2725,17 @@ def cli():
 {cmd} -k <keyword>
     Search for a keyword in the synopsis lines of all available modules.
 
+{cmd} -n <hostname>
+    Start an HTTP server with the given hostname (default: localhost).
+
 {cmd} -p <port>
     Start an HTTP server on the given port on the local machine.  Port
     number 0 can be used to get an arbitrary unused port.
 
 {cmd} -b
     Start an HTTP server on an arbitrary unused port and open a Web browser
-    to interactively browse documentation.  The -p option can be used with
-    the -b option to explicitly specify the server port.
+    to interactively browse documentation.  This option can be used in
+    combination with -n and/or -p.
 
 {cmd} -w <name> ...
     Write out the HTML documentation for a module to a file in the current

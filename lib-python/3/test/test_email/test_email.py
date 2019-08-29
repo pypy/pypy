@@ -12,10 +12,7 @@ from io import StringIO, BytesIO
 from itertools import chain
 from random import choice
 from socket import getfqdn
-try:
-    from threading import Thread
-except ImportError:
-    from dummy_threading import Thread
+from threading import Thread
 
 import email
 import email.policy
@@ -1468,6 +1465,15 @@ Blah blah blah
         g = BytesGenerator(b, mangle_from_=True)
         g.flatten(msg)
         self.assertEqual(b.getvalue(), source + b'>From R\xc3\xb6lli\n')
+
+    def test_mutltipart_with_bad_bytes_in_cte(self):
+        # bpo30835
+        source = textwrap.dedent("""\
+            From: aperson@example.com
+            Content-Type: multipart/mixed; boundary="1"
+            Content-Transfer-Encoding: \xc8
+        """).encode('utf-8')
+        msg = email.message_from_bytes(source)
 
 
 # Test the basic MIMEAudio class
@@ -4966,6 +4972,9 @@ A very long line that must get split to something other than at the
         msg = Message()
         msg['SomeHeader'] = '   value with leading ws'
         self.assertEqual(str(msg), "SomeHeader:    value with leading ws\n\n")
+
+    def test_whitespace_header(self):
+        self.assertEqual(Header(' ').encode(), ' ')
 
 
 

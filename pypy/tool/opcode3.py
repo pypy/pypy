@@ -171,7 +171,6 @@ def_op('STORE_FAST', 125)       # Local variable number
 haslocal.append(125)
 def_op('DELETE_FAST', 126)      # Local variable number
 haslocal.append(126)
-name_op('STORE_ANNOTATION', 127) # Index in name list
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
 def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
@@ -224,5 +223,8 @@ def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
 def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
+
+name_op('LOAD_METHOD', 160)
+def_op('CALL_METHOD', 161)
 
 del def_op, name_op, jrel_op, jabs_op

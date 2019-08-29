@@ -10,7 +10,6 @@ import warnings
 import collections
 import collections.abc
 import itertools
-import string
 
 class PassThru(Exception):
     pass
@@ -898,6 +897,12 @@ class TestBasicOps:
             copy = pickle.loads(p)
             self.assertEqual(self.set, copy,
                              "%s != %s" % (self.set, copy))
+
+    def test_issue_37219(self):
+        with self.assertRaises(TypeError):
+            set().difference(123)
+        with self.assertRaises(TypeError):
+            set().difference_update(123)
 
 #------------------------------------------------------------------------------
 

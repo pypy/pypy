@@ -13,12 +13,6 @@ import sysconfig
 import textwrap
 import unittest
 
-# Is this Python configured to support threads?
-try:
-    import _thread
-except ImportError:
-    _thread = None
-
 from test import support
 from test.support import run_unittest, findfile, python_is_optimized
 
@@ -355,7 +349,20 @@ class PrettyPrintTests(DebuggerTests):
 
     def test_strings(self):
         'Verify the pretty-printing of unicode strings'
-        encoding = locale.getpreferredencoding()
+        # We cannot simply call locale.getpreferredencoding() here,
+        # as GDB might have been linked against a different version
+        # of Python with a different encoding and coercion policy
+        # with respect to PEP 538 and PEP 540.
+        out, err = run_gdb(
+            '--eval-command',
+            'python import locale; print(locale.getpreferredencoding())')
+
+        encoding = out.rstrip()
+        if err or not encoding:
+            raise RuntimeError(
+                f'unable to determine the preferred encoding '
+                f'of embedded Python in GDB: {err}')
+
         def check_repr(text):
             try:
                 text.encode(encoding)
@@ -792,8 +799,6 @@ Traceback \(most recent call first\):
     foo\(1, 2, 3\)
 ''')
 
-    @unittest.skipUnless(_thread,
-                         "Python was compiled without thread support")
     def test_threads(self):
         'Verify that "py-bt" indicates threads that are waiting for the GIL'
         cmd = '''
@@ -831,8 +836,6 @@ id(42)
     # Some older versions of gdb will fail with
     #  "Cannot find new threads: generic error"
     # unless we add LD_PRELOAD=PATH-TO-libpthread.so.1 as a workaround
-    @unittest.skipUnless(_thread,
-                         "Python was compiled without thread support")
     def test_gc(self):
         'Verify that "py-bt" indicates if a thread is garbage-collecting'
         cmd = ('from gc import collect\n'
@@ -859,8 +862,6 @@ id(42)
     # Some older versions of gdb will fail with
     #  "Cannot find new threads: generic error"
     # unless we add LD_PRELOAD=PATH-TO-libpthread.so.1 as a workaround
-    @unittest.skipUnless(_thread,
-                         "Python was compiled without thread support")
     def test_pycfunction(self):
         'Verify that "py-bt" displays invocations of PyCFunction instances'
         # Tested function must not be defined with METH_NOARGS or METH_O,
@@ -883,7 +884,7 @@ id(42)
                                           breakpoint='time_gmtime',
                                           cmds_after_breakpoint=['py-bt-full'],
                                           )
-        self.assertIn('#1 <built-in method gmtime', gdb_output)
+        self.assertIn('#2 <built-in method gmtime', gdb_output)
 
     @unittest.skipIf(python_is_optimized(),
                      "Python was compiled with optimizations")

@@ -68,6 +68,7 @@ XXX: provide complete list of token types.
 """
 
 import re
+import sys
 import urllib   # For urllib.parse.unquote
 from string import hexdigits
 from collections import OrderedDict
@@ -95,6 +96,18 @@ EXTENDED_ATTRIBUTE_ENDS = ATTRIBUTE_ENDS - set('%')
 
 def quote_string(value):
     return '"'+str(value).replace('\\', '\\\\').replace('"', r'\"')+'"'
+
+# Match a RFC 2047 word, looks like =?utf-8?q?someword?=
+rfc2047_matcher = re.compile(r'''
+   =\?            # literal =?
+   [^?]*          # charset
+   \?             # literal ?
+   [qQbB]         # literal 'q' or 'b', case insensitive
+   \?             # literal ?
+  .*?             # encoded word
+  \?=             # literal ?=
+''', re.VERBOSE | re.MULTILINE)
+
 
 #
 # TokenList and its subclasses
@@ -948,15 +961,14 @@ RouteComponentMarker = ValueTerminal('@', 'route-component-marker')
 
 _wsp_splitter = re.compile(r'([{}]+)'.format(''.join(WSP))).split
 _non_atom_end_matcher = re.compile(r"[^{}]+".format(
-    ''.join(ATOM_ENDS).replace('\\','\\\\').replace(']',r'\]'))).match
+    re.escape(''.join(ATOM_ENDS)))).match
 _non_printable_finder = re.compile(r"[\x00-\x20\x7F]").findall
 _non_token_end_matcher = re.compile(r"[^{}]+".format(
-    ''.join(TOKEN_ENDS).replace('\\','\\\\').replace(']',r'\]'))).match
+    re.escape(''.join(TOKEN_ENDS)))).match
 _non_attribute_end_matcher = re.compile(r"[^{}]+".format(
-    ''.join(ATTRIBUTE_ENDS).replace('\\','\\\\').replace(']',r'\]'))).match
+    re.escape(''.join(ATTRIBUTE_ENDS)))).match
 _non_extended_attribute_end_matcher = re.compile(r"[^{}]+".format(
-    ''.join(EXTENDED_ATTRIBUTE_ENDS).replace(
-                                    '\\','\\\\').replace(']',r'\]'))).match
+    re.escape(''.join(EXTENDED_ATTRIBUTE_ENDS)))).match
 
 def _validate_xtext(xtext):
     """If input token contains ASCII non-printables, register a defect."""
@@ -1050,6 +1062,10 @@ def get_encoded_word(value):
         _validate_xtext(vtext)
         ew.append(vtext)
         text = ''.join(remainder)
+    # Encoded words should be followed by a WS
+    if value and value[0] not in WSP:
+        ew.defects.append(errors.InvalidHeaderDefect(
+            "missing trailing whitespace after encoded-word"))
     return ew, value
 
 def get_unstructured(value):
@@ -1102,6 +1118,11 @@ def get_unstructured(value):
                 unstructured.append(token)
                 continue
         tok, *remainder = _wsp_splitter(value, 1)
+        # Split in the middle of an atom if there is a rfc2047 encoded word
+        # which does not have WSP on both sides. The defect will be registered
+        # the next time through the loop.
+        if rfc2047_matcher.search(tok):
+            tok, *remainder = value.partition('=?')
         vtext = ValueTerminal(tok, 'vtext')
         _validate_xtext(vtext)
         unstructured.append(vtext)
@@ -2592,7 +2613,7 @@ def _refold_parse_tree(parse_tree, *, policy):
 
     """
     # max_line_length 0/None means no limit, ie: infinitely long.
-    maxlen = policy.max_line_length or float("+inf")
+    maxlen = policy.max_line_length or sys.maxsize
     encoding = 'utf-8' if policy.utf8 else 'us-ascii'
     lines = ['']
     last_ew = None
@@ -2627,7 +2648,7 @@ def _refold_parse_tree(parse_tree, *, policy):
                 want_encoding = False
                 last_ew = None
                 if part.syntactic_break:
-                    encoded_part = part.fold(policy=policy)[:-1] # strip nl
+                    encoded_part = part.fold(policy=policy)[:-len(policy.linesep)]
                     if policy.linesep not in encoded_part:
                         # It fits on a single line
                         if len(encoded_part) > maxlen - len(lines[-1]):
@@ -2662,6 +2683,7 @@ def _refold_parse_tree(parse_tree, *, policy):
             newline = _steal_trailing_WSP_if_exists(lines)
             if newline or part.startswith_fws():
                 lines.append(newline + tstr)
+                last_ew = None
                 continue
         if not hasattr(part, 'encode'):
             # It's not a terminal, try folding the subparts.
