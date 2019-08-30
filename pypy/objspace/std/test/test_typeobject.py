@@ -1277,6 +1277,23 @@ class AppTestTypeObject:
         assert C.foo == 42
         """
 
+    def test_prepare_error(self):
+        """
+        class BadMeta:
+            @classmethod
+            def __prepare__(cls, *args, **kwargs):
+                return 42
+        def make_class(meta):
+            class Foo(metaclass=meta):
+                pass
+        excinfo = raises(TypeError, make_class, BadMeta)
+        print(excinfo.value.args[0])
+        assert excinfo.value.args[0].startswith('BadMeta.__prepare__')
+        # Non-type as metaclass
+        excinfo = raises(TypeError, make_class, BadMeta())
+        assert excinfo.value.args[0].startswith('<metaclass>.__prepare__')
+        """
+
     def test_crash_mro_without_object_1(self):
         """
         class X(type):

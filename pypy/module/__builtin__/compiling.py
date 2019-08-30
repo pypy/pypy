@@ -130,6 +130,16 @@ def build_class(space, w_func, w_name, __args__):
                          keywords=keywords,
                          keywords_w=kwds_w.values())
         w_namespace = space.call_args(w_prep, args)
+    if not space.ismapping_w(w_namespace):
+        if isclass:
+            raise oefmt(space.w_TypeError,
+                "%N.__prepare__ must return a mapping, not %T",
+                w_meta, w_namespace)
+        else:
+            raise oefmt(space.w_TypeError,
+                "<metaclass>.__prepare__ must return a mapping, not %T",
+                w_namespace)
+
     code = w_func.getcode()
     frame = space.createframe(code, w_func.w_func_globals, w_func)
     frame.setdictscope(w_namespace)
