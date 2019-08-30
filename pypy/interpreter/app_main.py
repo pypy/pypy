@@ -384,6 +384,8 @@ sys_flags = (
     "quiet",
     "hash_randomization",
     "isolated",
+    "dev_mode",
+    "utf8_mode",
 )
 # ^^^ Order is significant!  Keep in sync with module.sys.app.sysflags
 
