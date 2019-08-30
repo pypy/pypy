@@ -69,7 +69,7 @@ class PyFrame(W_Root):
     f_generator_nowref       = None               # (only one of the two attrs)
     last_instr               = -1
     f_backref                = jit.vref_None
-    
+
     escaped                  = False  # see mark_as_escaped()
     debugdata                = None
 
@@ -79,7 +79,7 @@ class PyFrame(W_Root):
     lastblock = None
 
     # other fields:
-    
+
     # builtin - builtin cache, only if honor__builtins__ is True
     # defaults to False
 
