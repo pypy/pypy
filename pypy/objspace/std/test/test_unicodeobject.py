@@ -355,6 +355,12 @@ class AppTestUnicodeString:
         # single surrogate character
         assert not "\ud800".isprintable()
 
+    def test_isascii(self):
+        assert "".isascii()
+        assert "abcdefg\t".isascii()
+        assert not "abc\u0374".isascii()
+        assert not "\ud800abc".isascii()
+
     @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
     def test_isprintable_wide(self):
         assert '\U0001F46F'.isprintable()  # Since unicode 6.0

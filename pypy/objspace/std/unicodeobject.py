@@ -1035,6 +1035,9 @@ class W_UnicodeObject(W_Root):
     def is_ascii(self):
         return self._length == len(self._utf8)
 
+    def descr_isascii(self, space):
+        return space.newbool(self.is_ascii())
+
     def _index_to_byte(self, index):
         if self.is_ascii():
             assert index >= 0
@@ -1506,6 +1509,13 @@ class UnicodeDocstrings:
         and there is at least one character in S, False otherwise.
         """
 
+    def isascii():
+        """Return True if all characters in the string are ASCII, False otherwise.
+
+        ASCII characters have code points in the range U+0000-U+007F.
+        Empty string is ASCII too.
+        """
+
     def casefold():
         """S.casefold() -> str
 
@@ -1824,6 +1834,8 @@ W_UnicodeObject.typedef = TypeDef(
                          doc=UnicodeDocstrings.isalnum.__doc__),
     isalpha = interp2app(W_UnicodeObject.descr_isalpha,
                          doc=UnicodeDocstrings.isalpha.__doc__),
+    isascii = interp2app(W_UnicodeObject.descr_isascii,
+                         doc=UnicodeDocstrings.isascii.__doc__),
     isdecimal = interp2app(W_UnicodeObject.descr_isdecimal,
                            doc=UnicodeDocstrings.isdecimal.__doc__),
     isdigit = interp2app(W_UnicodeObject.descr_isdigit,
