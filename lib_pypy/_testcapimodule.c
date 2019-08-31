@@ -2279,11 +2279,13 @@ datetime_check_tzinfo(PyObject *self, PyObject *args) {
 }
 
 
+#ifndef PYPY_VERSION
 /* Makes three variations on timezone representing UTC-5:
    1. timezone with offset and name from PyDateTimeAPI
    2. timezone with offset and name from PyTimeZone_FromOffsetAndName
    3. timezone with offset (no name) from PyTimeZone_FromOffset
 */
+
 static PyObject *
 make_timezones_capi(PyObject *self, PyObject *args) {
     PyObject *offset = PyDelta_FromDSU(0, -18000, 0);
@@ -2342,6 +2344,7 @@ get_timezone_utc_capi(PyObject* self, PyObject *args) {
         return PyDateTimeAPI->TimeZone_UTC;
     }
 }
+#endif /* PYPY_VERSION */
 
 
 /* test_thread_state spawns a thread of its own, and that thread releases
@@ -2427,6 +2430,7 @@ test_thread_state(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_VERSION
 /* test Py_AddPendingCalls using threads */
 static int _pending_callback(void *arg)
 {
@@ -2462,8 +2466,6 @@ pending_threadfunc(PyObject *self, PyObject *arg)
     }
     Py_RETURN_TRUE;
 }
-
-#ifndef PYPY_VERSION
 
 /* Some tests of PyUnicode_FromFormat().  This needs more tests. */
 static PyObject *
@@ -4574,6 +4576,7 @@ get_mapping_items(PyObject* self, PyObject *obj)
 }
 
 
+#ifndef PYPY_VERSION
 static PyObject *
 test_pythread_tss_key_state(PyObject *self, PyObject *args)
 {
@@ -4659,6 +4662,7 @@ get_main_config(PyObject *self, PyObject *Py_UNUSED(args))
     const _PyMainInterpreterConfig *config = &interp->config;
     return _PyMainInterpreterConfig_AsDict(config);
 }
+#endif  /* PYPY_VERSION */
 
 
 static PyMethodDef TestMethods[] = {
@@ -4673,9 +4677,11 @@ static PyMethodDef TestMethods[] = {
     {"datetime_check_datetime",     datetime_check_datetime,     METH_VARARGS},
     {"datetime_check_delta",     datetime_check_delta,           METH_VARARGS},
     {"datetime_check_tzinfo",     datetime_check_tzinfo,         METH_VARARGS},
+#ifndef PYPY_VERSION
     {"make_timezones_capi",     make_timezones_capi,             METH_NOARGS},
     {"get_timezones_offset_zero",   get_timezones_offset_zero,   METH_NOARGS},
     {"get_timezone_utc_capi",    get_timezone_utc_capi,            METH_VARARGS},
+#endif
     {"test_list_api",           (PyCFunction)test_list_api,      METH_NOARGS},
     {"test_dict_iteration",     (PyCFunction)test_dict_iteration,METH_NOARGS},
 #ifndef PYPY_VERSION
@@ -4785,7 +4791,9 @@ static PyMethodDef TestMethods[] = {
     {"unicode_transformdecimaltoascii", unicode_transformdecimaltoascii, METH_VARARGS},
     {"unicode_legacy_string",   unicode_legacy_string,           METH_VARARGS},
     {"_test_thread_state",      test_thread_state,               METH_VARARGS},
+#ifndef PYPY_VERSION
     {"_pending_threadfunc",     pending_threadfunc,              METH_VARARGS},
+#endif
 #ifdef HAVE_GETTIMEOFDAY
     {"profile_int",             profile_int,                     METH_NOARGS},
 #endif
@@ -4905,11 +4913,13 @@ static PyMethodDef TestMethods[] = {
     {"get_mapping_keys", get_mapping_keys, METH_O},
     {"get_mapping_values", get_mapping_values, METH_O},
     {"get_mapping_items", get_mapping_items, METH_O},
+#ifndef PYPY_VERSION
     {"test_pythread_tss_key_state", test_pythread_tss_key_state, METH_VARARGS},
     {"hamt", new_hamt, METH_NOARGS},
     {"get_global_config", get_global_config, METH_NOARGS},
     {"get_core_config", get_core_config, METH_NOARGS},
     {"get_main_config", get_main_config, METH_NOARGS},
+#endif /* PYPY_VERSION */
     {NULL, NULL} /* sentinel */
 };
 
