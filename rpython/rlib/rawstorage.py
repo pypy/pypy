@@ -55,7 +55,7 @@ except detect_cpu.ProcessorAutodetectError:
     misaligned_is_fine = False
 
 
-class AlignmentError(NotImplementedError):
+class AlignmentError(Exception):
     "Means that raw_storage_{get,set}item was used on unaligned memory"
 
 # Tweak?  It seems a reasonable value for any system out there: requiring
