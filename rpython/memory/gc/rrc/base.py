@@ -41,6 +41,7 @@ class RawRefCountBaseGC(object):
     PYOBJ_SNAPSHOT_OBJ = lltype.Struct('PyObject_Snapshot',
                                        ('pyobj', llmemory.Address),
                                        ('status', lltype.Signed),
+                                       ('refcnt', lltype.Signed),
                                        ('refcnt_external', lltype.Signed),
                                        ('refs_index', lltype.Signed),
                                        ('refs_len', lltype.Signed),
@@ -628,6 +629,11 @@ class RawRefCountBaseGC(object):
         gchdr.c_gc_prev = pygclist
         gchdr.c_gc_next = next
         next.c_gc_prev = gchdr
+
+    def _gc_list_remove(self, gchdr):
+        next = gchdr.c_gc_next
+        next.c_gc_prev = gchdr.c_gc_prev
+        gchdr.c_gc_prev.c_gc_next = next
 
     def _gc_list_pop(self, pygclist):
         ret = pygclist.c_gc_next

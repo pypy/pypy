@@ -63,25 +63,58 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         ll_assert(self.state == self.STATE_GARBAGE_MARKING, "invalid state")
 
         # sync snapshot with pyob_list:
-        #  * move all dead objs still in pyob_list to pyobj_old_list
+        #  * check the consistency of "dead" objects and keep all of them
+        #    alive, in case an inconsistency is found (the graph changed
+        #    between two pauses, so some of those objects might be alive)
+        #  * move all dead objects still in pyob_list to pyobj_old_list
         #  * for all other objects (in snapshot and new),
-        #    set their cyclic refcount to > 0, to mark them as live
+        #    set their cyclic refcount to > 0 to mark them as live
         pygchdr = self.pyobj_list.c_gc_next
+        consistent = True
+        self.snapshot_consistent = True
         while pygchdr <> self.pyobj_list:
             next_old = pygchdr.c_gc_next
-            if pygchdr.c_gc_refs > 0:
+            if pygchdr.c_gc_refs > 0: # object is in snapshot
                 snapobj = self.snapshot_objs[pygchdr.c_gc_refs - 1]
                 pygchdr.c_gc_refs = snapobj.refcnt_external
-                if snapobj.refcnt_external == 0:
-                    # remove from old list
-                    next = pygchdr.c_gc_next
-                    next.c_gc_prev = pygchdr.c_gc_prev
-                    pygchdr.c_gc_prev.c_gc_next = next
-                    # add to new list (or not, if it is a tuple)
+                if snapobj.refcnt_external == 0: # object considered dead
+                    # check consistency (dead subgraphs can never change):
+                    pyobj = self.gc_as_pyobj(pygchdr)
+                    # refcount equal
+                    consistent = snapobj.refcnt == pyobj.c_ob_refcnt
+                    if not consistent:
+                        break
+                    # outgoing (internal) references equal
+                    self.snapshot_curr = snapobj
+                    self.snapshot_curr_index = 0
+                    self._check_snapshot_traverse(pyobj)
+                    consistent = self.snapshot_consistent
+                    if not consistent:
+                        break
+                    # consistent -> prepare object for collection
+                    self._gc_list_remove(pygchdr)
                     self._gc_list_add(self.pyobj_old_list, pygchdr)
             else:
                 pygchdr.c_gc_refs = 1 # new object, keep alive
             pygchdr = next_old
+
+        self._debug_check_consistency(print_label="end-check-consistency")
+
+        if not consistent:  # keep all objects alive
+            while pygchdr <> self.pyobj_list: # continue previous loop
+                pygchdr.c_gc_refs = 1
+                pygchdr = pygchdr.c_gc_next
+            pygchdr = self.pyobj_old_list.c_gc_next
+            while pygchdr <> self.pyobj_old_list: # resurrect "dead" objects
+                pygchdr.c_gc_refs = 1
+                pygchdr = pygchdr.c_gc_next
+            if not self._gc_list_is_empty(self.pyobj_old_list):
+                self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
+
+        self._debug_check_consistency(print_label="before-snap-discard")
+
+        # now the snapshot is not needed any more, discard it
+        self._discard_snapshot()
 
         # handle legacy finalizers (assumption: not a lot of legacy finalizers,
         # so no need to do it incrementally)
@@ -93,8 +126,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         # handle modern finalizers
         found_finalizer = self._find_finalizer()
         if found_finalizer:
-            self._gc_list_move(self.pyobj_old_list,
-                               self.pyobj_isolate_list)
+            self._gc_list_move(self.pyobj_old_list, self.pyobj_isolate_list)
         use_cylicrc = not found_finalizer
 
         # now mark all pypy objects at the border, depending on the results
@@ -102,7 +134,6 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         debug_print("use_cylicrc", use_cylicrc)
         self.p_list_old.foreach(self._major_trace, (use_cylicrc, False))
         self._debug_check_consistency(print_label="end-mark")
-        self._discard_snapshot()
         return True
 
     def _collect_roots(self, pygclist):
@@ -134,7 +165,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 obj = self.snapshot_objs[i]
                 found_alive |= self._mark_rawrefcount_obj(obj)
             simple_limit += 1
-            if simple_limit > 3:
+            if simple_limit > 3: # TODO: implement sane limit
                 reached_limit
         return not reached_limit # are there any objects left?
 
@@ -210,6 +241,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             obj = self.snapshot_objs[objs_index]
             obj.pyobj = llmemory.cast_ptr_to_adr(pyobj)
             obj.status = 1
+            obj.refcnt = pyobj.c_ob_refcnt
             obj.refcnt_external = refcnt
             obj.refs_index = refs_index
             obj.refs_len = 0
@@ -254,6 +286,48 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             self.tp_traverse(pyobj, callback_ptr, self_ptr)
         else:
             self.tp_traverse(pyobj, self._take_snapshot_visit_action, None)
+
+    def _check_snapshot_visit(pyobj, self_ptr):
+        from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
+        #
+        self_adr = rffi.cast(llmemory.Address, self_ptr)
+        self = cast_adr_to_nongc_instance(RawRefCountIncMarkGC, self_adr)
+        self._check_snapshot_visit_action(pyobj, None)
+        return rffi.cast(rffi.INT_real, 0)
+
+    def _check_snapshot_visit_action(self, pyobj, ignore):
+        pygchdr = self.pyobj_as_gc(pyobj)
+        if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR) and \
+                pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:
+            # check consistency with snapshot
+            curr = self.snapshot_curr
+            curr_index = self.snapshot_curr_index
+            if curr_index < curr.refs_len:
+                # ref changed? -> issue, if traversal order is not stable!!!
+                index = curr.refs_index + curr_index
+                ref_addr = self.snapshot_refs[index]
+                ref = llmemory.cast_adr_to_ptr(ref_addr,
+                                               self.PYOBJ_SNAPSHOT_OBJ_PTR)
+                old_value = ref.pyobj
+                new_value = llmemory.cast_ptr_to_adr(pyobj)
+                if old_value != new_value:
+                    self.snapshot_consistent = False # reference changed
+            else:
+                self.snapshot_consistent = False # references added
+            self.snapshot_curr_index += 1
+
+    def _check_snapshot_traverse(self, pyobj):
+        from rpython.rlib.objectmodel import we_are_translated
+        from rpython.rtyper.annlowlevel import (cast_nongc_instance_to_adr,
+                                                llhelper)
+        #
+        if we_are_translated():
+            callback_ptr = llhelper(self.RAWREFCOUNT_VISIT,
+                                    RawRefCountIncMarkGC._check_snapshot_visit)
+            self_ptr = rffi.cast(rffi.VOIDP, cast_nongc_instance_to_adr(self))
+            self.tp_traverse(pyobj, callback_ptr, self_ptr)
+        else:
+            self.tp_traverse(pyobj, self._check_snapshot_visit_action, None)
 
     def _discard_snapshot(self):
         lltype.free(self.snapshot_objs, flavor='raw', track_allocation=False)
