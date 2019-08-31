@@ -570,8 +570,8 @@ class FlowContext(object):
             # the simple case
             if issubclass(check_class, (NotImplementedError, AssertionError)):
                 raise FlowingError(
-                    "Catching %s is not valid in RPython" %
-                    check_class.__name__)
+                    "Catching NotImplementedError, AssertionError, or a "
+                    "subclass is not valid in RPython (%r)" % (check_class,))
             return self.guessbool(op.issubtype(w_exc_type, w_check_class).eval(self))
         # special case for StackOverflow (see rlib/rstackovf.py)
         if check_class == rstackovf.StackOverflow:
