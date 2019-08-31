@@ -61,6 +61,34 @@ def test_f_lineno_huge_jump():
     print(repr(g.__code__.co_lnotab))
     assert g() == [origin+3, origin+5+127, origin+7+127+1000]
 
+class JumpTracer:
+    """Defines a trace function that jumps from one place to another."""
+
+    def __init__(self, function, jumpFrom, jumpTo, event='line',
+                 decorated=False):
+        self.code = function.__code__
+        self.jumpFrom = jumpFrom
+        self.jumpTo = jumpTo
+        self.event = event
+        self.firstLine = None if decorated else self.code.co_firstlineno
+        self.done = False
+
+    def trace(self, frame, event, arg):
+        if self.done:
+            return
+        # frame.f_code.co_firstlineno is the first line of the decorator when
+        # 'function' is decorated and the decorator may be written using
+        # multiple physical lines when it is too long. Use the first line
+        # trace event in 'function' to find the first line of 'function'.
+        if (self.firstLine is None and frame.f_code == self.code and
+                event == 'line'):
+            self.firstLine = frame.f_lineno - 1
+        if (event == self.event and self.firstLine and
+                frame.f_lineno == self.firstLine + self.jumpFrom):
+            frame.f_lineno = self.firstLine + self.jumpTo
+            self.done = True
+        return self.trace
+
 def test_f_lineno_set(tempfile):
     def tracer(f, *args):
         def y(f, *args):
@@ -87,7 +115,7 @@ def test_f_lineno_set(tempfile):
     sys.settrace(None)
     # assert did not crash
 
-def test_f_lineno_set_2(tempfile):
+def test_f_lineno_set_2():
     counter = [0]
     errors = []
 
@@ -101,10 +129,6 @@ def test_f_lineno_set_2(tempfile):
                     errors.append(e)
         return tracer
 
-    # obscure: call open beforehand, py3k's open invokes some app
-    # level code that confuses our tracing (likely due to the
-    # testing env, otherwise it's not a problem)
-    f = open(tempfile, 'w')
     def function():
         try:
             raise ValueError
@@ -133,17 +157,38 @@ def test_f_lineno_set_3():
                 output.append(8)
             output.append(9)
     output = []
-
-    def tracer(f, event, *args):
-        if event == 'line' and len(output) == 1:
-            f.f_lineno += 5
-        return tracer
+    tracer = JumpTracer(jump_in_nested_finally, 4, 9)
 
     import sys
-    sys.settrace(tracer)
+    sys.settrace(tracer.trace)
     jump_in_nested_finally(output)
     sys.settrace(None)
     assert output == [2, 9]
+
+def test_f_lineno_set_4():
+    pytest.skip("test is failing on pypy")
+    def jump_in_nested_finally(output):
+        try:
+            output.append(2)
+            1/0
+            return
+        finally:
+            output.append(6)
+            output.append(7)
+        output.append(8)
+    output = []
+    tracer = JumpTracer(jump_in_nested_finally, 6, 7)
+
+    import sys
+    sys.settrace(tracer.trace)
+    try:
+        jump_in_nested_finally(output)
+    except ZeroDivisionError:
+        sys.settrace(None)
+    else:
+        sys.settrace(None)
+        assert False, 'did not raise'
+    assert output == [2, 7]
 
 def test_f_lineno_set_firstline():
     seen = []
