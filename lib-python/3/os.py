@@ -129,7 +129,7 @@ if _exists("_have_functions"):
     _add("HAVE_FCHMOD",     "chmod")
     _add("HAVE_FCHOWN",     "chown")
     _add("HAVE_FDOPENDIR",  "listdir")
-    _add("HAVE_FDOPENDIR",  "scandir")
+    # _add("HAVE_FDOPENDIR",  "scandir") # not implemented on PyPy yet
     _add("HAVE_FEXECVE",    "execve")
     _set.add(stat) # fstat always works
     _add("HAVE_FTRUNCATE",  "truncate")

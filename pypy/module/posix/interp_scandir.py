@@ -11,6 +11,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 
 
+# XXX: update os.supports_fd when fd support is implemented
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
     if space.is_none(w_path):

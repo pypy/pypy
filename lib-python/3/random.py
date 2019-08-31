@@ -776,7 +776,8 @@ getstate = _inst.getstate
 setstate = _inst.setstate
 getrandbits = _inst.getrandbits
 
-if hasattr(_os, "fork"):
+# PyPy change: we have _os.fork, but not _os.register_at_fork yet
+if hasattr(_os, "register_at_fork"):
     _os.register_at_fork(after_in_child=_inst.seed)
 
 
