@@ -39,6 +39,9 @@ except ImportError:
     pass
 
 
+# XXX: temporary PyPy hack until we implement module __getattr__
+from _collections_abc import *
+
 def __getattr__(name):
     # For backwards compatibility, continue to make the collections ABCs
     # through Python 3.6 available through the collections module.
