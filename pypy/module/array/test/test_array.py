@@ -372,6 +372,17 @@ class AppTestArray(object):
                         except ValueError:
                             assert not ok
 
+    def test_getslice_large_step(self):
+        import sys
+        a = self.array('b', [1, 2, 3])
+        assert list(a[1::sys.maxsize]) == [2]
+
+    def test_setslice_large_step(self):
+        import sys
+        a = self.array('b', [1, 2, 3])
+        a[1::sys.maxsize] = self.array('b', [42])
+        assert a.tolist() == [1, 42, 3]
+
     def test_toxxx(self):
         a = self.array('i', [1, 2, 3])
         l = a.tolist()

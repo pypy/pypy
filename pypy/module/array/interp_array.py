@@ -1122,12 +1122,12 @@ def make_array(mytype):
             w_a = mytype.w_class(self.space)
             w_a.setlen(size, overallocate=False)
             assert step != 0
-            j = 0
             buf = w_a.get_buffer()
             srcbuf = self.get_buffer()
-            for i in range(start, stop, step):
+            i = start
+            for j in range(size):
                 buf[j] = srcbuf[i]
-                j += 1
+                i += step
             keepalive_until_here(self)
             keepalive_until_here(w_a)
             return w_a
@@ -1159,12 +1159,12 @@ def make_array(mytype):
                     self.setlen(0)
                     self.fromsequence(w_lst)
             else:
-                j = 0
                 buf = self.get_buffer()
                 srcbuf = w_item.get_buffer()
-                for i in range(start, stop, step):
+                i = start
+                for j in range(size):
                     buf[i] = srcbuf[j]
-                    j += 1
+                    i += step
                 keepalive_until_here(w_item)
                 keepalive_until_here(self)
 
