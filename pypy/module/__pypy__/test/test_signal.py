@@ -12,6 +12,14 @@ class AppTestMinimal:
             pass
         # assert did not crash
 
+class AppTestSigIntEvent:
+    spaceconfig = dict(usemodules=['__pypy__', 'signal'])
+
+    def test_sigint_event(self):
+        if sys.platform == 'win32':
+            pytest.skip("sigint event only on windows!")
+        import signal
+        
 
 class AppTestThreadSignal(GenericTestThread):
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])

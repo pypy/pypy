@@ -6,16 +6,19 @@ from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module._io.interp_iobase import (W_RawIOBase, DEFAULT_BUFFER_SIZE)
+#from pypy.module.signal
 from pypy.interpreter.unicodehelper import fsdecode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib._os_support import _preferred_traits
 from rpython.rlib import rwin32
 from rpython.rlib.rwin32file import make_win32_traits
+from rpython.rtyper.tool import rffi_platform as platform
 
 import unicodedata
 
 SMALLBUF = 4
 BUFMAX = (32*1024*1024)
+BUFSIZ = platform.ConstantInteger("BUFSIZ")
 
 def err_closed(space):
     raise oefmt(space.w_ValueError,
@@ -25,7 +28,6 @@ def err_mode(space, state):
     # TODO sort out the state
     raise oefmt(space.w_ValueError,
                 "I/O operation on closed file")
-
 
 def read_console_w(handle, maxlen, readlen):
     err = 0
@@ -37,8 +39,22 @@ def read_console_w(handle, maxlen, readlen):
         
         off = 0
         while off < maxlen:
-            n = rffi.cast(rwin32.DWORD, -1)
-            len = m
+            with lltype.scoped_alloc(rwin32.LPDWORD.TO, -1) as n:
+                len = min(maxlen - off, BUFSIZE)
+                rwin32.SetLastError_saved(0)
+                #res = rwin32.ReadConsoleW(handle, buf[off], len, n, rffi.NULL)
+                err = rwin32.GetLastError_saved()
+                if not res:
+                    break
+                    
+                if n == -1 and err == rwin32.ERROR_OPERATION_ABORTED:
+                    break
+                    
+                if n == 0:
+                    if err != rwin32.ERROR_OPERATION_ABORTED:
+                        break
+                    err = 0
+                    #hInterruptEvent
     finally:
         lltype.free(buf, flavor='raw')
         

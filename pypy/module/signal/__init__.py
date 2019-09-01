@@ -1,6 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 import os
+import sys
 
 class Module(MixedModule):
     applevel_name = '_signal'
@@ -35,6 +36,9 @@ class Module(MixedModule):
         interpleveldefs['SIG_BLOCK'] = 'space.wrap(interp_signal.SIG_BLOCK)'
         interpleveldefs['SIG_UNBLOCK'] = 'space.wrap(interp_signal.SIG_UNBLOCK)'
         interpleveldefs['SIG_SETMASK'] = 'space.wrap(interp_signal.SIG_SETMASK)'
+        
+    if sys.platform == 'win32':
+        interpleveldefs['sigintevent'] = 'interp_signal.sigintevent'
 
     appleveldefs = {
     }
@@ -63,6 +67,8 @@ class Module(MixedModule):
         else:
             space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack
+        if sys.platform == 'win32':
+            interp_signal.create_sigint_event()
 
     def startup(self, space):
         space.check_signal_action.startup(space)
