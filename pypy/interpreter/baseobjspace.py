@@ -459,15 +459,18 @@ class ObjSpace(object):
                 w_mod.init(self)
 
     def finish(self):
+        ret = 0
         self.wait_for_thread_shutdown()
         w_atexit = self.getbuiltinmodule('atexit')
         self.call_method(w_atexit, '_run_exitfuncs')
         self.sys.finalizing = True
-        self.sys.flush_std_files(self)
+        if self.sys.flush_std_files(self) < 0:
+            ret = -1
         from pypy.interpreter.module import Module
         for w_mod in self.builtin_modules.values():
             if isinstance(w_mod, Module) and w_mod.startup_called:
                 w_mod.shutdown(self)
+        return ret
 
     def wait_for_thread_shutdown(self):
         """Wait until threading._shutdown() completes, provided the threading
