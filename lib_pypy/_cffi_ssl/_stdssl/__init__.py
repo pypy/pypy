@@ -250,7 +250,8 @@ SOCKET_OPERATION_OK = 5
 class _SSLSocket(object):
 
     @staticmethod
-    def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, inbio, outbio):
+    def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, owner,
+            session, inbio, outbio):
         self = _SSLSocket(sslctx)
         ctx = sslctx.ctx
         self.owner = None
@@ -299,6 +300,11 @@ class _SSLSocket(object):
 
         if sock:
             self.socket = weakref.ref(sock)
+
+        if owner is not None:
+            self.owner = owner
+        if session is not None:
+            self.session = session
 
         return self
 
@@ -399,7 +405,7 @@ class _SSLSocket(object):
         self.handshake_done = 1
         return None
 
-    def peer_certificate(self, binary_mode):
+    def getpeercert(self, binary_mode):
         if not self.handshake_done:
             raise ValueError("handshake not done yet")
         if self.peer_cert == ffi.NULL:
@@ -1122,11 +1128,12 @@ class _SSLContext(object):
             lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, ffi.NULL)
 
 
-    def _wrap_socket(self, sock, server_side, server_hostname=None):
+    def _wrap_socket(self, sock, server_side, server_hostname=None, *,
+            owner=None, session=None):
         if server_hostname:
             server_hostname = server_hostname.encode('idna')
         return _SSLSocket._new__ssl_socket(self, sock, server_side,
-                server_hostname, None, None)
+                server_hostname, owner, session, None, None)
 
     def load_verify_locations(self, cafile=None, capath=None, cadata=None):
         ffi.errno = 0
@@ -1355,14 +1362,17 @@ class _SSLContext(object):
         else:
             raise NotImplementedError("The NPN extension requires OpenSSL 1.0.1 or later.")
 
-    def _wrap_bio(self, incoming, outgoing, server_side, server_hostname):
+    def _wrap_bio(self, incoming, outgoing, server_side, server_hostname, *,
+            owner=None, session=None):
         # server_hostname is either None (or absent), or to be encoded
         # using the idna encoding.
         hostname = None
         if server_hostname is not None:
             hostname = server_hostname.encode("idna")
 
-        sock = _SSLSocket._new__ssl_socket(self, None, server_side, hostname, incoming, outgoing)
+        sock = _SSLSocket._new__ssl_socket(
+            self, None, server_side, hostname, owner, session, incoming,
+            outgoing)
         return sock
 
 
