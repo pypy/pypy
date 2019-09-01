@@ -8,10 +8,10 @@ from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
 from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
     _str_to_ffi_buffer, _str_from_buf, _cstr_decode_fs)
-from _cffi_ssl._stdssl.error import (ssl_error, pyssl_error,
-        SSLError, SSLZeroReturnError, SSLWantReadError,
-        SSLWantWriteError, SSLSyscallError,
-        SSLEOFError)
+from _cffi_ssl._stdssl.error import (
+    ssl_error, pyssl_error, SSLError, SSLCertVerificationError,
+    SSLZeroReturnError, SSLWantReadError, SSLWantWriteError, SSLSyscallError,
+    SSLEOFError)
 from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_SSL, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE,
         SSL_ERROR_WANT_X509_LOOKUP, SSL_ERROR_SYSCALL,
@@ -100,7 +100,22 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1_2 = 5
 PROTOCOL_TLS_CLIENT = 0x10
 PROTOCOL_TLS_SERVER = 0x11
+HAS_SSLv2 = bool(lib.Cryptography_HAS_SSL2)
+HAS_SSLv3 = SSLv3_method_ok
+HAS_TLSv1 = True # XXX
+HAS_TLSv1_1 = bool(lib.Cryptography_HAS_TLSv1_1)
+HAS_TLSv1_2 = bool(lib.Cryptography_HAS_TLSv1_2)
 HAS_TLSv1_3 = bool(lib.Cryptography_HAS_TLSv1_3)
+
+# Values brute-copied from CPython 3.7. They're documented as meaningless.
+PROTO_MINIMUM_SUPPORTED = -2
+PROTO_MAXIMUM_SUPPORTED = -1
+PROTO_SSLv3 = 0x300
+PROTO_TLSv1 = 0x301
+PROTO_TLSv1_1 = 0x302
+PROTO_TLSv1_2 = 0x303
+PROTO_TLSv1_3 = 0x304
+
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
@@ -117,6 +132,9 @@ for name in error.SSL_AD_NAMES:
     attr = 'ALERT_DESCRIPTION_' + name
     if hasattr(lib, lib_attr):
         globals()[attr] = getattr(lib, lib_attr)
+
+# from CPython
+_DEFAULT_CIPHERS = "DEFAULT:!aNULL:!eNULL:!MD5:!3DES:!DES:!RC4:!IDEA:!SEED:!aDSS:!SRP:!PSK"
 
 # init open ssl
 lib.SSL_load_error_strings()
