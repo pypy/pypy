@@ -90,6 +90,7 @@ MEVENT;
 static const int ERR, OK;
 static const int TRUE, FALSE;
 static const int KEY_MIN, KEY_MAX;
+static const int KEY_CODE_YES;
 
 static const int COLOR_BLACK;
 static const int COLOR_RED;

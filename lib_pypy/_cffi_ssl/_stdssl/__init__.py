@@ -73,7 +73,7 @@ OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 OP_NO_SSLv2 = lib.SSL_OP_NO_SSLv2
 OP_NO_SSLv3 = lib.SSL_OP_NO_SSLv3
 OP_NO_TLSv1_3 = lib.SSL_OP_NO_TLSv1_3
- 
+
 
 SSL_CLIENT = 0
 SSL_SERVER = 1
@@ -90,7 +90,7 @@ if lib.Cryptography_HAS_SSL3_METHOD:
         PROTOCOL_SSLv3  = 1
         lib.SSL_CTX_free(ctx)
         SSLv3_method_ok = True
-        
+
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
@@ -100,7 +100,7 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1_2 = 5
 PROTOCOL_TLS_CLIENT = 0x10
 PROTOCOL_TLS_SERVER = 0x11
-HAS_TLSv1_3 = False  # XXX: temporary hack!
+HAS_TLSv1_3 = bool(lib.Cryptography_HAS_TLSv1_3)
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
