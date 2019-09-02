@@ -814,6 +814,10 @@ class W_SyntaxError(W_Exception):
 
     # CPython Issue #21669: Custom error for 'print' & 'exec' as statements
     def _report_missing_parentheses(self, space):
+        if not space.text_w(self.w_msg).startswith("Missing parentheses in call to "):
+            # the parser identifies the correct places where the error should
+            # be produced
+            return
         text = space.utf8_w(self.w_text)
         if b'(' in text:
             # Use default error message for any line with an opening paren
@@ -830,7 +834,7 @@ class W_SyntaxError(W_Exception):
 
     def _check_for_legacy_statements(self, space, text, start):
         # Ignore leading whitespace
-        while start < len(text) and text[start] == u' ':
+        while start < len(text) and text[start] == b' ':
             start += 1
         # Checking against an empty or whitespace-only part of the string
         if start == len(text):
@@ -839,13 +843,29 @@ class W_SyntaxError(W_Exception):
             text = text[start:]
         # Check for legacy print statements
         if text.startswith(b"print "):
-            self.w_msg = space.newtext("Missing parentheses in call to 'print'")
+            self._set_legacy_print_statement_msg(space, text)
             return True
         # Check for legacy exec statements
         if text.startswith(b"exec "):
             self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
             return True
         return False
+
+    def _set_legacy_print_statement_msg(self, space, text):
+        text = text[len("print"):]
+        if text.endswith(";"):
+            end = len(text) - 1
+            assert end >= 0
+            text = text[:end]
+        text = text.strip()
+
+        maybe_end = ""
+        if text.endswith(","):
+            maybe_end = " end=\" \""
+
+        self.w_msg = space.newtext(
+            "Missing parentheses in call to 'print'. Did you mean print(%s%s)?" % (
+                text, maybe_end))
 
 
 W_SyntaxError.typedef = TypeDef(

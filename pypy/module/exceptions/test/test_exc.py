@@ -443,6 +443,25 @@ class AppTestExc(object):
                 assert (custom_msg not in exc.value.msg) == (
                     ('print (' in source or 'exec (' in source))
 
+    def test_bug_print_heuristic_shadows_better_message(self):
+        def exec_(s): exec(s)
+        exc = raises(SyntaxError, exec_, "print [)")
+        assert "closing parenthesis ')' does not match opening parenthesis '['" in exc.value.msg
+
+    def test_print_suggestions(self):
+        def exec_(s): exec(s)
+        def check(s, error):
+            exc = raises(SyntaxError, exec_, s)
+            print(exc.value.msg)
+            assert exc.value.msg == error
+
+        check(
+            "print 1",
+            "Missing parentheses in call to 'print'. Did you mean print(1)?")
+        check(
+            "print 1, \t",
+            "Missing parentheses in call to 'print'. Did you mean print(1, end=\" \")?")
+
     def test_importerror_kwarg_error(self):
         msg = "'invalid' is an invalid keyword argument for this function"
         exc = raises(TypeError,
@@ -462,4 +481,5 @@ class AppTestExc(object):
                      ImportError,
                      'test', path='path', invalid='keyword')
         assert str(exc.value) == msg
+
 
