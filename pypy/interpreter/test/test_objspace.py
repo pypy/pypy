@@ -453,7 +453,8 @@ class TestModuleMinimal:
             import sys
             sys.exitfunc = lambda: this_is_an_unknown_name
         """)
-        space.finish()
+        ret = space.finish()
+        assert ret == 0
         # assert that we reach this point without getting interrupted
 
     def test_exit_closed_std(self):

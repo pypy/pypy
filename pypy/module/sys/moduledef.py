@@ -174,6 +174,7 @@ class Module(MixedModule):
     def flush_std_files(self, space):
         w_stdout = space.sys.getdictvalue(space, 'stdout')
         w_stderr = space.sys.getdictvalue(space, 'stderr')
+        ret = 0
         for w_file in [w_stdout, w_stderr]:
             if not (space.is_none(w_file) or
                     self._file_is_closed(space, w_file)):
@@ -182,6 +183,8 @@ class Module(MixedModule):
                 except OperationError as e:
                     if w_file is w_stdout:
                         e.write_unraisable(space, '', w_file)
+                    ret = -1
+        return ret 
 
     def _file_is_closed(self, space, w_file):
         try:
