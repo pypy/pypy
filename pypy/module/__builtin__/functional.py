@@ -582,6 +582,8 @@ class W_Range(W_Root):
             w_tup = space.newtuple([self.w_length, self.w_start, self.w_step])
         return space.hash(w_tup)
 
+    def descr_bool(self, space):
+        return space.call_method(self.w_length, '__bool__')
 
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
@@ -594,6 +596,7 @@ W_Range.typedef = TypeDef("range",
     __contains__     = interp2app(W_Range.descr_contains),
     __eq__           = interp2app(W_Range.descr_eq),
     __hash__         = interp2app(W_Range.descr_hash),
+    __bool__         = interp2app(W_Range.descr_bool),
     count            = interp2app(W_Range.descr_count),
     index            = interp2app(W_Range.descr_index),
     start            = interp_attrproperty_w('w_start', cls=W_Range),
