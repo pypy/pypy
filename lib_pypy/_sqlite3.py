@@ -746,6 +746,8 @@ class Cursor(object):
         self.__initialized = True
 
     def close(self):
+        if not self.__initialized:
+            raise ProgrammingError("Base Cursor.__init__ not called.")
         self.__connection._check_thread()
         self.__connection._check_closed()
         if self.__statement:
@@ -1043,6 +1045,7 @@ class Cursor(object):
         return list(self)
 
     def __get_connection(self):
+        self.__check_cursor()
         return self.__connection
     connection = property(__get_connection)
 
