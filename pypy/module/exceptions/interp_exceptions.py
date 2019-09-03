@@ -853,19 +853,31 @@ class W_SyntaxError(W_Exception):
 
     def _set_legacy_print_statement_msg(self, space, text):
         text = text[len("print"):]
+        text = text.strip()
         if text.endswith(";"):
             end = len(text) - 1
             assert end >= 0
-            text = text[:end]
-        text = text.strip()
+            text = text[:end].strip()
 
         maybe_end = ""
         if text.endswith(","):
             maybe_end = " end=\" \""
 
-        self.w_msg = space.newtext(
-            "Missing parentheses in call to 'print'. Did you mean print(%s%s)?" % (
-                text, maybe_end))
+        suggestion = "print(%s%s)" % (
+                text, maybe_end)
+
+        if "%" in suggestion:
+            import pdb; pdb.set_trace()
+        # try to see whether the suggestion would compile, otherwise discard it
+        compiler = space.createcompiler()
+        try:
+            compiler.compile(suggestion, '?', 'eval', 0)
+        except OperationError:
+            pass
+        else:
+            self.w_msg = space.newtext(
+                "Missing parentheses in call to 'print'. Did you mean %s?" % (
+                    suggestion, ))
 
 
 W_SyntaxError.typedef = TypeDef(

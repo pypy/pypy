@@ -461,6 +461,15 @@ class AppTestExc(object):
         check(
             "print 1, \t",
             "Missing parentheses in call to 'print'. Did you mean print(1, end=\" \")?")
+        check(
+            "print 'a'\n;\t ",
+            "Missing parentheses in call to 'print'. Did you mean print('a')?")
+        check(
+            "print p;",
+            "Missing parentheses in call to 'print'. Did you mean print(p)?")
+        check("print %", "invalid syntax")
+        check("print 1 1",
+            "Missing parentheses in call to 'print'")
 
     def test_importerror_kwarg_error(self):
         msg = "'invalid' is an invalid keyword argument for this function"
