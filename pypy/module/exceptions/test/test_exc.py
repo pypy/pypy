@@ -471,6 +471,14 @@ class AppTestExc(object):
         check("print 1 1",
             "Missing parentheses in call to 'print'")
 
+    def test_print_and_operators(self):
+        with raises(TypeError) as excinfo:
+            print >> 1, 5
+        assert 'Did you mean "print(<message>, file=<output_stream>)"?' in str(excinfo.value)
+        with raises(TypeError) as excinfo:
+            print -1
+        assert 'Did you mean "print(<-number>)"?' in str(excinfo.value)
+
     def test_importerror_kwarg_error(self):
         msg = "'invalid' is an invalid keyword argument for this function"
         exc = raises(TypeError,
