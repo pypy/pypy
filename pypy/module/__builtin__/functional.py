@@ -583,7 +583,7 @@ class W_Range(W_Root):
         return space.hash(w_tup)
 
     def descr_bool(self, space):
-        return space.call_method(self.w_length, '__bool__')
+        return space.nonzero(self.w_length)
 
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
