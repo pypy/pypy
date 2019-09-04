@@ -866,8 +866,6 @@ class W_SyntaxError(W_Exception):
         suggestion = "print(%s%s)" % (
                 text, maybe_end)
 
-        if "%" in suggestion:
-            import pdb; pdb.set_trace()
         # try to see whether the suggestion would compile, otherwise discard it
         compiler = space.createcompiler()
         try:
