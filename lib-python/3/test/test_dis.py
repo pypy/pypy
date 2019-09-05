@@ -146,7 +146,7 @@ def bug1333982(x=[]):
               1)
     pass
 
-_bug1333982 = """\
+dis_bug1333982 = """\
 %3d           0 LOAD_CONST               1 (0)
               2 POP_JUMP_IF_TRUE        26
               4 LOAD_GLOBAL              0 (AssertionError)
