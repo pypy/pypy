@@ -777,13 +777,12 @@ class AsyncGenAThrow(AsyncGenABase):
     def handle_error(self, e):
         space = self.space
         self.state = self.ST_CLOSED
-        if e.match(space, space.w_StopAsyncIteration):
+        if (e.match(space, space.w_StopAsyncIteration) or
+                    e.match(space, space.w_StopIteration)):
             if self.w_exc_type is None:
                 # When aclose() is called we don't want to propagate
-                # StopAsyncIteration; just raise StopIteration, signalling
-                # that 'aclose()' is done.
+                # StopAsyncIteration or GeneratorExit; just raise
+                # StopIteration, signalling that this 'aclose()' await
+                # is done.
                 raise OperationError(space.w_StopIteration, space.w_None)
-        if e.match(space, space.w_GeneratorExit):
-            # Ignore this error.
-            raise OperationError(space.w_StopIteration, space.w_None)
         raise e
