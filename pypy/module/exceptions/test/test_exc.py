@@ -303,6 +303,14 @@ class AppTestExc(object):
         assert ImportError("message", "foo").msg is None
         assert ImportError("message", "foo").args == ("message", "foo")
 
+    def test_importerror_reduce(self):
+        d = {'name': 'a',
+             'path': 'b',
+            } 
+        s = ImportError('c', **d).__reduce__()
+        e = s[0](*s[1], **s[2])
+        for k, v in d.items():
+            assert getattr(e, k) == v
 
     def test_modulenotfounderror(self):
         assert ModuleNotFoundError("message").name is None

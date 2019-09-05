@@ -342,6 +342,14 @@ class W_ImportError(W_Exception):
             self.w_msg = space.w_None
         W_Exception.descr_init(self, space, args_w)
 
+    def descr_reduce(self, space):
+        w_dct = space.newdict()
+        space.setitem(w_dct, space.newtext('name'), self.w_name)
+        space.setitem(w_dct, space.newtext('path'), self.w_path)
+        return space.newtuple([space.w_ImportError,
+                    space.newtuple([self.w_msg]),
+                    w_dct,
+                ])
 
 W_ImportError.typedef = TypeDef(
     'ImportError',
@@ -353,6 +361,7 @@ W_ImportError.typedef = TypeDef(
     name = readwrite_attrproperty_w('w_name', W_ImportError),
     path = readwrite_attrproperty_w('w_path', W_ImportError),
     msg = readwrite_attrproperty_w('w_msg', W_ImportError),
+    __reduce__ = interp2app(W_ImportError.descr_reduce),
 )
 
 
