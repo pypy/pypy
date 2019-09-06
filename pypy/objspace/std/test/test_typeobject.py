@@ -1400,6 +1400,39 @@ class AppTestTypeObject:
         assert found == [1]
         """
 
+    def test_class_getitem(self):
+        """
+        class WithoutMetaclass:
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return "{}[{}]".format(cls.__name__, item.__name__)
+
+        class WithoutMetaclassSubclass(WithoutMetaclass):
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return "{}[{}]".format(cls.__name__, item.__name__)
+
+        assert WithoutMetaclass()[0] == 1
+        assert WithoutMetaclass[int] == "WithoutMetaclass[int]"
+        assert WithoutMetaclassSubclass()[0] == 1
+        assert WithoutMetaclassSubclass[int] == "WithoutMetaclassSubclass[int]"
+
+        class Metaclass(type):
+            def __getitem__(self, item):
+                return "Metaclass[{}]".format(item.__name__)
+
+        class WithMetaclass(metaclass=Metaclass):
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return "{}[{}]".format(cls.__name__, item.__name__)
+
+        assert WithMetaclass()[0] == 1
+        assert WithMetaclass[int] == "Metaclass[int]"
+        """
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
