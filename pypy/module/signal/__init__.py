@@ -67,7 +67,9 @@ class Module(MixedModule):
         else:
             space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack
-        if sys.platform == 'win32':
+        print "loading module"
+        if os.name == "nt":
+            print "creating sigint event"
             interp_signal.create_sigint_event()
 
     def startup(self, space):

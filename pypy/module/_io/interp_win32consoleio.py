@@ -6,7 +6,7 @@ from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module._io.interp_iobase import (W_RawIOBase, DEFAULT_BUFFER_SIZE)
-#from pypy.module.signal
+from pypy.module.signal.interp_signal import sigintevent
 from pypy.interpreter.unicodehelper import fsdecode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib._os_support import _preferred_traits
@@ -42,7 +42,7 @@ def read_console_w(handle, maxlen, readlen):
             with lltype.scoped_alloc(rwin32.LPDWORD.TO, -1) as n:
                 len = min(maxlen - off, BUFSIZE)
                 rwin32.SetLastError_saved(0)
-                #res = rwin32.ReadConsoleW(handle, buf[off], len, n, rffi.NULL)
+                res = rwin32.ReadConsoleW(handle, buf[off], len, n, rffi.NULL)
                 err = rwin32.GetLastError_saved()
                 if not res:
                     break
@@ -54,7 +54,7 @@ def read_console_w(handle, maxlen, readlen):
                     if err != rwin32.ERROR_OPERATION_ABORTED:
                         break
                     err = 0
-                    #hInterruptEvent
+                    hInterruptEvent = sigintevent()
     finally:
         lltype.free(buf, flavor='raw')
         

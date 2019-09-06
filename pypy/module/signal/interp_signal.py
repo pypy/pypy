@@ -21,7 +21,7 @@ from rpython.rlib import rwin32
 WIN32 = os.name == "nt"
 
 if WIN32:
-   _sigint_event = rwin32.INVALID_HANDLE_VALUE
+   _sigint_event = rwin32.NULL_HANDLE
 
 class SignalActionFlag(AbstractActionFlag):
     # This class uses the C-level pypysig_counter variable as the tick
@@ -440,7 +440,7 @@ def create_sigint_event():
                                        rffi.NULL)
 
 def sigintevent(space):
-    if _sigint_event == rwin32.INVALID_HANDLE_VALUE:
-        return space.newint(-1)
+    if _sigint_event == rwin32.NULL_HANDLE:
+        return space.newint(0)
     else:
         return space.newint(_sigint_event)

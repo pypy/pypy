@@ -271,6 +271,17 @@ class AppTestSignal:
             else:
                 raise AssertionError("did not raise!")
 
+    def test_sigint_event(self):
+        import os
+        if os.name != 'nt':
+            pytest.skip("sigint event only on windows!")
+        import _signal
+        sigevent = _signal.sigintevent()
+        assert sigevent == 0
+        _signal.__init__()
+        sigevent = _signal.sigintevent()
+        assert sigevent >= 0
+
 
 class AppTestSignalSocket:
     spaceconfig = dict(usemodules=['signal', '_socket'])
