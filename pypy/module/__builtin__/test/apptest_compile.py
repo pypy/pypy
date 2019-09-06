@@ -179,3 +179,20 @@ class C:
         assert 'module_doc' not in marshalled
         assert 'func_doc' not in marshalled
         assert 'class_doc' not in marshalled
+
+def test_build_class():
+    """Test error message bad __prepare__"""
+
+    class BadMeta(type):
+        @classmethod
+        def __prepare__(*args):
+            return None
+
+    def func():
+        class Foo(metaclass=BadMeta):
+            pass
+
+    excinfo = raises(TypeError, func)
+    assert str(excinfo.value) == (
+        r"BadMeta.__prepare__() must return a mapping, not NoneType"
+    )
