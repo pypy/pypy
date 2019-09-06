@@ -1006,6 +1006,22 @@ class AppTestPartialEvaluation:
                                    1, 1 + n, "ouch")
             ) == (s[:1], 1 + n)
 
+    def test_replace_with_long(self):
+        #bpo-32583
+        import codecs
+        def replace_with_long(exc):
+            if isinstance(exc, UnicodeDecodeError):
+                exc.object = b"\x00" * 8
+                return ('\ufffd', exc.start)
+            else:
+                raise TypeError("don't know how to handle %r" % exc)
+        codecs.register_error("test.rep_w_long", replace_with_long)
+
+        ret = b'\x00'.decode('utf-16', 'test.rep_w_long')
+        assert ret == '\ufffd\x00\x00\x00\x00'
+        ret = b'\x00'.decode('utf-32', 'test.rep_w_long')
+        assert ret == '\ufffd\x00\x00'
+
     def test_badhandler(self):
         import codecs
         results = ( 42, u"foo", (1,2,3), (u"foo", 1, 3), (u"foo", None), (u"foo",), ("foo", 1, 3), ("foo", None), ("foo",) )
