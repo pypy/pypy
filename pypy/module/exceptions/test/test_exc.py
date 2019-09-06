@@ -216,6 +216,8 @@ class AppTestExc(object):
         assert le.__reduce__() == (LookupError, (1, 2, "a"), {"xyz": (1, 2)})
         ee = EnvironmentError(1, 2, "a")
         assert ee.__reduce__() == (PermissionError, (1, 2, "a"))
+        ee = ImportError("a", "b", "c", name="x", path="y")
+        assert ee.__reduce__() == (ImportError, ("a", "b", "c"), {"name": "x", "path": "y"})
 
     def test_setstate(self):
         fw = FutureWarning()
@@ -224,6 +226,14 @@ class AppTestExc(object):
         fw.__setstate__({'z': 1})
         assert fw.z == 1
         assert fw.xyz == (1, 2)
+
+        i = ImportError()
+        i.foo = "x"
+        i.__setstate__({"name": "x", "path": "y", "bar": 1})
+        assert i.foo == "x"
+        assert i.name == "x"
+        assert i.path == "y"
+        assert i.bar == 1
 
     def test_unicode_error_uninitialized_str(self):
         assert str(UnicodeEncodeError.__new__(UnicodeEncodeError)) == ""

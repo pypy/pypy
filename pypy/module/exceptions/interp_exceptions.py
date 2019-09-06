@@ -343,13 +343,25 @@ class W_ImportError(W_Exception):
         W_Exception.descr_init(self, space, args_w)
 
     def descr_reduce(self, space):
-        w_dct = space.newdict()
-        space.setitem(w_dct, space.newtext('name'), self.w_name)
-        space.setitem(w_dct, space.newtext('path'), self.w_path)
-        return space.newtuple([space.w_ImportError,
-                    space.newtuple([self.w_msg]),
-                    w_dct,
-                ])
+        lst = [self.getclass(space), space.newtuple(self.args_w)]
+        if self.w_dict is not None and space.is_true(self.w_dict):
+            w_dict = space.call_method(self.w_dict, "copy")
+        else:
+            w_dict = space.newdict()
+        if not space.is_w(self.w_name, space.w_None):
+            space.setitem(w_dict, space.newtext("name"), self.w_name)
+        if not space.is_w(self.w_path, space.w_None):
+            space.setitem(w_dict, space.newtext("path"), self.w_path)
+        if space.is_true(w_dict):
+            lst.append(w_dict)
+        return space.newtuple(lst)
+
+    def descr_setstate(self, space, w_dict):
+        self.w_name = space.call_method(w_dict, "pop", space.newtext("name"), space.w_None)
+        self.w_path = space.call_method(w_dict, "pop", space.newtext("path"), space.w_None)
+        w_olddict = self.getdict(space)
+        space.call_method(w_olddict, 'update', w_dict)
+
 
 W_ImportError.typedef = TypeDef(
     'ImportError',
@@ -358,10 +370,11 @@ W_ImportError.typedef = TypeDef(
     __module__ = 'builtins',
     __new__ = _new(W_ImportError),
     __init__ = interp2app(W_ImportError.descr_init),
+    __reduce__ = interp2app(W_ImportError.descr_reduce),
+    __setstate__ = interp2app(W_ImportError.descr_setstate),
     name = readwrite_attrproperty_w('w_name', W_ImportError),
     path = readwrite_attrproperty_w('w_path', W_ImportError),
     msg = readwrite_attrproperty_w('w_msg', W_ImportError),
-    __reduce__ = interp2app(W_ImportError.descr_reduce),
 )
 
 
