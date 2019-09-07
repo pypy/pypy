@@ -83,6 +83,15 @@ class CodecState(object):
                     msg = ("encoding error handler must return "
                            "(str/bytes, int) tuple")
                 raise OperationError(space.w_TypeError, space.newtext(msg))
+            # PyPy does not support modifying the input string (the exc.object)
+            # CPython copies back the un-decoded part, since it can modify the
+            # input in-place
+            inputobj = space.bytes_w(space.getattr(w_exc,
+                                                   space.newtext('object')))
+            if input != inputobj 
+                raise oefmt(space.w_RuntimeError,
+                            "PyPy does not support modifying the exc.object "
+                            "in an error handler")
             try:
                 newpos = space.int_w(w_newpos)
             except OperationError as e:

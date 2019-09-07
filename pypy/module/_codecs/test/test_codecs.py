@@ -1006,7 +1006,7 @@ class AppTestPartialEvaluation:
                                    1, 1 + n, "ouch")
             ) == (s[:1], 1 + n)
 
-    def test_replace_with_long(self):
+    def test_replace_with_longer(self):
         #bpo-32583
         import codecs
         def replace_with_long(exc):

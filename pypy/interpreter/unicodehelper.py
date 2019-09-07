@@ -1180,7 +1180,7 @@ def str_decode_utf_16_helper(s, errors, final=True,
             result.append(r)
     r = result.build()
     lgt = rutf8.check_utf8(r, True)
-    return result.build(), lgt, pos, bo
+    return r, lgt, pos, bo
 
 def _STORECHAR(result, CH, byteorder):
     hi = chr(((CH) >> 8) & 0xff)
