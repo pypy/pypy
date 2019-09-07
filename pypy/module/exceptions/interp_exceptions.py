@@ -353,7 +353,7 @@ class W_ImportError(W_Exception):
         if not space.is_w(self.w_path, space.w_None):
             space.setitem(w_dict, space.newtext("path"), self.w_path)
         if space.is_true(w_dict):
-            lst.append(w_dict)
+            lst = [lst[0], lst[1], w_dict]
         return space.newtuple(lst)
 
     def descr_setstate(self, space, w_dict):
