@@ -22,7 +22,7 @@ class TestAstBuilder:
             flags = consts.CO_FUTURE_WITH_STATEMENT
         info = pyparse.CompileInfo("<test>", p_mode, flags)
         tree = self.parser.parse_source(source, info)
-        ast_node = ast_from_node(self.space, tree, info)
+        ast_node = ast_from_node(self.space, tree, info, self.parser)
         return ast_node
 
     def get_first_expr(self, source, p_mode=None, flags=None):
@@ -1476,3 +1476,8 @@ class TestAstBuilder:
                            " bytes in position 0-1: truncated \\xXX escape")
         assert exc.lineno == 2
         assert exc.offset == 6
+
+    def test_fstring_lineno(self):
+        mod = self.get_ast('x=1\nf"{    x + 1}"')
+        assert mod.body[1].value.values[0].value.lineno == 2
+        assert mod.body[1].value.values[0].value.col_offset == 8

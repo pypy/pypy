@@ -2740,9 +2740,9 @@ class RevDBMetaVar(expr):
         w_metavar = get_field(space, w_node, 'metavar', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _metavar = space.int_w(w_metavar)
-        _lineno = space.int_w(w_lineno)
-        _col_offset = space.int_w(w_col_offset)
+        _metavar = obj_to_int(space, w_metavar, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return RevDBMetaVar(_metavar, _lineno, _col_offset)
 
 State.ast_type('RevDBMetaVar', 'expr', ['metavar'])
