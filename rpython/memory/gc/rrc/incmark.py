@@ -25,8 +25,13 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             # this cycle.
             if not self._gc_list_is_empty(self.pyobj_old_list):
                 self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
-            # TODO: take snapshot of pyobj_old_list and perform _collect_roots
-            #       incrementally (own phase)
+            # TODO: use separate list and process it after pyobj_list has been
+            #       fully processed (just before modern finalizers) if references
+            #       to separate list are encountered during take_snapshot
+            #       move them to pyobj_list and include them in the snapshot.
+            #       For the remaining list (before modern finalizers), check
+            #       if there are external references from marked non-rc objects
+            #       (rc objects were already detected during take_snapshot)
 
             # Untrack all tuples with only non-gc rrc objects and
             # promote all other tuples to the pyobj_list

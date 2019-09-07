@@ -26,6 +26,9 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             dead_list_empty = True
             if not self._gc_list_is_empty(self.pyobj_old_list):
                 dead_list_empty = self._check_finalizer()
+            # TODO: cannot work this way -> must first do full collection of
+            #       new graph, bc back ref over non-rrc from new rrc graph (#1)
+            # TODO: see incmark (instead of take_snapshot during collect_roots)
 
             # collect all rawrefcounted roots
             self._collect_roots()
