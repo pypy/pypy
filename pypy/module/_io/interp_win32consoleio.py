@@ -29,7 +29,7 @@ def err_mode(space, state):
     raise oefmt(space.w_ValueError,
                 "I/O operation on closed file")
 
-def read_console_w(handle, maxlen, readlen):
+def read_console_w(space, handle, maxlen, readlen):
     err = 0
     sig = 0
     buf = lltype.malloc(rwin32.CWCHARP, maxlen, flavor='raw')
@@ -39,7 +39,8 @@ def read_console_w(handle, maxlen, readlen):
         
         off = 0
         while off < maxlen:
-            with lltype.scoped_alloc(rwin32.LPDWORD.TO, -1) as n:
+            with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
+                n[0] = -1
                 len = min(maxlen - off, BUFSIZE)
                 rwin32.SetLastError_saved(0)
                 res = rwin32.ReadConsoleW(handle, buf[off], len, n, rffi.NULL)
@@ -55,11 +56,43 @@ def read_console_w(handle, maxlen, readlen):
                         break
                     err = 0
                     hInterruptEvent = sigintevent()
+                    if rwin32.WaitForSingleObjectEx(hInterruptEvent, 100, False) == rwin32.WAIT_OBJECT_0:
+                        rwin32.ResetEvent(hInterruptEvent)
+                        space.getexecutioncontext().checksignals()
+                
+                readlen += n
+                
+                # We didn't manage to read the whole buffer
+                # don't try again as it will just block
+                if n < len:
+                    break
+                    
+                # We read a new line
+                if buf[readlen -1] == '\n':
+                    break
+                
+                with lltype.scoped_alloc(rwin32.LPWORD.TO, 1) as char_type:
+                    if off + BUFSIZ >= maxlen and \
+                        rwin32.GetStringTypeW(rwin32.CT_CTYPE3, buf[readlen - 1], 1, char_type) and \
+                        char_type == rwin32.C3_HIGHSURROGATE:
+                        maxlen += 1
+                        newbuf = lltype.malloc(rwin32.CWCHARP, maxlen, flavor='raw')
+                        lltype.free(buf, flavor='raw')
+                        buf = newbuf
+                        off += n
+                        continue
+                    off += BUFSIZ
+        if err:
+            return None
+            
+        if readlen > 0 and buf[0] == '\x1a':
+            lltype.free(buf, flavor='raw')
+            buf = lltype.malloc(rwin32.CWCHARP, 1, flavor='raw')
+            buf[0] = '\0'
+            readlen = 0
     finally:
         lltype.free(buf, flavor='raw')
-        
-        
-   
+
 
 def _get_console_type(handle):
     mode = lltype.malloc(rwin32.LPDWORD.TO,0,flavor='raw')
@@ -338,7 +371,7 @@ class W_WinConsoleIO(W_RawIOBase):
             return space.newint(read_len)
             
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
-            wbuf = read_console_w(self.handle, wlen , n)
+            wbuf = read_console_w(space, self.handle, wlen , n)
             
             if not wbuf:
                 return space.newint(-1)
