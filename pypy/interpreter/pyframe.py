@@ -6,24 +6,23 @@ from rpython.rlib import jit, rweakref
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.debug import ll_assert_not_none
 from rpython.rlib.jit import hint
-from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
+from rpython.rlib.objectmodel import instantiate, we_are_translated
 from rpython.rlib.objectmodel import not_rpython
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import r_uint
 from rpython.tool.pairtype import extendabletype
 
 from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import (
-    OperationError, get_cleared_operation_error, oefmt)
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-SETUP_ASYNC_WITH POP_BLOCK END_FINALLY'''.split():
+SETUP_ASYNC_WITH POP_BLOCK END_FINALLY RETURN_VALUE'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 
 class FrameDebugData(object):
@@ -684,6 +683,7 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "can't jump to 'except' line as there's no exception")
 
+        import pdb; pdb.set_trace()
         # Don't jump inside or out of an except or a finally block.
         # Note that CPython doesn't check except blocks,
         # but that results in crashes (tested on 3.5.2+).
@@ -704,6 +704,12 @@ class PyFrame(W_Root):
                            "POP_BLOCK not properly nested in this bytecode")
                 setup_op = ord(code[blockstack.pop()])
                 if setup_op != SETUP_LOOP:
+                    endblock.append(addr)
+            elif op == RETURN_VALUE:
+                if len(blockstack) != 0:
+                    # jump to finally block
+                    setup_op = ord(code[blockstack.pop()])
+                    assert setup_op == SETUP_FINALLY
                     endblock.append(addr)
             elif op == END_FINALLY:
                 if len(endblock) <= 1:

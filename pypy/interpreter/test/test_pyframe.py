@@ -48,7 +48,13 @@ class AppTestPyFrame:
             tracer = JumpTracer(func)
             sys.settrace(tracer.trace)
             output = []
-            func(output)
+            if getattr(func, "error", None) is None:
+                func(output)
+            else:
+                try:
+                    func(output)
+                except BaseException as e:
+                    assert type(e) is func.error
             sys.settrace(None)
             assert func.output == output
 
@@ -76,6 +82,20 @@ class AppTestPyFrame:
         jump_out_of_block_backwards.jump = (6, 1)
         jump_out_of_block_backwards.output = [1, 3, 5, 1, 3, 5, 6, 7]
         run_test(jump_out_of_block_backwards)
+
+        def jump_in_nested_finally_2(output):
+            try:
+                output.append(2)
+                1/0
+                return
+            finally:
+                output.append(6)
+                output.append(7)
+            output.append(8)
+        jump_in_nested_finally_2.jump = (6, 7)
+        jump_in_nested_finally_2.output = [2, 7]
+        jump_in_nested_finally_2.error = ZeroDivisionError
+        run_test(jump_in_nested_finally_2)
 
     def test_f_back_hidden(self):
         if not hasattr(self, 'call_further'):
