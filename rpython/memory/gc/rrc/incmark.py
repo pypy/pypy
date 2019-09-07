@@ -13,35 +13,30 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             return True
 
         if self.state == self.STATE_DEFAULT:
-            # First, untrack all tuples with only non-gc rrc objects and
+            # Merge all objects whose finalizer have been executed to the
+            # pyobj_list (to reprocess them again in the snapshot). Finalizers
+            # can only be executed once, so termination will eventually happen.
+            # Objects which have not been resurrected should be freed during
+            # this cycle.
+            if not self._gc_list_is_empty(self.pyobj_old_list):
+                self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
+
+            # Untrack all tuples with only non-gc rrc objects and
             # promote all other tuples to the pyobj_list
             self._untrack_tuples()
-
-            merged_old_list = False
-            # check objects with finalizers from last collection cycle
-            if not self._gc_list_is_empty(self.pyobj_old_list):
-                merged_old_list = self._check_finalizer()
-
-            # For all non-gc pyobjects which have a refcount > 0,
-            # mark all reachable objects on the pypy side
-            self.p_list_old.foreach(self._major_trace_nongc, False)
+            # TODO: execute incrementally? (before snapshot!)
 
             # Now take a snapshot
             self._take_snapshot(self.pyobj_list)
 
             # collect all rawrefcounted roots
-            self._collect_roots(self.pyobj_list)
+            self._collect_roots()
+            # TODO: execute incrementally (own phase, save index)
 
-            if merged_old_list:
-                # set all refcounts to zero for objects in dead list
-                # (might have been incremented) by fix_refcnt
-                gchdr = self.pyobj_dead_list.c_gc_next
-                while gchdr <> self.pyobj_dead_list:
-                    if (gchdr.c_gc_refs > 0 and gchdr.c_gc_refs !=
-                            self.RAWREFCOUNT_REFS_UNTRACKED):
-                        pyobj = self.snapshot_objs[gchdr.c_gc_refs - 1]
-                        pyobj.refcnt_external = 0
-                    gchdr = gchdr.c_gc_next
+            # For all non-gc pyobjects which have a refcount > 0,
+            # mark all reachable objects on the pypy side
+            self.p_list_old.foreach(self._major_trace_nongc, False)
+            # TODO: execute incrementally
 
             self._debug_check_consistency(print_label="roots-marked")
             self.state = self.STATE_MARKING
@@ -50,6 +45,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         if self.state == self.STATE_MARKING:
             # mark all objects reachable from rawrefcounted roots
             all_rrc_marked = self._mark_rawrefcount()
+            # TODO: execute incrementally
 
             if (all_rrc_marked and not self.gc.objects_to_trace.non_empty() and
                     not self.gc.more_objects_to_trace.non_empty()):
@@ -136,7 +132,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         self._debug_check_consistency(print_label="end-mark")
         return True
 
-    def _collect_roots(self, pygclist):
+    def _collect_roots(self):
         # Subtract all internal refcounts from the cyclic refcount
         # of rawrefcounted objects
         for i in range(0, self.total_objs):

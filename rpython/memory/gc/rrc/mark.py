@@ -4,6 +4,8 @@ from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 
 class RawRefCountMarkGC(RawRefCountBaseGC):
 
+    use_refcntdict = False
+
     def major_collection_trace_step(self):
         if not self.cycle_enabled:
             self._debug_check_consistency(print_label="begin-mark")
@@ -18,28 +20,30 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         # Only trace and mark rawrefcounted object if we are not doing
         # something special, like building gc.garbage.
         if self.state == self.STATE_MARKING and self.cycle_enabled:
-            merged_old_list = False
-            # check objects with finalizers from last collection cycle
+            # Merge all objects whose finalizer have been executed to the
+            # pyobj_list (to reprocess them again in the snapshot). Finalizers
+            # can only be executed once, so termination will eventually happen.
+            # Objects which have not been resurrected should be freed during
+            # this cycle.
             if not self._gc_list_is_empty(self.pyobj_old_list):
-                merged_old_list = self._check_finalizer()
+                self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
+
             # collect all rawrefcounted roots
-            self._collect_roots(self.pyobj_list)
-            if merged_old_list:
-                # set all refcounts to zero for objects in dead list
-                # (might have been incremented) by fix_refcnt
-                gchdr = self.pyobj_dead_list.c_gc_next
-                while gchdr <> self.pyobj_dead_list:
-                    gchdr.c_gc_refs = 0
-                    gchdr = gchdr.c_gc_next
+            self._collect_roots()
             self._debug_check_consistency(print_label="roots-marked")
+
             # mark all objects reachable from rawrefcounted roots
             self._mark_rawrefcount()
             self._debug_check_consistency(print_label="before-fin")
+
+            # handle legacy finalizer
             self.state = self.STATE_GARBAGE_MARKING
-            if self._find_garbage(True): # handle legacy finalizers
+            if self._find_garbage(True):
                 self._mark_garbage(True)
                 self._debug_check_consistency(print_label="end-legacy-fin")
             self.state = self.STATE_MARKING
+
+            # handle modern finalizer
             found_finalizer = self._find_finalizer()
             if found_finalizer:
                 self._gc_list_move(self.pyobj_old_list,
@@ -71,9 +75,9 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
                 self._pyobj(pyobject).c_ob_pypy_link)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
-    def _collect_roots(self, pygclist):
+    def _collect_roots(self):
         # Initialize the cyclic refcount with the real refcount.
-        self._collect_roots_init_list(pygclist)
+        self._collect_roots_init_list(self.pyobj_list)
 
         # Save the real refcount of objects at border
         self.p_list_old.foreach(self._obj_save_refcnt, None)
@@ -82,7 +86,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
 
         # Subtract all internal refcounts from the cyclic refcount
         # of rawrefcounted objects
-        self._collect_roots_subtract_internal(pygclist)
+        self._collect_roots_subtract_internal(self.pyobj_list)
 
         # For all non-gc pyobjects which have a refcount > 0,
         # mark all reachable objects on the pypy side
