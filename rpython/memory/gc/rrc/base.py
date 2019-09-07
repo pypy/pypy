@@ -543,6 +543,36 @@ class RawRefCountBaseGC(object):
             self.gc.trace(obj, self._collect_ref_rec, None)
         return True
 
+    def _check_finalizer(self):
+        # Check, if the cyclic isolate from the last collection cycle
+        # is reachable from outside, after the finalizers have been
+        # executed (and if all finalizers have been executed). Return
+        # True if some objects are reachable and thus have been resurrected.
+
+        # check if the list has been fully processed since the last cycle
+        # (for safety)
+        found_alive = not self._gc_list_is_empty(self.pyobj_isolate_list)
+
+        # check if all finalizers have actually been called (for safety)
+        if not found_alive:
+            found_alive = self._find_finalizer()
+
+        # check if there are any objects with a reference count > 0
+        if not found_alive:
+            gchdr = self.pyobj_old_list.c_gc_next
+            while gchdr <> self.pyobj_old_list:
+                if True: # TODO: check refcount or marked (see _collect_roots)
+                    found_alive = True
+                    break
+                gchdr = gchdr.c_gc_next
+
+        if found_alive:
+            self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
+            return True
+        else:
+            self._gc_list_merge(self.pyobj_old_list, self.pyobj_dead_list)
+            return False
+
     def _find_finalizer(self):
         gchdr = self.pyobj_old_list.c_gc_next
         while gchdr <> self.pyobj_old_list:

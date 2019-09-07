@@ -20,17 +20,24 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         # Only trace and mark rawrefcounted object if we are not doing
         # something special, like building gc.garbage.
         if self.state == self.STATE_MARKING and self.cycle_enabled:
-            # Merge all objects whose finalizer have been executed to the
-            # pyobj_list (to reprocess them again in the snapshot). Finalizers
-            # can only be executed once, so termination will eventually happen.
-            # Objects which have not been resurrected should be freed during
-            # this cycle.
+
+            # check if objects with finalizers from last collection cycle
+            # have been resurrected
+            dead_list_empty = True
             if not self._gc_list_is_empty(self.pyobj_old_list):
-                self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
+                dead_list_empty = self._check_finalizer()
 
             # collect all rawrefcounted roots
             self._collect_roots()
             self._debug_check_consistency(print_label="roots-marked")
+
+            if not dead_list_empty:
+                # set all refcounts to zero for objects in dead list
+                # (might have been incremented) by fix_refcnt
+                gchdr = self.pyobj_dead_list.c_gc_next
+                while gchdr <> self.pyobj_dead_list:
+                    gchdr.c_gc_refs = 0
+                    gchdr = gchdr.c_gc_next
 
             # mark all objects reachable from rawrefcounted roots
             self._mark_rawrefcount()

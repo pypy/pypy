@@ -13,6 +13,11 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             return True
 
         if self.state == self.STATE_DEFAULT:
+            # For all non-gc pyobjects which have a refcount > 0,
+            # mark all reachable objects on the pypy side
+            self.p_list_old.foreach(self._major_trace_nongc, False)
+            # TODO: execute incrementally (own phase)
+
             # Merge all objects whose finalizer have been executed to the
             # pyobj_list (to reprocess them again in the snapshot). Finalizers
             # can only be executed once, so termination will eventually happen.
@@ -20,11 +25,13 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             # this cycle.
             if not self._gc_list_is_empty(self.pyobj_old_list):
                 self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
+            # TODO: take snapshot of pyobj_old_list and perform _collect_roots
+            #       incrementally (own phase)
 
             # Untrack all tuples with only non-gc rrc objects and
             # promote all other tuples to the pyobj_list
             self._untrack_tuples()
-            # TODO: execute incrementally? (before snapshot!)
+            # TODO: execute incrementally? (before snapshot!, own phase)
 
             # Now take a snapshot
             self._take_snapshot(self.pyobj_list)
@@ -32,11 +39,6 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             # collect all rawrefcounted roots
             self._collect_roots()
             # TODO: execute incrementally (own phase, save index)
-
-            # For all non-gc pyobjects which have a refcount > 0,
-            # mark all reachable objects on the pypy side
-            self.p_list_old.foreach(self._major_trace_nongc, False)
-            # TODO: execute incrementally
 
             self._debug_check_consistency(print_label="roots-marked")
             self.state = self.STATE_MARKING
