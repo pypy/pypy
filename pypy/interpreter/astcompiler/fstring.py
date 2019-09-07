@@ -64,25 +64,24 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
     parser = astbuilder.recursive_parser
     parse_tree = parser.parse_source(paren_source, info)
 
-    return fixup_fstring_positions(
-            ast_from_node(astbuilder.space, parse_tree, info,
-                         recursive_parser=parser),
-            lineno, column_offset)
+    ast = ast_from_node(astbuilder.space, parse_tree, info,
+                        recursive_parser=parser)
+    fixup_fstring_positions(ast, lineno, column_offset)
+    return ast
 
 def fixup_fstring_positions(ast, line_offset, column_offset):
     visitor = FixPosVisitor(line_offset, column_offset)
-    return ast.mutate_over(visitor)
+    ast.walkabout(visitor)
 
-class FixPosVisitor(ast.ASTVisitor):
+class FixPosVisitor(ast.GenericASTVisitor):
     def __init__(self, line_offset, column_offset):
         self.line_offset = line_offset
         self.column_offset = column_offset
 
-    def default_visitor(self, node):
+    def visited(self, node):
         if isinstance(node, ast.stmt) or isinstance(node, ast.expr):
             node.lineno += self.line_offset
             node.col_offset += self.column_offset
-        return node
 
 
 def unexpected_end_of_string(astbuilder, atom_node):
