@@ -57,6 +57,8 @@ stuff = "nothing"
         input = "\xEF\xBB\xBF# coding: latin-1\nx"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "UTF-8 BOM with latin-1 coding cookie"
+        input = "\xEF\xBB\xBF# coding: UtF-8-yadda-YADDA\nx"
+        self.parse(input)    # this does not raise
         input = "# coding: not-here"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "Unknown encoding: not-here"
@@ -386,6 +388,12 @@ stuff = "nothing"
         assert "(expected ':')" in info.value.msg
         info = py.test.raises(SyntaxError, self.parse, "def f:\n print 1")
         assert "(expected '(')" in info.value.msg
+
+    def test_error_print_without_parens(self):
+        info = py.test.raises(SyntaxError, self.parse, "print 1")
+        assert "Missing parentheses in call to 'print'" in info.value.msg
+        info = py.test.raises(SyntaxError, self.parse, "print 1)")
+        assert "unmatched" in info.value.msg
 
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}

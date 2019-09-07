@@ -661,15 +661,7 @@ class AsyncGenABase(W_Root):
         return self.do_send(w_arg)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
-        space = self.space
-        if self.state == self.ST_CLOSED:
-            raise OperationError(space.w_StopIteration, space.w_None)
-        try:
-            w_value = self.async_gen.throw(w_type, w_val, w_tb)
-            return self.unwrap_value(w_value)
-        except OperationError as e:
-            self.state = self.ST_CLOSED
-            raise
+        return self.do_throw(w_type, w_val, w_tb)
 
     def descr_close(self):
         self.state = self.ST_CLOSED
@@ -710,6 +702,17 @@ class AsyncGenASend(AsyncGenABase):
 
         try:
             w_value = self.async_gen.send_ex(w_arg_or_err)
+            return self.unwrap_value(w_value)
+        except OperationError as e:
+            self.state = self.ST_CLOSED
+            raise
+
+    def do_throw(self, w_type, w_val, w_tb):
+        space = self.space
+        if self.state == self.ST_CLOSED:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        try:
+            w_value = self.async_gen.throw(w_type, w_val, w_tb)
             return self.unwrap_value(w_value)
         except OperationError as e:
             self.state = self.ST_CLOSED
@@ -756,21 +759,30 @@ class AsyncGenAThrow(AsyncGenABase):
                 w_value = self.async_gen.send_ex(w_arg_or_err)
             return self.unwrap_value(w_value)
         except OperationError as e:
-            if e.match(space, space.w_StopAsyncIteration):
-                self.state = self.ST_CLOSED
-                if self.w_exc_type is None:
-                    # When aclose() is called we don't want to propagate
-                    # StopAsyncIteration; just raise StopIteration, signalling
-                    # that 'aclose()' is done.
-                    raise OperationError(space.w_StopIteration, space.w_None)
-            if e.match(space, space.w_GeneratorExit):
-                self.state = self.ST_CLOSED
-                # Ignore this error.
-                raise OperationError(space.w_StopIteration, space.w_None)
-            raise
+            self.handle_error(e)
 
-    def descr_throw(self, w_type, w_val=None, w_tb=None):
+    def do_throw(self, w_type, w_val, w_tb):
+        space = self.space
         if self.state == self.ST_INIT:
             raise OperationError(self.space.w_RuntimeError,
-                self.space.newtext("can't do async_generator.athrow().throw()"))
-        return AsyncGenABase.descr_throw(self, w_type, w_val, w_tb)
+                space.newtext("can't do async_generator.athrow().throw()"))
+        if self.state == self.ST_CLOSED:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        try:
+            w_value = self.async_gen.throw(w_type, w_val, w_tb)
+            return self.unwrap_value(w_value)
+        except OperationError as e:
+            self.handle_error(e)
+
+    def handle_error(self, e):
+        space = self.space
+        self.state = self.ST_CLOSED
+        if (e.match(space, space.w_StopAsyncIteration) or
+                    e.match(space, space.w_StopIteration)):
+            if self.w_exc_type is None:
+                # When aclose() is called we don't want to propagate
+                # StopAsyncIteration or GeneratorExit; just raise
+                # StopIteration, signalling that this 'aclose()' await
+                # is done.
+                raise OperationError(space.w_StopIteration, space.w_None)
+        raise e

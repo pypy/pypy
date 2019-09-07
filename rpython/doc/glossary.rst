@@ -51,10 +51,10 @@ Glossary
       some operation in terms of the target :term:`type system`.
 
    ootypesystem
-      An :ref:`object oriented type model <oo-type>`
+      An object oriented type model <oo-type>
       containing classes and instances.  A :term:`backend` that uses this type system
-      is also called a high-level backend.  The JVM and CLI backends
-      all use this typesystem.
+      is also called a high-level backend.  The JVM and CLI backends (now removed)
+      used this typesystem.
 
    prebuilt constant
       In :term:`RPython` module globals are considered constants.  Moreover,

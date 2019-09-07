@@ -749,7 +749,7 @@ class TestNonInteractive:
         monkeypatch.setenv('PYTHONWARNINGS_', "once,error")
         data = self.run('-W ignore -W default '
                         '-c "import sys; print(sys.warnoptions)"')
-        assert "['ignore', 'default', 'once', 'error']" in data
+        assert "['once', 'error', 'ignore', 'default']" in data
 
     def test_option_m(self, monkeypatch):
         if not hasattr(runpy, '_run_module_as_main'):

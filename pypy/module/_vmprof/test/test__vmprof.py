@@ -114,14 +114,17 @@ class AppTestVMProf(object):
     @py.test.mark.xfail(sys.platform.startswith('freebsd'), reason = "not implemented")
     def test_get_profile_path(self):
         import _vmprof
-        tmpfile = open(self.tmpfilename, 'wb')
-        assert _vmprof.get_profile_path() is None
-        _vmprof.enable(tmpfile.fileno(), 0.01, 0, 0, 0, 0)
-        path = _vmprof.get_profile_path()
+        with open(self.tmpfilename, "wb") as tmpfile:
+            assert _vmprof.get_profile_path() is None
+            _vmprof.enable(tmpfile.fileno(), 0.01, 0, 0, 0, 0)
+            path = _vmprof.get_profile_path()
+            _vmprof.disable()
+
         if path != tmpfile.name:
             with open(path, "rb") as fd1:
-                assert fd1.read() == tmpfile.read()
-        _vmprof.disable()
+                with open(self.tmpfilename, "rb") as fd2:
+                    assert fd1.read() == fd2.read()
+
         assert _vmprof.get_profile_path() is None
 
     def test_stop_sampling(self):

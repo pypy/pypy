@@ -1624,6 +1624,28 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.get_number() == 4043
         raises(AttributeError, "del foo.bar")
 
+    def test_tp_doc_issue3055(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+                sizeof(PyObject),
+            };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_doc = "";
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        obj = module.new_obj()
+        assert type(obj).__doc__ is None
+
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):

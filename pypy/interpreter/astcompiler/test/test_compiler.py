@@ -1041,20 +1041,6 @@ class TestCompiler(BaseTestCompiler):
         code_w.exec_code(self.space, dict_w, dict_w)
         self.check(dict_w, expr, result)
 
-    def test_assert_skipping(self):
-        space = self.space
-        mod = space.getbuiltinmodule('__pypy__')
-        w_set_debug = space.getattr(mod, space.wrap('set_debug'))
-        space.call_function(w_set_debug, space.w_False)
-
-        source = """if 1:
-        assert False
-        """
-        try:
-            self.run(source)
-        finally:
-            space.call_function(w_set_debug, space.w_True)
-
     def test_dont_fold_equal_code_objects(self):
         yield self.st, "f=lambda:1;g=lambda:1.0;x=g()", 'type(x)', float
         yield (self.st, "x=(lambda: (-0.0, 0.0), lambda: (0.0, -0.0))[1]()",

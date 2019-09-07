@@ -298,6 +298,19 @@ class AppTestExc(object):
         assert ImportError("message", name="x").name == "x"
         assert ImportError("message", path="y").path == "y"
         raises(TypeError, ImportError, invalid="z")
+        assert ImportError("message").msg == "message"
+        assert ImportError("message").args == ("message", )
+        assert ImportError("message", "foo").msg is None
+        assert ImportError("message", "foo").args == ("message", "foo")
+
+    def test_importerror_reduce(self):
+        d = {'name': 'a',
+             'path': 'b',
+            } 
+        s = ImportError('c', **d).__reduce__()
+        e = s[0](*s[1], **s[2])
+        for k, v in d.items():
+            assert getattr(e, k) == v
 
     def test_modulenotfounderror(self):
         assert ModuleNotFoundError("message").name is None
@@ -437,3 +450,61 @@ class AppTestExc(object):
                 exc = raises(SyntaxError, exec_, source)
                 assert (custom_msg not in exc.value.msg) == (
                     ('print (' in source or 'exec (' in source))
+
+    def test_bug_print_heuristic_shadows_better_message(self):
+        def exec_(s): exec(s)
+        exc = raises(SyntaxError, exec_, "print [)")
+        assert "closing parenthesis ')' does not match opening parenthesis '['" in exc.value.msg
+
+    def test_print_suggestions(self):
+        def exec_(s): exec(s)
+        def check(s, error):
+            exc = raises(SyntaxError, exec_, s)
+            print(exc.value.msg)
+            assert exc.value.msg == error
+
+        check(
+            "print 1",
+            "Missing parentheses in call to 'print'. Did you mean print(1)?")
+        check(
+            "print 1, \t",
+            "Missing parentheses in call to 'print'. Did you mean print(1, end=\" \")?")
+        check(
+            "print 'a'\n;\t ",
+            "Missing parentheses in call to 'print'. Did you mean print('a')?")
+        check(
+            "print p;",
+            "Missing parentheses in call to 'print'. Did you mean print(p)?")
+        check("print %", "invalid syntax")
+        check("print 1 1",
+            "Missing parentheses in call to 'print'")
+
+    def test_print_and_operators(self):
+        with raises(TypeError) as excinfo:
+            print >> 1, 5
+        assert 'Did you mean "print(<message>, file=<output_stream>)"?' in str(excinfo.value)
+        with raises(TypeError) as excinfo:
+            print -1
+        assert 'Did you mean "print(<-number>)"?' in str(excinfo.value)
+
+    def test_importerror_kwarg_error(self):
+        msg = "'invalid' is an invalid keyword argument for this function"
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', invalid='keyword', another=True)
+        assert str(exc.value) == msg
+
+        exc = raises(TypeError, ImportError, 'test', invalid='keyword')
+        assert str(exc.value) == msg
+
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', name='name', invalid='keyword')
+        assert str(exc.value) == msg
+
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', path='path', invalid='keyword')
+        assert str(exc.value) == msg
+
+

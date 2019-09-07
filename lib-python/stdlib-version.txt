@@ -6,4 +6,4 @@ the outputs for hg id of each are:
     2.7::
         a06454b1afa1 (2.7) v2.7.13
     3::
-        v3.6.1 in git
+        v3.6.9 in git

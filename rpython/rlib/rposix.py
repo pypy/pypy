@@ -2542,7 +2542,7 @@ _pipe2_syscall = ENoSysCache()
 post_include_bits=['RPY_EXTERN int rpy_cpu_count(void);']
 # cpu count for linux, windows and mac (+ bsds)
 # note that the code is copied from cpython and split up here
-if sys.platform.startswith('linux'):
+if sys.platform.startswith(('linux', 'gnu')):
     cpucount_eci = ExternalCompilationInfo(includes=["unistd.h"],
             separate_module_sources=["""
             RPY_EXTERN int rpy_cpu_count(void) {

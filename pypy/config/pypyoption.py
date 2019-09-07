@@ -34,13 +34,14 @@ default_modules.update([
 working_modules = default_modules.copy()
 working_modules.update([
     "_socket", "unicodedata", "mmap", "fcntl", "pwd",
-    "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
+    "select", "zipimport", "_lsprof", "signal", "_rawffi", "termios",
     "zlib", "bz2", "_md5", "_minimal_curses",
     "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
     "_jitlog",
+    #" _ssl", "_hashlib", "crypt"
 ])
 
 import rpython.rlib.rvmprof.cintf
@@ -68,7 +69,8 @@ if sys.platform == "win32":
     # unix only modules
     for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses",
                  "_posixsubprocess"]:
-        working_modules.remove(name)
+        if name in working_modules:
+            working_modules.remove(name)
         if name in translation_modules:
             translation_modules.remove(name)
 
@@ -221,6 +223,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
                    default=False),
+        BoolOption("reinterpretasserts",
+                   "Perform reinterpretation when an assert fails "
+                   "(only relevant for tests)",
+                   default=False),
 
      ]),
 ])
@@ -260,6 +266,9 @@ def set_pypy_opt_level(config, level):
     # extra optimizations with the JIT
     if level == 'jit':
         pass # none at the moment
+
+    if config.translation.sandbox or config.translation.reverse_debugger:
+        config.objspace.hash = "fnv"
 
 
 def enable_allworkingmodules(config):

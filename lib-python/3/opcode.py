@@ -144,7 +144,7 @@ name_op('LOAD_NAME', 101)       # Index in name list
 def_op('BUILD_TUPLE', 102)      # Number of tuple items
 def_op('BUILD_LIST', 103)       # Number of list items
 def_op('BUILD_SET', 104)        # Number of set items
-def_op('BUILD_MAP', 105)        # Number of dict entries (upto 255)
+def_op('BUILD_MAP', 105)        # Number of dict entries
 name_op('LOAD_ATTR', 106)       # Index in name list
 def_op('COMPARE_OP', 107)       # Comparison operator
 hascompare.append(107)
@@ -224,7 +224,6 @@ def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
 def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
-jrel_op('JUMP_IF_NOT_DEBUG', 204)     # jump over assert statements
 def_op('LOAD_REVDB_VAR', 205)         # reverse debugger (syntax example: $5)
 
 del def_op, name_op, jrel_op, jabs_op

@@ -117,6 +117,8 @@ class PythonAstCompiler(PyCodeCompiler):
             check = True
         if not check:
             raise oefmt(self.space.w_TypeError, "invalid node type")
+        if optimize == -1:
+            optimize = self.space.sys.get_optimize()
 
         fut = misc.parse_future(node, self.future_flags.compiler_features)
         f_flags, f_lineno, f_col = fut
@@ -166,6 +168,9 @@ class PythonAstCompiler(PyCodeCompiler):
 
     def compile(self, source, filename, mode, flags, hidden_applevel=False,
             optimize=-1):
+        if optimize == -1:
+            optimize = self.space.sys.get_optimize()
+        assert optimize >= 0
         info = pyparse.CompileInfo(filename, mode, flags,
                 hidden_applevel=hidden_applevel, optimize=optimize)
         mod = self._compile_to_ast(source, info)

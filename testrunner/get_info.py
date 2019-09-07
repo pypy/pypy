@@ -10,7 +10,7 @@ import json
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 if sys.platform.startswith('win'):
     TARGET_NAME = r'pypy3-c.exe'
-    # see https://github.com/pypa/virtualenv/issues/789
+    # PyPy uses bin as of PR https://github.com/pypa/virtualenv/pull/1400
     TARGET_DIR = 'bin'
 else:
     TARGET_NAME = 'pypy3-c'

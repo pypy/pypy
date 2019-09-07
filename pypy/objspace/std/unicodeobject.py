@@ -1,12 +1,13 @@
 """The builtin str implementation"""
 
+import sys
+
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
     enforceargs, newlist_hint, specialize, we_are_translated)
 from rpython.rlib.rarithmetic import ovfcheck, r_uint
 from rpython.rlib.rstring import (
-    StringBuilder, split, rsplit, UnicodeBuilder, replace_count, startswith,
-    endswith)
+    StringBuilder, split, rsplit, replace_count, startswith, endswith)
 from rpython.rlib import rutf8, jit
 
 from pypy.interpreter import unicodehelper
@@ -14,7 +15,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.formatting import mod_format, FORMAT_UNICODE
 from pypy.objspace.std.sliceobject import (W_SliceObject,
@@ -38,12 +39,11 @@ class W_UnicodeObject(W_Root):
         self._utf8 = utf8str
         self._length = length
         self._index_storage = rutf8.null_storage()
-        if not we_are_translated():
+        if not we_are_translated() and not sys.platform == 'win32':
             # utf8str must always be a valid utf8 string, except maybe with
             # explicit surrogate characters---which .decode('utf-8') doesn't
             # special-case in Python 2, which is exactly what we want here
             assert length == len(utf8str.decode('utf-8'))
-
 
     @staticmethod
     def from_utf8builder(builder):
@@ -398,46 +398,54 @@ class W_UnicodeObject(W_Root):
         return mod_format(space, w_values, self, fmt_type=FORMAT_UNICODE)
 
     def descr_swapcase(self, space):
-        value = self._utf8
+        return W_UnicodeObject._swapcase_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _swapcase_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         for ch, pos in rutf8.Utf8StringPosIterator(value):
             if unicodedb.isupper(ch):
-                codes = self._lower_char(ch, value, pos)
+                codes = W_UnicodeObject._lower_char(ch, value, pos)
             elif unicodedb.islower(ch):
                 codes = unicodedb.toupper_full(ch)
             else:
                 codes = [ch,]
             for c in codes:
                 builder.append_code(c)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_title(self, space):
-        if len(self._utf8) == 0:
-            return self
-        return self.title_unicode()
+        return W_UnicodeObject._title_unicode(self._utf8)
 
+    @staticmethod
     @jit.elidable
-    def title_unicode(self):
-        value = self._utf8
+    def _title_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         previous_is_cased = False
         for ch, pos in rutf8.Utf8StringPosIterator(value):
             if previous_is_cased:
-                codes = self._lower_char(ch, value, pos)
+                codes = W_UnicodeObject._lower_char(ch, value, pos)
             else:
                 codes = unicodedb.totitle_full(ch)
             for c in codes:
                 builder.append_code(c)
             previous_is_cased = unicodedb.iscased(ch)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
-    def _lower_char(self, ch, value, bytepos):
+    @staticmethod
+    def _lower_char(ch, value, bytepos):
         if ch == 0x3a3:
-            return [self._handle_capital_sigma(value, bytepos), ]
+            return [W_UnicodeObject._handle_capital_sigma(value, bytepos), ]
         else:
             return unicodedb.tolower_full(ch)
 
-    def _handle_capital_sigma(self, value, bytepos):
+    @staticmethod
+    def _handle_capital_sigma(value, bytepos):
         # U+03A3 is in the Final_Sigma context when, it is found like this:
         #\p{cased} \p{case-ignorable}* U+03A3 not(\p{case-ignorable}* \p{cased})
         # where \p{xxx} is a character with property xxx.
@@ -585,7 +593,13 @@ class W_UnicodeObject(W_Root):
         return space.is_w(space.type(w_obj), space.w_unicode)
 
     def descr_casefold(self, space):
-        value = self._utf8
+        return W_UnicodeObject._casefold_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _casefold_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         for ch in rutf8.Utf8StringIterator(value):
             folded = unicodedb.casefold_lookup(ch)
@@ -594,16 +608,22 @@ class W_UnicodeObject(W_Root):
             else:
                 for r in folded:
                     builder.append_code(r)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_lower(self, space):
-        value = self._utf8
+        return W_UnicodeObject._lower_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _lower_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         for ch, pos in rutf8.Utf8StringPosIterator(value):
-            codes = self._lower_char(ch, value, pos)
+            codes = W_UnicodeObject._lower_char(ch, value, pos)
             for c in codes:
                 builder.append_code(c)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
@@ -654,9 +674,6 @@ class W_UnicodeObject(W_Root):
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
         value = self._utf8
-        if (start > 0 and not space.is_none(w_end) and
-                                space.getindex_w(w_end, None) == 0):
-            return space.w_False
         if space.isinstance_w(w_prefix, space.w_tuple):
             return self._startswith_tuple(space, value, w_prefix, start, end)
         try:
@@ -669,7 +686,7 @@ class W_UnicodeObject(W_Root):
 
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
-        if start > len(value):
+        if start > end:
             return False
         if len(prefix) == 0:
             return True
@@ -678,10 +695,6 @@ class W_UnicodeObject(W_Root):
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         start, end = self._unwrap_and_compute_idx_params(space, w_start, w_end)
         value = self._utf8
-        # match cpython behaviour
-        if (start > 0 and not space.is_none(w_end) and
-                                space.getindex_w(w_end, None) == 0):
-            return space.w_False
         if space.isinstance_w(w_suffix, space.w_tuple):
             return self._endswith_tuple(space, value, w_suffix, start, end)
         try:
@@ -694,7 +707,7 @@ class W_UnicodeObject(W_Root):
 
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self.convert_arg_to_w_unicode(space, w_prefix)._utf8
-        if start > len(value):
+        if start > end:
             return False
         if len(prefix) == 0:
             return True
@@ -770,12 +783,19 @@ class W_UnicodeObject(W_Root):
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
-        builder = rutf8.Utf8StringBuilder(len(self._utf8))
-        for ch in rutf8.Utf8StringIterator(self._utf8):
+        return W_UnicodeObject._upper_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _upper_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
+        builder = rutf8.Utf8StringBuilder(len(value))
+        for ch in rutf8.Utf8StringIterator(value):
             codes = unicodedb.toupper_full(ch)
             for c in codes:
                 builder.append_code(c)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
@@ -874,10 +894,13 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(self._utf8[byte_start:byte_stop], stop - start)
 
     def descr_capitalize(self, space):
-        if self._len() == 0:
-            return self._empty()
+        return W_UnicodeObject._capitalize_unicode(self._utf8)
 
-        value = self._utf8
+    @staticmethod
+    @jit.elidable
+    def _capitalize_unicode(value):
+        if len(value) == 0:
+            return W_UnicodeObject.EMPTY
         builder = rutf8.Utf8StringBuilder(len(value))
         it = rutf8.Utf8StringPosIterator(value)
         uchar, _ = it.next()
@@ -886,10 +909,10 @@ class W_UnicodeObject(W_Root):
         for c in codes:
             builder.append_code(c)
         for ch, pos in it:
-            codes = self._lower_char(ch, value, pos)
+            codes = W_UnicodeObject._lower_char(ch, value, pos)
             for c in codes:
                 builder.append_code(c)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
     def descr_center(self, space, width, w_fillchar):
@@ -1019,6 +1042,11 @@ class W_UnicodeObject(W_Root):
         return rutf8.codepoint_position_at_index(
             self._utf8, self._get_index_storage(), index)
 
+    def _codepoints_in_utf8(self, start, end):
+        if self.is_ascii():
+            return end - start
+        return rutf8.codepoints_in_utf8(self._utf8, start, end)
+
     @always_inline
     def _unwrap_and_search(self, space, w_sub, w_start, w_end, forward=True):
         w_sub = self.convert_arg_to_w_unicode(space, w_sub)
@@ -1040,7 +1068,7 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = rutf8.codepoints_in_utf8(self._utf8, start_index, res_index)
+            skip = self._codepoints_in_utf8(start_index, res_index)
             res = start + skip
             assert res >= 0
             return space.newint(res)
@@ -1048,7 +1076,7 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.rfind(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = rutf8.codepoints_in_utf8(self._utf8, res_index, end_index)
+            skip = self._codepoints_in_utf8(res_index, end_index)
             res = end - skip
             assert res >= 0
             return space.newint(res)
@@ -1213,7 +1241,7 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
     return encoding, errors
 
 def encode_object(space, w_obj, encoding, errors):
-    from pypy.module._codecs.interp_codecs import encode
+    from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
     if errors is None or errors == 'strict':
         # fast paths
         utf8 = space.utf8_w(w_obj)
@@ -1235,7 +1263,11 @@ def encode_object(space, w_obj, encoding, errors):
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(utf8)
-    w_retval = encode(space, w_obj, encoding, errors)
+    if encoding is None:
+        encoding = space.sys.defaultencoding
+    w_codec_info = lookup_text_codec(space, 'encode', encoding)
+    w_encfunc = space.getitem(w_codec_info, space.newint(0))
+    w_retval = _call_codec(space, w_encfunc, w_obj, "encoding", encoding, errors)
     if not space.isinstance_w(w_retval, space.w_bytes):
         raise oefmt(space.w_TypeError,
                     "'%s' encoder returned '%T' instead of 'bytes'; "
@@ -1246,6 +1278,7 @@ def encode_object(space, w_obj, encoding, errors):
 
 
 def decode_object(space, w_obj, encoding, errors=None):
+    from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
     if errors == 'strict' or errors is None:
         # fast paths
         if encoding == 'ascii':
@@ -1256,8 +1289,11 @@ def decode_object(space, w_obj, encoding, errors=None):
             s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
-    from pypy.module._codecs.interp_codecs import decode
-    w_retval = decode(space, w_obj, encoding, errors)
+    if encoding is None:
+        encoding = space.sys.defaultencoding
+    w_codec_info = lookup_text_codec(space, 'decode', encoding)
+    w_encfunc = space.getitem(w_codec_info, space.newint(1))
+    w_retval = _call_codec(space, w_encfunc, w_obj, "decoding", encoding, errors)
     if not isinstance(w_retval, W_UnicodeObject):
         raise oefmt(space.w_TypeError,
                     "'%s' decoder returned '%T' instead of 'str'; "
@@ -1879,18 +1915,24 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 # complex.__new__(), a lone surrogate will throw an app-level
 # UnicodeEncodeError.
 
-def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
+def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    utf8 = space.utf8_w(w_unistr)
-    lgt =  space.len_w(w_unistr)
-    result = StringBuilder(lgt)
-    pos = 0
-    for uchr in rutf8.Utf8StringIterator(utf8):
+    if w_unistr.is_ascii():
+        # fast path
+        return w_unistr._utf8
+    else:
+        return _unicode_to_decimal_w(space, w_unistr)
+
+def _unicode_to_decimal_w(space, w_unistr):
+    # slow path, in a separate function for the JIT's benefit
+    utf8 = w_unistr._utf8
+    result = StringBuilder(w_unistr._len())
+    it = rutf8.Utf8StringIterator(utf8)
+    for uchr in it:
         if uchr > 127:
-            if unicodedb.isspace(uchr):
+            if W_UnicodeObject._isspace(uchr):
                 result.append(' ')
-                pos += 1
                 continue
             try:
                 uchr = ord(u'0') + unicodedb.decimal(uchr)
@@ -1900,15 +1942,15 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
             c = rutf8.unichr_as_utf8(r_uint(uchr))
         except rutf8.OutOfRange:
             w_encoding = space.newtext('utf-8')
+            pos = it.get_pos()
             w_start = space.newint(pos)
-            w_end = space.newint(pos+1)
+            w_end = space.newint(pos + 1)
             w_reason = space.newtext('surrogates not allowed')
             raise OperationError(space.w_UnicodeEncodeError,
                                  space.newtuple([w_encoding, w_unistr,
                                                  w_start, w_end,
                                                  w_reason]))
         result.append(c)
-        pos += 1
     return result.build()
 
 _repr_function = rutf8.make_utf8_escape_function(

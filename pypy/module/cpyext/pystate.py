@@ -252,6 +252,11 @@ def _workaround_cpython_untranslated(space):
     space.threadlocals.get_ec = get_possibly_deleted_ec
 
 
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL, gil="pygilstate_check")
+def PyGILState_Check(space):
+    assert False, "the logic is completely inside wrapper_second_level"
+
+
 @cpython_api([], PyGILState_STATE, error=CANNOT_FAIL, gil="pygilstate_ensure")
 def PyGILState_Ensure(space, previous_state):
     # The argument 'previous_state' is not part of the API; it is inserted

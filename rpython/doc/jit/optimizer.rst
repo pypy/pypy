@@ -13,7 +13,7 @@ When you try to make sense of this module, this page might get you started.
 
 Before some optimizations are explained in more detail, it is essential to
 understand how traces look like.
-The optimizer comes with a test suit. It contains many trace
+The optimizer comes with a test suite. It contains many trace
 examples and you might want to take a look at it
 (in `rpython/jit/metainterp/optimizeopt/test/*.py`).
 The allowed operations can be found in `rpython/jit/metainterp/resoperation.py`.
@@ -21,7 +21,7 @@ Here is an example of a trace::
 
     [p0,i0,i1]
     label(p0, i0, i1)
-    i2 = getarray_item_raw(p0, i0, descr=<Array Signed>)
+    i2 = getarrayitem_raw(p0, i0, descr=<Array Signed>)
     i3 = int_add(i1,i2)
     i4 = int_add(i0,1)
     i5 = int_le(i4, 100) # lower-or-equal
@@ -32,7 +32,7 @@ At the beginning it might be clumsy to read but it makes sense when you start
 to compare the Python code that constructed the trace::
 
     from array import array
-    a = array('i',range(101))
+    a = array('i', range(101))
     sum = 0; i = 0
     while i <= 100: # can be seen as label
         sum += a[i]
@@ -131,20 +131,16 @@ would be: ``x & 0 == 0``, ``x - 0 == x``
 
 Whenever such an operation is encountered (e.g. ``y = x & 0``), no operation is
 emitted. Instead the variable y is made equal to 0
-(= ``make_equal_to(op.result, 0)``). The variables found in a trace are
-instances of Box classes that can be found in
-`rpython/jit/metainterp/history.py`. `OptValue` wraps those variables again
-and maps the boxes to the optimization values in the optimizer. When a
-value is made equal, the two variable's boxes are made to point to the same
-`OptValue` instance.
+(= ``make_constant_int(op, 0)``). The variables found in a trace are instances
+of classes that can be found in `rpython/jit/metainterp/history.py`. When a
+value is made equal to another, its box is made to point to the other one.
 
-**NOTE: this OptValue organization is currently being refactored in a branch.**
 
 Pure optimization
 -----------------
 
-Is interwoven into the basic optimizer. It saves operations, results,
-arguments to be known to have pure semantics.
+The 'pure' optimizations interwoven into the basic optimizer. It saves
+operations, results, arguments to be known to have pure semantics.
 
 "Pure" here means the same as the ``jit.elidable`` decorator:
 free of "observable" side effects and referentially transparent

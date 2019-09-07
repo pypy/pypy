@@ -96,7 +96,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pytraceback import PyTraceback, check_traceback
-from rpython.rlib import rwin32
+from rpython.rlib import rwin32, jit
 
 
 def readwrite_attrproperty_w(name, cls):
@@ -322,17 +322,34 @@ class W_ImportError(W_Exception):
     """Import can't find module, or can't find name in module."""
     w_name = None
     w_path = None
+    w_msg = None
 
+    @jit.unroll_safe
     def descr_init(self, space, __args__):
         args_w, kw_w = __args__.unpack()
         self.w_name = kw_w.pop('name', space.w_None)
         self.w_path = kw_w.pop('path', space.w_None)
         if kw_w:
-            # CPython displays this, but it's not quite right.
-            raise oefmt(space.w_TypeError,
-                        "ImportError does not take keyword arguments")
+            for keyword in __args__.keywords:
+                if keyword in kw_w:
+                    raise oefmt(
+                        space.w_TypeError,
+                        "'%s' is an invalid keyword argument for this function",
+                        keyword)
+        if len(args_w) == 1:
+            self.w_msg = args_w[0]
+        else:
+            self.w_msg = space.w_None
         W_Exception.descr_init(self, space, args_w)
 
+    def descr_reduce(self, space):
+        w_dct = space.newdict()
+        space.setitem(w_dct, space.newtext('name'), self.w_name)
+        space.setitem(w_dct, space.newtext('path'), self.w_path)
+        return space.newtuple([space.w_ImportError,
+                    space.newtuple([self.w_msg]),
+                    w_dct,
+                ])
 
 W_ImportError.typedef = TypeDef(
     'ImportError',
@@ -343,6 +360,8 @@ W_ImportError.typedef = TypeDef(
     __init__ = interp2app(W_ImportError.descr_init),
     name = readwrite_attrproperty_w('w_name', W_ImportError),
     path = readwrite_attrproperty_w('w_path', W_ImportError),
+    msg = readwrite_attrproperty_w('w_msg', W_ImportError),
+    __reduce__ = interp2app(W_ImportError.descr_reduce),
 )
 
 
@@ -804,6 +823,10 @@ class W_SyntaxError(W_Exception):
 
     # CPython Issue #21669: Custom error for 'print' & 'exec' as statements
     def _report_missing_parentheses(self, space):
+        if not space.text_w(self.w_msg).startswith("Missing parentheses in call to "):
+            # the parser identifies the correct places where the error should
+            # be produced
+            return
         text = space.utf8_w(self.w_text)
         if b'(' in text:
             # Use default error message for any line with an opening paren
@@ -820,7 +843,7 @@ class W_SyntaxError(W_Exception):
 
     def _check_for_legacy_statements(self, space, text, start):
         # Ignore leading whitespace
-        while start < len(text) and text[start] == u' ':
+        while start < len(text) and text[start] == b' ':
             start += 1
         # Checking against an empty or whitespace-only part of the string
         if start == len(text):
@@ -829,13 +852,39 @@ class W_SyntaxError(W_Exception):
             text = text[start:]
         # Check for legacy print statements
         if text.startswith(b"print "):
-            self.w_msg = space.newtext("Missing parentheses in call to 'print'")
+            self._set_legacy_print_statement_msg(space, text)
             return True
         # Check for legacy exec statements
         if text.startswith(b"exec "):
             self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
             return True
         return False
+
+    def _set_legacy_print_statement_msg(self, space, text):
+        text = text[len("print"):]
+        text = text.strip()
+        if text.endswith(";"):
+            end = len(text) - 1
+            assert end >= 0
+            text = text[:end].strip()
+
+        maybe_end = ""
+        if text.endswith(","):
+            maybe_end = " end=\" \""
+
+        suggestion = "print(%s%s)" % (
+                text, maybe_end)
+
+        # try to see whether the suggestion would compile, otherwise discard it
+        compiler = space.createcompiler()
+        try:
+            compiler.compile(suggestion, '?', 'eval', 0)
+        except OperationError:
+            pass
+        else:
+            self.w_msg = space.newtext(
+                "Missing parentheses in call to 'print'. Did you mean %s?" % (
+                    suggestion, ))
 
 
 W_SyntaxError.typedef = TypeDef(

@@ -516,7 +516,7 @@ def make_formatter_subclass(do_unicode):
             if do_unicode:
                 self.unknown_fmtchar()
             space = self.space
-            # cpython explicitly checks for bytes & bytearray
+            # follow logic in cpython bytesobject.c format_obj
             if space.isinstance_w(w_value, space.w_bytes):
                 self.std_wp(space.bytes_w(w_value))
                 return
@@ -533,6 +533,11 @@ def make_formatter_subclass(do_unicode):
                     raise oefmt(space.w_TypeError,
                                 "__bytes__ returned non-bytes (type '%T')", w_bytes)
                 self.std_wp(space.bytes_w(w_bytes))
+                return
+            if space.isinstance_w(w_value, space.w_memoryview):
+                buf = w_value.buffer_w(space, 0)
+                # convert the array of the buffer to a py 2 string
+                self.std_wp(buf.as_str())
                 return
 
             raise oefmt(space.w_TypeError,

@@ -1,6 +1,6 @@
 '''Test (selected) IDLE Edit menu items.
 
-Edit modules have their own test files files
+Edit modules have their own test files
 '''
 from test.support import requires
 requires('gui')
@@ -17,7 +17,6 @@ class PasteTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.root = root = tk.Tk()
-        root.withdraw()
         cls.root.withdraw()
         pyshell.fix_x11_paste(root)
         cls.text = tk.Text(root)

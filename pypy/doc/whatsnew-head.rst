@@ -38,3 +38,35 @@ Reduces the number of problematic linked-in libraries (libssl, libcrypto)
 .. branch: fix-vmprof-memory-tracking
 
 Fix a bug that prevent memory-tracking in vmprof working on PyPy.
+
+.. branch: optimizeopt-cleanup
+
+Cleanup optimizeopt
+
+.. branch: copystrcontents-in-rewrite
+
+Remove ``copystrcontent`` and ``copyunicodecontent`` in the backends.
+Instead, replace it in ``rewrite.py`` with a direct call to ``memcpy()`` and
+new basic operation, ``load_effective_address``, which the backend can
+even decide not to implement.
+
+.. branch: arm64
+
+Add a JIT backend for ARM64 (aarch64)
+
+.. branch: fix-test-vmprof-closed-file
+
+
+.. branch: fix_darwin_list_dir_test
+
+.. branch: apptest-file
+
+New mechanism for app-level testing using -D to test all apptest_*.py files
+
+.. branch: feature_closed_prop_to_rfile
+
+Add RFile.closed
+
+.. branch: cryptograhpt-2.7
+
+Update vendored cryptography used for _ssl to 2.7

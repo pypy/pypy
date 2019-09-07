@@ -1675,6 +1675,15 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         self.translator = translator
         super(TransformerLayoutBuilder, self).__init__(GCClass, lltype2vtable)
 
+    def is_dummy_struct(self, obj):
+        # overrides the base method
+        TYPE = lltype.typeOf(obj)
+        try:
+            dummy = self.translator.rtyper.cache_dummy_values[TYPE]
+        except KeyError:
+            return False
+        return dummy._obj == obj
+
     def has_destructor(self, TYPE):
         rtti = get_rtti(TYPE)
         return rtti is not None and getattr(rtti._obj, 'destructor_funcptr',

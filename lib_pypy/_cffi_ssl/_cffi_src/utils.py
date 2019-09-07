@@ -4,11 +4,19 @@
 
 from __future__ import absolute_import, division, print_function
 
+import os
 import sys
 from distutils.ccompiler import new_compiler
 from distutils.dist import Distribution
 
 from cffi import FFI
+
+
+# Load the cryptography __about__ to get the current package version
+base_src = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+about = {}
+with open(os.path.join(base_src, "cryptography", "__about__.py")) as f:
+    exec(f.read(), about)
 
 
 def build_ffi_for_binding(module_name, module_prefix, modules, libraries=[],
@@ -18,8 +26,7 @@ def build_ffi_for_binding(module_name, module_prefix, modules, libraries=[],
 
     * ``INCLUDES``: A string containing C includes.
     * ``TYPES``: A string containing C declarations for types.
-    * ``FUNCTIONS``: A string containing C declarations for functions.
-    * ``MACROS``: A string containing C declarations for any macros.
+    * ``FUNCTIONS``: A string containing C declarations for functions & macros.
     * ``CUSTOMIZATIONS``: A string containing arbitrary top-level C code, this
         can be used to do things like test for a define and provide an
         alternate implementation based on that.
@@ -27,44 +34,23 @@ def build_ffi_for_binding(module_name, module_prefix, modules, libraries=[],
     types = []
     includes = []
     functions = []
-    macros = []
     customizations = []
     for name in modules:
         __import__(module_prefix + name)
         module = sys.modules[module_prefix + name]
 
         types.append(module.TYPES)
-        macros.append(module.MACROS)
         functions.append(module.FUNCTIONS)
         includes.append(module.INCLUDES)
         customizations.append(module.CUSTOMIZATIONS)
 
-    # We include functions here so that if we got any of their definitions
-    # wrong, the underlying C compiler will explode. In C you are allowed
-    # to re-declare a function if it has the same signature. That is:
-    #   int foo(int);
-    #   int foo(int);
-    # is legal, but the following will fail to compile:
-    #   int foo(int);
-    #   int foo(short);
-    #
-    # XXX <arigo> No, it is a bad idea.  OpenSSL itself tends to tweak
-    # the definitions, like adding a 'const' (see issue #2575).  Every
-    # time they do so, it makes a gratuitous break in this code.  It is
-    # better to rely on the C compiler for that, which is a little bit
-    # more flexible.  That's the point of set_source().  We can still
-    # re-enable the line ``#functions +`` below to get the original
-    # behavior.  (I would enable it during tests, but I don't find any
-    # custom test at all..??)
-    #
     verify_source = "\n".join(
         includes +
-        #functions +
         customizations
     )
     ffi = build_ffi(
         module_name,
-        cdef_source="\n".join(types + functions + macros),
+        cdef_source="\n".join(types + functions),
         verify_source=verify_source,
         libraries=libraries,
         extra_compile_args=extra_compile_args,
@@ -77,6 +63,11 @@ def build_ffi_for_binding(module_name, module_prefix, modules, libraries=[],
 def build_ffi(module_name, cdef_source, verify_source, libraries=[],
               extra_compile_args=[], extra_link_args=[]):
     ffi = FFI()
+    # Always add the CRYPTOGRAPHY_PACKAGE_VERSION to the shared object
+    cdef_source += "\nstatic const char *const CRYPTOGRAPHY_PACKAGE_VERSION;"
+    verify_source += '\n#define CRYPTOGRAPHY_PACKAGE_VERSION "{}"'.format(
+        about["__version__"]
+    )
     ffi.cdef(cdef_source)
     ffi.set_source(
         module_name,
@@ -100,7 +91,7 @@ def extra_link_args(compiler_type):
 def compiler_type():
     """
     Gets the compiler type from distutils. On Windows with MSVC it will be
-    "msvc". On OS X and linux it is "unix".
+    "msvc". On macOS and linux it is "unix".
     """
     dist = Distribution()
     dist.parse_config_files()

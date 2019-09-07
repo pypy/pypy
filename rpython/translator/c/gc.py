@@ -388,10 +388,14 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
         raise Exception("the FramewokGCTransformer should handle this")
 
     def OP_GC_GCFLAG_EXTRA(self, funcgen, op):
-        gcflag_extra = self.db.gctransformer.gcdata.gc.gcflag_extra
+        subopnum = op.args[0].value
+        if subopnum != 4:
+            gcflag_extra = self.db.gctransformer.gcdata.gc.gcflag_extra
+        else:
+            gcflag_extra = self.db.gctransformer.gcdata.gc.gcflag_dummy
+        #
         if gcflag_extra == 0:
             return BasicGcPolicy.OP_GC_GCFLAG_EXTRA(self, funcgen, op)
-        subopnum = op.args[0].value
         if subopnum == 1:
             return '%s = 1;  /* has_gcflag_extra */' % (
                 funcgen.expr(op.result),)
@@ -407,6 +411,8 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
             parts.insert(0, '%s ^= %dL;' % (hdrfield,
                                             gcflag_extra))
             parts.append('/* toggle_gcflag_extra */')
+        elif subopnum == 4:     # get_gcflag_dummy
+            parts.append('/* get_gcflag_dummy */')
         else:
             raise AssertionError(subopnum)
         return ' '.join(parts)

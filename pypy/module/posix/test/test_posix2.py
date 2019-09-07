@@ -10,7 +10,6 @@ from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
-from rpython.rlib.objectmodel import we_are_translated
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
 # py3k os.open uses subprocess, requiring the following per platform
@@ -319,7 +318,7 @@ class AppTestPosix:
         ex(self.posix.write, UNUSEDFD, b"x")
         ex(self.posix.close, UNUSEDFD)
         #UMPF cpython raises IOError ex(self.posix.ftruncate, UNUSEDFD, 123)
-        if sys.platform == 'win32' and not we_are_translated():
+        if sys.platform == 'win32' and self.runappdirect:
             # XXX kills the host interpreter untranslated
             ex(self.posix.fstat, UNUSEDFD)
             ex(self.posix.stat, "qweqwehello")
@@ -410,7 +409,7 @@ class AppTestPosix:
         path = self.path3
         with open(path, 'wb'):
             pass
-        os.unlink(self.Path())
+        os.unlink(path)
 
     def test_times(self):
         """
@@ -1082,7 +1081,7 @@ class AppTestPosix:
         os.closerange(start, stop)
         for fd in fds:
             os.close(fd)     # should not have been closed
-        if self.platform == 'win32' and not we_are_translated():
+        if self.platform == 'win32' and self.runappdirect:
             # XXX kills the host interpreter untranslated
             for fd in range(start, stop):
                 raises(OSError, os.fstat, fd)   # should have been closed
@@ -1480,7 +1479,7 @@ class AppTestPosix:
             assert f.read() == 'this is a rename test'
         os.unlink(fname)
 
-        
+
     def test_device_encoding(self):
         import sys
         encoding = self.posix.device_encoding(sys.stdout.fileno())

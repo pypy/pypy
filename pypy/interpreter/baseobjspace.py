@@ -296,23 +296,23 @@ class W_Root(object):
                     "expected %s, got %T object", expected, self)
 
     def int(self, space):
-        from pypy.objspace.std.intobject import _new_int
+        from pypy.objspace.std.intobject import W_AbstractIntObject
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
             self._typed_unwrap_error(space, "integer")
         w_result = space.get_and_call_function(w_impl, self)
 
         if space.is_w(space.type(w_result), space.w_int):
+            assert isinstance(w_result, W_AbstractIntObject)
             return w_result
         if space.isinstance_w(w_result, space.w_int):
+            assert isinstance(w_result, W_AbstractIntObject)
             tp = space.type(w_result).name
             space.warn(space.newtext(
                 "__int__ returned non-int (type %s).  "
                 "The ability to return an instance of a strict subclass of int "
                 "is deprecated, and may be removed in a future version of "
                 "Python." % (tp,)), space.w_DeprecationWarning)
-            # convert to int to be like python 3.6
-            w_result = _new_int(space, space.w_int, w_result)
             return w_result
         raise oefmt(space.w_TypeError,
                     "__int__ returned non-int (type '%T')", w_result)
@@ -459,15 +459,18 @@ class ObjSpace(object):
                 w_mod.init(self)
 
     def finish(self):
+        ret = 0
         self.wait_for_thread_shutdown()
         w_atexit = self.getbuiltinmodule('atexit')
         self.call_method(w_atexit, '_run_exitfuncs')
         self.sys.finalizing = True
-        self.sys.flush_std_files(self)
+        if self.sys.flush_std_files(self) < 0:
+            ret = -1
         from pypy.interpreter.module import Module
         for w_mod in self.builtin_modules.values():
             if isinstance(w_mod, Module) and w_mod.startup_called:
                 w_mod.shutdown(self)
+        return ret
 
     def wait_for_thread_shutdown(self):
         """Wait until threading._shutdown() completes, provided the threading
@@ -493,13 +496,14 @@ class ObjSpace(object):
             return self.__class__.__name__
 
     @not_rpython
-    def setbuiltinmodule(self, importname):
+    def setbuiltinmodule(self, pkgname):
         """load a lazy pypy/module and put it into sys.modules"""
-        if '.' in importname:
-            fullname = importname
-            importname = fullname.rsplit('.', 1)[1]
+        if '.' in pkgname:
+            fullname = "%s.moduledef" % (pkgname,)
+            importname = pkgname.rsplit('.', 1)[1]
         else:
-            fullname = "pypy.module.%s" % importname
+            fullname = "pypy.module.%s.moduledef" % pkgname
+            importname = pkgname
 
         Module = __import__(fullname,
                             None, None, ["Module"]).Module
@@ -578,22 +582,22 @@ class ObjSpace(object):
     def make_builtins(self):
         "only for initializing the space."
 
-        from pypy.module.exceptions import Module
+        from pypy.module.exceptions.moduledef import Module
         w_name = self.newtext('__exceptions__')
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 
-        from pypy.module.imp import Module
+        from pypy.module.imp.moduledef import Module
         w_name = self.newtext('_imp')
         mod = Module(self, w_name)
         mod.install()
 
-        from pypy.module.sys import Module
+        from pypy.module.sys.moduledef import Module
         w_name = self.newtext('sys')
         self.sys = Module(self, w_name)
         self.sys.install()
 
-        from pypy.module.__builtin__ import Module
+        from pypy.module.__builtin__.moduledef import Module
         w_name = self.newtext('builtins')
         self.builtin = Module(self, w_name)
         w_builtin = self.builtin
@@ -817,7 +821,7 @@ class ObjSpace(object):
             return self.w_None
         return w_obj
 
-    @signature(types.any(), types.bool(), returns=types.instance(W_Root))
+    @signature(types.any(), types.bool(), returns=types.any())
     def newbool(self, b):
         if b:
             return self.w_True
@@ -1653,8 +1657,7 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = self.bytes_w(w_obj)
         if '\x00' in result:
-            raise oefmt(self.w_ValueError,
-                        "argument must be a string without NUL characters")
+            raise oefmt(self.w_ValueError, "embedded null byte")
         return rstring.assert_str0(result)
 
     def text0_w(self, w_obj):
@@ -1662,8 +1665,7 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = self.text_w(w_obj)
         if '\x00' in result:
-            raise oefmt(self.w_ValueError,
-                        "argument must be a string without NUL characters")
+            raise oefmt(self.w_ValueError, "embedded null character")
         return rstring.assert_str0(result)
 
     def fsencode_or_none_w(self, w_obj):
@@ -1813,8 +1815,7 @@ class ObjSpace(object):
                 raise
             result = self.buffer_w(w_obj, self.BUF_FULL_RO).as_str()
         if '\x00' in result:
-            raise oefmt(self.w_ValueError,
-                        "argument must be a string without NUL characters")
+            raise oefmt(self.w_ValueError, "embedded null byte")
         return rstring.assert_str0(result)
 
     def fsdecode_w(self, w_obj):

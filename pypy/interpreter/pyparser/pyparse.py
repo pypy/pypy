@@ -69,14 +69,14 @@ class CompileInfo(object):
     * hidden_applevel: Will this code unit and sub units be hidden at the
       applevel?
     * optimize: optimization level:
-        -1 = same as interpreter,
          0 = no optmiziation,
          1 = remove asserts,
          2 = remove docstrings.
     """
 
     def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0),
-                 hidden_applevel=False, optimize=-1):
+                 hidden_applevel=False, optimize=0):
+        assert optimize >= 0
         rstring.check_str0(filename)
         self.filename = filename
         self.mode = mode
@@ -121,7 +121,7 @@ class PythonParser(parser.Parser):
             # If an encoding is explicitly given check that it is utf-8.
             decl_enc = _check_for_encoding(bytessrc)
             explicit_encoding = (decl_enc is not None)
-            if decl_enc and decl_enc != "utf-8":
+            if decl_enc and _normalize_encoding(decl_enc) != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with %s coding cookie" % decl_enc,
                                         filename=compile_info.filename)
             textsrc = bytessrc

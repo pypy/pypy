@@ -2,19 +2,24 @@
 # This is pure Python code that handles the main entry point into "pypy3".
 # See test/test_app_main.
 
-# Missing vs CPython: -b, -d, -x
+# Missing vs CPython: -x
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
+-b     : issue warnings about str(bytes_instance), str(bytearray_instance)
+         and comparing bytes/bytearray with str. (-bb: issue errors)
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
+-d     : debug output from parser; also PYTHONDEBUG=x\n\
 -E     : ignore PYTHON* environment variables (such as PYTHONPATH)
 -h     : print this help message and exit (also --help)
 -i     : inspect interactively after running script; forces a prompt even
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -I     : isolate Python from the user's environment (implies -E and -s)
 -m mod : run library module as a script (terminates option list)
--O     : skip assert statements; also PYTHONOPTIMIZE=x
--OO    : remove docstrings when importing modules in addition to -O
+-O     : remove assert and __debug__-dependent statements; add .opt-1 before
+         .pyc extension; also PYTHONOPTIMIZE=x
+-OO    : do -O changes and also discard docstrings; add .opt-2 before
+         .pyc extension
 -q     : don't print version and copyright messages on interactive startup
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
@@ -222,6 +227,8 @@ def _print_jit_help():
     print('    turn off the JIT')
     print(' help')
     print('    print this page')
+    print()
+    print('The "pypyjit" module can be used to control the JIT from inside python')
 
 def print_version(*args):
     initstdio()
@@ -349,8 +356,14 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
 
     raw = buf.raw if buffering else buf
     raw.name = name
-    # translate \r\n to \n for sys.stdin on Windows
-    newline = None if sys.platform == 'win32' and not writing else '\n'
+    # We normally use newline='\n' below, which turns off any translation.
+    # However, on Windows (independently of -u), then we must enable
+    # the Universal Newline mode (set by newline = None): on input, \r\n
+    # is translated into \n; on output, \n is translated into \r\n.
+    # We must never enable the Universal Newline mode on POSIX: CPython
+    # never interprets '\r\n' in stdin as meaning just '\n', unlike what
+    # it does if you explicitly open a file in text mode.
+    newline = None if sys.platform == 'win32' else '\n'
     stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
                               line_buffering=unbuffered or raw.isatty())
     stream.mode = mode
@@ -533,10 +546,6 @@ def parse_command_line(argv):
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
-
-        if sys.flags.optimize >= 1:
-            import __pypy__
-            __pypy__.set_debug(False)
 
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])

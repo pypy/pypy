@@ -11,7 +11,8 @@ def checkmodule(*modnames, **kwds):
     seeobj_w = []
     modules = []
     for modname in modnames:
-        mod = __import__('pypy.module.%s' % modname, None, None, ['__doc__'])
+        mod = __import__(
+            'pypy.module.%s.moduledef' % modname, None, None, ['__doc__'])
         # force computation and record what we wrap
         module = mod.Module(space, W_Root())
         module.setup_after_space_initialization()

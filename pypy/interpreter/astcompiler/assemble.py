@@ -498,7 +498,6 @@ class PythonCodeMaker(ast.ASTVisitor):
         current_line = self.first_lineno
         current_off = 0
         table = []
-        push = table.append
         for block in blocks:
             offset = block.offset
             for instr in block.instructions:
@@ -520,17 +519,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     # the C Python compiler because it only generates a
                     # SET_LINENO instruction for the assignment.
                     if line or addr:
-                        while addr > 255:
-                            push(chr(255))
-                            push(chr(0))
-                            addr -= 255
-                        while line > 255:
-                            push(chr(addr))
-                            push(chr(255))
-                            line -= 255
-                            addr = 0
-                        push(chr(addr))
-                        push(chr(line))
+                        _encode_lnotab_pair(addr, line, table)
                         current_line = instr.lineno
                         current_off = offset
                 offset += instr.size()
@@ -589,6 +578,32 @@ def _list_from_dict(d, offset=0):
         result[index - offset] = obj
     return result
 
+
+def _encode_lnotab_pair(addr, line, table):
+    while addr > 255:
+        table.append(chr(255))
+        table.append(chr(0))
+        addr -= 255
+    # this implements CPython's logic to be complete. However, the calling code
+    # ensures that line is never negative at all. We could fix this, if we
+    # wanted.
+    while line < -128:
+        table.append(chr(addr))
+        table.append(chr(-128 + 256))
+        line += 128
+        addr = 0
+    while line > 127:
+        table.append(chr(addr))
+        table.append(chr(127))
+        line -= 127
+        addr = 0
+    table.append(chr(addr))
+
+    # store as signed char
+    assert -128 <= line <= 127
+    if line < 0:
+        line += 256
+    table.append(chr(line))
 
 _static_opcode_stack_effects = {
     ops.NOP: 0,
@@ -708,7 +723,6 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP: 0,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
-    ops.JUMP_IF_NOT_DEBUG: 0,
 
     ops.SETUP_ANNOTATIONS: 0,
     ops.STORE_ANNOTATION: -1,

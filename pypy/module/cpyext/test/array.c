@@ -3017,6 +3017,11 @@ subclass_with_attribute(PyObject *self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *
+passthrough(PyObject *self, PyObject* args) {
+    Py_INCREF(args);
+    return args;
+} 
 /*********************** Install Module **************************/
 
 static PyMethodDef a_methods[] = {
@@ -3030,6 +3035,7 @@ static PyMethodDef a_methods[] = {
     {"same_dealloc",   (PyCFunction)same_dealloc, METH_VARARGS, NULL},
     {"getitem", (PyCFunction)getitem, METH_VARARGS, NULL},
     {"subclass_with_attribute", (PyCFunction)subclass_with_attribute, METH_VARARGS, NULL},
+    {"passthrough", (PyCFunction)passthrough, METH_O, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

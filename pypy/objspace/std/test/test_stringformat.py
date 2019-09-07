@@ -455,6 +455,7 @@ class AppTestBytes:
         assert b"<%s>" % Foo() == b"<123>"
         raises(TypeError, 'b"<%s>" % 42')
         raises(TypeError, 'b"<%s>" % "?"')
+        assert b"<%s>" % memoryview(b"X") == b"<X>"
 
 
 class AppTestBytearray:
@@ -510,3 +511,4 @@ class AppTestBytearray:
         assert bytearray(b"<%s>") % Foo() == bytearray(b"<123>")
         raises(TypeError, 'bytearray(b"<%s>") % 42')
         raises(TypeError, 'bytearray(b"<%s>") % "?"')
+        assert bytearray(b"<%s>") % memoryview(b"X") == bytearray(b"<X>")

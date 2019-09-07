@@ -34,6 +34,10 @@ class GcRewriterAssembler(object):
      - Add COND_CALLs to the write barrier before SETFIELD_GC and
        SETARRAYITEM_GC operations.
 
+     - Rewrites copystrcontent to a call to memcopy
+
+     - XXX does more than that, please write it down
+
     '_write_barrier_applied' contains a dictionary of variable -> None.
     If a variable is in the dictionary, next setfields can be called without
     a write barrier.  The idea is that an object that was freshly allocated
@@ -335,6 +339,10 @@ class GcRewriterAssembler(object):
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
                 self.emit_label()
+            # ---- change COPY{STR|UNICODE}CONTENT into a call ------
+            if op.opnum == rop.COPYSTRCONTENT or op.opnum == rop.COPYUNICODECONTENT:
+                self.rewrite_copy_str_content(op)
+                continue
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
@@ -952,6 +960,61 @@ class GcRewriterAssembler(object):
         self.gcrefs_map[gcref] = index
         self.gcrefs_output_list.append(gcref)
         return index
+
+    def rewrite_copy_str_content(self, op):
+        funcaddr = llmemory.cast_ptr_to_adr(self.gc_ll_descr.memcpy_fn)
+        memcpy_fn = self.cpu.cast_adr_to_int(funcaddr)
+        memcpy_descr = self.gc_ll_descr.memcpy_descr
+        if op.getopnum() == rop.COPYSTRCONTENT:
+            basesize = self.gc_ll_descr.str_descr.basesize
+            # because we have one extra item after alloc, the actual address
+            # of string start is 1 lower, from extra_item_after_malloc
+            basesize -= 1
+            assert self.gc_ll_descr.str_descr.itemsize == 1
+            itemscale = 0
+        else:
+            basesize = self.gc_ll_descr.unicode_descr.basesize
+            itemsize = self.gc_ll_descr.unicode_descr.itemsize
+            if itemsize == 2:
+                itemscale = 1
+            elif itemsize == 4:
+                itemscale = 2
+            else:
+                assert False, "unknown size of unicode"
+        i1 = self.emit_load_effective_address(op.getarg(0), op.getarg(2),
+                                              basesize, itemscale)
+        i2 = self.emit_load_effective_address(op.getarg(1), op.getarg(3),
+                                              basesize, itemscale)
+        if op.getopnum() == rop.COPYSTRCONTENT:
+            arg = op.getarg(4)
+        else:
+            # do some basic constant folding
+            if isinstance(op.getarg(4), ConstInt):
+                arg = ConstInt(op.getarg(4).getint() << itemscale)
+            else:
+                arg = ResOperation(rop.INT_LSHIFT,
+                                   [op.getarg(4), ConstInt(itemscale)])
+                self.emit_op(arg)
+        self.emit_op(ResOperation(rop.CALL_N,
+            [ConstInt(memcpy_fn), i2, i1, arg], descr=memcpy_descr))
+
+    def emit_load_effective_address(self, v_gcptr, v_index, base, itemscale):
+        if self.cpu.supports_load_effective_address:
+            i1 = ResOperation(rop.LOAD_EFFECTIVE_ADDRESS,
+                              [v_gcptr, v_index, ConstInt(base),
+                               ConstInt(itemscale)])
+            self.emit_op(i1)
+            return i1
+        else:
+            if itemscale > 0:
+                v_index = ResOperation(rop.INT_LSHIFT,
+                                       [v_index, ConstInt(itemscale)])
+                self.emit_op(v_index)
+            i1b = ResOperation(rop.INT_ADD, [v_gcptr, v_index])
+            self.emit_op(i1b)
+            i1 = ResOperation(rop.INT_ADD, [i1b, ConstInt(base)])
+            self.emit_op(i1)
+            return i1
 
     def remove_constptr(self, c):
         """Remove all ConstPtrs, and replace them with load_from_gc_table.

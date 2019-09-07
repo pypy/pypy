@@ -211,8 +211,6 @@ class __extend__(pyframe.PyFrame):
                 next_instr = self.JUMP_FORWARD(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_IF_FALSE_OR_POP.index:
                 next_instr = self.JUMP_IF_FALSE_OR_POP(oparg, next_instr)
-            elif opcode == opcodedesc.JUMP_IF_NOT_DEBUG.index:
-                next_instr = self.JUMP_IF_NOT_DEBUG(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_IF_TRUE_OR_POP.index:
                 next_instr = self.JUMP_IF_TRUE_OR_POP(oparg, next_instr)
             elif opcode == opcodedesc.POP_JUMP_IF_FALSE.index:
@@ -1178,11 +1176,6 @@ class __extend__(pyframe.PyFrame):
         if self.space.is_true(w_value):
             return target
         self.popvalue()
-        return next_instr
-
-    def JUMP_IF_NOT_DEBUG(self, jumpby, next_instr):
-        if not self.space.sys.debug:
-            next_instr += jumpby
         return next_instr
 
     def GET_ITER(self, oparg, next_instr):

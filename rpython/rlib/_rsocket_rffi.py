@@ -1011,7 +1011,7 @@ if _WIN32:
     CConfig.WSAPROTOCOL_INFO = platform.Struct(
         'WSAPROTOCOL_INFOA',
         [])  # Struct is just passed between functions
-	   
+
     CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
         'FROM_PROTOCOL_INFO')
 
@@ -1036,23 +1036,23 @@ if _WIN32:
         [('onoff', rffi.ULONG),
          ('keepalivetime', rffi.ULONG),
          ('keepaliveinterval', rffi.ULONG)])
-	
+
     CConfig.GUID = platform.Struct(
-		     'struct _GUID',
-			 [('Data1', rffi.UINT),
+             'struct _GUID',
+             [('Data1', rffi.UINT),
              ('Data2', rffi.UINT),
              ('Data3', rffi.UINT),
              ('Data4', rffi.CFixedArray(rffi.UCHAR, 8))
          ])
-		 
+
     CConfig.WSAPROTOCOLCHAIN = platform.Struct(
         'struct _WSAPROTOCOLCHAIN',
         [('ChainLen', rffi.INT),
          ('ChainEntries', rffi.CFixedArray(rffi.UINT, 7))])
-	
+
     WSAPROTOCOLCHAIN = CConfig.WSAPROTOCOLCHAIN
-    GUID = CConfig.GUID 
-	
+    GUID = CConfig.GUID
+
     CConfig.WSAPROTOCOL_INFOW = platform.Struct(
         'struct _WSAPROTOCOL_INFOW',
         [('dwServiceFlags1', rffi.UINT),
@@ -1391,7 +1391,7 @@ elif WIN32:
                           lltype.Ptr(WSAPROTOCOL_INFOW),
                           rwin32.DWORD, rwin32.DWORD],
                          socketfd_type, save_err=SAVE_ERR)
-								  
+
     tcp_keepalive = cConfig.tcp_keepalive
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
@@ -1426,10 +1426,10 @@ if WIN32:
         return rwin32.FormatError(errno)
 
     def socket_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)[0]
+        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
 
     def gai_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)[0]
+        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
 
     def socket_strerror_utf8(errno):
         return rwin32.FormatErrorW(errno)

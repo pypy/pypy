@@ -411,7 +411,10 @@ class TestFile(BaseRtypingTest):
         def f():
             with open(fname, "w") as f:
                 f.write("dupa")
+                assert not f.closed
+
             try:
+                assert f.closed
                 f.write("dupb")
             except ValueError:
                 pass

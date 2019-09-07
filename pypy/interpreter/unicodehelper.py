@@ -6,7 +6,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rutf8
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper.lltypesystem import rffi
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 
 @specialize.memo()
 def decode_error_handler(space):
@@ -1213,36 +1213,7 @@ def utf8_encode_utf_16_helper(s, errors,
     pos = 0
     index = 0
     while pos < size:
-        try:
-            cp = rutf8.codepoint_at_pos(s, pos)
-        except IndexError:
-            # malformed codepoint, blindly use ch
-            pos += 1
-            if errorhandler:
-                r, newindex, rettype = errorhandler(
-                    errors, public_encoding_name, 'malformed unicode',
-                    s, pos - 1, pos)
-                if rettype == 'u':
-                    for cp in rutf8.Utf8StringIterator(r):
-                        if cp < 0xD800:
-                            _STORECHAR(result, cp, byteorder)
-                        else:
-                            errorhandler('strict', public_encoding_name,
-                                         'malformed unicode',
-                                     s, pos-1, pos)
-                else:
-                    for ch in r:
-                        cp = ord(ch)
-                        if cp < 0xD800:
-                            _STORECHAR(result, cp, byteorder)
-                        else:
-                            errorhandler('strict', public_encoding_name,
-                                         'malformed unicode',
-                                     s, pos-1, pos)
-            else:
-                cp = ord(s[pos])
-                _STORECHAR(result, cp, byteorder)
-            continue
+        cp = rutf8.codepoint_at_pos(s, pos)
         if cp < 0xD800:
             _STORECHAR(result, cp, byteorder)
         elif cp >= 0x10000:
@@ -1253,7 +1224,7 @@ def utf8_encode_utf_16_helper(s, errors,
         else:
             r, newindex, rettype = errorhandler(
                 errors, public_encoding_name, 'surrogates not allowed',
-                s, pos, pos+1)
+                s, index, index+1)
             if rettype == 'u':
                 for cp in rutf8.Utf8StringIterator(r):
                     if cp < 0xD800 or allow_surrogates:
@@ -1261,7 +1232,7 @@ def utf8_encode_utf_16_helper(s, errors,
                     else:
                         errorhandler('strict', public_encoding_name,
                                      'surrogates not allowed',
-                                     s, pos, pos+1)
+                                     s, index, index+1)
             else:
                 for ch in r:
                     cp = ord(ch)
@@ -1270,12 +1241,11 @@ def utf8_encode_utf_16_helper(s, errors,
                     else:
                         errorhandler('strict', public_encoding_name,
                                      'surrogates not allowed',
-                                 s, pos, pos+1)
+                                 s, index, index+1)
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
             continue
-
         pos = rutf8.next_codepoint_pos(s, pos)
         index += 1
 
@@ -1451,40 +1421,7 @@ def utf8_encode_utf_32_helper(s, errors,
     pos = 0
     index = 0
     while pos < size:
-        try:
-            ch = rutf8.codepoint_at_pos(s, pos)
-            pos = rutf8.next_codepoint_pos(s, pos)
-        except IndexError:
-            # malformed codepoint, blindly use ch
-            ch = ord(s[pos])
-            pos += 1
-            if errorhandler:
-                r, newindex, rettype = errorhandler(
-                    errors, public_encoding_name, 'malformed unicode',
-                    s, index, index+1)
-                if rettype == 'u' and r:
-                    for cp in rutf8.Utf8StringIterator(r):
-                        if cp < 0xD800:
-                            _STORECHAR32(result, cp, byteorder)
-                        else:
-                            errorhandler('strict', public_encoding_name,
-                                     'malformed unicode',
-                                 s, index, index+1)
-                elif r:
-                    for ch in r:
-                        cp = ord(ch)
-                        if cp < 0xD800:
-                            _STORECHAR32(result, cp, byteorder)
-                        else:
-                            errorhandler('strict', public_encoding_name,
-                                     'malformed unicode',
-                                 s, index, index+1)
-                else:
-                    _STORECHAR32(result, ch, byteorder)
-            else:
-                _STORECHAR32(result, ch, byteorder)
-            index += 1
-            continue
+        ch = rutf8.codepoint_at_pos(s, pos)
         if not allow_surrogates and 0xD800 <= ch < 0xE000:
             r, newindex, rettype = errorhandler(
                 errors, public_encoding_name, 'surrogates not allowed',
@@ -1510,111 +1447,26 @@ def utf8_encode_utf_32_helper(s, errors,
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
             continue
-        _STORECHAR32(result, ch, byteorder)
-        index += 1
-
-    return result.build()
-
-def unicode_encode_utf_32_helper(s, errors,
-                                 errorhandler=None,
-                                 allow_surrogates=True,
-                                 byteorder='little',
-                                 public_encoding_name='utf32'):
-    # s is uunicode
-    size = len(s)
-    if size == 0:
-        if byteorder == 'native':
-            result = StringBuilder(4)
-            _STORECHAR32(result, 0xFEFF, BYTEORDER)
-            return result.build()
-        return ""
-
-    result = StringBuilder(size * 4 + 4)
-    if byteorder == 'native':
-        _STORECHAR32(result, 0xFEFF, BYTEORDER)
-        byteorder = BYTEORDER
-
-    pos = 0
-    index = 0
-    while pos < size:
-        try:
-            ch = rutf8.codepoint_at_pos(s, pos)
-            pos = rutf8.next_codepoint_pos(s, pos)
-        except IndexError:
-            # malformed codepoint, blindly use ch
-            ch = ord(s[pos])
-            pos += 1
-            if errorhandler:
-                r, newindex, rettype = errorhandler(
-                    errors, public_encoding_name, 'malformed unicode',
-                    s, pos - 1, pos)
-                if rettype == 'u' and r:
-                    for cp in rutf8.Utf8StringIterator(r):
-                        if cp < 0xD800:
-                            _STORECHAR32(result, cp, byteorder)
-                        else:
-                            errorhandler('strict', public_encoding_name,
-                                     'malformed unicode',
-                                 s, pos-1, pos)
-                elif r:
-                    for ch in r:
-                        cp = ord(ch)
-                        if cp < 0xD800:
-                            _STORECHAR32(result, cp, byteorder)
-                        else:
-                            errorhandler('strict', public_encoding_name,
-                                     'malformed unicode',
-                                 s, pos-1, pos)
-                else:
-                    _STORECHAR32(result, ch, byteorder)
-            else:
-                _STORECHAR32(result, ch, byteorder)
-            index += 1
-            continue
-        if not allow_surrogates and 0xD800 <= ch < 0xE000:
-            r, newindex, rettype = errorhandler(
-                errors, public_encoding_name, 'surrogates not allowed',
-                s, pos - 1, pos)
-            if rettype == 'u':
-                for ch in rutf8.Utf8StringIterator(res_8):
-                    if ch < 0xD800:
-                        _STORECHAR32(result, ch, byteorder)
-                    else:
-                        errorhandler(
-                            'strict', public_encoding_name, 'surrogates not allowed',
-                            s, pos - 1, pos)
-            else:
-                for ch in res_8:
-                    cp = ord(ch)
-                    if cp < 0xD800:
-                        _STORECHAR32(result, cp, byteorder)
-                    else:
-                        errorhandler(
-                            'strict', public_encoding_name, 'surrogates not allowed',
-                            s, pos - 1, pos)
-            if index != newindex:  # Should be uncommon
-                index = newindex
-                pos = rutf8._pos_at_index(s, newindex)
-            continue
+        pos = rutf8.next_codepoint_pos(s, pos)
         _STORECHAR32(result, ch, byteorder)
         index += 1
 
     return result.build()
 
 def utf8_encode_utf_32(s, errors,
-                          errorhandler=None, allow_surrogates=True):
+                       errorhandler=None, allow_surrogates=True):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "native",
                                         'utf-32-' + BYTEORDER2)
 
 def utf8_encode_utf_32_be(s, errors,
-                                  errorhandler=None, allow_surrogates=True):
+                          errorhandler=None, allow_surrogates=True):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "big",
                                         'utf-32-be')
 
 def utf8_encode_utf_32_le(s, errors,
-                                  errorhandler=None, allow_surrogates=True):
+                          errorhandler=None, allow_surrogates=True):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "little",
                                         'utf-32-le')

@@ -929,7 +929,7 @@ def _round_float(space, w_float, w_ndigits=None):
     # Algorithm copied directly from CPython
     x = w_float.floatval
 
-    if w_ndigits is None:
+    if space.is_none(w_ndigits):
         # single-argument round: round to nearest integer
         rounded = rfloat.round_away(x)
         if math.fabs(x - rounded) == 0.5:

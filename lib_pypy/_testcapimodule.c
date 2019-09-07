@@ -1570,7 +1570,7 @@ parse_tuple_and_keywords(PyObject *self, PyObject *args)
 {
     PyObject *sub_args;
     PyObject *sub_kwargs;
-    char *sub_format;
+    const char *sub_format;
     PyObject *sub_keywords;
 
     Py_ssize_t i, size;
@@ -1583,7 +1583,7 @@ parse_tuple_and_keywords(PyObject *self, PyObject *args)
 
     double buffers[8][4]; /* double ensures alignment where necessary */
 
-    if (!PyArg_ParseTuple(args, "OOyO:parse_tuple_and_keywords",
+    if (!PyArg_ParseTuple(args, "OOsO:parse_tuple_and_keywords",
         &sub_args, &sub_kwargs,
         &sub_format, &sub_keywords))
         return NULL;
@@ -3439,7 +3439,6 @@ test_pyobject_setallocators(PyObject *self)
     return test_setallocators(PYMEM_DOMAIN_OBJ);
 }
 
-
 /* Most part of the following code is inherited from the pyfailmalloc project
  * written by Victor Stinner. */
 static struct {
@@ -4023,7 +4022,6 @@ test_PyTime_AsMicroseconds(PyObject *self, PyObject *args)
     return _PyTime_AsNanosecondsObject(ms);
 }
 
-
 static PyObject*
 get_recursion_depth(PyObject *self, PyObject *args)
 {
@@ -4032,8 +4030,6 @@ get_recursion_depth(PyObject *self, PyObject *args)
     /* subtract one to ignore the frame of the get_recursion_depth() call */
     return PyLong_FromLong(tstate->recursion_depth - 1);
 }
-
-
 
 static PyObject*
 pymem_buffer_overflow(PyObject *self, PyObject *args)

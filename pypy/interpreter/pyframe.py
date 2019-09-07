@@ -69,7 +69,7 @@ class PyFrame(W_Root):
     f_generator_nowref       = None               # (only one of the two attrs)
     last_instr               = -1
     f_backref                = jit.vref_None
-    
+
     escaped                  = False  # see mark_as_escaped()
     debugdata                = None
 
@@ -79,7 +79,7 @@ class PyFrame(W_Root):
     lastblock = None
 
     # other fields:
-    
+
     # builtin - builtin cache, only if honor__builtins__ is True
     # defaults to False
 
@@ -665,7 +665,10 @@ class PyFrame(W_Root):
             lnotab = self.pycode.co_lnotab
             for offset in xrange(0, len(lnotab), 2):
                 addr += ord(lnotab[offset])
-                line += ord(lnotab[offset + 1])
+                line_offset = ord(lnotab[offset + 1])
+                if line_offset >= 0x80:
+                    line_offset -= 0x100
+                line += line_offset
                 if line >= new_lineno:
                     new_lasti = addr
                     new_lineno = line
