@@ -53,7 +53,9 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
         stnode = fstr.stnode
         lineno = stnode.get_lineno() - 1 # one-based
         # CPython has an equivalent hack :-(
-        column_offset = stnode.value.find(source) + stnode.get_column()
+        value = stnode.get_value()
+        if value is not None:
+            column_offset = value.find(source) + stnode.get_column()
 
     info = pyparse.CompileInfo("<fstring>", "eval",
                                consts.PyCF_SOURCE_IS_UTF8 |
