@@ -44,6 +44,17 @@ class AppTestPyFrame:
                         self.done = True
                 return self.trace
 
+        def jump_test(jumpFrom, jumpTo, expected, error=None, event='line'):
+            """Decorator that creates a test that makes a jump
+            from one place to another in the following code.
+            """
+            def decorator(func):
+                func.jump = (jumpFrom, jumpTo)
+                func.output = expected
+                func.error = error
+                return func
+            return decorator
+
         def run_test(func):
             tracer = JumpTracer(func)
             sys.settrace(tracer.trace)
@@ -96,6 +107,19 @@ class AppTestPyFrame:
         jump_in_nested_finally_2.output = [2, 7]
         jump_in_nested_finally_2.error = ZeroDivisionError
         run_test(jump_in_nested_finally_2)
+
+        @jump_test(3, 6, [1, 6, 8, 9])
+        def jump_over_return_in_try_finally_block(output):
+            output.append(1)
+            try:
+                output.append(3)
+                if not output: # always false
+                    return
+                output.append(6)
+            finally:
+                output.append(8)
+            output.append(9)
+        run_test(jump_over_return_in_try_finally_block)
 
     def test_f_back_hidden(self):
         if not hasattr(self, 'call_further'):
