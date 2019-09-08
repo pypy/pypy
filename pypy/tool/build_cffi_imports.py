@@ -22,9 +22,8 @@ cffi_build_scripts = {
 # for distribution, we may want to fetch dependencies not provided by
 # the OS, such as a recent openssl/libressl.
 cffi_dependencies = {
-    '_ssl': ('http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-2.6.2.tar.gz',
-            'b029d2492b72a9ba5b5fcd9f3d602c9fd0baa087912f2aaecc28f52f567ec478',
-            ['--without-openssldir']),
+    '_ssl': ('https://www.openssl.org/source/openssl-1.1.1c.tar.gz',
+            'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90'),
     '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
               '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
               ['--without-readline']),
@@ -176,18 +175,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             shutil.rmtree(destdir, ignore_errors=True)
             os.makedirs(destdir)
 
-            if key == '_ssl' and sys.platform == 'darwin':
-                # this patch is loosely inspired by an Apple and adds
-                # a fallback to the OS X roots when none are available
-                patches = [
-                    os.path.join(curdir,
-                                 '../../lib_pypy/_cffi_ssl/osx-roots.diff'),
-                ]
-            else:
-                patches = []
-
-            status, stdout, stderr = _build_dependency(key, destdir,
-                                                       patches=patches)
+            status, stdout, stderr = _build_dependency(key, destdir)
 
             if status != 0:
                 failures.append((key, module))
@@ -201,10 +189,6 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 '-I{}/usr/include {}'.format(destdir, env.get('CPPFLAGS', ''))
             env['LDFLAGS'] = \
                 '-L{}/usr/lib {}'.format(destdir, env.get('LDFLAGS', ''))
-
-            if key == '_ssl' and sys.platform == 'darwin':
-                # needed for our roots patch
-                env['LDFLAGS'] += ' -framework CoreFoundation -framework Security'
         elif sys.platform == 'win32':
             env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
             env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
