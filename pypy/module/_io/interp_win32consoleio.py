@@ -90,6 +90,7 @@ def read_console_w(space, handle, maxlen, readlen):
             buf = lltype.malloc(rwin32.CWCHARP, 1, flavor='raw')
             buf[0] = '\0'
             readlen = 0
+        return buf
     finally:
         lltype.free(buf, flavor='raw')
 
@@ -120,7 +121,6 @@ def _pyio_get_console_type(space, w_path_or_fd):
             return '\0'
         return _get_console_type(handle)
 
-    return None
     decoded = space.fsdecode_w(w_path_or_fd)
     if not decoded:
         return '\0'
@@ -190,9 +190,16 @@ class W_WinConsoleIO(W_RawIOBase):
         # pass
         
     def _copyfrombuf(self, buf, len):
-        # TODO implement me.
-        pass
-    
+        n = 0
+        while self.buf[0] and len:
+            buf[n] = self.buf[0]
+            for i in range(1, SMALLBUF):
+                self.buf[i-1] = self.buf[i]
+            self.buf[SMALLBUF-1] = 0
+            len -= 1
+            n += 1
+        return n
+
     @unwrap_spec(w_mode=WrappedDefault("r"), w_closefd=WrappedDefault(True), w_opener=WrappedDefault(None))
     def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
         return None
@@ -415,7 +422,58 @@ class W_WinConsoleIO(W_RawIOBase):
             
             return space.newint(read_len)
             
-       
+    def read_w(self, space):
+        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            err_closed()
+        if !self.readable:
+            return err_mode("reading")
+
+        if size < 0:
+            return self.readall_w(space)
+
+        if size > BUFMAX:
+             raise oefmt(space.w_ValueError,
+                        "Cannot read more than %d bytes",
+                        BUFMAX)
+
+        w_buffer = space.call_function(space.w_bytearray, w_size)
+        w_bytes_size = self.readinto_w(space, w_buffer)
+        if w_bytes_size < 0:
+            return None
+        space.delslice(w_buffer, w_bytes_size, space.len(w_buffer))
+        
+        return space.w_bytes(w_buffer)
+
+    def readall_w(self, space):
+        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            err_closed()
+
+        bufsize = BUFSIZE
+        buf = lltype.malloc(rwin32.CWCHARP, bufsize + 1, flavor='raw')
+        len = 0
+        n = lltype.malloc(rwin32.CWCHARP, 1, flavor='raw')
+        n[0] = 0
+
+        try:
+            while True:
+                if len >= bufsize:
+                    if len > BUFMAX:
+                        break
+                    newsize = len
+                    if newsize < bufsize:
+                        raise oefmt(space.w_OverflowError,
+                                    "unbounded read returned more bytes "
+                                    "than a Python bytes object can hold")
+                    bufsize = newsize
+                    lltype.free(buf, flavor='raw')
+                    buf = lltype.malloc(rwin32.CWCHARP, bufsize + 1, flavor='raw')
+                    subbuf = read_console_w(self.handle, bufsize - len, n)
+                
+        finally:
+            lltype.free(buf, flavor='raw')            
+
+        pass
+
     def get_blksize(self,space):
         return space.newint(self.blksize)
         
@@ -427,7 +485,9 @@ W_WinConsoleIO.typedef = TypeDef(
     
     readable = interp2app(W_WinConsoleIO.readable_w),
     writable = interp2app(W_WinConsoleIO.writable_w),
-    isatty = interp2app(W_WinConsoleIO.isatty_w),
+    isatty   = interp2app(W_WinConsoleIO.isatty_w),
+    read     = interp2app(W_WinConsoleIO.read_w),
+    readall  = interp2app(W_WinConsoleIO.readall_w),
     readinto = interp2app(W_WinConsoleIO.readinto_w),
     
     _blksize = GetSetProperty(W_WinConsoleIO.get_blksize),
