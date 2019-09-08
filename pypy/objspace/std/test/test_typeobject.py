@@ -1412,7 +1412,7 @@ class AppTestTypeObject:
             def __getitem__(self, index):
                 return index + 1
             def __class_getitem__(cls, item):
-                return "{}[{}]".format(cls.__name__, item.__name__)
+                return super().__class_getitem__(item)
 
         assert WithoutMetaclass()[0] == 1
         assert WithoutMetaclass[int] == "WithoutMetaclass[int]"
@@ -1427,7 +1427,7 @@ class AppTestTypeObject:
             def __getitem__(self, index):
                 return index + 1
             def __class_getitem__(cls, item):
-                return "{}[{}]".format(cls.__name__, item.__name__)
+                return super().__class_getitem__(item)
 
         assert WithMetaclass()[0] == 1
         assert WithMetaclass[int] == "Metaclass[int]"

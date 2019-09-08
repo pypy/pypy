@@ -1380,7 +1380,7 @@ def ensure_common_attributes(w_self):
     w_self.mro_w = []      # temporarily
     w_self.hasmro = False
     compute_mro(w_self)
-    ensure_classmethod_init_subclass(w_self)
+    ensure_classmethods(w_self, ['__init_subclass__', '__class_getitem__'])
 
 def ensure_static_new(w_self):
     # special-case __new__, as in CPython:
@@ -1390,11 +1390,12 @@ def ensure_static_new(w_self):
         if isinstance(w_new, Function):
             w_self.dict_w['__new__'] = StaticMethod(w_new)
 
-def ensure_classmethod_init_subclass(w_self):
-    if '__init_subclass__' in w_self.dict_w:
-        w_init_subclass = w_self.dict_w['__init_subclass__']
-        if isinstance(w_init_subclass, Function):
-            w_self.dict_w['__init_subclass__'] = ClassMethod(w_init_subclass)
+def ensure_classmethods(w_self, method_names):
+    for method_name in method_names:
+        if method_name in w_self.dict_w:
+            w_method = w_self.dict_w[method_name]
+            if isinstance(w_method, Function):
+                w_self.dict_w[method_name] = ClassMethod(w_method)
 
 def ensure_module_attr(w_self):
     # initialize __module__ in the dict (user-defined types only)
