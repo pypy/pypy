@@ -134,7 +134,7 @@ def _build_dependency(name, destdir, patches=[]):
 
 
 def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
-                                 embed_dependencies=False):
+                                 embed_dependencies=False, rebuild=False):
     from rpython.tool.runsubprocess import run_subprocess
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
@@ -153,12 +153,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             continue
         if module is None or getattr(options, 'no_' + key, False):
             continue
-        # the key is the module name, has it already been built?
-        status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import %s' % key])
-        if status  == 0:
-            print('*', ' %s already built' % key, file=sys.stderr)
-            continue
-        
+        if not rebuild:
+            # the key is the module name, has it already been built?
+            status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import %s' % key])
+            if status  == 0:
+                print('*', ' %s already built' % key, file=sys.stderr)
+                continue
+
         if module.endswith('.py'):
             args = [module]
             cwd = str(join(basedir,'lib_pypy'))
@@ -237,6 +238,8 @@ if __name__ == '__main__':
     parser.add_argument('--exefile', dest='exefile', default=sys.executable,
                         help='instead of executing sys.executable' \
                              ' you can specify an alternative pypy vm here')
+    parser.add_argument('--rebuild', dest='rebuild', action='store_true',
+        help='Rebuild the module even if it already appears to have been built.')
     parser.add_argument('--only', dest='only', default=None,
                         help='Only build the modules delimited by a colon. E.g. _ssl,sqlite')
     parser.add_argument('--embed-dependencies', dest='embed_dependencies', action='store_true',
@@ -258,7 +261,8 @@ if __name__ == '__main__':
     else:
         only = set(args.only.split(','))
     failures = create_cffi_import_libraries(exename, options, basedir, only=only,
-                                            embed_dependencies=args.embed_dependencies)
+                                            embed_dependencies=args.embed_dependencies,
+                                            rebuild=args.rebuild)
     if len(failures) > 0:
         print('*** failed to build the CFFI modules %r' % (
             [f[1] for f in failures],), file=sys.stderr)
