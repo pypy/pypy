@@ -5,7 +5,7 @@ import os
 # located at /usr/include/ncurses, so we must check this case.
 # Let's iterate over well known paths
 incdirs =  []
-for _path in ['/usr/include/ncurses']:
+for _path in ['/usr/include', '/usr/include/ncurses']:
     if os.path.isfile(os.path.join(_path, 'panel.h')):
         incdirs.append(_path)
         break

@@ -36,7 +36,7 @@ else:
         for _ver in ['8.6', '8.5', '']:
             incdirs = []
             linklibs = ['tcl' + _ver, 'tk' + _ver]
-            for lib in ['/usr/lib/lib', '/usr/lib64/lib' ]: 
+            for lib in ['/usr/lib/lib', '/usr/lib64/lib']: 
                 if os.path.isfile(''.join([ lib, linklibs[1], '.so'])):
                     found = True
                     break
