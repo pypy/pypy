@@ -596,7 +596,6 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos, num_codepoints):
     # binary search on elements of storage
     index_min = 0
     index_max = len(storage) - 1
-    i = 0
     while index_min < index_max:
         # this addition can't overflow because storage has a length that is
         # 1/64 of the length of a string
@@ -606,7 +605,6 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos, num_codepoints):
             index_max = index_middle - 1
         else:
             index_min = index_middle
-        i += 1
 
     baseindex = storage[index_min].baseindex
     if baseindex == bytepos:
