@@ -566,7 +566,8 @@ class W_SRE_Match(W_Root):
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             index_storage = ctx.w_unicode_obj._get_index_storage()
             return rutf8.codepoint_index_at_byte_position(
-                ctx.w_unicode_obj._utf8, index_storage, bytepos)
+                ctx.w_unicode_obj._utf8, index_storage, bytepos,
+                ctx.w_unicode_obj._len())
         else:
             return bytepos
 

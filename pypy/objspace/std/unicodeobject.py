@@ -898,7 +898,7 @@ class W_UnicodeObject(W_Root):
         if self.is_ascii():
             return bytepos
         return rutf8.codepoint_index_at_byte_position(
-            self._utf8, self._get_index_storage(), bytepos)
+            self._utf8, self._get_index_storage(), bytepos, self._len())
 
     @always_inline
     def _unwrap_and_search(self, space, w_sub, w_start, w_end, forward=True):
