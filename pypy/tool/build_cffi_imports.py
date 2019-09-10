@@ -23,7 +23,8 @@ cffi_build_scripts = {
 # the OS, such as a recent openssl/libressl.
 cffi_dependencies = {
     '_ssl': ('https://www.openssl.org/source/openssl-1.1.1c.tar.gz',
-            'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90'),
+            'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
+            []),
     '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
               '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
               ['--without-readline']),
