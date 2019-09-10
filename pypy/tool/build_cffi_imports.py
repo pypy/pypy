@@ -106,7 +106,7 @@ def _build_dependency(name, destdir, patches=[]):
 
     # configure & build it
     status, stdout, stderr = run_subprocess(
-        './configure',
+        './config',
         [
             '--prefix=/usr',
             '--disable-shared',
