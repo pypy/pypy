@@ -349,10 +349,10 @@ def unmarshal_dict(space, u, tc):
     w_dic = space.newdict()
     u.save_ref(tc, w_dic)
     while 1:
-        w_key = u.get_w_obj(allow_null=True)
+        w_key = u.load_w_obj(allow_null=True)
         if w_key is None:
             break
-        w_value = u.get_w_obj()
+        w_value = u.load_w_obj()
         space.setitem(w_dic, w_key, w_value)
     return w_dic
 
@@ -394,7 +394,7 @@ def _unmarshal_strlist(u):
     return [u.space.utf8_w(w_item) for w_item in items_w]
 
 def _unmarshal_tuple_w(u):
-    w_obj = u.get_w_obj()
+    w_obj = u.load_w_obj()
     try:
         return u.space.fixedview(w_obj)
     except OperationError as e:
@@ -411,16 +411,16 @@ def unmarshal_pycode(space, u, tc):
     nlocals     = u.get_int()
     stacksize   = u.get_int()
     flags       = u.get_int()
-    code        = space.bytes_w(u.get_w_obj())
+    code        = space.bytes_w(u.load_w_obj())
     consts_w    = _unmarshal_tuple_w(u)
     names       = _unmarshal_strlist(u)
     varnames    = _unmarshal_strlist(u)
     freevars    = _unmarshal_strlist(u)
     cellvars    = _unmarshal_strlist(u)
-    filename    = space.utf8_0_w(u.get_w_obj())
-    name        = space.utf8_w(u.get_w_obj())
+    filename    = space.utf8_0_w(u.load_w_obj())
+    name        = space.utf8_w(u.load_w_obj())
     firstlineno = u.get_int()
-    lnotab      = space.bytes_w(u.get_w_obj())
+    lnotab      = space.bytes_w(u.load_w_obj())
     filename = assert_str0(filename)
     PyCode.__init__(w_codeobj,
                   space, argcount, kwonlyargcount, nlocals, stacksize, flags,
@@ -515,7 +515,7 @@ def marshal_frozenset(space, w_frozenset, m):
 def _unmarshal_set_frozenset(space, u, w_set):
     lng = u.get_lng()
     for i in xrange(lng):
-        w_obj = u.get_w_obj()
+        w_obj = u.load_w_obj()
         space.call_method(w_set, "add", w_obj)
 
 @unmarshaller(TYPE_FROZENSET)
