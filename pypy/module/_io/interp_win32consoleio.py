@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
-from pypy.module._io.interp_iobase import (W_RawIOBase, DEFAULT_BUFFER_SIZE)
+from pypy.module._io.interp_iobase import (W_RawIOBase, convert_size, DEFAULT_BUFFER_SIZE)
 from pypy.module.signal.interp_signal import sigintevent
 from pypy.interpreter.unicodehelper import fsdecode
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -477,15 +477,13 @@ class W_WinConsoleIO(W_RawIOBase):
                     
                     lltype.free(subbuf, flavor='raw')
                     
-                    if n == 0;
+                    if n == 0:
                         break
                         
                     len += n
                     
             if len == 0 and _buflen(self) == 0:
                 return None
-                
-            
                 
         finally:
             lltype.free(buf, flavor='raw')            
