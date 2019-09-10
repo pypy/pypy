@@ -33,6 +33,7 @@ def read_console_w(space, handle, maxlen, readlen):
     err = 0
     sig = 0
     buf = lltype.malloc(rwin32.CWCHARP, maxlen, flavor='raw')
+
     try:
         if not buf:
             return None
@@ -83,6 +84,7 @@ def read_console_w(space, handle, maxlen, readlen):
                         continue
                     off += BUFSIZ
         if err:
+            lltype.free(buf, flavor='raw')
             return None
             
         if readlen > 0 and buf[0] == '\x1a':
@@ -91,7 +93,7 @@ def read_console_w(space, handle, maxlen, readlen):
             buf[0] = '\0'
             readlen = 0
         return buf
-    finally:
+    except:
         lltype.free(buf, flavor='raw')
 
 
@@ -422,10 +424,11 @@ class W_WinConsoleIO(W_RawIOBase):
             
             return space.newint(read_len)
             
-    def read_w(self, space):
+    def read_w(self, space, w_size=None):
+        size = convert_size(space, w_size)
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
             err_closed()
-        if !self.readable:
+        if not self.readable:
             return err_mode("reading")
 
         if size < 0:
@@ -468,6 +471,21 @@ class W_WinConsoleIO(W_RawIOBase):
                     lltype.free(buf, flavor='raw')
                     buf = lltype.malloc(rwin32.CWCHARP, bufsize + 1, flavor='raw')
                     subbuf = read_console_w(self.handle, bufsize - len, n)
+                    
+                    if n > 0:
+                        rwin32.wcsncpy_s(buf[len], bufsize - len +1, subbuf, n)
+                    
+                    lltype.free(subbuf, flavor='raw')
+                    
+                    if n == 0;
+                        break
+                        
+                    len += n
+                    
+            if len == 0 and _buflen(self) == 0:
+                return None
+                
+            
                 
         finally:
             lltype.free(buf, flavor='raw')            
