@@ -24,7 +24,7 @@ cffi_build_scripts = {
 cffi_dependencies = {
     '_ssl': ('https://www.openssl.org/source/openssl-1.1.1c.tar.gz',
             'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
-            []),
+            ['no-shared']),
     '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
               '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
               ['--without-readline']),
@@ -109,9 +109,6 @@ def _build_dependency(name, destdir, patches=[]):
         './config',
         [
             '--prefix=/usr',
-            '--disable-shared',
-            '--enable-silent-rules',
-            '--disable-dependency-tracking',
         ] + args,
         cwd=sources,
     )
@@ -125,11 +122,20 @@ def _build_dependency(name, destdir, patches=[]):
         'make',
         [
             '-s', '-j' + str(multiprocessing.cpu_count()),
+        ],
+        cwd=sources,
+    )
+    if status != 0:
+        return status, stdout, stderr
+
+    print('installing to', destdir, file=sys.stderr)
+    status, stdout, stderr = run_subprocess(
+        'make',
+        [
             'install', 'DESTDIR={}/'.format(destdir),
         ],
         cwd=sources,
     )
-
     return status, stdout, stderr
 
 
