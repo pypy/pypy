@@ -66,3 +66,7 @@ Add RFile.closed
 .. branch: cryptograhpt-2.7
 
 Update vendored cryptography used for _ssl to 2.7
+
+.. branch: compile_ncurses_tcl_tk_suse_latest
+
+Check for headers and runtime libraries in more locations to support other linuxes

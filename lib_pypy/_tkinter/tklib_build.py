@@ -37,7 +37,7 @@ else:
             incdirs = []
             linklibs = ['tcl' + _ver, 'tk' + _ver]
             for lib in ['/usr/lib/lib', '/usr/lib64/lib']: 
-                if os.path.isfile(''.join([ lib, linklibs[1], '.so'])):
+                if os.path.isfile(''.join([lib, linklibs[1], '.so'])):
                     found = True
                     break
             if found:
