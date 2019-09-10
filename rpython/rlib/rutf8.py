@@ -486,6 +486,7 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
             length += 1
     return length
 
+
 @jit.elidable
 def surrogate_in_utf8(value):
     """Check if the UTF-8 byte string 'value' contains a surrogate.
@@ -592,9 +593,12 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos):
     """
     if bytepos < 0:
         return bytepos
+    # binary search on elements of storage
     index_min = 0
     index_max = len(storage) - 1
     while index_min < index_max:
+        # this addition can't overflow because storage has a length that is
+        # 1/64 of the length of a string
         index_middle = (index_min + index_max + 1) // 2
         base_bytepos = storage[index_middle].baseindex
         if bytepos < base_bytepos:
