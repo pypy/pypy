@@ -50,6 +50,8 @@ TYPE_FROZENSET = '>'
 FLAG_REF       = 0x80    # bit added to mean "add obj to index"
 FLAG_DONE      = '\x00'
 
+TYPE_INT64     = 'I'     # no longer generated
+
 # the following typecodes have been added in version 4.
 TYPE_ASCII                = 'a'   # never generated so far by pypy
 TYPE_ASCII_INTERNED       = 'A'   # never generated so far by pypy
@@ -173,6 +175,20 @@ def marshal_int(space, w_int, m):
 @unmarshaller(TYPE_INT)
 def unmarshal_int(space, u, tc):
     return space.newint(u.get_int())
+
+@unmarshaller(TYPE_INT64)
+def unmarshal_int64(space, u, tc):
+    from rpython.rlib.rbigint import rbigint
+    # no longer generated, but we still support unmarshalling
+    lo = u.get_int()    # get the first 32 bits
+    hi = u.get_int()    # get the next 32 bits
+    if LONG_BIT >= 64:
+        x = (hi << 32) | (lo & (2**32-1))    # result fits in an int
+        return space.newint(x)
+    else:
+        x = (r_longlong(hi) << 32) | r_longlong(r_uint(lo))  # get a r_longlong
+        result = rbigint.fromrarith_int(x)
+        return space.newlong_from_rbigint(result)
 
 
 @marshaller(W_AbstractLongObject)
