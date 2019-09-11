@@ -148,9 +148,9 @@ class AppTestTextIO:
         r = _io.BytesIO(b"\xc3\xa4bc\ndef\n")
         t = _io.TextIOWrapper(r, encoding="utf-8")
         reads = t.read(4)
-        assert reads == "äbc\n"
+        assert reads == u"äbc\n"
         reads += t.readline()
-        assert reads == "äbc\ndef\n"
+        assert reads == u"äbc\ndef\n"
 
     def test_encoded_writes(self):
         import _io
