@@ -41,6 +41,7 @@
 
 /* CPython needs this for the c-extension datetime, which is pure python on PyPy 
    downstream packages assume it is here (Pandas for instance) */
+#include <sys/time.h>
 #include <time.h> 
 
 /* uintptr_t is the C9X name for an unsigned integral type such that a

@@ -89,6 +89,7 @@
 #include "abstract.h"
 #include "pymath.h"
 #include "pyport.h"
+#include "pytime.h"
 #include "pymacro.h"
 #include "warnings.h"
 
