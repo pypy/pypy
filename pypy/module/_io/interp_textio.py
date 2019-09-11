@@ -294,6 +294,7 @@ class PositionSnapshot:
 
 class DecodeBuffer(object):
     def __init__(self, text=None):
+        # self.text is a valid utf-8 string
         self.text = text
         self.pos = 0
         self.upos = 0
@@ -310,6 +311,7 @@ class DecodeBuffer(object):
         self.upos = 0
 
     def get_chars(self, size):
+        """ returns a tuple (utf8, lgt) """
         if self.text is None or size == 0:
             return ""
 
@@ -323,7 +325,7 @@ class DecodeBuffer(object):
             start = self.pos
             ret = []
             pos = start
-            for  i in range(size):
+            for i in range(size):
                 pos = next_codepoint_pos(self.text, pos)
                 self.upos += 1
             assert start >= 0
@@ -372,22 +374,22 @@ class DecodeBuffer(object):
             limit = sys.maxint
         scanned = 0
         while scanned < limit:
-            try:
-                ch = self.next_char()
-                scanned += 1
-            except StopIteration:
+            if self.exhausted():
                 return False
+            ch = self.text[self.pos]
+            self._advance_codepoint()
+            scanned += 1
             if ch == '\n':
                 return True
             if ch == '\r':
                 if scanned >= limit:
                     return False
-                try:
-                    ch = self.peek_char()
-                except StopIteration:
+                if self.exhausted():
+                    # don't split potential \r\n
                     return False
+                ch = self.text[self.pos]
                 if ch == '\n':
-                    self.next_char()
+                    self._advance_codepoint()
                     return True
                 else:
                     return True
@@ -398,38 +400,47 @@ class DecodeBuffer(object):
             limit = sys.maxint
         scanned = 0
         while scanned < limit:
-            try:
-                ch = self.next_char()
-            except StopIteration:
+            if self.exhausted():
                 return False
+            ch = self.text[self.pos]
+            self._advance_codepoint()
             scanned += 1
             if ch == '\r':
                 if scanned >= limit:
                     return False
-                try:
-                    if self.peek_char() == '\n':
-                        self.next_char()
-                        return True
-                except StopIteration:
-                    # This is the tricky case: we found a \r right at the end
+                if self.exhausted():
+                    # This is the tricky case: we found a \r right at the end,
+                    # un-consume it
                     self.pos -= 1
                     self.upos -= 1
                     return False
+                if self.text[self.pos] == '\n':
+                    self._advance_codepoint()
+                    return True
         return False
 
     def find_char(self, marker, limit):
+        # only works for ascii markers!
+        assert 0 <= ord(marker) < 128
         if limit < 0:
             limit = sys.maxint
         scanned = 0
         while scanned < limit:
-            try:
-                ch = self.next_char()
-            except StopIteration:
+            # don't use next_char here, since that computes a slice etc
+            if self.exhausted():
                 return False
-            if ch == marker:
+            # this is never true if self.text[pos] is part of a larger char
+            found = self.text[self.pos] == marker
+            self._advance_codepoint()
+            if found:
                 return True
             scanned += 1
         return False
+
+    def _advance_codepoint(self):
+        # must only be called after checking self.exhausted()!
+        self.pos = next_codepoint_pos(self.text, self.pos)
+        self.upos += 1
 
 
 def check_decoded(space, w_decoded):
@@ -739,28 +750,32 @@ class W_TextIOWrapper(W_TextIOBase):
         self._writeflush(space)
 
         limit = convert_size(space, w_limit)
+        text, lgt = self._readline(space, limit)
+        return space.newutf8(text, lgt)
+
+    def _readline(self, space, limit):
+        # This is a separate function so that readline_w() can be jitted.
         remnant = None
-        builder = StringBuilder()
-        # XXX maybe use Utf8StringBuilder instead?
+        builder = Utf8StringBuilder()
         while True:
             # First, get some data if necessary
             has_data = self._ensure_data(space)
             if not has_data:
                 # end of file
                 if remnant:
-                    builder.append(remnant)
+                    builder.append(remnant) # XXX
                 break
 
             if remnant:
                 assert not self.readtranslate and self.readnl == '\r\n'
                 assert self.decoded.pos == 0
                 if remnant == '\r' and self.decoded.text[0] == '\n':
-                    builder.append('\r\n')
+                    builder.append_utf8('\r\n', 2)
                     self.decoded.pos = 1
                     remnant = None
                     break
                 else:
-                    builder.append(remnant)
+                    builder.append(remnant) # XXX
                     remnant = None
                     continue
 
@@ -770,12 +785,14 @@ class W_TextIOWrapper(W_TextIOBase):
             else:
                 remaining = -1
             start = self.decoded.pos
+            ustart = self.decoded.upos
             assert start >= 0
             found = self._scan_line_ending(remaining)
             end_scan = self.decoded.pos
+            uend_scan = self.decoded.upos
             if end_scan > start:
                 s = self.decoded.text[start:end_scan]
-                builder.append(s)
+                builder.append_utf8(s, uend_scan - ustart)
 
             if found or (limit >= 0 and builder.getlength() >= limit):
                 break
@@ -788,8 +805,8 @@ class W_TextIOWrapper(W_TextIOBase):
             self.decoded.reset()
 
         result = builder.build()
-        lgt = get_utf8_length(result)
-        return space.newutf8(result, lgt)
+        lgt = builder.getlength()
+        return (result, lgt)
 
     # _____________________________________________________________
     # write methods
