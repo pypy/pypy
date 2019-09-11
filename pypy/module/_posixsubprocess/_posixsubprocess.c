@@ -25,8 +25,7 @@
 #include <dirent.h>
 #endif
 
-#if defined(__ANDROID__) && !defined(SYS_getdents64)
-/* Android doesn't expose syscalls, add the definition manually. */
+#if defined(__ANDROID__) && __ANDROID_API__ < 21 && !defined(SYS_getdents64)
 # include <sys/linux-syscalls.h>
 # define SYS_getdents64  __NR_getdents64
 #endif
@@ -399,10 +398,20 @@ pypy_subprocess_child_exec(
 
     /* When duping fds, if there arises a situation where one of the fds is
        either 0, 1 or 2, it is possible that it is overwritten (#12607). */
-    if (c2pwrite == 0)
+    if (c2pwrite == 0) {
         POSIX_CALL(c2pwrite = dup(c2pwrite));
-    if (errwrite == 0 || errwrite == 1)
+        /* issue32270 */
+        if (rpy_set_inheritable(c2pwrite, 0) < 0) {
+            goto error;
+        }
+    }
+    while (errwrite == 0 || errwrite == 1) {
         POSIX_CALL(errwrite = dup(errwrite));
+        /* issue32270 */
+        if (rpy_set_inheritable(errwrite, 0) < 0) {
+            goto error;
+        }
+    }
 
     /* Dup fds for child.
        dup2() removes the CLOEXEC flag but we must do it ourselves if dup2()
@@ -428,14 +437,8 @@ pypy_subprocess_child_exec(
     else if (errwrite != -1)
         POSIX_CALL(dup2(errwrite, 2));  /* stderr */
 
-    /* Close pipe fds.  Make sure we don't close the same fd more than */
-    /* once, or standard fds. */
-    if (p2cread > 2)
-        POSIX_CALL(close(p2cread));
-    if (c2pwrite > 2 && c2pwrite != p2cread)
-        POSIX_CALL(close(c2pwrite));
-    if (errwrite != c2pwrite && errwrite != p2cread && errwrite > 2)
-        POSIX_CALL(close(errwrite));
+    /* We no longer manually close p2cread, c2pwrite, and errwrite here as
+     * _close_open_fds takes care when it is not already non-inheritable. */
 
     if (cwd)
         POSIX_CALL(chdir(cwd));
