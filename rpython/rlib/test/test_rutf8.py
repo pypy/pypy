@@ -143,7 +143,7 @@ def test_codepoint_index_at_byte_position(u):
         assert rutf8.codepoint_index_at_byte_position(
                        b, storage, bytepos, len(u)) == i
 
-@given(strategies.text(average_size=128))
+@given(strategies.text())
 def test_codepoint_position_at_index_inverse(u):
     print u
     b = u.encode('utf8')
