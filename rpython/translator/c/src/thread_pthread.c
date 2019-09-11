@@ -454,12 +454,12 @@ long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 
 	lock->locked = 0;
 
-	status = pthread_mutex_unlock( &lock->mut );
-	CHECK_STATUS("pthread_mutex_unlock[3]");
-
 	/* wake up someone (anyone, if any) waiting on the lock */
 	status = pthread_cond_signal( &lock->lock_released );
 	CHECK_STATUS("pthread_cond_signal");
+
+	status = pthread_mutex_unlock( &lock->mut );
+	CHECK_STATUS("pthread_mutex_unlock[3]");
 
         return result;
 }
