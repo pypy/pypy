@@ -62,14 +62,6 @@
 
 #define Py_USING_UNICODE
 
-/* Convert a possibly signed character to a nonnegative int */
-/* XXX This assumes characters are 8 bits wide */
-#ifdef __CHAR_UNSIGNED__
-#define Py_CHARMASK(c)		(c)
-#else
-#define Py_CHARMASK(c)		((unsigned char)((c) & 0xff))
-#endif
-
 #define statichere static
 
 #define Py_MEMCPY memcpy
