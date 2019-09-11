@@ -350,8 +350,12 @@ class PyPyTarget(object):
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
             filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
+            if sys.platform == 'darwin':
+                argv = [filename, '--embed-dependencies']
+            else:
+                argv = [filename,]
             status, out, err = run_subprocess(str(driver.compute_exe_name()),
-                                              [filename, '--embed-dependencies'])
+                                              argv)
             sys.stdout.write(out)
             sys.stderr.write(err)
             # otherwise, ignore errors
