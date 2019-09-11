@@ -293,14 +293,18 @@ class PositionSnapshot:
 
 
 class DecodeBuffer(object):
-    def __init__(self, text=None):
+    def __init__(self, text=None, ulen=-1):
         # self.text is a valid utf-8 string
+        if text is not None:
+            assert ulen >= 0
         self.text = text
         self.pos = 0
         self.upos = 0
+        self.ulen = ulen
 
     def set(self, space, w_decoded):
         check_decoded(space, w_decoded)
+        self.ulen = space.len_w(w_decoded)
         self.text = space.utf8_w(w_decoded)
         self.pos = 0
         self.upos = 0
@@ -309,13 +313,14 @@ class DecodeBuffer(object):
         self.text = None
         self.pos = 0
         self.upos = 0
+        self.ulen = -1
 
     def get_chars(self, size):
         """ returns a tuple (utf8, lgt) """
         if self.text is None or size == 0:
-            return ""
+            return "", 0
 
-        lgt = codepoints_in_utf8(self.text)
+        lgt = self.ulen
         available = lgt - self.upos
         if size < 0 or size > available:
             size = available
@@ -323,7 +328,6 @@ class DecodeBuffer(object):
 
         if self.pos > 0 or size < available:
             start = self.pos
-            ret = []
             pos = start
             for i in range(size):
                 pos = next_codepoint_pos(self.text, pos)
@@ -336,8 +340,9 @@ class DecodeBuffer(object):
             chars = self.text
             self.pos = len(self.text)
             self.upos = lgt
+            size = lgt
 
-        return chars
+        return chars, size
 
     def has_data(self):
         return (self.text is not None and not self.exhausted())
@@ -709,8 +714,7 @@ class W_TextIOWrapper(W_TextIOBase):
             w_bytes = space.call_method(self.w_buffer, "read")
             w_decoded = space.call_method(self.w_decoder, "decode", w_bytes, space.w_True)
             check_decoded(space, w_decoded)
-            chars = self.decoded.get_chars(-1)
-            lgt = get_utf8_length(chars)
+            chars, lgt = self.decoded.get_chars(-1)
             w_result = space.newutf8(chars, lgt)
             w_final = space.add(w_result, w_decoded)
             self.snapshot = None
@@ -723,9 +727,9 @@ class W_TextIOWrapper(W_TextIOBase):
         while remaining > 0:
             if not self._ensure_data(space):
                 break
-            data = self.decoded.get_chars(remaining)
-            builder.append(data)
-            remaining -= len(data)
+            data, size = self.decoded.get_chars(remaining)
+            builder.append_utf8(data, size)
+            remaining -= size
 
         return space.newutf8(builder.build(), builder.getlength())
 
@@ -756,6 +760,7 @@ class W_TextIOWrapper(W_TextIOBase):
     def _readline(self, space, limit):
         # This is a separate function so that readline_w() can be jitted.
         remnant = None
+        remnant_ulen = -1
         builder = Utf8StringBuilder()
         while True:
             # First, get some data if necessary
@@ -763,7 +768,7 @@ class W_TextIOWrapper(W_TextIOBase):
             if not has_data:
                 # end of file
                 if remnant:
-                    builder.append(remnant) # XXX
+                    builder.append_utf8(remnant, remnant_ulen)
                 break
 
             if remnant:
@@ -772,11 +777,14 @@ class W_TextIOWrapper(W_TextIOBase):
                 if remnant == '\r' and self.decoded.text[0] == '\n':
                     builder.append_utf8('\r\n', 2)
                     self.decoded.pos = 1
+                    self.decoded.upos = 1
                     remnant = None
+                    remnant_ulen = -1
                     break
                 else:
-                    builder.append(remnant) # XXX
+                    builder.append_utf8(remnant, remnant_ulen)
                     remnant = None
+                    remnant_ulen = -1
                     continue
 
             if limit >= 0:
@@ -800,7 +808,7 @@ class W_TextIOWrapper(W_TextIOBase):
             # There may be some remaining chars we'll have to prepend to the
             # next chunk of data
             if not self.decoded.exhausted():
-                remnant = self.decoded.get_chars(-1)
+                remnant, remnant_ulen = self.decoded.get_chars(-1)
             # We have consumed the buffer
             self.decoded.reset()
 
