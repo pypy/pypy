@@ -873,9 +873,13 @@ class W_TextIOWrapper(W_TextIOBase):
         return space.newint(textlen)
 
     def _writeflush(self, space):
+        # jit inlinable fast path
         if not self.pending_bytes:
             return
 
+        self._really_flush(space)
+
+    def _really_flush(self, space):
         pending_bytes = ''.join(self.pending_bytes)
         self.pending_bytes = None
         self.pending_bytes_count = 0
