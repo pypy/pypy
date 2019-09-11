@@ -66,3 +66,7 @@ Add RFile.closed
 .. branch: cryptograhpt-2.7
 
 Update vendored cryptography used for _ssl to 2.7
+
+.. branch: openssl-for-macos
+
+Update _ssl on macos to statically link to openssl-1.1.1c

@@ -351,7 +351,7 @@ class PyPyTarget(object):
             ''' Use cffi to compile cffi interfaces to modules'''
             filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
             status, out, err = run_subprocess(str(driver.compute_exe_name()),
-                                              [filename])
+                                              [filename, '--embed-dependencies'])
             sys.stdout.write(out)
             sys.stderr.write(err)
             # otherwise, ignore errors
