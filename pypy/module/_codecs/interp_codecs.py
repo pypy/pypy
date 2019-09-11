@@ -460,6 +460,8 @@ if hasattr(runicode, 'str_decode_mbcs'):
 @unwrap_spec(errors='text_or_none')
 def utf_8_encode(space, w_obj, errors="strict"):
     utf8, lgt = space.utf8_len_w(w_obj)
+    if lgt == len(utf8): # ascii
+        return space.newtuple([space.newbytes(utf8), space.newint(lgt)])
     if rutf8.has_surrogates(utf8):
         utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
     return space.newtuple([space.newbytes(utf8), space.newint(lgt)])
