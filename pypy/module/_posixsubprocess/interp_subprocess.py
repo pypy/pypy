@@ -8,7 +8,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib import rposix
 
 from pypy.interpreter.error import (
-    OperationError, exception_from_saved_errno, oefmt, wrap_oserror)
+    OperationError, oefmt, wrap_oserror)
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.posix.interp_posix import run_fork_hooks
 
@@ -53,19 +53,13 @@ eci = eci.merge(
 c_child_exec = rffi.llexternal(
     'pypy_subprocess_child_exec',
     [rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARP,
-     rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT, 
+     rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT,
      rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT,
      rffi.CArrayPtr(rffi.LONG), lltype.Signed,
      lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.INT)), rffi.VOIDP],
     lltype.Void,
     compilation_info=eci,
     releasegil=True)
-c_cloexec_pipe = rffi.llexternal(
-    'pypy_subprocess_cloexec_pipe',
-    [rffi.CArrayPtr(rffi.INT)], rffi.INT,
-    compilation_info=eci,
-    releasegil=True,
-    save_err=rffi.RFFI_SAVE_ERRNO)
 c_init = rffi.llexternal(
     'pypy_subprocess_init',
     [], lltype.Void,
@@ -77,7 +71,7 @@ class PreexecCallback:
     def __init__(self):
         self.space = None
         self.w_preexec_fn = None
-    
+
     @staticmethod
     def run_function(unused):
         self = preexec
@@ -124,16 +118,16 @@ def fork_exec(space, w_process_args, w_executable_list,
     Forks a child process, closes parent file descriptors as appropriate in the
     child and dups the few that are needed before calling exec() in the child
     process.
-    
+
     The preexec_fn, if supplied, will be called immediately before exec.
     WARNING: preexec_fn is NOT SAFE if your application uses threads.
              It may trigger infrequent, difficult to debug deadlocks.
-    
+
     If an error occurs in the child process before the exec, it is
     serialized and written to the errpipe_write fd per subprocess.py.
-    
+
     Returns: the child process's PID.
-    
+
     Raises: Only on an error in the parent process.
     """
     close_fds = space.is_true(w_close_fds)
@@ -181,7 +175,7 @@ def fork_exec(space, w_process_args, w_executable_list,
         if not space.is_none(w_cwd):
             cwd = space.fsencode_w(w_cwd)
             l_cwd = rffi.str2charp(cwd)
-            
+
         run_fork_hooks('before', space)
 
         try:
@@ -230,18 +224,3 @@ def fork_exec(space, w_process_args, w_executable_list,
             lltype.free(l_fds_to_keep, flavor='raw')
 
     return space.newint(pid)
-
-
-def cloexec_pipe(space):
-    """cloexec_pipe() -> (read_end, write_end)
-
-    Create a pipe whose ends have the cloexec flag set."""
-
-    with lltype.scoped_alloc(rffi.CArrayPtr(rffi.INT).TO, 2) as fds:
-        res = c_cloexec_pipe(fds)
-        if res != 0:
-            raise exception_from_saved_errno(space, space.w_OSError)
-
-        return space.newtuple([space.newint(fds[0]),
-                               space.newint(fds[1]),
-                               ])
