@@ -486,6 +486,7 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
             length += 1
     return length
 
+
 @jit.elidable
 def surrogate_in_utf8(value):
     """Check if the UTF-8 byte string 'value' contains a surrogate.
@@ -583,7 +584,7 @@ def codepoint_at_index(utf8, storage, index):
     return codepoint_at_pos(utf8, bytepos)
 
 @jit.elidable
-def codepoint_index_at_byte_position(utf8, storage, bytepos):
+def codepoint_index_at_byte_position(utf8, storage, bytepos, num_codepoints):
     """ Return the character index for which
     codepoint_position_at_index(index) == bytepos.
     This is a relatively slow operation in that it runs in a time
@@ -592,17 +593,38 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos):
     """
     if bytepos < 0:
         return bytepos
+    # binary search on elements of storage
     index_min = 0
     index_max = len(storage) - 1
     while index_min < index_max:
+        # this addition can't overflow because storage has a length that is
+        # 1/64 of the length of a string
         index_middle = (index_min + index_max + 1) // 2
         base_bytepos = storage[index_middle].baseindex
         if bytepos < base_bytepos:
             index_max = index_middle - 1
         else:
             index_min = index_middle
-    bytepos1 = storage[index_min].baseindex
+
+    baseindex = storage[index_min].baseindex
+    if baseindex == bytepos:
+        return index_min << 6
+
+    # use ofs to get closer to the correct character index
     result = index_min << 6
+    bytepos1 = baseindex
+    if index_min == len(storage) - 1:
+        maxindex = ((num_codepoints - 1) >> 2) & 0x0F
+    else:
+        maxindex = 16
+    for i in range(maxindex):
+        x = baseindex + ord(storage[index_min].ofs[i])
+        if x >= bytepos:
+            break
+        bytepos1 = x
+        result = (index_min << 6) + (i << 2) + 1
+
+    # this loop should runs at most four times
     while bytepos1 < bytepos:
         bytepos1 = next_codepoint_pos(utf8, bytepos1)
         result += 1

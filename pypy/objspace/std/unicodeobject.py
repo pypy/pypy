@@ -1047,6 +1047,15 @@ class W_UnicodeObject(W_Root):
             return end - start
         return rutf8.codepoints_in_utf8(self._utf8, start, end)
 
+    def _byte_to_index(self, bytepos):
+        """ this returns index such that self._index_to_byte(index) == bytepos
+        NB: this is slow! roughly logarithmic with a big constant
+        """
+        if self.is_ascii():
+            return bytepos
+        return rutf8.codepoint_index_at_byte_position(
+            self._utf8, self._get_index_storage(), bytepos, self._len())
+
     @always_inline
     def _unwrap_and_search(self, space, w_sub, w_start, w_end, forward=True):
         w_sub = self.convert_arg_to_w_unicode(space, w_sub)
@@ -1068,16 +1077,14 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = self._codepoints_in_utf8(start_index, res_index)
-            res = start + skip
+            res = self._byte_to_index(res_index)
             assert res >= 0
             return space.newint(res)
         else:
             res_index = self._utf8.rfind(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = self._codepoints_in_utf8(res_index, end_index)
-            res = end - skip
+            res = self._byte_to_index(res_index)
             assert res >= 0
             return space.newint(res)
 

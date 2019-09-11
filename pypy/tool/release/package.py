@@ -87,6 +87,7 @@ def create_package(basedir, options, _fake=False):
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
             embed_dependencies=options.embed_dependencies,
+            rebuild=True,
         )
 
         for key, module in failures:

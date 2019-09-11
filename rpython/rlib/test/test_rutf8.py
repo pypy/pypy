@@ -1,3 +1,4 @@
+#encoding: utf-8
 import pytest
 import sys
 from hypothesis import given, strategies, settings, example
@@ -133,12 +134,24 @@ def test_codepoint_position_at_index(u):
 @given(strategies.text())
 @example(u'x' * 64 * 5)
 @example(u'x' * (64 * 5 - 1))
+@example(u'ä' + u'x«' * 1000 + u'–' + u'y' * 100)
 def test_codepoint_index_at_byte_position(u):
-    storage = rutf8.create_utf8_index_storage(u.encode('utf8'), len(u))
+    b = u.encode('utf8')
+    storage = rutf8.create_utf8_index_storage(b, len(u))
     for i in range(len(u) + 1):
         bytepos = len(u[:i].encode('utf8'))
         assert rutf8.codepoint_index_at_byte_position(
-                       u.encode('utf8'), storage, bytepos) == i
+                       b, storage, bytepos, len(u)) == i
+
+@given(strategies.text())
+def test_codepoint_position_at_index_inverse(u):
+    print u
+    b = u.encode('utf8')
+    storage = rutf8.create_utf8_index_storage(b, len(u))
+    for i in range(len(u) + 1):
+        bytepos = rutf8.codepoint_position_at_index(b, storage, i)
+        assert rutf8.codepoint_index_at_byte_position(
+                       b, storage, bytepos, len(u)) == i
 
 
 repr_func = rutf8.make_utf8_escape_function(prefix='u', pass_printable=False,
