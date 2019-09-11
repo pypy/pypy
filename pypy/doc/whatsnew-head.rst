@@ -78,3 +78,7 @@ Check for headers and runtime libraries in more locations to support other linux
 .. branch: openssl-for-macos
 
 Update _ssl on macos to statically link to openssl-1.1.1c
+
+.. branch: more-cpyext
+
+Add more datetime C functions and definitions
