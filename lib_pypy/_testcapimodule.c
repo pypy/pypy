@@ -4449,9 +4449,11 @@ static PyMethodDef TestMethods[] = {
     {"crash_no_current_thread", (PyCFunction)crash_no_current_thread, METH_NOARGS},
 #ifndef PYPY_VERSION
     {"run_in_subinterp",        run_in_subinterp,                METH_VARARGS},
+#endif
     {"pytime_object_to_time_t", test_pytime_object_to_time_t,  METH_VARARGS},
     {"pytime_object_to_timeval", test_pytime_object_to_timeval,  METH_VARARGS},
     {"pytime_object_to_timespec", test_pytime_object_to_timespec,  METH_VARARGS},
+#ifndef PYPY_VERSION
     {"with_tp_del",             with_tp_del,                     METH_VARARGS},
 #endif
     {"create_cfunction",        create_cfunction,                METH_NOARGS},
