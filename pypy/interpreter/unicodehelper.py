@@ -212,6 +212,7 @@ class ErrorHandlerError(Exception):
         self.old = old
 
 def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
+    assert isinstance(s, str)
     size = len(s)
     if size == 0:
         return ''

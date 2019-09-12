@@ -1,7 +1,7 @@
 import pytest
 
 from pypy.interpreter.unicodehelper import (
-    utf8_encode_utf_8, decode_utf8sp,
+    utf8_encode_utf_8, decode_utf8sp, ErrorHandlerError
 )
 
 
@@ -21,7 +21,7 @@ def test_encode_utf_8_combine_surrogates():
     called with a start and stop position of the full surrogate
     pair (new behavior in python3.6)
     """
-    u = u"\udc80\ud800\udfff"
+    b = u"\udc80\ud800\udfff".encode("utf-8")
 
     def errorhandler(errors, encoding, msg, s, start, end):
         """
@@ -32,31 +32,21 @@ def test_encode_utf_8_combine_surrogates():
         2. the second time, the characters will be 0xD800 and 0xDFFF, since
            that is a valid surrogate pair.
         """
-        assert s[start:end] in [u'\udc80', u'\uD800\uDFFF']
+        assert s.decode("utf-8")[start:end] in [u'\udc80', u'\uD800\uDFFF']
         return '', end, 'b'
 
     utf8_encode_utf_8(
-        u, 'strict',
+        b, 'strict',
         errorhandler=errorhandler,
         allow_surrogates=False
     )
 
 def test_bad_error_handler():
-    u = u"\udc80\ud800\udfff"
-
+    b = u"\udc80\ud800\udfff".encode("utf-8")
     def errorhandler(errors, encoding, msg, s, start, end):
-        """
-        This handler will be called twice, so asserting both times:
+        return '', start, 'b' # returned index is too small
 
-        1. the first time, 0xDC80 will be handled as a single surrogate,
-           since it is a standalone character and an invalid surrogate.
-        2. the second time, the characters will be 0xD800 and 0xDFFF, since
-           that is a valid surrogate pair.
-        """
-        assert s[start:end] in [u'\udc80', u'\uD800\uDFFF']
-        return '', start, 'b'
-
-    assert pytest.raises(Exception, utf8_encode_utf_8, u, 'strict',
+    pytest.raises(ErrorHandlerError, utf8_encode_utf_8, b, 'strict',
                   errorhandler=errorhandler, allow_surrogates=False)
 
 def test_decode_utf8sp():
