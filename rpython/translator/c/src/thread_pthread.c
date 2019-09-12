@@ -369,11 +369,11 @@ void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
 		if (lock->next)
 			lock->next->prev = lock->prev;
 
-		status = pthread_mutex_destroy(&lock->mut);
-		CHECK_STATUS("pthread_mutex_destroy");
-
 		status = pthread_cond_destroy(&lock->lock_released);
 		CHECK_STATUS("pthread_cond_destroy");
+
+		status = pthread_mutex_destroy(&lock->mut);
+		CHECK_STATUS("pthread_mutex_destroy");
 
 		/* 'error' is ignored;
 		   CHECK_STATUS already printed an error message */

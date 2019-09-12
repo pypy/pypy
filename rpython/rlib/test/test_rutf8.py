@@ -238,3 +238,17 @@ def test_utf8_iterator_pos(arg):
         assert pos == i
         i = rutf8.next_codepoint_pos(utf8s, i)
     assert list(arg) == l
+
+
+@given(strategies.text(), strategies.integers(0xd800, 0xdfff))
+def test_has_surrogates(arg, surrogate):
+    b = (arg + unichr(surrogate) + arg).encode("utf-8")
+    assert not rutf8.has_surrogates(arg.encode("utf-8"))
+    assert rutf8.has_surrogates(unichr(surrogate).encode("utf-8"))
+    assert rutf8.has_surrogates(b)
+
+def test_has_surrogate_xed_no_surrogate():
+    u = unichr(55217) + unichr(54990)
+    b = u.encode("utf-8")
+    assert b.startswith(b"\xed")
+    assert not rutf8.has_surrogates(b)
