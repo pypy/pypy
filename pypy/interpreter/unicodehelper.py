@@ -249,11 +249,13 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
             res, newindex, rettype = errorhandler(errors, 'utf-8',
                         'surrogates not allowed', s, upos, upos + delta)
             if rettype == 'u':
-                for cp in rutf8.Utf8StringIterator(res):
-                    result.append(chr(cp))
-            else:
-                for ch in res:
-                    result.append(ch)
+                try:
+                    rutf8.check_ascii(res)
+                except rutf8.CheckError:
+                    # this is a weird behaviour of CPython, but it's what happens
+                    errorhandler("strict", 'utf-8', 'surrogates not allowed', s, upos, upos + delta)
+                    assert 0, "unreachable"
+            result.append(res)
             if newindex <= upos:
                 raise ErrorHandlerError(newindex, upos)
             upos = newindex
