@@ -433,7 +433,10 @@ class DecodeBuffer(object):
                 end = len(self.text)
             else:
                 end = self.pos + limit
-            pos = self.text.find(marker, self.pos, end)
+            pos = self.pos
+            assert pos >= 0
+            assert end >= 0
+            pos = self.text.find(marker, pos, end)
             if pos >= 0:
                 self.pos = self.upos = pos + 1
                 return True

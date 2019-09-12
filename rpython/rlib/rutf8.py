@@ -435,10 +435,17 @@ def _check_utf8(s, allow_surrogates, start, stop):
     return result
 
 def has_surrogates(utf8):
-    # XXX write a faster version maybe
-    for ch in Utf8StringIterator(utf8):
-        if 0xD800 <= ch <= 0xDBFF:
+    # a surrogate starts with 0xed in utf-8 encoding
+    pos = 0
+    while True:
+        pos = utf8.find("\xed", pos)
+        if pos < 0:
+            return False
+        assert pos <= len(utf8) - 1 # otherwise invalid utf-8
+        ordch2 = ord(utf8[pos + 1])
+        if _invalid_byte_2_of_3(0xed, ordch2, allow_surrogates=False):
             return True
+        pos += 1
     return False
 
 def reencode_utf8_with_surrogates(utf8):
