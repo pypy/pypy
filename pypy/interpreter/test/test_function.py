@@ -85,18 +85,22 @@ class AppTestFunctionIntrospection:
             return 41
         assert f() == 42
         assert g() == 41
-        raises(TypeError, "f.func_code = 1")
+        with raises(TypeError):
+            f.func_code = 1
         f.func_code = g.func_code
         assert f() == 41
         def h():
             return f() # a closure
-        raises(ValueError, "f.func_code = h.func_code")
+        with raises(ValueError):
+            f.func_code = h.func_code
 
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-        raises(TypeError, "dir.func_code = f.func_code")
-        raises(TypeError, "list.append.im_func.func_code = f.func_code")
+        with raises(TypeError):
+            dir.func_code = f.func_code
+        with raises(TypeError):
+            list.append.im_func.func_code = f.func_code
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
@@ -110,7 +114,8 @@ class AppTestFunctionIntrospection:
         def f(): pass
         f.__name__ = 'g'
         assert f.func_name == 'g'
-        raises(TypeError, "f.__name__ = u'g'")
+        with raises(TypeError):
+           f.__name__ = u'g'
 
 
 class AppTestFunction:
@@ -231,19 +236,10 @@ class AppTestFunction:
             def func(self, **kw):
                 return self, kw
         func = A().func
-
-        # don't want the extra argument passing of raises
-        try:
+        with raises(TypeError):
             func(self=23)
-            assert False
-        except TypeError:
-            pass
-
-        try:
+        with raises(TypeError):
             func(**{'self': 23})
-            assert False
-        except TypeError:
-            pass
 
     def test_kwargs_confusing_name(self):
         def func(self):    # 'self' conflicts with the interp-level

@@ -8,14 +8,13 @@ thisdir = py.path.local(__file__).dirpath()
 def test_required():
     conf = get_pypy_config()
     assert not conf.translating
-
     assert conf.objspace.usemodules.gc
 
 def test_conflicting_gcrootfinder():
     conf = get_pypy_config()
     conf.translation.gc = "boehm"
-    py.test.raises(ConfigError, "conf.translation.gcrootfinder = 'asmgcc'")
-
+    with py.test.raises(ConfigError):
+        conf.translation.gcrootfinder = 'asmgcc'
 
 def test_frameworkgc():
     for name in ["minimark", "semispace"]:
