@@ -70,15 +70,17 @@ class W_Random(W_Root):
         # independent of platfrom, since the below condition is only
         # true on 32 bit platforms anyway
         w_add = space.pow(space.newint(2), space.newint(32), space.w_None)
+        _state = [r_uint(0)] * rrandom.N
         for i in range(rrandom.N):
             w_item = space.getitem(w_state, space.newint(i))
             if space.is_true(space.lt(w_item, w_zero)):
                 w_item = space.add(w_item, w_add)
-            self._rnd.state[i] = space.uint_w(w_item)
+            _state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rrandom.N))
         index = space.int_w(w_item)
         if index < 0 or index > rrandom.N:
             raise oefmt(space.w_ValueError, "invalid state")
+        self._rnd.state = _state
         self._rnd.index = index
 
     @unwrap_spec(k=int)
