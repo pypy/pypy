@@ -21,7 +21,11 @@ def test_encode_utf_8_combine_surrogates():
     called with a start and stop position of the full surrogate
     pair (new behavior in python3.6)
     """
-    b = u"\udc80\ud800\udfff".encode("utf-8")
+    #               /--surrogate pair--\
+    #    \udc80      \ud800      \udfff
+    b = "\xed\xb2\x80\xed\xa0\x80\xed\xbf\xbf"
+
+    calls = []
 
     def errorhandler(errors, encoding, msg, s, start, end):
         """
@@ -32,14 +36,16 @@ def test_encode_utf_8_combine_surrogates():
         2. the second time, the characters will be 0xD800 and 0xDFFF, since
            that is a valid surrogate pair.
         """
-        assert s.decode("utf-8")[start:end] in [u'\udc80', u'\uD800\uDFFF']
-        return '', end, 'b'
+        calls.append(s.decode("utf-8")[start:end])
+        return 'abc', end, 'b'
 
-    utf8_encode_utf_8(
+    res = utf8_encode_utf_8(
         b, 'strict',
         errorhandler=errorhandler,
         allow_surrogates=False
     )
+    assert res == "abcabc"
+    assert calls == [u'\udc80', u'\uD800\uDFFF']
 
 def test_bad_error_handler():
     b = u"\udc80\ud800\udfff".encode("utf-8")
