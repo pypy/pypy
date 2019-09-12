@@ -442,8 +442,24 @@ class DecodeBuffer(object):
     def find_char(self, marker, limit):
         # only works for ascii markers!
         assert 0 <= ord(marker) < 128
+        # ascii fast path
+        if self.ulen == len(self.text):
+            if limit < 0:
+                end = len(self.text)
+            else:
+                end = self.pos + limit
+            pos = self.text.find(marker, self.pos, end)
+            if pos >= 0:
+                self.pos = self.upos = pos + 1
+                return True
+            else:
+                self.pos = self.upos = end
+                return False
+
         if limit < 0:
             limit = sys.maxint
+        # XXX it might be better to search for the marker quickly, then compute
+        # the new upos afterwards.
         scanned = 0
         while scanned < limit:
             # don't use next_char here, since that computes a slice etc
