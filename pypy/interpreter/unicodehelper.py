@@ -60,12 +60,6 @@ def encode(space, w_data, encoding=None, errors='strict'):
     return encode_object(space, w_data, encoding, errors)
 
 
-def _has_surrogate(u):
-    for c in u:
-        if 0xD800 <= ord(c) <= 0xDFFF:
-            return True
-    return False
-
 # These functions take and return unwrapped rpython strings
 def decode_unicode_escape(space, string):
     from pypy.module._codecs import interp_codecs

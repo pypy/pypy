@@ -874,11 +874,6 @@ class W_UnicodeObject(W_Root):
     def is_ascii(self):
         return self._length == len(self._utf8)
 
-    def _has_surrogates(self):
-        if self.is_ascii():
-            return False
-        return rutf8.has_surrogates(self._utf8)
-
     def _index_to_byte(self, index):
         if self.is_ascii():
             assert index >= 0
