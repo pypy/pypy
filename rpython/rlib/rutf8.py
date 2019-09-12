@@ -772,6 +772,13 @@ class Utf8StringBuilder(object):
         self._lgt += length
 
     @always_inline
+    def append_utf8_slice(self, utf8, start, end, slicelength):
+        self._s.append_slice(utf8, start, end)
+        self._lgt += slicelength
+        if not we_are_translated():
+            assert len(utf8[start: end].decode("utf-8")) == slicelength
+
+    @always_inline
     def append_multiple_char(self, utf8, times):
         self._s.append(utf8 * times)
         self._lgt += times

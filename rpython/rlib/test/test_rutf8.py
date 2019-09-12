@@ -211,6 +211,10 @@ def test_utf8_string_builder():
     s.append_code(0xD800)
     assert s.getlength() == 5
 
+    s.append_utf8_slice(u"äöüß".encode("utf-8"), 2, 6, 2)
+    assert s.getlength() == 7
+    assert s.build().decode("utf-8") == u"abc\u1234\ud800öü"
+
 def test_utf8_string_builder_bad_code():
     s = rutf8.Utf8StringBuilder()
     with pytest.raises(rutf8.OutOfRange):

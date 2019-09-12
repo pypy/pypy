@@ -818,8 +818,7 @@ class W_TextIOWrapper(W_TextIOBase):
             end_scan = self.decoded.pos
             uend_scan = self.decoded.upos
             if end_scan > start:
-                s = self.decoded.text[start:end_scan]
-                builder.append_utf8(s, uend_scan - ustart)
+                builder.append_utf8_slice(self.decoded.text, start, end_scan, uend_scan - ustart)
 
             if found or (limit >= 0 and builder.getlength() >= limit):
                 break
