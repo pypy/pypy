@@ -444,10 +444,9 @@ class DecodeBuffer(object):
         assert 0 <= ord(marker) < 128
         # ascii fast path
         if self.ulen == len(self.text):
-            if limit < 0:
-                end = len(self.text)
-            else:
-                end = self.pos + limit
+            end = len(self.text)
+            if limit >= 0:
+                end = min(end, self.pos + limit)
             pos = self.pos
             assert pos >= 0
             assert end >= 0
@@ -868,8 +867,7 @@ class W_TextIOWrapper(W_TextIOBase):
             end_scan = self.decoded.pos
             uend_scan = self.decoded.upos
             if end_scan > start:
-                s = self.decoded.text[start:end_scan]
-                builder.append_utf8(s, uend_scan - ustart)
+                builder.append_utf8_slice(self.decoded.text, start, end_scan, uend_scan - ustart)
 
             if found or (limit >= 0 and builder.getlength() >= limit):
                 break
