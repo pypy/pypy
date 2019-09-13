@@ -202,6 +202,7 @@ def test_runtime_warning():
     import gc, warnings  # XXX: importing warnings is expensive untranslated
     async def foobaz():
         pass
+    gc.collect()   # emit warnings from unrelated older tests
     with warnings.catch_warnings(record=True) as l:
         foobaz()
         gc.collect()
