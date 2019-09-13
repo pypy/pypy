@@ -429,10 +429,9 @@ class DecodeBuffer(object):
         assert 0 <= ord(marker) < 128
         # ascii fast path
         if self.ulen == len(self.text):
-            if limit < 0:
-                end = len(self.text)
-            else:
-                end = self.pos + limit
+            end = len(self.text)
+            if limit >= 0:
+                end = min(end, self.pos + limit)
             pos = self.pos
             assert pos >= 0
             assert end >= 0

@@ -35,6 +35,7 @@ def st_readline(draw, st_nlines=st.integers(min_value=0, max_value=10)):
 @given(data=st_readline(),
        mode=st.sampled_from(['\r', '\n', '\r\n', '']))
 @settings(deadline=None, database=None)
+@example(data=(u'\n\r\n', [0, -1, 2, -1, 0, -1]), mode='\r')
 def test_readline(space, data, mode):
     txt, limits = data
     w_stream = W_BytesIO(space)
