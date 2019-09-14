@@ -112,7 +112,7 @@ def _build_dependency(name, patches=[]):
                                                 cwd=sources,)
         if status != 0:
             break
-        return status, stdout, stderr
+    return status, stdout, stderr
 
 def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                                  embed_dependencies=False, rebuild=False):
