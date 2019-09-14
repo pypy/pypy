@@ -1,6 +1,7 @@
 from __future__ import print_function
 import sys, shutil, os, tempfile, hashlib
 from os.path import join
+import multiprocessing
 
 class MissingDependenciesError(Exception):
     pass
@@ -21,13 +22,21 @@ cffi_build_scripts = {
 
 # for distribution, we may want to fetch dependencies not provided by
 # the OS, such as a recent openssl/libressl.
+curdir = os.path.abspath(os.path.dirname(__file__))
+deps_destdir = os.path.join(curdir, 'dest')
 cffi_dependencies = {
     '_ssl': ('https://www.openssl.org/source/openssl-1.1.1c.tar.gz',
-            'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
-            ['no-shared']),
+             'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
+             [['./config', 'no-shared'],
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ]),
     '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
               '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
-              ['--without-readline']),
+             [['./config', '--without-readline'],
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ]),
 }
 
 
@@ -53,8 +62,7 @@ def _sha256(filename):
     return dgst.hexdigest()
 
 
-def _build_dependency(name, destdir, patches=[]):
-    import multiprocessing
+def _build_dependency(name, patches=[]):
     import shutil
     import subprocess
 
@@ -66,7 +74,7 @@ def _build_dependency(name, destdir, patches=[]):
         from urllib import urlretrieve
 
     try:
-        url, dgst, args = cffi_dependencies[name]
+        url, dgst, build_cmds = cffi_dependencies[name]
     except KeyError:
         return 0, None, None
 
@@ -82,15 +90,12 @@ def _build_dependency(name, destdir, patches=[]):
         print('fetching archive', url, file=sys.stderr)
         urlretrieve(url, archive)
 
-    # extract the archive into our destination directory
+    # extract the into our destination directory
     print('unpacking archive', archive, file=sys.stderr)
-    _unpack_tarfile(archive, destdir)
+    _unpack_tarfile(archive, deps_destdir)
 
-    sources = os.path.join(
-        destdir,
-        os.path.basename(archive)[:-7],
-    )
-
+    sources = os.path.join(deps_destdir, os.path.basename(archive)[:-7])
+    
     # apply any patches
     if patches:
         for patch in patches:
@@ -101,43 +106,13 @@ def _build_dependency(name, destdir, patches=[]):
 
             if status != 0:
                 return status, stdout, stderr
-
-    print('configuring', sources, file=sys.stderr)
-
-    # configure & build it
-    status, stdout, stderr = run_subprocess(
-        './config',
-        [
-            '--prefix=/usr',
-        ] + args,
-        cwd=sources,
-    )
-
-    if status != 0:
+    for args in build_cmds:
+        print('running', ' '.join(args), 'in', sources, file=sys.stderr)
+        status, stdout, stderr = run_subprocess(args[0], args[1:],
+                                                cwd=sources,)
+        if status != 0:
+            break
         return status, stdout, stderr
-
-    print('building', sources, file=sys.stderr)
-
-    status, stdout, stderr = run_subprocess(
-        'make',
-        [
-            '-s', '-j' + str(multiprocessing.cpu_count()),
-        ],
-        cwd=sources,
-    )
-    if status != 0:
-        return status, stdout, stderr
-
-    print('installing to', destdir, file=sys.stderr)
-    status, stdout, stderr = run_subprocess(
-        'make',
-        [
-            'install', 'DESTDIR={}/'.format(destdir),
-        ],
-        cwd=sources,
-    )
-    return status, stdout, stderr
-
 
 def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                                  embed_dependencies=False, rebuild=False):
@@ -176,13 +151,12 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies:
-            curdir = os.path.abspath(os.path.dirname(__file__))
-            destdir = os.path.join(curdir, 'dest')
+            destdir = deps_destdir
 
             shutil.rmtree(destdir, ignore_errors=True)
             os.makedirs(destdir)
 
-            status, stdout, stderr = _build_dependency(key, destdir)
+            status, stdout, stderr = _build_dependency(key)
 
             if status != 0:
                 failures.append((key, module))
