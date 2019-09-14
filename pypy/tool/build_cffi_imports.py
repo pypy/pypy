@@ -90,6 +90,9 @@ def _build_dependency(name, patches=[]):
         print('fetching archive', url, file=sys.stderr)
         urlretrieve(url, archive)
 
+    shutil.rmtree(deps_destdir, ignore_errors=True)
+    os.makedirs(deps_destdir)
+
     # extract the into our destination directory
     print('unpacking archive', archive, file=sys.stderr)
     _unpack_tarfile(archive, deps_destdir)
@@ -151,13 +154,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies:
-            destdir = deps_destdir
-
-            shutil.rmtree(destdir, ignore_errors=True)
-            os.makedirs(destdir)
-
             status, stdout, stderr = _build_dependency(key)
-
             if status != 0:
                 failures.append((key, module))
                 print("stdout:")
@@ -167,9 +164,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 continue
 
             env['CPPFLAGS'] = \
-                '-I{}/usr/include {}'.format(destdir, env.get('CPPFLAGS', ''))
+                '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
             env['LDFLAGS'] = \
-                '-L{}/usr/lib {}'.format(destdir, env.get('LDFLAGS', ''))
+                '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
         elif sys.platform == 'win32':
             env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
             env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
