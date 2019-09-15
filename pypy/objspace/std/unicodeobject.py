@@ -726,7 +726,7 @@ class W_UnicodeObject(W_Root):
         i = 0
         while True:
             next_pos = rutf8.next_codepoint_pos(self._utf8, byte_pos)
-            builder.append(self._utf8[byte_pos:next_pos])
+            builder.append_slice(self._utf8, byte_pos, next_pos)
             if i == sl - 1:
                 break
             i += 1
