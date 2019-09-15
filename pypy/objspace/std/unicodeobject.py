@@ -889,17 +889,6 @@ class W_UnicodeObject(W_Root):
             byte_pos = self._index_to_byte(start + i * step)
         return W_UnicodeObject(builder.build(), sl)
 
-    def descr_getslice(self, space, w_start, w_stop):
-        start, stop = normalize_simple_slice(
-            space, self._len(), w_start, w_stop)
-        if start == stop:
-            return self._empty()
-        else:
-            if (jit.we_are_jitted() and
-                    self._unroll_slice_heuristic(start, stop, w_stop)):
-                return self._unicode_sliced_constant_index_jit(space, start, stop)
-            return self._unicode_sliced(space, start, stop)
-
     def _unicode_sliced(self, space, start, stop):
         # XXX maybe some heuristic, like first slice does not create
         #     full index, but second does?
