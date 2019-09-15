@@ -363,9 +363,25 @@ def check_utf8(s, allow_surrogates, start=0, stop=-1):
     raise CheckError(~res)
 
 def get_utf8_length(s, start=0, end=-1):
-    """ Get the length out of valid utf8. For now just calls check_utf8
+    """ Get the length out of valid utf8.
     """
-    return check_utf8(s, True, start, end)
+    if end < 0:
+        end = len(s)
+    res = 0
+    pos = start
+    while pos < end:
+        ordch1 = ord(s[pos])
+        res += 1
+        if ordch1 <= 0x7F:
+            pos += 1
+        elif ordch1 <= 0xDF:
+            pos += 2
+        elif ordch1 <= 0xEF:
+            pos += 3
+        elif ordch1 <= 0xF4:
+            pos += 4
+
+    return res
 
 @jit.elidable
 def _check_utf8(s, allow_surrogates, start, stop):
