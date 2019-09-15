@@ -43,7 +43,7 @@ cffi_dependencies = {
              ]),
     '_ssl': ('https://www.openssl.org/source/openssl-1.1.1c.tar.gz',
              'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
-             [['./config', 'no-shared'],
+             [['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
@@ -106,7 +106,10 @@ def _build_dependency(name, patches=[]):
         print('fetching archive', url, file=sys.stderr)
         urlretrieve(url, archive)
 
-    # extract the archive into our destination directory
+    shutil.rmtree(deps_destdir, ignore_errors=True)
+    os.makedirs(deps_destdir)
+
+    # extract the into our destination directory
     print('unpacking archive', archive, file=sys.stderr)
     _unpack_tarfile(archive, deps_destdir)
 
@@ -167,13 +170,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies:
-            destdir = deps_destdir
-
-            shutil.rmtree(destdir, ignore_errors=True)
-            os.makedirs(destdir)
-
             status, stdout, stderr = _build_dependency(key)
-
             if status != 0:
                 failures.append((key, module))
                 print("stdout:")
@@ -183,9 +180,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 continue
 
             env['CPPFLAGS'] = \
-                '-I{}/usr/include {}'.format(destdir, env.get('CPPFLAGS', ''))
+                '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
             env['LDFLAGS'] = \
-                '-L{}/usr/lib {}'.format(destdir, env.get('LDFLAGS', ''))
+                '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
         elif sys.platform == 'win32':
             env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
             env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
