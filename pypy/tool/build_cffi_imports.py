@@ -27,7 +27,7 @@ deps_destdir = os.path.join(curdir, 'dest')
 cffi_dependencies = {
     '_ssl': ('https://www.openssl.org/source/openssl-1.1.1c.tar.gz',
              'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
-             [['./config', 'no-shared'],
+             [['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
