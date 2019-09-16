@@ -1085,9 +1085,11 @@ class W_UnicodeObject(W_Root):
                 lgt -= 1
 
         if right:
-            while rpos > lpos and rutf8.isspace(value,
-                                         rutf8.prev_codepoint_pos(value, rpos)):
-                rpos = rutf8.prev_codepoint_pos(value, rpos)
+            while rpos > lpos:
+                prev = rutf8.prev_codepoint_pos(value, rpos)
+                if not rutf8.isspace(value, prev):
+                    break
+                rpos = prev
                 lgt -= 1
 
         assert rpos >= lpos    # annotator hint, don't remove
@@ -1108,9 +1110,11 @@ class W_UnicodeObject(W_Root):
                 lgt -= 1
 
         if right:
-            while rpos > lpos and rutf8.utf8_in_chars(value,
-                    rutf8.prev_codepoint_pos(value, rpos), chars):
-                rpos = rutf8.prev_codepoint_pos(value, rpos)
+            while rpos > lpos:
+                prev = rutf8.prev_codepoint_pos(value, rpos)
+                if not rutf8.utf8_in_chars(value, prev, chars):
+                    break
+                rpos = prev
                 lgt -= 1
 
         assert rpos >= lpos    # annotator hint, don't remove
