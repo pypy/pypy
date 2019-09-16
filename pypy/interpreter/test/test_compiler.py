@@ -744,7 +744,7 @@ def test():
                 sys.path[:] = copy
             return x
         """)
-        assert space.float_w(w_result) == 0
+        assert space.is_true(w_result)
 
     def test_filename_in_syntaxerror(self):
         e = py.test.raises(OperationError, self.compiler.compile, """if 1:
@@ -917,9 +917,11 @@ class AppTestCompiler(object):
         code = "from __future__ import barry_as_FLUFL; 2 {0} 3"
         compile(code.format('<>'), '<BDFL test>', 'exec',
                 __future__.CO_FUTURE_BARRY_AS_BDFL)
-        raises(SyntaxError, compile, code.format('!='),
+        with raises(SyntaxError) as excinfo:
+            compile(code.format('!='),
                '<FLUFL test>', 'exec',
                __future__.CO_FUTURE_BARRY_AS_BDFL)
+        assert excinfo.value.msg == "with Barry as BDFL, use '<>' instead of '!='"
 
     def test_guido_as_bdfl(self):
         # from test_flufl.py :-)
