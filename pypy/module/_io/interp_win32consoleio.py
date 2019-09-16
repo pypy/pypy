@@ -19,6 +19,9 @@ import unicodedata
 SMALLBUF = 4
 BUFMAX = (32*1024*1024)
 BUFSIZ = platform.ConstantInteger("BUFSIZ")
+CONIN = rffi.unicode2wcharp(u"CONIN$")
+CONOUT = rffi.unicode2wcharp(u"CONOUT$")
+CON = rffi.unicode2wcharp(u"CON")
 
 def err_closed(space):
     raise oefmt(space.w_ValueError,
@@ -32,7 +35,7 @@ def err_mode(space, state):
 def read_console_w(space, handle, maxlen, readlen):
     err = 0
     sig = 0
-    buf = lltype.malloc(rwin32.CWCHARP, maxlen, flavor='raw')
+    buf = lltype.malloc(rffi.CWCHARP, maxlen, flavor='raw')
 
     try:
         if not buf:
@@ -42,7 +45,7 @@ def read_console_w(space, handle, maxlen, readlen):
         while off < maxlen:
             with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
                 n[0] = -1
-                len = min(maxlen - off, BUFSIZE)
+                len = min(maxlen - off, BUFSIZ)
                 rwin32.SetLastError_saved(0)
                 res = rwin32.ReadConsoleW(handle, buf[off], len, n, rffi.NULL)
                 err = rwin32.GetLastError_saved()
@@ -69,7 +72,7 @@ def read_console_w(space, handle, maxlen, readlen):
                     break
                     
                 # We read a new line
-                if buf[readlen -1] == '\n':
+                if buf[readlen -1] == u'\n':
                     break
                 
                 with lltype.scoped_alloc(rwin32.LPWORD.TO, 1) as char_type:
@@ -77,7 +80,7 @@ def read_console_w(space, handle, maxlen, readlen):
                         rwin32.GetStringTypeW(rwin32.CT_CTYPE3, buf[readlen - 1], 1, char_type) and \
                         char_type == rwin32.C3_HIGHSURROGATE:
                         maxlen += 1
-                        newbuf = lltype.malloc(rwin32.CWCHARP, maxlen, flavor='raw')
+                        newbuf = lltype.malloc(rffi.CWCHARP, maxlen, flavor='raw')
                         lltype.free(buf, flavor='raw')
                         buf = newbuf
                         off += n
@@ -87,7 +90,7 @@ def read_console_w(space, handle, maxlen, readlen):
             lltype.free(buf, flavor='raw')
             return None
             
-        if readlen > 0 and buf[0] == '\x1a':
+        if readlen > 0 and buf[0] == u'\x1a':
             lltype.free(buf, flavor='raw')
             buf = lltype.malloc(rwin32.CWCHARP, 1, flavor='raw')
             buf[0] = '\0'
@@ -135,11 +138,11 @@ def _pyio_get_console_type(space, w_path_or_fd):
     
     # In CPython the _wcsicmp function is used to perform case insensitive comparison
     decoded.lower()
-    if not rwin32.wcsicmp(decoded_wstr, "CONIN$"):
+    if not rwin32.wcsicmp(decoded_wstr, CONIN):
         m = 'r'
-    elif not rwin32.wcsicmp(decoded_wstr, "CONOUT$"):
+    elif not rwin32.wcsicmp(decoded_wstr, CONOUT):
         m = 'w'
-    elif not rwin32.wcsicmp(decoded_wstr, "CON"):
+    elif not rwin32.wcsicmp(decoded_wstr, CON):
         m = 'x'
 
 
@@ -150,28 +153,31 @@ def _pyio_get_console_type(space, w_path_or_fd):
     
     pname_buf = lltype.malloc(rffi.CWCHARP.TO, rwin32.MAX_PATH, flavor='raw')
 
-    traits = _preferred_traits(decoded_wstr)
+    uni_decoded_wstr = rffi.wcharp2unicode(decoded_wstr)
+    traits = _preferred_traits(uni_decoded_wstr)
     win32traits = make_win32_traits(traits)
-    length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, rffi.NULL)
+    w_str_nullptr = lltype.nullptr(win32traits.LPSTRP.TO)
+    length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, w_str_nullptr)
     
     if length > rwin32.MAX_PATH:
         lltype.free(pname_buf, flavor='raw')
         pname_buf = lltype.malloc(rffi.CWCHARP.TO, length, flavor='raw')
         if pname_buf:
-            length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, rffi.NULL)
+            length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, w_str_nullptr)
         else:
             length = 0
 
     if length:
-        if length >= 4 and pname_buf[3] == '\\' and \
-           (pname_buf[2] == '.' or pname_buf[2] == '?') and \
-           pname_buf[1] == '\\' and pname_buf[0] == '\\':
-            pname_buf += 4
-            if not rwin32.wcsicmp(decoded_wstr, "CONIN$"):
+        if length >= 4 and pname_buf[3] == u'\\' and \
+           (pname_buf[2] == u'.' or pname_buf[2] == u'?') and \
+           pname_buf[1] == u'\\' and pname_buf[0] == u'\\':
+            name = rffi.ptradd(pname_buf, 4)
+ 
+            if not rwin32.wcsicmp(name, CONIN):
                 m = 'r'
-            elif not rwin32.wcsicmp(decoded_wstr, "CONOUT$"):
+            elif not rwin32.wcsicmp(name, CONOUT):
                 m = 'w'
-            elif not rwin32.wcsicmp(decoded_wstr, "CON"):
+            elif not rwin32.wcsicmp(name, CON):
                 m = 'x'
     lltype.free(pname_buf, flavor='raw')
     return m
@@ -201,6 +207,12 @@ class W_WinConsoleIO(W_RawIOBase):
             len -= 1
             n += 1
         return n
+        
+    def _buflen(self):
+        for i in range(len(SMALLBUF)):
+            if not self.buf[i]:
+                return i
+        return SMALLBUF
 
     @unwrap_spec(w_mode=WrappedDefault("r"), w_closefd=WrappedDefault(True), w_opener=WrappedDefault(None))
     def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
@@ -427,7 +439,7 @@ class W_WinConsoleIO(W_RawIOBase):
     def read_w(self, space, w_size=None):
         size = convert_size(space, w_size)
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
-            err_closed()
+            err_closed(space)
         if not self.readable:
             return err_mode("reading")
 
@@ -449,15 +461,16 @@ class W_WinConsoleIO(W_RawIOBase):
 
     def readall_w(self, space):
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
-            err_closed()
+            err_closed(space)
 
-        bufsize = BUFSIZE
-        buf = lltype.malloc(rwin32.CWCHARP, bufsize + 1, flavor='raw')
+        bufsize = BUFSIZ
+        buf = lltype.malloc(rffi.CWCHARP, bufsize + 1, flavor='raw')
         len = 0
-        n = lltype.malloc(rwin32.CWCHARP, 1, flavor='raw')
+        n = lltype.malloc(rffi.CWCHARP, 1, flavor='raw')
         n[0] = 0
 
         try:
+            # Read the bytes from the console
             while True:
                 if len >= bufsize:
                     if len > BUFMAX:
@@ -469,7 +482,7 @@ class W_WinConsoleIO(W_RawIOBase):
                                     "than a Python bytes object can hold")
                     bufsize = newsize
                     lltype.free(buf, flavor='raw')
-                    buf = lltype.malloc(rwin32.CWCHARP, bufsize + 1, flavor='raw')
+                    buf = lltype.malloc(rffi.CWCHARP, bufsize + 1, flavor='raw')
                     subbuf = read_console_w(self.handle, bufsize - len, n)
                     
                     if n > 0:
@@ -482,13 +495,40 @@ class W_WinConsoleIO(W_RawIOBase):
                         
                     len += n
                     
-            if len == 0 and _buflen(self) == 0:
+            if len == 0 and self._buflen() == 0:
                 return None
-                
+            
+            # Compute the size for the destination buffer
+            if len:
+                bytes_size = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, buf,
+                 len, rffi.NULL, 0, rffi.NULL, rffi.NULL)
+                 
+                if bytes_size:
+                    err = rwin32.GetLastError_saved()
+                    raise WindowsError(err, "Failed to convert wide characters to multi byte string")
+            else:
+                bytes_size = 0    
+            bytes_size += self._buflen()
+            
+            # Create destination buffer and convert the bytes
+            bytes = lltype.malloc(rffi.CCHARP, bytes_size, flavor='raw')
+            rn = self._copyfrombuf(bytes, bytes_size)
+            
+            if len:
+                bytes_size = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, buf, len,
+                             bytes[rn], bytes_size - rn, rffi.NULL, rffi.NULL)
+                             
+                if not bytes_size:
+                    err = rwin32.GetLastError_saved()
+                    raise WindowsError(err, "Failed to convert wide characters to multi byte string")
+                    
+                bytes_size += rn
+            
+            w_bytes = space.charp2str(bytes)
+            return space.newbytes(w_bytes)
+            
         finally:
             lltype.free(buf, flavor='raw')            
-
-        pass
 
     def get_blksize(self,space):
         return space.newint(self.blksize)
