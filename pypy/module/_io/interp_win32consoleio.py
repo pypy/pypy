@@ -136,14 +136,14 @@ def _pyio_get_console_type(space, w_path_or_fd):
         return '\0'
  
     m = '\0'
-    
+
     # In CPython the _wcsicmp function is used to perform case insensitive comparison
-    decoded.lower()
-    if not rwin32.wcsicmp(decoded_wstr, CONIN):
+    dlower = decoded.lower()
+    if  dlower == 'CONIN$'.lower():
         m = 'r'
-    elif not rwin32.wcsicmp(decoded_wstr, CONOUT):
+    elif dlower == 'CONOUT$'.lower():
         m = 'w'
-    elif not rwin32.wcsicmp(decoded_wstr, CON):
+    elif dlower == 'CON'.lower():
         m = 'x'
 
 
@@ -168,17 +168,15 @@ def _pyio_get_console_type(space, w_path_or_fd):
         else:
             length = 0
 
-    if length:
-        if length >= 4 and pname_buf[3] == u'\\' and \
-           (pname_buf[2] == u'.' or pname_buf[2] == u'?') and \
-           pname_buf[1] == u'\\' and pname_buf[0] == u'\\':
-            name = rffi.ptradd(pname_buf, 4)
- 
-            if not rwin32.wcsicmp(name, CONIN):
+    dlower = space.wcharp2unicode(pname_buf).lower()
+    if len(dlower) >=4:
+        if dlower[:4] == u'\\\\.\\' or dlower[:4] == u'\\\\?\\':
+            dlower = dlower[4:]
+            if  dlower == u'CONIN$'.lower():
                 m = 'r'
-            elif not rwin32.wcsicmp(name, CONOUT):
+            elif dlower == u'CONOUT$'.lower():
                 m = 'w'
-            elif not rwin32.wcsicmp(name, CON):
+            elif dlower == u'CON'.lower():
                 m = 'x'
     lltype.free(pname_buf, flavor='raw')
     return m
