@@ -706,31 +706,26 @@ def test():
 
     def test_dont_inherit_flag(self):
         # this test checks that compile() don't inherit the __future__ flags
-        # of the hosting code. However, in Python3 we don't have any
-        # meaningful __future__ flag to check that (they are all enabled). The
-        # only candidate could be barry_as_FLUFL, but it's not implemented yet
-        # (and not sure it'll ever be)
-        py.test.skip("we cannot actually check the result of this test (see comment)")
+        # of the hosting code.
         space = self.space
         s1 = str(py.code.Source("""
-            from __future__ import division
-            exec(compile('x = 1/2', '?', 'exec', 0, 1))
+            from __future__ import barry_as_FLUFL
+            # not a syntax error inside the exec!
+            exec(compile('x = 1 != 2', '?', 'exec', 0, 1))
         """))
         w_result = space.appexec([space.wrap(s1)], """(s1):
             ns = {}
             exec(s1, ns)
             return ns['x']
         """)
-        assert space.float_w(w_result) == 0
+        assert space.is_true(w_result)
 
     def test_dont_inherit_across_import(self):
-        # see the comment for test_dont_inherit_flag
-        py.test.skip("we cannot actually check the result of this test (see comment)")
         from rpython.tool.udir import udir
-        udir.join('test_dont_inherit_across_import.py').write('x = 1/2\n')
+        udir.join('test_dont_inherit_across_import.py').write('x = 1 != 2\n')
         space = self.space
         s1 = str(py.code.Source("""
-            from __future__ import division
+            from __future__ import barry_as_FLUFL
             from test_dont_inherit_across_import import x
         """))
         w_result = space.appexec([space.wrap(str(udir)), space.wrap(s1)],
@@ -738,11 +733,12 @@ def test():
             import sys
             copy = sys.path[:]
             sys.path.insert(0, udir)
+            ns = {}
             try:
-                exec s1
+                exec(s1, ns)
             finally:
                 sys.path[:] = copy
-            return x
+            return ns['x']
         """)
         assert space.is_true(w_result)
 
