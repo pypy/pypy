@@ -157,14 +157,14 @@ def _pyio_get_console_type(space, w_path_or_fd):
     uni_decoded_wstr = rffi.wcharp2unicode(decoded_wstr)
     traits = _preferred_traits(uni_decoded_wstr)
     win32traits = make_win32_traits(traits)
-    w_str_nullptr = lltype.nullptr(win32traits.LPSTRP.TO)
-    length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, w_str_nullptr)
+    str_nullptr = lltype.nullptr(win32traits.LPSTRP.TO)
+    length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, str_nullptr)
     
     if length > rwin32.MAX_PATH:
         lltype.free(pname_buf, flavor='raw')
         pname_buf = lltype.malloc(rffi.CWCHARP.TO, length, flavor='raw')
         if pname_buf:
-            length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, w_str_nullptr)
+            length = win32traits.GetFullPathName(decoded_wstr, length, pname_buf, str_nullptr)
         else:
             length = 0
 
@@ -190,8 +190,8 @@ class W_WinConsoleIO(W_RawIOBase):
         self.handle = rwin32.INVALID_HANDLE_VALUE
         self.fd = -1
         self.created = 0
-        self.readable = 0
-        self.writable = 0
+        self.readable = False
+        self.writable = False
         self.closehandle = 0
         self.blksize = 0
 
@@ -217,17 +217,16 @@ class W_WinConsoleIO(W_RawIOBase):
 
     @unwrap_spec(w_mode=WrappedDefault("r"), w_closefd=WrappedDefault(True), w_opener=WrappedDefault(None))
     def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
-        return None
-        #self.fd = -1
-        #self.created = 0
         name = None
         self.readable = False
         self.writable = False
-        #self.closehandle = 0;
         self.blksize = 0
         rwa = False
         console_type = '\0'
         self.buf = lltype.malloc(rffi.CCHARPP.TO,SMALLBUF,flavor='raw')
+
+        if w_mode == None:
+            w_mode = space.newtext("r")
 
         try:
             self.fd = space.int_w(w_nameobj)
@@ -262,7 +261,7 @@ class W_WinConsoleIO(W_RawIOBase):
                         raise oefmt(space.w_ValueError,
                                 "invalid mode: %s", space.text_w(w_mode))
                     rwa = True
-                    self.writable = True;
+                    self.writable = True
                     if console_type == 'x':
                         console_type = 'w'
                 else:
@@ -359,7 +358,7 @@ class W_WinConsoleIO(W_RawIOBase):
             else:
                 self.fd = rwin32.open_osfhandle(self.handle, rwin32._O_RDONLY | rwin32._O_BINARY)
         if self.fd < 0:
-            return err_mode("fileno")
+            return err_mode(space, "fileno")
         return space.newint(self.fd)
         
     def readinto_w(self, space, w_buffer):
@@ -442,7 +441,7 @@ class W_WinConsoleIO(W_RawIOBase):
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
             err_closed(space)
         if not self.readable:
-            return err_mode("reading")
+            return err_mode(space,"reading")
 
         if size < 0:
             return self.readall_w(space)
@@ -542,7 +541,7 @@ class W_WinConsoleIO(W_RawIOBase):
             return err_closed(space)
             
         if not self.writable:
-            return err_mode("writing")
+            return err_mode(space,"writing")
             
         if not len(buffer):
             return 0
