@@ -164,7 +164,7 @@ def _pyio_get_console_type(space, w_path_or_fd):
         lltype.free(pname_buf, flavor='raw')
         pname_buf = lltype.malloc(rffi.CWCHARP.TO, length, flavor='raw')
         if pname_buf:
-            length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, w_str_nullptr)
+            length = win32traits.GetFullPathName(decoded_wstr, length, pname_buf, w_str_nullptr)
         else:
             length = 0
 
