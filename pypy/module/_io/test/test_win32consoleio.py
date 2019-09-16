@@ -9,4 +9,4 @@ class AppTestWinConsoleIO:
 
     def test_constructor(self):
         import _io
-        t = _io.WindowsConsoleIO(u"CONIN$")
+        t = _io._WindowsConsoleIO(u"CONIN$")

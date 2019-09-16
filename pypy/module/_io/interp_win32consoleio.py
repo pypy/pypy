@@ -119,8 +119,9 @@ def _get_console_type(handle):
         lltype.free(peek_count, flavor='raw')
 
 def _pyio_get_console_type(space, w_path_or_fd):
-    fd = space.int_w(w_path_or_fd)
-    if fd >= 0:
+
+    if space.isinstance_w(w_path_or_fd, space.w_int):
+        fd = space.int_w(w_path_or_fd)
         handle = rwin32.get_osfhandle(fd)
         if handle == rwin32.INVALID_HANDLE_VALUE:
             return '\0'
@@ -519,17 +520,73 @@ class W_WinConsoleIO(W_RawIOBase):
                              bytes[rn], bytes_size - rn, rffi.NULL, rffi.NULL)
                              
                 if not bytes_size:
+                    lltype.free(bytes, flavor='raw')
                     err = rwin32.GetLastError_saved()
                     raise WindowsError(err, "Failed to convert wide characters to multi byte string")
                     
                 bytes_size += rn
             
+            lltype.free(bytes, flavor='raw')
             w_bytes = space.charp2str(bytes)
             return space.newbytes(w_bytes)
             
         finally:
-            lltype.free(buf, flavor='raw')            
+            lltype.free(buf, flavor='raw')
+            lltype.free(n, flavor='raw')
 
+    def write_w(self, space, w_data):
+        buffer = space.charbuf_w(w_data)
+        n = lltype.malloc(rwin32.LPDWORD.TO, 0, flavor='raw')
+        
+        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            return err_closed(space)
+            
+        if not self.writable:
+            return err_mode("writing")
+            
+        if not len(buffer):
+            return 0
+            
+        if len(buffer) > BUFMAX:
+            buflen = BUFMAX
+        else:
+            buflen = len(buffer)
+        
+        wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
+        
+        while wlen > (32766 / rffi.sizeof(rffi.CWCHARP.TO)):
+            buflen /= 2
+            wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
+            
+        if not wlen:
+            lltype.free(n, flavor='raw')
+            raise WindowsError("Failed to convert bytes to wide characters")
+        
+        with lltype.scoped_alloc(rffi.CWCHARP, wlen) as wbuf:
+            wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, wbuf, wlen)
+            if wlen:
+                res = rwin32.WriteConsoleW(self.handle, wbuf, wlen, n , rffi.NULL)
+                
+                if res and n < wlen:
+                    buflen = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf, n,
+                    rffi.NULL, 0, rffi.NULL, rffi.NULL)
+                
+                    if buflen:
+                        wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0, buffer,
+                        buflen, rffi.NULL, 0)
+                        assert len == wlen
+                        
+            else:
+                res = 0
+                
+            if not res:
+                err = rwin32.GetLastError_saved()
+                lltype.free(n, flavor='raw')
+                raise WindowsError(err, "Failed to convert multi byte string to wide characters")
+                
+            lltype.free(n, flavor='raw')
+            return space.newint(len)
+            
     def get_blksize(self,space):
         return space.newint(self.blksize)
         
@@ -545,6 +602,6 @@ W_WinConsoleIO.typedef = TypeDef(
     read     = interp2app(W_WinConsoleIO.read_w),
     readall  = interp2app(W_WinConsoleIO.readall_w),
     readinto = interp2app(W_WinConsoleIO.readinto_w),
-    
+    write = interp2app(W_WinConsoleIO.write_w),   
     _blksize = GetSetProperty(W_WinConsoleIO.get_blksize),
     )

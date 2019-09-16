@@ -583,11 +583,21 @@ if WIN32:
     ERROR_INSUFFICIENT_BUFFER = 122
     ERROR_OPERATION_ABORTED   = 995
     CP_UTF8 = 65001 
+    
     WideCharToMultiByte = winexternal(
         'WideCharToMultiByte', [rffi.UINT, DWORD, rffi.CWCHARP, rffi.INT,
                                 LPSTR, rffi.INT, rffi.CCHARP, LPBOOL], rffi.INT,
         save_err=rffi.RFFI_SAVE_LASTERROR)
   
+    MultiByteToWideChar = winexternal(
+        'MultiByteToWideChar', [rffi.UINT, DWORD, rffi.CCHARP, rffi.INT,
+                                LPWSTR, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+  
     ReadConsoleW = winexternal(
         'ReadConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+        
+    WriteConsoleW = winexternal(
+        'WriteConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
