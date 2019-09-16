@@ -197,6 +197,12 @@ class TestByteBuffer(object):
         assert buf.typed_read(rffi.USHORT, 0) == 0x1234
         assert buf.typed_read(rffi.USHORT, 2) == 0x5678
 
+    def test_getslice_shortcut(self):
+        buf = ByteBuffer(4)
+        buf.setslice(0, b"data")
+        buf.getitem = None
+        assert buf.getslice(0, 2, 1, 2) == b"da" # no crash!
+
 
 class TestJIT(LLJitMixin):
 

@@ -134,7 +134,7 @@ class BasicTests:
             u = U(x, len(x))
             st = u._get_index_storage()
             return rutf8.codepoint_index_at_byte_position(
-                u.u, st, 1)
+                u.u, st, 1, len(x))
 
         self.interp_operations(m, [123232])
 

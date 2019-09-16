@@ -1041,6 +1041,14 @@ class AppTestPartialEvaluation:
         # CPython raises OverflowError here
         raises((IndexError, OverflowError), b'apple\x92ham\x93spam'.decode, 'utf-8', errors)
 
+    def test_badhandler_returns_unicode(self):
+        import codecs
+        import sys
+        errors = 'test.badhandler_unicode'
+        codecs.register_error(errors, lambda x: (chr(100000), x.end))
+        # CPython raises OverflowError here
+        raises(UnicodeEncodeError, u'\udc80\ud800\udfff'.encode, 'utf-8', errors)
+
     def test_unicode_internal(self):
         import codecs
         import sys

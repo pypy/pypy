@@ -785,4 +785,8 @@ class AsyncGenAThrow(AsyncGenABase):
                 # StopIteration, signalling that this 'aclose()' await
                 # is done.
                 raise OperationError(space.w_StopIteration, space.w_None)
+        if e.match(space, space.w_GeneratorExit):
+            if self.w_exc_type is None:
+                # Ignore this error.
+                raise OperationError(space.w_StopIteration, space.w_None)
         raise e

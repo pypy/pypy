@@ -528,6 +528,9 @@ def _get_inttime(space, w_seconds):
         seconds = pytime.time()
     else:
         seconds = space.float_w(w_seconds)
+        if math.isnan(seconds):
+            raise oefmt(space.w_ValueError,
+                        "Invalid value Nan (not a number)")
     #
     t = rffi.cast(rffi.TIME_T, seconds)
     #

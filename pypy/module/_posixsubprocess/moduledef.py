@@ -5,10 +5,9 @@ class Module(MixedModule):
 
     appleveldefs = {
         }
-    
+
     interpleveldefs = {
         'fork_exec': 'interp_subprocess.fork_exec',
-        'cloexec_pipe': 'interp_subprocess.cloexec_pipe',
         }
 
     def startup(self, space):

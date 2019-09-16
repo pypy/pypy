@@ -26,6 +26,16 @@ from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT, IDTAG_ALT_UID
 __all__ = ['W_UnicodeObject', 'encode_object', 'decode_object',
            'unicode_from_object', 'unicode_to_decimal_w']
 
+MAX_UNROLL_NEXT_CODEPOINT_POS = 4
+
+@jit.elidable
+def next_codepoint_pos_dont_look_inside(utf8, p):
+    return rutf8.next_codepoint_pos(utf8, p)
+
+@jit.elidable
+def prev_codepoint_pos_dont_look_inside(utf8, p):
+    return rutf8.prev_codepoint_pos(utf8, p)
+
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
@@ -854,6 +864,9 @@ class W_UnicodeObject(W_Root):
             if sl == 0:
                 return self._empty()
             elif step == 1:
+                if jit.we_are_jitted() and \
+                        self._unroll_slice_heuristic(start, stop, w_index.w_stop):
+                    return self._unicode_sliced_constant_index_jit(space, start, stop)
                 assert start >= 0 and stop >= 0
                 return self._unicode_sliced(space, start, stop)
             else:
@@ -869,20 +882,12 @@ class W_UnicodeObject(W_Root):
         i = 0
         while True:
             next_pos = rutf8.next_codepoint_pos(self._utf8, byte_pos)
-            builder.append(self._utf8[byte_pos:next_pos])
+            builder.append_slice(self._utf8, byte_pos, next_pos)
             if i == sl - 1:
                 break
             i += 1
             byte_pos = self._index_to_byte(start + i * step)
         return W_UnicodeObject(builder.build(), sl)
-
-    def descr_getslice(self, space, w_start, w_stop):
-        start, stop = normalize_simple_slice(
-            space, self._len(), w_start, w_stop)
-        if start == stop:
-            return self._empty()
-        else:
-            return self._unicode_sliced(space, start, stop)
 
     def _unicode_sliced(self, space, start, stop):
         # XXX maybe some heuristic, like first slice does not create
@@ -892,6 +897,31 @@ class W_UnicodeObject(W_Root):
         byte_start = self._index_to_byte(start)
         byte_stop = self._index_to_byte(stop)
         return W_UnicodeObject(self._utf8[byte_start:byte_stop], stop - start)
+
+    @jit.unroll_safe
+    def _unicode_sliced_constant_index_jit(self, space, start, stop):
+        assert start >= 0
+        assert stop >= 0
+        byte_start = 0
+        for i in range(start):
+            byte_start = next_codepoint_pos_dont_look_inside(self._utf8, byte_start)
+        byte_stop = len(self._utf8)
+        for i in range(self._len() - stop):
+            byte_stop = prev_codepoint_pos_dont_look_inside(self._utf8, byte_stop)
+        return W_UnicodeObject(self._utf8[byte_start:byte_stop], stop - start)
+
+    def _unroll_slice_heuristic(self, start, stop, w_stop):
+        from pypy.objspace.std.intobject import W_IntObject
+        # the reason we use the *wrapped* stop is that for
+        # w_stop ==  wrapped -1, or w_None the stop that is computed will *not*
+        # be constant, because the length is often not constant.
+        return (not self.is_ascii() and
+            jit.isconstant(start) and
+            (jit.isconstant(w_stop) or
+                (isinstance(w_stop, W_IntObject) and
+                    jit.isconstant(w_stop.intval))) and
+            start <= MAX_UNROLL_NEXT_CODEPOINT_POS and
+            self._len() - stop <= MAX_UNROLL_NEXT_CODEPOINT_POS)
 
     def descr_capitalize(self, space):
         return W_UnicodeObject._capitalize_unicode(self._utf8)
@@ -1024,12 +1054,43 @@ class W_UnicodeObject(W_Root):
         return storage
 
     def _getitem_result(self, space, index):
+        if (jit.we_are_jitted() and
+                not self.is_ascii() and
+                jit.isconstant(index) and
+                -MAX_UNROLL_NEXT_CODEPOINT_POS <= index <= MAX_UNROLL_NEXT_CODEPOINT_POS):
+            return self._getitem_result_constant_index_jit(space, index)
         if index < 0:
             index += self._length
         if index < 0 or index >= self._length:
             raise oefmt(space.w_IndexError, "string index out of range")
         start = self._index_to_byte(index)
-        end = rutf8.next_codepoint_pos(self._utf8, start)
+        # we must not inline next_codepoint_pos, otherwise we produce a guard!
+        end = self.next_codepoint_pos_dont_look_inside(start)
+        return W_UnicodeObject(self._utf8[start:end], 1)
+
+    @jit.unroll_safe
+    def _getitem_result_constant_index_jit(self, space, index):
+        # for small known indices, call next/prev_codepoint_pos a few times
+        # instead of possibly creating an index structure
+        if index < 0:
+            posindex = index + self._length
+            if posindex < 0:
+                raise oefmt(space.w_IndexError, "string index out of range")
+            end = len(self._utf8)
+            start = self.prev_codepoint_pos_dont_look_inside(end)
+            for i in range(-index-1):
+                end = start
+                start = self.prev_codepoint_pos_dont_look_inside(start)
+        else:
+            if index >= self._length:
+                raise oefmt(space.w_IndexError, "string index out of range")
+            start = 0
+            end = self.next_codepoint_pos_dont_look_inside(start)
+            for i in range(index):
+                start = end
+                end = self.next_codepoint_pos_dont_look_inside(end)
+        assert start >= 0
+        assert end >= 0
         return W_UnicodeObject(self._utf8[start:end], 1)
 
     def is_ascii(self):
@@ -1046,6 +1107,25 @@ class W_UnicodeObject(W_Root):
         if self.is_ascii():
             return end - start
         return rutf8.codepoints_in_utf8(self._utf8, start, end)
+
+    def _byte_to_index(self, bytepos):
+        """ this returns index such that self._index_to_byte(index) == bytepos
+        NB: this is slow! roughly logarithmic with a big constant
+        """
+        if self.is_ascii():
+            return bytepos
+        return rutf8.codepoint_index_at_byte_position(
+            self._utf8, self._get_index_storage(), bytepos, self._len())
+
+    def next_codepoint_pos_dont_look_inside(self, pos):
+        if self.is_ascii():
+            return pos + 1
+        return next_codepoint_pos_dont_look_inside(self._utf8, pos)
+
+    def prev_codepoint_pos_dont_look_inside(self, pos):
+        if self.is_ascii():
+            return pos - 1
+        return prev_codepoint_pos_dont_look_inside(self._utf8, pos)
 
     @always_inline
     def _unwrap_and_search(self, space, w_sub, w_start, w_end, forward=True):
@@ -1068,16 +1148,14 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = self._codepoints_in_utf8(start_index, res_index)
-            res = start + skip
+            res = self._byte_to_index(res_index)
             assert res >= 0
             return space.newint(res)
         else:
             res_index = self._utf8.rfind(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = self._codepoints_in_utf8(res_index, end_index)
-            res = end - skip
+            res = self._byte_to_index(res_index)
             assert res >= 0
             return space.newint(res)
 
