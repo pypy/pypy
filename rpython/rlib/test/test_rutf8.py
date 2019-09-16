@@ -169,14 +169,6 @@ def test_surrogate_in_utf8(unichars):
     expected = any(uch for uch in unichars if u'\ud800' <= uch <= u'\udfff')
     assert result == expected
 
-@given(strategies.lists(strategies.characters()))
-def test_get_utf8_length(unichars):
-    u = u''.join(unichars)
-    exp_lgt = len(u)
-    s = ''.join([c.encode('utf8') for c in u])
-    lgt = rutf8.get_utf8_length(s)
-    if not _has_surrogates(s) or sys.maxunicode > 0xffff:
-        assert lgt == exp_lgt
 
 def test_utf8_string_builder():
     s = rutf8.Utf8StringBuilder()

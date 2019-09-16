@@ -45,7 +45,7 @@ def slice_w(space, ctx, start, end, w_default):
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
             s = ctx._utf8[start:end]
-            lgt = rutf8.get_utf8_length(s)
+            lgt = rutf8.codepoints_in_utf8(s)
             return space.newutf8(s, lgt)
         else:
             # unreachable
@@ -383,7 +383,7 @@ class W_SRE_Pattern(W_Root):
             elif use_builder == 'U':
                 assert isinstance(ctx, rsre_utf8.Utf8MatchContext)
                 return space.newutf8(result_bytes,
-                                     rutf8.get_utf8_length(result_bytes)), n
+                                     rutf8.codepoints_in_utf8(result_bytes)), n
             else:
                 raise AssertionError(use_builder)
         else:
@@ -652,7 +652,7 @@ class W_SRE_Match(W_Root):
         elif isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            lgt = rutf8.get_utf8_length(ctx._utf8)
+            lgt = rutf8.codepoints_in_utf8(ctx._utf8)
             return space.newutf8(ctx._utf8, lgt)
         else:
             raise SystemError

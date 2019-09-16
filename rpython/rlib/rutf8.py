@@ -363,9 +363,12 @@ def check_utf8(s, allow_surrogates, start=0, stop=-1):
     raise CheckError(~res)
 
 def get_utf8_length(s, start=0, end=-1):
-    """ Get the length out of valid utf8. For now just calls check_utf8
+    # DEPRECATED! use codepoints_in_utf8 instead
+    """ Get the length out of valid utf8.
     """
-    return check_utf8(s, True, start, end)
+    if end < 0:
+        end = len(s)
+    return codepoints_in_utf8(s, start, end)
 
 @jit.elidable
 def _check_utf8(s, allow_surrogates, start, stop):
@@ -745,13 +748,13 @@ class Utf8StringBuilder(object):
     def append(self, s):
         # for strings
         self._s.append(s)
-        newlgt = get_utf8_length(s)
+        newlgt = codepoints_in_utf8(s)
         self._lgt += newlgt
 
     @always_inline
     def append_slice(self, s, start, end):
         self._s.append_slice(s, start, end)
-        newlgt = get_utf8_length(s, start, end)
+        newlgt = codepoints_in_utf8(s, start, end)
         self._lgt += newlgt
 
     @signature(types.self(), char(), returns=none())
