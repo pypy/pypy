@@ -157,7 +157,7 @@ def multibytecodec_decerror(decodebuf, e, errors,
         replace, end, rettype = errorcb(errors, namecb, reason,
                                stringdata, start, end)
         # 'replace' is UTF8 encoded unicode, rettype is 'u'
-    lgt = rutf8.get_utf8_length(replace)
+    lgt = rutf8.codepoints_in_utf8(replace)
     inbuf = rffi.utf82wcharp(replace, lgt)
     try:
         r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, lgt, end)

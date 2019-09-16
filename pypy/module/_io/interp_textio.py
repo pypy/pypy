@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import (check_utf8, next_codepoint_pos,
-                                codepoints_in_utf8, get_utf8_length,
+                                codepoints_in_utf8, codepoints_in_utf8,
                                 Utf8StringBuilder)
 
 
@@ -905,7 +905,7 @@ class W_TextIOWrapper(W_TextIOBase):
                 haslf = True
         if haslf and self.writetranslate and self.writenl:
             w_text = space.call_method(w_text, "replace", space.newutf8('\n', 1),
-                               space.newutf8(self.writenl, get_utf8_length(self.writenl)))
+                               space.newutf8(self.writenl, codepoints_in_utf8(self.writenl)))
             text = space.utf8_w(w_text)
 
         needflush = False
