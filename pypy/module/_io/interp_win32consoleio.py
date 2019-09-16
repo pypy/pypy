@@ -131,56 +131,29 @@ def _pyio_get_console_type(space, w_path_or_fd):
     if not decoded:
         return '\0'
     
-    decoded_wstr = rffi.cast(rffi.CWCHARP, decoded)
-    if not decoded_wstr:
-        return '\0'
- 
     m = '\0'
     
     # In CPython the _wcsicmp function is used to perform case insensitive comparison
-    decoded.lower()
-    if not rwin32.wcsicmp(decoded_wstr, CONIN):
+    dlower = decoded.lower()
+    if  dlower == 'CONIN$'.lower():
         m = 'r'
-    elif not rwin32.wcsicmp(decoded_wstr, CONOUT):
+    elif dlower == 'CONOUT$'.lower():
         m = 'w'
-    elif not rwin32.wcsicmp(decoded_wstr, CON):
+    elif dlower == 'CON'.lower():
         m = 'x'
-
 
     if m != '\0':
         return m
 
-    length = 0
-    
-    pname_buf = lltype.malloc(rffi.CWCHARP.TO, rwin32.MAX_PATH, flavor='raw')
-
-    uni_decoded_wstr = rffi.wcharp2unicode(decoded_wstr)
-    traits = _preferred_traits(uni_decoded_wstr)
-    win32traits = make_win32_traits(traits)
-    w_str_nullptr = lltype.nullptr(win32traits.LPSTRP.TO)
-    length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, w_str_nullptr)
-    
-    if length > rwin32.MAX_PATH:
-        lltype.free(pname_buf, flavor='raw')
-        pname_buf = lltype.malloc(rffi.CWCHARP.TO, length, flavor='raw')
-        if pname_buf:
-            length = win32traits.GetFullPathName(decoded_wstr, length, pname_buf, w_str_nullptr)
-        else:
-            length = 0
-
-    if length:
-        if length >= 4 and pname_buf[3] == u'\\' and \
-           (pname_buf[2] == u'.' or pname_buf[2] == u'?') and \
-           pname_buf[1] == u'\\' and pname_buf[0] == u'\\':
-            name = rffi.ptradd(pname_buf, 4)
- 
-            if not rwin32.wcsicmp(name, CONIN):
+    if len(dlower) >=4:
+        if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
+            dlower = dlower[4:]
+            if  dlower == 'CONIN$'.lower():
                 m = 'r'
-            elif not rwin32.wcsicmp(name, CONOUT):
+            elif dlower == 'CONOUT$'.lower():
                 m = 'w'
-            elif not rwin32.wcsicmp(name, CON):
+            elif dlower == 'CON'.lower():
                 m = 'x'
-    lltype.free(pname_buf, flavor='raw')
     return m
 
 
