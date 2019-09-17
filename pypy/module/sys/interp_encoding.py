@@ -51,4 +51,6 @@ def getfilesystemencoding(space):
 
 
 def getfilesystemencodeerrors(space):
+    if sys.platform == "win32":
+        return space.newtext('strict')
     return space.newtext('surrogateescape')

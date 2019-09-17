@@ -2,6 +2,8 @@ import time
 import types
 import unittest
 
+from test.support import cpython_only
+
 from unittest.mock import (
     call, _Call, create_autospec, MagicMock,
     Mock, ANY, _CallList, patch, PropertyMock
@@ -873,7 +875,7 @@ class SpecSignatureTest(unittest.TestCase):
         # plain data descriptor
         check_data_descriptor(foo.desc)
 
-
+    @cpython_only # PyPy can easily extract a spec from a builtin function
     def test_autospec_on_bound_builtin_function(self):
         meth = types.MethodType(time.ctime, time.time())
         self.assertIsInstance(meth(), str)

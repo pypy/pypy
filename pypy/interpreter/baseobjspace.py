@@ -1180,7 +1180,7 @@ class ObjSpace(object):
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
             # call_valuestack().
-            args = frame.make_arguments(nargs)
+            args = frame.make_arguments(nargs, w_function=w_func)
             return self.call_args_and_c_profile(frame, w_func, args)
 
         if not self.config.objspace.disable_call_speedhacks:
@@ -1197,7 +1197,7 @@ class ObjSpace(object):
                         nargs, frame, methodcall=methodcall)
             # end of hack for performance
 
-        args = frame.make_arguments(nargs)
+        args = frame.make_arguments(nargs, w_function=w_func)
         return self.call_args(w_func, args)
 
     def call_args_and_c_profile(self, frame, w_func, args):

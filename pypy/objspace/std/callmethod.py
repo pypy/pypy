@@ -111,12 +111,12 @@ def CALL_METHOD(f, oparg, *ignored):
             keywords_w[n_kwargs] = w_value
 
         arguments = f.popvalues(n)    # includes w_self if it is not None
-        args = f.argument_factory(
-                arguments, keywords, keywords_w, None, None,
-                methodcall=w_self is not None)
         if w_self is None:
             f.popvalue_maybe_none()    # removes w_self, which is None
         w_callable = f.popvalue()
+        args = f.argument_factory(
+                arguments, keywords, keywords_w, None, None,
+                methodcall=w_self is not None, w_function=w_callable)
         if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
             w_result = f.space.call_args_and_c_profile(f, w_callable, args)
         else:
