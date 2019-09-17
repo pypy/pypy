@@ -387,7 +387,8 @@ class TestTimeit(unittest.TestCase):
             num_loops, time_taken = self.autorange(callback)
         self.assertEqual(num_loops, 1000)
         self.assertEqual(time_taken, 1.0)
-        expected = ('10 0.010\n'
+        expected = ('1 0.001\n'
+                    '10 0.010\n'
                     '100 0.100\n'
                     '1000 1.000\n')
         self.assertEqual(s.getvalue(), expected)
