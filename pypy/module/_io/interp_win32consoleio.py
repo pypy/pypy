@@ -185,8 +185,8 @@ class W_WinConsoleIO(W_RawIOBase):
                 return i
         return SMALLBUF
 
-    @unwrap_spec(w_mode=WrappedDefault("r"), w_closefd=WrappedDefault(True), w_opener=WrappedDefault(None))
-    def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
+    @unwrap_spec(mode='text', closefd=int)
+    def descr_init(self, space, w_nameobj, mode='r', closefd=True, w_opener=None):
         name = rffi.cast(rffi.CWCHARP, 0)
         self.fd = -1
         self.handle = rwin32.INVALID_HANDLE_VALUE
@@ -200,12 +200,10 @@ class W_WinConsoleIO(W_RawIOBase):
         try:
             if space.isinstance_w(w_nameobj, space.w_int): 
                 self.fd = space.int_w(w_nameobj)
-            closefd = space.bool_w(w_closefd)
 
             if self.fd < 0:
                 from pypy.module.posix.interp_posix import fspath
                 w_path = fspath(space, w_nameobj)
-                name = rffi.unicode2wcharp(space.utf8_w(w_path))
                 console_type = _pyio_get_console_type(space, w_path)
                 if not console_type:
                     raise oefmt(space.w_ValueError,
@@ -213,9 +211,8 @@ class W_WinConsoleIO(W_RawIOBase):
                 if console_type == '\0':
                     raise oefmt(space.w_ValueError,
                             "Cannot open non-console file")
-            s = space.text_w(w_mode)
             
-            for char in s:
+            for char in mode:
                 if char in "+abx":
                     # OK do nothing
                     pass
@@ -254,11 +251,14 @@ class W_WinConsoleIO(W_RawIOBase):
                 if self.writable:
                     access = rwin32.GENERIC_WRITE
             
-                traits = _preferred_traits(space.wcharp2unicode(name))
+                traits = _preferred_traits(space.realunicode_w(w_path))
                 if not (traits.str is unicode):
                     raise oefmt(space.w_ValueError,
                                 "Non-unicode string name %s", traits.str)
                 win32traits = make_win32_traits(traits)
+                
+                pathlen = space.len_w(w_path)
+                name = rffi.utf82wcharp(space.utf8_w(w_path), pathlen)
                 self.handle = win32traits.CreateFile(name, 
                     rwin32.GENERIC_READ | rwin32.GENERIC_WRITE,
                     rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
@@ -268,7 +268,8 @@ class W_WinConsoleIO(W_RawIOBase):
                         access,
                         rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
                         rffi.NULL, win32traits.OPEN_EXISTING, 0, rffi.NULL)
-
+                lltype.free(name, flavor='raw')
+                
                 if self.handle == rwin32.INVALID_HANDLE_VALUE:
                     raise WindowsError(rwin32.GetLastError_saved(),
                                        "Failed to open handle")

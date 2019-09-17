@@ -8,15 +8,14 @@ class AppTestWinConsoleIO:
         cls.w_UINT_MAX = space.wrap(UINT_MAX)
 
     def test_open_fd(self):
-        self.assertRaisesRegex(ValueError,
-            "negative file descriptor", _io._WindowsConsoleIO, -1)
+        import _io
+        raises(ValueError, _io._WindowsConsoleIO, -1)
 
         fd, _ = tempfile.mkstemp()
         try:
             # Windows 10: "Cannot open non-console file"
             # Earlier: "Cannot open console output buffer for reading"
-            self.assertRaisesRegex(ValueError,
-                "Cannot open (console|non-console file)", _io._WindowsConsoleIO, fd)
+            raises(ValueError, _io._WindowsConsoleIO, fd)
         finally:
             os.close(fd)
 
@@ -26,9 +25,9 @@ class AppTestWinConsoleIO:
             # cannot open console because it's not a real console
             pass
         else:
-            self.assertTrue(f.readable())
-            self.assertFalse(f.writable())
-            self.assertEqual(0, f.fileno())
+            assert f.readable() == True
+            assert f.writable() == False
+            assert 0 == f.fileno()
             f.close()   # multiple close should not crash
             f.close()
 
@@ -38,9 +37,9 @@ class AppTestWinConsoleIO:
             # cannot open console because it's not a real console
             pass
         else:
-            self.assertFalse(f.readable())
-            self.assertTrue(f.writable())
-            self.assertEqual(1, f.fileno())
+            assert f.readable() == False
+            assert True == f.writable()
+            assert 1 == f.fileno()
             f.close()
             f.close()
 
@@ -50,9 +49,9 @@ class AppTestWinConsoleIO:
             # cannot open console because it's not a real console
             pass
         else:
-            self.assertFalse(f.readable())
-            self.assertTrue(f.writable())
-            self.assertEqual(2, f.fileno())
+            assert False == f.readable()
+            assert True == f.writable()
+            assert 2 == f.fileno()
             f.close()
             f.close()
 
