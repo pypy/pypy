@@ -19,9 +19,6 @@ import unicodedata
 SMALLBUF = 4
 BUFMAX = (32*1024*1024)
 BUFSIZ = platform.ConstantInteger("BUFSIZ")
-CONIN = rffi.unicode2wcharp(u"CONIN$")
-CONOUT = rffi.unicode2wcharp(u"CONOUT$")
-CON = rffi.unicode2wcharp(u"CON")
 
 def err_closed(space):
     raise oefmt(space.w_ValueError,
@@ -130,10 +127,6 @@ def _pyio_get_console_type(space, w_path_or_fd):
     decoded = space.fsdecode_w(w_path_or_fd)
     if not decoded:
         return '\0'
-    
-    decoded_wstr = rffi.cast(rffi.CWCHARP, decoded)
-    if not decoded_wstr:
-        return '\0'
  
     m = '\0'
 
@@ -146,39 +139,18 @@ def _pyio_get_console_type(space, w_path_or_fd):
     elif dlower == 'CON'.lower():
         m = 'x'
 
-
     if m != '\0':
         return m
 
-    length = 0
-    
-    pname_buf = lltype.malloc(rffi.CWCHARP.TO, rwin32.MAX_PATH, flavor='raw')
-
-    uni_decoded_wstr = rffi.wcharp2unicode(decoded_wstr)
-    traits = _preferred_traits(uni_decoded_wstr)
-    win32traits = make_win32_traits(traits)
-    str_nullptr = lltype.nullptr(win32traits.LPSTRP.TO)
-    length = win32traits.GetFullPathName(decoded_wstr, rwin32.MAX_PATH, pname_buf, str_nullptr)
-    
-    if length > rwin32.MAX_PATH:
-        lltype.free(pname_buf, flavor='raw')
-        pname_buf = lltype.malloc(rffi.CWCHARP.TO, length, flavor='raw')
-        if pname_buf:
-            length = win32traits.GetFullPathName(decoded_wstr, length, pname_buf, str_nullptr)
-        else:
-            length = 0
-
-    dlower = space.wcharp2unicode(pname_buf).lower()
     if len(dlower) >=4:
-        if dlower[:4] == u'\\\\.\\' or dlower[:4] == u'\\\\?\\':
+        if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
             dlower = dlower[4:]
-            if  dlower == u'CONIN$'.lower():
-                m = 'r'
-            elif dlower == u'CONOUT$'.lower():
-                m = 'w'
-            elif dlower == u'CON'.lower():
-                m = 'x'
-    lltype.free(pname_buf, flavor='raw')
+            if  dlower == 'CONIN$'.lower():
+                 m = 'r'
+            elif dlower == 'CONOUT$'.lower():
+                 m = 'w'
+            elif dlower == 'CON'.lower():
+                 m = 'x'
     return m
 
 
@@ -190,7 +162,7 @@ class W_WinConsoleIO(W_RawIOBase):
         self.created = 0
         self.readable = False
         self.writable = False
-        self.closehandle = 0
+        self.closehandle = False
         self.blksize = 0
 
     # def _internal_close(self, space):
@@ -215,7 +187,9 @@ class W_WinConsoleIO(W_RawIOBase):
 
     @unwrap_spec(w_mode=WrappedDefault("r"), w_closefd=WrappedDefault(True), w_opener=WrappedDefault(None))
     def descr_init(self, space, w_nameobj, w_mode, w_closefd, w_opener):
-        name = None
+        name = rffi.cast(rffi.CWCHARP, 0)
+        self.fd = -1
+        self.handle = rwin32.INVALID_HANDLE_VALUE
         self.readable = False
         self.writable = False
         self.blksize = 0
@@ -223,16 +197,15 @@ class W_WinConsoleIO(W_RawIOBase):
         console_type = '\0'
         self.buf = lltype.malloc(rffi.CCHARPP.TO,SMALLBUF,flavor='raw')
 
-        if w_mode == None:
-            w_mode = space.newtext("r")
-
         try:
-            self.fd = space.int_w(w_nameobj)
+            if space.isinstance_w(w_nameobj, space.w_int): 
+                self.fd = space.int_w(w_nameobj)
             closefd = space.bool_w(w_closefd)
 
             if self.fd < 0:
+                
                 w_decodedname = space.fsdecode(w_nameobj)
-                name = rffi.cast(rffi.CWCHARP, space.text_w(w_decodedname))
+                name = space.unicode2wcharp(w_decodedname)
                 console_type = _pyio_get_console_type(space, w_decodedname)
                 if not console_type:
                     raise oefmt(space.w_ValueError,
@@ -281,7 +254,7 @@ class W_WinConsoleIO(W_RawIOBase):
                 if self.writable:
                     access = rwin32.GENERIC_WRITE
             
-                traits = _preferred_traits(name)
+                traits = _preferred_traits(space.wcharp2unicode(name))
                 if not (traits.str is unicode):
                     raise oefmt(space.w_ValueError,
                                 "Non-unicode string name %s", traits.str)
@@ -319,8 +292,6 @@ class W_WinConsoleIO(W_RawIOBase):
             rffi.c_memset(self.buf, 0, SMALLBUF)
         finally:
            lltype.free(self.buf, flavor='raw')
-        
-        return None
     
     def readable_w(self, space):
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
@@ -399,6 +370,7 @@ class W_WinConsoleIO(W_RawIOBase):
                 return space.newint(read_len)
                 
             u8n = 0
+            
             
             if len < 4:
                 if rwin32.WideCharToMultiByte(rwin32.CP_UTF8,
@@ -551,7 +523,7 @@ class W_WinConsoleIO(W_RawIOBase):
         
         wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
         
-        while wlen > (32766 / rffi.sizeof(rffi.CWCHARP.TO)):
+        while wlen > (32766 / rffi.sizeof(rffi.CWCHARP)):
             buflen /= 2
             wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
             
