@@ -25,6 +25,16 @@ def neg_pow_10(x, exp):
     return x * NEG_POW_10[exp]
 
 
+# <antocuni> This is basically the same logic that we use to implement
+# objspace.std.withintprebuilt. On one hand, it would be nice to have only a
+# single implementation. On the other hand, since it is disabled by default,
+# it doesn't change much at runtime. However, in intobject.wrapint there is an
+# "obscure hack to help the CPU cache": it might be useful here as well?
+#
+# <antocuni> this is more a feature than a review but: I wonder whether it is
+# worth to also have a per-decoder int cache which caches all the ints, not
+# only the small ones. I suppose it might be useful in case you have a big
+# json file with e.g. unique ids which might be repeated here and there.
 class IntCache(object):
     """ A cache for wrapped ints between START and END """
 
@@ -49,6 +59,7 @@ class JSONDecoder(W_Root):
 
     DEFAULT_SIZE_SCRATCH = 20
 
+    # <antocuni> put a comment explaining what it does and why this is a reasonable number
     MIN_SIZE_FOR_STRING_CACHE = 1024 * 1024
 
     # evaluate the string cache for 200 strings, before looking at the hit rate
@@ -818,6 +829,7 @@ class MapBase(object):
             if single_nextmap.key_repr_cmp(ll_chars, position):
                 decoder.pos = position + len(single_nextmap.key_repr)
                 return single_nextmap
+        # <antocuni> return None explicitly?
 
     def observe_transition(self, newmap, terminator):
         """ observe a transition from self to newmap.
@@ -1034,6 +1046,8 @@ class JSONMap(MapBase):
                 self.cache_hits * JSONDecoder.STRING_CACHE_USEFULNESS_FACTOR < self.decoded_strings)
 
     def key_repr_cmp(self, ll_chars, i):
+        # <antocuni> isn't there a way to use a "real" strcmp/memcmp? Maybe
+        # (ab)using llstr/rstr._get_raw_buf or similar?
         for j, c in enumerate(self.key_repr):
             if ll_chars[i] != c:
                 return False
