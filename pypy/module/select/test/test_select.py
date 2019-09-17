@@ -217,9 +217,25 @@ class _AppTestSelect:
         readend, writeend = self.getpair()
         try:
             class A(object):
-                def __int__(self):
+                def fileno(self):
                     return readend.fileno()
-            select.poll().poll(A()) # assert did not crash
+            poll = select.poll()
+            poll.register(A())
+
+            res = poll.poll(10) # timeout in ms
+            assert res == []
+            res = poll.poll(1.1) # check floats
+            assert res == []
+
+            writeend.send(b"foo!")
+            # can't easily test actual blocking, is done in lib-python tests
+            res = poll.poll()
+            assert res == [(readend.fileno(), 1)]
+
+            # check negative timeout
+            # proper test in lib-python, test_poll_blocks_with_negative_ms
+            res = poll.poll(-0.001)
+            assert res == [(readend.fileno(), 1)]
         finally:
             readend.close()
             writeend.close()
@@ -238,7 +254,6 @@ class _AppTestSelect:
         pollster.register(0, 65535) # USHRT_MAX
         raises(OverflowError, pollster.register, 0, 65536) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
-        raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
         exc = raises(TypeError, pollster.poll, '123')
         assert str(exc.value) == 'timeout must be an integer or None'
