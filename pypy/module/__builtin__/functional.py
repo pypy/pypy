@@ -203,27 +203,24 @@ def min_max(space, args, implementation_of):
                     implementation_of)
 
 def max(space, __args__):
-    """
-    max(iterable, *[, default=obj, key=func]) -> value
-    max(arg1, arg2, *args, *[, key=func]) -> value
+    """max(iterable, *[, default=obj, key=func]) -> value
+max(arg1, arg2, *args, *[, key=func]) -> value
 
-    With a single iterable argument, return its biggest item. The
-    default keyword-only argument specifies an object to return if
-    the provided iterable is empty.
-    With two or more arguments, return the largest argument.
+With a single iterable argument, return its biggest item. The
+default keyword-only argument specifies an object to return if
+the provided iterable is empty.
+With two or more arguments, return the largest argument.
     """
     return min_max(space, __args__, "max")
 
 def min(space, __args__):
-    """
-    min(...)
-    min(iterable, *[, default=obj, key=func]) -> value
-    min(arg1, arg2, *args, *[, key=func]) -> value
+    """min(iterable, *[, default=obj, key=func]) -> value
+min(arg1, arg2, *args, *[, key=func]) -> value
 
-    With a single iterable argument, return its smallest item. The
-    default keyword-only argument specifies an object to return if
-    the provided iterable is empty.
-    With two or more arguments, return the smallest argument.
+With a single iterable argument, return its smallest item. The
+default keyword-only argument specifies an object to return if
+the provided iterable is empty.
+With two or more arguments, return the smallest argument.
     """
     return min_max(space, __args__, "min")
 
