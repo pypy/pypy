@@ -203,10 +203,10 @@ class W_WinConsoleIO(W_RawIOBase):
             closefd = space.bool_w(w_closefd)
 
             if self.fd < 0:
-                
-                w_decodedname = space.fsdecode(w_nameobj)
-                name = space.unicode2wcharp(w_decodedname)
-                console_type = _pyio_get_console_type(space, w_decodedname)
+                from pypy.module.posix.interp_posix import fspath
+                w_path = fspath(space, w_nameobj)
+                name = rffi.unicode2wcharp(space.utf8_w(w_path))
+                console_type = _pyio_get_console_type(space, w_path)
                 if not console_type:
                     raise oefmt(space.w_ValueError,
                             "Invalid console type")
