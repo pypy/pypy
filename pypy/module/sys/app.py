@@ -22,7 +22,17 @@ def excepthook(exctype, value, traceback):
 
     try:
         from traceback import print_exception
-        print_exception(exctype, value, traceback)
+        limit = getattr(sys, 'tracebacklimit', None)
+        if isinstance(limit, int):
+            # ok, this is bizarre, but, the meaning of sys.tracebacklimit is
+            # understood differently in the traceback module than in
+            # PyTraceBack_Print in CPython, see
+            # https://bugs.python.org/issue38197
+            # one is counting from the top, the other from the bottom of the
+            # stack. so reverse polarity here
+            print_exception(exctype, value, traceback, limit=-limit)
+        else:
+            print_exception(exctype, value, traceback)
     except:
         if not excepthook_failsafe(exctype, value):
             raise

@@ -381,6 +381,36 @@ class AppTestSysModulePortedFromCPython:
         assert out.getvalue() == 'hello\n123 456'   # no final \n added in 3.x
         """
 
+    def test_tracebacklimit_excepthook(self):
+        import sys, _io
+        savestderr = sys.stderr
+        err = _io.StringIO()
+        sys.stderr = err
+        assert not hasattr(sys, "tracebacklimit")
+        sys.tracebacklimit = 2
+
+        eh = sys.__excepthook__
+        def f1():
+            f2()
+        def f2():
+            f3()
+        def f3():
+            raise ValueError(42)
+
+
+        try:
+            f1()
+        except ValueError as exc:
+            eh(*sys.exc_info())
+        msg = err.getvalue()
+        print(msg)
+        # should be removed by the limit
+        assert "f1" not in msg
+
+        sys.stderr = savestderr
+        del sys.tracebacklimit
+
+
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
 
