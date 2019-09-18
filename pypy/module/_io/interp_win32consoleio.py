@@ -201,6 +201,9 @@ class W_WinConsoleIO(W_RawIOBase):
             if space.isinstance_w(w_nameobj, space.w_int): 
                 self.fd = space.int_w(w_nameobj)
 
+            # make the flow analysis happy,otherwise it thinks w_path
+            # is undefined later
+            w_path = w_nameobj
             if self.fd < 0:
                 from pypy.module.posix.interp_posix import fspath
                 w_path = fspath(space, w_nameobj)
