@@ -249,10 +249,14 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
     buf = builder.build()
 
     if first_escape_error_char != '':
-        space.warn(
-            space.newtext("invalid escape sequence '\\%s'"
-                          % first_escape_error_char),
-            space.w_DeprecationWarning)
+        try:
+            msg = "invalid escape sequence '\\%s'" % first_escape_error_char
+            space.warn(space.newtext(msg), space.w_DeprecationWarning)
+        except OperationError as e:
+            if e.match(space, space.w_DeprecationWarning):
+                raise oefmt(space.w_SyntaxError, msg)
+            else:
+                raise
 
     return buf, first_escape_error_char
 
