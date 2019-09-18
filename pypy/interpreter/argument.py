@@ -9,7 +9,7 @@ from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.error import OperationError, oefmt
 
-@specialize.arg(1)
+@specialize.arg(2)
 def raise_type_error(space, fnname_parens, msg, *args):
     if fnname_parens is None:
         raise oefmt(space.w_TypeError, msg, *args)
