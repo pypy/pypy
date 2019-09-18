@@ -400,12 +400,21 @@ class AppTestSysModulePortedFromCPython:
 
         try:
             f1()
-        except ValueError as exc:
+        except ValueError:
             eh(*sys.exc_info())
         msg = err.getvalue()
-        print(msg)
         # should be removed by the limit
         assert "f1" not in msg
+
+        err = _io.StringIO()
+        sys.stderr = err
+        sys.tracebacklimit = 0
+        try:
+            f1()
+        except ValueError:
+            eh(*sys.exc_info())
+        msg = err.getvalue()
+        assert "Traceback (most recent call last):" not in msg
 
         sys.stderr = savestderr
         del sys.tracebacklimit
