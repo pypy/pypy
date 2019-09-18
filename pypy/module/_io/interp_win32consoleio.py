@@ -222,7 +222,7 @@ class W_WinConsoleIO(W_RawIOBase):
                 elif char == "r":
                     if rwa:
                         raise oefmt(space.w_ValueError,
-                                "invalid mode: %s", space.newtext(mode))
+                                "invalid mode: %s", mode)
                     rwa = True
                     self.readable = True
                     if console_type == "x":
@@ -230,14 +230,14 @@ class W_WinConsoleIO(W_RawIOBase):
                 elif char == "w":
                     if rwa:
                         raise oefmt(space.w_ValueError,
-                                "invalid mode: %s", space.newtext(mode))
+                                "invalid mode: %s", mode)
                     rwa = True
                     self.writable = True
                     if console_type == 'x':
                         console_type = 'w'
                 else:
                     raise oefmt(space.w_ValueError,
-                                "invalid mode: %s", space.newtext(mode))
+                                "invalid mode: %s", mode)
             if not rwa:
                 raise oefmt(space.w_ValueError,
                             "Must have exactly one of read or write mode")
