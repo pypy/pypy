@@ -125,12 +125,12 @@ def decode_unicode_escape(space, string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
-    s, blen, ulen, first_escape_error_char = str_decode_unicode_escape(
+    s, ulen, blen, first_escape_error_char = str_decode_unicode_escape(
         string, "strict",
         final=True,
         errorhandler=state.decode_error_handler,
         ud_handler=unicodedata_handler)
-    return s, blen, ulen
+    return s, ulen, blen
 
 def decode_raw_unicode_escape(space, string):
     return str_decode_raw_unicode_escape(
