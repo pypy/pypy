@@ -27,16 +27,30 @@ We updated our benchmark runner at https://speed.pypy.org to a more modern
 machine and updated the baseline python to CPython 2.7.11. Thanks to `Baroque
 Software` for maintaining the benchmark runner.
 
-Until we can work with downstream providers to distribute builds with PyPy, we
+The CFFI-based ``_ssl`` module was backported to PyPy2.7 and updated to use
+`cryptography`_ version 2.7. Additionally the `_hashlib`, and ``crypt`` (or
+``_crypt`` on Python3) modules were converted to CFFI. This has two
+consequences. End users and packagers can more easily update these libraries
+for their platform by executing ``(cd lib_pypy; ../bin/pypy _*_build.py)``.
+More significantly, since PyPy itself links to fewer system shared objects
+(DLLs), on platforms with a single runtime namespace like linux different CFFI
+and c-extension modules can load different versions of the same shared object
+into PyPy without collision (`issue 2617`_).
+
+Until downstream providers begin to distribute c-extension builds with PyPy, we
 have made packages for some common packages `available as wheels`_.
 
 The `CFFI`_ backend has been updated to version 1.13.0. We recommend using CFFI
 rather than c-extensions to interact with C, and `cppyy`_ for interacting with
 C++ code.
 
+Thanks to Anvil_, we revived the `PyPy Sandbox`_, which allows total control
+over a python interpreter's interactions with the external world.
+
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
-We strongly recommend updating.
+We strongly recommend updating. Many of the fixes are the direct result of
+end-user bug reports, so please continue reporting issues as they crop up.
 
 You can download the v7.2 releases here:
 
@@ -60,6 +74,8 @@ thanks for pitching in.
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 .. _`Baroque Software`: https://baroquesoftware.com
+.. _Anvil: https://anvil.works
+.. _`PyPy Sandbox`: https://morepypy.blogspot.com/2019/08
 
 What is PyPy?
 =============
@@ -93,12 +109,162 @@ bit), although PyPy does support ARM 32 bit processors.
 Changelog
 =========
 
+Changes released in v7.1.1
+--------------------------
+
+* Improve performance of ``u''.append``
+* Prevent a crash in ``zlib`` when flushing a closed stream
+* Fix a few corner cases when encountering unicode values above 0x110000
+* Teach the JIT how to handle very large constant lists, sets, or dicts
+* Fix building on ARM32 (`issue 2984`_)
+* Fix a bug in register assignment in ARM32
+* Package windows DLLs needed by cffi modules next to the cffi c-extensions
+  (`issue 2988`_)
+* Cleanup and refactor JIT code to remove ``rpython.jit.metainterp.typesystem``
+* Fix memoryviews of ctype structures with padding, (cpython issue 32780_)
+
+Changes to Python 3.6 released in v7.1.1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* On win32, override some ``errno.E*`` values that were added to MSVC in v2010
+  so that ``errno.E* == errno.WSAE*`` as in CPython
+* Do the same optimization that CPython does for ``(1, 2, 3, *a)`` (but at the
+  AST level)
+* Raise a ``TypeError`` when using buffers and unicode such as ``''.strip(buffer)``
+  and ``'a' < buffer``
+* Support ``_overlapped`` and asyncio on win32
+* Fix an issue where ``''.join(list_of_strings)`` would rarely confuse utf8 and
+  bytes (`issue 2997`_)
+* Fix ``io.IncrementalNewlineDecoder`` interaction with ``\r`` (`issue 3012`_)
+
 Changes shared across versions
+------------------------------
 
 * Update ``cffi`` to 1.13.0
+* Add support for ARM aarch64
+* Many internal changes to the utf-8 processing code, since now unicode strings
+  are stored internally as utf-8. A few corner cases were fixed, and performance
+  bottlenecks were improved. Specifically, issues were fixed with ``maketrans``,
+  ``strip``, comparison with ``bytearray``, use in ``array.array``, ``join``,
+  ``translate``, forrmatting, ``__int__``, ``str(<int>)``, ``startswith``,
+  ``endswith``,
+* Reduce the probability of a deadlock when acquiring a semaphore by
+  moving global state changes closer to the actual aquire (`issue 2953`_)
+* Cleanup and refactor parts of the JIT code
+* Cleanup ``optimizeopt``
+* Support the ``z15`` variant of the ``s390x`` CPU.
+* Fixes to ``_ctypes`` handling of memoryviews
+* Fix a shadowstack overflow when using ``sys.setrecurtionlimit`` (`issue 2722`)
+* Fix a bug that prevent memory-tracking in vmprof working on PyPy
+* Improve the speed and memory use of the ``_pypyjson`` JSON decoder. The
+  resulting dictionaries that come out of the JSON decoder have faster lookups too
+* ``struct.unpack`` of a sliced ``bytearray`` exposed a subtle bug where the
+  JIT's ``gc_load`` family of calls must force some lazy code (`issue 3014`_)
+* Remove ``copystrcontent`` and ``copyunicodecontent`` in the backends.
+  Instead, replace it in ``rewrite.py`` with a direct call to ``memcpy()`` and
+  a new basic operation, ``load_effective_address``, which the backend can
+  even decide not to implement.
+* Allow 2d indexing in ``memoryview.__setitem__`` (`issue 3028`_)
+* Speed up 'bytearray += bytes' and other similar combinations
+* Compute the greatest common divisor of two RPython ``rbigint`` instances
+  using `Lehmer's algorithm`_ and use it in the ``math`` module
+* Add ``RFile.closed`` to mirror standard `file` behaviour
+* Add a ``-D`` pytest option to run tests directly on the host python without
+  any knowlege of PyPy internals. This allows using ``pypy3 pytest.py ...``
+  for a subset of tests (called **app-level testing**)
+* Accept arguments to ``subprocess.Popen`` that are not directly subscriptable
+  (like iterators) (`issue 3050`_)
+* Catch more low-level ``SocketError`` exceptions and turn them into app-level
+  exceptions (`issue 3049`_)
+* Fix formatting of a ``memoryview``: ``b"<%s>" % memoryview(b"X")``
+* Correctly wrap the I/O errors we can get when importing modules
+* Fix bad output from JSON with ``'skipkeys=True'`` (`issue 3052`_)
+* Fix compatibility with latest virtualenv HEAD
 
-C-API (cpyext) improvements shared across versions
+C-API (cpyext) and c-extensions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp`` to the 
+  ``PyDateTime_CAPI`` struct
+
+* Add constants and macros needed to build opencv2_ with PyPy2.7
+* Add more constants to `sysconfig``. Set ``MACOSX_DEPLOYMENT_TARGET`` for
+  darwin (`issue 2994`_)
+* fix ``CBuffer.buffer_attach``
 
 Python 3.6 only
+---------------
 
+* Accept ``a, b = (*x, 2)`` (`issue 2995`_)
+* Class methods with the signature ``def meth(*args, **kwargs)`` were not adding
+  an implied ``self`` argument (`issue 2996`_)
+* Fix handling of ``__fpath__`` (`issue 2985`_)
+* Disable ``assert`` when run with ``-O`` (`issue 3000`_)
+* ``codecs.encode``, ``codecs.decode`` can behave differently than
+  ``ustr.encode``, ``bytes.decode`` (`issue 3001`_)
+* Putting ``pdb.set_trace`` call in a threaded program did not work (`issue
+  3003`_)
+* Fix parsing for converting strings with underscore into ints
+* Add ``memoryview.obj`` which stores a reference, (`issue 3016`_)
+* Fix datetime.fromtimestamp for win32 (cpython issue 29097_)
+* Improve multiprocessing support on win32
+* Support negative offsets in ``lnotab`` (`issue 2943`_)
+* Fix leak of file descriptor with `_io.FileIO('dir/')`
+* Fix ``float.__round__(None)`` (`issue 3033`_)
+* Fix for when we should use the Universal Newline mode on Windows for
+  stdin/stdout/stderr (`issue 3007`_)
+* Fix ImportError invalid arguments error wording
+* Ignore GeneratorExit when throwing into the aclose coroutine of an
+  asynchronous generator (CPython issue 35409_)
+* Improve the pure-python ``faulthander`` module
+* Properly raise an exception when a ``BlockingIOError`` exception escapes
+  from ``W_BufferedReader.readline_w()`` (`issue 3042`_)
+* Fix a code path only used in ``zipimport`` (`issue 3034`_)
+* Update the stdlib to 3.6.9, fix many failing tests
+* Fix handling of ``__debug__``, ``-O``, and ``sys.flags.optimizeOptimize``
+  (CPython issue 27169_)
+* Fix raising ``SystemExit`` in ``atexit``
+* Fix case where ``int(<subint>)`` would go into infinite recursion
+* Don't ignore fold parameter in ``(date,)time.replace()``
+* Fix logic bug for ``memoryview.cast`` (when ``view.format`` is not ``'B'``)
 
+Python 3.6 c-API
+~~~~~~~~~~~~~~~~
+
+* Add ``PyStructSequence_InitType2``, ``Py_RETURN_NOTIMPLEMENTED``,
+  ``PyGILState_Check``, ``PyUnicode_AsUCS4``, ``PyUnicode_AsUCS4Copy``
+* Sync the various ``Py**Flag`` constants with CPython
+
+.. _`Lehmer's algorithm`: https://en.wikipedia.org/wiki/Lehmer's_GCD_algorithm
+.. _29097: https://bugs.python.org/issue29097
+.. _32780: https://bugs.python.org/issue32780
+.. _35409 : https://bugs.python.org/issue35409
+.. _27169 : https://bugs.python.org/issue27169
+.. _opencv2: https://github.com/skvark/opencv-python/
+.. _`issue 2617`: https://bitbucket.com/pypy/pypy/issues/2617
+.. _`issue 2722`: https://bitbucket.com/pypy/pypy/issues/2722
+.. _`issue 2953`: https://bitbucket.com/pypy/pypy/issues/2953
+.. _`issue 2943`: https://bitbucket.com/pypy/pypy/issues/2943
+.. _`issue 2980`: https://bitbucket.com/pypy/pypy/issues/2980
+.. _`issue 2984`: https://bitbucket.com/pypy/pypy/issues/2984
+.. _`issue 2994`: https://bitbucket.com/pypy/pypy/issues/2994
+.. _`issue 2995`: https://bitbucket.com/pypy/pypy/issues/2995
+.. _`issue 2996`: https://bitbucket.com/pypy/pypy/issues/2995
+.. _`issue 2997`: https://bitbucket.com/pypy/pypy/issues/2995
+.. _`issue 2988`: https://bitbucket.com/pypy/pypy/issues/2988
+.. _`issue 2985`: https://bitbucket.com/pypy/pypy/issues/2985
+.. _`issue 2986`: https://bitbucket.com/pypy/pypy/issues/2986
+.. _`issue 3000`: https://bitbucket.com/pypy/pypy/issues/3000
+.. _`issue 3001`: https://bitbucket.com/pypy/pypy/issues/3001
+.. _`issue 3003`: https://bitbucket.com/pypy/pypy/issues/3003
+.. _`issue 3007`: https://bitbucket.com/pypy/pypy/issues/3007
+.. _`issue 3012`: https://bitbucket.com/pypy/pypy/issues/3012
+.. _`issue 3014`: https://bitbucket.com/pypy/pypy/issues/3014
+.. _`issue 3016`: https://bitbucket.com/pypy/pypy/issues/3016
+.. _`issue 3028`: https://bitbucket.com/pypy/pypy/issues/3028
+.. _`issue 3033`: https://bitbucket.com/pypy/pypy/issues/3033
+.. _`issue 3034`: https://bitbucket.com/pypy/pypy/issues/3034
+.. _`issue 3042`: https://bitbucket.com/pypy/pypy/issues/3042
+.. _`issue 3049`: https://bitbucket.com/pypy/pypy/issues/3049
+.. _`issue 3050`: https://bitbucket.com/pypy/pypy/issues/3050
+.. _`issue 3052`: https://bitbucket.com/pypy/pypy/issues/3052
