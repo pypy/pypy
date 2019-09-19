@@ -41,8 +41,8 @@ class RawRefCountBaseGC(object):
     PYOBJ_SNAPSHOT_OBJ = lltype.Struct('PyObject_Snapshot',
                                        ('pyobj', llmemory.Address),
                                        ('status', lltype.Signed),
+                                       ('refcnt_original', lltype.Signed),
                                        ('refcnt', lltype.Signed),
-                                       ('refcnt_external', lltype.Signed),
                                        ('refs_index', lltype.Signed),
                                        ('refs_len', lltype.Signed),
                                        ('pypy_link', lltype.Signed))
@@ -345,6 +345,7 @@ class RawRefCountBaseGC(object):
     def _major_trace(self, pyobject, flags):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        # TODO: add flag; if set: if marked, keep rc-proxy
         (use_cylicrefcnt, use_dict) = flags
         #
         pyobj = self._pyobj(pyobject)
@@ -360,7 +361,10 @@ class RawRefCountBaseGC(object):
             else:
                 rc = pyobj.c_ob_refcnt
         else:
-            rc = pyobj.c_ob_refcnt
+            if use_dict:
+                rc = pyobj.c_ob_pypy_link
+            else:
+                rc = pyobj.c_ob_refcnt
 
         if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT or rc == 0:
             pass  # the corresponding object may die
@@ -374,7 +378,7 @@ class RawRefCountBaseGC(object):
                 intobj = pyobj.c_ob_pypy_link
                 obj = llmemory.cast_int_to_adr(intobj)
             self.gc.objects_to_trace.append(obj)
-            self.gc.visit_all_objects()
+            self.gc.visit_all_objects() # TODO: execute incrementally?
 
     def _major_trace_nongc(self, pyobject, use_dict):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
@@ -416,8 +420,7 @@ class RawRefCountBaseGC(object):
         self.p_dict = new_p_dict = self.gc.AddressDict(length_estimate)
         new_p_list = self.gc.AddressStack()
         while self.p_list_old.non_empty():
-            self._major_free(self.p_list_old.pop(), new_p_list,
-                                                              new_p_dict)
+            self._major_free(self.p_list_old.pop(), new_p_list, new_p_dict)
         self.p_list_old.delete()
         self.p_list_old = new_p_list
         #

@@ -59,8 +59,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 # all objects have been marked, dead objects will stay dead
                 self._debug_check_consistency(print_label="before-fin")
                 self.state = self.STATE_GARBAGE_MARKING
-
-            return False
+            else:
+                return False
 
         # we are finished with marking, now finish things up
         ll_assert(self.state == self.STATE_GARBAGE_MARKING, "invalid state")
@@ -75,16 +75,16 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         pygchdr = self.pyobj_list.c_gc_next
         consistent = True
         self.snapshot_consistent = True
-        while pygchdr <> self.pyobj_list:
+        while pygchdr <> self.pyobj_list: # TODO: also sync p_list
             next_old = pygchdr.c_gc_next
             if pygchdr.c_gc_refs > 0: # object is in snapshot
                 snapobj = self.snapshot_objs[pygchdr.c_gc_refs - 1]
-                pygchdr.c_gc_refs = snapobj.refcnt_external
-                if snapobj.refcnt_external == 0: # object considered dead
+                pygchdr.c_gc_refs = snapobj.refcnt
+                if snapobj.refcnt == 0: # object considered dead
                     # check consistency (dead subgraphs can never change):
                     pyobj = self.gc_as_pyobj(pygchdr)
                     # refcount equal
-                    consistent = snapobj.refcnt == pyobj.c_ob_refcnt
+                    consistent = snapobj.refcnt_original == pyobj.c_ob_refcnt
                     if not consistent:
                         break
                     # outgoing (internal) references equal
@@ -99,6 +99,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                     self._gc_list_add(self.pyobj_old_list, pygchdr)
             else:
                 pygchdr.c_gc_refs = 1 # new object, keep alive
+                # TODO: also keep reachable objects alive (in case rc proxy -> non-rc -> non-rc proxy -> rc obj!!!)
             pygchdr = next_old
 
         self._debug_check_consistency(print_label="end-check-consistency")
@@ -148,7 +149,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 addr = self.snapshot_refs[obj.refs_index + j]
                 obj_ref = llmemory.cast_adr_to_ptr(addr,
                                                    self.PYOBJ_SNAPSHOT_OBJ_PTR)
-                obj_ref.refcnt_external -= 1
+                obj_ref.refcnt -= 1
 
         # now all rawrefcounted roots or live border objects have a
         # refcount > 0
@@ -176,21 +177,21 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         if snapobj.status == 0: # already processed
             return False
 
-        alive = snapobj.refcnt_external > 0
+        alive = snapobj.refcnt > 0
         if snapobj.pypy_link <> 0:
             intobj = snapobj.pypy_link
             obj = llmemory.cast_int_to_adr(intobj)
             if not alive and self.gc.header(obj).tid & (
                     self.GCFLAG_VISITED | self.GCFLAG_NO_HEAP_PTRS):
                 alive = True
-                snapobj.refcnt_external += 1
+                snapobj.refcnt += 1
         if alive:
             # increment refcounts
             for j in range(0, snapobj.refs_len):
                 addr = self.snapshot_refs[snapobj.refs_index + j]
                 obj_ref = llmemory.cast_adr_to_ptr(addr,
                                                    self.PYOBJ_SNAPSHOT_OBJ_PTR)
-                obj_ref.refcnt_external += 1
+                obj_ref.refcnt += 1
             # mark recursively, if it is a pypyobj
             if snapobj.pypy_link <> 0:
                 intobj = snapobj.pypy_link
@@ -204,7 +205,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
     def _take_snapshot(self, pygclist):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        #
+
+        # calculate size of memory buffer for snapshot
         total_refcnt = 0
         total_objs = 0
         pygchdr = pygclist.c_gc_next
@@ -217,6 +219,13 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             total_refcnt += refcnt
             total_objs += 1
             pygchdr = pygchdr.c_gc_next
+        self.p_list_count = 0
+        self.p_list_refcnt = 0
+        self.p_list_old.foreach(self._take_snapshot_count, None)
+        total_objs += self.p_list_count
+        total_refcnt += self.p_list_refcnt
+
+        # initialize memory
         self.snapshot_refs = lltype.malloc(self._ADDRARRAY, total_refcnt,
                                            flavor='raw',
                                            track_allocation=False)
@@ -224,9 +233,13 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                                            flavor='raw',
                                            track_allocation=False)
         self.total_objs = total_objs
+        self.objs_index = 0
+        self.refs_index = 0
 
-        objs_index = 0
-        refs_index = 0
+        # take snapshot of p_list_old
+        self.p_list_old.foreach(self._take_snapshot_pyobject, None)
+
+        # take snapshot of gc objs
         pygchdr = pygclist.c_gc_next
         while pygchdr <> pygclist:
             pyobj = self.gc_as_pyobj(pygchdr)
@@ -240,25 +253,92 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 if self.gc.header(addr).tid & (self.GCFLAG_VISITED |
                                               self.GCFLAG_NO_HEAP_PTRS):
                     refcnt += 1
-            pygchdr.c_gc_refs = objs_index + 1
-            obj = self.snapshot_objs[objs_index]
+            pygchdr.c_gc_refs = self.objs_index + 1
+            obj = self.snapshot_objs[self.objs_index]
             obj.pyobj = llmemory.cast_ptr_to_adr(pyobj)
             obj.status = 1
-            obj.refcnt = pyobj.c_ob_refcnt
-            obj.refcnt_external = refcnt
-            obj.refs_index = refs_index
+            obj.refcnt_original = pyobj.c_ob_refcnt
+            obj.refcnt = refcnt
+            obj.refs_index = self.refs_index
             obj.refs_len = 0
             obj.pypy_link = pyobj.c_ob_pypy_link
             self.snapshot_curr = obj
             self._take_snapshot_traverse(pyobj)
-            objs_index += 1
-            refs_index += obj.refs_len
+            self.objs_index += 1
+            self.refs_index += obj.refs_len
             pygchdr = pygchdr.c_gc_next
-        for i in range(0, refs_index):
+
+        # fix references
+        for i in range(0, self.refs_index):
             addr = self.snapshot_refs[i]
-            pyobj = llmemory.cast_adr_to_ptr(addr, self.PYOBJ_GC_HDR_PTR)
-            obj = self.snapshot_objs[pyobj.c_gc_refs - 1]
+            pyobj = llmemory.cast_adr_to_ptr(addr, self.PYOBJ_HDR_PTR)
+            pygchdr = self.pyobj_as_gc(pyobj)
+            if (pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR) and
+                pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED):
+                obj = self.snapshot_objs[pygchdr.c_gc_refs - 1]
+            else:
+                obj = self.snapshot_objs[pyobj.c_ob_pypy_link - 1]
             self.snapshot_refs[i] = llmemory.cast_ptr_to_adr(obj)
+
+        # fix links of p_list_old back
+        self.p_list_old.foreach(self._take_snapshot_fixlink, None)
+
+    def _take_snapshot_count(self, pyobject, foo):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
+        pyobj = self._pyobj(pyobject)
+        pygchdr = self.pyobj_as_gc(pyobj)
+        # only include non-gc
+        if (pygchdr == lltype.nullptr(self.PYOBJ_GC_HDR) or
+             pygchdr.c_gc_refs == self.RAWREFCOUNT_REFS_UNTRACKED):
+            self.p_list_count += 1
+            refcnt = pyobj.c_ob_refcnt
+            if refcnt >= REFCNT_FROM_PYPY_LIGHT:
+                refcnt -= REFCNT_FROM_PYPY_LIGHT
+            elif refcnt >= REFCNT_FROM_PYPY:
+                refcnt -= REFCNT_FROM_PYPY
+            self.p_list_refcnt += refcnt
+
+    def _take_snapshot_pyobject(self, pyobject, foo):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
+        pyobj = self._pyobj(pyobject)
+        pygchdr = self.pyobj_as_gc(pyobj)
+        # only include non-gc
+        if (pygchdr == lltype.nullptr(self.PYOBJ_GC_HDR) or
+             pygchdr.c_gc_refs == self.RAWREFCOUNT_REFS_UNTRACKED):
+            refcnt = pyobj.c_ob_refcnt
+            if refcnt >= REFCNT_FROM_PYPY_LIGHT:
+                refcnt -= REFCNT_FROM_PYPY_LIGHT
+            elif refcnt >= REFCNT_FROM_PYPY:
+                refcnt -= REFCNT_FROM_PYPY
+            if pyobj.c_ob_pypy_link != 0:
+                addr = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
+                if self.gc.header(addr).tid & (self.GCFLAG_VISITED |
+                                               self.GCFLAG_NO_HEAP_PTRS):
+                    refcnt += 1
+            obj = self.snapshot_objs[self.objs_index]
+            obj.pyobj = llmemory.cast_ptr_to_adr(pyobj)
+            obj.status = 1
+            obj.refcnt_original = pyobj.c_ob_refcnt
+            obj.refcnt = refcnt
+            obj.refs_index = 0
+            obj.refs_len = 0
+            obj.pypy_link = pyobj.c_ob_pypy_link
+            pyobj.c_ob_pypy_link = self.objs_index + 1
+            self.objs_index += 1
+
+    def _take_snapshot_fixlink(self, pyobject, foo):
+        pyobj = self._pyobj(pyobject)
+        pygchdr = self.pyobj_as_gc(pyobj)
+        # only include non-gc
+        if (pygchdr == lltype.nullptr(self.PYOBJ_GC_HDR) or
+             pygchdr.c_gc_refs == self.RAWREFCOUNT_REFS_UNTRACKED):
+            obj_index = pyobj.c_ob_pypy_link - 1
+            obj = self.snapshot_objs[obj_index]
+            pyobj.c_ob_pypy_link = obj.pypy_link
 
     def _take_snapshot_visit(pyobj, self_ptr):
         from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
@@ -270,11 +350,12 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
 
     def _take_snapshot_visit_action(self, pyobj, ignore):
         pygchdr = self.pyobj_as_gc(pyobj)
-        if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR) and \
-                pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:
-            curr = self.snapshot_curr
-            index = curr.refs_index + curr.refs_len
-            self.snapshot_refs[index] = llmemory.cast_ptr_to_adr(pygchdr)
+        curr = self.snapshot_curr
+        index = curr.refs_index + curr.refs_len
+        if ((pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR) and
+             pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED) or
+                pyobj.c_ob_pypy_link != 0):
+            self.snapshot_refs[index] = llmemory.cast_ptr_to_adr(pyobj)
             curr.refs_len += 1
 
     def _take_snapshot_traverse(self, pyobj):

@@ -60,19 +60,21 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
                                    self.pyobj_isolate_list)
             use_cylicrc = not found_finalizer
             self._debug_check_consistency(print_label="end-mark-cyclic")
+
+            # mark all pypy objects at the border which are linked to non-gc
+            # pyobjs which are not directly referenced by any gc pyobj
+            debug_print("use_cylicrc", use_cylicrc)
+            self.p_list_old.foreach(self._major_trace, (use_cylicrc, True))  # TODO: set flag to keep marked, check other occurences
+            self._debug_check_consistency(print_label="end-mark")
+
+            # fix refcnt back
+            self.refcnt_dict.foreach(self._fix_refcnt_back, None)
+            self.refcnt_dict.delete()
+            self.refcnt_dict = self.gc.AddressDict()
+            self.use_refcntdict = False
         else:
-            use_cylicrc = False # don't sweep any objects in cyclic isolates
-
-        # now mark all pypy objects at the border, depending on the results
-        debug_print("use_cylicrc", use_cylicrc)
-        self.p_list_old.foreach(self._major_trace, (use_cylicrc, True))
-        self._debug_check_consistency(print_label="end-mark")
-
-        # fix refcnt back
-        self.refcnt_dict.foreach(self._fix_refcnt_back, None)
-        self.refcnt_dict.delete()
-        self.refcnt_dict = self.gc.AddressDict()
-        self.use_refcntdict = False
+            self.p_list_old.foreach(self._major_trace, (False, False))  # TODO: set flag to keep marked, check other occurences
+            self._debug_check_consistency(print_label="end-mark")
 
         self.state = self.STATE_DEFAULT
         return True
@@ -89,7 +91,11 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         # Initialize the cyclic refcount with the real refcount.
         self._collect_roots_init_list(self.pyobj_list)
 
-        # Save the real refcount of objects at border
+        # Save the real refcount of objects at border (they don't necessarily
+        # have a rrc header, as not all of them are garbage collected on the
+        # rrc side, so we need to store their cyclic refcount somewhere else;
+        # we choose the pypy_link field and use a dict to lookup the pypy_link,
+        # if necessary)
         self.p_list_old.foreach(self._obj_save_refcnt, None)
         self.o_list_old.foreach(self._obj_save_refcnt, None)
         self.use_refcntdict = True
