@@ -394,6 +394,9 @@ class JSONDecoder(W_Root):
     def _switch_to_dict(self, currmap, values_w, nextindex):
         # <antocuni> not sure if this is a problem, but it's something which I
         # noticed and I think it's worth thinking about it for 5 minutes.
+        # <cfbolz> are you also concerned about the fact that jsonmap dicts
+        # have their keys in the opposite order generally? or just the weird
+        # "c b a | d e f" effect?
         #
         # In Python3 dicts preserve the order of keys; this means that a
         # "naive" json parser produces dicts whose keys are in the same order
@@ -1081,8 +1084,8 @@ class JSONMap(MapBase):
                 self.cache_hits * JSONDecoder.STRING_CACHE_USEFULNESS_FACTOR < self.decoded_strings)
 
     def key_repr_cmp(self, ll_chars, i):
-        # <antocuni> isn't there a way to use a "real" strcmp/memcmp? Maybe
-        # (ab)using llstr/rstr._get_raw_buf or similar?
+        # XXX should we use "real" memcmp (here in particular, and in other
+        # places in RPython in general)?
         for j, c in enumerate(self.key_repr):
             if ll_chars[i] != c:
                 return False
