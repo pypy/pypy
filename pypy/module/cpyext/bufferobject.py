@@ -5,6 +5,7 @@ from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, cpython_struct, bootstrap_function, slot_function,
     PyObjectFields, PyObject)
 from pypy.module.cpyext.pyobject import make_typedescr, decref, make_ref
+from pypy.module.cpyext.buffer import CBuffer
 from pypy.module.array.interp_array import ArrayBuffer
 from pypy.objspace.std.bufferobject import W_Buffer
 
@@ -33,7 +34,7 @@ def init_bufferobject(space):
 
 def buffer_attach(space, py_obj, w_obj, w_userdata=None):
     """
-    Fills a newly allocated PyBufferObject with the given (str) buffer object.
+    Fills a newly allocated PyBufferObject with the given buffer object.
     """
     py_buf = rffi.cast(PyBufferObject, py_obj)
     py_buf.c_b_offset = 0
@@ -60,7 +61,17 @@ def buffer_attach(space, py_obj, w_obj, w_userdata=None):
         py_buf.c_b_base = make_ref(space, w_base)
         py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.w_array._charbuf_start())
         py_buf.c_b_size = buf.getlength()
+    elif isinstance(buf, CBuffer):
+        py_buf.c_b_base = make_ref(space, buf.view.w_obj)
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.view.ptr)
+        py_buf.c_b_size = buf.getlength()
     else:
+        # Raising in attach will segfault.
+        # It would be nice if we could handle the error more gracefully
+        # with something like this
+        # py_buf.c_b_base = lltype.nullptr(PyObject.TO)
+        # py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, 0)
+        # py_buf.c_b_size = buf.getlength()
         raise oefmt(space.w_NotImplementedError, "buffer flavor not supported")
 
 

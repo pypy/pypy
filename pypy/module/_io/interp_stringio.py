@@ -1,4 +1,4 @@
-from rpython.rlib.rutf8 import get_utf8_length, next_codepoint_pos
+from rpython.rlib.rutf8 import codepoints_in_utf8, next_codepoint_pos
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
@@ -93,7 +93,7 @@ class UnicodeIO(object):
         return result
 
     def write(self, string):
-        length = get_utf8_length(string)
+        length = codepoints_in_utf8(string)
         if self.pos + length > len(self.data):
             self.resize(self.pos + length)
         pos = 0
@@ -164,7 +164,7 @@ class W_StringIO(W_TextIOBase):
         if self.readnl is None:
             w_readnl = space.w_None
         else:
-            w_readnl = space.str(space.newutf8(self.readnl, get_utf8_length(self.readnl)))  # YYY
+            w_readnl = space.str(space.newutf8(self.readnl, codepoints_in_utf8(self.readnl)))  # YYY
         return space.newtuple([
             w_initialval, w_readnl, space.newint(self.buf.pos), w_dict
         ])
@@ -229,7 +229,7 @@ class W_StringIO(W_TextIOBase):
             w_decoded = space.call_method(
                 w_decoded, "replace",
                 space.newtext("\n"), space.newutf8(self.writenl,
-                    get_utf8_length(self.writenl)))
+                    codepoints_in_utf8(self.writenl)))
         string = space.utf8_w(w_decoded)
         if string:
             self.buf.write(string)
@@ -240,7 +240,7 @@ class W_StringIO(W_TextIOBase):
         self._check_closed(space)
         size = convert_size(space, w_size)
         v = self.buf.read(size)
-        lgt = get_utf8_length(v)
+        lgt = codepoints_in_utf8(v)
         return space.newutf8(v, lgt)
 
     def readline_w(self, space, w_limit=None):
@@ -255,7 +255,7 @@ class W_StringIO(W_TextIOBase):
             else:
                 newline = self.readnl
             result = self.buf.readline(newline, limit)
-        resultlen = get_utf8_length(result)
+        resultlen = codepoints_in_utf8(result)
         return space.newutf8(result, resultlen)
 
 
@@ -294,7 +294,7 @@ class W_StringIO(W_TextIOBase):
     def getvalue_w(self, space):
         self._check_closed(space)
         v = self.buf.getvalue()
-        lgt = get_utf8_length(v)
+        lgt = codepoints_in_utf8(v)
         return space.newutf8(v, lgt)
 
     def readable_w(self, space):

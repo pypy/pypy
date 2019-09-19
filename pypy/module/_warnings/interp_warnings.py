@@ -354,7 +354,7 @@ def get_source_line(space, w_globals, lineno):
         return None
 
     # Split the source into lines.
-    w_source_list = space.call_method(w_source, "splitlines")
+    w_source_list = space.call_method(space.w_text, "splitlines", w_source)
 
     # Get the source line.
     w_source_line = space.getitem(w_source_list, space.newint(lineno - 1))

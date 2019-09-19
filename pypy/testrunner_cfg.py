@@ -6,6 +6,7 @@ DIRS_SPLIT = [
     'memory/test', 'jit/metainterp',
     'jit/backend/arm', 'jit/backend/x86',
     'jit/backend/zarch', 'module/cpyext/test',
+    'jit/backend/aarch64',
 ]
 
 def collect_one_testdir(testdirs, reldir, tests):

@@ -128,7 +128,7 @@ def test_utcfromtimestamp():
     import os
     import time
     if os.name == 'nt':
-        skip("setting os.environ['TZ'] ineffective on windows")
+        pytest.skip("setting os.environ['TZ'] ineffective on windows")
     try:
         prev_tz = os.environ.get("TZ")
         os.environ["TZ"] = "GMT"

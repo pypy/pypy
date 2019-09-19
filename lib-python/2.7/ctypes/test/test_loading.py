@@ -2,7 +2,7 @@ from ctypes import *
 import sys, unittest
 import os
 from ctypes.util import find_library
-from ctypes.test import is_resource_enabled, xfail
+from ctypes.test import is_resource_enabled
 
 libc_name = None
 if os.name == "nt":
@@ -80,7 +80,6 @@ class LoaderTest(unittest.TestCase):
 
         self.assertRaises(AttributeError, dll.__getitem__, 1234)
 
-    @xfail
     @unittest.skipUnless(os.name == "nt", 'Windows-specific test')
     def test_1703286_A(self):
         from _ctypes import LoadLibrary, FreeLibrary
@@ -92,7 +91,6 @@ class LoaderTest(unittest.TestCase):
         handle = LoadLibrary("advapi32")
         FreeLibrary(handle)
 
-    @xfail
     @unittest.skipUnless(os.name == "nt", 'Windows-specific test')
     def test_1703286_B(self):
         # Since on winXP 64-bit advapi32 loads like described

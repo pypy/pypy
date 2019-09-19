@@ -2140,3 +2140,19 @@ class AppTestRecompiler:
         assert seen == [2 * 4, p]
         ffi.release(p)    # no effect
         assert seen == [2 * 4, p]
+
+    def test_struct_with_func_with_struct_arg(self):
+        ffi, lib = self.prepare("""struct BinaryTree {
+                int (* CompareKey)(struct BinaryTree tree);
+            };""",
+            "test_struct_with_func_with_struct_arg", """
+            struct BinaryTree {
+                int (* CompareKey)(struct BinaryTree tree);
+            };
+        """)
+        e = raises(RuntimeError, ffi.new, "struct BinaryTree *")
+        assert str(e.value) == (
+            "found a situation in which we try to build a type recursively.  "
+            "This is known to occur e.g. in ``struct s { void(*callable)"
+            "(struct s); }''.  Please report if you get this error and "
+            "really need support for your case.")

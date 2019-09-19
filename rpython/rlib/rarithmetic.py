@@ -878,9 +878,8 @@ def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     Raises ParseStringOverflowError in case the result does not fit.
     """
     from rpython.rlib.rstring import (
-        NumberStringParser, ParseStringOverflowError, strip_spaces)
-    s = literal = strip_spaces(s)
-    p = NumberStringParser(s, literal, base, 'int',
+        NumberStringParser, ParseStringOverflowError)
+    p = NumberStringParser(s, s, base, 'int',
                            allow_underscores=allow_underscores,
                            no_implicit_octal=no_implicit_octal)
     base = p.base

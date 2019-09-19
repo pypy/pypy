@@ -329,11 +329,18 @@ interpreter.
 Testing After Translation
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-While the usual invocation of `pytest` translates a piece of RPython code and
-runs it, we have a test extension to run tests without translation, directly
-on the host python. This is very convenient for modules such as `cpyext`, to
-compare and contrast test results between CPython and PyPy. Untranslated tests
-are invoked by using the `-A` or `--runappdirect` option to `pytest`::
+While the usual invocation of `pytest` runs app-level tests on an untranslated
+PyPy that runs on top of CPython, we have a test extension to run tests
+directly on the host python. This is very convenient for modules such as
+`cpyext`, to compare and contrast test results between CPython and PyPy.
+
+App-level tests run directly on the host interpreter when passing `-D` or
+`--direct-apptest` to `pytest`::
+
+    pypy3 -m pytest -D pypy/interpreter/test/apptest_pyframe.py
+
+Mixed-level tests are invoked by using the `-A` or `--runappdirect` option to
+`pytest`::
 
     python2 pytest.py -A pypy/module/cpyext/test
 

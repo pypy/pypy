@@ -1,3 +1,5 @@
+#encoding: utf-8
+
 class AppTestTextIO:
     spaceconfig = dict(usemodules=['_io', '_locale'])
 
@@ -102,6 +104,16 @@ class AppTestTextIO:
         reads = t.read(4)
         reads += t.readline()
         assert reads == u"abc\ndef\n"
+
+    def test_read_bug_unicode(self):
+        import _io
+        inp = b"\xc3\xa4bc\ndef\n"
+        r = _io.BytesIO(inp)
+        t = _io.TextIOWrapper(r, encoding="utf-8")
+        reads = t.read(4)
+        assert reads == inp[:5].decode("utf-8")
+        reads += t.readline()
+        assert reads == inp.decode("utf-8")
 
     def test_encoded_writes(self):
         import _io

@@ -7,10 +7,10 @@ from pypy.conftest import option
 
 _SPACECACHE={}
 def gettestobjspace(**kwds):
-    """ helper for instantiating and caching space's for testing.
+    """ helper for instantiating and caching spaces for testing.
     """
     try:
-        config = make_config(option,**kwds)
+        config = make_config(option, **kwds)
     except ConflictConfigError as e:
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped
@@ -30,10 +30,12 @@ def maketestobjspace(config=None):
         config = make_config(option)
     if config.objspace.usemodules.thread:
         config.translation.thread = True
+    config.objspace.extmodules = 'pypy.tool.pytest.fake_pytest'
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
-    space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
-                  appsupport.build_pytest_assertion(space))
+    if config.objspace.std.reinterpretasserts:
+        space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
+                    appsupport.build_pytest_assertion(space))
     space.setitem(space.builtin.w_dict, space.wrap('raises'),
                   space.wrap(appsupport.app_raises))
     space.setitem(space.builtin.w_dict, space.wrap('skip'),

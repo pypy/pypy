@@ -500,26 +500,34 @@ class NumberStringParser:
                                (self.fname, self.original_base))
 
     def __init__(self, s, literal, base, fname, allow_underscores=False,
-                 no_implicit_octal=False):
+                 no_implicit_octal=False, start=0, end=-1):
         self.fname = fname
         sign = 1
-        if s.startswith('-'):
+        self.s = s
+        self.start = start
+        if end == -1:
+            end = len(s)
+        self.end = end
+        self._strip_spaces()
+        if self._startswith('-'):
             sign = -1
-            s = strip_spaces(s[1:])
-        elif s.startswith('+'):
-            s = strip_spaces(s[1:])
+            self.start += 1
+            self._strip_spaces()
+        elif self._startswith('+'):
+            self.start += 1
+            self._strip_spaces()
         self.sign = sign
         self.original_base = base
         self.allow_underscores = allow_underscores
 
         if base == 0:
-            if s.startswith('0x') or s.startswith('0X'):
+            if self._startswith('0x') or self._startswith('0X'):
                 base = 16
-            elif s.startswith('0b') or s.startswith('0B'):
+            elif self._startswith('0b') or self._startswith('0B'):
                 base = 2
-            elif s.startswith('0'): # also covers the '0o' case
-                if no_implicit_octal and not (s.startswith('0o') or
-                                              s.startswith('0O')):
+            elif self._startswith('0'): # also covers the '0o' case
+                if no_implicit_octal and not (self._startswith('0o') or
+                                              self._startswith('0O')):
                     base = 1    # this makes only the digit '0' valid...
                 else:
                     base = 8
@@ -530,30 +538,44 @@ class NumberStringParser:
         self.base = base
 
         # Leading underscores are not allowed
-        if s.startswith('_'):
+        if self._startswith('_'):
             self.error()
 
-        if base == 16 and (s.startswith('0x') or s.startswith('0X')):
-            s = s[2:]
-        if base == 8 and (s.startswith('0o') or s.startswith('0O')):
-            s = s[2:]
-        if base == 2 and (s.startswith('0b') or s.startswith('0B')):
-            s = s[2:]
-        if not s:
+        if base == 16 and (self._startswith('0x') or self._startswith('0X')):
+            self.start += 2
+        if base == 8 and (self._startswith('0o') or self._startswith('0O')):
+            self.start += 2
+        if base == 2 and (self._startswith('0b') or self._startswith('0B')):
+            self.start += 2
+        if self.start == self.end:
             self.error()
-        self.s = s
-        self.n = len(s)
-        self.i = 0
+        self.i = self.start
+
+    def _startswith(self, prefix):
+        return startswith(self.s, prefix, start=self.start, end=self.end)
+
+    def _strip_spaces(self):
+        # XXX this is not locale-dependent
+        p = self.start
+        q = self.end
+        s = self.s
+        while p < q and s[p] in ' \f\n\r\t\v':
+            p += 1
+        while p < q and s[q-1] in ' \f\n\r\t\v':
+            q -= 1
+        assert q >= p
+        self.start = p
+        self.end = q
 
     def rewind(self):
-        self.i = 0
+        self.i = self.start
 
     def next_digit(self): # -1 => exhausted
-        if self.i < self.n:
+        if self.i < self.end:
             c = self.s[self.i]
             if self.allow_underscores and c == '_':
                 self.i += 1
-                if self.i >= self.n:
+                if self.i >= self.end:
                     self.error()
                 c = self.s[self.i]
             digit = ord(c)
@@ -576,7 +598,7 @@ class NumberStringParser:
         # After exhausting all n digits in next_digit(), you can walk them
         # again in reverse order by calling prev_digit() exactly n times
         i = self.i - 1
-        assert i >= 0
+        assert i >= self.start
         self.i = i
         c = self.s[i]
         digit = ord(c)

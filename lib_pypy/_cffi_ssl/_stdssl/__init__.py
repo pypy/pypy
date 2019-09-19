@@ -42,7 +42,7 @@ OPENSSL_VERSION_INFO = version_info
 _OPENSSL_API_VERSION = version_info
 del ver, version_info, status, patch, fix, minor, major
 
-HAS_ECDH = bool(lib.Cryptography_HAS_ECDH)
+HAS_ECDH = True
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
 HAS_NPN = bool(lib.OPENSSL_NPN_NEGOTIATED)
@@ -70,6 +70,9 @@ for name in dir(lib):
 
 OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 OP_NO_SSLv2 = lib.SSL_OP_NO_SSLv2
+OP_NO_SSLv3 = lib.SSL_OP_NO_SSLv3
+OP_NO_TLSv1_3 = lib.SSL_OP_NO_TLSv1_3
+ 
 
 SSL_CLIENT = 0
 SSL_SERVER = 1
@@ -78,8 +81,15 @@ SSL_CB_MAXLEN=128
 
 if lib.Cryptography_HAS_SSL2:
     PROTOCOL_SSLv2  = 0
+SSLv3_method_ok = False
 if lib.Cryptography_HAS_SSL3_METHOD:
-    PROTOCOL_SSLv3  = 1
+    # Some Ubuntu systems disable SSLv3
+    ctx = lib.SSL_CTX_new(lib.SSLv3_method())
+    if ctx:
+        PROTOCOL_SSLv3  = 1
+        lib.SSL_CTX_free(ctx)
+        SSLv3_method_ok = True
+        
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
@@ -110,7 +120,9 @@ for name in error.SSL_AD_NAMES:
 # init open ssl
 lib.SSL_load_error_strings()
 lib.SSL_library_init()
-lib._setup_ssl_threads()
+if (lib.Cryptography_HAS_LOCKING_CALLBACKS and
+        lib.CRYPTO_get_locking_callback() == ffi.NULL):
+    lib.Cryptography_setup_ssl_threads()
 lib.OpenSSL_add_all_algorithms()
 
 def check_signals():
@@ -710,6 +722,51 @@ def cipher_to_tuple(cipher):
     bits = lib.SSL_CIPHER_get_bits(cipher, ffi.NULL)
     return (cipher_name, cipher_protocol, bits)
 
+def cipher_to_dict(cipher):
+    ccipher_name = lib.SSL_CIPHER_get_name(cipher)
+    buf = ffi.new('char[512]')
+    alg_bits = ffi.new('int[4]')
+    if ccipher_name == ffi.NULL:
+        cipher_name = None
+    else:
+        cipher_name = _str_from_buf(ccipher_name)
+
+    ccipher_protocol = lib.SSL_CIPHER_get_version(cipher)
+    if ccipher_protocol == ffi.NULL:
+        cipher_protocol = None
+    else:
+        cipher_protocol = _str_from_buf(ccipher_protocol)
+
+    cipher_id = lib.SSL_CIPHER_get_id(cipher);
+    lib.SSL_CIPHER_description(cipher, buf, 511)
+    description = _str_from_buf(buf)
+    strength_bits = lib.SSL_CIPHER_get_bits(cipher, alg_bits)
+    ret = {
+            'id'           : cipher_id,
+            'name'         : cipher_name,
+            'protocol'     : cipher_protocol,
+            'description'  : description,
+            'strength_bits': strength_bits,
+            'alg_bits'     : alg_bits[0],
+           }
+    if OPENSSL_VERSION_INFO > (1, 1, 0, 0, 0):
+        aead = lib.SSL_CIPHER_is_aead(cipher)
+        nid = lib.SSL_CIPHER_get_cipher_nid(cipher)
+        skcipher = OBJ_nid2ln(nid) if nid != NID_undef else None
+        nid = lib.SSL_CIPHER_get_digest_nid(cipher);
+        digest = OBJ_nid2ln(nid) if nid != NID_undef else None
+        nid = lib.SSL_CIPHER_get_kx_nid(cipher);
+        kx = OBJ_nid2ln(nid) if nid != NID_undef else None
+        nid = SSL_CIPHER_get_auth_nid(cipher);
+        auth = OBJ_nid2ln(nid) if nid != NID_undef else None
+        ret.update({'aead' : bool(aead),
+            'symmmetric'   : skcipher,
+            'digest'       : digest,
+            'kea'          : kx,
+            'auth'         : auth,
+           })
+    return ret
+
 
 class SSLSession(object):
     def __new__(cls, ssl):
@@ -769,11 +826,11 @@ class _SSLContext(object):
         self.ctx = ffi.NULL
         if protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
-        elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_1:
+        elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
             method = lib.TLSv1_2_method()
-        elif lib.Cryptography_HAS_SSL3_METHOD and protocol == PROTOCOL_SSLv3:
+        elif SSLv3_method_ok and protocol == PROTOCOL_SSLv3:
             method = lib.SSLv3_method()
         elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
@@ -804,7 +861,7 @@ class _SSLContext(object):
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if not lib.Cryptography_HAS_SSL2 or protocol != PROTOCOL_SSLv2:
             options |= lib.SSL_OP_NO_SSLv2
-        if not lib.Cryptography_HAS_SSL3_METHOD or protocol != PROTOCOL_SSLv3:
+        if not SSLv3_method_ok or protocol != PROTOCOL_SSLv3:
             options |= lib.SSL_OP_NO_SSLv3
         # Minimal security flags for server and client side context.
         # Client sockets ignore server-side parameters.
@@ -935,6 +992,20 @@ class _SSLContext(object):
             lib.ERR_clear_error()
             raise ssl_error("No cipher can be selected.")
 
+    def get_ciphers(self):
+        ssl = lib.SSL_new(self.ctx)
+        try:
+            ciphers = lib.SSL_get_ciphers(ssl)
+            if ciphers == ffi.NULL:
+                return None
+            count = lib.sk_SSL_CIPHER_num(ciphers)
+            res = [None] * count
+            for i in range(count):
+                dct = cipher_to_dict(lib.sk_SSL_CIPHER_value(ciphers, i))
+                res[i] = dct
+            return res
+        finally:
+            lib.SSL_free(ssl)
 
     def load_cert_chain(self, certfile, keyfile=None, password=None):
         if keyfile is None:

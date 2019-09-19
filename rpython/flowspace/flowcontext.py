@@ -566,11 +566,12 @@ class FlowContext(object):
         if not isinstance(w_check_class, Constant):
             raise FlowingError("Non-constant except guard.")
         check_class = w_check_class.value
-        if check_class in (NotImplementedError, AssertionError):
-            raise FlowingError(
-                "Catching %s is not valid in RPython" % check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
+            if issubclass(check_class, (NotImplementedError, AssertionError)):
+                raise FlowingError(
+                    "Catching NotImplementedError, AssertionError, or a "
+                    "subclass is not valid in RPython (%r)" % (check_class,))
             return self.guessbool(op.issubtype(w_exc_type, w_check_class).eval(self))
         # special case for StackOverflow (see rlib/rstackovf.py)
         if check_class == rstackovf.StackOverflow:

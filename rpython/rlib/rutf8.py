@@ -363,9 +363,12 @@ def check_utf8(s, allow_surrogates, start=0, stop=-1):
     raise CheckError(~res)
 
 def get_utf8_length(s, start=0, end=-1):
-    """ Get the length out of valid utf8. For now just calls check_utf8
+    # DEPRECATED! use codepoints_in_utf8 instead
+    """ Get the length out of valid utf8.
     """
-    return check_utf8(s, True, start, end)
+    if end < 0:
+        end = len(s)
+    return codepoints_in_utf8(s, start, end)
 
 @jit.elidable
 def _check_utf8(s, allow_surrogates, start, stop):
@@ -435,11 +438,7 @@ def _check_utf8(s, allow_surrogates, start, stop):
     return result
 
 def has_surrogates(utf8):
-    # XXX write a faster version maybe
-    for ch in Utf8StringIterator(utf8):
-        if 0xD800 <= ch <= 0xDBFF:
-            return True
-    return False
+    return surrogate_in_utf8(utf8) >= 0
 
 def reencode_utf8_with_surrogates(utf8):
     """ Receiving valid UTF8 which contains surrogates, combine surrogate
@@ -486,14 +485,24 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
             length += 1
     return length
 
+
 @jit.elidable
-def surrogate_in_utf8(value):
+def surrogate_in_utf8(utf8):
     """Check if the UTF-8 byte string 'value' contains a surrogate.
     The 'value' argument must be otherwise correctly formed for UTF-8.
+    Returns the position of the first surrogate, otherwise -1.
     """
-    for i in range(len(value) - 2):
-        if value[i] == '\xed' and value[i + 1] >= '\xa0':
-            return i
+    # a surrogate starts with 0xed in utf-8 encoding
+    pos = 0
+    while True:
+        pos = utf8.find("\xed", pos)
+        if pos < 0:
+            return -1
+        assert pos <= len(utf8) - 1 # otherwise invalid utf-8
+        ordch2 = ord(utf8[pos + 1])
+        if _invalid_byte_2_of_3(0xed, ordch2, allow_surrogates=False):
+            return pos
+        pos += 1
     return -1
 
 
@@ -583,7 +592,7 @@ def codepoint_at_index(utf8, storage, index):
     return codepoint_at_pos(utf8, bytepos)
 
 @jit.elidable
-def codepoint_index_at_byte_position(utf8, storage, bytepos):
+def codepoint_index_at_byte_position(utf8, storage, bytepos, num_codepoints):
     """ Return the character index for which
     codepoint_position_at_index(index) == bytepos.
     This is a relatively slow operation in that it runs in a time
@@ -592,17 +601,38 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos):
     """
     if bytepos < 0:
         return bytepos
+    # binary search on elements of storage
     index_min = 0
     index_max = len(storage) - 1
     while index_min < index_max:
+        # this addition can't overflow because storage has a length that is
+        # 1/64 of the length of a string
         index_middle = (index_min + index_max + 1) // 2
         base_bytepos = storage[index_middle].baseindex
         if bytepos < base_bytepos:
             index_max = index_middle - 1
         else:
             index_min = index_middle
-    bytepos1 = storage[index_min].baseindex
+
+    baseindex = storage[index_min].baseindex
+    if baseindex == bytepos:
+        return index_min << 6
+
+    # use ofs to get closer to the correct character index
     result = index_min << 6
+    bytepos1 = baseindex
+    if index_min == len(storage) - 1:
+        maxindex = ((num_codepoints - 1) >> 2) & 0x0F
+    else:
+        maxindex = 16
+    for i in range(maxindex):
+        x = baseindex + ord(storage[index_min].ofs[i])
+        if x >= bytepos:
+            break
+        bytepos1 = x
+        result = (index_min << 6) + (i << 2) + 1
+
+    # this loop should runs at most four times
     while bytepos1 < bytepos:
         bytepos1 = next_codepoint_pos(utf8, bytepos1)
         result += 1
@@ -716,13 +746,13 @@ class Utf8StringBuilder(object):
     def append(self, s):
         # for strings
         self._s.append(s)
-        newlgt = get_utf8_length(s)
+        newlgt = codepoints_in_utf8(s)
         self._lgt += newlgt
 
     @always_inline
     def append_slice(self, s, start, end):
         self._s.append_slice(s, start, end)
-        newlgt = get_utf8_length(s, start, end)
+        newlgt = codepoints_in_utf8(s, start, end)
         self._lgt += newlgt
 
     @signature(types.self(), char(), returns=none())
@@ -741,6 +771,13 @@ class Utf8StringBuilder(object):
     def append_utf8(self, utf8, length):
         self._s.append(utf8)
         self._lgt += length
+
+    @always_inline
+    def append_utf8_slice(self, utf8, start, end, slicelength):
+        self._s.append_slice(utf8, start, end)
+        self._lgt += slicelength
+        if not we_are_translated():
+            assert len(utf8[start: end].decode("utf-8")) == slicelength
 
     @always_inline
     def append_multiple_char(self, utf8, times):

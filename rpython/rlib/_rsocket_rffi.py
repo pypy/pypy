@@ -203,6 +203,7 @@ WSA_WAIT_TIMEOUT WSA_WAIT_FAILED INFINITE
 FD_CONNECT_BIT FD_CLOSE_BIT
 WSA_IO_PENDING WSA_IO_INCOMPLETE WSA_INVALID_HANDLE
 WSA_INVALID_PARAMETER WSA_NOT_ENOUGH_MEMORY WSA_OPERATION_ABORTED
+WSA_FLAG_OVERLAPPED
 SIO_RCVALL SIO_KEEPALIVE_VALS
 
 SIOCGIFNAME SIOCGIFINDEX
@@ -1010,6 +1011,7 @@ if _WIN32:
     CConfig.WSAPROTOCOL_INFO = platform.Struct(
         'WSAPROTOCOL_INFOA',
         [])  # Struct is just passed between functions
+
     CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
         'FROM_PROTOCOL_INFO')
 
@@ -1034,6 +1036,45 @@ if _WIN32:
         [('onoff', rffi.ULONG),
          ('keepalivetime', rffi.ULONG),
          ('keepaliveinterval', rffi.ULONG)])
+
+    CConfig.GUID = platform.Struct(
+             'struct _GUID',
+             [('Data1', rffi.UINT),
+             ('Data2', rffi.UINT),
+             ('Data3', rffi.UINT),
+             ('Data4', rffi.CFixedArray(rffi.UCHAR, 8))
+         ])
+
+    CConfig.WSAPROTOCOLCHAIN = platform.Struct(
+        'struct _WSAPROTOCOLCHAIN',
+        [('ChainLen', rffi.INT),
+         ('ChainEntries', rffi.CFixedArray(rffi.UINT, 7))])
+
+    WSAPROTOCOLCHAIN = CConfig.WSAPROTOCOLCHAIN
+    GUID = CConfig.GUID
+
+    CConfig.WSAPROTOCOL_INFOW = platform.Struct(
+        'struct _WSAPROTOCOL_INFOW',
+        [('dwServiceFlags1', rffi.UINT),
+         ('dwServiceFlags2', rffi.UINT),
+         ('dwServiceFlags3', rffi.UINT),
+         ('dwServiceFlags4', rffi.UINT),
+         ('dwProviderFlags', rffi.UINT),
+         ('ProviderId', GUID),
+         ('dwCatalogEntryId', rffi.UINT),
+         ('ProtocolChain', WSAPROTOCOLCHAIN),
+         ('iVersion', rffi.INT),
+         ('iAddressFamily', rffi.INT),
+         ('iMaxSockAddr', rffi.INT),
+         ('iMinSockAddr', rffi.INT),
+         ('iSocketType', rffi.INT),
+         ('iProtocol', rffi.INT),
+         ('iProtocolMaxOffset', rffi.INT),
+         ('iNetworkByteOrder', rffi.INT),
+         ('iSecurityScheme', rffi.INT),
+         ('dwMessageSize', rffi.UINT),
+         ('dwProviderReserved', rffi.UINT),
+         ('szProtocol',  rffi.CFixedArray(rffi.UCHAR, 256))])
 
 
 class cConfig:
@@ -1337,6 +1378,20 @@ elif WIN32:
                          rffi.VOIDP, rwin32.DWORD,
                          rwin32.LPDWORD, rffi.VOIDP, rffi.VOIDP],
                         rffi.INT, save_err=SAVE_ERR)
+
+    WSAPROTOCOL_INFOW = cConfig.WSAPROTOCOL_INFOW
+
+    WSADuplicateSocketW = external('WSADuplicateSocketW',
+                                 [socketfd_type, rwin32.DWORD,
+                                  lltype.Ptr(WSAPROTOCOL_INFOW)],
+                                  rffi.INT, save_err=SAVE_ERR)
+
+    WSASocketW = external('WSASocketW',
+                         [rffi.INT, rffi.INT, rffi.INT,
+                          lltype.Ptr(WSAPROTOCOL_INFOW),
+                          rwin32.DWORD, rwin32.DWORD],
+                         socketfd_type, save_err=SAVE_ERR)
+
     tcp_keepalive = cConfig.tcp_keepalive
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
@@ -1371,10 +1426,10 @@ if WIN32:
         return rwin32.FormatError(errno)
 
     def socket_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)[0]
+        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
 
     def gai_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)[0]
+        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
 
     def socket_strerror_utf8(errno):
         return rwin32.FormatErrorW(errno)

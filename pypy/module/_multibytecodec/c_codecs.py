@@ -157,7 +157,7 @@ def multibytecodec_decerror(decodebuf, e, errors,
         replace, end = errorcb(errors, namecb, reason,
                                stringdata, start, end)
         # 'replace' is RPython unicode here
-    lgt = rutf8.get_utf8_length(replace)
+    lgt = rutf8.codepoints_in_utf8(replace)
     inbuf = rffi.utf82wcharp(replace, lgt)
     try:
         r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, lgt, end)
@@ -268,7 +268,7 @@ def multibytecodec_encerror(encodebuf, e, errors,
         rets, end = errorcb(errors, namecb, reason,
                             unicodedata, start, end)
         codec = pypy_cjk_enc_getcodec(encodebuf)
-        lgt = rutf8.get_utf8_length(rets)
+        lgt = rutf8.codepoints_in_utf8(rets)
         replace = encode(codec, rets, lgt, "strict", errorcb, namecb)
     with rffi.scoped_nonmovingbuffer(replace) as inbuf:
         r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)

@@ -1351,7 +1351,12 @@ def urandom(space, n):
         _sigcheck.space = space
         return space.newbytes(rurandom.urandom(context, n, _signal_checker))
     except OSError as e:
-        raise wrap_oserror(space, e)
+        # CPython raises NotImplementedError if /dev/urandom cannot be found.
+        # To maximize compatibility, we should also raise NotImplementedError
+        # and not OSError (although CPython also raises OSError in case it
+        # could open /dev/urandom but there are further problems).
+        raise wrap_oserror(space, e,
+            w_exception_class=space.w_NotImplementedError)
 
 def ctermid(space):
     """ctermid() -> string

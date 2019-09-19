@@ -18,7 +18,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
@@ -30,6 +30,16 @@ from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
            'unicode_from_string', 'unicode_to_decimal_w']
+
+MAX_UNROLL_NEXT_CODEPOINT_POS = 4
+
+@jit.elidable
+def next_codepoint_pos_dont_look_inside(utf8, p):
+    return rutf8.next_codepoint_pos(utf8, p)
+
+@jit.elidable
+def prev_codepoint_pos_dont_look_inside(utf8, p):
+    return rutf8.prev_codepoint_pos(utf8, p)
 
 
 class W_UnicodeObject(W_Root):
@@ -48,7 +58,6 @@ class W_UnicodeObject(W_Root):
             # explicit surrogate characters---which .decode('utf-8') doesn't
             # special-case in Python 2, which is exactly what we want here
             assert length == len(utf8str.decode('utf-8'))
-
 
     @staticmethod
     def from_utf8builder(builder):
@@ -699,6 +708,9 @@ class W_UnicodeObject(W_Root):
             if sl == 0:
                 return self._empty()
             elif step == 1:
+                if jit.we_are_jitted() and \
+                        self._unroll_slice_heuristic(start, stop, w_index.w_stop):
+                    return self._unicode_sliced_constant_index_jit(space, start, stop)
                 assert start >= 0 and stop >= 0
                 return self._unicode_sliced(space, start, stop)
             else:
@@ -714,7 +726,7 @@ class W_UnicodeObject(W_Root):
         i = 0
         while True:
             next_pos = rutf8.next_codepoint_pos(self._utf8, byte_pos)
-            builder.append(self._utf8[byte_pos:next_pos])
+            builder.append_slice(self._utf8, byte_pos, next_pos)
             if i == sl - 1:
                 break
             i += 1
@@ -727,6 +739,9 @@ class W_UnicodeObject(W_Root):
         if start == stop:
             return self._empty()
         else:
+            if (jit.we_are_jitted() and
+                    self._unroll_slice_heuristic(start, stop, w_stop)):
+                return self._unicode_sliced_constant_index_jit(space, start, stop)
             return self._unicode_sliced(space, start, stop)
 
     def _unicode_sliced(self, space, start, stop):
@@ -737,6 +752,31 @@ class W_UnicodeObject(W_Root):
         byte_start = self._index_to_byte(start)
         byte_stop = self._index_to_byte(stop)
         return W_UnicodeObject(self._utf8[byte_start:byte_stop], stop - start)
+
+    @jit.unroll_safe
+    def _unicode_sliced_constant_index_jit(self, space, start, stop):
+        assert start >= 0
+        assert stop >= 0
+        byte_start = 0
+        for i in range(start):
+            byte_start = next_codepoint_pos_dont_look_inside(self._utf8, byte_start)
+        byte_stop = len(self._utf8)
+        for i in range(self._len() - stop):
+            byte_stop = prev_codepoint_pos_dont_look_inside(self._utf8, byte_stop)
+        return W_UnicodeObject(self._utf8[byte_start:byte_stop], stop - start)
+
+    def _unroll_slice_heuristic(self, start, stop, w_stop):
+        from pypy.objspace.std.intobject import W_IntObject
+        # the reason we use the *wrapped* stop is that for
+        # w_stop ==  wrapped -1, or w_None the stop that is computed will *not*
+        # be constant, because the length is often not constant.
+        return (not self.is_ascii() and
+            jit.isconstant(start) and
+            (jit.isconstant(w_stop) or
+                (isinstance(w_stop, W_IntObject) and
+                    jit.isconstant(w_stop.intval))) and
+            start <= MAX_UNROLL_NEXT_CODEPOINT_POS and
+            self._len() - stop <= MAX_UNROLL_NEXT_CODEPOINT_POS)
 
     def descr_capitalize(self, space):
         value = self._utf8
@@ -864,21 +904,47 @@ class W_UnicodeObject(W_Root):
         return storage
 
     def _getitem_result(self, space, index):
+        if (jit.we_are_jitted() and
+                not self.is_ascii() and
+                jit.isconstant(index) and
+                -MAX_UNROLL_NEXT_CODEPOINT_POS <= index <= MAX_UNROLL_NEXT_CODEPOINT_POS):
+            return self._getitem_result_constant_index_jit(space, index)
         if index < 0:
             index += self._length
         if index < 0 or index >= self._length:
             raise oefmt(space.w_IndexError, "string index out of range")
         start = self._index_to_byte(index)
-        end = rutf8.next_codepoint_pos(self._utf8, start)
+        # we must not inline next_codepoint_pos, otherwise we produce a guard!
+        end = self.next_codepoint_pos_dont_look_inside(start)
+        return W_UnicodeObject(self._utf8[start:end], 1)
+
+    @jit.unroll_safe
+    def _getitem_result_constant_index_jit(self, space, index):
+        # for small known indices, call next/prev_codepoint_pos a few times
+        # instead of possibly creating an index structure
+        if index < 0:
+            posindex = index + self._length
+            if posindex < 0:
+                raise oefmt(space.w_IndexError, "string index out of range")
+            end = len(self._utf8)
+            start = self.prev_codepoint_pos_dont_look_inside(end)
+            for i in range(-index-1):
+                end = start
+                start = self.prev_codepoint_pos_dont_look_inside(start)
+        else:
+            if index >= self._length:
+                raise oefmt(space.w_IndexError, "string index out of range")
+            start = 0
+            end = self.next_codepoint_pos_dont_look_inside(start)
+            for i in range(index):
+                start = end
+                end = self.next_codepoint_pos_dont_look_inside(end)
+        assert start >= 0
+        assert end >= 0
         return W_UnicodeObject(self._utf8[start:end], 1)
 
     def is_ascii(self):
         return self._length == len(self._utf8)
-
-    def _has_surrogates(self):
-        if self.is_ascii():
-            return False
-        return rutf8.has_surrogates(self._utf8)
 
     def _index_to_byte(self, index):
         if self.is_ascii():
@@ -886,6 +952,30 @@ class W_UnicodeObject(W_Root):
             return index
         return rutf8.codepoint_position_at_index(
             self._utf8, self._get_index_storage(), index)
+
+    def _codepoints_in_utf8(self, start, end):
+        if self.is_ascii():
+            return end - start
+        return rutf8.codepoints_in_utf8(self._utf8, start, end)
+
+    def _byte_to_index(self, bytepos):
+        """ this returns index such that self._index_to_byte(index) == bytepos
+        NB: this is slow! roughly logarithmic with a big constant
+        """
+        if self.is_ascii():
+            return bytepos
+        return rutf8.codepoint_index_at_byte_position(
+            self._utf8, self._get_index_storage(), bytepos, self._len())
+
+    def next_codepoint_pos_dont_look_inside(self, pos):
+        if self.is_ascii():
+            return pos + 1
+        return next_codepoint_pos_dont_look_inside(self._utf8, pos)
+
+    def prev_codepoint_pos_dont_look_inside(self, pos):
+        if self.is_ascii():
+            return pos - 1
+        return prev_codepoint_pos_dont_look_inside(self._utf8, pos)
 
     @always_inline
     def _unwrap_and_search(self, space, w_sub, w_start, w_end, forward=True):
@@ -908,16 +998,14 @@ class W_UnicodeObject(W_Root):
             res_index = self._utf8.find(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = rutf8.codepoints_in_utf8(self._utf8, start_index, res_index)
-            res = start + skip
+            res = self._byte_to_index(res_index)
             assert res >= 0
             return space.newint(res)
         else:
             res_index = self._utf8.rfind(w_sub._utf8, start_index, end_index)
             if res_index < 0:
                 return None
-            skip = rutf8.codepoints_in_utf8(self._utf8, res_index, end_index)
-            res = end - skip
+            res = self._byte_to_index(res_index)
             assert res >= 0
             return space.newint(res)
 
@@ -997,9 +1085,11 @@ class W_UnicodeObject(W_Root):
                 lgt -= 1
 
         if right:
-            while rpos > lpos and rutf8.isspace(value,
-                                         rutf8.prev_codepoint_pos(value, rpos)):
-                rpos = rutf8.prev_codepoint_pos(value, rpos)
+            while rpos > lpos:
+                prev = rutf8.prev_codepoint_pos(value, rpos)
+                if not rutf8.isspace(value, prev):
+                    break
+                rpos = prev
                 lgt -= 1
 
         assert rpos >= lpos    # annotator hint, don't remove
@@ -1020,9 +1110,11 @@ class W_UnicodeObject(W_Root):
                 lgt -= 1
 
         if right:
-            while rpos > lpos and rutf8.utf8_in_chars(value,
-                    rutf8.prev_codepoint_pos(value, rpos), chars):
-                rpos = rutf8.prev_codepoint_pos(value, rpos)
+            while rpos > lpos:
+                prev = rutf8.prev_codepoint_pos(value, rpos)
+                if not rutf8.utf8_in_chars(value, prev, chars):
+                    break
+                rpos = prev
                 lgt -= 1
 
         assert rpos >= lpos    # annotator hint, don't remove
@@ -1097,11 +1189,11 @@ def encode_object(space, w_obj, encoding, errors):
             if rutf8.has_surrogates(utf8):
                 utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
             return space.newbytes(utf8)
-    return encode(space, w_obj, encoding, errors) 
+    return encode(space, w_obj, encoding, errors)
 
 
 def decode_object(space, w_obj, encoding, errors):
-    from pypy.module._codecs.interp_codecs import lookup_codec, decode 
+    from pypy.module._codecs.interp_codecs import lookup_codec, decode
     if errors is None or errors == 'strict':
         # fast paths
         if encoding is None:
@@ -1111,7 +1203,7 @@ def decode_object(space, w_obj, encoding, errors):
             unicodehelper.check_ascii_or_raise(space, s)
             return space.newutf8(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
-            if (space.isinstance_w(w_obj, space.w_unicode) or 
+            if (space.isinstance_w(w_obj, space.w_unicode) or
                 space.isinstance_w(w_obj, space.w_bytes)):
                 s = space.utf8_w(w_obj)
             else:
@@ -1720,34 +1812,28 @@ W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    unistr = w_unistr._utf8
-    result = ['\0'] * w_unistr._length
-    digits = ['0', '1', '2', '3', '4',
-              '5', '6', '7', '8', '9']
-    res_pos = 0
-    iter = rutf8.Utf8StringIterator(unistr)
-    for uchr in iter:
+    utf8 = w_unistr._utf8
+    result = StringBuilder(w_unistr._len())
+    it = rutf8.Utf8StringIterator(utf8)
+    for uchr in it:
         if W_UnicodeObject._isspace(uchr):
-            result[res_pos] = ' '
-            res_pos += 1
+            result.append(' ')
             continue
-        try:
-            result[res_pos] = digits[unicodedb.decimal(uchr)]
-        except KeyError:
-            if 0 < uchr < 256:
-                result[res_pos] = chr(uchr)
-            else:
+        if not (0 < uchr < 256):
+            try:
+                uchr = ord('0') + unicodedb.decimal(uchr)
+            except KeyError:
                 w_encoding = space.newtext('decimal')
-                pos = iter.get_pos()
+                pos = it.get_pos()
                 w_start = space.newint(pos)
-                w_end = space.newint(pos+1)
+                w_end = space.newint(pos + 1)
                 w_reason = space.newtext('invalid decimal Unicode string')
                 raise OperationError(space.w_UnicodeEncodeError,
-                                     space.newtuple([w_encoding, w_unistr,
-                                                     w_start, w_end,
-                                                     w_reason]))
-        res_pos += 1
-    return ''.join(result)
+                                        space.newtuple([w_encoding, w_unistr,
+                                                        w_start, w_end,
+                                                        w_reason]))
+        result.append(chr(uchr))
+    return result.build()
 
 
 _repr_function = rutf8.make_utf8_escape_function(

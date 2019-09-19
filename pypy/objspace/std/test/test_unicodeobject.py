@@ -187,6 +187,26 @@ class TestUnicodeObject:
                                       space.newint(start + len1))
             assert w_res is space.newbool(expected)
 
+    def test_getitem_constant_index_jit(self):
+        # test it directly, to prevent only seeing bugs in jitted code
+        space = self.space
+        u = u"äöabc"
+        w_u = self.space.wrap(u)
+        for i in range(-len(u), len(u)):
+            assert w_u._getitem_result_constant_index_jit(space, i)._utf8 == u[i].encode("utf-8")
+        with py.test.raises(OperationError):
+            w_u._getitem_result_constant_index_jit(space, len(u))
+        with py.test.raises(OperationError):
+            w_u._getitem_result_constant_index_jit(space, -len(u) - 1)
+
+    def test_getslice_constant_index_jit(self):
+        space = self.space
+        u = u"äöabcéééß"
+        w_u = self.space.wrap(u)
+        for start in range(0, 4):
+            for end in range(start, len(u)):
+                assert w_u._unicode_sliced_constant_index_jit(space, start, end)._utf8 == u[start: end].encode("utf-8")
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):

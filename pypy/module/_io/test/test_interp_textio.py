@@ -35,6 +35,7 @@ def st_readline(draw, st_nlines=st.integers(min_value=0, max_value=10)):
 @given(data=st_readline(),
        mode=st.sampled_from(['\r', '\n', '\r\n', '']))
 @settings(deadline=None, database=None)
+@example(data=(u'\n\r\n', [0, -1, 2, -1, 0, -1]), mode='\r')
 def test_readline(space, data, mode):
     txt, limits = data
     w_stream = W_BytesIO(space)
@@ -58,27 +59,31 @@ def test_readline(space, data, mode):
 
 @given(st.text())
 def test_read_buffer(text):
-    buf = DecodeBuffer(text.encode('utf-8'))
-    assert buf.get_chars(-1) == text.encode('utf-8')
+    buf = DecodeBuffer(text.encode('utf8'), len(text))
+    chars, size = buf.get_chars(-1)
+    assert chars.decode('utf8') == text
+    assert len(text) == size
     assert buf.exhausted()
 
 @given(st.text(), st.lists(st.integers(min_value=0)))
 @example(u'\x80', [1])
 def test_readn_buffer(text, sizes):
-    buf = DecodeBuffer(text.encode('utf-8'))
+    buf = DecodeBuffer(text.encode('utf8'), len(text))
     strings = []
     for n in sizes:
-        s = buf.get_chars(n)
+        chars, size = buf.get_chars(n)
+        s = chars.decode('utf8')
+        assert size == len(s)
         if not buf.exhausted():
-            assert len(s.decode('utf-8')) == n
+            assert len(s) == n
         else:
-            assert len(s.decode('utf-8')) <= n
+            assert len(s) <= n
         strings.append(s)
-    assert ''.join(strings) == text[:sum(sizes)].encode('utf-8')
+    assert ''.join(strings) == text[:sum(sizes)]
 
 @given(st.text())
 def test_next_char(text):
-    buf = DecodeBuffer(text.encode('utf-8'))
+    buf = DecodeBuffer(text.encode('utf8'), len(text))
     for i in range(len(text)):
         ch = buf.next_char()
         assert ch == text[i].encode('utf-8')

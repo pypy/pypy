@@ -9,8 +9,9 @@ import json
 
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 if sys.platform.startswith('win'):
-    TARGET_NAME = r'pypy-c.exe'
-    TARGET_DIR = 'Scripts'
+    TARGET_NAME = 'pypy-c.exe'
+    # PyPy uses bin as of PR https://github.com/pypa/virtualenv/pull/1400
+    TARGET_DIR = 'bin'
 else:
     TARGET_NAME = 'pypy-c'
     TARGET_DIR = 'bin'

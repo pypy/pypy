@@ -312,7 +312,10 @@ class W_Socket(W_Root):
                 raise converted_error(space, e)
         if buflen < 0 or buflen > 1024:
             raise explicit_socket_error(space, "getsockopt buflen out of range")
-        return space.newbytes(self.sock.getsockopt(level, optname, buflen))
+        try:
+            return space.newbytes(self.sock.getsockopt(level, optname, buflen))
+        except SocketError as e:
+            raise converted_error(space, e)
 
     def gettimeout_w(self, space):
         """gettimeout() -> timeout
@@ -438,7 +441,10 @@ class W_Socket(W_Root):
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        self.sock.setblocking(flag)
+        try:
+            self.sock.setblocking(flag)
+        except SocketError as e:
+            pass    # CPython 2 only: never raise anything here
 
     @unwrap_spec(level=int, optname=int)
     def setsockopt_w(self, space, level, optname, w_optval):
@@ -477,7 +483,10 @@ class W_Socket(W_Root):
             timeout = space.float_w(w_timeout)
             if timeout < 0.0:
                 raise oefmt(space.w_ValueError, "Timeout value out of range")
-        self.sock.settimeout(timeout)
+        try:
+            self.sock.settimeout(timeout)
+        except SocketError as e:
+            pass    # CPython 2 only: never raise anything here
 
     @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):

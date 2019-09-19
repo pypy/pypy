@@ -312,6 +312,10 @@ class RFile(object):
         if not self._ll_file:
             raise ValueError("I/O operation on closed file")
 
+    @property
+    def closed(self):
+        return not self._ll_file
+
     def _fread(self, buf, n, stream):
         if not self._univ_newline:
             return c_fread(buf, 1, n, stream)
