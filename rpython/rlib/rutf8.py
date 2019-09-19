@@ -438,18 +438,7 @@ def _check_utf8(s, allow_surrogates, start, stop):
     return result
 
 def has_surrogates(utf8):
-    # a surrogate starts with 0xed in utf-8 encoding
-    pos = 0
-    while True:
-        pos = utf8.find("\xed", pos)
-        if pos < 0:
-            return False
-        assert pos <= len(utf8) - 1 # otherwise invalid utf-8
-        ordch2 = ord(utf8[pos + 1])
-        if _invalid_byte_2_of_3(0xed, ordch2, allow_surrogates=False):
-            return True
-        pos += 1
-    return False
+    return surrogate_in_utf8(utf8) >= 0
 
 def reencode_utf8_with_surrogates(utf8):
     """ Receiving valid UTF8 which contains surrogates, combine surrogate
@@ -498,13 +487,22 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
 
 
 @jit.elidable
-def surrogate_in_utf8(value):
+def surrogate_in_utf8(utf8):
     """Check if the UTF-8 byte string 'value' contains a surrogate.
     The 'value' argument must be otherwise correctly formed for UTF-8.
+    Returns the position of the first surrogate, otherwise -1.
     """
-    for i in range(len(value) - 2):
-        if value[i] == '\xed' and value[i + 1] >= '\xa0':
-            return i
+    # a surrogate starts with 0xed in utf-8 encoding
+    pos = 0
+    while True:
+        pos = utf8.find("\xed", pos)
+        if pos < 0:
+            return -1
+        assert pos <= len(utf8) - 1 # otherwise invalid utf-8
+        ordch2 = ord(utf8[pos + 1])
+        if _invalid_byte_2_of_3(0xed, ordch2, allow_surrogates=False):
+            return pos
+        pos += 1
     return -1
 
 
