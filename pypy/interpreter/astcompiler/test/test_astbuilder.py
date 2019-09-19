@@ -2,7 +2,7 @@
 import random
 import string
 import sys
-import py
+import pytest
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -166,7 +166,9 @@ class TestAstBuilder:
         assert a1.asname is None
         assert a2.name == "y"
         assert a2.asname == "w"
-        exc = py.test.raises(SyntaxError, self.get_ast, "import x a b").value
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("import x a b")
+        assert excinfo.value.text == "import x a b\n"
 
     def test_from_import(self):
         im = self.get_first_stmt("from x import y")
@@ -211,12 +213,18 @@ class TestAstBuilder:
             assert a1.asname == "b"
             assert a2.name == "w"
             assert a2.asname is None
+
         input = "from x import y a b"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.text == input + "\n"
+
         input = "from x import a, b,"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "trailing comma is only allowed with surronding " \
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "trailing comma is only allowed with surronding " \
             "parenthesis"
+        assert excinfo.value.text == input + "\n"
 
     def test_global(self):
         glob = self.get_first_stmt("global x")
@@ -444,7 +452,8 @@ class TestAstBuilder:
         assert wi.optional_vars.ctx == ast.Store
         assert wi.optional_vars.elts[0].ctx == ast.Store
         input = "with x hi y: pass"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
         wi = self.get_first_stmt("with x as y, b: pass")
         assert isinstance(wi, ast.With)
         assert isinstance(wi.context_expr, ast.Name)
@@ -568,11 +577,13 @@ class TestAstBuilder:
         assert args.vararg == "e"
         assert args.kwarg == "f"
         input = "def f(a=b, c): pass"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "non-default argument follows default argument"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "non-default argument follows default argument"
         input = "def f((x)=23): pass"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "parenthesized arg with default"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "parenthesized arg with default"
 
     def test_decorators(self):
         to_examine = (("def f(): pass", ast.FunctionDef),
@@ -761,8 +772,9 @@ class TestAstBuilder:
         for ctx_type, template in test_contexts:
             for expr, type_str in invalid_stores:
                 input = template % (expr,)
-                exc = py.test.raises(SyntaxError, self.get_ast, input).value
-                assert exc.msg == "can't %s %s" % (ctx_type, type_str)
+                with pytest.raises(SyntaxError) as excinfo:
+                    self.get_ast(input)
+                assert excinfo.value.msg == "can't %s %s" % (ctx_type, type_str)
 
     def test_assignment_to_forbidden_names(self):
         invalid = (
@@ -785,8 +797,9 @@ class TestAstBuilder:
         for name in ("None", "__debug__"):
             for template in invalid:
                 input = template % (name,)
-                exc = py.test.raises(SyntaxError, self.get_ast, input).value
-                assert exc.msg == "cannot assign to %s" % (name,)
+                with pytest.raises(SyntaxError) as excinfo:
+                    self.get_ast(input)
+                assert excinfo.value.msg == "cannot assign to %s" % (name,)
         # This is ok.
         self.get_ast("from None import x")
         self.get_ast("from x import None as y")
@@ -811,8 +824,9 @@ class TestAstBuilder:
         assert len(lam.args.defaults) == 1
         assert isinstance(lam.args.defaults[0], ast.Name)
         input = "f(lambda x: x[0] = y)"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "lambda cannot contain assignment"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "lambda cannot contain assignment"
 
     def test_ifexp(self):
         ifexp = self.get_first_expr("x if y else g")
@@ -980,18 +994,18 @@ class TestAstBuilder:
         assert len(call.args) == 1
         assert isinstance(call.args[0], ast.GeneratorExp)
         input = "f(x for x in y, 1)"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "Generator expression must be parenthesized if not " \
             "sole argument"
         many_args = ", ".join("x%i" % i for i in range(256))
         input = "f(%s)" % (many_args,)
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "more than 255 arguments"
-        exc = py.test.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
+        exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
         assert exc.msg == "keyword can't be an expression"
-        exc = py.test.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
+        exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
         assert exc.msg == "keyword argument repeated"
-        exc = py.test.raises(SyntaxError, self.get_ast, "f(x, *a, b)").value
+        exc = pytest.raises(SyntaxError, self.get_ast, "f(x, *a, b)").value
         assert exc.msg == "only named arguments may follow *expression"
 
     def test_attribute(self):
@@ -1150,9 +1164,9 @@ class TestAstBuilder:
         for num in ("0b00101", "0B00101", "0b101", "0B101"):
             assert space.eq_w(get_num(num), space.wrap(5))
 
-        py.test.raises(SyntaxError, self.get_ast, "0x")
-        py.test.raises(SyntaxError, self.get_ast, "0b")
-        py.test.raises(SyntaxError, self.get_ast, "0o")
+        pytest.raises(SyntaxError, self.get_ast, "0x")
+        pytest.raises(SyntaxError, self.get_ast, "0b")
+        pytest.raises(SyntaxError, self.get_ast, "0o")
 
     def check_comprehension(self, brackets, ast_type):
         def brack(s):
@@ -1243,17 +1257,17 @@ class TestAstBuilder:
 
     def test_decode_error_in_string_literal(self):
         input = "u'\\x'"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
                            " bytes in position 0-1: truncated \\xXX escape")
         input = "u'\\x1'"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
                            " bytes in position 0-2: truncated \\xXX escape")
 
     def test_decode_error_in_string_literal_correct_line(self):
         input = "u'a' u'b'\\\n u'c' u'\\x'"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
                            " bytes in position 0-1: truncated \\xXX escape")
         assert exc.lineno == 2

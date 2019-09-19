@@ -136,19 +136,24 @@ class Node(object):
     def get_column(self):
         raise NotImplementedError("abstract base class")
 
+    def get_line(self):
+        raise NotImplementedError("abstract base class")
+
 
 class Terminal(Node):
-    __slots__ = ("value", "lineno", "column")
-    def __init__(self, type, value, lineno, column):
+    __slots__ = ("value", "lineno", "column", "line")
+    def __init__(self, type, value, lineno, column, line=None):
         Node.__init__(self, type)
         self.value = value
         self.lineno = lineno
         self.column = column
+        self.line = line
 
     @staticmethod
     def fromtoken(token):
         return Terminal(
-            token.token_type, token.value, token.lineno, token.column)
+            token.token_type, token.value, token.lineno, token.column,
+            token.line)
 
     def __repr__(self):
         return "Terminal(type=%s, value=%r)" % (self.type, self.value)
@@ -168,6 +173,8 @@ class Terminal(Node):
     def get_column(self):
         return self.column
 
+    def get_line(self):
+        return self.line
 
 class AbstractNonterminal(Node):
     __slots__ = ()
@@ -177,6 +184,9 @@ class AbstractNonterminal(Node):
 
     def get_column(self):
         return self.get_child(0).get_column()
+
+    def get_line(self):
+        return self.get_child(0).get_line()
 
     def __eq__(self, other):
         # For tests.

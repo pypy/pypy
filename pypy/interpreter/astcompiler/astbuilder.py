@@ -106,7 +106,8 @@ class ASTBuilder(object):
     def error(self, msg, n):
         """Raise a SyntaxError with the lineno and column set to n's."""
         raise SyntaxError(msg, n.get_lineno(), n.get_column(),
-                          filename=self.compile_info.filename)
+                          filename=self.compile_info.filename,
+                          text=n.get_line())
 
     def error_ast(self, msg, ast_node):
         raise SyntaxError(msg, ast_node.lineno, ast_node.col_offset,
