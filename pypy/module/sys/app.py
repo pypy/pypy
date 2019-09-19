@@ -38,7 +38,7 @@ def excepthook(exctype, value, traceback):
                 # because there is indeed no traceback.
                 # the traceback module don't care
                 for line in format_exception_only(exctype, value):
-                    print(line, end="")
+                    print(line, end="", file=sys.stderr)
 
         else:
             print_exception(exctype, value, traceback)

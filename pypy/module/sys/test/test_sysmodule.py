@@ -415,6 +415,7 @@ class AppTestSysModulePortedFromCPython:
             eh(*sys.exc_info())
         msg = err.getvalue()
         assert "Traceback (most recent call last):" not in msg
+        assert "ValueError" in msg
 
         sys.stderr = savestderr
         del sys.tracebacklimit
