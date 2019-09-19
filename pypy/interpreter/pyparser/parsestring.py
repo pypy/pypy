@@ -86,37 +86,32 @@ def parsestr(space, encoding, s, stnode=None):
                                         'unmatched triple quotes in literal')
         q -= 2
 
-    if unicode_literal and not rawmode: # XXX Py_UnicodeFlag is ignored for now
-        assert 0 <= ps <= q
+    assert 0 <= ps <= q
+    if unicode_literal:
         if saw_f:
             return W_FString(s[ps:q], rawmode, stnode)
-        if encoding is None:
-            substr = s[ps:q]
+        elif rawmode:
+            v = unicodehelper.str_decode_utf8(s[ps:q], 'strict', True, None)
+            return space.newtext(*v)
         else:
-            unicodehelper.check_utf8_or_raise(space, s, ps, q)
-            substr = decode_unicode_utf8(space, s, ps, q)
-        r = unicodehelper.decode_unicode_escape(space, substr)
-        v, length, pos = r
-        return space.newutf8(v, length)
+            if encoding is None:
+                substr = s[ps:q]
+            else:
+                unicodehelper.check_utf8_or_raise(space, s, ps, q)
+                substr = decode_unicode_utf8(space, s, ps, q)
+            r = unicodehelper.decode_unicode_escape(space, substr)
+            v, length, pos = r
+            return space.newutf8(v, length)
 
-    assert 0 <= ps <= q
     substr = s[ps : q]
-
-    if not unicode_literal:
-        # Disallow non-ascii characters (but not escapes)
-        for c in substr:
-            if ord(c) > 0x80:
-                raise oefmt(space.w_SyntaxError,
-                            "bytes can only contain ASCII literal characters.")
+    # Disallow non-ascii characters (but not escapes)
+    for c in substr:
+        if ord(c) > 0x80:
+            raise oefmt(space.w_SyntaxError,
+                        "bytes can only contain ASCII literal characters.")
 
     if rawmode or '\\' not in substr:
-        if not unicode_literal:
-            return space.newbytes(substr)
-        elif saw_f:
-            return W_FString(substr, rawmode, stnode)
-        else:
-            v = unicodehelper.str_decode_utf8(substr, 'strict', True, None)
-            return space.newtext(*v)
+        return space.newbytes(substr)
 
     v, first_escape_error_char = PyString_DecodeEscape(
         space, substr, 'strict', encoding)
