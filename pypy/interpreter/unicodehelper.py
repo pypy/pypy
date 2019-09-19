@@ -130,6 +130,15 @@ def decode_unicode_escape(space, string):
         final=True,
         errorhandler=state.decode_error_handler,
         ud_handler=unicodedata_handler)
+    if first_escape_error_char is not None:
+        msg = "invalid escape sequence '%s'"
+        try:
+            space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
+        except OperationError as e:
+            if e.match(space, space.w_DeprecationWarning):
+                raise oefmt(space.w_SyntaxError, msg, first_escape_error_char)
+            else:
+                raise
     return s, ulen, blen
 
 def decode_raw_unicode_escape(space, string):
