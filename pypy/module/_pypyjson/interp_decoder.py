@@ -87,7 +87,7 @@ class JSONDecoder(W_Root):
         self.intcache = space.fromcache(IntCache)
 
         # two caches, one for keys, one for general strings. they both have the
-        # form {hash-as-int: CacheEntry} and they don't deal with
+        # form {hash-as-int: StringCacheEntry} and they don't deal with
         # collisions at all. For every hash there is simply one string stored.
         #
         # <antocuni> if I understand it correctly, the point is not only to
@@ -597,7 +597,7 @@ class JSONDecoder(W_Root):
             if ((contextmap is not None and
                         contextmap.decoded_strings < self.STRING_CACHE_EVALUATION_SIZE) or
                     strhash in self.lru_cache):
-                entry = CacheEntry(
+                entry = StringCacheEntry(
                         self.getslice(start, start + length), w_res)
                 self.cache_wrapped[strhash] = entry
             else:
@@ -656,7 +656,7 @@ class JSONDecoder(W_Root):
             entry = self.cache[strhash]
         except KeyError:
             w_res = self._create_string_wrapped(start, i, nonascii)
-            entry = CacheEntry(
+            entry = StringCacheEntry(
                     self.getslice(start, start + length), w_res)
             self.cache[strhash] = entry
             return w_res
@@ -676,8 +676,7 @@ class JSONDecoder(W_Root):
         return self._decode_key_string(i)
 
 
-# <antocuni> maybe this should be called StringCacheEntry?
-class CacheEntry(object):
+class StringCacheEntry(object):
     """ A cache entry, bundling the encoded version of a string, and its wrapped
     decoded variant. """
     def __init__(self, repr, w_uni):
@@ -814,7 +813,7 @@ class MapBase(object):
             self.single_nextmap = next
         else:
             if self.all_next is None:
-                # 2nd transition ever seen (comment added by <antocuni>, please review)
+                # 2nd transition ever seen
                 self.all_next = objectmodel.r_dict(unicode_eq, unicode_hash,
                   force_non_null=True, simple_hash_eq=True)
                 self.all_next[single_nextmap.w_key] = single_nextmap
@@ -822,7 +821,8 @@ class MapBase(object):
                 next = self.all_next.get(w_key, None)
                 if next is not None:
                     return next
-            # if we are at this point we didn't find the transition yet, so create a new one (comment added by <antocuni>, please review)
+            # if we are at this point we didn't find the transition yet, so
+            # create a new one
             next = self._make_next_map(w_key, string[start:stop])
             self.all_next[w_key] = next
 
@@ -853,7 +853,7 @@ class MapBase(object):
             if single_nextmap.key_repr_cmp(ll_chars, position):
                 decoder.pos = position + len(single_nextmap.key_repr)
                 return single_nextmap
-        # <antocuni> return None explicitly?
+        return None
 
     def observe_transition(self, newmap, terminator):
         """ observe a transition from self to newmap.
