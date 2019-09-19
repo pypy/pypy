@@ -25,18 +25,14 @@ def neg_pow_10(x, exp):
     return x * NEG_POW_10[exp]
 
 
-# <antocuni> This is basically the same logic that we use to implement
-# objspace.std.withintprebuilt. On one hand, it would be nice to have only a
-# single implementation. On the other hand, since it is disabled by default,
-# it doesn't change much at runtime. However, in intobject.wrapint there is an
-# "obscure hack to help the CPU cache": it might be useful here as well?
-#
-# <antocuni> this is more a feature than a review but: I wonder whether it is
-# worth to also have a per-decoder int cache which caches all the ints, not
-# only the small ones. I suppose it might be useful in case you have a big
-# json file with e.g. unique ids which might be repeated here and there.
 class IntCache(object):
     """ A cache for wrapped ints between START and END """
+
+    # I also tried various combinations of having an LRU cache for ints as
+    # well, didn't really help.
+
+    # XXX one thing to do would be to use withintprebuilt in general again,
+    # hidden behind a 'we_are_jitted'
 
     START = -10
     END = 256
