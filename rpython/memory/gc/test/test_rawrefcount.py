@@ -26,8 +26,8 @@ S.become(lltype.GcStruct('S',
 
 class TestRawRefCount(BaseDirectGCTest):
     GCClass = IncMiniMark
-    RRCGCClass = RawRefCountIncMarkGC
-    #RRCGCClass = RawRefCountMarkGC
+    #RRCGCClass = RawRefCountIncMarkGC
+    RRCGCClass = RawRefCountMarkGC
 
     def setup_method(self, method):
         BaseDirectGCTest.setup_method(self, method)
@@ -60,10 +60,7 @@ class TestRawRefCount(BaseDirectGCTest):
 
         def rawrefcount_pyobj_as_gc(pyobj):
             index = self.pyobjs.index(pyobj)
-            if self.is_pygc[index]:
-                return self.gcobjs[index]
-            else:
-                return lltype.nullptr(PYOBJ_GC_HDR)
+            return self.gcobjs[index]
 
         def rawrefcount_finalizer_type(gc):
             pyobj = self.pyobjs[self.gcobjs.index(gc)]
@@ -166,6 +163,8 @@ class TestRawRefCount(BaseDirectGCTest):
 
         if is_gc:
             self._rawrefcount_add_gc(tracked, tuple)
+        else:
+            self.gcobjs.append(lltype.nullptr(PYOBJ_GC_HDR))
 
         self.pyobjs.append(r1)
         self.is_pygc.append(is_gc)
@@ -214,6 +213,8 @@ class TestRawRefCount(BaseDirectGCTest):
 
         if is_gc:
             self._rawrefcount_add_gc(tracked, tuple)
+        else:
+            self.gcobjs.append(lltype.nullptr(PYOBJ_GC_HDR))
 
         self.pyobjs.append(r1)
         self.is_pygc.append(is_gc)
@@ -510,7 +511,7 @@ class TestRawRefCount(BaseDirectGCTest):
 
         class NodeInfo:
             def __init__(self, type, alive, ext_refcnt, finalizer, resurrect,
-                         delete, garbage, tuple):
+                         delete, garbage, tuple, gc):
                 self.type = type
                 self.alive = alive
                 self.ext_refcnt = ext_refcnt
@@ -519,6 +520,7 @@ class TestRawRefCount(BaseDirectGCTest):
                 self.delete = delete
                 self.garbage = garbage
                 self.tuple = tuple
+                self.gc = gc
 
         class WeakrefNode(BorderNode):
             def __init__(self, p, pref, r, raddr, check_alive, info, r_dest,
@@ -556,8 +558,9 @@ class TestRawRefCount(BaseDirectGCTest):
             delete = attr['delete'] if 'delete' in attr else None
             garbage = True if 'garbage' in attr else False
             tuple = attr['tuple'] == "y" if 'tuple' in attr else False
+            gc = attr['gc'] == "y" if 'gc' in attr else True
             info = NodeInfo(type, alive, ext_refcnt, finalizer, resurrect,
-                            delete, garbage, tuple)
+                            delete, garbage, tuple, gc)
             if type == "C":
                 r, raddr, check_alive = self._rawrefcount_pyobj(
                     tracked=tracked, tuple=tuple)
@@ -569,11 +572,11 @@ class TestRawRefCount(BaseDirectGCTest):
                                               create_old=True)
                 nodes[name] = PyPyNode(p, pref, check_alive, info)
                 i += 1
-            elif type == "B":
+            elif type == "B": # TODO: add to correct list (now always p_list)
                 p, pref, r, raddr, check_alive =\
                     self._rawrefcount_pair(42 + i, rooted=rooted,
                                            create_old=True, tracked=tracked,
-                                           tuple=tuple)
+                                           tuple=tuple, is_gc=gc)
                 r.c_ob_refcnt += ext_refcnt
                 nodes[name] = BorderNode(p, pref, r, raddr, check_alive, info)
                 i += 1

@@ -239,7 +239,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         # take snapshot of p_list_old
         self.p_list_old.foreach(self._take_snapshot_pyobject, None)
 
-        # take snapshot of gc objs
+        # take snapshot of gc objs TODO: include finalizer_list from last cycle
         pygchdr = pygclist.c_gc_next
         while pygchdr <> pygclist:
             pyobj = self.gc_as_pyobj(pygchdr)

@@ -61,8 +61,8 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             use_cylicrc = not found_finalizer
             self._debug_check_consistency(print_label="end-mark-cyclic")
 
-            # mark all pypy objects at the border which are linked to non-gc
-            # pyobjs which are not directly referenced by any gc pyobj
+            # mark all pypy objects at the border which are linked to live
+            # non-gc pyobjs which are not directly referenced by any gc pyobj
             debug_print("use_cylicrc", use_cylicrc)
             self.p_list_old.foreach(self._major_trace, (use_cylicrc, True))  # TODO: set flag to keep marked, check other occurences
             self._debug_check_consistency(print_label="end-mark")
@@ -149,8 +149,6 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
 
     def _obj_fix_refcnt(self, pyobject, ignore):
         pyobj = self._pyobj(pyobject)
-        #intobj = pyobj.c_ob_pypy_link
-        #obj = llmemory.cast_int_to_adr(intobj)
         obj = self.refcnt_dict.get(pyobject)
         gchdr = self.pyobj_as_gc(pyobj)
         if gchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
@@ -167,6 +165,11 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
                                               self.GCFLAG_NO_HEAP_PTRS):
                     refcnt += 1
                 self._pyobj_gc_refcnt_set(gchdr, refcnt)
+        else:
+            debug_print("non gc obj", obj, "real-rc", pyobj.c_ob_refcnt)
+            if self.gc.header(obj).tid & (self.GCFLAG_VISITED |
+                                          self.GCFLAG_NO_HEAP_PTRS):
+                pyobj.c_ob_refcnt += 1
 
     def _mark_rawrefcount(self):
         if self._gc_list_is_empty(self.pyobj_list):

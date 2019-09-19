@@ -388,11 +388,11 @@ class RawRefCountBaseGC(object):
         pygchdr = self.pyobj_as_gc(pyobj)
         if pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR):
             if pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:
-                rc = 0
+                rc = 0 # do not mark, we will mark them later
             else:
-                rc = pyobj.c_ob_refcnt
+                rc = pyobj.c_ob_refcnt # take cyclic refcount
         else:
-            rc = pyobj.c_ob_refcnt
+            rc = pyobj.c_ob_refcnt # take cyclic refcount
 
         if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT or rc == 0:
             pass  # the corresponding object may die
