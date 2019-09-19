@@ -59,7 +59,10 @@ class JSONDecoder(W_Root):
 
     DEFAULT_SIZE_SCRATCH = 20
 
-    # <antocuni> put a comment explaining what it does and why this is a reasonable number
+    # string caching is only used if the total size of the message is larger
+    # than a megabyte. Below that, there can't be that many repeated big
+    # strings anyway (some experiments showed this to be a reasonable cutoff
+    # size)
     MIN_SIZE_FOR_STRING_CACHE = 1024 * 1024
 
     # evaluate the string cache for 200 strings, before looking at the hit rate
