@@ -89,6 +89,11 @@ class JSONDecoder(W_Root):
         # two caches, one for keys, one for general strings. they both have the
         # form {hash-as-int: CacheEntry} and they don't deal with
         # collisions at all. For every hash there is simply one string stored.
+        #
+        # <antocuni> if I understand it correctly, the point is not only to
+        # cache the wrapped strings, but also to avoid to memcpy them out of
+        # the original string in the common case. Maybe this should be
+        # explained here.
         self.cache = {}
         self.cache_wrapped = {}
 
@@ -385,6 +390,19 @@ class JSONDecoder(W_Root):
         return get_jsonmap_from_dict(w_dict)
 
     def _switch_to_dict(self, currmap, values_w, nextindex):
+        # <antocuni> not sure if this is a problem, but it's something which I
+        # noticed and I think it's worth thinking about it for 5 minutes.
+        #
+        # In Python3 dicts preserve the order of keys; this means that a
+        # "naive" json parser produces dicts whose keys are in the same order
+        # as in the source document (CPython 3.7 does this). I don't think it
+        # is guaranteed at all, but I'd not be surprised if real world
+        # programs will rely on this anyway.
+        #
+        # But with the logic here we get the weird effect that the resulting
+        # dicts contains the first keys in reversed order (up to when we reach
+        # the blocked state in the map), then the subsequent ones are in the
+        # "correct" order.
         dict_w = self._create_empty_dict()
         index = nextindex - 1
         while isinstance(currmap, JSONMap):
@@ -657,6 +675,8 @@ class JSONDecoder(W_Root):
         i += 1
         return self._decode_key_string(i)
 
+
+# <antocuni> maybe this should be called StringCacheEntry?
 class CacheEntry(object):
     """ A cache entry, bundling the encoded version of a string, and its wrapped
     decoded variant. """
@@ -754,6 +774,8 @@ class MapBase(object):
     def __init__(self, space):
         self.space = space
 
+        # <antocuni> what about calling this "first_nextmap"? Or, even better:
+        # nextmap_first and nextmap_all </antocuni>
         # a single transition is stored in .single_nextmap
         self.single_nextmap = None
 
@@ -792,6 +814,7 @@ class MapBase(object):
             self.single_nextmap = next
         else:
             if self.all_next is None:
+                # 2nd transition ever seen (comment added by <antocuni>, please review)
                 self.all_next = objectmodel.r_dict(unicode_eq, unicode_hash,
                   force_non_null=True, simple_hash_eq=True)
                 self.all_next[single_nextmap.w_key] = single_nextmap
@@ -799,6 +822,7 @@ class MapBase(object):
                 next = self.all_next.get(w_key, None)
                 if next is not None:
                     return next
+            # if we are at this point we didn't find the transition yet, so create a new one (comment added by <antocuni>, please review)
             next = self._make_next_map(w_key, string[start:stop])
             self.all_next[w_key] = next
 
