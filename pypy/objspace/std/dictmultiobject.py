@@ -78,8 +78,9 @@ class W_DictMultiObject(W_Root):
             W_ModuleDictObject.__init__(w_obj, space, strategy, storage)
             return w_obj
         elif instance:
-            from pypy.objspace.std.mapdict import MapDictStrategy
-            strategy = space.fromcache(MapDictStrategy)
+            from pypy.objspace.std.mapdict import make_instance_dict
+            assert w_type is None
+            return make_instance_dict(space)
         elif strdict or module:
             assert w_type is None
             strategy = space.fromcache(BytesDictStrategy)
@@ -445,9 +446,23 @@ app = applevel('''
                 del currently_in_repr[d]
             except:
                 pass
+
+    def viewrepr(currently_in_repr, view):
+        if view in currently_in_repr:
+            return '...'
+        currently_in_repr[view] = 1
+        try:
+            return (type(view).__name__ + "([" +
+               ", ".join([repr(x) for x in view]) + '])')
+        finally:
+            try:
+                del currently_in_repr[view]
+            except:
+                pass
 ''', filename=__file__)
 
 dictrepr = app.interphook("dictrepr")
+viewrepr = app.interphook("viewrepr")
 
 
 W_DictMultiObject.typedef = TypeDef("dict",
@@ -1514,10 +1529,7 @@ class W_DictViewObject(W_Root):
         self.w_dict = w_dict
 
     def descr_repr(self, space):
-        w_seq = space.call_function(space.w_list, self)
-        w_repr = space.repr(w_seq)
-        return space.newtext("%s(%s)" % (space.type(self).getname(space),
-                                         space.text_w(w_repr)))
+        return viewrepr(space, space.get_objects_in_repr(), self)
 
     def descr_len(self, space):
         return space.len(self.w_dict)

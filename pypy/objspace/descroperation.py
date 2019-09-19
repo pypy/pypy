@@ -350,6 +350,9 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "%T.__format__ must return string or unicode, not %T",
                         w_obj, w_res)
+        if (space.isinstance_w(w_format_spec, space.w_unicode) and
+                not space.isinstance_w(w_res, space.w_unicode)):
+            w_res = space.unicode_from_object(w_res)
         return w_res
 
     def pow(space, w_obj1, w_obj2, w_obj3):

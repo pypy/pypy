@@ -776,6 +776,9 @@ def op_gc_ignore_finalizer(obj):
 def op_gc_move_out_of_nursery(obj):
     return obj
 
+def op_gc_increase_root_stack_depth(new_depth):
+    pass
+
 def op_revdb_do_next_call():
     pass
 

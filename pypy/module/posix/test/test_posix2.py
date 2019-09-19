@@ -1,8 +1,7 @@
 
 # -*- coding: utf-8 -*-
 
-from __future__ import with_statement
-from pypy.objspace.std import StdObjSpace
+from pypy.objspace.std.objspace import StdObjSpace
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy import pypydir
@@ -372,15 +371,24 @@ class AppTestPosix:
         result = posix.listdir(unicode_dir)
         typed_result = [(type(x), x) for x in result]
         assert (unicode, u'somefile') in typed_result
+        file_system_encoding = sys.getfilesystemencoding()
         try:
-            u = "caf\xe9".decode(sys.getfilesystemencoding())
+            u = "caf\xe9".decode(file_system_encoding)
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
             if sys.platform != 'darwin':
                 assert (str, "caf\xe9") in typed_result
             else:
-                # darwin 'normalized' it
-                assert (unicode, 'caf%E9') in typed_result
+                # if the test is being run in an utf-8 encoded macOS
+                # the posix.listdir function is returning the name of
+                # the file properly.
+                # This test should be run in multiple macOS platforms to
+                # be sure that is working as expected.
+                if file_system_encoding == 'UTF-8':
+                    assert (unicode, 'cafxe9') in typed_result
+                else:
+                    # darwin 'normalized' it
+                    assert (unicode, 'caf%E9') in typed_result
         else:
             assert (unicode, u) in typed_result
 
@@ -1204,7 +1212,7 @@ class AppTestPosix:
             assert f.read() == 'this is a rename test'
         os.unlink(self.path)
 
-        
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):

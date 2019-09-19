@@ -71,7 +71,7 @@ def _init_posix():
     g['AR'] = "ar"
     g['ARFLAGS'] = "rc"
     g['EXE'] = ""
-    g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
+    g['LIBDIR'] = os.path.join(sys.prefix, 'bin') # where is the shared library
     g['VERSION'] = get_python_version()
 
     if sys.platform[:6] == "darwin":
@@ -86,6 +86,7 @@ def _init_posix():
             arch = platform.machine()
         g['LDSHARED'] += ' -undefined dynamic_lookup'
         g['CC'] += ' -arch %s' % (arch,)
+        g['MACOSX_DEPLOYMENT_TARGET'] = '10.14'
 
     global _config_vars
     _config_vars = g

@@ -897,6 +897,17 @@ class AppTestWithMapDict(object):
         d = x.__dict__
         assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
 
+    def test_bug_materialize_huge_dict(self):
+        import __pypy__
+        d = __pypy__.newdict("instance")
+        for i in range(100):
+            d[str(i)] = i
+        assert len(d) == 100
+
+        for key in d:
+            assert d[key] == int(key)
+
+
 
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

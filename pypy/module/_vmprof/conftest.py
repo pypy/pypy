@@ -1,8 +1,13 @@
-import py, platform, sys
+import pytest
+import platform
+import sys
+from os.path import commonprefix, dirname
 
-def pytest_collect_directory(path, parent):
-    if platform.machine() == 's390x':
-        py.test.skip("_vmprof tests skipped")
-    if sys.platform == 'win32':
-        py.test.skip("_vmprof tests skipped")
-pytest_collect_file = pytest_collect_directory
+THIS_DIR = dirname(__file__)
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_ignore_collect(path, config):
+    path = str(path)
+    if sys.platform == 'win32' or platform.machine() == 's390x':
+        if commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
+            return True

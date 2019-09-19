@@ -1,4 +1,15 @@
 from cffi import FFI
+import os
+
+# On some systems, the ncurses library is
+# located at /usr/include/ncurses, so we must check this case.
+# Let's iterate over well known paths
+incdirs =  []
+for _path in ['/usr/include', '/usr/include/ncurses']:
+    if os.path.isfile(os.path.join(_path, 'panel.h')):
+        incdirs.append(_path)
+        break
+
 
 ffi = FFI()
 
@@ -10,6 +21,13 @@ ffi.set_source("_curses_cffi", """
 #define NCURSES_OPAQUE 0
 #endif
 
+
+/* ncurses 6 change behaviour  and makes all pointers opaque, 
+  lets define backward compatibility. It doesn't harm 
+  previous versions */
+
+#define NCURSES_INTERNALS 1
+#define NCURSES_REENTRANT 0
 #include <ncurses.h>
 #include <panel.h>
 #include <term.h>
@@ -41,7 +59,8 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
-""", libraries=['ncurses', 'panel'])
+""", include_dirs=incdirs, 
+     libraries=['ncurses', 'panel'])
 
 
 ffi.cdef("""

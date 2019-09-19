@@ -917,6 +917,12 @@ class AppTestDictViews:
         assert (r == "dict_values(['ABC', 10])" or
                 r == "dict_values([10, 'ABC'])")
 
+    def test_recursive_repr(self):
+        d = {1: 2}
+        d[2] = d.viewvalues()
+        print repr(d)
+        assert repr(d) == '{1: 2, 2: dict_values([2, ...])}'
+
     def test_keys_set_operations(self):
         d1 = {'a': 1, 'b': 2}
         d2 = {'b': 3, 'c': 2}

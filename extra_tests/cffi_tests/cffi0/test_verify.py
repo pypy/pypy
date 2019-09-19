@@ -2535,3 +2535,29 @@ def test_ffi_new_with_cycles():
         x.p = p
         x.cyclic = x
         del p, x
+
+def test_arithmetic_in_cdef():
+    for a in [0, 11, 15]:
+        ffi = FFI()
+        ffi.cdef("""
+            enum FOO {
+                DIVNN = ((-?) / (-3)),
+                DIVNP = ((-?) / (+3)),
+                DIVPN = ((+?) / (-3)),
+                MODNN = ((-?) % (-3)),
+                MODNP = ((-?) % (+3)),
+                MODPN = ((+?) % (-3)),
+                };
+        """.replace('?', str(a)))
+        lib = ffi.verify("""
+            enum FOO {
+                DIVNN = ((-?) / (-3)),
+                DIVNP = ((-?) / (+3)),
+                DIVPN = ((+?) / (-3)),
+                MODNN = ((-?) % (-3)),
+                MODNP = ((-?) % (+3)),
+                MODPN = ((+?) % (-3)),
+                };
+        """.replace('?', str(a)))
+        # the verify() crashes if the values in the enum are different from
+        # the values we computed ourselves from the cdef()

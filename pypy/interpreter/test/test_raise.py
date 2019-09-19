@@ -2,9 +2,8 @@ import py.test
 
 class AppTestRaise:
     def test_arg_as_string(self):
-        def f():
+        with raises(TypeError):
             raise "test"
-        raises(TypeError, f)
 
     def test_control_flow(self):
         try:
@@ -49,9 +48,8 @@ class AppTestRaise:
             assert isinstance(e, IndexError)
 
     def test_raise_cls(self):
-        def f():
+        with raises(IndexError):
             raise IndexError
-        raises(IndexError, f)
 
     def test_raise_cls_catch(self):
         def f(r):
@@ -59,7 +57,8 @@ class AppTestRaise:
                 raise r
             except LookupError:
                 return 1
-        raises(Exception, f, Exception)
+        with raises(Exception):
+            f(Exception)
         assert f(IndexError) == 1
 
     def test_raise_wrong(self):
@@ -87,7 +86,7 @@ class AppTestRaise:
     def test_reraise(self):
         # some collection of funny code
         import sys
-        raises(ValueError, """
+        with raises(ValueError):
             import sys
             try:
                 raise ValueError
@@ -97,8 +96,7 @@ class AppTestRaise:
                 finally:
                     assert sys.exc_info()[0] is ValueError
                     raise
-        """)
-        raises(ValueError, """
+        with raises(ValueError):
             def foo():
                 import sys
                 assert sys.exc_info()[0] is ValueError
@@ -110,8 +108,7 @@ class AppTestRaise:
                     raise IndexError
                 finally:
                     foo()
-        """)
-        raises(IndexError, """
+        with raises(IndexError):
             def spam():
                 import sys
                 try:
@@ -126,7 +123,6 @@ class AppTestRaise:
                     raise IndexError
                 finally:
                     spam()
-        """)
 
         try:
             raise ValueError
@@ -137,7 +133,7 @@ class AppTestRaise:
                 ok = sys.exc_info()[0] is KeyError
         assert ok
 
-        raises(IndexError, """
+        with raises(IndexError):
             import sys
             try:
                 raise ValueError
@@ -151,28 +147,22 @@ class AppTestRaise:
                 finally:
                     assert sys.exc_info()[0] is KeyError
                     assert sys.exc_info()[2] is not some_traceback
-        """)
 
     def test_tuple_type(self):
-        def f():
+        with raises(StopIteration):
             raise ((StopIteration, 123), 456, 789)
-        raises(StopIteration, f)
 
     def test_userclass(self):
         # new-style classes can't be raised unless they inherit from
         # BaseException
-
         class A(object):
             def __init__(self, x=None):
                 self.x = x
-        
-        def f():
-            raise A
-        raises(TypeError, f)
 
-        def f():
+        with raises(TypeError):
+            raise A
+        with raises(TypeError):
             raise A(42)
-        raises(TypeError, f)
 
     def test_it(self):
         class C:
@@ -231,7 +221,7 @@ class AppTestRaise:
     def test_catch_tuple(self):
         class A:
             pass
-        
+
         try:
             raise ValueError
         except (ValueError, A):
@@ -279,7 +269,9 @@ class AppTestRaise:
         class MyException(Exception):
             def __new__(cls, *args):
                 return object()
-        raises(TypeError, "raise MyException")
+
+        with raises(TypeError):
+            raise MyException
 
     def test_with_exit_True(self):
         class X:

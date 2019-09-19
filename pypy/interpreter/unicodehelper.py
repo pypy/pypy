@@ -6,7 +6,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rutf8
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper.lltypesystem import rffi
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 
 @specialize.memo()
 def decode_error_handler(space):
@@ -31,7 +31,7 @@ def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, utf8,
                                        startingpos, endingpos):
-        u_len = rutf8.get_utf8_length(utf8)
+        u_len = rutf8.codepoints_in_utf8(utf8)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
                                              space.newutf8(utf8, u_len),
@@ -59,12 +59,6 @@ def encode(space, w_data, encoding=None, errors='strict'):
     from pypy.objspace.std.unicodeobject import encode_object
     return encode_object(space, w_data, encoding, errors)
 
-
-def _has_surrogate(u):
-    for c in u:
-        if 0xD800 <= ord(c) <= 0xDFFF:
-            return True
-    return False
 
 # These functions take and return unwrapped rpython strings
 def decode_unicode_escape(space, string):
@@ -233,7 +227,7 @@ if sys.platform == 'win32':
         slen = len(s)
         res = runicode.unicode_encode_mbcs(s, slen, errors, errorhandler)
         return res
-        
+
     def str_decode_mbcs(s, errors, final, errorhandler):
         from rpython.rlib import runicode
         slen = len(s)
@@ -1233,7 +1227,7 @@ def str_decode_utf_32_helper(s, errors, final,
                                   s, pos, pos + 4)
             result.append(r)
             continue
-        elif ch >= 0x110000:
+        elif r_uint(ch) >= 0x110000:
             r, pos = errorhandler(errors, public_encoding_name,
                                   "codepoint not in range(0x110000)",
                                   s, pos, len(s))

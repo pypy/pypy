@@ -66,7 +66,7 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
         pos = c_codecs.pypy_cjk_dec_inbuf_consumed(self.decodebuf)
         assert 0 <= pos <= len(object)
         self.pending = object[pos:]
-        lgt = rutf8.get_utf8_length(output)
+        lgt = rutf8.codepoints_in_utf8(output)
         return space.newutf8(output, lgt)
 
 

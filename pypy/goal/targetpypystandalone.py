@@ -328,10 +328,10 @@ class PyPyTarget(object):
         translate.log_config(config.objspace, "PyPy config object")
 
         # obscure hack to stuff the translation options into the translated PyPy
-        import pypy.module.sys
+        from pypy.module.sys.moduledef import Module as SysModule
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options) # import time
-        pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+        wrapstr = 'space.wrap(%r)' % (options)  # import time
+        SysModule.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)
 
@@ -350,8 +350,12 @@ class PyPyTarget(object):
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
             filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
+            if sys.platform == 'darwin':
+                argv = [filename, '--embed-dependencies']
+            else:
+                argv = [filename,]
             status, out, err = run_subprocess(str(driver.compute_exe_name()),
-                                              [filename])
+                                              argv)
             sys.stdout.write(out)
             sys.stderr.write(err)
             # otherwise, ignore errors

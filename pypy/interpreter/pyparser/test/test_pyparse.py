@@ -56,6 +56,8 @@ stuff = "nothing"
         input = "\xEF\xBB\xBF# coding: latin-1\nx"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "UTF-8 BOM with latin-1 coding cookie"
+        input = "\xEF\xBB\xBF# coding: UtF-8-yadda-YADDA\nx"
+        self.parse(input)    # this does not raise
         input = "# coding: not-here"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "Unknown encoding: not-here"

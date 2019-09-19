@@ -1,22 +1,13 @@
-import py
-
 from rpython.jit.metainterp import compile
-from rpython.jit.metainterp.history import (TargetToken, JitCellToken,
-        TreeLoop, Const)
-from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.optimizeopt.vector import (Pack,
-        NotAProfitableLoop, VectorizingOptimizer)
-from rpython.jit.metainterp.optimizeopt.dependency import (Node,
-        DependencyGraph, IndexVar)
+from rpython.jit.metainterp.history import Const
+from rpython.jit.metainterp.optimizeopt.dependency import (
+    DependencyGraph, IndexVar)
 from rpython.jit.metainterp.optimizeopt.guard import (GuardStrengthenOpt,
         Guard)
-from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_schedule import SchedulerBaseTest
-from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
-        FakeJitDriverStaticData, FakeLoopInfo)
+from rpython.jit.metainterp.optimizeopt.test.test_vecopt import FakeLoopInfo
 from rpython.jit.metainterp.resoperation import (rop,
         ResOperation, InputArgInt)
-from rpython.jit.tool.oparser_model import get_model
 
 class FakeMemoryRef(object):
     def __init__(self, array, iv):
@@ -54,6 +45,7 @@ class FakeOp(object):
 class FakeResOp(object):
     def __init__(self, opnum):
         self.opnum = opnum
+
     def getopnum(self):
         return self.opnum
 
@@ -79,7 +71,7 @@ guard_true = guard(rop.GUARD_TRUE)
 guard_false = guard(rop.GUARD_FALSE)
 del guard
 
-class GuardBaseTest(SchedulerBaseTest):
+class TestGuard(SchedulerBaseTest):
     def optguards(self, loop, user_code=False):
         info = FakeLoopInfo(loop)
         info.snapshot(loop)
@@ -330,6 +322,3 @@ class GuardBaseTest(SchedulerBaseTest):
         guard_true(i40) []
         ...
         """)
-
-class Test(GuardBaseTest, LLtypeMixin):
-    pass

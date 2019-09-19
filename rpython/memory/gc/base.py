@@ -23,6 +23,7 @@ class GCBase(object):
     can_usually_pin_objects = False
     object_minimal_size = 0
     gcflag_extra = 0   # or a dedicated GC flag that the GC initializes to 0
+    gcflag_dummy = 0   # dedicated GC flag set only on rmodel.ll_dummy_value
     _totalroots_rpy = 0   # for inspector.py
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,

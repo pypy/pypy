@@ -11,7 +11,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
-from rpython.rlib.rutf8 import get_utf8_length
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import constants as NPY
@@ -638,7 +638,7 @@ class W_UnicodeBox(W_CharacterBox):
             return self
         elif dtype.is_object():
             return W_ObjectBox(space.newutf8(self._value,
-                               get_utf8_length(self._value)))
+                               codepoints_in_utf8(self._value)))
         else:
             raise oefmt(space.w_NotImplementedError,
                         "Conversion from unicode not implemented yet")

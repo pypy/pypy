@@ -34,7 +34,6 @@ from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import FdValidator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -680,7 +679,8 @@ def build_exported_objects():
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
     global all_exceptions
-    all_exceptions = list(exceptions.Module.interpleveldefs)
+    from pypy.module.exceptions.moduledef import Module as ExcModule
+    all_exceptions = list(ExcModule.interpleveldefs)
     for exc_name in all_exceptions:
         register_global('PyExc_' + exc_name,
             'PyTypeObject*',
@@ -1004,6 +1004,12 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 deadlock_error(pname)
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
+            if gil_auto_workaround:
+                # while we're in workaround-land, detect when a regular PyXxx()
+                # function is invoked at .so load-time, e.g. by a C++ global
+                # variable with an initializer, and in this case make sure we
+                # initialize things.
+                space.fromcache(State).make_sure_cpyext_is_imported()
         elif pygilstate_ensure:
             if cpyext_glob_tid_ptr[0] == tid:
                 cpyext_glob_tid_ptr[0] = 0
@@ -1719,8 +1725,8 @@ initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
 def load_cpyext_module(space, name, path, dll, initptr):
     from rpython.rlib import rdynload
 
-    space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
+    state.make_sure_cpyext_is_imported()
     w_mod = state.find_extension(name, path)
     if w_mod is not None:
         rdynload.dlclose(dll)

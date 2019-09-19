@@ -29,7 +29,10 @@ class TestMixedModule(object):
         m.install()
 
         assert self.space.builtin_modules["test_module"] is m
-        assert isinstance(self.space.builtin_modules["test_module.sub"], SubModule)
+        submod = self.space.builtin_modules["test_module.sub"]
+        assert isinstance(submod, SubModule)
+        assert submod.get_applevel_name() == "test_module.sub"
+
 
 class AppTestMixedModule(object):
     pytestmark = py.test.mark.skipif("config.option.runappdirect")

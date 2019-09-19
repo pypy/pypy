@@ -101,7 +101,7 @@ class W_BufferedIOBase(W_IOBase):
             raise oefmt(space.w_TypeError, "%s() should return bytes",
                         methodname)
         data = space.bytes_w(w_data)
-        rwbuffer.setslice(0, data)
+        self.output_slice(space, rwbuffer, 0, data)
         return space.newint(len(data))
 
 W_BufferedIOBase.typedef = TypeDef(
@@ -555,7 +555,7 @@ class BufferedMixin:
         remaining = n
         written = 0
         if current_size:
-            result_buffer.setslice(
+            self.output_slice(space, result_buffer,
                 written, self.buffer[self.pos:self.pos + current_size])
             remaining -= current_size
             written += current_size
@@ -600,7 +600,7 @@ class BufferedMixin:
             if remaining > 0:
                 if size > remaining:
                     size = remaining
-                result_buffer.setslice(
+                self.output_slice(space, result_buffer,
                     written, self.buffer[self.pos:self.pos + size])
                 self.pos += size
                 written += size

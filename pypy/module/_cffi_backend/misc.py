@@ -111,11 +111,13 @@ def write_raw_float_data(target, source, size):
 def write_raw_longdouble_data(target, source):
     rffi.cast(rffi.LONGDOUBLEP, target)[0] = source
 
-@jit.dont_look_inside    # lets get_nonmovingbuffer_final_null be inlined
+@jit.dont_look_inside    # lets get_nonmovingbuffer_ll_final_null be inlined
 def write_string_as_charp(target, string):
-    buf, buf_flag = rffi.get_nonmovingbuffer_final_null(string)
+    from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
+    buf, llobj, buf_flag = rffi.get_nonmovingbuffer_ll_final_null(string)
+    set_mustfree_flag(target, ord(buf_flag))   # 4, 5 or 6
     rffi.cast(rffi.CCHARPP, target)[0] = buf
-    return ord(buf_flag)    # 4, 5 or 6
+    return llobj
 
 # ____________________________________________________________
 

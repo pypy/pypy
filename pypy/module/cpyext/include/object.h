@@ -391,6 +391,16 @@ PyAPI_FUNC(PyObject *) PyObject_Init(PyObject *, PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) PyObject_InitVar(PyVarObject *,
                                            PyTypeObject *, Py_ssize_t);
 
+/*
+ * On CPython with Py_REF_DEBUG these use _PyRefTotal, _Py_NegativeRefcount,
+ * _Py_GetRefTotal, ...
+ * So far we ignore Py_REF_DEBUG
+ */
+
+#define _Py_INC_REFTOTAL
+#define _Py_DEC_REFTOTAL
+#define _Py_REF_DEBUG_COMMA
+#define _Py_CHECK_REFCNT(OP)    /* a semicolon */;
 
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);

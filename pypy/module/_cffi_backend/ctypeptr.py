@@ -303,16 +303,8 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
 
-    def _prepare_pointer_call_argument(self, w_init, cdata, keepalives, i):
+    def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
-        if self.accept_str and space.isinstance_w(w_init, space.w_bytes):
-            # special case to optimize strings passed to a "char *" argument
-            value = space.bytes_w(w_init)
-            if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
-                self._must_be_string_of_zero_or_one(value)
-            keepalives[i] = value
-            return misc.write_string_as_charp(cdata, value)
-        #
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
@@ -358,14 +350,27 @@ class W_CTypePointer(W_CTypePtrBase):
         return 1
 
     def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
+        # writes the pointer to cdata[0], writes the must-free flag in
+        # the byte just before cdata[0], and returns True if something
+        # must be done later to free.
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
-        result = (not isinstance(w_ob, cdataobj.W_CData) and
-                  self._prepare_pointer_call_argument(w_ob, cdata,
-                                                      keepalives, i))
+        if isinstance(w_ob, cdataobj.W_CData):
+            result = 0
+        else:
+            space = self.space
+            if self.accept_str and space.isinstance_w(w_ob, space.w_bytes):
+                # special case to optimize strings passed to a "char *" argument
+                value = space.bytes_w(w_ob)
+                if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+                    self._must_be_string_of_zero_or_one(value)
+                keepalives[i] = misc.write_string_as_charp(cdata, value)
+                return True
+            result = self._prepare_pointer_call_argument(w_ob, cdata)
+
         if result == 0:
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)
-        return result
+        return result == 1      # 0 or 2 => False, nothing to do later
 
     def getcfield(self, attr):
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion

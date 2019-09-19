@@ -1,25 +1,23 @@
 from __future__ import with_statement
 import py
-from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo,\
-     VStructStateInfo, LEVEL_CONSTANT,\
-     VArrayStateInfo, not_virtual, VirtualState,\
-     GenerateGuardState, VirtualStatesCantMatch, VArrayStructStateInfo,\
-     VirtualStateConstructor
+from rpython.jit.metainterp.optimizeopt.virtualstate import (
+    VirtualStateInfo, VStructStateInfo, LEVEL_CONSTANT, VArrayStateInfo,
+    not_virtual, VirtualState, GenerateGuardState, VirtualStatesCantMatch,
+    VArrayStructStateInfo, VirtualStateConstructor)
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, TargetToken
-from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
-     InputArgFloat
+from rpython.jit.metainterp.resoperation import (
+    InputArgInt, InputArgRef, InputArgFloat)
 from rpython.jit.backend.llgraph.runner import ArrayDescr
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
-from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
-                                                           equaloplists
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
-     ConstIntBound, IntLowerBound, IntUpperBound, IntUnbounded
-from rpython.jit.metainterp.history import TreeLoop, JitCellToken
-from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
+from rpython.jit.metainterp.optimizeopt.test.test_util import (
+    LLtypeMixin, BaseTest, equaloplists)
+from rpython.jit.metainterp.optimizeopt.intutils import (
+    IntBound, ConstIntBound, IntLowerBound, IntUnbounded)
+from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.metainterp import resume, compile
+from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.tool import oparser
 
@@ -99,14 +97,14 @@ class BaseTestGenerateGuards(BaseTest):
         optimizer = FakeOptimizer(self.cpu)
         classbox1 = self.cpu.cls_of_box(InputArgRef(self.nodeaddr))
         innervalue1 = info.InstancePtrInfo(
-                known_class=classbox1, is_virtual=True,
-                descr=self.valuedescr.get_parent_descr())
+            known_class=classbox1, is_virtual=True,
+            descr=self.valuedescr.get_parent_descr())
         for field in self.valuedescr.get_parent_descr().get_all_fielddescrs():
             innervalue1.setfield(field, None, ConstInt(42))
         classbox2 = self.cpu.cls_of_box(InputArgRef(self.myptr3))
         innervalue2 = info.InstancePtrInfo(
-                known_class=classbox2, is_virtual=True,
-                descr=self.valuedescr3.get_parent_descr())
+            known_class=classbox2, is_virtual=True,
+            descr=self.valuedescr3.get_parent_descr())
         for field in self.valuedescr3.get_parent_descr().get_all_fielddescrs():
             innervalue2.setfield(field, None, ConstInt(42))
 
@@ -853,7 +851,6 @@ class BaseTestBridges(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:pure:earlyforce:heap:unroll"
 
     def _do_optimize_bridge(self, bridge, call_pure_results, values):
-        from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
 
         self.bridge = bridge
@@ -861,20 +858,14 @@ class BaseTestBridges(BaseTest):
         if call_pure_results is not None:
             for k, v in call_pure_results.items():
                 bridge.call_pure_results[list(k)] = v
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
-        #
-        trace = oparser.convert_loop_to_trace(bridge, metainterp_sd)
+        trace = oparser.convert_loop_to_trace(bridge, self.metainterp_sd)
 
         runtime_boxes = self.convert_values(bridge.operations[-1].getarglist(),
                                             values)
         data = compile.BridgeCompileData(trace, runtime_boxes,
             enable_opts=self.enable_opts, inline_short_preamble=True)
 
-        info, newops = optimize_trace(metainterp_sd, None, data)
+        info, newops = data.optimize_trace(self.metainterp_sd, None, {})
         if info.final():
             bridge.operations = newops
             bridge.inputargs = info.inputargs

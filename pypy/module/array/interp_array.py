@@ -74,8 +74,8 @@ def compare_arrays(space, arr1, arr2, comp_op):
     lgt = min(arr1.len, arr2.len)
     for i in range(lgt):
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
-        w_elem1 = arr1.w_getitem(space, i)
-        w_elem2 = arr2.w_getitem(space, i)
+        w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
+        w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
         if comp_op == EQ:
             res = space.eq_w(w_elem1, w_elem2)
             if not res:
@@ -1036,10 +1036,11 @@ def make_array(mytype):
             else:
                 self.fromsequence(w_iterable)
 
-        def w_getitem(self, space, idx):
+        def w_getitem(self, space, idx, integer_instead_of_char=False):
             item = self.get_buffer()[idx]
             keepalive_until_here(self)
-            if mytype.typecode in 'bBhHil':
+            if mytype.typecode in 'bBhHil' or (
+                    integer_instead_of_char and mytype.typecode in 'cu'):
                 item = rffi.cast(lltype.Signed, item)
                 return space.newint(item)
             if mytype.typecode in 'IL':
@@ -1058,7 +1059,7 @@ def make_array(mytype):
                 # some invalid utf8-encoded string which makes things
                 # potentially explode left and right.
                 try:
-                    item = rutf8.unichr_as_utf8(code)
+                    item = rutf8.unichr_as_utf8(code, allow_surrogates=True)
                 except rutf8.OutOfRange:
                     raise oefmt(space.w_ValueError,
                         "cannot operate on this array('u') because it contains"
@@ -1121,12 +1122,12 @@ def make_array(mytype):
             w_a = mytype.w_class(self.space)
             w_a.setlen(size, overallocate=False)
             assert step != 0
-            j = 0
             buf = w_a.get_buffer()
             srcbuf = self.get_buffer()
-            for i in range(start, stop, step):
+            i = start
+            for j in range(size):
                 buf[j] = srcbuf[i]
-                j += 1
+                i += step
             keepalive_until_here(self)
             keepalive_until_here(w_a)
             return w_a
@@ -1158,12 +1159,12 @@ def make_array(mytype):
                     self.setlen(0)
                     self.fromsequence(w_lst)
             else:
-                j = 0
                 buf = self.get_buffer()
                 srcbuf = w_item.get_buffer()
-                for i in range(start, stop, step):
+                i = start
+                for j in range(size):
                     buf[i] = srcbuf[j]
-                    j += 1
+                    i += step
                 keepalive_until_here(w_item)
                 keepalive_until_here(self)
 

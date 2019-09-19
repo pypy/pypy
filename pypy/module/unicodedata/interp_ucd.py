@@ -42,6 +42,7 @@ def unichr_to_code_w(space, w_unichr):
 
 class UCD(W_Root):
     def __init__(self, unicodedb):
+        self._unicodedb = unicodedb
         self._lookup = unicodedb.lookup
         self._name = unicodedb.name
         self._decimal = unicodedb.decimal
@@ -302,3 +303,8 @@ UCD.typedef = TypeDef("unicodedata.UCD",
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
 ucd_5_2_0 = UCD(unicodedb_5_2_0)
 ucd = ucd_5_2_0
+
+# This is the default unicodedb used in various places:
+# - the unicode type
+# - the regular expression engine
+unicodedb = ucd._unicodedb
