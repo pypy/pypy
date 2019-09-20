@@ -388,28 +388,8 @@ class JSONDecoder(W_Root):
         return get_jsonmap_from_dict(w_dict)
 
     def _switch_to_dict(self, currmap, values_w, nextindex):
-        # <antocuni> not sure if this is a problem, but it's something which I
-        # noticed and I think it's worth thinking about it for 5 minutes.
-        # <cfbolz> are you also concerned about the fact that jsonmap dicts
-        # have their keys in the opposite order generally? or just the weird
-        # "c b a | d e f" effect?
-        #
-        # In Python3 dicts preserve the order of keys; this means that a
-        # "naive" json parser produces dicts whose keys are in the same order
-        # as in the source document (CPython 3.7 does this). I don't think it
-        # is guaranteed at all, but I'd not be surprised if real world
-        # programs will rely on this anyway.
-        #
-        # But with the logic here we get the weird effect that the resulting
-        # dicts contains the first keys in reversed order (up to when we reach
-        # the blocked state in the map), then the subsequent ones are in the
-        # "correct" order.
         dict_w = self._create_empty_dict()
-        index = nextindex - 1
-        while isinstance(currmap, JSONMap):
-            dict_w[currmap.w_key] = values_w[index]
-            index -= 1
-            currmap = currmap.prev
+        currmap.fill_dict(dict_w, values_w)
         assert len(dict_w) == nextindex
         return dict_w
 
@@ -878,6 +858,11 @@ class MapBase(object):
     def _make_next_map(self, w_key, key_repr):
         return JSONMap(self.space, self, w_key, key_repr)
 
+    def fill_dict(self, dict_w, values_w):
+        """ recursively fill the dictionary dict_w in the correct order,
+        reading from values_w."""
+        raise NotImplementedError("abstract base")
+
     def _all_dot(self, output):
         identity = objectmodel.compute_unique_id(self)
         output.append('%s [shape=box%s];' % (identity, self._get_dot_text()))
@@ -949,6 +934,11 @@ class Terminator(MapBase):
                 min_fringe = f
         assert min_fringe
         min_fringe.mark_blocked(self)
+
+    def fill_dict(self, dict_w, values_w):
+        """ recursively fill the dictionary dict_w in the correct order,
+        reading from values_w."""
+        return 0
 
     def _check_invariants(self):
         for fringe in self.current_fringe:
@@ -1087,6 +1077,11 @@ class JSONMap(MapBase):
                 return False
             i += 1
         return True
+
+    def fill_dict(self, dict_w, values_w):
+        index = self.prev.fill_dict(dict_w, values_w)
+        dict_w[self.w_key] = values_w[index]
+        return index + 1
 
     # _____________________________________________________
     # methods for JsonDictStrategy

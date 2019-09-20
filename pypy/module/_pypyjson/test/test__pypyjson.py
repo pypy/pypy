@@ -60,6 +60,21 @@ class TestJson(object):
         assert m3.get_index(w_c) == 1
         assert m3.get_index(w_a) == -1
 
+    def test_jsonmap_fill_dict(self):
+        from collections import OrderedDict
+        m = Terminator(self.space)
+        space = self.space
+        w_a = space.newutf8("a", 1)
+        w_b = space.newutf8("b", 1)
+        w_c = space.newutf8("c", 1)
+        m1 = m.get_next(w_a, 'a"', 0, 2, m)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, m)
+        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
+        d = OrderedDict()
+        m3.fill_dict(d, [space.w_None, space.w_None, space.w_None])
+        assert list(d) == [w_a, w_b, w_c]
+
+
     def test_decode_key_map(self):
         m = Terminator(self.space)
         m_diff = Terminator(self.space)
