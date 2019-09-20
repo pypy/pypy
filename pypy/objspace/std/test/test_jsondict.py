@@ -71,7 +71,6 @@ class AppTest(object):
             assert d == {u"a": 1}
 
     def test_keys_value_items(self):
-        import __pypy__
         import _pypyjson
 
         d = _pypyjson.loads('{"a": 1, "b": "x"}')
@@ -80,10 +79,19 @@ class AppTest(object):
         assert d.items() == [(u"a", 1), (u"b", u"x")]
 
     def test_iter_keys_value_items(self):
-        import __pypy__
         import _pypyjson
 
         d = _pypyjson.loads('{"a": 1, "b": "x"}')
         assert list(d.iterkeys()) == [u"a", u"b"]
         assert list(d.itervalues()) == [1, u"x"]
         assert list(d.iteritems()) == [(u"a", 1), (u"b", u"x")]
+
+    def test_dict_order_retained_when_switching_strategies(self):
+        import _pypyjson
+        import __pypy__
+        d = _pypyjson.loads('{"a": 1, "b": "x"}')
+        assert list(d) == [u"a", u"b"]
+        # devolve
+        assert not 1 in d
+        assert __pypy__.strategy(d) == "UnicodeDictStrategy"
+        assert list(d) == [u"a", u"b"]
