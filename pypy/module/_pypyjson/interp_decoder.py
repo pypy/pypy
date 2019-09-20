@@ -80,7 +80,7 @@ class JSONDecoder(W_Root):
         # 1) we automatically get the '\0' sentinel at the end of the string,
         #    which means that we never have to check for the "end of string"
         # 2) we can pass the buffer directly to strtod
-        self.ll_chars, self.flag = rffi.get_nonmovingbuffer_final_null(self.s)
+        self.ll_chars, self.llobj, self.flag = rffi.get_nonmovingbuffer_ll_final_null(self.s)
         self.end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         self.pos = 0
         self.intcache = space.fromcache(IntCache)
@@ -111,7 +111,7 @@ class JSONDecoder(W_Root):
 
 
     def close(self):
-        rffi.free_nonmovingbuffer(self.s, self.ll_chars, self.flag)
+        rffi.free_nonmovingbuffer_ll(self.ll_chars, self.llobj, self.flag)
         lltype.free(self.end_ptr, flavor='raw')
         # clean up objects that are instances of now blocked maps
         for w_obj in self.unclear_objects:
