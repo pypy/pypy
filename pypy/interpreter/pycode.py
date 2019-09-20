@@ -14,7 +14,6 @@ from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_COROUTINE, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY,
     CO_ITERABLE_COROUTINE, CO_ASYNC_GENERATOR)
-from pypy.tool import dis3
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_hash, we_are_translated
@@ -39,7 +38,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 176 # bump it by 16
+pypy_incremental_magic = 192 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -307,6 +306,7 @@ class PyCode(eval.Code):
 
     def dump(self):
         """NOT_RPYTHON: A dis.dis() dump of the code object."""
+        from pypy.tool import dis3
         if not hasattr(self, 'co_consts'):
             self.co_consts = [w if isinstance(w, PyCode) else self.space.unwrap(w)
                               for w in self.co_consts_w]

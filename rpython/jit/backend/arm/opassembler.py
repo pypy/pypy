@@ -835,8 +835,9 @@ class ResOpAssembler(BaseAssembler):
             assert 0
 
     def emit_op_load_effective_address(self, op, arglocs, regalloc, fcond):
-        self._gen_address(arglocs[4], arglocs[0], arglocs[1], arglocs[3].value,
-                          arglocs[2].value)
+        static_ofs = op.getarg(2).getint()
+        scale = op.getarg(3).getint()
+        self._gen_address(arglocs[2], arglocs[0], arglocs[1], scale, static_ofs)
         return fcond
 
    # result = base_loc  + (scaled_loc << scale) + static_offset

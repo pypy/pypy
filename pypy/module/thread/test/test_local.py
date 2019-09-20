@@ -5,6 +5,7 @@ class AppTestLocal(GenericTestThread):
 
     def test_local_1(self):
         import _thread
+        import gc
         from _thread import _local as tlsobject
         freed = []
         class X:
@@ -34,8 +35,9 @@ class AppTestLocal(GenericTestThread):
             _thread.start_new_thread(f, (i,))
         self.waitfor(lambda: len(ok) == 20, delay=3)
         assert ok == 20*[True] # see stdout/stderr for failures in the threads
+        gc.collect(); gc.collect(); gc.collect()
 
-        self.waitfor(lambda: len(freed) >= 40)
+        self.waitfor(lambda: len(freed) >= 40, delay=20)
         assert len(freed) == 40
         #  in theory, all X objects should have been freed by now.  Note that
         #  Python's own thread._local objects suffer from the very same "bug" that

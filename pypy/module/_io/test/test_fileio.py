@@ -5,8 +5,9 @@ import os
 
 
 class AppTestFileIO:
-    spaceconfig = dict(usemodules=['_io', 'array'] +
-                                  (['fcntl'] if os.name != 'nt' else []))
+    spaceconfig = dict(usemodules=['_io', 'array'])
+    if os.name != 'nt':
+        spaceconfig['usemodules'].append('fcntl')
 
     def setup_method(self, meth):
         tmpfile = udir.join('tmpfile')

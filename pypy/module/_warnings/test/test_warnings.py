@@ -107,3 +107,20 @@ class AppTestWarnings:
             except UnicodeEncodeError:
                 continue
             _warnings.warn_explicit("text", UserWarning, filename, 1)
+
+    def test_issue31285(self):
+        import _warnings
+        def get_bad_loader(splitlines_ret_val):
+            class BadLoader:
+                def get_source(self, fullname):
+                    class BadSource(str):
+                        def splitlines(self):
+                            return splitlines_ret_val
+                    return BadSource('spam')
+            return BadLoader()
+        # does not raise:
+        _warnings.warn_explicit(
+            'eggs', UserWarning, 'bar', 1,
+            module_globals={'__loader__': get_bad_loader(42),
+                            '__name__': 'foobar'})
+

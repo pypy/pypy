@@ -118,7 +118,8 @@ class ASTBuilder(object):
     def error(self, msg, n):
         """Raise a SyntaxError with the lineno and column set to n's."""
         raise SyntaxError(msg, n.get_lineno(), n.get_column(),
-                          filename=self.compile_info.filename)
+                          filename=self.compile_info.filename,
+                          text=n.get_line())
 
     def error_ast(self, msg, ast_node):
         raise SyntaxError(msg, ast_node.lineno, ast_node.col_offset,
@@ -939,7 +940,7 @@ class ASTBuilder(object):
             elif comp_type == tokens.NOTEQUAL:
                 flufl = self.compile_info.flags & consts.CO_FUTURE_BARRY_AS_BDFL
                 if flufl and comp_node.get_value() == '!=':
-                    self.error('invalid comparison', comp_node)
+                    self.error("with Barry as BDFL, use '<>' instead of '!='", comp_node)
                 elif not flufl and comp_node.get_value() == '<>':
                     self.error('invalid comparison', comp_node)
                 return ast.NotEq

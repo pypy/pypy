@@ -400,6 +400,17 @@ class AppTestArray(object):
                         except ValueError:
                             assert not ok
 
+    def test_getslice_large_step(self):
+        import sys
+        a = self.array('b', [1, 2, 3])
+        assert list(a[1::sys.maxsize]) == [2]
+
+    def test_setslice_large_step(self):
+        import sys
+        a = self.array('b', [1, 2, 3])
+        a[1::sys.maxsize] = self.array('b', [42])
+        assert a.tolist() == [1, 42, 3]
+
     def test_toxxx(self):
         a = self.array('i', [1, 2, 3])
         l = a.tolist()
@@ -892,13 +903,6 @@ class AppTestArray(object):
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
-    def test_array_of_chars_equality(self):
-        input_bytes = '\x01\x63a\x00!'
-        a = self.array('c', input_bytes)
-        b = self.array('c', input_bytes)
-        b.byteswap()
-        assert a == b
-
     def test_unicode_outofrange(self):
         input_unicode = u'\x01\u263a\x00\ufeff'
         a = self.array('u', input_unicode)
@@ -906,16 +910,22 @@ class AppTestArray(object):
         b.byteswap()
         assert b[2] == u'\u0000'
         assert a != b
-        e = raises(ValueError, "b[0]")        # doesn't work
-        assert str(e.value) == (
-            "cannot operate on this array('u') because it contains"
-            " character U+1000000 not in range [U+0000; U+10ffff]"
-            " at index 0")
-        assert str(a) == "array('u', %r)" % (input_unicode,)
-        assert str(b) == ("array('u', <character U+1000000 is not in"
+        if b.itemsize == 4:
+            e = raises(ValueError, "b[0]")        # doesn't work
+            assert str(e.value) == (
+                "cannot operate on this array('u') because it contains"
+                " character U+1000000 not in range [U+0000; U+10ffff]"
+                " at index 0")
+            assert str(b) == ("array('u', <character U+1000000 is not in"
                           " range [U+0000; U+10ffff]>)")
+            raises(ValueError, b.tounicode)   # doesn't work
+        elif b.itemsize == 2:
+            assert b[0] == u'\u0100'
+            byteswaped_unicode = u'\u0100\u3a26\x00\ufffe'
+            assert str(b) == "array('u', %r)" % (byteswaped_unicode,)
+            assert b.tounicode() == byteswaped_unicode
+        assert str(a) == "array('u', %r)" % (input_unicode,)
         assert a.tounicode() == input_unicode
-        raises(ValueError, b.tounicode)   # doesn't work
 
     def test_unicode_surrogate(self):
         a = self.array('u', u'\ud800')

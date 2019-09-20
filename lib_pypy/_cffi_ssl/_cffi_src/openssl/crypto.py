@@ -10,6 +10,8 @@ INCLUDES = """
 
 TYPES = """
 static const long Cryptography_HAS_LOCKING_CALLBACKS;
+static const long Cryptography_HAS_MEM_FUNCTIONS;
+static const long Cryptography_HAS_OPENSSL_CLEANUP;
 
 static const int SSLEAY_VERSION;
 static const int SSLEAY_CFLAGS;
@@ -25,24 +27,15 @@ static const int CRYPTO_MEM_CHECK_ON;
 static const int CRYPTO_MEM_CHECK_OFF;
 static const int CRYPTO_MEM_CHECK_ENABLE;
 static const int CRYPTO_MEM_CHECK_DISABLE;
-static const int CRYPTO_LOCK;
-static const int CRYPTO_UNLOCK;
-static const int CRYPTO_READ;
-static const int CRYPTO_LOCK_SSL;
 """
 
 FUNCTIONS = """
 int CRYPTO_mem_ctrl(int);
-"""
 
-MACROS = """
-/* CRYPTO_cleanup_all_ex_data became a macro in 1.1.0 */
-void CRYPTO_cleanup_all_ex_data(void);
+void OPENSSL_cleanup(void);
 
-/* as of 1.1.0 OpenSSL does its own locking *angelic chorus*. These functions
-   have become macros that are no ops */
-int CRYPTO_num_locks(void);
-void CRYPTO_set_locking_callback(void(*)(int, int, const char *, int));
+/* as of 1.1.0 OpenSSL does its own locking *angelic chorus*. This function
+   is now a noop macro. We can delete this once we drop 1.0.2 support. */
 void (*CRYPTO_get_locking_callback(void))(int, int, const char *, int);
 
 /* SSLeay was removed in 1.1.0 */
@@ -56,8 +49,16 @@ const char *OpenSSL_version(int);
 void *OPENSSL_malloc(size_t);
 void OPENSSL_free(void *);
 
-/* This was removed in 1.1.0 */
-void CRYPTO_lock(int, int, const char *, int);
+
+/* Signature changed significantly in 1.1.0, only expose there for sanity */
+int Cryptography_CRYPTO_set_mem_functions(
+    void *(*)(size_t, const char *, int),
+    void *(*)(void *, size_t, const char *, int),
+    void (*)(void *, const char *, int));
+
+void *Cryptography_malloc_wrapper(size_t, const char *, int);
+void *Cryptography_realloc_wrapper(void *, size_t, const char *, int);
+void Cryptography_free_wrapper(void *, const char *, int);
 """
 
 CUSTOMIZATIONS = """
@@ -84,22 +85,49 @@ CUSTOMIZATIONS = """
 # define OPENSSL_PLATFORM        SSLEAY_PLATFORM
 # define OPENSSL_DIR             SSLEAY_DIR
 #endif
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110 || defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
 static const long Cryptography_HAS_LOCKING_CALLBACKS = 1;
 #else
 static const long Cryptography_HAS_LOCKING_CALLBACKS = 0;
-#if !defined(CRYPTO_LOCK)
-static const long CRYPTO_LOCK = 0;
 #endif
-#if !defined(CRYPTO_UNLOCK)
-static const long CRYPTO_UNLOCK = 0;
+
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+static const long Cryptography_HAS_OPENSSL_CLEANUP = 0;
+
+void (*OPENSSL_cleanup)(void) = NULL;
+
+/* This function has a significantly different signature pre-1.1.0. since it is
+ * for testing only, we don't bother to expose it on older OpenSSLs.
+ */
+static const long Cryptography_HAS_MEM_FUNCTIONS = 0;
+int (*Cryptography_CRYPTO_set_mem_functions)(
+    void *(*)(size_t, const char *, int),
+    void *(*)(void *, size_t, const char *, int),
+    void (*)(void *, const char *, int)) = NULL;
+
+#else
+static const long Cryptography_HAS_OPENSSL_CLEANUP = 1;
+static const long Cryptography_HAS_MEM_FUNCTIONS = 1;
+
+int Cryptography_CRYPTO_set_mem_functions(
+    void *(*m)(size_t, const char *, int),
+    void *(*r)(void *, size_t, const char *, int),
+    void (*f)(void *, const char *, int)
+) {
+    return CRYPTO_set_mem_functions(m, r, f);
+}
 #endif
-#if !defined(CRYPTO_READ)
-static const long CRYPTO_READ = 0;
-#endif
-#if !defined(CRYPTO_LOCK_SSL)
-static const long CRYPTO_LOCK_SSL = 0;
-#endif
-void (*CRYPTO_lock)(int, int, const char *, int) = NULL;
-#endif
+
+void *Cryptography_malloc_wrapper(size_t size, const char *path, int line) {
+    return malloc(size);
+}
+
+void *Cryptography_realloc_wrapper(void *ptr, size_t size, const char *path,
+                                   int line) {
+    return realloc(ptr, size);
+}
+
+void Cryptography_free_wrapper(void *ptr, const char *path, int line) {
+    free(ptr);
+}
 """

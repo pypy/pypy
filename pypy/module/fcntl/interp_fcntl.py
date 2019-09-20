@@ -80,7 +80,7 @@ if has_flock:
 def _get_error(space, funcname):
     errno = rposix.get_saved_errno()
     return wrap_oserror(space, OSError(errno, funcname),
-                        exception_name = 'w_IOError')
+                        exception_name = 'w_IOError', eintr_retry=True)
 
 @unwrap_spec(op=int, w_arg=WrappedDefault(0))
 def fcntl(space, w_fd, op, w_arg):
@@ -105,22 +105,23 @@ def fcntl(space, w_fd, op, w_arg):
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        ll_arg = rffi.str2charp(arg)
-        try:
-            rv = fcntl_str(fd, op, ll_arg)
-            if rv < 0:
-                raise _get_error(space, "fcntl")
-            arg = rffi.charpsize2str(ll_arg, len(arg))
-            return space.newbytes(arg)
-        finally:
-            lltype.free(ll_arg, flavor='raw')
+        with rffi.scoped_str2charp(arg) as ll_arg:
+            while True:
+                rv = fcntl_str(fd, op, ll_arg)
+                if rv < 0:
+                    _get_error(space, "fcntl")
+                else:
+                    arg = rffi.charpsize2str(ll_arg, len(arg))
+                    return space.newbytes(arg)
 
     intarg = space.int_w(w_arg)
     intarg = rffi.cast(rffi.INT, intarg)   # C long => C int
-    rv = fcntl_int(fd, op, intarg)
-    if rv < 0:
-        raise _get_error(space, "fcntl")
-    return space.newint(rv)
+    while True:
+        rv = fcntl_int(fd, op, intarg)
+        if rv < 0:
+            _get_error(space, "fcntl")
+        else:
+            return space.newint(rv)
 
 @unwrap_spec(op=int)
 def flock(space, w_fd, op):
@@ -133,9 +134,12 @@ def flock(space, w_fd, op):
     if has_flock:
         fd = space.c_filedescriptor_w(w_fd)
         op = rffi.cast(rffi.INT, op)        # C long => C int
-        rv = c_flock(fd, op)
-        if rv < 0:
-            raise _get_error(space, "flock")
+        while True:
+            rv = c_flock(fd, op)
+            if rv < 0:
+                _get_error(space, "flock")
+            else:
+                return
     else:
         lockf(space, w_fd, op)
 
@@ -179,17 +183,17 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
     op = [F_SETLKW, F_SETLK][int(bool(op & LOCK_NB))]
     op = rffi.cast(rffi.INT, op)        # C long => C int
 
-    l = lltype.malloc(_flock.TO, flavor='raw')
-    try:
+    with lltype.scoped_alloc(_flock.TO) as l:
         rffi.setintfield(l, 'c_l_type', l_type)
         rffi.setintfield(l, 'c_l_start', int(start))
         rffi.setintfield(l, 'c_l_len', int(length))
         rffi.setintfield(l, 'c_l_whence', int(whence))
-        rv = fcntl_flock(fd, op, l)
-        if rv < 0:
-            raise _get_error(space, "fcntl")
-    finally:
-        lltype.free(l, flavor='raw')
+        while True:
+            rv = fcntl_flock(fd, op, l)
+            if rv < 0:
+                _get_error(space, "fcntl")
+            else:
+                return
 
 @unwrap_spec(op=int, mutate_flag=int, w_arg=WrappedDefault(0))
 def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):

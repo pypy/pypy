@@ -2740,9 +2740,9 @@ class RevDBMetaVar(expr):
         w_metavar = get_field(space, w_node, 'metavar', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _metavar = space.int_w(w_metavar)
-        _lineno = space.int_w(w_lineno)
-        _col_offset = space.int_w(w_col_offset)
+        _metavar = obj_to_int(space, w_metavar, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
         return RevDBMetaVar(_metavar, _lineno, _col_offset)
 
 State.ast_type('RevDBMetaVar', 'expr', ['metavar'])
@@ -4291,19 +4291,27 @@ class ASTVisitor(object):
 
 class GenericASTVisitor(ASTVisitor):
 
+    def visited(self, node):
+        pass  # base implementation
+
     def visit_Module(self, node):
+        self.visited(node)
         self.visit_sequence(node.body)
 
     def visit_Interactive(self, node):
+        self.visited(node)
         self.visit_sequence(node.body)
 
     def visit_Expression(self, node):
+        self.visited(node)
         node.body.walkabout(self)
 
     def visit_Suite(self, node):
+        self.visited(node)
         self.visit_sequence(node.body)
 
     def visit_FunctionDef(self, node):
+        self.visited(node)
         node.args.walkabout(self)
         self.visit_sequence(node.body)
         self.visit_sequence(node.decorator_list)
@@ -4311,6 +4319,7 @@ class GenericASTVisitor(ASTVisitor):
             node.returns.walkabout(self)
 
     def visit_AsyncFunctionDef(self, node):
+        self.visited(node)
         node.args.walkabout(self)
         self.visit_sequence(node.body)
         self.visit_sequence(node.decorator_list)
@@ -4318,214 +4327,269 @@ class GenericASTVisitor(ASTVisitor):
             node.returns.walkabout(self)
 
     def visit_ClassDef(self, node):
+        self.visited(node)
         self.visit_sequence(node.bases)
         self.visit_sequence(node.keywords)
         self.visit_sequence(node.body)
         self.visit_sequence(node.decorator_list)
 
     def visit_Return(self, node):
+        self.visited(node)
         if node.value:
             node.value.walkabout(self)
 
     def visit_Delete(self, node):
+        self.visited(node)
         self.visit_sequence(node.targets)
 
     def visit_Assign(self, node):
+        self.visited(node)
         self.visit_sequence(node.targets)
         node.value.walkabout(self)
 
     def visit_AugAssign(self, node):
+        self.visited(node)
         node.target.walkabout(self)
         node.value.walkabout(self)
 
     def visit_AnnAssign(self, node):
+        self.visited(node)
         node.target.walkabout(self)
         node.annotation.walkabout(self)
         if node.value:
             node.value.walkabout(self)
 
     def visit_For(self, node):
+        self.visited(node)
         node.target.walkabout(self)
         node.iter.walkabout(self)
         self.visit_sequence(node.body)
         self.visit_sequence(node.orelse)
 
     def visit_AsyncFor(self, node):
+        self.visited(node)
         node.target.walkabout(self)
         node.iter.walkabout(self)
         self.visit_sequence(node.body)
         self.visit_sequence(node.orelse)
 
     def visit_While(self, node):
+        self.visited(node)
         node.test.walkabout(self)
         self.visit_sequence(node.body)
         self.visit_sequence(node.orelse)
 
     def visit_If(self, node):
+        self.visited(node)
         node.test.walkabout(self)
         self.visit_sequence(node.body)
         self.visit_sequence(node.orelse)
 
     def visit_With(self, node):
+        self.visited(node)
         self.visit_sequence(node.items)
         self.visit_sequence(node.body)
 
     def visit_AsyncWith(self, node):
+        self.visited(node)
         self.visit_sequence(node.items)
         self.visit_sequence(node.body)
 
     def visit_Raise(self, node):
+        self.visited(node)
         if node.exc:
             node.exc.walkabout(self)
         if node.cause:
             node.cause.walkabout(self)
 
     def visit_Try(self, node):
+        self.visited(node)
         self.visit_sequence(node.body)
         self.visit_sequence(node.handlers)
         self.visit_sequence(node.orelse)
         self.visit_sequence(node.finalbody)
 
     def visit_Assert(self, node):
+        self.visited(node)
         node.test.walkabout(self)
         if node.msg:
             node.msg.walkabout(self)
 
     def visit_Import(self, node):
+        self.visited(node)
         self.visit_sequence(node.names)
 
     def visit_ImportFrom(self, node):
+        self.visited(node)
         self.visit_sequence(node.names)
 
     def visit_Global(self, node):
+        self.visited(node)
         pass
 
     def visit_Nonlocal(self, node):
+        self.visited(node)
         pass
 
     def visit_Expr(self, node):
+        self.visited(node)
         node.value.walkabout(self)
 
     def visit_Pass(self, node):
+        self.visited(node)
         pass
 
     def visit_Break(self, node):
+        self.visited(node)
         pass
 
     def visit_Continue(self, node):
+        self.visited(node)
         pass
 
     def visit_BoolOp(self, node):
+        self.visited(node)
         self.visit_sequence(node.values)
 
     def visit_BinOp(self, node):
+        self.visited(node)
         node.left.walkabout(self)
         node.right.walkabout(self)
 
     def visit_UnaryOp(self, node):
+        self.visited(node)
         node.operand.walkabout(self)
 
     def visit_Lambda(self, node):
+        self.visited(node)
         node.args.walkabout(self)
         node.body.walkabout(self)
 
     def visit_IfExp(self, node):
+        self.visited(node)
         node.test.walkabout(self)
         node.body.walkabout(self)
         node.orelse.walkabout(self)
 
     def visit_Dict(self, node):
+        self.visited(node)
         self.visit_sequence(node.keys)
         self.visit_sequence(node.values)
 
     def visit_Set(self, node):
+        self.visited(node)
         self.visit_sequence(node.elts)
 
     def visit_ListComp(self, node):
+        self.visited(node)
         node.elt.walkabout(self)
         self.visit_sequence(node.generators)
 
     def visit_SetComp(self, node):
+        self.visited(node)
         node.elt.walkabout(self)
         self.visit_sequence(node.generators)
 
     def visit_DictComp(self, node):
+        self.visited(node)
         node.key.walkabout(self)
         node.value.walkabout(self)
         self.visit_sequence(node.generators)
 
     def visit_GeneratorExp(self, node):
+        self.visited(node)
         node.elt.walkabout(self)
         self.visit_sequence(node.generators)
 
     def visit_Await(self, node):
+        self.visited(node)
         node.value.walkabout(self)
 
     def visit_Yield(self, node):
+        self.visited(node)
         if node.value:
             node.value.walkabout(self)
 
     def visit_YieldFrom(self, node):
+        self.visited(node)
         node.value.walkabout(self)
 
     def visit_Compare(self, node):
+        self.visited(node)
         node.left.walkabout(self)
         self.visit_sequence(node.comparators)
 
     def visit_Call(self, node):
+        self.visited(node)
         node.func.walkabout(self)
         self.visit_sequence(node.args)
         self.visit_sequence(node.keywords)
 
     def visit_Num(self, node):
+        self.visited(node)
         pass
 
     def visit_Str(self, node):
+        self.visited(node)
         pass
 
     def visit_RevDBMetaVar(self, node):
+        self.visited(node)
         pass
 
     def visit_FormattedValue(self, node):
+        self.visited(node)
         node.value.walkabout(self)
         if node.format_spec:
             node.format_spec.walkabout(self)
 
     def visit_JoinedStr(self, node):
+        self.visited(node)
         self.visit_sequence(node.values)
 
     def visit_Bytes(self, node):
+        self.visited(node)
         pass
 
     def visit_NameConstant(self, node):
+        self.visited(node)
         pass
 
     def visit_Ellipsis(self, node):
+        self.visited(node)
         pass
 
     def visit_Constant(self, node):
+        self.visited(node)
         pass
 
     def visit_Attribute(self, node):
+        self.visited(node)
         node.value.walkabout(self)
 
     def visit_Subscript(self, node):
+        self.visited(node)
         node.value.walkabout(self)
         node.slice.walkabout(self)
 
     def visit_Starred(self, node):
+        self.visited(node)
         node.value.walkabout(self)
 
     def visit_Name(self, node):
+        self.visited(node)
         pass
 
     def visit_List(self, node):
+        self.visited(node)
         self.visit_sequence(node.elts)
 
     def visit_Tuple(self, node):
+        self.visited(node)
         self.visit_sequence(node.elts)
 
     def visit_Slice(self, node):
+        self.visited(node)
         if node.lower:
             node.lower.walkabout(self)
         if node.upper:
@@ -4534,22 +4598,27 @@ class GenericASTVisitor(ASTVisitor):
             node.step.walkabout(self)
 
     def visit_ExtSlice(self, node):
+        self.visited(node)
         self.visit_sequence(node.dims)
 
     def visit_Index(self, node):
+        self.visited(node)
         node.value.walkabout(self)
 
     def visit_comprehension(self, node):
+        self.visited(node)
         node.target.walkabout(self)
         node.iter.walkabout(self)
         self.visit_sequence(node.ifs)
 
     def visit_ExceptHandler(self, node):
+        self.visited(node)
         if node.type:
             node.type.walkabout(self)
         self.visit_sequence(node.body)
 
     def visit_arguments(self, node):
+        self.visited(node)
         self.visit_sequence(node.args)
         if node.vararg:
             node.vararg.walkabout(self)
@@ -4560,16 +4629,20 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.defaults)
 
     def visit_arg(self, node):
+        self.visited(node)
         if node.annotation:
             node.annotation.walkabout(self)
 
     def visit_keyword(self, node):
+        self.visited(node)
         node.value.walkabout(self)
 
     def visit_alias(self, node):
+        self.visited(node)
         pass
 
     def visit_withitem(self, node):
+        self.visited(node)
         node.context_expr.walkabout(self)
         if node.optional_vars:
             node.optional_vars.walkabout(self)

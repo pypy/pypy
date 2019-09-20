@@ -265,6 +265,8 @@ def _get_crl_dp(certificate):
     count = lib.sk_DIST_POINT_num(dps)
     for i in range(count):
         dp = lib.sk_DIST_POINT_value(dps, i);
+        if not dp.distpoint:
+            return None
         gns = dp.distpoint.name.fullname;
 
         jcount = lib.sk_GENERAL_NAME_num(gns)
@@ -294,7 +296,7 @@ def _test_decode_cert(path):
         lib.BIO_free(cert)
         raise ssl_error("Can't open file")
 
-    x = lib.PEM_read_bio_X509_AUX(cert, ffi.NULL, ffi.NULL, ffi.NULL)
+    x = lib.PEM_read_bio_X509(cert, ffi.NULL, ffi.NULL, ffi.NULL)
     if x is ffi.NULL:
         ssl_error("Error decoding PEM-encoded file")
 

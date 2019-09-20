@@ -1135,6 +1135,23 @@ class TestFlowObjSpace(Base):
                 pass
         py.test.raises(FlowingError, "self.codetest(f)")
 
+    def test_cannot_catch_special_exceptions_2(self):
+        class MyNIE(NotImplementedError):
+            pass
+        def f():
+            try:
+                f()
+            except MyNIE:
+                pass
+        py.test.raises(FlowingError, "self.codetest(f)")
+        #
+        def f():
+            try:
+                f()
+            except (ValueError, MyNIE):
+                pass
+        py.test.raises(FlowingError, "self.codetest(f)")
+
     def test_locals_dict(self):
         def f():
             x = 5

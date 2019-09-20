@@ -18,8 +18,5 @@ pypy_subprocess_child_exec(
            int (*preexec_fn)(void*),
            void *preexec_fn_arg);
 
-RPY_EXTERN int
-pypy_subprocess_cloexec_pipe(int *fds);
-
 RPY_EXTERN void
 pypy_subprocess_init(void);

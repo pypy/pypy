@@ -43,7 +43,7 @@ class FloatTests:
             a = float(r_singlefloat(a))
             a *= 4.25
             return float(r_singlefloat(a))
-        res = self.interp_operations(f, [-2.0])
+        res = self.interp_operations(f, [-2.0], supports_singlefloats=True)
         assert res == -8.5
 
     def test_cast_float_to_int(self):

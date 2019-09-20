@@ -27,7 +27,7 @@ class MultibyteCodec(W_Root):
             raise wrap_unicodedecodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        lgt = rutf8.get_utf8_length(utf8_output)
+        lgt = rutf8.codepoints_in_utf8(utf8_output)
         return space.newtuple([space.newutf8(utf8_output, lgt),
                                space.newint(len(input))])
 

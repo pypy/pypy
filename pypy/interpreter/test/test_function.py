@@ -160,7 +160,8 @@ class AppTestFunctionIntrospection:
             return 41
         assert f() == 42
         assert g() == 41
-        raises(TypeError, "f.__code__ = 1")
+        with raises(TypeError):
+            f.__code__ = 1
         f.__code__ = g.__code__
         assert f() == 41
         def get_h(f=f):
@@ -168,14 +169,17 @@ class AppTestFunctionIntrospection:
                 return f() # a closure
             return h
         h = get_h()
-        raises(ValueError, "f.__code__ = h.__code__")
+        with raises(ValueError):
+            f.__code__ = h.__code__
 
     @pytest.mark.skipif("config.option.runappdirect")
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-        raises(TypeError, "dir.__code__ = f.__code__")
-        raises(TypeError, "list.append.__code__ = f.__code__")
+        with raises(TypeError):
+            dir.__code__ = f.__code__
+        with raises(TypeError):
+            list.append.__code__ = f.__code__
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
@@ -313,19 +317,10 @@ class AppTestFunction:
             def func(self, **kw):
                 return self, kw
         func = A().func
-
-        # don't want the extra argument passing of raises
-        try:
+        with raises(TypeError):
             func(self=23)
-            assert False
-        except TypeError:
-            pass
-
-        try:
+        with raises(TypeError):
             func(**{'self': 23})
-            assert False
-        except TypeError:
-            pass
 
     def test_kwargs_confusing_name(self):
         def func(self):    # 'self' conflicts with the interp-level

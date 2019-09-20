@@ -545,7 +545,8 @@ def make_formatting_class(for_unicode):
                     pass # ok
                 else:
                     raise oefmt(space.w_ValueError,
-                                "invalid type with ',' or '_'")
+                                "Cannot specify '%s' with '%s'.", 
+                                self._thousands_sep, tp)
             return False
 
         def _calc_padding(self, string, length):

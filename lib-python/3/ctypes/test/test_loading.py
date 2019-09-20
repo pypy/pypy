@@ -4,7 +4,6 @@ import sys
 import unittest
 import test.support
 from ctypes.util import find_library
-from ctypes.test import xfail
 
 libc_name = None
 
@@ -63,6 +62,8 @@ class LoaderTest(unittest.TestCase):
             windll["kernel32"].GetModuleHandleW
             windll.LoadLibrary("kernel32").GetModuleHandleW
             WinDLL("kernel32").GetModuleHandleW
+            # embedded null character
+            self.assertRaises(ValueError, windll.LoadLibrary, "kernel32\0")
 
     @unittest.skipUnless(os.name == "nt",
                          'test specific to Windows')
@@ -82,7 +83,6 @@ class LoaderTest(unittest.TestCase):
         self.assertRaises(AttributeError, dll.__getitem__, 1234)
 
     @unittest.skipUnless(os.name == "nt", 'Windows-specific test')
-    @xfail
     def test_1703286_A(self):
         from _ctypes import LoadLibrary, FreeLibrary
         # On winXP 64-bit, advapi32 loads at an address that does
@@ -94,7 +94,6 @@ class LoaderTest(unittest.TestCase):
         FreeLibrary(handle)
 
     @unittest.skipUnless(os.name == "nt", 'Windows-specific test')
-    @xfail
     def test_1703286_B(self):
         # Since on winXP 64-bit advapi32 loads like described
         # above, the (arbitrarily selected) CloseEventLog function

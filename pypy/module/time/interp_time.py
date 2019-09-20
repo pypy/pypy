@@ -528,6 +528,9 @@ def _get_inttime(space, w_seconds):
         seconds = pytime.time()
     else:
         seconds = space.float_w(w_seconds)
+        if math.isnan(seconds):
+            raise oefmt(space.w_ValueError,
+                        "Invalid value Nan (not a number)")
     #
     t = rffi.cast(rffi.TIME_T, seconds)
     #
@@ -677,8 +680,7 @@ def time(space, w_info=None):
                         _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
                                  res, False, True)
                 return space.newfloat(_timespec_to_seconds(timespec))
-    else:
-        return gettimeofday(space, w_info)
+    return gettimeofday(space, w_info)
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string

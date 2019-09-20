@@ -1,4 +1,8 @@
+import time
+import types
 import unittest
+
+from test.support import cpython_only
 
 from unittest.mock import (
     call, _Call, create_autospec, MagicMock,
@@ -265,6 +269,22 @@ class CallTest(unittest.TestCase):
         last_call = call.foo(1).bar()().baz.beep(a=6)
         self.assertEqual(mock.mock_calls[-1], last_call)
         self.assertEqual(mock.mock_calls, last_call.call_list())
+
+
+    def test_extended_not_equal(self):
+        a = call(x=1).foo
+        b = call(x=2).foo
+        self.assertEqual(a, a)
+        self.assertEqual(b, b)
+        self.assertNotEqual(a, b)
+
+
+    def test_nested_calls_not_equal(self):
+        a = call(x=1).foo().bar
+        b = call(x=2).foo().bar
+        self.assertEqual(a, a)
+        self.assertEqual(b, b)
+        self.assertNotEqual(a, b)
 
 
     def test_call_list(self):
@@ -854,6 +874,19 @@ class SpecSignatureTest(unittest.TestCase):
         check_data_descriptor(foo.slot)
         # plain data descriptor
         check_data_descriptor(foo.desc)
+
+    @cpython_only # PyPy can easily extract a spec from a builtin function
+    def test_autospec_on_bound_builtin_function(self):
+        meth = types.MethodType(time.ctime, time.time())
+        self.assertIsInstance(meth(), str)
+        mocked = create_autospec(meth)
+
+        # no signature, so no spec to check against
+        mocked()
+        mocked.assert_called_once_with()
+        mocked.reset_mock()
+        mocked(4, 5, 6)
+        mocked.assert_called_once_with(4, 5, 6)
 
 
 class TestCallList(unittest.TestCase):

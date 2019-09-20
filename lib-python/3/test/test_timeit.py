@@ -366,9 +366,9 @@ class TestTimeit(unittest.TestCase):
     def test_main_recommends_perf(self):
         s = self.run_main(seconds_per_increment=2.0, switches=['-n35', '-s', 'print("CustomSetup")'])
         self.assertIn(dedent("""\
-            WARNING: timeit is a very unreliable tool. use perf or something else for real measurements
+            WARNING: timeit is a very unreliable tool. use pyperf or something else for real measurements
         """), s)
-        self.assertIn("-m pip install perf", s)
+        self.assertIn("-m pip install pyperf", s)
 
     def autorange(self, callback=None):
         timer = FakeTimer(seconds_per_increment=0.001)
@@ -387,7 +387,8 @@ class TestTimeit(unittest.TestCase):
             num_loops, time_taken = self.autorange(callback)
         self.assertEqual(num_loops, 1000)
         self.assertEqual(time_taken, 1.0)
-        expected = ('10 0.010\n'
+        expected = ('1 0.001\n'
+                    '10 0.010\n'
                     '100 0.100\n'
                     '1000 1.000\n')
         self.assertEqual(s.getvalue(), expected)

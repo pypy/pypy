@@ -25,3 +25,10 @@ class AppTestAtexit:
         import atexit
         atexit.register(lambda: 1, 0, 0, (x for x in (1,2)), 0, 0)
         raises(TypeError, atexit._run_exitfuncs)
+
+    def test_systemexit(self):
+        import atexit
+        def f():
+            raise SystemExit()
+        atexit.register(f)
+        raises(SystemExit, atexit._run_exitfuncs)

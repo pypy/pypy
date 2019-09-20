@@ -69,7 +69,7 @@ class PyFrame(W_Root):
     f_generator_nowref       = None               # (only one of the two attrs)
     last_instr               = -1
     f_backref                = jit.vref_None
-    
+
     escaped                  = False  # see mark_as_escaped()
     debugdata                = None
 
@@ -79,7 +79,7 @@ class PyFrame(W_Root):
     lastblock = None
 
     # other fields:
-    
+
     # builtin - builtin cache, only if honor__builtins__ is True
     # defaults to False
 
@@ -490,14 +490,32 @@ class PyFrame(W_Root):
             depth -= 1
         self.valuestackdepth = finaldepth
 
-    def make_arguments(self, nargs, methodcall=False):
-        return Arguments(
-                self.space, self.peekvalues(nargs), methodcall=methodcall)
+    def _guess_function_name_parens(self, fnname=None, w_function=None):
+        """ Returns 'funcname()' from either a function name fnname or a
+        wrapped callable w_function. If it's not a function or a method, returns
+        'Classname object'"""
+        # CPython has a similar function, PyEval_GetFuncName
+        from pypy.interpreter.function import Function, Method
+        if fnname is not None:
+            return fnname + '()'
+        if w_function is None:
+            return None
+        if isinstance(w_function, Function):
+            return w_function.name + '()'
+        if isinstance(w_function, Method):
+            return self._guess_function_name_parens(None, w_function.w_function)
+        return w_function.getname(self.space) + ' object'
 
-    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar, methodcall=False):
+    def make_arguments(self, nargs, methodcall=False, w_function=None, fnname=None):
+        fnname_parens = self._guess_function_name_parens(fnname, w_function)
+        return Arguments(
+                self.space, self.peekvalues(nargs), methodcall=methodcall, fnname_parens=fnname_parens)
+
+    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar, methodcall=False, w_function=None, fnname=None):
+        fnname_parens = self._guess_function_name_parens(fnname, w_function)
         return Arguments(
                 self.space, arguments, keywords, keywords_w, w_star,
-                w_starstar, methodcall=methodcall)
+                w_starstar, methodcall=methodcall, fnname_parens=fnname_parens)
 
     def hide(self):
         return self.pycode.hidden_applevel

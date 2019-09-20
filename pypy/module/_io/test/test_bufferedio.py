@@ -4,10 +4,14 @@ from rpython.tool.udir import udir
 from pypy.module._io import interp_bufferedio
 from pypy.interpreter.error import OperationError
 import py.test
+import os
+
 
 class AppTestBufferedReader:
     spaceconfig = dict(usemodules=['_io'])
-
+    if os.name != 'nt':
+        spaceconfig['usemodules'].append('fcntl')
+        
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
@@ -15,6 +19,10 @@ class AppTestBufferedReader:
         bigtmpfile = udir.join('bigtmpfile')
         bigtmpfile.write("a\nb\nc" * 20, mode='wb')
         cls.w_bigtmpfile = cls.space.wrap(str(bigtmpfile))
+        #
+        cls.w_posix = cls.space.appexec([], """():
+            import %s as m;
+            return m""" % os.name)
 
     def test_simple_read(self):
         import _io
@@ -380,8 +388,27 @@ class AppTestBufferedReader:
         assert write_called
         assert rawio.getvalue() == data * 11 # all flushed
 
+    def test_readline_issue3042(self):
+        import _io as io
+        try:
+            import fcntl
+        except ImportError:
+            skip('fcntl missing')
+        fdin, fdout = self.posix.pipe()
+        f = io.open(fdin, "rb")
+        fl = fcntl.fcntl(f, fcntl.F_GETFL)
+        fcntl.fcntl(f, fcntl.F_SETFL, fl | self.posix.O_NONBLOCK)
+        s = f.readline()
+        assert s == b''
+        f.close()
+        self.posix.close(fdout)
+
+
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
+    if os.name != 'nt':
+        spaceconfig['usemodules'].append('fcntl')
+        
 
     def test_readinto_small_parts(self):
         import _io, os, _thread, time
@@ -493,6 +520,17 @@ class AppTestBufferedWriter:
         assert b.seek(8) == 8
         assert b.truncate() == 8
         assert b.tell() == 8
+
+    def test_truncate_after_write(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'rb+')
+        raw.write(b'\x00' * 50)
+        raw.seek(0)
+        b = _io.BufferedRandom(raw, 10)
+        b.write(b'\x00' * 11)
+        b.read(1)
+        b.truncate()
+        assert b.tell() == 12
 
     def test_write_non_blocking(self):
         import _io, io

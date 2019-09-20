@@ -35,7 +35,7 @@ pypy_GetFinalPathNameByHandle = rffi.llexternal(
 
 
 # plain NotImplementedError is invalid RPython
-class LLNotImplemented(NotImplementedError):
+class LLNotImplemented(Exception):
 
     def __init__(self, msg):
         self.msg = msg

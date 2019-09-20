@@ -7,7 +7,7 @@ import sys, os, stat, re, platform
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
@@ -77,6 +77,22 @@ def check_sys_modules_w(space, modulename):
 lib_pypy = os.path.join(os.path.dirname(__file__),
                         '..', '..', '..', 'lib_pypy')
 
+def _readall(space, filename):
+    try:
+        fd = os.open(filename, os.O_RDONLY, 0400)
+        try:
+            result = []
+            while True:
+                data = os.read(fd, 8192)
+                if not data:
+                    break
+                result.append(data)
+        finally:
+            os.close(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e, filename)
+    return ''.join(result)
+
 @unwrap_spec(modulename='fsencode', level=int)
 def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None, level=0):
     # A minimal version, that can only import builtin and lib_pypy modules!
@@ -94,8 +110,7 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
             return space.getbuiltinmodule(modulename)
 
         ec = space.getexecutioncontext()
-        with open(os.path.join(lib_pypy, modulename + '.py')) as fp:
-            source = fp.read()
+        source = _readall(space, os.path.join(lib_pypy, modulename + '.py'))
         pathname = "<frozen %s>" % modulename
         code_w = ec.compiler.compile(source, pathname, 'exec', 0)
         w_mod = add_module(space, space.newtext(modulename))
@@ -266,6 +281,20 @@ def exec_code_module(space, w_mod, code_w, pathname, cpathname,
             w_cpathname = space.w_None
         space.setitem(w_dict, space.newtext("__file__"), w_pathname)
         space.setitem(w_dict, space.newtext("__cached__"), w_cpathname)
+        #
+        # like PyImport_ExecCodeModuleObject(), we invoke
+        # _bootstrap_external._fix_up_module() here, which should try to
+        # fix a few more attributes (also __file__ and __cached__, but
+        # let's keep the logic that also sets them explicitly above, just
+        # in case)
+        space.appexec([w_dict, w_pathname, w_cpathname],
+            """(d, pathname, cpathname):
+                from importlib._bootstrap_external import _fix_up_module
+                name = d.get('__name__')
+                if name is not None:
+                    _fix_up_module(d, name, pathname, cpathname)
+            """)
+        #
     code_w.exec_code(space, w_dict, w_dict)
 
 def rightmost_sep(filename):
@@ -388,11 +417,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
-    try:
-        optimize = space.sys.get_flag('optimize')
-    except RuntimeError:
-        # during bootstrapping
-        optimize = 0
+    optimize = space.sys.get_optimize()
     if optimize >= 2:
         code_w.remove_docstrings(space)
 

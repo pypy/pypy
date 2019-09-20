@@ -210,20 +210,6 @@ class _AppTestSelect:
             raises(ValueError, select.select, [], [2000000000], [])
             raises(ValueError, select.select, [], [], [2000000000])
 
-    def test_poll(self):
-        import select
-        if not hasattr(select, 'poll'):
-            skip("no select.poll() on this platform")
-        readend, writeend = self.getpair()
-        try:
-            class A(object):
-                def __int__(self):
-                    return readend.fileno()
-            select.poll().poll(A()) # assert did not crash
-        finally:
-            readend.close()
-            writeend.close()
-
     def test_poll_arguments(self):
         import select
         if not hasattr(select, 'poll'):
@@ -238,7 +224,6 @@ class _AppTestSelect:
         pollster.register(0, 65535) # USHRT_MAX
         raises(OverflowError, pollster.register, 0, 65536) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
-        raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
         exc = raises(TypeError, pollster.poll, '123')
         assert str(exc.value) == 'timeout must be an integer or None'
@@ -273,6 +258,36 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 return os.close(self.fd)
         s1, s2 = os.pipe()
         return FileAsSocket(s1), FileAsSocket(s2)
+
+    def test_poll(self):
+        import select
+        if not hasattr(select, 'poll'):
+            skip("no select.poll() on this platform")
+        readend, writeend = self.getpair()
+        try:
+            class A(object):
+                def fileno(self):
+                    return readend.fileno()
+            poll = select.poll()
+            poll.register(A())
+
+            res = poll.poll(10) # timeout in ms
+            assert res == []
+            res = poll.poll(1.1) # check floats
+            assert res == []
+
+            writeend.send(b"foo!")
+            # can't easily test actual blocking, is done in lib-python tests
+            res = poll.poll()
+            assert res == [(readend.fileno(), 1)]
+
+            # check negative timeout
+            # proper test in lib-python, test_poll_blocks_with_negative_ms
+            res = poll.poll(-0.001)
+            assert res == [(readend.fileno(), 1)]
+        finally:
+            readend.close()
+            writeend.close()
 
     def test_poll_threaded(self):
         import os, select, _thread as thread, time

@@ -111,6 +111,11 @@ class AppTestTime:
         else:
             time.localtime(-1)
 
+    def test_localtime_invalid(self):
+        from time import localtime
+        exc = raises(ValueError, localtime, float('nan'))
+        assert 'Invalid value' in str(exc.value)
+
     def test_mktime(self):
         import time
         import os, sys

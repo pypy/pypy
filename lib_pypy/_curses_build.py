@@ -34,6 +34,13 @@ ffi.set_source("_curses_cffi", """
 #define NCURSES_OPAQUE 0
 #endif
 
+
+/* ncurses 6 change behaviour  and makes all pointers opaque, 
+  lets define backward compatibility. It doesn't harm 
+  previous versions */
+
+#define NCURSES_INTERNALS 1
+#define NCURSES_REENTRANT 0
 #include <ncurses.h>
 #include <panel.h>
 #include <term.h>
@@ -90,6 +97,7 @@ MEVENT;
 static const int ERR, OK;
 static const int TRUE, FALSE;
 static const int KEY_MIN, KEY_MAX;
+static const int KEY_CODE_YES;
 
 static const int COLOR_BLACK;
 static const int COLOR_RED;

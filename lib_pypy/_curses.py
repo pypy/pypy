@@ -412,7 +412,10 @@ class Window(object):
         else:
             raise error("get_wch requires 0 or 2 arguments")
         _check_ERR(val, "get_wch")
-        return wch[0]
+        if val == lib.KEY_CODE_YES:
+            return wch[0]
+        else:
+            return chr(wch[0])
 
     def getkey(self, *args):
         if len(args) == 0:

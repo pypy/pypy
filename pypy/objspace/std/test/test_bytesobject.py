@@ -424,6 +424,14 @@ class AppTestBytesObject:
         assert b'ab'.startswith(b'b', 1) is True
         assert b'abc'.startswith(b'bc', 1, 2) is False
         assert b'abc'.startswith(b'c', -1, 4) is True
+        assert b'0'.startswith(b'', 1, -1) is False
+        assert b'0'.startswith(b'', 1, 0) is False
+        assert b'0'.startswith(b'', 1) is True
+        assert b'0'.startswith(b'', 1, None) is True
+        assert b''.startswith(b'', 1, -1) is False
+        assert b''.startswith(b'', 1, 0) is False
+        assert b''.startswith(b'', 1) is False
+        assert b''.startswith(b'', 1, None) is False
 
     def test_startswith_too_large(self):
         assert b'ab'.startswith(b'b', 1) is True
@@ -467,6 +475,7 @@ class AppTestBytesObject:
         assert b'abc'.endswith(b'bc', 1) is True
         assert b'abc'.endswith(b'bc', 2) is False
         assert b'abc'.endswith(b'b', -3, -1) is True
+        assert b'0'.endswith(b'', 1, -1) is False
 
     def test_endswith_tuple(self):
         assert not b'hello'.endswith((b'he', b'ha'))

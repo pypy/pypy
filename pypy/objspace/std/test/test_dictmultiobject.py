@@ -722,6 +722,19 @@ class AppTest_DictObject:
         # pointless waste of time.  So the following test fails now.
         assert list(dict(abcdef=1))[0] is 'abcdef'
 
+    def test_dict_copy(self):
+        class my_dict_1(dict):
+            def keys(self):
+                return iter(['b'])
+
+        class my_dict_2(my_dict_1):
+            __iter__ = 42
+
+        d1 = my_dict_1({'a': 1, 'b': 2})
+        assert dict(d1) == {'a': 1, 'b': 2}  # doesn't use overridden keys()
+
+        d2 = my_dict_2({'a': 1, 'b': 2})
+        assert dict(d2) == {'b': 2}  # uses overridden keys()
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
@@ -881,6 +894,11 @@ class AppTestDictViews:
                 r == "dict_values([10, 'ABC'])")
         d = {'日本': '日本国'}
         assert repr(d.items()) == "dict_items([('日本', '日本国')])"
+
+    def test_recursive_repr(self):
+        d = {1: 2}
+        d[2] = d.values()
+        assert repr(d) == '{1: 2, 2: dict_values([2, ...])}'
 
     def test_keys_set_operations(self):
         d1 = {'a': 1, 'b': 2}

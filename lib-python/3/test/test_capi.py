@@ -13,7 +13,7 @@ import time
 import unittest
 from test import support
 from test.support import MISSING_C_DOCSTRINGS
-from test.support.script_helper import assert_python_failure
+from test.support.script_helper import assert_python_failure, assert_python_ok
 try:
     import _posixsubprocess
 except ImportError:
@@ -106,7 +106,7 @@ class CAPITest(unittest.TestCase):
             def __len__(self):
                 return 1
         self.assertRaises(TypeError, _posixsubprocess.fork_exec,
-                          1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
+                          1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17)
         # Issue #15736: overflow in _PySequence_BytesToCharpArray()
         class Z(object):
             def __len__(self):
@@ -114,7 +114,7 @@ class CAPITest(unittest.TestCase):
             def __getitem__(self, i):
                 return b'x'
         self.assertRaises(MemoryError, _posixsubprocess.fork_exec,
-                          1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
+                          1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17)
 
     @unittest.skipUnless(_posixsubprocess, '_posixsubprocess required for this test.')
     def test_subprocess_fork_exec(self):
@@ -124,7 +124,7 @@ class CAPITest(unittest.TestCase):
 
         # Issue #15738: crash in subprocess_fork_exec()
         self.assertRaises(TypeError, _posixsubprocess.fork_exec,
-                          Z(),[b'1'],3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
+                          Z(),[b'1'],3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17)
 
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
@@ -249,6 +249,38 @@ class CAPITest(unittest.TestCase):
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
 
+    def test_set_nomemory(self):
+        code = """if 1:
+            import _testcapi
+
+            class C(): pass
+
+            # The first loop tests both functions and that remove_mem_hooks()
+            # can be called twice in a row. The second loop checks a call to
+            # set_nomemory() after a call to remove_mem_hooks(). The third
+            # loop checks the start and stop arguments of set_nomemory().
+            for outer_cnt in range(1, 4):
+                start = 10 * outer_cnt
+                for j in range(100):
+                    if j == 0:
+                        if outer_cnt != 3:
+                            _testcapi.set_nomemory(start)
+                        else:
+                            _testcapi.set_nomemory(start, start + 1)
+                    try:
+                        C()
+                    except MemoryError as e:
+                        if outer_cnt != 3:
+                            _testcapi.remove_mem_hooks()
+                        print('MemoryError', outer_cnt, j)
+                        _testcapi.remove_mem_hooks()
+                        break
+        """
+        rc, out, err = assert_python_ok('-c', code)
+        self.assertIn(b'MemoryError 1 10', out)
+        self.assertIn(b'MemoryError 2 20', out)
+        self.assertIn(b'MemoryError 3 30', out)
+
 
 @unittest.skipIf(support.check_impl_detail(pypy=True),
                  'Py_AddPendingCall not currently supported.')
@@ -352,15 +384,6 @@ class SubinterpreterTest(unittest.TestCase):
             self.assertNotEqual(pickle.load(f), id(builtins))
 
 
-# Bug #6012
-class Test6012(unittest.TestCase):
-    def test(self):
-        # PyPy change: Mask out higher bits of reference count.  PyPy increases
-        # the reference count by a high number if the object is linked to a
-        # PyPy object.
-        self.assertEqual(_testcapi.argparsing("Hello", "World") & 0xfffffff, 1)
-
-
 class EmbeddingTests(unittest.TestCase):
     def setUp(self):
         here = os.path.abspath(__file__)
@@ -384,48 +407,45 @@ class EmbeddingTests(unittest.TestCase):
     def tearDown(self):
         os.chdir(self.oldcwd)
 
-    def run_embedded_interpreter(self, *args):
+    def run_embedded_interpreter(self, *args, env=None):
         """Runs a test in the embedded interpreter"""
         cmd = [self.test_exe]
         cmd.extend(args)
+        if env is not None and sys.platform == 'win32':
+            # Windows requires at least the SYSTEMROOT environment variable to
+            # start Python.
+            env = env.copy()
+            env['SYSTEMROOT'] = os.environ['SYSTEMROOT']
+
         p = subprocess.Popen(cmd,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE,
-                             universal_newlines=True)
+                             universal_newlines=True,
+                             env=env)
         (out, err) = p.communicate()
         self.assertEqual(p.returncode, 0,
                          "bad returncode %d, stderr is %r" %
                          (p.returncode, err))
         return out, err
 
-    def test_subinterps(self):
+    def test_repeated_init_and_subinterpreters(self):
         # This is just a "don't crash" test
-        out, err = self.run_embedded_interpreter()
+        out, err = self.run_embedded_interpreter('repeated_init_and_subinterpreters')
         if support.verbose:
             print()
             print(out)
             print(err)
-
-    @staticmethod
-    def _get_default_pipe_encoding():
-        rp, wp = os.pipe()
-        try:
-            with os.fdopen(wp, 'w') as w:
-                default_pipe_encoding = w.encoding
-        finally:
-            os.close(rp)
-        return default_pipe_encoding
 
     def test_forced_io_encoding(self):
         # Checks forced configuration of embedded interpreter IO streams
-        out, err = self.run_embedded_interpreter("forced_io_encoding")
+        env = dict(os.environ, PYTHONIOENCODING="utf-8:surrogateescape")
+        out, err = self.run_embedded_interpreter("forced_io_encoding", env=env)
         if support.verbose:
             print()
             print(out)
             print(err)
-        expected_errors = sys.__stdout__.errors
-        expected_stdin_encoding = sys.__stdin__.encoding
-        expected_pipe_encoding = self._get_default_pipe_encoding()
+        expected_stream_encoding = "utf-8"
+        expected_errors = "surrogateescape"
         expected_output = '\n'.join([
         "--- Use defaults ---",
         "Expected encoding: default",
@@ -452,120 +472,22 @@ class EmbeddingTests(unittest.TestCase):
         "stdout: latin-1:replace",
         "stderr: latin-1:backslashreplace"])
         expected_output = expected_output.format(
-                                in_encoding=expected_stdin_encoding,
-                                out_encoding=expected_pipe_encoding,
+                                in_encoding=expected_stream_encoding,
+                                out_encoding=expected_stream_encoding,
                                 errors=expected_errors)
         # This is useful if we ever trip over odd platform behaviour
         self.maxDiff = None
         self.assertEqual(out.strip(), expected_output)
 
-
-class SkipitemTest(unittest.TestCase):
-
-    def test_skipitem(self):
+    def test_pre_initialization_api(self):
         """
-        If this test failed, you probably added a new "format unit"
-        in Python/getargs.c, but neglected to update our poor friend
-        skipitem() in the same file.  (If so, shame on you!)
-
-        With a few exceptions**, this function brute-force tests all
-        printable ASCII*** characters (32 to 126 inclusive) as format units,
-        checking to see that PyArg_ParseTupleAndKeywords() return consistent
-        errors both when the unit is attempted to be used and when it is
-        skipped.  If the format unit doesn't exist, we'll get one of two
-        specific error messages (one for used, one for skipped); if it does
-        exist we *won't* get that error--we'll get either no error or some
-        other error.  If we get the specific "does not exist" error for one
-        test and not for the other, there's a mismatch, and the test fails.
-
-           ** Some format units have special funny semantics and it would
-              be difficult to accommodate them here.  Since these are all
-              well-established and properly skipped in skipitem() we can
-              get away with not testing them--this test is really intended
-              to catch *new* format units.
-
-          *** Python C source files must be ASCII.  Therefore it's impossible
-              to have non-ASCII format units.
-
+        Checks the few parts of the C-API that work before the runtine
+        is initialized (via Py_Initialize()).
         """
-        empty_tuple = ()
-        tuple_1 = (0,)
-        dict_b = {'b':1}
-        keywords = ["a", "b"]
-
-        for i in range(32, 127):
-            c = chr(i)
-
-            # skip parentheses, the error reporting is inconsistent about them
-            # skip 'e', it's always a two-character code
-            # skip '|' and '$', they don't represent arguments anyway
-            if c in '()e|$':
-                continue
-
-            # test the format unit when not skipped
-            format = c + "i"
-            try:
-                # (note: the format string must be bytes!)
-                _testcapi.parse_tuple_and_keywords(tuple_1, dict_b,
-                    format.encode("ascii"), keywords)
-                when_not_skipped = False
-            except SystemError as e:
-                s = "argument 1 (impossible<bad format char>)"
-                when_not_skipped = (str(e) == s)
-            except TypeError:
-                when_not_skipped = False
-
-            # test the format unit when skipped
-            optional_format = "|" + format
-            try:
-                _testcapi.parse_tuple_and_keywords(empty_tuple, dict_b,
-                    optional_format.encode("ascii"), keywords)
-                when_skipped = False
-            except SystemError as e:
-                s = "impossible<bad format char>: '{}'".format(format)
-                when_skipped = (str(e) == s)
-
-            message = ("test_skipitem_parity: "
-                "detected mismatch between convertsimple and skipitem "
-                "for format unit '{}' ({}), not skipped {}, skipped {}".format(
-                    c, i, when_skipped, when_not_skipped))
-            self.assertIs(when_skipped, when_not_skipped, message)
-
-    def test_parse_tuple_and_keywords(self):
-        # parse_tuple_and_keywords error handling tests
-        self.assertRaises(TypeError, _testcapi.parse_tuple_and_keywords,
-                          (), {}, 42, [])
-        self.assertRaises(ValueError, _testcapi.parse_tuple_and_keywords,
-                          (), {}, b'', 42)
-        self.assertRaises(ValueError, _testcapi.parse_tuple_and_keywords,
-                          (), {}, b'', [''] * 42)
-        self.assertRaises(ValueError, _testcapi.parse_tuple_and_keywords,
-                          (), {}, b'', [42])
-
-    def test_positional_only(self):
-        parse = _testcapi.parse_tuple_and_keywords
-
-        parse((1, 2, 3), {}, b'OOO', ['', '', 'a'])
-        parse((1, 2), {'a': 3}, b'OOO', ['', '', 'a'])
-        with self.assertRaisesRegex(TypeError,
-               r'Function takes at least 2 positional arguments \(1 given\)'):
-            parse((1,), {'a': 3}, b'OOO', ['', '', 'a'])
-        parse((1,), {}, b'O|OO', ['', '', 'a'])
-        with self.assertRaisesRegex(TypeError,
-               r'Function takes at least 1 positional arguments \(0 given\)'):
-            parse((), {}, b'O|OO', ['', '', 'a'])
-        parse((1, 2), {'a': 3}, b'OO$O', ['', '', 'a'])
-        with self.assertRaisesRegex(TypeError,
-               r'Function takes exactly 2 positional arguments \(1 given\)'):
-            parse((1,), {'a': 3}, b'OO$O', ['', '', 'a'])
-        parse((1,), {}, b'O|O$O', ['', '', 'a'])
-        with self.assertRaisesRegex(TypeError,
-               r'Function takes at least 1 positional arguments \(0 given\)'):
-            parse((), {}, b'O|O$O', ['', '', 'a'])
-        with self.assertRaisesRegex(SystemError, r'Empty parameter name after \$'):
-            parse((1,), {}, b'O|$OO', ['', '', 'a'])
-        with self.assertRaisesRegex(SystemError, 'Empty keyword'):
-            parse((1,), {}, b'O|OO', ['', 'a', ''])
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path))
+        out, err = self.run_embedded_interpreter("pre_initialization_api", env=env)
+        self.assertEqual(out, '')
+        self.assertEqual(err, '')
 
 
 @unittest.skipIf(support.check_impl_detail(pypy=True),
@@ -596,12 +518,9 @@ class TestThreadState(unittest.TestCase):
 
 
 class Test_testcapi(unittest.TestCase):
-    def test__testcapi(self):
-        for name in dir(_testcapi):
-            if name.startswith('test_') and name not in skips:
-                with self.subTest("internal", name=name):
-                    test = getattr(_testcapi, name)
-                    test()
+    locals().update((name, getattr(_testcapi, name))
+                    for name in dir(_testcapi)
+                    if name.startswith('test_') and name not in skips and not name.endswith('_code'))
 
 
 class PyMemDebugTests(unittest.TestCase):
@@ -629,6 +548,8 @@ class PyMemDebugTests(unittest.TestCase):
                  r"    The block was made by call #[0-9]+ to debug malloc/realloc.\n"
                  r"    Data at p: cb cb cb .*\n"
                  r"\n"
+                 r"Enable tracemalloc to get the memory block allocation traceback\n"
+                 r"\n"
                  r"Fatal Python error: bad trailing pad byte")
         regex = regex.format(ptr=self.PTR_REGEX)
         regex = re.compile(regex, flags=re.DOTALL)
@@ -642,6 +563,8 @@ class PyMemDebugTests(unittest.TestCase):
                  r"    The [0-9] pad bytes at tail={ptr} are FORBIDDENBYTE, as expected.\n"
                  r"    The block was made by call #[0-9]+ to debug malloc/realloc.\n"
                  r"    Data at p: cb cb cb .*\n"
+                 r"\n"
+                 r"Enable tracemalloc to get the memory block allocation traceback\n"
                  r"\n"
                  r"Fatal Python error: bad ID: Allocated using API 'm', verified using API 'r'\n")
         regex = regex.format(ptr=self.PTR_REGEX)
