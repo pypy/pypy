@@ -194,8 +194,8 @@ def find_end_of_string_slow(ll_chars, i, length):
         bits |= ord(ch)
 
         word |= ord(ch) << shift
-        shift += WORD_SIZE
-        if shift == WORD_SIZE * WORD_SIZE:
+        shift += 8
+        if shift == WORD_SIZE * 8:
             strhash = intmask((1000003 * strhash) ^ word)
             shift = 0
             word = 0
