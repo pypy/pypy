@@ -12,7 +12,12 @@ class SyntaxError(Exception):
         self.filename = filename
         self.lastlineno = lastlineno
 
-    def wrap_info(self, space, source=None):
+    def find_sourceline_and_wrap_info(self, space, source=None):
+        """ search for the line of input that caused the error and then return
+        a wrapped tuple that can be used to construct a wrapped SyntaxError.
+        Optionally pass source, to get better error messages for the case where
+        this instance was constructed without a source line (.text
+        attribute)"""
         text = self.text
         if text is None and source is not None and self.lineno:
             lines = source.splitlines(True)
