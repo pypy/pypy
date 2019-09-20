@@ -131,7 +131,7 @@ class PythonAstCompiler(PyCodeCompiler):
             mod = optimize.optimize_ast(space, node, info)
             code = codegen.compile_ast(space, mod, info)
         except parseerror.SyntaxError as e:
-            raise OperationError(space.w_SyntaxError, e.wrap_info(space, source))
+            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source))
         return code
 
     def compile_to_ast(self, source, filename, mode, flags):
@@ -144,9 +144,9 @@ class PythonAstCompiler(PyCodeCompiler):
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info)
         except parseerror.IndentationError as e:
-            raise OperationError(space.w_IndentationError, e.wrap_info(space))
+            raise OperationError(space.w_IndentationError, e.find_sourceline_and_wrap_info(space))
         except parseerror.SyntaxError as e:
-            raise OperationError(space.w_SyntaxError, e.wrap_info(space, source))
+            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source))
         return mod
 
     def compile(self, source, filename, mode, flags, hidden_applevel=False):
