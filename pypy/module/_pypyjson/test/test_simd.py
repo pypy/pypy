@@ -5,6 +5,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 
 from pypy.module._pypyjson.simd import USE_SIMD
 from pypy.module._pypyjson.simd import find_end_of_string_slow
+from pypy.module._pypyjson.simd import find_end_of_string_slow_no_hash
 from pypy.module._pypyjson.simd import print_chars
 from pypy.module._pypyjson.simd import find_end_of_string_simd_unaligned, WORD_SIZE
 from pypy.module._pypyjson.simd import find_end_of_string_simd_unaligned_no_hash
@@ -74,6 +75,8 @@ def test_find_end_of_string(a):
     (string, startindex) = a
     res = ll(find_end_of_string_slow, string, startindex, len(string))
     hash, nonascii1, endposition1 = res
+    res2 = ll(find_end_of_string_slow_no_hash, string, startindex, len(string))
+    assert res2 == (nonascii1, endposition1)
     ch = string[endposition1]
     assert ch == '"' or ch == '\\' or ch < '\x20'
     for ch in string[startindex:endposition1]:

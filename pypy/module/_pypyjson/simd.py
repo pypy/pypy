@@ -68,9 +68,9 @@ def index_zero(word):
         word >>= 8
     assert 0 # XXX ???
 
-def splice_words(word, offset, other):
-    mask = ((~r_uint(0)) << (8 * offset))
-    return (word & mask) | (other & ~mask)
+def set_high_bytes_to_zero(word, keep_bytes):
+    mask = ((~r_uint(0)) << (8 * keep_bytes))
+    return word & ~mask
 
 
 
@@ -107,11 +107,13 @@ def find_end_of_string_simd_unaligned(ll_chars, startpos, length):
         # didn't find end of string yet, look at remaining chars
         word = 0
         shift = 0
-        i = 0
-        for i in range(num_safe_reads * WORD_SIZE + startpos, length + 1):
+        i = startpos + num_safe_reads * WORD_SIZE
+        while True:   # this loop should run at most WORD_SIZE times,
+                      # if we assume that ll_chars[length] == '\x00'
             ch = ll_chars[i]
             if ch == '"' or ch == '\\' or ch < '\x20':
                 break
+            i += 1
             bits |= ord(ch)
             word |= ord(ch) << shift
             shift += 8
@@ -125,7 +127,7 @@ def find_end_of_string_simd_unaligned(ll_chars, startpos, length):
     nonzero = index_nonzero(cond)
     endposition = startpos + i * WORD_SIZE + nonzero
     if nonzero:
-        word = splice_words(r_uint(0), nonzero, word)
+        word = set_high_bytes_to_zero(word, nonzero)
         bits |= word
         strhash = intmask((1000003 * strhash) ^ intmask(word))
 
@@ -149,16 +151,14 @@ def find_end_of_string_simd_unaligned_no_hash(ll_chars, startpos, length):
         bits |= word
     else:
         # didn't find end of string yet, look at remaining chars
-        word = 0
-        shift = 0
-        i = 0
-        for i in range(num_safe_reads * WORD_SIZE + startpos, length + 1):
+        i = startpos + num_safe_reads * WORD_SIZE
+        while True:   # this loop should run at most WORD_SIZE times,
+                      # if we assume that ll_chars[length] == '\x00'
             ch = ll_chars[i]
             if ch == '"' or ch == '\\' or ch < '\x20':
                 break
+            i += 1
             bits |= ord(ch)
-            word |= ord(ch) << shift
-            shift += WORD_SIZE
 
         nonascii = bool(bits & char_repeated_word_width(chr(0x80)))
         return nonascii, i
@@ -167,7 +167,7 @@ def find_end_of_string_simd_unaligned_no_hash(ll_chars, startpos, length):
     nonzero = index_nonzero(cond)
     endposition = startpos + i * WORD_SIZE + nonzero
     if nonzero:
-        word = splice_words(r_uint(0), nonzero, word)
+        word = set_high_bytes_to_zero(word, nonzero)
         bits |= word
 
     nonascii = bool(bits & char_repeated_word_width(chr(0x80)))
@@ -204,15 +204,22 @@ def find_end_of_string_slow(ll_chars, i, length):
         strhash = intmask((1000003 * strhash) ^ word)
     return strhash, bool(bits & 0x80), i
 
+@objectmodel.always_inline
+def find_end_of_string_slow_no_hash(ll_chars, i, length):
+    bits = 0
+    while True:
+        # this loop is a fast path for strings which do not contain escape
+        # characters
+        ch = ll_chars[i]
+        if ch == '"' or ch == '\\' or ch < '\x20':
+            break
+        i += 1
+        bits |= ord(ch)
+    return bool(bits & 0x80), i
+
 if USE_SIMD:
     find_end_of_string = find_end_of_string_simd_unaligned
     find_end_of_string_no_hash = find_end_of_string_simd_unaligned_no_hash
 else:
     find_end_of_string = find_end_of_string_slow
-
-    @objectmodel.always_inline
-    def find_end_of_string_no_hash(ll_chars, i, length):
-        _, nonascii, i = find_end_of_string_slow(ll_chars, i, length)
-        return (nonascii, i)
-
-
+    find_end_of_string_no_hash = find_end_of_string_slow_no_hash
