@@ -46,6 +46,7 @@ def GetCConfigGlobal():
         _O_RDWR   = platform.ConstantInteger('_O_RDWR')
         _O_TRUNC  = platform.ConstantInteger('_O_TRUNC')
         _O_WRONLY = platform.ConstantInteger('_O_WRONLY')
+        _O_BINARY = platform.ConstantInteger('_O_BINARY')
         FILE_TYPE_UNKNOWN = platform.ConstantInteger('FILE_TYPE_UNKNOWN')
         FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
         FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
@@ -140,6 +141,7 @@ def make_win32_traits(traits):
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
                        ERROR_SHARING_VIOLATION MOVEFILE_REPLACE_EXISTING
                        ERROR_ACCESS_DENIED
+                       _O_RDONLY _O_WRONLY _O_BINARY
                     '''.split():
             locals()[name] = config[name]
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)

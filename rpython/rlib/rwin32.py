@@ -252,6 +252,7 @@ if WIN32:
     _open_osfhandle = rffi.llexternal('_open_osfhandle', [rffi.INTP, rffi.INT], rffi.INT)
 
     def open_osfhandle(handle, flags):
+        from rpython.rlib.rposix import FdValidator
         fd = _open_osfhandle(handle, flags)
         with FdValidator(fd):
             return fd

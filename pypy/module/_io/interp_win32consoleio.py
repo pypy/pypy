@@ -12,6 +12,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib._os_support import _preferred_traits
 from rpython.rlib import rwin32
 from rpython.rlib.rwin32file import make_win32_traits
+
 from rpython.rtyper.tool import rffi_platform as platform
 
 import unicodedata
@@ -164,9 +165,6 @@ class W_WinConsoleIO(W_RawIOBase):
         self.writable = False
         self.closehandle = False
         self.blksize = 0
-
-    # def _internal_close(self, space):
-        # pass
         
     def _copyfrombuf(self, buf, len):
         n = 0
@@ -200,6 +198,9 @@ class W_WinConsoleIO(W_RawIOBase):
         try:
             if space.isinstance_w(w_nameobj, space.w_int): 
                 self.fd = space.int_w(w_nameobj)
+                if self.fd < 0:
+                    raise oefmt(space.w_ValueError,
+                            "negative file descriptor")
 
             # make the flow analysis happy,otherwise it thinks w_path
             # is undefined later
@@ -325,11 +326,13 @@ class W_WinConsoleIO(W_RawIOBase):
             return space.newtext("<%s name=%s>" % (typename, name_repr))
             
     def fileno_w(self, space):
+        traits = _preferred_traits(u"")
+        win32traits = make_win32_traits(traits)
         if self.fd < 0 and self.handle != rwin32.INVALID_HANDLE_VALUE:
             if self.writable:
-                self.fd = rwin32.open_osfhandle(self.handle, rwin32._O_WRONLY | rwin32._O_BINARY)
+                self.fd = rwin32.open_osfhandle(self.handle, win32traits._O_WRONLY | win32traits._O_BINARY)
             else:
-                self.fd = rwin32.open_osfhandle(self.handle, rwin32._O_RDONLY | rwin32._O_BINARY)
+                self.fd = rwin32.open_osfhandle(self.handle, win32traits._O_RDONLY | win32traits._O_BINARY)
         if self.fd < 0:
             return err_mode(space, "fileno")
         return space.newint(self.fd)
@@ -438,9 +441,9 @@ class W_WinConsoleIO(W_RawIOBase):
             err_closed(space)
 
         bufsize = BUFSIZ
-        buf = lltype.malloc(rffi.CWCHARP, bufsize + 1, flavor='raw')
+        buf = lltype.malloc(rffi.CWCHARP.TO, bufsize + 1, flavor='raw')
         len = 0
-        n = lltype.malloc(rffi.CWCHARP, 1, flavor='raw')
+        n = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
         n[0] = 0
 
         try:
@@ -456,7 +459,7 @@ class W_WinConsoleIO(W_RawIOBase):
                                     "than a Python bytes object can hold")
                     bufsize = newsize
                     lltype.free(buf, flavor='raw')
-                    buf = lltype.malloc(rffi.CWCHARP, bufsize + 1, flavor='raw')
+                    buf = lltype.malloc(rffi.CWCHARP.TO, bufsize + 1, flavor='raw')
                     subbuf = read_console_w(self.handle, bufsize - len, n)
                     
                     if n > 0:
@@ -485,7 +488,7 @@ class W_WinConsoleIO(W_RawIOBase):
             bytes_size += self._buflen()
             
             # Create destination buffer and convert the bytes
-            bytes = lltype.malloc(rffi.CCHARP, bytes_size, flavor='raw')
+            bytes = lltype.malloc(rffi.CCHARP.TO, bytes_size, flavor='raw')
             rn = self._copyfrombuf(bytes, bytes_size)
             
             if len:
@@ -509,60 +512,60 @@ class W_WinConsoleIO(W_RawIOBase):
 
     def write_w(self, space, w_data):
         buffer = space.charbuf_w(w_data)
-        n = lltype.malloc(rwin32.LPDWORD.TO, 0, flavor='raw')
+        with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
         
-        if self.handle == rwin32.INVALID_HANDLE_VALUE:
-            return err_closed(space)
+            if self.handle == rwin32.INVALID_HANDLE_VALUE:
+                return err_closed(space)
             
-        if not self.writable:
-            return err_mode(space,"writing")
+            if not self.writable:
+                return err_mode(space,"writing")
             
-        if not len(buffer):
-            return 0
-            
-        if len(buffer) > BUFMAX:
-            buflen = BUFMAX
-        else:
-            buflen = len(buffer)
-        
-        wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
-        
-        while wlen > (32766 / rffi.sizeof(rffi.CWCHARP)):
-            buflen /= 2
-            wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
-            
-        if not wlen:
-            lltype.free(n, flavor='raw')
-            raise WindowsError("Failed to convert bytes to wide characters")
-        
-        with lltype.scoped_alloc(rffi.CWCHARP, wlen) as wbuf:
-            wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, wbuf, wlen)
-            if wlen:
-                res = rwin32.WriteConsoleW(self.handle, wbuf, wlen, n , rffi.NULL)
-                
-                if res and n < wlen:
-                    buflen = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf, n,
-                    rffi.NULL, 0, rffi.NULL, rffi.NULL)
-                
-                    if buflen:
-                        wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0, buffer,
-                        buflen, rffi.NULL, 0)
-                        assert len == wlen
-                        
-            else:
-                res = 0
-                
-            if not res:
-                err = rwin32.GetLastError_saved()
+            if not len(buffer):
                 lltype.free(n, flavor='raw')
-                raise WindowsError(err, "Failed to convert multi byte string to wide characters")
+                return space.newint(0)
+            
+            if len(buffer) > BUFMAX:
+                buflen = BUFMAX
+            else:
+                buflen = len(buffer)
+        
+            wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
+        
+            while wlen > (32766 / rffi.sizeof(rffi.CWCHARP)):
+                buflen /= 2
+                wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
+            
+            if not wlen:
+                lltype.free(n, flavor='raw')
+                raise WindowsError("Failed to convert bytes to wide characters")
+        
+            with lltype.scoped_alloc(rffi.CWCHARP.TO, wlen) as wbuf:
+                wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, wbuf, wlen)
+                if wlen:
+                    res = rwin32.WriteConsoleW(self.handle, rffi.cast(rwin32.LPVOID, wbuf), wlen, n , rffi.NULL)
                 
-            lltype.free(n, flavor='raw')
-            return space.newint(len)
+                    if res and n < wlen:
+                        buflen = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf, n,
+                        rffi.NULL, 0, rffi.NULL, rffi.NULL)
+                
+                        if buflen:
+                            wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0, buffer,
+                            buflen, rffi.NULL, 0)
+                            assert buflen == wlen
+                        
+                else:
+                    res = 0
+                
+                if not res:
+                    err = rwin32.GetLastError_saved()
+                    raise WindowsError(err, "Failed to convert multi byte string to wide characters")
+                
+                return space.newint(buflen)
             
     def get_blksize(self,space):
         return space.newint(self.blksize)
         
+
 W_WinConsoleIO.typedef = TypeDef(
     '_io.WinConsoleIO', W_RawIOBase.typedef,
     __new__  = generic_new_descr(W_WinConsoleIO),
@@ -574,7 +577,8 @@ W_WinConsoleIO.typedef = TypeDef(
     isatty   = interp2app(W_WinConsoleIO.isatty_w),
     read     = interp2app(W_WinConsoleIO.read_w),
     readall  = interp2app(W_WinConsoleIO.readall_w),
-    readinto = interp2app(W_WinConsoleIO.readinto_w),
+    readinto = interp2app(W_WinConsoleIO.readinto_w),    
+    fileno = interp2app(W_WinConsoleIO.fileno_w),
     write = interp2app(W_WinConsoleIO.write_w),   
     _blksize = GetSetProperty(W_WinConsoleIO.get_blksize),
     )
