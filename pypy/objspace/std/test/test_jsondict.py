@@ -77,3 +77,13 @@ class AppTest(object):
         assert list(d.keys()) == [u"a", u"b"]
         assert list(d.values()) == [1, u"x"]
         assert list(d.items()) == [(u"a", 1), (u"b", u"x")]
+
+    def test_dict_order_retained_when_switching_strategies(self):
+        import _pypyjson
+        import __pypy__
+        d = _pypyjson.loads('{"a": 1, "b": "x"}')
+        assert list(d) == [u"a", u"b"]
+        # devolve
+        assert not 1 in d
+        assert __pypy__.strategy(d) == "UnicodeDictStrategy"
+        assert list(d) == [u"a", u"b"]

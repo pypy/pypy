@@ -5,6 +5,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 
 from pypy.module._pypyjson.simd import USE_SIMD
 from pypy.module._pypyjson.simd import find_end_of_string_slow
+from pypy.module._pypyjson.simd import find_end_of_string_slow_no_hash
 from pypy.module._pypyjson.simd import print_chars
 from pypy.module._pypyjson.simd import find_end_of_string_simd_unaligned, WORD_SIZE
 from pypy.module._pypyjson.simd import find_end_of_string_simd_unaligned_no_hash
@@ -24,19 +25,19 @@ def fill_to_word_size(res, ch=" "):
 
 def string_to_word(s):
     assert len(s) == WORD_SIZE
-    ll_chars, flag = rffi.get_nonmovingbuffer_final_null(s)
+    ll_chars, llobj, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
     try:
         wordarray = rffi.cast(rffi.ULONGP, ll_chars)
         return wordarray[0]
     finally:
-        rffi.free_nonmovingbuffer(s, ll_chars, flag)
+        rffi.free_nonmovingbuffer_ll(ll_chars, llobj, flag)
 
 def ll(callable, string, *args):
-    ll_chars, flag = rffi.get_nonmovingbuffer_final_null(string)
+    ll_chars, llobj, flag = rffi.get_nonmovingbuffer_ll_final_null(string)
     try:
         return callable(ll_chars, *args)
     finally:
-        rffi.free_nonmovingbuffer(string, ll_chars, flag)
+        rffi.free_nonmovingbuffer_ll(ll_chars, llobj, flag)
 
 word = strategies.builds(
     r_uint, strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint))
@@ -74,6 +75,8 @@ def test_find_end_of_string(a):
     (string, startindex) = a
     res = ll(find_end_of_string_slow, string, startindex, len(string))
     hash, nonascii1, endposition1 = res
+    res2 = ll(find_end_of_string_slow_no_hash, string, startindex, len(string))
+    assert res2 == (nonascii1, endposition1)
     ch = string[endposition1]
     assert ch == '"' or ch == '\\' or ch < '\x20'
     for ch in string[startindex:endposition1]:

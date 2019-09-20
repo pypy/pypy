@@ -28,6 +28,12 @@ def neg_pow_10(x, exp):
 class IntCache(object):
     """ A cache for wrapped ints between START and END """
 
+    # I also tried various combinations of having an LRU cache for ints as
+    # well, didn't really help.
+
+    # XXX one thing to do would be to use withintprebuilt in general again,
+    # hidden behind a 'we_are_jitted'
+
     START = -10
     END = 256
 
@@ -53,6 +59,10 @@ class JSONDecoder(W_Root):
 
     DEFAULT_SIZE_SCRATCH = 20
 
+    # string caching is only used if the total size of the message is larger
+    # than a megabyte. Below that, there can't be that many repeated big
+    # strings anyway (some experiments showed this to be a reasonable cutoff
+    # size)
     MIN_SIZE_FOR_STRING_CACHE = 1024 * 1024
 
     # evaluate the string cache for 200 strings, before looking at the hit rate
@@ -74,17 +84,21 @@ class JSONDecoder(W_Root):
         # 1) we automatically get the '\0' sentinel at the end of the string,
         #    which means that we never have to check for the "end of string"
         # 2) we can pass the buffer directly to strtod
-        self.ll_chars, self.flag = rffi.get_nonmovingbuffer_final_null(self.s)
+        self.ll_chars, self.llobj, self.flag = rffi.get_nonmovingbuffer_ll_final_null(self.s)
         self.end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         self.pos = 0
         self.intcache = space.fromcache(IntCache)
 
         # two caches, one for keys, one for general strings. they both have the
-        # form {hash-as-int: CacheEntry} and they don't deal with
-        # collisions at all. For every hash there is simply one string stored.
-        self.cache = {}
-        self.cache_wrapped = {}
+        # form {hash-as-int: StringCacheEntry} and they don't deal with
+        # collisions at all. For every hash there is simply one string stored
+        # and we ignore collisions.
+        self.cache_keys = {}
+        self.cache_values = {}
 
+        # we don't cache *all* non-key strings, that would be too expensive.
+        # instead, keep a cache of the last 16 strings hashes around and add a
+        # string to the cache only if its hash is seen a second time
         self.lru_cache = [0] * self.LRU_SIZE
         self.lru_index = 0
 
@@ -101,7 +115,7 @@ class JSONDecoder(W_Root):
 
 
     def close(self):
-        rffi.free_nonmovingbuffer(self.s, self.ll_chars, self.flag)
+        rffi.free_nonmovingbuffer_ll(self.ll_chars, self.llobj, self.flag)
         lltype.free(self.end_ptr, flavor='raw')
         # clean up objects that are instances of now blocked maps
         for w_obj in self.unclear_objects:
@@ -376,11 +390,7 @@ class JSONDecoder(W_Root):
 
     def _switch_to_dict(self, currmap, values_w, nextindex):
         dict_w = self._create_empty_dict()
-        index = nextindex - 1
-        while isinstance(currmap, JSONMap):
-            dict_w[currmap.w_key] = values_w[index]
-            index -= 1
-            currmap = currmap.prev
+        currmap.fill_dict(dict_w, values_w)
         assert len(dict_w) == nextindex
         return dict_w
 
@@ -525,7 +535,8 @@ class JSONDecoder(W_Root):
     def decode_string(self, i, contextmap=None):
         """ Decode a string at position i (which is right after the opening ").
         Optionally pass a contextmap, if the value is decoded as the value of a
-        dict. """
+        dict."""
+
         ll_chars = self.ll_chars
         start = i
         ch = ll_chars[i]
@@ -535,6 +546,14 @@ class JSONDecoder(W_Root):
 
         cache = True
         if contextmap is not None:
+            # keep some statistics about the usefulness of the string cache on
+            # the contextmap
+            # the intuition about the contextmap is as follows:
+            # often there are string values stored in dictionaries that can
+            # never be usefully cached, like unique ids of objects. Then the
+            # strings *in those fields* of all objects should never be cached.
+            # However, the content of other fields can still be useful to
+            # cache.
             contextmap.decoded_strings += 1
             if not contextmap.should_cache_strings():
                 cache = False
@@ -561,17 +580,19 @@ class JSONDecoder(W_Root):
 
         # check cache first:
         try:
-            entry = self.cache_wrapped[strhash]
+            entry = self.cache_values[strhash]
         except KeyError:
             w_res = self._create_string_wrapped(start, i, nonascii)
             # only add *some* strings to the cache, because keeping them all is
-            # way too expensive
+            # way too expensive. first we check if the contextmap has caching
+            # disabled completely. if not, we check whether we have recently
+            # seen the same hash already, if yes, we cache the string.
             if ((contextmap is not None and
                         contextmap.decoded_strings < self.STRING_CACHE_EVALUATION_SIZE) or
                     strhash in self.lru_cache):
-                entry = CacheEntry(
+                entry = StringCacheEntry(
                         self.getslice(start, start + length), w_res)
-                self.cache_wrapped[strhash] = entry
+                self.cache_values[strhash] = entry
             else:
                 self.lru_cache[self.lru_index] = strhash
                 self.lru_index = (self.lru_index + 1) & self.LRU_MASK
@@ -592,7 +613,7 @@ class JSONDecoder(W_Root):
 
     def _decode_key_map(self, i, currmap):
         ll_chars = self.ll_chars
-        # first try to see whether we happen to find currmap.single_nextmap
+        # first try to see whether we happen to find currmap.nextmap_first
         nextmap = currmap.fast_path_key_parse(self, i)
         if nextmap is not None:
             return nextmap
@@ -625,12 +646,12 @@ class JSONDecoder(W_Root):
         self.pos = i + 1
         # check cache first:
         try:
-            entry = self.cache[strhash]
+            entry = self.cache_keys[strhash]
         except KeyError:
             w_res = self._create_string_wrapped(start, i, nonascii)
-            entry = CacheEntry(
+            entry = StringCacheEntry(
                     self.getslice(start, start + length), w_res)
-            self.cache[strhash] = entry
+            self.cache_keys[strhash] = entry
             return w_res
         if not entry.compare(ll_chars, start, length):
             # collision! hopefully rare
@@ -647,9 +668,10 @@ class JSONDecoder(W_Root):
         i += 1
         return self._decode_key_string(i)
 
-class CacheEntry(object):
-    """ A cache entry, bundling the encoded version of a string, and its wrapped
-    decoded variant. """
+
+class StringCacheEntry(object):
+    """ A cache entry, bundling the encoded version of a string as it appears
+    in the input string, and its wrapped decoded variant. """
     def __init__(self, repr, w_uni):
         # repr is the escaped string
         self.repr = repr
@@ -696,7 +718,7 @@ class MapBase(object):
     # preliminary maps. When we have too many fringe maps, we remove the least
     # commonly instantiated fringe map and mark it as blocked.
 
-    # allowed graph edges or nodes in all_next:
+    # allowed graph edges or nodes in nextmap_all:
     #    USEFUL -------
     #   /      \       \
     #  v        v       v
@@ -718,7 +740,7 @@ class MapBase(object):
     #    v  v
     #   BLOCKED
 
-    # the single_nextmap edge can only be these graph edges:
+    # the nextmap_first edge can only be these graph edges:
     #  USEFUL
     #   |
     #   v
@@ -744,12 +766,12 @@ class MapBase(object):
     def __init__(self, space):
         self.space = space
 
-        # a single transition is stored in .single_nextmap
-        self.single_nextmap = None
+        # a single transition is stored in .nextmap_first
+        self.nextmap_first = None
 
-        # all_next is only initialized after seeing the *second* transition
-        # but then it also contains .single_nextmap
-        self.all_next = None # later dict {key: nextmap}
+        # nextmap_all is only initialized after seeing the *second* transition
+        # but then it also contains .nextmap_first
+        self.nextmap_all = None # later dict {key: nextmap}
 
         # keep some statistics about every map: how often it was instantiated
         # and how many non-blocked leaves the map transition tree has, starting
@@ -758,39 +780,42 @@ class MapBase(object):
         self.number_of_leaves = 1
 
     def _check_invariants(self):
-        if self.all_next:
-            for next in self.all_next.itervalues():
+        if self.nextmap_all:
+            for next in self.nextmap_all.itervalues():
                 next._check_invariants()
-        elif self.single_nextmap:
-            self.single_nextmap._check_invariants()
+        elif self.nextmap_first:
+            self.nextmap_first._check_invariants()
 
     def get_next(self, w_key, string, start, stop, terminator):
         from pypy.objspace.std.dictmultiobject import unicode_hash, unicode_eq
         if isinstance(self, JSONMap):
             assert not self.state == MapBase.BLOCKED
-        single_nextmap = self.single_nextmap
-        if (single_nextmap is not None and
-                single_nextmap.w_key.eq_w(w_key)):
-            return single_nextmap
+        nextmap_first = self.nextmap_first
+        if (nextmap_first is not None and
+                nextmap_first.w_key.eq_w(w_key)):
+            return nextmap_first
 
         assert stop >= 0
         assert start >= 0
 
-        if single_nextmap is None:
-            # first transition ever seen, don't initialize all_next
+        if nextmap_first is None:
+            # first transition ever seen, don't initialize nextmap_all
             next = self._make_next_map(w_key, string[start:stop])
-            self.single_nextmap = next
+            self.nextmap_first = next
         else:
-            if self.all_next is None:
-                self.all_next = objectmodel.r_dict(unicode_eq, unicode_hash,
+            if self.nextmap_all is None:
+                # 2nd transition ever seen
+                self.nextmap_all = objectmodel.r_dict(unicode_eq, unicode_hash,
                   force_non_null=True, simple_hash_eq=True)
-                self.all_next[single_nextmap.w_key] = single_nextmap
+                self.nextmap_all[nextmap_first.w_key] = nextmap_first
             else:
-                next = self.all_next.get(w_key, None)
+                next = self.nextmap_all.get(w_key, None)
                 if next is not None:
                     return next
+            # if we are at this point we didn't find the transition yet, so
+            # create a new one
             next = self._make_next_map(w_key, string[start:stop])
-            self.all_next[w_key] = next
+            self.nextmap_all[w_key] = next
 
             # one new leaf has been created
             self.change_number_of_leaves(1)
@@ -812,13 +837,14 @@ class MapBase(object):
         """ Fast path when parsing the next key: We speculate that we will
         always see a commonly seen next key, and use strcmp (implemented in
         key_repr_cmp) to check whether that is the case. """
-        single_nextmap = self.single_nextmap
-        if single_nextmap:
+        nextmap_first = self.nextmap_first
+        if nextmap_first:
             ll_chars = decoder.ll_chars
-            assert isinstance(single_nextmap, JSONMap)
-            if single_nextmap.key_repr_cmp(ll_chars, position):
-                decoder.pos = position + len(single_nextmap.key_repr)
-                return single_nextmap
+            assert isinstance(nextmap_first, JSONMap)
+            if nextmap_first.key_repr_cmp(ll_chars, position):
+                decoder.pos = position + len(nextmap_first.key_repr)
+                return nextmap_first
+        return None
 
     def observe_transition(self, newmap, terminator):
         """ observe a transition from self to newmap.
@@ -833,21 +859,26 @@ class MapBase(object):
     def _make_next_map(self, w_key, key_repr):
         return JSONMap(self.space, self, w_key, key_repr)
 
+    def fill_dict(self, dict_w, values_w):
+        """ recursively fill the dictionary dict_w in the correct order,
+        reading from values_w."""
+        raise NotImplementedError("abstract base")
+
     def _all_dot(self, output):
         identity = objectmodel.compute_unique_id(self)
         output.append('%s [shape=box%s];' % (identity, self._get_dot_text()))
-        if self.all_next:
-            for w_key, value in self.all_next.items():
+        if self.nextmap_all:
+            for w_key, value in self.nextmap_all.items():
                 assert isinstance(value, JSONMap)
-                if value is self.single_nextmap:
+                if value is self.nextmap_first:
                     color = ", color=blue"
                 else:
                     color = ""
                 output.append('%s -> %s [label="%s"%s];' % (
                     identity, objectmodel.compute_unique_id(value), value.w_key._utf8, color))
                 value._all_dot(output)
-        elif self.single_nextmap is not None:
-            value = self.single_nextmap
+        elif self.nextmap_first is not None:
+            value = self.nextmap_first
             output.append('%s -> %s [label="%s", color=blue];' % (
                 identity, objectmodel.compute_unique_id(value), value.w_key._utf8))
             value._all_dot(output)
@@ -904,6 +935,11 @@ class Terminator(MapBase):
                 min_fringe = f
         assert min_fringe
         min_fringe.mark_blocked(self)
+
+    def fill_dict(self, dict_w, values_w):
+        """ recursively fill the dictionary dict_w in the correct order,
+        reading from values_w."""
+        return 0
 
     def _check_invariants(self):
         for fringe in self.current_fringe:
@@ -965,8 +1001,8 @@ class JSONMap(MapBase):
             assert False, "should be unreachable"
 
         if self.state == MapBase.BLOCKED:
-            assert self.single_nextmap is None
-            assert self.all_next is None
+            assert self.nextmap_first is None
+            assert self.nextmap_all is None
         elif self.state == MapBase.FRINGE:
             assert self in self._get_terminator().current_fringe
 
@@ -981,19 +1017,19 @@ class JSONMap(MapBase):
         if was_fringe:
             terminator.remove_from_fringe(self)
         # find the most commonly instantiated child, store it into
-        # single_nextmap and mark it useful, recursively
-        maxchild = self.single_nextmap
-        if self.all_next is not None:
-            for child in self.all_next.itervalues():
+        # nextmap_first and mark it useful, recursively
+        maxchild = self.nextmap_first
+        if self.nextmap_all is not None:
+            for child in self.nextmap_all.itervalues():
                 if child.instantiation_count > maxchild.instantiation_count:
                     maxchild = child
         if maxchild is not None:
             maxchild.mark_useful(terminator)
-            if self.all_next:
-                for child in self.all_next.itervalues():
+            if self.nextmap_all:
+                for child in self.nextmap_all.itervalues():
                     if child is not maxchild:
                         terminator.register_potential_fringe(child)
-                self.single_nextmap = maxchild
+                self.nextmap_first = maxchild
 
     def mark_blocked(self, terminator):
         """ mark self and recursively all its children as blocked."""
@@ -1001,13 +1037,13 @@ class JSONMap(MapBase):
         self.state = MapBase.BLOCKED
         if was_fringe:
             terminator.remove_from_fringe(self)
-        if self.all_next:
-            for next in self.all_next.itervalues():
+        if self.nextmap_all:
+            for next in self.nextmap_all.itervalues():
                 next.mark_blocked(terminator)
-        elif self.single_nextmap:
-            self.single_nextmap.mark_blocked(terminator)
-        self.single_nextmap = None
-        self.all_next = None
+        elif self.nextmap_first:
+            self.nextmap_first.mark_blocked(terminator)
+        self.nextmap_first = None
+        self.nextmap_all = None
         self.change_number_of_leaves(-self.number_of_leaves + 1)
 
     def is_state_blocked(self):
@@ -1035,11 +1071,18 @@ class JSONMap(MapBase):
                 self.cache_hits * JSONDecoder.STRING_CACHE_USEFULNESS_FACTOR < self.decoded_strings)
 
     def key_repr_cmp(self, ll_chars, i):
+        # XXX should we use "real" memcmp (here in particular, and in other
+        # places in RPython in general)?
         for j, c in enumerate(self.key_repr):
             if ll_chars[i] != c:
                 return False
             i += 1
         return True
+
+    def fill_dict(self, dict_w, values_w):
+        index = self.prev.fill_dict(dict_w, values_w)
+        dict_w[self.w_key] = values_w[index]
+        return index + 1
 
     # _____________________________________________________
     # methods for JsonDictStrategy
@@ -1086,10 +1129,10 @@ class JSONMap(MapBase):
     # _____________________________________________________
 
     def _get_dot_text(self):
-        if self.all_next is None:
-            l = int(self.single_nextmap is not None)
+        if self.nextmap_all is None:
+            l = int(self.nextmap_first is not None)
         else:
-            l = len(self.all_next)
+            l = len(self.nextmap_all)
         extra = ""
         if self.decoded_strings:
             extra = "\\n%s/%s (%s%%)" % (self.cache_hits, self.decoded_strings, self.cache_hits/float(self.decoded_strings))

@@ -21,26 +21,26 @@ class TestJson(object):
         w_c = self.space.newutf8("c", 1)
         m1 = m.get_next(w_a, '"a"', 0, 3, m)
         assert m1.w_key == w_a
-        assert m1.single_nextmap is None
+        assert m1.nextmap_first is None
         assert m1.key_repr == '"a"'
         assert m1.key_repr_cmp('"a": 123', 0)
         assert not m1.key_repr_cmp('b": 123', 0)
-        assert m.single_nextmap.w_key == w_a
+        assert m.nextmap_first.w_key == w_a
 
         m2 = m.get_next(w_a, '"a"', 0, 3, m)
         assert m2 is m1
 
         m3 = m.get_next(w_b, '"b"', 0, 3, m)
         assert m3.w_key == w_b
-        assert m3.single_nextmap is None
+        assert m3.nextmap_first is None
         assert m3.key_repr == '"b"'
-        assert m.single_nextmap is m1
+        assert m.nextmap_first is m1
 
         m4 = m3.get_next(w_c, '"c"', 0, 3, m)
         assert m4.w_key == w_c
-        assert m4.single_nextmap is None
+        assert m4.nextmap_first is None
         assert m4.key_repr == '"c"'
-        assert m3.single_nextmap is m4
+        assert m3.nextmap_first is m4
 
     def test_json_map_get_index(self):
         m = Terminator(self.space)
@@ -59,6 +59,21 @@ class TestJson(object):
         assert m3.get_index(w_b) == 0
         assert m3.get_index(w_c) == 1
         assert m3.get_index(w_a) == -1
+
+    def test_jsonmap_fill_dict(self):
+        from collections import OrderedDict
+        m = Terminator(self.space)
+        space = self.space
+        w_a = space.newutf8("a", 1)
+        w_b = space.newutf8("b", 1)
+        w_c = space.newutf8("c", 1)
+        m1 = m.get_next(w_a, 'a"', 0, 2, m)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, m)
+        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
+        d = OrderedDict()
+        m3.fill_dict(d, [space.w_None, space.w_None, space.w_None])
+        assert list(d) == [w_a, w_b, w_c]
+
 
     def test_decode_key_map(self):
         m = Terminator(self.space)
@@ -121,7 +136,7 @@ class TestJson(object):
 
         assert m3.state == MapBase.PRELIMINARY
         m3.instantiation_count = 2
-        assert m2.single_nextmap is m3
+        assert m2.nextmap_first is m3
 
         assert m4.state == MapBase.PRELIMINARY
         m4.instantiation_count = 4
@@ -131,7 +146,7 @@ class TestJson(object):
         assert m2.state == MapBase.USEFUL
         assert m3.state == MapBase.FRINGE
         assert m4.state == MapBase.USEFUL
-        assert m2.single_nextmap is m4
+        assert m2.nextmap_first is m4
 
         assert m1.number_of_leaves == 2
         base._check_invariants()
@@ -194,11 +209,11 @@ class TestJson(object):
         base.cleanup_fringe()
         assert base.current_fringe == dict.fromkeys([m1, m2, m3])
         assert m4.state == MapBase.BLOCKED
-        assert m4.single_nextmap is None
-        assert m4.all_next is None
+        assert m4.nextmap_first is None
+        assert m4.nextmap_all is None
         assert m5.state == MapBase.BLOCKED
-        assert m5.single_nextmap is None
-        assert m5.all_next is None
+        assert m5.nextmap_first is None
+        assert m5.nextmap_all is None
 
     def test_deal_with_blocked(self):
         w_a = self.space.newutf8("a", 1)
