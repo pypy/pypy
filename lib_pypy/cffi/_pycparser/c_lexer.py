@@ -3,7 +3,7 @@
 #
 # CLexer class: lexer for the C language
 #
-# Copyright (C) 2008-2015, Eli Bendersky
+# Eli Bendersky [https://eli.thegreenplace.net/]
 # License: BSD
 #------------------------------------------------------------------------------
 import re
@@ -19,7 +19,7 @@ class CLexer(object):
         tokens.
 
         The public attribute filename can be set to an initial
-        filaneme, but the lexer will update it upon #line
+        filename, but the lexer will update it upon #line
         directives.
     """
     def __init__(self, error_func, on_lbrace_func, on_rbrace_func,
@@ -52,8 +52,8 @@ class CLexer(object):
         # Allow either "# line" or "# <num>" to support GCC's
         # cpp output
         #
-        self.line_pattern = re.compile('([ \t]*line\W)|([ \t]*\d+)')
-        self.pragma_pattern = re.compile('[ \t]*pragma\W')
+        self.line_pattern = re.compile(r'([ \t]*line\W)|([ \t]*\d+)')
+        self.pragma_pattern = re.compile(r'[ \t]*pragma\W')
 
     def build(self, **kwargs):
         """ Builds the lexer from the specification. Must be
@@ -102,11 +102,11 @@ class CLexer(object):
     keywords = (
         '_BOOL', '_COMPLEX', 'AUTO', 'BREAK', 'CASE', 'CHAR', 'CONST',
         'CONTINUE', 'DEFAULT', 'DO', 'DOUBLE', 'ELSE', 'ENUM', 'EXTERN',
-        'FLOAT', 'FOR', 'GOTO', 'IF', 'INLINE', 'INT', 'LONG', 
+        'FLOAT', 'FOR', 'GOTO', 'IF', 'INLINE', 'INT', 'LONG',
         'REGISTER', 'OFFSETOF',
         'RESTRICT', 'RETURN', 'SHORT', 'SIGNED', 'SIZEOF', 'STATIC', 'STRUCT',
         'SWITCH', 'TYPEDEF', 'UNION', 'UNSIGNED', 'VOID',
-        'VOLATILE', 'WHILE',
+        'VOLATILE', 'WHILE', '__INT128',
     )
 
     keyword_map = {}
@@ -171,7 +171,9 @@ class CLexer(object):
         'ELLIPSIS',
 
         # pre-processor
-        'PPHASH',      # '#'
+        'PPHASH',       # '#'
+        'PPPRAGMA',     # 'pragma'
+        'PPPRAGMASTR',
     )
 
     ##
@@ -203,12 +205,37 @@ class CLexer(object):
     # parse all correct code, even if it means to sometimes parse incorrect
     # code.
     #
-    simple_escape = r"""([a-zA-Z._~!=&\^\-\\?'"])"""
-    decimal_escape = r"""(\d+)"""
-    hex_escape = r"""(x[0-9a-fA-F]+)"""
-    bad_escape = r"""([\\][^a-zA-Z._~^!=&\^\-\\?'"x0-7])"""
+    # The original regexes were taken verbatim from the C syntax definition,
+    # and were later modified to avoid worst-case exponential running time.
+    #
+    #   simple_escape = r"""([a-zA-Z._~!=&\^\-\\?'"])"""
+    #   decimal_escape = r"""(\d+)"""
+    #   hex_escape = r"""(x[0-9a-fA-F]+)"""
+    #   bad_escape = r"""([\\][^a-zA-Z._~^!=&\^\-\\?'"x0-7])"""
+    #
+    # The following modifications were made to avoid the ambiguity that allowed backtracking:
+    # (https://github.com/eliben/pycparser/issues/61)
+    #
+    # - \x was removed from simple_escape, unless it was not followed by a hex digit, to avoid ambiguity with hex_escape.
+    # - hex_escape allows one or more hex characters, but requires that the next character(if any) is not hex
+    # - decimal_escape allows one or more decimal characters, but requires that the next character(if any) is not a decimal
+    # - bad_escape does not allow any decimals (8-9), to avoid conflicting with the permissive decimal_escape.
+    #
+    # Without this change, python's `re` module would recursively try parsing each ambiguous escape sequence in multiple ways.
+    # e.g. `\123` could be parsed as `\1`+`23`, `\12`+`3`, and `\123`.
+
+    simple_escape = r"""([a-wyzA-Z._~!=&\^\-\\?'"]|x(?![0-9a-fA-F]))"""
+    decimal_escape = r"""(\d+)(?!\d)"""
+    hex_escape = r"""(x[0-9a-fA-F]+)(?![0-9a-fA-F])"""
+    bad_escape = r"""([\\][^a-zA-Z._~^!=&\^\-\\?'"x0-9])"""
 
     escape_sequence = r"""(\\("""+simple_escape+'|'+decimal_escape+'|'+hex_escape+'))'
+
+    # This complicated regex with lookahead might be slow for strings, so because all of the valid escapes (including \x) allowed
+    # 0 or more non-escaped characters after the first character, simple_escape+decimal_escape+hex_escape got simplified to
+
+    escape_sequence_start_in_string = r"""(\\[0-9a-zA-Z._~!=&\^\-\\?'"])"""
+
     cconst_char = r"""([^'\\\n]|"""+escape_sequence+')'
     char_const = "'"+cconst_char+"'"
     wchar_const = 'L'+char_const
@@ -216,7 +243,7 @@ class CLexer(object):
     bad_char_const = r"""('"""+cconst_char+"""[^'\n]+')|('')|('"""+bad_escape+r"""[^'\n]*')"""
 
     # string literals (K&R2: A.2.6)
-    string_char = r"""([^"\\\n]|"""+escape_sequence+')'
+    string_char = r"""([^"\\\n]|"""+escape_sequence_start_in_string+')'
     string_literal = '"'+string_char+'*"'
     wstring_literal = 'L'+string_literal
     bad_string_literal = '"'+string_char+'*'+bad_escape+string_char+'*"'
@@ -274,7 +301,6 @@ class CLexer(object):
 
     def t_ppline_NEWLINE(self, t):
         r'\n'
-
         if self.pp_line is None:
             self._error('line number missing in #line', t)
         else:
@@ -304,15 +330,14 @@ class CLexer(object):
 
     def t_pppragma_PPPRAGMA(self, t):
         r'pragma'
-        pass
+        return t
 
-    t_pppragma_ignore = ' \t<>.-{}();=+-*/$%@&^~!?:,0123456789'
+    t_pppragma_ignore = ' \t'
 
-    @TOKEN(string_literal)
-    def t_pppragma_STR(self, t): pass
-
-    @TOKEN(identifier)
-    def t_pppragma_ID(self, t): pass
+    def t_pppragma_STR(self, t):
+        '.+'
+        t.type = 'PPPRAGMASTR'
+        return t
 
     def t_pppragma_error(self, t):
         self._error('invalid #pragma directive', t)
@@ -482,4 +507,3 @@ class CLexer(object):
     def t_error(self, t):
         msg = 'Illegal character %s' % repr(t.value[0])
         self._error(msg, t)
-
