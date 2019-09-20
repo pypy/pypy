@@ -12,7 +12,7 @@ class AppTestWinConsoleIO:
     def test_open_fd(self):
         import _io
 
-        w_fd = self.fileno()
+        w_fd = self.tempfile.fileno()
         # Windows 10: "Cannot open non-console file"
         # Earlier: "Cannot open console output buffer for reading"
         raises(ValueError, _io._WindowsConsoleIO, fd)

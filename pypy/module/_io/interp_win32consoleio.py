@@ -521,7 +521,6 @@ class W_WinConsoleIO(W_RawIOBase):
                 return err_mode(space,"writing")
             
             if not len(buffer):
-                lltype.free(n, flavor='raw')
                 return space.newint(0)
             
             if len(buffer) > BUFMAX:
@@ -536,7 +535,6 @@ class W_WinConsoleIO(W_RawIOBase):
                 wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
             
             if not wlen:
-                lltype.free(n, flavor='raw')
                 raise WindowsError("Failed to convert bytes to wide characters")
         
             with lltype.scoped_alloc(rffi.CWCHARP.TO, wlen) as wbuf:
