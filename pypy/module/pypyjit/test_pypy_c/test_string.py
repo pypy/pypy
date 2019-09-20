@@ -280,7 +280,8 @@ class TestString(BaseTestPyPyC):
 
     def test_unicode_indexing_makes_no_bridges(self):
         log = self.run("""
-        u = u"aaaaaä👩‍👩‍👧‍👦" * 1000
+        b = b"b'aaaaa\xc3\xa4\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa7\xe2\x80\x8d\xf0\x9f\x91\xa6'"
+        u = b.decode("utf-8") * 1000
         def main():
             for j in range(10):
                 for i in range(len(u)):
@@ -327,7 +328,8 @@ class TestString(BaseTestPyPyC):
     def test_unicode_slicing_small_constant_indices(self):
         log = self.run("""
         def main(n):
-            u = u"abä👩‍👩‍👧‍👦éé–—¿" * 1000
+            b = b'ab\xc3\xa4\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa7\xe2\x80\x8d\xf0\x9f\x91\xa6'
+            u = b.decode("utf-8") * 1000
             global s
             count = 0
             while u:

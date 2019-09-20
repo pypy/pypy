@@ -1518,3 +1518,9 @@ class AppTestExceptions:
         assert eval(code) == u'# -*- coding: ascii -*-\n\xa4'
 
 
+
+    def test_asterror_has_line_without_file(self):
+        code = u"print(1)\na/2 = 5\n"
+        with raises(SyntaxError) as excinfo:
+            compile(code, 'not a file!', 'exec')
+        assert excinfo.value.text == "a/2 = 5\n"

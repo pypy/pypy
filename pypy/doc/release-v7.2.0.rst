@@ -14,21 +14,23 @@ two different interpreters:
 The interpreters are based on much the same codebase, thus the double
 release.
 
+With the support of ARM Holdings Ltd. and `Crossbar.io`_, this release supports
+the 64-bit ``aarch64`` ARM architecture. More about the work and the
+performance data around this welcome development can be found in the `blog
+post`_.
+
 This release removes the "beta" tag from PyPy3.6. While there may still be some
 small corner-case incompatibilities (around the exact error messages in
 exceptions and the handling of faulty codec errorhandlers) we are happy with
 the quality of the 3.6 series and are looking forward to working on a Python
 3.7 interpreter.
 
-With the support of the ARM foundation, this release supports the 64-bit
-``aarch64`` ARM architecture.
-
 We updated our benchmark runner at https://speed.pypy.org to a more modern
 machine and updated the baseline python to CPython 2.7.11. Thanks to `Baroque
-Software` for maintaining the benchmark runner.
+Software`_ for maintaining the benchmark runner.
 
 The CFFI-based ``_ssl`` module was backported to PyPy2.7 and updated to use
-`cryptography`_ version 2.7. Additionally the `_hashlib`, and ``crypt`` (or
+cryptography_ version 2.7. Additionally the ``_hashlib``, and ``crypt`` (or
 ``_crypt`` on Python3) modules were converted to CFFI. This has two
 consequences. End users and packagers can more easily update these libraries
 for their platform by executing ``(cd lib_pypy; ../bin/pypy _*_build.py)``.
@@ -76,6 +78,9 @@ thanks for pitching in.
 .. _`Baroque Software`: https://baroquesoftware.com
 .. _Anvil: https://anvil.works
 .. _`PyPy Sandbox`: https://morepypy.blogspot.com/2019/08
+.. _`Crossbar.io`: https://crossbario.com
+.. _`blog post`:  https://morepypy.blogspot.com/2019/07/pypy-jit-for-aarch64.html
+.. _cryptography: https://cryptography.io/en/latest
 
 What is PyPy?
 =============
@@ -154,7 +159,7 @@ Changes shared across versions
 * Cleanup ``optimizeopt``
 * Support the ``z15`` variant of the ``s390x`` CPU.
 * Fixes to ``_ctypes`` handling of memoryviews
-* Fix a shadowstack overflow when using ``sys.setrecurtionlimit`` (`issue 2722`)
+* Fix a shadowstack overflow when using ``sys.setrecursionlimit`` (`issue 2722`)
 * Fix a bug that prevent memory-tracking in vmprof working on PyPy
 * Improve the speed and memory use of the ``_pypyjson`` JSON decoder. The
   resulting dictionaries that come out of the JSON decoder have faster lookups too
