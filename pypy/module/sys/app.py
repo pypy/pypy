@@ -30,10 +30,10 @@ def excepthook(exctype, value, traceback):
             # https://bugs.python.org/issue38197
             # one is counting from the top, the other from the bottom of the
             # stack. so reverse polarity here
-            if limit:
+            if limit > 0:
                 print_exception(exctype, value, traceback, limit=-limit)
             else:
-                # the limit is 0. PyTraceBack_Print does not print
+                # the limit is 0 or negative. PyTraceBack_Print does not print
                 # Traceback (most recent call last):
                 # because there is indeed no traceback.
                 # the traceback module don't care

@@ -382,12 +382,9 @@ class AppTestSysModulePortedFromCPython:
         """
 
     def test_tracebacklimit_excepthook(self):
-        import sys, _io
+        import sys
         savestderr = sys.stderr
-        err = _io.StringIO()
-        sys.stderr = err
         assert not hasattr(sys, "tracebacklimit")
-        sys.tracebacklimit = 2
 
         eh = sys.__excepthook__
         def f1():
@@ -397,23 +394,27 @@ class AppTestSysModulePortedFromCPython:
         def f3():
             raise ValueError(42)
 
+        def get_error_with_tracebacklimit(limit):
+            import io
+            sys.tracebacklimit = limit
+            sys.stderr = err = io.StringIO()
+            try:
+                f1()
+            except ValueError:
+                eh(*sys.exc_info())
+            return err.getvalue()
+            # should be removed by the limit
 
-        try:
-            f1()
-        except ValueError:
-            eh(*sys.exc_info())
-        msg = err.getvalue()
-        # should be removed by the limit
+        msg = get_error_with_tracebacklimit(2)
         assert "f1" not in msg
+        assert "f2" in msg
+        assert "f3" in msg
 
-        err = _io.StringIO()
-        sys.stderr = err
-        sys.tracebacklimit = 0
-        try:
-            f1()
-        except ValueError:
-            eh(*sys.exc_info())
-        msg = err.getvalue()
+        msg = get_error_with_tracebacklimit(0)
+        assert "Traceback (most recent call last):" not in msg
+        assert "ValueError" in msg
+
+        msg = get_error_with_tracebacklimit(-1)
         assert "Traceback (most recent call last):" not in msg
         assert "ValueError" in msg
 
