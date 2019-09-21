@@ -26,8 +26,8 @@ S.become(lltype.GcStruct('S',
 
 class TestRawRefCount(BaseDirectGCTest):
     GCClass = IncMiniMark
-    #RRCGCClass = RawRefCountIncMarkGC
-    RRCGCClass = RawRefCountMarkGC
+    RRCGCClass = RawRefCountIncMarkGC
+    #RRCGCClass = RawRefCountMarkGC
 
     def setup_method(self, method):
         BaseDirectGCTest.setup_method(self, method)
@@ -773,24 +773,19 @@ class TestRawRefCount(BaseDirectGCTest):
         for name in nodes:
             n = nodes[name]
             if n.info.alive:
+                print "Node", name, "should be alive."
                 if n.info.type == "P":
                     n.check_alive()
                 else:
                     n.check_alive(n.info.ext_refcnt)
+                print "Node", name, "is alive."
             else:
+                print "Node", name, "should be dead."
                 if n.info.type == "P":
                     py.test.raises(RuntimeError, "n.p.x")  # dead
                 else:
                     py.test.raises(RuntimeError, "n.r.c_ob_refcnt")  # dead
-
-        # check if all callbacks from weakrefs from cyclic garbage structures,
-        # which should not be called because they could ressurrect dead
-        # objects, have been cleared and no other callbacks were cleared; see:
-        # https://github.com/python/cpython/blob/master/Modules/gc_weakref.txt
-        for weakrefs in self.pyobj_weakrefs:
-            for weakref in weakrefs:
-                pass # TODO fix
-                #assert weakref.callback_cleared == weakref.clear_callback
+                print "Node", name, "is dead."
 
         # check if unreachable objects in cyclic structures with legacy
         # finalizers and all otherwise unreachable objects reachable from them
