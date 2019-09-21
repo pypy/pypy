@@ -1,0 +1,18 @@
+digraph G {
+    "a" [type=B, alive=y, ext_refcnt=1];
+    "b" [type=P, alive=n];
+    "c" [type=B, alive=y];
+    "d" [type=P, alive=y];
+    "e" [type=B, alive=y];
+    "f" [type=C, alive=y];
+    "g" [type=C, alive=y];
+    "h" [type=C, alive=y, ext_refcnt=1];
+    "a" -> "b" [removed=after_snap];
+    "b"-> "c";
+    "c" -> "d";
+    "c" -> "f";
+    "f" -> "c";
+    "d" -> "e";
+    "e" -> "g";
+    "h" -> "f" [added=after_snap];
+}

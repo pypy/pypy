@@ -35,11 +35,13 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
 
             # Now take a snapshot
             self._take_snapshot(self.pyobj_list)
+            self._debug_print_snap(print_label="after-snapshot")
 
             # collect all rawrefcounted roots
             self._collect_roots()
             # TODO: execute incrementally (own phase, save index)
 
+            self._debug_print_snap(print_label="roots-marked")
             self._debug_check_consistency(print_label="roots-marked")
             self.state = self.STATE_MARKING
             return False
@@ -52,6 +54,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             if (all_rrc_marked and not self.gc.objects_to_trace.non_empty() and
                     not self.gc.more_objects_to_trace.non_empty()):
                 # all objects have been marked, dead objects will stay dead
+                self._debug_print_snap(print_label="before-fin")
                 self._debug_check_consistency(print_label="before-fin")
                 self.state = self.STATE_GARBAGE_MARKING
             else:
@@ -112,7 +115,9 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                     self._gc_list_remove(pygchdr)
                     self._gc_list_add(self.pyobj_old_list, pygchdr)
             else:
-                pygchdr.c_gc_refs = 1 # new object, keep alive
+                # new object, keep alive
+                pyobj = self.gc_as_pyobj(pygchdr)
+                pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
                 # TODO: also keep reachable objects alive (in case rc proxy -> non-rc -> non-rc proxy -> rc obj!!!)
             pygchdr = next_old
 
@@ -122,11 +127,11 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             while free_p_list.non_empty():
                 self.p_list_old.append(free_p_list.pop())
             while pygchdr <> self.pyobj_list: # continue previous loop
-                pygchdr.c_gc_refs = 1
+                pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
                 pygchdr = pygchdr.c_gc_next
             pygchdr = self.pyobj_old_list.c_gc_next
             while pygchdr <> self.pyobj_old_list: # resurrect "dead" objects
-                pygchdr.c_gc_refs = 1
+                pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
                 pygchdr = pygchdr.c_gc_next
             if not self._gc_list_is_empty(self.pyobj_old_list):
                 self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
@@ -158,6 +163,15 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         self._debug_check_consistency(print_label="end-mark")
         return True
 
+    def _debug_print_snap(self, print_label=None):
+        debug_start("snap " + print_label)
+        for i in range(0, self.total_objs):
+            snapobj = self.snapshot_objs[i]
+            debug_print("item", snapobj.pyobj, ": snapobj", snapobj,
+                        "refcnt", snapobj.refcnt,
+                        "refcnt original", snapobj.refcnt_original,
+                        "link", snapobj.pypy_link)
+
     def _free_p_list(self, pyobject, foo):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
@@ -186,7 +200,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         # refcount > 0
 
     def _mark_rawrefcount(self):
-        self._gc_list_init(self.pyobj_old_list)
+        self._gc_list_init(self.pyobj_old_list) # TODO: move???
         # as long as new objects with cyclic a refcount > 0 or alive border
         # objects are found, increment the refcount of all referenced objects
         # of those newly found objects

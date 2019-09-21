@@ -198,8 +198,6 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         pyobj = self.gc_as_pyobj(gchdr)
         obj = llmemory.NULL
         if pyobj.c_ob_pypy_link <> 0:
-            #intobj = pyobj.c_ob_pypy_link
-            #obj = llmemory.cast_int_to_adr(intobj)
             pyobject = llmemory.cast_ptr_to_adr(pyobj)
             obj = self.refcnt_dict.get(pyobject)
             if not alive and self.gc.header(obj).tid & (
@@ -218,8 +216,6 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             self._traverse(pyobj, 1)
             # mark recursively, if it is a pypyobj
             if pyobj.c_ob_pypy_link <> 0:
-                #intobj = pyobj.c_ob_pypy_link
-                #obj = llmemory.cast_int_to_adr(intobj)
                 self.gc.objects_to_trace.append(obj)
                 self.gc.visit_all_objects()
         return alive
