@@ -49,3 +49,10 @@ fields in ``Py_buffer``.
 
 Add support for the entire stdlib being inside a zipfile
 
+
+.. branch: json-decoder-maps-py3.6
+
+Much faster and more memory-efficient JSON decoding. The resulting
+dictionaries that come out of the JSON decoder have faster lookups too.
+
+
