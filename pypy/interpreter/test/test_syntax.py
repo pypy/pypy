@@ -659,7 +659,7 @@ class AppTestSyntaxError:
             exec program
         except SyntaxError as e:
             assert e.lineno == 1
-            assert e.text is None
+            assert e.text == program
         else:
             raise Exception("no SyntaxError??")
 
