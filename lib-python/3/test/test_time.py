@@ -530,6 +530,8 @@ class TestLocale(unittest.TestCase):
             self.skipTest('could not set locale.LC_ALL to fr_FR')
         # This should not cause an exception
         time.strftime("%B", (2009,2,1,0,0,0,0,0,0))
+        # PyPy addition:
+        time.strftime("%B", (2009,8,1,0,0,0,0,0,0)).lower()
 
 
 class _TestAsctimeYear:

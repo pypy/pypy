@@ -6,6 +6,8 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
 from pypy.interpreter.unicodehelper import decode_utf8sp
+from pypy.module._codecs.locale import (
+    str_decode_locale_surrogateescape, unicode_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
     intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int)
@@ -338,8 +340,8 @@ if _WIN:
                              "void pypy__tzset();"],
         separate_module_sources = ["""
             long pypy_get_timezone() {
-                long timezone; 
-                _get_timezone(&timezone); 
+                long timezone;
+                _get_timezone(&timezone);
                 return timezone;
             };
             int pypy_get_daylight() {
@@ -359,7 +361,7 @@ if _WIN:
     c_get_timezone = external('pypy_get_timezone', [], rffi.LONG, win_eci)
     c_get_daylight = external('pypy_get_daylight', [], rffi.INT, win_eci)
     c_get_tzname = external('pypy_get_tzname',
-                            [rffi.SIZE_T, rffi.INT, rffi.CCHARP], 
+                            [rffi.SIZE_T, rffi.INT, rffi.CCHARP],
                             rffi.INT, win_eci, calling_conv='c')
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
@@ -869,6 +871,7 @@ def strftime(space, format, w_tup=None):
                     raise oefmt(space.w_ValueError, "invalid format string")
             i += 1
 
+    format = unicode_encode_locale_surrogateescape(format.decode('utf8'))
     i = 1024
     while True:
         outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
@@ -881,7 +884,8 @@ def strftime(space, format, w_tup=None):
                 # e.g. an empty format, or %Z when the timezone
                 # is unknown.
                 result = rffi.charp2strn(outbuf, intmask(buflen))
-                return space.newtext(result)
+                decoded, size = str_decode_locale_surrogateescape(result)
+                return space.newutf8(decoded, size)
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i
