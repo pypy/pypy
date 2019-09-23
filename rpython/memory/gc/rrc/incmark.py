@@ -72,23 +72,34 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         #    set their cyclic refcount to > 0 to mark them as live
         consistent = True
         self.snapshot_consistent = True
-        # simply iterate the snapshot for objects in p_list, as linked objects might not be freed, except by the gc
+
+        # sync p_list_old (except gc-objects)
+        # simply iterate the snapshot for objects in p_list, as linked objects
+        # might not be freed, except by the gc
         free_p_list = self.gc.AddressStack()
         for i in range(0, self.total_objs):
             snapobj = self.snapshot_objs[i]
             if snapobj.pypy_link == 0:
-                break
+                break  # only look for objects in p_list
             pyobj = llmemory.cast_adr_to_ptr(snapobj.pyobj, self.PYOBJ_HDR_PTR)
             pygchdr = self.pyobj_as_gc(pyobj)
-            if (pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR) and
+            if (pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR) and
                     pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED):
-                break
+                break # only look for non-gc
             if snapobj.refcnt == 0:
+                # check consistency
                 consistent = pyobj.c_ob_refcnt == snapobj.refcnt_original
                 if not consistent:
                     break
                 # move to separate list
+                self.p_list_old.remove(snapobj.pyobj)
                 free_p_list.append(snapobj.pyobj)
+
+        # look if there is a (newly) linked non-gc proxy, where the non-rc obj
+        # is unmarked
+        self.p_list_old_consistent = True
+        self.p_list_old.foreach(self._check_consistency_p_list_old, None)
+        consistent &= self.p_list_old_consistent
 
         # sync gc objects
         pygchdr = self.pyobj_list.c_gc_next
@@ -116,9 +127,14 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                     self._gc_list_add(self.pyobj_old_list, pygchdr)
             else:
                 # new object, keep alive
-                pyobj = self.gc_as_pyobj(pygchdr)
                 pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
-                # TODO: also keep reachable objects alive (in case rc proxy -> non-rc -> non-rc proxy -> rc obj!!!)
+                pyobj = self.gc_as_pyobj(pygchdr)
+                if pyobj.c_ob_pypy_link != 0:
+                    addr = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
+                    if not (self.gc.header(addr).tid &
+                            (self.GCFLAG_VISITED | self.GCFLAG_NO_HEAP_PTRS)):
+                        consistent = False
+                        break
             pygchdr = next_old
 
         self._debug_check_consistency(print_label="end-check-consistency")
@@ -172,11 +188,19 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                         "refcnt original", snapobj.refcnt_original,
                         "link", snapobj.pypy_link)
 
+    def _check_consistency_p_list_old(self, pyobject, foo):
+        pyobj = llmemory.cast_adr_to_ptr(pyobject, self.PYOBJ_HDR_PTR)
+        pygchdr = self.pyobj_as_gc(pyobj)
+        if (pygchdr == lltype.nullptr(self.PYOBJ_GC_HDR) and
+                pyobj.c_ob_pypy_link != 0):
+            addr = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
+            if not (self.gc.header(addr).tid &
+                    (self.GCFLAG_VISITED | self.GCFLAG_NO_HEAP_PTRS)):
+                self.p_list_old_consistent = False
+
     def _free_p_list(self, pyobject, foo):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        # unlink
-        self.p_list_old.remove(pyobject)
         pyobj = llmemory.cast_adr_to_ptr(pyobject, self.PYOBJ_HDR_PTR)
         refcnt = pyobj.c_ob_refcnt
         if refcnt >= REFCNT_FROM_PYPY_LIGHT:

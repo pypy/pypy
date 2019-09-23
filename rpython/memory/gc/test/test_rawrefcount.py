@@ -850,13 +850,15 @@ class TestRawRefCount(BaseDirectGCTest):
                         i += 1
                     for obj in add_linked_pyobj_after_snap:
                         r, raddr, check_alive = self._rawrefcount_pyobj(
-                            tracked=obj.info.tracked, tuple=obj.info.tuple)
+                            tracked=obj.info.tracked, tuple=obj.info.tuple,
+                            is_gc=obj.info.gc)
                         r.c_ob_refcnt += obj.info.ext_refcnt
                         obj.r = r
                         obj.raddr = raddr
-                        def double_check():
-                            obj.check_alive()
-                            check_alive()
+                        old_alive = obj.check_alive
+                        def double_check(ext_refcnt):
+                            old_alive()
+                            check_alive(ext_refcnt)
                         obj.check_alive = double_check
                         self.gc.rawrefcount_create_link_pypy(obj.pref, raddr)
 
