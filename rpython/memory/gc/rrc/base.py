@@ -719,11 +719,6 @@ class RawRefCountBaseGC(object):
                             gchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT,
                             "refcnt", pyobj.c_ob_refcnt,
                             "link", intobj)
-                #if intobj: TODO fix
-                #    obj = llmemory.cast_int_to_adr(intobj)
-                #    marked = self.header(obj).tid & \
-                #            (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS)
-                #   debug_print("  linked obj", obj, ": marked", marked)
 
             ll_assert(gchdr.c_gc_next != lltype.nullptr(self.PYOBJ_GC_HDR),
                       "gc_next is null")

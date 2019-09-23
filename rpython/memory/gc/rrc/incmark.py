@@ -43,6 +43,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
 
             self._debug_print_snap(print_label="roots-marked")
             self._debug_check_consistency(print_label="roots-marked")
+
+            self._gc_list_init(self.pyobj_old_list)
             self.state = self.STATE_MARKING
             return False
 
@@ -224,7 +226,6 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         # refcount > 0
 
     def _mark_rawrefcount(self):
-        self._gc_list_init(self.pyobj_old_list) # TODO: move???
         # as long as new objects with cyclic a refcount > 0 or alive border
         # objects are found, increment the refcount of all referenced objects
         # of those newly found objects
