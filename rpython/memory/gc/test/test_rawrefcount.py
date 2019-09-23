@@ -776,9 +776,13 @@ class TestRawRefCount(BaseDirectGCTest):
             while next <> llmemory.NULL:
                 pyobj = llmemory.cast_adr_to_ptr(next,
                                                  self.gc.rrc_gc.PYOBJ_HDR_PTR)
-                pyobj.c_ob_refcnt += 1
-                finalize_modern(pyobj)
-                decref(pyobj, None)
+                index = self.pyobjs.index(pyobj)
+                if (self.pyobj_finalizer.has_key(index) and
+                        self.pyobj_finalizer[index] ==
+                        RAWREFCOUNT_FINALIZER_MODERN):
+                    pyobj.c_ob_refcnt += 1
+                    finalize_modern(pyobj)
+                    decref(pyobj, None)
                 next = self.gc.rawrefcount_next_cyclic_isolate()
 
             next_dead = self.gc.rawrefcount_cyclic_garbage_head()

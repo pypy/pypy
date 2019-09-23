@@ -18,29 +18,14 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         self._untrack_tuples()
 
         # Only trace and mark rawrefcounted object if we are not doing
-        # something special, like building gc.garbage.
-        if self.state == self.STATE_MARKING and self.cycle_enabled:
-
-            # check if objects with finalizers from last collection cycle
-            # have been resurrected
-            dead_list_empty = True
-            if not self._gc_list_is_empty(self.pyobj_old_list):
-                dead_list_empty = self._check_finalizer()
-            # TODO: cannot work this way -> must first do full collection of
-            #       new graph, bc back ref over non-rrc from new rrc graph (#1)
-            # TODO: see incmark (instead of take_snapshot during collect_roots)
+        # something special, like building gc.garbage and if all finalizers
+        # have been processed.
+        if (self.state == self.STATE_MARKING and self.cycle_enabled and
+                self._gc_list_is_empty(self.pyobj_isolate_list)):
 
             # collect all rawrefcounted roots
             self._collect_roots()
             self._debug_check_consistency(print_label="roots-marked")
-
-            if not dead_list_empty:
-                # set all refcounts to zero for objects in dead list
-                # (might have been incremented) by fix_refcnt
-                gchdr = self.pyobj_dead_list.c_gc_next
-                while gchdr <> self.pyobj_dead_list:
-                    gchdr.c_gc_refs = 0
-                    gchdr = gchdr.c_gc_next
 
             # mark all objects reachable from rawrefcounted roots
             self._mark_rawrefcount()
@@ -59,6 +44,9 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
                 self._gc_list_move(self.pyobj_old_list,
                                    self.pyobj_isolate_list)
             use_cylicrc = not found_finalizer
+            if not self._gc_list_is_empty(self.pyobj_isolate_old_list):
+                self._gc_list_move(self.pyobj_isolate_old_list,
+                                   self.pyobj_old_list)
             self._debug_check_consistency(print_label="end-mark-cyclic")
 
             # mark all pypy objects at the border which are linked to live
@@ -90,6 +78,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
     def _collect_roots(self):
         # Initialize the cyclic refcount with the real refcount.
         self._collect_roots_init_list(self.pyobj_list)
+        self._collect_roots_init_list(self.pyobj_isolate_old_list)
 
         # Save the real refcount of objects at border (they don't necessarily
         # have a rrc header, as not all of them are garbage collected on the
@@ -103,6 +92,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         # Subtract all internal refcounts from the cyclic refcount
         # of rawrefcounted objects
         self._collect_roots_subtract_internal(self.pyobj_list)
+        self._collect_roots_subtract_internal(self.pyobj_isolate_old_list)
 
         # For all non-gc pyobjects which have a refcount > 0,
         # mark all reachable objects on the pypy side
@@ -186,6 +176,11 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             found_alive = False
             gchdr = self.pyobj_old_list.c_gc_next
             while gchdr <> self.pyobj_old_list:
+                next_old = gchdr.c_gc_next
+                found_alive |= self._mark_rawrefcount_obj(gchdr, pyobj_old)
+                gchdr = next_old
+            gchdr = self.pyobj_isolate_old_list.c_gc_next
+            while gchdr <> self.pyobj_isolate_old_list:
                 next_old = gchdr.c_gc_next
                 found_alive |= self._mark_rawrefcount_obj(gchdr, pyobj_old)
                 gchdr = next_old

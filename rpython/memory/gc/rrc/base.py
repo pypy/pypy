@@ -109,6 +109,8 @@ class RawRefCountBaseGC(object):
         self.tuple_list = self._pygchdr(tuple_list)
         self.pyobj_old_list = self._gc_list_new()
         self.pyobj_isolate_list = self._gc_list_new()
+        self.pyobj_isolate_old_list = self._gc_list_new()
+        self.pyobj_isolate_dead_list = self._gc_list_new()
         self.pyobj_dead_list = self._gc_list_new()
         self.pyobj_garbage_list = self._gc_list_new()
         self.garbage_to_trace = self.gc.AddressStack()
@@ -177,7 +179,7 @@ class RawRefCountBaseGC(object):
     def next_cyclic_isolate(self):
         if not self._gc_list_is_empty(self.pyobj_isolate_list):
             gchdr = self._gc_list_pop(self.pyobj_isolate_list)
-            self._gc_list_add(self.pyobj_old_list, gchdr)
+            self._gc_list_add(self.pyobj_isolate_old_list, gchdr)
             return llmemory.cast_ptr_to_adr(self.gc_as_pyobj(gchdr))
         return llmemory.NULL
 
@@ -546,37 +548,9 @@ class RawRefCountBaseGC(object):
             self.gc.trace(obj, self._collect_ref_rec, None)
         return True
 
-    def _check_finalizer(self):
-        # Check, if the cyclic isolate from the last collection cycle
-        # is reachable from outside, after the finalizers have been
-        # executed (and if all finalizers have been executed). Return
-        # True if some objects are reachable and thus have been resurrected.
-
-        # check if the list has been fully processed since the last cycle
-        # (for safety)
-        found_alive = not self._gc_list_is_empty(self.pyobj_isolate_list)
-
-        # check if all finalizers have actually been called (for safety)
-        if not found_alive:
-            found_alive = self._find_finalizer()
-
-        # check if there are any objects with a reference count > 0
-        if not found_alive:
-            gchdr = self.pyobj_old_list.c_gc_next
-            while gchdr <> self.pyobj_old_list:
-                if True: # TODO: check refcount or marked (see _collect_roots)
-                    found_alive = True
-                    break
-                gchdr = gchdr.c_gc_next
-
-        if found_alive:
-            self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
-            return True
-        else:
-            self._gc_list_merge(self.pyobj_old_list, self.pyobj_dead_list)
-            return False
-
     def _find_finalizer(self):
+        if not self._gc_list_is_empty(self.pyobj_isolate_list):
+            return True
         gchdr = self.pyobj_old_list.c_gc_next
         while gchdr <> self.pyobj_old_list:
             if self.finalizer_type(gchdr) == self.RAWREFCOUNT_FINALIZER_MODERN:
@@ -699,6 +673,8 @@ class RawRefCountBaseGC(object):
                                    "pyobj_dead_list")
             self._debug_check_list(self.pyobj_isolate_list, should_print,
                                    "pyobj_isolate_list")
+            self._debug_check_list(self.pyobj_isolate_old_list, should_print,
+                                   "pyobj_isolate_old_list")
             # pyobj_garbage_list is not a real list, it just marks the
             # first and the last object in pyobj_list, which are garbage
 
