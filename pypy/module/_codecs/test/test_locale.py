@@ -60,6 +60,12 @@ class TestLocaleCodec(object):
             assert (locale_decoder(val) ==
                     utf8_decoder(val, 'strict', True, None)[:2])
 
+    def test_decode_locale_latin1(self):
+        self.setlocale("fr_FR")
+        uni = u"août"
+        string = uni.encode('latin1')
+        assert str_decode_locale_surrogateescape(string) == (uni.encode('utf8'), len(uni))
+
     def test_decode_locale_errorhandler(self):
         self.setlocale("en_US.UTF-8")
         locale_decoder = str_decode_locale_surrogateescape
