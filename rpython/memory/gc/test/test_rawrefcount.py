@@ -5,6 +5,7 @@ from rpython.memory.gc.rrc.base import RawRefCountBaseGC
 from rpython.memory.gc.rrc.mark import RawRefCountMarkGC
 from rpython.memory.gc.rrc.incmark import RawRefCountIncMarkGC
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest
+from rpython.rlib import rgc
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT
 
 PYOBJ_HDR = RawRefCountBaseGC.PYOBJ_HDR
@@ -645,7 +646,8 @@ class TestRawRefCount(BaseDirectGCTest):
                             dest.info.ext_refcnt += 1
                     if removed == "after_snap":
                         remove_after_snap.append(('C', source, dest))
-            elif source.info.type == "P" or dest.info.type == "P":
+            elif (source.info.type == "P" or dest.info.type == "P" or
+                  (source.info.type == "B" and dest.info.type == "B")):
                 if (source.p is None or llmemory.cast_ptr_to_adr(source.p.next)
                         == llmemory.NULL):
                     if added == "after_snap":
@@ -663,6 +665,14 @@ class TestRawRefCount(BaseDirectGCTest):
                         remove_after_snap.append(('P', 'prev', source))
                 else:
                     assert False # only 2 refs supported from pypy obj in tests
+
+        if (len(add_after_snap) > 0 or len(add_border_after_snap) > 0 or
+                len(add_linked_pyobj_after_snap) > 0 or
+                len(add_pyobj_after_snap) > 0 or
+                len(add_pypy_after_snap) > 0 or
+                len(remove_after_snap) > 0):
+            if self.RRCGCClass != RawRefCountIncMarkGC:
+                py.test.skip('Incremental test on non-incremental gc.')
 
         # add finalizers
         for name in nodes:
@@ -810,87 +820,83 @@ class TestRawRefCount(BaseDirectGCTest):
 
         # do a collection to find cyclic isolates and clean them, if there are
         # no finalizers
-        if True:
-            from rpython.rlib import rgc
-            state = -1
-            after_snap = False
-            while state <> 0:
-                states = self.gc.collect_step()
-                state = rgc.new_state(states)
-                if (self.gc.rrc_gc.state == RawRefCountBaseGC.STATE_MARKING and
-                        not after_snap):
-                    for obj in add_pyobj_after_snap:
-                        r, raddr, check_alive = self._rawrefcount_pyobj(
-                            tracked=obj.info.tracked, tuple=obj.info.tuple)
-                        r.c_ob_refcnt += obj.info.ext_refcnt
-                        obj.r = r
-                        obj.raddr = raddr
-                        obj.check_alive = check_alive
-                    for obj in add_pypy_after_snap:
-                        p, pref, check_alive = \
-                            self._rawrefcount_pypyobj(42 + i, rooted=obj.info
-                                                      .rooted, create_old=True)
-                        obj.p = p
-                        obj.pref = pref
-                        obj.check_alive = check_alive
-                        i += 1
-                    for obj in add_border_after_snap:
-                        p, pref, r, raddr, check_alive = \
-                            self._rawrefcount_pair(42 + i, rooted=obj.info
-                                                   .rooted, create_old=True,
-                                                   tracked=obj.info.tracked,
-                                                   tuple=obj.info.tuple,
-                                                   is_gc=obj.info.gc)
-                        r.c_ob_refcnt += obj.info.ext_refcnt
-                        obj.r = r
-                        obj.raddr = raddr
-                        obj.p = p
-                        obj.pref = pref
-                        obj.check_alive = check_alive
-                        i += 1
-                    for obj in add_linked_pyobj_after_snap:
-                        r, raddr, check_alive = self._rawrefcount_pyobj(
-                            tracked=obj.info.tracked, tuple=obj.info.tuple,
-                            is_gc=obj.info.gc)
-                        r.c_ob_refcnt += obj.info.ext_refcnt
-                        obj.r = r
-                        obj.raddr = raddr
-                        old_alive = obj.check_alive
-                        def double_check(ext_refcnt):
-                            old_alive()
-                            check_alive(ext_refcnt)
-                        obj.check_alive = double_check
-                        self.gc.rawrefcount_create_link_pypy(obj.pref, raddr)
+        state = -1
+        after_snap = False
+        while state <> 0:
+            states = self.gc.collect_step()
+            state = rgc.new_state(states)
+            if (self.gc.rrc_gc.state == RawRefCountBaseGC.STATE_MARKING and
+                    not after_snap):
+                for obj in add_pyobj_after_snap:
+                    r, raddr, check_alive = self._rawrefcount_pyobj(
+                        tracked=obj.info.tracked, tuple=obj.info.tuple)
+                    r.c_ob_refcnt += obj.info.ext_refcnt
+                    obj.r = r
+                    obj.raddr = raddr
+                    obj.check_alive = check_alive
+                for obj in add_pypy_after_snap:
+                    p, pref, check_alive = \
+                        self._rawrefcount_pypyobj(42 + i, rooted=obj.info
+                                                  .rooted, create_old=True)
+                    obj.p = p
+                    obj.pref = pref
+                    obj.check_alive = check_alive
+                    i += 1
+                for obj in add_border_after_snap:
+                    p, pref, r, raddr, check_alive = \
+                        self._rawrefcount_pair(42 + i, rooted=obj.info
+                                               .rooted, create_old=True,
+                                               tracked=obj.info.tracked,
+                                               tuple=obj.info.tuple,
+                                               is_gc=obj.info.gc)
+                    r.c_ob_refcnt += obj.info.ext_refcnt
+                    obj.r = r
+                    obj.raddr = raddr
+                    obj.p = p
+                    obj.pref = pref
+                    obj.check_alive = check_alive
+                    i += 1
+                for obj in add_linked_pyobj_after_snap:
+                    r, raddr, check_alive = self._rawrefcount_pyobj(
+                        tracked=obj.info.tracked, tuple=obj.info.tuple,
+                        is_gc=obj.info.gc)
+                    r.c_ob_refcnt += obj.info.ext_refcnt
+                    obj.r = r
+                    obj.raddr = raddr
+                    old_alive = obj.check_alive
+                    def double_check(ext_refcnt):
+                        old_alive()
+                        check_alive(ext_refcnt)
+                    obj.check_alive = double_check
+                    self.gc.rawrefcount_create_link_pypy(obj.pref, raddr)
 
-                    for add in add_after_snap:
-                        if add[0] == "C":
-                            (type, source, dest) = add
-                            self._rawrefcount_addref(source.r, dest.r)
-                            if source.info.alive:
-                                dest.info.ext_refcnt += 1
-                        elif add[0] == "P":
-                            (type, prop, source, dest) = add
-                            if prop == "next":
-                                source.p.next = dest.p
-                            elif prop == "prev":
-                                source.p.prev = dest.p
-                            else:
-                                assert False, "not yet supported"
+                for add in add_after_snap:
+                    if add[0] == "C":
+                        (type, source, dest) = add
+                        self._rawrefcount_addref(source.r, dest.r)
+                        if source.info.alive:
+                            dest.info.ext_refcnt += 1
+                    elif add[0] == "P":
+                        (type, prop, source, dest) = add
+                        if prop == "next":
+                            source.p.next = dest.p
+                        elif prop == "prev":
+                            source.p.prev = dest.p
                         else:
                             assert False, "not yet supported"
-                    for remove in remove_after_snap:
-                        if remove[0] == "P":
-                            if remove[1] == "next":
-                                remove[2].p.next = remove[2].p
-                            elif prop == "prev":
-                                remove[2].p.prev = remove[2].p
-                            else:
-                                assert False, "not yet supported"
+                    else:
+                        assert False, "not yet supported"
+                for remove in remove_after_snap:
+                    if remove[0] == "P":
+                        if remove[1] == "next":
+                            remove[2].p.next = remove[2].p
+                        elif prop == "prev":
+                            remove[2].p.prev = remove[2].p
                         else:
                             assert False, "not yet supported"
-                    after_snap = True
-        else:
-            self.gc.collect()
+                    else:
+                        assert False, "not yet supported"
+                after_snap = True
 
         self.gc.rrc_gc.invoke_callback()
         if self.trigger <> []:
