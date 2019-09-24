@@ -808,6 +808,11 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     # above to be seen by the jit.
     _check_new_args(space, w_name, w_bases, w_dict)
     bases_w = space.fixedview(w_bases)
+    for w_base in bases_w:
+        if space.lookup(w_base, '__mro_entries__') is not None:
+            raise oefmt(space.w_TypeError,
+                        "type() doesn't support MRO entry resolution; "
+                        "use types.new_class()")
 
     w_winner = _calculate_metaclass(space, w_typetype, bases_w)
     if not space.is_w(w_winner, w_typetype):

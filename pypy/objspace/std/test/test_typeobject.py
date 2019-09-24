@@ -1433,6 +1433,58 @@ class AppTestTypeObject:
         assert WithMetaclass[int] == "Metaclass[int]"
         """
 
+    def test_mro_entries(self):
+        """
+        class BaseA: pass
+        class BaseB: pass
+        class BaseC: pass
+        class BaseD: pass
+
+        class ProxyA:
+            def __mro_entries__(self, orig_bases):
+                return (BaseA,)
+        class ProxyAB:
+            def __mro_entries__(self, orig_bases):
+                return (BaseA, BaseB)
+        class ProxyNone:
+            def __mro_entries__(self, orig_bases):
+                return ()
+
+        class TestA(ProxyA()): pass
+        assert TestA.__bases__ == (BaseA,)
+        assert len(TestA.__orig_bases__) == 1
+        assert isinstance(TestA.__orig_bases__[0], ProxyA)
+
+        class TestAB(ProxyAB()): pass
+        assert TestAB.__bases__ == (BaseA, BaseB)
+        assert len(TestAB.__orig_bases__) == 1
+        assert isinstance(TestAB.__orig_bases__[0], ProxyAB)
+
+        class TestNone(ProxyNone()): pass
+        assert TestNone.__bases__ == (object,)
+        assert len(TestNone.__orig_bases__) == 1
+        assert isinstance(TestNone.__orig_bases__[0], ProxyNone)
+
+        class TestMixed(BaseC, ProxyAB(), BaseD, ProxyNone()): pass
+        assert TestMixed.__bases__ == (BaseC, BaseA, BaseB, BaseD)
+        assert len(TestMixed.__orig_bases__) == 4
+        assert isinstance(TestMixed.__orig_bases__[1], ProxyAB) and isinstance(TestMixed.__orig_bases__[3], ProxyNone)
+
+        with raises(TypeError) as excinfo:
+            class TestDuplicate(BaseB, ProxyAB()): pass
+        assert str(excinfo.value) == "duplicate base class 'BaseB'"
+
+        with raises(TypeError) as excinfo:
+            type('TestType', (BaseC, ProxyAB(), BaseD, ProxyNone()), {})
+        assert str(excinfo.value) == "type() doesn't support MRO entry resolution; use types.new_class()"
+
+        import types
+        TestTypesNewClass = types.new_class('TestTypesNewClass', (BaseC, ProxyAB(), BaseD, ProxyNone()), {})
+        assert TestMixed.__bases__ == (BaseC, BaseA, BaseB, BaseD)
+        assert len(TestMixed.__orig_bases__) == 4
+        assert isinstance(TestMixed.__orig_bases__[1], ProxyAB) and isinstance(TestMixed.__orig_bases__[3], ProxyNone)
+        """
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
