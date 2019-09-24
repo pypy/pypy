@@ -72,14 +72,6 @@ class TestRawRefCount(BaseDirectGCTest):
             else:
                 return RAWREFCOUNT_FINALIZER_NONE
 
-        def rawrefcount_clear_wr(gc):
-            cleared = False
-            for weakrefs in self.pyobj_weakrefs:
-                for weakref in weakrefs:
-                    if gc._obj.container == weakref.p._obj:
-                        weakref.callback_cleared = True
-                        cleared = True
-
         def rawrefcount_tuple_maybe_untrack(obj):
             #if foo:
             #    gchdr = rawrefcount_pyobj_as_gc(obj)
@@ -104,7 +96,6 @@ class TestRawRefCount(BaseDirectGCTest):
                                  rawrefcount_gc_as_pyobj,
                                  rawrefcount_pyobj_as_gc,
                                  rawrefcount_finalizer_type,
-                                 rawrefcount_clear_wr,
                                  rawrefcount_tuple_maybe_untrack)
 
     def _collect(self, major, expected_trigger=0):

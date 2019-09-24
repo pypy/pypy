@@ -72,8 +72,6 @@ class RawRefCountBaseGC(object):
                                                          PYOBJ_GC_HDR_PTR))
     RAWREFCOUNT_FINALIZER_TYPE = lltype.Ptr(lltype.FuncType([PYOBJ_GC_HDR_PTR],
                                                             lltype.Signed))
-    RAWREFCOUNT_CLEAR_WR_TYPE = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
-                                                           lltype.Void))
     RAWREFCOUNT_MAYBE_UNTRACK_TUPLE = \
         lltype.Ptr(lltype.FuncType([PYOBJ_HDR_PTR], lltype.Signed))
     RAWREFCOUNT_FINALIZER_NONE = 0
@@ -90,7 +88,7 @@ class RawRefCountBaseGC(object):
 
     def init(self, gc, gc_flags, dealloc_trigger_callback, tp_traverse,
              pyobj_list, tuple_list, gc_as_pyobj, pyobj_as_gc, finalizer_type,
-             clear_weakref_callback, tuple_maybe_untrack):
+             tuple_maybe_untrack):
         # see pypy/doc/discussion/rawrefcount.rst
         self.gc = gc
         (self.GCFLAG_VISITED_RMY, self.GCFLAG_VISITED,
@@ -117,7 +115,6 @@ class RawRefCountBaseGC(object):
         self.gc_as_pyobj = gc_as_pyobj
         self.pyobj_as_gc = pyobj_as_gc
         self.finalizer_type = finalizer_type
-        self.clear_weakref_callback = clear_weakref_callback
         self.tuple_maybe_untrack = tuple_maybe_untrack
         self.state = self.STATE_DEFAULT
         self.cycle_enabled = True
@@ -347,7 +344,6 @@ class RawRefCountBaseGC(object):
     def _major_trace(self, pyobject, flags):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        # TODO: add flag; if set: if marked, keep rc-proxy
         (use_cylicrefcnt, use_dict) = flags
         #
         pyobj = self._pyobj(pyobject)
@@ -575,8 +571,6 @@ class RawRefCountBaseGC(object):
         elif pyobj.c_ob_pypy_link != 0:
             pyobj.c_ob_refcnt += self.refcnt_add
             if self.refcnt_add > 0:
-                #intobj = pyobj.c_ob_pypy_link
-                #obj = llmemory.cast_int_to_adr(intobj)
                 pyobject = llmemory.cast_ptr_to_adr(pyobj)
                 obj = self.refcnt_dict.get(pyobject)
                 self.gc.objects_to_trace.append(obj)

@@ -162,20 +162,6 @@ class State:
                 pyobj_dealloc_action = PyObjDeallocAction(space)
                 self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
 
-                def _clear_weakref_callbacks(gcref):
-                    from pypy.module._weakref.interp__weakref import \
-                        W_Weakref, W_CallableProxy
-                    from pypy.module.gc.referents import \
-                        try_cast_gcref_to_w_root
-                    w_obj = try_cast_gcref_to_w_root(gcref)
-                    if type(w_obj) is W_Weakref:
-                        w_obj.w_callable = None
-                    elif type(w_obj) is W_CallableProxy:
-                        w_obj.w_callable = None
-
-                self.clear_weakref_callbacks = \
-                    (lambda w_obj: _clear_weakref_callbacks(w_obj))
-
                 def _tp_traverse(pyobj_ptr, callback, args):
                     from pypy.module.cpyext.api import PyObject, \
                         generic_cpy_call
@@ -248,8 +234,6 @@ class State:
                     pypyobj_list, pypyobj_tuple_list,
                     self.C._PyPy_gc_as_pyobj, self.C._PyPy_pyobj_as_gc,
                     self.C._PyPy_finalizer_type,
-                    llhelper(rawrefcount.RAWREFCOUNT_CLEAR_WR_TYPE,
-                             self.clear_weakref_callbacks),
                     self.C._PyTuple_MaybeUntrack)
             self.builder.attach_all(space)
 

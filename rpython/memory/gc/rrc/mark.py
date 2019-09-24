@@ -52,7 +52,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             # mark all pypy objects at the border which are linked to live
             # non-gc pyobjs which are not directly referenced by any gc pyobj
             debug_print("use_cylicrc", use_cylicrc)
-            self.p_list_old.foreach(self._major_trace, (use_cylicrc, True))  # TODO: set flag to keep marked, check other occurences
+            self.p_list_old.foreach(self._major_trace, (use_cylicrc, True))
             self._debug_check_consistency(print_label="end-mark")
 
             # fix refcnt back
@@ -61,7 +61,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             self.refcnt_dict = self.gc.AddressDict()
             self.use_refcntdict = False
         else:
-            self.p_list_old.foreach(self._major_trace, (False, False))  # TODO: set flag to keep marked, check other occurences
+            self.p_list_old.foreach(self._major_trace, (False, False))
             self._debug_check_consistency(print_label="end-mark")
 
         self.state = self.STATE_DEFAULT

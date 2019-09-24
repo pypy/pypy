@@ -3094,7 +3094,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
     RAWREFCOUNT_GC_AS_PYOBJ = RawRefCountBaseGC.RAWREFCOUNT_GC_AS_PYOBJ
     RAWREFCOUNT_PYOBJ_AS_GC = RawRefCountBaseGC.RAWREFCOUNT_PYOBJ_AS_GC
     RAWREFCOUNT_FINALIZER_TYPE = RawRefCountBaseGC.RAWREFCOUNT_FINALIZER_TYPE
-    RAWREFCOUNT_CLEAR_WR_TYPE = RawRefCountBaseGC.RAWREFCOUNT_CLEAR_WR_TYPE
     RAWREFCOUNT_MAYBE_UNTRACK_TUPLE = \
         RawRefCountBaseGC.RAWREFCOUNT_MAYBE_UNTRACK_TUPLE
 
@@ -3103,15 +3102,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def rawrefcount_init(self, dealloc_trigger_callback, tp_traverse,
                          pyobj_list, tuple_list, gc_as_pyobj, pyobj_as_gc,
-                         finalizer_type, clear_weakref_callback,
-                         tuple_maybe_untrack):
+                         finalizer_type, tuple_maybe_untrack):
         if not self.rrc_enabled:
             gc_flags = (GCFLAG_VISITED_RMY, GCFLAG_VISITED,
                         GCFLAG_NO_HEAP_PTRS, GCFLAG_GARBAGE)
             self.rrc_gc.init(self, gc_flags, dealloc_trigger_callback,
                              tp_traverse, pyobj_list, tuple_list, gc_as_pyobj,
-                             pyobj_as_gc, finalizer_type,
-                             clear_weakref_callback, tuple_maybe_untrack)
+                             pyobj_as_gc, finalizer_type, tuple_maybe_untrack)
             self.rrc_enabled = True
 
     def activate_rawrefcount_cycle(self):
