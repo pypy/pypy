@@ -226,8 +226,10 @@ class PythonCodeMaker(ast.ASTVisitor):
     def is_dead_code(self):
         """Return False if any code can be meaningfully added to the
         current block, or True if it would be dead code."""
-        # currently only True after a RETURN_VALUE.
-        return self.current_block.have_return
+        # PyPy2 only returns True after a RETURN_VALUE.  Here we don't even
+        # do that, because otherwise the setter for f_lineno gets very confused.
+        # See test_f_lineno_set_4 in apptest_pyframe.py
+        return False          # self.current_block.have_return
 
     def emit_op(self, op):
         """Emit an opcode without an argument."""

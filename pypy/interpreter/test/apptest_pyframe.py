@@ -169,7 +169,6 @@ def test_f_lineno_set_3():
     assert output == [2, 9]
 
 def test_f_lineno_set_4():
-    pytest.skip("test is failing on pypy")
     def jump_in_nested_finally(output):
         try:
             output.append(2)
