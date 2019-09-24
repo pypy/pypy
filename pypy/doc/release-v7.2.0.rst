@@ -276,6 +276,7 @@ Python 3.6 only
 * Fix argument handling in ``select.poll().poll()``
 * Raise ``SyntaxError`` instead of ``DeprecationWarning`` when treating invalid
   escapes in bytes as errors (CPython issue 28691_)
+* Handle locale in `time.strftime()`. (`issue 3079`_)
 
 Python 3.6 c-API
 ~~~~~~~~~~~~~~~~
@@ -336,3 +337,4 @@ Python 3.6 c-API
 .. _`issue 3064`: https://bitbucket.com/pypy/pypy/issues/3064
 .. _`issue 3072`: https://bitbucket.com/pypy/pypy/issues/3072
 .. _`issue 3073`: https://bitbucket.com/pypy/pypy/issues/3073
+.. _`issue 3079`: https://bitbucket.com/pypy/pypy/issues/3079
