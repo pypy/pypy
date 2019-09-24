@@ -323,7 +323,10 @@ def test_trace_exc():
 
 def test_trace_ignore_hidden():
     import sys
-    import _testing
+    try:
+        import _testing
+    except ImportError:
+        skip('PyPy only test')
     _testing.Hidden  # avoid module lazy-loading weirdness when untranslated
 
     l = []
