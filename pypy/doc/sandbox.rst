@@ -3,10 +3,11 @@
 PyPy's sandboxing features
 ==========================
 
-.. warning:: This is not actively maintained. You will likely have to fix
-   some issues yourself, or otherwise play around on your own. We provide
-   this documentation for historical reasions, it will not translate or
-   run on the latest PyPy code base.
+.. warning:: This describes the old, unmaintained version.  A new version
+   is in progress and should be merged back to trunk at some point soon.
+   Please see its description here:
+   https://mail.python.org/pipermail/pypy-dev/2019-August/015797.html
+
 
 Introduction
 ------------
