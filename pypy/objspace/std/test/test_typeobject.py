@@ -1483,6 +1483,10 @@ class AppTestTypeObject:
         assert TestMixed.__bases__ == (BaseC, BaseA, BaseB, BaseD)
         assert len(TestMixed.__orig_bases__) == 4
         assert isinstance(TestMixed.__orig_bases__[1], ProxyAB) and isinstance(TestMixed.__orig_bases__[3], ProxyNone)
+
+        class TestNoOrigBases(BaseA, BaseB): pass
+        assert TestNoOrigBases.__bases__ == (BaseA, BaseB)
+        assert not hasattr(TestNoOrigBases, '__orig_bases__')
         """
 
 

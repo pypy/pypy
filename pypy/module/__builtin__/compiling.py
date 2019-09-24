@@ -97,7 +97,7 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
     frame.exec_(w_prog, w_globals, w_locals)
 
 def _update_bases(space, w_bases):
-    bases_w = space.listview(w_bases)
+    bases_w = space.fixedview(w_bases)
     new_bases_w = []
     changed = False
     for w_base in bases_w:
@@ -112,7 +112,7 @@ def _update_bases(space, w_bases):
             new_bases_w.append(w_base)
     if not changed:
         return bases_w
-    return new_bases_w
+    return new_bases_w[:]
 
 def build_class(space, w_func, w_name, __args__):
     from pypy.objspace.std.typeobject import _calculate_metaclass, W_TypeObject
@@ -122,7 +122,7 @@ def build_class(space, w_func, w_name, __args__):
     orig_bases_w, kwds_w = __args__.unpack()
     w_orig_bases = space.newtuple(orig_bases_w)
     bases_w = _update_bases(space, w_orig_bases)
-    w_bases = space.newtuple(bases_w[:])
+    w_bases = space.newtuple(bases_w)
     w_meta = kwds_w.pop('metaclass', None)
     if w_meta is not None:
         isclass = space.isinstance_w(w_meta, space.w_type)
