@@ -329,8 +329,11 @@ class ExecutionContext(object):
                 # if it does not exist yet and the tracer accesses it via
                 # frame.f_locals, it is filled by PyFrame.getdictscope
                 frame.fast2locals()
+            prev_line_tracing = d.is_in_line_tracing
             self.is_tracing += 1
             try:
+                if event == 'line':
+                    d.is_in_line_tracing = True
                 try:
                     w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
@@ -345,6 +348,7 @@ class ExecutionContext(object):
                     raise
             finally:
                 self.is_tracing -= 1
+                d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:
                     frame.locals2fast()
 
