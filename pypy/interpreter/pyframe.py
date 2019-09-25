@@ -670,6 +670,9 @@ class PyFrame(W_Root):
 
         # You can only do this from within a trace function, not via
         # _getframe or similar hackery.
+        if space.int_w(self.fget_f_lasti(space)) == -1:
+            raise oefmt(space.w_ValueError,
+                        "can't jump from the 'call' trace event of a new frame")
         if self.get_w_f_trace() is None:
             raise oefmt(space.w_ValueError,
                         "f_lineno can only be set by a trace function")
