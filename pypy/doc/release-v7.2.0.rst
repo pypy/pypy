@@ -49,6 +49,9 @@ C++ code.
 Thanks to Anvil_, we revived the `PyPy Sandbox`_, which allows total control
 over a python interpreter's interactions with the external world.
 
+We implemented a new JSON decoder that is much faster, uses less memory, and
+uses a JIT-friendly specialized dictionary.
+
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
 We strongly recommend updating. Many of the fixes are the direct result of
@@ -126,7 +129,7 @@ Changes released in v7.1.1
 * Package windows DLLs needed by cffi modules next to the cffi c-extensions
   (`issue 2988`_)
 * Cleanup and refactor JIT code to remove ``rpython.jit.metainterp.typesystem``
-* Fix memoryviews of ctype structures with padding, (cpython issue 32780_)
+* Fix memoryviews of ctype structures with padding, (CPython issue 32780_)
 
 Changes to Python 3.6 released in v7.1.1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -185,6 +188,23 @@ Changes shared across versions
 * Correctly wrap the I/O errors we can get when importing modules
 * Fix bad output from JSON with ``'skipkeys=True'`` (`issue 3052`_)
 * Fix compatibility with latest virtualenv HEAD
+* Avoid ``RuntimeError`` in ``repr()`` of recursive ``dictviews`` (CPython
+  issue 18533_)
+* Fix for printing after ``gc.get_objects()`` (`issue 2979`)
+* Optimize many fast-paths through utf-8 code when we know it is ascii or no
+  surroagates are present
+* Check for a rare case of someone shrinking a buffer from another thread
+  while using it in a ``read()`` variant. One of the issues discovered when
+  reviewing the code for the sandbox.
+* Prevent segfault when slicing ``array.array`` with a large step size
+* Support building ``ncurses`` on Suse Linux
+* Update statically-linked ``_ssl`` OpenSSL to 1.1.0c on ``darwin``
+* Optimize ``W_TextIOWrapper._readline`` and ``ByteBuffer.getslice``
+* Fix possible race condition in threading ``Lock.release()`` (`issue 3072`_)
+* Make ``CDLL(None)`` on win32 raise ``TypeError``
+* Change ``sys.getfilesystemcodeerors()`` to ``'strict'`` on win32
+* Update vendored version of ``pycparser`` to version 2.19
+* Implement a much faster JSON decoder (3x speedup for large json files, 2x less memory)
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -211,7 +231,7 @@ Python 3.6 only
   3003`_)
 * Fix parsing for converting strings with underscore into ints
 * Add ``memoryview.obj`` which stores a reference, (`issue 3016`_)
-* Fix datetime.fromtimestamp for win32 (cpython issue 29097_)
+* Fix datetime.fromtimestamp for win32 (CPython issue 29097_)
 * Improve multiprocessing support on win32
 * Support negative offsets in ``lnotab`` (`issue 2943`_)
 * Fix leak of file descriptor with `_io.FileIO('dir/')`
@@ -232,19 +252,62 @@ Python 3.6 only
 * Fix case where ``int(<subint>)`` would go into infinite recursion
 * Don't ignore fold parameter in ``(date,)time.replace()``
 * Fix logic bug for ``memoryview.cast`` (when ``view.format`` is not ``'B'``)
+* Implement retry-on-EINTR in fcntl module (CPython issue 35189_)
+* Fix handling of 1st argument to ``hashlib.blake2{b,s}()`` (CPython issue
+  33729_)
+* Prevent overflow in ``_hashlib`` ``digest()`` (CPython issue 34922_)
+* ``IOBase.readlines()`` relies on the iterator protocol instead of calling
+  ``readline()`` directly
+* Don't inherit ``IS_ABSTRACT`` flag in classes
+* Reset raw_pos after unwinding the raw stream (CPython issue 32228_)
+* Add existing options ``-b`` and ``-d`` to ``pypy3 --help`` text
+* Clean up ``_codecs`` error handling code
+* Add support for using stdlib as a zipfile
+* Check return type of ``__prepare__()`` (CPython issue 31588_)
+* Fix logic in ``_curses.get_wch`` (`issue 3064`_)
+* Match CPython exit code when failing to flush stdout/stderr at exit
+* Improve SyntaxError message output
+* Add ``range.__bool__``
+* Add cursor validity check to ``_sqlite.Cursor.close``
+* Improve message when mistakenly using ``print something`` in Python3
+* Handle generator exit in ``athrow()`` (CPython issue 33786_)
+* Support unmarshalling ``TYPE_INT64`` and turn ``OverflowErrors`` from
+  ``marshal.loads`` into ``ValueErrors``
+* Update ``_posixsubprocess.c`` to match CPython (CPython issue 32270_)
+* Remove unused ``_posixsubprocess.cloexec_pipe()``
+* Add missing constants to ``stat`` and ``kill _stat`` (`issue 3073`_)
+* Fix argument handling in ``select.poll().poll()``
+* Raise ``SyntaxError`` instead of ``DeprecationWarning`` when treating invalid
+  escapes in bytes as errors (CPython issue 28691_)
+* Handle locale in `time.strftime()`. (`issue 3079`_)
+* Fix an issue when calling ``PyFrame.fset_f_lineno`` (`issue 3066`_)
 
 Python 3.6 c-API
 ~~~~~~~~~~~~~~~~
 
 * Add ``PyStructSequence_InitType2``, ``Py_RETURN_NOTIMPLEMENTED``,
-  ``PyGILState_Check``, ``PyUnicode_AsUCS4``, ``PyUnicode_AsUCS4Copy``
+  ``PyGILState_Check``, ``PyUnicode_AsUCS4``, ``PyUnicode_AsUCS4Copy``,
+  ``PyErr_SetFromWindowsErr``,
 * Sync the various ``Py**Flag`` constants with CPython
+* Allow ``PyTypeObject`` with ``tp_doc==""`` (`issue 3055`_)
+* Update ``pymacro.h`` to match CPython 3.6.9
+* Support more datetime C functions and definitions
 
 .. _`Lehmer's algorithm`: https://en.wikipedia.org/wiki/Lehmer's_GCD_algorithm
 .. _29097: https://bugs.python.org/issue29097
 .. _32780: https://bugs.python.org/issue32780
 .. _35409 : https://bugs.python.org/issue35409
 .. _27169 : https://bugs.python.org/issue27169
+.. _18533 : https://bugs.python.org/issue18533
+.. _35189 : https://bugs.python.org/issue35189
+.. _33279 : https://bugs.python.org/issue33279
+.. _34922 : https://bugs.python.org/issue34922
+.. _32228 : https://bugs.python.org/issue32228
+.. _31588 : https://bugs.python.org/issue31588
+.. _33786 : https://bugs.python.org/issue33786
+.. _32270 : https://bugs.python.org/issue32270
+.. _28691 : https://bugs.python.org/issue28691
+
 .. _opencv2: https://github.com/skvark/opencv-python/
 .. _`issue 2617`: https://bitbucket.com/pypy/pypy/issues/2617
 .. _`issue 2722`: https://bitbucket.com/pypy/pypy/issues/2722
@@ -273,3 +336,10 @@ Python 3.6 c-API
 .. _`issue 3049`: https://bitbucket.com/pypy/pypy/issues/3049
 .. _`issue 3050`: https://bitbucket.com/pypy/pypy/issues/3050
 .. _`issue 3052`: https://bitbucket.com/pypy/pypy/issues/3052
+.. _`issue 3055`: https://bitbucket.com/pypy/pypy/issues/3055
+.. _`issue 2979`: https://bitbucket.com/pypy/pypy/issues/2979
+.. _`issue 3064`: https://bitbucket.com/pypy/pypy/issues/3064
+.. _`issue 3072`: https://bitbucket.com/pypy/pypy/issues/3072
+.. _`issue 3073`: https://bitbucket.com/pypy/pypy/issues/3073
+.. _`issue 3079`: https://bitbucket.com/pypy/pypy/issues/3079
+.. _`issue 3066`: https://bitbucket.com/pypy/pypy/issues/3066
