@@ -538,7 +538,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_kwonly(self, typ):
         raise FastFuncNotSupported
-        
+
     @staticmethod
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
