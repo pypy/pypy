@@ -672,7 +672,7 @@ class PyFrame(W_Root):
         # _getframe or similar hackery.
         if self.get_w_f_trace() is None:
             raise oefmt(space.w_ValueError,
-                        "f_lineno can only be set by a trace function.")
+                        "f_lineno can only be set by a trace function")
 
         # Only allow jumps when we're tracing a line event.
         d = self.getorcreatedebug()
