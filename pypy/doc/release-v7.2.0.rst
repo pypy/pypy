@@ -49,6 +49,9 @@ C++ code.
 Thanks to Anvil_, we revived the `PyPy Sandbox`_, which allows total control
 over a python interpreter's interactions with the external world.
 
+We implemented a new JSON decoder that is much faster, uses less memory, and
+uses a JIT-friendly specialized dictionary.
+
 As always, this release is 100% compatible with the previous one and fixed
 several issues and bugs raised by the growing community of PyPy users.
 We strongly recommend updating. Many of the fixes are the direct result of
@@ -201,7 +204,7 @@ Changes shared across versions
 * Make ``CDLL(None)`` on win32 raise ``TypeError``
 * Change ``sys.getfilesystemcodeerors()`` to ``'strict'`` on win32
 * Update vendored version of ``pycparser`` to version 2.19
-* Implement a much faster json decoder (3x speedup for large json files, 2x less memory)
+* Implement a much faster JSON decoder (3x speedup for large json files, 2x less memory)
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -277,6 +280,7 @@ Python 3.6 only
 * Raise ``SyntaxError`` instead of ``DeprecationWarning`` when treating invalid
   escapes in bytes as errors (CPython issue 28691_)
 * Handle locale in `time.strftime()`. (`issue 3079`_)
+* Fix an issue when calling ``PyFrame.fset_f_lineno`` (`issue 3066`_)
 
 Python 3.6 c-API
 ~~~~~~~~~~~~~~~~
@@ -338,3 +342,4 @@ Python 3.6 c-API
 .. _`issue 3072`: https://bitbucket.com/pypy/pypy/issues/3072
 .. _`issue 3073`: https://bitbucket.com/pypy/pypy/issues/3073
 .. _`issue 3079`: https://bitbucket.com/pypy/pypy/issues/3079
+.. _`issue 3066`: https://bitbucket.com/pypy/pypy/issues/3066
