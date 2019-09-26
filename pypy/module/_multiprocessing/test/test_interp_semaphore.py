@@ -1,3 +1,4 @@
+import pytest
 import time
 from rpython.rlib.rgil import yield_thread
 from pypy.tool.pytest.objspace import gettestobjspace
@@ -7,8 +8,9 @@ from pypy.module.thread.os_thread import start_new_thread
 from pypy.module._multiprocessing.interp_semaphore import (
     create_semaphore, sem_unlink, W_SemLock)
 
+@pytest.mark.parametrize('spaceconfig', [
+    {'usemodules': ['_multiprocessing', 'thread']}])
 def test_stuff(space):
-    space = gettestobjspace(usemodules=['_multiprocessing', 'thread'])
     sem_name = '/test7'
     _handle = create_semaphore(space, sem_name, 1, 1)
     w_lock = W_SemLock(space, _handle, 0, 1)
