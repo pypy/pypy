@@ -10,7 +10,7 @@ from pypy.module._multiprocessing.interp_semaphore import (
 
 @pytest.mark.parametrize('spaceconfig', [
     {'usemodules': ['_multiprocessing', 'thread']}])
-def test_stuff(space):
+def test_semlock_release(space):
     sem_name = '/test7'
     _handle = create_semaphore(space, sem_name, 1, 1)
     w_lock = W_SemLock(space, _handle, 0, 1)
