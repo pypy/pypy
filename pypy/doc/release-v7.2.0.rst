@@ -14,7 +14,7 @@ two different interpreters:
 The interpreters are based on much the same codebase, thus the double
 release.
 
-With the support of ARM Holdings Ltd. and `Crossbar.io`_, this release supports
+With the support of Arm Holdings Ltd. and `Crossbar.io`_, this release supports
 the 64-bit ``aarch64`` ARM architecture. More about the work and the
 performance data around this welcome development can be found in the `blog
 post`_.
