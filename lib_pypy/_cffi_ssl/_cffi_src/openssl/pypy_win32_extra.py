@@ -68,7 +68,9 @@ PCCRL_CONTEXT WINAPI CertEnumCRLsInStore(
 );
 """
 
-MACROS = """
+# cryptography does not use MACROS anymore
+# MACROS = """
+TYPES += """
 #define CERT_STORE_READONLY_FLAG ...
 #define CERT_SYSTEM_STORE_LOCAL_MACHINE ...
 #define CRYPT_E_NOT_FOUND ...

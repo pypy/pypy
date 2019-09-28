@@ -855,8 +855,9 @@ class Recompiler:
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt("  (void)((p->%s) | 0);  /* check that '%s.%s' is "
-                         "an integer */" % (fname, cname, fname))
+                    if fname != '':
+                        prnt("  (void)((p->%s) | 0);  /* check that '%s.%s' is "
+                             "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
                 # is interpreted as a '*' and so will match any array length.

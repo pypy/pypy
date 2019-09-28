@@ -183,8 +183,17 @@ class TestTranforms(BytecodeTestCase):
         self.assertInBytecode(code, 'LOAD_CONST', 'b')
 
         # Verify that large sequences do not result from folding
-        code = compile('a="x"*1000', '', 'single')
+        code = compile('a="x"*10000', '', 'single')
+        self.assertInBytecode(code, 'LOAD_CONST', 10000)
+        self.assertNotIn("x"*10000, code.co_consts)
+        code = compile('a=1<<1000', '', 'single')
         self.assertInBytecode(code, 'LOAD_CONST', 1000)
+        self.assertNotIn(1<<1000, code.co_consts)
+        # difference to CPython: PyPy allows slightly larger constants to be
+        # created
+        code = compile('a=2**10000', '', 'single')
+        self.assertInBytecode(code, 'LOAD_CONST', 10000)
+        self.assertNotIn(2**10000, code.co_consts)
 
     @cpython_only # we currently not bother to implement that
     def test_binary_subscr_on_unicode(self):

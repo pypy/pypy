@@ -79,8 +79,9 @@ class W_DictMultiObject(W_Root):
             W_ModuleDictObject.__init__(w_obj, space, strategy, storage)
             return w_obj
         elif instance:
-            from pypy.objspace.std.mapdict import MapDictStrategy
-            strategy = space.fromcache(MapDictStrategy)
+            from pypy.objspace.std.mapdict import make_instance_dict
+            assert w_type is None
+            return make_instance_dict(space)
         elif strdict or module:
             assert w_type is None
             strategy = space.fromcache(UnicodeDictStrategy)
@@ -380,9 +381,23 @@ app = applevel('''
                 del currently_in_repr[d]
             except:
                 pass
+
+    def viewrepr(currently_in_repr, view):
+        if view in currently_in_repr:
+            return '...'
+        currently_in_repr[view] = 1
+        try:
+            return (type(view).__name__ + "([" +
+               ", ".join([repr(x) for x in view]) + '])')
+        finally:
+            try:
+                del currently_in_repr[view]
+            except:
+                pass
 ''', filename=__file__)
 
 dictrepr = app.interphook("dictrepr")
+viewrepr = app.interphook("viewrepr")
 
 
 W_DictMultiObject.typedef = TypeDef("dict",
@@ -1264,7 +1279,13 @@ create_iterator_classes(IntDictStrategy)
 
 
 def update1(space, w_dict, w_data):
-    if isinstance(w_data, W_DictMultiObject):    # optimization case only
+    # CPython 'logic' for copying from a dict subclass: use the fast path iff
+    # __iter__ hasn't been overridden, otherwise fall back to using keys().
+    w_st_iter = space.newtext("__iter__")
+    if (isinstance(w_data, W_DictMultiObject) and
+            space.is_w(
+                space.findattr(space.type(w_data), w_st_iter),
+                space.findattr(space.w_dict, w_st_iter))):
         update1_dict_dict(space, w_dict, w_data)
         return
     w_method = space.findattr(w_data, space.newtext("keys"))
@@ -1424,10 +1445,7 @@ class W_DictViewObject(W_Root):
         self.w_dict = w_dict
 
     def descr_repr(self, space):
-        typename = space.type(self).getname(space)
-        w_seq = space.call_function(space.w_list, self)
-        seq_repr = space.utf8_w(space.repr(w_seq))
-        return space.newtext("%s(%s)" % (typename, seq_repr))
+        return viewrepr(space, space.get_objects_in_repr(), self)
 
     def descr_len(self, space):
         return space.len(self.w_dict)

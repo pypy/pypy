@@ -3,7 +3,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.cmath import names_and_docstrings
+from pypy.module.cmath.moduledef import names_and_docstrings
 from rpython.rlib import rcomplex, rfloat
 
 pi   = math.pi

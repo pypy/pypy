@@ -4665,6 +4665,17 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         assert a.build_types(h, [int]).const == 456
 
+    def test_list_plus_equal_string(self):
+        def f(n):
+            lst = [chr(n), chr(n + 1)]
+            if n < 100:
+                lst.append(chr(n + 2))
+            lst += str(n)
+            return lst
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(listitem(s), annmodel.SomeChar)
+
 
 def g(n):
     return [0, 1, 2, n]

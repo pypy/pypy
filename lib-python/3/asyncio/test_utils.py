@@ -33,12 +33,28 @@ from . import selectors
 from . import tasks
 from .coroutines import coroutine
 from .log import logger
+from test import support
 
 
 if sys.platform == 'win32':  # pragma: no cover
     from .windows_utils import socketpair
 else:
     from socket import socketpair  # pragma: no cover
+
+
+def data_file(filename):
+    if hasattr(support, 'TEST_HOME_DIR'):
+        fullname = os.path.join(support.TEST_HOME_DIR, filename)
+        if os.path.isfile(fullname):
+            return fullname
+    fullname = os.path.join(os.path.dirname(os.__file__), 'test', filename)
+    if os.path.isfile(fullname):
+        return fullname
+    raise FileNotFoundError(filename)
+
+
+ONLYCERT = data_file('ssl_cert.pem')
+ONLYKEY = data_file('ssl_key.pem')
 
 
 def dummy_ssl_context():
@@ -113,12 +129,8 @@ class SSLWSGIServerMixin:
         # contains the ssl key and certificate files) differs
         # between the stdlib and stand-alone asyncio.
         # Prefer our own if we can find it.
-        here = os.path.join(os.path.dirname(__file__), '..', 'tests')
-        if not os.path.isdir(here):
-            here = os.path.join(os.path.dirname(os.__file__),
-                                'test', 'test_asyncio')
-        keyfile = os.path.join(here, 'ssl_key.pem')
-        certfile = os.path.join(here, 'ssl_cert.pem')
+        keyfile = ONLYKEY
+        certfile = ONLYCERT
         context = ssl.SSLContext()
         context.load_cert_chain(certfile, keyfile)
 
@@ -334,12 +346,19 @@ class TestLoop(base_events.BaseEventLoop):
             return False
 
     def assert_reader(self, fd, callback, *args):
-        assert fd in self.readers, 'fd {} is not registered'.format(fd)
+        if fd not in self.readers:
+            raise AssertionError(f'fd {fd} is not registered')
         handle = self.readers[fd]
-        assert handle._callback == callback, '{!r} != {!r}'.format(
-            handle._callback, callback)
-        assert handle._args == args, '{!r} != {!r}'.format(
-            handle._args, args)
+        if handle._callback != callback:
+            raise AssertionError(
+                f'unexpected callback: {handle._callback} != {callback}')
+        if handle._args != args:
+            raise AssertionError(
+                f'unexpected callback args: {handle._args} != {args}')
+
+    def assert_no_reader(self, fd):
+        if fd in self.readers:
+            raise AssertionError(f'fd {fd} is registered')
 
     def _add_writer(self, fd, callback, *args):
         self.writers[fd] = events.Handle(callback, args, self)
@@ -437,12 +456,19 @@ def get_function_source(func):
 
 
 class TestCase(unittest.TestCase):
+    @staticmethod
+    def close_loop(loop):
+        executor = loop._default_executor
+        if executor is not None:
+            executor.shutdown(wait=True)
+        loop.close()
+
     def set_event_loop(self, loop, *, cleanup=True):
         assert loop is not None
         # ensure that the event loop is passed explicitly in asyncio
         events.set_event_loop(None)
         if cleanup:
-            self.addCleanup(loop.close)
+            self.addCleanup(self.close_loop, loop)
 
     def new_test_loop(self, gen=None):
         loop = TestLoop(gen)
@@ -455,6 +481,7 @@ class TestCase(unittest.TestCase):
     def setUp(self):
         self._get_running_loop = events._get_running_loop
         events._get_running_loop = lambda: None
+        self._thread_cleanup = support.threading_setup()
 
     def tearDown(self):
         self.unpatch_get_running_loop()
@@ -464,6 +491,10 @@ class TestCase(unittest.TestCase):
         # Detect CPython bug #23353: ensure that yield/yield-from is not used
         # in an except block of a generator
         self.assertEqual(sys.exc_info(), (None, None, None))
+
+        self.doCleanups()
+        support.threading_cleanup(*self._thread_cleanup)
+        support.reap_children()
 
     if not compat.PY34:
         # Python 3.3 compatibility

@@ -1059,7 +1059,7 @@ class AbstractTestRstr(BaseRtypingTest):
                 l = [const('a'), const('b')]
             else:
                 l = [const('a')]
-            l += y
+            l += y     # list += string
             return const('').join(l)
 
         assert self.ll_to_string(self.interpret(f, [1,

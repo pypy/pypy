@@ -6,6 +6,7 @@ time zone and DST data sources.
 
 import time as _time
 import math as _math
+import sys
 
 # for cpyext, use these as base classes
 from __pypy__._pypydatetime import dateinterop, deltainterop, timeinterop
@@ -698,9 +699,19 @@ class date(dateinterop):
 
         year, month, day (required, base 1)
         """
-        if month is None and isinstance(year, bytes) and len(year) == 4 and \
-                1 <= year[2] <= 12:
+        if (month is None and
+            isinstance(year, (bytes, str)) and len(year) == 4 and
+            1 <= ord(year[2:3]) <= 12):
             # Pickle support
+            if isinstance(year, str):
+                try:
+                    year = year.encode('latin1')
+                except UnicodeEncodeError:
+                    # More informative error message.
+                    raise ValueError(
+                        "Failed to encode latin1 string when unpickling "
+                        "a date object. "
+                        "pickle.load(data, encoding='latin1') is assumed.")
             self = dateinterop.__new__(cls)
             self.__setstate(year)
             self._hashcode = -1
@@ -1066,8 +1077,18 @@ class time(timeinterop):
         tzinfo (default to None)
         fold (keyword only, default to zero)
         """
-        if isinstance(hour, bytes) and len(hour) == 6 and hour[0]&0x7F < 24:
+        if (isinstance(hour, (bytes, str)) and len(hour) == 6 and
+            ord(hour[0:1])&0x7F < 24):
             # Pickle support
+            if isinstance(hour, str):
+                try:
+                    hour = hour.encode('latin1')
+                except UnicodeEncodeError:
+                    # More informative error message.
+                    raise ValueError(
+                        "Failed to encode latin1 string when unpickling "
+                        "a time object. "
+                        "pickle.load(data, encoding='latin1') is assumed.")
             self = timeinterop.__new__(cls)
             self.__setstate(hour, minute or None)
             self._hashcode = -1
@@ -1326,8 +1347,8 @@ class time(timeinterop):
             tzinfo = self.tzinfo
         if fold is None:
             fold = self._fold
-        return time.__new__(type(self),
-                            hour, minute, second, microsecond, tzinfo)
+        return time.__new__(
+            type(self), hour, minute, second, microsecond, tzinfo, fold=fold)
 
     # Pickle support.
 
@@ -1379,8 +1400,18 @@ class datetime(date):
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None, *, fold=0):
-        if isinstance(year, bytes) and len(year) == 10 and 1 <= year[2]&0x7F <= 12:
+        if (isinstance(year, (bytes, str)) and len(year) == 10 and
+            1 <= ord(year[2:3])&0x7F <= 12):
             # Pickle support
+            if isinstance(year, str):
+                try:
+                    year = bytes(year, 'latin1')
+                except UnicodeEncodeError:
+                    # More informative error message.
+                    raise ValueError(
+                        "Failed to encode latin1 string when unpickling "
+                        "a datetime object. "
+                        "pickle.load(data, encoding='latin1') is assumed.")
             self = dateinterop.__new__(cls)
             self.__setstate(year, month)
             self._hashcode = -1
@@ -1456,6 +1487,14 @@ class datetime(date):
             # 23 hours at 1969-09-30 13:00:00 in Kwajalein.
             # Let's probe 24 hours in the past to detect a transition:
             max_fold_seconds = 24 * 3600
+
+            # On Windows localtime_s throws an OSError for negative values,
+            # thus we can't perform fold detection for values of time less
+            # than the max time fold. See comments in _datetimemodule's
+            # version of this method for more details.
+            if t < max_fold_seconds and sys.platform.startswith("win"):
+                return result
+
             y, m, d, hh, mm, ss = converter(t - max_fold_seconds)[:6]
             probe1 = cls(y, m, d, hh, mm, ss, us, tz)
             trans = result - probe1 - timedelta(0, max_fold_seconds)
@@ -1608,9 +1647,9 @@ class datetime(date):
             tzinfo = self.tzinfo
         if fold is None:
             fold = self.fold
-        # PyPy fix: returns type(self)() instead of datetime()
-        return datetime.__new__(type(self), year, month, day, hour, minute,
-                                second, microsecond, tzinfo)
+        return datetime.__new__(
+            type(self), year, month, day, hour, minute, second, microsecond,
+            tzinfo, fold=fold)
 
     def _local_timezone(self):
         if self.tzinfo is None:
@@ -1640,14 +1679,17 @@ class datetime(date):
         mytz = self.tzinfo
         if mytz is None:
             mytz = self._local_timezone()
+            myoffset = mytz.utcoffset(self)
+        else:
+            myoffset = mytz.utcoffset(self)
+            if myoffset is None:
+                mytz = self.replace(tzinfo=None)._local_timezone()
+                myoffset = mytz.utcoffset(self)
 
         if tz is mytz:
             return self
 
         # Convert self to UTC, and attach the new time zone object.
-        myoffset = mytz.utcoffset(self)
-        if myoffset is None:
-            raise ValueError("astimezone() requires an aware datetime")
         utc = (self - myoffset).replace(tzinfo=tz)
 
         # Convert from UTC to tz's local time.
@@ -2294,7 +2336,8 @@ else:
          _check_tzinfo_arg, _check_tzname, _check_utc_offset, _cmp, _cmperror,
          _date_class, _days_before_month, _days_before_year, _days_in_month,
          _format_time, _is_leap, _isoweek1monday, _math, _ord2ymd,
-         _time, _time_class, _tzinfo_class, _wrap_strftime, _ymd2ord)
+         _time, _time_class, _tzinfo_class, _wrap_strftime, _ymd2ord,
+         _divide_and_round)
     # XXX Since import * above excludes names that start with _,
     # docstring does not get overwritten. In the future, it may be
     # appropriate to maintain a single module level docstring and

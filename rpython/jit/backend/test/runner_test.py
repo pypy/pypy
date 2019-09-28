@@ -187,6 +187,9 @@ class BaseBackendTest(Runner):
         """, namespace={'targettoken': targettoken,
                         'fdescr': BasicFailDescr(2)})
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, 10)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
@@ -339,6 +342,9 @@ class BaseBackendTest(Runner):
 
         self.cpu.compile_bridge(faildescr1, [i0], bridge, looptoken)
 
+        deadframe = self.cpu.execute_token(looptoken, 0)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
         deadframe = self.cpu.execute_token(looptoken, 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 3
@@ -538,8 +544,10 @@ class BaseBackendTest(Runner):
             return chr(ord(c) + ord(c1))
 
         functions = [
-            (func_int, lltype.Signed, types.sint, 655360, 655360),
-            (func_int, lltype.Signed, types.sint, 655360, -293999429),
+            (func_int, lltype.Signed, types.slong, 655360, 655360),
+            (func_int, lltype.Signed, types.slong, 655360, -293999429),
+            (func_int, rffi.INT, types.sint, 655360, 655360),
+            (func_int, rffi.INT, types.sint, 655360, -293999429),
             (func_int, rffi.SHORT, types.sint16, 1213, 1213),
             (func_int, rffi.SHORT, types.sint16, 1213, -12020),
             (func_char, lltype.Char, types.uchar, 12, 12),
@@ -703,6 +711,7 @@ class BaseBackendTest(Runner):
         shortdescr = self.cpu.fielddescrof(self.S, 'short')
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(250)],
                                'void', descr=fielddescr2)
+
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(133)],
                                'void', descr=fielddescr1)
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(1331)],
@@ -1006,15 +1015,17 @@ class BaseBackendTest(Runner):
         vsdescr = self.cpu.interiorfielddescrof(A, 'vs')
         kdescr = self.cpu.interiorfielddescrof(A, 'k')
         pdescr = self.cpu.interiorfielddescrof(A, 'p')
-        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, InputArgInt(3),
-                                                         boxfloat(1.5)],
-                               'void', descr=kdescr)
-        f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
-        assert longlong.getrealfloat(f) == 1.5
-        self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
-        r = self.execute_operation(rop.GETINTERIORFIELD_GC_F, [a_box, InputArgInt(3)],
-                                   'float', descr=kdescr)
-        assert longlong.getrealfloat(r) == 2.5
+        if self.cpu.supports_floats:
+
+            self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, InputArgInt(3),
+                                                             boxfloat(1.5)],
+                                   'void', descr=kdescr)
+            f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
+            assert longlong.getrealfloat(f) == 1.5
+            self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
+            r = self.execute_operation(rop.GETINTERIORFIELD_GC_F, [a_box, InputArgInt(3)],
+                                       'float', descr=kdescr)
+            assert longlong.getrealfloat(r) == 2.5
         #
         NUMBER_FIELDS = [('vs', lltype.Signed),
                          ('vu', lltype.Unsigned),
@@ -2495,6 +2506,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_force_operations_returning_void(self):
         values = []
         def maybe_force(token, flag):
+            print "CALLED WITH " + str(flag)
             if flag:
                 deadframe = self.cpu.force(token)
                 values.append(self.cpu.get_latest_descr(deadframe))
@@ -2975,10 +2987,18 @@ class LLtypeBackendTest(BaseBackendTest):
                     getter_name,
                     primitive.cdecl(primitive.PrimitiveType[ARG], '*p'),
                     var_name))
+            c_source.append('#include <stdio.h>')
             c_source.append('')
             c_source.append('static void real%s(%s)' % (
                 fn_name, ', '.join(fn_args)))
             c_source.append('{')
+            for i in range(len(ARGTYPES)):
+                if ARGTYPES[i] is lltype.Float:
+                    c_source.append('    fprintf(stderr, "x%d = %%f\\n", x%d);' % (i, i))
+                elif ARGTYPES[i] is lltype.Signed:
+                    c_source.append('    fprintf(stderr, "x%d = %%ld\\n", x%d);' % (i, i))
+                elif ARGTYPES[i] is rffi.UINT:
+                    c_source.append('    fprintf(stderr, "x%d = %%u\\n", x%d);' % (i, i))                    
             for i in range(len(ARGTYPES)):
                 c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
             c_source.append('}')
@@ -3710,7 +3730,8 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_assembler_call(self):
         called = []
         def assembler_helper(deadframe, virtualizable):
-            assert self.cpu.get_int_value(deadframe, 0) == 97
+            print "CALLED ASSEMBLER HELPER"
+            called.append(self.cpu.get_int_value(deadframe, 0))
             called.append(self.cpu.get_latest_descr(deadframe))
             return 4 + 9
 
@@ -3764,7 +3785,7 @@ class LLtypeBackendTest(BaseBackendTest):
         args = [i+1 for i in range(10)]
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert self.cpu.get_int_value(deadframe, 0) == 13
-        assert called == [finish_descr]
+        assert called == [97, finish_descr]
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
@@ -4959,7 +4980,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                     EffectInfo.MOST_GENERAL)
 
         def func2(a, b, c, d, e, f, g, h, i, j, k, l):
-            pass
+            print "CALLED"
 
         FUNC2 = self.FuncType([lltype.Signed] * 12, lltype.Void)
         FPTR2 = self.Ptr(FUNC2)

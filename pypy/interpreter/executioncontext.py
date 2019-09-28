@@ -192,8 +192,10 @@ class ExecutionContext(object):
                 addr += c
                 if c:
                     d.instr_lb = addr
-
-                line += ord(lineno[p + 1])
+                line_offset = ord(lineno[p + 1])
+                if line_offset >= 0x80:
+                    line_offset -= 0x100
+                line += line_offset
                 p += 2
                 size -= 1
 
@@ -327,8 +329,11 @@ class ExecutionContext(object):
                 # if it does not exist yet and the tracer accesses it via
                 # frame.f_locals, it is filled by PyFrame.getdictscope
                 frame.fast2locals()
+            prev_line_tracing = d.is_in_line_tracing
             self.is_tracing += 1
             try:
+                if event == 'line':
+                    d.is_in_line_tracing = True
                 try:
                     w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
@@ -343,6 +348,7 @@ class ExecutionContext(object):
                     raise
             finally:
                 self.is_tracing -= 1
+                d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:
                     frame.locals2fast()
 
@@ -654,7 +660,7 @@ def report_error(space, e, where, w_obj):
 def make_finalizer_queue(W_Root, space):
     """Make a FinalizerQueue subclass which responds to GC finalizer
     events by 'firing' the UserDelAction class above.  It does not
-    directly fetches the objects to finalize at all; they stay in the 
+    directly fetches the objects to finalize at all; they stay in the
     GC-managed queue, and will only be fetched by UserDelAction
     (between bytecodes)."""
 

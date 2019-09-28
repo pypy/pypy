@@ -357,9 +357,11 @@ def make_template_formatting_class(for_unicode):
             if recursive:
                 spec = self._build_string(spec_start, end, level)
             w_rendered = self.space.format(w_obj, self.wrap(spec))
-            unwrapper = "utf8_w" if self.is_unicode else "bytes_w"
-            to_interp = getattr(self.space, unwrapper)
-            return to_interp(w_rendered)
+            if self.is_unicode:
+                w_rendered = self.space.unicode_from_object(w_rendered)
+                return self.space.utf8_w(w_rendered)
+            else:
+                return self.space.bytes_w(w_rendered)
 
         def formatter_parser(self):
             self.parser_list_w = []
@@ -543,7 +545,8 @@ def make_formatting_class(for_unicode):
                     pass # ok
                 else:
                     raise oefmt(space.w_ValueError,
-                                "invalid type with ',' or '_'")
+                                "Cannot specify '%s' with '%s'.", 
+                                self._thousands_sep, tp)
             return False
 
         def _calc_padding(self, string, length):

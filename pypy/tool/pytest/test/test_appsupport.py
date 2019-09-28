@@ -24,10 +24,16 @@ def test_pypy_collection(testdir):
             def test_method(self):
                 pass
     """)
+    testdir.makepyfile(apptest_collection="""
+        def test_app():
+            pass
+    """)
     setpypyconftest(testdir)
     result = testdir.runpytest("--collectonly")
     assert result.ret == 0
     result.stdout.fnmatch_lines([
+        "*AppTestModule*apptest_collection*",
+        "*AppTestFunction*test_app*",
         "*Function*test_func*",
         "*Class*TestClassInt*",
         "*Function*test_method*",
@@ -35,42 +41,38 @@ def test_pypy_collection(testdir):
         "*AppTestMethod*",
     ])
 
-class TestSpaceConfig:
-    @pytest.mark.xfail(reason="Can't check config with -A in pypy3")
-    def test_applevel_skipped_on_cpython_and_spaceconfig(self, testdir):
-        setpypyconftest(testdir)
-        testdir.makepyfile("""
-            class AppTestClass:
-                spaceconfig = {"objspace.usemodules._random": True}
-                def setup_class(cls):
-                    assert 0
-                def test_applevel(self):
-                    pass
-        """)
-        result = testdir.runpytest("-A")
-        assert result.ret == 0
-        if hasattr(sys, 'pypy_translation_info') and \
-           sys.pypy_translation_info.get('objspace.usemodules._random'):
-            result.stdout.fnmatch_lines(["*1 error*"])
-        else:
-            # setup_class didn't get called, otherwise it would error
-            result.stdout.fnmatch_lines(["*1 skipped*"])
+def test_interp_spaceconfig(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        class TestClass:
+            spaceconfig = {"objspace.usemodules._random": False}
+            def setup_class(cls):
+                assert not cls.space.config.objspace.usemodules._random
+            def test_interp(self, space):
+                assert self.space is space
+            def test_interp2(self, space):
+                assert self.space is space
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.stdout.fnmatch_lines(["*2 passed*"])
 
-    def test_interp_spaceconfig(self, testdir):
-        setpypyconftest(testdir)
-        p = testdir.makepyfile("""
-            class TestClass:
-                spaceconfig = {"objspace.usemodules._random": False}
-                def setup_class(cls):
-                    assert not cls.space.config.objspace.usemodules._random
-                def test_interp(self, space):
-                    assert self.space is space
-                def test_interp2(self, space):
-                    assert self.space is space
-        """)
-        result = testdir.runpytest(p)
-        assert result.ret == 0
-        result.stdout.fnmatch_lines(["*2 passed*"])
+def test_spaceconfig_param(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        import pytest
+
+        @pytest.mark.parametrize('spaceconfig',
+            [{"objspace.usemodules._random": False}])
+        def test_interp(space):
+            assert not space.config.objspace.usemodules._random
+
+        def test_interp2(space):
+            assert space.config.objspace.usemodules._random
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.stdout.fnmatch_lines(["*2 passed*"])
 
 def test_applevel_raises_simple_display(testdir):
     setpypyconftest(testdir)
@@ -127,6 +129,47 @@ def test_applevel_raise_keyerror(testdir):
     result.stdout.fnmatch_lines([
         "*E*application-level*KeyError*42*",
     ])
+
+def test_apptest_raise(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_raise="""
+        def test_raise():
+            raise KeyError(42)
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*KeyError*42*",
+    ])
+
+def test_apptest_fail_plain(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_fail="""
+        def test_fail():
+            x = 'foo'
+            assert x == 'bar'
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*(application-level) AssertionError",
+    ])
+
+def test_apptest_fail_rewrite(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_fail_rewrite="""
+        def test_fail():
+            x = 'foo'
+            assert x == 'bar'
+    """)
+    result = testdir.runpytest(p, "--applevel-rewrite")
+    assert result.ret == 1
+    result.stdout.fnmatch_lines([
+        "*E*application-level*AssertionError: assert 'foo' == 'bar'",
+        "*E*- foo*",
+        "*E*+ bar*",
+    ])
+
 
 def app_test_raises():
     info = raises(TypeError, id)

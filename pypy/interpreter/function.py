@@ -172,10 +172,10 @@ class Function(W_Root):
         elif fast_natural_arity == Code.PASSTHROUGHARGS1 and nargs >= 1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             w_obj = frame.peekvalue(nargs-1)
-            args = frame.make_arguments(nargs-1)
+            args = frame.make_arguments(nargs-1, w_function=self)
             return code.funcrun_obj(self, w_obj, args)
 
-        args = frame.make_arguments(nargs, methodcall=methodcall)
+        args = frame.make_arguments(nargs, methodcall=methodcall, w_function=self)
         return self.call_args(args)
 
     @jit.unroll_safe

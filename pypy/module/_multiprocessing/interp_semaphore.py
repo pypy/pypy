@@ -33,11 +33,10 @@ if sys.platform == 'win32':
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL,
-        save_err=rffi.RFFI_SAVE_LASTERROR)
+        save_err=rffi.RFFI_SAVE_LASTERROR, releasegil=True)
 
     def sem_unlink(name):
-        pass
-
+        return None
 else:
     from rpython.rlib import rposix
 
@@ -49,7 +48,8 @@ else:
     eci = ExternalCompilationInfo(
         includes = ['sys/time.h',
                     'limits.h',
-                    'semaphore.h'],
+                    'semaphore.h',
+                    ],
         libraries = libraries,
         )
 
@@ -100,7 +100,7 @@ else:
                          save_err=rffi.RFFI_SAVE_ERRNO)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT,
                             save_err=rffi.RFFI_SAVE_ERRNO)
-    _sem_post = external('sem_post', [SEM_T], rffi.INT,
+    _sem_post = external('sem_post', [SEM_T], rffi.INT, releasegil=False,
                          save_err=rffi.RFFI_SAVE_ERRNO)
     _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT,
                              save_err=rffi.RFFI_SAVE_ERRNO)
@@ -216,12 +216,13 @@ else:
     def handle_w(space, w_handle):
         return rffi.cast(SEM_T, space.int_w(w_handle))
 
-    def semaphore_unlink(space, w_name):
-        name = space.text_w(w_name)
-        try:
-            sem_unlink(name)
-        except OSError as e:
-            raise wrap_oserror(space, e)
+# utilized by POSIX and win32
+def semaphore_unlink(space, w_name):
+    name = space.text_w(w_name)
+    try:
+        sem_unlink(name)
+    except OSError as e:
+        raise wrap_oserror(space, e)
 
 class CounterState:
     def __init__(self, space):
@@ -269,6 +270,8 @@ if sys.platform == 'win32':
         res = rwin32.WaitForSingleObject(self.handle, 0)
 
         if res != rwin32.WAIT_TIMEOUT:
+            self.last_tid = rthread.get_ident()
+            self.count += 1
             return True
 
         msecs = full_msecs
@@ -301,6 +304,8 @@ if sys.platform == 'win32':
 
         # handle result
         if res != rwin32.WAIT_TIMEOUT:
+            self.last_tid = rthread.get_ident()
+            self.count += 1
             return True
         return False
 
@@ -380,7 +385,8 @@ else:
                         return False
                     raise
                 _check_signals(space)
-
+                self.last_tid = rthread.get_ident()
+                self.count += 1
                 return True
         finally:
             if deadline:
@@ -449,6 +455,7 @@ class W_SemLock(W_Root):
         self.count = 0
         self.maxvalue = maxvalue
         self.register_finalizer(space)
+        self.last_tid = -1
         self.name = name
 
     def name_get(self, space):
@@ -495,15 +502,15 @@ class W_SemLock(W_Root):
         if self.kind == RECURSIVE_MUTEX and self._ismine():
             self.count += 1
             return space.w_True
-
         try:
+            # sets self.last_tid and increments self.count
+            # those steps need to be as close as possible to
+            # acquiring the semlock for self._ismine() to support
+            # multiple threads
             got = semlock_acquire(self, space, block, w_timeout)
         except OSError as e:
             raise wrap_oserror(space, e)
-
         if got:
-            self.last_tid = rthread.get_ident()
-            self.count += 1
             return space.w_True
         else:
             return space.w_False
@@ -519,11 +526,13 @@ class W_SemLock(W_Root):
                 return
 
         try:
+            # Note: a succesful semlock_release() must not release the GIL,
+            # otherwise there is a race condition on self.count
             semlock_release(self, space)
+            self.count -= 1
         except OSError as e:
             raise wrap_oserror(space, e)
 
-        self.count -= 1
 
     def after_fork(self):
         self.count = 0

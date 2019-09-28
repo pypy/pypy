@@ -10,6 +10,7 @@ import os
 import os.path
 import errno
 import functools
+import pathlib
 import subprocess
 from contextlib import ExitStack
 from shutil import (make_archive,
@@ -21,10 +22,10 @@ from shutil import (make_archive,
 import tarfile
 import zipfile
 import warnings
+import pathlib
 
 from test import support
-from test.support import (TESTFN, check_warnings, captured_stdout,
-                          android_not_root)
+from test.support import TESTFN, FakePath
 
 TESTFN2 = TESTFN + "2"
 
@@ -771,7 +772,6 @@ class TestShutil(unittest.TestCase):
 
     @unittest.skipIf(os.name == 'nt', 'temporarily disabled on Windows')
     @unittest.skipUnless(hasattr(os, 'link'), 'requires os.link')
-    @unittest.skipIf(android_not_root, "hard links not allowed, non root user")
     def test_dont_copy_file_onto_link_to_itself(self):
         # bug 851123.
         os.mkdir(TESTFN)
@@ -780,7 +780,10 @@ class TestShutil(unittest.TestCase):
         try:
             with open(src, 'w') as f:
                 f.write('cheddar')
-            os.link(src, dst)
+            try:
+                os.link(src, dst)
+            except PermissionError as e:
+                self.skipTest('os.link(): %s' % e)
             self.assertRaises(shutil.SameFileError, shutil.copyfile, src, dst)
             with open(src, 'r') as f:
                 self.assertEqual(f.read(), 'cheddar')
@@ -824,9 +827,11 @@ class TestShutil(unittest.TestCase):
 
     # Issue #3002: copyfile and copytree block indefinitely on named pipes
     @unittest.skipUnless(hasattr(os, "mkfifo"), 'requires os.mkfifo()')
-    @unittest.skipIf(android_not_root, "mkfifo not allowed, non root user")
     def test_copyfile_named_pipe(self):
-        os.mkfifo(TESTFN)
+        try:
+            os.mkfifo(TESTFN)
+        except PermissionError as e:
+            self.skipTest('os.mkfifo(): %s' % e)
         try:
             self.assertRaises(shutil.SpecialFileError,
                                 shutil.copyfile, TESTFN, TESTFN2)
@@ -835,7 +840,6 @@ class TestShutil(unittest.TestCase):
         finally:
             os.remove(TESTFN)
 
-    @unittest.skipIf(android_not_root, "mkfifo not allowed, non root user")
     @unittest.skipUnless(hasattr(os, "mkfifo"), 'requires os.mkfifo()')
     @support.skip_unless_symlink
     def test_copytree_named_pipe(self):
@@ -844,7 +848,10 @@ class TestShutil(unittest.TestCase):
             subdir = os.path.join(TESTFN, "subdir")
             os.mkdir(subdir)
             pipe = os.path.join(subdir, "mypipe")
-            os.mkfifo(pipe)
+            try:
+                os.mkfifo(pipe)
+            except PermissionError as e:
+                self.skipTest('os.mkfifo(): %s' % e)
             try:
                 shutil.copytree(TESTFN, TESTFN2)
             except shutil.Error as e:
@@ -1120,6 +1127,8 @@ class TestShutil(unittest.TestCase):
                 subprocess.check_output(zip_cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as exc:
                 details = exc.output.decode(errors="replace")
+                if 'unrecognized option: t' in details:
+                    self.skipTest("unzip doesn't support -t")
                 msg = "{}\n\n**Unzip Output**\n{}"
                 self.fail(msg.format(exc, details))
 
@@ -1226,6 +1235,11 @@ class TestShutil(unittest.TestCase):
         self.assertNotIn('xxx', formats)
 
     def check_unpack_archive(self, format):
+        self.check_unpack_archive_with_converter(format, lambda path: path)
+        self.check_unpack_archive_with_converter(format, pathlib.Path)
+        self.check_unpack_archive_with_converter(format, FakePath)
+
+    def check_unpack_archive_with_converter(self, format, converter):
         root_dir, base_dir = self._create_files()
         expected = rlistdir(root_dir)
         expected.remove('outer')
@@ -1294,7 +1308,7 @@ class TestShutil(unittest.TestCase):
     @unittest.skipUnless(hasattr(shutil, 'disk_usage'),
                          "disk_usage not available on this platform")
     def test_disk_usage(self):
-        usage = shutil.disk_usage(os.getcwd())
+        usage = shutil.disk_usage(os.path.dirname(__file__))
         self.assertGreater(usage.total, 0)
         self.assertGreater(usage.used, 0)
         self.assertGreaterEqual(usage.free, 0)

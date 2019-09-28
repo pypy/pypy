@@ -383,7 +383,7 @@ class StdObjSpace(ObjSpace):
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
-    # XXX TODO - remove this and force all users to call with utf8
+    # XXX TODO - remove the specialization and force all users to call with utf8
     @specialize.argtype(1)
     def newtext(self, s, lgt=-1, unused=-1):
         # the unused argument can be from something like

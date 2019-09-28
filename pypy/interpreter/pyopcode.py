@@ -211,8 +211,6 @@ class __extend__(pyframe.PyFrame):
                 next_instr = self.JUMP_FORWARD(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_IF_FALSE_OR_POP.index:
                 next_instr = self.JUMP_IF_FALSE_OR_POP(oparg, next_instr)
-            elif opcode == opcodedesc.JUMP_IF_NOT_DEBUG.index:
-                next_instr = self.JUMP_IF_NOT_DEBUG(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_IF_TRUE_OR_POP.index:
                 next_instr = self.JUMP_IF_TRUE_OR_POP(oparg, next_instr)
             elif opcode == opcodedesc.POP_JUMP_IF_FALSE.index:
@@ -1180,11 +1178,6 @@ class __extend__(pyframe.PyFrame):
         self.popvalue()
         return next_instr
 
-    def JUMP_IF_NOT_DEBUG(self, jumpby, next_instr):
-        if not self.space.sys.debug:
-            next_instr += jumpby
-        return next_instr
-
     def GET_ITER(self, oparg, next_instr):
         w_iterable = self.popvalue()
         w_iterator = self.space.iter(w_iterable)
@@ -1314,9 +1307,9 @@ class __extend__(pyframe.PyFrame):
         else:
             w_star = None
         arguments = self.popvalues(n_arguments)
-        args = self.argument_factory(arguments, keywords, keywords_w, w_star,
-                                     w_starstar)
         w_function  = self.popvalue()
+        args = self.argument_factory(arguments, keywords, keywords_w, w_star,
+                                     w_starstar, w_function=w_function)
         if self.get_is_being_profiled() and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,
                                                           args)

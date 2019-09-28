@@ -148,10 +148,14 @@ def compute_stdlib_path(state, prefix):
     OSError.
     """
     from pypy.module.sys.version import CPYTHON_VERSION
-    dirname = '%d' % CPYTHON_VERSION[0]
-    lib_python = os.path.join(prefix, 'lib-python')
-    python_std_lib = os.path.join(lib_python, dirname)
-    _checkdir(python_std_lib)
+    lib_pyzip = os.path.join(prefix, 'python%d%d.zip' % CPYTHON_VERSION[:2])
+    if os.path.isfile(lib_pyzip):
+        python_std_lib = lib_pyzip
+    else:
+        dirname = '%d' % CPYTHON_VERSION[0]
+        lib_python = os.path.join(prefix, 'lib-python')
+        python_std_lib = os.path.join(lib_python, dirname)
+        _checkdir(python_std_lib)
 
     lib_pypy = os.path.join(prefix, 'lib_pypy')
     _checkdir(lib_pypy)

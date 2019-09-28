@@ -373,6 +373,10 @@ class Regalloc(BaseRegalloc):
             if box.type == REF and self.rm.is_still_alive(box):
                 assert not noregs
                 assert loc.is_core_reg()
+                #val = self.cpu.all_reg_indexes[loc.value]
+                # ^^^ That is the correct way to write it down, but as a
+                #     special case in the arm backend only, this is equivalent
+                #     to just the line below:
                 val = loc.value
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
@@ -873,8 +877,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_gc_load_indexed_r = _prepare_op_gc_load_indexed
     prepare_op_gc_load_indexed_f = _prepare_op_gc_load_indexed
 
-    prepare_op_copystrcontent = void
-    prepare_op_copyunicodecontent = void
     prepare_op_zero_array = void
 
     def _prepare_op_same_as(self, op, fcond):
@@ -898,6 +900,13 @@ class Regalloc(BaseRegalloc):
     def prepare_op_load_from_gc_table(self, op, fcond):
         resloc = self.force_allocate_reg(op)
         return [resloc]
+
+    def prepare_op_load_effective_address(self, op, fcond):
+        args = op.getarglist()
+        arg0 = self.make_sure_var_in_reg(args[0], args)
+        arg1 = self.make_sure_var_in_reg(args[1], args)
+        res = self.force_allocate_reg(op)
+        return [arg0, arg1, res]
 
     def prepare_op_call_malloc_nursery(self, op, fcond):
         size_box = op.getarg(0)

@@ -326,7 +326,8 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             if do_unicode:
                 cp = rutf8.codepoint_at_pos(self.fmt, self.fmtpos - 1)
-                w_s = space.newutf8(rutf8.unichr_as_utf8(r_uint(cp)), 1)
+                w_s = space.newutf8(rutf8.unichr_as_utf8(r_uint(cp),
+                                                  allow_surrogates=True), 1)
             else:
                 cp = ord(self.fmt[self.fmtpos - 1])
                 w_s = space.newbytes(chr(cp))
@@ -478,7 +479,8 @@ def make_formatter_subclass(do_unicode):
                 n = space.int_w(w_value)
                 if do_unicode:
                     try:
-                        c = rutf8.unichr_as_utf8(r_uint(n))
+                        c = rutf8.unichr_as_utf8(r_uint(n),
+                                                 allow_surrogates=True)
                     except rutf8.OutOfRange:
                         raise oefmt(space.w_OverflowError,
                                     "unicode character code out of range")
@@ -514,7 +516,7 @@ def make_formatter_subclass(do_unicode):
             if do_unicode:
                 self.unknown_fmtchar()
             space = self.space
-            # cpython explicitly checks for bytes & bytearray
+            # follow logic in cpython bytesobject.c format_obj
             if space.isinstance_w(w_value, space.w_bytes):
                 self.std_wp(space.bytes_w(w_value))
                 return
@@ -531,6 +533,11 @@ def make_formatter_subclass(do_unicode):
                     raise oefmt(space.w_TypeError,
                                 "__bytes__ returned non-bytes (type '%T')", w_bytes)
                 self.std_wp(space.bytes_w(w_bytes))
+                return
+            if space.isinstance_w(w_value, space.w_memoryview):
+                buf = w_value.buffer_w(space, 0)
+                # convert the array of the buffer to a py 2 string
+                self.std_wp(buf.as_str())
                 return
 
             raise oefmt(space.w_TypeError,

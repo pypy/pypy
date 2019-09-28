@@ -344,8 +344,7 @@ class Decompress(ZLibObject):
                 raise oefmt(space.w_ValueError,
                             "length must be greater than zero")
         if not self.stream:
-            raise zlib_error(space,
-                             "compressor object already flushed")
+            return space.newbytes('')
         data = self.unconsumed_tail
         try:
             self.lock()

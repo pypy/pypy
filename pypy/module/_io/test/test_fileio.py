@@ -5,8 +5,9 @@ import os
 
 
 class AppTestFileIO:
-    spaceconfig = dict(usemodules=['_io', 'array'] +
-                                  (['fcntl'] if os.name != 'nt' else []))
+    spaceconfig = dict(usemodules=['_io', 'array'])
+    if os.name != 'nt':
+        spaceconfig['usemodules'].append('fcntl')
 
     def setup_method(self, meth):
         tmpfile = udir.join('tmpfile')
@@ -57,8 +58,11 @@ class AppTestFileIO:
 
     def test_open_directory(self):
         import _io
-        import os
-        raises(IOError, _io.FileIO, self.tmpdir, "rb")
+        import os, warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always', ResourceWarning)
+            raises(IOError, _io.FileIO, self.tmpdir, "rb")
+            assert len(w) == 0
         if os.name != 'nt':
             fd = os.open(self.tmpdir, os.O_RDONLY)
             raises(IOError, _io.FileIO, fd, "rb")

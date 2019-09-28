@@ -65,15 +65,27 @@ class TestString(BaseTestPyPyC):
             i97 = int_ge(i94, i53)
             guard_false(i97, descr=...)
             i98 = strgetitem(p52, i94)
+            p1 = force_token()
             p103 = newstr(1)
             strsetitem(p103, 0, i98)
-            p296 = call_r(ConstClass(str_decode_utf_8), p103, 1, ConstPtr(null), 1, ConstClass(raise_unicode_exception_decode), 0, descr=<Callr . ririii EF=4>)
+            setfield_gc(p0, p1, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            p296 = call_may_force_r(ConstClass(str_decode_utf8), p103, ConstPtr(null), 1, _, 0, descr=<Callr . rriii EF=7>)
+            guard_not_forced(descr=...)
             guard_no_exception(descr=...)
-            p116 = getfield_gc_r(p296, descr=<FieldP tuple2.item0 . pure>)
+            p116 = getfield_gc_r(p296, descr=<FieldP tuple3.item0 .+ pure>)
+            i107 = getfield_gc_i(p296, descr=<FieldS tuple3.item1 .+ pure>)
+            i109 = int_lt(i107, 0)
+            guard_false(i109, descr=...)
+            guard_not_invalidated(descr=...)
             i99 = int_ge(i94, i46)
             guard_false(i99, descr=...)
-            i120 = unicodegetitem(p45, i94)
-            i122 = call_i(ConstClass(_ll_2_str_eq_nonnull_char__rpy_unicodePtr_UniChar), p116, i120, descr=<Calli . ri EF=0 OS=49>)
+            i120 = strgetitem(p45, i94)
+            i113 = int_le(i120, 127)
+            guard_true(i113, descr=...)
+            i115 = int_add(i94, 1)
+            i116 = int_gt(i115, i71)
+            guard_false(i116, descr=...)
+            i122 = call_i(ConstClass(_ll_2_str_eq_checknull_char__rpy_stringPtr_Char), p116, i120, descr=<Calli . ri EF=0 OS=30>)
             guard_true(i122, descr=...)
             i124 = int_add(i83, 1)
             --TICK--
@@ -110,15 +122,13 @@ class TestString(BaseTestPyPyC):
             i87 = int_mul(i85, 10)
             i19 = int_sub(i6, i87)
 
-            i23 = unicodegetitem(ConstPtr(ptr92), i19)
-            p25 = newtext(1)
-            unicodesetitem(p25, 0, i23)
-            p97 = call_r(ConstClass(_rpy_unicode_to_decimal_w), p25, descr=<Callr . r EF=5>)
-            guard_no_exception(descr=...)
-            i98 = unicodelen(p97)
-            p104 = call_r(ConstClass(unicode_encode_utf_8), p97, i98, ConstPtr(ptr94), 1, descr=<Callr 8 riri EF=4>)
-            guard_no_exception(descr=...)
-            i107 = call_i(ConstClass(string_to_int), p104, 16, descr=<Calli . ri EF=4>)
+            i23 = strgetitem(ConstPtr(ptr92), i19)
+            i83 = int_le(i23, 127)
+            guard_true(i83, descr=...)
+            i85 = int_add(i19, 1)   # not used
+            p25 = newstr(1)
+            strsetitem(p25, 0, i23)
+            i107 = call_i(ConstClass(string_to_int), p25, 16, 1, 1, descr=<Calli . riii EF=4>)
             guard_no_exception(descr=...)
             i95 = int_add_ovf(i6, i107)
             guard_no_overflow(descr=...)
@@ -168,7 +178,10 @@ class TestString(BaseTestPyPyC):
             guard_no_exception(descr=...)
             p95 = call_r(..., descr=<Callr . r EF=5>)     # ll_build
             guard_no_exception(descr=...)
-            i96 = strlen(p95)
+            i96 = call_i(ConstClass(codepoints_in_utf8), p95, 0, _, descr=<Calli . rii EF=4>)
+            guard_no_exception(descr=...)
+            i969 = int_lt(i96, 0)
+            guard_false(i969, descr=...)
             i97 = int_add_ovf(i71, i96)
             guard_no_overflow(descr=...)
             i98 = int_sub(i74, 1)
@@ -191,13 +204,18 @@ class TestString(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
         assert loop.match_by_id('callone', '''
-            p114 = call_r(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
+            p114 = call_r(ConstClass(_lower_unicode), p113, descr=<Callr . r EF=4>)
             guard_no_exception(descr=...)
+            guard_nonnull_class(p114, ConstClass(W_UnicodeObject), descr=...)
             ''')
         assert loop.match_by_id('calltwo', '')    # nothing
 
     def test_move_method_call_out_of_loop(self):
-        # XXX not implemented: lower() on unicodes is not considered elidable
+        # XXX this does not work: _lower_unicode() is found to be elidable,
+        # but it can raise (because of 'raise StopIteration' in
+        # Utf8StringIterator.next()---we don't detect that such an exception
+        # is always caught in the caller).  Raising elidable calls are not
+        # unroll-removed: see issue #2015.
         def main(n):
             lst = []
             s = 'Hello %d' % n
@@ -259,3 +277,74 @@ class TestString(BaseTestPyPyC):
         jump(..., descr=...)
         """)
         # XXX remove the guard_nonnull above?
+
+    def test_unicode_indexing_makes_no_bridges(self):
+        log = self.run("""
+        b = b"b'aaaaa\xc3\xa4\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa7\xe2\x80\x8d\xf0\x9f\x91\xa6'"
+        u = b.decode("utf-8") * 1000
+        def main():
+            for j in range(10):
+                for i in range(len(u)):
+                    u[i] # ID: index0
+        """, [])
+        ops = log.loops[0].ops_by_id("index0")
+        for op in ops:
+            assert op.bridge is None
+
+    def test_unicode_indexing_small_constant_indices(self):
+        log = self.run("""
+        l = [u"abä", u"cdä", u"äü", u"éé", u"–—¿"] * 1000
+        def main(n):
+            global s
+            for u in l:
+                s = u[0] + u[1] + u[-1] # ID: index
+                len(u)
+            return len(s)
+        """, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('index', '''
+            i77 = getfield_gc_i(p73, descr=<FieldS pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__length .*>)
+            p78 = getfield_gc_r(p73, descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .* pure>)
+            i79 = strlen(p78)
+            i80 = int_eq(i77, i79)
+            guard_false(i80, descr=...) # check not ascii
+            i82 = int_ge(0, i77)
+            guard_false(i82, descr=...)
+            i85 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p78, 0, descr=...)
+            i86 = int_gt(i85, i79)
+            guard_false(i86, descr=...)
+            i88 = int_ge(1, i77)
+            guard_false(i88, descr=...)
+            i90 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p78, i85, descr=...)
+            i91 = int_gt(i90, i79)
+            guard_false(i91, descr=...)
+            i92 = int_sub(i90, i85)
+            i94 = int_add(-1, i77)
+            i96 = call_i(ConstClass(prev_codepoint_pos_dont_look_inside), p78, i79, descr=...)
+            i97 = int_sub(i79, i96)
+            guard_not_invalidated(descr=...)
+        ''')
+
+    def test_unicode_slicing_small_constant_indices(self):
+        log = self.run("""
+        def main(n):
+            b = b'ab\xc3\xa4\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa7\xe2\x80\x8d\xf0\x9f\x91\xa6'
+            u = b.decode("utf-8") * 1000
+            global s
+            count = 0
+            while u:
+                u = u[1:] # ID: index
+                count += 1
+            return count
+        """, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('index', '''
+            i51 = int_eq(1, i38)
+            guard_false(i51, descr=...)
+            i52 = strlen(p47)
+            i53 = int_eq(i38, i52)
+            guard_false(i53, descr=...)
+            i56 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p47, 0, descr=...)
+            i57 = int_sub(i52, i56)
+            i59 = int_sub(i38, 1)
+        ''')

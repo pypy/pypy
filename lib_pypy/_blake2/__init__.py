@@ -10,7 +10,7 @@ def make_blake_hash(class_name, cffi_mod):
         MAX_KEY_SIZE = _lib.BLAKE_KEYBYTES
         MAX_DIGEST_SIZE = _lib.BLAKE_OUTBYTES
 
-        def __new__(cls, string=None, *, digest_size=MAX_DIGEST_SIZE,
+        def __new__(cls, _string=None, *, digest_size=MAX_DIGEST_SIZE,
                     key=None, salt=None, person=None, fanout=1, depth=1,
                     leaf_size=None, node_offset=None, node_depth=0,
                     inner_size=0, last_node=False):
@@ -101,8 +101,8 @@ def make_blake_hash(class_name, cffi_mod):
                 _lib.blake_update(self._state, block, len(block))
                 # secure_zero_memory(block, sizeof(block)
 
-            if string:
-                self.update(string)
+            if _string is not None:
+                self.update(_string)
             return self
 
         @property

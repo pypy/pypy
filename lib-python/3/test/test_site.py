@@ -6,8 +6,9 @@ executing have not been removed.
 """
 import unittest
 import test.support
-from test.support import (
-    captured_stderr, check_impl_detail, TESTFN, EnvironmentVarGuard)
+from test import support
+from test.support import (captured_stderr, TESTFN, EnvironmentVarGuard,
+                          change_cwd, check_impl_detail)
 import builtins
 import os
 import sys
@@ -18,6 +19,7 @@ import urllib.error
 import shutil
 import subprocess
 import sysconfig
+from unittest import mock
 from copy import copy
 
 # These tests are not particularly useful if Python was invoked with -S.
@@ -28,14 +30,27 @@ if sys.flags.no_site:
 
 import site
 
-if site.ENABLE_USER_SITE and not os.path.isdir(site.USER_SITE):
-    # need to add user site directory for tests
-    try:
-        os.makedirs(site.USER_SITE)
-        site.addsitedir(site.USER_SITE)
-    except PermissionError as exc:
-        raise unittest.SkipTest('unable to create user site directory (%r): %s'
-                                % (site.USER_SITE, exc))
+
+OLD_SYS_PATH = None
+
+
+def setUpModule():
+    global OLD_SYS_PATH
+    OLD_SYS_PATH = sys.path[:]
+
+    if site.ENABLE_USER_SITE and not os.path.isdir(site.USER_SITE):
+        # need to add user site directory for tests
+        try:
+            os.makedirs(site.USER_SITE)
+            # modify sys.path: will be restored by tearDownModule()
+            site.addsitedir(site.USER_SITE)
+        except PermissionError as exc:
+            raise unittest.SkipTest('unable to create user site directory (%r): %s'
+                                    % (site.USER_SITE, exc))
+
+
+def tearDownModule():
+    sys.path[:] = OLD_SYS_PATH
 
 
 class HelperFunctionsTests(unittest.TestCase):
@@ -230,6 +245,7 @@ class HelperFunctionsTests(unittest.TestCase):
         # the call sets USER_BASE *and* USER_SITE
         self.assertEqual(site.USER_SITE, user_site)
         self.assertTrue(user_site.startswith(site.USER_BASE), user_site)
+        self.assertEqual(site.USER_BASE, site.getuserbase())
 
     def test_getsitepackages(self):
         site.PREFIXES = ['xoxo']
@@ -251,7 +267,7 @@ class HelperFunctionsTests(unittest.TestCase):
                                   'site-packages')
             self.assertEqual(dirs[1], wanted)
         elif os.sep == '/':
-            # OS X non-framwework builds, Linux, FreeBSD, etc
+            # OS X non-framework builds, Linux, FreeBSD, etc
             self.assertEqual(len(dirs), 1)
             wanted = os.path.join('xoxo', 'lib',
                                   'python%d.%d' % sys.version_info[:2],
@@ -263,6 +279,41 @@ class HelperFunctionsTests(unittest.TestCase):
             self.assertEqual(dirs[0], 'xoxo')
             wanted = os.path.join('xoxo', 'lib', 'site-packages')
             self.assertEqual(dirs[1], wanted)
+
+    def test_no_home_directory(self):
+        # bpo-10496: getuserbase() and getusersitepackages() must not fail if
+        # the current user has no home directory (if expanduser() returns the
+        # path unchanged).
+        site.USER_SITE = None
+        site.USER_BASE = None
+        sysconfig._CONFIG_VARS = None
+
+        with EnvironmentVarGuard() as environ, \
+             mock.patch('os.path.expanduser', lambda path: path):
+
+            del environ['PYTHONUSERBASE']
+            del environ['APPDATA']
+
+            user_base = site.getuserbase()
+            self.assertTrue(user_base.startswith('~' + os.sep),
+                            user_base)
+
+            user_site = site.getusersitepackages()
+            self.assertTrue(user_site.startswith(user_base), user_site)
+
+        with mock.patch('os.path.isdir', return_value=False) as mock_isdir, \
+             mock.patch.object(site, 'addsitedir') as mock_addsitedir, \
+             support.swap_attr(site, 'ENABLE_USER_SITE', True):
+
+            # addusersitepackages() must not add user_site to sys.path
+            # if it is not an existing directory
+            known_paths = set()
+            site.addusersitepackages(known_paths)
+
+            mock_isdir.assert_called_once_with(user_site)
+            mock_addsitedir.assert_not_called()
+            self.assertFalse(known_paths)
+
 
 class PthFile(object):
     """Helper class for handling testing of .pth files"""
@@ -337,42 +388,49 @@ class ImportSideEffectTests(unittest.TestCase):
         # __file__ if abs_paths() does not get run.  sys and builtins (the
         # only other modules imported before site.py runs) do not have
         # __file__ or __cached__ because they are built-in.
-        parent = os.path.relpath(os.path.dirname(os.__file__))
-        env = os.environ.copy()
-        env['PYTHONPATH'] = parent
-        code = ('import os, sys',
-            # use ASCII to avoid locale issues with non-ASCII directories
-            'os_file = os.__file__.encode("ascii", "backslashreplace")',
-            r'sys.stdout.buffer.write(os_file + b"\n")',
-            'os_cached = os.__cached__.encode("ascii", "backslashreplace")',
-            r'sys.stdout.buffer.write(os_cached + b"\n")')
-        command = '\n'.join(code)
-        # First, prove that with -S (no 'import site'), the paths are
-        # relative.
-        proc = subprocess.Popen([sys.executable, '-S', '-c', command],
-                                env=env,
-                                stdout=subprocess.PIPE)
-        stdout, stderr = proc.communicate()
+        try:
+            parent = os.path.relpath(os.path.dirname(os.__file__))
+            cwd = os.getcwd()
+        except ValueError:
+            # Failure to get relpath probably means we need to chdir
+            # to the same drive.
+            cwd, parent = os.path.split(os.path.dirname(os.__file__))
+        with change_cwd(cwd):
+            env = os.environ.copy()
+            env['PYTHONPATH'] = parent
+            code = ('import os, sys',
+                # use ASCII to avoid locale issues with non-ASCII directories
+                'os_file = os.__file__.encode("ascii", "backslashreplace")',
+                r'sys.stdout.buffer.write(os_file + b"\n")',
+                'os_cached = os.__cached__.encode("ascii", "backslashreplace")',
+                r'sys.stdout.buffer.write(os_cached + b"\n")')
+            command = '\n'.join(code)
+            # First, prove that with -S (no 'import site'), the paths are
+            # relative.
+            proc = subprocess.Popen([sys.executable, '-S', '-c', command],
+                                    env=env,
+                                    stdout=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
 
-        self.assertEqual(proc.returncode, 0)
-        os__file__, os__cached__ = stdout.splitlines()[:2]
-        if check_impl_detail(cpython=True):
-            # XXX: should probably match cpython
-            self.assertFalse(os.path.isabs(os__file__))
-            self.assertFalse(os.path.isabs(os__cached__))
-        # Now, with 'import site', it works.
-        proc = subprocess.Popen([sys.executable, '-c', command],
-                                env=env,
-                                stdout=subprocess.PIPE)
-        stdout, stderr = proc.communicate()
-        self.assertEqual(proc.returncode, 0)
-        os__file__, os__cached__ = stdout.splitlines()[:2]
-        self.assertTrue(os.path.isabs(os__file__),
-                        "expected absolute path, got {}"
-                        .format(os__file__.decode('ascii')))
-        self.assertTrue(os.path.isabs(os__cached__),
-                        "expected absolute path, got {}"
-                        .format(os__cached__.decode('ascii')))
+            self.assertEqual(proc.returncode, 0)
+            os__file__, os__cached__ = stdout.splitlines()[:2]
+            if check_impl_detail(cpython=True):
+                # XXX: should probably match cpython
+                self.assertFalse(os.path.isabs(os__file__))
+                self.assertFalse(os.path.isabs(os__cached__))
+            # Now, with 'import site', it works.
+            proc = subprocess.Popen([sys.executable, '-c', command],
+                                    env=env,
+                                    stdout=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
+            self.assertEqual(proc.returncode, 0)
+            os__file__, os__cached__ = stdout.splitlines()[:2]
+            self.assertTrue(os.path.isabs(os__file__),
+                            "expected absolute path, got {}"
+                            .format(os__file__.decode('ascii')))
+            self.assertTrue(os.path.isabs(os__cached__),
+                            "expected absolute path, got {}"
+                            .format(os__cached__.decode('ascii')))
 
     def test_no_duplicate_paths(self):
         # No duplicate paths should exist in sys.path
@@ -508,15 +566,15 @@ class StartupImportTests(unittest.TestCase):
                     print(line, file=f)
             return exe_file
         except:
-            os.unlink(_pth_file)
-            os.unlink(exe_file)
+            test.support.unlink(_pth_file)
+            test.support.unlink(exe_file)
             raise
 
     @classmethod
     def _cleanup_underpth_exe(self, exe_file):
         _pth_file = os.path.splitext(exe_file)[0] + '._pth'
-        os.unlink(_pth_file)
-        os.unlink(exe_file)
+        test.support.unlink(_pth_file)
+        test.support.unlink(exe_file)
 
     @classmethod
     def _calc_sys_path_for_underpth_nosite(self, sys_prefix, lines):

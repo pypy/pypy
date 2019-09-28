@@ -35,7 +35,6 @@ from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import FdValidator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -639,16 +638,18 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS', 'PyThread_init_thread',
     'PyThread_start_new_thread',
 
-    'PyStructSequence_InitType', 'PyStructSequence_New',
-    'PyStructSequence_UnnamedField',
+    'PyStructSequence_InitType', 'PyStructSequence_InitType2',
+    'PyStructSequence_New', 'PyStructSequence_UnnamedField',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
-    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_InteractiveFlag', 'Py_InspectFlag',
+    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_QuietFlag',
+    'Py_InteractiveFlag', 'Py_InspectFlag',
     'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
-    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
-    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
-    '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+    'Py_FrozenFlag', 'Py_IgnoreEnvironmentFlag',
+    'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
+    'Py_UnbufferedStdioFlag', 'Py_HashRandomizationFlag', 'Py_IsolatedFlag',
+    '_Py_PackageContext',
     'PyOS_InputHook',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
@@ -664,6 +665,8 @@ SYMBOLS_C = [
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc',
 ]
+if sys.platform == "win32":
+    SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
 TYPES = {}
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
@@ -690,7 +693,8 @@ def build_exported_objects():
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
     global all_exceptions
-    all_exceptions = list(exceptions.Module.interpleveldefs)
+    from pypy.module.exceptions.moduledef import Module as ExcModule
+    all_exceptions = list(ExcModule.interpleveldefs)
     for exc_name in all_exceptions:
         if exc_name in ('EnvironmentError', 'IOError', 'WindowsError'):
             # FIXME: aliases of OSError cause a clash of names via
@@ -982,8 +986,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
+    pygilstate_check = (gil == "pygilstate_check")
     assert (gil is None or gil_acquire or gil_release
-            or pygilstate_ensure or pygilstate_release)
+            or pygilstate_ensure or pygilstate_release or pygilstate_check)
     expected_nb_args = len(argtypesw) + pygilstate_ensure
 
     if isinstance(restype, lltype.Ptr) and error_value == 0:
@@ -1016,6 +1021,12 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 deadlock_error(pname)
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
+            if gil_auto_workaround:
+                # while we're in workaround-land, detect when a regular PyXxx()
+                # function is invoked at .so load-time, e.g. by a C++ global
+                # variable with an initializer, and in this case make sure we
+                # initialize things.
+                space.fromcache(State).make_sure_cpyext_is_imported()
         elif pygilstate_ensure:
             if cpyext_glob_tid_ptr[0] == tid:
                 cpyext_glob_tid_ptr[0] = 0
@@ -1023,6 +1034,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
             else:
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
+        elif pygilstate_check:
+            result = cpyext_glob_tid_ptr[0] == tid
+            return rffi.cast(restype, result)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
                 no_gil_error(pname)
@@ -1506,6 +1520,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythread.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
+                         source_dir / "pytime.c",
                          source_dir / "bytesobject.c",
                          source_dir / "import.c",
                          source_dir / "_warnings.c",
@@ -1741,8 +1756,8 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     from rpython.rlib import rdynload
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 
-    space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
+    state.make_sure_cpyext_is_imported()
     w_mod = state.find_extension(name, path)
     if w_mod is not None:
         rdynload.dlclose(dll)

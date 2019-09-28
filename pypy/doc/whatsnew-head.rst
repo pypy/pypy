@@ -1,14 +1,13 @@
 ==========================
-What's new in PyPy2.7 7.1+
+What's new in PyPy2.7 7.3+
 ==========================
 
-.. this is a revision shortly after release-pypy-7.1.0
-.. startrev: d3aefbf6dae7
+.. this is a revision shortly after release-pypy-7.2.0
+.. startrev: 78cd4acbcbec 
 
-.. branch: Twirrim/minor-typo-fix-1553456951526
 
-Fix typo
+.. branch: json-decoder-maps
 
-.. branch: jit-cleanup
+Much faster and more memory-efficient JSON decoding. The resulting
+dictionaries that come out of the JSON decoder have faster lookups too.
 
-Remove rpython.jit.metainterp.typesystem and clean up related code in rpython/jit/

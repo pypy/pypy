@@ -17,6 +17,7 @@ static const long Cryptography_HAS_SSL2;
 static const long Cryptography_HAS_SSL3_METHOD;
 static const long Cryptography_HAS_TLSv1_1;
 static const long Cryptography_HAS_TLSv1_2;
+static const long Cryptography_HAS_TLSv1_3;
 static const long Cryptography_HAS_SECURE_RENEGOTIATION;
 static const long Cryptography_HAS_COMPRESSION;
 static const long Cryptography_HAS_TLSEXT_STATUS_REQ_CB;
@@ -25,7 +26,11 @@ static const long Cryptography_HAS_TLSEXT_STATUS_REQ_TYPE;
 static const long Cryptography_HAS_GET_SERVER_TMP_KEY;
 static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE;
 static const long Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS;
-static const long Cryptography_HAS_NPN_NEGOTIATED;
+static const long Cryptography_HAS_DTLS;
+static const long Cryptography_HAS_GENERIC_DTLS_METHOD;
+static const long Cryptography_HAS_SIGALGS;
+static const long Cryptography_HAS_PSK;
+static const long Cryptography_HAS_CIPHER_DETAILS;
 
 /* Internally invented symbol to tell us if SNI is supported */
 static const long Cryptography_HAS_TLSEXT_HOSTNAME;
@@ -39,14 +44,13 @@ static const long Cryptography_HAS_RELEASE_BUFFERS;
  * supported
  */
 static const long Cryptography_HAS_OP_NO_COMPRESSION;
-
 static const long Cryptography_HAS_SSL_OP_MSIE_SSLV2_RSA_PADDING;
 static const long Cryptography_HAS_SSL_SET_SSL_CTX;
 static const long Cryptography_HAS_SSL_OP_NO_TICKET;
-static const long Cryptography_HAS_NETBSD_D1_METH;
-static const long Cryptography_HAS_NEXTPROTONEG;
 static const long Cryptography_HAS_ALPN;
+static const long Cryptography_HAS_NEXTPROTONEG;
 static const long Cryptography_HAS_SET_CERT_CB;
+static const long Cryptography_HAS_CUSTOM_EXT;
 
 static const long SSL_FILETYPE_PEM;
 static const long SSL_FILETYPE_ASN1;
@@ -65,6 +69,9 @@ static const long SSL_OP_NO_SSLv3;
 static const long SSL_OP_NO_TLSv1;
 static const long SSL_OP_NO_TLSv1_1;
 static const long SSL_OP_NO_TLSv1_2;
+static const long SSL_OP_NO_TLSv1_3;
+static const long SSL_OP_NO_DTLSv1;
+static const long SSL_OP_NO_DTLSv1_2;
 static const long SSL_OP_NO_COMPRESSION;
 static const long SSL_OP_SINGLE_DH_USE;
 static const long SSL_OP_EPHEMERAL_RSA;
@@ -95,6 +102,7 @@ static const long SSL_VERIFY_PEER;
 static const long SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 static const long SSL_VERIFY_CLIENT_ONCE;
 static const long SSL_VERIFY_NONE;
+static const long SSL_VERIFY_POST_HANDSHAKE;
 static const long SSL_SESS_CACHE_OFF;
 static const long SSL_SESS_CACHE_CLIENT;
 static const long SSL_SESS_CACHE_SERVER;
@@ -146,6 +154,11 @@ static const long TLSEXT_STATUSTYPE_ocsp;
 typedef ... SSL_CIPHER;
 typedef ... Cryptography_STACK_OF_SSL_CIPHER;
 typedef ... COMP_METHOD;
+
+typedef struct {
+    const char *name;
+    unsigned long id;
+} SRTP_PROTECTION_PROFILE;
 """
 
 FUNCTIONS = """
@@ -176,8 +189,12 @@ int SSL_pending(const SSL *);
 int SSL_write(SSL *, const void *, int);
 int SSL_read(SSL *, void *, int);
 int SSL_peek(SSL *, void *, int);
+X509 *SSL_get_certificate(const SSL *);
 X509 *SSL_get_peer_certificate(const SSL *);
 int SSL_get_ex_data_X509_STORE_CTX_idx(void);
+
+/* Added in 1.0.2 */
+X509_VERIFY_PARAM *SSL_get0_param(SSL *);
 
 int SSL_use_certificate(SSL *, X509 *);
 int SSL_use_certificate_ASN1(SSL *, const unsigned char *, int);
@@ -186,6 +203,9 @@ int SSL_use_PrivateKey(SSL *, EVP_PKEY *);
 int SSL_use_PrivateKey_ASN1(int, SSL *, const unsigned char *, long);
 int SSL_use_PrivateKey_file(SSL *, const char *, int);
 int SSL_check_private_key(const SSL *);
+
+int SSL_get_sigalgs(SSL *, int, int *, int *, int *, unsigned char *,
+                    unsigned char *);
 
 Cryptography_STACK_OF_X509 *SSL_get_peer_cert_chain(const SSL *);
 Cryptography_STACK_OF_X509_NAME *SSL_get_client_CA_list(const SSL *);
@@ -220,8 +240,36 @@ int SSL_CTX_use_PrivateKey_ASN1(int, SSL_CTX *, const unsigned char *, long);
 int SSL_CTX_use_PrivateKey_file(SSL_CTX *, const char *, int);
 int SSL_CTX_check_private_key(const SSL_CTX *);
 void SSL_CTX_set_cert_verify_callback(SSL_CTX *,
-                                      int (*)(X509_STORE_CTX *,void *),
+                                      int (*)(X509_STORE_CTX *, void *),
                                       void *);
+
+void SSL_CTX_set_cookie_generate_cb(SSL_CTX *,
+                                    int (*)(
+                                        SSL *,
+                                        unsigned char *,
+                                        unsigned int *
+                                    ));
+long SSL_CTX_get_read_ahead(SSL_CTX *);
+long SSL_CTX_set_read_ahead(SSL_CTX *, long);
+
+int SSL_CTX_use_psk_identity_hint(SSL_CTX *, const char *);
+void SSL_CTX_set_psk_server_callback(SSL_CTX *,
+                                     unsigned int (*)(
+                                         SSL *,
+                                         const char *,
+                                         unsigned char *,
+                                         unsigned int
+                                     ));
+void SSL_CTX_set_psk_client_callback(SSL_CTX *,
+                                     unsigned int (*)(
+                                         SSL *,
+                                         const char *,
+                                         char *,
+                                         unsigned int,
+                                         unsigned char *,
+                                         unsigned int
+                                     ));
+
 int SSL_CTX_set_session_id_context(SSL_CTX *, const unsigned char *,
                                    unsigned int);
 
@@ -234,21 +282,29 @@ void SSL_CTX_set_client_CA_list(SSL_CTX *, Cryptography_STACK_OF_X509_NAME *);
 void SSL_CTX_set_info_callback(SSL_CTX *, void (*)(const SSL *, int, int));
 void (*SSL_CTX_get_info_callback(SSL_CTX *))(const SSL *, int, int);
 
+long SSL_CTX_set1_sigalgs_list(SSL_CTX *, const char *);
+
 /*  SSL_SESSION */
 void SSL_SESSION_free(SSL_SESSION *);
 
 /* Information about actually used cipher */
 const char *SSL_CIPHER_get_name(const SSL_CIPHER *);
 int SSL_CIPHER_get_bits(const SSL_CIPHER *, int *);
+/* the modern signature of this is uint32_t, but older openssl declared it
+   as unsigned long. To make our compiler flags happy we'll declare it as a
+   64-bit wide value, which should always be safe */
+uint64_t SSL_CIPHER_get_id(const SSL_CIPHER *);
+int SSL_CIPHER_is_aead(const SSL_CIPHER *);
+int SSL_CIPHER_get_cipher_nid(const SSL_CIPHER *);
+int SSL_CIPHER_get_digest_nid(const SSL_CIPHER *);
+int SSL_CIPHER_get_kx_nid(const SSL_CIPHER *);
+int SSL_CIPHER_get_auth_nid(const SSL_CIPHER *);
 
 size_t SSL_get_finished(const SSL *, void *, size_t);
 size_t SSL_get_peer_finished(const SSL *, void *, size_t);
 Cryptography_STACK_OF_X509_NAME *SSL_load_client_CA_file(const char *);
 
 const char *SSL_get_servername(const SSL *, const int);
-"""
-
-MACROS = """
 /* Function signature changed to const char * in 1.1.0 */
 const char *SSL_CIPHER_get_version(const SSL_CIPHER *);
 /* These became macros in 1.1.0 */
@@ -278,7 +334,6 @@ int SSL_SESSION_print(BIO *, const SSL_SESSION *);
 const COMP_METHOD *SSL_get_current_compression(SSL *);
 const COMP_METHOD *SSL_get_current_expansion(SSL *);
 const char *SSL_COMP_get_name(const COMP_METHOD *);
-int SSL_CTX_set_client_cert_engine(SSL_CTX *, ENGINE *);
 
 unsigned long SSL_set_mode(SSL *, unsigned long);
 unsigned long SSL_get_mode(SSL *);
@@ -337,6 +392,11 @@ const SSL_METHOD *DTLSv1_method(void);
 const SSL_METHOD *DTLSv1_server_method(void);
 const SSL_METHOD *DTLSv1_client_method(void);
 
+/* Added in 1.0.2 */
+const SSL_METHOD *DTLS_method(void);
+const SSL_METHOD *DTLS_server_method(void);
+const SSL_METHOD *DTLS_client_method(void);
+
 const SSL_METHOD *SSLv23_method(void);
 const SSL_METHOD *SSLv23_server_method(void);
 const SSL_METHOD *SSLv23_client_method(void);
@@ -355,7 +415,7 @@ void *SSL_get_ex_data(const SSL *, int);
 void SSL_set_tlsext_host_name(SSL *, char *);
 void SSL_CTX_set_tlsext_servername_callback(
     SSL_CTX *,
-    int (*)(const SSL *, int *, void *));
+    int (*)(SSL *, int *, void *));
 void SSL_CTX_set_tlsext_servername_arg(
     SSL_CTX *, void *);
 
@@ -365,11 +425,12 @@ long SSL_set_tlsext_status_type(SSL *, long);
 long SSL_CTX_set_tlsext_status_cb(SSL_CTX *, int(*)(SSL *, void *));
 long SSL_CTX_set_tlsext_status_arg(SSL_CTX *, void *);
 
+int SSL_CTX_set_tlsext_use_srtp(SSL_CTX *, const char *);
+int SSL_set_tlsext_use_srtp(SSL *, const char *);
+SRTP_PROTECTION_PROFILE *SSL_get_selected_srtp_profile(SSL *);
+
 long SSL_session_reused(SSL *);
 
-/* NPN APIs were introduced in OpenSSL 1.0.1.  To continue to support earlier
- * versions some special handling of these is necessary.
- */
 void SSL_CTX_set_next_protos_advertised_cb(SSL_CTX *,
                                            int (*)(SSL *,
                                                    const unsigned char **,
@@ -418,7 +479,7 @@ void SSL_set_cert_cb(SSL *, int (*)(SSL *, void *), void *);
 
 /* Added in 1.0.2 */
 const SSL_METHOD *SSL_CTX_get_ssl_method(SSL_CTX *);
-/* Added in 1.0.1 */
+
 int SSL_SESSION_set1_id_context(SSL_SESSION *, const unsigned char *,
                                 unsigned int);
 /* Added in 1.1.0 for the great opaquing of structs */
@@ -426,6 +487,8 @@ size_t SSL_SESSION_get_master_key(const SSL_SESSION *, unsigned char *,
                                   size_t);
 size_t SSL_get_client_random(const SSL *, unsigned char *, size_t);
 size_t SSL_get_server_random(const SSL *, unsigned char *, size_t);
+int SSL_export_keying_material(SSL *, unsigned char *, size_t, const char *,
+                               size_t, const unsigned char *, size_t, int);
 
 long SSL_CTX_sess_number(SSL_CTX *);
 long SSL_CTX_sess_connect(SSL_CTX *);
@@ -439,34 +502,57 @@ long SSL_CTX_sess_cb_hits(SSL_CTX *);
 long SSL_CTX_sess_misses(SSL_CTX *);
 long SSL_CTX_sess_timeouts(SSL_CTX *);
 long SSL_CTX_sess_cache_full(SSL_CTX *);
+
+/* DTLS support */
+long Cryptography_DTLSv1_get_timeout(SSL *, time_t *, long *);
+long DTLSv1_handle_timeout(SSL *);
+long DTLS_set_link_mtu(SSL *, long);
+long DTLS_get_link_min_mtu(SSL *);
+
+/* Custom extensions. */
+typedef int (*custom_ext_add_cb)(SSL *, unsigned int,
+                                 const unsigned char **,
+                                 size_t *, int *,
+                                 void *);
+
+typedef void (*custom_ext_free_cb)(SSL *, unsigned int,
+                                   const unsigned char *,
+                                   void *);
+
+typedef int (*custom_ext_parse_cb)(SSL *, unsigned int,
+                                   const unsigned char *,
+                                   size_t, int *,
+                                   void *);
+
+int SSL_CTX_add_client_custom_ext(SSL_CTX *, unsigned int,
+                                  custom_ext_add_cb,
+                                  custom_ext_free_cb, void *,
+                                  custom_ext_parse_cb,
+                                  void *);
+
+int SSL_CTX_add_server_custom_ext(SSL_CTX *, unsigned int,
+                                  custom_ext_add_cb,
+                                  custom_ext_free_cb, void *,
+                                  custom_ext_parse_cb,
+                                  void *);
+
+int SSL_extension_supported(unsigned int);
+
+int SSL_CTX_set_ciphersuites(SSL_CTX *, const char *);
+int SSL_verify_client_post_handshake(SSL *);
+void SSL_CTX_set_post_handshake_auth(SSL_CTX *, int);
+void SSL_set_post_handshake_auth(SSL *, int);
+
+uint32_t SSL_SESSION_get_max_early_data(const SSL_SESSION *);
+int SSL_write_early_data(SSL *, const void *, size_t, size_t *);
+int SSL_read_early_data(SSL *, void *, size_t, size_t *);
+int SSL_CTX_set_max_early_data(SSL_CTX *, uint32_t);
 """
 
 CUSTOMIZATIONS = """
-/* Added in 1.0.1 but we need it in all versions now due to the great
-   opaquing. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_101
-/* from ssl.h */
-#define SSL_F_SSL_SESSION_SET1_ID_CONTEXT 312
-#define SSL_R_SSL_SESSION_ID_CONTEXT_TOO_LONG 273
-/* from ssl/ssl_sess.c */
-int SSL_SESSION_set1_id_context(SSL_SESSION *s, const unsigned char *sid_ctx,
-                                unsigned int sid_ctx_len)
-{
-    if (sid_ctx_len > SSL_MAX_SID_CTX_LENGTH) {
-        SSLerr(SSL_F_SSL_SESSION_SET1_ID_CONTEXT,
-               SSL_R_SSL_SESSION_ID_CONTEXT_TOO_LONG);
-        return 0;
-    }
-    s->sid_ctx_length = sid_ctx_len;
-    memcpy(s->sid_ctx, sid_ctx, sid_ctx_len);
-
-    return 1;
-}
-#endif
-
 /* Added in 1.0.2 but we need it in all versions now due to the great
    opaquing. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 || defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
 /* from ssl/ssl_lib.c */
 const SSL_METHOD *SSL_CTX_get_ssl_method(SSL_CTX *ctx) {
     return ctx->method;
@@ -475,7 +561,7 @@ const SSL_METHOD *SSL_CTX_get_ssl_method(SSL_CTX *ctx) {
 
 /* Added in 1.1.0 in the great opaquing, but we need to define it for older
    OpenSSLs. Such is our burden. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110 || defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110 && !CRYPTOGRAPHY_LIBRESSL_27_OR_GREATER
 /* from ssl/ssl_lib.c */
 size_t SSL_get_client_random(const SSL *ssl, unsigned char *out, size_t outlen)
 {
@@ -513,10 +599,12 @@ size_t SSL_SESSION_get_master_key(const SSL_SESSION *session,
     memcpy(out, session->master_key, outlen);
     return outlen;
 }
-
-int SSL_SESSION_has_ticket(const SSL_SESSION *s) {
+/* from ssl/ssl_sess.c */
+int SSL_SESSION_has_ticket(const SSL_SESSION *s)
+{
     return (s->tlsext_ticklen > 0) ? 1 : 0;
 }
+/* from ssl/ssl_sess.c */
 unsigned long SSL_SESSION_get_ticket_lifetime_hint(const SSL_SESSION *s)
 {
     return s->tlsext_tick_lifetime_hint;
@@ -533,9 +621,9 @@ static const long Cryptography_HAS_SSL2 = 0;
 
 #ifdef OPENSSL_NO_SSL3_METHOD
 static const long Cryptography_HAS_SSL3_METHOD = 0;
-SSL_METHOD* (*SSLv3_method)(void) = NULL;
-SSL_METHOD* (*SSLv3_client_method)(void) = NULL;
-SSL_METHOD* (*SSLv3_server_method)(void) = NULL;
+const SSL_METHOD* (*SSLv3_method)(void) = NULL;
+const SSL_METHOD* (*SSLv3_client_method)(void) = NULL;
+const SSL_METHOD* (*SSLv3_server_method)(void) = NULL;
 #else
 static const long Cryptography_HAS_SSL3_METHOD = 1;
 #endif
@@ -544,112 +632,23 @@ static const long Cryptography_HAS_TLSEXT_HOSTNAME = 1;
 static const long Cryptography_HAS_TLSEXT_STATUS_REQ_CB = 1;
 static const long Cryptography_HAS_STATUS_REQ_OCSP_RESP = 1;
 static const long Cryptography_HAS_TLSEXT_STATUS_REQ_TYPE = 1;
-
-#ifdef SSL_MODE_RELEASE_BUFFERS
 static const long Cryptography_HAS_RELEASE_BUFFERS = 1;
-#else
-static const long Cryptography_HAS_RELEASE_BUFFERS = 0;
-const long SSL_MODE_RELEASE_BUFFERS = 0;
-#endif
-
-#ifdef SSL_OP_NO_COMPRESSION
 static const long Cryptography_HAS_OP_NO_COMPRESSION = 1;
-#else
-static const long Cryptography_HAS_OP_NO_COMPRESSION = 0;
-const long SSL_OP_NO_COMPRESSION = 0;
-#endif
-
-#ifdef SSL_OP_NO_TLSv1_1
 static const long Cryptography_HAS_TLSv1_1 = 1;
-#else
-static const long Cryptography_HAS_TLSv1_1 = 0;
-static const long SSL_OP_NO_TLSv1_1 = 0;
-SSL_METHOD* (*TLSv1_1_method)(void) = NULL;
-SSL_METHOD* (*TLSv1_1_client_method)(void) = NULL;
-SSL_METHOD* (*TLSv1_1_server_method)(void) = NULL;
-#endif
-
-#ifdef SSL_OP_NO_TLSv1_2
 static const long Cryptography_HAS_TLSv1_2 = 1;
-#else
-static const long Cryptography_HAS_TLSv1_2 = 0;
-static const long SSL_OP_NO_TLSv1_2 = 0;
-SSL_METHOD* (*TLSv1_2_method)(void) = NULL;
-SSL_METHOD* (*TLSv1_2_client_method)(void) = NULL;
-SSL_METHOD* (*TLSv1_2_server_method)(void) = NULL;
-#endif
-
-#ifdef SSL_OP_MSIE_SSLV2_RSA_PADDING
 static const long Cryptography_HAS_SSL_OP_MSIE_SSLV2_RSA_PADDING = 1;
-#else
-static const long Cryptography_HAS_SSL_OP_MSIE_SSLV2_RSA_PADDING = 0;
-const long SSL_OP_MSIE_SSLV2_RSA_PADDING = 0;
-#endif
-
-#ifdef OPENSSL_NO_EC
-long (*SSL_CTX_set_tmp_ecdh)(SSL_CTX *, EC_KEY *) = NULL;
-#endif
-
-#ifdef SSL_OP_NO_TICKET
 static const long Cryptography_HAS_SSL_OP_NO_TICKET = 1;
-#else
-static const long Cryptography_HAS_SSL_OP_NO_TICKET = 0;
-const long SSL_OP_NO_TICKET = 0;
-#endif
-
 static const long Cryptography_HAS_SSL_SET_SSL_CTX = 1;
-
-/* NetBSD shipped without including d1_meth.c. This workaround checks to see
-   if the version of NetBSD we're currently running on is old enough to
-   have the bug and provides an empty implementation so we can link and
-   then remove the function from the ffi object. */
-#ifdef __NetBSD__
-#  include <sys/param.h>
-#  if (__NetBSD_Version__ < 699003800)
-static const long Cryptography_HAS_NETBSD_D1_METH = 0;
-const SSL_METHOD *DTLSv1_method(void) {
-    return NULL;
-}
-#  else
-static const long Cryptography_HAS_NETBSD_D1_METH = 1;
-#  endif
-#else
-static const long Cryptography_HAS_NETBSD_D1_METH = 1;
-#endif
-
-/* Because OPENSSL defines macros that claim lack of support for things, rather
- * than macros that claim support for things, we need to do a version check in
- * addition to a definition check. NPN was added in 1.0.1: for any version
- * before that, there is no compatibility.
- */
-#if defined(OPENSSL_NO_NEXTPROTONEG) || CRYPTOGRAPHY_OPENSSL_LESS_THAN_101
-static const long Cryptography_HAS_NEXTPROTONEG = 0;
-void (*SSL_CTX_set_next_protos_advertised_cb)(SSL_CTX *,
-                                              int (*)(SSL *,
-                                                      const unsigned char **,
-                                                      unsigned int *,
-                                                      void *),
-                                              void *) = NULL;
-void (*SSL_CTX_set_next_proto_select_cb)(SSL_CTX *,
-                                         int (*)(SSL *,
-                                                 unsigned char **,
-                                                 unsigned char *,
-                                                 const unsigned char *,
-                                                 unsigned int,
-                                                 void *),
-                                         void *) = NULL;
-int (*SSL_select_next_proto)(unsigned char **, unsigned char *,
-                             const unsigned char *, unsigned int,
-                             const unsigned char *, unsigned int) = NULL;
-void (*SSL_get0_next_proto_negotiated)(const SSL *,
-                                       const unsigned char **,
-                                       unsigned *) = NULL;
-#else
 static const long Cryptography_HAS_NEXTPROTONEG = 1;
+
+/* SSL_get0_param was added in OpenSSL 1.0.2. */
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_LIBRESSL_27_OR_GREATER
+X509_VERIFY_PARAM *(*SSL_get0_param)(SSL *) = NULL;
+#else
 #endif
 
 /* ALPN was added in OpenSSL 1.0.2. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_IS_LIBRESSL
 int (*SSL_CTX_set_alpn_protos)(SSL_CTX *,
                                const unsigned char *,
                                unsigned) = NULL;
@@ -671,7 +670,7 @@ static const long Cryptography_HAS_ALPN = 1;
 #endif
 
 /* SSL_CTX_set_cert_cb was added in OpenSSL 1.0.2. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 || defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
 void (*SSL_CTX_set_cert_cb)(SSL_CTX *, int (*)(SSL *, void *), void *) = NULL;
 void (*SSL_set_cert_cb)(SSL *, int (*)(SSL *, void *), void *) = NULL;
 static const long Cryptography_HAS_SET_CERT_CB = 0;
@@ -683,7 +682,7 @@ static const long Cryptography_HAS_SET_CERT_CB = 1;
 /* In OpenSSL 1.0.2i+ the handling of COMP_METHOD when OPENSSL_NO_COMP was
    changed and we no longer need to typedef void */
 #if (defined(OPENSSL_NO_COMP) && CRYPTOGRAPHY_OPENSSL_LESS_THAN_102I) || \
-    defined(LIBRESSL_VERSION_NUMBER)
+    CRYPTOGRAPHY_IS_LIBRESSL
 static const long Cryptography_HAS_COMPRESSION = 0;
 typedef void COMP_METHOD;
 #else
@@ -703,7 +702,7 @@ static const long Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS = 1;
 
 /* in OpenSSL 1.1.0 the SSL_ST values were renamed to TLS_ST and several were
    removed */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110 || defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
 static const long Cryptography_HAS_SSL_ST = 1;
 #else
 static const long Cryptography_HAS_SSL_ST = 0;
@@ -712,7 +711,7 @@ static const long SSL_ST_OK = 0;
 static const long SSL_ST_INIT = 0;
 static const long SSL_ST_RENEGOTIATE = 0;
 #endif
-#if CRYPTOGRAPHY_OPENSSL_110_OR_GREATER && !defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_110_OR_GREATER
 static const long Cryptography_HAS_TLS_ST = 1;
 #else
 static const long Cryptography_HAS_TLS_ST = 0;
@@ -720,12 +719,136 @@ static const long TLS_ST_BEFORE = 0;
 static const long TLS_ST_OK = 0;
 #endif
 
-/* This define is available in 1.0.1+ so we can remove this when we drop
-   support for 1.0.0 */
-#ifdef OPENSSL_NPN_NEGOTIATED
-static const long Cryptography_HAS_NPN_NEGOTIATED = 1;
+/* LibreSSL 2.9.1 added only the DTLS_*_method functions */
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_LIBRESSL_291_OR_GREATER
+static const long Cryptography_HAS_GENERIC_DTLS_METHOD = 0;
+const SSL_METHOD *(*DTLS_method)(void) = NULL;
+const SSL_METHOD *(*DTLS_server_method)(void) = NULL;
+const SSL_METHOD *(*DTLS_client_method)(void) = NULL;
 #else
-static const long OPENSSL_NPN_NEGOTIATED = -1;
-static const long Cryptography_HAS_NPN_NEGOTIATED = 0;
+static const long Cryptography_HAS_GENERIC_DTLS_METHOD = 1;
+#endif
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
+static const long SSL_OP_NO_DTLSv1 = 0;
+static const long SSL_OP_NO_DTLSv1_2 = 0;
+long (*DTLS_set_link_mtu)(SSL *, long) = NULL;
+long (*DTLS_get_link_min_mtu)(SSL *) = NULL;
+#endif
+
+static const long Cryptography_HAS_DTLS = 1;
+/* Wrap DTLSv1_get_timeout to avoid cffi to handle a 'struct timeval'. */
+long Cryptography_DTLSv1_get_timeout(SSL *ssl, time_t *ptv_sec,
+                                     long *ptv_usec) {
+    struct timeval tv = { 0 };
+    long r = DTLSv1_get_timeout(ssl, &tv);
+
+    if (r == 1) {
+        if (ptv_sec) {
+            *ptv_sec = tv.tv_sec;
+        }
+
+        if (ptv_usec) {
+            *ptv_usec = tv.tv_usec;
+        }
+    }
+
+    return r;
+}
+
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
+static const long Cryptography_HAS_SIGALGS = 0;
+const int (*SSL_get_sigalgs)(SSL *, int, int *, int *, int *, unsigned char *,
+                             unsigned char *) = NULL;
+const long (*SSL_CTX_set1_sigalgs_list)(SSL_CTX *, const char *) = NULL;
+#else
+static const long Cryptography_HAS_SIGALGS = 1;
+#endif
+
+#if CRYPTOGRAPHY_IS_LIBRESSL || defined(OPENSSL_NO_PSK)
+static const long Cryptography_HAS_PSK = 0;
+int (*SSL_CTX_use_psk_identity_hint)(SSL_CTX *, const char *) = NULL;
+void (*SSL_CTX_set_psk_server_callback)(SSL_CTX *,
+                                        unsigned int (*)(
+                                            SSL *,
+                                            const char *,
+                                            unsigned char *,
+                                            unsigned int
+                                        )) = NULL;
+void (*SSL_CTX_set_psk_client_callback)(SSL_CTX *,
+                                        unsigned int (*)(
+                                            SSL *,
+                                            const char *,
+                                            char *,
+                                            unsigned int,
+                                            unsigned char *,
+                                            unsigned int
+                                        )) = NULL;
+#else
+static const long Cryptography_HAS_PSK = 1;
+#endif
+
+/*
+ * Custom extensions were added in 1.0.2. 1.1.1 is adding a more general
+ * SSL_CTX_add_custom_ext function, but we're not binding that yet.
+ */
+#if CRYPTOGRAPHY_OPENSSL_102_OR_GREATER
+static const long Cryptography_HAS_CUSTOM_EXT = 1;
+#else
+static const long Cryptography_HAS_CUSTOM_EXT = 0;
+
+typedef int (*custom_ext_add_cb)(SSL *, unsigned int,
+                                 const unsigned char **,
+                                 size_t *, int *,
+                                 void *);
+
+typedef void (*custom_ext_free_cb)(SSL *, unsigned int,
+                                   const unsigned char *,
+                                   void *);
+
+typedef int (*custom_ext_parse_cb)(SSL *, unsigned int,
+                                   const unsigned char *,
+                                   size_t, int *,
+                                   void *);
+
+int (*SSL_CTX_add_client_custom_ext)(SSL_CTX *, unsigned int,
+                                     custom_ext_add_cb,
+                                     custom_ext_free_cb, void *,
+                                     custom_ext_parse_cb,
+                                     void *) = NULL;
+
+int (*SSL_CTX_add_server_custom_ext)(SSL_CTX *, unsigned int,
+                                     custom_ext_add_cb,
+                                     custom_ext_free_cb, void *,
+                                     custom_ext_parse_cb,
+                                     void *) = NULL;
+
+int (*SSL_extension_supported)(unsigned int) = NULL;
+#endif
+
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110 && !CRYPTOGRAPHY_LIBRESSL_27_OR_GREATER
+int (*SSL_CIPHER_is_aead)(const SSL_CIPHER *) = NULL;
+int (*SSL_CIPHER_get_cipher_nid)(const SSL_CIPHER *) = NULL;
+int (*SSL_CIPHER_get_digest_nid)(const SSL_CIPHER *) = NULL;
+int (*SSL_CIPHER_get_kx_nid)(const SSL_CIPHER *) = NULL;
+int (*SSL_CIPHER_get_auth_nid)(const SSL_CIPHER *) = NULL;
+static const long Cryptography_HAS_CIPHER_DETAILS = 0;
+#else
+static const long Cryptography_HAS_CIPHER_DETAILS = 1;
+#endif
+
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_111
+static const long Cryptography_HAS_TLSv1_3 = 0;
+static const long SSL_OP_NO_TLSv1_3 = 0;
+static const long SSL_VERIFY_POST_HANDSHAKE = 0;
+int (*SSL_CTX_set_ciphersuites)(SSL_CTX *, const char *) = NULL;
+int (*SSL_verify_client_post_handshake)(SSL *) = NULL;
+void (*SSL_CTX_set_post_handshake_auth)(SSL_CTX *, int) = NULL;
+void (*SSL_set_post_handshake_auth)(SSL *, int) = NULL;
+uint32_t (*SSL_SESSION_get_max_early_data)(const SSL_SESSION *) = NULL;
+int (*SSL_write_early_data)(SSL *, const void *, size_t, size_t *) = NULL;
+int (*SSL_read_early_data)(SSL *, void *, size_t, size_t *) = NULL;
+int (*SSL_CTX_set_max_early_data)(SSL_CTX *, uint32_t) = NULL;
+#else
+static const long Cryptography_HAS_TLSv1_3 = 1;
 #endif
 """

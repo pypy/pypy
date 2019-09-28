@@ -438,7 +438,7 @@ class DescrOperation(object):
             return default_identity_hash(space, w_obj)
         if space.is_w(w_hash, space.w_None):
             raise oefmt(space.w_TypeError,
-                        "'%T' objects are unhashable", w_obj)
+                        "unhashable type: '%T'", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
         if not space.isinstance_w(w_result, space.w_int):
             raise oefmt(space.w_TypeError,
@@ -506,6 +506,10 @@ def _invoke_binop(space, w_impl, w_obj1, w_obj2):
             return w_res
     return None
 
+class PrintCache(object):
+    def __init__(self, space):
+        self.w_print = space.getattr(space.builtin, space.newtext("print"))
+
 
 # regular methods def helpers
 
@@ -514,6 +518,12 @@ def _make_binop_impl(symbol, specialnames):
     errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
         symbol.replace('%', '%%'),)
     seq_bug_compat = (symbol == '+' or symbol == '*')
+
+    printerrormsg = None
+    if symbol == ">>":
+        printerrormsg = errormsg + '. Did you mean "print(<message>, file=<output_stream>)"?'
+    if symbol == "-":
+        printerrormsg = errormsg + '. Did you mean "print(<-number>)"?'
 
     def binop_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
@@ -549,6 +559,8 @@ def _make_binop_impl(symbol, specialnames):
         w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
+        if printerrormsg is not None and w_obj1 is space.fromcache(PrintCache).w_print:
+            raise oefmt(space.w_TypeError, printerrormsg, w_typ1, w_typ2)
         raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
 
     return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))

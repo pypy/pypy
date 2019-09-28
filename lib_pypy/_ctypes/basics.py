@@ -45,6 +45,9 @@ class COMError(Exception):
         self.details = details
 
 class _CDataMeta(type):
+    def _is_abstract(self):
+        return getattr(self, '_type_', 'abstract') == 'abstract'
+
     def from_param(self, value):
         if isinstance(value, self):
             return value
@@ -95,6 +98,8 @@ class _CDataMeta(type):
         return self.from_address(dll.__pypy_dll__.getaddressindll(name))
 
     def from_buffer(self, obj, offset=0):
+        if self._is_abstract():
+            raise TypeError('abstract class')
         size = self._sizeofinstances()
         buf = memoryview(obj)
         if buf.nbytes < offset + size:
@@ -111,6 +116,8 @@ class _CDataMeta(type):
         return result
 
     def from_buffer_copy(self, obj, offset=0):
+        if self._is_abstract():
+            raise TypeError('abstract class')
         size = self._sizeofinstances()
         buf = memoryview(obj)
         if buf.nbytes < offset + size:

@@ -228,6 +228,42 @@ class AppTestMarshal:
             raises(ValueError, marshal.load,
                    BadReader(marshal.dumps(value)))
 
+    def test_stack_overflow_is_ValueError(self):
+        # test from CPython
+
+        import marshal
+        def run_tests(N, check):
+            # (((...None...),),)
+            check(b')\x01' * N + b'N')
+            check(b'(\x01\x00\x00\x00' * N + b'N')
+            # [[[...None...]]]
+            check(b'[\x01\x00\x00\x00' * N + b'N')
+            # {None: {None: {None: ...None...}}}
+            check(b'{N' * N + b'N' + b'0' * N)
+            # frozenset([frozenset([frozenset([...None...])])])
+            check(b'>\x01\x00\x00\x00' * N + b'N')
+        # Check that the generated marshal data is valid and marshal.loads()
+        # works for moderately deep nesting
+        run_tests(100, marshal.loads)
+        # Very deeply nested structure shouldn't blow the stack
+        def check(s):
+            raises(ValueError, marshal.loads, s)
+        run_tests(2**20, check)
+
+    def test_int64(self):
+        # another CPython test
+
+        import marshal
+        res = marshal.loads(b'I\xff\xff\xff\xff\xff\xff\xff\x7f')
+        assert res == 0x7fffffffffffffff
+        res = marshal.loads(b'I\xfe\xdc\xba\x98\x76\x54\x32\x10')
+        assert res == 0x1032547698badcfe
+        res = marshal.loads(b'I\x01\x23\x45\x67\x89\xab\xcd\xef')
+        assert res == -0x1032547698badcff
+        res = marshal.loads(b'I\x08\x19\x2a\x3b\x4c\x5d\x6e\x7f')
+        assert res == 0x7f6e5d4c3b2a1908
+        res = marshal.loads(b'I\xf7\xe6\xd5\xc4\xb3\xa2\x91\x80')
+        assert res == -0x7f6e5d4c3b2a1909
 
 @pytest.mark.skipif('config.option.runappdirect or sys.maxint > 2 ** 32')
 class AppTestSmallLong(AppTestMarshal):

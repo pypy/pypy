@@ -402,6 +402,13 @@ class AppTestBuiltinApp:
         raises(TypeError, range, 1, 2, '1')
         raises(TypeError, range, 1, 2, 3+2j)
 
+    def test_range_bool(self):
+        import sys
+        a = range(-sys.maxsize, sys.maxsize)
+        assert bool(a) is True
+        b = range(10, 0)
+        assert bool(b) is False
+
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)

@@ -2,10 +2,10 @@ import sys
 import pytest
 
 from pypy.config.pypyoption import get_pypy_config
-from pypy.objspace.std import StdObjSpace
+from pypy.objspace.std.objspace import StdObjSpace
 from rpython.tool.udir import udir
 
-mod_init = """
+mod_def = """
 from pypy.interpreter.mixedmodule import MixedModule
 
 import time
@@ -45,8 +45,9 @@ def init_extmodule_code():
     pkg.join("__init__.py").write("# package")
     mod = pkg.join("extmod")
     mod.ensure(dir=True)
-    mod.join("__init__.py").write(mod_init)
+    mod.join("__init__.py").write("#")
     mod.join("interp_time.py").write(mod_interp)
+    mod.join("moduledef.py").write(mod_def)
 
 class AppTestExtModules(object):
     def setup_class(cls):

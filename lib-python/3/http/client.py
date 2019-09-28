@@ -141,6 +141,16 @@ _MAXHEADERS = 100
 _is_legal_header_name = re.compile(rb'[^:\s][^:\r\n]*').fullmatch
 _is_illegal_header_value = re.compile(rb'\n(?![ \t])|\r(?![ \t\n])').search
 
+# These characters are not allowed within HTTP URL paths.
+#  See https://tools.ietf.org/html/rfc3986#section-3.3 and the
+#  https://tools.ietf.org/html/rfc3986#appendix-A pchar definition.
+# Prevents CVE-2019-9740.  Includes control characters such as \r\n.
+# We don't restrict chars above \x7f as putrequest() limits us to ASCII.
+_contains_disallowed_url_pchar_re = re.compile('[\x00-\x20\x7f]')
+# Arguably only these _should_ allowed:
+#  _is_allowed_url_pchars_re = re.compile(r"^[/!$&'()*+,;=:@%a-zA-Z0-9._~-]+$")
+# We are more lenient for assumed real world compatibility purposes.
+
 # We always set the Content-Length header for these methods because some
 # servers will otherwise respond with a 411
 _METHODS_EXPECTING_BODY = {'PATCH', 'POST', 'PUT'}
@@ -322,7 +332,7 @@ class HTTPResponse(io.BufferedIOBase):
 
         if self.debuglevel > 0:
             for hdr in self.headers:
-                print("header:", hdr, end=" ")
+                print("header:", hdr + ":", self.headers.get(hdr))
 
         # are we using the chunked-style of transfer encoding?
         tr_enc = self.headers.get("transfer-encoding")
@@ -540,7 +550,7 @@ class HTTPResponse(io.BufferedIOBase):
         chunk_left = self.chunk_left
         if not chunk_left: # Can be 0 or None
             if chunk_left is not None:
-                # We are at the end of chunk. dicard chunk end
+                # We are at the end of chunk, discard chunk end
                 self._safe_read(2)  # toss the CRLF at the end of the chunk
             try:
                 chunk_left = self._read_next_chunk_size()
@@ -1111,6 +1121,11 @@ class HTTPConnection:
         self._method = method
         if not url:
             url = '/'
+        # Prevent CVE-2019-9740.
+        match = _contains_disallowed_url_pchar_re.search(url)
+        if match:
+            raise InvalidURL(f"URL can't contain control characters. {url!r} "
+                             f"(found at least {match.group()!r})")
         request = '%s %s %s' % (method, url, self._http_vsn_str)
 
         # Non-ASCII characters should have been eliminated earlier

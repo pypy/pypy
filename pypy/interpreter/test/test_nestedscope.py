@@ -99,7 +99,8 @@ class AppTestNestedScope:
             x = 1
 
         g = f()
-        raises(ValueError, "g.__closure__[0].cell_contents")
+        with raises(ValueError):
+            g.__closure__[0].cell_contents
 
     def test_compare_cells(self):
         def f(n):

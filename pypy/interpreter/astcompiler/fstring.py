@@ -25,7 +25,7 @@ def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
 def f_constant_string(astbuilder, joined_pieces, w_u, atom_node):
     add_constant_string(astbuilder, joined_pieces, w_u, atom_node)
 
-def f_string_compile(astbuilder, source, atom_node):
+def f_string_compile(astbuilder, source, atom_node, fstr):
     # Note: a f-string is kept as a single literal up to here.
     # At this point only, we recursively call the AST compiler
     # on all the '{expr}' parts.  The 'expr' part is not parsed
@@ -44,16 +44,44 @@ def f_string_compile(astbuilder, source, atom_node):
         astbuilder.error("internal error: parser not available for parsing "
                    "the expressions inside the f-string", atom_node)
     assert isinstance(source, str)    # utf-8 encoded
-    source = '(%s)' % source
+
+    paren_source = '(%s)' % source  # to deal with whitespace at the start of source
+
+    lineno = 0
+    column_offset = 0
+    if fstr.stnode:
+        stnode = fstr.stnode
+        lineno = stnode.get_lineno() - 1 # one-based
+        # CPython has an equivalent hack :-(
+        value = stnode.get_value()
+        if value is not None:
+            column_offset = value.find(source) + stnode.get_column()
 
     info = pyparse.CompileInfo("<fstring>", "eval",
                                consts.PyCF_SOURCE_IS_UTF8 |
                                consts.PyCF_IGNORE_COOKIE,
                                optimize=astbuilder.compile_info.optimize)
     parser = astbuilder.recursive_parser
-    parse_tree = parser.parse_source(source, info)
-    return ast_from_node(astbuilder.space, parse_tree, info,
-                         recursive_parser=parser)
+    parse_tree = parser.parse_source(paren_source, info)
+
+    ast = ast_from_node(astbuilder.space, parse_tree, info,
+                        recursive_parser=parser)
+    fixup_fstring_positions(ast, lineno, column_offset)
+    return ast
+
+def fixup_fstring_positions(ast, line_offset, column_offset):
+    visitor = FixPosVisitor(line_offset, column_offset)
+    ast.walkabout(visitor)
+
+class FixPosVisitor(ast.GenericASTVisitor):
+    def __init__(self, line_offset, column_offset):
+        self.line_offset = line_offset
+        self.column_offset = column_offset
+
+    def visited(self, node):
+        if isinstance(node, ast.stmt) or isinstance(node, ast.expr):
+            node.lineno += self.line_offset
+            node.col_offset += self.column_offset
 
 
 def unexpected_end_of_string(astbuilder, atom_node):
@@ -177,7 +205,7 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # Compile the expression as soon as possible, so we show errors
     # related to the expression before errors related to the
     # conversion or format_spec.
-    expr = f_string_compile(astbuilder, s[expr_start:i], atom_node)
+    expr = f_string_compile(astbuilder, s[expr_start:i], atom_node, fstr)
     assert isinstance(expr, ast.Expression)
 
     # Check for a conversion char, if present.
@@ -290,27 +318,15 @@ def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
     # In our case, parse_f_string() and fstring_find_literal_and_expr()
     # could be merged into a single function with a clearer logic.  It's
     # done this way to follow CPython's source code more closely.
-
     space = astbuilder.space
-    if not space.config.objspace.fstrings:
-        raise astbuilder.error(
-            "f-strings have been disabled in this version of pypy "
-            "with the translation option '--no-objspace-fstrings'.  "
-            "The PyPy team (and CPython) thinks f-strings don't "
-            "add any security risks, but we leave it to you to "
-            "convince whoever translated this pypy that it is "
-            "really the case", atom_node)
-
     while True:
         w_u, expr = fstring_find_literal_and_expr(astbuilder, fstr,
                                                       atom_node, rec)
 
         # add the literal part
         f_constant_string(astbuilder, joined_pieces, w_u, atom_node)
-
         if expr is None:
             break         # We're done with this f-string.
-
         joined_pieces.append(expr)
 
     # If recurse_lvl is zero, then we must be at the end of the
@@ -345,7 +361,7 @@ def string_parse_literal(astbuilder, atom_node):
         child = atom_node.get_child(i)
         try:
             w_next = parsestring.parsestr(
-                    space, encoding, child.get_value())
+                    space, encoding, child.get_value(), child)
             if not isinstance(w_next, parsestring.W_FString):
                 add_constant_string(astbuilder, joined_pieces, w_next,
                                     atom_node)

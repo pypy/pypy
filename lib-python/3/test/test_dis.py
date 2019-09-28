@@ -146,26 +146,24 @@ def bug1333982(x=[]):
               1)
     pass
 
-# PyPy change: JUMP_IF_NOT_DEBUG
 dis_bug1333982 = """\
-%3d           0 JUMP_IF_NOT_DEBUG       26 (to 28)
-              2 LOAD_CONST               1 (0)
-              4 POP_JUMP_IF_TRUE        28
-              6 LOAD_GLOBAL              0 (AssertionError)
-              8 LOAD_CONST               2 (<code object <listcomp> at 0x..., file "%s", line %d>)
-             10 LOAD_CONST               3 ('bug1333982.<locals>.<listcomp>')
-             12 MAKE_FUNCTION            0
-             14 LOAD_FAST                0 (x)
-             16 GET_ITER
-             18 CALL_FUNCTION            1
+%3d           0 LOAD_CONST               1 (0)
+              2 POP_JUMP_IF_TRUE        26
+              4 LOAD_GLOBAL              0 (AssertionError)
+              6 LOAD_CONST               2 (<code object <listcomp> at 0x..., file "%s", line %d>)
+              8 LOAD_CONST               3 ('bug1333982.<locals>.<listcomp>')
+             10 MAKE_FUNCTION            0
+             12 LOAD_FAST                0 (x)
+             14 GET_ITER
+             16 CALL_FUNCTION            1
 
-%3d          20 LOAD_CONST               4 (1)
-             22 BINARY_ADD
-             24 CALL_FUNCTION            1
-             26 RAISE_VARARGS            1
+%3d          18 LOAD_CONST               4 (1)
+             20 BINARY_ADD
+             22 CALL_FUNCTION            1
+             24 RAISE_VARARGS            1
 
-%3d     >>   28 LOAD_CONST               0 (None)
-             30 RETURN_VALUE
+%3d     >>   26 LOAD_CONST               0 (None)
+             28 RETURN_VALUE
 """ % (bug1333982.__code__.co_firstlineno + 1,
        __file__,
        bug1333982.__code__.co_firstlineno + 1,
@@ -606,7 +604,7 @@ Filename:          (.*)
 Argument count:    0
 Kw-only arguments: 0
 Number of locals:  2
-Stack size:        (17|7)
+Stack size:        (16|7)
 Flags:             OPTIMIZED, NEWLOCALS, NOFREE, COROUTINE
 Constants:
    0: None

@@ -92,7 +92,7 @@ class W_BytesIO(W_BufferedIOBase):
         size = rwbuffer.getlength()
 
         output = self.read(size)
-        rwbuffer.setslice(0, output)
+        self.output_slice(space, rwbuffer, 0, output)
         return space.newint(len(output))
 
     def write_w(self, space, w_data):

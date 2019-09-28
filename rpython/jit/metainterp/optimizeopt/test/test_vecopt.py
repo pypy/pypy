@@ -2,30 +2,18 @@ import py
 import sys
 import pytest
 
-from rpython.rlib.objectmodel import instantiate
-from rpython.jit.metainterp.optimizeopt.test.test_util import (LLtypeMixin,
-        FakeMetaInterpStaticData, convert_old_style_to_targets,
-        FakeWarmState)
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
-from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
-from rpython.jit.metainterp.optimizeopt import optimize_trace
-import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
-import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
-from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer,
-        MemoryRef, isomorphic, Pair, NotAVectorizeableLoop, VectorLoop,
+        MemoryRef, isomorphic, Pair, NotAVectorizeableLoop,
         NotAProfitableLoop, GuardStrengthenOpt, CostModel, GenericCostModel,
         PackSet, optimize_vector)
 from rpython.jit.metainterp.optimizeopt.schedule import (Scheduler,
         SchedulerState, VecScheduleState, Pack)
 from rpython.jit.metainterp.optimizeopt.optimizer import BasicLoopInfo
-from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
-from rpython.jit.tool.oparser import OpParser, convert_loop_to_trace
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
@@ -82,7 +70,6 @@ class FakeWarmState(object):
     vec_cost = 0
 
 
-
 class VecTestHelper(DependencyBaseTest):
 
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
@@ -91,12 +78,12 @@ class VecTestHelper(DependencyBaseTest):
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
         jump = ResOperation(rop.JUMP, loop.jump.getarglist(), loop.jump.getdescr())
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         warmstate = FakeWarmState()
         loop.operations += [loop.jump]
         loop_info = BasicLoopInfo(loop.jump.getarglist(), None, jump)
-        loop_info.label_op = ResOperation(rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
-        optimize_vector(None, metainterp_sd, self.jitdriver_sd, warmstate,
+        loop_info.label_op = ResOperation(
+            rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
+        optimize_vector(None, self.metainterp_sd, self.jitdriver_sd, warmstate,
                         loop_info, loop.operations)
         loop.operations = loop.operations[:-1]
         #loop.label = state[0].label_op
@@ -104,9 +91,8 @@ class VecTestHelper(DependencyBaseTest):
         self.assert_equal(loop, expected_loop)
 
     def vectoroptimizer(self, loop):
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
+        opt = VectorizingOptimizer(self.metainterp_sd, jitdriver_sd, 0)
         opt.orig_label_args = loop.label.getarglist()[:]
         return opt
 
@@ -117,7 +103,7 @@ class VecTestHelper(DependencyBaseTest):
         opt.schedule(state)
         return graph.loop
 
-    def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
+    def vectoroptimizer_unrolled(self, loop, unroll_factor=-1):
         opt = self.vectoroptimizer(loop)
         opt.linear_find_smallest_type(loop)
         loop.setup_vectorization()
@@ -147,25 +133,25 @@ class VecTestHelper(DependencyBaseTest):
         graph.getmemref = gmr
         return opt, graph
 
-    def init_packset(self, loop, unroll_factor = -1):
+    def init_packset(self, loop, unroll_factor=-1):
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
         return opt, graph
 
-    def extend_packset(self, loop, unroll_factor = -1):
+    def extend_packset(self, loop, unroll_factor=-1):
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         return opt, graph
 
-    def combine_packset(self, loop, unroll_factor = -1):
+    def combine_packset(self, loop, unroll_factor=-1):
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         opt.combine_packset()
         return opt, graph
 
-    def schedule(self, loop, unroll_factor = -1, with_guard_opt=False):
+    def schedule(self, loop, unroll_factor=-1, with_guard_opt=False):
         info = FakeLoopInfo(loop)
         info.snapshot(loop)
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
@@ -186,7 +172,7 @@ class VecTestHelper(DependencyBaseTest):
         state.post_schedule()
         return opt
 
-    def vectorize(self, loop, unroll_factor = -1):
+    def vectorize(self, loop, unroll_factor=-1):
         info = FakeLoopInfo(loop)
         info.snapshot(loop)
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
@@ -216,19 +202,19 @@ class VecTestHelper(DependencyBaseTest):
         loop.operations += oplist
         return opt
 
-    def assert_unroll_loop_equals(self, loop, expected_loop, \
-                     unroll_factor = -1):
+    def assert_unroll_loop_equals(
+            self, loop, expected_loop, unroll_factor=-1):
         self.vectoroptimizer_unrolled(loop, unroll_factor)
         self.assert_equal(loop, expected_loop)
 
     def assert_pack(self, pack, indices):
         assert len(pack.operations) == len(indices)
-        for op,i in zip(pack.operations, indices):
+        for op, i in zip(pack.operations, indices):
             assert op.opidx == i
 
     def assert_has_pack_with(self, packset, opindices):
         for pack in packset.packs:
-            for op,i in zip(pack.operations, opindices):
+            for op, i in zip(pack.operations, opindices):
                 if op.opidx != i:
                     break
             else:
@@ -251,8 +237,9 @@ class VecTestHelper(DependencyBaseTest):
         for pack in packset.packs:
             if pack.leftmost(node=True).opidx == x and \
                pack.rightmost(node=True).opidx == y:
-                pytest.fail("must not find packset with indices {x},{y}" \
-                                .format(x=x,y=y))
+                pytest.fail(
+                    "must not find packset with indices {x},{y}".format(
+                        x=x, y=y))
 
     def assert_packset_contains_pair(self, packset, x, y):
         for pack in packset.packs:
@@ -261,8 +248,9 @@ class VecTestHelper(DependencyBaseTest):
                    pack.rightmost(node=True).opidx == y:
                     break
         else:
-            pytest.fail("can't find a pack set for indices {x},{y}" \
-                            .format(x=x,y=y))
+            pytest.fail(
+                "can't find a pack set for indices {x},{y}".format(x=x, y=y))
+
     def assert_has_memory_ref_at(self, graph, idx):
         idx -= 1 # label is not in the nodes
         node = graph.nodes[idx]
@@ -278,18 +266,19 @@ class FakeInput(object):
         self.signed = signed
 
 def arg(type='f', size=8, signed=False, datatype='f'):
-    return  FakeInput(type, datatype, size, signed)
-class BaseTestVectorize(VecTestHelper):
+    return FakeInput(type, datatype, size, signed)
+
+class TestVectorize(VecTestHelper):
 
     def test_opcount_filling_store(self):
-        descr = ArrayDescr(0,8, None, 'F', concrete_type='f')
+        descr = ArrayDescr(0, 8, None, 'F', concrete_type='f')
         pack = Pack([Node(ResOperation(rop.RAW_STORE, [0,0,arg('f',4)], descr), 0),
                      Node(ResOperation(rop.RAW_STORE, [0,0,arg('f',4)], descr), 0),
                     ])
         assert pack.opcount_filling_vector_register(16, self.cpu.vector_ext) == 2
 
     def test_opcount_filling_guard(self):
-        descr = ArrayDescr(0,4, None, 'S')
+        descr = ArrayDescr(0, 4, None, 'S')
         vec = ResOperation(rop.VEC_LOAD_I, ['a','i', 8, 0], descr=descr)
         vec.count = 4
         pack = Pack([Node(ResOperation(rop.GUARD_TRUE, [vec]), 0),
@@ -368,11 +357,8 @@ class BaseTestVectorize(VecTestHelper):
         []
         jump()
         """
-        try:
-            self.schedule(self.parse_loop(ops),1)
-            py.test.fail("empty loop with no memory references is not vectorizable")
-        except NotAVectorizeableLoop:
-            pass
+        with pytest.raises(NotAVectorizeableLoop):
+            self.schedule(self.parse_loop(ops), 1)
 
     def test_unroll_empty_stays_empty_parameter(self):
         """ same as test_unroll_empty_stays_empty but with a parameter """
@@ -412,7 +398,7 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_equal(loop, self.parse_loop(opt))
 
     def test_vect_unroll_char(self):
-        """ a 16 byte vector register can hold 16 bytes thus 
+        """ a 16 byte vector register can hold 16 bytes thus
         it is unrolled 16 times. (it is the smallest type in the trace) """
         ops = """
         [p0,i0]
@@ -427,7 +413,7 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_unroll_loop_equals(self.parse_loop(ops), self.parse_loop(opt_ops))
 
     def test_unroll_vector_addition(self):
-        """ a more complex trace doing vector addition (smallest type is float 
+        """ a more complex trace doing vector addition (smallest type is float
         8 byte) """
         ops = """
         [p0,p1,p2,i0]
@@ -891,7 +877,7 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_packset_empty(vopt.packset, len(loop.operations),
                                   [(6,12), (5,11), (4,10)])
 
-    @pytest.mark.parametrize("descr,packs,packidx", 
+    @pytest.mark.parametrize("descr,packs,packidx",
                              [('char',  0,       []),
                               ('float', 2,       [(0,(1,3)),(1,(5,7))]),
                               ('',   2,       [(0,(1,3)),(1,(5,7))]),
@@ -935,12 +921,8 @@ class BaseTestVectorize(VecTestHelper):
         []
         jump()
         """
-        try:
-            self.combine_packset(self.parse_loop(ops),15)
-            pytest.fail("combine should raise an exception if no pack "
-                        "statements are present")
-        except NotAVectorizeableLoop:
-            pass
+        with pytest.raises(NotAVectorizeableLoop):
+            self.combine_packset(self.parse_loop(ops), 15)
 
         ops = """
         [p0,i0]
@@ -948,12 +930,8 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i0)
         """
         loop = self.parse_loop(ops)
-        try:
-            self.combine_packset(loop,15)
-            pytest.fail("combine should raise an exception if no pack "
-                        "statements are present")
-        except NotAVectorizeableLoop:
-            pass
+        with pytest.raises(NotAVectorizeableLoop):
+            self.combine_packset(loop, 15)
 
     @pytest.mark.parametrize("op,descr,stride",
             [('int_add','char',1),
@@ -1053,17 +1031,17 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [i0, i1, i2, i3, i4]
-        i11 = int_add(i0, 1) 
-        i12 = int_lt(i11, i1) 
+        i11 = int_add(i0, 1)
+        i12 = int_lt(i11, i1)
         guard_true(i12) [i0,i1,i2,i3,i4]
-        i13 = int_add(i0, 2) 
-        i18 = int_lt(i13, i1) 
+        i13 = int_add(i0, 2)
+        i18 = int_lt(i13, i1)
         guard_true(i18) [i11,i1,i2,i3,i4]
-        i6 = int_mul(i0, 8) 
-        v19[2xi64] = vec_load_i(i2, i6, 1, 0, descr=arraydescr) 
-        v20[2xi64] = vec_load_i(i3, i6, 1, 0, descr=arraydescr) 
-        v21[2xi64] = vec_int_add(v19, v20) 
-        vec_store(i4, i6, v21, 1, 0, descr=arraydescr) 
+        i6 = int_mul(i0, 8)
+        v19[2xi64] = vec_load_i(i2, i6, 1, 0, descr=arraydescr)
+        v20[2xi64] = vec_load_i(i3, i6, 1, 0, descr=arraydescr)
+        v21[2xi64] = vec_int_add(v19, v20)
+        vec_store(i4, i6, v21, 1, 0, descr=arraydescr)
         jump(i13, i1, i2, i3, i4)
         """
         loop = self.parse_loop(ops)
@@ -1102,11 +1080,8 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i5) [p0, i0]
         jump(p0,i1)
         """
-        try:
+        with pytest.raises(NotAVectorizeableLoop):
             self.vectorize(self.parse_loop(ops))
-            py.test.fail("loop is not vectorizable")
-        except NotAVectorizeableLoop:
-            pass
 
     def test_constant_expansion(self):
         ops = """
@@ -1192,32 +1167,32 @@ class BaseTestVectorize(VecTestHelper):
     def test_element_f45_in_guard_failargs(self):
         trace = self.parse_loop("""
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
-        f45 = raw_load_f(i21, i44, descr=floatarraydescr) 
+        f45 = raw_load_f(i21, i44, descr=floatarraydescr)
         guard_not_invalidated() [p38, p12, p9, p14, f45, p39, i37, i44, f35, i40, p42, i43, None, i28, p36, i41]
-        i46 = int_add(i44, 8) 
-        f47 = raw_load_f(i4, i41, descr=floatarraydescr) 
-        i48 = int_add(i41, 8) 
+        i46 = int_add(i44, 8)
+        f47 = raw_load_f(i4, i41, descr=floatarraydescr)
+        i48 = int_add(i41, 8)
         f49 = float_add(f45, f47)
         raw_store(i0, i37, f49, descr=floatarraydescr)
         i50 = int_add(i28, 1)
         i51 = int_add(i37, 8)
-        i52 = int_ge(i50, i18) 
+        i52 = int_ge(i50, i18)
         guard_false(i52) [p38, p12, p9, p14, i48, i46, f47, i51, i50, f45, p39, None, None, None, i40, p42, i43, None, None, p36, None]
         jump(p36, i50, p9, i51, p14, f45, p12, p38, f47, p39, i40, i48, p42, i43, i46, i21, i4, i0, i18)
         """)
         trace_opt = self.parse_loop("""
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
         guard_not_invalidated() [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
-        i54 = int_add(i28, 2) 
+        i54 = int_add(i28, 2)
         i638 = int_ge(i54, i18)
         guard_false(i638) [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
-        v61[2xf64] = vec_load_f(i21, i44, 1, 0, descr=floatarraydescr) 
-        v62[2xf64] = vec_load_f(i4, i41, 1, 0, descr=floatarraydescr) 
-        v63[2xf64] = vec_float_add(v61, v62) 
-        vec_store(i0, i37, v63, 1, 0, descr=floatarraydescr) 
+        v61[2xf64] = vec_load_f(i21, i44, 1, 0, descr=floatarraydescr)
+        v62[2xf64] = vec_load_f(i4, i41, 1, 0, descr=floatarraydescr)
+        v63[2xf64] = vec_float_add(v61, v62)
+        vec_store(i0, i37, v63, 1, 0, descr=floatarraydescr)
         i637 = int_add(i37, 16)
         i629 = int_add(i41, 16)
-        i55 = int_add(i44, 16) 
+        i55 = int_add(i44, 16)
         f100 = vec_unpack_f(v61, 1, 1)
         f101 = vec_unpack_f(v62, 1, 1)
         jump(p36, i637, p9, i629, p14, f100, p12, p38, f101, p39, i40, i54, p42, i43, i55, i21, i4, i0, i18)
@@ -1265,8 +1240,8 @@ class BaseTestVectorize(VecTestHelper):
         f3 = float_add(f1, f2)
         i12  = cast_float_to_singlefloat(f3)
         raw_store(p2, i4, i12, descr=float32arraydescr)
-        i5  = int_add(i4, 4) 
-        i186 = int_lt(i5, 100) 
+        i5  = int_add(i4, 4)
+        i186 = int_lt(i5, 100)
         guard_true(i186) []
         jump(p0,p1,p2,i1,i5)
         """)
@@ -1307,11 +1282,8 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i13, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7fe5a1848150>) [p3, i10, i8, i12, None, p1, None, None]
         jump(i8, p1, i10, p3, i12, i5, i6)
         """)
-        try:
+        with pytest.raises(NotAVectorizeableLoop):
             vopt = self.vectorize(trace)
-            py.test.fail()
-        except NotAVectorizeableLoop:
-            pass
 
     def test_pass(self):
         trace = self.parse_loop("""
@@ -1396,7 +1368,3 @@ class BaseTestVectorize(VecTestHelper):
         for op in trace.operations:
             assert op not in dups
             dups.add(op)
-
-
-class TestLLtype(BaseTestVectorize, LLtypeMixin):
-    pass

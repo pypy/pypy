@@ -9,7 +9,7 @@ import operator
 import sys
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.objectmodel import instantiate, enforceargs
 from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, is_valid_int, ovfcheck, r_longlong, r_uint,
     string_to_int)
@@ -156,7 +156,7 @@ class W_AbstractIntObject(W_Root):
         # efficient for W_IntObject
         from pypy.objspace.std.longobject import newlong
 
-        if w_ndigits is None:
+        if space.is_none(w_ndigits):
             return self.int(space)
 
         ndigits = space.bigint_w(space.index(w_ndigits))
@@ -604,7 +604,7 @@ class W_IntObject(W_AbstractIntObject):
 
     def descr_repr(self, space):
         res = str(self.intval)
-        return space.newtext(res)
+        return space.newutf8(res, len(res))  # res is always ASCII
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_format(self, space, w_format_spec):
@@ -647,7 +647,7 @@ class W_IntObject(W_AbstractIntObject):
             self = self.descr_float(space)
             w_exponent = w_exponent.descr_float(space)
             return space.pow(self, w_exponent, space.w_None)
-            
+
         return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
@@ -851,78 +851,61 @@ def _recover_with_smalllong(space):
             sys.maxint == 2147483647)
 
 
-def _string_to_int_or_long(space, w_inttype, w_source, string, base=10):
+def _string_to_int_or_long(space, w_source, string, base=10):
     try:
-        value = string_to_int(string, base, allow_underscores=True, no_implicit_octal=True)
+        value = string_to_int(
+            string, base, allow_underscores=True, no_implicit_octal=True)
+        return wrapint(space, value)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     except ParseStringOverflowError as e:
-        return _retry_to_w_long(space, e.parser, w_inttype, w_source)
-
-    if space.is_w(w_inttype, space.w_int):
-        w_result = wrapint(space, value)
-    else:
-        w_result = space.allocate_instance(W_IntObject, w_inttype)
-        W_IntObject.__init__(w_result, value)
-    return w_result
+        return _retry_to_w_long(space, e.parser, w_source)
 
 
-def _retry_to_w_long(space, parser, w_inttype, w_source):
+def _retry_to_w_long(space, parser, w_source):
     from pypy.objspace.std.longobject import newbigint
     parser.rewind()
     try:
         bigint = rbigint._from_numberstring_parser(parser)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
-    return newbigint(space, w_inttype, bigint)
+    return newbigint(space, space.w_int, bigint)
 
 
 def _new_int(space, w_inttype, w_x, w_base=None):
-    from pypy.objspace.std.longobject import W_LongObject, newbigint
-    if space.config.objspace.std.withsmalllong:
-        from pypy.objspace.std.smalllongobject import W_SmallLongObject
-    else:
-        W_SmallLongObject = None
-
-    w_longval = None
     w_value = w_x     # 'x' is the keyword argument name in CPython
-    value = 0
+    if w_inttype is space.w_int:
+        return _new_baseint(space, w_x, w_base)
+    else:
+        w_tmp = _new_baseint(space, w_x, w_base)
+        return _as_subint(space, w_inttype, w_tmp)
+
+def _new_baseint(space, w_value, w_base=None):
     if w_base is None:
-        # check for easy cases
-        if type(w_value) is W_IntObject:
-            if space.is_w(w_inttype, space.w_int):
-                return w_value
-            value = w_value.intval
-            w_obj = space.allocate_instance(W_IntObject, w_inttype)
-            W_IntObject.__init__(w_obj, value)
-            return w_obj
-        elif type(w_value) is W_LongObject:
-            if space.is_w(w_inttype, space.w_int):
-                return w_value
-            return newbigint(space, w_inttype, w_value.num)
-        elif W_SmallLongObject and type(w_value) is W_SmallLongObject:
-            if space.is_w(w_inttype, space.w_int):
-                return w_value
-            return newbigint(space, w_inttype, space.bigint_w(w_value))
+        if space.is_w(space.type(w_value), space.w_int):
+            assert isinstance(w_value, W_AbstractIntObject)
+            return w_value
         elif space.lookup(w_value, '__int__') is not None:
-            return _from_intlike(space, w_inttype, space.int(w_value))
+            w_intvalue = space.int(w_value)
+            return _ensure_baseint(space, w_intvalue)
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
-            if not space.is_w(space.type(w_obj), space.w_int):
+            if not space.isinstance_w(w_obj, space.w_int):
                 w_obj = space.int(w_obj)
-            return _from_intlike(space, w_inttype, w_obj)
+            assert isinstance(w_obj, W_AbstractIntObject)
+            return _ensure_baseint(space, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             try:
-                b = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+                b = unicode_to_decimal_w(space, w_value)
             except Exception:
                 raise oefmt(space.w_ValueError,
                             'invalid literal for int() with base 10: %R',
                             w_value)
-            return _string_to_int_or_long(space, w_inttype, w_value, b)
+            return _string_to_int_or_long(space, w_value, b)
         elif (space.isinstance_w(w_value, space.w_bytearray) or
               space.isinstance_w(w_value, space.w_bytes)):
-            return _string_to_int_or_long(space, w_inttype, w_value,
+            return _string_to_int_or_long(space, w_value,
                                           space.charbuf_w(w_value))
         else:
             # If object supports the buffer interface
@@ -935,7 +918,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                             "int() argument must be a string, a bytes-like "
                             "object or a number, not '%T'", w_value)
             else:
-                return _string_to_int_or_long(space, w_inttype, w_value, buf)
+                return _string_to_int_or_long(space, w_value, buf)
     else:
         try:
             base = space.getindex_w(w_base, None)
@@ -947,10 +930,10 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             try:
-                s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+                s = unicode_to_decimal_w(space, w_value)
             except Exception:
                 raise oefmt(space.w_ValueError,
-                            'invalid literal for int() with base %d: %S',
+                            'invalid literal for int() with base %d: %R',
                             base, w_value)
         elif (space.isinstance_w(w_value, space.w_bytes) or
               space.isinstance_w(w_value, space.w_bytearray)):
@@ -959,14 +942,40 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             raise oefmt(space.w_TypeError,
                         "int() can't convert non-string with explicit base")
 
-        return _string_to_int_or_long(space, w_inttype, w_value, s, base)
+        return _string_to_int_or_long(space, w_value, s, base)
 
+@enforceargs(None, None, W_AbstractIntObject, typecheck=False)
+def _as_subint(space, w_inttype, w_value):
+    from pypy.objspace.std.longobject import W_LongObject, newbigint
+    if space.config.objspace.std.withsmalllong:
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
+    else:
+        W_SmallLongObject = None
+    if type(w_value) is W_IntObject:
+        w_obj = space.allocate_instance(W_IntObject, w_inttype)
+        W_IntObject.__init__(w_obj, w_value.intval)
+        return w_obj
+    elif type(w_value) is W_LongObject:
+        return newbigint(space, w_inttype, w_value.num)
+    elif W_SmallLongObject and type(w_value) is W_SmallLongObject:
+        return newbigint(space, w_inttype, space.bigint_w(w_value))
 
-def _from_intlike(space, w_inttype, w_intlike):
-    if space.is_w(w_inttype, space.w_int):
-        return w_intlike
-    from pypy.objspace.std.longobject import newbigint
-    return newbigint(space, w_inttype, space.bigint_w(w_intlike))
+@enforceargs(None, W_AbstractIntObject, typecheck=False)
+def _ensure_baseint(space, w_intvalue):
+    from pypy.objspace.std.longobject import (
+        W_LongObject, W_AbstractLongObject, newlong)
+    if isinstance(w_intvalue, W_IntObject):
+        if type(w_intvalue) is not W_IntObject:
+            w_intvalue = wrapint(space, w_intvalue.intval)
+        return w_intvalue
+    elif isinstance(w_intvalue, W_AbstractLongObject):
+        if type(w_intvalue) is not W_LongObject:
+            w_intvalue = newlong(space, w_intvalue.asbigint())
+        return w_intvalue
+    else:
+        # shouldn't happen
+        raise oefmt(space.w_RuntimeError,
+            "internal error in int.__new__()")
 
 
 W_AbstractIntObject.typedef = TypeDef("int",

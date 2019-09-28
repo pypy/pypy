@@ -453,6 +453,17 @@ class TestModuleMinimal:
             import sys
             sys.exitfunc = lambda: this_is_an_unknown_name
         """)
-        space.finish()
+        ret = space.finish()
+        assert ret == 0
         # assert that we reach this point without getting interrupted
-        # by the OperationError(NameError)
+
+    def test_exit_closed_std(self):
+        from pypy.tool.pytest.objspace import maketestobjspace
+        space = maketestobjspace()
+        space.appexec([], """():
+            import sys, os
+            sys.stdout.write('x')
+            os.close(sys.stdout.fileno())
+        """)
+        ret = space.finish()
+        assert ret < 0

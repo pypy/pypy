@@ -71,6 +71,22 @@ class AppTestTypeObject:
         raises(AttributeError, getattr, type, "__abstractmethods__")
         raises(TypeError, "int.__abstractmethods__ = ('abc', )")
 
+    def test_is_abstract_flag(self):
+        # IS_ABSTRACT flag should always be in sync with
+        # cls.__dict__['__abstractmethods__']
+        FLAG_IS_ABSTRACT = 1 << 20
+
+        class Base:
+            pass
+        Base.__abstractmethods__ = {'x'}
+        assert Base.__flags__ & FLAG_IS_ABSTRACT
+
+        class Derived(Base):
+            pass
+        assert not (Derived.__flags__ & FLAG_IS_ABSTRACT)
+        Derived.__abstractmethods__ = {'x'}
+        assert Derived.__flags__ & FLAG_IS_ABSTRACT
+
     def test_attribute_error(self):
         class X(object):
             __module__ = 'test'
@@ -1259,6 +1275,23 @@ class AppTestTypeObject:
         class C(metaclass=M):
             foo = hello
         assert C.foo == 42
+        """
+
+    def test_prepare_error(self):
+        """
+        class BadMeta:
+            @classmethod
+            def __prepare__(cls, *args, **kwargs):
+                return 42
+        def make_class(meta):
+            class Foo(metaclass=meta):
+                pass
+        excinfo = raises(TypeError, make_class, BadMeta)
+        print(excinfo.value.args[0])
+        assert excinfo.value.args[0].startswith('BadMeta.__prepare__')
+        # Non-type as metaclass
+        excinfo = raises(TypeError, make_class, BadMeta())
+        assert excinfo.value.args[0].startswith('<metaclass>.__prepare__')
         """
 
     def test_crash_mro_without_object_1(self):

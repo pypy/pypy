@@ -69,10 +69,10 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.bytesbuf0_w(self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
-        ret = self.space.fsdecode_w(self.w_obj)
+        ret = self.space.fsdecode_w(self.w_obj).decode('utf-8')
         if u'\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
@@ -1608,6 +1608,7 @@ def parse_utime_args(space, w_times, w_ns):
         mtime_s, mtime_ns = convert_ns(space, args_w[1])
     return now, atime_s, atime_ns, mtime_s, mtime_ns
 
+@specialize.arg(1)
 def do_utimens(space, func, arg, utime, *args):
     """Common implementation for futimens/utimensat etc."""
     now, atime_s, atime_ns, mtime_s, mtime_ns = utime
@@ -2224,9 +2225,12 @@ def urandom(space, size):
         _sigcheck.space = space
         return space.newbytes(rurandom.urandom(context, size, _signal_checker))
     except OSError as e:
-        # 'rurandom' should catch and retry internally if it gets EINTR
-        # (at least in os.read(), which is probably enough in practice)
-        raise wrap_oserror(space, e, eintr_retry=False)
+        # CPython raises NotImplementedError if /dev/urandom cannot be found.
+        # To maximize compatibility, we should also raise NotImplementedError
+        # and not OSError (although CPython also raises OSError in case it
+        # could open /dev/urandom but there are further problems).
+        raise wrap_oserror(space, e,
+            w_exception_class=space.w_NotImplementedError, eintr_retry=False)
 
 def ctermid(space):
     """ctermid() -> string
@@ -2277,15 +2281,14 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
-        path = space.utf8_w(w_path)
         try:
-            result = nt._getfinalpathname(path)
+            s, lgt = dispatch_filename(nt._getfinalpathname)(space, w_path)
         except nt.LLNotImplemented as e:
             raise OperationError(space.w_NotImplementedError,
                                  space.newtext(e.msg))
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        return space.newtext(result)
+        return space.newtext(s, lgt)
 
 
 def chflags():

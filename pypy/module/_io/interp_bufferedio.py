@@ -131,7 +131,7 @@ state."""
                         "%s() returned too much data: "
                         "%d bytes requested, %d returned",
                         methodname, length, len(data))
-        rwbuffer.setslice(0, data)
+        self.output_slice(space, rwbuffer, 0, data)
         return space.newint(len(data))
 
 W_BufferedIOBase.typedef = TypeDef(
@@ -319,7 +319,6 @@ class BufferedMixin:
         with self.lock:
             if self.writable:
                 self._writer_flush_unlocked(space)
-                self._writer_reset_buf()
 
             if whence == 1:
                 pos -= self._raw_offset()
@@ -371,6 +370,7 @@ class BufferedMixin:
 
     def _writer_flush_unlocked(self, space):
         if self.write_end == -1 or self.write_pos == self.write_end:
+            self._writer_reset_buf()
             return
         # First, rewind
         rewind = self._raw_offset() + (self.pos - self.write_pos)
@@ -609,7 +609,7 @@ class BufferedMixin:
         remaining = n
         written = 0
         if current_size:
-            result_buffer.setslice(
+            self.output_slice(space, result_buffer,
                 written, self.buffer[self.pos:self.pos + current_size])
             remaining -= current_size
             written += current_size
@@ -654,7 +654,7 @@ class BufferedMixin:
             if remaining > 0:
                 if size > remaining:
                     size = remaining
-                result_buffer.setslice(
+                self.output_slice(space, result_buffer,
                     written, self.buffer[self.pos:self.pos + size])
                 self.pos += size
                 written += size
@@ -713,7 +713,10 @@ class BufferedMixin:
 
             while True:
                 self._reader_reset_buf()
-                have = self._fill_buffer(space)
+                try:
+                    have = self._fill_buffer(space)
+                except BlockingIOError:
+                    have = 0
                 if have == 0:
                     break
                 if limit >= 0 and have > limit:
@@ -884,12 +887,14 @@ class BufferedReaderMixin(BufferedMixin):
         with self.lock:
             have = self._readahead()
             if have >= length:
-                rwbuffer.setslice(0, self.buffer[self.pos:self.pos + length])
+                self.output_slice(space, rwbuffer,
+                    0, self.buffer[self.pos:self.pos + length])
                 self.pos += length
                 return space.newint(length)
             written = 0
             if have > 0:
-                rwbuffer.setslice(0, self.buffer[self.pos:self.read_end])
+                self.output_slice(space, rwbuffer,
+                    0, self.buffer[self.pos:self.read_end])
                 written = have
 
             while written < length:
@@ -917,7 +922,8 @@ class BufferedReaderMixin(BufferedMixin):
                         break
                     endpos = min(have, length - written)
                     assert endpos >= 0
-                    rwbuffer.setslice(written, self.buffer[0:endpos])
+                    self.output_slice(space, rwbuffer,
+                        written, self.buffer[0:endpos])
                     written += endpos
                     self.pos = endpos
                 if read_once:

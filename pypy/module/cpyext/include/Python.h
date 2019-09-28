@@ -18,6 +18,7 @@
 # define PyAPI_DATA(RTYPE) extern PyAPI_FUNC(RTYPE)
 # define Py_LOCAL_INLINE(type) static inline type
 #else
+# include <stdint.h>
 # define MS_WIN32 1
 # define MS_WINDOWS 1
 # ifdef _MSC_VER
@@ -61,14 +62,6 @@
 
 #define Py_USING_UNICODE
 
-/* Convert a possibly signed character to a nonnegative int */
-/* XXX This assumes characters are 8 bits wide */
-#ifdef __CHAR_UNSIGNED__
-#define Py_CHARMASK(c)		(c)
-#else
-#define Py_CHARMASK(c)		((unsigned char)((c) & 0xff))
-#endif
-
 #define statichere static
 
 #define Py_MEMCPY memcpy
@@ -88,6 +81,7 @@
 #include "abstract.h"
 #include "pymath.h"
 #include "pyport.h"
+#include "pytime.h"
 #include "pymacro.h"
 #include "warnings.h"
 

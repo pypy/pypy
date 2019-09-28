@@ -26,7 +26,6 @@ from rpython.rtyper import rclass
 from rpython.rlib.objectmodel import compute_unique_id
 
 
-
 # ____________________________________________________________
 
 def arguments(*args):
@@ -1283,8 +1282,11 @@ class MIFrame(object):
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not any_operation:
                 return
-            if self.metainterp.portal_call_depth or not self.metainterp.get_procedure_token(greenboxes, True):
-                if not jitdriver_sd.no_loop_header:
+            if not jitdriver_sd.no_loop_header:
+                if self.metainterp.portal_call_depth:
+                    return
+                ptoken = self.metainterp.get_procedure_token(greenboxes)
+                if not has_compiled_targets(ptoken):
                     return
             # automatically add a loop_header if there is none
             self.metainterp.seen_loop_header_for_jdindex = jdindex
@@ -2527,6 +2529,14 @@ class MetaInterp(object):
             else:
                 duplicates[box] = None
 
+    def cancelled_too_many_times(self):
+        if self.staticdata.warmrunnerdesc:
+            memmgr = self.staticdata.warmrunnerdesc.memory_manager
+            if memmgr:
+                if self.cancel_count > memmgr.max_unroll_loops:
+                    return True
+        return False
+
     def reached_loop_header(self, greenboxes, redboxes):
         self.heapcache.reset() #reset_virtuals=False)
         #self.heapcache.reset_keep_likely_virtuals()
@@ -2555,9 +2565,12 @@ class MetaInterp(object):
         #   that failed;
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
+        num_green_args = self.jitdriver_sd.num_green_args
         if not self.partial_trace:
             # FIXME: Support a retrace to be a bridge as well as a loop
-            self.compile_trace(live_arg_boxes)
+            ptoken = self.get_procedure_token(greenboxes)
+            if has_compiled_targets(ptoken):
+                self.compile_trace(live_arg_boxes, ptoken)
 
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
@@ -2566,35 +2579,47 @@ class MetaInterp(object):
         # green keys, representing the beginning of the same loop as the one
         # we end now.
 
-        num_green_args = self.jitdriver_sd.num_green_args
+        can_use_unroll = (self.staticdata.cpu.supports_guard_gc_type and
+            'unroll' in self.jitdriver_sd.warmstate.enable_opts)
         for j in range(len(self.current_merge_points)-1, -1, -1):
             original_boxes, start = self.current_merge_points[j]
             assert len(original_boxes) == len(live_arg_boxes)
-            for i in range(num_green_args):
-                box1 = original_boxes[i]
-                box2 = live_arg_boxes[i]
-                assert isinstance(box1, Const)
-                if not box1.same_constant(box2):
-                    break
-            else:
-                if self.partial_trace:
-                    if start != self.retracing_from:
-                        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
-                # Found!  Compile it as a loop.
-                # raises in case it works -- which is the common case
-                self.compile_loop(original_boxes, live_arg_boxes, start,
-                                  exported_state=self.exported_state)
-                self.exported_state = None
+            if not same_greenkey(original_boxes, live_arg_boxes, num_green_args):
+                continue
+            if self.partial_trace:
+                if start != self.retracing_from:
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
+            # Found!  Compile it as a loop.
+            # raises in case it works -- which is the common case
+            self.history.trace.tracing_done()
+            if self.partial_trace:
+                target_token = self.compile_retrace(
+                    original_boxes, live_arg_boxes, start)
+                self.raise_if_successful(live_arg_boxes, target_token)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
-                if self.staticdata.warmrunnerdesc:
-                    memmgr = self.staticdata.warmrunnerdesc.memory_manager
-                    if memmgr:
-                        if self.cancel_count > memmgr.max_unroll_loops:
-                            self.compile_loop_or_abort(original_boxes,
-                                                       live_arg_boxes,
-                                                       start)
-                self.staticdata.log('cancelled, tracing more...')
+                if self.cancelled_too_many_times():
+                    self.staticdata.log('cancelled too many times!')
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+            else:
+                target_token = self.compile_loop(
+                    original_boxes, live_arg_boxes, start,
+                    use_unroll=can_use_unroll)
+                self.raise_if_successful(live_arg_boxes, target_token)
+                # creation of the loop was cancelled!
+                self.cancel_count += 1
+                if self.cancelled_too_many_times():
+                    if can_use_unroll:
+                        # try one last time without unrolling
+                        target_token = self.compile_loop(
+                            original_boxes, live_arg_boxes, start,
+                            use_unroll=False)
+                        self.raise_if_successful(live_arg_boxes, target_token)
+                    #
+                    self.staticdata.log('cancelled too many times!')
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+            self.exported_state = None
+            self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
         start = self.history.get_trace_position()
@@ -2657,6 +2682,12 @@ class MetaInterp(object):
             raise jitexc.DoneWithThisFrameFloat(res)
         raise AssertionError(kind)
 
+    def raise_if_successful(self, live_arg_boxes, target_token):
+        if target_token is not None: # raise if it *worked* correctly
+            assert isinstance(target_token, TargetToken)
+            jitcell_token = target_token.targeting_jitcell_token
+            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
         if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
@@ -2699,94 +2730,54 @@ class MetaInterp(object):
             self.history.set_inputargs(inputargs, self.staticdata)
             assert not exception
 
-    def get_procedure_token(self, greenkey, with_compiled_targets=False):
+    def get_procedure_token(self, greenkey):
         JitCell = self.jitdriver_sd.warmstate.JitCell
         cell = JitCell.get_jit_cell_at_key(greenkey)
         if cell is None:
             return None
-        token = cell.get_procedure_token()
-        if with_compiled_targets:
-            if not token:
-                return None
-            if not token.target_tokens:
-                return None
-        return token
+        return cell.get_procedure_token()
 
-    def compile_loop(self, original_boxes, live_arg_boxes, start,
-                     try_disabling_unroll=False, exported_state=None):
+    def compile_loop(self, original_boxes, live_arg_boxes, start, use_unroll):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
-        if self.history.trace_tag_overflow():
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-        self.history.trace.tracing_done()
-        if not self.partial_trace:
-            ptoken = self.get_procedure_token(greenkey)
-            if ptoken is not None and ptoken.target_tokens is not None:
-                # XXX this path not tested, but shown to occur on pypy-c :-(
-                self.staticdata.log('cancelled: we already have a token now')
-                raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-        if self.partial_trace:
-            target_token = compile.compile_retrace(self, greenkey, start,
-                                                   original_boxes[num_green_args:],
-                                                   live_arg_boxes[num_green_args:],
-                                                   self.partial_trace,
-                                                   self.resumekey,
-                                                   exported_state)
-        else:
-            target_token = compile.compile_loop(self, greenkey, start,
-                                                original_boxes[num_green_args:],
-                                                live_arg_boxes[num_green_args:],
-                                     try_disabling_unroll=try_disabling_unroll)
-            if target_token is not None:
-                assert isinstance(target_token, TargetToken)
-                self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
-                self.staticdata.stats.add_jitcell_token(target_token.targeting_jitcell_token)
-
-        if target_token is not None: # raise if it *worked* correctly
+        ptoken = self.get_procedure_token(greenkey)
+        if has_compiled_targets(ptoken):
+            # XXX this path not tested, but shown to occur on pypy-c :-(
+            self.staticdata.log('cancelled: we already have a token now')
+            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+        target_token = compile.compile_loop(
+            self, greenkey, start, original_boxes[num_green_args:],
+            live_arg_boxes[num_green_args:], use_unroll=use_unroll)
+        if target_token is not None:
             assert isinstance(target_token, TargetToken)
-            jitcell_token = target_token.targeting_jitcell_token
-            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+            self.jitdriver_sd.warmstate.attach_procedure_to_interp(
+                greenkey, target_token.targeting_jitcell_token)
+            self.staticdata.stats.add_jitcell_token(
+                target_token.targeting_jitcell_token)
+        return target_token
 
-    def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
-                              start):
-        """Called after we aborted more than 'max_unroll_loops' times.
-        As a last attempt, try to compile the loop with unrolling disabled.
-        """
-        if not self.partial_trace:
-            self.compile_loop(original_boxes, live_arg_boxes, start,
-                              try_disabling_unroll=True)
-        #
-        self.staticdata.log('cancelled too many times!')
-        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-
-    def compile_trace(self, live_arg_boxes):
+    def compile_retrace(self, original_boxes, live_arg_boxes, start):
         num_green_args = self.jitdriver_sd.num_green_args
-        greenkey = live_arg_boxes[:num_green_args]
-        target_jitcell_token = self.get_procedure_token(greenkey, True)
-        if not target_jitcell_token:
-            return
+        greenkey = original_boxes[:num_green_args]
+        return compile.compile_retrace(
+            self, greenkey, start, original_boxes[num_green_args:],
+            live_arg_boxes[num_green_args:], self.partial_trace,
+            self.resumekey, self.exported_state)
 
+    def compile_trace(self, live_arg_boxes, ptoken):
+        num_green_args = self.jitdriver_sd.num_green_args
         cut_at = self.history.get_trace_position()
         self.potential_retrace_position = cut_at
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
-                            descr=target_jitcell_token)
-        self.history.ends_with_jump = True
-        if self.history.trace_tag_overflow():
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-        self.history.trace.tracing_done()
+                            descr=ptoken)
         try:
             target_token = compile.compile_trace(self, self.resumekey,
-                live_arg_boxes[num_green_args:])
+                live_arg_boxes[num_green_args:], ends_with_jump=True)
         finally:
-            self.history.cut(cut_at) # pop the jump
-            self.history.ends_with_jump = False
-        if target_token is not None: # raise if it *worked* correctly
-            assert isinstance(target_token, TargetToken)
-            jitcell_token = target_token.targeting_jitcell_token
-            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+            self.history.cut(cut_at)  # pop the jump
+        self.raise_if_successful(live_arg_boxes, target_token)
 
     def compile_done_with_this_frame(self, exitbox):
-        # temporarily put a JUMP to a pseudo-loop
         self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
@@ -2805,11 +2796,7 @@ class MetaInterp(object):
             token = sd.done_with_this_frame_descr_float
         else:
             assert False
-        # FIXME: can we call compile_trace?
         self.history.record(rop.FINISH, exits, None, descr=token)
-        if self.history.trace_tag_overflow():
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
@@ -2835,9 +2822,6 @@ class MetaInterp(object):
         sd = self.staticdata
         token = sd.exit_frame_with_exception_descr_ref
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
-        if self.history.trace_tag_overflow():
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-        self.history.trace.tracing_done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])
         if target_token is not token:
             compile.giveup()
@@ -3442,3 +3426,16 @@ def put_back_list_of_boxes3(frame, position, newvalue):
     frame._put_back_list_of_boxes(newvalue, 0, position)
     frame._put_back_list_of_boxes(newvalue, length1, position2)
     frame._put_back_list_of_boxes(newvalue, length1 + length2, position3)
+
+def same_greenkey(original_boxes, live_arg_boxes, num_green_args):
+    for i in range(num_green_args):
+        box1 = original_boxes[i]
+        box2 = live_arg_boxes[i]
+        assert isinstance(box1, Const)
+        if not box1.same_constant(box2):
+            return False
+    else:
+        return True
+
+def has_compiled_targets(token):
+    return bool(token) and bool(token.target_tokens)

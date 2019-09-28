@@ -8,7 +8,7 @@ from rpython.rlib.runicode import raw_unicode_escape_helper
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter import unicodehelper
-from pypy.module.unicodedata import unicodedb
+from pypy.module.unicodedata.interp_ucd import unicodedb
 
 
 class VersionTag(object):
@@ -575,14 +575,7 @@ def encode(space, w_obj, encoding=None, errors=None):
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
-    w_retval =  _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
-    if not space.isinstance_w(w_retval, space.w_bytes):
-        raise oefmt(space.w_TypeError,
-                    "'%s' encoder returned '%T' instead of 'bytes'; "
-                    "use codecs.encode() to encode to arbitrary types",
-                    encoding,
-                    w_retval)
-    return w_retval
+    return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
 
 @unwrap_spec(errors='text_or_none')
 def readbuffer_encode(space, w_data, errors='strict'):
@@ -604,14 +597,7 @@ def decode(space, w_obj, encoding=None, errors=None):
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))
-    w_retval = _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
-    if not isinstance(w_retval, W_UnicodeObject):
-        raise oefmt(space.w_TypeError,
-                    "'%s' decoder returned '%T' instead of 'str'; "
-                    "use codecs.decode() to decode to arbitrary types",
-                    encoding,
-                    w_retval)
-    return w_retval
+    return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 @unwrap_spec(errors='text')
 def register_error(space, errors, w_handler):
@@ -632,10 +618,10 @@ def register_error(space, errors, w_handler):
 # ____________________________________________________________
 # Helpers for unicode.encode() and bytes.decode()
 def lookup_text_codec(space, action, encoding):
-    codec_info = lookup_codec(space, encoding)
+    w_codec_info = lookup_codec(space, encoding)
     try:
         is_text_encoding = space.is_true(
-                space.getattr(codec_info, space.newtext('_is_text_encoding')))
+                space.getattr(w_codec_info, space.newtext('_is_text_encoding')))
     except OperationError as e:
         if e.match(space, space.w_AttributeError):
             is_text_encoding = True
@@ -644,8 +630,8 @@ def lookup_text_codec(space, action, encoding):
     if not is_text_encoding:
         raise oefmt(space.w_LookupError,
                     "'%s' is not a text encoding; "
-                    "use %s to handle arbitrary codecs", encoding, action)
-    return codec_info
+                    "use codecs.%s() to handle arbitrary codecs", encoding, action)
+    return w_codec_info
 
 # ____________________________________________________________
 
@@ -729,6 +715,8 @@ if hasattr(runicode, 'str_decode_mbcs'):
 @unwrap_spec(errors='text_or_none')
 def utf_8_encode(space, w_obj, errors="strict"):
     utf8, lgt = space.utf8_len_w(w_obj)
+    if lgt == len(utf8): # ascii
+        return space.newtuple([space.newbytes(utf8), space.newint(lgt)])
     if errors is None:
         errors = 'strict'
     state = space.fromcache(CodecState)
@@ -745,8 +733,6 @@ def utf_8_encode(space, w_obj, errors="strict"):
 @unwrap_spec(string='bufferstr', errors='text_or_none',
              w_final = WrappedDefault(False))
 def utf_8_decode(space, string, errors="strict", w_final=None):
-
-
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -842,7 +828,7 @@ class Charmap_Decode:
             if not 0 <= x <= 0x10FFFF:
                 raise oefmt(space.w_TypeError,
                     "character mapping must be in range(0x110000)")
-            return rutf8.unichr_as_utf8(x)
+            return rutf8.unichr_as_utf8(x, allow_surrogates=True)
         elif space.is_w(w_ch, space.w_None):
             # Charmap may return None
             return errorchar
@@ -886,8 +872,6 @@ class Charmap_Encode:
 
 @unwrap_spec(string='bufferstr', errors='text_or_none')
 def charmap_decode(space, string, errors="strict", w_mapping=None):
-
-
     if errors is None:
         errors = 'strict'
     if len(string) == 0:
@@ -908,7 +892,6 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
 
 @unwrap_spec(errors='text_or_none')
 def charmap_encode(space, w_unicode, errors="strict", w_mapping=None):
-
     if errors is None:
         errors = 'strict'
     if space.is_none(w_mapping):
@@ -966,18 +949,26 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, lgt, u_len, first_escape_error_char = unicodehelper.str_decode_unicode_escape(
+    result, u_len, lgt, first_escape_error_char = unicodehelper.str_decode_unicode_escape(
         string, errors,
         final, state.decode_error_handler,
         unicode_name_handler)
 
     if first_escape_error_char is not None:
+        # Here, 'first_escape_error_char' is a single string character.
+        # Careful, it might be >= '\x80'.  If it is, it would made an
+        # invalid utf-8 string when pasted directory in it.
+        if ' ' <= first_escape_error_char < '\x7f':
+            msg = "invalid escape sequence '\\%s'" % (first_escape_error_char,)
+        else:
+            msg = "invalid escape sequence: '\\' followed by %s" % (
+                space.text_w(space.repr(
+                    space.newbytes(first_escape_error_char))),)
         space.warn(
-            space.newtext("invalid escape sequence '\\%s'"
-                          % str(first_escape_error_char)),
+            space.newtext(msg),
             space.w_DeprecationWarning
         )
-    return space.newtuple([space.newutf8(result, lgt), space.newint(u_len)])
+    return space.newtuple([space.newutf8(result, u_len), space.newint(lgt)])
 
 # ____________________________________________________________
 # Raw Unicode escape (accepts bytes or str)
@@ -998,8 +989,6 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
 @unwrap_spec(errors='text_or_none')
 def unicode_internal_decode(space, w_string, errors="strict"):
-
-
     if errors is None:
         errors = 'strict'
     # special case for this codec: unicodes are returned as is

@@ -67,6 +67,9 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         else:
             expected = b'\x01\0\0\0\x02\0\0\0\x03\0\0\0\x04\0\0\0'
         assert bytes(buf) == expected
+        # make sure memory_attach is called
+        buf2 = module.passthrough(buf)
+        assert str(buf2) == str(buf)
 
     def test_releasebuffer(self):
         module = self.import_module(name='array')

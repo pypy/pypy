@@ -507,10 +507,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Assert(self, asrt):
         if self.compile_info.optimize >= 1:
             return
+        assert self.compile_info.optimize == 0
         self.update_position(asrt.lineno)
         end = self.new_block()
-        if self.compile_info.optimize != 0:
-            self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
@@ -543,7 +542,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_If(self, if_):
         self.update_position(if_.lineno, True)
         end = self.new_block()
-        test_constant = if_.test.as_constant_truth(self.space)
+        test_constant = if_.test.as_constant_truth(
+            self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
             self.visit_sequence(if_.orelse)
         elif test_constant == optimize.CONST_TRUE:
@@ -687,7 +687,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_While(self, wh):
         self.update_position(wh.lineno, True)
-        test_constant = wh.test.as_constant_truth(self.space)
+        test_constant = wh.test.as_constant_truth(self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
             self.visit_sequence(wh.orelse)
         else:
@@ -1208,7 +1208,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         count = len(elts) if elts is not None else 0
         consts_w = [None] * count
         for i in range(count):
-            w_value = elts[i].as_constant()
+            w_value = elts[i].as_constant(self.space, self.compile_info)
             if w_value is None:
                 # Not all constants
                 return None
@@ -1343,11 +1343,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if len(d.keys) < 0xffff:
                 all_constant_keys_w = []
                 for key in d.keys:
-                    if key is None or key.as_constant() is None:
+                    if key is None:
+                        constant_key = None
+                    else:
+                        constant_key = key.as_constant(
+                            self.space, self.compile_info)
+                    if constant_key is None:
                         all_constant_keys_w = None
                         break
                     else:
-                        all_constant_keys_w.append(key.as_constant())
+                        all_constant_keys_w.append(constant_key)
             for i in range(len(d.values)):
                 key = d.keys[i]
                 is_unpacking = key is None

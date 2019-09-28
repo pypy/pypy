@@ -14,7 +14,7 @@
 #include <float.h>
 #include "structmember.h"
 #include "datetime.h"
-// #include "marshal.h"
+#include "marshal.h"
 #include <signal.h>
 
 #ifdef MS_WINDOWS
@@ -1570,7 +1570,7 @@ parse_tuple_and_keywords(PyObject *self, PyObject *args)
 {
     PyObject *sub_args;
     PyObject *sub_kwargs;
-    char *sub_format;
+    const char *sub_format;
     PyObject *sub_keywords;
 
     Py_ssize_t i, size;
@@ -1583,7 +1583,7 @@ parse_tuple_and_keywords(PyObject *self, PyObject *args)
 
     double buffers[8][4]; /* double ensures alignment where necessary */
 
-    if (!PyArg_ParseTuple(args, "OOyO:parse_tuple_and_keywords",
+    if (!PyArg_ParseTuple(args, "OOsO:parse_tuple_and_keywords",
         &sub_args, &sub_kwargs,
         &sub_format, &sub_keywords))
         return NULL;
@@ -3009,6 +3009,8 @@ run_in_subinterp(PyObject *self, PyObject *args)
     return PyLong_FromLong(r);
 }
 
+#endif  /* PYPY_VERSION */
+
 static int
 check_time_rounding(int round)
 {
@@ -3068,6 +3070,8 @@ test_pytime_object_to_timespec(PyObject *self, PyObject *args)
         return NULL;
     return Py_BuildValue("Nl", _PyLong_FromTime_t(sec), nsec);
 }
+
+#ifndef PYPY_VERSION
 
 static void
 slot_tp_del(PyObject *self)
@@ -3438,7 +3442,6 @@ test_pyobject_setallocators(PyObject *self)
 {
     return test_setallocators(PYMEM_DOMAIN_OBJ);
 }
-
 
 /* Most part of the following code is inherited from the pyfailmalloc project
  * written by Victor Stinner. */
@@ -3903,8 +3906,6 @@ return_result_with_error(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-#ifndef PYPY_VERSION
-
 static PyObject *
 test_pytime_fromseconds(PyObject *self, PyObject *args)
 {
@@ -4023,6 +4024,7 @@ test_PyTime_AsMicroseconds(PyObject *self, PyObject *args)
     return _PyTime_AsNanosecondsObject(ms);
 }
 
+#ifndef PYPY_VERSION
 
 static PyObject*
 get_recursion_depth(PyObject *self, PyObject *args)
@@ -4032,8 +4034,6 @@ get_recursion_depth(PyObject *self, PyObject *args)
     /* subtract one to ignore the frame of the get_recursion_depth() call */
     return PyLong_FromLong(tstate->recursion_depth - 1);
 }
-
-
 
 static PyObject*
 pymem_buffer_overflow(PyObject *self, PyObject *args)
@@ -4449,9 +4449,11 @@ static PyMethodDef TestMethods[] = {
     {"crash_no_current_thread", (PyCFunction)crash_no_current_thread, METH_NOARGS},
 #ifndef PYPY_VERSION
     {"run_in_subinterp",        run_in_subinterp,                METH_VARARGS},
+#endif
     {"pytime_object_to_time_t", test_pytime_object_to_time_t,  METH_VARARGS},
     {"pytime_object_to_timeval", test_pytime_object_to_timeval,  METH_VARARGS},
     {"pytime_object_to_timespec", test_pytime_object_to_timespec,  METH_VARARGS},
+#ifndef PYPY_VERSION
     {"with_tp_del",             with_tp_del,                     METH_VARARGS},
 #endif
     {"create_cfunction",        create_cfunction,                METH_NOARGS},
@@ -4519,7 +4521,6 @@ static PyMethodDef TestMethods[] = {
         return_null_without_error, METH_NOARGS},
     {"return_result_with_error",
         return_result_with_error, METH_NOARGS},
-#ifndef PYPY_VERSION
     {"PyTime_FromSeconds", test_pytime_fromseconds,  METH_VARARGS},
     {"PyTime_FromSecondsObject", test_pytime_fromsecondsobject,  METH_VARARGS},
     {"PyTime_AsSecondsDouble", test_pytime_assecondsdouble, METH_VARARGS},
@@ -4529,6 +4530,7 @@ static PyMethodDef TestMethods[] = {
 #endif
     {"PyTime_AsMilliseconds", test_PyTime_AsMilliseconds, METH_VARARGS},
     {"PyTime_AsMicroseconds", test_PyTime_AsMicroseconds, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"get_recursion_depth", get_recursion_depth, METH_NOARGS},
     {"pymem_buffer_overflow", pymem_buffer_overflow, METH_NOARGS},
     {"pymem_api_misuse", pymem_api_misuse, METH_NOARGS},
@@ -4542,10 +4544,10 @@ static PyMethodDef TestMethods[] = {
     {"pyobject_fastcalldict", test_pyobject_fastcalldict, METH_VARARGS},
     {"pyobject_fastcallkeywords", test_pyobject_fastcallkeywords, METH_VARARGS},
     {"raise_SIGINT_then_send_None", raise_SIGINT_then_send_None, METH_VARARGS},
+#endif
 #ifdef W_STOPCODE
     {"W_STOPCODE", py_w_stopcode, METH_VARARGS},
 #endif
-#endif /* PYPY_VERSION */
     {NULL, NULL} /* sentinel */
 };
 

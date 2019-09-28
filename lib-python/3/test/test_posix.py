@@ -1,7 +1,6 @@
 "Test posix functions"
 
 from test import support
-android_not_root = support.android_not_root
 
 # Skip these tests if there is no posix module.
 posix = support.import_module('posix')
@@ -19,6 +18,21 @@ import warnings
 
 _DUMMY_SYMLINK = os.path.join(tempfile.gettempdir(),
                               support.TESTFN + '-dummy-symlink')
+
+requires_32b = unittest.skipUnless(sys.maxsize < 2**32,
+        'test is only meaningful on 32-bit builds')
+
+def _supports_sched():
+    if not hasattr(posix, 'sched_getscheduler'):
+        return False
+    try:
+        posix.sched_getscheduler(0)
+    except OSError as e:
+        if e.errno == errno.ENOSYS:
+            return False
+    return True
+
+requires_sched = unittest.skipUnless(_supports_sched(), 'requires POSIX scheduler API')
 
 class PosixTester(unittest.TestCase):
 
@@ -231,10 +245,25 @@ class PosixTester(unittest.TestCase):
         except OSError as inst:
             # issue10812, ZFS doesn't appear to support posix_fallocate,
             # so skip Solaris-based since they are likely to have ZFS.
-            if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
+            # issue33655: Also ignore EINVAL on *BSD since ZFS is also
+            # often used there.
+            if inst.errno == errno.EINVAL and sys.platform.startswith(
+                ('sunos', 'freebsd', 'netbsd', 'openbsd', 'gnukfreebsd')):
+                raise unittest.SkipTest("test may fail on ZFS filesystems")
+            else:
                 raise
         finally:
             os.close(fd)
+
+    # issue31106 - posix_fallocate() does not set error in errno.
+    @unittest.skipUnless(hasattr(posix, 'posix_fallocate'),
+        "test needs posix.posix_fallocate()")
+    def test_posix_fallocate_errno(self):
+        try:
+            posix.posix_fallocate(-42, 0, 10)
+        except OSError as inst:
+            if inst.errno != errno.EBADF:
+                raise
 
     @unittest.skipUnless(hasattr(posix, 'posix_fadvise'),
         "test needs posix.posix_fadvise()")
@@ -244,6 +273,15 @@ class PosixTester(unittest.TestCase):
             posix.posix_fadvise(fd, 0, 0, posix.POSIX_FADV_WILLNEED)
         finally:
             os.close(fd)
+
+    @unittest.skipUnless(hasattr(posix, 'posix_fadvise'),
+        "test needs posix.posix_fadvise()")
+    def test_posix_fadvise_errno(self):
+        try:
+            posix.posix_fadvise(-42, 0, 0, posix.POSIX_FADV_WILLNEED)
+        except OSError as inst:
+            if inst.errno != errno.EBADF:
+                raise
 
     @unittest.skipUnless(os.utime in os.supports_fd, "test needs fd support in os.utime")
     def test_utime_with_fd(self):
@@ -299,6 +337,17 @@ class PosixTester(unittest.TestCase):
         finally:
             os.close(fd)
 
+    @unittest.skipUnless(hasattr(posix, 'writev'), "test needs posix.writev()")
+    @requires_32b
+    def test_writev_overflow_32bits(self):
+        fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
+        try:
+            with self.assertRaises(OSError) as cm:
+                os.writev(fd, [b"x" * 2**16] * 2**15)
+            self.assertEqual(cm.exception.errno, errno.EINVAL)
+        finally:
+            os.close(fd)
+
     @unittest.skipUnless(hasattr(posix, 'readv'), "test needs posix.readv()")
     def test_readv(self):
         fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
@@ -318,6 +367,19 @@ class PosixTester(unittest.TestCase):
                 pass
             else:
                 self.assertEqual(size, 0)
+        finally:
+            os.close(fd)
+
+    @unittest.skipUnless(hasattr(posix, 'readv'), "test needs posix.readv()")
+    @requires_32b
+    def test_readv_overflow_32bits(self):
+        fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
+        try:
+            buf = [bytearray(2**16)] * 2**15
+            with self.assertRaises(OSError) as cm:
+                os.readv(fd, buf)
+            self.assertEqual(cm.exception.errno, errno.EINVAL)
+            self.assertEqual(bytes(buf[0]), b'\0'* 2**16)
         finally:
             os.close(fd)
 
@@ -423,15 +485,16 @@ class PosixTester(unittest.TestCase):
                 posix.stat, list(os.fsencode(support.TESTFN)))
 
     @unittest.skipUnless(hasattr(posix, 'mkfifo'), "don't have mkfifo()")
-    @unittest.skipIf(android_not_root, "mkfifo not allowed, non root user")
     def test_mkfifo(self):
         support.unlink(support.TESTFN)
-        posix.mkfifo(support.TESTFN, stat.S_IRUSR | stat.S_IWUSR)
+        try:
+            posix.mkfifo(support.TESTFN, stat.S_IRUSR | stat.S_IWUSR)
+        except PermissionError as e:
+            self.skipTest('posix.mkfifo(): %s' % e)
         self.assertTrue(stat.S_ISFIFO(posix.stat(support.TESTFN).st_mode))
 
     @unittest.skipUnless(hasattr(posix, 'mknod') and hasattr(stat, 'S_IFIFO'),
                          "don't have mknod()/S_IFIFO")
-    @unittest.skipIf(android_not_root, "mknod not allowed, non root user")
     def test_mknod(self):
         # Test using mknod() to create a FIFO (the only use specified
         # by POSIX).
@@ -442,7 +505,7 @@ class PosixTester(unittest.TestCase):
         except OSError as e:
             # Some old systems don't allow unprivileged users to use
             # mknod(), or only support creating device nodes.
-            self.assertIn(e.errno, (errno.EPERM, errno.EINVAL))
+            self.assertIn(e.errno, (errno.EPERM, errno.EINVAL, errno.EACCES))
         else:
             self.assertTrue(stat.S_ISFIFO(posix.stat(support.TESTFN).st_mode))
 
@@ -452,7 +515,7 @@ class PosixTester(unittest.TestCase):
             posix.mknod(path=support.TESTFN, mode=mode, device=0,
                 dir_fd=None)
         except OSError as e:
-            self.assertIn(e.errno, (errno.EPERM, errno.EINVAL))
+            self.assertIn(e.errno, (errno.EPERM, errno.EINVAL, errno.EACCES))
 
     @unittest.skipUnless(hasattr(posix, 'stat'), 'test needs posix.stat()')
     @unittest.skipUnless(hasattr(posix, 'makedev'), 'test needs posix.makedev()')
@@ -477,6 +540,10 @@ class PosixTester(unittest.TestCase):
         self.assertRaises(TypeError, posix.minor, float(dev))
         self.assertRaises(TypeError, posix.minor)
         self.assertRaises((ValueError, OverflowError), posix.minor, -1)
+
+        if sys.platform.startswith('freebsd') and dev >= 0x1_0000_0000:
+            self.skipTest("bpo-31044: on FreeBSD CURRENT, minor() truncates "
+                          "64-bit dev to 32-bit")
 
         self.assertEqual(posix.makedev(major, minor), dev)
         self.assertRaises(TypeError, posix.makedev, float(major), minor)
@@ -581,17 +648,25 @@ class PosixTester(unittest.TestCase):
         self.assertRaises(OSError, posix.chdir, support.TESTFN)
 
     def test_listdir(self):
-        self.assertTrue(support.TESTFN in posix.listdir(os.curdir))
+        self.assertIn(support.TESTFN, posix.listdir(os.curdir))
 
     def test_listdir_default(self):
         # When listdir is called without argument,
         # it's the same as listdir(os.curdir).
-        self.assertTrue(support.TESTFN in posix.listdir())
+        self.assertIn(support.TESTFN, posix.listdir())
 
     def test_listdir_bytes(self):
         # When listdir is called with a bytes object,
         # the returned strings are of type bytes.
-        self.assertTrue(os.fsencode(support.TESTFN) in posix.listdir(b'.'))
+        self.assertIn(os.fsencode(support.TESTFN), posix.listdir(b'.'))
+
+    def test_listdir_bytes_like(self):
+        for cls in bytearray, memoryview:
+            with self.assertWarns(DeprecationWarning):
+                names = posix.listdir(cls(b'.'))
+            self.assertIn(os.fsencode(support.TESTFN), names)
+            for name in names:
+                self.assertIs(type(name), bytes)
 
     @unittest.skipUnless(posix.listdir in os.supports_fd,
                          "test needs fd support for posix.listdir()")
@@ -750,6 +825,21 @@ class PosixTester(unittest.TestCase):
         for k, v in posix.environ.items():
             self.assertEqual(type(k), item_type)
             self.assertEqual(type(v), item_type)
+
+    @unittest.skipUnless(hasattr(os, "putenv"), "requires os.putenv()")
+    def test_putenv(self):
+        with self.assertRaises(ValueError):
+            os.putenv('FRUIT\0VEGETABLE', 'cabbage')
+        with self.assertRaises(ValueError):
+            os.putenv(b'FRUIT\0VEGETABLE', b'cabbage')
+        with self.assertRaises(ValueError):
+            os.putenv('FRUIT', 'orange\0VEGETABLE=cabbage')
+        with self.assertRaises(ValueError):
+            os.putenv(b'FRUIT', b'orange\0VEGETABLE=cabbage')
+        with self.assertRaises(ValueError):
+            os.putenv('FRUIT=ORANGE', 'lemon')
+        with self.assertRaises(ValueError):
+            os.putenv(b'FRUIT=ORANGE', b'lemon')
 
     @unittest.skipUnless(hasattr(posix, 'getcwd'), 'test needs posix.getcwd()')
     def test_getcwd_long_pathnames(self):
@@ -910,11 +1000,13 @@ class PosixTester(unittest.TestCase):
             posix.close(f)
 
     @unittest.skipUnless(os.link in os.supports_dir_fd, "test needs dir_fd support in os.link()")
-    @unittest.skipIf(android_not_root, "hard link not allowed, non root user")
     def test_link_dir_fd(self):
         f = posix.open(posix.getcwd(), posix.O_RDONLY)
         try:
             posix.link(support.TESTFN, support.TESTFN + 'link', src_dir_fd=f, dst_dir_fd=f)
+        except PermissionError as e:
+            self.skipTest('posix.link(): %s' % e)
+        else:
             # should have same inodes
             self.assertEqual(posix.stat(support.TESTFN)[1],
                 posix.stat(support.TESTFN + 'link')[1])
@@ -934,7 +1026,6 @@ class PosixTester(unittest.TestCase):
 
     @unittest.skipUnless((os.mknod in os.supports_dir_fd) and hasattr(stat, 'S_IFIFO'),
                          "test requires both stat.S_IFIFO and dir_fd support for os.mknod()")
-    @unittest.skipIf(android_not_root, "mknod not allowed, non root user")
     def test_mknod_dir_fd(self):
         # Test using mknodat() to create a FIFO (the only use specified
         # by POSIX).
@@ -946,7 +1037,7 @@ class PosixTester(unittest.TestCase):
         except OSError as e:
             # Some old systems don't allow unprivileged users to use
             # mknod(), or only support creating device nodes.
-            self.assertIn(e.errno, (errno.EPERM, errno.EINVAL))
+            self.assertIn(e.errno, (errno.EPERM, errno.EINVAL, errno.EACCES))
         else:
             self.assertTrue(stat.S_ISFIFO(posix.stat(support.TESTFN).st_mode))
         finally:
@@ -1018,12 +1109,15 @@ class PosixTester(unittest.TestCase):
             posix.close(f)
 
     @unittest.skipUnless(os.mkfifo in os.supports_dir_fd, "test needs dir_fd support in os.mkfifo()")
-    @unittest.skipIf(android_not_root, "mkfifo not allowed, non root user")
     def test_mkfifo_dir_fd(self):
         support.unlink(support.TESTFN)
         f = posix.open(posix.getcwd(), posix.O_RDONLY)
         try:
-            posix.mkfifo(support.TESTFN, stat.S_IRUSR | stat.S_IWUSR, dir_fd=f)
+            try:
+                posix.mkfifo(support.TESTFN,
+                             stat.S_IRUSR | stat.S_IWUSR, dir_fd=f)
+            except PermissionError as e:
+                self.skipTest('posix.mkfifo(): %s' % e)
             self.assertTrue(stat.S_ISFIFO(posix.stat(support.TESTFN).st_mode))
         finally:
             posix.close(f)
@@ -1054,7 +1148,7 @@ class PosixTester(unittest.TestCase):
             self.assertRaises(OSError, posix.sched_get_priority_min, -23)
             self.assertRaises(OSError, posix.sched_get_priority_max, -23)
 
-    @unittest.skipUnless(hasattr(posix, 'sched_setscheduler'), "can't change scheduler")
+    @requires_sched
     def test_get_and_set_scheduler_and_param(self):
         possible_schedulers = [sched for name, sched in posix.__dict__.items()
                                if name.startswith("SCHED_")]

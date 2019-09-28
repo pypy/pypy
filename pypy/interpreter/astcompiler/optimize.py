@@ -20,14 +20,14 @@ CONST_TRUE = 1
 
 class __extend__(ast.AST):
 
-    def as_constant_truth(self, space):
+    def as_constant_truth(self, space, compile_info):
         """Return the truth of this node if known."""
-        const = self.as_constant()
+        const = self.as_constant(space, compile_info)
         if const is None:
             return CONST_NOT_CONST
         return int(space.is_true(const))
 
-    def as_constant(self):
+    def as_constant(self, space, compile_info):
         """Return the value of this node as a wrapped constant if possible."""
         return None
 
@@ -47,46 +47,52 @@ class __extend__(ast.expr):
 
 class __extend__(ast.Num):
 
-    def as_constant(self):
+    def as_constant(self, space, compile_info):
         return self.n
 
 
 class __extend__(ast.Str):
 
-    def as_constant(self):
+    def as_constant(self, space, compile_info):
         return self.s
 
 
 class __extend__(ast.Bytes):
 
-    def as_constant(self):
+    def as_constant(self, space, compile_info):
         return self.s
 
 
 class __extend__(ast.Ellipsis):
-
-    def as_constant_truth(self, space):
-        return True
+    def as_constant(self, space, compile_info):
+        return space.w_Ellipsis
 
 
 class __extend__(ast.Constant):
 
-    def as_constant(self):
+    def as_constant(self, space, compile_info):
         return self.value
 
-class __extend__(ast.NameConstant):
+class __extend__(ast.Name):
+    def as_constant(self, space, compile_info):
+        if self.id == '__debug__':
+            return space.newbool(compile_info.optimize == 0)
+        else:
+            return None
 
-    def as_constant(self):
+
+class __extend__(ast.NameConstant):
+    def as_constant(self, space, compile_info):
         return self.value
 
 class __extend__(ast.Index):
-    def as_constant(self):
-        return self.value.as_constant()
+    def as_constant(self, space, compile_info):
+        return self.value.as_constant(space, compile_info)
 
 class __extend__(ast.Slice):
-    def as_constant(self):
+    def as_constant(self, space, compile_info):
         # XXX: this ought to return a slice object if all the indices are
-        # constants, but we don't have a space here.
+        # constants
         return None
 
 class __extend__(ast.UnaryOp):
@@ -136,6 +142,16 @@ def _fold_pow(space, w_left, w_right):
     """)
     return space.pow(w_left, w_right, space.w_None)
 
+def _fold_lshift(space, w_left, w_right):
+    # don't constant-fold if "w_left" and "w_right" are integers and
+    # the estimated bit length of the result is unreasonably large
+    space.appexec([w_left, w_right], """(left, right):
+        if isinstance(left, int) and isinstance(right, int):
+            if left.bit_length() + right > 1000:
+                raise OverflowError
+    """)
+    return space.lshift(w_left, w_right)
+
 def _fold_not(space, operand):
     return space.newbool(not space.is_true(operand))
 
@@ -148,7 +164,7 @@ binary_folders = {
     ast.FloorDiv : _binary_fold("floordiv"),
     ast.Mod : _binary_fold("mod"),
     ast.Pow : _fold_pow,
-    ast.LShift : _binary_fold("lshift"),
+    ast.LShift : _fold_lshift,
     ast.RShift : _binary_fold("rshift"),
     ast.BitOr : _binary_fold("or_"),
     ast.BitXor : _binary_fold("xor"),
@@ -189,9 +205,9 @@ class OptimizingVisitor(ast.ASTVisitor):
         return node
 
     def visit_BinOp(self, binop):
-        left = binop.left.as_constant()
+        left = binop.left.as_constant(self.space, self.compile_info)
         if left is not None:
-            right = binop.right.as_constant()
+            right = binop.right.as_constant(self.space, self.compile_info)
             if right is not None:
                 op = binop.op
                 try:
@@ -218,7 +234,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         return binop
 
     def visit_UnaryOp(self, unary):
-        w_operand = unary.operand.as_constant()
+        w_operand = unary.operand.as_constant(self.space, self.compile_info)
         op = unary.op
         if w_operand is not None:
             try:
@@ -254,7 +270,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         we_are_and = bop.op == ast.And
         i = 0
         while i < len(values) - 1:
-            truth = values[i].as_constant_truth(self.space)
+            truth = values[i].as_constant_truth(self.space, self.compile_info)
             if truth != CONST_NOT_CONST:
                 if (truth != CONST_TRUE) == we_are_and:
                     del values[i + 1:]
@@ -267,26 +283,14 @@ class OptimizingVisitor(ast.ASTVisitor):
             return values[0]
         return bop
 
-    def visit_Repr(self, rep):
-        w_const = rep.value.as_constant()
-        if w_const is not None:
-            w_repr = self.space.repr(w_const)
-            return ast.Constant(w_repr, rep.lineno, rep.col_offset)
-        return rep
-
     def visit_Name(self, name):
         """Turn loading None, True, and False into a constant lookup."""
         if name.ctx == ast.Del:
             return name
         space = self.space
-        iden = name.id
         w_const = None
-        if iden == "None":
-            w_const = space.w_None
-        elif iden == "True":
-            w_const = space.w_True
-        elif iden == "False":
-            w_const = space.w_False
+        if name.id == '__debug__':
+            w_const = space.newbool(self.compile_info.optimize == 0)
         if w_const is not None:
             return ast.NameConstant(w_const, name.lineno, name.col_offset)
         return name
@@ -300,7 +304,7 @@ class OptimizingVisitor(ast.ASTVisitor):
             consts_w = [None]*len(tup.elts)
             for i in range(len(tup.elts)):
                 node = tup.elts[i]
-                w_const = node.as_constant()
+                w_const = node.as_constant(self.space, self.compile_info)
                 if w_const is None:
                     new_elts = self._optimize_constant_star_unpacks(tup.elts)
                     if new_elts is not None:
@@ -350,7 +354,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                 after_last_star_index = i + 1
                 new_elts.append(elt)
             elif const_since_last_star_w is not None:
-                w_const = elt.as_constant()
+                w_const = elt.as_constant(self.space, self.compile_info)
                 if w_const is None:
                     new_elts.extend(elts[after_last_star_index:i + 1])
                     const_since_last_star_w = None
@@ -375,9 +379,9 @@ class OptimizingVisitor(ast.ASTVisitor):
 
     def visit_Subscript(self, subs):
         if subs.ctx == ast.Load:
-            w_obj = subs.value.as_constant()
+            w_obj = subs.value.as_constant(self.space, self.compile_info)
             if w_obj is not None:
-                w_idx = subs.slice.as_constant()
+                w_idx = subs.slice.as_constant(self.space, self.compile_info)
                 if w_idx is not None:
                     try:
                         w_const = self.space.getitem(w_obj, w_idx)

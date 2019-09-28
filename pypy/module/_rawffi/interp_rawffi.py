@@ -245,7 +245,11 @@ def open_cdll(space, name):
     except OSError as e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name='fsencode_or_none')
+if _MS_WINDOWS:
+    name_spec = 'fsencode'
+else:
+    name_spec = 'fsencode_or_none'
+@unwrap_spec(name=name_spec)
 def descr_new_cdll(space, w_type, name):
     cdll = open_cdll(space, name)
     return W_CDLL(space, name, cdll)
@@ -452,8 +456,13 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             elif c == 'c':
                 return space.newbytes(func(add_arg, argdesc, ll_type))
             elif c == 'u':
-                return space.newutf8(rutf8.unichr_as_utf8(
-                    r_uint(ord(func(add_arg, argdesc, ll_type)))), 1)
+                code = ord(func(add_arg, argdesc, ll_type))
+                try:
+                    return space.newutf8(rutf8.unichr_as_utf8(
+                        r_uint(code), allow_surrogates=True), 1)
+                except rutf8.OutOfRange:
+                    raise oefmt(space.w_ValueError,
+                        "unicode character %d out of range", code)
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.newfloat(float(func(add_arg, argdesc, ll_type)))
             else:

@@ -1,5 +1,6 @@
 import sys
 import os
+import socket
 import traceback
 from _pypy_openssl import ffi
 from _pypy_openssl import lib
@@ -26,6 +27,13 @@ class SSLError(OSError):
         if self.strerror and isinstance(self.strerror, str):
             return self.strerror
         return str(self.args)
+# these are expected on socket as well
+socket.sslerror = SSLError
+for v in [ 'SSL_ERROR_ZERO_RETURN', 'SSL_ERROR_WANT_READ',
+     'SSL_ERROR_WANT_WRITE', 'SSL_ERROR_WANT_X509_LOOKUP', 'SSL_ERROR_SYSCALL',
+     'SSL_ERROR_SSL', 'SSL_ERROR_WANT_CONNECT', 'SSL_ERROR_EOF',
+     'SSL_ERROR_INVALID_ERROR_CODE' ]:
+    setattr(socket, v, locals()[v]) 
 
 class SSLZeroReturnError(SSLError):
     """ SSL/TLS session closed cleanly. """
@@ -117,12 +125,12 @@ def pyssl_error(obj, ret):
                     errstr = "Some I/O error occurred"
                     errval = SSL_ERROR_SYSCALL
             else:
-                errstr = _str_from_buf(lib.ERR_error_string(e, ffi.NULL))
+                errstr = _str_from_buf(lib.ERR_lib_error_string(e))
                 errval = SSL_ERROR_SYSCALL
         elif err == SSL_ERROR_SSL:
             errval = SSL_ERROR_SSL
             if errcode != 0:
-                errstr = _str_from_buf(lib.ERR_error_string(errcode, ffi.NULL))
+                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
             else:
                 errstr = "A failure in the SSL library occurred"
         else:
@@ -139,8 +147,8 @@ def fill_sslerror(errtype, ssl_errno, errstr, errcode):
         err_reason = lib.ERR_GET_REASON(errcode)
         reason_str = ERR_CODES_TO_NAMES.get((err_lib, err_reason), None)
         lib_str = LIB_CODES_TO_NAMES.get(err_lib, None)
-        if errstr is None:
-            errstr = _str_from_buf(lib.ERR_reason_error_string(errcode))
+        # Set last part of msg to a lower-case version of reason_str
+        errstr = _str_from_buf(lib.ERR_reason_error_string(errcode))
     msg = errstr
     if not errstr:
         msg = "unknown error"

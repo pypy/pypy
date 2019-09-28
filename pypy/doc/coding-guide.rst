@@ -456,13 +456,10 @@ translate.py.
 Testing modules in ``lib_pypy/``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can go to the :source:`pypy/module/test_lib_pypy/` directory and invoke the testing tool
-("py.test" or "python ../../pypy/test_all.py") to run tests against the
-lib_pypy hierarchy.  Note, that tests in :source:`pypy/module/test_lib_pypy/` are allowed
-and encouraged to let their tests run at interpreter level although
-:source:`lib_pypy/` modules eventually live at PyPy's application level.
-This allows us to quickly test our python-coded reimplementations
-against CPython.
+You can go to the :source:`pypy/module/test_lib_pypy/` directory and invoke the
+testing tool ("py.test" or "python ../../pypy/test_all.py") to run tests
+against the lib_pypy hierarchy.  This allows us to quickly test our
+python-coded reimplementations against CPython.
 
 
 Testing modules in ``pypy/module``
@@ -585,25 +582,42 @@ classes is mandatory.  In both cases you can import Python modules at
 module global level and use plain 'assert' statements thanks to the
 usage of the `py.test`_ tool.
 
-
-Application Level tests
+Application level tests
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 For testing the conformance and well-behavedness of PyPy it
 is often sufficient to write "normal" application-level
 Python code that doesn't need to be aware of any particular
-coding style or restrictions.  If we have a choice we often
-use application level tests which usually look like this::
+coding style or restrictions. If we have a choice we often
+use application level tests which are in files whose name starts with the
+`apptest_` prefix and look like this::
 
-    def app_test_something():
+    def test_this():
         # application level test code
+
+These application level test functions will run on top
+of PyPy, i.e. they have no access to interpreter details.
+
+By default, they run on top of an untranslated PyPy which runs on top of the
+host interpreter. When passing the `-D` option, they run directly on top of the
+host interpreter, which is usually a translated pypy executable in this case::
+
+    pypy3 -m pytest -D pypy/
+
+Note that in interpreted mode, only a small subset of pytest's functionality is
+available.
+
+Mixed-level tests (deprecated)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Mixed-level tests are similar to application-level tests, the difference being
+that they're just snippets of app-level code embedded in an interp-level test
+file, like this::
 
     class AppTestSomething(object):
         def test_this(self):
             # application level test code
 
-These application level test functions will run on top
-of PyPy, i.e. they have no access to interpreter details.
 You cannot use imported modules from global level because
 they are imported at interpreter-level while you test code
 runs at application level. If you need to use modules

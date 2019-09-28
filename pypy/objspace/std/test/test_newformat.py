@@ -245,6 +245,7 @@ class BaseIntegralFormattingTest:
     def test_simple(self):
         assert format(self.i(2)) == "2"
         assert isinstance(format(self.i(2), ""), str)
+        assert isinstance(self.i(2).__format__(""), str)
 
     def test_invalid(self):
         raises(ValueError, format, self.i(8), "s")
@@ -259,7 +260,8 @@ class BaseIntegralFormattingTest:
         a = self.i(ord("a"))
         assert format(a, "c") == "a"
         raises(ValueError, format, a, "-c")
-        raises(ValueError, format, a, ",c")
+        exc = raises(ValueError, format, a, ",c")
+        assert str(exc.value) == "Cannot specify ',' with 'c'.", str(exc.value)
         raises(ValueError, format, a, "_c")
         raises(ValueError, format, a, "#c")
         assert format(a, "3c") == "  a"
@@ -491,3 +493,9 @@ class AppTestInternalMethods:
         excinfo = raises(ValueError, "{:j}".format, x(1))
         print(excinfo.value)
         assert str(excinfo.value) == "Unknown format code j for object of type 'x'"
+
+    def test_format_char(self):
+        import sys
+        assert '{0:c}'.format(42) == '*'
+        assert '{0:c}'.format(1234) == '\u04d2'
+        raises(OverflowError, '{0:c}'.format, -1)

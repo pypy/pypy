@@ -315,8 +315,8 @@ static PyTypeObject _struct_sequence_template = {
     structseq_new,                              /* tp_new */
 };
 
-void
-PyStructSequence_InitType(PyTypeObject *type, PyStructSequence_Desc *desc)
+int
+PyStructSequence_InitType2(PyTypeObject *type, PyStructSequence_Desc *desc)
 {
     PyObject *dict;
     PyMemberDef* members;
@@ -342,8 +342,10 @@ PyStructSequence_InitType(PyTypeObject *type, PyStructSequence_Desc *desc)
     type->tp_doc = desc->doc;
 
     members = PyMem_NEW(PyMemberDef, n_members-n_unnamed_members+1);
-    if (members == NULL)
-        return;
+    if (members == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
 
     for (i = k = 0; i < n_members; ++i) {
         if (desc->fields[i].name == PyStructSequence_UnnamedField)
@@ -361,22 +363,33 @@ PyStructSequence_InitType(PyTypeObject *type, PyStructSequence_Desc *desc)
     type->tp_members = members;
 
     if (PyType_Ready(type) < 0)
-        return;
+        return -1;
     Py_INCREF(type);
 
     dict = type->tp_dict;
-#define SET_DICT_FROM_INT(key, value)                           \
+#define SET_DICT_FROM_SIZE(key, value)                          \
     do {                                                        \
-        PyObject *v = PyLong_FromLong((long) value);            \
-        if (v != NULL) {                                        \
-            PyDict_SetItemString(dict, key, v);                 \
+        PyObject *v = PyLong_FromSsize_t(value);                \
+        if (v == NULL)                                          \
+            return -1;                                          \
+        if (PyDict_SetItemString(dict, key, v) < 0) {           \
             Py_DECREF(v);                                       \
+            return -1;                                          \
         }                                                       \
+        Py_DECREF(v);                                           \
     } while (0)
 
-    SET_DICT_FROM_INT(visible_length_key, desc->n_in_sequence);
-    SET_DICT_FROM_INT(real_length_key, n_members);
-    SET_DICT_FROM_INT(unnamed_fields_key, n_unnamed_members);
+    SET_DICT_FROM_SIZE(visible_length_key, desc->n_in_sequence);
+    SET_DICT_FROM_SIZE(real_length_key, n_members);
+    SET_DICT_FROM_SIZE(unnamed_fields_key, n_unnamed_members);
+
+    return 0;
+}
+
+void
+PyStructSequence_InitType(PyTypeObject *type, PyStructSequence_Desc *desc)
+{
+    (void)PyStructSequence_InitType2(type, desc);
 }
 
 PyTypeObject*
