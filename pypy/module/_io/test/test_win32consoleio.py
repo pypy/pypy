@@ -1,4 +1,6 @@
 from rpython.tool.udir import udir
+from pypy.module._io import interp_win32consoleio
+import os
 
 class AppTestWinConsoleIO:
     spaceconfig = dict(usemodules=['_io'])
@@ -6,13 +8,17 @@ class AppTestWinConsoleIO:
     def setup_method(self, meth):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
-        self.tmpfile = tmpfile    
-        self.conout_path = self.space.wrap(str(udir.join('CONOUT$')))
+        self.w_tmpfile = self.space.wrap(str(tmpfile))   
+        self.w_posix = self.space.appexec([], """():
+            import %s as m;
+            return m""" % os.name)        
+        self.w_conout_path = self.space.wrap(str(udir.join('CONOUT$')))
 
     def test_open_fd(self):
         import _io
-
-        w_fd = self.tempfile.fileno()
+        os = self.posix
+        fd = os.open(self.tmpfile, os.O_RDONLY, 0o666)
+        #w_fd = self.tmpfile.fileno()
         # Windows 10: "Cannot open non-console file"
         # Earlier: "Cannot open console output buffer for reading"
         raises(ValueError, _io._WindowsConsoleIO, fd)
@@ -79,8 +85,8 @@ class AppTestWinConsoleIO:
         f.close()
         f.close()
 
-        f = open('C:/con', 'rb', buffering=0)
-        assert f is _io._WindowsConsoleIO
+        f = open('C:\\con', 'rb', buffering=0)
+        assert isinstance(f,_io._WindowsConsoleIO)
         f.close()
 
     def test_conin_conout_names(self):
@@ -90,7 +96,7 @@ class AppTestWinConsoleIO:
         f.close()
 
         f = open('//?/conout$', 'wb', buffering=0)
-        assert type(f) is _io._WindowsConsoleIO
+        assert isinstance(f , _io._WindowsConsoleIO)
         f.close()
         
     def test_conout_path(self):
@@ -103,3 +109,30 @@ class AppTestWinConsoleIO:
         import _io
         with _io._WindowsConsoleIO('CONOUT$', 'w') as f:
             assert f.write(b'') == 0
+            
+            
+class TestGetConsoleType:
+    def test_conout(self, space):
+        w_file = space.newtext('CONOUT$')
+        consoletype = interp_win32consoleio._pyio_get_console_type(space, w_file)
+        assert consoletype == 'w'
+
+    def test_conin(self, space):
+        w_file = space.newtext('CONIN$')
+        consoletype = interp_win32consoleio._pyio_get_console_type(space, w_file)
+        assert consoletype == 'r'
+        
+    def test_con(self, space):
+        w_file = space.newtext('CON')
+        consoletype = interp_win32consoleio._pyio_get_console_type(space, w_file)
+        assert consoletype == 'x'
+
+    def test_conin2(self, space):
+        w_file = space.newtext('\\\\.\\conin$')
+        consoletype = interp_win32consoleio._pyio_get_console_type(space, w_file)
+        assert consoletype == 'r'        
+        
+    def test_con2(self, space):
+        w_file = space.newtext('\\\\?\\con')
+        consoletype = interp_win32consoleio._pyio_get_console_type(space, w_file)
+        assert consoletype == 'x'

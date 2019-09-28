@@ -172,7 +172,7 @@ class W_WinConsoleIO(W_RawIOBase):
             buf[n] = self.buf[0]
             for i in range(1, SMALLBUF):
                 self.buf[i-1] = self.buf[i]
-            self.buf[SMALLBUF-1] = 0
+            self.buf[SMALLBUF-1] = rffi.cast(rffi.CCHARP.TO, 0)
             len -= 1
             n += 1
         return n
@@ -193,7 +193,7 @@ class W_WinConsoleIO(W_RawIOBase):
         self.blksize = 0
         rwa = False
         console_type = '\0'
-        self.buf = lltype.malloc(rffi.CCHARPP.TO,SMALLBUF,flavor='raw')
+        self.buf = lltype.malloc(rffi.CCHARP.TO,SMALLBUF,flavor='raw')
 
         try:
             if space.isinstance_w(w_nameobj, space.w_int): 
@@ -330,9 +330,9 @@ class W_WinConsoleIO(W_RawIOBase):
         win32traits = make_win32_traits(traits)
         if self.fd < 0 and self.handle != rwin32.INVALID_HANDLE_VALUE:
             if self.writable:
-                self.fd = rwin32.open_osfhandle(self.handle, win32traits._O_WRONLY | win32traits._O_BINARY)
+                self.fd = rwin32.open_osfhandle(rffi.cast(rffi.INTP, self.handle), win32traits._O_WRONLY | win32traits._O_BINARY)
             else:
-                self.fd = rwin32.open_osfhandle(self.handle, win32traits._O_RDONLY | win32traits._O_BINARY)
+                self.fd = rwin32.open_osfhandle(rffi.cast(rffi.INTP, self.handle), win32traits._O_RDONLY | win32traits._O_BINARY)
         if self.fd < 0:
             return err_mode(space, "fileno")
         return space.newint(self.fd)
@@ -377,8 +377,7 @@ class W_WinConsoleIO(W_RawIOBase):
                 return space.newint(read_len)
                 
             u8n = 0
-            
-            
+               
             if len < 4:
                 if rwin32.WideCharToMultiByte(rwin32.CP_UTF8,
                                            0, wbuf, n, self.buf,
