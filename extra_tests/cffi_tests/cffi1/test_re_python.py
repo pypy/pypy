@@ -66,7 +66,7 @@ def setup_module(mod):
     int add43(int, ...);
     int globalvar42;
     const int globalconst42;
-    const char *const globalconsthello = "hello";
+    const char *const globalconsthello;
     int no_such_function(int);
     int no_such_globalvar;
     struct foo_s;

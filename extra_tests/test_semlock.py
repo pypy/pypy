@@ -1,5 +1,6 @@
 from _multiprocessing import SemLock
 from threading import Thread
+import thread
 import time
 
 
@@ -17,10 +18,19 @@ def test_notify_all():
             lock.release()
 
     threads = [Thread(target=f, args=(i,)) for i in range(N_THREADS)]
+    n_started = N_THREADS
     with lock:
         for t in threads:
-            t.start()
+            try:
+                t.start()
+            except thread.error:
+                # too many threads for this system
+                t.started = False
+                n_started -= 1
+            else:
+                t.started = True
         time.sleep(0.1)
     for t in threads:
-        t.join()
-    assert len(results) == N_THREADS
+        if t.started:
+            t.join()
+    assert len(results) == n_started
