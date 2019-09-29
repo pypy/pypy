@@ -3,7 +3,7 @@ pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
 exe=pypy3 # pypy3 or pypy
 maj=7
-min=1
+min=2
 rev=0
 
 
