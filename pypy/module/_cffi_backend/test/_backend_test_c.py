@@ -4432,3 +4432,11 @@ def test_cannot_call_null_function_pointer():
     f = cast(BFunc, 0)
     with pytest.raises(RuntimeError):
         f(40, 2)
+
+def test_huge_structure():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), sys.maxsize)
+    assert sizeof(BArray) == sys.maxsize
+    BStruct = new_struct_type("struct foo")
+    complete_struct_or_union(BStruct, [('a1', BArray, -1)])
+    assert sizeof(BStruct) == sys.maxsize
