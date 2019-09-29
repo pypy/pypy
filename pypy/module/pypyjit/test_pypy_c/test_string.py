@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
