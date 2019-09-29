@@ -407,8 +407,9 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                 _encodeUCS4(result, ch)
     return result.build()
 unicode_encode_utf_8_elidable = jit.elidable(
+    enforceargs(s=unicode, allow_surrogates=bool)(
     func_with_new_name(unicode_encode_utf_8_impl,
-                       "unicode_encode_utf_8_elidable"))
+                       "unicode_encode_utf_8_elidable")))
 
 def unicode_encode_utf8sp(s, size):
     # Surrogate-preserving utf-8 encoding.  Any surrogate character
