@@ -103,7 +103,6 @@ class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
 
     def descr_next(self, space):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        from rpython.rlib import rutf8
         w_seq = self.w_seq
         if w_seq is None:
             raise OperationError(space.w_StopIteration, space.w_None)
