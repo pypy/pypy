@@ -1,7 +1,7 @@
 from email.parser import Parser
 
 import py
-import urllib2
+from urllib.request import urlopen
 
 import cffi
 import pypy
@@ -14,9 +14,8 @@ def test_egg_version():
 
 def test_pycparser_version():
     url = 'https://raw.githubusercontent.com/eliben/pycparser/master/pycparser/__init__.py'
-    source = urllib2.urlopen(url).read()
+    source = urlopen(url).read().decode('utf8')
     dest = py.path.local(__file__).join('..', '..', '..', 'lib_pypy', 'cffi',
                                         '_pycparser', '__init__.py').read()
     # if this fails, the vendored pycparser is not the latest version
     assert source.strip() == dest.strip()
-    
