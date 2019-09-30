@@ -7206,6 +7206,21 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_record_known_result(self):
+        ops = """
+        [i1]
+        record_known_result(i1, 123456, i1, descr=nonwritedescr)
+        i3 = call_pure_i(123456, i1, descr=nonwritedescr)
+        guard_no_exception() []
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_quasi_immut(self):
         ops = """
         [p0, p1, i0]

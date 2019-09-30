@@ -286,6 +286,29 @@ class Transformer(object):
     def rewrite_op_jit_record_exact_class(self, op):
         return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
 
+    def rewrite_op_jit_record_known_result(self, op):
+        for arg in op.args:
+            if getkind(arg.concretetype) == 'float':
+                raise Exception("record_known_result %s does not support floats" % op)
+        # hack: use op.args[0] as the result var, which is correct with regards
+        # to the concretetype, the only thing that getcalldescr accesses
+        callop = SpaceOperation('direct_call', op.args[1:], op.args[0])
+        calldescr = self.callcontrol.getcalldescr(
+                callop,
+                calling_graph=self.graph)
+        assert calldescr.get_extra_info().check_is_elidable()
+        if getkind(op.args[0].concretetype) == "int":
+            opname = "record_known_result_i"
+        else:
+            assert getkind(op.args[0].concretetype) == "ref"
+            opname = "record_known_result_r"
+        op1 = self.rewrite_call(op, opname,
+                                op.args[:2], args=op.args[2:],
+                                calldescr=calldescr, force_ir=True)
+        if self.callcontrol.calldescr_canraise(calldescr):
+            op1 = [op1, SpaceOperation('-live-', [], None)]
+        return op1
+
     def rewrite_op_debug_assert_not_none(self, op):
         if isinstance(op.args[0], Variable):
             return SpaceOperation('assert_not_none', [op.args[0]], None)
@@ -380,7 +403,7 @@ class Transformer(object):
                      calldescr=None, force_ir=False):
         """Turn 'i0 = direct_call(fn, i1, i2, ref1, ref2)'
            into 'i0 = xxx_call_ir_i(fn, descr, [i1,i2], [ref1,ref2])'.
-           The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
+           The name is one of '{residual,inline,conditional}_call_{r,ir,irf}_{i,r,f,v}'."""
         if args is None:
             args = op.args[1:]
         self._check_no_vable_array(args)

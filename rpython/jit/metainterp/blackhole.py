@@ -603,6 +603,16 @@ class BlackholeInterpreter(object):
     def bhimpl_record_exact_class(a, b):
         pass
 
+    @arguments("cpu", "i", "i", "I", "R", "d")
+    def bhimpl_record_known_result_i_ir_v(cpu, res, func, args_i, args_r,
+                                     calldescr):
+        pass
+
+    @arguments("cpu", "r", "i", "I", "R", "d")
+    def bhimpl_record_known_result_r_ir_v(cpu, res, func, args_i, args_r,
+                                     calldescr):
+        pass
+
     @arguments("i", returns="i")
     def bhimpl_int_copy(a):
         return a

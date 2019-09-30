@@ -1193,8 +1193,48 @@ class Entry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.gendirectcall(ll_record_exact_class, v_inst, v_cls)
 
+
+def _jit_record_known_result(result, function, *args):
+    pass  # special-cased below
+
+
+@specialize.arg(1)
+def record_known_result(result, func, *args):
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    if not we_are_translated():
+        # consistency check
+        assert func(*args) == result
+        assert func._elidable_function_  # could be lifted
+        return
+    if not we_are_jitted():
+        return
+    # make sure the call is annotated
+    if NonConstant(False):
+        func(*args)
+    return _jit_record_known_result(result, func, *args)
+
+class ConditionalCallEntry(ExtRegistryEntry):
+    _about_ = _jit_record_known_result
+
+    def compute_result_annotation(self, *args_s):
+        from rpython.annotator import model as annmodel
+        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                         args_s[1], args_s[2:])
+        return annmodel.SomeNone()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+
+        args_v = hop.inputargs(hop.args_r[0], lltype.Void, *hop.args_r[2:])
+        args_v[1] = hop.args_r[1].get_concrete_llfn(hop.args_s[1],
+                                                    hop.args_s[2:], hop.spaceop)
+        hop.exception_cannot_occur()
+        return hop.genop("jit_record_known_result", args_v, resulttype=lltype.Void)
+
+
 def _jit_conditional_call(condition, function, *args):
     pass           # special-cased below
+
 
 @specialize.call_location()
 def conditional_call(condition, function, *args):

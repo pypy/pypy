@@ -97,6 +97,7 @@ class OptPure(Optimization):
                                           rop._ALWAYS_PURE_FIRST)
         self.call_pure_positions = []
         self.extra_call_pure = []
+        self.known_result_call_pure = []
 
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
@@ -178,6 +179,16 @@ class OptPure(Optimization):
                         old_op = self.optimizer.force_op_from_preamble(old_op)
                         self.extra_call_pure[i] = old_op
                     return
+        if self.known_result_call_pure:
+            # needs different logic, since the result does not come from a real
+            # call at all
+            for i, known_result_op in enumerate(self.known_result_call_pure):
+                if op.getdescr() is not known_result_op.getdescr():
+                    continue
+                if self._same_args(known_result_op, op, 1, start_index):
+                    self.make_equal_to(op, known_result_op.getarg(0))
+                    self.last_emitted_operation = REMOVED
+                    return
 
         # replace CALL_PURE with just CALL (but keep COND_CALL_VALUE)
         if start_index == 0:
@@ -197,19 +208,22 @@ class OptPure(Optimization):
         return self.optimize_call_pure(op, start_index=1)
     optimize_COND_CALL_VALUE_R = optimize_COND_CALL_VALUE_I
 
+    def _same_args(self, op1, op2, start_index1, start_index2):
+        j = start_index2
+        for i in range(start_index1, op1.numargs()):
+            box = get_box_replacement(op1.getarg(i))
+            if not get_box_replacement(op2.getarg(j)).same_box(box):
+                return False
+            j += 1
+        return True
+
     def optimize_call_pure_old(self, op, old_op, start_index):
         if op.getdescr() is not old_op.getdescr():
             return False
         # this will match a call_pure and a cond_call_value with
         # the same function and arguments
-        j = start_index
         old_start_index = OpHelpers.is_cond_call_value(old_op.opnum)
-        for i in range(old_start_index, old_op.numargs()):
-            box = old_op.getarg(i)
-            if not get_box_replacement(op.getarg(j)).same_box(box):
-                break
-            j += 1
-        else:
+        if self._same_args(old_op, op, old_start_index, start_index):
             # all identical
             # this removes a CALL_PURE that has the same (non-constant)
             # arguments as a previous CALL_PURE.
@@ -227,6 +241,10 @@ class OptPure(Optimization):
             # following GUARD_NO_EXCEPTION
             return
         return self.emit(op)
+
+    def optimize_RECORD_KNOWN_RESULT(self, op):
+        # remove the op, but keep the into about the result of the pure call
+        self.known_result_call_pure.append(op)
 
     def flush(self):
         assert self.postponed_op is None

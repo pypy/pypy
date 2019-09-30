@@ -350,3 +350,21 @@ class TestJIT(BaseRtypingTest):
             leave_portal_frame()
         t = Translation(g, [])
         t.compile_c() # does not crash
+
+    def test_record_known_result(self):
+        from rpython.translator.interactive import Translation
+        @elidable
+        def f(x):
+            return x + 1
+        @elidable
+        def g(x):
+            return x - 1
+
+        def call_f(x):
+            y = f(x)
+            record_known_result(x, g, y)
+            return y
+
+        call_f(10)  # doesn't crash
+        t = Translation(call_f, [int])
+        t.rtype() # does not crash

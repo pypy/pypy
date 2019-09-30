@@ -472,6 +472,7 @@ LL_OPERATIONS = {
     'gc_get_type_info_group': LLOp(sideeffects=False),
     'll_read_timestamp': LLOp(revdb_protect=True, canrun=True),
     'll_get_timestamp_unit': LLOp(revdb_protect=True, canrun=True),
+    'jit_record_known_result': LLOp(),
 
     # __________ GC operations __________
 

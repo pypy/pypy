@@ -1166,6 +1166,8 @@ _oplist = [
     # nursery malloc, non-const number of bytes, zeroed
     # note that the number of bytes must be well known to be small enough
     # to fulfill allocating in the nursery rules (and no card markings)
+
+    'RECORD_KNOWN_RESULT/*d/n',   # arguments known_result, funcarg1, funcarg2, funcarg3, descr is calldescr
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 

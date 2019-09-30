@@ -332,6 +332,15 @@ class MIFrame(object):
             debug_print("record_exact_class with non-constant second argument, ignored",
                     name, loc)
 
+    @arguments("box", "box", "boxes2", "descr", "orgpc")
+    def opimpl_record_known_result_i_ir_v(self, resbox, funcbox, argboxes,
+                                     calldescr, pc):
+        allboxes = self._build_allboxes(funcbox, argboxes, calldescr)
+        allboxes = [resbox] + allboxes
+        # this is a weird op! we don't want to execute anything, so just record
+        # an operation
+        self.metainterp._record_helper_nonpure_varargs(rop.RECORD_KNOWN_RESULT, None, calldescr, allboxes)
+
     @arguments("box")
     def _opimpl_any_return(self, box):
         self.metainterp.finishframe(box)
