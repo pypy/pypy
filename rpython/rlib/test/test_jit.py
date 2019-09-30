@@ -1,11 +1,11 @@
-import py, pytest
+import pytest
 
 from rpython.conftest import option
 from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
     elidable, unroll_safe, dont_look_inside, conditional_call_elidable,
-    enter_portal_frame, leave_portal_frame)
+    enter_portal_frame, leave_portal_frame, record_known_result)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -25,8 +25,10 @@ def test_jitdriver_autoreds():
     assert driver.autoreds
     assert driver.reds == []
     assert driver.numreds is None
-    py.test.raises(TypeError, "driver.can_enter_jit(foo='something')")
-    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')")
+    with pytest.raises(TypeError):
+        driver.can_enter_jit(foo='something')
+    with pytest.raises(AssertionError):
+        JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')
 
 def test_jitdriver_numreds():
     driver = JitDriver(greens=['foo'], reds=['a', 'b'])
@@ -41,7 +43,7 @@ def test_jitdriver_numreds():
     assert driver.numreds == 2
 
 def test_jitdriver_inline():
-    py.test.skip("@inline off: see skipped failures in test_warmspot.")
+    pytest.skip("@inline off: see skipped failures in test_warmspot.")
     driver = JitDriver(greens=[], reds='auto')
     calls = []
     def foo(a, b):
@@ -61,14 +63,16 @@ def test_jitdriver_inline():
         ]
 
 def test_jitdriver_clone():
-    py.test.skip("@inline off: see skipped failures in test_warmspot.")
+    pytest.skip("@inline off: see skipped failures in test_warmspot.")
     def bar(): pass
     def foo(): pass
     driver = JitDriver(greens=[], reds=[])
-    py.test.raises(AssertionError, "driver.inline(bar)(foo)")
+    with pytest.raises(AssertionError):
+        driver.inline(bar)(foo)
     #
     driver = JitDriver(greens=[], reds='auto')
-    py.test.raises(AssertionError, "driver.clone()")
+    with pytest.raises(AssertionError):
+        driver.clone()
     foo = driver.inline(bar)(foo)
     assert foo._inline_jit_merge_point_ == bar
     #
@@ -88,10 +92,12 @@ def test_merge_enter_different():
             myjitdriver.can_enter_jit(n=n)
             n -= 1
         return n
-    py.test.raises(JitHintError, fn, 100)
+    with pytest.raises(JitHintError):
+        fn(100)
 
     myjitdriver = JitDriver(greens=['n'], reds=[])
-    py.test.raises(JitHintError, fn, 100)
+    with pytest.raises(JitHintError):
+        fn(100)
 
 def test_invalid_hint_combinations_error():
     with pytest.raises(TypeError):
@@ -206,7 +212,8 @@ class TestJIT(BaseRtypingTest):
                 myjitdriver.jit_merge_point(n=n)
                 n -= 1
             return n
-        py.test.raises(JitHintError, self.gengraph, fn, [int])
+        with pytest.raises(JitHintError):
+            self.gengraph(fn, [int])
 
     def test_annotate_typeerror(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
@@ -220,14 +227,16 @@ class TestJIT(BaseRtypingTest):
                 myjitdriver.jit_merge_point(m=B(), n=n)
                 n -= 1
             return n
-        py.test.raises(UnionError, self.gengraph, fn, [int])
+        with pytest.raises(UnionError):
+            self.gengraph(fn, [int])
 
     def test_green_field(self):
         def get_printable_location(xfoo):
             return str(ord(xfoo))   # xfoo must be annotated as a character
         # green fields are disabled!
-        pytest.raises(ValueError, JitDriver, greens=['x.foo'], reds=['n', 'x'],
-                                get_printable_location=get_printable_location)
+        with pytest.raises(ValueError):
+            JitDriver(greens=['x.foo'], reds=['n', 'x'],
+                      get_printable_location=get_printable_location)
         return
         class A(object):
             _immutable_fields_ = ['foo']
@@ -264,16 +273,16 @@ class TestJIT(BaseRtypingTest):
         myjitdriver = JitDriver(greens=['r1', 'i1', 'f1'], reds=[])
         class A(object):
             pass
-        e = py.test.raises(AssertionError,
-                   myjitdriver.jit_merge_point, i1=42, r1=A(), f1=3.5)
+        with pytest.raises(AssertionError):
+           myjitdriver.jit_merge_point(i1=42, r1=A(), f1=3.5)
 
     def test_argument_order_more_precision_later(self):
         myjitdriver = JitDriver(greens=['r1', 'i1', 'r2', 'f1'], reds=[])
         class A(object):
             pass
         myjitdriver.jit_merge_point(i1=42, r1=None, r2=None, f1=3.5)
-        e = py.test.raises(AssertionError,
-                   myjitdriver.jit_merge_point, i1=42, r1=A(), r2=None, f1=3.5)
+        with pytest.raises(AssertionError) as e:
+            myjitdriver.jit_merge_point(i1=42, r1=A(), r2=None, f1=3.5)
         assert "got ['2:REF', '1:INT', '?', '3:FLOAT']" in repr(e.value)
 
     def test_argument_order_more_precision_later_2(self):
@@ -281,8 +290,8 @@ class TestJIT(BaseRtypingTest):
         class A(object):
             pass
         myjitdriver.jit_merge_point(i1=42, r1=None, r2=A(), f1=3.5)
-        e = py.test.raises(AssertionError,
-                   myjitdriver.jit_merge_point, i1=42, r1=A(), r2=None, f1=3.5)
+        with pytest.raises(AssertionError) as e:
+            myjitdriver.jit_merge_point(i1=42, r1=A(), r2=None, f1=3.5)
         assert "got ['2:REF', '1:INT', '2:REF', '3:FLOAT']" in repr(e.value)
 
     def test_argument_order_accept_r_uint(self):
