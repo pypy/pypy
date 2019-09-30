@@ -583,6 +583,31 @@ def test_async_aclose_await_in_finally_with_exception():
         pass
     assert state == exc
 
+def test_agen_aclose_await_and_yield_in_finally():
+    import types
+    @types.coroutine
+    def bar():
+        yield 42
+
+    async def foo():
+        try:
+            yield 1
+            1 / 0
+        finally:
+            await bar()
+            yield 12
+
+    async def run():
+        gen = foo()
+        it = gen.__aiter__()
+        await it.__anext__()
+        await gen.aclose()
+
+    coro = run()
+    assert coro.send(None) == 42
+    with pytest.raises(RuntimeError):
+        coro.send(None)
+
 def test_async_aclose_in_finalize_hook_await_in_finally():
     import gc
     import sys
