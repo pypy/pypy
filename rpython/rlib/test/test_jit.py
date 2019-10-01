@@ -367,7 +367,16 @@ class TestJIT(BaseRtypingTest):
         def g():
             a = A()
             b = A()
-            record_exact_value(a,a) # assume not crash
+            record_exact_value(a, a) # assume not crash
+        self.interpret(g, [])
+
+    def test_record_exact_value_int(self):
+        @dont_look_inside
+        def f():
+            return 4
+        def g():
+            a = f()
+            record_exact_value(a >= 0, True) # does not crash
         self.interpret(g, [])
 
     def test_record_known_result(self):

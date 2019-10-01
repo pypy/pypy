@@ -310,7 +310,13 @@ class Transformer(object):
         return op1
 
     def rewrite_op_jit_record_exact_value(self, op):
-        return SpaceOperation("record_exact_value", [op.args[0], op.args[1]], None)
+        if getkind(op.args[0].concretetype) == "int":
+            assert getkind(op.args[1].concretetype) == "int"
+            return SpaceOperation("record_exact_value_i", [op.args[0], op.args[1]], None)
+        else:
+            assert getkind(op.args[0].concretetype) == "ref"
+            assert getkind(op.args[1].concretetype) == "ref"
+            return SpaceOperation("record_exact_value_r", [op.args[0], op.args[1]], None)
 
     def rewrite_op_debug_assert_not_none(self, op):
         if isinstance(op.args[0], Variable):

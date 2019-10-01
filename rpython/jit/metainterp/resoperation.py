@@ -1144,7 +1144,8 @@ _oplist = [
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
     'ASSERT_NOT_NONE/1/n',      # [objptr]
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
-    'RECORD_EXACT_VALUE/2/n',   # [objptr, objptr]
+    'RECORD_EXACT_VALUE_R/2/n',   # [objptr, objptr]
+    'RECORD_EXACT_VALUE_I/2/n',   # [int, int]
     'KEEPALIVE/1/n',
     'SAVE_EXCEPTION/0/r',
     'SAVE_EXC_CLASS/0/i',       # XXX kill me

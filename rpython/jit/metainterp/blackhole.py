@@ -614,7 +614,11 @@ class BlackholeInterpreter(object):
         pass
 
     @arguments("r", "r")
-    def bhimpl_record_exact_value(a, b):
+    def bhimpl_record_exact_value_r(a, b):
+        pass
+
+    @arguments("i", "i")
+    def bhimpl_record_exact_value_i(a, b):
         pass
 
     @arguments("i", returns="i")

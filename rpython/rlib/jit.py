@@ -1236,22 +1236,21 @@ def record_exact_value(value, const_value):
     """
     Assure the JIT that value is the same as const_value
     """
-    assert value is const_value
+    assert value == const_value
 
 def ll_record_exact_value(ll_value, ll_const_value):
     from rpython.rlib.debug import ll_assert
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rtyper.lltypesystem import lltype
-    ll_assert(ll_value is ll_const_value, "record_exact_value called with two different arguments")
+    ll_assert(ll_value == ll_const_value, "record_exact_value called with two different arguments")
     llop.jit_record_exact_value(lltype.Void, ll_value, ll_const_value)
 
 class Entry(ExtRegistryEntry):
     _about_ = record_exact_value
 
-    def compute_result_annotation(self, s_inst, s_const_inst):
+    def compute_result_annotation(self, s_val, s_const_val):
         from rpython.annotator import model as annmodel
-        assert isinstance(s_inst, annmodel.SomeInstance)
-        assert isinstance(s_const_inst, annmodel.SomeInstance)
+        annmodel.unionof(s_val, s_const_val) # produce error if types are incompatible
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype

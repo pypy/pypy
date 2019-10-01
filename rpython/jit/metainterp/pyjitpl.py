@@ -342,9 +342,15 @@ class MIFrame(object):
         self.metainterp._record_helper_nonpure_varargs(rop.RECORD_KNOWN_RESULT, None, calldescr, allboxes)
 
     @arguments("box", "box")
-    def opimpl_record_exact_value(self, box, const_box):
+    def opimpl_record_exact_value_r(self, box, const_box):
+        return self._record_exact_value(rop.RECORD_EXACT_VALUE_R, box, const_box)
+    @arguments("box", "box")
+    def opimpl_record_exact_value_i(self, box, const_box):
+        return self._record_exact_value(rop.RECORD_EXACT_VALUE_I, box, const_box)
+
+    def _record_exact_value(self, opname, box, const_box):
         if isinstance(const_box, Const):
-            self.execute(rop.RECORD_EXACT_VALUE, box, const_box)
+            self.execute(opname, box, const_box)
         elif have_debug_prints():
             if len(self.metainterp.framestack) >= 2:
                 # caller of ll_record_exact_value
