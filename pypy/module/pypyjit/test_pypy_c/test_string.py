@@ -317,3 +317,23 @@ class TestString(BaseTestPyPyC):
             i57 = int_sub(i52, i56)
             i59 = int_sub(i38, 1)
         ''')
+
+    def test_decode_encode(self):
+        log = self.run("""
+        def main(n):
+            global s
+            u = b'ab\xc3\xa4\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa7\xe2\x80\x8d\xf0\x9f\x91\xa6'.decode("utf-8")
+            count = 0
+            for i in range(n):
+                b = (u + unicode(i)).encode("utf-8")
+                u = b.decode("utf-8") # ID: decode
+                count += 1
+            return count
+        """, [10000])
+        loop, = log.loops_by_filename(self.filepath)
+        # No call to _check_utf8 is necessary, because the bytes come from
+        # W_UnicodeObject.utf8_w.
+        assert loop.match_by_id('decode', '''
+            i95 = int_ge(i86, 0)
+            guard_true(i95, descr=...)
+        ''')
