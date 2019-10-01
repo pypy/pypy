@@ -469,6 +469,14 @@ class AppTest(object):
         res = _pypyjson.loads(json)
         assert res == [{u'a': 1}, {u'a': 2}]
 
+    def test_huge_map(self):
+        import _pypyjson
+        import __pypy__
+        s = '{' + ",".join('"%s": %s' % (i, i) for i in range(200)) + '}'
+        res = _pypyjson.loads(s)
+        assert len(res) == 200
+        assert __pypy__.strategy(res) == "UnicodeDictStrategy"
+
     def test_tab_in_string_should_fail(self):
         import _pypyjson
         # http://json.org/JSON_checker/test/fail25.json
