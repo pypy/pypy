@@ -8,8 +8,10 @@ import os
 
 
 class AppTestBufferedReader:
-    spaceconfig = dict(usemodules=['_io', 'fcntl'])
-
+    spaceconfig = dict(usemodules=['_io'])
+    if os.name != 'nt':
+        spaceconfig['usemodules'].append('fcntl')
+        
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
@@ -388,7 +390,10 @@ class AppTestBufferedReader:
 
     def test_readline_issue3042(self):
         import _io as io
-        import fcntl
+        try:
+            import fcntl
+        except ImportError:
+            skip('fcntl missing')
         fdin, fdout = self.posix.pipe()
         f = io.open(fdin, "rb")
         fl = fcntl.fcntl(f, fcntl.F_GETFL)
@@ -400,7 +405,10 @@ class AppTestBufferedReader:
 
 
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
-    spaceconfig = dict(usemodules=['_io', 'fcntl', 'thread', 'time'])
+    spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
+    if os.name != 'nt':
+        spaceconfig['usemodules'].append('fcntl')
+        
 
     def test_readinto_small_parts(self):
         import _io, os, _thread, time

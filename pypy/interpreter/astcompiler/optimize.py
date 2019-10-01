@@ -142,6 +142,16 @@ def _fold_pow(space, w_left, w_right):
     """)
     return space.pow(w_left, w_right, space.w_None)
 
+def _fold_lshift(space, w_left, w_right):
+    # don't constant-fold if "w_left" and "w_right" are integers and
+    # the estimated bit length of the result is unreasonably large
+    space.appexec([w_left, w_right], """(left, right):
+        if isinstance(left, int) and isinstance(right, int):
+            if left.bit_length() + right > 1000:
+                raise OverflowError
+    """)
+    return space.lshift(w_left, w_right)
+
 def _fold_not(space, operand):
     return space.newbool(not space.is_true(operand))
 
@@ -154,7 +164,7 @@ binary_folders = {
     ast.FloorDiv : _binary_fold("floordiv"),
     ast.Mod : _binary_fold("mod"),
     ast.Pow : _fold_pow,
-    ast.LShift : _binary_fold("lshift"),
+    ast.LShift : _fold_lshift,
     ast.RShift : _binary_fold("rshift"),
     ast.BitOr : _binary_fold("or_"),
     ast.BitXor : _binary_fold("xor"),

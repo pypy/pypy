@@ -75,8 +75,12 @@ def prepare(space, cdef, module_name, source, w_includes=None,
 
     args_w = [space.wrap(module_name), space.wrap(so_file)]
     w_res = space.appexec(args_w, """(modulename, filename):
-        import imp
-        mod = imp.load_dynamic(modulename, filename)
+        import _imp
+        class Spec: pass
+        spec = Spec()
+        spec.name = modulename
+        spec.origin = filename
+        mod = _imp.create_dynamic(spec)
         assert mod.__name__ == modulename
         return (mod.ffi, mod.lib)
     """)

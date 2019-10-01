@@ -723,6 +723,8 @@ class AppTestImport(BaseFSEncodeTest):
         class StdErr(object):
             def write(self, line):
                 output.append(line)
+            def flush(self):
+                return
 
         import sys, imp
         sys.stderr = StdErr()

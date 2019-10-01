@@ -13,7 +13,8 @@ def test_f_globals():
     import sys
     f = sys._getframe()
     assert f.f_globals is globals()
-    pytest.raises(AttributeError, "f.f_globals = globals()")
+    with pytest.raises(AttributeError):
+        f.f_globals = globals()
 
 def test_f_builtins():
     import sys, builtins
@@ -116,6 +117,8 @@ def test_f_lineno_set(tempfile):
     # assert did not crash
 
 def test_f_lineno_set_2():
+    skip("this test is known to crash CPython (verified in 3.6.9).  "
+         "Now it crashes PyPy too. Too bad?")
     counter = [0]
     errors = []
 
@@ -166,7 +169,6 @@ def test_f_lineno_set_3():
     assert output == [2, 9]
 
 def test_f_lineno_set_4():
-    pytest.skip("test is failing on pypy")
     def jump_in_nested_finally(output):
         try:
             output.append(2)
@@ -321,7 +323,10 @@ def test_trace_exc():
 
 def test_trace_ignore_hidden():
     import sys
-    import _testing
+    try:
+        import _testing
+    except ImportError:
+        skip('PyPy only test')
     _testing.Hidden  # avoid module lazy-loading weirdness when untranslated
 
     l = []

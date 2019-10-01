@@ -3,7 +3,7 @@ pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
 exe=pypy3 # pypy3 or pypy
 maj=7
-min=1
+min=2
 rev=0
 
 
@@ -28,7 +28,7 @@ fi
 # Download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket
 actual_ver=xxxxxxxxxxxxxxx
-for plat in linux linux64 osx64 s390x # linux-armhf-raspbian linux-armel
+for plat in linux linux64 osx64 s390x aarch64 # linux-armhf-raspbian linux-armel
   do
     echo downloading package for $plat
     if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2

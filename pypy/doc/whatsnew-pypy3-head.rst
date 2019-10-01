@@ -39,3 +39,20 @@ Update standard library to version 3.6.9
 
 Fix handling of __debug__, sys.flags.optimize, and '-O' command-line flag to 
 match CPython 3.6.
+
+.. branch: more-cpyext
+
+Add ``PyErr_SetFromWindowsErr`` and ``pytime.h``, ``pytime.c``. Fix order of
+fields in ``Py_buffer``.
+
+.. branch: Ryan-Hileman/add-support-for-zipfile-stdlib-1562420744699
+
+Add support for the entire stdlib being inside a zipfile
+
+
+.. branch: json-decoder-maps-py3.6
+
+Much faster and more memory-efficient JSON decoding. The resulting
+dictionaries that come out of the JSON decoder have faster lookups too.
+
+

@@ -342,6 +342,26 @@ class W_ImportError(W_Exception):
             self.w_msg = space.w_None
         W_Exception.descr_init(self, space, args_w)
 
+    def descr_reduce(self, space):
+        lst = [self.getclass(space), space.newtuple(self.args_w)]
+        if self.w_dict is not None and space.is_true(self.w_dict):
+            w_dict = space.call_method(self.w_dict, "copy")
+        else:
+            w_dict = space.newdict()
+        if not space.is_w(self.w_name, space.w_None):
+            space.setitem(w_dict, space.newtext("name"), self.w_name)
+        if not space.is_w(self.w_path, space.w_None):
+            space.setitem(w_dict, space.newtext("path"), self.w_path)
+        if space.is_true(w_dict):
+            lst = [lst[0], lst[1], w_dict]
+        return space.newtuple(lst)
+
+    def descr_setstate(self, space, w_dict):
+        self.w_name = space.call_method(w_dict, "pop", space.newtext("name"), space.w_None)
+        self.w_path = space.call_method(w_dict, "pop", space.newtext("path"), space.w_None)
+        w_olddict = self.getdict(space)
+        space.call_method(w_olddict, 'update', w_dict)
+
 
 W_ImportError.typedef = TypeDef(
     'ImportError',
@@ -350,6 +370,8 @@ W_ImportError.typedef = TypeDef(
     __module__ = 'builtins',
     __new__ = _new(W_ImportError),
     __init__ = interp2app(W_ImportError.descr_init),
+    __reduce__ = interp2app(W_ImportError.descr_reduce),
+    __setstate__ = interp2app(W_ImportError.descr_setstate),
     name = readwrite_attrproperty_w('w_name', W_ImportError),
     path = readwrite_attrproperty_w('w_path', W_ImportError),
     msg = readwrite_attrproperty_w('w_msg', W_ImportError),
@@ -814,6 +836,10 @@ class W_SyntaxError(W_Exception):
 
     # CPython Issue #21669: Custom error for 'print' & 'exec' as statements
     def _report_missing_parentheses(self, space):
+        if not space.text_w(self.w_msg).startswith("Missing parentheses in call to "):
+            # the parser identifies the correct places where the error should
+            # be produced
+            return
         text = space.utf8_w(self.w_text)
         if b'(' in text:
             # Use default error message for any line with an opening paren
@@ -830,7 +856,7 @@ class W_SyntaxError(W_Exception):
 
     def _check_for_legacy_statements(self, space, text, start):
         # Ignore leading whitespace
-        while start < len(text) and text[start] == u' ':
+        while start < len(text) and text[start] == b' ':
             start += 1
         # Checking against an empty or whitespace-only part of the string
         if start == len(text):
@@ -839,13 +865,39 @@ class W_SyntaxError(W_Exception):
             text = text[start:]
         # Check for legacy print statements
         if text.startswith(b"print "):
-            self.w_msg = space.newtext("Missing parentheses in call to 'print'")
+            self._set_legacy_print_statement_msg(space, text)
             return True
         # Check for legacy exec statements
         if text.startswith(b"exec "):
             self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
             return True
         return False
+
+    def _set_legacy_print_statement_msg(self, space, text):
+        text = text[len("print"):]
+        text = text.strip()
+        if text.endswith(";"):
+            end = len(text) - 1
+            assert end >= 0
+            text = text[:end].strip()
+
+        maybe_end = ""
+        if text.endswith(","):
+            maybe_end = " end=\" \""
+
+        suggestion = "print(%s%s)" % (
+                text, maybe_end)
+
+        # try to see whether the suggestion would compile, otherwise discard it
+        compiler = space.createcompiler()
+        try:
+            compiler.compile(suggestion, '?', 'eval', 0)
+        except OperationError:
+            pass
+        else:
+            self.w_msg = space.newtext(
+                "Missing parentheses in call to 'print'. Did you mean %s?" % (
+                    suggestion, ))
 
 
 W_SyntaxError.typedef = TypeDef(

@@ -1,6 +1,20 @@
 import pytest
 from pytest import raises
 
+import sys
+
+
+class suspend:
+    """
+    A simple awaitable that returns control to the "event loop" with `msg`
+    as value.
+    """
+    def __init__(self, msg=None):
+        self.msg = msg
+
+    def __await__(self):
+        yield self.msg
+
 
 def test_cannot_iterate():
     async def f(x):
@@ -14,6 +28,7 @@ def test_async_for():
     class X:
         def __aiter__(self):
             return MyAIter()
+
     class MyAIter:
         async def __anext__(self):
             return 42
@@ -94,7 +109,6 @@ def test_for_error_cause():
     assert isinstance(c.value.__cause__, ZeroDivisionError)
 
 def test_set_coroutine_wrapper():
-    import sys
     async def f():
         pass
     seen = []
@@ -108,7 +122,6 @@ def test_set_coroutine_wrapper():
     assert cr == 42
     sys.set_coroutine_wrapper(None)
     assert sys.get_coroutine_wrapper() is None
-
 
 def test_async_with():
     seen = []
@@ -202,6 +215,7 @@ def test_runtime_warning():
     import gc, warnings  # XXX: importing warnings is expensive untranslated
     async def foobaz():
         pass
+    gc.collect()   # emit warnings from unrelated older tests
     with warnings.catch_warnings(record=True) as l:
         foobaz()
         gc.collect()
@@ -516,12 +530,6 @@ def test_async_aclose_ignore_generator_exit():
     raises(RuntimeError, run().send, None)
 
 def test_async_aclose_await_in_finally():
-    import types
-
-    @types.coroutine
-    def coro():
-        yield 'coro'
-
     state = 0
     async def ag():
         nonlocal state
@@ -529,7 +537,7 @@ def test_async_aclose_await_in_finally():
             yield
         finally:
             state = 1
-            await coro()
+            await suspend('coro')
             state = 2
 
     async def run():
@@ -548,12 +556,6 @@ def test_async_aclose_await_in_finally():
     assert state == 2
 
 def test_async_aclose_await_in_finally_with_exception():
-    import types
-
-    @types.coroutine
-    def coro():
-        yield 'coro'
-
     state = 0
     async def ag():
         nonlocal state
@@ -562,7 +564,7 @@ def test_async_aclose_await_in_finally_with_exception():
         finally:
             state = 1
             try:
-                await coro()
+                await suspend('coro')
             except Exception as exc:
                 state = exc
 
@@ -582,15 +584,28 @@ def test_async_aclose_await_in_finally_with_exception():
         pass
     assert state == exc
 
+def test_agen_aclose_await_and_yield_in_finally():
+    async def foo():
+        try:
+            yield 1
+            1 / 0
+        finally:
+            await suspend(42)
+            yield 12
+
+    async def run():
+        gen = foo()
+        it = gen.__aiter__()
+        await it.__anext__()
+        await gen.aclose()
+
+    coro = run()
+    assert coro.send(None) == 42
+    with pytest.raises(RuntimeError):
+        coro.send(None)
+
 def test_async_aclose_in_finalize_hook_await_in_finally():
     import gc
-    import sys
-    import types
-
-    @types.coroutine
-    def coro():
-        yield 'coro'
-
     state = 0
     async def ag():
         nonlocal state
@@ -598,7 +613,7 @@ def test_async_aclose_in_finalize_hook_await_in_finally():
             yield
         finally:
             state = 1
-            await coro()
+            await suspend('coro')
             state = 2
 
     async def run():
@@ -702,3 +717,38 @@ def test_asyncgen_yield_stopiteration():
         assert val2.value == 2
 
     run_async(run())
+
+def test_asyncgen_hooks_shutdown():
+    finalized = 0
+    asyncgens = []
+
+    def register_agen(agen):
+        asyncgens.append(agen)
+
+    async def waiter(timeout):
+        nonlocal finalized
+        try:
+            await suspend('running waiter')
+            yield 1
+        finally:
+            await suspend('closing waiter')
+            finalized += 1
+
+    async def wait():
+        async for _ in waiter(1):
+            pass
+
+    task1 = wait()
+    task2 = wait()
+    old_hooks = sys.get_asyncgen_hooks()
+    try:
+        sys.set_asyncgen_hooks(firstiter=register_agen)
+        assert task1.send(None) == 'running waiter'
+        assert task2.send(None) == 'running waiter'
+        assert len(asyncgens) == 2
+
+        assert run_async(asyncgens[0].aclose()) == (['closing waiter'], None)
+        assert run_async(asyncgens[1].aclose()) == (['closing waiter'], None)
+        assert finalized == 2
+    finally:
+        sys.set_asyncgen_hooks(*old_hooks)

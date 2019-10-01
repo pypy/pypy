@@ -258,7 +258,6 @@ class ParseArgsTestCase(unittest.TestCase):
                 self.checkError([opt, '0', '-T'], "don't go together")
                 self.checkError([opt, '0', '-T'], "don't go together")
                 self.checkError([opt, '0', '-l'], "don't go together")
-                self.checkError([opt, '0', '-M', '4G'], "don't go together")
 
     def test_coverage(self):
         for opt in '-T', '--coverage':

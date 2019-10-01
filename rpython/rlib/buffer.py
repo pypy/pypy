@@ -123,7 +123,7 @@ class Buffer(object):
 
 class RawBuffer(Buffer):
     """
-    A buffer which is baked by a raw, non-movable memory area. It implementes
+    A buffer which is backed by a raw, non-movable memory area. It implementes
     typed_read and typed_write in terms of get_raw_address(), llop.raw_load,
     llop.raw_store.
 
@@ -157,7 +157,7 @@ class RawBuffer(Buffer):
 
 class GCBuffer(Buffer):
     """
-    Base class for a buffer which is baked by a GC-managed memory area. You
+    Base class for a buffer which is backed by a GC-managed memory area. You
     MUST also decorate the class with @GCBuffer.decorate: it implements
     typed_read and typed_write in terms of llop.gc_load_indexed and
     llop.gc_store_indexed.
@@ -249,6 +249,14 @@ class ByteBuffer(GCBuffer):
 
     def setitem(self, index, char):
         self.data[index] = char
+
+    def getslice(self, start, stop, step, size):
+        if step == 1:
+            assert 0 <= start <= stop
+            if start == 0 and stop == len(self.data):
+                return "".join(self.data)
+            return "".join(self.data[start:stop])
+        return Buffer.getslice(self, start, stop, step, size)
 
     def get_raw_address(self):
         return nonmoving_raw_ptr_for_resizable_list(self.data)

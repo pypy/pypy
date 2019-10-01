@@ -47,9 +47,7 @@ class TestParsetring:
                        parsestring.parsestr, space, None, "b'\xe9'")
         self.parse_and_compare(r"b'\xe9'", chr(0xE9))
 
-
     def test_unicode(self):
-        space = self.space
         for s in ['hello world', 'hello\n world']:
             self.parse_and_compare(repr(s), unicode(s))
 
@@ -106,7 +104,7 @@ class TestParsetring:
         s = s.decode("koi8-u").encode("utf8")
         w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
         ret = space.unwrap(w_ret)
-        assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81\\t'") 
+        assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81\\t'")
 
     def test_multiline_unicode_strings_with_backslash(self):
         space = self.space

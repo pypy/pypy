@@ -182,6 +182,7 @@ class FakeObjSpace(ObjSpace):
             for w_x in list_w:
                 is_root(w_x)
         return w_some_obj()
+    newfrozenset = newset
 
     def newlist(self, list_w):
         for w_x in list_w:

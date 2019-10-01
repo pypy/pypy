@@ -88,7 +88,11 @@ def create_entry_point(space, w_dict):
                 return 1
         finally:
             try:
-                space.finish()
+                # the equivalent of Py_FinalizeEx
+                if space.finish() < 0:
+                    # Value unlikely to be confused with a non-error exit status
+                    # or other special meaning (from cpython/Modules/main.c)
+                    exitcode = 120
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))

@@ -459,15 +459,18 @@ class ObjSpace(object):
                 w_mod.init(self)
 
     def finish(self):
+        ret = 0
         self.wait_for_thread_shutdown()
         w_atexit = self.getbuiltinmodule('atexit')
         self.call_method(w_atexit, '_run_exitfuncs')
         self.sys.finalizing = True
-        self.sys.flush_std_files(self)
+        if self.sys.flush_std_files(self) < 0:
+            ret = -1
         from pypy.interpreter.module import Module
         for w_mod in self.builtin_modules.values():
             if isinstance(w_mod, Module) and w_mod.startup_called:
                 w_mod.shutdown(self)
+        return ret
 
     def wait_for_thread_shutdown(self):
         """Wait until threading._shutdown() completes, provided the threading
@@ -1177,7 +1180,7 @@ class ObjSpace(object):
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
             # call_valuestack().
-            args = frame.make_arguments(nargs)
+            args = frame.make_arguments(nargs, w_function=w_func)
             return self.call_args_and_c_profile(frame, w_func, args)
 
         if not self.config.objspace.disable_call_speedhacks:
@@ -1194,7 +1197,7 @@ class ObjSpace(object):
                         nargs, frame, methodcall=methodcall)
             # end of hack for performance
 
-        args = frame.make_arguments(nargs)
+        args = frame.make_arguments(nargs, w_function=w_func)
         return self.call_args(w_func, args)
 
     def call_args_and_c_profile(self, frame, w_func, args):

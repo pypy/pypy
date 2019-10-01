@@ -31,7 +31,7 @@ def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, utf8,
                                        startingpos, endingpos):
-        u_len = rutf8.get_utf8_length(utf8)
+        u_len = rutf8.codepoints_in_utf8(utf8)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
                                              space.newutf8(utf8, u_len),
@@ -120,23 +120,26 @@ def encode(space, w_data, encoding=None, errors='strict'):
     return encode_object(space, w_data, encoding, errors)
 
 
-def _has_surrogate(u):
-    for c in u:
-        if 0xD800 <= ord(c) <= 0xDFFF:
-            return True
-    return False
-
 # These functions take and return unwrapped rpython strings
 def decode_unicode_escape(space, string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
-    s, blen, ulen, first_escape_error_char = str_decode_unicode_escape(
+    s, ulen, blen, first_escape_error_char = str_decode_unicode_escape(
         string, "strict",
         final=True,
         errorhandler=state.decode_error_handler,
         ud_handler=unicodedata_handler)
-    return s, blen, ulen
+    if first_escape_error_char is not None:
+        msg = "invalid escape sequence '%s'"
+        try:
+            space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
+        except OperationError as e:
+            if e.match(space, space.w_DeprecationWarning):
+                raise oefmt(space.w_SyntaxError, msg, first_escape_error_char)
+            else:
+                raise
+    return s, ulen, blen
 
 def decode_raw_unicode_escape(space, string):
     return str_decode_raw_unicode_escape(
@@ -221,23 +224,35 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
     size = len(s)
     if size == 0:
         return ''
+
+    # two fast paths
+    if allow_surrogates:
+        # already valid utf-8 with surrogates, surrogates are allowed, so just
+        # return
+        return s
+    if not rutf8.has_surrogates(s):
+        # already valid utf-8 and doesn't contain surrogates, so we don't need
+        # to do anything
+        return s
+    # annoying slow path
+    return _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler)
+
+def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler):
     pos = 0
     upos = 0
+    size = len(s)
     result = StringBuilder(size)
     while pos < size:
         try:
-            lgt = rutf8.check_utf8(s, allow_surrogates=allow_surrogates, start=pos)
-            if pos == 0:
-                # fast path
-                return s
-            for ch in s[pos:]:
-                result.append(ch)
+            rutf8.check_utf8(s, allow_surrogates=False, start=pos)
+            # otherwise the fast path above would have triggered
+            assert pos != 0
+            result.append_slice(s, pos, len(s))
             break
         except rutf8.CheckError as e:
             end = e.pos
             assert end >= 0
-            for ch in s[pos:end]:
-                result.append(ch)
+            result.append_slice(s, pos, end)
             upos += rutf8.codepoints_in_utf8(s, start=pos, end=end)
             pos = end
             # Try to get collect surrogates in one pass
@@ -254,11 +269,13 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
             res, newindex, rettype = errorhandler(errors, 'utf-8',
                         'surrogates not allowed', s, upos, upos + delta)
             if rettype == 'u':
-                for cp in rutf8.Utf8StringIterator(res):
-                    result.append(chr(cp))
-            else:
-                for ch in res:
-                    result.append(ch)
+                try:
+                    rutf8.check_ascii(res)
+                except rutf8.CheckError:
+                    # this is a weird behaviour of CPython, but it's what happens
+                    errorhandler("strict", 'utf-8', 'surrogates not allowed', s, upos, upos + delta)
+                    assert 0, "unreachable"
+            result.append(res)
             if newindex <= upos:
                 raise ErrorHandlerError(newindex, upos)
             upos = newindex

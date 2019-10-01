@@ -41,23 +41,38 @@ def test_pypy_collection(testdir):
         "*AppTestMethod*",
     ])
 
-class TestSpaceConfig:
-    @pytest.mark.xfail(reason="Can't check config with -A in pypy3")
-    def test_interp_spaceconfig(self, testdir):
-        setpypyconftest(testdir)
-        p = testdir.makepyfile("""
-            class TestClass:
-                spaceconfig = {"objspace.usemodules._random": False}
-                def setup_class(cls):
-                    assert not cls.space.config.objspace.usemodules._random
-                def test_interp(self, space):
-                    assert self.space is space
-                def test_interp2(self, space):
-                    assert self.space is space
-        """)
-        result = testdir.runpytest(p)
-        assert result.ret == 0
-        result.stdout.fnmatch_lines(["*2 passed*"])
+def test_interp_spaceconfig(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        class TestClass:
+            spaceconfig = {"objspace.usemodules._random": False}
+            def setup_class(cls):
+                assert not cls.space.config.objspace.usemodules._random
+            def test_interp(self, space):
+                assert self.space is space
+            def test_interp2(self, space):
+                assert self.space is space
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.stdout.fnmatch_lines(["*2 passed*"])
+
+def test_spaceconfig_param(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        import pytest
+
+        @pytest.mark.parametrize('spaceconfig',
+            [{"objspace.usemodules._random": False}])
+        def test_interp(space):
+            assert not space.config.objspace.usemodules._random
+
+        def test_interp2(space):
+            assert space.config.objspace.usemodules._random
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.stdout.fnmatch_lines(["*2 passed*"])
 
 def test_applevel_raises_simple_display(testdir):
     setpypyconftest(testdir)

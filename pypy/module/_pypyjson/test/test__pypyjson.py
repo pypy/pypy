@@ -1,31 +1,266 @@
 # -*- encoding: utf-8 -*-
-from pypy.module._pypyjson.interp_decoder import JSONDecoder
+import pytest
+from pypy.module._pypyjson.interp_decoder import JSONDecoder, Terminator, MapBase
+from rpython.rtyper.lltypesystem import lltype, rffi
 
-def test_skip_whitespace():
-    s = '   hello   '
-    dec = JSONDecoder('fake space', s)
-    assert dec.pos == 0
-    assert dec.skip_whitespace(0) == 3
-    assert dec.skip_whitespace(3) == 3
-    assert dec.skip_whitespace(8) == len(s)
-    dec.close()
 
-class FakeSpace(object):
-    def newutf8(self, s, l):
-        return s
+class TestJson(object):
+    def test_skip_whitespace(self):
+        s = '   hello   '
+        dec = JSONDecoder(self.space, s)
+        assert dec.pos == 0
+        assert dec.skip_whitespace(0) == 3
+        assert dec.skip_whitespace(3) == 3
+        assert dec.skip_whitespace(8) == len(s)
+        dec.close()
 
-def test_decode_key():
-    s1 = "123" * 100
-    s = ' "%s"   "%s" ' % (s1, s1)
-    dec = JSONDecoder(FakeSpace(), s)
-    assert dec.pos == 0
-    x = dec.decode_key(0)
-    assert x == s1
-    # check caching
-    y = dec.decode_key(dec.pos)
-    assert y == s1
-    assert y is x
-    dec.close()
+    def test_json_map(self):
+        m = Terminator(self.space)
+        w_a = self.space.newutf8("a", 1)
+        w_b = self.space.newutf8("b", 1)
+        w_c = self.space.newutf8("c", 1)
+        m1 = m.get_next(w_a, '"a"', 0, 3, m)
+        assert m1.w_key == w_a
+        assert m1.nextmap_first is None
+        assert m1.key_repr == '"a"'
+        assert m1.key_repr_cmp('"a": 123', 0)
+        assert not m1.key_repr_cmp('b": 123', 0)
+        assert m.nextmap_first.w_key == w_a
+
+        m2 = m.get_next(w_a, '"a"', 0, 3, m)
+        assert m2 is m1
+
+        m3 = m.get_next(w_b, '"b"', 0, 3, m)
+        assert m3.w_key == w_b
+        assert m3.nextmap_first is None
+        assert m3.key_repr == '"b"'
+        assert m.nextmap_first is m1
+
+        m4 = m3.get_next(w_c, '"c"', 0, 3, m)
+        assert m4.w_key == w_c
+        assert m4.nextmap_first is None
+        assert m4.key_repr == '"c"'
+        assert m3.nextmap_first is m4
+
+    def test_json_map_get_index(self):
+        m = Terminator(self.space)
+        w_a = self.space.newutf8("a", 1)
+        w_b = self.space.newutf8("b", 1)
+        w_c = self.space.newutf8("c", 1)
+        m1 = m.get_next(w_a, 'a"', 0, 2, m)
+        assert m1.get_index(w_a) == 0
+        assert m1.get_index(w_b) == -1
+
+        m2 = m.get_next(w_b, 'b"', 0, 2, m)
+        assert m2.get_index(w_b) == 0
+        assert m2.get_index(w_a) == -1
+
+        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
+        assert m3.get_index(w_b) == 0
+        assert m3.get_index(w_c) == 1
+        assert m3.get_index(w_a) == -1
+
+    def test_jsonmap_fill_dict(self):
+        from collections import OrderedDict
+        m = Terminator(self.space)
+        space = self.space
+        w_a = space.newutf8("a", 1)
+        w_b = space.newutf8("b", 1)
+        w_c = space.newutf8("c", 1)
+        m1 = m.get_next(w_a, 'a"', 0, 2, m)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, m)
+        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
+        d = OrderedDict()
+        m3.fill_dict(d, [space.w_None, space.w_None, space.w_None])
+        assert list(d) == [w_a, w_b, w_c]
+
+
+    def test_decode_key_map(self):
+        m = Terminator(self.space)
+        m_diff = Terminator(self.space)
+        for s1 in ["abc", "1001" * 10, u"ä".encode("utf-8")]:
+            s = ' "%s"   "%s" "%s"' % (s1, s1, s1)
+            dec = JSONDecoder(self.space, s)
+            assert dec.pos == 0
+            m1 = dec.decode_key_map(dec.skip_whitespace(0), m)
+            assert m1.w_key._utf8 == s1
+            assert m1.key_repr == '"%s"' % s1
+
+            # check caching on w_key level
+            m2 = dec.decode_key_map(dec.skip_whitespace(dec.pos), m_diff)
+            assert m1.w_key is m2.w_key
+
+            # check caching on map level
+            m3 = dec.decode_key_map(dec.skip_whitespace(dec.pos), m_diff)
+            assert m3 is m2
+            dec.close()
+
+    def test_decode_string_caching(self):
+        for s1 in ["abc", u"ä".encode("utf-8")]:
+            s = '"%s"   "%s"    "%s"' % (s1, s1, s1)
+            dec = JSONDecoder(self.space, s)
+            dec.MIN_SIZE_FOR_STRING_CACHE = 0
+            assert dec.pos == 0
+            w_x = dec.decode_string(1)
+            w_y = dec.decode_string(dec.skip_whitespace(dec.pos) + 1)
+            assert w_x is not w_y
+            # check caching
+            w_z = dec.decode_string(dec.skip_whitespace(dec.pos) + 1)
+            assert w_z is w_y
+            dec.close()
+
+    def _make_some_maps(self):
+        # base -> m1 -> m2 -> m3
+        #                \-> m4
+        w_a = self.space.newutf8("a", 1)
+        w_b = self.space.newutf8("b", 1)
+        w_c = self.space.newutf8("c", 1)
+        w_d = self.space.newutf8("d", 1)
+        base = Terminator(self.space)
+        base.instantiation_count = 6
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
+        m3 = m2.get_next(w_c, 'c"', 0, 2, base)
+        m4 = m2.get_next(w_d, 'd"', 0, 2, base)
+        return base, m1, m2, m3, m4
+
+    # unit tests for map state transistions
+    def test_fringe_to_useful(self):
+        base, m1, m2, m3, m4 = self._make_some_maps()
+        base.instantiation_count = 6
+        assert m1.state == MapBase.FRINGE
+        m1.instantiation_count = 6
+
+        assert m2.state == MapBase.PRELIMINARY
+        m2.instantiation_count = 6
+
+        assert m3.state == MapBase.PRELIMINARY
+        m3.instantiation_count = 2
+        assert m2.nextmap_first is m3
+
+        assert m4.state == MapBase.PRELIMINARY
+        m4.instantiation_count = 4
+
+        m1.mark_useful(base)
+        assert m1.state == MapBase.USEFUL
+        assert m2.state == MapBase.USEFUL
+        assert m3.state == MapBase.FRINGE
+        assert m4.state == MapBase.USEFUL
+        assert m2.nextmap_first is m4
+
+        assert m1.number_of_leaves == 2
+        base._check_invariants()
+
+    def test_number_of_leaves(self):
+        w_x = self.space.newutf8("x", 1)
+        base, m1, m2, m3, m4 = self._make_some_maps()
+        assert base.number_of_leaves == 2
+        assert m1.number_of_leaves == 2
+        assert m2.number_of_leaves == 2
+        assert m3.number_of_leaves == 1
+        assert m4.number_of_leaves == 1
+        m5 = m2.get_next(w_x, 'x"', 0, 2, base)
+        assert base.number_of_leaves == 3
+        assert m1.number_of_leaves == 3
+        assert m2.number_of_leaves == 3
+        assert m5.number_of_leaves == 1
+
+    def test_number_of_leaves_after_mark_blocked(self):
+        w_x = self.space.newutf8("x", 1)
+        base, m1, m2, m3, m4 = self._make_some_maps()
+        m5 = m2.get_next(w_x, 'x"', 0, 2, base)
+        assert base.number_of_leaves == 3
+        m2.mark_blocked(base)
+        assert base.number_of_leaves == 1
+
+    def test_mark_useful_cleans_fringe(self):
+        base, m1, m2, m3, m4 = self._make_some_maps()
+        base.instantiation_count = 6
+        assert m1.state == MapBase.FRINGE
+        m1.instantiation_count = 6
+        m2.instantiation_count = 6
+        m3.instantiation_count = 2
+        m4.instantiation_count = 4
+        assert base.current_fringe == {m1: None}
+
+        m1.mark_useful(base)
+        assert base.current_fringe == {m3: None}
+
+    def test_cleanup_fringe(self):
+        w_a = self.space.newutf8("a", 1)
+        w_b = self.space.newutf8("b", 1)
+        w_c = self.space.newutf8("c", 1)
+        w_d = self.space.newutf8("d", 1)
+        base = Terminator(self.space)
+        base.instantiation_count = 6
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = base.get_next(w_b, 'b"', 0, 2, base)
+        m3 = base.get_next(w_c, 'c"', 0, 2, base)
+        m4 = base.get_next(w_d, 'd"', 0, 2, base)
+        m5 = m4.get_next(w_a, 'a"', 0, 2, base)
+        base.instantiation_count = 7
+        m1.instantiation_count = 2
+        m2.instantiation_count = 2
+        m3.instantiation_count = 2
+        m4.instantiation_count = 1
+        m5.instantiation_count = 1
+        assert base.current_fringe == dict.fromkeys([m1, m2, m3, m4])
+
+        base.cleanup_fringe()
+        assert base.current_fringe == dict.fromkeys([m1, m2, m3])
+        assert m4.state == MapBase.BLOCKED
+        assert m4.nextmap_first is None
+        assert m4.nextmap_all is None
+        assert m5.state == MapBase.BLOCKED
+        assert m5.nextmap_first is None
+        assert m5.nextmap_all is None
+
+    def test_deal_with_blocked(self):
+        w_a = self.space.newutf8("a", 1)
+        w_b = self.space.newutf8("b", 1)
+        w_c = self.space.newutf8("c", 1)
+        space = self.space
+        s = '{"a": 1, "b": 2, "c": 3}'
+        dec = JSONDecoder(space, s)
+        dec.startmap = base = Terminator(space)
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
+        m2.mark_blocked(base)
+        w_res = dec.decode_object(1)
+        assert space.int_w(space.len(w_res)) == 3
+        assert space.int_w(space.getitem(w_res, w_a)) == 1
+        assert space.int_w(space.getitem(w_res, w_b)) == 2
+        assert space.int_w(space.getitem(w_res, w_c)) == 3
+        dec.close()
+
+    def test_deal_with_blocked_number_of_leaves(self):
+        w_a = self.space.newutf8("a", 1)
+        w_b = self.space.newutf8("b", 1)
+        w_x = self.space.newutf8("x", 1)
+        w_u = self.space.newutf8("u", 1)
+        space = self.space
+        base = Terminator(space)
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
+        m2.get_next(w_x, 'x"', 0, 2, base)
+        m2.get_next(w_u, 'u"', 0, 2, base)
+        assert base.number_of_leaves == 2
+        m2.mark_blocked(base)
+        assert base.number_of_leaves == 1
+
+    def test_instatiation_count(self):
+        m = Terminator(self.space)
+        dec = JSONDecoder(self.space, '"abc" "def"')
+        m1 = dec.decode_key_map(dec.skip_whitespace(0), m)
+        m2 = dec.decode_key_map(dec.skip_whitespace(6), m1)
+        m1 = dec.decode_key_map(dec.skip_whitespace(0), m)
+        m2 = dec.decode_key_map(dec.skip_whitespace(6), m1)
+        m1 = dec.decode_key_map(dec.skip_whitespace(0), m)
+
+        assert m1.instantiation_count == 3
+        assert m2.instantiation_count == 2
+        dec.close()
+
 
 class AppTest(object):
     spaceconfig = {"usemodules": ['_pypyjson']}
@@ -106,6 +341,12 @@ class AppTest(object):
         s = r'"\u1234"'
         assert _pypyjson.loads(s) == '\u1234'
 
+    def test_escape_sequence_mixed_with_unicode(self):
+        import _pypyjson
+        assert _pypyjson.loads(r'"abc\\' + u'ä"') == u'abc\\ä'
+        assert _pypyjson.loads(r'"abc\"' + u'ä"') == u'abc"ä'
+        assert _pypyjson.loads(r'"def\u1234' + u'ä"') == u'def\u1234ä'
+
     def test_invalid_utf_8(self):
         import _pypyjson
         s = '"\xe0"' # this is an invalid UTF8 sequence inside a string
@@ -175,8 +416,13 @@ class AppTest(object):
         s = '{"hello": "world", "aaa": "bbb"}'
         assert _pypyjson.loads(s) == {'hello': 'world',
                                       'aaa': 'bbb'}
+        assert _pypyjson.loads(s) == {'hello': 'world',
+                                      'aaa': 'bbb'}
         raises(ValueError, _pypyjson.loads, '{"key"')
         raises(ValueError, _pypyjson.loads, '{"key": 42')
+
+        assert _pypyjson.loads('{"neighborhood": ""}') == {
+            "neighborhood": ""}
 
     def test_decode_object_nonstring_key(self):
         import _pypyjson
@@ -248,15 +494,16 @@ class AppTest(object):
     def test_error_position(self):
         import _pypyjson
         test_cases = [
-            ('[,', "Unexpected ',' at", 1),
-            ('{"spam":[}', "Unexpected '}' at", 9),
+            ('[,', "Unexpected ','", 1),
+            ('{"spam":[}', "Unexpected '}'", 9),
             ('[42:', "Unexpected ':' when decoding array", 3),
             ('[42 "spam"', "Unexpected '\"' when decoding array", 4),
-            ('[42,]', "Unexpected ']' at", 4),
+            ('[42,]', "Unexpected ']'", 4),
             ('{"spam":[42}', "Unexpected '}' when decoding array", 11),
             ('["]', 'Unterminated string starting at', 1),
             ('["spam":', "Unexpected ':' when decoding array", 7),
             ('[{]', "Key name must be string at char", 2),
+            ('{"a": 1 "b": 2}', "Unexpected '\"' when decoding object", 8),
         ]
         for inputtext, errmsg, errpos in test_cases:
             exc = raises(ValueError, _pypyjson.loads, inputtext)
@@ -275,4 +522,4 @@ class AppTest(object):
         class MyError(Exception):
             pass
         exc = raises(MyError, _pypyjson.loads, 'nul', MyError)
-        assert exc.value.args == ('Error when decoding null at', 'nul', 1)
+        assert exc.value.args == ('Error when decoding null', 'nul', 1)

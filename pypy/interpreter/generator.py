@@ -748,15 +748,17 @@ class AsyncGenAThrow(AsyncGenABase):
                     # TODO: add equivalent to CPython's o->agt_gen->ag_closed = 1;
                     w_value = self.async_gen.throw(space.w_GeneratorExit,
                                                    None, None)
-                    if w_value is not None and isinstance(w_value, AsyncGenValueWrapper):
-                        raise oefmt(space.w_RuntimeError,
-                                    "async generator ignored GeneratorExit")
                 else:
                     w_value = self.async_gen.throw(self.w_exc_type,
                                                    self.w_exc_value,
                                                    self.w_exc_tb)
             else:
                 w_value = self.async_gen.send_ex(w_arg_or_err)
+
+            if (self.w_exc_type is None and w_value is not None and
+                    isinstance(w_value, AsyncGenValueWrapper)):
+                raise oefmt(space.w_RuntimeError,
+                            "async generator ignored GeneratorExit")
             return self.unwrap_value(w_value)
         except OperationError as e:
             self.handle_error(e)
@@ -777,13 +779,16 @@ class AsyncGenAThrow(AsyncGenABase):
     def handle_error(self, e):
         space = self.space
         self.state = self.ST_CLOSED
-        if e.match(space, space.w_StopAsyncIteration):
+        if (e.match(space, space.w_StopAsyncIteration) or
+                    e.match(space, space.w_StopIteration)):
             if self.w_exc_type is None:
                 # When aclose() is called we don't want to propagate
-                # StopAsyncIteration; just raise StopIteration, signalling
-                # that 'aclose()' is done.
+                # StopAsyncIteration or GeneratorExit; just raise
+                # StopIteration, signalling that this 'aclose()' await
+                # is done.
                 raise OperationError(space.w_StopIteration, space.w_None)
         if e.match(space, space.w_GeneratorExit):
-            # Ignore this error.
-            raise OperationError(space.w_StopIteration, space.w_None)
+            if self.w_exc_type is None:
+                # Ignore this error.
+                raise OperationError(space.w_StopIteration, space.w_None)
         raise e

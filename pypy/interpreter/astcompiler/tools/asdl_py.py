@@ -341,6 +341,9 @@ class GenericASTVisitorVisitor(ASDLVisitor):
     def visitModule(self, mod):
         self.emit("class GenericASTVisitor(ASTVisitor):")
         self.emit("")
+        self.emit("def visited(self, node):", 1)
+        self.emit("pass  # base implementation", 2)
+        self.emit("")
         super(GenericASTVisitorVisitor, self).visitModule(mod)
         self.emit("")
 
@@ -357,6 +360,7 @@ class GenericASTVisitorVisitor(ASDLVisitor):
 
     def make_visitor(self, name, fields):
         self.emit("def visit_%s(self, node):" % (name,), 1)
+        self.emit("self.visited(node)", 2)
         have_body = False
         for field in fields:
             if self.visitField(field):

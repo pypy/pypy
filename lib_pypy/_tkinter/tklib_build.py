@@ -36,8 +36,11 @@ else:
         for _ver in ['8.6', '8.5', '']:
             incdirs = []
             linklibs = ['tcl' + _ver, 'tk' + _ver]
-            if os.path.isfile(''.join(['/usr/lib/lib', linklibs[1], '.so'])):
-                found = True
+            for lib in ['/usr/lib/lib', '/usr/lib64/lib']: 
+                if os.path.isfile(''.join([lib, linklibs[1], '.so'])):
+                    found = True
+                    break
+            if found:
                 break
     if not found:
         sys.stderr.write("*** TCL libraries not found!  Falling back...\n")

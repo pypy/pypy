@@ -715,6 +715,8 @@ if hasattr(runicode, 'str_decode_mbcs'):
 @unwrap_spec(errors='text_or_none')
 def utf_8_encode(space, w_obj, errors="strict"):
     utf8, lgt = space.utf8_len_w(w_obj)
+    if lgt == len(utf8): # ascii
+        return space.newtuple([space.newbytes(utf8), space.newint(lgt)])
     if errors is None:
         errors = 'strict'
     state = space.fromcache(CodecState)
@@ -731,8 +733,6 @@ def utf_8_encode(space, w_obj, errors="strict"):
 @unwrap_spec(string='bufferstr', errors='text_or_none',
              w_final = WrappedDefault(False))
 def utf_8_decode(space, string, errors="strict", w_final=None):
-
-
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -872,8 +872,6 @@ class Charmap_Encode:
 
 @unwrap_spec(string='bufferstr', errors='text_or_none')
 def charmap_decode(space, string, errors="strict", w_mapping=None):
-
-
     if errors is None:
         errors = 'strict'
     if len(string) == 0:
@@ -894,7 +892,6 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
 
 @unwrap_spec(errors='text_or_none')
 def charmap_encode(space, w_unicode, errors="strict", w_mapping=None):
-
     if errors is None:
         errors = 'strict'
     if space.is_none(w_mapping):
@@ -952,7 +949,7 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
-    result, lgt, u_len, first_escape_error_char = unicodehelper.str_decode_unicode_escape(
+    result, u_len, lgt, first_escape_error_char = unicodehelper.str_decode_unicode_escape(
         string, errors,
         final, state.decode_error_handler,
         unicode_name_handler)
@@ -971,7 +968,7 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
             space.newtext(msg),
             space.w_DeprecationWarning
         )
-    return space.newtuple([space.newutf8(result, lgt), space.newint(u_len)])
+    return space.newtuple([space.newutf8(result, u_len), space.newint(lgt)])
 
 # ____________________________________________________________
 # Raw Unicode escape (accepts bytes or str)
@@ -992,8 +989,6 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
 @unwrap_spec(errors='text_or_none')
 def unicode_internal_decode(space, w_string, errors="strict"):
-
-
     if errors is None:
         errors = 'strict'
     # special case for this codec: unicodes are returned as is

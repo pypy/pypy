@@ -243,7 +243,7 @@ print("history", ascii(readline.get_history_item(1)))
     #   See https://cnswww.cns.cwru.edu/php/chet/readline/CHANGES
     # - editline: history size is broken on OS X 10.11.6.
     #   Newer versions were not tested yet.
-    @unittest.skipIf(readline._READLINE_VERSION < 0x600,
+    @unittest.skipIf(getattr(readline, "_READLINE_VERSION", 0x601) < 0x600,
                      "this readline version does not support history-size")
     @unittest.skipIf(is_editline,
                      "editline history size configuration is broken")

@@ -90,10 +90,13 @@ def pytest_addoption(parser):
             default=False, dest="applevel_rewrite",
             help="Use assert rewriting in app-level test files (slow)")
 
+@pytest.fixture(scope='class')
+def spaceconfig(request):
+    return getattr(request.cls, 'spaceconfig', {})
+
 @pytest.fixture(scope='function')
-def space(request):
+def space(spaceconfig):
     from pypy.tool.pytest.objspace import gettestobjspace
-    spaceconfig = getattr(request.cls, 'spaceconfig', {})
     return gettestobjspace(**spaceconfig)
 
 

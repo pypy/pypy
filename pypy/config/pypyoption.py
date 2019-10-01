@@ -171,11 +171,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                "Disable only cffi's embedding mode.",
                default=False),
 
-    BoolOption("fstrings",
-               "if you are really convinced that f-strings are a security "
-               "issue, you can disable them here",
-               default=True),
-
     ChoiceOption("hash",
                  "The hash function to use for strings: fnv from CPython 2.7"
                  " or siphash24 from CPython >= 3.4",

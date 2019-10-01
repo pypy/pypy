@@ -6,6 +6,7 @@ Combined releases
 
 .. toctree::
 
+   release-v7.2.0.rst
    release-v7.1.1.rst
    release-v7.1.0.rst
    release-v7.0.0.rst

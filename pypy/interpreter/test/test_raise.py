@@ -2,9 +2,8 @@ import py.test
 
 class AppTestRaise:
     def test_arg_as_string(self):
-        def f():
+        with raises(TypeError):
             raise "test"
-        raises(TypeError, f)
 
     def test_control_flow(self):
         try:
@@ -36,9 +35,8 @@ class AppTestRaise:
             assert isinstance(e, IndexError)
 
     def test_raise_cls(self):
-        def f():
+        with raises(IndexError):
             raise IndexError
-        raises(IndexError, f)
 
     def test_raise_cls_catch(self):
         def f(r):
@@ -46,7 +44,8 @@ class AppTestRaise:
                 raise r
             except LookupError:
                 return 1
-        raises(Exception, f, Exception)
+        with raises(Exception):
+            f(Exception)
         assert f(IndexError) == 1
 
     def test_raise_wrong(self):
@@ -99,7 +98,7 @@ class AppTestRaise:
         assert sys.exc_info() == (None, None, None)
 
     def test_reraise_1(self):
-        raises(IndexError, """
+        with raises(IndexError):
             import sys
             try:
                 raise ValueError
@@ -109,10 +108,10 @@ class AppTestRaise:
                 finally:
                     assert sys.exc_info()[0] is IndexError
                     raise
-        """)
+ 
 
     def test_reraise_2(self):
-        raises(IndexError, """
+        with raises(IndexError):
             def foo():
                 import sys
                 assert sys.exc_info()[0] is IndexError
@@ -124,10 +123,10 @@ class AppTestRaise:
                     raise IndexError
                 finally:
                     foo()
-        """)
+ 
 
     def test_reraise_3(self):
-        raises(IndexError, """
+        with raises(IndexError):
             def spam():
                 import sys
                 try:
@@ -142,7 +141,6 @@ class AppTestRaise:
                     raise IndexError
                 finally:
                     spam()
-        """)
 
     def test_reraise_4(self):
         import sys
@@ -156,7 +154,7 @@ class AppTestRaise:
         assert ok
 
     def test_reraise_5(self):
-        raises(IndexError, """
+        with raises(IndexError):
             import sys
             try:
                 raise ValueError
@@ -170,17 +168,16 @@ class AppTestRaise:
                 finally:
                     assert sys.exc_info()[0] is IndexError
                     assert sys.exc_info()[2].tb_next is some_traceback
-        """)
 
     def test_nested_reraise(self):
-        raises(TypeError, """
+        with raises(TypeError):
             def nested_reraise():
                 raise
             try:
                 raise TypeError("foo")
             except:
                 nested_reraise()
-        """)
+ 
 
     def test_with_reraise_1(self):
         class Context:
@@ -196,7 +193,8 @@ class AppTestRaise:
                 with Context():
                     pass
                 raise
-        raises(ValueError, "fn()")
+        with raises(ValueError):
+            fn()
 
 
     def test_with_reraise_2(self):
@@ -213,23 +211,20 @@ class AppTestRaise:
                 with Context():
                     raise KeyError("caught")
                 raise
-        raises(ValueError, "fn()")
+        with raises(ValueError):
+            fn()
 
     def test_userclass(self):
         # new-style classes can't be raised unless they inherit from
         # BaseException
-
         class A(object):
             def __init__(self, x=None):
                 self.x = x
-        
-        def f():
-            raise A
-        raises(TypeError, f)
 
-        def f():
+        with raises(TypeError):
+            raise A
+        with raises(TypeError):
             raise A(42)
-        raises(TypeError, f)
 
     def test_userclass_catch(self):
         # classes can't be caught unless they inherit from BaseException
@@ -259,7 +254,7 @@ class AppTestRaise:
     def test_catch_tuple(self):
         class A(Exception):
             pass
-        
+
         try:
             raise ValueError
         except (ValueError, A):
@@ -307,7 +302,9 @@ class AppTestRaise:
         class MyException(Exception):
             def __new__(cls, *args):
                 return object()
-        raises(TypeError, "raise MyException")
+
+        with raises(TypeError):
+            raise MyException
 
     def test_with_exit_True(self):
         class X:

@@ -62,7 +62,7 @@ class AppTestPyFrame:
 
         jump_out_of_block_forwards.jump = (3, 5)
         jump_out_of_block_forwards.output = [2, 5]
-        #run_test(jump_out_of_block_forwards)
+        run_test(jump_out_of_block_forwards)
 
         def jump_out_of_block_backwards(output):
             output.append(1)

@@ -636,6 +636,7 @@ class AsCompletedTests:
                 futures_list.remove(future)
                 wr = weakref.ref(future)
                 del future
+                test.support.gc_collect()
                 self.assertIsNone(wr())
 
         futures_list[0].set_result("test")
@@ -643,6 +644,7 @@ class AsCompletedTests:
             futures_list.remove(future)
             wr = weakref.ref(future)
             del future
+            test.support.gc_collect()
             self.assertIsNone(wr())
             if futures_list:
                 futures_list[0].set_result("test")
@@ -742,6 +744,7 @@ class ExecutorTest:
         for obj in self.executor.map(make_dummy_object, range(10)):
             wr = weakref.ref(obj)
             del obj
+            test.support.gc_collect()
             self.assertIsNone(wr())
 
 
