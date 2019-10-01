@@ -7221,6 +7221,21 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
 
+    def test_record_exact_value(self):
+        ops = """
+        [p0]
+        record_exact_value(p0, ConstPtr(myptr3))
+        i1 = getfield_gc_i(p0, descr=valuedescr3)
+        escape_i(i1)
+        jump(p0)
+        """
+        expected = """
+        []
+        escape_i(7)
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     def test_quasi_immut(self):
         ops = """
         [p0, p1, i0]

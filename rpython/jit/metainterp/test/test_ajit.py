@@ -2,7 +2,6 @@ import math
 import sys
 
 import py
-import weakref
 
 from rpython.rlib import rgc
 from rpython.jit.codewriter.policy import StopAtXPolicy
@@ -14,7 +13,8 @@ from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, set_param, record_exact_class, record_known_result)
+    isconstant, isvirtual, set_param, record_exact_class, record_known_result,
+    record_exact_value)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -4015,6 +4015,33 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [10], backendopt=True)
         assert res == main(10)
         self.check_resops(call_i=2)  # two calls to f, both get removed by the backend
+
+
+    def test_record_exact_value(self):
+        class A(object):
+            _immutable_fields_ = ['x']
+
+        a = A()
+        b = A()
+        a.x = 42
+        b.x = 233
+
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                return a
+            else:
+                return b
+        def f(x):
+            inst = make(x)
+            if x > 0:
+                record_exact_value(inst, a)
+            else:
+                record_exact_value(inst, b)
+            return inst.x
+        res = self.interp_operations(f, [1])
+        assert res == 42
+        self.check_operations_history(record_exact_value=1)
 
     def test_generator(self):
         def g(n):

@@ -309,6 +309,9 @@ class Transformer(object):
             op1 = [op1, SpaceOperation('-live-', [], None)]
         return op1
 
+    def rewrite_op_jit_record_exact_value(self, op):
+        return SpaceOperation("record_exact_value", [op.args[0], op.args[1]], None)
+
     def rewrite_op_debug_assert_not_none(self, op):
         if isinstance(op.args[0], Variable):
             return SpaceOperation('assert_not_none', [op.args[0]], None)

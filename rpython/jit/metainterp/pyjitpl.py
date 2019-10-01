@@ -341,6 +341,21 @@ class MIFrame(object):
         # an operation
         self.metainterp._record_helper_nonpure_varargs(rop.RECORD_KNOWN_RESULT, None, calldescr, allboxes)
 
+    @arguments("box", "box")
+    def opimpl_record_exact_value(self, box, const_box):
+        if isinstance(const_box, Const):
+            self.execute(rop.RECORD_EXACT_VALUE, box, const_box)
+        elif have_debug_prints():
+            if len(self.metainterp.framestack) >= 2:
+                # caller of ll_record_exact_value
+                name = self.metainterp.framestack[-2].jitcode.name
+            else:
+                name = self.jitcode.name
+            loc = self.metainterp.jitdriver_sd.warmstate.get_location_str(self.greenkey)
+            debug_print("record_exact_value with non-constant second argument, ignored",
+                    name, loc)
+
+
     @arguments("box")
     def _opimpl_any_return(self, box):
         self.metainterp.finishframe(box)

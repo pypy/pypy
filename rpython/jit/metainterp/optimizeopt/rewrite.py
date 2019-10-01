@@ -545,6 +545,12 @@ class OptRewrite(Optimization):
         self.make_constant_class(op.getarg(0), expectedclassbox,
                                  update_last_guard=False)
 
+    def optimize_RECORD_EXACT_VALUE(self, op):
+        box = op.getarg(0)
+        expectedconstbox = op.getarg(1)
+        assert isinstance(expectedconstbox, Const)
+        self.make_constant(box, expectedconstbox)
+
     def optimize_GUARD_CLASS(self, op):
         expectedclassbox = op.getarg(1)
         info = self.ensure_ptr_info_arg0(op)

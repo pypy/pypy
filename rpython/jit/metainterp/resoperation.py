@@ -137,7 +137,7 @@ def vector_repr(self, num):
         return 'v' + str(num)
     if hasattr(self, '_vec_debug_info'):
         vecinfo = self._vec_debug_info
-        count = vecinfo.count 
+        count = vecinfo.count
         datatype = vecinfo.datatype
         bytesize = vecinfo.bytesize
     elif self.vector == -2:
@@ -322,7 +322,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         "shallow copy: the returned operation is meant to be used in place of self"
         # XXX specialize
         from rpython.jit.metainterp.history import DONT_CHANGE
-        
+
         if args is None:
             args = self.getarglist_copy()
         if descr is None:
@@ -1144,6 +1144,7 @@ _oplist = [
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
     'ASSERT_NOT_NONE/1/n',      # [objptr]
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
+    'RECORD_EXACT_VALUE/2/n',   # [objptr, objptr]
     'KEEPALIVE/1/n',
     'SAVE_EXCEPTION/0/r',
     'SAVE_EXC_CLASS/0/i',       # XXX kill me

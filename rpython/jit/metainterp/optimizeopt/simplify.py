@@ -43,6 +43,9 @@ class OptSimplify(Optimization):
     def optimize_RECORD_EXACT_CLASS(self, op):
         pass
 
+    def optimize_RECORD_EXACT_VALUE(self, op):
+        pass
+
     def optimize_GUARD_FUTURE_CONDITION(self, op):
         self.optimizer.notice_guard_future_condition(op)
 

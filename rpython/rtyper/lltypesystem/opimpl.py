@@ -647,6 +647,9 @@ def op_jit_force_quasi_immutable(*args):
 def op_jit_record_exact_class(x, y):
     pass
 
+def op_jit_record_exact_value(x, y):
+    pass
+
 def op_jit_ffi_save_result(*args):
     pass
 
