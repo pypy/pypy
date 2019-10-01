@@ -1,6 +1,8 @@
 import pytest
 from pytest import raises
 
+import sys
+
 
 def test_cannot_iterate():
     async def f(x):
@@ -14,6 +16,7 @@ def test_async_for():
     class X:
         def __aiter__(self):
             return MyAIter()
+
     class MyAIter:
         async def __anext__(self):
             return 42
@@ -94,7 +97,6 @@ def test_for_error_cause():
     assert isinstance(c.value.__cause__, ZeroDivisionError)
 
 def test_set_coroutine_wrapper():
-    import sys
     async def f():
         pass
     seen = []
@@ -610,7 +612,6 @@ def test_agen_aclose_await_and_yield_in_finally():
 
 def test_async_aclose_in_finalize_hook_await_in_finally():
     import gc
-    import sys
     import types
 
     @types.coroutine
@@ -728,3 +729,49 @@ def test_asyncgen_yield_stopiteration():
         assert val2.value == 2
 
     run_async(run())
+
+class suspend:
+    """
+    A simple awaitable that returns control to the "event loop" with `msg`
+    as value.
+    """
+    def __init__(self, msg=None):
+        self.msg = msg
+
+    def __await__(self):
+        yield self.msg
+
+def test_asyncgen_hooks_shutdown():
+    finalized = 0
+    asyncgens = []
+
+    def register_agen(agen):
+        asyncgens.append(agen)
+
+    async def waiter(timeout):
+        nonlocal finalized
+        try:
+            await suspend('running waiter')
+            yield 1
+        finally:
+            await suspend('closing waiter')
+            finalized += 1
+
+    async def wait():
+        async for _ in waiter(1):
+            pass
+
+    task1 = wait()
+    task2 = wait()
+    old_hooks = sys.get_asyncgen_hooks()
+    try:
+        sys.set_asyncgen_hooks(firstiter=register_agen)
+        assert task1.send(None) == 'running waiter'
+        assert task2.send(None) == 'running waiter'
+        assert len(asyncgens) == 2
+
+        assert run_async(asyncgens[0].aclose()) == (['closing waiter'], None)
+        assert run_async(asyncgens[1].aclose()) == (['closing waiter'], None)
+        assert finalized == 2
+    finally:
+        sys.set_asyncgen_hooks(*old_hooks)
