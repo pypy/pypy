@@ -4,6 +4,18 @@ from pytest import raises
 import sys
 
 
+class suspend:
+    """
+    A simple awaitable that returns control to the "event loop" with `msg`
+    as value.
+    """
+    def __init__(self, msg=None):
+        self.msg = msg
+
+    def __await__(self):
+        yield self.msg
+
+
 def test_cannot_iterate():
     async def f(x):
         pass
@@ -110,7 +122,6 @@ def test_set_coroutine_wrapper():
     assert cr == 42
     sys.set_coroutine_wrapper(None)
     assert sys.get_coroutine_wrapper() is None
-
 
 def test_async_with():
     seen = []
@@ -519,12 +530,6 @@ def test_async_aclose_ignore_generator_exit():
     raises(RuntimeError, run().send, None)
 
 def test_async_aclose_await_in_finally():
-    import types
-
-    @types.coroutine
-    def coro():
-        yield 'coro'
-
     state = 0
     async def ag():
         nonlocal state
@@ -532,7 +537,7 @@ def test_async_aclose_await_in_finally():
             yield
         finally:
             state = 1
-            await coro()
+            await suspend('coro')
             state = 2
 
     async def run():
@@ -551,12 +556,6 @@ def test_async_aclose_await_in_finally():
     assert state == 2
 
 def test_async_aclose_await_in_finally_with_exception():
-    import types
-
-    @types.coroutine
-    def coro():
-        yield 'coro'
-
     state = 0
     async def ag():
         nonlocal state
@@ -565,7 +564,7 @@ def test_async_aclose_await_in_finally_with_exception():
         finally:
             state = 1
             try:
-                await coro()
+                await suspend('coro')
             except Exception as exc:
                 state = exc
 
@@ -586,17 +585,12 @@ def test_async_aclose_await_in_finally_with_exception():
     assert state == exc
 
 def test_agen_aclose_await_and_yield_in_finally():
-    import types
-    @types.coroutine
-    def bar():
-        yield 42
-
     async def foo():
         try:
             yield 1
             1 / 0
         finally:
-            await bar()
+            await suspend(42)
             yield 12
 
     async def run():
@@ -612,12 +606,6 @@ def test_agen_aclose_await_and_yield_in_finally():
 
 def test_async_aclose_in_finalize_hook_await_in_finally():
     import gc
-    import types
-
-    @types.coroutine
-    def coro():
-        yield 'coro'
-
     state = 0
     async def ag():
         nonlocal state
@@ -625,7 +613,7 @@ def test_async_aclose_in_finalize_hook_await_in_finally():
             yield
         finally:
             state = 1
-            await coro()
+            await suspend('coro')
             state = 2
 
     async def run():
@@ -729,17 +717,6 @@ def test_asyncgen_yield_stopiteration():
         assert val2.value == 2
 
     run_async(run())
-
-class suspend:
-    """
-    A simple awaitable that returns control to the "event loop" with `msg`
-    as value.
-    """
-    def __init__(self, msg=None):
-        self.msg = msg
-
-    def __await__(self):
-        yield self.msg
 
 def test_asyncgen_hooks_shutdown():
     finalized = 0
