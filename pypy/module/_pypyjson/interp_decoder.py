@@ -69,6 +69,9 @@ class JSONDecoder(W_Root):
     # hit in the cache
     STRING_CACHE_USEFULNESS_FACTOR = 4
 
+    # don't make arbitrarily huge maps
+    MAX_MAP_SIZE = 100
+
 
     def __init__(self, space, s):
         self.space = space
@@ -368,7 +371,7 @@ class JSONDecoder(W_Root):
                 return w_res
             elif ch == ',':
                 i = self.skip_whitespace(i)
-                if currmap.is_state_blocked():
+                if currmap.is_state_blocked() or nextindex > self.MAX_MAP_SIZE:
                     self.scratch.append(values_w)  # can reuse next time
                     dict_w = self._switch_to_dict(currmap, values_w, nextindex)
                     return self.decode_object_dict(i, start, dict_w)
