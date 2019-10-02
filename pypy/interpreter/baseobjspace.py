@@ -1232,8 +1232,11 @@ class ObjSpace(object):
         from pypy.interpreter.generator import GeneratorIterator
         return isinstance(w_obj, GeneratorIterator)
 
+    def callable_w(self, w_obj):
+        return self.lookup(w_obj, "__call__") is not None
+
     def callable(self, w_obj):
-        return self.newbool(self.lookup(w_obj, "__call__") is not None)
+        return self.newbool(self.callable_w(w_obj))
 
     def issequence_w(self, w_obj):
         flag = self.type(w_obj).flag_map_or_seq
