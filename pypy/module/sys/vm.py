@@ -7,7 +7,7 @@ from rpython.rlib.rutf8 import MAXUNICODE
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
 
 # ____________________________________________________________
@@ -240,6 +240,14 @@ class windows_version_info(metaclass=structseqtype):
     suite_mask = structseqfield(12, "Bit mask identifying available product suites")
     product_type = structseqfield(13, "System product type")
     platform_version = structseqfield(14, "Diagnostic version number")
+
+
+class asyncgen_hooks(metaclass=structseqtype):
+    name = "asyncgen_hooks"
+
+    firstiter = structseqfield(0)
+    finalizer = structseqfield(1)
+
 ''')
 
 
@@ -286,7 +294,7 @@ def _get_dllhandle(space):
 
 getsizeof_missing = """getsizeof(...)
     getsizeof(object, default) -> int
-    
+
     Return the size of object in bytes.
 
 sys.getsizeof(object, default) will always return default on PyPy, and
@@ -350,6 +358,46 @@ def set_coroutine_wrapper(space, w_wrapper):
         ec.w_coroutine_wrapper_fn = w_wrapper
     else:
         raise oefmt(space.w_TypeError, "callable expected, got %T", w_wrapper)
+
+def get_asyncgen_hooks(space):
+    """get_asyncgen_hooks()
+
+Return a namedtuple of installed asynchronous generators hooks (firstiter, finalizer)."""
+    ec = space.getexecutioncontext()
+    w_firstiter = ec.w_asyncgen_firstiter_fn
+    if w_firstiter is None:
+        w_firstiter = space.w_None
+    w_finalizer = ec.w_asyncgen_finalizer_fn
+    if w_finalizer is None:
+        w_finalizer = space.w_None
+    w_asyncgen_hooks = app.wget(space, "asyncgen_hooks")
+    return space.call_function(
+        w_asyncgen_hooks,
+        space.newtuple([w_firstiter, w_finalizer]))
+
+# Note: the docstring is wrong on CPython
+def set_asyncgen_hooks(space, w_firstiter=None, w_finalizer=None):
+    """set_asyncgen_hooks(firstiter=None, finalizer=None)
+
+Set a finalizer for async generators objects."""
+    ec = space.getexecutioncontext()
+    if space.is_w(w_finalizer, space.w_None):
+        ec.w_asyncgen_finalizer_fn = None
+    elif w_finalizer is not None:
+        if space.callable_w(w_finalizer):
+            ec.w_asyncgen_finalizer_fn = w_finalizer
+        else:
+            raise oefmt(space.w_TypeError,
+                "callable finalizer expected, got %T", w_finalizer)
+    if space.is_w(w_firstiter, space.w_None):
+        ec.w_asyncgen_firstiter_fn = None
+    elif w_firstiter is not None:
+        if space.callable_w(w_firstiter):
+            ec.w_asyncgen_firstiter_fn = w_firstiter
+        else:
+            raise oefmt(space.w_TypeError,
+                "callable firstiter expected, got %T", w_firstiter)
+
 
 def is_finalizing(space):
     return space.newbool(space.sys.finalizing)

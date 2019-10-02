@@ -594,15 +594,12 @@ class AsyncGenerator(GeneratorOrCoroutine):
         if self.hooks_inited:
             return
         self.hooks_inited = True
-
-        self.w_finalizer = self.space.appexec([], '''():
-            import sys
-            hooks = sys.get_asyncgen_hooks()
-            return hooks.finalizer''')
+        ec = self.space.getexecutioncontext()
+        self.w_finalizer = ec.w_asyncgen_firstiter_fn
 
     def _finalize_(self):
         if self.frame is not None and self.frame.lastblock is not None:
-            if self.w_finalizer is not self.space.w_None:
+            if self.w_finalizer is not None:
                 # XXX: this is a hack to resurrect the weakref that was cleared
                 # before running _finalize_()
                 if self.space.config.translation.rweakref:
