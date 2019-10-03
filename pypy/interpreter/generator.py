@@ -155,7 +155,7 @@ return next yielded value or raise StopIteration."""
         if w_yf is not None:
             self.set_delegate(None)
             try:
-                self.next_yield_from(frame, w_yf, w_arg_or_err)
+                frame.next_yield_from(w_yf, w_arg_or_err)
             except OperationError as operr:
                 operr.record_context(space, space.getexecutioncontext())
                 return frame.handle_generator_error(operr)
@@ -178,43 +178,27 @@ return next yielded value or raise StopIteration."""
             return r_uint(0)
 
     def get_delegate(self):
+        if self.frame is None:
+            return None
         return self.frame.w_yielding_from
+
+    def descr_delegate(self, space):
+        w_yf = self.get_delegate()
+        if w_yf is None:
+            return space.w_None
+        return w_yf
 
     def set_delegate(self, w_delegate):
         self.frame.w_yielding_from = w_delegate
+
+
 
     def next_yield_from(self, frame, w_yf, w_inputvalue_or_err):
         """Fetch the next item of the current 'yield from', push it on
         the frame stack, and raises Yield.  If there isn't one, push
         w_stopiteration_value and returns.  May also just raise.
         """
-        space = self.space
-        try:
-            if isinstance(w_yf, GeneratorOrCoroutine):
-                w_retval = w_yf.send_ex(w_inputvalue_or_err)
-            elif isinstance(w_yf, AsyncGenASend):   # performance only
-                w_retval = w_yf.do_send(w_inputvalue_or_err)
-            elif space.is_w(w_inputvalue_or_err, space.w_None):
-                w_retval = space.next(w_yf)
-            else:
-                w_retval = delegate_to_nongen(space, w_yf, w_inputvalue_or_err)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            frame._report_stopiteration_sometimes(w_yf, e)
-            try:
-                w_stop_value = space.getattr(e.get_w_value(space),
-                                             space.newtext("value"))
-            except OperationError as e:
-                if not e.match(space, space.w_AttributeError):
-                    raise
-                w_stop_value = space.w_None
-            frame.pushvalue(w_stop_value)
-            return
-        else:
-            frame.pushvalue(w_retval)
-            self.set_delegate(w_yf)
-            raise Yield
+        frame.next_yield_from(w_yf, w_inputvalue_or_err)
 
     def _leak_stopiteration(self, e):
         # Check for __future__ generator_stop and conditionally turn
@@ -492,27 +476,6 @@ def gen_close_iter(space, w_yf):
                 e.write_unraisable(space, "generator/coroutine.close()")
         else:
             space.call_function(w_close)
-
-def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
-    # invoke a "send" or "throw" by method name to a non-generator w_yf
-    if isinstance(w_inputvalue_or_err, SApplicationException):
-        operr = w_inputvalue_or_err.operr
-        try:
-            w_meth = space.getattr(w_yf, space.newtext("throw"))
-        except OperationError as e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            raise operr
-        # bah, CPython calls here with the exact same arguments as
-        # originally passed to throw().  In our case it is far removed.
-        # Let's hope nobody will complain...
-        operr.normalize_exception(space)
-        w_exc = operr.w_type
-        w_val = operr.get_w_value(space)
-        w_tb  = operr.get_w_traceback(space)
-        return space.call_function(w_meth, w_exc, w_val, w_tb)
-    else:
-        return space.call_method(w_yf, "send", w_inputvalue_or_err)
 
 def gen_is_coroutine(w_obj):
     return (isinstance(w_obj, GeneratorIterator) and
