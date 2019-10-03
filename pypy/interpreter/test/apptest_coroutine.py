@@ -633,16 +633,12 @@ def test_async_aclose_in_finalize_hook_await_in_finally():
         a2 = g.aclose()
     sys.set_asyncgen_hooks(finalizer=_finalize)
     assert state == 0
-    try:
+    with pytest.raises(StopIteration):
         a.send(None)
-    except StopIteration:
-        pass
     assert a2.send(None) == 'coro'
     assert state == 1
-    try:
+    with pytest.raises(StopIteration):
         a2.send(None)
-    except StopIteration:
-        pass
     assert state == 2
     sys.set_asyncgen_hooks(None, None)
 
