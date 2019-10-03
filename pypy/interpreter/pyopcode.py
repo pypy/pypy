@@ -1556,7 +1556,7 @@ class __extend__(pyframe.PyFrame):
         w_iterable = self.popvalue()
         w_iter = get_awaitable_iter(self.space, w_iterable)
         if isinstance(w_iter, Coroutine):
-            if w_iter.w_yielded_from is not None:
+            if w_iter.get_delegate() is not None:
                 # 'w_iter' is a coroutine object that is being awaited,
                 # '.w_yielded_from' is the current awaitable being awaited on.
                 raise oefmt(self.space.w_RuntimeError,

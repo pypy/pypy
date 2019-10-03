@@ -11,7 +11,7 @@ from rpython.rlib.rarithmetic import r_uint
 class GeneratorOrCoroutine(W_Root):
     _immutable_fields_ = ['pycode']
 
-    w_yielded_from = None
+    _w_yielded_from = None
 
     def __init__(self, frame, name=None, qualname=None):
         self.space = frame.space
@@ -153,9 +153,9 @@ return next yielded value or raise StopIteration."""
         # Called from execute_frame() just before resuming the bytecode
         # interpretation.
         space = self.space
-        w_yf = self.w_yielded_from
+        w_yf = self.get_delegate()
         if w_yf is not None:
-            self.w_yielded_from = None
+            self.set_delegate(None)
             try:
                 self.next_yield_from(frame, w_yf, w_arg_or_err)
             except OperationError as operr:
@@ -178,6 +178,12 @@ return next yielded value or raise StopIteration."""
             return r_uint(last_instr + 2)
         else:
             return r_uint(0)
+
+    def get_delegate(self):
+        return self._w_yielded_from
+
+    def set_delegate(self, w_delegate):
+        self._w_yielded_from = w_delegate
 
     def next_yield_from(self, frame, w_yf, w_inputvalue_or_err):
         """Fetch the next item of the current 'yield from', push it on
@@ -209,7 +215,7 @@ return next yielded value or raise StopIteration."""
             return
         else:
             frame.pushvalue(w_retval)
-            self.w_yielded_from = w_yf
+            self.set_delegate(w_yf)
             raise Yield
 
     def _leak_stopiteration(self, e):
@@ -259,8 +265,8 @@ return next yielded value or raise StopIteration."""
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
 
-        # note: w_yielded_from is always None if 'self.running'
-        if (self.w_yielded_from is not None and
+        # note: _w_yielded_from is always None if 'self.running'
+        if (self.get_delegate() is not None and
                     operr.match(space, space.w_GeneratorExit)):
             try:
                 self._gen_close_iter(space)
@@ -276,8 +282,8 @@ return next yielded value or raise StopIteration."""
 
     def _gen_close_iter(self, space):
         assert not self.running
-        w_yf = self.w_yielded_from
-        self.w_yielded_from = None
+        w_yf = self.get_delegate()
+        self.set_delegate(None)
         self.running = True
         try:
             gen_close_iter(space, w_yf)
@@ -290,8 +296,8 @@ return next yielded value or raise StopIteration."""
             return     # nothing to do in this case
         space = self.space
         operr = None
-        # note: w_yielded_from is always None if 'self.running'
-        w_yf = self.w_yielded_from
+        # note: _w_yielded_from is always None if 'self.running'
+        w_yf = self.get_delegate()
         if w_yf is not None:
             try:
                 self._gen_close_iter(space)
