@@ -68,6 +68,7 @@ class PyFrame(W_Root):
     frame_finished_execution = False
     f_generator_wref         = rweakref.dead_ref  # for generators/coroutines
     f_generator_nowref       = None               # (only one of the two attrs)
+    w_yielding_from = None
     last_instr               = -1
     f_backref                = jit.vref_None
 

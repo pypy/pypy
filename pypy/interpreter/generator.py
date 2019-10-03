@@ -11,8 +11,6 @@ from rpython.rlib.rarithmetic import r_uint
 class GeneratorOrCoroutine(W_Root):
     _immutable_fields_ = ['pycode']
 
-    _w_yielded_from = None
-
     def __init__(self, frame, name=None, qualname=None):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
@@ -180,10 +178,10 @@ return next yielded value or raise StopIteration."""
             return r_uint(0)
 
     def get_delegate(self):
-        return self._w_yielded_from
+        return self.frame.w_yielding_from
 
     def set_delegate(self, w_delegate):
-        self._w_yielded_from = w_delegate
+        self.frame.w_yielding_from = w_delegate
 
     def next_yield_from(self, frame, w_yf, w_inputvalue_or_err):
         """Fetch the next item of the current 'yield from', push it on
