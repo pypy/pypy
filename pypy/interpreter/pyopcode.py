@@ -1121,7 +1121,7 @@ class __extend__(pyframe.PyFrame):
         # sub-iterable first before continuing on the next bytecode.
         in_generator = self.get_generator()
         if in_generator is None:
-            # Issue #2768: rare case involving __del__ methods.
+            # Issue #2786: rare case involving __del__ methods.
             # XXX This is a workaround, not a proper solution.
             raise oefmt(self.space.w_RuntimeError,
                         "PyPy limitation: cannot use 'yield from' or 'await' "
