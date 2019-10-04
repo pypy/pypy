@@ -36,6 +36,10 @@ def next_codepoint_pos_dont_look_inside(utf8, p):
 def prev_codepoint_pos_dont_look_inside(utf8, p):
     return rutf8.prev_codepoint_pos(utf8, p)
 
+@jit.elidable
+def codepoint_at_pos_dont_look_inside(utf8, p):
+    return rutf8.codepoint_at_pos(utf8, p)
+
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
@@ -122,7 +126,7 @@ class W_UnicodeObject(W_Root):
             raise oefmt(space.w_TypeError,
                          "ord() expected a character, but string of length %d "
                          "found", self._len())
-        return space.newint(rutf8.codepoint_at_pos(self._utf8, 0))
+        return space.newint(self.codepoint_at_pos_dont_look_inside(0))
 
     def _empty(self):
         return W_UnicodeObject.EMPTY
@@ -548,7 +552,7 @@ class W_UnicodeObject(W_Root):
         if self._length == 0:
             return space.w_False
         if self._length == 1:
-            return space.newbool(func(rutf8.codepoint_at_pos(self._utf8, 0)))
+            return space.newbool(func(self.codepoint_at_pos_dont_look_inside(0)))
         else:
             return self._is_generic_loop(space, self._utf8, func_name)
 
@@ -1126,6 +1130,11 @@ class W_UnicodeObject(W_Root):
         if self.is_ascii():
             return pos - 1
         return prev_codepoint_pos_dont_look_inside(self._utf8, pos)
+
+    def codepoint_at_pos_dont_look_inside(self, pos):
+        if self.is_ascii():
+            return ord(self._utf8[pos])
+        return codepoint_at_pos_dont_look_inside(self._utf8, pos)
 
     @always_inline
     def _unwrap_and_search(self, space, w_sub, w_start, w_end, forward=True):
