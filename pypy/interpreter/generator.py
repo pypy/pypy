@@ -82,7 +82,7 @@ return next yielded value or raise StopIteration."""
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
 
-        w_result = self._invoke_execute_frame(frame, w_arg_or_err)
+        w_result = self._invoke_execute_frame(w_arg_or_err)
         assert w_result is not None
 
         # if the frame is now marked as finished, it was RETURNed from
@@ -100,8 +100,9 @@ return next yielded value or raise StopIteration."""
         else:
             return w_result     # YIELDed
 
-    def _invoke_execute_frame(self, frame, w_arg_or_err):
+    def _invoke_execute_frame(self, w_arg_or_err):
         space = self.space
+        frame = self.frame
         if self.running:
             raise oefmt(space.w_ValueError, "%s already executing", self.KIND)
         ec = space.getexecutioncontext()
@@ -147,36 +148,6 @@ return next yielded value or raise StopIteration."""
             ec.set_sys_exc_info(current_exc_info)
         return w_result
 
-    def resume_execute_frame(self, frame, w_arg_or_err):
-        # Called from execute_frame() just before resuming the bytecode
-        # interpretation.
-        space = self.space
-        w_yf = self.get_delegate()
-        if w_yf is not None:
-            self.set_delegate(None)
-            try:
-                frame.next_yield_from(w_yf, w_arg_or_err)
-            except OperationError as operr:
-                operr.record_context(space, space.getexecutioncontext())
-                return frame.handle_generator_error(operr)
-            # Normal case: the call above raises Yield.
-            # We reach this point if the iterable is exhausted.
-            last_instr = jit.promote(frame.last_instr)
-            assert last_instr & 1 == 0
-            assert last_instr >= 0
-            return r_uint(last_instr + 2)
-
-        if isinstance(w_arg_or_err, SApplicationException):
-            return frame.handle_generator_error(w_arg_or_err.operr)
-
-        last_instr = jit.promote(frame.last_instr)
-        if last_instr != -1:
-            assert last_instr & 1 == 0
-            frame.pushvalue(w_arg_or_err)
-            return r_uint(last_instr + 2)
-        else:
-            return r_uint(0)
-
     def get_delegate(self):
         if self.frame is None:
             return None
@@ -190,15 +161,6 @@ return next yielded value or raise StopIteration."""
 
     def set_delegate(self, w_delegate):
         self.frame.w_yielding_from = w_delegate
-
-
-
-    def next_yield_from(self, frame, w_yf, w_inputvalue_or_err):
-        """Fetch the next item of the current 'yield from', push it on
-        the frame stack, and raises Yield.  If there isn't one, push
-        w_stopiteration_value and returns.  May also just raise.
-        """
-        frame.next_yield_from(w_yf, w_inputvalue_or_err)
 
     def _leak_stopiteration(self, e):
         # Check for __future__ generator_stop and conditionally turn
@@ -363,7 +325,7 @@ class GeneratorIterator(GeneratorOrCoroutine):
     # generate 2 versions of the function and 2 jit drivers.
     def _create_unpack_into():
         jitdriver = jit.JitDriver(greens=['pycode'],
-                                  reds=['self', 'frame', 'results'],
+                                  reds='auto',
                                   name='unpack_into')
 
         def unpack_into(self, results):
@@ -374,12 +336,10 @@ class GeneratorIterator(GeneratorOrCoroutine):
                 return
             pycode = self.pycode
             while True:
-                jitdriver.jit_merge_point(self=self, frame=frame,
-                                          results=results, pycode=pycode)
+                jitdriver.jit_merge_point(pycode=pycode)
                 space = self.space
                 try:
-                    w_result = self._invoke_execute_frame(
-                                            frame, space.w_None)
+                    w_result = self._invoke_execute_frame(space.w_None)
                 except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise

@@ -320,6 +320,37 @@ class PyFrame(W_Root):
                 ec.in_coroutine_wrapper = False
         return w_gen
 
+    def resume_execute_frame(self, w_arg_or_err):
+        # Called from execute_frame() just before resuming the bytecode
+        # interpretation.
+        from pypy.interpreter.pyopcode import SApplicationException
+        space = self.space
+        w_yf = self.w_yielding_from
+        if w_yf is not None:
+            self.w_yielding_from = None
+            try:
+                self.next_yield_from(w_yf, w_arg_or_err)
+            except OperationError as operr:
+                operr.record_context(space, space.getexecutioncontext())
+                return self.handle_generator_error(operr)
+            # Normal case: the call above raises Yield.
+            # We reach this point if the iterable is exhausted.
+            last_instr = jit.promote(self.last_instr)
+            assert last_instr & 1 == 0
+            assert last_instr >= 0
+            return r_uint(last_instr + 2)
+
+        if isinstance(w_arg_or_err, SApplicationException):
+            return self.handle_generator_error(w_arg_or_err.operr)
+
+        last_instr = jit.promote(self.last_instr)
+        if last_instr != -1:
+            assert last_instr & 1 == 0
+            self.pushvalue(w_arg_or_err)
+            return r_uint(last_instr + 2)
+        else:
+            return r_uint(0)
+
     def execute_frame(self, in_generator=None, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.
         'in_generator' is non-None iff we are starting or resuming
@@ -348,8 +379,7 @@ class PyFrame(W_Root):
                         assert self.last_instr == -1
                         next_instr = r_uint(0)
                     else:
-                        next_instr = in_generator.resume_execute_frame(
-                                                        self, w_arg_or_err)
+                        next_instr = self.resume_execute_frame(w_arg_or_err)
                 except pyopcode.Yield:
                     w_exitvalue = self.popvalue()
                 else:
