@@ -183,7 +183,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
              if (!PyArg_ParseTuple(args, "OO", &d, &key)) {
                 return NULL;
              }
-             result = _PyDict_GetItemWithError(d, key);
+             result = PyDict_GetItemWithError(d, key);
              if (result == NULL && !PyErr_Occurred())
                 Py_RETURN_NONE;
              Py_XINCREF(result);
