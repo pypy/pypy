@@ -562,7 +562,7 @@ class AsyncGenerator(GeneratorOrCoroutine):
             return
         self.hooks_inited = True
         ec = self.space.getexecutioncontext()
-        self.w_finalizer = ec.w_asyncgen_firstiter_fn
+        self.w_finalizer = ec.w_asyncgen_finalizer_fn
 
     def _finalize_(self):
         if self.frame is not None and self.frame.lastblock is not None:
