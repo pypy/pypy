@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import objectmodel, unroll
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
-from rpython.jit.backend.detect_cpu import autodetect
+from rpython.jit.backend.detect_cpu import autodetect, ProcessorAutodetectError
 
 # accelerators for string operations using simd on regular word sizes (*not*
 # SSE instructions). this style is sometimes called SWAR (SIMD Within A
@@ -15,8 +15,11 @@ if LONG_BIT == 64:
     WORD_SIZE = 8
     EVERY_BYTE_ONE = 0x0101010101010101
     EVERY_BYTE_HIGHEST_BIT = 0x8080808080808080
-    if autodetect() == "x86-64":
-        USE_SIMD = True
+    try:
+        if autodetect() == "x86-64":
+            USE_SIMD = True
+    except ProcessorAutodetectError:
+        pass
 else:
     WORD_SIZE = 4
     EVERY_BYTE_ONE = 0x01010101
