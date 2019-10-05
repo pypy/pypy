@@ -1,5 +1,5 @@
 digraph G {
-    "a" [type=C, alive=n, tuple=y];
+    "a" [type=C, alive=n, tuple=1];
     "b" [type=C, alive=n];
     "a" -> "b";
     "b" -> "a";

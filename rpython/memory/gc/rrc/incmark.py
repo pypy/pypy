@@ -258,7 +258,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 addr = self.snapshot_refs[obj.refs_index + j]
                 obj_ref = llmemory.cast_adr_to_ptr(addr,
                                                    self.PYOBJ_SNAPSHOT_OBJ_PTR)
-                obj_ref.refcnt -= 1
+                if obj_ref != lltype.nullptr(self.PYOBJ_SNAPSHOT_OBJ):
+                    obj_ref.refcnt -= 1
 
         # now all rawrefcounted roots or live border objects have a
         # refcount > 0
@@ -299,7 +300,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 addr = self.snapshot_refs[snapobj.refs_index + j]
                 obj_ref = llmemory.cast_adr_to_ptr(addr,
                                                    self.PYOBJ_SNAPSHOT_OBJ_PTR)
-                obj_ref.refcnt += 1
+                if obj_ref != lltype.nullptr(self.PYOBJ_SNAPSHOT_OBJ):
+                    obj_ref.refcnt += 1
             # mark recursively, if it is a pypyobj
             if snapobj.pypy_link <> 0:
                 intobj = snapobj.pypy_link
@@ -319,6 +321,10 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         while pygchdr <> self.pyobj_list:
             total_refcnt += self._take_snapshot_count_gc(pygchdr)
             total_objs += 1
+            pygchdr = pygchdr.c_gc_next
+        pygchdr = self.tuple_list.c_gc_next
+        while pygchdr <> self.tuple_list:
+            total_refcnt += self._take_snapshot_count_gc(pygchdr)
             pygchdr = pygchdr.c_gc_next
         pygchdr = self.pyobj_isolate_old_list.c_gc_next
         while pygchdr <> self.pyobj_isolate_old_list:
@@ -364,7 +370,10 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             pygchdr = self.pyobj_as_gc(pyobj)
             if (pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR) and
                 pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED):
-                obj = self.snapshot_objs[pygchdr.c_gc_refs - 1]
+                if pygchdr.c_gc_refs > 0:
+                    obj = self.snapshot_objs[pygchdr.c_gc_refs - 1]
+                else:
+                    obj = lltype.nullptr(self.PYOBJ_SNAPSHOT_OBJ)
             else:
                 obj = self.snapshot_objs[pyobj.c_ob_pypy_link - 1]
             self.snapshot_refs[i] = llmemory.cast_ptr_to_adr(obj)

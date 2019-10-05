@@ -8,6 +8,7 @@ from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount
 from rpython.rlib.debug import debug_print
 import sys
+import time
 
 
 # Keep track of exceptions raised in cpyext for a particular execution
@@ -159,6 +160,10 @@ class State:
                 space.actionflag.register_periodic_action(action,
                     use_bytecode_counter=True)
             else:
+                module = space.builtin_modules['gc']
+                attribute = space.newtext('cpyext_durations')
+                space.setattr(module, attribute, space.newlist([]))
+
                 pyobj_dealloc_action = PyObjDeallocAction(space)
                 self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
 
@@ -310,11 +315,13 @@ class CNamespace:
         return True
 
 
-def _rawrefcount_perform(space):
+def _rawrefcount_perform(space): # TODO: measure time spent, make incremental??
     from pypy.interpreter.baseobjspace import W_Root
     from pypy.module.cpyext.pyobject import (PyObject, incref, decref,
                                              finalize, from_ref, cts)
     from pypy.module.cpyext.api import generic_cpy_call
+
+    start = time.time()
 
     while True:
         py_obj = rawrefcount.next_dead(PyObject)
@@ -337,11 +344,11 @@ def _rawrefcount_perform(space):
         pto = pyobj.c_ob_type
         if pto.c_tp_clear:
             incref(space, py_obj)
-            if pto and pto.c_tp_name:
-                tp_name = pto.c_tp_name
-                name = rffi.charp2str(cts.cast('char*', tp_name))
-                debug_print("tp_clear", pyobj, ": type", pto,
-                            ": name", name)
+            #if pto and pto.c_tp_name:
+            #    tp_name = pto.c_tp_name
+            #    name = rffi.charp2str(cts.cast('char*', tp_name))
+            #    debug_print("tp_clear", pyobj, ": type", pto,
+            #                ": name", name)
             generic_cpy_call(space, pto.c_tp_clear, pyobj)
             decref(space, py_obj)
         head = rawrefcount.cyclic_garbage_head(PyObject)
@@ -364,6 +371,11 @@ def _rawrefcount_perform(space):
     space.setattr(space.builtin_modules['gc'], space.newtext('garbage'),
                   w_list)
     rawrefcount.end_garbage()
+
+    duration = time.time() - start
+    module = space.builtin_modules['gc']
+    durations = space.getattr(module, space.newtext('cpyext_durations'))
+    durations.append(space.newfloat(duration))
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.
