@@ -256,8 +256,9 @@ def _siphash24(addr_in, size, SZ=1):
     v2 = k0 ^ magic2
     v3 = k1 ^ magic3
 
-    direct = (SZ == 1) and (misaligned_is_fine or
-                 (rffi.cast(lltype.Signed, addr_in) & 7) == 0)
+    # direct = (SZ == 1) and (misaligned_is_fine or
+    #             (rffi.cast(lltype.Signed, addr_in) & 7) == 0)
+    direct = (SZ == 1) and misaligned_is_fine
     if direct:
         assert SZ == 1
         while size >= 8:
