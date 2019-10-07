@@ -307,6 +307,7 @@ Python 3.6 c-API
 .. _33786 : https://bugs.python.org/issue33786
 .. _32270 : https://bugs.python.org/issue32270
 .. _28691 : https://bugs.python.org/issue28691
+.. _33729 : https://bugs.python.org/issue33729
 
 .. _opencv2: https://github.com/skvark/opencv-python/
 .. _`issue 2617`: https://bitbucket.com/pypy/pypy/issues/2617
