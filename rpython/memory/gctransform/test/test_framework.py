@@ -151,101 +151,31 @@ def test_no_collect_detection():
 def test_cast_no_collect():
     # mimic some of the behaviour of _siphash24
     from rpython.rlib import rgc
-    from rpython.rlib.rarithmetic import r_uint64, r_uint32
+    from rpython.rlib.rarithmetic import r_uint64
     from rpython.translator.c.genc import CStandaloneBuilder
 
     @always_inline
-    def _rotate(x, b):
-        return (x << b) | (x >> (64 - b))
-
-    @always_inline
-    def _half_round(a, b, c, d, s, t):
-        a += b
-        c += d
-        b = _rotate(b, s) ^ a
-        d = _rotate(d, t) ^ c
-        a = _rotate(a, 32)
-        return a, b, c, d
-
-    @always_inline
     def _double_round(v0, v1, v2, v3):
-        v0,v1,v2,v3 = _half_round(v0,v1,v2,v3,13,16)
-        v2,v1,v0,v3 = _half_round(v2,v1,v0,v3,17,21)
-        v0,v1,v2,v3 = _half_round(v0,v1,v2,v3,13,16)
-        v2,v1,v0,v3 = _half_round(v2,v1,v0,v3,17,21)
         return v0, v1, v2, v3
 
     @rgc.no_collect
-    def _siphash24(addr_in, size, SZ=1):
-        index = 0
+    def _siphash24(addr_in):
         v0 =  r_uint64(0x736f6d6570736575)
         v1 =  r_uint64(0x646f72616e646f6d)
         v2 =  r_uint64(0x6c7967656e657261)
         v3 =  r_uint64(0x7465646279746573)
 
-        b = r_uint64(size) << 56
-        while size >= 8:
-            mi = (
-              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index)) |
-              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1*SZ)) << 8 |
-              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2*SZ)) << 16 |
-              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3*SZ)) << 24 |
-              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4*SZ)) << 32 |
-              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5*SZ)) << 40 |
-              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6*SZ)) << 48 |
-              r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 7*SZ)) << 56
-            )
-            size -= 8
-            index += 8*SZ
-            v3 ^= mi
-            v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
-            v0 ^= mi
-
-        t = r_uint64(0)
-        if size == 7:
-            t = r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 6*SZ)) << 48
-            size = 6
-        if size == 6:
-            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 5*SZ)) << 40
-            size = 5
-        if size == 5:
-            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 4*SZ)) << 32
-            size = 4
-        if size == 4:
-            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 3*SZ))<< 24
-            size = 3
-        if size == 3:
-            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 2*SZ)) << 16
-            size = 2
-        if size == 2:
-            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index + 1*SZ)) << 8
-            size = 1
-        if size == 1:
-            t |= r_uint64(llop.raw_load(rffi.UCHAR, addr_in, index))
-            size = 0
-        assert size == 0
-
-        b |= t
-
-        v3 ^= b
+        mi = r_uint64(0)
+        v3 ^= mi
         v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
-        v0 ^= b
-        v2 ^= 0xff
-        v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
-        v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
+        v0 ^= mi
 
         return (v0 ^ v1) ^ (v2 ^ v3)
 
-    def siphash24(s):
-        """'s' is a normal string.  Returns its siphash-2-4 as a r_uint64.
-        Don't forget to cast the result to a regular integer if needed,
-        e.g. with rarithmetic.intmask().
-        """
-        with rffi.scoped_nonmovingbuffer(s) as p:
-            return _siphash24(llmemory.cast_ptr_to_adr(p), len(s))
+
 
     def entrypoint(argv):
-        return siphash24('abc')
+        return _siphash24('abc')
 
     t = rtype(entrypoint, [s_list_of_strings])
     t.config.translation.gc = "minimark"
