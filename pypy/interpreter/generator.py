@@ -125,7 +125,7 @@ return next yielded value or raise StopIteration."""
                             self.KIND)
         self.running = True
         try:
-            w_result = frame.execute_frame(self, w_arg_or_err)
+            w_result = frame.execute_frame(w_arg_or_err)
         except OperationError as e:
             # errors finish a frame
             try:

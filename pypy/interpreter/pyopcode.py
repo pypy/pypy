@@ -1151,8 +1151,8 @@ class __extend__(pyframe.PyFrame):
     def YIELD_FROM(self, oparg, next_instr):
         # Unlike CPython, we handle this not by repeating the same
         # bytecode over and over until the inner iterator is exhausted.
-        # Instead, we directly set the generator's w_yielded_from.
-        # This asks generator.resume_execute_frame() to exhaust that
+        # Instead, we set w_yielding_from.
+        # This asks resume_execute_frame() to exhaust that
         # sub-iterable first before continuing on the next bytecode.
         w_inputvalue = self.popvalue()    # that's always w_None, actually
         w_gen = self.popvalue()

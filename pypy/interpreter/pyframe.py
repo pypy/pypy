@@ -351,9 +351,9 @@ class PyFrame(W_Root):
         else:
             return r_uint(0)
 
-    def execute_frame(self, in_generator=None, w_arg_or_err=None):
+    def execute_frame(self, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.
-        'in_generator' is non-None iff we are starting or resuming
+        'w_arg_or_err' is non-None iff we are starting or resuming
         a generator or coroutine frame; in that case, w_arg_or_err
         is the input argument -or- an SApplicationException instance.
         """
@@ -375,7 +375,7 @@ class PyFrame(W_Root):
             # the YIELD_VALUE/YIELD_FROM instruction.
             try:
                 try:
-                    if in_generator is None:
+                    if w_arg_or_err is None:
                         assert self.last_instr == -1
                         next_instr = r_uint(0)
                     else:
