@@ -155,24 +155,20 @@ def test_cast_no_collect():
     from rpython.translator.c.genc import CStandaloneBuilder
 
     @always_inline
-    def _double_round(v0, v1, v2, v3):
-        return v0, v1, v2, v3
+    def _double_round(v0, v1):
+        return v0, v1
 
     @rgc.no_collect
     def _siphash24(addr_in):
         v0 =  r_uint64(0x736f6d6570736575)
         v1 =  r_uint64(0x646f72616e646f6d)
-        v2 =  r_uint64(0x6c7967656e657261)
-        v3 =  r_uint64(0x7465646279746573)
 
         mi = r_uint64(0)
-        v3 ^= mi
-        v0, v1, v2, v3 = _double_round(v0, v1, v2, v3)
+        v1 ^= mi
+        v0, v1 = _double_round(v0, v1)
         v0 ^= mi
 
-        return (v0 ^ v1) ^ (v2 ^ v3)
-
-
+        return (v0 ^ v1)
 
     def entrypoint(argv):
         return _siphash24('abc')
@@ -182,10 +178,7 @@ def test_cast_no_collect():
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     cbuild.make_entrypoint_wrapper = False
-    with py.test.raises(Exception) as f:
-        cbuild.build_database()
-    expected = "'no_collect' function can trigger collection: <function _siphash24 at "
-    assert str(f.value).startswith(expected)
+    cbuild.build_database()
 
 def test_custom_trace_function_no_collect():
     from rpython.rlib import rgc
