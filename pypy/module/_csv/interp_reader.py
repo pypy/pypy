@@ -96,17 +96,17 @@ class W_Reader(W_Root):
                         # save empty field
                         self.save_field(field_builder)
                         state = EAT_CRNL
-                    elif (c == ord(dialect.quotechar) and
+                    elif (c == dialect.quotechar and
                               dialect.quoting != QUOTE_NONE):
                         # start quoted field
                         state = IN_QUOTED_FIELD
-                    elif c == ord(dialect.escapechar):
+                    elif c == dialect.escapechar:
                         # possible escaped character
                         state = ESCAPED_CHAR
                     elif c == ord(u' ') and dialect.skipinitialspace:
                         # ignore space at start of field
                         pass
-                    elif c == ord(dialect.delimiter):
+                    elif c == dialect.delimiter:
                         # save empty field
                         self.save_field(field_builder)
                     else:
@@ -130,10 +130,10 @@ class W_Reader(W_Root):
                         # end of line
                         self.save_field(field_builder)
                         state = EAT_CRNL
-                    elif c == ord(dialect.escapechar):
+                    elif c == dialect.escapechar:
                         # possible escaped character
                         state = ESCAPED_CHAR
-                    elif c == ord(dialect.delimiter):
+                    elif c == dialect.delimiter:
                         # save field - wait for new field
                         self.save_field(field_builder)
                         state = START_FIELD
@@ -143,10 +143,10 @@ class W_Reader(W_Root):
 
                 elif state == IN_QUOTED_FIELD:
                     # in quoted field
-                    if c == ord(dialect.escapechar):
+                    if c == dialect.escapechar:
                         # Possible escape character
                         state = ESCAPE_IN_QUOTED_FIELD
-                    elif (c == ord(dialect.quotechar) and
+                    elif (c == dialect.quotechar and
                               dialect.quoting != QUOTE_NONE):
                         if dialect.doublequote:
                             # doublequote; " represented by ""
@@ -165,11 +165,11 @@ class W_Reader(W_Root):
                 elif state == QUOTE_IN_QUOTED_FIELD:
                     # doublequote - seen a quote in an quoted field
                     if (dialect.quoting != QUOTE_NONE and
-                            c == ord(dialect.quotechar)):
+                            c == dialect.quotechar):
                         # save "" as "
                         self.add_char(field_builder, c)
                         state = IN_QUOTED_FIELD
-                    elif c == ord(dialect.delimiter):
+                    elif c == dialect.delimiter:
                         # save field - wait for new field
                         self.save_field(field_builder)
                         state = START_FIELD
@@ -183,7 +183,7 @@ class W_Reader(W_Root):
                     else:
                         # illegal
                         raise self.error(u"'%s' expected after '%s'" % (
-                            dialect.delimiter, dialect.quotechar))
+                            unichr(dialect.delimiter), unichr(dialect.quotechar)))
 
                 elif state == EAT_CRNL:
                     if not (c == ord(u'\n') or c == ord(u'\r')):

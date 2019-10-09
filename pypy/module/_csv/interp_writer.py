@@ -1,4 +1,4 @@
-from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rutf8 import Utf8StringIterator, Utf8StringBuilder
 from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
@@ -15,11 +15,13 @@ class W_Writer(W_Root):
         self.dialect = dialect
         self.w_filewrite = space.getattr(w_fileobj, space.newtext('write'))
         # precompute this
-        special = dialect.delimiter + dialect.lineterminator
-        if dialect.escapechar != '\0':
-            special += dialect.escapechar
-        if dialect.quotechar != '\0':
-            special += dialect.quotechar
+        special = [dialect.delimiter]
+        for c in Utf8StringIterator(dialect.lineterminator):
+            special.append(c)
+        if dialect.escapechar != 0:
+            special.append(dialect.escapechar)
+        if dialect.quotechar != 0:
+            special.append(dialect.quotechar)
         self.special_characters = special
 
     @objectmodel.dont_inline
@@ -35,16 +37,17 @@ class W_Writer(W_Root):
         space = self.space
         fields_w = space.listview(w_fields)
         dialect = self.dialect
-        rec = UnicodeBuilder(80)
+        rec = Utf8StringBuilder(80)
         #
         for field_index in range(len(fields_w)):
             w_field = fields_w[field_index]
             if space.is_w(w_field, space.w_None):
-                field = u""
+                field = ""
+                length = 0
             elif space.isinstance_w(w_field, space.w_float):
-                field = space.realunicode_w(space.repr(w_field))
+                field, length = space.utf8_len_w(space.repr(w_field))
             else:
-                field = space.realunicode_w(space.str(w_field))
+                field, length = space.utf8_len_w(space.str(w_field))
             #
             if dialect.quoting == QUOTE_NONNUMERIC:
                 try:
@@ -57,9 +60,9 @@ class W_Writer(W_Root):
             elif dialect.quoting == QUOTE_ALL:
                 quoted = True
             elif dialect.quoting == QUOTE_MINIMAL:
-                # Find out if we really quoting
+                # Find out if we really need quoting.
                 special_characters = self.special_characters
-                for c in field:
+                for c in Utf8StringIterator(field):
                     if c in special_characters:
                         if c != dialect.quotechar or dialect.doublequote:
                             quoted = True
@@ -78,15 +81,15 @@ class W_Writer(W_Root):
 
             # If this is not the first field we need a field separator
             if field_index > 0:
-                rec.append(dialect.delimiter)
+                rec.append_code(dialect.delimiter)
 
             # Handle preceding quote
             if quoted:
-                rec.append(dialect.quotechar)
+                rec.append_code(dialect.quotechar)
 
             # Copy field data
             special_characters = self.special_characters
-            for c in field:
+            for c in Utf8StringIterator(field):
                 if c in special_characters:
                     if dialect.quoting == QUOTE_NONE:
                         want_escape = True
@@ -94,28 +97,28 @@ class W_Writer(W_Root):
                         want_escape = False
                         if c == dialect.quotechar:
                             if dialect.doublequote:
-                                rec.append(dialect.quotechar)
+                                rec.append_code(dialect.quotechar)
                             else:
                                 want_escape = True
                     if want_escape:
-                        if dialect.escapechar == u'\0':
+                        if dialect.escapechar == 0:
                             raise self.error("need to escape, "
                                              "but no escapechar set")
-                        rec.append(dialect.escapechar)
+                        rec.append_code(dialect.escapechar)
                     else:
                         assert quoted
                 # Copy field character into record buffer
-                rec.append(c)
+                rec.append_code(c)
 
             # Handle final quote
             if quoted:
-                rec.append(dialect.quotechar)
+                rec.append_code(dialect.quotechar)
 
         # Add line terminator
         rec.append(dialect.lineterminator)
 
         line = rec.build()
-        return space.call_function(self.w_filewrite, space.newtext(line))
+        return space.call_function(self.w_filewrite, space.newutf8(line, rec.getlength()))
 
     def writerows(self, w_seqseq):
         """Construct and write a series of sequences to a csv file.
