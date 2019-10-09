@@ -16,37 +16,46 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         if self.state == self.STATE_DEFAULT:
             # untrack all tuples with only non-gc rrc objects and
             # promote all other tuples to the pyobj_list
-            self._untrack_tuples()
-            # TODO: execute incrementally? (before snapshot!, own phase)
+            self._untrack_tuples() # execute incrementally?
 
             # now take a snapshot
             self._take_snapshot()
             self._debug_print_snap(print_label="after-snapshot")
 
-            # collect all rawrefcounted roots
-            self._collect_roots()
-            # TODO: execute incrementally (own phase, save index)
-
-            self._debug_print_snap(print_label="roots-marked")
-            self._debug_check_consistency(print_label="roots-marked")
-
-            self._gc_list_init(self.pyobj_old_list)
             self.state = self.STATE_MARKING
+            self.marking_state = 0
             return False
 
         if self.state == self.STATE_MARKING:
-            # mark all objects reachable from rawrefcounted roots
-            all_rrc_marked = self._mark_rawrefcount()
-            # TODO: execute incrementally
-
-            if (all_rrc_marked and not self.gc.objects_to_trace.non_empty() and
-                    not self.gc.more_objects_to_trace.non_empty()):
-                # all objects have been marked, dead objects will stay dead
-                self._debug_print_snap(print_label="before-fin")
-                self._debug_check_consistency(print_label="before-fin")
-                self.state = self.STATE_GARBAGE_MARKING
-            else:
+            if self.marking_state == 0:
+                # collect all rawrefcounted roots
+                self._collect_roots() # execute incrementally (save index)?
+                self._debug_print_snap(print_label="roots-marked")
+                self._debug_check_consistency(print_label="roots-marked")
+                self._gc_list_init(self.pyobj_old_list)
+                self.marking_state = 1
                 return False
+            elif self.marking_state == 1:
+                # initialize working set from roots, then pause
+                self.pyobj_to_trace = self.gc.AddressStack()
+                for i in range(0, self.total_objs):
+                    obj = self.snapshot_objs[i]
+                    self._mark_rawrefcount_obj(obj)
+                self.p_list_old.foreach(self._mark_rawrefcount_linked, None)
+                self.o_list_old.foreach(self._mark_rawrefcount_linked, None)
+                self.marking_state = 2
+                return False
+            else:
+                # mark all objects reachable from rawrefcounted roots
+                all_rrc_marked = self._mark_rawrefcount()
+                if (all_rrc_marked and not self.gc.objects_to_trace.non_empty() and
+                        not self.gc.more_objects_to_trace.non_empty()):
+                    # all objects have been marked, dead objects will stay dead
+                    self._debug_print_snap(print_label="before-fin")
+                    self._debug_check_consistency(print_label="before-fin")
+                    self.state = self.STATE_GARBAGE_MARKING
+                else:
+                    return False
 
         # we are finished with marking, now finish things up
         ll_assert(self.state == self.STATE_GARBAGE_MARKING, "invalid state")
@@ -91,7 +100,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
 
         # sync p_list_old (except gc-objects)
         # simply iterate the snapshot for objects in p_list, as linked objects
-        # might not be freed, except by the gc
+        # might not be freed, except by the gc; p_list is always at the
+        # beginning of the snapshot, so break if we reached a different pyobj
         free_p_list = self.gc.AddressStack()
         for i in range(0, self.total_objs):
             snapobj = self.snapshot_objs[i]
@@ -102,6 +112,10 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             if (pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR) and
                     pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED):
                 break  # only look for non-gc
+            addr = llmemory.cast_int_to_adr(snapobj.pypy_link)
+            if (self.gc.header(addr).tid &
+                    (self.GCFLAG_VISITED | self.GCFLAG_NO_HEAP_PTRS)):
+                continue # keep proxy if obj is marked
             if snapobj.refcnt == 0:
                 # check consistency
                 consistent = pyobj.c_ob_refcnt == snapobj.refcnt_original
@@ -269,17 +283,23 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         # objects are found, increment the refcount of all referenced objects
         # of those newly found objects
         reached_limit = False
-        found_alive = True
         simple_limit = 0
+        first = True # rescan proxies, in case only non-rc have been marked
         #
-        while found_alive and not reached_limit: # TODO: working set to improve performance?
-            found_alive = False
-            for i in range(0, self.total_objs):
-                obj = self.snapshot_objs[i]
-                found_alive |= self._mark_rawrefcount_obj(obj)
-            simple_limit += 1
-            if simple_limit > 3: # TODO: implement sane limit
-                reached_limit
+        while first or (self.pyobj_to_trace.non_empty() and not reached_limit):
+            while self.pyobj_to_trace.non_empty() and not reached_limit:
+                addr = self.pyobj_to_trace.pop()
+                snapobj = llmemory.cast_adr_to_ptr(addr,
+                                                   self.PYOBJ_SNAPSHOT_OBJ_PTR)
+                snapobj.refcnt += 1
+                self._mark_rawrefcount_obj(snapobj)
+                simple_limit += 1
+                if simple_limit > self.inc_limit: # TODO: add test
+                    reached_limit = True
+
+            self.p_list_old.foreach(self._mark_rawrefcount_linked, None)
+            self.o_list_old.foreach(self._mark_rawrefcount_linked, None)
+            first = False
         return not reached_limit # are there any objects left?
 
     def _mark_rawrefcount_obj(self, snapobj):
@@ -301,16 +321,37 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 obj_ref = llmemory.cast_adr_to_ptr(addr,
                                                    self.PYOBJ_SNAPSHOT_OBJ_PTR)
                 if obj_ref != lltype.nullptr(self.PYOBJ_SNAPSHOT_OBJ):
-                    obj_ref.refcnt += 1
+                    if obj_ref.refcnt == 0:
+                        addr = llmemory.cast_ptr_to_adr(obj_ref)
+                        self.pyobj_to_trace.append(addr)
+                    else:
+                        obj_ref.refcnt += 1
             # mark recursively, if it is a pypyobj
             if snapobj.pypy_link <> 0:
                 intobj = snapobj.pypy_link
                 obj = llmemory.cast_int_to_adr(intobj)
                 self.gc.objects_to_trace.append(obj)
-                self.gc.visit_all_objects()  # TODO: remove to improve pause times
+                self.gc.visit_all_objects()  # TODO: move to outer loop, implement sane limit (ex. half of normal limit), retrace proxies
             # mark as processed
             snapobj.status = 0
         return alive
+
+    def _mark_rawrefcount_linked(self, pyobject, ignore):
+        # we only have to take gc-objs into consideration, rc-proxies only
+        # keep their non-rc objs alive (see _major_free)
+        pyobj = self._pyobj(pyobject)
+        addr = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
+        if self.gc.header(addr).tid & (self.GCFLAG_VISITED |
+                                       self.GCFLAG_NO_HEAP_PTRS):
+            pygchdr = self.pyobj_as_gc(pyobj)
+            if (pygchdr != lltype.nullptr(self.PYOBJ_GC_HDR) and
+                    pygchdr.c_gc_refs > 0 and
+                    pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED):
+                index = pygchdr.c_gc_refs - 1
+                snapobj = self.snapshot_objs[index]
+                if snapobj.refcnt == 0:
+                    addr = llmemory.cast_ptr_to_adr(snapobj)
+                    self.pyobj_to_trace.append(addr)
 
     def _take_snapshot(self):
         total_refcnt = 0

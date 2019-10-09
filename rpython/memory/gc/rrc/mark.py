@@ -166,25 +166,36 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             self._gc_list_init(self.pyobj_old_list)
         else:
             self._gc_list_move(self.pyobj_list, self.pyobj_old_list)
+        pyobj_old = self.pyobj_list
+
+        # initialize working set
+        self.pyobj_to_trace = self.gc.AddressStack()
+        gchdr = self.pyobj_old_list.c_gc_next
+        while gchdr <> self.pyobj_old_list:
+            next_old = gchdr.c_gc_next
+            self._mark_rawrefcount_obj(gchdr, pyobj_old)
+            gchdr = next_old
+        gchdr = self.pyobj_isolate_old_list.c_gc_next
+        while gchdr <> self.pyobj_isolate_old_list:
+            next_old = gchdr.c_gc_next
+            self._mark_rawrefcount_obj(gchdr, pyobj_old)
+            gchdr = next_old
+        self.p_list_old.foreach(self._mark_rawrefcount_linked, None)
+        self.o_list_old.foreach(self._mark_rawrefcount_linked, None)
+
         # as long as new objects with cyclic a refcount > 0 or alive border
         # objects are found, increment the refcount of all referenced objects
         # of those newly found objects
-        found_alive = True
-        pyobj_old = self.pyobj_list
-        #
-        while found_alive: # TODO: working set to improve performance?
-            found_alive = False
-            gchdr = self.pyobj_old_list.c_gc_next
-            while gchdr <> self.pyobj_old_list:
-                next_old = gchdr.c_gc_next
-                found_alive |= self._mark_rawrefcount_obj(gchdr, pyobj_old)
-                gchdr = next_old
-            gchdr = self.pyobj_isolate_old_list.c_gc_next
-            while gchdr <> self.pyobj_isolate_old_list:
-                next_old = gchdr.c_gc_next
-                found_alive |= self._mark_rawrefcount_obj(gchdr, pyobj_old)
-                gchdr = next_old
-        #
+        while self.pyobj_to_trace.non_empty():
+            while self.pyobj_to_trace.non_empty():
+                addr = self.pyobj_to_trace.pop()
+                gchdr = llmemory.cast_adr_to_ptr(addr, self.PYOBJ_GC_HDR_PTR)
+                gchdr.c_gc_refs += 1 << self.RAWREFCOUNT_REFS_SHIFT
+                self._mark_rawrefcount_obj(gchdr, pyobj_old)
+            self.gc.visit_all_objects()
+            self.p_list_old.foreach(self._mark_rawrefcount_linked, None)
+            self.o_list_old.foreach(self._mark_rawrefcount_linked, None)
+
         # now all rawrefcounted objects, which are alive, have a cyclic
         # refcount > 0 or are marked
 
@@ -212,5 +223,15 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             # mark recursively, if it is a pypyobj
             if pyobj.c_ob_pypy_link <> 0:
                 self.gc.objects_to_trace.append(obj)
-                self.gc.visit_all_objects()
         return alive
+
+    def _mark_rawrefcount_linked(self, pyobject, ignore):
+        pyobj = self._pyobj(pyobject)
+        obj = self.refcnt_dict.get(pyobject)
+        if self.gc.header(obj).tid & (self.GCFLAG_VISITED |
+                                      self.GCFLAG_NO_HEAP_PTRS):
+            gchdr = self.pyobj_as_gc(pyobj)
+            if gchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
+                if gchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT == 0:
+                    addr = llmemory.cast_ptr_to_adr(gchdr)
+                    self.pyobj_to_trace.append(addr)

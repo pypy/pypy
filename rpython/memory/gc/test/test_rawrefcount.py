@@ -104,6 +104,7 @@ class TestRawRefCount(BaseDirectGCTest):
                                  rawrefcount_pyobj_as_gc,
                                  rawrefcount_finalizer_type,
                                  rawrefcount_tuple_maybe_untrack)
+        self.gc.rrc_gc.inc_limit = 2 # low limit to test incremental collection
 
     def _collect(self, major, expected_trigger=0):
         if major:

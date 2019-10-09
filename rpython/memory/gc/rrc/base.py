@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llgroup, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
+from rpython.memory.gc import env
 
 def choose_rrc_gc_from_config(config):
     if config.translation.rrcgc:
@@ -118,6 +119,11 @@ class RawRefCountBaseGC(object):
         self.tuple_maybe_untrack = tuple_maybe_untrack
         self.state = self.STATE_DEFAULT
         self.cycle_enabled = True
+        inc_limit = env.read_uint_from_env('PYPY_RRC_GC_INCREMENT_STEP')
+        if inc_limit > 0:
+            self.inc_limit = inc_limit
+        else:
+            self.inc_limit = 1000
 
     def create_link_pypy(self, gcobj, pyobject):
         obj = llmemory.cast_ptr_to_adr(gcobj)
@@ -566,8 +572,14 @@ class RawRefCountBaseGC(object):
         pygchdr = self.pyobj_as_gc(pyobj)
         if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
             if pygchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:
-                pygchdr.c_gc_refs += self.refcnt_add << \
-                                     self.RAWREFCOUNT_REFS_SHIFT
+                if (self.state != self.STATE_GARBAGE_MARKING and
+                        pygchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT == 0
+                        and self.refcnt_add > 0):
+                    addr = llmemory.cast_ptr_to_adr(pygchdr)
+                    self.pyobj_to_trace.append(addr)
+                else:
+                    pygchdr.c_gc_refs += (self.refcnt_add <<
+                                          self.RAWREFCOUNT_REFS_SHIFT)
         elif pyobj.c_ob_pypy_link != 0:
             pyobj.c_ob_refcnt += self.refcnt_add
             if self.refcnt_add > 0:

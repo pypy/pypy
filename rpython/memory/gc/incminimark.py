@@ -2415,7 +2415,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # finalizers/weak references are rare and short which means that
             # they do not need a separate state and do not need to be
             # made incremental.
-            # For now, the same applies to rawrefcount'ed objects.
             if rrc_finished:
                 ll_assert(not (self.probably_young_objects_with_finalizers
                                .non_empty()),
