@@ -1,4 +1,3 @@
-from rpython.rlib.rstring import UnicodeBuilder
 from rpython.rlib.rutf8 import Utf8StringIterator, Utf8StringBuilder
 from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
@@ -22,6 +21,7 @@ class W_Reader(W_Root):
         self.dialect = dialect
         self.w_iter = w_iter
         self.line_num = 0
+        self.sizehint = 1  # just used for first line
 
     def iter_w(self):
         return self
@@ -52,7 +52,7 @@ class W_Reader(W_Root):
     def next_w(self):
         space = self.space
         dialect = self.dialect
-        self.fields_w = []
+        self.fields_w = objectmodel.newlist_hint(self.sizehint)
         self.numeric_field = False
         field_builder = None  # valid iff state not in [START_RECORD, EAT_CRNL]
         state = START_RECORD
@@ -213,6 +213,8 @@ class W_Reader(W_Root):
                 break
         #
         w_result = space.newlist(self.fields_w)
+        # assume all lines have the same number of fields
+        self.sizehint = len(self.fields_w)
         self.fields_w = None
         return w_result
 
