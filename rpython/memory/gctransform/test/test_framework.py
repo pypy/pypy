@@ -174,6 +174,7 @@ def test_cast_no_collect():
         return _siphash24('abc')
 
     t = rtype(entrypoint, [s_list_of_strings])
+    backend_optimizations(t, clever_malloc_removal=False, storesink=True)
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
