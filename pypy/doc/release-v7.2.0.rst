@@ -216,6 +216,7 @@ C-API (cpyext) and c-extensions
 * Add more constants to `sysconfig``. Set ``MACOSX_DEPLOYMENT_TARGET`` for
   darwin (`issue 2994`_)
 * fix ``CBuffer.buffer_attach``
+* Add ``_PyDict_GetItemWithError`` (``PyDict_GetItemWithError`` on Python3)
 
 Python 3.6 only
 ---------------
