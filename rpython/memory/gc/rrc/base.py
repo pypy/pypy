@@ -81,6 +81,7 @@ class RawRefCountBaseGC(object):
     RAWREFCOUNT_REFS_SHIFT = 1
     RAWREFCOUNT_REFS_MASK_FINALIZED = 1
     RAWREFCOUNT_REFS_UNTRACKED = -2 << RAWREFCOUNT_REFS_SHIFT
+    RAWREFCOUNT_REFS_REACHABLE = -3 << RAWREFCOUNT_REFS_SHIFT
 
     def _pyobj(self, pyobjaddr):
         return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
@@ -102,7 +103,7 @@ class RawRefCountBaseGC(object):
         self.p_dict_nurs = self.gc.AddressDict()  # nursery keys only
         self.dealloc_trigger_callback = dealloc_trigger_callback
         self.dealloc_pending = self.gc.AddressStack()
-        self.refcnt_dict = self.gc.AddressDict()
+        self.pypy_link_dict = self.gc.AddressDict()
         self.tp_traverse = tp_traverse
         self.pyobj_list = self._pygchdr(pyobj_list)
         self.tuple_list = self._pygchdr(tuple_list)
@@ -118,6 +119,7 @@ class RawRefCountBaseGC(object):
         self.finalizer_type = finalizer_type
         self.tuple_maybe_untrack = tuple_maybe_untrack
         self.state = self.STATE_DEFAULT
+        self.marking_state = 0
         self.cycle_enabled = True
         inc_limit = env.read_uint_from_env('PYPY_RRC_GC_INCREMENT_STEP')
         if inc_limit > 0:
@@ -377,7 +379,7 @@ class RawRefCountBaseGC(object):
             debug_print("pyobj stays alive", pyobj, "rc", rc, "cyclic_rc",
                         cyclic_rc)
             if use_dict:
-                obj = self.refcnt_dict.get(pyobject)
+                obj = self.pypy_link_dict.get(pyobject)
             else:
                 intobj = pyobj.c_ob_pypy_link
                 obj = llmemory.cast_int_to_adr(intobj)
@@ -404,7 +406,7 @@ class RawRefCountBaseGC(object):
             # force the corresponding object to be alive
             debug_print("pyobj stays alive", pyobj, "rc", rc)
             if use_dict:
-                obj = self.refcnt_dict.get(pyobject)
+                obj = self.pypy_link_dict.get(pyobject)
             else:
                 intobj = pyobj.c_ob_pypy_link
                 obj = llmemory.cast_int_to_adr(intobj)
@@ -489,7 +491,7 @@ class RawRefCountBaseGC(object):
                 if pyobj.c_ob_pypy_link <> 0:
                     if use_dict:
                         pyobject = llmemory.cast_ptr_to_adr(pyobj)
-                        obj = self.refcnt_dict.get(pyobject)
+                        obj = self.pypy_link_dict.get(pyobject)
                     else:
                         intobj = pyobj.c_ob_pypy_link
                         obj = llmemory.cast_int_to_adr(intobj)
@@ -524,7 +526,7 @@ class RawRefCountBaseGC(object):
         if pyobj.c_ob_pypy_link <> 0:
             if use_dict:
                 pyobject = llmemory.cast_ptr_to_adr(pyobj)
-                obj = self.refcnt_dict.get(pyobject)
+                obj = self.pypy_link_dict.get(pyobject)
             else:
                 intobj = pyobj.c_ob_pypy_link
                 obj = llmemory.cast_int_to_adr(intobj)
@@ -584,7 +586,7 @@ class RawRefCountBaseGC(object):
             pyobj.c_ob_refcnt += self.refcnt_add
             if self.refcnt_add > 0:
                 pyobject = llmemory.cast_ptr_to_adr(pyobj)
-                obj = self.refcnt_dict.get(pyobject)
+                obj = self.pypy_link_dict.get(pyobject)
                 self.gc.objects_to_trace.append(obj)
                 self.gc.visit_all_objects()
 
@@ -601,6 +603,13 @@ class RawRefCountBaseGC(object):
             self.tp_traverse(pyobj, callback_ptr, self_ptr)
         else:
             self.tp_traverse(pyobj, self._visit_action, None)
+
+    def _pyobj_gc_refcnt_set(self, pygchdr, refcnt):
+        pygchdr.c_gc_refs &= self.RAWREFCOUNT_REFS_MASK_FINALIZED
+        pygchdr.c_gc_refs |= refcnt << self.RAWREFCOUNT_REFS_SHIFT
+
+    def _pyobj_gc_refcnt_get(self, pygchdr):
+        return pygchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT
 
     # --- Helpers ---
 

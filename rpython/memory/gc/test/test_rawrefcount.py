@@ -17,6 +17,7 @@ RAWREFCOUNT_FINALIZER_MODERN = RawRefCountBaseGC.RAWREFCOUNT_FINALIZER_MODERN
 RAWREFCOUNT_FINALIZER_LEGACY = RawRefCountBaseGC.RAWREFCOUNT_FINALIZER_LEGACY
 RAWREFCOUNT_FINALIZER_NONE = RawRefCountBaseGC.RAWREFCOUNT_FINALIZER_NONE
 RAWREFCOUNT_REFS_UNTRACKED = RawRefCountBaseGC.RAWREFCOUNT_REFS_UNTRACKED
+RAWREFCOUNT_REFS_REACHABLE = RawRefCountBaseGC.RAWREFCOUNT_REFS_REACHABLE
 
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('S',
@@ -249,7 +250,7 @@ class TestRawRefCount(BaseDirectGCTest):
                              immortal=True)
         self.gcobjs.append(r1gc)
         if tracked:
-            r1gc.c_gc_refs = 0
+            r1gc.c_gc_refs = RAWREFCOUNT_REFS_REACHABLE
             if tuple:
                 r1gc.c_gc_next = self.tuple_list
                 r1gc.c_gc_prev = self.tuple_list.c_gc_prev

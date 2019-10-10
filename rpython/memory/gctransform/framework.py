@@ -514,6 +514,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.rawrefcount_to_obj_ptr = getfn(
                 GCClass.rawrefcount_to_obj, [s_gc, SomeAddress()], s_gcref,
                 inline = True)
+            self.rawrefcount_check_state_ptr = getfn(
+                GCClass.rawrefcount_check_state, [s_gc], annmodel.SomeBool(),
+                inline = True)
             self.rawrefcount_next_dead_ptr = getfn(
                 GCClass.rawrefcount_next_dead, [s_gc], SomeAddress(),
                 inline = True)
@@ -1422,6 +1425,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
         assert hop.spaceop.result.concretetype == llmemory.GCREF
         hop.genop("direct_call",
                   [self.rawrefcount_to_obj_ptr, self.c_const_gc, v_pyobject],
+                  resultvar=hop.spaceop.result)
+
+    def gct_gc_rawrefcount_check_state(self, hop):
+        hop.genop("direct_call",
+                  [self.rawrefcount_check_state_ptr, self.c_const_gc],
                   resultvar=hop.spaceop.result)
 
     def gct_gc_rawrefcount_next_dead(self, hop):

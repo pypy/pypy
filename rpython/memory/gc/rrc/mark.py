@@ -56,9 +56,9 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             self._debug_check_consistency(print_label="end-mark")
 
             # fix refcnt back
-            self.refcnt_dict.foreach(self._fix_refcnt_back, None)
-            self.refcnt_dict.delete()
-            self.refcnt_dict = self.gc.AddressDict()
+            self.pypy_link_dict.foreach(self._fix_refcnt_back, None)
+            self.pypy_link_dict.delete()
+            self.pypy_link_dict = self.gc.AddressDict()
             self.use_refcntdict = False
         else:
             self.p_list_old.foreach(self._major_trace, (False, False))
@@ -69,7 +69,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
 
     def to_obj(self, pyobject):
         if self.use_refcntdict:
-            obj = self.refcnt_dict.get(pyobject)
+            obj = self.pypy_link_dict.get(pyobject)
         else:
             obj = llmemory.cast_int_to_adr(
                 self._pyobj(pyobject).c_ob_pypy_link)
@@ -127,19 +127,15 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
             self._traverse(pyobj, -1)
             pygchdr = pygchdr.c_gc_next
 
-    def _pyobj_gc_refcnt_set(self, pygchdr, refcnt):
-        pygchdr.c_gc_refs &= self.RAWREFCOUNT_REFS_MASK_FINALIZED
-        pygchdr.c_gc_refs |= refcnt << self.RAWREFCOUNT_REFS_SHIFT
-
     def _obj_save_refcnt(self, pyobject, ignore):
         pyobj = self._pyobj(pyobject)
         link = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
-        self.refcnt_dict.setitem(pyobject, link)
+        self.pypy_link_dict.setitem(pyobject, link)
         pyobj.c_ob_pypy_link = pyobj.c_ob_refcnt
 
     def _obj_fix_refcnt(self, pyobject, ignore):
         pyobj = self._pyobj(pyobject)
-        obj = self.refcnt_dict.get(pyobject)
+        obj = self.pypy_link_dict.get(pyobject)
         gchdr = self.pyobj_as_gc(pyobj)
         if gchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
             rc = gchdr.c_gc_refs
@@ -205,7 +201,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         obj = llmemory.NULL
         if pyobj.c_ob_pypy_link <> 0:
             pyobject = llmemory.cast_ptr_to_adr(pyobj)
-            obj = self.refcnt_dict.get(pyobject)
+            obj = self.pypy_link_dict.get(pyobject)
             if not alive and self.gc.header(obj).tid & (
                     self.GCFLAG_VISITED | self.GCFLAG_NO_HEAP_PTRS):
                 # add fake refcount, to mark it as live
@@ -227,7 +223,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
 
     def _mark_rawrefcount_linked(self, pyobject, ignore):
         pyobj = self._pyobj(pyobject)
-        obj = self.refcnt_dict.get(pyobject)
+        obj = self.pypy_link_dict.get(pyobject)
         if self.gc.header(obj).tid & (self.GCFLAG_VISITED |
                                       self.GCFLAG_NO_HEAP_PTRS):
             gchdr = self.pyobj_as_gc(pyobj)

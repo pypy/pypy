@@ -528,6 +528,7 @@ LL_OPERATIONS = {
     'gc_rawrefcount_mark_deallocating':     LLOp(),
     'gc_rawrefcount_from_obj':              LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':                LLOp(sideeffects=False),
+    'gc_rawrefcount_check_state':           LLOp(sideeffects=False),
     'gc_rawrefcount_next_dead':             LLOp(),
     'gc_rawrefcount_next_cyclic_isolate':   LLOp(),
     'gc_rawrefcount_cyclic_garbage_head':   LLOp(sideeffects=False),

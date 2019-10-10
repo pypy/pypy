@@ -984,6 +984,9 @@ class LLFrame(object):
     def op_gc_rawrefcount_mark_deallocating(self, *args):
         raise NotImplementedError("gc_rawrefcount_mark_deallocating")
 
+    def op_gc_rawrefcount_check_state(self, *args):
+        raise NotImplementedError("gc_rawrefcount_check_state")
+
     def op_gc_rawrefcount_next_dead(self, *args):
         raise NotImplementedError("gc_rawrefcount_next_dead")
 

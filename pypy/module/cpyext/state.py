@@ -321,61 +321,63 @@ def _rawrefcount_perform(space): # TODO: measure time spent, make incremental??
                                              finalize, from_ref, cts)
     from pypy.module.cpyext.api import generic_cpy_call
 
-    start = time.time()
 
-    while True:
-        py_obj = rawrefcount.next_dead(PyObject)
-        if not py_obj:
-            break
-        decref(space, py_obj)
+    if rawrefcount.check_state():
+        start = time.time()
 
-    while True:
-        py_obj = rawrefcount.next_cyclic_isolate(PyObject)
-        if not py_obj:
-            break
-        finalize(space, py_obj)
-
-    while True:
-        py_obj = rawrefcount.cyclic_garbage_head(PyObject)
-        if not py_obj:
-            break
-        pyobj = rffi.cast(PyObject, py_obj)
-        adr_int = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(pyobj))
-        pto = pyobj.c_ob_type
-        if pto.c_tp_clear:
-            incref(space, py_obj)
-            #if pto and pto.c_tp_name:
-            #    tp_name = pto.c_tp_name
-            #    name = rffi.charp2str(cts.cast('char*', tp_name))
-            #    debug_print("tp_clear", pyobj, ": type", pto,
-            #                ": name", name)
-            generic_cpy_call(space, pto.c_tp_clear, pyobj)
+        while True:
+            py_obj = rawrefcount.next_dead(PyObject)
+            if not py_obj:
+                break
             decref(space, py_obj)
-        head = rawrefcount.cyclic_garbage_head(PyObject)
-        if adr_int == llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(head)):
-            rawrefcount.cyclic_garbage_remove()
 
-    rawrefcount.begin_garbage()
-    w_list = space.newlist([])
-    while True:
-        w_obj = rawrefcount.next_garbage_pypy(W_Root)
-        if not py_obj:
-            break
-        w_list.append(w_obj)
-    while True:
-        w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
-        if not w_pyobj:
-            break
-        w_obj = from_ref(space, w_pyobj)
-        w_list.append(w_obj)
-    space.setattr(space.builtin_modules['gc'], space.newtext('garbage'),
-                  w_list)
-    rawrefcount.end_garbage()
+        while True:
+            py_obj = rawrefcount.next_cyclic_isolate(PyObject)
+            if not py_obj:
+                break
+            finalize(space, py_obj)
 
-    duration = time.time() - start
-    module = space.builtin_modules['gc']
-    durations = space.getattr(module, space.newtext('cpyext_durations'))
-    durations.append(space.newfloat(duration))
+        while True:
+            py_obj = rawrefcount.cyclic_garbage_head(PyObject)
+            if not py_obj:
+                break
+            pyobj = rffi.cast(PyObject, py_obj)
+            adr_int = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(pyobj))
+            pto = pyobj.c_ob_type
+            if pto.c_tp_clear:
+                incref(space, py_obj)
+                #if pto and pto.c_tp_name:
+                #    tp_name = pto.c_tp_name
+                #    name = rffi.charp2str(cts.cast('char*', tp_name))
+                #    debug_print("tp_clear", pyobj, ": type", pto,
+                #                ": name", name)
+                generic_cpy_call(space, pto.c_tp_clear, pyobj)
+                decref(space, py_obj)
+            head = rawrefcount.cyclic_garbage_head(PyObject)
+            if adr_int == llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(head)):
+                rawrefcount.cyclic_garbage_remove()
+
+        rawrefcount.begin_garbage()
+        w_list = space.newlist([])
+        while True:
+            w_obj = rawrefcount.next_garbage_pypy(W_Root)
+            if not py_obj:
+                break
+            w_list.append(w_obj)
+        while True:
+            w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
+            if not w_pyobj:
+                break
+            w_obj = from_ref(space, w_pyobj)
+            w_list.append(w_obj)
+        space.setattr(space.builtin_modules['gc'], space.newtext('garbage'),
+                      w_list)
+        rawrefcount.end_garbage()
+
+        duration = time.time() - start
+        module = space.builtin_modules['gc']
+        durations = space.getattr(module, space.newtext('cpyext_durations'))
+        durations.append(space.newfloat(duration))
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.

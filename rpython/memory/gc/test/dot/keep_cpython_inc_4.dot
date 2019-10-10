@@ -1,0 +1,9 @@
+digraph G {
+    "a" [type=C, alive=n];
+    "b" [type=C, alive=n];
+    "c" [type=C, alive=n];
+    "d" [type=B, alive=y, added=after_snap, rooted=y];
+    "a" -> "b";
+    "b" -> "c";
+    "c" -> "a";
+}

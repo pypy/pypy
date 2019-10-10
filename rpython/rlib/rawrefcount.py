@@ -117,6 +117,10 @@ def to_obj(Class, ob):
     return p
 
 @not_rpython
+def check_state():
+    return True
+
+@not_rpython
 def next_dead(OB_PTR_TYPE):
     """When the GC runs, it finds some pyobjs to be dead
     but cannot immediately dispose of them (it doesn't know how to call
@@ -386,6 +390,19 @@ class Entry(ExtRegistryEntry):
         v_p = hop.genop('gc_rawrefcount_to_obj', [_unspec_ob(hop, v_ob)],
                         resulttype = llmemory.GCREF)
         return _spec_p(hop, v_p)
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_state
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_rawrefcount_check_state', [],
+                         resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
     _about_ = (next_dead, cyclic_garbage_head, next_cyclic_isolate,
