@@ -1,11 +1,15 @@
 # Edit these appropriately before running this script
 pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
-exe=pypy # pypy3 or pypy
 maj=7
 min=2
-rev=0rc0
+rev=0rc2
 
+case $pmaj in
+    "2") exe=pypy;;
+    "3") exe=pypy3;;
+    *) echo invalid pmaj=$pmaj; exit 1;;
+esac
 
 branchname=release-pypy$pmaj.$pmin-v$maj.x # ==OR== release-v$maj.x  # ==OR== release-v$maj.$min.x
 tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
