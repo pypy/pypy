@@ -27,12 +27,14 @@ def get_current_qmut_instance(cpu, gcref, mutatefielddescr):
     return qmut
 
 def make_invalidation_function(STRUCT, mutatefieldname):
-    #
+    # fake a repr
+    descr_repr = "FieldDescr(%s, '%s')" % (STRUCT.TO, mutatefieldname)
+
     def _invalidate_now(p):
         qmut_ptr = getattr(p, mutatefieldname)
         setattr(p, mutatefieldname, lltype.nullptr(rclass.OBJECT))
         qmut = cast_base_ptr_to_instance(QuasiImmut, qmut_ptr)
-        qmut.invalidate(mutatefieldname)
+        qmut.invalidate(descr_repr)
     _invalidate_now._dont_inline_ = True
     #
     def invalidation(p):
@@ -46,7 +48,7 @@ def do_force_quasi_immutable(cpu, p, mutatefielddescr):
     if qmut_ref:
         cpu.bh_setfield_gc_r(p, ConstPtr.value, mutatefielddescr)
         qmut = cast_gcref_to_instance(QuasiImmut, qmut_ref)
-        qmut.invalidate(mutatefielddescr.fieldname)
+        qmut.invalidate(mutatefielddescr.repr_of_descr())
 
 
 class QuasiImmut(object):
@@ -79,7 +81,7 @@ class QuasiImmut(object):
         # already invalidated; see below
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
 
-    def invalidate(self, fieldname=None):
+    def invalidate(self, descr_repr=None):
         debug_start("jit-invalidate-quasi-immutable")
         # When this is called, all the loops that we record become
         # invalid: all GUARD_NOT_INVALIDATED in these loops (and
@@ -104,7 +106,7 @@ class QuasiImmut(object):
                 if not we_are_translated():
                     self.cpu.stats.invalidated_token_numbers.add(
                         looptoken.number)
-        debug_print("fieldname", fieldname or "<unknown>", "invalidated", invalidated)
+        debug_print("fieldname", descr_repr or "<unknown>", "invalidated", invalidated)
         debug_stop("jit-invalidate-quasi-immutable")
 
 
