@@ -1005,3 +1005,13 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})
+
+
+
+class AppTestFastPathCrash(object):
+    def test_fast_path_crash(self):
+        with raises(TypeError) as excinfo:
+            # does not crash in BuiltinCodePassThroughArguments0.funcrun
+            dict.__init__.im_func(0)
+        print(str(excinfo.value))
+        assert str(excinfo.value) == "'dict' object expected, got 'int' instead"

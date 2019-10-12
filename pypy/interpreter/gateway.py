@@ -709,6 +709,7 @@ class BuiltinCode(Code):
                     self.func__args__ = func
                 elif unwrap_spec == [self_type, ObjSpace, Arguments]:
                     self.__class__ = BuiltinCodePassThroughArguments1
+                    self.descr_reqcls = self_type
                     miniglobals = {'func': func, 'self_type': self_type}
                     d = {}
                     source = """if 1:
@@ -808,7 +809,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
         try:
             w_result = self.func__args__(space, w_obj, args)
         except DescrMismatch:
-            return args.firstarg().descr_call_mismatch(space,
+            return w_obj.descr_call_mismatch(space,
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args.prepend(w_obj))
