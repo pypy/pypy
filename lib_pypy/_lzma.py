@@ -634,6 +634,8 @@ class LZMADecompressor(object):
                         break
                     # ran out of space in the output buffer, let's grow it
                     bufsiz += (bufsiz >> 3) + 6
+                    if max_length > 0 and bufsiz > max_length:
+                        bufsiz = max_length
                     next_out = m.realloc(orig_out, bufsiz)
                     if next_out == ffi.NULL:
                         # realloc unsuccessful
