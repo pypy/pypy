@@ -1009,9 +1009,18 @@ class AppTestKeywordsToBuiltinSanity(object):
 
 
 class AppTestFastPathCrash(object):
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_fast_path_crash(self):
-        with raises(TypeError) as excinfo:
-            # does not crash in BuiltinCodePassThroughArguments0.funcrun
-            dict.__init__.im_func(0)
-        print(str(excinfo.value))
-        assert str(excinfo.value) == "'dict' object expected, got 'int' instead"
+        # issue bb-3091 crash in BuiltinCodePassThroughArguments0.funcrun
+        for obj in (dict, set, frozenset):
+            with raises(TypeError) as excinfo:
+                if self.runappdirect:
+                    msg_fmt = "'%s' object but received a '%s'"
+                    obj.__init__(0)
+                else:
+                    msg_fmt = "'%s' object expected, got '%s'"
+                    obj.__init__.im_func(0)
+            msg = msg_fmt %(obj.__name__, 'int')
+            assert msg in str(excinfo.value)
