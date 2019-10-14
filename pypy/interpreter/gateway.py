@@ -755,16 +755,22 @@ class BuiltinCode(Code):
         except DescrMismatch:
             if w_obj is not None:
                 args = args.prepend(w_obj)
-            return scope_w[0].descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args)
+            return self.descr_call_mismatch(space, args)
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
+
+    def descr_call_mismatch(self, space, args):
+        w_obj = args.firstarg()
+        if w_obj is None:
+            raise oefmt(space.w_SystemError, "unexpected DescrMismatch error")
+        return w_obj.descr_call_mismatch(space,
+                                         self.descrmismatch_op,
+                                         self.descr_reqcls,
+                                         args)
 
     def handle_exception(self, space, e):
         try:
@@ -788,10 +794,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
         try:
             w_result = self.func__args__(space, args)
         except DescrMismatch:
-            return args.firstarg().descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args)
+            return self.descr_call_mismatch(space, args)
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
@@ -809,10 +812,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
         try:
             w_result = self.func__args__(space, w_obj, args)
         except DescrMismatch:
-            return w_obj.descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args.prepend(w_obj))
+            return self.descr_call_mismatch(space, args.prepend(w_obj))
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
@@ -852,9 +852,7 @@ class BuiltinCode1(BuiltinCode):
         try:
             w_result = self.fastfunc_1(space, w1)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self.descr_call_mismatch(space,
                                           Arguments(space, [w1]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -878,9 +876,7 @@ class BuiltinCode2(BuiltinCode):
         try:
             w_result = self.fastfunc_2(space, w1, w2)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self.descr_call_mismatch(space,
                                           Arguments(space, [w1, w2]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -905,9 +901,7 @@ class BuiltinCode3(BuiltinCode):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self.descr_call_mismatch(space,
                                           Arguments(space, [w1, w2, w3]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -933,9 +927,7 @@ class BuiltinCode4(BuiltinCode):
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self.descr_call_mismatch(space,
                                           Arguments(space,
                                                     [w1, w2, w3, w4]))
         except Exception as e:

@@ -966,6 +966,29 @@ y = a.m(33)
         # white-box check for opt
         assert called[0] is args
 
+    def test_base_regular_descr_mismatch(self):
+        space = self.space
+
+        def f():
+            raise gateway.DescrMismatch
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[]))
+        args = argument.Arguments(space, [])
+        space.raises_w(space.w_SystemError, space.call_args, w_f, args)
+
+    def test_pass_trough_arguments0_descr_mismatch(self):
+        space = self.space
+
+        def f(space, __args__):
+            raise gateway.DescrMismatch
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[gateway.ObjSpace,
+                                      gateway.Arguments]))
+        args = argument.Arguments(space, [])
+        space.raises_w(space.w_SystemError, space.call_args, w_f, args)
+
 
 class AppTestKeywordsToBuiltinSanity(object):
     def test_type(self):
