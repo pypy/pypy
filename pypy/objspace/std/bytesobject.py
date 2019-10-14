@@ -24,6 +24,7 @@ from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 class W_AbstractBytesObject(W_Root):
     __slots__ = ()
+    exact_class_applevel_name = 'str'
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_AbstractBytesObject):
