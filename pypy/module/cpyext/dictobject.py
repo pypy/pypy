@@ -308,3 +308,5 @@ def _PyDict_HasOnlyStringKeys(space, w_dict):
             return 0
     return 1
 
+#def PyObject_GenericGetDict(space, w_obj, context):
+#    unlike CPython, you'll find this one in object.py together with ..SetDict

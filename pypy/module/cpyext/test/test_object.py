@@ -451,6 +451,31 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert n == 1
         module.leave(obj2)
 
+    def test_GenericGetSetDict(self):
+        module = self.import_extension('test_GenericGetSetDict', [
+            ('test1', 'METH_VARARGS',
+             """
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 PyObject *newdict = PyTuple_GET_ITEM(args, 1);
+
+                 PyObject *olddict = PyObject_GenericGetDict(obj, NULL);
+                 if (olddict == NULL)
+                    return NULL;
+                 int res = PyObject_GenericSetDict(obj, newdict, NULL);
+                 if (res != 0)
+                     return NULL;
+                 return olddict;
+             """)])
+        class A:
+            pass
+        a = A()
+        a.x = 42
+        nd = {'y': 43}
+        d = module.test1(a, nd)
+        assert d == {'x': 42}
+        assert a.y == 43
+        assert a.__dict__ is nd
+
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """
