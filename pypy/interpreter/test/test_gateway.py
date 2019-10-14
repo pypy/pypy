@@ -1014,7 +1014,7 @@ class AppTestFastPathCrash(object):
 
     def test_fast_path_crash(self):
         # issue bb-3091 crash in BuiltinCodePassThroughArguments0.funcrun
-        for obj in (dict, set, frozenset):
+        for obj in (dict, set):
             with raises(TypeError) as excinfo:
                 if self.runappdirect:
                     msg_fmt = "'%s' object but received a '%s'"

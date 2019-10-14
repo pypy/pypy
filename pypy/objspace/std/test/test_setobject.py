@@ -1037,3 +1037,8 @@ class AppTestAppSetTest:
            raise ValueError
            yield 1
         raises(ValueError, set, f())
+
+    def test_frozenset_init_does_nothing(self):
+        f = frozenset([1, 2, 3])
+        f.__init__(4, 5, 6)
+        assert f == frozenset([1, 2, 3])
