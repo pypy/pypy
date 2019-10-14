@@ -1042,3 +1042,10 @@ class AppTestAppSetTest:
         f = frozenset([1, 2, 3])
         f.__init__(4, 5, 6)
         assert f == frozenset([1, 2, 3])
+
+    def test_error_message_wrong_self(self):
+        e = raises(TypeError, frozenset.copy, 42)
+        assert "frozenset" in str(e.value)
+        if hasattr(frozenset.copy, 'im_func'):
+            e = raises(TypeError, frozenset.copy.im_func, 42)
+            assert "'set-or-frozenset'" in str(e.value)

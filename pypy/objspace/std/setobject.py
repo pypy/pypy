@@ -20,6 +20,7 @@ UNROLL_CUTOFF = 5
 
 class W_BaseSetObject(W_Root):
     typedef = None
+    exact_class_applevel_name = 'set-or-frozenset'
 
     def __init__(self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
