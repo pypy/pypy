@@ -9,15 +9,15 @@ from pypy.interpreter.error import oefmt
 # ____________________________________________________________
 
 
-_get_code = lambda frame, w_inputvalue, operr: frame.pycode
+_get_code = lambda frame, w_arg_or_err: frame.pycode
 _decorator = rvmprof.vmprof_execute_code("pypy", _get_code, W_Root)
 my_execute_frame = _decorator(PyFrame.execute_frame)
 
 
 class __extend__(PyFrame):
-    def execute_frame(self, in_generator=None, w_arg_or_err=None):
+    def execute_frame(self, w_arg_or_err=None):
         # indirection for the optional arguments
-        return my_execute_frame(self, in_generator, w_arg_or_err)
+        return my_execute_frame(self, w_arg_or_err)
 
 
 def _safe(s):
