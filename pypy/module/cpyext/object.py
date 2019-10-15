@@ -444,3 +444,16 @@ def Py_ReprLeave(space, w_obj):
             del d[w_obj]
         except KeyError:
             pass
+
+@cpython_api([PyObject, rffi.VOIDP], PyObject)
+def PyObject_GenericGetDict(space, w_obj, context):
+    from pypy.interpreter.typedef import descr_get_dict
+    return descr_get_dict(space, w_obj)
+
+@cpython_api([PyObject, PyObject, rffi.VOIDP], rffi.INT_real, error=-1)
+def PyObject_GenericSetDict(space, w_obj, w_value, context):
+    from pypy.interpreter.typedef import descr_set_dict
+    if w_value is None:
+        raise oefmt(space.w_TypeError, "cannot delete __dict__")
+    descr_set_dict(space, w_obj, w_value)
+    return 0

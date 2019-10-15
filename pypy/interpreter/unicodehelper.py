@@ -375,6 +375,14 @@ if _WIN32:
         return res_utf8, len(res), size
 
 def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
+    try:
+        # fast version first
+        return s, rutf8.check_utf8(s, allow_surrogates=allow_surrogates), len(s)
+    except rutf8.CheckError:
+        return _str_decode_utf8_slowpath(
+            s, errors, final, errorhandler, allow_surrogates=allow_surrogates)
+
+def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
     """ Same as checking for the valid utf8, but we know the utf8 is not
     valid so we're trying to either raise or pack stuff with error handler.
     The key difference is that this is call_may_force

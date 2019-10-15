@@ -1,3 +1,4 @@
+from rpython.rlib import rutf8
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -47,24 +48,26 @@ def _get_str(space, w_src, default, attrname):
     if w_src is None:
         return default
     try:
-        return space.realunicode_w(w_src)
+        return space.text_w(w_src)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             raise oefmt(space.w_TypeError, '"%s" must be a string', attrname)
         raise
 
-def _get_char(space, w_src, default, name):
+def _get_codepoint(space, w_src, default, name):
     if w_src is None:
         return default
     if space.is_w(w_src, space.w_None):
-        return u'\0'
+        return 0
     if not space.isinstance_w(w_src, space.w_unicode):
         raise oefmt(space.w_TypeError, '"%s" must be string, not %T', name, w_src)
-    src = space.realunicode_w(w_src)
-    if len(src) == 1:
-        return src[0]
+    src, length = space.utf8_len_w(w_src)
+    if length == 1:
+        res = rutf8.codepoint_at_pos(src, 0)
+        assert res >= 0
+        return res
     if len(src) == 0:
-        return u'\0'
+        return 0
     raise oefmt(space.w_TypeError, '"%s" must be a 1-character string', name)
 
 def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
@@ -104,11 +107,11 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
             w_strict = _fetch(space, w_dialect, 'strict')
 
     dialect = W_Dialect()
-    dialect.delimiter = _get_char(space, w_delimiter, u',', 'delimiter')
+    dialect.delimiter = _get_codepoint(space, w_delimiter, ord(u','), 'delimiter')
     dialect.doublequote = _get_bool(space, w_doublequote, True)
-    dialect.escapechar = _get_char(space, w_escapechar, u'\0', 'escapechar')
-    dialect.lineterminator = _get_str(space, w_lineterminator, u'\r\n', 'lineterminator')
-    dialect.quotechar = _get_char(space, w_quotechar, u'"', 'quotechar')
+    dialect.escapechar = _get_codepoint(space, w_escapechar, ord(u'\0'), 'escapechar')
+    dialect.lineterminator = _get_str(space, w_lineterminator, '\r\n', 'lineterminator')
+    dialect.quotechar = _get_codepoint(space, w_quotechar, ord(u'"'), 'quotechar')
     tmp_quoting = _get_int(space, w_quoting, QUOTE_MINIMAL, 'quoting')
     dialect.skipinitialspace = _get_bool(space, w_skipinitialspace, False)
     dialect.strict = _get_bool(space, w_strict, False)
@@ -117,13 +120,13 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
     if not (0 <= tmp_quoting < 4):
         raise oefmt(space.w_TypeError, 'bad "quoting" value')
 
-    if dialect.delimiter == u'\0':
+    if dialect.delimiter == 0:
         raise oefmt(space.w_TypeError,
                     '"delimiter" must be a 1-character string')
 
     if space.is_w(w_quotechar, space.w_None) and w_quoting is None:
         tmp_quoting = QUOTE_NONE
-    if tmp_quoting != QUOTE_NONE and dialect.quotechar == u'\0':
+    if tmp_quoting != QUOTE_NONE and dialect.quotechar == 0:
         raise oefmt(space.w_TypeError,
                     "quotechar must be set if quoting enabled")
     dialect.quoting = tmp_quoting
@@ -158,14 +161,20 @@ def W_Dialect___new__(space, w_subtype, w_dialect = None,
 
 
 def _get_escapechar(space, dialect):
-    if dialect.escapechar == u'\0':
+    if dialect.escapechar == 0:
         return space.w_None
-    return space.newtext(dialect.escapechar)
+    s = rutf8.unichr_as_utf8(dialect.escapechar)
+    return space.newutf8(s, 1)
 
 def _get_quotechar(space, dialect):
-    if dialect.quotechar == u'\0':
+    if dialect.quotechar == 0:
         return space.w_None
-    return space.newtext(dialect.quotechar)
+    s = rutf8.unichr_as_utf8(dialect.quotechar)
+    return space.newutf8(s, 1)
+
+def _get_delimiter(space, dialect):
+    s = rutf8.unichr_as_utf8(dialect.delimiter)
+    return space.newutf8(s, 1)
 
 
 W_Dialect.typedef = TypeDef(
@@ -173,8 +182,7 @@ W_Dialect.typedef = TypeDef(
         __new__ = interp2app(W_Dialect___new__),
         __reduce_ex__ = interp2app(W_Dialect.reduce_ex_w),
 
-        delimiter        = interp_attrproperty('delimiter', W_Dialect,
-            wrapfn='newtext'),
+        delimiter        = GetSetProperty(_get_delimiter, cls=W_Dialect),
         doublequote      = interp_attrproperty('doublequote', W_Dialect,
             wrapfn='newbool'),
         escapechar       = GetSetProperty(_get_escapechar, cls=W_Dialect),
