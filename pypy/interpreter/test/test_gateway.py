@@ -1040,7 +1040,11 @@ class AppTestFastPathCrash(object):
         for obj in (dict, set):
             with raises(TypeError) as excinfo:
                 if self.runappdirect:
-                    msg_fmt = "'%s' object but received a '%s'"
+                    import platform
+                    if platform.python_implementation() == 'PyPy':
+                        msg_fmt = "%s instance as first argument (got %s"
+                    else:
+                        msg_fmt = "'%s' object but received a '%s'"
                     obj.__init__(0)
                 else:
                     msg_fmt = "'%s' object expected, got '%s'"
