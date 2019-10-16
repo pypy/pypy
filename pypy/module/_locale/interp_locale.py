@@ -98,6 +98,8 @@ def strcoll(space, w_s1, w_s2):
 
     s1, l1 = space.utf8_len_w(w_s1)
     s2, l2 = space.utf8_len_w(w_s2)
+    if '\x00' in s1 or '\x00' in s2:
+        raise oefmt(space.w_ValueError, "embedded null character")
 
     s1_c = rffi.utf82wcharp(s1, l1)
     s2_c = rffi.utf82wcharp(s2, l2)
@@ -112,7 +114,7 @@ def strcoll(space, w_s1, w_s2):
 _strxfrm = rlocale.external('strxfrm',
                     [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T)
 
-@unwrap_spec(s='text')
+@unwrap_spec(s='text0')
 def strxfrm(space, s):
     "string -> string. Returns a string that behaves for cmp locale-aware."
     n1 = len(s) + 1

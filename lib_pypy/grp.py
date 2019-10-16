@@ -47,12 +47,16 @@ def getgrgid(gid):
             # XXX maybe check error eventually
             raise KeyError(gid)
         return _group_from_gstruct(res)
+
 @builtinify
 def getgrnam(name):
     if not isinstance(name, str):
         raise TypeError("expected string")
+    name_b = os.fsencode(name)
+    if b'\0' in name_b:
+        raise ValueError("embedded null byte")
     with _lock:
-        res = lib.getgrnam(os.fsencode(name))
+        res = lib.getgrnam(name_b)
         if not res:
             raise KeyError("getgrnam(): name not found: %s" % name)
         return _group_from_gstruct(res)

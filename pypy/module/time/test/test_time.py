@@ -315,6 +315,8 @@ class AppTestTime:
         else:
             assert time.strftime('%f') == '%f'
             expected_year = '0'
+        with raises(ValueError):
+            time.strftime("%Y\0", tt)
 
         expected_formatted_date = expected_year + ' 01 01 00 00 00 1 001'
         assert time.strftime("%Y %m %d %H %M %S %w %j", (0,) * 9) == expected_formatted_date
