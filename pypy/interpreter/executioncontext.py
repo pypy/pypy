@@ -23,8 +23,9 @@ class ExecutionContext(object):
     # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
     #     over the place as well as w_tracefunc
 
-    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?',
-                          'w_coroutine_wrapper_fn?']
+    _immutable_fields_ = [
+        'profilefunc?', 'w_tracefunc?', 'w_coroutine_wrapper_fn?',
+        'w_asyncgen_firstiter_fn?', 'w_asyncgen_finalizer_fn?']
 
     def __init__(self, space):
         self.space = space
@@ -41,6 +42,8 @@ class ExecutionContext(object):
         self.thread_disappeared = False   # might be set to True after os.fork()
         self.w_coroutine_wrapper_fn = None
         self.in_coroutine_wrapper = False
+        self.w_asyncgen_firstiter_fn = None
+        self.w_asyncgen_finalizer_fn = None
 
     @staticmethod
     def _mark_thread_disappeared(space):
