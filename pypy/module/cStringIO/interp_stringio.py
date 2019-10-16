@@ -7,6 +7,8 @@ from rpython.rlib.objectmodel import import_from_mixin
 
 
 class W_InputOutputType(W_Root):
+    exact_class_applevel_name = "StringI-or-StringO"
+
     softspace = 0    # part of the file object API
 
     def descr___iter__(self):

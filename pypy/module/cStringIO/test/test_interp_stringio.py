@@ -204,3 +204,12 @@ class AppTestcStringIO:
         import cStringIO
         assert type(cStringIO.StringIO()) is cStringIO.OutputType
         assert type(cStringIO.StringIO('')) is cStringIO.InputType
+
+    def test_error_message_wrong_self(self):
+        import cStringIO
+        unboundmeth = cStringIO.InputType.close
+        e = raises(TypeError, unboundmeth, 42)
+        assert "StringI" in str(e.value)
+        if hasattr(unboundmeth, 'im_func'):
+            e = raises(TypeError, unboundmeth.im_func, 42)
+            assert "'StringI-or-StringO'" in str(e.value)

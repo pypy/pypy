@@ -20,6 +20,7 @@ UNROLL_CUTOFF = 5
 
 class W_BaseSetObject(W_Root):
     typedef = None
+    exact_class_applevel_name = 'set-or-frozenset'
 
     def __init__(self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
@@ -496,6 +497,12 @@ class W_BaseSetObject(W_Root):
 
 
 class W_SetObject(W_BaseSetObject):
+
+    #overridden here so the error is reported correctly
+    def __init__(self, space, w_iterable=None):
+        """Initialize the set by taking ownership of 'setdata'."""
+        W_BaseSetObject.__init__(self, space, w_iterable)
+
     def _newobj(self, space, w_iterable):
         """Make a new set by taking ownership of 'w_iterable'."""
         if type(self) is W_SetObject:
@@ -516,7 +523,7 @@ W_SetObject.typedef = TypeDef("set",
 
 Build an unordered collection.""",
     __new__ = gateway.interp2app(W_SetObject.descr_new),
-    __init__ = gateway.interp2app(W_BaseSetObject.descr_init),
+    __init__ = gateway.interp2app(W_SetObject.descr_init),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = None,
     __cmp__ = gateway.interp2app(W_BaseSetObject.descr_cmp),

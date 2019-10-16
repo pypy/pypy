@@ -684,6 +684,15 @@ class AppTestInt(object):
         x = int(-sys.maxint)
         assert x.__rsub__(2) == (2 + sys.maxint)
 
+    def test_error_message_wrong_self(self):
+        unboundmeth = int.__str__
+        e = raises(TypeError, unboundmeth, "!")
+        assert "int" in str(e.value)
+        if hasattr(unboundmeth, 'im_func'):
+            e = raises(TypeError, unboundmeth.im_func, "!")
+            assert "'int'" in str(e.value)
+
+
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
 

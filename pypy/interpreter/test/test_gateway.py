@@ -966,6 +966,29 @@ y = a.m(33)
         # white-box check for opt
         assert called[0] is args
 
+    def test_base_regular_descr_mismatch(self):
+        space = self.space
+
+        def f():
+            raise gateway.DescrMismatch
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[]))
+        args = argument.Arguments(space, [])
+        space.raises_w(space.w_SystemError, space.call_args, w_f, args)
+
+    def test_pass_trough_arguments0_descr_mismatch(self):
+        space = self.space
+
+        def f(space, __args__):
+            raise gateway.DescrMismatch
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[gateway.ObjSpace,
+                                      gateway.Arguments]))
+        args = argument.Arguments(space, [])
+        space.raises_w(space.w_SystemError, space.call_args, w_f, args)
+
 
 class AppTestKeywordsToBuiltinSanity(object):
     def test_type(self):
@@ -1005,3 +1028,26 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})
+
+
+
+class AppTestFastPathCrash(object):
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
+    def test_fast_path_crash(self):
+        # issue bb-3091 crash in BuiltinCodePassThroughArguments0.funcrun
+        for obj in (dict, set):
+            with raises(TypeError) as excinfo:
+                if self.runappdirect:
+                    import platform
+                    if platform.python_implementation() == 'PyPy':
+                        msg_fmt = "%s instance as first argument (got %s"
+                    else:
+                        msg_fmt = "'%s' object but received a '%s'"
+                    obj.__init__(0)
+                else:
+                    msg_fmt = "'%s' object expected, got '%s'"
+                    obj.__init__.im_func(0)
+            msg = msg_fmt %(obj.__name__, 'int')
+            assert msg in str(excinfo.value)

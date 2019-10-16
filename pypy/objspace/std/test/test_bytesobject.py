@@ -933,3 +933,10 @@ class AppTestBytesObject:
     def test_add(self):
         assert 'abc' + 'abc' == 'abcabc'
         assert isinstance('abc' + u'\u03a3', unicode)
+
+    def test_error_message_wrong_self(self):
+        e = raises(TypeError, bytes.upper, 42)
+        assert "str" in str(e.value)
+        if hasattr(bytes.upper, 'im_func'):
+            e = raises(TypeError, bytes.upper.im_func, 42)
+            assert "'str'" in str(e.value)
