@@ -285,6 +285,8 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define OP_GC_RAWREFCOUNT_NEXT_DEAD(r)   \
     r = rpy_reverse_db_rawrefcount_next_dead()
 
+#define OP_GC_INCREASE_ROOT_STACK_DEPTH(depth, r)   /* nothing */
+
 
 RPY_EXTERN void rpy_reverse_db_flush(void);  /* must be called with the lock */
 RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);

@@ -1903,7 +1903,9 @@ if sys.platform == 'win32':
                 if MultiByteToWideChar(CP_ACP, flags,
                                        dataptr, size, buf.raw, usize) == 0:
                     _decode_mbcs_error(s, errorhandler)
-                return buf.str(usize), size
+                ret = buf.str(usize)
+                assert ret is not None
+                return ret, size
 
     def unicode_encode_mbcs(s, size, errors, errorhandler=None,
                             force_replace=True):

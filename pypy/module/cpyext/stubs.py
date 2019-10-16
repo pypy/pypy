@@ -243,14 +243,6 @@ def PyDescr_IsData(space, descr):
 def PyWrapper_New(space, w_d, w_self):
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PyDict_GetItemWithError(space, p, key):
-    """Variant of PyDict_GetItem() that does not suppress
-    exceptions. Return NULL with an exception set if an exception
-    occurred.  Return NULL without an exception set if the key
-    wasn't present."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
 def PyDict_MergeFromSeq2(space, a, seq2, override):
     """Update or merge into dictionary a, from the key-value pairs in seq2.

@@ -134,7 +134,6 @@ All Rights Reserved.
 
 # This is tested in test_app_main.py
 class sysflags(metaclass=structseqtype):
-
     name = "sys.flags"
 
     debug = structseqfield(0)
@@ -155,29 +154,6 @@ class sysflags(metaclass=structseqtype):
 
 null_sysflags = sysflags((0,)*15)
 null__xoptions = {}
-
-
-class asyncgen_hooks(metaclass=structseqtype):
-    name = "asyncgen_hooks"
-
-    firstiter = structseqfield(0)
-    finalizer = structseqfield(1)
-
-# FIXME: make this thread-local
-_current_asyncgen_hooks = asyncgen_hooks((None, None))
-
-def get_asyncgen_hooks():
-    return _current_asyncgen_hooks
-
-_default_arg = object()
-
-def set_asyncgen_hooks(firstiter=_default_arg, finalizer=_default_arg):
-    global _current_asyncgen_hooks
-    if firstiter is _default_arg:
-        firstiter = _current_asyncgen_hooks.firstiter
-    if finalizer is _default_arg:
-        finalizer = _current_asyncgen_hooks.finalizer
-    _current_asyncgen_hooks = asyncgen_hooks((firstiter, finalizer))
 
 
 implementation = SimpleNamespace(
