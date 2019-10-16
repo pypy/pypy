@@ -394,6 +394,8 @@ class DescrMismatch(Exception):
 
 @specialize.memo()
 def wrappable_class_name(Class):
+    if 'exact_class_applevel_name' in Class.__dict__:
+        return Class.exact_class_applevel_name
     try:
         return Class.typedef.name
     except AttributeError:

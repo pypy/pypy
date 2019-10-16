@@ -17,10 +17,6 @@ Remove rpython.jit.metainterp.typesystem and clean up related code in rpython/ji
 
 Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp``
 
-.. branch: issue2968
-
-Fix segfault in cpyext_tp_new_tupl
-
 .. branch: semlock-deadlock
 
 Test and reduce the probability of a deadlock when acquiring a semaphore by
@@ -79,6 +75,8 @@ Check for headers and runtime libraries in more locations to support other linux
 
 Update _ssl on macos to statically link to openssl-1.1.1c
 
-.. branch: more-cpyext
+.. branch: json-decoder-maps
 
-Add more datetime C functions and definitions
+Much faster and more memory-efficient JSON decoding. The resulting
+dictionaries that come out of the JSON decoder have faster lookups too.
+

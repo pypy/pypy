@@ -800,6 +800,15 @@ class AppTestInt(object):
             assert 567 .__round__(None) == 567    # fails on CPython
 
 
+    def test_error_message_wrong_self(self):
+        unboundmeth = int.__str__
+        e = raises(TypeError, unboundmeth, "!")
+        assert "int" in str(e.value)
+        if hasattr(unboundmeth, 'im_func'):
+            e = raises(TypeError, unboundmeth.im_func, "!")
+            assert "'int'" in str(e.value)
+
+
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
 

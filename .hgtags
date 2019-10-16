@@ -55,3 +55,5 @@ de061d87e39c7df4e436974096d7982c676a859d release-pypy3.6-v7.1.0
 4d6761df14ffd6f38450f183ac1fad32c946c21b release-pypy3.6-v7.2.0rc1
 5da45ced70e515f94686be0df47c59abd1348ebc release-pypy3.6-v7.2.0rc2
 4a68d8d3d2fc1faec2e83bcb4d28559099092574 release-pypy2.7-v7.2.0rc2
+4a68d8d3d2fc1faec2e83bcb4d28559099092574 release-pypy2.7-v7.2.0
+5da45ced70e515f94686be0df47c59abd1348ebc release-pypy3.6-v7.2.0
