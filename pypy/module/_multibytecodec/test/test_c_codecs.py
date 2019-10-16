@@ -1,4 +1,5 @@
 import py
+import pytest
 from pypy.module._multibytecodec.c_codecs import getcodec, codecs
 from pypy.module._multibytecodec.c_codecs import decode, encode
 from pypy.module._multibytecodec.c_codecs import EncodeDecodeError
@@ -17,6 +18,15 @@ def test_decode_gbk():
     assert u == unichr(0x2014).encode('utf8')
     u = decode(c, "foobar")
     assert u == "foobar"
+
+@pytest.mark.parametrize('undecodable', [
+    b"abc\x80\x80\xc1\xc4",
+    b"\xff\x30\x81\x30", b"\x81\x30\xff\x30",  # bpo-29990
+])
+def test_decode_gb18030_error(undecodable):
+    c = getcodec("gb18030")
+    with pytest.raises(EncodeDecodeError):
+        decode(c, undecodable)
 
 def test_decode_hz():
     # stateful
