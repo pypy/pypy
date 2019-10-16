@@ -109,6 +109,9 @@ def test_encode_hz():
     assert s == 'foobar' and type(s) is str
     s = encode(c, u'\u5f95\u6cef'.encode('utf8'), 2)
     assert s == '~{abc}~}'
+    # bpo-30003
+    s = encode(c, 'ab~cd', 5)
+    assert s == 'ab~~cd'
 
 def test_encode_hz_error():
     # error
