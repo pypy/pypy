@@ -68,6 +68,31 @@ def excepthook_failsafe(exctype, value):
     except:
         return False    # got an exception again... ignore, report the original
 
+def breakpointhook(*args, **kwargs):
+    """This hook function is called by built-in breakpoint()."""
+
+    import importlib, os, warnings
+
+    hookname = os.getenv('PYTHONBREAKPOINT')
+    if hookname is None or len(hookname) == 0:
+        hookname = 'pdb.set_trace'
+    elif hookname == '0':
+        return None
+    modname, dot, funcname = hookname.rpartition('.')
+    if dot == '':
+        modname = 'builtins'
+
+    try:
+        module = importlib.import_module(modname)
+        hook = getattr(module, funcname)
+    except:
+        warnings.warn(
+            'Ignoring unimportable $PYTHONBREAKPOINT: "{}"'.format(hookname),
+            RuntimeWarning)
+        return None
+
+    return hook(*args, **kwargs)
+
 def exit(exitcode=None):
     """Exit the interpreter by raising SystemExit(exitcode).
 If the exitcode is omitted or None, it defaults to zero (i.e., success).

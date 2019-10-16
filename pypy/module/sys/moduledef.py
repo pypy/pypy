@@ -109,6 +109,8 @@ class Module(MixedModule):
     appleveldefs = {
         'excepthook'            : 'app.excepthook',
         '__excepthook__'        : 'app.excepthook',
+        'breakpointhook'        : 'app.breakpointhook',
+        '__breakpointhook__'    : 'app.breakpointhook',
         'exit'                  : 'app.exit',
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str',
