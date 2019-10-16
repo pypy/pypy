@@ -512,10 +512,3 @@ class AppTestLong:
         b -= 1
         assert a is b
 
-    def test_error_message_wrong_self(self):
-        unboundmeth = long.__str__
-        e = raises(TypeError, unboundmeth, 42)
-        assert "int" in str(e.value)
-        if hasattr(unboundmeth, 'im_func'):
-            e = raises(TypeError, unboundmeth.im_func, 42)
-            assert "'int'" in str(e.value)
