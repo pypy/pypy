@@ -78,7 +78,10 @@ def PyDict_GetItem(space, w_dict, w_key):
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
     # XXX this is wrong with IntMutableCell.  Hope it works...
-    return w_dict.getitem(w_key)
+    try:
+        return w_dict.getitem(w_key)
+    except OperationError:
+        return None
 
 @cpython_api([PyObject, PyObject], PyObject, result_borrowed=True)
 def PyDict_GetItemWithError(space, w_dict, w_key):
