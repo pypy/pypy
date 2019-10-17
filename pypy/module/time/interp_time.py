@@ -835,14 +835,23 @@ if HAS_CLOCK_GETTIME:
 
     @unwrap_spec(clk_id='c_int')
     def clock_gettime(space, clk_id):
+        """clock_gettime(clk_id) -> float
+    
+        Return the time of the specified clock clk_id."""
         return _clock_gettime_impl(space, clk_id, False)
 
     @unwrap_spec(clk_id='c_int')
     def clock_gettime_ns(space, clk_id):
+        """clock_gettime_ns(clk_id) -> int
+    
+        Return the time of the specified clock clk_id as nanoseconds."""
         return _clock_gettime_impl(space, clk_id, True)
 
     @unwrap_spec(clk_id='c_int', secs=float)
     def clock_settime(space, clk_id, secs):
+        """clock_settime(clk_id, time)
+    
+        Set the time of the specified clock clk_id."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             integer_secs = rffi.cast(TIMESPEC.c_tv_sec, secs)
             frac = secs - widen(integer_secs)
@@ -854,6 +863,9 @@ if HAS_CLOCK_GETTIME:
 
     @unwrap_spec(clk_id='c_int', ns=int)
     def clock_settime_ns(space, clk_id, ns):
+        """clock_settime_ns(clk_id, time)
+    
+        Set the time of the specified clock clk_id with nanoseconds."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             rffi.setintfield(timespec, 'c_tv_sec', ns // 10**9)
             rffi.setintfield(timespec, 'c_tv_nsec', ns % 10**9)
@@ -863,6 +875,9 @@ if HAS_CLOCK_GETTIME:
 
     @unwrap_spec(clk_id='c_int')
     def clock_getres(space, clk_id):
+        """clock_getres(clk_id) -> floating point number
+    
+        Return the resolution (precision) of the specified clock clk_id."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_getres(clk_id, timespec)
             if ret != 0:
@@ -1029,9 +1044,15 @@ if HAS_MONOTONIC:
             return w_result
 
     def monotonic(space, w_info=None):
+        """monotonic() -> float
+    
+        Monotonic clock, cannot go backward."""
         return _monotonic_impl(space, w_info, False)
 
     def monotonic_ns(space, w_info=None):
+        """monotonic_ns() -> int
+    
+        Monotonic clock, cannot go backward, as nanoseconds."""
         return _monotonic_impl(space, w_info, True)
 
 if _WIN:
@@ -1087,9 +1108,15 @@ else:
         return _time_impl(space, w_info, return_ns)
 
 def perf_counter(space, w_info=None):
+    """perf_counter() -> float
+    
+    Performance counter for benchmarking."""
     return _perf_counter_impl(space, w_info, False)
 
 def perf_counter_ns(space, w_info=None):
+    """perf_counter_ns() -> int
+    
+    Performance counter for benchmarking as nanoseconds."""
     return _perf_counter_impl(space, w_info, True)
 
 if _WIN:
@@ -1177,9 +1204,16 @@ else:
         return _clock_impl(space, w_info, return_ns)
 
 def process_time(space, w_info=None):
+    """process_time() -> float
+    
+    Process time for profiling: sum of the kernel and user-space CPU time."""
     return _process_time_impl(space, w_info, False)
 
 def process_time_ns(space, w_info=None):
+    """process_time() -> int
+    
+    Process time for profiling as nanoseconds:
+    sum of the kernel and user-space CPU time"""
     return _process_time_impl(space, w_info, True)
 
 _clock = external('clock', [], rposix.CLOCK_T)
