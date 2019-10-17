@@ -329,7 +329,7 @@ else:
             if return_ns:
                 return space.newint(widen(result) * 10**9)
             else:
-                return space.newint(result)
+                return space.newfloat(float(result))
     
     def gettimeofday(space, w_info=None):
         return _gettimeofday_impl(space, w_info, False)
