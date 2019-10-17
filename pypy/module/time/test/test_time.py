@@ -28,11 +28,21 @@ class AppTestTime:
     def test_time(self):
         import time
         t1 = time.time()
-        assert isinstance(time.time(), float)
-        assert time.time() != 0.0 # 0.0 means failure
+        assert isinstance(t1, float)
+        assert t1 != 0.0  # 0.0 means failure
         time.sleep(0.02)
         t2 = time.time()
         assert t1 != t2       # the resolution should be at least 0.01 secs
+
+    def test_time_ns(self):
+        import time
+        t1 = time.time_ns()
+        assert isinstance(t1, int)
+        assert t1 != 0  # 0 means failure
+        time.sleep(0.02)
+        t2 = time.time_ns()
+        assert t1 != t2       # the resolution should be at least 0.01 secs
+        assert abs(time.time() - time.time_ns() * 1e-9) < 0.1
 
     def test_clock_realtime(self):
         import time
@@ -44,6 +54,18 @@ class AppTestTime:
         t2 = time.clock_gettime(time.CLOCK_REALTIME)
         assert t1 != t2
 
+    def test_clock_realtime_ns(self):
+        import time
+        if not hasattr(time, 'clock_gettime_ns'):
+            skip("need time.clock_gettime_ns()")
+        t1 = time.clock_gettime_ns(time.CLOCK_REALTIME)
+        assert isinstance(t1, int)
+        time.sleep(time.clock_getres(time.CLOCK_REALTIME))
+        t2 = time.clock_gettime_ns(time.CLOCK_REALTIME)
+        assert t1 != t2
+        assert abs(time.clock_gettime(time.CLOCK_REALTIME) -
+                   time.clock_gettime_ns(time.CLOCK_REALTIME) * 1e-9) < 0.1
+
     def test_clock_monotonic(self):
         import time
         if not (hasattr(time, 'clock_gettime') and
@@ -54,6 +76,19 @@ class AppTestTime:
         time.sleep(time.clock_getres(time.CLOCK_MONOTONIC))
         t2 = time.clock_gettime(time.CLOCK_MONOTONIC)
         assert t1 < t2
+
+    def test_clock_monotonic_ns(self):
+        import time
+        if not (hasattr(time, 'clock_gettime_ns') and
+                hasattr(time, 'CLOCK_MONOTONIC')):
+            skip("need time.clock_gettime()/CLOCK_MONOTONIC")
+        t1 = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+        assert isinstance(t1, int)
+        time.sleep(time.clock_getres(time.CLOCK_MONOTONIC))
+        t2 = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+        assert t1 < t2
+        assert abs(time.clock_gettime(time.CLOCK_MONOTONIC) -
+                   time.clock_gettime_ns(time.CLOCK_MONOTONIC) * 1e-9) < 0.1
 
     def test_ctime(self):
         import time
@@ -396,9 +431,23 @@ class AppTestTime:
         t2 = time.monotonic()
         assert t1 < t2
 
+    def test_monotonic_ns(self):
+        import time
+        t1 = time.monotonic_ns()
+        assert isinstance(t1, int)
+        time.sleep(0.02)
+        t2 = time.monotonic_ns()
+        assert t1 < t2
+        assert abs(time.monotonic() - time.monotonic_ns() * 1e-9) < 0.1
+
     def test_perf_counter(self):
         import time
         assert isinstance(time.perf_counter(), float)
+
+    def test_perf_counter_ns(self):
+        import time
+        assert isinstance(time.perf_counter_ns(), int)
+        assert abs(time.perf_counter() - time.perf_counter_ns() * 1e-9) < 0.1
 
     def test_process_time(self):
         import time
@@ -408,6 +457,16 @@ class AppTestTime:
         t2 = time.process_time()
         # process_time() should not include time spent during sleep
         assert (t2 - t1) < 0.05
+
+    def test_process_time_ns(self):
+        import time
+        t1 = time.process_time_ns()
+        assert isinstance(t1, int)
+        time.sleep(0.1)
+        t2 = time.process_time_ns()
+        # process_time_ns() should not include time spent during sleep
+        assert (t2 - t1) < 5 * 10**7
+        assert abs(time.process_time() - time.process_time_ns() * 1e-9) < 0.1
 
     def test_get_clock_info(self):
         import time
