@@ -656,6 +656,20 @@ class AppTestImport:
     def test_reload_infinite(self):
         import infinite_reload
 
+    def test_reload_module_subclass(self):
+        import types
+
+        #MyModType = types.ModuleType
+        class MyModType(types.ModuleType):
+            pass
+
+        m = MyModType("abc")
+        with raises(ImportError):
+            # Fails because the module is not in sys.modules, but *not* because
+            # it's a subtype of ModuleType.
+            reload(m)
+
+
     def test_explicitly_missing(self):
         import sys
         sys.modules['foobarbazmod'] = None

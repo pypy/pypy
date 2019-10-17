@@ -723,7 +723,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 def reload(space, w_module):
     """Reload the module.
     The module must have been successfully imported before."""
-    if not space.is_w(space.type(w_module), space.type(space.sys)):
+    if not space.isinstance_w(w_module, space.type(space.sys)):
         raise oefmt(space.w_TypeError, "reload() argument must be module")
 
     w_modulename = space.getattr(w_module, space.newtext("__name__"))
