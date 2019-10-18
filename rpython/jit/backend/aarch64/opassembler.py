@@ -808,9 +808,7 @@ class ResOpAssembler(BaseAssembler):
             # Inline a series of STR operations, starting at 'dstaddr_loc'.
             #
             self.mc.gen_load_int(r.ip0.value, 0)
-            i = 0
-            adjustment = 0
-            needs_adjustment = itemsize < 8 and (startbyte % 8)
+            i = dst_i = 0
             total_size = size_box.getint()
             while i < total_size:
                 sz = itemsize
@@ -818,19 +816,19 @@ class ResOpAssembler(BaseAssembler):
                     next_group += 8
                     if next_group <= total_size:
                         sz = 8
+                        if dst_i % 8:   # unaligned?
+                            self.mc.ADD_ri(dstaddr_loc.value, dstaddr_loc.value, dst_i)
+                            dst_i = 0
                 if sz == 8:
-                    if needs_adjustment:
-                        self.mc.ADD_ri(dstaddr_loc.value, dstaddr_loc.value, i)
-                        adjustment = -i
-                        needs_adjustment = False
-                    self.mc.STR_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)                    
+                    self.mc.STR_ri(r.ip0.value, dstaddr_loc.value, dst_i)
                 elif sz == 4:
-                    self.mc.STRW_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                    self.mc.STRW_ri(r.ip0.value, dstaddr_loc.value, dst_i)
                 elif sz == 2:
-                    self.mc.STRH_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                    self.mc.STRH_ri(r.ip0.value, dstaddr_loc.value, dst_i)
                 else:
-                    self.mc.STRB_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                    self.mc.STRB_ri(r.ip0.value, dstaddr_loc.value, dst_i)
                 i += sz
+                dst_i += sz
 
         else:
             if isinstance(size_box, ConstInt):
