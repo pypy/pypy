@@ -751,26 +751,8 @@ class AppTestBuiltinApp:
             __dict__ = property(fget=getDict)
         assert vars(C_get_vars()) == {'a':2}
 
-    def test_len(self):
+    def test_len_negative_overflow(self):
         import sys
-        assert len('123') == 3
-        assert len(()) == 0
-        assert len((1, 2, 3, 4)) == 4
-        assert len([1, 2, 3, 4]) == 4
-        assert len({}) == 0
-        assert len({'a':1, 'b': 2}) == 2
-        class BadSeq:
-            def __len__(self):
-                raise ValueError
-        raises(ValueError, len, BadSeq())
-        class InvalidLen:
-            def __len__(self):
-                return None
-        raises(TypeError, len, InvalidLen())
-        class FloatLen:
-            def __len__(self):
-                return 4.5
-        raises(TypeError, len, FloatLen())
         class NegativeLen:
             def __len__(self):
                 return -10
@@ -783,8 +765,6 @@ class AppTestBuiltinApp:
             def __len__(self):
                 return -sys.maxsize-10
         raises(ValueError, len, HugeNegativeLen())
-        class NoLenMethod(object): pass
-        raises(TypeError, len, NoLenMethod())
 
 
 class AppTestGetattr:
