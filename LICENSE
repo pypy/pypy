@@ -3,10 +3,11 @@
 License
 =======
 
-Except when otherwise stated (look for LICENSE files in directories or
-information at the beginning of each file) all software and documentation in
-the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', 'lib_pypy',
-'py', and '_pytest' directories is licensed as follows:
+Except when otherwise stated (look for LICENSE files in directories
+or information at the beginning of each file) all software and
+documentation in the 'rpython', 'pypy', 'ctype_configure', 'dotviewer',
+'demo', 'extra_tests', 'include', 'lib_pypy', 'py', and '_pytest'
+directories is licensed as follows:
 
     The MIT License
 
