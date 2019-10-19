@@ -269,7 +269,7 @@ class DescrOperation(object):
         # Will complain if result is too big.
         w_result = space.index(w_obj)
         assert space.isinstance_w(w_result, space.w_int)
-        if space.unwrap(w_result) < 0:
+        if space.is_true(space.lt(w_result, space.newint(0))):
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         result = space.getindex_w(w_result, space.w_OverflowError)
         assert result >= 0
