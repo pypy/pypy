@@ -36,6 +36,9 @@ class SimpleWeakSet:
     def add(self, item):
         self.data.add(ref(item, self._remove))
 
+    def clear(self):
+        self.data.clear()
+
 
 abc_invalidation_counter = 0
 
