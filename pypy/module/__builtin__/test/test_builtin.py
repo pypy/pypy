@@ -751,6 +751,21 @@ class AppTestBuiltinApp:
             __dict__ = property(fget=getDict)
         assert vars(C_get_vars()) == {'a':2}
 
+    def test_len_negative_overflow(self):
+        import sys
+        class NegativeLen:
+            def __len__(self):
+                return -10
+        raises(ValueError, len, NegativeLen())
+        class HugeLen:
+            def __len__(self):
+                return sys.maxsize + 1
+        raises(OverflowError, len, HugeLen())
+        class HugeNegativeLen:
+            def __len__(self):
+                return -sys.maxsize-10
+        raises(ValueError, len, HugeNegativeLen())
+
 
 class AppTestGetattr:
     spaceconfig = {}

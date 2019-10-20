@@ -267,9 +267,12 @@ class DescrOperation(object):
 
     def _check_len_result(space, w_obj):
         # Will complain if result is too big.
-        result = space.getindex_w(w_obj, space.w_OverflowError)
-        if result < 0:
+        w_result = space.index(w_obj)
+        assert space.isinstance_w(w_result, space.w_int)
+        if space.is_true(space.lt(w_result, space.newint(0))):
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
+        result = space.getindex_w(w_result, space.w_OverflowError)
+        assert result >= 0
         return result
 
     def is_iterable(space, w_obj):
