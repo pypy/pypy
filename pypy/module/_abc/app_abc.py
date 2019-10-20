@@ -151,7 +151,10 @@ def _get_dump(cls):
     Return shallow copies of registry, of both caches, and
     negative cache version. Don't call this function directly,
     instead use ABC._dump_registry() for a nice repr."""
-    return (cls._abc_registry, cls._abc_cache, cls._abc_negative_cache, cls._abc_negative_cache_version)
+    return (cls._abc_registry.data,
+            cls._abc_cache.data,
+            cls._abc_negative_cache.data,
+            cls._abc_negative_cache_version)
 
 
 def _reset_registry(cls):
