@@ -3,10 +3,41 @@
 Plain Python definition of the builtin ABC-related functions.
 """
 
-from _weakrefset import WeakSet
+# Cannot use _weakrefset like in _py_abc.py, since it is not a built-in module
+from _weakref import ref
+
+# We'll make our own WeakSet instead, with only the functionality that's needed
+# This replaces the easily-forgetable calls to '_add_to_weak_set' and
+# '_in_weak_set' from the CPython implementation
+class SimpleWeakSet:
+    def __init__(self, data=None):
+        self.data = set()
+        def _remove(item, selfref=ref(self)):
+            self = selfref()
+            if self is not None:
+                self.data.discard(item)
+        self._remove = _remove
+
+    def __iter__(self):
+        # Weakref callback may remove entry from set.
+        # So we make a copy first.
+        copy = list(self.data)
+        for itemref in copy:
+            item = itemref()
+            yield item
+
+    def __contains__(self, item):
+        try:
+            wr = ref(item)
+        except TypeError:
+            return False
+        return wr in self.data
+
+    def add(self, item):
+        self.data.add(ref(item, self._remove))
 
 
-_abc_invalidation_counter = 0
+abc_invalidation_counter = 0
 
 
 def get_cache_token():
@@ -16,7 +47,7 @@ def get_cache_token():
     current version of the ABC cache for virtual subclasses. The token changes
     with every call to ``register()`` on any ABC.
     """
-    return _abc_invalidation_counter
+    return abc_invalidation_counter
 
 
 def _abc_init(cls):
@@ -33,10 +64,10 @@ def _abc_init(cls):
                 abstracts.add(name)
     cls.__abstractmethods__ = frozenset(abstracts)
     # Set up inheritance registry
-    cls._abc_registry = WeakSet()
-    cls._abc_cache = WeakSet()
-    cls._abc_negative_cache = WeakSet()
-    cls._abc_negative_cache_version = _abc_invalidation_counter
+    cls._abc_registry = SimpleWeakSet()
+    cls._abc_cache = SimpleWeakSet()
+    cls._abc_negative_cache = SimpleWeakSet()
+    cls._abc_negative_cache_version = abc_invalidation_counter
 
 
 def _abc_register(cls, subclass):
@@ -51,8 +82,8 @@ def _abc_register(cls, subclass):
         # This would create a cycle, which is bad for the algorithm below
         raise RuntimeError("Refusing to create an inheritance cycle")
     cls._abc_registry.add(subclass)
-    global _abc_invalidation_counter
-    _abc_invalidation_counter += 1  # Invalidate negative cache
+    global abc_invalidation_counter
+    abc_invalidation_counter += 1  # Invalidate negative cache
     return subclass
 
 
@@ -64,8 +95,7 @@ def _abc_instancecheck(cls, instance):
         return True
     subtype = type(instance)
     if subtype is subclass:
-        if (cls._abc_negative_cache_version ==
-            _abc_invalidation_counter and
+        if (cls._abc_negative_cache_version == abc_invalidation_counter and
             subclass in cls._abc_negative_cache):
             return False
         # Fall back to the subclass check.
@@ -81,10 +111,10 @@ def _abc_subclasscheck(cls, subclass):
     if subclass in cls._abc_cache:
         return True
     # Check negative cache; may have to invalidate
-    if cls._abc_negative_cache_version < _abc_invalidation_counter:
+    if cls._abc_negative_cache_version < abc_invalidation_counter:
         # Invalidate the negative cache
-        cls._abc_negative_cache = WeakSet()
-        cls._abc_negative_cache_version = _abc_invalidation_counter
+        cls._abc_negative_cache = SimpleWeakSet()
+        cls._abc_negative_cache_version = abc_invalidation_counter
     elif subclass in cls._abc_negative_cache:
         return False
     # Check the subclass hook
