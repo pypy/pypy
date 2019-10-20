@@ -609,7 +609,7 @@ class timedelta(deltainterop):
         if isinstance(other, timedelta):
             return self._cmp(other) == 0
         else:
-            return False
+            return NotImplemented
 
     def __le__(self, other):
         if isinstance(other, timedelta):
@@ -1144,7 +1144,7 @@ class time(timeinterop):
         if isinstance(other, time):
             return self._cmp(other, allow_mixed=True) == 0
         else:
-            return False
+            return NotImplemented
 
     def __le__(self, other):
         if isinstance(other, time):
