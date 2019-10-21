@@ -327,13 +327,15 @@ static int _cffi_carefully_make_gil(void)
 #endif
 
     /* call Py_InitializeEx() */
-    {
-        PyGILState_STATE state = PyGILState_UNLOCKED;
-        if (!Py_IsInitialized())
-            _cffi_py_initialize();
-        else
-            state = PyGILState_Ensure();
-
+    if (!Py_IsInitialized()) {
+        _cffi_py_initialize();
+        PyEval_InitThreads();
+        PyEval_SaveThread();  /* release the GIL */
+        /* the returned tstate must be the one that has been stored into the
+           autoTLSkey by _PyGILState_Init() called from Py_Initialize(). */
+    }
+    else {
+        PyGILState_STATE state = PyGILState_Ensure();
         PyEval_InitThreads();
         PyGILState_Release(state);
     }
