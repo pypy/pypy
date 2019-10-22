@@ -1164,7 +1164,7 @@ class AppTestFastPathCrash(object):
         # issue bb-3091 crash in BuiltinCodePassThroughArguments0.funcrun
         import sys
         if '__pypy__' in sys.modules:
-            msg_fmt = "%s instance as first argument (got %s"
+            msg_fmt = "'%s' object expected, got '%s'"
         else:
             msg_fmt = "'%s' object but received a '%s'"
         for obj in (dict, set):
