@@ -644,7 +644,7 @@ class AppTestImport(BaseFSEncodeTest):
         import infinite_reload
 
     def test_reload_module_subclass(self):
-        import types
+        import types, imp
 
         #MyModType = types.ModuleType
         class MyModType(types.ModuleType):
@@ -654,7 +654,7 @@ class AppTestImport(BaseFSEncodeTest):
         with raises(ImportError):
             # Fails because the module is not in sys.modules, but *not* because
             # it's a subtype of ModuleType.
-            reload(m)
+            imp.reload(m)
 
 
     def test_explicitly_missing(self):
