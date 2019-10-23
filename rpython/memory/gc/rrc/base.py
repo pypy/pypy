@@ -120,12 +120,12 @@ class RawRefCountBaseGC(object):
         self.tuple_maybe_untrack = tuple_maybe_untrack
         self.state = self.STATE_DEFAULT
         self.marking_state = 0
-        self.cycle_enabled = True
         inc_limit = env.read_uint_from_env('PYPY_RRC_GC_INCREMENT_STEP')
         if inc_limit > 0:
             self.inc_limit = inc_limit
         else:
             self.inc_limit = 1000
+        self.cycle_enabled = True
 
     def create_link_pypy(self, gcobj, pyobject):
         obj = llmemory.cast_ptr_to_adr(gcobj)
@@ -227,9 +227,9 @@ class RawRefCountBaseGC(object):
             # the first (c_gc_next) and last (c_gc_prev) pyobject in the list
             # of live objects that are garbage, so just fix the references
             list = self.pyobj_garbage_list
-            gchdr = list.c_gc_next
-            if list.c_gc_prev == gchdr:
-                list.c_gc_next = list # reached end of list, reset it
+            gchdr = list.c_gc_next # get next object in list
+            if list.c_gc_prev == gchdr: # if at end of list
+                list.c_gc_next = list # reset the list (now it is empty)
             else:
                 list.c_gc_next = gchdr.c_gc_next # move pointer foward
             return llmemory.cast_ptr_to_adr(self.gc_as_pyobj(gchdr))

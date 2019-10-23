@@ -161,7 +161,7 @@ class State:
                     use_bytecode_counter=True)
             else:
                 module = space.builtin_modules['gc']
-                attribute = space.newtext('cpyext_durations')
+                attribute = space.newtext('cpyext_stat')
                 space.setattr(module, attribute, space.newlist([]))
 
                 pyobj_dealloc_action = PyObjDeallocAction(space)
@@ -321,26 +321,33 @@ def _rawrefcount_perform(space): # TODO: measure time spent, make incremental??
                                              finalize, from_ref, cts)
     from pypy.module.cpyext.api import generic_cpy_call
 
-
+    #debug_print("rrc perform")
     if rawrefcount.check_state():
         start = time.time()
+        dead_calls = 0
+        cyclic_isolate_calls = 0
+        cyclic_garbage_calls = 0
+        garbage_calls = 0
 
         while True:
             py_obj = rawrefcount.next_dead(PyObject)
             if not py_obj:
                 break
+            dead_calls += 1
             decref(space, py_obj)
 
         while True:
             py_obj = rawrefcount.next_cyclic_isolate(PyObject)
             if not py_obj:
                 break
+            cyclic_isolate_calls += 1
             finalize(space, py_obj)
 
         while True:
             py_obj = rawrefcount.cyclic_garbage_head(PyObject)
             if not py_obj:
                 break
+            cyclic_garbage_calls += 1
             pyobj = rffi.cast(PyObject, py_obj)
             adr_int = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(pyobj))
             pto = pyobj.c_ob_type
@@ -357,27 +364,38 @@ def _rawrefcount_perform(space): # TODO: measure time spent, make incremental??
             if adr_int == llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(head)):
                 rawrefcount.cyclic_garbage_remove()
 
-        rawrefcount.begin_garbage()
-        w_list = space.newlist([])
-        while True:
-            w_obj = rawrefcount.next_garbage_pypy(W_Root)
-            if not py_obj:
-                break
-            w_list.append(w_obj)
-        while True:
-            w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
-            if not w_pyobj:
-                break
-            w_obj = from_ref(space, w_pyobj)
-            w_list.append(w_obj)
-        space.setattr(space.builtin_modules['gc'], space.newtext('garbage'),
-                      w_list)
-        rawrefcount.end_garbage()
+        # TODO: instead of building up this list every time, only do it in case something changed
+        if False: # TODO add check, if something changed
+            rawrefcount.begin_garbage()
+            w_list = space.newlist([]) # append to existing list???
+            while True:
+                w_obj = rawrefcount.next_garbage_pypy(W_Root)
+                if not w_obj:
+                    break
+                garbage_calls += 1
+                debug_print("append garbage pypy", w_obj)
+                w_list.append(w_obj)
+            while True:
+                w_pyobj = rawrefcount.next_garbage_pyobj(PyObject)
+                if not w_pyobj:
+                    break
+                garbage_calls += 1
+                w_obj = from_ref(space, w_pyobj)
+                debug_print("append garbage pyobj", w_obj)
+                w_list.append(w_obj)
+            space.setattr(space.builtin_modules['gc'],
+                          space.newtext('garbage'), w_list)
+            rawrefcount.end_garbage()
 
         duration = time.time() - start
+        list = space.newlist([space.newfloat(duration),
+                              space.newint(dead_calls),
+                              space.newint(cyclic_isolate_calls),
+                              space.newint(cyclic_garbage_calls),
+                              space.newint(garbage_calls)])
         module = space.builtin_modules['gc']
-        durations = space.getattr(module, space.newtext('cpyext_durations'))
-        durations.append(space.newfloat(duration))
+        durations = space.getattr(module, space.newtext('cpyext_stat'))
+        durations.append(list)
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.

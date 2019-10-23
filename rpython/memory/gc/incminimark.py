@@ -2026,7 +2026,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Check that the flags are correct: we must not have
             # GCFLAG_TRACK_YOUNG_PTRS so far.
-            # TODO: fix
+            # TODO: fix (with rrc incmark, seems to work with rrc mark)
             #ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS == 0,
             #          "old_objects_pointing_to_young contains obj with "
             #          "GCFLAG_TRACK_YOUNG_PTRS")
@@ -2411,7 +2411,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if self.rrc_enabled:
                     debug_print("starting rrc state:", self.rrc_gc.state)
                     debug_print("starting marking_state:", self.rrc_gc.marking_state)
+                    start_rrc = time.time()
+
                     rrc_finished = self.rrc_gc.major_collection_trace_step()
+
+                    duration_rrc = time.time() - start_rrc
+                    debug_print("rrc duration:", duration_rrc)
+
                     debug_print("ending rrc state:", self.rrc_gc.state)
                     debug_print("ending marking_state:", self.rrc_gc.marking_state)
                 else:
@@ -3146,6 +3152,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def rawrefcount_check_state(self):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")
+        #debug_print("check state", self.rrc_gc.state)
         return self.rrc_gc.state == RawRefCountBaseGC.STATE_DEFAULT
 
     def rawrefcount_next_dead(self):
