@@ -6,14 +6,13 @@ import weakref
 try:
     from _pypy_openssl import ffi
     from _pypy_openssl import lib
-except ImportError:
+except ImportError as e:
     import os
-    print("The _ssl cffi module either doesn't exist or is incompatible with your machine's shared libraries.")
-    print("If you have a compiler installed, you can try to rebuild it by running:")
-    print("cd %s" % os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
-    print("%s _ssl_build.py" % sys.executable)
-    print()
-    raise
+    msg = "\n\nThe _ssl cffi module either doesn't exist or is incompatible with your machine's shared libraries.\n" + \
+          "If you have a compiler installed, you can try to rebuild it by running:\n" + \
+          "cd %s\n" % os.path.abspath(os.path.dirname(os.path.dirname(__file__))) + \
+          "%s _ssl_build.py\n" % sys.executable
+    raise ImportError(str(e) + msg)
 
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
