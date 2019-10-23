@@ -2,8 +2,19 @@ import sys
 import time
 import thread as _thread
 import weakref
-from _pypy_openssl import ffi
-from _pypy_openssl import lib
+
+try:
+    from _pypy_openssl import ffi
+    from _pypy_openssl import lib
+except ImportError:
+    import os
+    print("The _ssl cffi module either doesn't exist or is incompatible with your machine's shared libraries.")
+    print("If you have a compiler installed, you can try to rebuild it by running:")
+    print("cd %s" % os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+    print("%s _ssl_build.py" % sys.executable)
+    print()
+    raise
+
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
 from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
