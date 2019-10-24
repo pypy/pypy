@@ -370,6 +370,17 @@ class TestJIT(BaseRtypingTest):
             record_exact_value(a, a) # assume not crash
         self.interpret(g, [])
 
+    def test_record_exact_value_2(self):
+        class A(object):
+            pass
+        def make(j):
+            if j < 5: return None
+            return A()
+        def g(j):
+            a = make(j)
+            record_exact_value(a, None)
+        self.interpret(g, [3])
+
     def test_record_exact_value_int(self):
         @dont_look_inside
         def f():
