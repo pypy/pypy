@@ -9,6 +9,9 @@ from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._pypyjson import simd
 
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
+
 OVF_DIGITS = len(str(sys.maxint))
 
 def is_whitespace(ch):
@@ -692,7 +695,7 @@ class StringCacheEntry(object):
         return True
 
 
-class MapBase(object):
+class MapBase(W_Root):
     """ A map implementation to speed up parsing of json dicts, and to
     represent the resulting dicts more compactly and make access faster. """
 
@@ -865,6 +868,30 @@ class MapBase(object):
         """ recursively fill the dictionary dict_w in the correct order,
         reading from values_w."""
         raise NotImplementedError("abstract base")
+
+    # ____________________________________________________________
+    # exposed methods
+
+    def descr_instantiate_dict(self, space, w_l):
+        from pypy.objspace.std.jsondict import from_values_and_jsonmap
+        from pypy.objspace.std.jsondict import devolve_jsonmap_dict
+        l_w = space.listview(w_l)
+        if not isinstance(self, JSONMap):
+            return space.newdict()
+        keys_w = self.get_keys_in_order()
+        if len(l_w) != len(keys_w):
+            raise oefmt(space.w_ValueError, "expected %s values, got %s", str(len(keys_w)), str(len(l_w)))
+        w_dict = from_values_and_jsonmap(self.space, l_w[:], self)
+        if self.is_state_blocked():
+            devolve_jsonmap_dict(w_dict)
+        return w_dict
+
+    def descr_repr(self, space):
+        return space.newtext("<DictStructure [%s]>" % ", ".join([space.text_w(space.repr(w_key)) for w_key in self.get_keys_in_order()]))
+
+
+    # ____________________________________________________________
+    # graphviz
 
     def _all_dot(self, output):
         identity = objectmodel.compute_unique_id(self)
@@ -1166,3 +1193,18 @@ def loads(space, w_s):
     finally:
         decoder.close()
 
+
+
+def get_last_key(w_obj, space):
+    return w_obj.w_key if isinstance(w_obj, JSONMap) else space.w_None
+
+def get_previous(w_obj, space):
+    return w_obj.prev if isinstance(w_obj, JSONMap) else space.w_None
+
+MapBase.typedef = TypeDef("DictStructure",
+    instantiate_dict = interp2app(MapBase.descr_instantiate_dict),
+    __repr__ = interp2app(MapBase.descr_repr),
+    last_key = GetSetProperty(get_last_key, name="last_key"),
+    previous = GetSetProperty(get_previous, name="previous"),
+)
+MapBase.typedef.acceptable_as_base_class = False

@@ -118,6 +118,8 @@ class Module(MixedModule):
         'stack_almost_full'         : 'interp_magic.stack_almost_full',
         'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
         'newmemoryview'             : 'interp_buffer.newmemoryview',
+
+        'newdictstructure'          : 'interp_dictstructure.newdictstructure',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
