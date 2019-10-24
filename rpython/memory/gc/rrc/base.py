@@ -97,6 +97,8 @@ class RawRefCountBaseGC(object):
          self.GCFLAG_NO_HEAP_PTRS, self.GCFLAG_GARBAGE) = gc_flags
         self.p_list_young = self.gc.AddressStack()
         self.p_list_old = self.gc.AddressStack()
+        self.p_list_old_added = self.gc.AddressStack()
+        self.p_dict_old_free = self.gc.AddressDict()
         self.o_list_young = self.gc.AddressStack()
         self.o_list_old = self.gc.AddressStack()
         self.p_dict = self.gc.AddressDict()  # non-nursery keys only
@@ -139,6 +141,9 @@ class RawRefCountBaseGC(object):
             dct = self.p_dict
             if not self.gc.is_young_object(obj):
                 lst = self.p_list_old
+                if self.state == self.STATE_MARKING:
+                    debug_print("added p_list", pyobject)
+                    self.p_list_old_added.append(pyobject)
         lst.append(pyobject)
         dct.setitem(obj, pyobject)
 
@@ -259,14 +264,15 @@ class RawRefCountBaseGC(object):
         ll_assert(self.p_dict_nurs.length() == 0,
                   "p_dict_nurs not empty 1")
         lst = self.p_list_young
+        working_set = self.state == self.STATE_MARKING
         while lst.non_empty():
-            self._minor_free(lst.pop(), self.p_list_old, self.p_dict)
+            self._minor_free(lst.pop(), self.p_list_old, self.p_dict, working_set)
         lst = self.o_list_young
         no_o_dict = self.gc.null_address_dict()
         while lst.non_empty():
-            self._minor_free(lst.pop(), self.o_list_old, no_o_dict)
+            self._minor_free(lst.pop(), self.o_list_old, no_o_dict, False)
 
-    def _minor_free(self, pyobject, surviving_list, surviving_dict):
+    def _minor_free(self, pyobject, surviving_list, surviving_dict, working_set):
         intobj = self._pyobj(pyobject).c_ob_pypy_link
         obj = llmemory.cast_int_to_adr(intobj)
         if self.gc.is_in_nursery(obj):
@@ -299,6 +305,9 @@ class RawRefCountBaseGC(object):
         #
         if surviving:
             surviving_list.append(pyobject)
+            if working_set:
+                debug_print("added p_list", pyobject)
+                self.p_list_old_added.append(pyobject)
         else:
             self._free(pyobject)
 
@@ -309,6 +318,7 @@ class RawRefCountBaseGC(object):
         rc = self._pyobj(pyobject).c_ob_refcnt
         if rc >= REFCNT_FROM_PYPY_LIGHT:
             rc -= REFCNT_FROM_PYPY_LIGHT
+            debug_print("major_free", "free", pyobject, "refcnt", rc, "light")
             if rc == 0:
                 pygchdr = self.pyobj_as_gc(self._pyobj(pyobject))
                 if pygchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
@@ -325,6 +335,7 @@ class RawRefCountBaseGC(object):
             ll_assert(rc < int(REFCNT_FROM_PYPY_LIGHT * 0.99),
                       "refcount underflow from REFCNT_FROM_PYPY_LIGHT?")
             rc -= REFCNT_FROM_PYPY
+            debug_print("major_free", "free", pyobject, "refcnt", rc, "nonlight")
             self._pyobj(pyobject).c_ob_pypy_link = 0
             if rc == 0:
                 self.dealloc_pending.append(pyobject)
@@ -376,13 +387,15 @@ class RawRefCountBaseGC(object):
             pass  # the corresponding object may die
         else:
             # force the corresponding object to be alive
-            debug_print("pyobj stays alive", pyobj, "rc", rc, "cyclic_rc",
-                        cyclic_rc)
             if use_dict:
                 obj = self.pypy_link_dict.get(pyobject)
             else:
                 intobj = pyobj.c_ob_pypy_link
+                if intobj == 0:
+                    return
                 obj = llmemory.cast_int_to_adr(intobj)
+            debug_print("pyobj stays alive", pyobj, "rc", rc, "cyclic_rc",
+                        cyclic_rc)
             self.gc.objects_to_trace.append(obj)
             self.gc.visit_all_objects() # TODO: execute incrementally?
 
@@ -444,12 +457,14 @@ class RawRefCountBaseGC(object):
         #  * GCFLAG_NO_HEAP_PTRS: immortal object never traced (so far)
         intobj = self._pyobj(pyobject).c_ob_pypy_link
         obj = llmemory.cast_int_to_adr(intobj)
-        if self.gc.header(obj).tid & \
+        if intobj != 0 and self.gc.header(obj).tid & \
                 (self.GCFLAG_VISITED | self.GCFLAG_NO_HEAP_PTRS):
+            debug_print("major_free", "survive", pyobject)
             surviving_list.append(pyobject)
             if surviving_dict:
                 surviving_dict.insertclean(obj, pyobject)
         else:
+            debug_print("major_free", "free", pyobject)
             self._free(pyobject, True)
 
     def _untrack_tuples(self):

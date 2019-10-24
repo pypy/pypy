@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem import rffi
 from rpython.memory.gc.rrc.base import RawRefCountBaseGC
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
+import time
 
 class RawRefCountIncMarkGC(RawRefCountBaseGC):
 
@@ -60,12 +61,20 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         # we are finished with marking, now finish things up
         ll_assert(self.state == self.STATE_GARBAGE_MARKING, "invalid state")
 
+        start = time.time()
+
         # sync snapshot
         self._sync_snapshot()
         self._debug_check_consistency(print_label="before-snap-discard")
 
+        debug_print("time snapshot sync", time.time() - start)
+        start = time.time()
+
         # now the snapshot is not needed any more, discard it
         self._discard_snapshot()
+
+        debug_print("time discard snapshot", time.time() - start)
+        start = time.time()
 
         # handle legacy finalizers (assumption: not a lot of legacy finalizers,
         # so no need to do it incrementally)
@@ -74,17 +83,25 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             self._debug_check_consistency(print_label="end-legacy-fin")
         self.state = self.STATE_DEFAULT
 
+        debug_print("time legacy finalizer", time.time() - start)
+        start = time.time()
+
         # handle modern finalizers
         found_finalizer = self._find_finalizer()
         if found_finalizer:
             self._gc_list_move(self.pyobj_old_list, self.pyobj_isolate_list)
         use_cylicrc = not found_finalizer
 
+        debug_print("time modern finalizer", time.time() - start)
+        start = time.time()
+
         # now mark all pypy objects at the border, depending on the results
         self._debug_check_consistency(print_label="end-mark-cyclic")
         debug_print("use_cylicrc", use_cylicrc)
         self.p_list_old.foreach(self._major_trace, (use_cylicrc, False))
         self._debug_check_consistency(print_label="end-mark")
+
+        debug_print("time mark p_list_old", time.time() - start)
         return True
 
     def _sync_snapshot(self):
@@ -98,11 +115,12 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         consistent = True
         self.snapshot_consistent = True
 
+        start = time.time()
+
         # sync p_list_old (except gc-objects)
         # simply iterate the snapshot for objects in p_list, as linked objects
         # might not be freed, except by the gc; p_list is always at the
         # beginning of the snapshot, so break if we reached a different pyobj
-        free_p_list = self.gc.AddressStack()
         for i in range(0, self.total_objs):
             snapobj = self.snapshot_objs[i]
             if snapobj.pypy_link == 0:
@@ -123,14 +141,26 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 if not consistent:
                     break
                 # move to separate list
-                self.p_list_old.remove(snapobj.pyobj)
-                free_p_list.append(snapobj.pyobj)
+                #self.p_list_old.remove(snapobj.pyobj) # TODO: this might be evil... do something different... -> unlink? special link?
+
+                # remove link, to free non-gc (so they won't get marked and are freed)
+                pyobj = llmemory.cast_adr_to_ptr(snapobj.pyobj, self.PYOBJ_HDR_PTR)
+                link = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
+                self.p_dict_old_free.setitem(snapobj.pyobj, link)
+                pyobj.c_ob_pypy_link = 0
+                debug_print("free p_list", pyobj, "refcnt", pyobj.c_ob_refcnt)
+
+        debug_print("time sync p_list_old", time.time() - start)
+        start = time.time()
 
         # look if there is a (newly) linked non-gc proxy, where the non-rc obj
         # is unmarked
         self.p_list_old_consistent = True
         self.p_list_old.foreach(self._check_consistency_p_list_old, None)
         consistent &= self.p_list_old_consistent
+
+        debug_print("time consistency p_list_old", time.time() - start)
+        start = time.time()
 
         # sync gc objects
         pygchdr = self.pyobj_list.c_gc_next
@@ -152,11 +182,18 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                     if not (self.gc.header(addr).tid &
                             (self.GCFLAG_VISITED | self.GCFLAG_NO_HEAP_PTRS)):
                         consistent = False
+                        debug_print("inconsistency found",
+                                    "marked new object", pyobj)
                         break
             pygchdr = next_old
         pygchdr_continue_gc = pygchdr
 
+
+        debug_print("time sync gc objs", time.time() - start)
+        start = time.time()
+
         # sync isolate objs
+        debug_print("check isolate")
         isolate_consistent = True
         pygchdr = self.pyobj_isolate_old_list.c_gc_next
         while pygchdr <> self.pyobj_isolate_old_list and isolate_consistent:
@@ -169,12 +206,15 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         consistent &= isolate_consistent
         self._debug_check_consistency(print_label="end-check-consistency")
 
+        debug_print("time sync isolate objs", time.time() - start)
+        start = time.time()
+
         if consistent:
-            free_p_list.foreach(self._free_p_list, None)
+            debug_print("consistent")
         else:
-            # keep linked non-gc alive
-            while free_p_list.non_empty():
-                self.p_list_old.append(free_p_list.pop())
+            debug_print("inconsistent")
+            # fix link
+            self.p_dict_old_free.foreach(self._fix_p_list, None)
             # continue previous loop, keep objects alive
             pygchdr = pygchdr_continue_gc
             while pygchdr <> self.pyobj_list:
@@ -190,6 +230,12 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             # merge lists
             if not self._gc_list_is_empty(self.pyobj_old_list):
                 self._gc_list_merge(self.pyobj_old_list, self.pyobj_list)
+
+        self.p_dict_old_free.delete()
+        self.p_dict_old_free = self.gc.AddressDict()
+
+        debug_print("time free/inconsistent", time.time() - start)
+        start = time.time()
 
         if isolate_consistent:
             if not self._gc_list_is_empty(self.pyobj_isolate_old_list):
@@ -218,6 +264,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 self._gc_list_merge(self.pyobj_isolate_dead_list,
                                     self.pyobj_list)
 
+        debug_print("time sync isolate", time.time() - start)
+
     def _check_consistency_gc(self, pygchdr, pylist_dead_target):
         c_gc_refs = self._pyobj_gc_refcnt_get(pygchdr)
         snapobj = self.snapshot_objs[c_gc_refs - 1]
@@ -230,6 +278,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             # refcount equal
             consistent = snapobj.refcnt_original == pyobj.c_ob_refcnt
             if not consistent:
+                debug_print("inconsistency found", "refcount not equal", pyobj)
                 return False
             # outgoing (internal) references equal
             self.snapshot_curr = snapobj
@@ -237,6 +286,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             self._check_snapshot_traverse(pyobj)
             consistent = self.snapshot_consistent
             if not consistent:
+                debug_print("inconsistency found", "references not equal", pyobj)
                 return False
             # consistent -> prepare object for collection
             self._gc_list_remove(pygchdr)
@@ -262,18 +312,11 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             if not (self.gc.header(addr).tid &
                     (self.GCFLAG_VISITED | self.GCFLAG_NO_HEAP_PTRS)):
                 self.p_list_old_consistent = False
+                debug_print("inconsistency found", "marked p_list", pyobj)
 
-    def _free_p_list(self, pyobject, foo):
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+    def _fix_p_list(self, pyobject, addr_link, foo):
         pyobj = llmemory.cast_adr_to_ptr(pyobject, self.PYOBJ_HDR_PTR)
-        refcnt = pyobj.c_ob_refcnt
-        if refcnt >= REFCNT_FROM_PYPY_LIGHT:
-            refcnt -= REFCNT_FROM_PYPY_LIGHT
-        elif refcnt >= REFCNT_FROM_PYPY:
-            refcnt -= REFCNT_FROM_PYPY
-        pyobj.c_ob_refcnt = refcnt
-        pyobj.c_ob_pypy_link = 0
+        pyobj.c_ob_pypy_link = llmemory.cast_adr_to_int(addr_link, "symbolic")
 
     def _collect_roots(self):
         # Subtract all internal refcounts from the cyclic refcount
@@ -298,6 +341,13 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         simple_limit = 0
         first = True # rescan proxies, in case only non-rc have been marked
         #
+        while self.p_list_old_added.non_empty():
+            addr = self.p_list_old_added.pop()
+            pyobj = llmemory.cast_adr_to_ptr(addr, self.PYOBJ_HDR_PTR)
+            obj = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
+            debug_print("trace p_list", pyobj)
+            self.gc.objects_to_trace.append(obj)
+        #
         while first or (self.pyobj_to_trace.non_empty() and not reached_limit):
             while self.pyobj_to_trace.non_empty() and not reached_limit:
                 addr = self.pyobj_to_trace.pop()
@@ -308,7 +358,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 simple_limit += 1
                 if simple_limit > self.inc_limit: # TODO: add test
                     reached_limit = True
-
+            self.gc.visit_all_objects()  # TODO: implement sane limit (ex. half of normal limit), retrace proxies
             self.p_list_old.foreach(self._mark_rawrefcount_linked, None)
             self.o_list_old.foreach(self._mark_rawrefcount_linked, None)
             first = False
@@ -343,7 +393,6 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 intobj = snapobj.pypy_link
                 obj = llmemory.cast_int_to_adr(intobj)
                 self.gc.objects_to_trace.append(obj)
-                self.gc.visit_all_objects()  # TODO: move to outer loop, implement sane limit (ex. half of normal limit), retrace proxies
             # mark as processed
             snapobj.status = 0
         return alive
@@ -553,6 +602,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         pygchdr = self.pyobj_as_gc(pyobj)
         # only for non-gc
         if pygchdr == lltype.nullptr(self.PYOBJ_GC_HDR):
+            debug_print("clear link", pyobj)
             link = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
             self.pypy_link_dict.setitem(pyobject, link)
             pyobj.c_ob_pypy_link = 0
