@@ -32,14 +32,10 @@ IMP_HOOK = 9
 
 SO = '.pyd' if _WIN32 else '.so'
 
-# this used to change for every minor version, but no longer does: there
-# is little point any more, as the so's tend to be cross-version-
-# compatible, more so than between various versions of CPython.  Be
-# careful if we need to update it again: it is now used for both cpyext
-# and cffi so's.  If we do have to update it, we'd likely need a way to
+# Be careful update when changing this: it is now used for both cpyext
+# and cffi so's. If we do have to update it, we'd likely need a way to
 # split the two usages again.
-#DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-DEFAULT_SOABI = 'pypy-41'
+DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
 
 @specialize.memo()
 def get_so_extension(space):
