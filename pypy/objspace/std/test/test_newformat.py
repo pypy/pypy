@@ -210,6 +210,13 @@ class BaseStringFormatTests:
         fmtstr = self.s("{:[XYZ}")
         assert fmtstr.format(Foo()) == "<<%r>>" % (self.s("[XYZ"),)
 
+    def test_issue3100(self):
+        class Foo:
+            def __format__(self, f):
+                return '<<%r>>' % (f,)
+        fmtstr = self.s("{:[XYZ}")
+        assert fmtstr.format(Foo()) == "<<%r>>" % (self.s("[XYZ"),)
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
     def setup_class(cls):
