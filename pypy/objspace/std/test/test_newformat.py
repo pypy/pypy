@@ -199,6 +199,13 @@ class BaseStringFormatTests:
         assert self.s('{0:\x00<12}').format(3+2.0j) == '(3+2j)' + '\x00' * 6
         assert self.s('{0:\x01<12}').format(3+2.0j) == '(3+2j)' + '\x01' * 6
 
+    def test_issue3100(self):
+        class Foo:
+            def __format__(self, f):
+                return '<<%r>>' % (f,)
+        fmtstr = self.s("{:[XYZ}")
+        assert fmtstr.format(Foo()) == "<<%r>>" % (self.s("[XYZ"),)
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
     def setup_class(cls):
