@@ -28,11 +28,6 @@ def show_compilers ():
     from distutils.ccompiler import show_compilers
     show_compilers()
 
-def _get_c_extension_suffix():
-    import importlib
-    suffixes = importlib.machinery.EXTENSION_SUFFIXES
-    return suffixes[0] if suffixes else None
-
 
 class build_ext(Command):
 
@@ -686,15 +681,7 @@ class build_ext(Command):
         """
         from distutils.sysconfig import get_config_var
         ext_path = ext_name.split('.')
-        # PyPy tweak: first try to get the C extension suffix from
-        # 'imp'.  If it fails we fall back to the 'SO' config var, like
-        # the previous version of this code did.  This should work for
-        # CPython too.  The point is that on PyPy with cpyext, the
-        # config var 'SO' is just ".so" but we want to return
-        # ".pypy-VERSION.so" instead.
-        ext_suffix = _get_c_extension_suffix()
-        if ext_suffix is None:
-            ext_suffix = get_config_var('EXT_SUFFIX')     # fall-back
+        ext_suffix = get_config_var('EXT_SUFFIX')
         return os.path.join(*ext_path) + ext_suffix
 
     def get_export_symbols(self, ext):
