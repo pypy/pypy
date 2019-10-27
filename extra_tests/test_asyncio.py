@@ -6,7 +6,7 @@ class AppTestAsyncIO(object):
     spaceconfig = dict(usemodules=["select","_socket","thread","signal",
                                    "struct","_multiprocessing","array",
                                    "_posixsubprocess",
-                                   "unicodedata"])
+                                   "unicodedata", "_asyncio"])
     if sys.platform == 'win32':
         pass
     else:
@@ -17,13 +17,13 @@ class AppTestAsyncIO(object):
         # after calling run_until_complete
         """
 import encodings.idna
-import asyncio
+import _asyncio
 
 async def f():
-    reader, writer = await asyncio.open_connection('example.com', 80)
+    reader, writer = await _asyncio.open_connection('example.com', 80)
     writer.close()
 
-loop = asyncio.get_event_loop()
+loop = _asyncio.get_event_loop()
 loop.run_until_complete(f())
         """
     
@@ -32,7 +32,7 @@ loop.run_until_complete(f())
         # and if the correct methods __aiter__ and __anext__ get called
         # and if the end results of run_until_complete are None (in a tuple)
         """
-import asyncio
+import _asyncio
 
 class AsyncIter:
     def __init__(self):
@@ -44,7 +44,7 @@ class AsyncIter:
     
     async def __anext__(self):
         while self._index < 5:
-            await asyncio.sleep(1)
+            await _asyncio.sleep(1)
             self._index += 1
             return self._data[self._index-1]
         raise StopAsyncIteration
@@ -59,9 +59,9 @@ class Corotest(object):
             self.res += "-"
 
 cor = Corotest()
-loop = asyncio.get_event_loop()
-futures = [asyncio.ensure_future(cor.do_loop()), asyncio.ensure_future(cor.do_loop())]
-taskres = loop.run_until_complete(asyncio.wait(futures))
+loop = _asyncio.get_event_loop()
+futures = [_asyncio.ensure_future(cor.do_loop()), _asyncio.ensure_future(cor.do_loop())]
+taskres = loop.run_until_complete(_asyncio.wait(futures))
 assert cor.res.count('0') == 2
 assert cor.res.count('1') == 2
 assert cor.res.count('2') == 2
@@ -83,7 +83,7 @@ assert "result=None" in repr(taskres[0].pop())
         # hold the lock at the same time
         """
 import encodings.idna
-import asyncio
+import _asyncio
 
 class Corotest(object):
     def __init__(self):
@@ -93,13 +93,13 @@ class Corotest(object):
         self.res += ' coro {}: waiting for lock -'.format(name)
         async with lock:
             self.res += ' coro {}: holding the lock -'.format(name)
-            await asyncio.sleep(1)
+            await _asyncio.sleep(1)
             self.res += ' coro {}: releasing the lock -'.format(name)
 
 cor = Corotest()
-loop = asyncio.get_event_loop()
-lock = asyncio.Lock()
-coros = asyncio.gather(cor.coro(1, lock), cor.coro(2, lock))
+loop = _asyncio.get_event_loop()
+lock = _asyncio.Lock()
+coros = _asyncio.gather(cor.coro(1, lock), cor.coro(2, lock))
 try:
     loop.run_until_complete(coros)
 finally:
