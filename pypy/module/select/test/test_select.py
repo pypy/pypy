@@ -382,7 +382,9 @@ class AppTestSelectWithSockets(_AppTestSelect):
         self.sock.listen(1)
         s2 = _socket.socket()
         _thread.start_new_thread(s2.connect, (self.sockaddress,))
-        s1, addr2 = self.sock.accept()
+        fd, addr2 = self.sock._accept()
+        s1 = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM,
+                              proto=0, fileno=fd)
 
         # speed up the tests that want to fill the buffers
         s1.setsockopt(_socket.SOL_SOCKET, _socket.SO_RCVBUF, 4096)
