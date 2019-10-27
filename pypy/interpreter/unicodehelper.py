@@ -24,6 +24,7 @@ def decode_error_handler(space):
 
 def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
     assert startingpos >= 0
+    assert endingpos >= 0
     ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
     return ''.join(ux), endingpos, 'b'
 
