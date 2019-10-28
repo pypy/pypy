@@ -4,6 +4,7 @@ from __future__ import print_function
 import os
 import os.path
 import pkgutil
+import shutil
 import sys
 import tempfile
 
@@ -37,6 +38,7 @@ def version():
     """
     return _PIP_VERSION
 
+
 def _disable_pip_configuration_settings():
     # We deliberately ignore all pip environment variables
     # when invoking pip
@@ -50,26 +52,11 @@ def _disable_pip_configuration_settings():
 
 
 def bootstrap(root=None, upgrade=False, user=False,
-              altinstall=False, default_pip=False,
+              altinstall=False, default_pip=True,
               verbosity=0):
     """
     Bootstrap pip into the current Python installation (or the given root
     directory).
-
-    Note that calling this function will alter both sys.path and os.environ.
-    """
-    # Discard the return value
-    _bootstrap(root=root, upgrade=upgrade, user=user,
-               altinstall=altinstall, default_pip=default_pip,
-               verbosity=verbosity)
-
-
-def _bootstrap(root=None, upgrade=False, user=False,
-              altinstall=False, default_pip=False,
-              verbosity=0):
-    """
-    Bootstrap pip into the current Python installation (or the given root
-    directory). Returns pip command status code.
 
     Note that calling this function will alter both sys.path and os.environ.
     """
@@ -91,7 +78,8 @@ def _bootstrap(root=None, upgrade=False, user=False,
         # omit pip and easy_install
         os.environ["ENSUREPIP_OPTIONS"] = "install"
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    tmpdir = tempfile.mkdtemp()
+    try:
         # Put our bundled wheels into a temporary directory and construct the
         # additional paths that need added to sys.path
         additional_paths = []
@@ -117,7 +105,10 @@ def _bootstrap(root=None, upgrade=False, user=False,
         if verbosity:
             args += ["-" + "v" * verbosity]
 
-        return _run_pip(args + [p[0] for p in _PROJECTS], additional_paths)
+        _run_pip(args + [p[0] for p in _PROJECTS], additional_paths)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 def _uninstall_helper(verbosity=0):
     """Helper to support a clean default uninstall process on Windows
@@ -144,7 +135,7 @@ def _uninstall_helper(verbosity=0):
     if verbosity:
         args += ["-" + "v" * verbosity]
 
-    return _run_pip(args + [p[0] for p in reversed(_PROJECTS)])
+    _run_pip(args + [p[0] for p in reversed(_PROJECTS)])
 
 
 def _main(argv=None):
@@ -185,20 +176,27 @@ def _main(argv=None):
         "--altinstall",
         action="store_true",
         default=False,
-        help=("Make an alternate install, installing only the X.Y versioned "
-              "scripts (Default: pipX, pipX.Y, easy_install-X.Y)."),
+        help=("Make an alternate install, installing only the X.Y versioned"
+              "scripts (Default: pipX, pipX.Y, easy_install-X.Y)"),
     )
     parser.add_argument(
         "--default-pip",
         action="store_true",
-        default=False,
-        help=("Make a default pip install, installing the unqualified pip "
-              "and easy_install in addition to the versioned scripts."),
+        default=True,
+        dest="default_pip",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--no-default-pip",
+        action="store_false",
+        dest="default_pip",
+        help=("Make a non default install, installing only the X and X.Y "
+              "versioned scripts."),
     )
 
     args = parser.parse_args(argv)
 
-    return _bootstrap(
+    bootstrap(
         root=args.root,
         upgrade=args.upgrade,
         user=args.user,
