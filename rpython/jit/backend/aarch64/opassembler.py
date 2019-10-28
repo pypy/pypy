@@ -986,7 +986,8 @@ class ResOpAssembler(BaseAssembler):
             loc_index = arglocs[1]
             assert loc_index.is_core_reg()
             tmp1 = r.ip1
-            tmp2 = arglocs[-1]  # the last item is a preallocated tmp
+            #tmp2 = arglocs[-1]  -- the last item is a preallocated tmp on arm,
+            #                       but not here on aarch64
             # lr = byteofs
             s = 3 + descr.jit_wb_card_page_shift
             mc.MVN_rr_shifted(r.lr.value, loc_index.value, s, shifttype=shift.LSR)
@@ -997,10 +998,10 @@ class ResOpAssembler(BaseAssembler):
                             descr.jit_wb_card_page_shift, shifttype=shift.LSR)
 
             # set the bit
-            mc.MOVZ_r_u16(tmp2.value, 1, 0)
+            mc.MOVZ_r_u16(r.ip0.value, 1, 0)
+            mc.LSL_rr(tmp1.value, r.ip0.value, tmp1.value)
             mc.LDRB_rr(r.ip0.value, loc_base.value, r.lr.value)
-            mc.LSL_rr(tmp2.value, tmp2.value, tmp1.value)
-            mc.ORR_rr(r.ip0.value, r.ip0.value, tmp2.value)
+            mc.ORR_rr(r.ip0.value, r.ip0.value, tmp1.value)
             mc.STR_size_rr(0, r.ip0.value, loc_base.value, r.lr.value)
             # done
             #
