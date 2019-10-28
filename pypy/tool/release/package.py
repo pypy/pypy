@@ -329,6 +329,8 @@ def package(*args, **kwds):
         options.no_tk = True
     if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
         options.embed_dependencies = True
+    elif os.environ.has_key("PYPY_NO_EMBED_DEPENDENCIES"):
+        options.embed_dependencies = False
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
