@@ -313,10 +313,14 @@ def _readify(space, py_obj, value):
             set_utf8(py_obj, cts.cast('char *', 0))
             set_utf8_len(py_obj, 0)
     elif maxchar < 65536:
-        # XXX: assumes that sizeof(wchar_t) == 4
         ucs2_str = utf8_encode_utf_16_helper(
             value, 'strict',
             byteorder=BYTEORDER)
+        if rffi.sizeof(lltype.UniChar) == 2 and not get_wbuffer(py_obj):
+            # Copy unicode buffer
+            wchar = cts.cast('wchar_t*', rffi.str2charp(ucs2_str))
+            set_wbuffer(py_obj, wchar)
+            set_wsize(py_obj, len(ucs2_str) // 2)
         ucs2_data = cts.cast('Py_UCS2 *', rffi.str2charp(ucs2_str))
         set_data(py_obj, cts.cast('void*', ucs2_data))
         set_len(py_obj, get_wsize(py_obj))
@@ -324,11 +328,10 @@ def _readify(space, py_obj, value):
         set_utf8(py_obj, cts.cast('char *', 0))
         set_utf8_len(py_obj, 0)
     else:
-        # XXX: assumes that sizeof(wchar_t) == 4
         ucs4_str = utf8_encode_utf_32_helper(
             value, 'strict',
             byteorder=BYTEORDER)
-        if not get_wbuffer(py_obj):
+        if rffi.sizeof(lltype.UniChar) == 4 and not get_wbuffer(py_obj):
             # Copy unicode buffer
             wchar = cts.cast('wchar_t*', rffi.str2charp(ucs4_str))
             set_wbuffer(py_obj, wchar)
