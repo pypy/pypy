@@ -124,19 +124,19 @@ def get_kind(py_obj):
     return rffi.getintfield(get_state(py_obj), 'c_kind')
 
 def set_kind(py_obj, value):
-    get_state(py_obj).c_kind = cts.cast('unsigned int', value)
+    get_state(py_obj).c_kind = cts.cast('unsigned char', value)
 
 def get_ascii(py_obj):
     return rffi.getintfield(get_state(py_obj), 'c_ascii')
 
 def set_ascii(py_obj, value):
-    get_state(py_obj).c_ascii = cts.cast('unsigned int', value)
+    get_state(py_obj).c_ascii = cts.cast('unsigned char', value)
 
 def get_ready(py_obj):
     return rffi.getintfield(get_state(py_obj), 'c_ready')
 
 def set_ready(py_obj, value):
-    get_state(py_obj).c_ready = cts.cast('unsigned int', value)
+    get_state(py_obj).c_ready = cts.cast('unsigned char', value)
 
 def get_wbuffer(py_obj):
     py_obj = cts.cast('PyASCIIObject*', py_obj)
