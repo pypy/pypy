@@ -158,25 +158,3 @@ class TestMixedModule:
         w_str = space1.getattr(w_mymod1, space1.wrap("hi"))
         assert space1.str_w(w_str) == "hello"
 
-class TestMixedModuleUnfreeze:
-    spaceconfig = dict(usemodules=('_ssl', '_socket'))
-
-    def test_random_stuff_can_unfreeze(self):
-        # When a module contains an "import" statement in applevel code, the
-        # imported module is initialized, possibly after it has been already
-        # frozen.
-
-        # This is important when the module startup() function does something
-        # at runtime, like setting os.environ (posix module) or initializing
-        # the winsock library (_socket module)
-        w_socket = self.space.builtin_modules['_socket']
-        w_ssl = self.space.builtin_modules['_ssl']
-
-        # Uncomment this line for a workaround
-        # space.getattr(w_ssl, space.wrap('SSLError'))
-
-        w_socket._cleanup_()
-        assert w_socket.startup_called == False
-        w_ssl._cleanup_() # w_ssl.appleveldefs['SSLError'] imports _socket
-        assert w_socket.startup_called == False
-
