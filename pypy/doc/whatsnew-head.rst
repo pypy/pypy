@@ -16,3 +16,7 @@ Convert http -> https in README.rst
 .. branch: license-update
 
 Update list directories in LICENSE
+
+.. branch: allow-forcing-no-embed
+
+When packaging, allow suppressing embedded dependencies via PYPY_NO_EMBED_DEPENDENCIES
