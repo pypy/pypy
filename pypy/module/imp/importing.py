@@ -21,8 +21,8 @@ from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 _WIN32 = sys.platform == 'win32'
 
 SO = '.pyd' if _WIN32 else '.so'
-PREFIX = 'pypy3-'
-DEFAULT_SOABI_BASE = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
+PREFIX = 'pypy%d%d-' % CPYTHON_VERSION[:2]
+DEFAULT_SOABI_BASE = '%spp%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
 
 PYC_TAG = '%s%d%d' % ((PREFIX,) + CPYTHON_VERSION[:2])   # 'pypy3-XY'
 
