@@ -327,11 +327,6 @@ class AppTestFunction:
         raises(ValueError, type(f).__setstate__, f, (1, 2, 3))
 
 class AppTestMethod:
-    def setup_class(cls):
-        cls.w_runappdirect_on_cpython = cls.space.wrap(
-            cls.runappdirect and
-            '__pypy__' not in sys.builtin_module_names)
-
     def test_simple_call(self):
         class A(object):
             def func(self, arg2):
@@ -565,6 +560,7 @@ class AppTestMethod:
         assert meth == MethodType(func, object)
 
     def test_method_identity(self):
+        import sys
         class A(object):
             def m(self):
                 pass
@@ -589,7 +585,7 @@ class AppTestMethod:
         assert x is not a2.m
         assert id(x) != id(a2.m)
 
-        if not self.runappdirect_on_cpython:
+        if '__pypy__' in sys.builtin_module_names:
             assert A.m is A.m
             assert id(A.m) == id(A.m)
         assert A.m == A.m
