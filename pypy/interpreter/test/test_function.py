@@ -102,14 +102,6 @@ class AppTestFunctionIntrospection:
         with raises(TypeError):
             list.append.im_func.func_code = f.func_code
 
-    def test_set_module_to_name_eagerly(self):
-        skip("fails on PyPy but works on CPython.  Unsure we want to care")
-        exec '''if 1:
-            __name__ = "foo"
-            def f(): pass
-            __name__ = "bar"
-            assert f.__module__ == "foo"''' in {}
-
     def test_set_name(self):
         def f(): pass
         f.__name__ = 'g'
@@ -191,7 +183,6 @@ class AppTestFunction:
         raises(
             TypeError, func, 42, {'arg1': 23})
 
-    @pytest.mark.skipif("config.option.runappdirect")
     def test_kwargs_nondict_mapping(self):
         class Mapping:
             def keys(self):
@@ -288,7 +279,6 @@ class AppTestFunction:
         raises(TypeError, len, s, some_unknown_keyword=s)
         raises(TypeError, len, s, s, some_unknown_keyword=s)
 
-    @pytest.mark.skipif("config.option.runappdirect")
     def test_call_error_message(self):
         try:
             len()
@@ -330,7 +320,6 @@ class AppTestFunction:
         f = lambda: 42
         assert f.func_doc is None
 
-    @pytest.mark.skipif("config.option.runappdirect")
     def test_setstate_called_with_wrong_args(self):
         f = lambda: 42
         # not sure what it should raise, since CPython doesn't have setstate
