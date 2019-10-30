@@ -1184,9 +1184,9 @@ def str_decode_utf_32_helper(s, errors, final,
     size = len(s)
 
     if BYTEORDER == 'little':
-        iorder = [0, 1, 2, 3]
+        iorder0, iorder1, iorder2, iorder3 = 0, 1, 2, 3
     else:
-        iorder = [3, 2, 1, 0]
+        iorder0, iorder1, iorder2, iorder3 = 3, 2, 1, 0
 
     #  Check for BOM marks (U+FEFF) in the input and adjust current
     #  byte order setting accordingly. In native mode, the leading BOM
@@ -1196,8 +1196,8 @@ def str_decode_utf_32_helper(s, errors, final,
     if byteorder == 'native':
         if size >= 4:
             bom = intmask(
-                (ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
-                (ord(s[iorder[1]]) << 8) | ord(s[iorder[0]]))
+                (ord(s[iorder3]) << 24) | (ord(s[iorder2]) << 16) |
+                (ord(s[iorder1]) << 8) | ord(s[iorder0]))
             if BYTEORDER == 'little':
                 if bom == BOM32_DIRECT:
                     pos += 4
@@ -1220,10 +1220,10 @@ def str_decode_utf_32_helper(s, errors, final,
         return '', 0, 0, bo
     if bo == -1:
         # force little endian
-        iorder = [0, 1, 2, 3]
+        iorder0, iorder1, iorder2, iorder3 = 0, 1, 2, 3
     elif bo == 1:
         # force big endian
-        iorder = [3, 2, 1, 0]
+        iorder0, iorder1, iorder2, iorder3 = 3, 2, 1, 0
 
     result = StringBuilder(size // 4)
 
@@ -1239,8 +1239,8 @@ def str_decode_utf_32_helper(s, errors, final,
             if len(s) - pos < 4:
                 break
             continue
-        ch = ((ord(s[pos + iorder[3]]) << 24) | (ord(s[pos + iorder[2]]) << 16) |
-              (ord(s[pos + iorder[1]]) << 8)  | ord(s[pos + iorder[0]]))
+        ch = ((ord(s[pos + iorder3]) << 24) | (ord(s[pos + iorder2]) << 16) |
+              (ord(s[pos + iorder1]) << 8)  | ord(s[pos + iorder0]))
         if not allow_surrogates and 0xD800 <= ch <= 0xDFFF:
             r, pos = errorhandler(errors, public_encoding_name,
                                   "code point in surrogate code point "
