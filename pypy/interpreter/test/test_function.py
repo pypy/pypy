@@ -76,7 +76,8 @@ class AppTestFunctionIntrospection:
                 return x
             return f
         f = g(42)
-        raises(TypeError, FuncType, f.func_code, f.func_globals, 'f2', None, None)
+        with raises(TypeError):
+            FuncType(f.func_code, f.func_globals, 'f2', None, None)
 
     def test_write_code(self):
         def f():
@@ -134,8 +135,10 @@ class AppTestFunction:
         assert res[1] == 22
         assert res[2] == 333
 
-        raises(TypeError, func)
-        raises(TypeError, func, 1, 2, 3, 4)
+        with raises(TypeError):
+            func()
+        with raises(TypeError):
+            func(1, 2, 3, 4)
 
     def test_simple_varargs(self):
         def func(arg1, *args):
@@ -162,7 +165,8 @@ class AppTestFunction:
     def test_kwargs_sets_wrong_positional_raises(self):
         def func(arg1):
             pass
-        raises(TypeError, func, arg2=23)
+        with raises(TypeError):
+            func(arg2=23)
 
     def test_kwargs_sets_positional(self):
         def func(arg1):
@@ -180,8 +184,8 @@ class AppTestFunction:
     def test_kwargs_sets_positional_twice(self):
         def func(arg1, **kw):
             return arg1, kw
-        raises(
-            TypeError, func, 42, {'arg1': 23})
+        with raises(TypeError):
+            func(42, {'arg1': 23})
 
     def test_kwargs_nondict_mapping(self):
         class Mapping:
@@ -194,9 +198,10 @@ class AppTestFunction:
         res = func(23, **Mapping())
         assert res[0] == 23
         assert res[1] == {'a': 'a', 'b': 'b'}
-        error = raises(TypeError, lambda: func(42, **[]))
-        assert error.value.message == ('argument after ** must be a mapping, '
-                                       'not list')
+        with raises(TypeError) as excinfo:
+            func(42, **[])
+        assert excinfo.value.message == (
+            'argument after ** must be a mapping, not list')
 
     def test_default_arg(self):
         def func(arg1,arg2=42):
@@ -215,12 +220,14 @@ class AppTestFunction:
     def test_defaults_keyword_override_but_leaves_empty_positional(self):
         def func(arg1,arg2=42):
             return arg1, arg2
-        raises(TypeError, func, arg2=23)
+        with raises(TypeError):
+            func(arg2=23)
 
     def test_kwargs_disallows_same_name_twice(self):
         def func(arg1, **kw):
             return arg1, kw
-        raises(TypeError, func, 42, **{'arg1': 23})
+        with raises(TypeError):
+            func(42, **{'arg1': 23})
 
     def test_kwargs_bound_blind(self):
         class A(object):
@@ -269,15 +276,21 @@ class AppTestFunction:
 
     def test_call_builtin(self):
         s = 'hello'
-        raises(TypeError, len)
+        with raises(TypeError):
+            len()
         assert len(s) == 5
-        raises(TypeError, len, s, s)
-        raises(TypeError, len, s, s, s)
+        with raises(TypeError):
+            len(s, s)
+        with raises(TypeError):
+            len(s, s, s)
         assert len(*[s]) == 5
         assert len(s, *[]) == 5
-        raises(TypeError, len, some_unknown_keyword=s)
-        raises(TypeError, len, s, some_unknown_keyword=s)
-        raises(TypeError, len, s, s, some_unknown_keyword=s)
+        with raises(TypeError):
+            len(some_unknown_keyword=s)
+        with raises(TypeError):
+            len(s, some_unknown_keyword=s)
+        with raises(TypeError):
+            len(s, s, some_unknown_keyword=s)
 
     def test_call_error_message(self):
         try:
@@ -310,8 +323,10 @@ class AppTestFunction:
         # cannot subclass 'function' or 'builtin_function'
         def f():
             pass
-        raises(TypeError, type, 'Foo', (type(f),), {})
-        raises(TypeError, type, 'Foo', (type(len),), {})
+        with raises(TypeError):
+            type('Foo', (type(f),), {})
+        with raises(TypeError):
+            type('Foo', (type(len),), {})
 
     def test_lambda_docstring(self):
         # Like CPython, (lambda:"foo") has a docstring of "foo".
@@ -324,7 +339,8 @@ class AppTestFunction:
         f = lambda: 42
         # not sure what it should raise, since CPython doesn't have setstate
         # on function types
-        raises(ValueError, type(f).__setstate__, f, (1, 2, 3))
+        with raises(ValueError):
+            type(f).__setstate__(f, (1, 2, 3))
 
 class AppTestMethod:
     def test_simple_call(self):
@@ -471,14 +487,13 @@ class AppTestMethod:
 
         assert A.foo(A(), 42) == (42,)
         assert A.foo(B(), 42) == (42,)
-        raises(TypeError, A.foo, 5)
-        raises(TypeError, B.foo, C())
-        try:
+        with raises(TypeError):
+            A.foo(5)
+        with raises(TypeError):
+            B.foo(C())
+        with raises(TypeError):
             class Fun:
                 __metaclass__ = A.foo
-            assert 0  # should have raised
-        except TypeError:
-            pass
         class Fun:
             __metaclass__ = A().foo
         assert Fun[:2] == ('Fun', ())
@@ -488,14 +503,18 @@ class AppTestMethod:
         def f(*args):
             return args
         m = new.instancemethod(f, None, "foobar")
-        raises(TypeError, m)
-        raises(TypeError, m, None)
-        raises(TypeError, m, "egg")
+        with raises(TypeError):
+            m()
+        with raises(TypeError):
+            m(None)
+        with raises(TypeError):
+            m("egg")
 
         m = new.instancemethod(f, None, (str, int))     # really obscure...
         assert m(4) == (4,)
         assert m("uh") == ("uh",)
-        raises(TypeError, m, [])
+        with raises(TypeError):
+            m([])
 
         class MyBaseInst(object):
             pass
@@ -518,22 +537,30 @@ class AppTestMethod:
         x = MyInst(BSub1)
         m = new.instancemethod(f, None, BSub1)
         assert m(x) == (x,)
-        raises(TypeError, m, MyInst(BBase))
-        raises(TypeError, m, MyInst(BSub2))
-        raises(TypeError, m, MyInst(None))
-        raises(TypeError, m, MyInst(42))
+        with raises(TypeError):
+            m(MyInst(BBase))
+        with raises(TypeError):
+            m(MyInst(BSub2))
+        with raises(TypeError):
+            m(MyInst(None))
+        with raises(TypeError):
+            m(MyInst(42))
 
     def test_invalid_creation(self):
         import new
-        def f(): pass
-        raises(TypeError, new.instancemethod, f, None)
+        def f():
+            pass
+        with raises(TypeError):
+            new.instancemethod(f, None)
 
     def test_empty_arg_kwarg_call(self):
         def f():
             pass
 
-        raises(TypeError, lambda: f(*0))
-        raises(TypeError, lambda: f(**0))
+        with raises(TypeError):
+            f(*0)
+        with raises(TypeError):
+            f(**0)
 
     def test_method_equal(self):
         class A(object):
