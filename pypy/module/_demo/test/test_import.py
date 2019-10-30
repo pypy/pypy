@@ -1,3 +1,4 @@
+import sys
 from pypy.module._demo.moduledef import Module
 from pypy.tool.option import make_config, make_objspace
 
@@ -29,8 +30,11 @@ class TestImport:
 
         assert space.getattr(w_demo, space.wrap('measuretime'))
 
+
+posixname = 'posix' if sys.platform != 'win32' else 'nt'
+
 class TestMixedModuleUnfreeze:
-    spaceconfig = dict(usemodules=('_demo', 'posix'))
+    spaceconfig = dict(usemodules=('_demo', posixname))
 
     def test_random_stuff_can_unfreeze(self):
         # When a module contains an "import" statement in applevel code, the
@@ -40,7 +44,7 @@ class TestMixedModuleUnfreeze:
         # This is important when the module startup() function does something
         # at runtime, like setting os.environ (posix module) or initializing
         # the winsock library (_socket module)
-        w_posix = self.space.builtin_modules['posix']
+        w_posix = self.space.builtin_modules[posixname]
         w_demo = self.space.builtin_modules['_demo']
 
         w_posix._cleanup_()

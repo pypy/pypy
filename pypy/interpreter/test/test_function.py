@@ -151,7 +151,8 @@ class AppTestFunctionIntrospection:
                 return x
             return f
         f = g(42)
-        raises(TypeError, FuncType, f.__code__, f.__globals__, 'f2', None, None)
+        with raises(TypeError):
+            FuncType(f.__code__, f.__globals__, 'f2', None, None)
 
     def test_write_code(self):
         def f():
@@ -172,7 +173,6 @@ class AppTestFunctionIntrospection:
         with raises(ValueError):
             f.__code__ = h.__code__
 
-    @pytest.mark.skipif("config.option.runappdirect")
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
@@ -180,14 +180,6 @@ class AppTestFunctionIntrospection:
             dir.__code__ = f.__code__
         with raises(TypeError):
             list.append.__code__ = f.__code__
-
-    def test_set_module_to_name_eagerly(self):
-        skip("fails on PyPy but works on CPython.  Unsure we want to care")
-        exec('''if 1:
-            __name__ = "foo"
-            def f(): pass
-            __name__ = "bar"
-            assert f.__module__ == "foo"''')
 
     def test_func_nonascii(self):
         """
@@ -223,8 +215,10 @@ class AppTestFunction:
         assert res[1] == 22
         assert res[2] == 333
 
-        raises(TypeError, func)
-        raises(TypeError, func, 1, 2, 3, 4)
+        with raises(TypeError):
+            func()
+        with raises(TypeError):
+            func(1, 2, 3, 4)
 
     def test_simple_varargs(self):
         def func(arg1, *args):
@@ -251,7 +245,8 @@ class AppTestFunction:
     def test_kwargs_sets_wrong_positional_raises(self):
         def func(arg1):
             pass
-        raises(TypeError, func, arg2=23)
+        with raises(TypeError):
+            func(arg2=23)
 
     def test_kwargs_sets_positional(self):
         def func(arg1):
@@ -269,10 +264,9 @@ class AppTestFunction:
     def test_kwargs_sets_positional_twice(self):
         def func(arg1, **kw):
             return arg1, kw
-        raises(
-            TypeError, func, 42, {'arg1': 23})
+        with raises(TypeError):
+            func(42, {'arg1': 23})
 
-    @pytest.mark.skipif("config.option.runappdirect")
     def test_kwargs_nondict_mapping(self):
         class Mapping:
             def keys(self):
@@ -284,9 +278,10 @@ class AppTestFunction:
         res = func(23, **Mapping())
         assert res[0] == 23
         assert res[1] == {'a': 'a', 'b': 'b'}
-        error = raises(TypeError, lambda: func(42, **[]))
+        with raises(TypeError) as excinfo:
+            func(42, **[])
         assert ('argument after ** must be a mapping, not list' in
-                str(error.value))
+            str(excinfo.value))
 
     def test_default_arg(self):
         def func(arg1,arg2=42):
@@ -305,12 +300,14 @@ class AppTestFunction:
     def test_defaults_keyword_override_but_leaves_empty_positional(self):
         def func(arg1,arg2=42):
             return arg1, arg2
-        raises(TypeError, func, arg2=23)
+        with raises(TypeError):
+            func(arg2=23)
 
     def test_kwargs_disallows_same_name_twice(self):
         def func(arg1, **kw):
             return arg1, kw
-        raises(TypeError, func, 42, **{'arg1': 23})
+        with raises(TypeError):
+            func(42, **{'arg1': 23})
 
     def test_kwargs_bound_blind(self):
         class A(object):
@@ -358,17 +355,22 @@ class AppTestFunction:
 
     def test_call_builtin(self):
         s = 'hello'
-        raises(TypeError, len)
+        with raises(TypeError):
+            len()
         assert len(s) == 5
-        raises(TypeError, len, s, s)
-        raises(TypeError, len, s, s, s)
+        with raises(TypeError):
+            len(s, s)
+        with raises(TypeError):
+            len(s, s, s)
         assert len(*[s]) == 5
         assert len(s, *[]) == 5
-        raises(TypeError, len, some_unknown_keyword=s)
-        raises(TypeError, len, s, some_unknown_keyword=s)
-        raises(TypeError, len, s, s, some_unknown_keyword=s)
+        with raises(TypeError):
+            len(some_unknown_keyword=s)
+        with raises(TypeError):
+            len(s, some_unknown_keyword=s)
+        with raises(TypeError):
+            len(s, s, some_unknown_keyword=s)
 
-    @pytest.mark.skipif("config.option.runappdirect")
     def test_call_error_message(self):
         try:
             len()
@@ -404,8 +406,10 @@ class AppTestFunction:
         # cannot subclass 'function' or 'builtin_function'
         def f():
             pass
-        raises(TypeError, type, 'Foo', (type(f),), {})
-        raises(TypeError, type, 'Foo', (type(len),), {})
+        with raises(TypeError):
+            type('Foo', (type(f),), {})
+        with raises(TypeError):
+            type('Foo', (type(len),), {})
 
     def test_lambda_docstring(self):
         # Like CPython, (lambda:"foo") has a docstring of "foo".
@@ -414,21 +418,7 @@ class AppTestFunction:
         f = lambda: 42
         assert f.__doc__ is None
 
-    @pytest.mark.skipif("config.option.runappdirect")
-    def test_setstate_called_with_wrong_args(self):
-        f = lambda: 42
-        # not sure what it should raise, since CPython doesn't have setstate
-        # on function types
-        FunctionType=  type(f)
-        if hasattr(FunctionType, '__setstate__'):
-            raises(ValueError, FunctionType.__setstate__, f, (1, 2, 3))
-
 class AppTestMethod:
-    def setup_class(cls):
-        cls.w_runappdirect_on_cpython = cls.space.wrap(
-            cls.runappdirect and
-            '__pypy__' not in sys.builtin_module_names)
-
     def test_simple_call(self):
         class A(object):
             def func(self, arg2):
@@ -568,14 +558,17 @@ class AppTestMethod:
     def test_invalid_creation(self):
         import types
         def f(): pass
-        raises(TypeError, types.MethodType, f, None)
+        with raises(TypeError):
+            types.MethodType(f, None)
 
     def test_empty_arg_kwarg_call(self):
         def f():
             pass
 
-        raises(TypeError, lambda: f(*0))
-        raises(TypeError, lambda: f(**0))
+        with raises(TypeError):
+            f(*0)
+        with raises(TypeError):
+            f(**0)
 
     def test_method_equal(self):
         class A(object):
@@ -602,6 +595,7 @@ class AppTestMethod:
         assert meth == MethodType(func, object)
 
     def test_method_identity(self):
+        import sys
         class A(object):
             def m(self):
                 pass
@@ -626,7 +620,7 @@ class AppTestMethod:
         assert x is not a2.m
         assert id(x) != id(a2.m)
 
-        if not self.runappdirect_on_cpython:
+        if '__pypy__' in sys.builtin_module_names:
             assert A.m is A.m
             assert id(A.m) == id(A.m)
         assert A.m == A.m
