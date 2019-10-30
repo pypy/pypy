@@ -8,12 +8,13 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import (
     wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
     unicode_encode_decimal, utf8_encode_utf_16_helper, BYTEORDER,
-    utf8_encode_utf_32_helper)
+    utf8_encode_utf_32_helper, str_decode_latin_1)
 from pypy.objspace.std.unicodeobject import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
     bootstrap_function, CONST_STRING, INTP_real,
-    CONST_WSTRING, Py_CLEANUP_SUPPORTED, slot_function, cts, parse_dir)
+    CONST_WSTRING, Py_CLEANUP_SUPPORTED, slot_function, cts, parse_dir,
+    PyTypeObjectPtr)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
@@ -22,6 +23,7 @@ from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
     CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
 from pypy.objspace.std import unicodeobject
+from rpython.rlib.debug import fatalerror
 import sys
 
 ## See comment in bytesobject.py.
@@ -91,8 +93,31 @@ def unicode_realize(space, py_obj):
     Creates the unicode in the interpreter. The PyUnicodeObject buffer must not
     be modified after this call. Can raise in wcharpsize2utf8
     """
-    lgt = get_wsize(py_obj)
-    s_utf8 = wcharpsize2utf8(space, get_wbuffer(py_obj), lgt)
+    if not get_wbuffer(py_obj):
+        if not get_compact(py_obj):
+            fatalerror(
+                "internal cpyext error: realizing a non-compact unicode "
+                "object with wbuffer == null")
+        data = get_data(py_obj)
+        size = get_len(py_obj)
+        kind = get_kind(py_obj)
+        value = rffi.charpsize2str(data, size * kind)
+        if kind == _1BYTE_KIND:
+            s_utf8, lgt, _ = str_decode_latin_1(value, 'strict', True, None)
+        elif kind == _2BYTE_KIND:
+            decoded = str_decode_utf_16_helper(value, 'strict', True, None,
+                                               byteorder=BYTEORDER)
+            s_utf8, lgt = decoded[:2]
+        elif kind == _4BYTE_KIND:
+            decoded = str_decode_utf_32_helper(value, 'strict', True, None,
+                                               byteorder=BYTEORDER)
+            s_utf8, lgt = decoded[:2]
+        else:
+            assert False
+    else:
+        lgt = get_wsize(py_obj)
+        s_utf8 = wcharpsize2utf8(space, get_wbuffer(py_obj), lgt)
+
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s_utf8, lgt)
@@ -191,6 +216,15 @@ def set_wsize(py_obj, value):
     py_obj.c_wstr_length = value
 
 def get_data(py_obj):
+    if get_compact(py_obj):
+        if get_ascii(py_obj):
+            PyASCIIObject = cts.gettype('PyASCIIObject')
+            struct_size = rffi.sizeof(PyASCIIObject)
+        else:
+            PyCompactUnicodeObject = cts.gettype('PyCompactUnicodeObject')
+            struct_size = rffi.sizeof(PyCompactUnicodeObject)
+        data = rffi.ptradd(rffi.cast(rffi.CCHARP, py_obj), struct_size)
+        return cts.cast('void *', data)
     py_obj = cts.cast('PyUnicodeObject*', py_obj)
     return py_obj.c_data
 
@@ -1138,3 +1172,64 @@ def PyUnicode_AsUCS4(space, ref, pbuffer, buflen, copy_null):
 def PyUnicode_AsUCS4Copy(space, ref):
     return PyUnicode_AsUCS4(space, ref, cts.cast('Py_UCS4*', 0), 0,
                             rffi.cast(rffi.INT_real, 1))
+
+@cts.decl("PyObject* PyUnicode_New(Py_ssize_t size, Py_UCS4 maxchar)",
+          result_is_ll=True)
+def PyUnicode_New(space, size, maxchar):
+    PyASCIIObject = cts.gettype('PyASCIIObject')
+    PyCompactUnicodeObject = cts.gettype('PyCompactUnicodeObject')
+
+    is_ascii = False
+    is_sharing = False
+    struct_size = rffi.sizeof(PyCompactUnicodeObject)
+    if maxchar < 128:
+        kind = _1BYTE_KIND
+        char_size = 1
+        is_ascii = True
+        struct_size = rffi.sizeof(PyASCIIObject)
+    elif maxchar < 256:
+        kind = _1BYTE_KIND
+        char_size = 1
+    elif maxchar < 65536:
+        kind = _2BYTE_KIND
+        char_size = 2
+        if rffi.sizeof(lltype.UniChar) == 2:
+            is_sharing = True
+    else:
+        if maxchar > MAX_UNICODE:
+            raise oefmt(space.w_SystemError,
+                        "invalid maximum character passed to PyUnicode_New")
+        kind = _4BYTE_KIND
+        char_size = 4
+        if rffi.sizeof(lltype.UniChar) == 4:
+            is_sharing = True
+
+    # Ensure we won't overflow the size.
+    if size < 0:
+        raise oefmt(space.w_SystemError,
+                    "Negative size passed to PyUnicode_New")
+    if size > ((sys.maxint - struct_size) / char_size - 1):
+        raise oefmt(space.w_MemoryError, "PyUnicode_New: size too big")
+
+    # Duplicated allocation code from _PyObject_New() instead of a call to
+    # PyObject_New() so we are able to allocate space for the object and
+    # its data buffer.
+    pytype = as_pyobj(space, space.w_unicode)
+    pytype = rffi.cast(PyTypeObjectPtr, pytype)
+    buf = lltype.malloc(rffi.VOIDP.TO, struct_size + (size + 1) * char_size,
+                        flavor='raw', zero=True,
+                        add_memory_pressure=True)
+    pyobj = rffi.cast(PyObject, buf)
+    pyobj.c_ob_refcnt = 1
+    #pyobj.c_ob_pypy_link remains null for now
+    pyobj.c_ob_type = pytype
+
+    set_len(pyobj, size)
+    set_kind(pyobj, kind)
+    set_compact(pyobj, True)
+    set_ready(pyobj, True)
+    set_ascii(pyobj, is_ascii)
+    if is_sharing:
+        set_wsize(pyobj, size)
+        set_wbuffer(pyobj, rffi.cast(rffi.CWCHARP, get_data(pyobj)))
+    return pyobj
