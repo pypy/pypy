@@ -1,5 +1,11 @@
 from pytest import raises, skip
 
+class C:
+    def foo(self):
+        pass
+
+MethodType = type(C().foo)  # avoid costly import from types
+
 def test_attributes():
     globals()['__name__'] = 'mymodulename'
     def f(): pass
@@ -526,23 +532,20 @@ def test_method_w_callable():
     class A(object):
         def __call__(self, x):
             return x
-    import types
-    im = types.MethodType(A(), 3)
+    im = MethodType(A(), 3)
     assert im() == 3
 
 def test_method_w_callable_call_function():
     class A(object):
         def __call__(self, x, y):
             return x+y
-    import types
-    im = types.MethodType(A(), 3)
+    im = MethodType(A(), 3)
     assert list(map(im, [4])) == [7]
 
 def test_invalid_creation():
-    import types
     def f(): pass
     with raises(TypeError):
-        types.MethodType(f, None)
+        MethodType(f, None)
 
 def test_empty_arg_kwarg_call():
     def f():
@@ -566,7 +569,6 @@ def test_method_equal():
     assert X() == A().m
 
 def test_method_equals_with_identity():
-    from types import MethodType
     class CallableBadEq(object):
         def __call__(self):
             pass
