@@ -21,10 +21,8 @@ from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 _WIN32 = sys.platform == 'win32'
 
 SO = '.pyd' if _WIN32 else '.so'
-PREFIX = 'pypy%d%d-' % CPYTHON_VERSION[:2]
-DEFAULT_SOABI_BASE = '%spp%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
-
-PYC_TAG = '%s%d%d' % ((PREFIX,) + CPYTHON_VERSION[:2])   # 'pypy3-XY'
+PYC_TAG = 'pypy%d%d' % CPYTHON_VERSION[:2]
+DEFAULT_SOABI_BASE = '%s-pp%d%d' % ((PYC_TAG,) + PYPY_VERSION[:2])
 
 # see also pypy_incremental_magic in interpreter/pycode.py for the magic
 # version number stored inside pyc files.

@@ -315,5 +315,4 @@ class AppTestImpModule:
         import sys
         if not hasattr(sys, 'pypy_version_info'):
             skip('This test is PyPy-only')
-        assert imp.get_tag() == 'pypy%d%d-pp%d%d' % (
-                            sys.version_info[:2] + sys.pypy_version_info[:2])
+        assert imp.get_tag() == 'pypy%d%d' % (sys.version_info[:2])
