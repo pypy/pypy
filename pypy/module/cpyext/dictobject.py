@@ -278,13 +278,14 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     py_dict = rffi.cast(PyDictObject, py_obj)
     if pos == 0:
         # Store the current keys in the PyDictObject.
-        decref(space, py_dict.c__tmpkeys)
         w_keyview = space.call_method(space.w_dict, "keys", w_dict)
         # w_keys must use the object strategy in order to keep the keys alive
         w_keys = space.newlist(space.listview(w_keyview))
         w_keys.switch_to_object_strategy()
+        oldkeys = py_dict.c__tmpkeys
         py_dict.c__tmpkeys = create_ref(space, w_keys)
         incref(space, py_dict.c__tmpkeys)
+        decref(space, oldkeys)
     else:
         if not py_dict.c__tmpkeys:
             # pos should have been 0, cannot fail so return 0
