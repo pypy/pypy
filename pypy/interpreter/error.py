@@ -310,6 +310,9 @@ class OperationError(Exception):
             return space.w_None
         return tb
 
+    def got_any_traceback(self):
+        return self._application_traceback is not None
+
     def set_traceback(self, traceback):
         """Set the current traceback."""
         self._application_traceback = traceback
