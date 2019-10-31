@@ -837,7 +837,7 @@ if _POSIX:
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
 
-@unwrap_spec(format='text')
+@unwrap_spec(format='text0')
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
 

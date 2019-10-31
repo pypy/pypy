@@ -22,9 +22,13 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
+def get_printable_location(tp):
+    return "unpackiterable: %s" % (tp, )
+
 unpackiterable_driver = jit.JitDriver(name='unpackiterable',
                                       greens=['tp'],
-                                      reds=['items', 'w_iterator'])
+                                      reds=['items', 'w_iterator'],
+                                      get_printable_location=get_printable_location)
 
 
 class W_Root(object):

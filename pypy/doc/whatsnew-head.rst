@@ -9,3 +9,14 @@ What's new in PyPy2.7 7.3+
 
 Fix segfault when calling descr-methods with no arguments
 
+.. branch: https-readme
+
+Convert http -> https in README.rst
+
+.. branch: license-update
+
+Update list directories in LICENSE
+
+.. branch: allow-forcing-no-embed
+
+When packaging, allow suppressing embedded dependencies via PYPY_NO_EMBED_DEPENDENCIES

@@ -1447,3 +1447,17 @@ class AppTestPartialEvaluation:
         assert res == 52
         raises(TypeError, u"abc".encode, "test.mynontextenc")
         raises(TypeError, b"abc".decode, "test.mynontextenc")
+
+    def test_last_byte_handler(self):
+        # issue bb-2389
+        import _codecs
+        _codecs.register_error('custom_replace', lambda exc: (u'\ufffd', exc.start+1))
+        for s, res in ((b"WORD\xe3\xab",
+                            (u'WORD\ufffd\ufffd', u'WORD\ufffd')),
+                       (b"\xef\xbb\xbfWORD\xe3\xabWORD2",
+                            (u'\ufeffWORD\ufffd\ufffdWORD2',
+                             u'\ufeffWORD\ufffdWORD2'))):
+            r = s.decode('utf8', 'replace')
+            assert r == res[1]
+            r = s.decode('utf8', 'custom_replace')
+            assert r == res[0]

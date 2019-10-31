@@ -66,6 +66,12 @@ threads you can configure the limit by calling "threading.stack_size()".
     from rpython.rlib.rgc import increase_root_stack_depth
     if new_limit <= 0:
         raise oefmt(space.w_ValueError, "recursion limit must be positive")
+    # Some programs use very large values to mean "don't check, I want to
+    # use as much as possible and then segfault".  Add a silent upper bound
+    # of 10**6 here, because huge values cause huge shadowstacks to be
+    # allocated (or MemoryErrors).
+    if new_limit > 1000000:
+        new_limit = 1000000
     try:
         _stack_set_length_fraction(new_limit * 0.001)
         _stack_check_noinline()

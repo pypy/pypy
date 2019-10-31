@@ -536,7 +536,7 @@ class PyFrame(W_Root):
             return w_function.name + '()'
         if isinstance(w_function, Method):
             return self._guess_function_name_parens(None, w_function.w_function)
-        return w_function.getname(self.space) + ' object'
+        return self.space.type(w_function).getname(self.space) + ' object'
 
     def make_arguments(self, nargs, methodcall=False, w_function=None, fnname=None):
         fnname_parens = self._guess_function_name_parens(fnname, w_function)

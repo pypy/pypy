@@ -117,6 +117,7 @@ def make_template_formatting_class(for_unicode):
                     nested = 1
                     field_start = i
                     recursive = False
+                    in_second_part = False
                     while i < end:
                         c = s[i]
                         if c == "{":
@@ -126,11 +127,13 @@ def make_template_formatting_class(for_unicode):
                             nested -= 1
                             if not nested:
                                 break
-                        elif c == "[":
+                        elif c == "[" and not in_second_part:
                             i += 1
                             while i < end and s[i] != "]":
                                 i += 1
                             continue
+                        elif c == ':' or c == '!':
+                            in_second_part = True
                         i += 1
                     if nested:
                         raise oefmt(space.w_ValueError, "Unmatched '{'")

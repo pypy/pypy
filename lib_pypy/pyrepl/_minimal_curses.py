@@ -16,7 +16,7 @@ class error(Exception):
 
 
 def _find_clib():
-    trylibs = ['ncurses', 'curses']
+    trylibs = ['ncursesw', 'ncurses', 'curses']
 
     for lib in trylibs:
         path = ctypes.util.find_library(lib)

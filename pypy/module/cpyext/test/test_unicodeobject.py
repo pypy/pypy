@@ -391,6 +391,38 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         s = module.asutf32(u)
         assert s == u.encode('utf-32')
 
+    def test_UnicodeNew(self):
+        module = self.import_extension('unicodenew', [
+            ("make", "METH_VARARGS",
+            """
+                long length = PyLong_AsLong(PyTuple_GetItem(args, 0));
+                long unichr = PyLong_AsLong(PyTuple_GetItem(args, 1));
+
+                PyObject *retval = PyUnicode_New(length, (Py_UCS4)unichr);
+                if (unichr <= 255) {
+                    Py_UCS1 *retbuf = PyUnicode_1BYTE_DATA(retval);
+                    for (long i = 0; i < length; i++)
+                        retbuf[i] = unichr;
+                }
+                else if (unichr <= 65535) {
+                    Py_UCS2 *retbuf = PyUnicode_2BYTE_DATA(retval);
+                    for (long i = 0; i < length; i++)
+                        retbuf[i] = unichr;
+                }
+                else {
+                    Py_UCS4 *retbuf = PyUnicode_4BYTE_DATA(retval);
+                    for (long i = 0; i < length; i++)
+                        retbuf[i] = unichr;
+                }
+                return retval;
+            """),
+            ])
+        assert module.make(0, 32) == u''
+        assert module.make(1, 32) == u' '
+        assert module.make(5, 255) == u'\xff' * 5
+        assert module.make(3, 0x1234) == u'\u1234' * 3
+        assert module.make(7, 0x12345) == u'\U00012345' * 7
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):

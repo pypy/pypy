@@ -809,7 +809,7 @@ class AppTestOpcodes:
             s.assert_no_match(opcodes, ["blaja", ""])
             opcodes = [s.OPCODES["at"], s.ATCODES[atname]] \
                 + s.encode_literal("bla") + [s.OPCODES["success"]]
-            s.assert_match(opcodes, "bla")
+            assert s.search(opcodes, "bla")
             s.assert_no_match(opcodes, "")
 
     def test_at_non_boundary(self):
@@ -817,7 +817,7 @@ class AppTestOpcodes:
         for atname in "at_non_boundary", "at_loc_non_boundary", "at_uni_non_boundary":
             opcodes = s.encode_literal("bla") \
                 + [s.OPCODES["at"], s.ATCODES[atname], s.OPCODES["success"]]
-            s.assert_match(opcodes, "blan")
+            assert s.search(opcodes, "blan")
             s.assert_no_match(opcodes, ["bla ja", "bla"])
 
     def test_at_loc_boundary(self):
@@ -829,12 +829,12 @@ class AppTestOpcodes:
                 + [s.OPCODES["at"], s.ATCODES["at_loc_boundary"], s.OPCODES["success"]]
             opcodes2 = s.encode_literal("bla") \
                 + [s.OPCODES["at"], s.ATCODES["at_loc_non_boundary"], s.OPCODES["success"]]
-            s.assert_match(opcodes1, "bla\xFC")
+            assert s.search(opcodes1, "bla\xFC")
             s.assert_no_match(opcodes2, "bla\xFC")
             oldlocale = locale.setlocale(locale.LC_ALL)
             locale.setlocale(locale.LC_ALL, "de_DE")
             s.assert_no_match(opcodes1, "bla\xFC")
-            s.assert_match(opcodes2, "bla\xFC")
+            assert s.search(opcodes2, "bla\xFC")
             locale.setlocale(locale.LC_ALL, oldlocale)
         except locale.Error:
             # skip test
@@ -861,13 +861,11 @@ class AppTestOpcodes:
                 + [s.OPCODES["category"], s.CHCODES["category_loc_word"], s.OPCODES["success"]]
             opcodes2 = s.encode_literal("b") \
                 + [s.OPCODES["category"], s.CHCODES["category_loc_not_word"], s.OPCODES["success"]]
-            s.assert_no_match(opcodes1, "b\xFC")
-            s.assert_no_match(opcodes1, "b\u00FC")
-            s.assert_match(opcodes2, "b\xFC")
+            assert not s.search(opcodes1, u"b\xFC")
+            assert s.search(opcodes2, u"b\xFC")
             locale.setlocale(locale.LC_ALL, "de_DE")
-            s.assert_match(opcodes1, "b\xFC")
-            s.assert_no_match(opcodes1, "b\u00FC")
-            s.assert_no_match(opcodes2, "b\xFC")
+            assert s.search(opcodes1, u"b\xFC")
+            assert not s.search(opcodes2, u"b\xFC")
             s.void_locale()
         except locale.Error:
             # skip test
@@ -1083,7 +1081,7 @@ class AppTestOptimizations:
     """These tests try to trigger optmized edge cases."""
 
     spaceconfig = {'usemodules': ['itertools']}
-    
+
     def test_match_length_optimization(self):
         import re
         assert None == re.match("bla", "blub")

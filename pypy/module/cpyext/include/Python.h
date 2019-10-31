@@ -109,6 +109,7 @@
 #include "tupleobject.h"
 #include "dictobject.h"
 #include "longobject.h"
+#include "setobject.h"
 #include "listobject.h"
 #include "longobject.h"
 #include "unicodeobject.h"

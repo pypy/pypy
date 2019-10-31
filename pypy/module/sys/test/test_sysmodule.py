@@ -156,7 +156,14 @@ class AppTestAppSysTests:
 
     def test_getfilesystemencoding(self):
         import sys
-        assert sys.getfilesystemencoding() == self.filesystemenc
+        enc = sys.getfilesystemencoding()
+        if self.appdirect:
+            assert enc == self.filesystemenc
+        else:
+            # see comment in 'setup_after_space_initialization'
+            untranslated_enc = {'win32': 'mbcs', 'darwin': 'utf-8'}.get(enc, 'ascii')
+            assert enc == untranslated_enc
+            
 
     def test_float_info(self):
         import sys

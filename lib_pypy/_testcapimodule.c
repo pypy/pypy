@@ -4912,9 +4912,9 @@ static PyMethodDef TestMethods[] = {
     {"pyobject_fastcalldict", test_pyobject_fastcalldict, METH_VARARGS},
     {"pyobject_fastcallkeywords", test_pyobject_fastcallkeywords, METH_VARARGS},
     {"stack_pointer", stack_pointer, METH_NOARGS},
-#endif
 #ifdef W_STOPCODE
     {"W_STOPCODE", py_w_stopcode, METH_VARARGS},
+#endif
 #endif
     {"get_mapping_keys", get_mapping_keys, METH_O},
     {"get_mapping_values", get_mapping_values, METH_O},
