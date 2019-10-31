@@ -27,7 +27,7 @@ default_modules.update([
     "_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "imp",
     "itertools", "math", "cmath", "_sre", "_pickle_support",
     "parser", "symbol", "token", "_ast", "_random", "__pypy__",
-    "_string", "_testing", "time"
+    "_string", "_testing", "time", "_abc",
 ])
 
 
