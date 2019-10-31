@@ -542,6 +542,25 @@ def test_method_w_callable_call_function():
     im = MethodType(A(), 3)
     assert list(map(im, [4])) == [7]
 
+
+class CallableBadGetattr:
+    def __getattr__(self, name):
+        # Ensure that __getattr__ doesn't get called
+        raise RuntimeError
+
+    def __call__(self, a, b, c):
+        return a, b, c
+
+def test_custom_callable_errors():
+    fn = CallableBadGetattr()
+    with raises(TypeError) as excinfo:
+        fn(*1)
+    assert excinfo.value.args[0].startswith('CallableBadGetattr object')
+    with raises(TypeError) as excinfo:
+        fn()
+    assert excinfo.value.args[0].startswith('__call__()')
+    assert fn(1, 2, 3) == (1, 2, 3)
+
 def test_invalid_creation():
     def f(): pass
     with raises(TypeError):
