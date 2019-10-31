@@ -98,7 +98,7 @@ def unicode_realize(space, py_obj):
             fatalerror(
                 "internal cpyext error: realizing a non-compact unicode "
                 "object with wbuffer == null")
-        data = get_data(py_obj)
+        data = cts.cast('char *', get_data(py_obj))
         size = get_len(py_obj)
         kind = get_kind(py_obj)
         value = rffi.charpsize2str(data, size * kind)
@@ -366,7 +366,7 @@ def _readify(space, py_obj, value):
         set_len(py_obj, get_wsize(py_obj))
         if maxchar < 128:
             set_ascii(py_obj, 1)
-            set_utf8(py_obj, cts.cast('char*', get_data(py_obj)))
+            set_utf8(py_obj, cts.cast('char *', get_data(py_obj)))
             set_utf8_len(py_obj, get_wsize(py_obj))
         else:
             set_ascii(py_obj, 0)
@@ -1181,6 +1181,7 @@ def PyUnicode_New(space, size, maxchar):
 
     is_ascii = False
     is_sharing = False
+    maxchar = widen(maxchar)
     struct_size = rffi.sizeof(PyCompactUnicodeObject)
     if maxchar < 128:
         kind = _1BYTE_KIND
