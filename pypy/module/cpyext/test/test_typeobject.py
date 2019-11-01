@@ -1296,7 +1296,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         except TypeError as e:
             import sys
             if '__pypy__' in sys.builtin_module_names:
-                assert str(e) == 'instance layout conflicts in multiple inheritance'
+                print(str(e))
+                assert 'instance layout conflicts in multiple inheritance' in str(e)
 
             else:
                 assert str(e) == ('Error when calling the metaclass bases\n'

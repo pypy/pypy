@@ -21,7 +21,7 @@ def find_curses_include_dirs():
     if os.path.exists('/usr/include/ncurses'):
         return ['/usr/include/ncurses']
     if os.path.exists('/usr/include/ncursesw'):
-    	return ['/usr/include/ncursesw']
+        return ['/usr/include/ncursesw']
     return []
 
 
