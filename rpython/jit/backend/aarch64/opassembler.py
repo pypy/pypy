@@ -808,9 +808,7 @@ class ResOpAssembler(BaseAssembler):
             # Inline a series of STR operations, starting at 'dstaddr_loc'.
             #
             self.mc.gen_load_int(r.ip0.value, 0)
-            i = 0
-            adjustment = 0
-            needs_adjustment = itemsize < 8 and (startbyte % 8)
+            i = dst_i = 0
             total_size = size_box.getint()
             while i < total_size:
                 sz = itemsize
@@ -818,19 +816,19 @@ class ResOpAssembler(BaseAssembler):
                     next_group += 8
                     if next_group <= total_size:
                         sz = 8
+                        if dst_i % 8:   # unaligned?
+                            self.mc.ADD_ri(dstaddr_loc.value, dstaddr_loc.value, dst_i)
+                            dst_i = 0
                 if sz == 8:
-                    if needs_adjustment:
-                        self.mc.ADD_ri(dstaddr_loc.value, dstaddr_loc.value, i)
-                        adjustment = -i
-                        needs_adjustment = False
-                    self.mc.STR_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)                    
+                    self.mc.STR_ri(r.ip0.value, dstaddr_loc.value, dst_i)
                 elif sz == 4:
-                    self.mc.STRW_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                    self.mc.STRW_ri(r.ip0.value, dstaddr_loc.value, dst_i)
                 elif sz == 2:
-                    self.mc.STRH_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                    self.mc.STRH_ri(r.ip0.value, dstaddr_loc.value, dst_i)
                 else:
-                    self.mc.STRB_ri(r.ip0.value, dstaddr_loc.value, i + adjustment)
+                    self.mc.STRB_ri(r.ip0.value, dstaddr_loc.value, dst_i)
                 i += sz
+                dst_i += sz
 
         else:
             if isinstance(size_box, ConstInt):
@@ -988,7 +986,8 @@ class ResOpAssembler(BaseAssembler):
             loc_index = arglocs[1]
             assert loc_index.is_core_reg()
             tmp1 = r.ip1
-            tmp2 = arglocs[-1]  # the last item is a preallocated tmp
+            #tmp2 = arglocs[-1]  -- the last item is a preallocated tmp on arm,
+            #                       but not here on aarch64
             # lr = byteofs
             s = 3 + descr.jit_wb_card_page_shift
             mc.MVN_rr_shifted(r.lr.value, loc_index.value, s, shifttype=shift.LSR)
@@ -999,10 +998,10 @@ class ResOpAssembler(BaseAssembler):
                             descr.jit_wb_card_page_shift, shifttype=shift.LSR)
 
             # set the bit
-            mc.MOVZ_r_u16(tmp2.value, 1, 0)
+            mc.MOVZ_r_u16(r.ip0.value, 1, 0)
+            mc.LSL_rr(tmp1.value, r.ip0.value, tmp1.value)
             mc.LDRB_rr(r.ip0.value, loc_base.value, r.lr.value)
-            mc.LSL_rr(tmp2.value, tmp2.value, tmp1.value)
-            mc.ORR_rr(r.ip0.value, r.ip0.value, tmp2.value)
+            mc.ORR_rr(r.ip0.value, r.ip0.value, tmp1.value)
             mc.STR_size_rr(0, r.ip0.value, loc_base.value, r.lr.value)
             # done
             #

@@ -1664,9 +1664,13 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
     w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
 
+def get_printable_location(tp, strategy):
+    return "create_set: %s %s" % (tp, strategy)
+
 create_set_driver = jit.JitDriver(name='create_set',
                                   greens=['tp', 'strategy'],
-                                  reds='auto')
+                                  reds='auto',
+                                  get_printable_location=get_printable_location)
 
 def _create_from_iterable(space, w_set, w_iterable):
     w_set.strategy = strategy = space.fromcache(EmptySetStrategy)

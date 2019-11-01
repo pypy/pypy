@@ -1780,7 +1780,7 @@ class TestNewFFI1:
 
     def test_import_from_lib(self):
         ffi2 = cffi.FFI()
-        ffi2.cdef("int myfunc(int); int myvar;\n#define MYFOO ...\n")
+        ffi2.cdef("int myfunc(int); extern int myvar;\n#define MYFOO ...\n")
         outputfilename = recompile(ffi2, "_test_import_from_lib",
                                    "int myfunc(int x) { return x + 1; }\n"
                                    "int myvar = -5;\n"

@@ -74,6 +74,17 @@ class TestJson(object):
         m3.fill_dict(d, [space.w_None, space.w_None, space.w_None])
         assert list(d) == [w_a, w_b, w_c]
 
+    def test_repeated_key_get_next(self):
+        m = Terminator(self.space)
+        w_a = self.space.newutf8("a", 1)
+        w_b = self.space.newutf8("b", 1)
+        w_c = self.space.newutf8("c", 1)
+        m1 = m.get_next(w_a, '"a"', 0, 3, m)
+        m1 = m1.get_next(w_b, '"b"', 0, 3, m)
+        m1 = m1.get_next(w_c, '"c"', 0, 3, m)
+        m2 = m1.get_next(w_a, '"a"', 0, 3, m)
+        assert m2 is None
+
 
     def test_decode_key_map(self):
         m = Terminator(self.space)
@@ -519,3 +530,11 @@ class AppTest(object):
             exc = raises(ValueError, _pypyjson.loads, inputtext)
             assert str(exc.value) == errmsg
 
+    def test_repeated_key(self):
+        import _pypyjson
+        a = '{"abc": "4", "k": 1, "k": 2}'
+        d = _pypyjson.loads(a)
+        assert d == {u"abc": u"4", u"k": 2}
+        a = '{"abc": "4", "k": 1, "k": 1.5, "c": null, "k": 2}'
+        d = _pypyjson.loads(a)
+        assert d == {u"abc": u"4", u"c": None, u"k": 2}

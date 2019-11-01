@@ -359,11 +359,11 @@ def PyObject_Hash(space, w_obj):
     """
     Compute and return the hash value of an object o.  On failure, return -1.
     This is the equivalent of the Python expression hash(o)."""
-    return space.int_w(space.hash(w_obj))
+    return space.hash_w(w_obj)
 
 @cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
 def _Py_HashDouble(space, v):
-    return space.int_w(space.hash(space.newfloat(v)))
+    return space.hash_w(space.newfloat(v))
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):

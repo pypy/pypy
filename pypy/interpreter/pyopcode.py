@@ -832,8 +832,20 @@ class __extend__(pyframe.PyFrame):
         w_metaclass = find_metaclass(self.space, w_bases,
                                      w_methodsdict, self.get_w_globals(),
                                      self.get_builtin())
-        w_newclass = self.space.call_function(w_metaclass, w_name,
-                                              w_bases, w_methodsdict)
+        try:
+            w_newclass = self.space.call_function(w_metaclass, w_name,
+                                                  w_bases, w_methodsdict)
+        except OperationError as e:
+            # give a more comprehensible error message for TypeErrors
+            if e.got_any_traceback():
+                raise
+            if not e.match(self.space, self.space.w_TypeError):
+                raise
+            raise oefmt(self.space.w_TypeError,
+                "metaclass found to be '%N', but calling %R "
+                "with args (%R, %R, dict) raised %R",
+                w_metaclass, w_metaclass, w_name, w_bases,
+                e.get_w_value(self.space))
         self.pushvalue(w_newclass)
 
     def STORE_NAME(self, varindex, next_instr):

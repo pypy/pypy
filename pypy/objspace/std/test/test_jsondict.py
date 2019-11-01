@@ -95,3 +95,19 @@ class AppTest(object):
         assert not 1 in d
         assert __pypy__.strategy(d) == "UnicodeDictStrategy"
         assert list(d) == [u"a", u"b"]
+
+    def test_bug(self):
+        import _pypyjson
+        a =  """
+        {
+          "top": {
+            "k": "8",
+            "k": "8",
+            "boom": 1
+          }
+        }
+        """
+        d = _pypyjson.loads(a)
+        str(d)
+        repr(d)
+

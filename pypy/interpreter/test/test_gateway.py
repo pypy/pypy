@@ -1032,22 +1032,15 @@ class AppTestKeywordsToBuiltinSanity(object):
 
 
 class AppTestFastPathCrash(object):
-    def setup_class(cls):
-        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
-
     def test_fast_path_crash(self):
         # issue bb-3091 crash in BuiltinCodePassThroughArguments0.funcrun
+        import sys
+        if '__pypy__' in sys.modules:
+            msg_fmt = "%s instance as first argument (got %s"
+        else:
+            msg_fmt = "'%s' object but received a '%s'"
         for obj in (dict, set):
             with raises(TypeError) as excinfo:
-                if self.runappdirect:
-                    import platform
-                    if platform.python_implementation() == 'PyPy':
-                        msg_fmt = "%s instance as first argument (got %s"
-                    else:
-                        msg_fmt = "'%s' object but received a '%s'"
-                    obj.__init__(0)
-                else:
-                    msg_fmt = "'%s' object expected, got '%s'"
-                    obj.__init__.im_func(0)
-            msg = msg_fmt %(obj.__name__, 'int')
+                obj.__init__(0)
+            msg = msg_fmt % (obj.__name__, 'int')
             assert msg in str(excinfo.value)

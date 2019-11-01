@@ -232,7 +232,7 @@ feeling more loquacious than I am now."""
         self.ps1 = "->> "
         self.ps2 = "/>> "
         self.ps3 = "|.. "
-        self.ps4 = "\__ "
+        self.ps4 = r"\__ "
         self.kill_ring = []
         self.arg = None
         self.finished = 0

@@ -74,6 +74,7 @@ class AppTestRecompilerPython:
         struct foo_s;
         typedef struct bar_s { int x; signed char a[]; } bar_t;
         enum foo_e { AA, BB, CC };
+        typedef struct selfref { struct selfref *next; } *selfref_ptr_t;
         """)
         ffi.set_source('re_python_pysrc', None)
         ffi.emit_python_code(str(tmpdir.join('re_python_pysrc.py')))
@@ -237,3 +238,9 @@ class AppTestRecompilerPython:
             "foobar", _version=0x2594)
         assert str(e.value).startswith(
             "cffi out-of-line Python module 'foobar' has unknown version")
+
+    def test_selfref(self):
+        # based on cffi issue #429
+        self.fix_path()
+        from re_python_pysrc import ffi
+        ffi.new("selfref_ptr_t")

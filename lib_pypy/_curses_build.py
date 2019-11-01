@@ -1,14 +1,28 @@
 from cffi import FFI
 import os
 
-# On some systems, the ncurses library is
-# located at /usr/include/ncurses, so we must check this case.
-# Let's iterate over well known paths
-incdirs =  []
-for _path in ['/usr/include', '/usr/include/ncurses']:
-    if os.path.isfile(os.path.join(_path, 'panel.h')):
-        incdirs.append(_path)
-        break
+def find_library(options):
+    for library in options:
+        ffi = FFI()
+        ffi.set_source("_curses_cffi_check", "", libraries=[library])
+        try:
+            ffi.compile()
+        except VerificationError as e:
+            e_last = e
+            continue
+        else:
+            return library
+
+    # If none of the options is available, present the user a meaningful
+    # error message
+    raise e_last
+
+def find_curses_include_dirs():
+    if os.path.exists('/usr/include/ncurses'):
+        return ['/usr/include/ncurses']
+    if os.path.exists('/usr/include/ncursesw'):
+    	return ['/usr/include/ncursesw']
+    return []
 
 
 ffi = FFI()
@@ -59,8 +73,9 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
-""", include_dirs=incdirs, 
-     libraries=['ncurses', 'panel'])
+""", libraries=[find_library(['ncurses', 'ncursesw']),
+                find_library(['panel', 'panelw'])],
+     include_dirs=find_curses_include_dirs())
 
 
 ffi.cdef("""
@@ -70,6 +85,8 @@ typedef unsigned long... mmask_t;
 typedef unsigned char bool;
 typedef unsigned long... chtype;
 typedef chtype attr_t;
+
+typedef int... wint_t;
 
 typedef struct
 {
@@ -82,6 +99,7 @@ MEVENT;
 static const int ERR, OK;
 static const int TRUE, FALSE;
 static const int KEY_MIN, KEY_MAX;
+static const int KEY_CODE_YES;
 
 static const int COLOR_BLACK;
 static const int COLOR_RED;
@@ -168,6 +186,8 @@ char erasechar(void);
 void filter(void);
 int flash(void);
 int flushinp(void);
+int wget_wch(WINDOW *, wint_t *);
+int mvwget_wch(WINDOW *, int, int, wint_t *);
 chtype getbkgd(WINDOW *);
 WINDOW * getwin(FILE *);
 int halfdelay(int);
@@ -243,6 +263,7 @@ int touchline(WINDOW *, int, int);
 int touchwin(WINDOW *);
 int typeahead(int);
 int ungetch(int);
+int unget_wch(const wchar_t);
 int untouchwin(WINDOW *);
 void use_env(bool);
 int waddch(WINDOW *, const chtype);

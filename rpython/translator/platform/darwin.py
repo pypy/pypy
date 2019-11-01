@@ -99,6 +99,7 @@ class Darwin(posix.BasePosix):
                      no_precompile_cfiles = [], profopt=False, config=None):
         # ensure frameworks are passed in the Makefile
         fs = self._frameworks(eci.frameworks)
+        extra_libs = self.extra_libs
         if len(fs) > 0:
             # concat (-framework, FrameworkName) pairs
             self.extra_libs += tuple(map(" ".join, zip(fs[::2], fs[1::2])))
@@ -107,6 +108,7 @@ class Darwin(posix.BasePosix):
                                 headers_to_precompile=headers_to_precompile,
                                 no_precompile_cfiles = no_precompile_cfiles,
                                 profopt=profopt, config=config)
+        self.extra_libs = extra_libs
         return mk
 
 class Darwin_PowerPC(Darwin):#xxx fixme, mwp

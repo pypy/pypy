@@ -78,7 +78,10 @@ def PyDict_GetItem(space, w_dict, w_key):
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
     # XXX this is wrong with IntMutableCell.  Hope it works...
-    return w_dict.getitem(w_key)
+    try:
+        return w_dict.getitem(w_key)
+    except OperationError:
+        return None
 
 @cpython_api([PyObject, PyObject], PyObject, result_borrowed=True)
 def _PyDict_GetItemWithError(space, w_dict, w_key):
@@ -264,14 +267,15 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     if pos == 0:
         # Store the current keys in the PyDictObject.
         from pypy.objspace.std.listobject import W_ListObject
-        decref(space, py_dict.c__tmpkeys)
         w_keys = space.call_method(space.w_dict, "keys", w_dict)
         # w_keys must use the object strategy in order to keep the keys alive
         if not isinstance(w_keys, W_ListObject):
             return 0     # XXX should not call keys() above
         w_keys.switch_to_object_strategy()
+        oldkeys = py_dict.c__tmpkeys
         py_dict.c__tmpkeys = create_ref(space, w_keys)
         incref(space, py_dict.c__tmpkeys)
+        decref(space, oldkeys)
     else:
         if not py_dict.c__tmpkeys:
             # pos should have been 0, cannot fail so return 0
