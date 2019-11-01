@@ -296,8 +296,6 @@ class CAPITest(unittest.TestCase):
                 return tuple(super().items())
         dict_obj = {'foo': 1, 'bar': 2, 'spam': 3}
 
-@unittest.skipIf(support.check_impl_detail(pypy=True),
-                 'Py_AddPendingCall not currently supported.')
         for mapping in [{}, OrderedDict(), Mapping1(), Mapping2(),
                         dict_obj, OrderedDict(dict_obj),
                         Mapping1(dict_obj), Mapping2(dict_obj)]:
@@ -326,6 +324,8 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(TypeError, _testcapi.get_mapping_items, bad_mapping)
 
 
+@unittest.skipIf(support.check_impl_detail(pypy=True),
+                 'Py_AddPendingCall not currently supported.')
 class TestPendingCalls(unittest.TestCase):
 
     def pendingcalls_submit(self, l, n):
