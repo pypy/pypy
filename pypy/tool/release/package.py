@@ -235,7 +235,11 @@ def create_package(basedir, options, _fake=False):
                 else:
                     archive = bindir.join(target)
                 smartstrip(archive, keep_debug=options.keep_debug)
-        #
+
+            # make the package portable by adding rpath=$ORIGIN/..lib,
+            # bundling dependencies
+            if options.make_portable:
+                make_portable()
         if USE_ZIPFILE_MODULE:
             import zipfile
             archive = str(builddir.join(name + '.zip'))
@@ -319,6 +323,12 @@ def package(*args, **kwds):
                         default=(sys.platform == 'darwin'),
                         help='whether to embed dependencies in CFFI modules '
                         '(default on OS X)')
+    parser.add_argument('--make-portable', '--no-make-portable',
+                        dest='make_portable',
+                        action=NegateAction,
+                        default=(platform.linux_distribution() in ('CentOS',)),
+                        help='whether to make the package portable by shipping '
+                            'dependent shared objects and mangling RPATH')
     options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
@@ -328,6 +338,10 @@ def package(*args, **kwds):
     if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
         options.embed_dependencies = True
     elif os.environ.has_key("PYPY_NO_EMBED_DEPENDENCIES"):
+        options.embed_dependencies = False
+    if os.environ.has_key("PYPY_MAKE_PORTABLE"):
+        options.embed_dependencies = True
+    elif os.environ.has_key("PYPY_NO_MAKE_PORTABLE"):
         options.embed_dependencies = False
     if not options.builddir:
         # The import actually creates the udir directory
