@@ -24,3 +24,8 @@ class AppTestDictStructure(object):
         from __pypy__ import newdictstructure, strategy
         m = newdictstructure([u"a"])
         assert repr(m) == "<DictStructure [u'a']>"
+
+    def test_repeated_key(self):
+        from __pypy__ import newdictstructure
+        with raises(ValueError):
+            newdictstructure([u"a", u"a"])

@@ -17,6 +17,8 @@ def newdictstructure(space, w_list=None):
             raise oefmt(space.w_TypeError, "expected unicode, got %T", w_x)
         u = space.utf8_w(w_x)
         m = m.get_next(w_x, u, 0, len(u), terminator)
+        if m is None:
+            raise oefmt(space.w_ValueError, "repeated key %R", w_x)
         if not m.is_state_useful():
             m.mark_useful(terminator)  # XXX too aggressive?
     return m
