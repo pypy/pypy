@@ -45,6 +45,7 @@ class Module(MixedModule):
         'argv'                  : 'state.get(space).w_argv',
         'warnoptions'           : 'state.get(space).w_warnoptions',
         'abiflags'              : 'space.wrap("")',
+        '_framework': "space.newtext('')",
         'builtin_module_names'  : 'space.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
         'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',

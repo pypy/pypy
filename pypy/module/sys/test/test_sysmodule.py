@@ -75,6 +75,7 @@ class AppTestAppSysTests:
         builtin2 = sys.modules['builtins']
         assert builtins is builtin2, ( "import builtins "
                                        "is not sys.modules[builtins].")
+
     def test_builtin_module_names(self):
         import sys
         names = sys.builtin_module_names
@@ -163,7 +164,6 @@ class AppTestAppSysTests:
             # see comment in 'setup_after_space_initialization'
             untranslated_enc = {'win32': 'mbcs', 'darwin': 'utf-8'}.get(enc, 'ascii')
             assert enc == untranslated_enc
-            
 
     def test_float_info(self):
         import sys
@@ -635,6 +635,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
+        assert isinstance(sys._framework, str)
 
     def test_implementation(self):
         import sys
