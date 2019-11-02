@@ -3,7 +3,7 @@
 bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl', 'tk', 'gdbm',
           'lzma', 'tinfo', 'tinfow', 'ncursesw', 'panelw', 'ncurses', 'panel', 'panelw']
 
-from os import chdir, mkdir, symlink
+import os
 from os.path import dirname, relpath, join, exists, basename, realpath
 from shutil import copy2
 import sys
@@ -53,7 +53,7 @@ def copy_deps(deps):
         copied[path] = 'lib/' + bname
 
         if not exists('lib/' + needed):
-            symlink(bname, 'lib/' + needed)
+            os.symlink(bname, 'lib/' + needed)
 
     return copied
 
@@ -96,13 +96,13 @@ def make_portable():
 
 if __name__ == '__main__':
     try:
-        chdir(sys.argv[1])
+        os.chdir(sys.argv[1])
     except:
         print('Call as %s <path/to/pypy/topdir' % sys.argv[0])
         exit(-1)
 
     try:
-        mkdir('lib')
+        os.mkdir('lib')
     except OSError:
         pass
 
