@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function 
 """ packages PyPy, provided that it's already built.
 It uses 'pypy/goal/pypy3-c' and parts of the rest of the working
 copy.  Usage:
@@ -20,7 +21,9 @@ sys.path.insert(0,basedir)
 import py
 import fnmatch
 import subprocess
+import platform
 from pypy.tool.release.smartstrip import smartstrip
+from pypy.tool.release.make_portable import make_portable
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
@@ -90,10 +93,11 @@ def create_package(basedir, options, _fake=False):
         )
 
         for key, module in failures:
-            print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
+            print("""!!!!!!!!!!\nBuilding {0} bindings failed.
                 You can either install development headers package,
                 add the --without-{0} option to skip packaging this
-                binary CFFI extension, or say --without-cffi.""".format(key)
+                binary CFFI extension, or say --without-cffi.""".format(key),
+                file=sys.stderr)
         if len(failures) > 0:
             return 1, None
 
@@ -130,7 +134,7 @@ def create_package(basedir, options, _fake=False):
         if pypyw.exists():
             tgt = py.path.local(tgt)
             binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename, None))
-            print "Picking %s" % str(pypyw)
+            print("Picking %s" % str(pypyw))
         # Can't rename a DLL: it is always called 'libpypy3-c.dll'
         win_extras = [('libpypy3-c.dll', None), ('sqlite3.dll', lib_pypy)]
         if not options.no_tk:
@@ -142,18 +146,19 @@ def create_package(basedir, options, _fake=False):
             if not p.check():
                 p = py.path.local.sysfind(extra)
                 if not p:
-                    print "%s not found, expect trouble if this is a shared build" % (extra,)
+                    print("%s not found, expect trouble if this "
+                          "is a shared build" % (extra,))
                     continue
-            print "Picking %s" % p
+            print("Picking %s" % p)
             binaries.append((p, p.basename, target_dir))
         libsdir = basedir.join('libs')
         if libsdir.exists():
-            print 'Picking %s (and contents)' % libsdir
+            print('Picking %s (and contents)' % libsdir)
             shutil.copytree(str(libsdir), str(pypydir.join('libs')))
         else:
-            print '"libs" dir with import library not found.'
-            print 'You have to create %r' % (str(libsdir),)
-            print 'and copy libpypy3-c.lib in there, renamed to python32.lib'
+            print('"libs" dir with import library not found.')
+            print('You have to create %r' % (str(libsdir),))
+            print('and copy libpypy3-c.lib in there, renamed to python32.lib')
             # XXX users will complain that they cannot compile capi (cpyext)
             # modules for windows, also embedding pypy (i.e. in cffi)
             # will fail.
@@ -170,14 +175,15 @@ def create_package(basedir, options, _fake=False):
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
-                print >>sys.stderr, r"""Packaging Tk runtime failed.
-tk85.dll and tcl85.dll found in %s, expecting to find runtime in %s
-directory next to the dlls, as per build instructions.""" %(p, tktcldir)
+                print("Packaging Tk runtime failed. tk85.dll and tcl85.dll "
+                      "found in %s, expecting to find runtime in %s directory "
+                      "next to the dlls, as per build "
+                      "instructions." %(p, tktcldir), file=sys.stderr)
                 import traceback;traceback.print_exc()
                 raise MissingDependenciesError('Tk runtime')
 
-    print '* Binaries:', [source.relto(str(basedir))
-                          for source, target, target_dir in binaries]
+    print('* Binaries:', [source.relto(str(basedir))
+                          for source, target, target_dir in binaries])
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
@@ -238,7 +244,11 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
                 else:
                     archive = bindir.join(target)
                 smartstrip(archive, keep_debug=options.keep_debug)
-        #
+
+            # make the package portable by adding rpath=$ORIGIN/..lib,
+            # bundling dependencies
+            if options.make_portable:
+                make_portable()
         if USE_ZIPFILE_MODULE:
             import zipfile
             archive = str(builddir.join(name + '.zip'))
@@ -252,10 +262,11 @@ directory next to the dlls, as per build instructions.""" %(p, tktcldir)
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
             if sys.platform == 'darwin':
-                print >>sys.stderr, """Warning: tar on current platform does not suport overriding the uid and gid
-for its contents. The tarball will contain your uid and gid. If you are
-building the actual release for the PyPy website, you may want to be
-using another platform..."""
+                print("Warning: tar on current platform does not suport "
+                      "overriding the uid and gid for its contents. The tarball "
+                      "will contain your uid and gid. If you are building the "
+                      "actual release for the PyPy website, you may want to be "
+                      "using another platform...", file=sys.stderr)
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
             elif sys.platform.startswith('freebsd'):
                 e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
@@ -268,10 +279,10 @@ using another platform..."""
     finally:
         os.chdir(old_dir)
     if options.targetdir:
-        print "Copying %s to %s" % (archive, options.targetdir)
+        print("Copying %s to %s" % (archive, options.targetdir))
         shutil.copy(archive, options.targetdir)
     else:
-        print "Ready in %s" % (builddir,)
+        print("Ready in %s" % (builddir,))
     return retval, builddir # for tests
 
 def package(*args, **kwds):
@@ -319,8 +330,14 @@ def package(*args, **kwds):
                         dest='embed_dependencies',
                         action=NegateAction,
                         default=(sys.platform == 'darwin'),
-                        help='whether to embed dependencies for distribution '
+                        help='whether to embed dependencies in CFFI modules '
                         '(default on OS X)')
+    parser.add_argument('--make-portable', '--no-make-portable',
+                        dest='make_portable',
+                        action=NegateAction,
+                        default=(platform.linux_distribution() in ('CentOS',)),
+                        help='whether to make the package portable by shipping '
+                            'dependent shared objects and mangling RPATH')
     options = parser.parse_args(args)
 
     if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
@@ -330,6 +347,10 @@ def package(*args, **kwds):
     if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
         options.embed_dependencies = True
     elif os.environ.has_key("PYPY_NO_EMBED_DEPENDENCIES"):
+        options.embed_dependencies = False
+    if os.environ.has_key("PYPY_MAKE_PORTABLE"):
+        options.embed_dependencies = True
+    elif os.environ.has_key("PYPY_NO_MAKE_PORTABLE"):
         options.embed_dependencies = False
     if not options.builddir:
         # The import actually creates the udir directory

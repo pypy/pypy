@@ -1,12 +1,18 @@
 from cffi import FFI
 import os
 
+version_str = '''
+    static const int NCURSES_VERSION_MAJOR;
+    static const int NCURSES_VERSION_MINOR;
+'''
+
 def find_library(options):
     for library in options:
         ffi = FFI()
-        ffi.set_source("_curses_cffi_check", "", libraries=[library])
+        ffi.cdef(version_str)
+        ffi.set_source("_curses_cffi_check", version_str, libraries=[library])
         try:
-            ffi.compile()
+            lib = ffi.compile()
         except VerificationError as e:
             e_last = e
             continue
@@ -21,12 +27,11 @@ def find_curses_include_dirs():
     if os.path.exists('/usr/include/ncurses'):
         return ['/usr/include/ncurses']
     if os.path.exists('/usr/include/ncursesw'):
-    	return ['/usr/include/ncursesw']
+        return ['/usr/include/ncursesw']
     return []
 
 
 ffi = FFI()
-
 ffi.set_source("_curses_cffi", """
 #ifdef __APPLE__
 /* the following define is necessary for OS X 10.6+; without it, the
@@ -77,6 +82,9 @@ void _m_getsyx(int *yx) {
                 find_library(['panel', 'panelw'])],
      include_dirs=find_curses_include_dirs())
 
+import _curses_cffi_check
+lib = _curses_cffi_check.lib
+version = (lib.NCURSES_VERSION_MAJOR, lib.NCURSES_VERSION_MINOR)
 
 ffi.cdef("""
 typedef ... WINDOW;
@@ -186,8 +194,6 @@ char erasechar(void);
 void filter(void);
 int flash(void);
 int flushinp(void);
-int wget_wch(WINDOW *, wint_t *);
-int mvwget_wch(WINDOW *, int, int, wint_t *);
 chtype getbkgd(WINDOW *);
 WINDOW * getwin(FILE *);
 int halfdelay(int);
@@ -263,7 +269,6 @@ int touchline(WINDOW *, int, int);
 int touchwin(WINDOW *);
 int typeahead(int);
 int ungetch(int);
-int unget_wch(const wchar_t);
 int untouchwin(WINDOW *);
 void use_env(bool);
 int waddch(WINDOW *, const chtype);
@@ -365,6 +370,13 @@ int replace_panel(PANEL *,WINDOW *);
 int panel_hidden(const PANEL *);
 
 void _m_getsyx(int *yx);
+""")
+
+if version > (5, 7):
+    ffi.cdef("""
+int wget_wch(WINDOW *, wint_t *);
+int mvwget_wch(WINDOW *, int, int, wint_t *);
+int unget_wch(const wchar_t);
 """)
 
 
