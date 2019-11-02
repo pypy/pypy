@@ -556,7 +556,7 @@ def _hexstring_to_array(space, s):
     length = len(s)
     i = 0
     while True:
-        while i < length and s[i] == ' ':
+        while i < length and s[i].isspace():
             i += 1
         if i >= length:
             break

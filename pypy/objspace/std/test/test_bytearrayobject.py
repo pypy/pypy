@@ -439,6 +439,8 @@ class AppTestBytesArray:
         b = bytearray([0x1a, 0x2b, 0x30])
         assert bytearray.fromhex('1a2B30') == b
         assert bytearray.fromhex('  1A 2B  30   ') == b
+        assert bytearray.fromhex('''\t1a\t2B\n
+           30\n''') == b
         assert bytearray.fromhex('0000') == b'\0\0'
 
         raises(ValueError, bytearray.fromhex, 'a')

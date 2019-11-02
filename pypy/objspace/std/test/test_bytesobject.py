@@ -137,6 +137,7 @@ class AppTestBytesObject:
         assert bytes.fromhex("abcd") == b'\xab\xcd'
         assert b''.fromhex("abcd") == b'\xab\xcd'
         assert bytes.fromhex("ab cd  ef") == b'\xab\xcd\xef'
+        assert bytes.fromhex("\nab\tcd  \tef\t") == b'\xab\xcd\xef'
         raises(TypeError, bytes.fromhex, b"abcd")
         raises(TypeError, bytes.fromhex, True)
         raises(ValueError, bytes.fromhex, "hello world")
