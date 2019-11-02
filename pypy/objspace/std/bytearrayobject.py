@@ -355,6 +355,12 @@ class W_BytearrayObject(W_Root):
             return space.w_NotImplemented
         return space.newbool(cmp > 0 or (cmp == 0 and self._len() >= other_len))
 
+    def descr_isascii(self, space):
+        for i in self._data[self._offset:]:
+            if ord(i) > 127:
+                return space.w_False
+        return space.w_True
+
     def descr_inplace_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             self._data += w_other.getdata()
@@ -815,6 +821,12 @@ class BytearrayDocstrings:
         and there is at least one character in B, False otherwise.
         """
 
+    def isascii():
+        """B.isascii() -> bool
+
+        Return true if the string is empty or all characters in the string are ASCII, false otherwise.
+        ASCII characters have code points in the range U+0000-U+007F."""
+
     def isdigit():
         """B.isdigit() -> bool
 
@@ -1112,6 +1124,8 @@ W_BytearrayObject.typedef = TypeDef(
                          doc=BytearrayDocstrings.isalnum.__doc__),
     isalpha = interp2app(W_BytearrayObject.descr_isalpha,
                          doc=BytearrayDocstrings.isalpha.__doc__),
+    isascii = interp2app(W_BytearrayObject.descr_isascii,
+                         doc=BytearrayDocstrings.isascii.__doc__),
     isdigit = interp2app(W_BytearrayObject.descr_isdigit,
                          doc=BytearrayDocstrings.isdigit.__doc__),
     islower = interp2app(W_BytearrayObject.descr_islower,

@@ -605,6 +605,17 @@ class AppTestBytesArray:
     def test_hex(self):
         assert bytearray(b'santa claus').hex() == "73616e746120636c617573"
 
+    def test_isascii(self):
+        assert bytearray(b'hello world').isascii() is True
+        assert bytearray(b'\x00\x7f').isascii() is True
+        assert bytearray(b'\x80').isascii() is False
+        ba = bytearray(b"\xff\xffHello World")
+        assert ba.isascii() is False
+        del ba[0:1]
+        assert ba.isascii() is False
+        del ba[0:1]
+        assert ba.isascii() is True
+
     def test_format(self):
         """
         assert bytearray(b'a%db') % 2 == b'a2b'

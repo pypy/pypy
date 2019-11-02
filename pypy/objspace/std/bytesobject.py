@@ -73,6 +73,12 @@ class W_AbstractBytesObject(W_Root):
     def descr_hash(self, space):
         """x.__hash__() <==> hash(x)"""
 
+    def descr_isascii(self, space):
+        """B.isascii() -> bool
+
+        Return true if the string is empty or all characters in the string are ASCII, false otherwise.
+        ASCII characters have code points in the range U+0000-U+007F."""
+
     def descr_iter(self, space):
         """x.__iter__() <==> iter(x)"""
 
@@ -601,6 +607,12 @@ class W_BytesObject(W_AbstractBytesObject):
         x -= (x == -1) # convert -1 to -2 without creating a bridge
         return space.newint(x)
 
+    def descr_isascii(self, space):
+        for i in self._value:
+            if ord(i) > 127:
+                return space.w_False
+        return space.w_True
+
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
@@ -862,6 +874,7 @@ W_BytesObject.typedef = TypeDef(
     isspace = interpindirect2app(W_AbstractBytesObject.descr_isspace),
     istitle = interpindirect2app(W_AbstractBytesObject.descr_istitle),
     isupper = interpindirect2app(W_AbstractBytesObject.descr_isupper),
+    isascii = interpindirect2app(W_AbstractBytesObject.descr_isascii),
     join = interpindirect2app(W_AbstractBytesObject.descr_join),
     ljust = interpindirect2app(W_AbstractBytesObject.descr_ljust),
     rjust = interpindirect2app(W_AbstractBytesObject.descr_rjust),

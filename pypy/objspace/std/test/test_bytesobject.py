@@ -281,6 +281,15 @@ class AppTestBytesObject:
         assert b'aaaa'.capitalize() == b'Aaaa'
         assert b'AaAa'.capitalize() == b'Aaaa'
 
+    def test_isascii(self):
+        assert b"hello".isascii() is True
+        assert b"\x00\x7f".isascii() is True
+        assert b"\x80".isascii() is False
+        assert b"\x97".isascii() is False
+        assert b"\xff".isascii() is False
+        assert b"Hello World\x00".isascii() is True
+        assert b"Hello World\x80".isascii() is False
+
     def test_rjust(self):
         s = b"abc"
         assert s.rjust(2) == s
