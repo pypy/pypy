@@ -267,6 +267,8 @@ def create_array_type(base, length):
         raise TypeError("Can't multiply a ctypes type by a non-integer")
     if length < 0:
         raise ValueError("Array length must be >= 0")
+    if length * base._sizeofinstances() > sys.maxsize:
+        raise OverflowError("array too large")
     key = (base, length)
     try:
         return ARRAY_CACHE[key]
