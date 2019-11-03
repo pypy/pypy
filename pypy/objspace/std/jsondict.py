@@ -55,12 +55,18 @@ class JsonDictStrategy(DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_unicode)
+        # This is a bit of a hack (but probably a good one): when the state of
+        # our jsonmap is blocked, we consider nothing to match type-wise. That
+        # way we use the code paths that switch us to a different strategy.
+        return space.is_w(space.type(w_obj), space.w_unicode) and not self.jsonmap.is_state_blocked()
 
     def _never_equal_to(self, w_lookup_type):
         return False
 
     def length(self, w_dict):
+        if self.jsonmap.is_state_blocked():
+            self.switch_to_unicode_strategy(w_dict)
+            return w_dict.length()
         return len(self.unerase(w_dict.dstorage))
 
     def getitem(self, w_dict, w_key):
@@ -81,6 +87,8 @@ class JsonDictStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         if self.is_correct_type(w_key):
+            if jit.isconstant(w_key):
+                jit.promote(self)
             storage_w = self.unerase(w_dict.dstorage)
             index = self.jsonmap.get_index(w_key)
             if index != -1:
