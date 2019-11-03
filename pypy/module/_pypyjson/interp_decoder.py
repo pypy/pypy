@@ -1017,8 +1017,6 @@ class JSONMap(MapBase):
         self.cache_hits = 0
 
         # for jsondict support
-        self.key_to_index = None
-        self.keys_in_order = None
         self.strategy_instance = None
 
     def __repr__(self):
@@ -1139,47 +1137,7 @@ class JSONMap(MapBase):
         dict_w[self.w_key] = values_w[index]
         return index + 1
 
-    # _____________________________________________________
-    # methods for JsonDictStrategy
 
-    @jit.elidable
-    def get_index(self, w_key):
-        from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        assert isinstance(w_key, W_UnicodeObject)
-        return self.get_key_to_index().get(w_key, -1)
-
-    def get_key_to_index(self):
-        from pypy.objspace.std.dictmultiobject import unicode_hash, unicode_eq
-        key_to_index = self.key_to_index
-        if key_to_index is None:
-            key_to_index = self.key_to_index = objectmodel.r_dict(unicode_eq, unicode_hash,
-                  force_non_null=True, simple_hash_eq=True)
-            # compute depth
-            curr = self
-            depth = 0
-            while True:
-                depth += 1
-                curr = curr.prev
-                if not isinstance(curr, JSONMap):
-                    break
-
-            curr = self
-            while depth:
-                depth -= 1
-                key_to_index[curr.w_key] = depth
-                curr = curr.prev
-                if not isinstance(curr, JSONMap):
-                    break
-        return key_to_index
-
-    def get_keys_in_order(self):
-        keys_in_order = self.keys_in_order
-        if keys_in_order is None:
-            key_to_index = self.get_key_to_index()
-            keys_in_order = self.keys_in_order = [None] * len(key_to_index)
-            for w_key, index in key_to_index.iteritems():
-                keys_in_order[index] = w_key
-        return keys_in_order
 
     # _____________________________________________________
 

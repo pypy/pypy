@@ -42,24 +42,6 @@ class TestJson(object):
         assert m4.key_repr == '"c"'
         assert m3.nextmap_first is m4
 
-    def test_json_map_get_index(self):
-        m = Terminator(self.space)
-        w_a = self.space.newutf8("a", 1)
-        w_b = self.space.newutf8("b", 1)
-        w_c = self.space.newutf8("c", 1)
-        m1 = m.get_next(w_a, 'a"', 0, 2, m)
-        assert m1.get_index(w_a) == 0
-        assert m1.get_index(w_b) == -1
-
-        m2 = m.get_next(w_b, 'b"', 0, 2, m)
-        assert m2.get_index(w_b) == 0
-        assert m2.get_index(w_a) == -1
-
-        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
-        assert m3.get_index(w_b) == 0
-        assert m3.get_index(w_c) == 1
-        assert m3.get_index(w_a) == -1
-
     def test_jsonmap_fill_dict(self):
         from collections import OrderedDict
         m = Terminator(self.space)

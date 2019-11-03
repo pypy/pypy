@@ -11,13 +11,13 @@ from pypy.objspace.std.dictmultiobject import (
 
 
 def from_values_and_jsonmap(space, values_w, jsonmap):
-    if not objectmodel.we_are_translated():
-        assert len(values_w) == len(jsonmap.get_keys_in_order())
-        assert len(values_w) != 0
     debug.make_sure_not_resized(values_w)
     strategy = jsonmap.strategy_instance
     if strategy is None:
         jsonmap.strategy_instance = strategy = JsonDictStrategy(space, jsonmap)
+    if not objectmodel.we_are_translated():
+        assert len(values_w) == len(strategy.get_keys_in_order())
+        assert len(values_w) != 0
     storage = strategy.erase(values_w)
     return W_DictObject(space, strategy, storage)
 
@@ -43,6 +43,9 @@ class JsonDictStrategy(DictStrategy):
     def __init__(self, space, jsonmap):
         DictStrategy.__init__(self, space)
         self.jsonmap = jsonmap
+
+        self.key_to_index = None
+        self.keys_in_order = None
 
     def wrap(self, w_key):
         return w_key
@@ -80,7 +83,7 @@ class JsonDictStrategy(DictStrategy):
         storage_w = self.unerase(w_dict.dstorage)
         if jit.isconstant(w_key):
             jit.promote(self)
-        index = self.jsonmap.get_index(w_key)
+        index = self.get_index(w_key)
         if index == -1:
             return None
         return storage_w[index]
@@ -90,7 +93,7 @@ class JsonDictStrategy(DictStrategy):
             if jit.isconstant(w_key):
                 jit.promote(self)
             storage_w = self.unerase(w_dict.dstorage)
-            index = self.jsonmap.get_index(w_key)
+            index = self.get_index(w_key)
             if index != -1:
                 storage_w[index] = w_value
                 return
@@ -118,7 +121,7 @@ class JsonDictStrategy(DictStrategy):
         values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
         d_new = strategy.unerase(storage)
-        keys_in_order = self.jsonmap.get_keys_in_order()
+        keys_in_order = self.get_keys_in_order()
         assert len(keys_in_order) == len(values_w)
         for index, w_key in enumerate(keys_in_order):
             assert w_key is not None
@@ -128,7 +131,7 @@ class JsonDictStrategy(DictStrategy):
         w_dict.dstorage = storage
 
     def w_keys(self, w_dict):
-        return self.space.newlist(self.jsonmap.get_keys_in_order())
+        return self.space.newlist(self.get_keys_in_order())
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[:]  # to make resizable
@@ -137,12 +140,12 @@ class JsonDictStrategy(DictStrategy):
         space = self.space
         storage_w = self.unerase(w_dict.dstorage)
         res = [None] * len(storage_w)
-        for index, w_key in enumerate(self.jsonmap.get_keys_in_order()):
+        for index, w_key in enumerate(self.get_keys_in_order()):
             res[index] = space.newtuple([w_key, storage_w[index]])
         return res
 
     def getiterkeys(self, w_dict):
-        return iter(self.jsonmap.get_keys_in_order())
+        return iter(self.get_keys_in_order())
 
     def getitervalues(self, w_dict):
         storage_w = self.unerase(w_dict.dstorage)
@@ -150,7 +153,50 @@ class JsonDictStrategy(DictStrategy):
 
     def getiteritems_with_hash(self, w_dict):
         storage_w = self.unerase(w_dict.dstorage)
-        return ZipItemsWithHash(self.jsonmap.get_keys_in_order(), storage_w)
+        return ZipItemsWithHash(self.get_keys_in_order(), storage_w)
+
+    # ____________________________________________________________
+    # methods for interpreting the jsonmaps
+
+    @jit.elidable
+    def get_index(self, w_key):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        assert isinstance(w_key, W_UnicodeObject)
+        return self.get_key_to_index().get(w_key, -1)
+
+    def get_key_to_index(self):
+        from pypy.objspace.std.dictmultiobject import unicode_hash, unicode_eq
+        from pypy.module._pypyjson.interp_decoder import JSONMap
+        key_to_index = self.key_to_index
+        if key_to_index is None:
+            key_to_index = self.key_to_index = objectmodel.r_dict(unicode_eq, unicode_hash,
+                  force_non_null=True, simple_hash_eq=True)
+            # compute depth
+            curr = self.jsonmap
+            depth = 0
+            while True:
+                depth += 1
+                curr = curr.prev
+                if not isinstance(curr, JSONMap):
+                    break
+
+            curr = self.jsonmap
+            while depth:
+                depth -= 1
+                key_to_index[curr.w_key] = depth
+                curr = curr.prev
+                if not isinstance(curr, JSONMap):
+                    break
+        return key_to_index
+
+    def get_keys_in_order(self):
+        keys_in_order = self.keys_in_order
+        if keys_in_order is None:
+            key_to_index = self.get_key_to_index()
+            keys_in_order = self.keys_in_order = [None] * len(key_to_index)
+            for w_key, index in key_to_index.iteritems():
+                keys_in_order[index] = w_key
+        return keys_in_order
 
 
 class ZipItemsWithHash(object):

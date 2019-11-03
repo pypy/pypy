@@ -1,4 +1,34 @@
 
+class TestJsonDict(object):
+
+    def test_json_map_get_index(self):
+        from pypy.module._pypyjson import interp_decoder
+        from pypy.objspace.std.jsondict import JsonDictStrategy
+        space = self.space
+
+        m = interp_decoder.Terminator(self.space)
+        w_a = space.newutf8("a", 1)
+        w_b = space.newutf8("b", 1)
+        w_c = space.newutf8("c", 1)
+        m1 = m.get_next(w_a, 'a"', 0, 2, m)
+        dm1 = JsonDictStrategy(space, m1)
+        assert dm1.get_index(w_a) == 0
+        assert dm1.get_index(w_b) == -1
+
+        m2 = m.get_next(w_b, 'b"', 0, 2, m)
+        dm2 = JsonDictStrategy(space, m2)
+        assert dm2.get_index(w_b) == 0
+        assert dm2.get_index(w_a) == -1
+
+        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
+        dm3 = JsonDictStrategy(space, m3)
+        assert dm3.get_index(w_b) == 0
+        assert dm3.get_index(w_c) == 1
+        assert dm3.get_index(w_a) == -1
+
+
+
+
 class AppTest(object):
     spaceconfig = {"objspace.usemodules._pypyjson": True}
 
