@@ -1,4 +1,4 @@
-from cffi import FFI
+from cffi import FFI, VerificationError
 import os
 
 version_str = '''
@@ -6,13 +6,18 @@ version_str = '''
     static const int NCURSES_VERSION_MINOR;
 '''
 
+version = (0, 0)
 def find_library(options):
+    global version
     for library in options:
         ffi = FFI()
         ffi.cdef(version_str)
         ffi.set_source("_curses_cffi_check", version_str, libraries=[library])
         try:
-            lib = ffi.compile()
+            ffi.compile()
+            import _curses_cffi_check
+            lib = _curses_cffi_check.lib
+            version = (lib.NCURSES_VERSION_MAJOR, lib.NCURSES_VERSION_MINOR)
         except VerificationError as e:
             e_last = e
             continue
@@ -82,9 +87,6 @@ void _m_getsyx(int *yx) {
                 find_library(['panel', 'panelw'])],
      include_dirs=find_curses_include_dirs())
 
-import _curses_cffi_check
-lib = _curses_cffi_check.lib
-version = (lib.NCURSES_VERSION_MAJOR, lib.NCURSES_VERSION_MINOR)
 
 ffi.cdef("""
 typedef ... WINDOW;
@@ -167,11 +169,11 @@ static const int REPORT_MOUSE_POSITION;
 
 int setupterm(char *, int, int *);
 
-WINDOW *stdscr;
-int COLORS;
-int COLOR_PAIRS;
-int COLS;
-int LINES;
+extern WINDOW *stdscr;
+extern int COLORS;
+extern int COLOR_PAIRS;
+extern int COLS;
+extern int LINES;
 
 int baudrate(void);
 int beep(void);
@@ -347,7 +349,7 @@ bool is_term_resized(int, int);
 #define _m_NetBSD ...
 int _m_ispad(WINDOW *);
 
-chtype acs_map[];
+extern chtype acs_map[];
 
 // For _curses_panel:
 
