@@ -19,7 +19,7 @@ class TestJson(object):
         w_a = self.space.newutf8("a", 1)
         w_b = self.space.newutf8("b", 1)
         w_c = self.space.newutf8("c", 1)
-        m1 = m.get_next(w_a, '"a"', 0, 3, m)
+        m1 = m.get_next(w_a, '"a"', 0, 3)
         assert m1.w_key == w_a
         assert m1.nextmap_first is None
         assert m1.key_repr == '"a"'
@@ -27,16 +27,16 @@ class TestJson(object):
         assert not m1.key_repr_cmp('b": 123', 0)
         assert m.nextmap_first.w_key == w_a
 
-        m2 = m.get_next(w_a, '"a"', 0, 3, m)
+        m2 = m.get_next(w_a, '"a"', 0, 3)
         assert m2 is m1
 
-        m3 = m.get_next(w_b, '"b"', 0, 3, m)
+        m3 = m.get_next(w_b, '"b"', 0, 3)
         assert m3.w_key == w_b
         assert m3.nextmap_first is None
         assert m3.key_repr == '"b"'
         assert m.nextmap_first is m1
 
-        m4 = m3.get_next(w_c, '"c"', 0, 3, m)
+        m4 = m3.get_next(w_c, '"c"', 0, 3)
         assert m4.w_key == w_c
         assert m4.nextmap_first is None
         assert m4.key_repr == '"c"'
@@ -49,9 +49,9 @@ class TestJson(object):
         w_a = space.newutf8("a", 1)
         w_b = space.newutf8("b", 1)
         w_c = space.newutf8("c", 1)
-        m1 = m.get_next(w_a, 'a"', 0, 2, m)
-        m2 = m1.get_next(w_b, 'b"', 0, 2, m)
-        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
+        m1 = m.get_next(w_a, 'a"', 0, 2)
+        m2 = m1.get_next(w_b, 'b"', 0, 2)
+        m3 = m2.get_next(w_c, 'c"', 0, 2)
         d = OrderedDict()
         m3.fill_dict(d, [space.w_None, space.w_None, space.w_None])
         assert list(d) == [w_a, w_b, w_c]
@@ -61,10 +61,10 @@ class TestJson(object):
         w_a = self.space.newutf8("a", 1)
         w_b = self.space.newutf8("b", 1)
         w_c = self.space.newutf8("c", 1)
-        m1 = m.get_next(w_a, '"a"', 0, 3, m)
-        m1 = m1.get_next(w_b, '"b"', 0, 3, m)
-        m1 = m1.get_next(w_c, '"c"', 0, 3, m)
-        m2 = m1.get_next(w_a, '"a"', 0, 3, m)
+        m1 = m.get_next(w_a, '"a"', 0, 3)
+        m1 = m1.get_next(w_b, '"b"', 0, 3)
+        m1 = m1.get_next(w_c, '"c"', 0, 3)
+        m2 = m1.get_next(w_a, '"a"', 0, 3)
         assert m2 is None
 
 
@@ -111,10 +111,10 @@ class TestJson(object):
         w_d = self.space.newutf8("d", 1)
         base = Terminator(self.space)
         base.instantiation_count = 6
-        m1 = base.get_next(w_a, 'a"', 0, 2, base)
-        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
-        m3 = m2.get_next(w_c, 'c"', 0, 2, base)
-        m4 = m2.get_next(w_d, 'd"', 0, 2, base)
+        m1 = base.get_next(w_a, 'a"', 0, 2)
+        m2 = m1.get_next(w_b, 'b"', 0, 2)
+        m3 = m2.get_next(w_c, 'c"', 0, 2)
+        m4 = m2.get_next(w_d, 'd"', 0, 2)
         return base, m1, m2, m3, m4
 
     # unit tests for map state transistions
@@ -152,7 +152,7 @@ class TestJson(object):
         assert m2.number_of_leaves == 2
         assert m3.number_of_leaves == 1
         assert m4.number_of_leaves == 1
-        m5 = m2.get_next(w_x, 'x"', 0, 2, base)
+        m5 = m2.get_next(w_x, 'x"', 0, 2)
         assert base.number_of_leaves == 3
         assert m1.number_of_leaves == 3
         assert m2.number_of_leaves == 3
@@ -161,7 +161,7 @@ class TestJson(object):
     def test_number_of_leaves_after_mark_blocked(self):
         w_x = self.space.newutf8("x", 1)
         base, m1, m2, m3, m4 = self._make_some_maps()
-        m5 = m2.get_next(w_x, 'x"', 0, 2, base)
+        m5 = m2.get_next(w_x, 'x"', 0, 2)
         assert base.number_of_leaves == 3
         m2.mark_blocked(base)
         assert base.number_of_leaves == 1
@@ -186,11 +186,11 @@ class TestJson(object):
         w_d = self.space.newutf8("d", 1)
         base = Terminator(self.space)
         base.instantiation_count = 6
-        m1 = base.get_next(w_a, 'a"', 0, 2, base)
-        m2 = base.get_next(w_b, 'b"', 0, 2, base)
-        m3 = base.get_next(w_c, 'c"', 0, 2, base)
-        m4 = base.get_next(w_d, 'd"', 0, 2, base)
-        m5 = m4.get_next(w_a, 'a"', 0, 2, base)
+        m1 = base.get_next(w_a, 'a"', 0, 2)
+        m2 = base.get_next(w_b, 'b"', 0, 2)
+        m3 = base.get_next(w_c, 'c"', 0, 2)
+        m4 = base.get_next(w_d, 'd"', 0, 2)
+        m5 = m4.get_next(w_a, 'a"', 0, 2)
         base.instantiation_count = 7
         m1.instantiation_count = 2
         m2.instantiation_count = 2
@@ -216,8 +216,8 @@ class TestJson(object):
         s = '{"a": 1, "b": 2, "c": 3}'
         dec = JSONDecoder(space, s)
         dec.startmap = base = Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2, base)
-        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
+        m1 = base.get_next(w_a, 'a"', 0, 2)
+        m2 = m1.get_next(w_b, 'b"', 0, 2)
         m2.mark_blocked(base)
         w_res = dec.decode_object(1)
         assert space.int_w(space.len(w_res)) == 3
@@ -233,10 +233,10 @@ class TestJson(object):
         w_u = self.space.newutf8("u", 1)
         space = self.space
         base = Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2, base)
-        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
-        m2.get_next(w_x, 'x"', 0, 2, base)
-        m2.get_next(w_u, 'u"', 0, 2, base)
+        m1 = base.get_next(w_a, 'a"', 0, 2)
+        m2 = m1.get_next(w_b, 'b"', 0, 2)
+        m2.get_next(w_x, 'x"', 0, 2)
+        m2.get_next(w_u, 'u"', 0, 2)
         assert base.number_of_leaves == 2
         m2.mark_blocked(base)
         assert base.number_of_leaves == 1

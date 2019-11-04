@@ -29,3 +29,13 @@ class AppTestDictStructure(object):
         from __pypy__ import newdictstructure
         with raises(ValueError):
             newdictstructure([u"a", u"a"])
+
+    def test_getnext(self):
+        from __pypy__ import newdictstructure
+        s = newdictstructure([u"a"])
+        s1 = s.append(u"b")
+        assert s.append(u"b") is s1
+        assert s1.instantiate_dict([1, 2]) == {u"a": 1, u"b": 2}
+        with raises(ValueError):
+            s.append(u"a")
+

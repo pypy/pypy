@@ -638,7 +638,7 @@ class JSONDecoder(W_Root):
             self._raise("Key name must be string at char %d", i)
         i += 1
         w_key = self._decode_key_string(i)
-        return currmap.get_next(w_key, self.s, start, self.pos, self.startmap)
+        return currmap.get_next(w_key, self.s, start, self.pos)
 
     def _decode_key_string(self, i):
         """ decode key at position i as a string. Key strings are always
@@ -800,7 +800,7 @@ class MapBase(W_Root):
         elif self.nextmap_first:
             self.nextmap_first._check_invariants()
 
-    def get_next(self, w_key, string, start, stop, terminator):
+    def get_next(self, w_key, string, start, stop):
         """ Returns the next map, given a wrapped key w_key, the json input
         string with positions start and stop, as well as a terminator.
 
@@ -819,7 +819,7 @@ class MapBase(W_Root):
 
         if nextmap_first is None:
             # first transition ever seen, don't initialize nextmap_all
-            next = self._make_next_map(w_key, string[start:stop])
+            next, terminator = self._make_next_map(w_key, string[start:stop])
             if next is None:
                 return None
             self.nextmap_first = next
@@ -835,7 +835,7 @@ class MapBase(W_Root):
                     return next
             # if we are at this point we didn't find the transition yet, so
             # create a new one
-            next = self._make_next_map(w_key, string[start:stop])
+            next, terminator = self._make_next_map(w_key, string[start:stop])
             if next is None:
                 return None
             self.nextmap_all[w_key] = next
@@ -886,9 +886,10 @@ class MapBase(W_Root):
         check = self
         while isinstance(check, JSONMap):
             if check.w_key._utf8 == w_key._utf8:
-                return None
+                return None, None
             check = check.prev
-        return JSONMap(self.space, self, w_key, key_repr)
+        assert isinstance(check, Terminator)
+        return JSONMap(self.space, self, w_key, key_repr), check
 
     def fill_dict(self, dict_w, values_w):
         """ recursively fill the dictionary dict_w in the correct order,
@@ -899,21 +900,36 @@ class MapBase(W_Root):
     # exposed methods
 
     def descr_instantiate_dict(self, space, w_l):
-        from pypy.objspace.std.jsondict import from_values_and_jsonmap
+        """ Create a dict instance given from the structure, using the list l
+        as values. It must have the same length as the structure has keys. """
+        from pypy.objspace.std.jsondict import from_values_and_jsonmap_checked
         from pypy.objspace.std.jsondict import devolve_jsonmap_dict
         l_w = space.listview(w_l)
         if not isinstance(self, JSONMap):
             return space.newdict()
-        keys_w = self.get_keys_in_order()
-        if len(l_w) != len(keys_w):
-            raise oefmt(space.w_ValueError, "expected %s values, got %s", str(len(keys_w)), str(len(l_w)))
-        w_dict = from_values_and_jsonmap(self.space, l_w[:], self)
+        w_dict = from_values_and_jsonmap_checked(self.space, l_w[:], self)
         if self.is_state_blocked():
             devolve_jsonmap_dict(w_dict)
         return w_dict
 
     def descr_repr(self, space):
-        return space.newtext("<DictStructure [%s]>" % ", ".join([space.text_w(space.repr(w_key)) for w_key in self.get_keys_in_order()]))
+        res = []
+        curr = self
+        while type(curr) is JSONMap:
+            res.append(space.text_w(space.repr(self.w_key)))
+            curr = curr.prev
+        res.reverse()
+        return space.newtext("<DictStructure [%s]>" % ", ".join(res))
+
+    def descr_append(self, space, w_u):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        if type(w_u) is not W_UnicodeObject:
+            raise oefmt(space.w_TypeError, "expected unicode, got %T", w_u)
+        u = space.utf8_w(w_u)
+        res = self.get_next(w_u, u, 0, len(u))
+        if res is None:
+            raise oefmt(space.w_ValueError, "repeated key %R", w_u)
+        return res
 
 
     # ____________________________________________________________
@@ -1190,5 +1206,6 @@ MapBase.typedef = TypeDef("DictStructure",
     __repr__ = interp2app(MapBase.descr_repr),
     last_key = GetSetProperty(get_last_key, name="last_key"),
     previous = GetSetProperty(get_previous, name="previous"),
+    append = interp2app(MapBase.descr_append),
 )
 MapBase.typedef.acceptable_as_base_class = False
