@@ -10,21 +10,23 @@ class TestJsonDict(object):
         w_a = space.newutf8("a", 1)
         w_b = space.newutf8("b", 1)
         w_c = space.newutf8("c", 1)
-        m1 = m.get_next(w_a, 'a"', 0, 2)
+        m1 = m.get_next(w_a, 'a"', 0, 2, m)
         dm1 = JsonDictStrategy(space, m1)
         assert dm1.get_index(w_a) == 0
         assert dm1.get_index(w_b) == -1
 
-        m2 = m.get_next(w_b, 'b"', 0, 2)
+        m2 = m.get_next(w_b, 'b"', 0, 2, m)
         dm2 = JsonDictStrategy(space, m2)
         assert dm2.get_index(w_b) == 0
         assert dm2.get_index(w_a) == -1
 
-        m3 = m2.get_next(w_c, 'c"', 0, 2)
+        m3 = m2.get_next(w_c, 'c"', 0, 2, m)
         dm3 = JsonDictStrategy(space, m3)
         assert dm3.get_index(w_b) == 0
         assert dm3.get_index(w_c) == 1
         assert dm3.get_index(w_a) == -1
+
+
 
 
 class AppTest(object):
@@ -148,8 +150,8 @@ class TestJsonDictBlockedJsonMap(object):
         w_a = self.space.newutf8("a", 1)
         w_b = self.space.newutf8("b", 1)
         base = interp_decoder.Terminator(space)
-        m1 = base.get_next(w_a, 'a"', 0, 2)
-        m2 = m1.get_next(w_b, 'b"', 0, 2)
+        m1 = base.get_next(w_a, 'a"', 0, 2, base)
+        m2 = m1.get_next(w_b, 'b"', 0, 2, base)
 
         w_d = from_values_and_jsonmap(space, [w_a, w_b], m2)
         return base, m2, w_d, w_a, w_b

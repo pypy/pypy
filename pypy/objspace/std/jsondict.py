@@ -8,7 +8,7 @@ from rpython.rlib import jit, rerased, objectmodel, debug
 from pypy.objspace.std.dictmultiobject import (
     UnicodeDictStrategy, DictStrategy,
     create_iterator_classes, W_DictObject)
-from pypy.interpreter.error import oefmt
+
 
 def from_values_and_jsonmap(space, values_w, jsonmap):
     debug.make_sure_not_resized(values_w)
@@ -20,18 +20,6 @@ def from_values_and_jsonmap(space, values_w, jsonmap):
         assert len(values_w) != 0
     storage = strategy.erase(values_w)
     return W_DictObject(space, strategy, storage)
-
-def from_values_and_jsonmap_checked(space, values_w, jsonmap):
-    debug.make_sure_not_resized(values_w)
-    strategy = jsonmap.strategy_instance
-    if strategy is None:
-        jsonmap.strategy_instance = strategy = JsonDictStrategy(space, jsonmap)
-    keys_w = strategy.get_keys_in_order()
-    if len(values_w) != len(keys_w):
-        raise oefmt(space.w_ValueError, "expected %s values, got %s", str(len(keys_w)), str(len(values_w)))
-    storage = strategy.erase(values_w)
-    return W_DictObject(space, strategy, storage)
-
 
 def devolve_jsonmap_dict(w_dict):
     assert isinstance(w_dict, W_DictObject)
