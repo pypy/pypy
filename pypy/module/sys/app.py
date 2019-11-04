@@ -31,6 +31,8 @@ def excepthook(exctype, value, traceback):
             # one is counting from the top, the other from the bottom of the
             # stack. so reverse polarity here
             if limit > 0:
+                if limit > sys.maxsize:
+                    limit = sys.maxsize
                 print_exception(exctype, value, traceback, limit=-limit)
             else:
                 # the limit is 0 or negative. PyTraceBack_Print does not print

@@ -163,7 +163,7 @@ class AppTestAppSysTests:
             # see comment in 'setup_after_space_initialization'
             untranslated_enc = {'win32': 'mbcs', 'darwin': 'utf-8'}.get(enc, 'ascii')
             assert enc == untranslated_enc
-            
+
 
     def test_float_info(self):
         import sys
@@ -402,9 +402,9 @@ class AppTestSysModulePortedFromCPython:
             raise ValueError(42)
 
         def get_error_with_tracebacklimit(limit):
-            import io
+            import _io
             sys.tracebacklimit = limit
-            sys.stderr = err = io.StringIO()
+            sys.stderr = err = _io.StringIO()
             try:
                 f1()
             except ValueError:
@@ -424,6 +424,12 @@ class AppTestSysModulePortedFromCPython:
         msg = get_error_with_tracebacklimit(-1)
         assert "Traceback (most recent call last):" not in msg
         assert "ValueError" in msg
+
+        msg = get_error_with_tracebacklimit(1<<100)
+        assert "Traceback (most recent call last):" in msg
+        assert "f1" in msg
+        assert "f2" in msg
+        assert "f3" in msg
 
         sys.stderr = savestderr
         del sys.tracebacklimit
