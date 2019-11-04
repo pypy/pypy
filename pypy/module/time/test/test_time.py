@@ -153,6 +153,17 @@ class AppTestTime:
         else:
             assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
 
+    def test_mktime_overflow(self):
+        import time
+        MAX_YEAR = (1 << 31) - 1
+        MIN_YEAR = -(1 << 31) + 1900
+        time.mktime((MAX_YEAR,) + (0,) * 8)  # doesn't raise
+        with raises(OverflowError):
+            time.mktime((MAX_YEAR + 1,) + (0,) * 8)
+        time.mktime((MIN_YEAR,) + (0,) * 8)  # doesn't raise
+        with raises(OverflowError):
+            time.mktime((MIN_YEAR - 1,) + (0,) * 8)
+
     def test_asctime(self):
         import time
         time.asctime()
