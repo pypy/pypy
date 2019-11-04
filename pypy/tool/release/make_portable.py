@@ -73,7 +73,7 @@ def rpath_binaries(binaries):
 def make_portable():
     binaries = glob('bin/libpypy*.so')
     if not binaries:
-        raise ValueError('Could not find bin/libpypy*.so')
+        raise ValueError('Could not find bin/libpypy*.so in "%s"' % os.getcwd())
     binaries.extend(glob('lib_pypy/*_cffi.pypy*.so'))
     binaries.extend(glob('lib_pypy/_pypy_openssl*.so'))
     binaries.extend(glob('lib_pypy/_tkinter/*_cffi.pypy*.so'))

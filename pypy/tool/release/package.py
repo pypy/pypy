@@ -248,7 +248,11 @@ def create_package(basedir, options, _fake=False):
             # make the package portable by adding rpath=$ORIGIN/..lib,
             # bundling dependencies
             if options.make_portable:
+                os.chdir(str(name))
+                if not os.path.exists('lib'):
+                    os.mkdir('lib')
                 make_portable()
+                os.chdir(str(builddir))
         if USE_ZIPFILE_MODULE:
             import zipfile
             archive = str(builddir.join(name + '.zip'))
@@ -332,11 +336,10 @@ def package(*args, **kwds):
                         default=(sys.platform == 'darwin'),
                         help='whether to embed dependencies in CFFI modules '
                         '(default on OS X)')
-    parser.add_argument('--make-portable', '--no-make-portable',
+    parser.add_argument('--make-portable',
                         dest='make_portable',
-                        action=NegateAction,
-                        default=(platform.linux_distribution() in ('CentOS',)),
-                        help='whether to make the package portable by shipping '
+                        action='store_true',
+                        help='make the package portable by shipping '
                             'dependent shared objects and mangling RPATH')
     options = parser.parse_args(args)
 
@@ -349,9 +352,7 @@ def package(*args, **kwds):
     elif os.environ.has_key("PYPY_NO_EMBED_DEPENDENCIES"):
         options.embed_dependencies = False
     if os.environ.has_key("PYPY_MAKE_PORTABLE"):
-        options.embed_dependencies = True
-    elif os.environ.has_key("PYPY_NO_MAKE_PORTABLE"):
-        options.embed_dependencies = False
+        options.make_portable = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
