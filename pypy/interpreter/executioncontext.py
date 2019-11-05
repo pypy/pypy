@@ -32,8 +32,9 @@ class ExecutionContext(object):
         self.topframeref = jit.vref_None
         # this is exposed to app-level as 'sys.exc_info()'.  At any point in
         # time it is the exception caught by the topmost 'except ... as e:'
-        # app-level block.
-        self.sys_exc_operror = None
+        # app-level block.  (This is the *last* item in the list; previous
+        # items form a stack of older operrors.)
+        self.sys_exc_operrors = [None]
         self.w_tracefunc = None
         self.is_tracing = 0
         self.compiler = space.createcompiler()
@@ -238,6 +239,7 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
+    @jit.unroll_safe
     def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
@@ -245,10 +247,27 @@ class ExecutionContext(object):
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
-        return self.sys_exc_operror
+        i = len(self.sys_exc_operror) - 1
+        while i > 0 and self.sys_exc_operrors[i] is None:
+            i -= 1
+        return self.sys_exc_operrors[i]
 
     def set_sys_exc_info(self, operror):
-        self.sys_exc_operror = operror
+        self.sys_exc_operrors[-1] = operror
+
+    def set_sys_exc_info3(self, w_type, w_value, w_traceback):
+        space = self.space
+        if space.is_none(w_value):
+            operror = None
+        else:
+            tb = None
+            if not space.is_none(w_traceback):
+                try:
+                    tb = pytraceback.check_traceback(space, w_traceback, '?')
+                except OperationError:    # catch and ignore bogus objects
+                    pass
+            operror = OperationError(w_type, w_value, tb)
+        self.set_sys_exc_info(operror)
 
     @jit.dont_look_inside
     def settrace(self, w_func):

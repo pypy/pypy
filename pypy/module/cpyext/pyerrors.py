@@ -403,8 +403,7 @@ def PyErr_SetInterrupt(space):
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
-    """---Cython extension---
-
+    """
     Retrieve the exception info, as known from ``sys.exc_info()``.  This
     refers to an exception that was already caught, not to an exception
     that was freshly raised.  Returns new references for the three
@@ -432,8 +431,7 @@ def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
 
 @cpython_api([PyObject, PyObject, PyObject], lltype.Void)
 def PyErr_SetExcInfo(space, py_type, py_value, py_traceback):
-    """---Cython extension---
-
+    """
     Set the exception info, as known from ``sys.exc_info()``.  This refers
     to an exception that was already caught, not to an exception that was
     freshly raised.  This function steals the references of the arguments.
@@ -450,19 +448,9 @@ def PyErr_SetExcInfo(space, py_type, py_value, py_traceback):
     w_type = get_w_obj_and_decref(space, py_type)
     w_value = get_w_obj_and_decref(space, py_value)
     w_traceback = get_w_obj_and_decref(space, py_traceback)
-    if w_value is None or space.is_w(w_value, space.w_None):
-        operror = None
-    else:
-        tb = None
-        if w_traceback is not None:
-            try:
-                tb = pytraceback.check_traceback(space, w_traceback, '?')
-            except OperationError:    # catch and ignore bogus objects
-                pass
-        operror = OperationError(w_type, w_value, tb)
     #
     ec = space.getexecutioncontext()
-    ec.set_sys_exc_info(operror)
+    ec.set_sys_exc_info3(w_type, w_value, w_traceback)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyOS_InterruptOccurred(space):
