@@ -1,3 +1,4 @@
+import sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
@@ -5,7 +6,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import (
     decref, PyObject, make_ref, make_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.objspace.std.sliceobject import W_SliceObject
 
 # Slice objects directly expose their members as PyObject.
@@ -75,7 +76,7 @@ def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
 
     Returns 0 on success and -1 on error with exception set."""
     if not isinstance(w_slice, W_SliceObject):
-        PyErr_BadInternalCall(space)
+        raise PyErr_BadInternalCall(space)
     start_p[0], stop_p[0], step_p[0], slicelength_p[0] = \
             w_slice.indices4(space, length)
     return 0
@@ -96,7 +97,37 @@ def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     incorporate the source of PySlice_GetIndicesEx(), suitably renamed,
     in the source of your extension."""
     if not isinstance(w_slice, W_SliceObject):
-        PyErr_BadInternalCall(space)
+        raise PyErr_BadInternalCall(space)
     start_p[0], stop_p[0], step_p[0] = \
             w_slice.indices3(space, length)
+    return 0
+
+@cpython_api([PyObject, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP],
+             rffi.INT_real, error=-1)
+def PySlice_Unpack(space, w_slice, start_p, stop_p, step_p):
+    if not isinstance(w_slice, W_SliceObject):
+        raise PyErr_BadInternalCall(space)
+
+    if space.is_none(w_slice.w_step):
+        step = 1
+    else:
+        step = W_SliceObject.eval_slice_index(space, w_slice.w_step)
+        if step == 0:
+            raise oefmt(space.w_ValueError, "slice step cannot be zero")
+        if step < -sys.maxint:
+            step = -sys.maxint
+    step_p[0] = step
+
+    if space.is_none(w_slice.w_start):
+        start = sys.maxint if step < 0 else 0
+    else:
+        start = W_SliceObject.eval_slice_index(space, w_slice.w_start)
+    start_p[0] = start
+
+    if space.is_none(w_slice.w_stop):
+        stop = -sys.maxint-1 if step < 0 else sys.maxint
+    else:
+        stop = W_SliceObject.eval_slice_index(space, w_slice.w_stop)
+    stop_p[0] = stop
+
     return 0
