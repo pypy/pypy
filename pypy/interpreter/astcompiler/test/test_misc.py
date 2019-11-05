@@ -12,4 +12,3 @@ def test_mangle():
     assert mangle("__foo", "__Bar") == "_Bar__foo"
     assert mangle("__foo", "___") == "__foo"
     assert mangle("___foo", "__Bar") == "_Bar___foo"
-

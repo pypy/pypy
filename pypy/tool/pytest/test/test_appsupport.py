@@ -76,8 +76,6 @@ def test_spaceconfig_param(testdir):
 def test_applevel_raises_simple_display(testdir):
     setpypyconftest(testdir)
     p = testdir.makepyfile("""
-        def app_test_raises():
-            raises(ValueError, x)
         class AppTestRaises:
             def test_func(self):
                 raises (ValueError, x)
@@ -86,7 +84,6 @@ def test_applevel_raises_simple_display(testdir):
     result = testdir.runpytest(p, "-s")
     assert result.ret == 1
     result.stdout.fnmatch_lines([
-        "*E*application-level*NameError*x*not defined",
         "*test_func(self)*",
         ">*raises*ValueError*",
         "*E*application-level*NameError*x*not defined",
@@ -96,37 +93,6 @@ def test_applevel_raises_simple_display(testdir):
     assert result.ret == 1
     result.stdout.fnmatch_lines([
         "*E*application-level*NameError*x*not defined",
-    ])
-
-def test_applevel_raises_display(testdir):
-    setpypyconftest(testdir)
-    p = testdir.makepyfile("""
-        def app_test_raises():
-            raises(ValueError, "x")
-            pass
-    """)
-    result = testdir.runpytest(p, "-s")
-    assert result.ret == 1
-    result.stdout.fnmatch_lines([
-        "*E*application-level*NameError*x*not defined",
-    ])
-    result = testdir.runpytest(p) # this time we may run the pyc file
-    assert result.ret == 1
-    result.stdout.fnmatch_lines([
-        "*E*application-level*NameError*x*not defined",
-    ])
-
-def test_applevel_raise_keyerror(testdir):
-    setpypyconftest(testdir)
-    p = testdir.makepyfile("""
-        def app_test_raises():
-            raise KeyError(42)
-            pass
-    """)
-    result = testdir.runpytest(p, "-s")
-    assert result.ret == 1
-    result.stdout.fnmatch_lines([
-        "*E*application-level*KeyError*42*",
     ])
 
 def test_apptest_raise(testdir):
@@ -168,14 +134,3 @@ def test_apptest_fail_rewrite(testdir):
         "*E*- foo*",
         "*E*+ bar*",
     ])
-
-
-def app_test_raises():
-    info = raises(TypeError, id)
-    assert info.type is TypeError
-    assert isinstance(info.value, TypeError)
-
-    x = 43
-    info = raises(ZeroDivisionError, "x/0")
-    assert info.type is ZeroDivisionError
-    assert isinstance(info.value, ZeroDivisionError)

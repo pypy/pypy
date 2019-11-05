@@ -98,10 +98,6 @@ def test_applevel_class(space, applevel_temp = applevel_temp):
     w_clsattr = space.getattr(c, space.wrap('attr'))
     assert space.eq_w(w_clsattr, space.wrap(17))
 
-def app_test_something_at_app_level():
-    x = 2
-    assert x/2 == 1
-
 class AppTestMethods:
     def test_some_app_test_method(self):
         assert 2 == 2
