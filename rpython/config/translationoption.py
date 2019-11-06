@@ -106,8 +106,8 @@ translation_optiondescription = OptionDescription(
                                 ("translation.backend", "c")],
                     }),
     ChoiceOption("rrcgc", "Garbage Collection Strategy for raw refcounted objects in cpyext",
-                 ["mark", "incmark", "none"],
-                 default="mark",
+                 ["simple", "mark", "incmark"],
+                 default="incmark",
                  requires={
                     "mark": [("translation.gc", "incminimark")],
                     "incmark": [("translation.gc", "incminimark")],

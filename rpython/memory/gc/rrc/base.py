@@ -5,7 +5,8 @@ from rpython.memory.gc import env
 
 def choose_rrc_gc_from_config(config):
     if config.translation.rrcgc:
-        classes = {"mark": "mark.RawRefCountMarkGC",
+        classes = {"simple": "simple.RawRefCountSimpleGC",
+                   "mark": "mark.RawRefCountMarkGC",
                    "incmark": "incmark.RawRefCountIncMarkGC",
                    }
         try:
@@ -126,7 +127,7 @@ class RawRefCountBaseGC(object):
         if inc_limit > 0:
             self.inc_limit = inc_limit
         else:
-            self.inc_limit = 1000
+            self.inc_limit = 50000
         self.cycle_enabled = True
 
     def create_link_pypy(self, gcobj, pyobject):
