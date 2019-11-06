@@ -10,9 +10,9 @@ def wrong1():
     with warnings.catch_warnings():
         warnings.filterwarnings("error", module="<test string>")
         try:
-           compile(statement, '<test string>', 'exec')
+            compile(statement, '<test string>', 'exec')
         except SyntaxError as err:
-           assert err.lineno is not None
-           assert err.filename is not None
-           assert err.offset is not None
-           assert err.message is not None
+            assert err.lineno is not None
+            assert err.filename is not None
+            assert err.offset is not None
+            assert err.msg is not None
