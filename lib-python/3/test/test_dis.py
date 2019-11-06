@@ -262,7 +262,7 @@ dis_compound_stmt_str = """\
              20 RETURN_VALUE
 """
 
-# XXX: change for PyPy?
+# changed for PyPy
 dis_traceback = """\
 %3d           0 SETUP_EXCEPT            12 (to 14)
 
@@ -280,18 +280,18 @@ dis_traceback = """\
              22 POP_TOP
              24 STORE_FAST               0 (e)
              26 POP_TOP
-             28 SETUP_FINALLY           12 (to 42)
+             28 SETUP_FINALLY           10 (to 40)
 
 %3d          30 LOAD_FAST                0 (e)
              32 LOAD_ATTR                1 (__traceback__)
              34 STORE_FAST               1 (tb)
              36 POP_BLOCK
-             38 POP_EXCEPT
-             40 LOAD_CONST               0 (None)
-        >>   42 LOAD_CONST               0 (None)
-             44 STORE_FAST               0 (e)
-             46 DELETE_FAST              0 (e)
-             48 END_FINALLY
+             38 LOAD_CONST               0 (None)
+        >>   40 LOAD_CONST               0 (None)
+             42 STORE_FAST               0 (e)
+             44 DELETE_FAST              0 (e)
+             46 END_FINALLY
+             48 POP_EXCEPT
              50 JUMP_FORWARD             2 (to 54)
         >>   52 END_FINALLY
 
