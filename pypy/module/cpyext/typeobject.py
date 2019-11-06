@@ -538,6 +538,13 @@ class W_PyCTypeObject(W_TypeObject):
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
+        w_dict = from_ref(space, pto.c_tp_dict)
+        if w_dict is not None:
+            dictkeys_w = space.listview(w_dict)
+            for w_key in dictkeys_w:
+                key = space.text_w(w_key)
+                dict_w[key] = space.getitem(w_dict, w_key)
+
         name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
         flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
