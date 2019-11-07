@@ -1,9 +1,17 @@
+import pytest
+
 def test_toplevel_annotation():
     # exec because this needs to be in "top level" scope
-    exec("a: int; assert __annotations__['a'] == int")
+    exec("""if True:
+        a: int
+        assert __annotations__['a'] == int
+    """)
 
 def test_toplevel_invalid():
-    exec('try: a: invalid\nexcept NameError: pass\n')
+    exec("""if True:
+        with pytest.raises(NameError):
+            a: invalid
+    """)
 
 def test_non_simple_annotation():
     class C:
@@ -30,7 +38,7 @@ def test_subscript_target():
         a[0]: int
         a[1:2]: int
         a[1:2:2]: int
-        a[1:2:2,...]: int
+        a[1:2:2, ...]: int
         assert __annotations__ == {}
 
 def test_class_annotation():
@@ -78,11 +86,8 @@ def test_function_no___annotations__():
 def test_unboundlocal():
     # a simple variable annotation implies its target is a local
     a: int
-    try:
+    with pytest.raises(UnboundLocalError):
         print(a)
-    except UnboundLocalError:
-        return
-    assert False
 
 def test_ternary_expression_bug():
     class C:
@@ -93,33 +98,28 @@ def test_ternary_expression_bug():
 def test_reassigned___annotations__():
     class C:
         __annotations__ = None
-        try:
+        with pytest.raises(TypeError):
             a: int
-            raise
-        except TypeError:
-            pass
-        except:
-            assert False
 
 def test_locals_arent_dicts():
     class O:
         def __init__(self):
             self.dct = {}
+
         def __getitem__(self, name):
             return self.dct[name]
+
         def __setitem__(self, name, value):
             self.dct[name] = value
+
     # don't crash if locals aren't just a normal dict
     exec("a: int; assert __annotations__['a'] == int", {}, O())
 
 def test_NameError_if_annotations_are_gone():
-    exec("""if 1:
-        raises(NameError, '''if 1:
-            class A:
-                del __annotations__
-                a: int
-        ''')
-    """)
+    with pytest.raises(NameError):
+        class A:
+            del __annotations__
+            a: int
 
 def test_lineno():
     s = """
@@ -130,11 +130,9 @@ a: int
     assert c.co_firstlineno == 3
 
 def test_scoping():
-    exec("""if 1:
-        def f(classvar):
-            class C:
-                cls: classvar = 23
-            assert C.__annotations__ == {"cls": "abc"}
+    def f(classvar):
+        class C:
+            cls: classvar = 23
+        assert C.__annotations__ == {"cls": "abc"}
 
-        f("abc")
-    """)
+    f("abc")
