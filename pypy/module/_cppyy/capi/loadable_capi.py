@@ -43,6 +43,8 @@ class _ArgH(_Arg):
     def __init__(self, val):
         _Arg.__init__(self, 'h', h = val)
 
+_ArgU = _ArgH      # simple re-use for indices (size_t)
+
 class _ArgL(_Arg):
     _immutable_ = True
     def __init__(self, val):
@@ -144,13 +146,17 @@ class State(object):
 
         # TODO: the following need to match up with the globally defined C_XYZ low-level
         # types (see capi/__init__.py), but by using strings here, that isn't guaranteed
-        c_opaque_ptr = state.c_ulong    # not ptrdiff_t (which is signed)
+        c_opaque_ptr = state.c_uintptr_t    # not size_t (which is signed)
+        c_size_t     = state.c_size_t
+        c_ptrdiff_t  = state.c_ptrdiff_t
+        c_intptr_t   = state.c_intptr_t
+        c_uintptr_t  = state.c_uintptr_t
  
         c_scope       = c_opaque_ptr
         c_type        = c_scope
-        c_object      = c_opaque_ptr    # not voidp (to stick with one handle type)
-        c_method      = c_opaque_ptr
-        c_index       = state.c_long
+        c_object      = c_opaque_ptr        # not voidp (to stick with one handle type)
+        c_method      = c_uintptr_t         # not intptr_t (which is signed)
+        c_index       = c_size_t
         c_index_array = state.c_voidp
 
         c_void    = state.c_void
@@ -168,10 +174,10 @@ class State(object):
         c_ccharp = state.c_ccharp
         c_voidp  = state.c_voidp
 
-        c_size_t = nt.new_primitive_type(space, 'size_t')
-        c_ptrdiff_t = nt.new_primitive_type(space, 'ptrdiff_t')
-
         self.capi_call_ifaces = {
+            # direct interpreter access
+            'compile'                  : ([c_ccharp],                 c_int),
+
             # name to opaque C++ scope representation
             'resolve_name'             : ([c_ccharp],                 c_ccharp),
             'resolve_enum'             : ([c_ccharp],                 c_ccharp),
@@ -223,12 +229,17 @@ class State(object):
 
             'get_all_cpp_names'        : ([c_scope, c_voidp],         c_voidp), # const char**
 
+            # namespace reflection information
+            'get_using_namespaces'     : ([c_scope],                  c_index),
+
             # type/class reflection information
             'final_name'               : ([c_type],                   c_ccharp),
             'scoped_final_name'        : ([c_type],                   c_ccharp),
+            'has_virtual_destructor'   : ([c_type],                   c_int),
             'has_complex_hierarchy'    : ([c_type],                   c_int),
             'num_bases'                : ([c_type],                   c_int),
             'base_name'                : ([c_type, c_int],            c_ccharp),
+            'is_smartptr'              : ([c_type],                   c_int),
             'is_subtype'               : ([c_type, c_type],           c_int),
             'smartptr_info'            : ([c_ccharp, c_voidp, c_voidp],         c_int),
             'add_smartptr_type'        : ([c_ccharp],                 c_void),
@@ -247,9 +258,11 @@ class State(object):
             'method_result_type'       : ([c_method],                 c_ccharp),
             'method_num_args'          : ([c_method],                 c_int),
             'method_req_args'          : ([c_method],                 c_int),
+            'method_arg_name'          : ([c_method, c_int],          c_ccharp),
             'method_arg_type'          : ([c_method, c_int],          c_ccharp),
             'method_arg_default'       : ([c_method, c_int],          c_ccharp),
             'method_signature'         : ([c_method, c_int],          c_ccharp),
+            'method_signature_max'     : ([c_method, c_int, c_int],   c_ccharp),
             'method_prototype'         : ([c_scope, c_method, c_int], c_ccharp),
             'is_const_method'          : ([c_method],                 c_int),
 
@@ -271,7 +284,7 @@ class State(object):
             'num_datamembers'          : ([c_scope],                  c_int),
             'datamember_name'          : ([c_scope, c_int],           c_ccharp),
             'datamember_type'          : ([c_scope, c_int],           c_ccharp),
-            'datamember_offset'        : ([c_scope, c_int],           c_ptrdiff_t),
+            'datamember_offset'        : ([c_scope, c_int],           c_intptr_t),
             'datamember_index'         : ([c_scope, c_ccharp],        c_int),
 
             # data member properties
@@ -360,7 +373,10 @@ def _cdata_to_size_t(space, w_cdata):
     return rffi.cast(rffi.SIZE_T, space.uint_w(w_cdata))
 
 def _cdata_to_ptrdiff_t(space, w_cdata):
-    return rffi.cast(rffi.LONG, space.int_w(w_cdata))
+    return rffi.cast(rffi.PTRDIFF_T, space.int_w(w_cdata))
+
+def _cdata_to_intptr_t(space, w_cdata):
+    return rffi.cast(rffi.INTPTR_T, space.int_w(w_cdata))
 
 def _cdata_to_ptr(space, w_cdata): # TODO: this is both a hack and dreadfully slow
     w_cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
@@ -370,6 +386,10 @@ def _cdata_to_ptr(space, w_cdata): # TODO: this is both a hack and dreadfully sl
 def _cdata_to_ccharp(space, w_cdata):
     ptr = _cdata_to_ptr(space, w_cdata)      # see above ... something better?
     return rffi.cast(rffi.CCHARP, ptr)
+
+# direct interpreter access
+def c_compile(space, code):
+    return space.int_w(call_capi(space, 'compile', [_ArgS(code)]))
 
 # name to opaque C++ scope representation ------------------------------------
 def c_resolve_name(space, name):
@@ -494,11 +514,17 @@ def c_get_all_cpp_names(space, scope):
     c_free(space, rffi.cast(rffi.VOIDP, rawnames))        # id.
     return allnames
 
+# namespace reflection information
+def c_get_using_namespaces(space, cppscope):
+    return space.uint_w(call_capi(space, 'get_using_namespaces', [_ArgH(cppscope)]))
+
 # type/class reflection information ------------------------------------------
 def c_final_name(space, cpptype):
     return charp2str_free(space, call_capi(space, 'final_name', [_ArgH(cpptype)]))
 def c_scoped_final_name(space, cpptype):
     return charp2str_free(space, call_capi(space, 'scoped_final_name', [_ArgH(cpptype)]))
+def c_has_virtual_destructor(space, handle):
+    return space.bool_w(call_capi(space, 'has_virtual_destructor', [_ArgH(handle)]))
 def c_has_complex_hierarchy(space, handle):
     return space.bool_w(call_capi(space, 'has_complex_hierarchy', [_ArgH(handle)]))
 def c_num_bases(space, cppclass):
@@ -506,6 +532,8 @@ def c_num_bases(space, cppclass):
 def c_base_name(space, cppclass, base_index):
     args = [_ArgH(cppclass.handle), _ArgL(base_index)]
     return charp2str_free(space, call_capi(space, 'base_name', args))
+def c_is_smartptr(space, handle):
+    return space.bool_w(call_capi(space, 'is_smartptr', [_ArgH(handle)]))
 def c_is_subtype(space, derived, base):
     jit.promote(base)
     if derived == base:
@@ -558,7 +586,7 @@ def c_method_indices_from_name(space, cppscope, name):
     return py_indices
 
 def c_get_method(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
+    args = [_ArgH(cppscope.handle), _ArgU(index)]
     return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method', args)))
 
 def c_method_name(space, cppmeth):
@@ -573,6 +601,9 @@ def c_method_num_args(space, cppmeth):
     return space.int_w(call_capi(space, 'method_num_args', [_ArgH(cppmeth)]))
 def c_method_req_args(space, cppmeth):
     return space.int_w(call_capi(space, 'method_req_args', [_ArgH(cppmeth)]))
+def c_method_arg_name(space, cppmeth, arg_index):
+    args = [_ArgH(cppmeth), _ArgL(arg_index)]
+    return charp2str_free(space, call_capi(space, 'method_arg_name', args))
 def c_method_arg_type(space, cppmeth, arg_index):
     args = [_ArgH(cppmeth), _ArgL(arg_index)]
     return charp2str_free(space, call_capi(space, 'method_arg_type', args))
@@ -582,6 +613,9 @@ def c_method_arg_default(space, cppmeth, arg_index):
 def c_method_signature(space, cppmeth, show_formalargs=True):
     args = [_ArgH(cppmeth), _ArgL(show_formalargs)]
     return charp2str_free(space, call_capi(space, 'method_signature', args))
+def c_method_signature_max(space, cppmeth, show_formalargs, maxargs):
+    args = [_ArgH(cppmeth), _ArgL(show_formalargs), _ArgL(maxargs)]
+    return charp2str_free(space, call_capi(space, 'method_signature_max', args))
 def c_method_prototype(space, cppscope, cppmeth, show_formalargs=True):
     args = [_ArgH(cppscope.handle), _ArgH(cppmeth), _ArgL(show_formalargs)]
     return charp2str_free(space, call_capi(space, 'method_prototype', args))
@@ -589,24 +623,24 @@ def c_is_const_method(space, cppmeth):
     return space.bool_w(call_capi(space, 'is_const_method', [_ArgH(cppmeth)]))
 
 def c_get_num_templated_methods(space, cppscope):
-    return space.int_w(call_capi(space, 'method_is_template', [_ArgH(cppscope.handle)]))
+    return space.int_w(call_capi(space, 'get_num_templated_methods', [_ArgH(cppscope.handle)]))
 def c_get_templated_method_name(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
-    return charp2str_free(space, call_capi(space, 'method_is_template', args))
+    args = [_ArgH(cppscope.handle), _ArgU(index)]
+    return charp2str_free(space, call_capi(space, 'get_templated_method_name', args))
 def c_exists_method_template(space, cppscope, name):
     args = [_ArgH(cppscope.handle), _ArgS(name)]
     return space.bool_w(call_capi(space, 'exists_method_template', args))
 def c_method_is_template(space, cppscope, index):
-    args = [_ArgH(cppscope.handle), _ArgL(index)]
+    args = [_ArgH(cppscope.handle), _ArgU(index)]
     return space.bool_w(call_capi(space, 'method_is_template', args))
 def c_get_method_template(space, cppscope, name, proto):
     args = [_ArgH(cppscope.handle), _ArgS(name), _ArgS(proto)]
-    return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method_template', args)))
+    return rffi.cast(C_METHOD, space.int_w(call_capi(space, 'get_method_template', args)))
 
 def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:
         args = [_ArgH(nss.handle), _ArgH(lc.handle), _ArgH(rc.handle), _ArgS(op)]
-        return rffi.cast(WLAVC_INDEX, space.int_w(call_capi(space, 'get_global_operator', args)))
+        return rffi.cast(WLAVC_INDEX, space.uint_w(call_capi(space, 'get_global_operator', args)))
     return rffi.cast(WLAVC_INDEX, -1)
 
 # method properties ----------------------------------------------------------
@@ -630,7 +664,7 @@ def c_datamember_type(space, cppscope, datamember_index):
     return  charp2str_free(space, call_capi(space, 'datamember_type', args))
 def c_datamember_offset(space, cppscope, datamember_index):
     args = [_ArgH(cppscope.handle), _ArgL(datamember_index)]
-    return _cdata_to_ptrdiff_t(space, call_capi(space, 'datamember_offset', args))
+    return _cdata_to_intptr_t(space, call_capi(space, 'datamember_offset', args))
 
 def c_datamember_index(space, cppscope, name):
     args = [_ArgH(cppscope.handle), _ArgS(name)]

@@ -8,15 +8,18 @@
 extern "C" {
 #endif // ifdef __cplusplus
 
-    typedef ptrdiff_t     cppyy_scope_t;
+    typedef size_t        cppyy_scope_t;
     typedef cppyy_scope_t cppyy_type_t;
     typedef void*         cppyy_object_t;
-    typedef ptrdiff_t     cppyy_method_t;
+    typedef intptr_t      cppyy_method_t;
 
-    typedef long          cppyy_index_t;
+    typedef size_t        cppyy_index_t;
     typedef void*         cppyy_funcaddr_t;
 
     typedef unsigned long cppyy_exctype_t;
+
+    /* direct interpreter access ---------------------------------------------- */
+    int cppyy_compile(const char* code);
 
     /* name to opaque C++ scope representation -------------------------------- */
     RPY_EXTERN
@@ -103,11 +106,16 @@ extern "C" {
     RPY_EXTERN
     const char** cppyy_get_all_cpp_names(cppyy_scope_t scope, size_t* count);
 
+    /* namespace reflection information --------------------------------------- */
+    cppyy_index_t* cppyy_get_using_namespaces(cppyy_scope_t scope);
+
     /* class reflection information ------------------------------------------- */
     RPY_EXTERN
     char* cppyy_final_name(cppyy_type_t type);
     RPY_EXTERN
     char* cppyy_scoped_final_name(cppyy_type_t type);
+    RPY_EXTERN
+    int cppyy_has_virtual_destructor(cppyy_type_t type);
     RPY_EXTERN
     int cppyy_has_complex_hierarchy(cppyy_type_t type);
     RPY_EXTERN
@@ -116,6 +124,8 @@ extern "C" {
     char* cppyy_base_name(cppyy_type_t type, int base_index);
     RPY_EXTERN
     int cppyy_is_subtype(cppyy_type_t derived, cppyy_type_t base);
+    RPY_EXTERN
+    int cppyy_is_smartptr(cppyy_type_t type);
     RPY_EXTERN
     int cppyy_smartptr_info(const char* name, cppyy_type_t* raw, cppyy_method_t* deref);
     RPY_EXTERN
@@ -147,11 +157,15 @@ extern "C" {
     RPY_EXTERN
     int cppyy_method_req_args(cppyy_method_t);
     RPY_EXTERN
+    char* cppyy_method_arg_name(cppyy_method_t,int arg_index);
+    RPY_EXTERN
     char* cppyy_method_arg_type(cppyy_method_t, int arg_index);
     RPY_EXTERN
     char* cppyy_method_arg_default(cppyy_method_t, int arg_index);
     RPY_EXTERN
     char* cppyy_method_signature(cppyy_method_t, int show_formalargs);
+    RPY_EXTERN
+    char* cppyy_method_signature_max(cppyy_method_t, int show_formalargs, int maxargs);
     RPY_EXTERN
     char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_method_t, int show_formalargs);
     RPY_EXTERN
@@ -190,7 +204,7 @@ extern "C" {
     RPY_EXTERN
     char* cppyy_datamember_type(cppyy_scope_t scope, int datamember_index);
     RPY_EXTERN
-    ptrdiff_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
+    intptr_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
     RPY_EXTERN
     int cppyy_datamember_index(cppyy_scope_t scope, const char* name);
 
