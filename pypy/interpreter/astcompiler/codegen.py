@@ -393,6 +393,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, l)
         return l
 
+    def _visit_defaults(self, defaults):
+        w_tup = self._tuple_of_consts(defaults)
+        if w_tup:
+            self.load_const(w_tup)
+        else:
+            self.visit_sequence(defaults)
+            self.emit_op_arg(ops.BUILD_TUPLE, len(defaults))
+
     @specialize.arg(2)
     def _visit_function(self, func, function_code_generator):
         self.update_position(func.lineno, True)
@@ -403,11 +411,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         assert isinstance(args, ast.arguments)
 
         oparg = 0
-        self.visit_sequence(args.defaults)
 
         if args.defaults is not None and len(args.defaults):
             oparg = oparg | 0x01
-            self.emit_op_arg(ops.BUILD_TUPLE, len(args.defaults))
+            self._visit_defaults(args.defaults)
 
         if args.kwonlyargs:
             kw_default_count = self._visit_kwonlydefaults(args)
@@ -438,12 +445,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         args = lam.args
         assert isinstance(args, ast.arguments)
 
-        self.visit_sequence(args.defaults)
-
         oparg = 0
         if args.defaults is not None and len(args.defaults):
             oparg = oparg | 0x01
-            self.emit_op_arg(ops.BUILD_TUPLE, len(args.defaults))
+            self._visit_defaults(args.defaults)
 
         if args.kwonlyargs:
             kw_default_count = self._visit_kwonlydefaults(args)

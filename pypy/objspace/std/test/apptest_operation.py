@@ -1,10 +1,11 @@
+from pytest import raises
+
+def teq(a, b):
+    assert a == b
+    assert type(a) is type(b)
 
 
-def app_test_int_vs_float():
-    def teq(a, b):
-        assert a == b
-        assert type(a) is type(b)
-
+def test_int_vs_float():
     # binary operators
     teq( 5  - 2    , 3   )
     teq( 5  - 2.0  , 3.0 )
