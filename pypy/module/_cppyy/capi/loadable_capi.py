@@ -1,4 +1,4 @@
-import os
+import os, sys
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
@@ -20,8 +20,10 @@ from pypy.module._cppyy import ffitypes
 from pypy.module._cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
 
-
-backend_library = 'libcppyy_backend.so'
+backend_ext = '.so'
+if 'win32' in sys.platform:
+    backend_ext = '.dll'
+backend_library = 'libcppyy_backend'
 
 # this is not technically correct, but will do for now
 std_string_name = 'std::basic_string<char>'
@@ -311,7 +313,11 @@ def load_backend(space):
             state.backend = W_Library(space, space.newtext(libname), dldflags)
         else:
             # try usual lookups
-            state.backend = W_Library(space, space.newtext(backend_library), dldflags)
+            try:
+                state.backend = W_Library(space, space.newtext(backend_library+backend_ext), dldflags)
+            except Exception:
+                # TODO: where to find the value '.pypy-41'? Note that this only matters for testing.
+                state.backend = W_Library(space, space.newtext(backend_library+'.pypy-41'+backend_ext), dldflags)
 
         if state.backend:
             # fix constants
