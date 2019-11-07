@@ -187,13 +187,6 @@ def exc_info_direct(space, frame):
     else:
         return exc_info_without_tb(space, operror)
 
-def exc_clear(space):
-    """Clear global information on the current exception.  Subsequent calls
-to exc_info() will return (None,None,None) until another exception is
-raised and caught in the current thread or the execution stack returns to a
-frame where another exception is being handled."""
-    space.getexecutioncontext().clear_sys_exc_info()
-
 def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each
 function call.  See the debugger chapter in the library manual."""

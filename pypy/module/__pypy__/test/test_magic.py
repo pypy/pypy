@@ -60,8 +60,7 @@ def f():
         try:
             raise ValueError
         except ValueError as e:
-            pass
-        assert e.__context__ is terr
+            assert e.__context__ is terr
 
     def test_set_exc_info_issue3096(self):
         from __pypy__ import set_exc_info

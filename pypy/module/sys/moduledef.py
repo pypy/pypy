@@ -209,31 +209,6 @@ class Module(MixedModule):
         w_modules = self.get('modules')
         self.space.setitem(w_modules, w_name, w_module)
 
-    def getdictvalue(self, space, attr):
-        """ specialize access to dynamic exc_* attributes. """
-        value = MixedModule.getdictvalue(self, space, attr)
-        if value is not None:
-            return value
-        if attr == 'exc_type':
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
-                return space.w_None
-            else:
-                return operror.w_type
-        elif attr == 'exc_value':
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
-                return space.w_None
-            else:
-                return operror.get_w_value(space)
-        elif attr == 'exc_traceback':
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
-                return space.w_None
-            else:
-                return operror.get_w_traceback(space)
-        return None
-
     def get_flag(self, name):
         space = self.space
         return space.int_w(space.getattr(self.get('flags'), space.newtext(name)))
