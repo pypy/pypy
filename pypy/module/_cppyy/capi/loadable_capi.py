@@ -26,7 +26,7 @@ if 'win32' in sys.platform:
 backend_library = 'libcppyy_backend'
 
 # this is not technically correct, but will do for now
-std_string_name = 'std::basic_string<char>'
+std_string_name = 'std::string'
 
 class _Arg:         # poor man's union
     _immutable_ = True
