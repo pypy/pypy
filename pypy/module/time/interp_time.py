@@ -10,7 +10,7 @@ from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, unicode_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
-    intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int)
+    intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck, ovfcheck_float_to_int)
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
@@ -277,7 +277,7 @@ if _WIN:
                     _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
                              time_increment[0] * 1e-7, False, True)
             if return_ns:
-                return space.newint(microseconds * 10**3)
+                return space.newint(r_int64(microseconds) * 10**3)
             else:
                 tv_sec = microseconds / 10**6
                 tv_usec = microseconds % 10**6
@@ -303,8 +303,8 @@ else:
                         _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
                     if return_ns:
                         return space.newint(
-                            widen(timeval.c_tv_sec) * 10**9 +
-                            widen(timeval.c_tv_usec) * 10**3)
+                            r_int64(timeval.c_tv_sec) * 10**9 +
+                            r_int64(timeval.c_tv_usec) * 10**3)
                     else:
                         return space.newfloat(
                             widen(timeval.c_tv_sec) +
@@ -316,8 +316,8 @@ else:
                     _setinfo(space, w_info, "ftime()", 1e-3, False, True)
                 if return_ns:
                     return space.newint(
-                        widen(t.c_time) * 10**9 +
-                        widen(t.c_millitm) * 10**6)
+                        r_int64(t.c_time) * 10**9 +
+                        r_int64(t.c_millitm) * 10**6)
                 else:
                     return space.newfloat(
                         widen(t.c_time) +
@@ -327,7 +327,7 @@ else:
                 _setinfo(space, w_info, "time()", 1.0, False, True)
             result = c_time(lltype.nullptr(rffi.TIME_TP.TO))
             if return_ns:
-                return space.newint(widen(result) * 10**9)
+                return space.newint(r_int64(result) * 10**9)
             else:
                 return space.newfloat(float(result))
     
@@ -821,7 +821,7 @@ if HAS_CLOCK_GETTIME:
         return widen(timespec.c_tv_sec) + widen(timespec.c_tv_nsec) * 1e-9
 
     def _timespec_to_nanoseconds(timespec):
-        return widen(timespec.c_tv_sec) * 10**9 + widen(timespec.c_tv_nsec)
+        return r_int64(timespec.c_tv_sec) * 10**9 + r_int64(timespec.c_tv_nsec)
     
     def _clock_gettime_impl(space, clk_id, return_ns):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
@@ -861,7 +861,7 @@ if HAS_CLOCK_GETTIME:
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
 
-    @unwrap_spec(clk_id='c_int', ns=int)
+    @unwrap_spec(clk_id='c_int', ns=r_int64)
     def clock_settime_ns(space, clk_id, ns):
         """clock_settime_ns(clk_id, time)
     
@@ -993,7 +993,7 @@ if HAS_MONOTONIC:
                 _setinfo(space, w_info, implementation, resolution, True, False)
 
             if return_ns:
-                return space.newint(widen(tick_count) * 10**6)
+                return space.newint(r_int64(tick_count) * 10**6)
             else:
                 return space.newfloat(tick_count * 1e-3)
 
@@ -1012,7 +1012,7 @@ if HAS_MONOTONIC:
             time = rffi.cast(lltype.Signed, c_mach_absolute_time())
             numer = rffi.getintfield(timebase_info, 'c_numer')
             denom = rffi.getintfield(timebase_info, 'c_denom')
-            nanosecs = time * numer / denom
+            nanosecs = r_int64(time) * numer / denom
             if w_info is not None:
                 res = (numer / denom) * 1e-9
                 _setinfo(space, w_info, "mach_absolute_time()", res, True, False)
@@ -1084,7 +1084,7 @@ if _WIN:
                 _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
                          True, False)
             if return_ns:
-                return space.newint(widen(diff) * 10**9 // time_state.divisor)
+                return space.newint(r_int64(diff) * 10**9 // time_state.divisor)
             else:
                 return space.newfloat(float(diff) / float(time_state.divisor))
 
@@ -1139,7 +1139,7 @@ if _WIN:
         if w_info is not None:
             _setinfo(space, w_info, "GetProcessTimes()", 1e-7, True, False)
         if return_ns:
-            return space.newint((widen(kernel_time2) + widen(user_time2)) * 10**2)
+            return space.newint((r_int64(kernel_time2) + r_int64(user_time2)) * 10**2)
         else:
             return space.newfloat((float(kernel_time2) + float(user_time2)) * 1e-7)
 else:
@@ -1198,20 +1198,20 @@ else:
                                  1.0 / rposix.CLOCK_TICKS_PER_SECOND,
                                  True, False)
                     if return_ns:
-                        return space.newint(widen(cpu_time) * 10**9 // int(rposix.CLOCK_TICKS_PER_SECOND))
+                        return space.newint(r_int64(cpu_time) * 10**9 // int(rposix.CLOCK_TICKS_PER_SECOND))
                     else:
                         return space.newfloat(float(cpu_time) / rposix.CLOCK_TICKS_PER_SECOND)
         return _clock_impl(space, w_info, return_ns)
 
 def process_time(space, w_info=None):
     """process_time() -> float
-    
+
     Process time for profiling: sum of the kernel and user-space CPU time."""
     return _process_time_impl(space, w_info, False)
 
 def process_time_ns(space, w_info=None):
     """process_time() -> int
-    
+
     Process time for profiling as nanoseconds:
     sum of the kernel and user-space CPU time"""
     return _process_time_impl(space, w_info, True)
@@ -1232,7 +1232,7 @@ def _clock_impl(space, w_info, return_ns):
         _setinfo(space, w_info,
                  "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
     if return_ns:
-        return space.newint(value * 10**9 // CLOCKS_PER_SEC)
+        return space.newint(r_int64(value) * 10**9 // CLOCKS_PER_SEC)
     else:
         return space.newfloat(float(value) / CLOCKS_PER_SEC)
 
