@@ -386,3 +386,17 @@ class AppTestMath:
     def test_pi_tau(self):
         import math
         assert math.tau == math.pi * 2.0
+
+    def test_remainder(self):
+        import math
+        assert math.remainder(3, math.pi) == 3 - math.pi
+        assert math.remainder(-3, math.pi) == math.pi - 3
+        assert math.remainder(3, -math.pi) == 3 - math.pi
+        assert math.remainder(4, math.pi) == 4 - math.pi
+        assert math.remainder(6, math.pi) == 6 - 2 * math.pi
+        assert math.remainder(3, math.inf) == 3
+        assert math.remainder(3, -math.inf) == 3
+        assert math.isnan(math.remainder(3, math.nan))
+        assert math.isnan(math.remainder(math.nan, 3))
+        raises(ValueError, math.remainder, 3, 0)
+        raises(ValueError, math.remainder, math.inf, 3)
