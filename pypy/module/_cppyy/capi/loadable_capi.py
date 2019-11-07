@@ -30,9 +30,10 @@ std_string_name = 'std::string'
 
 class _Arg:         # poor man's union
     _immutable_ = True
-    def __init__(self, tc, h = 0, l = -1, d = -1., s = '', p = rffi.cast(rffi.VOIDP, 0)):
+    def __init__(self, tc, h = 0, u = 0, l = -1, d = -1., s = '', p = rffi.cast(rffi.VOIDP, 0)):
         self.tc      = tc
         self._handle = h
+        self._index  = u
         self._long   = l
         self._double = d
         self._string = s
@@ -43,7 +44,10 @@ class _ArgH(_Arg):
     def __init__(self, val):
         _Arg.__init__(self, 'h', h = val)
 
-_ArgU = _ArgH      # simple re-use for indices (size_t)
+class _ArgU(_Arg):      # separate class for rtyper
+    _immutable_ = True
+    def __init__(self, val):
+        _Arg.__init__(self, 'u', u = val)
 
 class _ArgL(_Arg):
     _immutable_ = True
@@ -99,7 +103,10 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                     misc.write_raw_signed_data(data, rffi.cast(rffi.LONG, obj._long), argtype.size)
                 elif obj.tc == 'h':
                     assert isinstance(argtype, ctypeprim.W_CTypePrimitiveUnsigned)
-                    misc.write_raw_unsigned_data(data, rffi.cast(rffi.ULONG, obj._handle), argtype.size)
+                    misc.write_raw_unsigned_data(data, rffi.cast(rffi.UINTPTR_T, obj._handle), argtype.size)
+                elif obj.tc == 'u':
+                    assert isinstance(argtype, ctypeprim.W_CTypePrimitiveUnsigned)
+                    misc.write_raw_unsigned_data(data, rffi.cast(rffi.SIZE_T, obj._index), argtype.size)
                 elif obj.tc == 'p':
                     assert obj._voidp != rffi.cast(rffi.VOIDP, 0)
                     data = rffi.cast(rffi.VOIDPP, data)
