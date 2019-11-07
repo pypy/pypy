@@ -276,10 +276,15 @@ class ExecutionContext(object):
         self.set_sys_exc_info(operror)
 
     def enter_error_stack_item(self, saved_operr):
-        self.previous_operror_stack.append(saved_operr)
+        # 'sys_exc_operror' should be logically considered as the last
+        # item on the stack, so pushing a new item has the following effect:
+        self.previous_operror_stack.append(self.sys_exc_operror)
+        self.sys_exc_operror = saved_operr
 
     def leave_error_stack_item(self):
-        return self.previous_operror_stack.pop()
+        result = self.sys_exc_operror
+        self.sys_exc_operror = self.previous_operror_stack.pop()
+        return result
 
     def fetch_and_clear_error_stack_state(self):
         result = self.sys_exc_operror, self.previous_operror_stack
