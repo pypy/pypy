@@ -105,11 +105,6 @@ return next yielded value or raise StopIteration."""
         frame = self.frame
         if self.running:
             raise oefmt(space.w_ValueError, "%s already executing", self.KIND)
-        ec = space.getexecutioncontext()
-        current_exc_info = ec.sys_exc_info()
-        if self.saved_operr is not None:
-            ec.set_sys_exc_info(self.saved_operr)
-            self.saved_operr = None
         #
         # Optimization only: after we've started a Coroutine without
         # CO_YIELD_INSIDE_TRY, then Coroutine._finalize_() will be a no-op
@@ -123,6 +118,8 @@ return next yielded value or raise StopIteration."""
                 raise oefmt(space.w_TypeError,
                             "can't send non-None value to a just-started %s",
                             self.KIND)
+        ec = space.getexecutioncontext()
+        ec.enter_error_stack_item(self.saved_operr)
         self.running = True
         try:
             w_result = frame.execute_frame(w_arg_or_err)
@@ -142,10 +139,8 @@ return next yielded value or raise StopIteration."""
             self.running = False
             # note: this is not perfectly correct: see
             # test_exc_info_in_generator_4.  But it's simpler and
-            # bug-to-bug compatible with CPython 3.5.
-            if frame._any_except_or_finally_handler():
-                self.saved_operr = ec.sys_exc_info()
-            ec.set_sys_exc_info(current_exc_info)
+            # bug-to-bug compatible with CPython 3.5 and 3.6.
+            self.saved_operr = ec.leave_error_stack_item()
         return w_result
 
     def get_delegate(self):

@@ -34,6 +34,7 @@ class ExecutionContext(object):
         # time it is the exception caught by the topmost 'except ... as e:'
         # app-level block.
         self.sys_exc_operror = None
+        self.previous_operror_stack = []
         self.w_tracefunc = None
         self.is_tracing = 0
         self.compiler = space.createcompiler()
@@ -238,17 +239,61 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
+    @jit.unroll_safe
     def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
+        Returns the "top-most" exception in the stack.
 
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
-        return self.sys_exc_operror
+        result = self.sys_exc_operror
+        if result is None:
+            i = len(self.previous_operror_stack) - 1
+            while i >= 0:
+                result = self.previous_operror_stack[i]
+                if result is not None:
+                    break
+                i -= 1
+        return result
 
     def set_sys_exc_info(self, operror):
         self.sys_exc_operror = operror
+
+    def set_sys_exc_info3(self, w_type, w_value, w_traceback):
+        space = self.space
+        if space.is_none(w_value):
+            operror = None
+        else:
+            tb = None
+            if not space.is_none(w_traceback):
+                try:
+                    tb = pytraceback.check_traceback(space, w_traceback, '?')
+                except OperationError:    # catch and ignore bogus objects
+                    pass
+            operror = OperationError(w_type, w_value, tb)
+        self.set_sys_exc_info(operror)
+
+    def enter_error_stack_item(self, saved_operr):
+        # 'sys_exc_operror' should be logically considered as the last
+        # item on the stack, so pushing a new item has the following effect:
+        self.previous_operror_stack.append(self.sys_exc_operror)
+        self.sys_exc_operror = saved_operr
+
+    def leave_error_stack_item(self):
+        result = self.sys_exc_operror
+        self.sys_exc_operror = self.previous_operror_stack.pop()
+        return result
+
+    def fetch_and_clear_error_stack_state(self):
+        result = self.sys_exc_operror, self.previous_operror_stack
+        self.sys_exc_operror = None
+        self.previous_operror_stack = []
+        return result
+
+    def restore_error_stack_state(self, saved):
+        self.sys_exc_operror, self.previous_operror_stack = saved
 
     @jit.dont_look_inside
     def settrace(self, w_func):

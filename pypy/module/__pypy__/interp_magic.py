@@ -211,3 +211,7 @@ def pyos_inputhook(space):
         return      # cpyext not imported yet, ignore
     from pypy.module.cpyext.api import invoke_pyos_inputhook
     invoke_pyos_inputhook(space)
+
+def set_exc_info(space, w_type, w_value, w_traceback=None):
+    ec = space.getexecutioncontext()
+    ec.set_sys_exc_info3(w_type, w_value, w_traceback)

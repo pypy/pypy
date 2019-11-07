@@ -52,3 +52,28 @@ def f():
             pass
         a = A()
         assert _promote(a) is a
+
+    def test_set_exc_info(self):
+        from __pypy__ import set_exc_info
+        terr = TypeError("hello world")
+        set_exc_info(TypeError, terr)
+        try:
+            raise ValueError
+        except ValueError as e:
+            assert e.__context__ is terr
+
+    def test_set_exc_info_issue3096(self):
+        from __pypy__ import set_exc_info
+        def recover():
+            set_exc_info(None, None)
+        def main():
+            try:
+                raise RuntimeError('aaa')
+            finally:
+                recover()
+                raise RuntimeError('bbb')
+        try:
+            main()
+        except RuntimeError as e:
+            assert e.__cause__ is None
+            assert e.__context__ is None
