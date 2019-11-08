@@ -5,6 +5,7 @@ import py, os, sys, re, shutil
 from rpython.translator.platform import CompilationError
 from rpython.translator.platform import log, _run_subprocess
 from rpython.translator.platform import Platform, posix
+import rpython.tool.setuptools_msvc as msvc
 
 import rpython
 rpydir = str(py.path.local(rpython.__file__).join('..'))
@@ -37,96 +38,37 @@ def Windows_x64(cc=None, ver0=None):
     return _get_compiler_type(cc, True)
 
 def _find_vcvarsall(version, x64flag):
-    import rpython.tool.setuptools_msvc as msvc
     if x64flag:
         arch = 'x64'
     else:
         arch = 'x86'
-    if version >= 140:
-        return msvc.msvc14_get_vc_env(arch)
-    else:
-        return msvc.msvc9_query_vcvarsall(version / 10.0, arch)
+    return msvc.EnvironmentInfo(arch, vc_ver=version/10.0).return_env()
 
-def _get_msvc_env(vsver, x64flag):
+def _get_msvc_env(vcver, x64flag):
     vcdict = None
     toolsdir = None
+    # use setuptools from python3 to find tools
     try:
-        toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
-    except KeyError:
-        # use setuptools from python3 to find tools
-        try:
-            vcdict = _find_vcvarsall(vsver, x64flag)
-        except ImportError as e:
-            if 'setuptools' in str(e):
-                log.error('is setuptools installed (perhaps try %s -mensurepip)?' % sys.executable)
-            log.error('looking for compiler %s raised exception "%s' % (vsver, str(e)))
-        except Exception as e:
-            log.error('looking for compiler %s raised exception "%s' % (vsver, str(e)))
+        available = msvc.EnvironmentInfo('x86').si.find_reg_vs_vers()
+        if vcver / 10.0 not in available:
+            log.error('Could not find vcver %i' % vcver)
             return None
-    else:
-        if x64flag:
-            vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
-            vcinstalldir = os.path.join(vsinstalldir, 'VC')
-            vcbindir = os.path.join(vcinstalldir, 'BIN')
-            vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
-        else:
-            vcvars = os.path.join(toolsdir, 'vsvars32.bat')
-            if not os.path.exists(vcvars):
-                # even msdn does not know which to run
-                # see https://msdn.microsoft.com/en-us/library/1700bbwd(v=vs.90).aspx
-                # which names both
-                vcvars = os.path.join(toolsdir, 'vcvars32.bat')
-
-        import subprocess
-        try:
-            popen = subprocess.Popen('"%s" & set' % (vcvars,),
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
-
-            stdout, stderr = popen.communicate()
-            if popen.wait() != 0 or stdout[:5].lower() == 'error':
-                log.msg('Running "%s" errored: \n\nstdout:\n%s\n\nstderr:\n%s' % (
-                    vcvars, stdout.split()[0], stderr))
-                return None
-            else:
-                log.msg('Running "%s" succeeded' %(vcvars,))
-        except Exception as e:
-            log.msg('Running "%s" failed: "%s"' % (vcvars, str(e)))
-            return None
-
-        stdout = stdout.replace("\r\n", "\n")
-        vcdict = {}
-        for line in stdout.split("\n"):
-            if '=' not in line:
-                continue
-            key, value = line.split('=', 1)
-            vcdict[key] = value
-    env = {}
-    for key, value in vcdict.items():
-        if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
-            env[key.upper()] = value
-    if 'PATH' not in env:
-        log.msg('Did not find "PATH" in stdout\n%s' %(stdout))
-    if not _find_executable('mt.exe', env['PATH']):
-        # For some reason the sdk bin path is missing?
-        # put it together from some other env variables that happened to exist
-        # on the buildbot where this occurred
-        if 'WindowsSDKVersion' in vcdict and 'WindowsSdkDir' in vcdict:
-            binpath = vcdict['WindowsSdkDir'] + '\\bin\\' + vcdict['WindowsSDKVersion'] + 'x86'
-            env['PATH'] += ';' + binpath
-        if not _find_executable('mt.exe', env['PATH']):
-            log.msg('Could not find mt.exe on path=%s' % env['PATH'])
-            log.msg('Running vsver %s set this env' % vsver)
-            for key, value in vcdict.items():
-                log.msg('%s=%s' %(key, value))
-    log.msg("Updated environment with vsver %d, using x64 %s" % (vsver, x64flag,))
-    return env
+        vcdict = _find_vcvarsall(vcver, x64flag)
+        keys = vcdict.keys()
+        for k in keys:
+            if k.upper != k:
+                vcdict[k.upper()] = vcdict[k]
+                del vcdict[k]
+        log.error('Found vcver %i' % vcver)
+        return vcdict
+    except Exception as e:
+        log.error('looking for compiler %s raised exception "%s' % (vcver, str(e)))
+        return None
 
 def find_msvc_env(x64flag=False, ver0=None):
-    vcvers = [140, 141, 150, 90, 100]
+    vcvers = [150, 140, 141, 90, 100]
     if ver0 in vcvers:
         vcvers.insert(0, ver0)
-    errs = []
     for vsver in vcvers:
         env = _get_msvc_env(vsver, x64flag)
         if env is not None:
