@@ -77,3 +77,18 @@ def f():
         except RuntimeError as e:
             assert e.__cause__ is None
             assert e.__context__ is None
+
+    def test_set_exc_info_traceback(self):
+        import sys
+        from __pypy__ import set_exc_info
+        def f():
+            1 // 0
+        def g():
+            try:
+                f()
+            except ZeroDivisionError:
+                return sys.exc_info()[2]
+        tb = g()
+        terr = TypeError("hello world")
+        set_exc_info(TypeError, terr, tb)
+        assert sys.exc_info()[2] is tb

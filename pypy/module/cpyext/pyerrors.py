@@ -2,7 +2,6 @@ import os
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
-from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.cpyext.api import PyObjectFields, cpython_struct
 from pypy.module.cpyext.api import bootstrap_function, slot_function

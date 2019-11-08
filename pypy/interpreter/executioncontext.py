@@ -262,6 +262,8 @@ class ExecutionContext(object):
         self.sys_exc_operror = operror
 
     def set_sys_exc_info3(self, w_type, w_value, w_traceback):
+        from pypy.interpreter import pytraceback
+
         space = self.space
         if space.is_none(w_value):
             operror = None
