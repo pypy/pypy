@@ -91,7 +91,11 @@ Copyright (c) Corporation for National Research Initiatives.
         from rpython.rlib import runicode
         if (hasattr(runicode, 'str_decode_mbcs')):
             self.interpleveldefs['mbcs_encode'] = 'interp_codecs.mbcs_encode'
+            self.interpleveldefs['oem_encode'] = 'interp_codecs.oem_encode'
+            self.interpleveldefs['code_page_encode'] = 'interp_codecs.code_page_encode'
             self.interpleveldefs['mbcs_decode'] = 'interp_codecs.mbcs_decode'
+            self.interpleveldefs['oem_decode'] = 'interp_codecs.oem_decode'
+            self.interpleveldefs['code_page_decode'] = 'interp_codecs.code_page_decode'
 
         MixedModule.__init__(self, space, *args)
 

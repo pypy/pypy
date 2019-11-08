@@ -3,7 +3,7 @@ from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rutf8 import MAXUNICODE
-from rpython.rlib.runicode import raw_unicode_escape_helper
+from rpython.rlib import runicode
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -291,7 +291,7 @@ def backslashreplace_errors(space, w_exc):
         obj = w_obj._utf8
         while pos < end:
             code = rutf8.codepoint_at_pos(obj, pos)
-            raw_unicode_escape_helper(builder, code)
+            unicodehelper.raw_unicode_escape_helper(builder, code)
             pos = rutf8.next_codepoint_pos(obj, pos)
         return space.newtuple([space.newtext(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
@@ -303,7 +303,7 @@ def backslashreplace_errors(space, w_exc):
         pos = start
         while pos < end:
             oc = ord(obj[pos])
-            raw_unicode_escape_helper(builder, oc)
+            unicodehelper.raw_unicode_escape_helper(builder, oc)
             pos += 1
         return space.newtuple([space.newtext(builder.build()), w_end])
     else:
@@ -705,10 +705,13 @@ for decoder in [
          ]:
     make_decoder_wrapper(decoder)
 
-from rpython.rlib import runicode
-if hasattr(runicode, 'str_decode_mbcs'):
+if getattr(unicodehelper, '_WIN32', False):
     make_encoder_wrapper('mbcs_encode')
     make_decoder_wrapper('mbcs_decode')
+    make_encoder_wrapper('code_page_encode')
+    make_decoder_wrapper('code_page_decode')
+    make_encoder_wrapper('oem_encode')
+    make_decoder_wrapper('oem_decode')
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"

@@ -374,6 +374,18 @@ if _WIN32:
         res_utf8 = runicode.unicode_encode_utf_8(res, size, 'strict')
         return res_utf8, len(res), size
 
+    def utf8_encode_code_page(s, errors, errorhandler, allow_surrogates=False):
+        pass
+
+    def str_decode_code_page(s, errors, final, errorhandler, force_ignore=True):
+        pass
+
+    def utf8_encode_oem(s, errors, errorhandler, allow_surrogates=False):
+        pass
+
+    def str_decode_oem(s, errors, final, errorhandler, force_ignore=True):
+        pass
+
 def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
     try:
         # fast version first
