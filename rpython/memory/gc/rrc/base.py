@@ -143,7 +143,7 @@ class RawRefCountBaseGC(object):
             if not self.gc.is_young_object(obj):
                 lst = self.p_list_old
                 if self.state == self.STATE_MARKING:
-                    debug_print("added p_list", pyobject)
+                    #debug_print("added p_list", pyobject)
                     self.p_list_old_added.append(pyobject)
         lst.append(pyobject)
         dct.setitem(obj, pyobject)
@@ -307,7 +307,7 @@ class RawRefCountBaseGC(object):
         if surviving:
             surviving_list.append(pyobject)
             if working_set:
-                debug_print("added p_list", pyobject)
+                #debug_print("added p_list", pyobject)
                 self.p_list_old_added.append(pyobject)
         else:
             self._free(pyobject)

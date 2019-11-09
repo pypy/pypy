@@ -25,6 +25,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
 
             self.state = self.STATE_MARKING
             self.marking_state = 0
+            self.pyobj_to_trace = self.gc.AddressStack()
             return False
 
         if self.state == self.STATE_MARKING:
@@ -38,7 +39,6 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 return False
             elif self.marking_state == 1:
                 # initialize working set from roots, then pause
-                self.pyobj_to_trace = self.gc.AddressStack()
                 for i in range(0, self.total_objs):
                     obj = self.snapshot_objs[i]
                     self._mark_rawrefcount_obj(obj)
@@ -104,6 +104,27 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         debug_print("time mark p_list_old", time.time() - start)
         return True
 
+    def visit_pyobj(self, gcobj):
+        # if there is a pyobj, add it to the working set
+        if self.gc.is_in_nursery(gcobj):
+            dct = self.p_dict_nurs # is this even possible?
+        else:
+            dct = self.p_dict
+        pyobject = dct.get(gcobj)
+        if pyobject <> llmemory.NULL:
+            pyobj = self._pyobj(pyobject)
+            gchdr = self.pyobj_as_gc(pyobj)
+            if gchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
+                if gchdr.c_gc_refs != self.RAWREFCOUNT_REFS_REACHABLE and \
+                        gchdr.c_gc_refs != self.RAWREFCOUNT_REFS_UNTRACKED:  # object is in snapshot
+                    pass
+                    c_gc_refs = self._pyobj_gc_refcnt_get(gchdr)
+                    index = c_gc_refs - 1
+                    snapobj = self.snapshot_objs[index]
+                    if snapobj.refcnt == 0:
+                        addr = llmemory.cast_ptr_to_adr(snapobj)
+                        self.pyobj_to_trace.append(addr)
+
     def _sync_snapshot(self):
         # sync snapshot with pyob_list:
         #  * check the consistency of "dead" objects and keep all of them
@@ -140,9 +161,6 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 consistent = pyobj.c_ob_refcnt == snapobj.refcnt_original
                 if not consistent:
                     break
-                # move to separate list
-                #self.p_list_old.remove(snapobj.pyobj) # TODO: this might be evil... do something different... -> unlink? special link?
-
                 # remove link, to free non-gc (so they won't get marked and are freed)
                 pyobj = llmemory.cast_adr_to_ptr(snapobj.pyobj, self.PYOBJ_HDR_PTR)
                 link = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
@@ -175,7 +193,6 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             else:
                 # new object, keep alive
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
-                #pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
                 pyobj = self.gc_as_pyobj(pygchdr)
                 if pyobj.c_ob_pypy_link != 0:
                     addr = llmemory.cast_int_to_adr(pyobj.c_ob_pypy_link)
@@ -219,13 +236,11 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             pygchdr = pygchdr_continue_gc
             while pygchdr <> self.pyobj_list:
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
-                #pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
                 pygchdr = pygchdr.c_gc_next
             pygchdr = self.pyobj_old_list.c_gc_next
             # resurrect "dead" objects
             while pygchdr <> self.pyobj_old_list:
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
-                #pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
                 pygchdr = pygchdr.c_gc_next
             # merge lists
             if not self._gc_list_is_empty(self.pyobj_old_list):
@@ -249,12 +264,10 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             pygchdr = pygchdr_continue_isolate
             while pygchdr <> self.pyobj_isolate_old_list:
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
-                #pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
                 pygchdr = pygchdr.c_gc_next
             # resurrect "dead" objects
             while pygchdr <> self.pyobj_isolate_dead_list:
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
-                #pygchdr.c_gc_refs = 1 << self.RAWREFCOUNT_REFS_SHIFT
                 pygchdr = pygchdr.c_gc_next
             # merge lists
             if not self._gc_list_is_empty(self.pyobj_isolate_old_list):
@@ -269,9 +282,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
     def _check_consistency_gc(self, pygchdr, pylist_dead_target):
         c_gc_refs = self._pyobj_gc_refcnt_get(pygchdr)
         snapobj = self.snapshot_objs[c_gc_refs - 1]
-        #snapobj = self.snapshot_objs[pygchdr.c_gc_refs - 1]
         self._pyobj_gc_refcnt_set(pygchdr, snapobj.refcnt)
-        #pygchdr.c_gc_refs = snapobj.refcnt
         if snapobj.refcnt == 0:  # object considered dead
             # check consistency (dead subgraphs can never change):
             pyobj = self.gc_as_pyobj(pygchdr)
@@ -358,9 +369,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 simple_limit += 1
                 if simple_limit > self.inc_limit: # TODO: add test
                     reached_limit = True
-            self.gc.visit_all_objects()  # TODO: implement sane limit (ex. half of normal limit), retrace proxies
-            self.p_list_old.foreach(self._mark_rawrefcount_linked, None)
-            self.o_list_old.foreach(self._mark_rawrefcount_linked, None)
+            self.gc.visit_all_objects()  # TODO: implement sane limit
             first = False
         return not reached_limit # are there any objects left?
 

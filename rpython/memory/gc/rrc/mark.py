@@ -12,6 +12,7 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
 
         if self.state == self.STATE_DEFAULT:
             self.state = self.STATE_MARKING
+            self.pyobj_to_trace = self.gc.AddressStack()
 
         # First, untrack all tuples with only non-gc rrc objects and promote
         # all other tuples to the pyobj_list
@@ -66,6 +67,21 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
 
         self.state = self.STATE_DEFAULT
         return True
+
+    def visit_pyobj(self, gcobj):
+        # if there is a pyobj, add it to the working set
+        if self.gc.is_in_nursery(gcobj):
+            dct = self.p_dict_nurs # is this even possible?
+        else:
+            dct = self.p_dict
+        pyobject = dct.get(gcobj)
+        if pyobject <> llmemory.NULL:
+            pyobj = self._pyobj(pyobject)
+            gchdr = self.pyobj_as_gc(pyobj)
+            if gchdr <> lltype.nullptr(self.PYOBJ_GC_HDR):
+                if gchdr.c_gc_refs >> self.RAWREFCOUNT_REFS_SHIFT == 0:
+                    addr = llmemory.cast_ptr_to_adr(gchdr)
+                    self.pyobj_to_trace.append(addr)
 
     def to_obj(self, pyobject):
         if self.use_refcntdict:
@@ -165,7 +181,6 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
         pyobj_old = self.pyobj_list
 
         # initialize working set
-        self.pyobj_to_trace = self.gc.AddressStack()
         gchdr = self.pyobj_old_list.c_gc_next
         while gchdr <> self.pyobj_old_list:
             next_old = gchdr.c_gc_next
@@ -189,8 +204,6 @@ class RawRefCountMarkGC(RawRefCountBaseGC):
                 gchdr.c_gc_refs += 1 << self.RAWREFCOUNT_REFS_SHIFT
                 self._mark_rawrefcount_obj(gchdr, pyobj_old)
             self.gc.visit_all_objects()
-            self.p_list_old.foreach(self._mark_rawrefcount_linked, None)
-            self.o_list_old.foreach(self._mark_rawrefcount_linked, None)
 
         # now all rawrefcounted objects, which are alive, have a cyclic
         # refcount > 0 or are marked

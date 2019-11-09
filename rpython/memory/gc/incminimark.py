@@ -2136,6 +2136,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             hdr.tid |= GCFLAG_VISITED
             #
+            if self.rrc_enabled: # TODO: is this safe here?
+                if self.rrc_gc.state == RawRefCountBaseGC.STATE_MARKING:
+                    self.rrc_gc.visit_pyobj(obj)
+                elif self.rrc_gc.state == RawRefCountBaseGC.STATE_GARBAGE_MARKING:
+                    hdr.tid |= GCFLAG_GARBAGE
+            #
             self.surviving_pinned_objects.append(
                 llarena.getfakearenaaddress(obj - size_gc_header))
             self.pinned_objects_in_nursery += 1
@@ -2403,11 +2409,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.collect_nonstack_roots()
                 self.visit_all_objects()
                 #
-                # If enabled, do a major collection step for rrc objects.
-                # TODO: move up before "if remaining >= estimate // 2" to
-                #       improve pause times, issues:
-                #         - (non-inc) mark expects all objects to be marked
-                #         - both do not rescan nonstack-roots
                 if self.rrc_enabled:
                     debug_print("starting rrc state:", self.rrc_gc.state)
                     debug_print("starting marking_state:", self.rrc_gc.marking_state)
@@ -2742,9 +2743,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # to also set TRACK_YOUNG_PTRS here, for the write barrier.
         hdr.tid |= GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS
 
-        if self.rrc_enabled and \
-                self.rrc_gc.state == RawRefCountBaseGC.STATE_GARBAGE_MARKING:
-            hdr.tid |= GCFLAG_GARBAGE
+        if self.rrc_enabled:
+            if self.rrc_gc.state == RawRefCountBaseGC.STATE_MARKING:
+                self.rrc_gc.visit_pyobj(obj)
+            elif self.rrc_gc.state == RawRefCountBaseGC.STATE_GARBAGE_MARKING:
+                hdr.tid |= GCFLAG_GARBAGE
 
         if self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
             #
