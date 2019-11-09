@@ -190,3 +190,13 @@ def test_issue3297():
     assert d['a'] == d['b']
     assert len(d['a']) == len(d['b'])
     assert ascii(d['a']) == ascii(d['b'])
+
+def test_exec_nonlocal():
+    x = 0
+    def set_x(value):
+        nonlocal x
+        x = value
+    set_x(1)
+    assert x == 1
+    exec('set_x(2)')
+    assert x == 2

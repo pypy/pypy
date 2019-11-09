@@ -753,13 +753,7 @@ class __extend__(pyframe.PyFrame):
         space.call_method(w_globals, 'setdefault', space.newtext('__builtins__'),
                           self.get_builtin())
 
-        plain = (self.get_w_locals() is not None and
-                 space.is_w(w_locals, self.get_w_locals()))
-        if plain:
-            w_locals = self.getdictscope()
         code.exec_code(space, w_globals, w_locals)
-        if plain:
-            self.setdictscope(w_locals)
 
     def POP_EXCEPT(self, oparg, next_instr):
         block = self.pop_block()
