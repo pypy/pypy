@@ -2,6 +2,8 @@
 
 New for PyPy - Could be incorporated into CPython regression tests.
 """
+import pytest
+
 def test_string():
     g = {}
     l = {}
@@ -19,14 +21,12 @@ def test_builtinsupply():
     assert g.has_key('__builtins__')
 
 def test_invalidglobal():
-    def f():
+    with pytest.raises(TypeError):
         exec 'pass' in 1
-    raises(TypeError,f)
 
 def test_invalidlocal():
-    def f():
+    with pytest.raises(TypeError):
         exec 'pass' in {}, 2
-    raises(TypeError,f)
 
 def test_codeobject():
     co = compile("a = 3", '<string>', 'exec')
@@ -52,9 +52,8 @@ def test_tupleglobals():
     assert g['a'] == 3
 
 def test_exceptionfallthrough():
-    def f():
+    with pytest.raises(TypeError):
         exec 'raise TypeError' in {}
-    raises(TypeError,f)
 
 def test_global_stmt():
     g = {}
@@ -154,14 +153,13 @@ def test_space_bug():
     assert d['x'] == 5
 
 def test_synerr():
-    def x():
+    with pytest.raises(SyntaxError):
         exec "1 2"
-    raises(SyntaxError, x)
 
 def test_mapping_as_locals():
     import sys
-    if sys.version_info < (2,5) or not hasattr(sys, 'pypy_objspaceclass'):
-        skip("need CPython 2.5 or PyPy for non-dictionaries in exec statements")
+    if not hasattr(sys, 'pypy_objspaceclass'):
+        skip("need PyPy for non-dictionaries in exec statements")
     class M(object):
         def __getitem__(self, key):
             return key
@@ -173,18 +171,16 @@ def test_mapping_as_locals():
     m.result = {}
     exec "x=m" in {}, m
     assert m.result == {'x': 'm'}
-    exec "y=n" in m   # NOTE: this doesn't work in CPython 2.4
+    exec "y=n" in m   # NOTE: this doesn't work in CPython
     assert m.result == {'x': 'm', 'y': 'n'}
 
 def test_filename():
-    try:
+    with pytest.raises(SyntaxError) as excinfo:
         exec "'unmatched_quote"
-    except SyntaxError as msg:
-        assert msg.filename == '<string>'
-    try:
+    assert excinfo.value.filename == '<string>'
+    with pytest.raises(SyntaxError) as excinfo:
         eval("'unmatched_quote")
-    except SyntaxError as msg:
-        assert msg.filename == '<string>'
+    assert excinfo.value.filename == '<string>'
 
 def test_exec_and_name_lookups():
     ns = {}
@@ -193,13 +189,7 @@ def test_exec_and_name_lookups():
         return x""" in ns
 
     f = ns['f']
-
-    try:
-        res = f()
-    except NameError as e: # keep py.test from exploding confused
-        raise e
-
-    assert res == 1
+    assert f() == 1
 
 def test_exec_unicode():
     # 's' is a string
