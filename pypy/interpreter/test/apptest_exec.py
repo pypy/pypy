@@ -38,7 +38,7 @@ def test_codeobject():
 def test_implicit():
     a = 4
     exec("a = 3")
-    assert a == 3
+    assert a == 4
 
 def test_tuplelocals():
     g = {}
@@ -79,7 +79,7 @@ def test_specialcase_free_load2():
             exec('a=3')
             return a
         x = f(4)\n""")
-    assert eval("x") == 3
+    assert eval("x") == 4
 
 def test_nested_names_are_not_confused():
     def get_nested_class():
