@@ -43,7 +43,7 @@ working_modules.update([
 # --sandbox
 sandbox_modules = default_modules.copy()
 sandbox_modules.update([
-    "struct", "cStringIO", "itertools", "array", "binascii",
+    "struct", "cStringIO", "itertools", "array", "binascii", "unicodedata",
 ])
 
 import rpython.rlib.rvmprof.cintf
