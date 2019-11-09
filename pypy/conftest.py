@@ -185,7 +185,9 @@ def pytest_runtest_setup(item):
             from pypy.tool.pytest.objspace import gettestobjspace
             # Make cls.space and cls.runappdirect available in tests.
             spaceconfig = getattr(appclass.obj, 'spaceconfig', {})
-            spaceconfig.setdefault('objspace.std.reinterpretasserts', True)
+            config = item.config
+            if not (config.getoption('runappdirect') or config.getoption('direct_apptest')):
+                spaceconfig.setdefault('objspace.std.reinterpretasserts', True)
             appclass.obj.space = gettestobjspace(**spaceconfig)
             appclass.obj.runappdirect = option.runappdirect
 
