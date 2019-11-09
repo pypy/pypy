@@ -2,6 +2,8 @@
 
 New for PyPy - Could be incorporated into CPython regression tests.
 """
+import pytest
+
 def test_string():
     g = {}
     l = {}
@@ -19,14 +21,12 @@ def test_builtinsupply():
     assert '__builtins__' in g
 
 def test_invalidglobal():
-    def f():
+    with pytest.raises(TypeError):
         exec('pass', 1)
-    raises(TypeError, f)
 
 def test_invalidlocal():
-    def f():
+    with pytest.raises(TypeError):
         exec('pass', {}, 2)
-    raises(TypeError, f)
 
 def test_codeobject():
     co = compile("a = 3", '<string>', 'exec')
@@ -52,9 +52,8 @@ def test_tupleglobals():
     assert g['a'] == 3
 
 def test_exceptionfallthrough():
-    def f():
+    with pytest.raises(TypeError):
         exec('raise TypeError', {})
-    raises(TypeError, f)
 
 def test_global_stmt():
     g = {}
@@ -67,11 +66,12 @@ def test_global_stmt():
     assert g['a'] == 5
 
 def test_specialcase_free_load():
-    exec("""if 1:
-        def f():
-            exec('a=3')
-            return a
-        raises(NameError, f)\n""")
+    def f():
+        exec('a=3')
+        return a
+
+    with raises(NameError):
+        f()
 
 def test_specialcase_free_load2():
     exec("""if 1:
@@ -116,9 +116,8 @@ def test_space_bug():
     assert d['x'] == 5
 
 def test_synerr():
-    def x():
+    with pytest.raises(SyntaxError):
         exec("1 2")
-    raises(SyntaxError, x)
 
 def test_mapping_as_locals():
     class M(object):
@@ -132,23 +131,18 @@ def test_mapping_as_locals():
     m.result = {}
     exec("x=m", {}, m)
     assert m.result == {'x': 'm'}
-    try:
+    with raises(TypeError):
         exec("y=n", m)
-    except TypeError:
-        pass
-    else:
-        assert False, 'Expected TypeError'
-    raises(TypeError, eval, "m", m)
+    with raises(TypeError):
+        eval("m", m)
 
 def test_filename():
-    try:
+    with pytest.raises(SyntaxError) as excinfo:
         exec("'unmatched_quote")
-    except SyntaxError as msg:
-        assert msg.filename == '<string>'
-    try:
+    assert excinfo.value.filename == '<string>'
+    with pytest.raises(SyntaxError) as excinfo:
         eval("'unmatched_quote")
-    except SyntaxError as msg:
-        assert msg.filename == '<string>'
+    assert excinfo.value.filename == '<string>'
 
 def test_exec_and_name_lookups():
     ns = {}
@@ -157,13 +151,7 @@ def test_exec_and_name_lookups():
         return x\n""", ns)
 
     f = ns['f']
-
-    try:
-        res = f()
-    except NameError as e: # keep py.test from exploding confused
-        raise e
-
-    assert res == 1
+    assert f() == 1
 
 def test_exec_unicode():
     # 's' is a bytes string
