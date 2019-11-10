@@ -35,8 +35,9 @@ def verify(ffi, module_name, source, *args, **kwds):
         source = 'extern "C" {\n%s\n}' % (source,)
     elif sys.platform != 'win32':
         # add '-Werror' to the existing 'extra_compile_args' flags
+        from extra_tests.cffi_tests.support import extra_compile_args
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
-                                      ['-Werror'])
+                                      extra_compile_args)
     return _verify(ffi, module_name, source, *args, **kwds)
 
 def test_set_source_no_slashes():
@@ -2039,7 +2040,7 @@ def test_function_returns_float_complex():
     ffi.cdef("float _Complex f1(float a, float b);");
     lib = verify(ffi, "test_function_returns_float_complex", """
         #include <complex.h>
-        static float _Complex f1(float a, float b) { return a + I*2.0*b; }
+        static float _Complex f1(float a, float b) { return a + I*2.0f*b; }
     """, no_cpp=True)    # <complex.h> fails on some systems with C++
     result = lib.f1(1.25, 5.1)
     assert type(result) == complex

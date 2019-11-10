@@ -10,7 +10,7 @@ except ImportError as e:
     import os
     msg = "\n\nThe _ssl cffi module either doesn't exist or is incompatible with your machine's shared libraries.\n" + \
           "If you have a compiler installed, you can try to rebuild it by running:\n" + \
-          "cd %s\n" % os.path.abspath(os.path.dirname(os.path.dirname(__file__))) + \
+          "cd %s\n" % os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) + \
           "%s _ssl_build.py\n" % sys.executable
     raise ImportError(str(e) + msg)
 
