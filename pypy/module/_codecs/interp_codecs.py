@@ -708,10 +708,40 @@ for decoder in [
 if getattr(unicodehelper, '_WIN32', False):
     make_encoder_wrapper('mbcs_encode')
     make_decoder_wrapper('mbcs_decode')
-    make_encoder_wrapper('code_page_encode')
-    make_decoder_wrapper('code_page_decode')
     make_encoder_wrapper('oem_encode')
     make_decoder_wrapper('oem_decode')
+
+    # need to add the code_page argument
+
+    @unwrap_spec(code_page=int, errors='text_or_none')
+    def code_page_encode(space, code_page, w_arg, errors="strict"):
+        # w_arg is a W_Unicode or W_Bytes?
+        w_arg = space.convert_arg_to_w_unicode(w_arg, errors)
+        if errors is None:
+            errors = 'strict'
+        allow_surrogates = False
+        if errors in ('surrogatepass',):
+            allow_surrogates = True
+        state = space.fromcache(CodecState)
+        ulen = w_arg._length
+        result = unicodehelper.utf8_encode_code_page(code_page, w_arg._utf8,
+                      errors, state.encode_error_handler,
+                      allow_surrogates=allow_surrogates)
+        return space.newtuple([space.newbytes(result), space.newint(ulen)])
+
+    @unwrap_spec(code_page=int, string='bufferstr', errors='text_or_none',
+                 w_final=WrappedDefault(False))
+    def code_page_decode(space, code_page, string, errors="strict", w_final=None):
+        if errors is None:
+            errors = 'strict'
+        final = space.is_true(w_final)
+        state = space.fromcache(CodecState)
+        result, length, pos = unicodehelper.str_decode_code_page(code_page,
+                                   string, errors, final,
+                                   state.decode_error_handler)
+        # must return bytes, pos
+        return space.newtuple([space.newutf8(result, length), space.newint(pos)])
+
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"

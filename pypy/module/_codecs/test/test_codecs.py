@@ -432,6 +432,100 @@ class AppTestCodecs:
             assert((b'aaaa' + seq + b'bbbb').decode('utf-8', 'ignore') ==
                           'aaaa' + res + 'bbbb')
 
+@pytest.mark.skipif(sys.platform != 'win32', reason='win32-only')
+class AppTestCodePage:
+    spaceconfig = {
+    }
+
+    def test_code_pages(self):
+        import _codecs as codecs
+        def check_decode(cp, test):
+            raw, errors, expected  = test
+            if expected is not None:
+                try:
+                    decoded = codecs.code_page_decode(cp, raw, errors, True)
+                except UnicodeDecodeError as err:
+                    assert False, ('Unable to decode %a from "cp%s" with '
+                              'errors=%r: %s' % (raw, cp, errors, err))
+                assert decoded[0] == expected, ('%a.decode("cp%s", %r)=%a != %a'
+                    % (raw, cp, errors, decoded[0], expected))
+                assert decoded[1] >= 0
+                assert decoded[1] <= len(raw)
+            else:
+                raises(UnicodeDecodeError,
+                    codecs.code_page_decode, cp, raw, errors, True)
+
+        def check_encode(cp, test):
+            text, errors, expected = test
+            if expected is not None:
+                try:
+                    encoded = codecs.code_page_encode(cp, text, errors)
+                except UnicodeEncodeError as err:
+                    assert False, ('Unable to encode %a to "cp%s" with '
+                              'errors=%r: %s' % (text, cp, errors, err))
+                assert encoded[0] == expected, ('%a.encode("cp%s", %r)=%a != %a'
+                    % (text, cp, errors, encoded[0], expected))
+                assert encoded[1] == len(text)
+            else:
+                raises(UnicodeEncodeError,
+                    codecs.code_page_encode, cp, text, errors)
+
+        for test in (
+                (u'abc', 'strict', b'abc'),
+                (u'\uff44\u9a3e', 'strict', b'\x82\x84\xe9\x80'),
+                # test error handlers
+                (u'\xff', 'strict', None),
+                (u'[\xff]', 'ignore', b'[]'),
+                (u'[\xff]', 'replace', b'[y]'),
+                (u'[\u20ac]', 'replace', b'[?]'),
+                (u'[\xff]', 'backslashreplace', b'[\\xff]'),
+                (u'[\xff]', 'namereplace',
+                 b'[\\N{LATIN SMALL LETTER Y WITH DIAERESIS}]'),
+                (u'[\xff]', 'xmlcharrefreplace', b'[&#255;]'),
+                (u'\udcff', 'strict', None),
+                (u'[\udcff]', 'surrogateescape', b'[\xff]'),
+                (u'[\udcff]', 'surrogatepass', None),
+            ):
+            check_encode(932, test)
+
+        for test in (
+                (b'abc', 'strict', u'abc'),
+                (b'\x82\x84\xe9\x80', 'strict', u'\uff44\u9a3e'),
+                # invalid bytes
+                (b'[\xff]', 'strict', None),
+                (b'[\xff]', 'ignore', u'[]'),
+                (b'[\xff]', 'replace', u'[\ufffd]'),
+                (b'[\xff]', 'backslashreplace', u'[\\xff]'),
+                (b'[\xff]', 'surrogateescape', u'[\udcff]'),
+                (b'[\xff]', 'surrogatepass', None),
+                (b'\x81\x00abc', 'strict', None),
+                (b'\x81\x00abc', 'ignore', u'\x00abc'),
+                (b'\x81\x00abc', 'replace', u'\ufffd\x00abc'),
+                (b'\x81\x00abc', 'backslashreplace', u'\\x81\x00abc'),
+            ):
+            check_decode(932, test)
+
+        for test in (
+                (u'abc', 'strict', b'abc'),
+                (u'\xe9\u20ac', 'strict',  b'\xe9\x80'),
+                (u'\xff', 'strict', b'\xff'),
+                # test error handlers
+                (u'\u0141', 'strict', None),
+                (u'\u0141', 'ignore', b''),
+                (u'\u0141', 'replace', b'L'),
+                (u'\udc98', 'surrogateescape', b'\x98'),
+                (u'\udc98', 'surrogatepass', None),
+            ):
+            check_encode(1252, test)
+
+        for test in (
+                (b'abc', 'strict', u'abc'),
+                (b'\xe9\x80', 'strict', u'\xe9\u20ac'),
+                (b'\xff', 'strict', u'\xff'),
+            ):
+            check_decode(1252, test)
+
+
 
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=['array',])
