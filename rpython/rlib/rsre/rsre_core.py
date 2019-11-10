@@ -96,8 +96,10 @@ class CompiledPattern(object):
     def __init__(self, pattern):
         self.pattern = pattern
         # check we don't get the old value of MAXREPEAT
-        # during the untranslated tests
-        if not we_are_translated():
+        # during the untranslated tests. 
+        # On python3, MAXCODE can appear in patterns. It will be 65535
+        # when CODESIZE is 2
+        if not we_are_translated() and rsre_char.CODESIZE != 2:
             assert 65535 not in pattern
 
     def pat(self, index):
