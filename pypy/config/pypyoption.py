@@ -218,10 +218,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
                    default=False),
-        BoolOption("reinterpretasserts",
-                   "Perform reinterpretation when an assert fails "
-                   "(only relevant for tests)",
-                   default=False),
      ]),
 ])
 
