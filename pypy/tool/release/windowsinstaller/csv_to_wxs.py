@@ -21,8 +21,44 @@ import re
 import sys
 
 from collections import defaultdict
-from itertools import chain, zip_longest
-from pathlib import PureWindowsPath
+try:
+    from itertools import chain, zip_longest
+    from pathlib import PureWindowsPath
+except ImportError:
+    #python2
+    from itertools import chain, izip_longest as zip_longest
+    import os
+    class PureWindowsPath(object):
+        def __init__(self, path):
+            self.path = path
+        @property
+        def suffix(self):
+            return os.path.splitext(self.path)[1]
+        @property
+        def parents(self):
+            p = self.path
+            ret = [self]
+            while True:
+                p_new = os.path.dirname(p)
+                if not p_new or p_new == p:
+                    break
+                ret.append(type(self)(p_new))
+                p = p_new
+            return ret[:-1]
+        @property
+        def parent(self):
+            return type(self)(os.path.dirname(self.path))
+        @property
+        def name(self):
+            return os.path.split(self.path)[1]
+        def __str__(self):
+            return self.path
+        def __hash__(self):
+            return hash(self.path)
+        def __eq__(self, other):
+            return self.path == str(other)
+
+    from io import open
 from uuid import uuid1
 
 ID_CHAR_SUBS = {
@@ -115,14 +151,21 @@ def main(file_source, install_target):
     # that we can skip rebuilding.
     try:
         with open(install_target, 'r') as f:
-            if all(x.rstrip('\r\n') == y for x, y in zip_longest(f, lines)):
-                print('File is up to date')
+            lasti = 0
+            for i, line in enumerate(f):
+                if i >=len(lines) or line != lines[i]:
+                    break
+                lasti = i
+            else:
+                if lasti == len(lines):
+                    print('File is up to date')
                 return
     except IOError:
         pass
 
     with open(install_target, 'w') as f:
-        f.writelines(line + '\n' for line in lines)
+        f.write(u'\n'.join(lines))
+        f.write(u'\n')
     print('Wrote {} lines to {}'.format(len(lines), install_target))
 
 if __name__ == '__main__':

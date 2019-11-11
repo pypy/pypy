@@ -64,7 +64,7 @@
     <PyArchExt Condition="'$(ArchName)' == 'win32'">-32</PyArchExt>
     
     <!-- Full path of the resulting python.exe binary -->
-    <PythonExe Condition="'$(PythonExe)' == ''">$(InterpreterPath)pypy3-c$(PyDebugExt).exe</PythonExe>
+    <PythonExe Condition="'$(PythonExe)' == ''">$(InterpreterPath)pypy-c$(PyDebugExt).exe</PythonExe>
   </PropertyGroup>
   
   <PropertyGroup Condition="$(DefaultWindowsSDKVersion) == ''">
@@ -99,7 +99,7 @@
         ReleaseLevelNumber  -   10 for alpha, 11 for beta, 12 for RC (gamma), and 15 for final
         Field3Value         -   2101 for '3.5.2a1' (== 1000*2 + 10*10 ('a') + 1)
     -->
-    <_PatchLevelContent>$([System.IO.File]::ReadAllText(`$(PySourcePath)Include\patchlevel.h`))</_PatchLevelContent>
+    <_PatchLevelContent>$([System.IO.File]::ReadAllText(`$(PySourcePath)pypy\module\cpyext\include\patchlevel.h`))</_PatchLevelContent>
     <MajorVersionNumber>$([System.Text.RegularExpressions.Regex]::Match($(_PatchLevelContent), `define\s+PY_MAJOR_VERSION\s+(\d+)`).Groups[1].Value)</MajorVersionNumber>
     <MinorVersionNumber>$([System.Text.RegularExpressions.Regex]::Match($(_PatchLevelContent), `define\s+PY_MINOR_VERSION\s+(\d+)`).Groups[1].Value)</MinorVersionNumber>
     <MicroVersionNumber>$([System.Text.RegularExpressions.Regex]::Match($(_PatchLevelContent), `define\s+PY_MICRO_VERSION\s+(\d+)`).Groups[1].Value)</MicroVersionNumber>

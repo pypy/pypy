@@ -5,9 +5,9 @@
   <Bundle Name="!(loc.FullProductName)"
           UpgradeCode="$(var.CoreUpgradeCode)"
           Version="$(var.Version)"
-          IconSourceFile="..\..\..\PC\icons\setup.ico"
+          IconSourceFile="..\..\..\PCbuild\setup.ico"
           Manufacturer="!(loc.Manufacturer)"
-          AboutUrl="http://www.python.org/"
+          AboutUrl="http://www.pypy.org/"
           Compressed="no"
           dep:ProviderKey="CPython-$(var.MajorVersionNumber).$(var.MinorVersionNumber)$(var.PyArchExt)$(var.PyTestExt)">
     <BootstrapperApplication Id="PythonBA" SourceFile="$(var.BootstrapApp)">

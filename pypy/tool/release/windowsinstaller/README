@@ -9,7 +9,6 @@ https://marketplace.visualstudio.com/items?itemName=RobMensching.WixToolsetVisua
     
 Steps:
     1. Translate the interpretter from the \pypy\goal folder.
-    2. Remove all __pycache__ directories (maybe do this in the script?)
-    3. Run buildrelease.bat from the visual studio command line.
+    2. Run buildrelease.bat from the top level directory.
 
-Now you should have .\PCbuild\win32\en-us\pypy-3.5.3.6609.exe
+Now you should have .\PCbuild\win32\en-us\pypy-*.exe

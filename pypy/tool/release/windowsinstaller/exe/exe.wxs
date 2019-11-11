@@ -19,8 +19,8 @@
         <Feature Id="Shortcuts" AllowAdvertise="no" Title="!(loc.Title)" Description="!(loc.Description)">
 			<ComponentGroupRef Id="exe_pypy" />
             <Component Id="exe_shortcut" Directory="MenuDir" Guid="*">
-                <Shortcut Id="pypy3_c"
-                          Target="[#pypy3_c]"
+                <Shortcut Id="pypy_c"
+                          Target="[#pypy_c]"
                           Name="!(loc.ShortcutName)"
                           Description="!(loc.ShortcutDescription)"
                           WorkingDirectory="InstallDirectory" />
