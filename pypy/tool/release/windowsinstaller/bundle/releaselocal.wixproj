@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{5E95D46C-119F-449E-BE0E-AE92B78570C8}</ProjectGuid>
+        <OutputName>pypy</OutputName>
+        <OutputSuffix></OutputSuffix>
+    </PropertyGroup>
+
+    <Import Project="..\msi.props" />
+
+    <PropertyGroup>
+        <DefineConstants>
+            $(DefineConstants);
+            CompressMSI=yes;
+            CompressPDB=no;
+            CompressMSI_D=no
+        </DefineConstants>
+    </PropertyGroup>
+    
+    <Import Project="bundle.targets" />
+</Project>
