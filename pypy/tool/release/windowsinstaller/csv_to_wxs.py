@@ -50,6 +50,8 @@ def main(file_source, install_target):
     cache_directories = defaultdict(set)
     groups = defaultdict(list)
     for source, target, group, disk_id, condition in files:
+        if '__pycache__' in target:
+            continue
         target = PureWindowsPath(target)
         groups[group].append((source, target, disk_id, condition))
 
