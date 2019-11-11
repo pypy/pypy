@@ -1008,11 +1008,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 attr = target.value
                 self._annotation_evaluate(attr)
         elif isinstance(target, ast.Subscript):
-            # similar to the above, `a[0:5]: int` evaluates the name and the slice argument
-            # and if not in a function, also evaluates the annotation
-            sl = target.slice
-            self._annotation_evaluate(target.value)
-            self._annotation_eval_slice(sl)
+            if not assign.value:
+                # similar to the above, `a[0:5]: int` evaluates the name and the slice argument
+                # and if not in a function, also evaluates the annotation
+                sl = target.slice
+                self._annotation_evaluate(target.value)
+                self._annotation_eval_slice(sl)
         else:
             self.error("can't handle annotation with %s" % (target,), target)
         # if this is not in a function, evaluate the annotation
