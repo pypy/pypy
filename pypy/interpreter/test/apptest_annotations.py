@@ -56,12 +56,8 @@ def test_unevaluated_name():
     C()
 
 def test_nonexistent_target():
-    try:
-        # this is invalid because `y` is undefined
-        # it should raise a NameError
+    with pytest.raises(NameError):
         y[0]: invalid
-    except NameError:
-        ...
 
 def test_non_simple_func_annotation():
     a = 5
@@ -136,3 +132,36 @@ def test_scoping():
         assert C.__annotations__ == {"cls": "abc"}
 
     f("abc")
+
+def test_side_effects():
+    calls = 0
+    def foo():
+        nonlocal calls
+        calls += 1
+    foo()
+    assert calls == 1
+    exec("foo()")
+    assert calls == 2
+    d = {}
+    exec("a: foo() = 1")
+    exec("b: foo()")
+    assert calls == 4
+    c = None
+    exec("c[foo()]: int")
+    assert calls == 5
+    def g():
+        c = None
+        c[foo()]: int
+    assert calls == 5
+    g()
+    assert calls == 6
+
+def test_side_effects_2():
+    calls = 0
+    def foo():
+        nonlocal calls
+        calls += 1
+    d = {}
+    exec("d[foo()]: int = 1")
+    assert d[None] == 1
+    assert calls == 1
