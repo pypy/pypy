@@ -9,7 +9,7 @@ def Py_UNICODE_HIGH_SURROGATE(ch):
    return rffi.cast(lltype.UniChar, 0xD800 - (0x10000 >> 10) + ((ch) >> 10))
 
 def Py_UNICODE_LOW_SURROGATE(ch):
-    return rffi.cast(lltype.uniChar, 0xDC00 + ((ch) & 0x3FF))
+    return rffi.cast(lltype.UniChar, 0xDC00 + ((ch) & 0x3FF))
 
 if rffi.sizeof(rffi.INT) < rffi.sizeof(rffi.SIZE_T):
     NEED_RETRY = True
