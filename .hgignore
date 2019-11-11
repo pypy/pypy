@@ -79,8 +79,12 @@ syntax: regexp
 ^lib_pypy/_curses_cffi_check.c
 ^lib_pypy/_pypy_openssl.c
 ^lib_pypy/.+.o$
+^lib_pypy/.+.obj$
+^lib_pypy/.+.exp$
+^lib_pypy/.+.lib$
 ^lib_pypy/.+.so$
 ^lib_pypy/.+.pyd$
+^lib_pypy/.+.manifest$
 ^lib_pypy/Release/
 ^pypy/doc/discussion/.+\.html$
 ^include/.+\.h$
@@ -100,4 +104,5 @@ syntax: regexp
 .hypothesis/
 ^release/
 ^rpython/_cache$
-
+^PCbuild/obj$
+^PCbuild/win32$
