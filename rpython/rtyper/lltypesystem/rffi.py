@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import Symbolic, specialize
+from rpython.rlib.objectmodel import Symbolic, specialize, not_rpython
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
 from rpython.rlib import rarithmetic, rgc
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -269,10 +269,11 @@ def llexternal(name, args, result, _callable=None,
             arg = args[i]
             if TARGET == CCHARP or TARGET is VOIDP:
                 if arg is None:
+                    from rpython.rtyper.annlowlevel import llstr
                     arg = lltype.nullptr(CCHARP.TO)   # None => (char*)NULL
-                    to_free = to_free + (arg, '\x04')
+                    to_free = to_free + (arg, llstr(None), '\x04')
                 elif isinstance(arg, str):
-                    tup = get_nonmovingbuffer_final_null(arg)
+                    tup = get_nonmovingbuffer_ll_final_null(arg)
                     to_free = to_free + tup
                     arg = tup[0]
                 elif isinstance(arg, unicode):
@@ -306,10 +307,10 @@ def llexternal(name, args, result, _callable=None,
             arg = args[i]
             if TARGET == CCHARP or TARGET is VOIDP:
                 if arg is None:
-                    to_free = to_free[2:]
+                    to_free = to_free[3:]
                 elif isinstance(arg, str):
-                    free_nonmovingbuffer(arg, to_free[0], to_free[1])
-                    to_free = to_free[2:]
+                    free_nonmovingbuffer_ll(to_free[0], to_free[1], to_free[2])
+                    to_free = to_free[3:]
             elif TARGET == CWCHARP:
                 if arg is None:
                     to_free = to_free[1:]
@@ -506,7 +507,7 @@ TYPES += ['signed char', 'unsigned char',
 # This is a bit of a hack since we can't use rffi_platform here.
 try:
     sizeof_c_type('__int128_t', ignore_errors=True)
-    TYPES += ['__int128_t']
+    TYPES += ['__int128_t', '__uint128_t']
 except CompilationError:
     pass
 
@@ -538,7 +539,8 @@ def populate_inttypes():
         if name.startswith('unsigned'):
             name = 'u' + name[9:]
             signed = False
-        elif name == 'size_t' or name.startswith('uint'):
+        elif (name == 'size_t' or name.startswith('uint')
+                               or name.startswith('__uint')):
             signed = False
         else:
             signed = True
@@ -834,84 +836,85 @@ def make_string_mappings(strtype):
         return assert_str0(charpsize2str(cp, size))
     charp2str._annenforceargs_ = [lltype.SomePtr(TYPEP)]
 
-    # str -> char*, flag
+    # str -> (buf, llobj, flag)
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
-    def get_nonmovingbuffer(data):
+    def get_nonmovingbuffer_ll(data):
         """
         Either returns a non-moving copy or performs neccessary pointer
         arithmetic to return a pointer to the characters of a string if the
         string is already nonmovable or could be pinned.  Must be followed by a
-        free_nonmovingbuffer call.
+        free_nonmovingbuffer_ll call.
 
-        Also returns a char:
-         * \4: no pinning, returned pointer is inside 'data' which is nonmovable
-         * \5: 'data' was pinned, returned pointer is inside
+        The return type is a 3-tuple containing the "char *" result,
+        a pointer to the low-level string object, and a flag as a char:
+
+         * \4: no pinning, returned pointer is inside nonmovable 'llobj'
+         * \5: 'llobj' was pinned, returned pointer is inside
          * \6: pinning failed, returned pointer is raw malloced
 
         For strings (not unicodes), the len()th character of the resulting
         raw buffer is available, but not initialized.  Use
-        get_nonmovingbuffer_final_null() instead of get_nonmovingbuffer()
+        get_nonmovingbuffer_ll_final_null() instead of get_nonmovingbuffer_ll()
         to get a regular null-terminated "char *".
         """
 
-        lldata = llstrtype(data)
+        llobj = llstrtype(data)
         count = len(data)
 
         if rgc.must_split_gc_address_space():
             flag = '\x06'    # always make a copy in this case
-        elif we_are_translated_to_c() and not rgc.can_move(data):
+        elif we_are_translated_to_c() and not rgc.can_move(llobj):
             flag = '\x04'    # no copy needed
         else:
-            if we_are_translated_to_c() and rgc.pin(data):
+            if we_are_translated_to_c() and rgc.pin(llobj):
                 flag = '\x05'     # successfully pinned
             else:
                 flag = '\x06'     # must still make a copy
         if flag == '\x06':
             buf = lltype.malloc(TYPEP.TO, count + (TYPEP is CCHARP),
                                 flavor='raw')
-            copy_string_to_raw(lldata, buf, 0, count)
-            return buf, '\x06'
+            copy_string_to_raw(llobj, buf, 0, count)
+            return buf, llobj, '\x06'
             # ^^^ raw malloc used to get a nonmovable copy
         #
         # following code is executed after we're translated to C, if:
         # - rgc.can_move(data) and rgc.pin(data) both returned true
         # - rgc.can_move(data) returned false
-        data_start = cast_ptr_to_adr(lldata) + \
+        data_start = cast_ptr_to_adr(llobj) + \
             offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
 
-        return cast(TYPEP, data_start), flag
+        return cast(TYPEP, data_start), llobj, flag
         # ^^^ already nonmovable. Therefore it's not raw allocated nor
         # pinned.
-    get_nonmovingbuffer._always_inline_ = 'try' # get rid of the returned tuple
-    get_nonmovingbuffer._annenforceargs_ = [strtype]
+    get_nonmovingbuffer_ll._always_inline_ = 'try' # get rid of the returned tuple
+    get_nonmovingbuffer_ll._annenforceargs_ = [strtype]
 
 
     @jit.dont_look_inside
-    def get_nonmovingbuffer_final_null(data):
-        tup = get_nonmovingbuffer(data)
-        buf, flag = tup
+    def get_nonmovingbuffer_ll_final_null(data):
+        tup = get_nonmovingbuffer_ll(data)
+        buf = tup[0]
         buf[len(data)] = lastchar
         return tup
-    get_nonmovingbuffer_final_null._always_inline_ = 'try'
-    get_nonmovingbuffer_final_null._annenforceargs_ = [strtype]
+    get_nonmovingbuffer_ll_final_null._always_inline_ = 'try'
+    get_nonmovingbuffer_ll_final_null._annenforceargs_ = [strtype]
 
-    # (str, char*, char) -> None
+    # args-from-tuple-returned-by-get_nonmoving_buffer() -> None
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
-    def free_nonmovingbuffer(data, buf, flag):
+    def free_nonmovingbuffer_ll(buf, llobj, flag):
         """
-        Keep 'data' alive and unpin it if it was pinned (flag==\5).
+        Keep 'llobj' alive and unpin it if it was pinned (flag==\5).
         Otherwise free the non-moving copy (flag==\6).
         """
         if flag == '\x05':
-            rgc.unpin(data)
+            rgc.unpin(llobj)
         if flag == '\x06':
             lltype.free(buf, flavor='raw')
         # if flag == '\x04': data was already nonmovable,
         # we have nothing to clean up
-        keepalive_until_here(data)
-    free_nonmovingbuffer._annenforceargs_ = [strtype, None, None]
+        keepalive_until_here(llobj)
 
     # int -> (char*, str, int)
     # Can't inline this because of the raw address manipulation.
@@ -1001,23 +1004,93 @@ def make_string_mappings(strtype):
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
-            get_nonmovingbuffer, free_nonmovingbuffer,
-            get_nonmovingbuffer_final_null,
+            get_nonmovingbuffer_ll, free_nonmovingbuffer_ll,
+            get_nonmovingbuffer_ll_final_null,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
             charp2strn, charpsize2str, str2chararray, str2rawmem,
             )
 
 (str2charp, free_charp, charp2str,
- get_nonmovingbuffer, free_nonmovingbuffer, get_nonmovingbuffer_final_null,
+ get_nonmovingbuffer_ll, free_nonmovingbuffer_ll,
+ get_nonmovingbuffer_ll_final_null,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
  charp2strn, charpsize2str, str2chararray, str2rawmem,
  ) = make_string_mappings(str)
 
 (unicode2wcharp, free_wcharp, wcharp2unicode,
- get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer, __not_usable,
+ get_nonmoving_unicodebuffer_ll, free_nonmoving_unicodebuffer_ll, __not_usable,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
  wcharp2unicoden, wcharpsize2unicode, unicode2wchararray, unicode2rawmem,
  ) = make_string_mappings(unicode)
+
+
+@not_rpython
+def _deprecated_get_nonmovingbuffer(*args):
+    raise Exception(
+"""The function rffi.get_nonmovingbuffer() has been removed because
+it was unsafe.  Use rffi.get_nonmovingbuffer_ll() instead.  It returns
+a 3-tuple instead of a 2-tuple, and all three arguments must be passed
+to rffi.free_nonmovingbuffer_ll() (instead of the original string and the
+two tuple items).  Or else, use a high-level API like
+'with rffi.scoped_nonmovingbuffer()'.""")
+
+get_nonmovingbuffer = _deprecated_get_nonmovingbuffer
+get_nonmovingbuffer_final_null = _deprecated_get_nonmovingbuffer
+free_nonmovingbuffer = _deprecated_get_nonmovingbuffer
+
+
+def wcharpsize2utf8(w, size):
+    """ Helper to convert WCHARP pointer to utf8 in one go.
+    Equivalent to wcharpsize2unicode().encode("utf8")
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
+    """
+    from rpython.rlib import rutf8
+
+    s = StringBuilder(size)
+    for i in range(size):
+        rutf8.unichr_as_utf8_append(s, ord(w[i]), True)
+    return s.build()
+
+def wcharp2utf8(w):
+    """
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
+    """
+    from rpython.rlib import rutf8
+
+    s = rutf8.Utf8StringBuilder()
+    i = 0
+    while ord(w[i]):
+        s.append_code(ord(w[i]))
+        i += 1
+    return s.build(), i
+
+def wcharp2utf8n(w, maxlen):
+    """
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
+    """
+    from rpython.rlib import rutf8
+
+    s = rutf8.Utf8StringBuilder(maxlen)
+    i = 0
+    while i < maxlen and ord(w[i]):
+        s.append_code(ord(w[i]))
+        i += 1
+    return s.build(), i
+
+def utf82wcharp(utf8, utf8len, track_allocation=True):
+    from rpython.rlib import rutf8
+
+    if track_allocation:
+        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=True)
+    else:
+        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=False)
+    index = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        w[index] = unichr(ch)
+        index += 1
+    w[index] = unichr(0)
+    return w
+utf82wcharp._annenforceargs_ = [str, int, bool]
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
@@ -1245,18 +1318,29 @@ class scoped_unicode2wcharp:
         if self.buf:
             free_wcharp(self.buf)
 
+class scoped_utf82wcharp:
+    def __init__(self, value, unicode_len):
+        if value is not None:
+            self.buf = utf82wcharp(value, unicode_len)
+        else:
+            self.buf = lltype.nullptr(CWCHARP.TO)
+    def __enter__(self):
+        return self.buf
+    def __exit__(self, *args):
+        if self.buf:
+            free_wcharp(self.buf)
+
 
 class scoped_nonmovingbuffer:
 
     def __init__(self, data):
-        self.data = data
+        self.buf, self.llobj, self.flag = get_nonmovingbuffer_ll(data)
     __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=False)]
 
     def __enter__(self):
-        self.buf, self.flag = get_nonmovingbuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmovingbuffer(self.data, self.buf, self.flag)
+        free_nonmovingbuffer_ll(self.buf, self.llobj, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
@@ -1268,25 +1352,24 @@ class scoped_view_charp:
     content of the 'char[]' array will not be modified.
     """
     def __init__(self, data):
-        self.data = data
+        self.buf, self.llobj, self.flag = get_nonmovingbuffer_ll_final_null(
+            data)
     __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=False)]
     def __enter__(self):
-        self.buf, self.flag = get_nonmovingbuffer_final_null(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmovingbuffer(self.data, self.buf, self.flag)
+        free_nonmovingbuffer_ll(self.buf, self.llobj, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
 
 class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
-        self.data = data
+        self.buf, self.llobj, self.flag = get_nonmoving_unicodebuffer_ll(data)
     def __enter__(self):
-        self.buf, self.flag = get_nonmoving_unicodebuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmoving_unicodebuffer(self.data, self.buf, self.flag)
+        free_nonmoving_unicodebuffer_ll(self.buf, self.llobj, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'

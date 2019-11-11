@@ -182,7 +182,7 @@ class TestTypeDef:
         self.space.appexec([w_obj], """(obj):
             assert type(obj).__hash__ is None
             err = raises(TypeError, hash, obj)
-            assert str(err.value) == "'some_type' objects are unhashable"
+            assert str(err.value) == "unhashable type: 'some_type'"
             """)
 
     def test_destructor(self):
@@ -200,7 +200,7 @@ class TestTypeDef:
         w_seen = space.newlist([])
         W_Level1(space)
         gc.collect(); gc.collect()
-        assert space.str_w(space.repr(w_seen)) == "[]"  # not called yet
+        assert space.text_w(space.repr(w_seen)) == "[]"  # not called yet
         ec = space.getexecutioncontext()
         self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [1]   # called by user_del_action

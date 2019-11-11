@@ -436,6 +436,8 @@ class Morsel(dict):
                 append("%s=%s" % (self._reserved[key], _getdate(value)))
             elif key == "max-age" and isinstance(value, int):
                 append("%s=%d" % (self._reserved[key], value))
+            elif key == "comment" and isinstance(value, str):
+                append("%s=%s" % (self._reserved[key], _quote(value)))
             elif key in self._flags:
                 if value:
                     append(str(self._reserved[key]))
@@ -456,9 +458,8 @@ class Morsel(dict):
 #
 
 _LegalKeyChars  = r"\w\d!#%&'~_`><@,:/\$\*\+\-\.\^\|\)\(\?\}\{\="
-_LegalValueChars = _LegalKeyChars + '\[\]'
+_LegalValueChars = _LegalKeyChars + r'\[\]'
 _CookiePattern = re.compile(r"""
-    (?x)                           # This is a verbose pattern
     \s*                            # Optional whitespace at start of cookie
     (?P<key>                       # Start of group 'key'
     [""" + _LegalKeyChars + r"""]+?   # Any word of at least one letter
@@ -475,7 +476,7 @@ _CookiePattern = re.compile(r"""
     )?                             # End of optional value group
     \s*                            # Any number of spaces.
     (\s+|;|$)                      # Ending either at space, semicolon, or EOS.
-    """, re.ASCII)                 # May be removed if safe.
+    """, re.ASCII | re.VERBOSE)    # re.ASCII may be removed if safe.
 
 
 # At long last, here is the cookie class.  Using this class is almost just like

@@ -4,7 +4,6 @@ import sys
 import unittest
 import test.support
 from ctypes.util import find_library
-from ctypes.test import xfail
 
 libc_name = None
 
@@ -12,8 +11,6 @@ def setUpModule():
     global libc_name
     if os.name == "nt":
         libc_name = find_library("c")
-    elif os.name == "ce":
-        libc_name = "coredll"
     elif sys.platform == "cygwin":
         libc_name = "cygwin1.dll"
     else:
@@ -50,8 +47,8 @@ class LoaderTest(unittest.TestCase):
                 cdll.LoadLibrary(lib)
                 CDLL(lib)
 
-    @unittest.skipUnless(os.name in ("nt", "ce"),
-                         'test specific to Windows (NT/CE)')
+    @unittest.skipUnless(os.name == "nt",
+                         'test specific to Windows')
     def test_load_library(self):
         # CRT is no longer directly loadable. See issue23606 for the
         # discussion about alternative approaches.
@@ -65,14 +62,11 @@ class LoaderTest(unittest.TestCase):
             windll["kernel32"].GetModuleHandleW
             windll.LoadLibrary("kernel32").GetModuleHandleW
             WinDLL("kernel32").GetModuleHandleW
-        elif os.name == "ce":
-            windll.coredll.GetModuleHandleW
-            windll["coredll"].GetModuleHandleW
-            windll.LoadLibrary("coredll").GetModuleHandleW
-            WinDLL("coredll").GetModuleHandleW
+            # embedded null character
+            self.assertRaises(ValueError, windll.LoadLibrary, "kernel32\0")
 
-    @unittest.skipUnless(os.name in ("nt", "ce"),
-                         'test specific to Windows (NT/CE)')
+    @unittest.skipUnless(os.name == "nt",
+                         'test specific to Windows')
     def test_load_ordinal_functions(self):
         import _ctypes_test
         dll = WinDLL(_ctypes_test.__file__)
@@ -89,7 +83,6 @@ class LoaderTest(unittest.TestCase):
         self.assertRaises(AttributeError, dll.__getitem__, 1234)
 
     @unittest.skipUnless(os.name == "nt", 'Windows-specific test')
-    @xfail
     def test_1703286_A(self):
         from _ctypes import LoadLibrary, FreeLibrary
         # On winXP 64-bit, advapi32 loads at an address that does
@@ -101,7 +94,6 @@ class LoaderTest(unittest.TestCase):
         FreeLibrary(handle)
 
     @unittest.skipUnless(os.name == "nt", 'Windows-specific test')
-    @xfail
     def test_1703286_B(self):
         # Since on winXP 64-bit advapi32 loads like described
         # above, the (arbitrarily selected) CloseEventLog function

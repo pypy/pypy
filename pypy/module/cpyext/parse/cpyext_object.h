@@ -52,7 +52,8 @@ typedef int(*objobjargproc)(PyObject *, PyObject *, PyObject *);
 
 
 /* Py3k buffer interface, adapted for PyPy */
-#define Py_MAX_NDIMS 32
+/* XXX remove this constant, us a PyObject_VAR_HEAD instead */
+#define Py_MAX_NDIMS 36
 #define Py_MAX_FMT 128
 typedef struct bufferinfo {
     void *buf;
@@ -66,13 +67,12 @@ typedef struct bufferinfo {
     Py_ssize_t *shape;
     Py_ssize_t *strides;
     Py_ssize_t *suboffsets; /* alway NULL for app-level objects*/
+    void *internal; /* always NULL for app-level objects */
+
+    /* Only in PyPY, in CPython thes are allocated/deleted */
     unsigned char _format[Py_MAX_FMT];
     Py_ssize_t _strides[Py_MAX_NDIMS];
     Py_ssize_t _shape[Py_MAX_NDIMS];
-    /* static store for shape and strides of
-       mono-dimensional buffers. */
-    /* Py_ssize_t smalltable[2]; */
-    void *internal; /* always NULL for app-level objects */
 } Py_buffer;
 
 typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);

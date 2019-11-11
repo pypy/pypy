@@ -20,30 +20,37 @@ class AppTestLocaleTrivia:
         # check whether used locales are installed, otherwise the tests will
         # fail
         current = _locale.setlocale(_locale.LC_ALL)
+        cls.oldlocale = current
         try:
             try:
                 # some systems are only UTF-8 oriented
                 try:
                     _locale.setlocale(_locale.LC_ALL,
-                                      cls.space.str_w(cls.w_language_en))
+                                      cls.space.utf8_w(cls.w_language_en))
                 except _locale.Error:
                     _locale.setlocale(_locale.LC_ALL,
-                                      cls.space.str_w(cls.w_language_utf8))
+                                      cls.space.utf8_w(cls.w_language_utf8))
                     cls.w_language_en = cls.w_language_utf8
 
                 _locale.setlocale(_locale.LC_ALL,
-                                  cls.space.str_w(cls.w_language_pl))
+                                  cls.space.utf8_w(cls.w_language_pl))
             except _locale.Error:
                 py.test.skip("necessary locales not installed")
 
             # Windows forbids the UTF-8 character set since Windows XP.
             try:
                 _locale.setlocale(_locale.LC_ALL,
-                                  cls.space.str_w(cls.w_language_utf8))
+                                  cls.space.utf8_w(cls.w_language_utf8))
             except _locale.Error:
                 del cls.w_language_utf8
         finally:
             _locale.setlocale(_locale.LC_ALL, current)
+
+    def teardown_class(cls):
+        import _locale
+        _locale.setlocale(_locale.LC_ALL, cls.oldlocale)
+
+
 
     def test_import(self):
         import _locale
@@ -51,7 +58,7 @@ class AppTestLocaleTrivia:
 
         import locale
         assert locale
-        
+
     def test_constants(self):
         import sys
 
@@ -75,7 +82,7 @@ class AppTestLocaleTrivia:
         )
 
         import _locale
-        
+
         for constant in _CONSTANTS:
             assert hasattr(_locale, constant)
 
@@ -164,7 +171,10 @@ class AppTestLocaleTrivia:
         assert a is not b
         assert a == b
 
-        raises(TypeError, _locale.strxfrm, 1)
+        with raises(TypeError):
+            _locale.strxfrm(1)
+        with raises(ValueError):
+            _locale.strxfrm("a\x00b")
 
         _locale.setlocale(_locale.LC_ALL, self.language_pl)
         a = "1234"
@@ -264,7 +274,7 @@ class AppTestLocaleTrivia:
 
         raises(ValueError, _locale.nl_langinfo, 12345)
         raises(TypeError, _locale.nl_langinfo, None)
-    
+
     def test_bindtextdomain(self):
         import sys
         if sys.platform == 'win32':
@@ -299,3 +309,36 @@ class AppTestLocaleTrivia:
         assert lang is None or isinstance(lang, str)
         assert encoding.startswith('cp')
 
+    def test_lc_numeric_basic(self):
+        from _locale import (setlocale, nl_langinfo, Error, LC_NUMERIC,
+                             LC_CTYPE, RADIXCHAR, THOUSEP, localeconv)
+        # Test nl_langinfo against localeconv
+        candidate_locales = ['es_UY', 'fr_FR', 'fi_FI', 'es_CO', 'pt_PT', 'it_IT',
+            'et_EE', 'es_PY', 'no_NO', 'nl_NL', 'lv_LV', 'el_GR', 'be_BY', 'fr_BE',
+            'ro_RO', 'ru_UA', 'ru_RU', 'es_VE', 'ca_ES', 'se_NO', 'es_EC', 'id_ID',
+            'ka_GE', 'es_CL', 'wa_BE', 'hu_HU', 'lt_LT', 'sl_SI', 'hr_HR', 'es_AR',
+            'es_ES', 'oc_FR', 'gl_ES', 'bg_BG', 'is_IS', 'mk_MK', 'de_AT', 'pt_BR',
+            'da_DK', 'nn_NO', 'cs_CZ', 'de_LU', 'es_BO', 'sq_AL', 'sk_SK', 'fr_CH',
+            'de_DE', 'sr_YU', 'br_FR', 'nl_BE', 'sv_FI', 'pl_PL', 'fr_CA', 'fo_FO',
+            'bs_BA', 'fr_LU', 'kl_GL', 'fa_IR', 'de_BE', 'sv_SE', 'it_CH', 'uk_UA',
+            'eu_ES', 'vi_VN', 'af_ZA', 'nb_NO', 'en_DK', 'tg_TJ', 'ps_AF', 'en_US',
+            'fr_FR.ISO8859-1', 'fr_FR.UTF-8', 'fr_FR.ISO8859-15@euro',
+            'ru_RU.KOI8-R', 'ko_KR.eucKR']
+
+        tested = False
+        for loc in candidate_locales:
+            try:
+                setlocale(LC_NUMERIC, loc)
+                setlocale(LC_CTYPE, loc)
+            except Error:
+                continue
+            for li, lc in ((RADIXCHAR, "decimal_point"),
+                            (THOUSEP, "thousands_sep")):
+                nl_radixchar = nl_langinfo(li)
+                li_radixchar = localeconv()[lc]
+                try:
+                    set_locale = setlocale(LC_NUMERIC)
+                except Error:
+                    set_locale = "<not able to determine>"
+                assert nl_radixchar == li_radixchar, ("nl_langinfo != localeconv "
+                                "(set to %s, using %s)" % ( loc, set_locale))

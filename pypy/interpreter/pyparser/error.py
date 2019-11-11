@@ -12,13 +12,22 @@ class SyntaxError(Exception):
         self.filename = filename
         self.lastlineno = lastlineno
 
-    def wrap_info(self, space):
+    def find_sourceline_and_wrap_info(self, space, source=None):
+        """ search for the line of input that caused the error and then return
+        a wrapped tuple that can be used to construct a wrapped SyntaxError.
+        Optionally pass source, to get better error messages for the case where
+        this instance was constructed without a source line (.text
+        attribute)"""
+        text = self.text
+        if text is None and source is not None and self.lineno:
+            lines = source.splitlines(True)
+            text = lines[self.lineno - 1]
         w_text = w_filename = space.w_None
         offset = self.offset
         w_lineno = space.newint(self.lineno)
         if self.filename is not None:
             w_filename = space.newfilename(self.filename)
-        if self.text is None and self.filename is not None:
+        if text is None and self.filename is not None:
             w_text = space.appexec([w_filename, w_lineno],
                 """(filename, lineno):
                     try:
@@ -28,21 +37,25 @@ class SyntaxError(Exception):
                             return f.readline()
                     except:  # we can't allow any exceptions here!
                         return None""")
-        elif self.text is not None:
-            from rpython.rlib.runicode import str_decode_utf_8
-            # self.text may not be UTF-8 in case of decoding errors.
+        elif text is not None:
+            from rpython.rlib.runicode import str_decode_utf_8_impl
+            # text may not be UTF-8 in case of decoding errors.
             # adjust the encoded text offset to a decoded offset
             # XXX do the right thing about continuation lines, which
             # XXX are their own fun, sometimes giving offset >
-            # XXX len(self.text) for example (right now, avoid crashing)
-            if offset > len(self.text):
-                offset = len(self.text)
-            text, _ = str_decode_utf_8(self.text, offset, 'replace')
-            offset = len(text)
-            if len(self.text) != offset:
-                text, _ = str_decode_utf_8(self.text, len(self.text),
-                                           'replace')
-            w_text = space.newunicode(text)
+            # XXX len(text) for example (right now, avoid crashing)
+            def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
+                # must return unicode
+                return u'\ufffd', endpos
+            if offset > len(text):
+                offset = len(text)
+            replacedtext, _ = str_decode_utf_8_impl(text, offset,
+                             'replace', False, replace_error_handler, True)
+            offset = len(replacedtext)
+            if len(text) != offset:
+                replacedtext, _ = str_decode_utf_8_impl(text, len(text),
+                             'replace', False, replace_error_handler, True)
+            w_text = space.newtext(replacedtext.encode('utf8'), len(replacedtext))
         return space.newtuple([
             space.newtext(self.msg),
             space.newtuple([

@@ -93,6 +93,8 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             assert nos == [0, 1, 33]
         elif self.cpu.backend_name.startswith('zarch'):
             assert nos == [0, 1, 29]
+        elif self.cpu.backend_name.startswith('aarch64'):
+            assert nos == [0, 1, 27]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -672,6 +674,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             elif self.cpu.backend_name.startswith('zarch'):
                 # 10 gpr, 14 fpr -> 25 is the first slot
                 assert gcmap == [26, 27, 28]
+            elif self.cpu.backend_name.startswith('aarch64'):
+                assert gcmap == [24, 25, 26]
             elif self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             elif self.cpu.backend_name.startswith('arm'):

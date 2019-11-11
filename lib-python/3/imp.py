@@ -30,7 +30,7 @@ import warnings
 
 warnings.warn("the imp module is deprecated in favour of importlib; "
               "see the module's documentation for alternative uses",
-              PendingDeprecationWarning, stacklevel=2)
+              DeprecationWarning, stacklevel=2)
 
 # DEPRECATED
 SEARCH_ERROR = 0
@@ -203,8 +203,9 @@ def load_package(name, path):
         extensions = (machinery.SOURCE_SUFFIXES[:] +
                       machinery.BYTECODE_SUFFIXES[:])
         for extension in extensions:
-            path = os.path.join(path, '__init__'+extension)
-            if os.path.exists(path):
+            init_path = os.path.join(path, '__init__' + extension)
+            if os.path.exists(init_path):
+                path = init_path
                 break
         else:
             raise ValueError('{!r} is not a package'.format(path))

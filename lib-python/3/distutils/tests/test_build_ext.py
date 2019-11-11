@@ -37,10 +37,20 @@ class BuildExtTestCase(TempdirManager,
         from distutils.command import build_ext
         build_ext.USER_BASE = site.USER_BASE
 
+        # bpo-30132: On Windows, a .pdb file may be created in the current
+        # working directory. Create a temporary working directory to cleanup
+        # everything at the end of the test.
+        self.temp_cwd = support.temp_cwd()
+        self.temp_cwd.__enter__()
+        self.addCleanup(self.temp_cwd.__exit__, None, None, None)
+
     def build_ext(self, *args, **kwargs):
         return build_ext(*args, **kwargs)
 
     def test_build_ext(self):
+        cmd = support.missing_compiler_executable()
+        if cmd is not None:
+            self.skipTest('The %r command is not found' % cmd)
         global ALREADY_TESTED
         copy_xxmodule_c(self.tmp_dir)
         xx_c = os.path.join(self.tmp_dir, 'xxmodule.c')
@@ -166,7 +176,6 @@ class BuildExtTestCase(TempdirManager,
         cmd = self.build_ext(dist)
         cmd.finalize_options()
 
-        from distutils import sysconfig
         py_include = sysconfig.get_python_inc()
         self.assertIn(py_include, cmd.include_dirs)
 
@@ -296,6 +305,9 @@ class BuildExtTestCase(TempdirManager,
         self.assertEqual(cmd.compiler, 'unix')
 
     def test_get_outputs(self):
+        cmd = support.missing_compiler_executable()
+        if cmd is not None:
+            self.skipTest('The %r command is not found' % cmd)
         tmp_dir = self.mkdtemp()
         c_file = os.path.join(tmp_dir, 'foo.c')
         self.write_file(c_file, 'void PyInit_foo(void) {}\n')

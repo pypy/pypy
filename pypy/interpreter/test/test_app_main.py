@@ -749,7 +749,7 @@ class TestNonInteractive:
         monkeypatch.setenv('PYTHONWARNINGS_', "once,error")
         data = self.run('-W ignore -W default '
                         '-c "import sys; print(sys.warnoptions)"')
-        assert "['ignore', 'default', 'once', 'error']" in data
+        assert "['once', 'error', 'ignore', 'default']" in data
 
     def test_option_m(self, monkeypatch):
         if not hasattr(runpy, '_run_module_as_main'):
@@ -1041,36 +1041,6 @@ class TestNonInteractive:
         data, status = self.run_with_status_code(p, env=env)
         assert status == 1
         assert data.startswith("15\\u20ac ('strict', 'backslashreplace')")
-
-
-class TestAppMain:
-    def test_print_info(self):
-        from pypy.interpreter import app_main
-        import sys, cStringIO
-        prev_so = sys.stdout
-        prev_ti = getattr(sys, 'pypy_translation_info', 'missing')
-        sys.pypy_translation_info = {
-            'translation.foo': True,
-            'translation.bar': 42,
-            'translation.egg.something': None,
-            'objspace.x': 'hello',
-        }
-        try:
-            sys.stdout = f = cStringIO.StringIO()
-            py.test.raises(SystemExit, app_main.print_info)
-        finally:
-            sys.stdout = prev_so
-            if prev_ti == 'missing':
-                del sys.pypy_translation_info
-            else:
-                sys.pypy_translation_info = prev_ti
-        assert f.getvalue() == ("[objspace]\n"
-                                "    x = 'hello'\n"
-                                "[translation]\n"
-                                "    bar = 42\n"
-                                "    [egg]\n"
-                                "        something = None\n"
-                                "    foo = True\n")
 
 
 @py.test.mark.skipif('config.getoption("runappdirect")')

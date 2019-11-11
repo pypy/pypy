@@ -46,6 +46,24 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         module.double_ensure(0)
         module.double_ensure(1)
 
+    def test_finalizing(self):
+        module = self.import_extension('foo', [
+                ("get", "METH_NOARGS",
+                 """
+                     if (_Py_Finalizing) {
+                         return PyLong_FromLong(0);
+                     }
+                     if (_Py_Finalizing != NULL) {
+                         return PyLong_FromLong(1);
+                     }
+                     if (_Py_IsFinalizing()) {
+                         return PyLong_FromLong(2);
+                     }
+                     return PyLong_FromLong(3);
+                 """),
+                ])
+        assert module.get() == 3
+
     def test_thread_state_get(self):
         module = self.import_extension('foo', [
                 ("get", "METH_NOARGS",
@@ -59,6 +77,9 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                      }
                      if (tstate->interp->next != NULL) {
                          return PyLong_FromLong(2);
+                     }
+                     if (tstate != _PyThreadState_UncheckedGet()) {
+                         return PyLong_FromLong(4);
                      }
                      return PyLong_FromLong(3);
                  """),
@@ -154,6 +175,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
             if (tstate == NULL) {
                 return PyLong_FromLong(0);
             }
+            if (PyGILState_Check() != 0)
+                return PyLong_FromLong(-1);
             dict = PyThreadState_GetDict();
             if (dict != NULL) {
             return PyLong_FromLong(1);
@@ -163,12 +186,18 @@ class AppTestThreads(AppTestCpythonExtensionBase):
             if (dict == NULL) {
             return PyLong_FromLong(2);
             }
+            if (PyGILState_Check() != 1)
+                return PyLong_FromLong(-2);
             PyGILState_Release(gilstate);
+            if (PyGILState_Check() != 0)
+                return PyLong_FromLong(-3);
             PyEval_RestoreThread(tstate);
 
             if (PyThreadState_Get() != tstate) {
                 return PyLong_FromLong(3);
             }
+            if (PyGILState_Check() != 1)
+                return PyLong_FromLong(-4);
 
             return PyLong_FromLong(4);
             """)])

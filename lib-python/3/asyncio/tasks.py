@@ -9,11 +9,10 @@ __all__ = ['Task',
 import concurrent.futures
 import functools
 import inspect
-import linecache
-import traceback
 import warnings
 import weakref
 
+from . import base_tasks
 from . import compat
 from . import coroutines
 from . import events
@@ -93,18 +92,7 @@ class Task(futures.Future):
             futures.Future.__del__(self)
 
     def _repr_info(self):
-        info = super()._repr_info()
-
-        if self._must_cancel:
-            # replace status
-            info[0] = 'cancelling'
-
-        coro = coroutines._format_coroutine(self._coro)
-        info.insert(1, 'coro=<%s>' % coro)
-
-        if self._fut_waiter is not None:
-            info.insert(2, 'wait_for=%r' % self._fut_waiter)
-        return info
+        return base_tasks._task_repr_info(self)
 
     def get_stack(self, *, limit=None):
         """Return the list of stack frames for this task's coroutine.
@@ -127,31 +115,7 @@ class Task(futures.Future):
         For reasons beyond our control, only one stack frame is
         returned for a suspended coroutine.
         """
-        frames = []
-        try:
-            # 'async def' coroutines
-            f = self._coro.cr_frame
-        except AttributeError:
-            f = self._coro.gi_frame
-        if f is not None:
-            while f is not None:
-                if limit is not None:
-                    if limit <= 0:
-                        break
-                    limit -= 1
-                frames.append(f)
-                f = f.f_back
-            frames.reverse()
-        elif self._exception is not None:
-            tb = self._exception.__traceback__
-            while tb is not None:
-                if limit is not None:
-                    if limit <= 0:
-                        break
-                    limit -= 1
-                frames.append(tb.tb_frame)
-                tb = tb.tb_next
-        return frames
+        return base_tasks._task_get_stack(self, limit)
 
     def print_stack(self, *, limit=None, file=None):
         """Print the stack or traceback for this task's coroutine.
@@ -162,31 +126,7 @@ class Task(futures.Future):
         to which the output is written; by default output is written
         to sys.stderr.
         """
-        extracted_list = []
-        checked = set()
-        for f in self.get_stack(limit=limit):
-            lineno = f.f_lineno
-            co = f.f_code
-            filename = co.co_filename
-            name = co.co_name
-            if filename not in checked:
-                checked.add(filename)
-                linecache.checkcache(filename)
-            line = linecache.getline(filename, lineno, f.f_globals)
-            extracted_list.append((filename, lineno, name, line))
-        exc = self._exception
-        if not extracted_list:
-            print('No stack for %r' % self, file=file)
-        elif exc is not None:
-            print('Traceback for %r (most recent call last):' % self,
-                  file=file)
-        else:
-            print('Stack for %r (most recent call last):' % self,
-                  file=file)
-        traceback.print_list(extracted_list, file=file)
-        if exc is not None:
-            for line in traceback.format_exception_only(exc.__class__, exc):
-                print(line, file=file, end='')
+        return base_tasks._task_print_stack(self, limit, file)
 
     def cancel(self):
         """Request that this task cancel itself.
@@ -208,6 +148,7 @@ class Task(futures.Future):
         terminates with a CancelledError exception (even if cancel()
         was not called).
         """
+        self._log_traceback = False
         if self.done():
             return False
         if self._fut_waiter is not None:
@@ -240,7 +181,12 @@ class Task(futures.Future):
             else:
                 result = coro.throw(exc)
         except StopIteration as exc:
-            self.set_result(exc.value)
+            if self._must_cancel:
+                # Task is cancelled right before coro stops.
+                self._must_cancel = False
+                self.set_exception(futures.CancelledError())
+            else:
+                self.set_result(exc.value)
         except futures.CancelledError:
             super().cancel()  # I.e., Future.cancel(self).
         except Exception as exc:
@@ -287,7 +233,7 @@ class Task(futures.Future):
                     self._step,
                     RuntimeError(
                         'yield was used instead of yield from for '
-                        'generator in task {!r} with {}'.format(
+                        'generator in task {!r} with {!r}'.format(
                             self, result)))
             else:
                 # Yielding something else is an error.
@@ -314,6 +260,18 @@ class Task(futures.Future):
             # that return non-generator iterators from their `__iter__`.
             self._step()
         self = None  # Needed to break cycles when an exception occurs.
+
+
+_PyTask = Task
+
+
+try:
+    import _asyncio
+except ImportError:
+    pass
+else:
+    # _CTask is needed for tests.
+    Task = _CTask = _asyncio.Task
 
 
 # wait() and as_completed() similar to those in PEP 3148.
@@ -535,7 +493,8 @@ def async_(coro_or_future, *, loop=None):
     """
 
     warnings.warn("asyncio.async() function is deprecated, use ensure_future()",
-                  DeprecationWarning)
+                  DeprecationWarning,
+                  stacklevel=2)
 
     return ensure_future(coro_or_future, loop=loop)
 
@@ -564,7 +523,8 @@ def ensure_future(coro_or_future, *, loop=None):
     elif compat.PY35 and inspect.isawaitable(coro_or_future):
         return ensure_future(_wrap_awaitable(coro_or_future), loop=loop)
     else:
-        raise TypeError('A Future, a coroutine or an awaitable is required')
+        raise TypeError('An asyncio.Future, a coroutine or an awaitable is '
+                        'required')
 
 
 @coroutine
@@ -588,6 +548,7 @@ class _GatheringFuture(futures.Future):
     def __init__(self, children, *, loop=None):
         super().__init__(loop=loop)
         self._children = children
+        self._cancel_requested = False
 
     def cancel(self):
         if self.done():
@@ -596,6 +557,11 @@ class _GatheringFuture(futures.Future):
         for child in self._children:
             if child.cancel():
                 ret = True
+        if ret:
+            # If any child tasks were actually cancelled, we should
+            # propagate the cancellation request regardless of
+            # *return_exceptions* argument.  See issue 32684.
+            self._cancel_requested = True
         return ret
 
 
@@ -676,7 +642,10 @@ def gather(*coros_or_futures, loop=None, return_exceptions=False):
         results[i] = res
         nfinished += 1
         if nfinished == nchildren:
-            outer.set_result(results)
+            if outer._cancel_requested:
+                outer.set_exception(futures.CancelledError())
+            else:
+                outer.set_result(results)
 
     for i, fut in enumerate(children):
         fut.add_done_callback(functools.partial(_done_callback, i))

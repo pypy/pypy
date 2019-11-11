@@ -7,6 +7,7 @@ import unittest
 import warnings
 from collections import namedtuple
 from io import StringIO, BytesIO
+from test import support
 
 class HackedSysModule:
     # The regression test will have real values in sys.argv, which
@@ -147,7 +148,7 @@ class CgiTests(unittest.TestCase):
     def test_escape(self):
         # cgi.escape() is deprecated.
         with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', 'cgi\.escape',
+            warnings.filterwarnings('ignore', r'cgi\.escape',
                                      DeprecationWarning)
             self.assertEqual("test &amp; string", cgi.escape("test & string"))
             self.assertEqual("&lt;test string&gt;", cgi.escape("<test string>"))
@@ -372,6 +373,60 @@ Larry
         v = gen_result(data, environ)
         self.assertEqual(self._qs_result, v)
 
+    def test_max_num_fields(self):
+        # For application/x-www-form-urlencoded
+        data = '&'.join(['a=a']*11)
+        environ = {
+            'CONTENT_LENGTH': str(len(data)),
+            'CONTENT_TYPE': 'application/x-www-form-urlencoded',
+            'REQUEST_METHOD': 'POST',
+        }
+
+        with self.assertRaises(ValueError):
+            cgi.FieldStorage(
+                fp=BytesIO(data.encode()),
+                environ=environ,
+                max_num_fields=10,
+            )
+
+        # For multipart/form-data
+        data = """---123
+Content-Disposition: form-data; name="a"
+
+3
+---123
+Content-Type: application/x-www-form-urlencoded
+
+a=4
+---123
+Content-Type: application/x-www-form-urlencoded
+
+a=5
+---123--
+"""
+        environ = {
+            'CONTENT_LENGTH':   str(len(data)),
+            'CONTENT_TYPE':     'multipart/form-data; boundary=-123',
+            'QUERY_STRING':     'a=1&a=2',
+            'REQUEST_METHOD':   'POST',
+        }
+
+        # 2 GET entities
+        # 1 top level POST entities
+        # 1 entity within the second POST entity
+        # 1 entity within the third POST entity
+        with self.assertRaises(ValueError):
+            cgi.FieldStorage(
+                fp=BytesIO(data.encode()),
+                environ=environ,
+                max_num_fields=4,
+            )
+        cgi.FieldStorage(
+            fp=BytesIO(data.encode()),
+            environ=environ,
+            max_num_fields=5,
+        )
+
     def testQSAndFormData(self):
         data = """---123
 Content-Disposition: form-data; name="key2"
@@ -472,6 +527,11 @@ this is the content of the fake file
         self.assertEqual(
             cgi.parse_header('form-data; name="files"; filename="fo\\"o;bar"'),
             ("form-data", {"name": "files", "filename": 'fo"o;bar'}))
+
+    def test_all(self):
+        blacklist = {"logfile", "logfp", "initlog", "dolog", "nolog",
+                     "closelog", "log", "maxlen", "valid_boundary"}
+        support.check__all__(self, cgi, blacklist=blacklist)
 
 
 BOUNDARY = "---------------------------721837373350705526688164684"

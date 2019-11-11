@@ -80,7 +80,7 @@ class TestMD5Update:
 
             space.call_method(w_m2c, 'update', space.newbytes(message))
             w_d2 = space.call_method(w_m2c, 'hexdigest')
-            d2 = space.str_w(w_d2)
+            d2 = space.text_w(w_d2)
 
             assert d1 == d2
 

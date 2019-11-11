@@ -71,6 +71,22 @@ class AppTestTypeObject:
         raises(AttributeError, getattr, type, "__abstractmethods__")
         raises(TypeError, "int.__abstractmethods__ = ('abc', )")
 
+    def test_is_abstract_flag(self):
+        # IS_ABSTRACT flag should always be in sync with
+        # cls.__dict__['__abstractmethods__']
+        FLAG_IS_ABSTRACT = 1 << 20
+
+        class Base:
+            pass
+        Base.__abstractmethods__ = {'x'}
+        assert Base.__flags__ & FLAG_IS_ABSTRACT
+
+        class Derived(Base):
+            pass
+        assert not (Derived.__flags__ & FLAG_IS_ABSTRACT)
+        Derived.__abstractmethods__ = {'x'}
+        assert Derived.__flags__ & FLAG_IS_ABSTRACT
+
     def test_attribute_error(self):
         class X(object):
             __module__ = 'test'
@@ -94,8 +110,6 @@ class AppTestTypeObject:
         """
         class A(type):
             pass
-
-        assert A("hello") is str
 
         # Make sure type(x) doesn't call x.__class__.__init__
         class T(type):
@@ -428,6 +442,14 @@ class AppTestTypeObject:
 
     def test_method_qualname(self):
         assert dict.copy.__qualname__ == 'dict.copy'
+
+    def test_staticmethod_qualname(self):
+        assert dict.__new__.__qualname__ == 'dict.__new__'
+        class A:
+            @staticmethod
+            def stat():
+                pass
+        assert A.stat.__qualname__.endswith('A.stat')
 
     def test_builtin_add(self):
         x = 5
@@ -942,12 +964,15 @@ class AppTestTypeObject:
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
         raises(TypeError, "Abc.__name__ = b'A'")
-        try:
-            Abc.__name__ = 'G\x00hi'
-        except ValueError as e:
-            assert str(e) == "type name must not contain null characters"
-        else:
-            assert False
+        for v, err in [('G\x00hi', "type name must not contain null characters"),
+                       ('A\udcdcB', "surrogates not allowed")]:
+            try:
+                Abc.__name__ = v
+            except ValueError as e:
+                assert err in str(e)
+            else:
+                assert False
+            assert Abc.__name__ == 'Def'
 
     def test_qualname(self):
         A = type('A', (), {'__qualname__': 'B.C'})
@@ -967,6 +992,14 @@ class AppTestTypeObject:
 
         e = raises(TypeError, type, 'D', (), {'__qualname__': 42})
         assert str(e.value) == "type __qualname__ must be a str, not int"
+
+        for v in (42, b'abc'):
+            try:
+                C.__qualname__ = v
+            except TypeError as e:
+                assert 'can only assign string' in str(e)
+            else:
+                assert False
 
     def test_compare(self):
         class A(object):
@@ -1242,6 +1275,23 @@ class AppTestTypeObject:
         class C(metaclass=M):
             foo = hello
         assert C.foo == 42
+        """
+
+    def test_prepare_error(self):
+        """
+        class BadMeta:
+            @classmethod
+            def __prepare__(cls, *args, **kwargs):
+                return 42
+        def make_class(meta):
+            class Foo(metaclass=meta):
+                pass
+        excinfo = raises(TypeError, make_class, BadMeta)
+        print(excinfo.value.args[0])
+        assert excinfo.value.args[0].startswith('BadMeta.__prepare__')
+        # Non-type as metaclass
+        excinfo = raises(TypeError, make_class, BadMeta())
+        assert excinfo.value.args[0].startswith('<metaclass>.__prepare__')
         """
 
     def test_crash_mro_without_object_1(self):
@@ -1544,3 +1594,75 @@ class AppTestComparesByIdentity:
 
     def test_type_construct_unicode_surrogate_issue(self):
         raises(ValueError, type, 'A\udcdcb', (), {})
+
+    def test_set_name(self):
+        class Descriptor:
+            def __set_name__(self, owner, name):
+                self.owner = owner
+                self.name = name
+
+        class X:
+            a = Descriptor()
+        assert X.a.owner is X
+        assert X.a.name == "a"
+
+    def test_set_name_error(self):
+        class Descriptor:
+            __set_name__ = None
+        def make_class():
+            class A:
+                d = Descriptor()
+        excinfo = raises(RuntimeError, make_class)
+        assert isinstance(excinfo.value.__cause__, TypeError)
+        assert str(excinfo.value) == "Error calling __set_name__ on 'Descriptor' instance 'd' in 'A'"
+        print(excinfo.value)
+
+    def test_type_init_accepts_kwargs(self):
+        type.__init__(type, "a", (object, ), {}, a=1)
+
+    def test_init_subclass_classmethod(self):
+        assert isinstance(object.__dict__['__init_subclass__'], classmethod)
+        class A(object):
+            subclasses = []
+
+            def __init_subclass__(cls):
+                cls.subclass.append(cls)
+        assert isinstance(A.__dict__['__init_subclass__'], classmethod)
+
+    def test_init_subclass(self):
+        class PluginBase(object):
+            subclasses = []
+
+            def __init_subclass__(cls):
+                cls.subclasses.append(cls)
+
+        class B(PluginBase):
+            pass
+
+        class C(PluginBase):
+            pass
+
+        assert PluginBase.subclasses == [B, C]
+
+
+        class X(object):
+            subclasses = []
+
+            def __init_subclass__(cls, **kwargs):
+                cls.kwargs = kwargs
+
+        exec("""if 1:
+        class Y(X, a=1, b=2):
+            pass
+
+        assert Y.kwargs == dict(a=1, b=2)
+        """)
+
+    def test_onearg_type_only_for_type(self):
+        class Meta(type):
+            pass
+
+        info = raises(TypeError, Meta, 5)
+        assert "takes exactly 3 arguments (1 given)" in str(info.value)
+        info = raises(TypeError, Meta, 5, 7)
+        assert "takes exactly 3 arguments (1 given)" in str(info.value)

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import py
+import pytest
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
         ArgErrMultipleValues, ArgErrMissing, ArgErrTooMany, ArgErrTooManyMethod)
 from pypy.interpreter.signature import Signature
@@ -55,6 +56,9 @@ class kwargsdict(dict):
     pass
 
 class DummySpace(object):
+    class sys:
+        defaultencoding = 'utf-8'
+
     def newtuple(self, items):
         return tuple(items)
 
@@ -92,16 +96,15 @@ class DummySpace(object):
     def getitem(self, obj, key):
         return obj[key]
 
-    def wrap(self, obj):
+    def wrap(self, obj, lgt=-1):
         return obj
     newtext = wrap
-    newunicode = wrap
 
     def text_w(self, s):
-        return self.unicode_w(s).encode('utf-8')
+        return self.utf8_w(s)
 
-    def unicode_w(self, s):
-        return unicode(s)
+    def utf8_w(self, s):
+        return s
 
     def len(self, x):
         return len(x)
@@ -135,7 +138,8 @@ class DummySpace(object):
     def type(self, obj):
         class Type:
             def getname(self, space):
-                return unicode(type(obj).__name__)
+                return type(obj).__name__
+            name = type(obj).__name__
         return Type()
 
 
@@ -330,33 +334,35 @@ class TestArgumentsNormal(object):
 
     def test_duplicate_kwds(self):
         space = DummySpace()
-        excinfo = py.test.raises(OperationError, Arguments, space, [], ["a"],
-                                 [1], w_starstararg={"a": 2})
+        with pytest.raises(OperationError) as excinfo:
+            Arguments(space, [], ["a"], [1], w_starstararg={"a": 2}, fnname_parens="foo()")
         assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_value(space) == "foo() got multiple values for keyword argument 'a'"
 
     def test_starstararg_wrong_type(self):
         space = DummySpace()
-        excinfo = py.test.raises(OperationError, Arguments, space, [], ["a"],
-                                 [1], w_starstararg="hello")
+        with pytest.raises(OperationError) as excinfo:
+            Arguments(space, [], ["a"], [1], w_starstararg="hello", fnname_parens="bar()")
         assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_value(space) == "bar() argument after ** must be a mapping, not str"
 
     def test_unwrap_error(self):
         space = DummySpace()
         valuedummy = object()
-        def unicode_w(w):
+        def utf8_w(w):
             if w is None:
                 raise OperationError(TypeError, None)
             if w is valuedummy:
                 raise OperationError(ValueError, None)
-            return str(w)
-        space.unicode_w = unicode_w
-        space.text_w = unicode_w
-        excinfo = py.test.raises(OperationError, Arguments, space, [],
-                                 ["a"], [1], w_starstararg={None: 1})
+            return bytes(w, 'utf-8')
+        space.utf8_w = utf8_w
+        space.text_w = utf8_w
+        with py.test.raises(OperationError) as excinfo:
+            Arguments(space, [], ["a"], [1], w_starstararg={None: 1}, fnname_parens="f1()")
         assert excinfo.value.w_type is TypeError
         assert excinfo.value._w_value is None
-        excinfo = py.test.raises(OperationError, Arguments, space, [],
-                                 ["a"], [1], w_starstararg={valuedummy: 1})
+        with py.test.raises(OperationError) as excinfo:
+            Arguments(space, [], ["a"], [1], w_starstararg={valuedummy: 1}, fnname_parens="f2()")
         assert excinfo.value.w_type is ValueError
         assert excinfo.value._w_value is None
 
@@ -433,9 +439,9 @@ class TestArgumentsNormal(object):
             raise FakeArgErr()
         args._match_signature = _match_signature
 
-
-        excinfo = py.test.raises(OperationError, args.parse_obj, "obj", "foo",
-                       Signature(["a", "b"], None, None))
+        with pytest.raises(OperationError) as excinfo:
+            args.parse_obj("obj", "foo",
+                           Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
         assert excinfo.value.get_w_value(space) == "foo() msg"
 
@@ -489,9 +495,9 @@ class TestArgumentsNormal(object):
         args._match_signature = _match_signature
 
 
-        excinfo = py.test.raises(OperationError, args.parse_into_scope,
-                                 "obj", [None, None], "foo",
-                                 Signature(["a", "b"], None, None))
+        with pytest.raises(OperationError) as excinfo:
+            args.parse_into_scope("obj", [None, None], "foo",
+                                  Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
         assert excinfo.value.get_w_value(space) == "foo() msg"
 
@@ -566,9 +572,17 @@ class TestArgumentsNormal(object):
             l = [None, None, None]
             args._match_signature(None, l, Signature(["a", "b"], None, "**"))
             assert l == [1, 2, {'c': 3}]
-        excinfo = py.test.raises(OperationError, Arguments, space, [], ["a"],
-                                 [1], w_starstararg=kwargs(["a"], [2]))
+        with pytest.raises(OperationError) as excinfo:
+            Arguments(space, [], ["a"],
+                      [1], w_starstararg=kwargs(["a"], [2]))
         assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_value(space) == "got multiple values for keyword argument 'a'"
+
+        with pytest.raises(OperationError) as excinfo:
+            Arguments(space, [], ["a"],
+                      [1], w_starstararg=kwargs(["a"], [2]), fnname_parens="foo()")
+        assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_value(space) == "foo() got multiple values for keyword argument 'a'"
 
 
 
@@ -669,20 +683,14 @@ class TestErrorHandling(object):
 
     def test_bad_type_for_star(self):
         space = self.space
-        try:
-            Arguments(space, [], w_stararg=space.wrap(42))
-        except OperationError as e:
-            msg = space.str_w(space.str(e.get_w_value(space)))
-            assert msg == "argument after * must be an iterable, not int"
-        else:
-            assert 0, "did not raise"
-        try:
-            Arguments(space, [], w_starstararg=space.wrap(42))
-        except OperationError as e:
-            msg = space.str_w(space.str(e.get_w_value(space)))
-            assert msg == "argument after ** must be a mapping, not int"
-        else:
-            assert 0, "did not raise"
+        with pytest.raises(OperationError) as excinfo:
+            Arguments(space, [], w_stararg=space.wrap(42), fnname_parens="f1()")
+        msg = space.text_w(excinfo.value.get_w_value(space))
+        assert msg == "f1() argument after * must be an iterable, not int"
+        with pytest.raises(OperationError) as excinfo:
+            Arguments(space, [], w_starstararg=space.wrap(42), fnname_parens="f2()")
+        msg = space.text_w(excinfo.value.get_w_value(space))
+        assert msg == "f2() argument after ** must be a mapping, not int"
 
     def test_dont_count_default_arguments(self):
         space = self.space
@@ -838,7 +846,6 @@ class AppTestArgument:
 
 
     def test_unicode_keywords(self):
-        """
         def f(**kwargs):
             assert kwargs["美"] == 42
         f(**{"美" : 42})
@@ -846,7 +853,6 @@ class AppTestArgument:
         def f(x): pass
         e = raises(TypeError, "f(**{'ü' : 19})")
         assert e.value.args[0] == "f() got an unexpected keyword argument 'ü'"
-        """
 
     def test_starstarargs_dict_subclass(self):
         def f(**kwargs):
@@ -889,7 +895,7 @@ class AppTestArgument:
             pass
         e = raises(TypeError, "f(*42)")
         assert str(e.value).endswith(
-            "argument after * must be an iterable, not int")
+            "f() argument after * must be an iterable, not int")
         e = raises(TypeError, "f(*X())")
         assert str(e.value) == "myerror"
 
@@ -904,8 +910,10 @@ class AppTestArgument:
         def f(x, y):
             pass
         e = raises(TypeError, "f(y=2, **{3: 5}, x=6)")
-        assert "keywords must be strings" in str(e.value)
+        assert "f() keywords must be strings" in str(e.value)
         e = raises(TypeError, "f(y=2, **{'x': 5}, x=6)")
+        # CPython figures out the name here, by peeking around in the stack in
+        # BUILD_MAP_UNPACK_WITH_CALL. we don't, too messy
         assert "got multiple values for keyword argument 'x'" in str(e.value)
 
     def test_dict_subclass_with_weird_getitem(self):
@@ -923,3 +931,18 @@ class AppTestArgument:
             def test(**kwargs):
                 return kwargs
             assert test(**q) == {"foo": "bar"}
+
+    def test_issue2996_1(self): """
+        class Class:
+            def method(*args, a_parameter=None, **kwargs):
+                pass
+        Class().method(**{'a_parameter': 4})
+        """
+
+    def test_issue2996_2(self): """
+        class Foo:
+            def methhh(*args, offset=42):
+                return args, offset
+        foo = Foo()
+        assert foo.methhh(**{}) == ((foo,), 42)
+        """

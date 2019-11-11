@@ -17,7 +17,7 @@ from struct import calcsize as _calcsize
 if __version__ != _ctypes_version:
     raise Exception("Version number mismatch", __version__, _ctypes_version)
 
-if _os.name in ("nt", "ce"):
+if _os.name == "nt":
     from _ctypes import FormatError
 
 DEFAULT_MODE = RTLD_LOCAL
@@ -104,12 +104,9 @@ def CFUNCTYPE(restype, *argtypes, **kw):
         _c_functype_cache[(restype, argtypes, flags)] = CFunctionType
         return CFunctionType
 
-if _os.name in ("nt", "ce"):
+if _os.name == "nt":
     from _ctypes import LoadLibrary as _dlopen
     from _ctypes import FUNCFLAG_STDCALL as _FUNCFLAG_STDCALL
-    if _os.name == "ce":
-        # 'ce' doesn't have the stdcall calling convention
-        _FUNCFLAG_STDCALL = _FUNCFLAG_CDECL
 
     _win_functype_cache = {}
     def WINFUNCTYPE(restype, *argtypes, **kw):
@@ -263,7 +260,7 @@ class c_wchar(_SimpleCData):
 def _reset_cache():
     _pointer_type_cache.clear()
     _c_functype_cache.clear()
-    if _os.name in ("nt", "ce"):
+    if _os.name == "nt":
         _win_functype_cache.clear()
     # _SimpleCData.c_wchar_p_from_param
     POINTER(c_wchar).from_param = c_wchar_p.from_param
@@ -328,6 +325,10 @@ class CDLL(object):
     """
     _func_flags_ = _FUNCFLAG_CDECL
     _func_restype_ = c_int
+    # default values for repr
+    _name = '<uninitialized>'
+    _handle = 0
+    _FuncPtr = None
 
     def __init__(self, name, mode=DEFAULT_MODE, handle=None,
                  use_errno=False,
@@ -380,7 +381,7 @@ class CDLL(object):
 #    """
 #    _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
 
-if _os.name in ("nt", "ce"):
+if _os.name == "nt":
 
     class WinDLL(CDLL):
         """This class represents a dll exporting functions using the
@@ -434,7 +435,7 @@ cdll = LibraryLoader(CDLL)
 # not on PyPy
 #pydll = LibraryLoader(PyDLL)
 
-if _os.name in ("nt", "ce"):
+if _os.name == "nt":
     windll = LibraryLoader(WinDLL)
     oledll = LibraryLoader(OleDLL)
 
@@ -505,7 +506,7 @@ else:
         return _wstring_at(ptr, size)
 
 
-if _os.name in ("nt", "ce"): # COM stuff
+if _os.name == "nt": # COM stuff
     def DllGetClassObject(rclsid, riid, ppv):
         try:
             ccom = __import__("comtypes.server.inprocserver", globals(), locals(), ['*'])

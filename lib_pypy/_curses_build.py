@@ -1,31 +1,42 @@
-import os
 from cffi import FFI, VerificationError
+import os
 
+version_str = '''
+    static const int NCURSES_VERSION_MAJOR;
+    static const int NCURSES_VERSION_MINOR;
+'''
 
-def find_curses_library():
-    for curses_library in ['ncursesw', 'ncurses']:
+version = (0, 0)
+def find_library(options):
+    global version
+    for library in options:
         ffi = FFI()
-        ffi.set_source("_curses_cffi_check", "", libraries=[curses_library])
+        ffi.cdef(version_str)
+        ffi.set_source("_curses_cffi_check", version_str, libraries=[library])
         try:
             ffi.compile()
+            import _curses_cffi_check
+            lib = _curses_cffi_check.lib
+            version = (lib.NCURSES_VERSION_MAJOR, lib.NCURSES_VERSION_MINOR)
         except VerificationError as e:
             e_last = e
             continue
         else:
-            return curses_library
+            return library
 
-    # If none of the libraries is available, present the user a meaningful
+    # If none of the options is available, present the user a meaningful
     # error message
     raise e_last
 
 def find_curses_include_dirs():
+    if os.path.exists('/usr/include/ncurses'):
+        return ['/usr/include/ncurses']
     if os.path.exists('/usr/include/ncursesw'):
         return ['/usr/include/ncursesw']
     return []
 
 
 ffi = FFI()
-
 ffi.set_source("_curses_cffi", """
 #ifdef __APPLE__
 /* the following define is necessary for OS X 10.6+; without it, the
@@ -34,6 +45,13 @@ ffi.set_source("_curses_cffi", """
 #define NCURSES_OPAQUE 0
 #endif
 
+
+/* ncurses 6 change behaviour  and makes all pointers opaque, 
+  lets define backward compatibility. It doesn't harm 
+  previous versions */
+
+#define NCURSES_INTERNALS 1
+#define NCURSES_REENTRANT 0
 #include <ncurses.h>
 #include <panel.h>
 #include <term.h>
@@ -65,7 +83,8 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
-""", libraries=[find_curses_library(), 'panel'],
+""", libraries=[find_library(['ncurses', 'ncursesw']),
+                find_library(['panel', 'panelw'])],
      include_dirs=find_curses_include_dirs())
 
 
@@ -90,6 +109,7 @@ MEVENT;
 static const int ERR, OK;
 static const int TRUE, FALSE;
 static const int KEY_MIN, KEY_MAX;
+static const int KEY_CODE_YES;
 
 static const int COLOR_BLACK;
 static const int COLOR_RED;
@@ -149,11 +169,11 @@ static const int REPORT_MOUSE_POSITION;
 
 int setupterm(char *, int, int *);
 
-WINDOW *stdscr;
-int COLORS;
-int COLOR_PAIRS;
-int COLS;
-int LINES;
+extern WINDOW *stdscr;
+extern int COLORS;
+extern int COLOR_PAIRS;
+extern int COLS;
+extern int LINES;
 
 int baudrate(void);
 int beep(void);
@@ -176,8 +196,6 @@ char erasechar(void);
 void filter(void);
 int flash(void);
 int flushinp(void);
-int wget_wch(WINDOW *, wint_t *);
-int mvwget_wch(WINDOW *, int, int, wint_t *);
 chtype getbkgd(WINDOW *);
 WINDOW * getwin(FILE *);
 int halfdelay(int);
@@ -253,7 +271,6 @@ int touchline(WINDOW *, int, int);
 int touchwin(WINDOW *);
 int typeahead(int);
 int ungetch(int);
-int unget_wch(const wchar_t);
 int untouchwin(WINDOW *);
 void use_env(bool);
 int waddch(WINDOW *, const chtype);
@@ -332,7 +349,7 @@ bool is_term_resized(int, int);
 #define _m_NetBSD ...
 int _m_ispad(WINDOW *);
 
-chtype acs_map[];
+extern chtype acs_map[];
 
 // For _curses_panel:
 
@@ -355,6 +372,13 @@ int replace_panel(PANEL *,WINDOW *);
 int panel_hidden(const PANEL *);
 
 void _m_getsyx(int *yx);
+""")
+
+if version > (5, 7):
+    ffi.cdef("""
+int wget_wch(WINDOW *, wint_t *);
+int mvwget_wch(WINDOW *, int, int, wint_t *);
+int unget_wch(const wchar_t);
 """)
 
 

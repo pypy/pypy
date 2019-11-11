@@ -3,7 +3,7 @@
 Based on two lists containing unwrapped key value pairs.
 """
 
-from rpython.rlib import jit, rerased, objectmodel
+from rpython.rlib import jit, rerased, objectmodel, rutf8
 
 from pypy.objspace.std.dictmultiobject import (
     DictStrategy, EmptyDictStrategy, ObjectDictStrategy, UnicodeDictStrategy,
@@ -149,11 +149,12 @@ class KwargsDictStrategy(DictStrategy):
         strategy = self.space.fromcache(UnicodeDictStrategy)
         keys, values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
-        d_new = strategy.unerase(storage)
-        for i in range(len(keys)):
-            d_new[strategy.decodekey_str(keys[i])] = values_w[i]
         w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
+        for i in range(len(keys)):
+            # NB: this can turn the dict into an object strategy, if a key is
+            # not ASCII!
+            w_dict.setitem_str(keys[i], values_w[i])
 
     def view_as_kwargs(self, w_dict):
         keys, values_w = self.unerase(w_dict.dstorage)

@@ -84,6 +84,8 @@ CLASSES
      |  Data and other attributes defined here:
      |\x20\x20
      |  NO_MEANING = 'eggs'
+     |\x20\x20
+     |  __annotations__ = {'NO_MEANING': <class 'str'>}
 \x20\x20\x20\x20
     class C(builtins.object)
      |  Methods defined here:
@@ -212,6 +214,8 @@ Data descriptors defined here:<br>
 Data and other attributes defined here:<br>
 <dl><dt><strong>NO_MEANING</strong> = 'eggs'</dl>
 
+<dl><dt><strong>__annotations__</strong> = {'NO_MEANING': &lt;class 'str'&gt;}</dl>
+
 </td></tr></table> <p>
 <table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#ffc8d8">
@@ -280,7 +284,7 @@ Use help() to get the interactive help utility.
 Use help(str) for help on the str class.'''.replace('\n', os.linesep)
 
 # output pattern for module with bad imports
-badimport_pattern = "problem in %s - ImportError: No module named %r"
+badimport_pattern = "problem in %s - ModuleNotFoundError: No module named %r"
 
 expected_dynamicattribute_pattern = """
 Help on class DA in module %s:
@@ -373,7 +377,7 @@ def get_pydoc_html(module):
 def get_pydoc_link(module):
     "Returns a documentation web link of a module"
     dirname = os.path.dirname
-    basedir = dirname(dirname(__file__))
+    basedir = dirname(dirname(os.path.realpath(__file__)))
     doc = pydoc.TextDoc()
     loc = doc.getdocloc(module, basedir=basedir)
     return loc
@@ -431,6 +435,7 @@ class PydocBaseTest(unittest.TestCase):
 
 
 class PydocDocTest(unittest.TestCase):
+    maxDiff = None
 
     @unittest.skipIf(sys.flags.optimize >= 2,
                      "Docstrings are omitted with -O2 and above")
@@ -657,11 +662,110 @@ class PydocDocTest(unittest.TestCase):
         del expected['__doc__']
         del expected['__class__']
         # inspect resolves descriptors on type into methods, but vars doesn't,
-        # so we need to update __subclasshook__.
+        # so we need to update __subclasshook__ and __init_subclass__.
         expected['__subclasshook__'] = TestClass.__subclasshook__
+        expected['__init_subclass__'] = TestClass.__init_subclass__
 
         methods = pydoc.allmethods(TestClass)
         self.assertDictEqual(methods, expected)
+
+    def test_method_aliases(self):
+        class A:
+            def tkraise(self, aboveThis=None):
+                """Raise this widget in the stacking order."""
+            lift = tkraise
+            def a_size(self):
+                """Return size"""
+        class B(A):
+            def itemconfigure(self, tagOrId, cnf=None, **kw):
+                """Configure resources of an item TAGORID."""
+            itemconfig = itemconfigure
+            b_size = A.a_size
+
+        doc = pydoc.render_doc(B)
+        # clean up the extra text formatting that pydoc performs
+        doc = re.sub('\b.', '', doc)
+        self.assertEqual(doc, '''\
+Python Library Documentation: class B in module %s
+
+class B(A)
+ |  Method resolution order:
+ |      B
+ |      A
+ |      builtins.object
+ |\x20\x20
+ |  Methods defined here:
+ |\x20\x20
+ |  b_size = a_size(self)
+ |\x20\x20
+ |  itemconfig = itemconfigure(self, tagOrId, cnf=None, **kw)
+ |\x20\x20
+ |  itemconfigure(self, tagOrId, cnf=None, **kw)
+ |      Configure resources of an item TAGORID.
+ |\x20\x20
+ |  ----------------------------------------------------------------------
+ |  Methods inherited from A:
+ |\x20\x20
+ |  a_size(self)
+ |      Return size
+ |\x20\x20
+ |  lift = tkraise(self, aboveThis=None)
+ |\x20\x20
+ |  tkraise(self, aboveThis=None)
+ |      Raise this widget in the stacking order.
+ |\x20\x20
+ |  ----------------------------------------------------------------------
+ |  Data descriptors inherited from A:
+ |\x20\x20
+ |  __dict__
+ |      dictionary for instance variables (if defined)
+ |\x20\x20
+ |  __weakref__
+ |      list of weak references to the object (if defined)
+''' % __name__)
+
+        doc = pydoc.render_doc(B, renderer=pydoc.HTMLDoc())
+        self.assertEqual(doc, '''\
+Python Library Documentation: class B in module %s
+
+<p>
+<table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="B">class <strong>B</strong></a>(A)</font></td></tr>
+\x20\x20\x20\x20
+<tr><td bgcolor="#ffc8d8"><tt>&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%%"><dl><dt>Method resolution order:</dt>
+<dd>B</dd>
+<dd>A</dd>
+<dd><a href="builtins.html#object">builtins.object</a></dd>
+</dl>
+<hr>
+Methods defined here:<br>
+<dl><dt><a name="B-b_size"><strong>b_size</strong></a> = <a href="#B-a_size">a_size</a>(self)</dt></dl>
+
+<dl><dt><a name="B-itemconfig"><strong>itemconfig</strong></a> = <a href="#B-itemconfigure">itemconfigure</a>(self, tagOrId, cnf=None, **kw)</dt></dl>
+
+<dl><dt><a name="B-itemconfigure"><strong>itemconfigure</strong></a>(self, tagOrId, cnf=None, **kw)</dt><dd><tt>Configure&nbsp;resources&nbsp;of&nbsp;an&nbsp;item&nbsp;TAGORID.</tt></dd></dl>
+
+<hr>
+Methods inherited from A:<br>
+<dl><dt><a name="B-a_size"><strong>a_size</strong></a>(self)</dt><dd><tt>Return&nbsp;size</tt></dd></dl>
+
+<dl><dt><a name="B-lift"><strong>lift</strong></a> = <a href="#B-tkraise">tkraise</a>(self, aboveThis=None)</dt></dl>
+
+<dl><dt><a name="B-tkraise"><strong>tkraise</strong></a>(self, aboveThis=None)</dt><dd><tt>Raise&nbsp;this&nbsp;widget&nbsp;in&nbsp;the&nbsp;stacking&nbsp;order.</tt></dd></dl>
+
+<hr>
+Data descriptors inherited from A:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table>\
+''' % __name__)
 
 
 class PydocImportTest(PydocBaseTest):
@@ -885,6 +989,22 @@ class TestDescriptions(unittest.TestCase):
         t = textwrap.TextWrapper()
         self.assertEqual(self._get_summary_line(t.wrap),
             "wrap(text) method of textwrap.TextWrapper instance")
+
+    def test_field_order_for_named_tuples(self):
+        Person = namedtuple('Person', ['nickname', 'firstname', 'agegroup'])
+        s = pydoc.render_doc(Person)
+        self.assertLess(s.index('nickname'), s.index('firstname'))
+        self.assertLess(s.index('firstname'), s.index('agegroup'))
+
+        class NonIterableFields:
+            _fields = None
+
+        class NonHashableFields:
+            _fields = [[]]
+
+        # Make sure these doesn't fail
+        pydoc.render_doc(NonIterableFields)
+        pydoc.render_doc(NonHashableFields)
 
     @requires_docstrings
     def test_bound_builtin_method(self):

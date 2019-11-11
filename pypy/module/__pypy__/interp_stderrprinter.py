@@ -16,8 +16,8 @@ class W_StdErrPrinter(W_Root):
         self.fd = fd
 
     def descr_repr(self, space):
-        addrstring = unicode(self.getaddrstring(space))
-        return space.newunicode(u"<StdErrPrinter(fd=%d) object at 0x%s>" %
+        addrstring = self.getaddrstring(space)
+        return space.newtext("<StdErrPrinter(fd=%d) object at 0x%s>" %
                                 (self.fd, addrstring))
 
     def descr_noop(self, space):

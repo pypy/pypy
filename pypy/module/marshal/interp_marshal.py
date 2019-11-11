@@ -400,7 +400,7 @@ class Unmarshaller(_Base):
         lng = self.get_lng()
         return self.get(lng)
 
-    def get_w_obj(self, allow_null=False):
+    def _get_w_obj(self, allow_null=False):
         space = self.space
         tc = self.get1()
         w_ret = self._dispatch[ord(tc)](space, self, tc)
@@ -408,14 +408,20 @@ class Unmarshaller(_Base):
             raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return w_ret
 
-    def load_w_obj(self):
+    def load_w_obj(self, allow_null=False):
         try:
-            return self.get_w_obj()
+            return self._get_w_obj(allow_null)
         except rstackovf.StackOverflow:
             rstackovf.check_stack_overflow()
             self._overflow()
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_RecursionError):
+                raise
+            # somebody else has already converted the rpython overflow error to
+            # an OperationError (e.g. one of che space.call* calls in
+            # marshal_impl), turn it into a ValueError
+            self._overflow()
 
-    # inlined version to save a recursion level
     def get_tuple_w(self, single_byte_size=False):
         if single_byte_size:
             lng = ord(self.get1())
@@ -426,11 +432,7 @@ class Unmarshaller(_Base):
         space = self.space
         w_ret = space.w_None # something not
         while idx < lng:
-            tc = self.get1()
-            w_ret = self._dispatch[ord(tc)](space, self, tc)
-            if w_ret is None:
-                break
-            res_w[idx] = w_ret
+            res_w[idx] = self.load_w_obj()
             idx += 1
         if w_ret is None:
             raise oefmt(space.w_TypeError, "NULL object in marshal data")

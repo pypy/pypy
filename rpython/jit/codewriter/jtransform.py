@@ -6,10 +6,9 @@ from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
-from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant,\
-     c_last_exception
+from rpython.jit.metainterp.support import ptr2int
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -590,6 +589,23 @@ class Transformer(object):
                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
             descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
                 EffectInfo.OS_STREQ_NONNULL)
+            # XXX this is fairly ugly way of creating a constant,
+            #     however, callinfocollection has no better interface
+            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
+                                 op.result)
+            return [SpaceOperation('-live-', [], None), op1, None]
+        if (hints.get('promote_unicode') and
+            op.args[0].concretetype is not lltype.Void):
+            U = lltype.Ptr(rstr.UNICODE)
+            assert op.args[0].concretetype == U
+            self._register_extra_helper(EffectInfo.OS_UNIEQ_NONNULL,
+                                        "str.eq_nonnull",
+                                        [U, U],
+                                        lltype.Signed,
+                                        EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+            descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_UNIEQ_NONNULL)
             # XXX this is fairly ugly way of creating a constant,
             #     however, callinfocollection has no better interface
             c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
@@ -1712,9 +1728,9 @@ class Transformer(object):
         (in which case the original call is written as a residual call).
         """
         if oopspec_name.startswith('new'):
-            LIST = deref(op.result.concretetype)
+            LIST = op.result.concretetype.TO
         else:
-            LIST = deref(args[0].concretetype)
+            LIST = args[0].concretetype.TO
         resizable = isinstance(LIST, lltype.GcStruct)
         assert resizable == (not isinstance(LIST, lltype.GcArray))
         if resizable:
@@ -1939,8 +1955,7 @@ class Transformer(object):
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
-            func = heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(op.args[0].value))
+            func = ptr2int(op.args[0].value)
             self.callcontrol.callinfocollection.add(oopspecindex,
                                                     calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
@@ -1967,8 +1982,7 @@ class Transformer(object):
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
-            func = heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(c_func.value))
+            func = ptr2int(c_func.value)
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_int_special(self, op, oopspec_name, args):

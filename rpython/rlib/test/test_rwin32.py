@@ -90,9 +90,9 @@ def test_formaterror():
     assert '%2' in msg
 
 def test_formaterror_unicode():
-    msg = rwin32.FormatErrorW(34)
-    assert type(msg) is unicode
-    assert u'%2' in msg
+    msg, lgt = rwin32.FormatErrorW(34)
+    assert type(msg) is str
+    assert '%2' in msg
 
 def test_loadlibraryA():
     # test0 can be loaded alone, but test1 requires the modified search path

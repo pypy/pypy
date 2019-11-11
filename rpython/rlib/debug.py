@@ -1,5 +1,6 @@
 import sys
 import time
+from collections import Counter
 
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -37,6 +38,23 @@ class DebugLog(list):
                 return
         assert False, ("nesting error: no start corresponding to stop %r" %
                        (category,))
+
+    def reset(self):
+        # only for tests: empty the log
+        self[:] = []
+
+    def summary(self, flatten=False):
+        res = Counter()
+        def visit(lst):
+            for section, sublist in lst:
+                if section == 'debug_print':
+                    continue
+                res[section] += 1
+                if flatten:
+                    visit(sublist)
+        #
+        visit(self)
+        return res
 
     def __repr__(self):
         import pprint
@@ -356,14 +374,21 @@ class UnexpectedRUInt(Exception):
 class ExpectedRegularInt(Exception):
     pass
 
+class NegativeArgumentNotAllowed(Exception):
+    pass
+
 def check_nonneg(x):
     """Give a translation-time error if 'x' is not known to be non-negative.
     To help debugging, this also gives a translation-time error if 'x' is
     actually typed as an r_uint (in which case the call to check_nonneg()
     is a bit strange and probably unexpected).
     """
-    assert type(x)(-1) < 0     # otherwise, 'x' is a r_uint or similar
-    assert x >= 0
+    try:
+        assert type(x)(-1) < 0     # otherwise, 'x' is a r_uint or similar
+    except NegativeArgumentNotAllowed:
+        pass
+    else:
+        assert x >= 0
     return x
 
 class Entry(ExtRegistryEntry):

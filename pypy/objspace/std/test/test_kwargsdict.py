@@ -76,6 +76,14 @@ def test_limit_size():
     assert d.get_strategy() is not strategy
     assert "UnicodeDictStrategy" == d.get_strategy().__class__.__name__
 
+def test_limit_size_non_ascii():
+    storage = strategy.get_empty_storage()
+    d = W_DictObject(space, strategy, storage)
+    for i in range(100):
+        assert d.setitem_str("ה%s" % i, 4) is None
+    assert d.get_strategy() is not strategy
+    assert "UnicodeDictStrategy" == d.get_strategy().__class__.__name__
+
 def test_keys_doesnt_wrap():
     space = FakeSpace()
     space.newlist = None

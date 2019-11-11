@@ -178,8 +178,8 @@ class TestNumArrayDirect(object):
                                                            space.wrap("b")]),
                                             None)
         assert shape == [2]
-        assert space.str_w(elems[0]) == "a"
-        assert space.str_w(elems[1]) == "b"
+        assert space.text_w(elems[0]) == "a"
+        assert space.text_w(elems[1]) == "b"
 
     def test_from_shape_and_storage(self):
         from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem

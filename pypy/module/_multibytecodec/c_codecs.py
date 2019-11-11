@@ -2,8 +2,9 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
+from rpython.rlib import rutf8
 
-UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'
+UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'.encode("utf8")
 
 
 class EncodeDecodeError(Exception):
@@ -126,7 +127,7 @@ def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
                                     errorcb, namecb, stringdata)
         src = pypy_cjk_dec_outbuf(decodebuf)
         length = pypy_cjk_dec_outlen(decodebuf)
-        return rffi.wcharpsize2unicode(src, length)
+        return rffi.wcharpsize2utf8(src, length) # assumes no out-of-range chars
 
 def multibytecodec_decerror(decodebuf, e, errors,
                             errorcb, namecb, stringdata):
@@ -148,15 +149,20 @@ def multibytecodec_decerror(decodebuf, e, errors,
     if errors == "strict":
         raise EncodeDecodeError(start, end, reason)
     elif errors == "ignore":
-        replace = u""
+        replace = ""
     elif errors == "replace":
         replace = UNICODE_REPLACEMENT_CHARACTER
     else:
         assert errorcb
-        replace, end = errorcb(errors, namecb, reason,
+        replace, end, rettype = errorcb(errors, namecb, reason,
                                stringdata, start, end)
-    with rffi.scoped_nonmoving_unicodebuffer(replace) as inbuf:
-        r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, len(replace), end)
+        # 'replace' is UTF8 encoded unicode, rettype is 'u'
+    lgt = rutf8.codepoints_in_utf8(replace)
+    inbuf = rffi.utf82wcharp(replace, lgt)
+    try:
+        r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, lgt, end)
+    finally:
+        lltype.free(inbuf, flavor='raw')
     if r == MBERR_NOMEMORY:
         raise MemoryError
 
@@ -191,19 +197,21 @@ pypy_cjk_enc_getcodec = llexternal('pypy_cjk_enc_getcodec',
 MBENC_FLUSH = 1
 MBENC_RESET = 2
 
-def encode(codec, unicodedata, errors="strict", errorcb=None, namecb=None):
+def encode(codec, unicodedata, length, errors="strict", errorcb=None,
+           namecb=None):
     encodebuf = pypy_cjk_enc_new(codec)
     if not encodebuf:
         raise MemoryError
     try:
-        return encodeex(encodebuf, unicodedata, errors, errorcb, namecb)
+        return encodeex(encodebuf, unicodedata, length, errors, errorcb, namecb)
     finally:
         pypy_cjk_enc_free(encodebuf)
 
-def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
+def encodeex(encodebuf, utf8data, length, errors="strict", errorcb=None,
              namecb=None, ignore_error=0):
-    inleft = len(unicodedata)
-    with rffi.scoped_nonmoving_unicodebuffer(unicodedata) as inbuf:
+    inleft = length
+    inbuf = rffi.utf82wcharp(utf8data, length)
+    try:
         if pypy_cjk_enc_init(encodebuf, inbuf, inleft) < 0:
             raise MemoryError
         if ignore_error == 0:
@@ -215,16 +223,18 @@ def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
             if r == 0 or r == ignore_error:
                 break
             multibytecodec_encerror(encodebuf, r, errors,
-                                    errorcb, namecb, unicodedata)
+                                    errorcb, namecb, utf8data)
         while flags & MBENC_RESET:
             r = pypy_cjk_enc_reset(encodebuf)
             if r == 0:
                 break
             multibytecodec_encerror(encodebuf, r, errors,
-                                    errorcb, namecb, unicodedata)
+                                    errorcb, namecb, utf8data)
         src = pypy_cjk_enc_outbuf(encodebuf)
         length = pypy_cjk_enc_outlen(encodebuf)
         return rffi.charpsize2str(src, length)
+    finally:
+        lltype.free(inbuf, flavor='raw')
 
 def multibytecodec_encerror(encodebuf, e, errors,
                             errorcb, namecb, unicodedata):
@@ -250,21 +260,19 @@ def multibytecodec_encerror(encodebuf, e, errors,
     elif errors == "replace":
         codec = pypy_cjk_enc_getcodec(encodebuf)
         try:
-            replace = encode(codec, u"?")
+            replace = encode(codec, "?", 1)
         except EncodeDecodeError:
             replace = "?"
     else:
         assert errorcb
-        retu, rets, end = errorcb(errors, namecb, reason,
-                                  unicodedata, start, end)
-        if rets is not None:
-            # py3k only
-            replace = rets
-        else:
-            assert retu is not None
+        replace, end, rettype = errorcb(errors, namecb, reason,
+                            unicodedata, start, end)
+        if rettype == 'u':
             codec = pypy_cjk_enc_getcodec(encodebuf)
-            replace = encode(codec, retu, "strict", errorcb, namecb)
+            lgt = rutf8.check_utf8(replace, False)
+            replace = encode(codec, replace, lgt)
+    lgt = len(replace)
     with rffi.scoped_nonmovingbuffer(replace) as inbuf:
-        r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
+        r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, lgt, end)
     if r == MBERR_NOMEMORY:
         raise MemoryError

@@ -14,7 +14,7 @@ from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
     if space.is_none(w_path):
-        w_path = space.newunicode(u".")
+        w_path = space.newtext(".")
 
     if not _WIN32:
         if space.isinstance_w(w_path, space.w_bytes):
@@ -27,7 +27,7 @@ def scandir(space, w_path=None):
         if space.isinstance_w(w_path, space.w_bytes):
             raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
                                            " on Windows, use Unicode instead")
-        path = space.unicode_w(w_path)
+        path = space.realunicode_w(w_path)
         result_is_bytes = False
 
     # 'path' is always bytes on posix and always unicode on windows
@@ -45,7 +45,7 @@ def scandir(space, w_path=None):
     else:
         if len(path_prefix) > 0 and path_prefix[-1] not in (u'\\', u'/', u':'):
             path_prefix += u'\\'
-        w_path_prefix = space.newunicode(path_prefix)
+        w_path_prefix = space.newtext(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
     else:
@@ -62,11 +62,27 @@ class W_ScandirIterator(W_Root):
         self.dirfd = dirfd
         self.w_path_prefix = w_path_prefix
         self.result_is_bytes = result_is_bytes
+        self.register_finalizer(space)
 
-    @rgc.must_be_light_finalizer
-    def __del__(self):
-        if self.dirp:
-            rposix_scandir.closedir(self.dirp)
+    def _finalize_(self):
+        if not self.dirp:
+            return
+        space = self.space
+        try:
+            msg = ("unclosed scandir iterator %s" %
+                   space.text_w(space.repr(self)))
+            space.warn(space.newtext(msg), space.w_ResourceWarning)
+        except OperationError as e:
+            # Spurious errors can appear at shutdown
+            if e.match(space, space.w_Warning):
+                e.write_unraisable(space, '', self)
+        self._close()
+
+    def _close(self):
+        dirp = self.dirp
+        if dirp:
+            self.dirp = rposix_scandir.NULL_DIRP
+            rposix_scandir.closedir(dirp)
 
     def iter_w(self):
         return self
@@ -111,16 +127,31 @@ class W_ScandirIterator(W_Root):
             #
             known_type = rposix_scandir.get_known_type(entry)
             inode = rposix_scandir.get_inode(entry)
+        except:
+            self._close()
+            raise
         finally:
             self._in_next = False
         direntry = W_DirEntry(self, name, known_type, inode)
         return direntry
+
+    def close_w(self):
+        self._close()
+
+    def enter_w(self):
+        return self
+
+    def exit_w(self, space, __args__):
+        self._close()
 
 
 W_ScandirIterator.typedef = TypeDef(
     'posix.ScandirIterator',
     __iter__ = interp2app(W_ScandirIterator.iter_w),
     __next__ = interp2app(W_ScandirIterator.next_w),
+    __enter__ = interp2app(W_ScandirIterator.enter_w),
+    __exit__ = interp2app(W_ScandirIterator.exit_w),
+    close = interp2app(W_ScandirIterator.close_w),
 )
 W_ScandirIterator.typedef.acceptable_as_base_class = False
 
@@ -153,12 +184,12 @@ class W_DirEntry(W_Root):
             if not scandir_iterator.result_is_bytes:
                 w_name = self.space.fsdecode(w_name)
         else:
-            w_name = self.space.newunicode(name)
+            w_name = self.space.newtext(name)
         self.w_name = w_name
 
     def descr_repr(self, space):
-        u = space.unicode_w(space.repr(self.w_name))
-        return space.newunicode(u"<DirEntry %s>" % u)
+        u = space.utf8_w(space.repr(self.w_name))
+        return space.newtext(b"<DirEntry %s>" % u)
 
     def fget_name(self, space):
         return self.w_name
@@ -269,7 +300,7 @@ class W_DirEntry(W_Root):
 
         def get_stat_or_lstat(self, follow_symlinks):     # 'follow_symlinks' ignored
             if not self.stat_cached:
-                path = self.space.unicode0_w(self.fget_path(self.space))
+                path = self.space.utf8_0_w(self.fget_path(self.space))
                 self.d_stat = rposix_stat.stat(path)
                 self.stat_cached = True
             return self.d_stat
@@ -349,6 +380,7 @@ W_DirEntry.typedef = TypeDef(
     path = GetSetProperty(W_DirEntry.fget_path,
                           doc="the entry's full path name; equivalent to "
                               "os.path.join(scandir_path, entry.name)"),
+    __fspath__ = interp2app(W_DirEntry.fget_path),
     is_dir = interp2app(W_DirEntry.descr_is_dir),
     is_file = interp2app(W_DirEntry.descr_is_file),
     is_symlink = interp2app(W_DirEntry.descr_is_symlink),

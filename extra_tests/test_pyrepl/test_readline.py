@@ -15,8 +15,7 @@ def test_raw_input():
     os.write(master, b'input\n')
 
     with sane_term():
-        result = readline_wrapper.get_reader().readline()
-    #result = readline_wrapper.raw_input('prompt:')
+        result = readline_wrapper.raw_input('prompt:')
     assert result == 'input'
     # A bytes string on python2, a unicode string on python3.
     assert isinstance(result, str)

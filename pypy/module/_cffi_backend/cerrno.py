@@ -27,4 +27,4 @@ def getwinerror(space, code=-1):
     if code == -1:
         code = GetLastError_alt_saved()
     message = FormatErrorW(code)
-    return space.newtuple([space.newint(code), space.newunicode(message)])
+    return space.newtuple([space.newint(code), space.newtext(*message)])

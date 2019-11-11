@@ -12,7 +12,7 @@ from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.objectmodel import iterkeys_with_hash, contains_with_hash
 from rpython.rlib.objectmodel import setitem_with_hash, delitem_with_hash
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib import rerased, jit
+from rpython.rlib import rerased, jit, rutf8
 
 
 UNROLL_CUTOFF = 5
@@ -20,6 +20,7 @@ UNROLL_CUTOFF = 5
 
 class W_BaseSetObject(W_Root):
     typedef = None
+    exact_class_applevel_name = 'set-or-frozenset'
 
     def __init__(self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
@@ -86,9 +87,9 @@ class W_BaseSetObject(W_Root):
         """ If this is a string set return its contents as a list of uwnrapped strings. Otherwise return None. """
         return self.strategy.listview_bytes(self)
 
-    def listview_unicode(self):
+    def listview_ascii(self):
         """ If this is a unicode set return its contents as a list of uwnrapped unicodes. Otherwise return None. """
-        return self.strategy.listview_unicode(self)
+        return self.strategy.listview_ascii(self)
 
     def listview_int(self):
         """ If this is an int set return its contents as a list of uwnrapped ints. Otherwise return None. """
@@ -489,6 +490,12 @@ class W_BaseSetObject(W_Root):
 
 
 class W_SetObject(W_BaseSetObject):
+
+    #overridden here so the error is reported correctly
+    def __init__(self, space, w_iterable=None):
+        """Initialize the set by taking ownership of 'setdata'."""
+        W_BaseSetObject.__init__(self, space, w_iterable)
+
     def _newobj(self, space, w_iterable):
         """Make a new set by taking ownership of 'w_iterable'."""
         return W_SetObject(space, w_iterable)
@@ -504,7 +511,7 @@ W_SetObject.typedef = TypeDef("set",
 
 Build an unordered collection.""",
     __new__ = gateway.interp2app(W_SetObject.descr_new),
-    __init__ = gateway.interp2app(W_BaseSetObject.descr_init),
+    __init__ = gateway.interp2app(W_SetObject.descr_init),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = None,
 
@@ -671,7 +678,7 @@ class SetStrategy(object):
     def listview_bytes(self, w_set):
         return None
 
-    def listview_unicode(self, w_set):
+    def listview_ascii(self, w_set):
         return None
 
     def listview_int(self, w_set):
@@ -776,8 +783,8 @@ class EmptySetStrategy(SetStrategy):
             strategy = self.space.fromcache(IntegerSetStrategy)
         elif type(w_key) is W_BytesObject:
             strategy = self.space.fromcache(BytesSetStrategy)
-        elif type(w_key) is W_UnicodeObject:
-            strategy = self.space.fromcache(UnicodeSetStrategy)
+        elif type(w_key) is W_UnicodeObject and w_key.is_ascii():
+            strategy = self.space.fromcache(AsciiSetStrategy)
         elif self.space.type(w_key).compares_by_identity():
             strategy = self.space.fromcache(IdentitySetStrategy)
         else:
@@ -1239,7 +1246,7 @@ class BytesSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return BytesIteratorImplementation(self.space, self, w_set)
 
 
-class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+class AsciiSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("unicode")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -1253,11 +1260,11 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def get_empty_dict(self):
         return {}
 
-    def listview_unicode(self, w_set):
+    def listview_ascii(self, w_set):
         return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
-        return type(w_key) is W_UnicodeObject
+        return type(w_key) is W_UnicodeObject and w_key.is_ascii()
 
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(IntegerSetStrategy):
@@ -1269,10 +1276,10 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return True
 
     def unwrap(self, w_item):
-        return self.space.unicode_w(w_item)
+        return self.space.utf8_w(w_item)
 
     def wrap(self, item):
-        return self.space.newunicode(item)
+        return self.space.newutf8(item, len(item))
 
     def iter(self, w_set):
         return UnicodeIteratorImplementation(self.space, self, w_set)
@@ -1301,7 +1308,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(BytesSetStrategy):
             return False
-        elif strategy is self.space.fromcache(UnicodeSetStrategy):
+        elif strategy is self.space.fromcache(AsciiSetStrategy):
             return False
         elif strategy is self.space.fromcache(EmptySetStrategy):
             return False
@@ -1392,7 +1399,7 @@ class IdentitySetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
             return False
         if strategy is self.space.fromcache(BytesSetStrategy):
             return False
-        if strategy is self.space.fromcache(UnicodeSetStrategy):
+        if strategy is self.space.fromcache(AsciiSetStrategy):
             return False
         return True
 
@@ -1476,7 +1483,7 @@ class UnicodeIteratorImplementation(IteratorImplementation):
 
     def next_entry(self):
         for key in self.iterator:
-            return self.space.newunicode(key)
+            return self.space.newutf8(key, len(key))
         else:
             return None
 
@@ -1585,9 +1592,9 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(byteslist)
         return
 
-    unicodelist = space.listview_unicode(w_iterable)
+    unicodelist = space.listview_ascii(w_iterable)
     if unicodelist is not None:
-        strategy = space.fromcache(UnicodeSetStrategy)
+        strategy = space.fromcache(AsciiSetStrategy)
         w_set.strategy = strategy
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(unicodelist)
         return
@@ -1631,10 +1638,10 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
 
     # check for unicode
     for w_item in iterable_w:
-        if type(w_item) is not W_UnicodeObject:
+        if type(w_item) is not W_UnicodeObject or not w_item.is_ascii():
             break
     else:
-        w_set.strategy = space.fromcache(UnicodeSetStrategy)
+        w_set.strategy = space.fromcache(AsciiSetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
@@ -1651,9 +1658,13 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
     w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
 
+def get_printable_location(tp, strategy):
+    return "create_set: %s %s" % (tp, strategy)
+
 create_set_driver = jit.JitDriver(name='create_set',
                                   greens=['tp', 'strategy'],
-                                  reds='auto')
+                                  reds='auto',
+                                  get_printable_location=get_printable_location)
 
 def _create_from_iterable(space, w_set, w_iterable):
     w_set.strategy = strategy = space.fromcache(EmptySetStrategy)

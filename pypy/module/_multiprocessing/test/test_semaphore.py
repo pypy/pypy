@@ -11,13 +11,14 @@ class AppTestSemaphore:
                                    'binascii', 'struct', '_posixsubprocess'))
 
     if sys.platform == 'win32':
-        spaceconfig['usemodules'] += ('_rawffi',)
+        spaceconfig['usemodules'] += ('_rawffi', '_cffi_backend')
     else:
         spaceconfig['usemodules'] += ('fcntl',)
 
     def setup_class(cls):
         cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)
         cls.w_RECURSIVE = cls.space.wrap(RECURSIVE_MUTEX)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     @py.test.mark.skipif("sys.platform == 'win32'")
     def test_sem_unlink(self):
@@ -138,3 +139,25 @@ class AppTestSemaphore:
         from _multiprocessing import SemLock
         sem = SemLock(self.SEMAPHORE, 1, 1, '/mp-123', unlink=True)
         assert sem._count() == 0
+
+    def test_in_threads(self):
+        from _multiprocessing import SemLock
+        from threading import Thread
+        from time import sleep
+        l = SemLock(0, 1, 1, "6", unlink=True)
+        if self.runappdirect:
+            def f(id):
+                for i in range(10000):
+                    pass
+        else:
+            def f(id):
+                for i in range(1000):
+                    # reduce the probability of thread switching
+                    # at exactly the wrong time in semlock_acquire
+                    for j in range(10):
+                        pass
+        threads = [Thread(None, f, args=(i,)) for i in range(2)]
+        [t.start() for t in threads]
+        # if the RLock calls to sem_wait and sem_post do not match,
+        # one of the threads will block and the call to join will fail
+        [t.join() for t in threads]

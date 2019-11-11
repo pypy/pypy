@@ -93,25 +93,21 @@ class W_CTypePtrOrArray(W_CType):
             from pypy.module._cffi_backend import wchar_helper
             if not space.isinstance_w(w_ob, space.w_unicode):
                 raise self._convert_error("unicode or list or tuple", w_ob)
-            s = space.unicode_w(w_ob)
+            w_u = space.convert_arg_to_w_unicode(w_ob)
+            s = w_u._utf8
             if self.ctitem.size == 2:
-                n = wchar_helper.unicode_size_as_char16(s)
+                n = wchar_helper.utf8_size_as_char16(s)
             else:
-                n = wchar_helper.unicode_size_as_char32(s)
+                n = w_u._len()
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer unicode string is too long for '%s' "
                             "(got %d characters)", self.name, n)
             add_final_zero = (n != self.length)
             if self.ctitem.size == 2:
-                try:
-                    wchar_helper.unicode_to_char16(s, cdata, n, add_final_zero)
-                except wchar_helper.OutOfRange as e:
-                    raise oefmt(self.space.w_ValueError,
-                                "unicode character ouf of range for "
-                                "conversion to char16_t: %s", hex(e.ordinal))
+                wchar_helper.utf8_to_char16(s, cdata, n, add_final_zero)
             else:
-                wchar_helper.unicode_to_char32(s, cdata, n, add_final_zero)
+                wchar_helper.utf8_to_char32(s, cdata, n, add_final_zero)
         else:
             raise self._convert_error("list or tuple", w_ob)
 
@@ -309,16 +305,8 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
 
-    def _prepare_pointer_call_argument(self, w_init, cdata, keepalives, i):
+    def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
-        if self.accept_str and space.isinstance_w(w_init, space.w_bytes):
-            # special case to optimize strings passed to a "char *" argument
-            value = space.bytes_w(w_init)
-            if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
-                self._must_be_string_of_zero_or_one(value)
-            keepalives[i] = value
-            return misc.write_string_as_charp(cdata, value)
-        #
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
@@ -328,11 +316,11 @@ class W_CTypePointer(W_CTypePtrBase):
             length = len(s) + 1
         elif space.isinstance_w(w_init, space.w_unicode):
             from pypy.module._cffi_backend import wchar_helper
-            u = space.unicode_w(w_init)
+            w_u = space.convert_arg_to_w_unicode(w_init)
             if self.ctitem.size == 2:
-                length = wchar_helper.unicode_size_as_char16(u)
+                length = wchar_helper.utf8_size_as_char16(w_u._utf8)
             else:
-                length = wchar_helper.unicode_size_as_char32(u)
+                length = w_u._len()
             length += 1
         elif self.is_file:
             result = self.prepare_file(w_init)
@@ -364,14 +352,27 @@ class W_CTypePointer(W_CTypePtrBase):
         return 1
 
     def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
+        # writes the pointer to cdata[0], writes the must-free flag in
+        # the byte just before cdata[0], and returns True if something
+        # must be done later to free.
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
-        result = (not isinstance(w_ob, cdataobj.W_CData) and
-                  self._prepare_pointer_call_argument(w_ob, cdata,
-                                                      keepalives, i))
+        if isinstance(w_ob, cdataobj.W_CData):
+            result = 0
+        else:
+            space = self.space
+            if self.accept_str and space.isinstance_w(w_ob, space.w_bytes):
+                # special case to optimize strings passed to a "char *" argument
+                value = space.bytes_w(w_ob)
+                if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+                    self._must_be_string_of_zero_or_one(value)
+                keepalives[i] = misc.write_string_as_charp(cdata, value)
+                return True
+            result = self._prepare_pointer_call_argument(w_ob, cdata)
+
         if result == 0:
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)
-        return result
+        return result == 1      # 0 or 2 => False, nothing to do later
 
     def getcfield(self, attr):
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion

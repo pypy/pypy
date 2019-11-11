@@ -1,13 +1,6 @@
 import unittest
-from weakref import proxy, ref, WeakSet
-import operator
-import copy
+from weakref import WeakSet
 import string
-import os
-from random import randrange, shuffle
-import sys
-import warnings
-import collections
 from collections import UserString as ustr
 import gc
 import contextlib

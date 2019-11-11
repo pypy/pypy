@@ -6,12 +6,14 @@ from io import BytesIO, DEFAULT_BUFFER_SIZE
 import os
 import pickle
 import glob
+import pathlib
 import random
 import shutil
 import subprocess
 import sys
 from test.support import unlink
 import _compression
+import sys
 
 try:
     import threading
@@ -556,13 +558,20 @@ class BZ2FileTest(BaseTest):
         with BZ2File(str_filename, "rb") as f:
             self.assertEqual(f.read(), self.DATA)
 
+    def testOpenPathLikeFilename(self):
+        filename = pathlib.Path(self.filename)
+        with BZ2File(filename, "wb") as f:
+            f.write(self.DATA)
+        with BZ2File(filename, "rb") as f:
+            self.assertEqual(f.read(), self.DATA)
+
     def testDecompressLimited(self):
         """Decompressed data buffering should be limited"""
-        bomb = bz2.compress(bytes(int(2e6)), compresslevel=9)
+        bomb = bz2.compress(b'\0' * int(2e6), compresslevel=9)
         self.assertLess(len(bomb), _compression.BUFFER_SIZE)
 
         decomp = BZ2File(BytesIO(bomb))
-        self.assertEqual(bytes(1), decomp.read(1))
+        self.assertEqual(decomp.read(1), b'\0')
         max_decomp = 1 + DEFAULT_BUFFER_SIZE
         self.assertLessEqual(decomp._buffer.raw.tell(), max_decomp,
             "Excessive amount of data was decompressed")
@@ -822,6 +831,16 @@ class BZ2DecompressorTest(BaseTest):
         self.assertRaises(Exception, bzd.decompress, self.BAD_DATA * 30)
         # Previously, a second call could crash due to internal inconsistency
         self.assertRaises(Exception, bzd.decompress, self.BAD_DATA * 30)
+
+    @support.refcount_test
+    def test_refleaks_in___init__(self):
+        gettotalrefcount = support.get_attribute(sys, 'gettotalrefcount')
+        bzd = BZ2Decompressor()
+        refs_before = gettotalrefcount()
+        for i in range(100):
+            bzd.__init__()
+        self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
+
 
 class CompressDecompressTest(BaseTest):
     def testCompress(self):

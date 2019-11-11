@@ -16,6 +16,7 @@ class TestImport(BaseTestPyPyC):
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
             guard_not_invalidated(descr=...)
+            p1 = force_token()
         """)
 
     def test_import_fast_path(self, tmpdir):

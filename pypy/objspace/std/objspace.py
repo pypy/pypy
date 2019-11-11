@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.interpreter.unicodehelper import decode_utf8
+from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.objspace.std import frame, transparent, callmethod
 from pypy.objspace.descroperation import (
     DescrOperation, get_attribute_name, raiseattrerror)
@@ -13,7 +13,8 @@ from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
 from rpython.rlib.objectmodel import import_from_mixin, we_are_translated
 from rpython.rlib.objectmodel import not_rpython
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8, types
+from rpython.rlib.signature import signature, finishsigs
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
@@ -25,6 +26,7 @@ from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import (
     W_AbstractIntObject, W_IntObject, setup_prebuilt, wrapint)
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject, W_SeqIterObject
+from pypy.objspace.std.iterobject import W_FastUnicodeIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.memoryobject import W_MemoryView
@@ -36,7 +38,7 @@ from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 from pypy.objspace.std.typeobject import W_TypeObject, TypeCache
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
-
+@finishsigs
 class StdObjSpace(ObjSpace):
     """The standard object space, implementing a general-purpose object
     library in Restricted Python."""
@@ -159,15 +161,11 @@ class StdObjSpace(ObjSpace):
             else:
                 return self.newint(x)
         if isinstance(x, str):
-            # this hack is temporary: look at the comment in
-            # test_stdstdobjspace.test_wrap_string
-            try:
-                unicode_x = x.decode('ascii')
-            except UnicodeDecodeError:
-                return self._wrap_string_old(x)
-            return self.newunicode(unicode_x)
+            return self.newtext(x)
         if isinstance(x, unicode):
-            return self.newunicode(x)
+            x = x.encode('utf8')
+            lgt = rutf8.check_utf8(x, True)
+            return self.newutf8(x, lgt)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
@@ -190,7 +188,7 @@ class StdObjSpace(ObjSpace):
             else:
                 lst.append(unichr(ch))
         unicode_x = u''.join(lst)
-        return self.newunicode(unicode_x)
+        return self.newtext(unicode_x)
 
     @not_rpython # only for tests
     def _wrap_not_rpython(self, x):
@@ -331,11 +329,13 @@ class StdObjSpace(ObjSpace):
         return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_text(self, list_t):
-        return self.newlist_unicode([
-            decode_utf8(self, s, allow_surrogates=True) for s in list_t])
+        return self.newlist_utf8([decode_utf8sp(self, s)[0] for s in list_t], False)
 
-    def newlist_unicode(self, list_u):
-        return W_ListObject.newlist_unicode(self, list_u)
+    def newlist_utf8(self, list_u, is_ascii):
+        if is_ascii:
+            return W_ListObject.newlist_ascii(self, list_u)
+        return ObjSpace.newlist_utf8(self, list_u, False)
+
 
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
@@ -377,27 +377,35 @@ class StdObjSpace(ObjSpace):
         return W_MemoryView(view)
 
     def newbytes(self, s):
-        assert isinstance(s, str)
+        assert isinstance(s, bytes)
         return W_BytesObject(s)
 
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
-    def newtext(self, s):
-        return self.newunicode(decode_utf8(self, s, allow_surrogates=True))
+    # XXX TODO - remove the specialization and force all users to call with utf8
+    @specialize.argtype(1)
+    def newtext(self, s, lgt=-1, unused=-1):
+        # the unused argument can be from something like
+        # newtext(*decode_utf8sp(space, code))
+        if isinstance(s, unicode):
+            s, lgt = s.encode('utf8'), len(s)
+        assert isinstance(s, str)
+        if lgt < 0:
+            lgt = rutf8.codepoints_in_utf8(s)
+        return W_UnicodeObject(s, lgt)
 
-    def newtext_or_none(self, s):
+    def newtext_or_none(self, s, lgt=-1):
         if s is None:
             return self.w_None
-        return self.newtext(s)
+        return self.newtext(s, lgt)
+
+    def newutf8(self, utf8s, length):
+        assert isinstance(utf8s, str)
+        return W_UnicodeObject(utf8s, length)
 
     def newfilename(self, s):
         return self.fsdecode(self.newbytes(s))
-
-    def newunicode(self, uni):
-        assert uni is not None
-        assert isinstance(uni, unicode)
-        return W_UnicodeObject(uni)
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)
@@ -534,19 +542,19 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_bytes()
         return None
 
-    def listview_unicode(self, w_obj):
+    def listview_ascii(self, w_obj):
         # note: uses exact type checking for objects with strategies,
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
-            return w_obj.getitems_unicode()
+            return w_obj.getitems_ascii()
         if type(w_obj) is W_DictObject:
-            return w_obj.listview_unicode()
+            return w_obj.listview_ascii()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
-            return w_obj.listview_unicode()
+            return w_obj.listview_ascii()
         if isinstance(w_obj, W_UnicodeObject) and self._uses_unicode_iter(w_obj):
-            return w_obj.listview_unicode()
+            return w_obj.listview_ascii()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            return w_obj.getitems_unicode()
+            return w_obj.getitems_ascii()
         return None
 
     def listview_int(self, w_obj):
@@ -751,12 +759,12 @@ class StdObjSpace(ObjSpace):
             w_module = w_type.lookup("__module__")
             if w_module is not None:
                 try:
-                    modulename = self.unicode_w(w_module)
+                    modulename = self.utf8_w(w_module)
                 except OperationError as e:
                     if not e.match(self, self.w_TypeError):
                         raise
                 else:
-                    classname = u'%s.%s' % (modulename, classname)
+                    classname = '%s.%s' % (modulename, classname)
         else:
-            classname = w_type.name.decode('utf-8')
+            classname = w_type.name
         return classname

@@ -11,16 +11,11 @@ from pypy.objspace.std.dictmultiobject import (
     DictStrategy, ObjectDictStrategy, _never_equal_to_string,
     create_iterator_classes)
 from pypy.objspace.std.typeobject import (
-    MutableCell, IntMutableCell, ObjectMutableCell, write_cell)
+    MutableCell, IntMutableCell, ObjectMutableCell, write_cell, unwrap_cell)
 
 
 class VersionTag(object):
     pass
-
-def unwrap_cell(space, w_value):
-    if isinstance(w_value, MutableCell):
-        return w_value.unwrap_cell(space)
-    return w_value
 
 
 def _wrapkey(space, key):
@@ -185,6 +180,17 @@ class ModuleDictStrategy(DictStrategy):
 
     def wrapvalue(space, value):
         return unwrap_cell(space, value)
+
+def remove_cell(w_dict, space, name):
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+    if isinstance(w_dict, W_DictMultiObject):
+        strategy = w_dict.get_strategy()
+        if isinstance(strategy, ModuleDictStrategy):
+            w_value = strategy.getitem_str(w_dict, name)
+            dict_w = strategy.unerase(w_dict.dstorage)
+            strategy.mutated()
+            dict_w[name] = w_value # store without cell
+    # nothing to do, not a W_DictMultiObject or wrong strategy
 
 
 create_iterator_classes(ModuleDictStrategy)

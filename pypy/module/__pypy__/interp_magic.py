@@ -117,14 +117,6 @@ def newlist_hint(space, sizehint):
     """ Create a new empty list that has an underlying storage of length sizehint """
     return space.newlist_hint(sizehint)
 
-@unwrap_spec(debug=int)
-def set_debug(space, debug):
-    debug = bool(debug)
-    space.sys.debug = debug
-    space.setitem(space.builtin.w_dict,
-                  space.newtext('__debug__'),
-                  space.newbool(debug))
-
 @unwrap_spec(estimate=int)
 def add_memory_pressure(space, estimate):
     """ Add memory pressure of estimate bytes. Useful when calling a C function
@@ -219,3 +211,7 @@ def pyos_inputhook(space):
         return      # cpyext not imported yet, ignore
     from pypy.module.cpyext.api import invoke_pyos_inputhook
     invoke_pyos_inputhook(space)
+
+def set_exc_info(space, w_type, w_value, w_traceback=None):
+    ec = space.getexecutioncontext()
+    ec.set_sys_exc_info3(w_type, w_value, w_traceback)

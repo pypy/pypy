@@ -57,7 +57,7 @@ Here we add keyword arguments
     Traceback (most recent call last):
         ...
     TypeError: ...got multiple values for keyword argument 'a'
-    >>> f(1, 2, a=3, **{'a': 4}, **{'a': 5})               #doctest: +ELLIPSIS
+    >>> f(1, 2, a=3, **{'a': 4}, **{'a': 5})  #doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
     TypeError: ...got multiple values for keyword argument 'a'
@@ -163,12 +163,20 @@ right error message? (Also check with other iterables.)
     Traceback (most recent call last):
       ...
     TypeError: myerror
+    >>> g(*range(1), *(broken() for i in range(1)))
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
 
     >>> class BrokenIterable1:
     ...     def __iter__(self):
     ...         raise TypeError('myerror')
     ...
     >>> g(*BrokenIterable1())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
+    >>> g(*range(1), *BrokenIterable1())
     Traceback (most recent call last):
       ...
     TypeError: myerror
@@ -182,12 +190,20 @@ right error message? (Also check with other iterables.)
     Traceback (most recent call last):
       ...
     TypeError: myerror
+    >>> g(*range(1), *BrokenIterable2())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
 
     >>> class BrokenSequence:
     ...     def __getitem__(self, idx):
     ...         raise TypeError('myerror')
     ...
     >>> g(*BrokenSequence())
+    Traceback (most recent call last):
+      ...
+    TypeError: myerror
+    >>> g(*range(1), *BrokenSequence())
     Traceback (most recent call last):
       ...
     TypeError: myerror
@@ -228,60 +244,66 @@ What about willful misconduct?
       ...
     TypeError: h() got an unexpected keyword argument 'e'
 
-    >>> h(*h)                                  #doctest: +ELLIPSIS
+    >>> h(*h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be an iterable, not function
+    TypeError: h() argument after * must be an iterable, not function
 
-    >>> h(1, *h)                               #doctest: +ELLIPSIS
+    >>> h(1, *h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be an iterable, not function
+    TypeError: h() argument after * must be an iterable, not function
 
-    >>> dir(*h)                                #doctest: +ELLIPSIS
+    >>> h(*[1], *h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be an iterable, not function
+    TypeError: ...
 
-    >>> None(*h)                               #doctest: +ELLIPSIS
+    >>> dir(*h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after * must be an iterable, not function
+    TypeError: dir() argument after * must be an iterable, not function
 
-    >>> h(**h)                                 #doctest: +ELLIPSIS
+    >>> None(**h)  #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    TypeError: ... object argument after ** must be a mapping, \
+not function
+
+    >>> h(**h)
+    Traceback (most recent call last):
+      ...
+    TypeError: h() argument after ** must be a mapping, not function
+
+    >>> h(**[])
+    Traceback (most recent call last):
+      ...
+    TypeError: h() argument after ** must be a mapping, not list
+
+    >>> h(a=1, **h)
+    Traceback (most recent call last):
+      ...
+    TypeError: h() argument after ** must be a mapping, not function
+
+    >>> h(a=1, **[])
+    Traceback (most recent call last):
+      ...
+    TypeError: h() argument after ** must be a mapping, not list
+
+    >>> h(**{'a': 1}, **h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     TypeError: ...argument after ** must be a mapping, not function
 
-    >>> h(**[])                                #doctest: +ELLIPSIS
+    >>> h(**{'a': 1}, **[])  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     TypeError: ...argument after ** must be a mapping, not list
 
-    >>> h(a=1, **h)                            #doctest: +ELLIPSIS
+    >>> dir(**h)
     Traceback (most recent call last):
       ...
-    TypeError: ...argument after ** must be a mapping, not function
-
-    >>> h(a=1, **[])                           #doctest: +ELLIPSIS
-    Traceback (most recent call last):
-      ...
-    TypeError: ...argument after ** must be a mapping, not list
-
-    >>> h(**{'a': 1}, **h)                     #doctest: +ELLIPSIS
-    Traceback (most recent call last):
-      ...
-    TypeError: ...argument after ** must be a mapping, not function
-
-    >>> h(**{'a': 1}, **[])                    #doctest: +ELLIPSIS
-    Traceback (most recent call last):
-      ...
-    TypeError: ...argument after ** must be a mapping, not list
-
-    >>> dir(**h)                               #doctest: +ELLIPSIS
-    Traceback (most recent call last):
-      ...
-    TypeError: ...argument after ** must be a mapping, not function
+    TypeError: dir() argument after ** must be a mapping, not function
 
     >>> None(**h)                              #doctest: +ELLIPSIS
     Traceback (most recent call last):

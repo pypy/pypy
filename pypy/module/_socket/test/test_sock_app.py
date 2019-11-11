@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys, os
+import socket
 import pytest
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
@@ -10,8 +11,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct',
                                             'unicodedata'])
-    global socket
-    import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
     mod.path = udir.join('fd')
     mod.path.write('fo')
@@ -57,15 +56,11 @@ def test_getservbyname():
                         "(_socket, name): return _socket.getservbyname(name, 'tcp')")
     assert space.unwrap(port) == 25
     # 1 arg version
-    if sys.version_info < (2, 4):
-        pytest.skip("getservbyname second argument is not optional before python 2.4")
     port = space.appexec([w_socket, space.wrap(name)],
                         "(_socket, name): return _socket.getservbyname(name)")
     assert space.unwrap(port) == 25
 
 def test_getservbyport():
-    if sys.version_info < (2, 4):
-        pytest.skip("getservbyport does not exist before python 2.4")
     port = 25
     # 2 args version
     name = space.appexec([w_socket, space.wrap(port)],
@@ -90,6 +85,7 @@ def test_getprotobyname():
                         "(_socket, name): return _socket.getprotobyname(name)")
     assert space.unwrap(w_n) == socket.IPPROTO_TCP
 
+@pytest.mark.skipif("not hasattr(socket, 'fromfd')")
 def test_ntohs():
     w_n = space.appexec([w_socket, space.wrap(125)],
                         "(_socket, x): return _socket.ntohs(x)")
@@ -130,11 +126,10 @@ def test_aton_ntoa():
     assert space.bytes_w(w_p) == packed
     w_ip = space.appexec([w_socket, w_p],
                          "(_socket, p): return _socket.inet_ntoa(p)")
-    assert space.unicode_w(w_ip) == ip
+    assert space.utf8_w(w_ip) == ip
 
+@pytest.mark.skipif("not hasattr(socket, 'inet_pton')")
 def test_pton_ntop_ipv4():
-    if not hasattr(socket, 'inet_pton'):
-        pytest.skip('No socket.inet_pton on this platform')
     tests = [
         ("123.45.67.89", "\x7b\x2d\x43\x59"),
         ("0.0.0.0", "\x00" * 4),
@@ -191,11 +186,6 @@ def test_pton_ipv6():
             "(_socket, ip): return _socket.inet_pton(_socket.AF_INET6, ip)")
         assert space.unwrap(w_packed) == packed
 
-def test_has_ipv6():
-    pytest.skip("has_ipv6 is always True on PyPy for now")
-    res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
-    assert space.unwrap(res) == socket.has_ipv6
-
 def test_getaddrinfo():
     host = b"localhost"
     port = 25
@@ -209,6 +199,17 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.newbytes(host), space.wrap('smtp')],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == socket.getaddrinfo(host, 'smtp')
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap(u'\uD800')], '''
+
+       (_socket, host, port):
+            try:
+                info = _socket.getaddrinfo(host, port)
+            except Exception as e:
+                return e.reason == 'surrogates not allowed'
+            return -1
+        ''')
+    assert space.unwrap(w_l) == True
+
 
 def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
@@ -221,7 +222,7 @@ def test_unknown_addr_as_object():
     w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
     assert space.isinstance_w(w_obj, space.w_tuple)
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
-    assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
+    assert space.text_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 
 def test_addr_raw_packet():
     from pypy.module._socket.interp_socket import addr_as_object
@@ -300,7 +301,7 @@ class AppTestSocket:
                                    'unicodedata'])
 
     def setup_class(cls):
-        cls.space = space
+        space = cls.space
         cls.w_udir = space.wrap(str(udir))
 
     def teardown_class(cls):
@@ -395,13 +396,18 @@ class AppTestSocket:
         if os.name != 'nt':
             raises(OSError, os.close, fileno)
 
-    def test_socket_close_error(self):
-        import _socket, os
-        if os.name == 'nt':
-            skip("Windows sockets are not files")
+    def test_socket_close_exception(self):
+        import errno, _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        os.close(s.fileno())
-        s.close()
+        _socket.socket(fileno=s.fileno()).close()
+        e = raises(OSError, s.close)
+        assert e.value.errno in (errno.EBADF, errno.ENOTSOCK)
+
+    def test_setblocking_invalidfd(self):
+        import errno, _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        _socket.socket(fileno=s.fileno()).close()
+        raises(OSError, s.setblocking, False)
 
     def test_socket_connect(self):
         import _socket, os
@@ -558,6 +564,27 @@ class AppTestSocket:
         s = _socket.socket()
         raises(ValueError, s.ioctl, -1, None)
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
+
+    def test_socket_sharelocal(self):
+        import _socket, sys, os
+        if sys.platform != 'win32':
+            skip("win32 only")
+        assert hasattr(_socket.socket, 'share')
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.listen()
+        data = s.share(os.getpid())
+        # emulate socket.fromshare
+        s2 = _socket.socket(0, 0, 0, data)
+        try:
+            assert s.gettimeout() == s2.gettimeout()
+            assert s.family == s2.family
+            assert s.type == s2.type
+            if s.proto != 0:
+                assert s.proto == s2.proto
+        finally:
+            s.close()
+            s2.close()
+
 
     def test_dup(self):
         import _socket as socket, os
@@ -725,11 +752,12 @@ class AppTestSocket:
         raises(TypeError, s.connect, (domain + '\x00', 80))
 
 
+@pytest.mark.skipif(not hasattr(os, 'getpid'),
+    reason="AF_NETLINK needs os.getpid()")
 class AppTestNetlink:
     def setup_class(cls):
-        if not hasattr(os, 'getpid'):
-            pytest.skip("AF_NETLINK needs os.getpid()")
-        
+        cls.space = space
+
         if cls.runappdirect:
             import _socket
             w_ok = hasattr(_socket, 'AF_NETLINK')
@@ -738,7 +766,6 @@ class AppTestNetlink:
                                  "return hasattr(_socket, 'AF_NETLINK')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_NETLINK on this platform")
-        cls.space = space
 
     def test_connect_to_kernel_netlink_routing_socket(self):
         import _socket, os
@@ -751,10 +778,11 @@ class AppTestNetlink:
         assert b == 0
 
 
+@pytest.mark.skipif(not hasattr(os, 'getuid') or os.getuid() != 0,
+    reason="AF_PACKET needs to be root for testing")
 class AppTestPacket:
     def setup_class(cls):
-        if not hasattr(os, 'getuid') or os.getuid() != 0:
-            pytest.skip("AF_PACKET needs to be root for testing")
+        cls.space = space
         if cls.runappdirect:
             import _socket
             w_ok = hasattr(_socket, 'AF_PACKET')
@@ -763,7 +791,6 @@ class AppTestPacket:
                                  "return hasattr(_socket, 'AF_PACKET')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_PACKET on this platform")
-        cls.space = space
 
     def test_convert_between_tuple_and_sockaddr_ll(self):
         import _socket
@@ -912,6 +939,13 @@ class AppTestSocketTCP:
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
 
+    def test_missing_error_catching(self):
+        from _socket import socket, error
+        s = socket()
+        s.close()
+        raises(error, s.settimeout, 1)            # EBADF
+        raises(error, s.setblocking, True)        # EBADF
+        raises(error, s.getsockopt, 42, 84, 8)    # EBADF
 
     def test_accept_non_inheritable(self):
         import _socket, os

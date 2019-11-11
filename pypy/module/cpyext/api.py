@@ -14,7 +14,7 @@ from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
         c_fdopen, c_fileno,
         c_fopen)# for tests
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -30,11 +30,11 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
 #from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import FdValidator
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -512,6 +512,7 @@ def c_only(argtypes, restype):
         header = DEFAULT_HEADER
         if func.__name__ in FUNCTIONS_BY_HEADER[header]:
             raise ValueError("%s already registered" % func.__name__)
+        func._revdb_c_only_ = True   # hack for revdb
         api_function = COnlyApiFunction(argtypes, restype, func)
         FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
         return api_function
@@ -606,7 +607,7 @@ SYMBOLS_C = [
     '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
-    'PyErr_WarnFormat',
+    'PyErr_WarnFormat', '_PyErr_FormatFromCause',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
@@ -637,16 +638,18 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS', 'PyThread_init_thread',
     'PyThread_start_new_thread',
 
-    'PyStructSequence_InitType', 'PyStructSequence_New',
-    'PyStructSequence_UnnamedField',
+    'PyStructSequence_InitType', 'PyStructSequence_InitType2',
+    'PyStructSequence_New', 'PyStructSequence_UnnamedField',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
-    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_InteractiveFlag', 'Py_InspectFlag',
+    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_QuietFlag',
+    'Py_InteractiveFlag', 'Py_InspectFlag',
     'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
-    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
-    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
-    '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
+    'Py_FrozenFlag', 'Py_IgnoreEnvironmentFlag',
+    'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
+    'Py_UnbufferedStdioFlag', 'Py_HashRandomizationFlag', 'Py_IsolatedFlag',
+    '_Py_PackageContext',
     'PyOS_InputHook',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
@@ -662,6 +665,8 @@ SYMBOLS_C = [
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc',
 ]
+if sys.platform == "win32":
+    SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
 TYPES = {}
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
@@ -688,7 +693,8 @@ def build_exported_objects():
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
     global all_exceptions
-    all_exceptions = list(exceptions.Module.interpleveldefs)
+    from pypy.module.exceptions.moduledef import Module as ExcModule
+    all_exceptions = list(ExcModule.interpleveldefs)
     for exc_name in all_exceptions:
         if exc_name in ('EnvironmentError', 'IOError', 'WindowsError'):
             # FIXME: aliases of OSError cause a clash of names via
@@ -730,6 +736,7 @@ def build_exported_objects():
         'PyMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
+        'PyBufferable_Type': 'space.gettypeobject(W_Bufferable.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
@@ -979,8 +986,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
+    pygilstate_check = (gil == "pygilstate_check")
     assert (gil is None or gil_acquire or gil_release
-            or pygilstate_ensure or pygilstate_release)
+            or pygilstate_ensure or pygilstate_release or pygilstate_check)
     expected_nb_args = len(argtypesw) + pygilstate_ensure
 
     if isinstance(restype, lltype.Ptr) and error_value == 0:
@@ -1013,6 +1021,12 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 deadlock_error(pname)
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
+            if gil_auto_workaround:
+                # while we're in workaround-land, detect when a regular PyXxx()
+                # function is invoked at .so load-time, e.g. by a C++ global
+                # variable with an initializer, and in this case make sure we
+                # initialize things.
+                space.fromcache(State).make_sure_cpyext_is_imported()
         elif pygilstate_ensure:
             if cpyext_glob_tid_ptr[0] == tid:
                 cpyext_glob_tid_ptr[0] = 0
@@ -1020,6 +1034,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
             else:
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
+        elif pygilstate_check:
+            result = cpyext_glob_tid_ptr[0] == tid
+            return rffi.cast(restype, result)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
                 no_gil_error(pname)
@@ -1188,7 +1205,9 @@ def attach_c_functions(space, eci, prefix):
     state.C.get_pyos_inputhook = rffi.llexternal(
         '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
-
+    state.C.tuple_new = rffi.llexternal(
+        'tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        compilation_info=eci, _nowrapper=True)
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1501,6 +1520,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythread.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
+                         source_dir / "pytime.c",
                          source_dir / "bytesobject.c",
                          source_dir / "import.c",
                          source_dir / "_warnings.c",
@@ -1508,6 +1528,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "object.c",
                          source_dir / "typeobject.c",
                          source_dir / "tupleobject.c",
+                         source_dir / "sliceobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):
@@ -1715,23 +1736,20 @@ def create_extension_module(space, w_spec):
         else:
             look_for = also_look_for
     assert look_for is not None
-    msg = u"function %s not found in library %s" % (
-        look_for.decode('utf-8'), space.unicode_w(space.newfilename(path)))
+    msg = b"function %s not found in library %s" % (
+        look_for, space.utf8_w(space.newfilename(path)))
     w_path = space.newfilename(path)
-    raise_import_error(space, space.newunicode(msg), w_name, w_path)
+    raise_import_error(space, space.newtext(msg), w_name, w_path)
 
 def get_init_name(space, w_name):
-    name_u = space.unicode_w(w_name)
-    basename_u = name_u.split(u'.')[-1]
-    try:
-        basename = basename_u.encode('ascii')
+    name = space.utf8_w(w_name)
+    basename = name.split('.')[-1]
+    if rutf8.first_non_ascii_char(basename) == -1:
         return 'PyInit_%s' % (basename,)
-    except UnicodeEncodeError:
-        basename = space.bytes_w(encode_object(
-            space, space.newunicode(basename_u), 'punycode', None))
-        basename = basename.replace('-', '_')
-        return 'PyInitU_%s' % (basename,)
-
+    basename = space.bytes_w(encode_object(
+        space, space.newtext(basename), 'punycode', None))
+    basename = basename.replace('-', '_')
+    return 'PyInitU_%s' % (basename,)
 
 initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
 
@@ -1739,8 +1757,8 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     from rpython.rlib import rdynload
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 
-    space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
+    state.make_sure_cpyext_is_imported()
     w_mod = state.find_extension(name, path)
     if w_mod is not None:
         rdynload.dlclose(dll)

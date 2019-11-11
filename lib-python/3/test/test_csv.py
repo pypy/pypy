@@ -2,9 +2,7 @@
 # csv package unit tests
 
 import copy
-import io
 import sys
-import os
 import unittest
 from io import StringIO
 from tempfile import TemporaryFile
@@ -12,6 +10,9 @@ import csv
 import gc
 import pickle
 from test import support
+from itertools import permutations
+from textwrap import dedent
+from collections import OrderedDict
 
 class Test_Csv(unittest.TestCase):
     """
@@ -208,9 +209,28 @@ class Test_Csv(unittest.TestCase):
         with TemporaryFile("w+", newline='') as fileobj:
             writer = csv.writer(fileobj)
             self.assertRaises(TypeError, writer.writerows, None)
-            writer.writerows([['a','b'],['c','d']])
+            writer.writerows([['a', 'b'], ['c', 'd']])
             fileobj.seek(0)
             self.assertEqual(fileobj.read(), "a,b\r\nc,d\r\n")
+
+    def test_writerows_with_none(self):
+        with TemporaryFile("w+", newline='') as fileobj:
+            writer = csv.writer(fileobj)
+            writer.writerows([['a', None], [None, 'd']])
+            fileobj.seek(0)
+            self.assertEqual(fileobj.read(), "a,\r\n,d\r\n")
+
+        with TemporaryFile("w+", newline='') as fileobj:
+            writer = csv.writer(fileobj)
+            writer.writerows([[None], ['a']])
+            fileobj.seek(0)
+            self.assertEqual(fileobj.read(), '""\r\na\r\n')
+
+        with TemporaryFile("w+", newline='') as fileobj:
+            writer = csv.writer(fileobj)
+            writer.writerows([['a'], [None]])
+            fileobj.seek(0)
+            self.assertEqual(fileobj.read(), 'a\r\n""\r\n')
 
     @support.cpython_only
     def test_writerows_legacy_strings(self):
@@ -429,17 +449,16 @@ class TestDialectRegistry(unittest.TestCase):
         self.assertRaises(TypeError, csv.reader, [], quoting = -1)
         self.assertRaises(TypeError, csv.reader, [], quoting = 100)
 
-    # See issue #22995
-    ## def test_copy(self):
-    ##     for name in csv.list_dialects():
-    ##         dialect = csv.get_dialect(name)
-    ##         self.assertRaises(TypeError, copy.copy, dialect)
+    def test_copy(self):
+        for name in csv.list_dialects():
+            dialect = csv.get_dialect(name)
+            self.assertRaises(TypeError, copy.copy, dialect)
 
-    ## def test_pickle(self):
-    ##     for name in csv.list_dialects():
-    ##         dialect = csv.get_dialect(name)
-    ##         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-    ##             self.assertRaises(TypeError, pickle.dumps, dialect, proto)
+    def test_pickle(self):
+        for name in csv.list_dialects():
+            dialect = csv.get_dialect(name)
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                self.assertRaises(TypeError, pickle.dumps, dialect, proto)
 
 class TestCsvBase(unittest.TestCase):
     def readerAssertEqual(self, input, expected_result):
@@ -628,6 +647,24 @@ class TestDictFields(unittest.TestCase):
             self.assertIn("'f4'", exception)
             self.assertNotIn("'f2'", exception)
             self.assertIn("1", exception)
+
+    def test_typo_in_extrasaction_raises_error(self):
+        fileobj = StringIO()
+        self.assertRaises(ValueError, csv.DictWriter, fileobj, ['f1', 'f2'],
+                          extrasaction="raised")
+
+    def test_write_field_not_in_field_names_raise(self):
+        fileobj = StringIO()
+        writer = csv.DictWriter(fileobj, ['f1', 'f2'], extrasaction="raise")
+        dictrow = {'f0': 0, 'f1': 1, 'f2': 2, 'f3': 3}
+        self.assertRaises(ValueError, csv.DictWriter.writerow, writer, dictrow)
+
+    def test_write_field_not_in_field_names_ignore(self):
+        fileobj = StringIO()
+        writer = csv.DictWriter(fileobj, ['f1', 'f2'], extrasaction="ignore")
+        dictrow = {'f0': 0, 'f1': 1, 'f2': 2, 'f3': 3}
+        csv.DictWriter.writerow(writer, dictrow)
+        self.assertEqual(fileobj.getvalue(), "1,2\r\n")
 
     def test_read_dict_fields(self):
         with TemporaryFile("w+") as fileobj:
@@ -952,6 +989,16 @@ Stonecutters Seafood and Chop House+ Lemont+ IL+ 12/19/02+ Week Back
         self.assertEqual(sniffer.has_header(self.header2 + self.sample8),
                          True)
 
+    def test_guess_quote_and_delimiter(self):
+        sniffer = csv.Sniffer()
+        for header in (";'123;4';", "'123;4';", ";'123;4'", "'123;4'"):
+            with self.subTest(header):
+                dialect = sniffer.sniff(header, ",;")
+                self.assertEqual(dialect.delimiter, ';')
+                self.assertEqual(dialect.quotechar, "'")
+                self.assertIs(dialect.doublequote, False)
+                self.assertIs(dialect.skipinitialspace, False)
+
     def test_sniff(self):
         sniffer = csv.Sniffer()
         dialect = sniffer.sniff(self.sample1)
@@ -1083,7 +1130,6 @@ class TestUnicode(unittest.TestCase):
              "François Pinard"]
 
     def test_unicode_read(self):
-        import io
         with TemporaryFile("w+", newline='', encoding="utf-8") as fileobj:
             fileobj.write(",".join(self.names) + "\r\n")
             fileobj.seek(0)
@@ -1092,13 +1138,69 @@ class TestUnicode(unittest.TestCase):
 
 
     def test_unicode_write(self):
-        import io
         with TemporaryFile("w+", newline='', encoding="utf-8") as fileobj:
             writer = csv.writer(fileobj)
             writer.writerow(self.names)
             expected = ",".join(self.names)+"\r\n"
             fileobj.seek(0)
             self.assertEqual(fileobj.read(), expected)
+
+class KeyOrderingTest(unittest.TestCase):
+
+    def test_ordering_for_the_dict_reader_and_writer(self):
+        resultset = set()
+        for keys in permutations("abcde"):
+            with TemporaryFile('w+', newline='', encoding="utf-8") as fileobject:
+                dw = csv.DictWriter(fileobject, keys)
+                dw.writeheader()
+                fileobject.seek(0)
+                dr = csv.DictReader(fileobject)
+                kt = tuple(dr.fieldnames)
+                self.assertEqual(keys, kt)
+                resultset.add(kt)
+        # Final sanity check: were all permutations unique?
+        self.assertEqual(len(resultset), 120, "Key ordering: some key permutations not collected (expected 120)")
+
+    def test_ordered_dict_reader(self):
+        data = dedent('''\
+            FirstName,LastName
+            Eric,Idle
+            Graham,Chapman,Over1,Over2
+
+            Under1
+            John,Cleese
+        ''').splitlines()
+
+        self.assertEqual(list(csv.DictReader(data)),
+            [OrderedDict([('FirstName', 'Eric'), ('LastName', 'Idle')]),
+             OrderedDict([('FirstName', 'Graham'), ('LastName', 'Chapman'),
+                          (None, ['Over1', 'Over2'])]),
+             OrderedDict([('FirstName', 'Under1'), ('LastName', None)]),
+             OrderedDict([('FirstName', 'John'), ('LastName', 'Cleese')]),
+            ])
+
+        self.assertEqual(list(csv.DictReader(data, restkey='OtherInfo')),
+            [OrderedDict([('FirstName', 'Eric'), ('LastName', 'Idle')]),
+             OrderedDict([('FirstName', 'Graham'), ('LastName', 'Chapman'),
+                          ('OtherInfo', ['Over1', 'Over2'])]),
+             OrderedDict([('FirstName', 'Under1'), ('LastName', None)]),
+             OrderedDict([('FirstName', 'John'), ('LastName', 'Cleese')]),
+            ])
+
+        del data[0]            # Remove the header row
+        self.assertEqual(list(csv.DictReader(data, fieldnames=['fname', 'lname'])),
+            [OrderedDict([('fname', 'Eric'), ('lname', 'Idle')]),
+             OrderedDict([('fname', 'Graham'), ('lname', 'Chapman'),
+                          (None, ['Over1', 'Over2'])]),
+             OrderedDict([('fname', 'Under1'), ('lname', None)]),
+             OrderedDict([('fname', 'John'), ('lname', 'Cleese')]),
+            ])
+
+
+class MiscTestCase(unittest.TestCase):
+    def test__all__(self):
+        extra = {'__doc__', '__version__'}
+        support.check__all__(self, csv, ('csv', '_csv'), extra=extra)
 
 
 if __name__ == '__main__':

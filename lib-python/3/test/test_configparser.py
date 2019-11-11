@@ -2,7 +2,7 @@ import collections
 import configparser
 import io
 import os
-import sys
+import pathlib
 import textwrap
 import unittest
 import warnings
@@ -720,6 +720,16 @@ boolean {0[0]} NO
         cf = self.newconfig()
         parsed_files = cf.read(file1)
         self.assertEqual(parsed_files, [file1])
+        self.assertEqual(cf.get("Foo Bar", "foo"), "newbar")
+        # check when we pass only a Path object:
+        cf = self.newconfig()
+        parsed_files = cf.read(pathlib.Path(file1))
+        self.assertEqual(parsed_files, [file1])
+        self.assertEqual(cf.get("Foo Bar", "foo"), "newbar")
+        # check when we passed both a filename and a Path object:
+        cf = self.newconfig()
+        parsed_files = cf.read([pathlib.Path(file1), file1])
+        self.assertEqual(parsed_files, [file1, file1])
         self.assertEqual(cf.get("Foo Bar", "foo"), "newbar")
         # check when we pass only missing files:
         cf = self.newconfig()
@@ -2074,6 +2084,12 @@ class BlatantOverrideConvertersTestCase(unittest.TestCase):
             self.assertEqual(cfg['one'].getlen('one'), 5)
         with self.assertRaises(AttributeError):
             self.assertEqual(cfg['two'].getlen('one'), 5)
+
+
+class MiscTestCase(unittest.TestCase):
+    def test__all__(self):
+        blacklist = {"Error"}
+        support.check__all__(self, configparser, blacklist=blacklist)
 
 
 if __name__ == '__main__':

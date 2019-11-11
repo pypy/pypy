@@ -185,11 +185,12 @@ class W_FileIO(W_RawIOBase):
                                 "Cannot use closefd=False with file name")
 
                 if space.is_none(w_opener):
-                    from pypy.module.posix.interp_posix import dispatch_filename
+                    from pypy.module.posix.interp_posix import dispatch_filename, fspath
+                    w_path = fspath(space, w_name)
                     while True:
                         try:
                             self.fd = dispatch_filename(rposix.open)(
-                                space, w_name, flags, 0666)
+                                space, w_path, flags, 0666)
                             fd_is_own = True
                             break
                         except OSError as e:
@@ -255,6 +256,7 @@ class W_FileIO(W_RawIOBase):
         except:
             if not fd_is_own:
                 self.fd = -1
+            self._close(space)
             raise
 
     def _mode(self):
@@ -473,7 +475,7 @@ class W_FileIO(W_RawIOBase):
                         return space.w_None
                     wrap_oserror(space, e, exception_name='w_IOError',
                                  eintr_retry=True)
-            rwbuffer.setslice(0, buf)
+            self.output_slice(space, rwbuffer, 0, buf)
             return space.newint(len(buf))
         else:
             # optimized case: reading more than 64 bytes into a rwbuffer

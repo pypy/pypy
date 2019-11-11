@@ -1,11 +1,33 @@
 """Utilities for with-statement contexts.  See PEP 343."""
-
+import abc
 import sys
+import _collections_abc
 from collections import deque
 from functools import wraps
 
-__all__ = ["contextmanager", "closing", "ContextDecorator", "ExitStack",
-           "redirect_stdout", "redirect_stderr", "suppress"]
+__all__ = ["contextmanager", "closing", "AbstractContextManager",
+           "ContextDecorator", "ExitStack", "redirect_stdout",
+           "redirect_stderr", "suppress"]
+
+
+class AbstractContextManager(abc.ABC):
+
+    """An abstract base class for context managers."""
+
+    def __enter__(self):
+        """Return `self` upon entering the runtime context."""
+        return self
+
+    @abc.abstractmethod
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Raise any exception triggered within the runtime context."""
+        return None
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is AbstractContextManager:
+            return _collections_abc._check_methods(C, "__enter__", "__exit__")
+        return NotImplemented
 
 
 class ContextDecorator(object):
@@ -31,7 +53,7 @@ class ContextDecorator(object):
         return inner
 
 
-class _GeneratorContextManager(ContextDecorator):
+class _GeneratorContextManager(ContextDecorator, AbstractContextManager):
     """Helper for @contextmanager decorator."""
 
     def __init__(self, func, args, kwds):
@@ -65,7 +87,7 @@ class _GeneratorContextManager(ContextDecorator):
             try:
                 next(self.gen)
             except StopIteration:
-                return
+                return False
             else:
                 raise RuntimeError("generator didn't stop")
         else:
@@ -75,20 +97,19 @@ class _GeneratorContextManager(ContextDecorator):
                 value = type()
             try:
                 self.gen.throw(type, value, traceback)
-                raise RuntimeError("generator didn't stop after throw()")
             except StopIteration as exc:
                 # Suppress StopIteration *unless* it's the same exception that
                 # was passed to throw().  This prevents a StopIteration
                 # raised inside the "with" statement from being suppressed.
                 return exc is not value
             except RuntimeError as exc:
-                # Don't re-raise the passed in exception. (issue27112)
+                # Don't re-raise the passed in exception. (issue27122)
                 if exc is value:
                     return False
                 # Likewise, avoid suppressing if a StopIteration exception
                 # was passed to throw() and later wrapped into a RuntimeError
                 # (see PEP 479).
-                if exc.__cause__ is value:
+                if type is StopIteration and exc.__cause__ is value:
                     return False
                 raise
             except:
@@ -99,8 +120,10 @@ class _GeneratorContextManager(ContextDecorator):
                 # fixes the impedance mismatch between the throw() protocol
                 # and the __exit__() protocol.
                 #
-                if sys.exc_info()[1] is not value:
-                    raise
+                if sys.exc_info()[1] is value:
+                    return False
+                raise
+            raise RuntimeError("generator didn't stop after throw()")
 
 
 def contextmanager(func):
@@ -137,7 +160,7 @@ def contextmanager(func):
     return helper
 
 
-class closing(object):
+class closing(AbstractContextManager):
     """Context to automatically close something at the end of a block.
 
     Code like this:
@@ -162,7 +185,7 @@ class closing(object):
         self.thing.close()
 
 
-class _RedirectStream:
+class _RedirectStream(AbstractContextManager):
 
     _stream = None
 
@@ -202,7 +225,7 @@ class redirect_stderr(_RedirectStream):
     _stream = "stderr"
 
 
-class suppress:
+class suppress(AbstractContextManager):
     """Context manager to suppress specified exceptions
 
     After the exception is suppressed, execution proceeds with the next
@@ -233,7 +256,7 @@ class suppress:
 
 
 # Inspired by discussions on http://bugs.python.org/issue13585
-class ExitStack(object):
+class ExitStack(AbstractContextManager):
     """Context manager for dynamic management of a stack of exit callbacks
 
     For example:
@@ -311,9 +334,6 @@ class ExitStack(object):
     def close(self):
         """Immediately unwind the context stack"""
         self.__exit__(None, None, None)
-
-    def __enter__(self):
-        return self
 
     def __exit__(self, *exc_details):
         received_exc = exc_details[0] is not None

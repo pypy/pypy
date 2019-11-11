@@ -1,6 +1,8 @@
 # coding: utf-8
+import pytest
 
 from pypy.interpreter.error import OperationError
+
 
 class TestW_BytesObject:
 
@@ -97,7 +99,7 @@ class TestW_BytesObject:
         monkeypatch.setattr(jit, 'isconstant', lambda x: True)
         space = self.space
         w_res = space.call_function(space.w_bytes, space.wrap([42]))
-        assert space.str_w(w_res) == '*'
+        assert space.bytes_w(w_res) == b'*'
 
 
 class AppTestBytesObject:
@@ -138,6 +140,11 @@ class AppTestBytesObject:
         raises(TypeError, bytes.fromhex, b"abcd")
         raises(TypeError, bytes.fromhex, True)
         raises(ValueError, bytes.fromhex, "hello world")
+
+    def test_fromhex_subclass(self):
+        class Sub(bytes):
+            pass
+        assert type(Sub.fromhex("abcd")) is Sub
 
     def test_format(self):
         raises(TypeError, "foo".__mod__, "bar")
@@ -417,6 +424,14 @@ class AppTestBytesObject:
         assert b'ab'.startswith(b'b', 1) is True
         assert b'abc'.startswith(b'bc', 1, 2) is False
         assert b'abc'.startswith(b'c', -1, 4) is True
+        assert b'0'.startswith(b'', 1, -1) is False
+        assert b'0'.startswith(b'', 1, 0) is False
+        assert b'0'.startswith(b'', 1) is True
+        assert b'0'.startswith(b'', 1, None) is True
+        assert b''.startswith(b'', 1, -1) is False
+        assert b''.startswith(b'', 1, 0) is False
+        assert b''.startswith(b'', 1) is False
+        assert b''.startswith(b'', 1, None) is False
 
     def test_startswith_too_large(self):
         assert b'ab'.startswith(b'b', 1) is True
@@ -460,6 +475,7 @@ class AppTestBytesObject:
         assert b'abc'.endswith(b'bc', 1) is True
         assert b'abc'.endswith(b'bc', 2) is False
         assert b'abc'.endswith(b'b', -3, -1) is True
+        assert b'0'.endswith(b'', 1, -1) is False
 
     def test_endswith_tuple(self):
         assert not b'hello'.endswith((b'he', b'ha'))
@@ -637,6 +653,7 @@ class AppTestBytesObject:
     def test_unicode_join_str_arg_ascii(self):
         raises(TypeError, ''.join, [b'\xc3\xa1'])
 
+    @pytest.mark.xfail(reason='setdefaultencoding does not work?')
     def test_unicode_join_endcase(self):
         # This class inserts a Unicode object into its argument's natural
         # iteration, in the 3rd position.
@@ -1026,3 +1043,17 @@ class AppTestBytesObject:
             pass
         assert type(Sub1(X())) is Sub1
         assert Sub1(X()) == b'foo'
+
+    def test_id(self):
+        a = b'abcabc'
+        id_b = id(str(a, 'latin1'))
+        id_a = id(a)
+        assert a is not str(a, 'latin1')
+        assert id_a != id_b
+
+    def test_error_message_wrong_self(self):
+        e = raises(TypeError, bytes.upper, 42)
+        assert "bytes" in str(e.value)
+        if hasattr(bytes.upper, 'im_func'):
+            e = raises(TypeError, bytes.upper.im_func, 42)
+            assert "'bytes'" in str(e.value)

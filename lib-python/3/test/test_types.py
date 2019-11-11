@@ -49,6 +49,7 @@ class TypesTests(unittest.TestCase):
     def test_float_constructor(self):
         self.assertRaises(ValueError, float, '')
         self.assertRaises(ValueError, float, '5\0')
+        self.assertRaises(ValueError, float, '5_5\0')
 
     def test_zero_division(self):
         try: 5.0 / 0.0
@@ -847,6 +848,28 @@ class ClassCreationTests(unittest.TestCase):
         self.assertIs(ns, expected_ns)
         self.assertEqual(len(kwds), 0)
 
+    def test_bad___prepare__(self):
+        # __prepare__() must return a mapping.
+        class BadMeta(type):
+            @classmethod
+            def __prepare__(*args):
+                return None
+        with self.assertRaisesRegex(TypeError,
+                                    r'^BadMeta\.__prepare__\(\) must '
+                                    r'return a mapping, not NoneType$'):
+            class Foo(metaclass=BadMeta):
+                pass
+        # Also test the case in which the metaclass is not a type.
+        class BadMeta:
+            @classmethod
+            def __prepare__(*args):
+                return None
+        with self.assertRaisesRegex(TypeError,
+                                    r'^<metaclass>\.__prepare__\(\) must '
+                                    r'return a mapping, not NoneType$'):
+            class Bar(metaclass=BadMeta()):
+                pass
+
     def test_metaclass_derivation(self):
         # issue1294232: correct metaclass calculation
         new_calls = []  # to check the order of __new__ calls
@@ -1002,6 +1025,24 @@ class ClassCreationTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             X = types.new_class("X", (int(), C))
 
+    def test_one_argument_type(self):
+        expected_message = '.__new__() takes exactly 3 arguments (1 given)'
+
+        # Only type itself can use the one-argument form (#27157)
+        self.assertIs(type(5), int)
+
+        class M(type):
+            pass
+        with self.assertRaises(TypeError) as cm:
+            M(5)
+        self.assertIn(expected_message, str(cm.exception))
+
+        class N(type, metaclass=M):
+            pass
+        with self.assertRaises(TypeError) as cm:
+            N(5)
+        self.assertIn(expected_message, str(cm.exception))
+
 
 class SimpleNamespaceTests(unittest.TestCase):
 
@@ -1012,6 +1053,8 @@ class SimpleNamespaceTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             types.SimpleNamespace(1, 2, 3)
+        with self.assertRaises(TypeError):
+            types.SimpleNamespace(**{1: 2})
 
         self.assertEqual(len(ns1.__dict__), 0)
         self.assertEqual(vars(ns1), {})

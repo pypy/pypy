@@ -1,4 +1,4 @@
-import os
+import sys
 from rpython.jit.metainterp.history import Const, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop, AbstractValue
@@ -67,6 +67,7 @@ class LinkedList(object):
 
     @specialize.arg(1)
     def foreach(self, function, arg):
+        # XXX unused?
         node = self.master_node
         while node is not None:
             function(arg, node.val)
@@ -279,6 +280,7 @@ class RegisterManager(object):
     no_lower_byte_regs    = []
     save_around_call_regs = []
     frame_reg             = None
+    FORBID_TEMP_BOXES     = False
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
@@ -297,12 +299,12 @@ class RegisterManager(object):
     def is_still_alive(self, v):
         # Check if 'v' is alive at the current position.
         # Return False if the last usage is strictly before.
-        return self.longevity[v][1] >= self.position
+        return self.longevity[v].last_usage >= self.position
 
     def stays_alive(self, v):
         # Check if 'v' stays alive after the current position.
         # Return False if the last usage is before or at position.
-        return self.longevity[v][1] > self.position
+        return self.longevity[v].last_usage > self.position
 
     def next_instruction(self, incr=1):
         self.position += incr
@@ -319,7 +321,7 @@ class RegisterManager(object):
         self._check_type(v)
         if isinstance(v, Const):
             return
-        if v not in self.longevity or self.longevity[v][1] <= self.position:
+        if v not in self.longevity or self.longevity[v].last_usage <= self.position:
             if v in self.reg_bindings:
                 self.free_regs.append(self.reg_bindings[v])
                 del self.reg_bindings[v]
@@ -355,7 +357,7 @@ class RegisterManager(object):
             for v in self.reg_bindings:
                 if v not in self.longevity:
                     llop.debug_print(lltype.Void, "variable %s not in longevity\n" % v.repr({}))
-                assert self.longevity[v][1] > self.position
+                assert self.longevity[v].last_usage > self.position
 
     def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
         """ Try to allocate a register, if we have one free.
@@ -366,6 +368,9 @@ class RegisterManager(object):
         returns allocated register or None, if not possible.
         """
         self._check_type(v)
+        if isinstance(v, TempVar):
+            self.longevity[v] = Lifetime(self.position, self.position)
+        # YYY all subtly similar code
         assert not isinstance(v, Const)
         if selected_reg is not None:
             res = self.reg_bindings.get(v, None)
@@ -385,44 +390,59 @@ class RegisterManager(object):
             loc = self.reg_bindings.get(v, None)
             if loc is not None and loc not in self.no_lower_byte_regs:
                 return loc
-            for i in range(len(self.free_regs) - 1, -1, -1):
-                reg = self.free_regs[i]
-                if reg not in self.no_lower_byte_regs:
-                    if loc is not None:
-                        self.free_regs[i] = loc
-                    else:
-                        del self.free_regs[i]
-                    self.reg_bindings[v] = reg
-                    return reg
-            return None
+            free_regs = [reg for reg in self.free_regs
+                         if reg not in self.no_lower_byte_regs]
+            newloc = self.longevity.try_pick_free_reg(
+                self.position, v, free_regs)
+            if newloc is None:
+                return None
+            self.free_regs.remove(newloc)
+            if loc is not None:
+                self.free_regs.append(loc)
+            self.reg_bindings[v] = newloc
+            return newloc
         try:
             return self.reg_bindings[v]
         except KeyError:
-            if self.free_regs:
-                loc = self.free_regs.pop()
-                self.reg_bindings[v] = loc
-                return loc
+            loc = self.longevity.try_pick_free_reg(
+                self.position, v, self.free_regs)
+            if loc is None:
+                return None
+            self.reg_bindings[v] = loc
+            self.free_regs.remove(loc)
+            return loc
 
-    def _spill_var(self, v, forbidden_vars, selected_reg,
+    def _spill_var(self, forbidden_vars, selected_reg,
                    need_lower_byte=False):
-        v_to_spill = self._pick_variable_to_spill(v, forbidden_vars,
+        v_to_spill = self._pick_variable_to_spill(forbidden_vars,
                                selected_reg, need_lower_byte=need_lower_byte)
         loc = self.reg_bindings[v_to_spill]
+        self._sync_var_to_stack(v_to_spill)
         del self.reg_bindings[v_to_spill]
-        if self.frame_manager.get(v_to_spill) is None:
-            newloc = self.frame_manager.loc(v_to_spill)
-            self.assembler.regalloc_mov(loc, newloc)
         return loc
 
-    def _pick_variable_to_spill(self, v, forbidden_vars, selected_reg=None,
-                                need_lower_byte=False):
-        """ Slightly less silly algorithm.
-        """
-        cur_max_age = -1
+    def _pick_variable_to_spill(self, forbidden_vars, selected_reg=None,
+                                need_lower_byte=False, regs=None):
+
+        # try to spill a variable that has no further real usages, ie that only
+        # appears in failargs or in a jump
+        # if that doesn't exist, spill the variable that has a real_usage that
+        # is the furthest away from the current position
+
+        # YYY check for fixed variable usages
+        if regs is None:
+            regs = self.reg_bindings.keys()
+
+        cur_max_use_distance = -1
+        position = self.position
         candidate = None
-        for next in self.reg_bindings:
+        cur_max_age_failargs = -1
+        candidate_from_failargs = None
+        for next in regs:
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
+                continue
+            if self.FORBID_TEMP_BOXES and next in self.temp_boxes:
                 continue
             if selected_reg is not None:
                 if reg is selected_reg:
@@ -431,13 +451,25 @@ class RegisterManager(object):
                     continue
             if need_lower_byte and reg in self.no_lower_byte_regs:
                 continue
-            max_age = self.longevity[next][1]
-            if cur_max_age < max_age:
-                cur_max_age = max_age
-                candidate = next
-        if candidate is None:
-            raise NoVariableToSpill
-        return candidate
+            lifetime = self.longevity[next]
+            if lifetime.is_last_real_use_before(position):
+                # this variable has no "real" use as an argument to an op left
+                # it is only used in failargs, and maybe in a jump. spilling is
+                # fine
+                max_age = lifetime.last_usage
+                if cur_max_age_failargs < max_age:
+                    cur_max_age_failargs = max_age
+                    candidate_from_failargs = next
+            else:
+                use_distance = lifetime.next_real_usage(position) - position
+                if cur_max_use_distance < use_distance:
+                    cur_max_use_distance = use_distance
+                    candidate = next
+        if candidate_from_failargs is not None:
+            return candidate_from_failargs
+        if candidate is not None:
+            return candidate
+        raise NoVariableToSpill
 
     def force_allocate_reg(self, v, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
@@ -450,12 +482,12 @@ class RegisterManager(object):
         """
         self._check_type(v)
         if isinstance(v, TempVar):
-            self.longevity[v] = (self.position, self.position)
+            self.longevity[v] = Lifetime(self.position, self.position)
         loc = self.try_allocate_reg(v, selected_reg,
                                     need_lower_byte=need_lower_byte)
         if loc:
             return loc
-        loc = self._spill_var(v, forbidden_vars, selected_reg,
+        loc = self._spill_var(forbidden_vars, selected_reg,
                               need_lower_byte=need_lower_byte)
         prev_loc = self.reg_bindings.get(v, None)
         if prev_loc is not None:
@@ -468,7 +500,7 @@ class RegisterManager(object):
         self.bindings_to_frame_reg[v] = None
 
     def force_spill_var(self, var):
-        self._sync_var(var)
+        self._sync_var_to_stack(var)
         try:
             loc = self.reg_bindings[var]
             del self.reg_bindings[var]
@@ -502,7 +534,7 @@ class RegisterManager(object):
             if selected_reg in self.free_regs:
                 self.assembler.regalloc_mov(immloc, selected_reg)
                 return selected_reg
-            loc = self._spill_var(v, forbidden_vars, selected_reg)
+            loc = self._spill_var(forbidden_vars, selected_reg)
             self.free_regs.append(loc)
             self.assembler.regalloc_mov(immloc, loc)
             return loc
@@ -523,6 +555,7 @@ class RegisterManager(object):
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
                                       need_lower_byte=need_lower_byte)
         if prev_loc is not loc:
+            self.assembler.num_reloads += 1
             self.assembler.regalloc_mov(prev_loc, loc)
         return loc
 
@@ -530,15 +563,7 @@ class RegisterManager(object):
         reg = self.reg_bindings[from_v]
         del self.reg_bindings[from_v]
         self.reg_bindings[to_v] = reg
-
-    def _move_variable_away(self, v, prev_loc):
-        if self.free_regs:
-            loc = self.free_regs.pop()
-            self.reg_bindings[v] = loc
-            self.assembler.regalloc_mov(prev_loc, loc)
-        else:
-            loc = self.frame_manager.loc(v)
-            self.assembler.regalloc_mov(prev_loc, loc)
+        return reg
 
     def force_result_in_reg(self, result_v, v, forbidden_vars=[]):
         """ Make sure that result is in the same register as v.
@@ -548,41 +573,39 @@ class RegisterManager(object):
         self._check_type(result_v)
         self._check_type(v)
         if isinstance(v, Const):
-            if self.free_regs:
-                loc = self.free_regs.pop()
-            else:
-                loc = self._spill_var(v, forbidden_vars, None)
-            self.assembler.regalloc_mov(self.convert_to_imm(v), loc)
-            self.reg_bindings[result_v] = loc
-            return loc
-        if v not in self.reg_bindings:
-            # v not in a register. allocate one for result_v and move v there
-            prev_loc = self.frame_manager.loc(v)
-            loc = self.force_allocate_reg(result_v, forbidden_vars)
-            self.assembler.regalloc_mov(prev_loc, loc)
-            return loc
-        if self.longevity[v][1] > self.position:
-            # we need to find a new place for variable v and
-            # store result in the same place
-            loc = self.reg_bindings[v]
-            del self.reg_bindings[v]
-            if self.frame_manager.get(v) is None:
-                self._move_variable_away(v, loc)
-            self.reg_bindings[result_v] = loc
-        else:
-            self._reallocate_from_to(v, result_v)
-            loc = self.reg_bindings[result_v]
-        return loc
+            result_loc = self.force_allocate_reg(result_v, forbidden_vars)
+            self.assembler.regalloc_mov(self.convert_to_imm(v), result_loc)
+            return result_loc
+        v_keeps_living = self.longevity[v].last_usage > self.position
+        # there are two cases where we should allocate a new register for
+        # result:
+        # 1) v is itself not in a register
+        # 2) v keeps on being live. if there is a free register, we need a move
+        # anyway, so we can use force_allocate_reg on result_v to make sure any
+        # fixed registers are used
+        if (v not in self.reg_bindings or (v_keeps_living and self.free_regs)):
+            v_loc = self.loc(v)
+            result_loc = self.force_allocate_reg(result_v, forbidden_vars)
+            self.assembler.regalloc_mov(v_loc, result_loc)
+            return result_loc
+        if v_keeps_living:
+            # since there are no free registers, v needs to go to the stack.
+            # sync it there.
+            self._sync_var_to_stack(v)
+        return self._reallocate_from_to(v, result_v)
 
-    def _sync_var(self, v):
+    def _sync_var_to_stack(self, v):
+        self.assembler.num_spills += 1
         if not self.frame_manager.get(v):
             reg = self.reg_bindings[v]
             to = self.frame_manager.loc(v)
             self.assembler.regalloc_mov(reg, to)
+        else:
+            self.assembler.num_spills_to_existing += 1
         # otherwise it's clean
 
     def _bc_spill(self, v, new_free_regs):
-        self._sync_var(v)
+        self._sync_var_to_stack(v)
         new_free_regs.append(self.reg_bindings.pop(v))
 
     def before_call(self, force_store=[], save_all_regs=0):
@@ -650,7 +673,7 @@ class RegisterManager(object):
         move_or_spill = []
 
         for v, reg in self.reg_bindings.items():
-            max_age = self.longevity[v][1]
+            max_age = self.longevity[v].last_usage
             if v not in force_store and max_age <= self.position:
                 # variable dies
                 del self.reg_bindings[v]
@@ -671,45 +694,32 @@ class RegisterManager(object):
             else:
                 # this is a register like eax/rax, which needs either
                 # spilling or moving.
-                move_or_spill.append((v, max_age))
+                move_or_spill.append(v)
 
         if len(move_or_spill) > 0:
-            while len(self.free_regs) > 0:
-                new_reg = self.free_regs.pop()
-                if new_reg in self.save_around_call_regs:
-                    new_free_regs.append(new_reg)    # not this register...
-                    continue
-                # This 'new_reg' is suitable for moving a candidate to.
-                # Pick the one with the smallest max_age.  (This
-                # is one step of a naive sorting algo, slow in theory,
-                # but the list should always be very small so it
-                # doesn't matter.)
-                best_i = 0
-                smallest_max_age = move_or_spill[0][1]
-                for i in range(1, len(move_or_spill)):
-                    max_age = move_or_spill[i][1]
-                    if max_age < smallest_max_age:
-                        best_i = i
-                        smallest_max_age = max_age
-                v, max_age = move_or_spill.pop(best_i)
-                # move from 'reg' to 'new_reg'
+            free_regs = [reg for reg in self.free_regs
+                             if reg not in self.save_around_call_regs]
+            # chose which to spill using the usual spill heuristics
+            while len(move_or_spill) > len(free_regs):
+                v = self._pick_variable_to_spill([], regs=move_or_spill)
+                self._bc_spill(v, new_free_regs)
+                move_or_spill.remove(v)
+            assert len(move_or_spill) <= len(free_regs)
+            for v in move_or_spill:
+                # search next good reg
+                new_reg = None
+                while True:
+                    new_reg = self.free_regs.pop()
+                    if new_reg in self.save_around_call_regs:
+                        new_free_regs.append(new_reg)    # not this register...
+                        continue
+                    break
+                assert new_reg is not None # must succeed
                 reg = self.reg_bindings[v]
-                if not we_are_translated():
-                    if move_or_spill:
-                        assert max_age <= min([_a for _, _a in move_or_spill])
-                    assert reg in save_sublist
-                    assert reg in self.save_around_call_regs
-                    assert new_reg not in self.save_around_call_regs
+                self.assembler.num_moves_calls += 1
                 self.assembler.regalloc_mov(reg, new_reg)
                 self.reg_bindings[v] = new_reg    # change the binding
                 new_free_regs.append(reg)
-                #
-                if len(move_or_spill) == 0:
-                    break
-            else:
-                # no more free registers to move to, spill the rest
-                for v, max_age in move_or_spill:
-                    self._bc_spill(v, new_free_regs)
 
         # re-add registers in 'new_free_regs', but in reverse order,
         # so that the last ones (added just above, from
@@ -772,7 +782,7 @@ class BaseRegalloc(object):
         # of COND_CALL don't accept a cc as input
         if next_op.getarg(0) is not op:
             return False
-        if self.longevity[op][1] > i + 1:
+        if self.longevity[op].last_usage > i + 1:
             return False
         if opnum != rop.COND_CALL:
             if op in operations[i + 1].getfailargs():
@@ -786,61 +796,295 @@ class BaseRegalloc(object):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         if op.numargs() == 2:
-            self.rm._sync_var(op.getarg(1))
+            self.rm._sync_var_to_stack(op.getarg(1))
             return [self.loc(op.getarg(0)), self.fm.loc(op.getarg(1))]
         else:
             assert op.numargs() == 1
             return [self.loc(op.getarg(0))]
 
 
-def compute_vars_longevity(inputargs, operations):
-    # compute a dictionary that maps variables to index in
-    # operations that is a "last-time-seen"
+# ____________________________________________________________
 
-    # returns a pair longevity/useful. Non-useful variables are ones that
-    # never appear in the assembler or it does not matter if they appear on
-    # stack or in registers. Main example is loop arguments that go
-    # only to guard operations or to jump or to finish
-    last_used = {}
-    last_real_usage = {}
+
+
+UNDEF_POS = -42
+
+class Lifetime(object):
+    def __init__(self, definition_pos=UNDEF_POS, last_usage=UNDEF_POS):
+        # all positions are indexes into the operations list
+
+        # the position where the variable is defined
+        self.definition_pos = definition_pos
+        # the position where the variable is last used. this includes failargs
+        # and jumps
+        self.last_usage = last_usage
+
+        # *real* usages, ie as an argument to an operation (as opposed to jump
+        # arguments or in failargs)
+        self.real_usages = None
+
+        # fixed registers are positions where the variable *needs* to be in a
+        # specific register
+        self.fixed_positions = None
+
+        # another Lifetime that lives after the current one that would like to
+        # share a register with this variable
+        self.share_with = None
+
+        # the other lifetime will have this variable set to self.definition_pos
+        self._definition_pos_shared = UNDEF_POS
+
+    def last_usage_including_sharing(self):
+        while self.share_with is not None:
+            self = self.share_with
+        return self.last_usage
+
+    def is_last_real_use_before(self, position):
+        if self.real_usages is None:
+            return True
+        return self.real_usages[-1] <= position
+
+    def next_real_usage(self, position):
+        assert position >= self.definition_pos
+        # binary search
+        l = self.real_usages
+        low = 0
+        high = len(l)
+        if position >= l[-1]:
+            return -1
+        while low < high:
+            mid = low + (high - low) // 2 # no overflow ;-)
+            if position < l[mid]:
+                high = mid
+            else:
+                low = mid + 1
+        return l[low]
+
+    def definition_pos_shared(self):
+        if self._definition_pos_shared != UNDEF_POS:
+            return self._definition_pos_shared
+        else:
+            return self.definition_pos
+
+    def fixed_register(self, position, reg):
+        """ registers a fixed register use for the variable at position in
+        register reg. returns the position from where on the register should be
+        held free. """
+        assert self.definition_pos <= position <= self.last_usage
+        if self.fixed_positions is None:
+            self.fixed_positions = []
+            res = self.definition_pos_shared()
+        else:
+            assert position > self.fixed_positions[-1][0]
+            res = self.fixed_positions[-1][0]
+        self.fixed_positions.append((position, reg))
+        return res
+
+    def find_fixed_register(self, opindex):
+        # XXX could use binary search
+        if self.fixed_positions is not None:
+            for (index, reg) in self.fixed_positions:
+                if opindex <= index:
+                    return reg
+        if self.share_with is not None:
+            return self.share_with.find_fixed_register(opindex)
+
+    def _check_invariants(self):
+        assert self.definition_pos <= self.last_usage
+        if self.real_usages is not None:
+            assert sorted(self.real_usages) == self.real_usages
+            assert self.last_usage >= max(self.real_usages)
+            assert self.definition_pos < min(self.real_usages)
+
+    def __repr__(self):
+        if self.fixed_positions:
+            s = " " + ", ".join("@%s in %s" % (index, reg) for (index, reg) in self.fixed_positions)
+        else:
+            s = ""
+        return "%s:%s(%s)%s" % (self.definition_pos, self.real_usages, self.last_usage, s)
+
+
+class FixedRegisterPositions(object):
+    def __init__(self, register):
+        self.register = register
+
+        self.index_lifetimes = []
+
+    def fixed_register(self, opindex, definition_pos):
+        if self.index_lifetimes:
+            assert opindex > self.index_lifetimes[-1][0]
+        self.index_lifetimes.append((opindex, definition_pos))
+
+    def free_until_pos(self, opindex):
+        # XXX could use binary search
+        for (index, definition_pos) in self.index_lifetimes:
+            if opindex <= index:
+                if definition_pos >= opindex:
+                    return definition_pos
+                else:
+                    # the variable doesn't exist or didn't make it into the
+                    # register despite being defined already. so we don't care
+                    # too much, and can say that the variable is free until
+                    # index
+                    return index
+        return sys.maxint
+
+    def __repr__(self):
+        return "%s: fixed at %s" % (self.register, self.index_lifetimes)
+
+
+class LifetimeManager(object):
+    def __init__(self, longevity):
+        self.longevity = longevity
+
+        # dictionary maps register to FixedRegisterPositions
+        self.fixed_register_use = {}
+
+    def fixed_register(self, opindex, register, var=None):
+        """ Tell the LifetimeManager that variable var *must* be in register at
+        operation opindex. var can be None, if no variable at all can be in
+        that register at the point."""
+        if var is None:
+            definition_pos = opindex
+        else:
+            varlifetime = self.longevity[var]
+            definition_pos = varlifetime.fixed_register(opindex, register)
+        if register not in self.fixed_register_use:
+            self.fixed_register_use[register] = FixedRegisterPositions(register)
+        self.fixed_register_use[register].fixed_register(opindex, definition_pos)
+
+    def try_use_same_register(self, v0, v1):
+        """ Try to arrange things to put v0 and v1 into the same register.
+        v0 must be defined before v1"""
+        # only works in limited situations now
+        longevityvar0 = self[v0]
+        longevityvar1 = self[v1]
+        assert longevityvar0.definition_pos < longevityvar1.definition_pos
+        if longevityvar0.last_usage != longevityvar1.definition_pos:
+            return # not supported for now
+        longevityvar0.share_with = longevityvar1
+        longevityvar1._definition_pos_shared = longevityvar0.definition_pos_shared()
+
+    def longest_free_reg(self, position, free_regs):
+        """ for every register in free_regs, compute how far into the future
+        that register can remain free, according to the constraints of the
+        fixed registers. Find the register that is free the longest. Return a
+        tuple (reg, free_until_pos). """
+        free_until_pos = {}
+        max_free_pos = position
+        best_reg = None
+        # reverse for compatibility with old code
+        for i in range(len(free_regs) - 1, -1, -1):
+            reg = free_regs[i]
+            fixed_reg_pos = self.fixed_register_use.get(reg, None)
+            if fixed_reg_pos is None:
+                return reg, sys.maxint
+            else:
+                free_until_pos = fixed_reg_pos.free_until_pos(position)
+                if free_until_pos > max_free_pos:
+                    best_reg = reg
+                    max_free_pos = free_until_pos
+        return best_reg, max_free_pos
+
+    def free_reg_whole_lifetime(self, position, v, free_regs):
+        """ try to find a register from free_regs for v at position that's
+        free for the whole lifetime of v. pick the one that is blocked first
+        *after* the lifetime of v. """
+        longevityvar = self[v]
+        min_fixed_use_after = sys.maxint
+        best_reg = None
+        unfixed_reg = None
+        for reg in free_regs:
+            fixed_reg_pos = self.fixed_register_use.get(reg, None)
+            if fixed_reg_pos is None:
+                unfixed_reg = reg
+                continue
+            use_after = fixed_reg_pos.free_until_pos(position)
+            if use_after <= longevityvar.last_usage_including_sharing():
+                # can't fit
+                continue
+            assert use_after >= longevityvar.last_usage_including_sharing()
+            if use_after < min_fixed_use_after:
+                best_reg = reg
+                min_fixed_use_after = use_after
+        if best_reg is not None:
+            return best_reg
+
+        # no fitting fixed registers. pick a non-fixed one
+        return unfixed_reg
+
+    def try_pick_free_reg(self, position, v, free_regs):
+        if not free_regs:
+            return None
+        longevityvar = self[v]
+        # check whether there is a fixed register and whether it's free
+        reg = longevityvar.find_fixed_register(position)
+        if reg is not None and reg in free_regs:
+            return reg
+
+        # try to find a register that's free for the whole lifetime of v
+        # pick the one that is blocked first *after* the lifetime of v
+        loc = self.free_reg_whole_lifetime(position, v, free_regs)
+        if loc is not None:
+            return loc
+
+        # can't fit v completely, so pick the register that's free the longest
+        loc, free_until = self.longest_free_reg(position, free_regs)
+        if loc is not None:
+            return loc
+        # YYY could check whether it's best to spill v here, but hard
+        # to do in the current system
+        return None
+
+    def __contains__(self, var):
+        return var in self.longevity
+
+    def __getitem__(self, var):
+        return self.longevity[var]
+
+    def __setitem__(self, var, val):
+        self.longevity[var] = val
+
+def compute_vars_longevity(inputargs, operations):
+    # compute a dictionary that maps variables to Lifetime information
+    # if a variable is not in the dictionary, it's operation is dead because
+    # it's side-effect-free and the result is unused
+    longevity = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
-        if op.type != 'v':
-            if op not in last_used and rop.has_no_side_effect(op.opnum):
-                continue
         opnum = op.getopnum()
+        if op not in longevity:
+            if op.type != 'v' and rop.has_no_side_effect(opnum):
+                # result not used, operation has no side-effect, it can be
+                # removed
+                continue
+            longevity[op] = Lifetime(definition_pos=i, last_usage=i)
+        else:
+            longevity[op].definition_pos = i
         for j in range(op.numargs()):
             arg = op.getarg(j)
             if isinstance(arg, Const):
                 continue
-            if arg not in last_used:
-                last_used[arg] = i
+            if arg not in longevity:
+                lifetime = longevity[arg] = Lifetime(last_usage=i)
+            else:
+                lifetime = longevity[arg]
             if opnum != rop.JUMP and opnum != rop.LABEL:
-                if arg not in last_real_usage:
-                    last_real_usage[arg] = i
+                if lifetime.real_usages is None:
+                    lifetime.real_usages = []
+                lifetime.real_usages.append(i)
         if rop.is_guard(op.opnum):
             for arg in op.getfailargs():
                 if arg is None: # hole
                     continue
                 assert not isinstance(arg, Const)
-                if arg not in last_used:
-                    last_used[arg] = i
+                if arg not in longevity:
+                    longevity[arg] = Lifetime(last_usage=i)
     #
-    longevity = {}
-    for i, arg in enumerate(operations):
-        if arg.type != 'v' and arg in last_used:
-            assert not isinstance(arg, Const)
-            assert i < last_used[arg]
-            longevity[arg] = (i, last_used[arg])
-            del last_used[arg]
     for arg in inputargs:
         assert not isinstance(arg, Const)
-        if arg not in last_used:
-            longevity[arg] = (-1, -1)
-        else:
-            longevity[arg] = (0, last_used[arg])
-            del last_used[arg]
-    assert len(last_used) == 0
+        if arg not in longevity:
+            longevity[arg] = Lifetime(-1, -1)
 
     if not we_are_translated():
         produced = {}
@@ -851,9 +1095,15 @@ def compute_vars_longevity(inputargs, operations):
                 if not isinstance(arg, Const):
                     assert arg in produced
             produced[op] = None
-    
-    return longevity, last_real_usage
+    for lifetime in longevity.itervalues():
+        if lifetime.real_usages is not None:
+            lifetime.real_usages.reverse()
+        if not we_are_translated():
+            lifetime._check_invariants()
 
+    return LifetimeManager(longevity)
+
+# YYY unused?
 def is_comparison_or_ovf_op(opnum):
     return rop.is_comparison(opnum) or rop.is_ovf(opnum)
 

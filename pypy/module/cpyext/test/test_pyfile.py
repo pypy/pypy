@@ -33,20 +33,24 @@ class TestFile(BaseApiTest):
         rffi.free_charp(mode)
 
         w_line = api.PyFile_GetLine(w_file, 0)
-        assert space.str_w(w_line) == "line1\n"
+        assert space.text_w(w_line) == "line1\n"
 
         w_line = api.PyFile_GetLine(w_file, 4)
-        assert space.str_w(w_line) == "line"
+        assert space.text_w(w_line) == "line"
 
         w_line = api.PyFile_GetLine(w_file, 0)
-        assert space.str_w(w_line) == "2\n"
+        assert space.text_w(w_line) == "2\n"
 
         # XXX We ought to raise an EOFError here, but don't
         w_line = api.PyFile_GetLine(w_file, -1)
         # assert api.PyErr_Occurred() is space.w_EOFError
-        assert space.str_w(w_line) == "line3\n"
+        assert space.text_w(w_line) == "line3\n"
 
         space.call_method(w_file, "close")
+
+    @pytest.mark.xfail
+    def test_file_setbufsize(self, space, api):
+        api.PyFile_SetBufSize()
 
     def test_file_writestring(self, space, api, capfd):
         w_stdout = space.sys.get("stdout")

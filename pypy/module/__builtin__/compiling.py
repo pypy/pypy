@@ -13,7 +13,7 @@ from pypy.interpreter.function import Function
 @unwrap_spec(filename='fsencode', mode='text', flags=int, dont_inherit=int,
              optimize=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
-            optimize=0):
+            optimize=-1):
     """Compile the source string (a Python module, statement or expression)
 into a code object that can be executed by the exec statement or eval().
 The filename will be used for run-time error messages.
@@ -41,6 +41,10 @@ in addition to any features explicitly specified.
     if mode not in ('exec', 'eval', 'single'):
         raise oefmt(space.w_ValueError,
                     "compile() arg 3 must be 'exec', 'eval' or 'single'")
+
+    if optimize < -1 or optimize > 2:
+        raise oefmt(space.w_ValueError,
+            "compile(): invalid optimize value")
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         if flags & consts.PyCF_ONLY_AST:
@@ -93,6 +97,8 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
     frame.exec_(w_prog, w_globals, w_locals)
 
 def build_class(space, w_func, w_name, __args__):
+    from pypy.objspace.std.typeobject import _calculate_metaclass, W_TypeObject
+    from pypy.interpreter.nestedscope import Cell
     if not isinstance(w_func, Function):
         raise oefmt(space.w_TypeError, "__build_class__: func must be a function")
     bases_w, kwds_w = __args__.unpack()
@@ -109,7 +115,6 @@ def build_class(space, w_func, w_name, __args__):
     if isclass:
         # w_meta is really a class, so check for a more derived
         # metaclass, or possible metaclass conflicts
-        from pypy.objspace.std.typeobject import _calculate_metaclass
         w_meta = _calculate_metaclass(space, w_meta, bases_w)
 
     try:
@@ -125,6 +130,16 @@ def build_class(space, w_func, w_name, __args__):
                          keywords=keywords,
                          keywords_w=kwds_w.values())
         w_namespace = space.call_args(w_prep, args)
+    if not space.ismapping_w(w_namespace):
+        if isclass:
+            raise oefmt(space.w_TypeError,
+                "%N.__prepare__() must return a mapping, not %T",
+                w_meta, w_namespace)
+        else:
+            raise oefmt(space.w_TypeError,
+                "<metaclass>.__prepare__() must return a mapping, not %T",
+                w_namespace)
+
     code = w_func.getcode()
     frame = space.createframe(code, w_func.w_func_globals, w_func)
     frame.setdictscope(w_namespace)
@@ -134,7 +149,35 @@ def build_class(space, w_func, w_name, __args__):
                      args_w=[w_name, w_bases, w_namespace],
                      keywords=keywords,
                      keywords_w=kwds_w.values())
-    w_class = space.call_args(w_meta, args)
-    if isinstance(w_cell, Cell):
-        w_cell.set(w_class)
+    try:
+        w_class = space.call_args(w_meta, args)
+    except OperationError as e:
+        # give a more comprehensible error message for TypeErrors
+        if e.got_any_traceback():
+            raise
+        if not e.match(space, space.w_TypeError):
+            raise
+        raise oefmt(space.w_TypeError,
+            "metaclass found to be '%N', but calling %R "
+            "with args (%R, %R, ...) raised %R",
+            w_meta, w_meta, w_name, w_bases,
+            e.get_w_value(space))
+    if isinstance(w_cell, Cell) and isinstance(w_class, W_TypeObject):
+        if w_cell.empty():
+            # will become an error in Python 3.7
+            space.warn(space.newtext(
+                "__class__ not set defining %s as %s . "
+                "Was __classcell__ propagated to type.__new__?" % (
+                    space.text_w(w_name),
+                    space.text_w(space.str(w_class))
+                )),
+                space.w_DeprecationWarning)
+            w_cell.set(w_class)
+        else:
+            w_class_from_cell = w_cell.get()
+            if not space.is_w(w_class, w_class_from_cell):
+                raise oefmt(
+                        space.w_TypeError,
+                        "__class__ set to %S defining %S as %S",
+                        w_class_from_cell, w_name, w_class)
     return w_class

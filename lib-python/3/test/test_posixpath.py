@@ -4,6 +4,8 @@ import unittest
 import warnings
 from posixpath import realpath, abspath, dirname, basename
 from test import support, test_genericpath
+from test.support import FakePath
+from unittest import mock
 
 try:
     import posix
@@ -152,27 +154,20 @@ class PosixPathTest(unittest.TestCase):
     def test_islink(self):
         self.assertIs(posixpath.islink(support.TESTFN + "1"), False)
         self.assertIs(posixpath.lexists(support.TESTFN + "2"), False)
-        f = open(support.TESTFN + "1", "wb")
-        try:
+        with open(support.TESTFN + "1", "wb") as f:
             f.write(b"foo")
-            f.close()
-            self.assertIs(posixpath.islink(support.TESTFN + "1"), False)
-            if support.can_symlink():
-                os.symlink(support.TESTFN + "1", support.TESTFN + "2")
-                self.assertIs(posixpath.islink(support.TESTFN + "2"), True)
-                os.remove(support.TESTFN + "1")
-                self.assertIs(posixpath.islink(support.TESTFN + "2"), True)
-                self.assertIs(posixpath.exists(support.TESTFN + "2"), False)
-                self.assertIs(posixpath.lexists(support.TESTFN + "2"), True)
-        finally:
-            if not f.close():
-                f.close()
+        self.assertIs(posixpath.islink(support.TESTFN + "1"), False)
+        if support.can_symlink():
+            os.symlink(support.TESTFN + "1", support.TESTFN + "2")
+            self.assertIs(posixpath.islink(support.TESTFN + "2"), True)
+            os.remove(support.TESTFN + "1")
+            self.assertIs(posixpath.islink(support.TESTFN + "2"), True)
+            self.assertIs(posixpath.exists(support.TESTFN + "2"), False)
+            self.assertIs(posixpath.lexists(support.TESTFN + "2"), True)
 
     def test_ismount(self):
         self.assertIs(posixpath.ismount("/"), True)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            self.assertIs(posixpath.ismount(b"/"), True)
+        self.assertIs(posixpath.ismount(b"/"), True)
 
     def test_ismount_non_existent(self):
         # Non-existent mountpoint.
@@ -236,42 +231,61 @@ class PosixPathTest(unittest.TestCase):
     def test_expanduser(self):
         self.assertEqual(posixpath.expanduser("foo"), "foo")
         self.assertEqual(posixpath.expanduser(b"foo"), b"foo")
+
+    def test_expanduser_home_envvar(self):
         with support.EnvironmentVarGuard() as env:
+            env['HOME'] = '/home/victor'
+            self.assertEqual(posixpath.expanduser("~"), "/home/victor")
+
+            # expanduser() strips trailing slash
+            env['HOME'] = '/home/victor/'
+            self.assertEqual(posixpath.expanduser("~"), "/home/victor")
+
             for home in '/', '', '//', '///':
                 with self.subTest(home=home):
                     env['HOME'] = home
                     self.assertEqual(posixpath.expanduser("~"), "/")
                     self.assertEqual(posixpath.expanduser("~/"), "/")
                     self.assertEqual(posixpath.expanduser("~/foo"), "/foo")
-        try:
-            import pwd
-        except ImportError:
-            pass
-        else:
-            self.assertIsInstance(posixpath.expanduser("~/"), str)
-            self.assertIsInstance(posixpath.expanduser(b"~/"), bytes)
-            # if home directory == root directory, this test makes no sense
-            if posixpath.expanduser("~") != '/':
-                self.assertEqual(
-                    posixpath.expanduser("~") + "/",
-                    posixpath.expanduser("~/")
-                )
-                self.assertEqual(
-                    posixpath.expanduser(b"~") + b"/",
-                    posixpath.expanduser(b"~/")
-                )
-            self.assertIsInstance(posixpath.expanduser("~root/"), str)
-            self.assertIsInstance(posixpath.expanduser("~foo/"), str)
-            self.assertIsInstance(posixpath.expanduser(b"~root/"), bytes)
-            self.assertIsInstance(posixpath.expanduser(b"~foo/"), bytes)
 
-            with support.EnvironmentVarGuard() as env:
-                # expanduser should fall back to using the password database
-                del env['HOME']
-                home = pwd.getpwuid(os.getuid()).pw_dir
-                # $HOME can end with a trailing /, so strip it (see #17809)
-                home = home.rstrip("/") or '/'
-                self.assertEqual(posixpath.expanduser("~"), home)
+    def test_expanduser_pwd(self):
+        pwd = support.import_module('pwd')
+
+        self.assertIsInstance(posixpath.expanduser("~/"), str)
+        self.assertIsInstance(posixpath.expanduser(b"~/"), bytes)
+
+        # if home directory == root directory, this test makes no sense
+        if posixpath.expanduser("~") != '/':
+            self.assertEqual(
+                posixpath.expanduser("~") + "/",
+                posixpath.expanduser("~/")
+            )
+            self.assertEqual(
+                posixpath.expanduser(b"~") + b"/",
+                posixpath.expanduser(b"~/")
+            )
+        self.assertIsInstance(posixpath.expanduser("~root/"), str)
+        self.assertIsInstance(posixpath.expanduser("~foo/"), str)
+        self.assertIsInstance(posixpath.expanduser(b"~root/"), bytes)
+        self.assertIsInstance(posixpath.expanduser(b"~foo/"), bytes)
+
+        with support.EnvironmentVarGuard() as env:
+            # expanduser should fall back to using the password database
+            del env['HOME']
+
+            home = pwd.getpwuid(os.getuid()).pw_dir
+            # $HOME can end with a trailing /, so strip it (see #17809)
+            home = home.rstrip("/") or '/'
+            self.assertEqual(posixpath.expanduser("~"), home)
+
+            # bpo-10496: If the HOME environment variable is not set and the
+            # user (current identifier or name in the path) doesn't exist in
+            # the password database (pwd.getuid() or pwd.getpwnam() fail),
+            # expanduser() must return the path unchanged.
+            with mock.patch.object(pwd, 'getpwuid', side_effect=KeyError), \
+                 mock.patch.object(pwd, 'getpwnam', side_effect=KeyError):
+                for path in ('~', '~/.local', '~vstinner/'):
+                    self.assertEqual(posixpath.expanduser(path), path)
 
     def test_normpath(self):
         self.assertEqual(posixpath.normpath(""), ".")
@@ -594,6 +608,77 @@ class PosixPathTest(unittest.TestCase):
 class PosixCommonTest(test_genericpath.CommonTest, unittest.TestCase):
     pathmodule = posixpath
     attributes = ['relpath', 'samefile', 'sameopenfile', 'samestat']
+
+
+class PathLikeTests(unittest.TestCase):
+
+    path = posixpath
+
+    def setUp(self):
+        self.file_name = support.TESTFN.lower()
+        self.file_path = FakePath(support.TESTFN)
+        self.addCleanup(support.unlink, self.file_name)
+        with open(self.file_name, 'xb', 0) as file:
+            file.write(b"test_posixpath.PathLikeTests")
+
+    def assertPathEqual(self, func):
+        self.assertEqual(func(self.file_path), func(self.file_name))
+
+    def test_path_normcase(self):
+        self.assertPathEqual(self.path.normcase)
+
+    def test_path_isabs(self):
+        self.assertPathEqual(self.path.isabs)
+
+    def test_path_join(self):
+        self.assertEqual(self.path.join('a', FakePath('b'), 'c'),
+                         self.path.join('a', 'b', 'c'))
+
+    def test_path_split(self):
+        self.assertPathEqual(self.path.split)
+
+    def test_path_splitext(self):
+        self.assertPathEqual(self.path.splitext)
+
+    def test_path_splitdrive(self):
+        self.assertPathEqual(self.path.splitdrive)
+
+    def test_path_basename(self):
+        self.assertPathEqual(self.path.basename)
+
+    def test_path_dirname(self):
+        self.assertPathEqual(self.path.dirname)
+
+    def test_path_islink(self):
+        self.assertPathEqual(self.path.islink)
+
+    def test_path_lexists(self):
+        self.assertPathEqual(self.path.lexists)
+
+    def test_path_ismount(self):
+        self.assertPathEqual(self.path.ismount)
+
+    def test_path_expanduser(self):
+        self.assertPathEqual(self.path.expanduser)
+
+    def test_path_expandvars(self):
+        self.assertPathEqual(self.path.expandvars)
+
+    def test_path_normpath(self):
+        self.assertPathEqual(self.path.normpath)
+
+    def test_path_abspath(self):
+        self.assertPathEqual(self.path.abspath)
+
+    def test_path_realpath(self):
+        self.assertPathEqual(self.path.realpath)
+
+    def test_path_relpath(self):
+        self.assertPathEqual(self.path.relpath)
+
+    def test_path_commonpath(self):
+        common_path = self.path.commonpath([self.file_path, self.file_name])
+        self.assertEqual(common_path, self.file_name)
 
 
 if __name__=="__main__":

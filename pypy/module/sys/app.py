@@ -21,8 +21,29 @@ def excepthook(exctype, value, traceback):
         pass
 
     try:
-        from traceback import print_exception
-        print_exception(exctype, value, traceback)
+        from traceback import print_exception, format_exception_only
+        limit = getattr(sys, 'tracebacklimit', None)
+        if isinstance(limit, int):
+            # ok, this is bizarre, but, the meaning of sys.tracebacklimit is
+            # understood differently in the traceback module than in
+            # PyTraceBack_Print in CPython, see
+            # https://bugs.python.org/issue38197
+            # one is counting from the top, the other from the bottom of the
+            # stack. so reverse polarity here
+            if limit > 0:
+                if limit > sys.maxsize:
+                    limit = sys.maxsize
+                print_exception(exctype, value, traceback, limit=-limit)
+            else:
+                # the limit is 0 or negative. PyTraceBack_Print does not print
+                # Traceback (most recent call last):
+                # because there is indeed no traceback.
+                # the traceback module don't care
+                for line in format_exception_only(exctype, value):
+                    print(line, end="", file=sys.stderr)
+
+        else:
+            print_exception(exctype, value, traceback)
     except:
         if not excepthook_failsafe(exctype, value):
             raise
@@ -56,7 +77,7 @@ If the exitcode is numeric, it will be used as the system exit status.
 If it is another kind of object, it will be printed and the system
 exit status will be one (i.e., failure)."""
     # note that we cannot simply use SystemExit(exitcode) here.
-    # in the default branch, we use "raise SystemExit, exitcode", 
+    # in the default branch, we use "raise SystemExit, exitcode",
     # which leads to an extra de-tupelizing
     # in normalize_exception, which is exactly like CPython's.
     if isinstance(exitcode, tuple):
@@ -90,7 +111,6 @@ All Rights Reserved.
 
 # This is tested in test_app_main.py
 class sysflags(metaclass=structseqtype):
-
     name = "sys.flags"
 
     debug = structseqfield(0)

@@ -9,15 +9,15 @@ on the RPython compiler framework for dynamic language implementations.
 
 The home page for the interpreter is:
 
-    http://pypy.org/
+    https://pypy.org/
 
 If you want to help developing PyPy, this documentation might help you:
 
-    http://doc.pypy.org/
+    https://doc.pypy.org/
 
 More documentation about the RPython framework can be found here:
 
-    http://rpython.readthedocs.io/
+    https://rpython.readthedocs.io/
 
 The source for the documentation is in the pypy/doc directory.
 
@@ -25,7 +25,7 @@ The source for the documentation is in the pypy/doc directory.
 Using PyPy instead of CPython
 -----------------------------
 
-Please read the information at http://pypy.org/ to find the correct way to
+Please read the information at https://pypy.org/ to find the correct way to
 download and use PyPy as an alternative to CPython. 
 
 
@@ -36,7 +36,7 @@ Building PyPy is not the recommended way to obtain the PyPy alternative python
 interpreter. It is time-consuming and requires significant computing resources.
 More information can be found here:
 
-    http://doc.pypy.org/en/latest/build.html
+    https://doc.pypy.org/en/latest/build.html
 
 Enjoy and send us feedback!
 

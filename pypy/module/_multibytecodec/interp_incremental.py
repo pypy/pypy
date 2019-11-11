@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib import rutf8
 from pypy.module._multibytecodec import c_codecs
 from pypy.module._multibytecodec.interp_multibytecodec import (
     MultibyteCodec, wrap_unicodedecodeerror, wrap_runtimeerror,
@@ -66,7 +67,8 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
         pos = c_codecs.pypy_cjk_dec_inbuf_consumed(self.decodebuf)
         assert 0 <= pos <= len(object)
         self.pending = object[pos:]
-        return space.newunicode(output)
+        lgt = rutf8.codepoints_in_utf8(output)
+        return space.newutf8(output, lgt)
 
 
 @unwrap_spec(errors="text_or_none")
@@ -89,7 +91,8 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
 
     def _initialize(self):
         self.encodebuf = c_codecs.pypy_cjk_enc_new(self.codec)
-        self.pending = u""
+        self.pending = ""
+        self.pending_len = 0
 
     def _free(self):
         self.pending = None
@@ -97,24 +100,37 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
             c_codecs.pypy_cjk_enc_free(self.encodebuf)
             self.encodebuf = lltype.nullptr(c_codecs.ENCODEBUF_P.TO)
 
-    @unwrap_spec(object=unicode, final=int)
-    def encode_w(self, object, final=0):
-        final = bool(final)
+    @unwrap_spec(final=bool)
+    def encode_w(self, space, w_object, final=False):
+        utf8data, length = space.utf8_len_w(w_object)
         space = self.space
         state = space.fromcache(CodecState)
         if len(self.pending) > 0:
-            object = self.pending + object
+            utf8data = self.pending + utf8data
+            length += self.pending_len
         try:
-            output = c_codecs.encodeex(self.encodebuf, object, self.errors,
+            output = c_codecs.encodeex(self.encodebuf, utf8data, length,
+                                       self.errors,
                                        state.encode_error_handler, self.name,
                                        get_ignore_error(final))
         except c_codecs.EncodeDecodeError as e:
-            raise wrap_unicodeencodeerror(space, e, object, self.name)
+            raise wrap_unicodeencodeerror(space, e, utf8data, length,
+                                          self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
         pos = c_codecs.pypy_cjk_enc_inbuf_consumed(self.encodebuf)
-        assert 0 <= pos <= len(object)
-        self.pending = object[pos:]
+        assert 0 <= pos <= length
+        # scan the utf8 string until we hit pos
+        i = 0
+        stop = length - pos
+        self.pending_len = stop
+        if stop > 0:
+            while pos > 0:
+                i = rutf8.next_codepoint_pos(utf8data, i)
+                pos -= 1
+            self.pending = utf8data[i:]
+        else:
+            self.pending = ""
         return space.newbytes(output)
 
 

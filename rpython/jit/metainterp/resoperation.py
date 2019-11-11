@@ -1055,6 +1055,9 @@ _oplist = [
     'UNICODEGETITEM/2/i',
     #
     'LOAD_FROM_GC_TABLE/1/r',    # only emitted by rewrite.py
+    'LOAD_EFFECTIVE_ADDRESS/4/i', # only emitted by rewrite.py, only if
+    # cpu.supports_load_effective_address. [v_gcptr,v_index,c_baseofs,c_shift]
+    # res = arg0 + (arg1 << arg3) + arg2
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 

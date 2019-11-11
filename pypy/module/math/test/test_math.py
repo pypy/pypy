@@ -1,6 +1,5 @@
-from __future__ import with_statement
-
 import py
+import sys
 from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.module.math.test import test_direct
@@ -18,7 +17,7 @@ class AppTestMath:
             filename = filename[:-1]
         space = cls.space
         cls.w_math_cases = space.wrap(filename)
-        cls.w_consistent_host = space.wrap(test_direct.consistent_host)
+        cls.w_maxint = space.wrap(sys.maxint)
 
     @classmethod
     def make_callable_wrapper(cls, func):
@@ -53,8 +52,6 @@ class AppTestMath:
             yield fnname, args, expected
 
     def test_all_cases(self):
-        if not self.consistent_host:
-            skip("please test this on top of PyPy or CPython >= 2.6")
         import math
         for fnname, args, expected in self.cases():
             fn = getattr(math, fnname)
@@ -374,9 +371,18 @@ class AppTestMath:
         assert math.gcd(0, -10) == 10
         assert math.gcd(0, 0) == 0
         raises(TypeError, math.gcd, 0, 0.0)
+        assert math.gcd(-3**10*5**20*11**8, 2**5*3**5*7**20) == 3**5
+        assert math.gcd(64, 200) == 8
+
+        assert math.gcd(-self.maxint-1, 3) == 1
+        assert math.gcd(-self.maxint-1, -self.maxint-1) == self.maxint+1
 
     def test_inf_nan(self):
         import math
         assert math.isinf(math.inf)
         assert math.inf > -math.inf
         assert math.isnan(math.nan)
+
+    def test_pi_tau(self):
+        import math
+        assert math.tau == math.pi * 2.0

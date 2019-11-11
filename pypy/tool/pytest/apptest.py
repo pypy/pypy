@@ -1,7 +1,7 @@
 # Collects and executes application-level tests.
 #
-# Classes which names start with "AppTest", or function which names
-# start with "app_test*" are not executed by the host Python, but
+# Classes which names start with "AppTest"
+# are not executed by the host Python, but
 # by an interpreted pypy object space.
 #
 # ...unless the -A option ('runappdirect') is passed.
@@ -83,7 +83,11 @@ if 1:
     __builtins__.py3k_skip = skip
     class ExceptionWrapper:
         pass
-    def raises(exc, func, *args, **kwargs):
+    def raises(exc, *args, **kwargs):
+        if not args:
+            return RaisesContext(exc)
+        func = args[0]
+        args = args[1:]
         import os
         try:
             if isinstance(func, str):
@@ -101,6 +105,22 @@ if 1:
             return res
         else:
             raise AssertionError("DID NOT RAISE")
+
+    class RaisesContext(object):
+        def __init__(self, expected_exception):
+            self.expected_exception = expected_exception
+            self.excinfo = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *tp):
+            __tracebackhide__ = True
+            if tp[0] is None:
+                pytest.fail("DID NOT RAISE")
+            self.value = tp[1]
+            return issubclass(tp[0], self.expected_exception)
+    
     __builtins__.raises = raises
     class Test:
         pass
@@ -147,7 +167,7 @@ def run_with_python(python_, target_, usemodules, **definitions):
             # They may be extension modules on CPython
             name = None
             for name in missing.copy():
-                if name == 'cpyext':
+                if name in ['cpyext', '_cffi_backend']:
                     missing.remove(name)
                     continue
                 try:
@@ -212,7 +232,7 @@ def extract_docstring_if_empty_function(fn):
         return fn
 
 
-class AppTestFunction(py.test.collect.Function):
+class AppTestMethod(py.test.collect.Function):
     def _prunetraceback(self, traceback):
         return traceback
 
@@ -232,21 +252,10 @@ class AppTestFunction(py.test.collect.Function):
                 raise AppError, AppError(appexcinfo), tb
             raise
 
-    def runtest(self):
-        target = self.obj
-        src = extract_docstring_if_empty_function(target)
-        if self.config.option.runappdirect:
-            return run_with_python(self.config.option.python, src, None)
-        space = gettestobjspace()
-        filename = self._getdynfilename(target)
-        func = app2interp_temp(src, filename=filename)
-        # print "executing", func
-        self.execute_appex(space, func, space)
-
     def repr_failure(self, excinfo):
         if excinfo.errisinstance(AppError):
             excinfo = excinfo.value.excinfo
-        return super(AppTestFunction, self).repr_failure(excinfo)
+        return super(AppTestMethod, self).repr_failure(excinfo)
 
     def _getdynfilename(self, func):
         code = getattr(func, 'im_func', func).func_code
@@ -259,8 +268,6 @@ class AppTestFunction(py.test.collect.Function):
         if hasattr(self, 'space'):
             self.space.getexecutioncontext()._run_finalizers_now()
 
-
-class AppTestMethod(AppTestFunction):
     def setup(self):
         super(AppTestMethod, self).setup()
         instance = self.parent.obj

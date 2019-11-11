@@ -6,6 +6,7 @@ from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, T
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA
 from pypy.interpreter.astcompiler import consts
+from rpython.rlib import rutf8
 
 NAMECHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'
 NUMCHARS = '0123456789'
@@ -46,14 +47,9 @@ def match_encoding_declaration(comment):
 
 
 def verify_utf8(token):
-    for c in token:
-        if ord(c) >= 0x80:
-            break
-    else:
-        return True
     try:
-        u = token.decode('utf-8')
-    except UnicodeDecodeError:
+        rutf8.check_utf8(token, False)
+    except rutf8.CheckError:
         return False
     return True
 
@@ -69,17 +65,12 @@ def bad_utf8(location_msg, line, lnum, pos, token_list, flags):
 
 def verify_identifier(token):
     # 1=ok; 0=not an identifier; -1=bad utf-8
-    for c in token:
-        if ord(c) >= 0x80:
-            break
-    else:
-        return 1
     try:
-        u = token.decode('utf-8')
-    except UnicodeDecodeError:
+        rutf8.check_utf8(token, False)
+    except rutf8.CheckError:
         return -1
     from pypy.objspace.std.unicodeobject import _isidentifier
-    return _isidentifier(u)
+    return _isidentifier(token)
 
 
 DUMMY_DFA = automata.DFA([], [])

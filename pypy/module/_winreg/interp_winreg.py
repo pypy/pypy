@@ -10,9 +10,9 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatErrorW(errcode)
     w_errcode = space.newint(errcode)
-    raise OperationError(space.w_WindowsError,
-                         space.newtuple([w_errcode, space.newunicode(message),
-                                        space.w_None, w_errcode]))
+    w_t = space.newtuple([w_errcode, space.newtext(*message),
+                                        space.w_None, w_errcode])
+    raise OperationError(space.w_WindowsError, w_t)
 
 class W_HKEY(W_Root):
     def __init__(self, space, hkey):
@@ -33,7 +33,7 @@ class W_HKEY(W_Root):
         return space.newint(self.as_int())
 
     def descr_repr(self, space):
-        return space.newunicode(u"<PyHKEY:0x%x>" % (self.as_int(),))
+        return space.newtext("<PyHKEY:0x%x>" % (self.as_int(),))
 
     def descr_int(self, space):
         return space.newint(self.as_int())
@@ -222,7 +222,7 @@ KEY_SET_VALUE access."""
     if typ != rwinreg.REG_SZ:
         raise oefmt(space.w_ValueError, "Type must be winreg.REG_SZ")
     hkey = hkey_w(w_hkey, space)
-    with rffi.scoped_unicode2wcharp(space.unicode_w(w_subkey)) as subkey:
+    with rffi.scoped_unicode2wcharp(space.utf8_w(w_subkey).decode('utf8')) as subkey:
         c_subkey = rffi.cast(rffi.CCHARP, subkey)
         with rffi.scoped_unicode2wcharp(value) as dataptr:
             c_dataptr = rffi.cast(rffi.CCHARP, dataptr)
@@ -246,7 +246,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
     if space.is_w(w_subkey, space.w_None):
         subkey = None
     else:
-        subkey = space.unicode_w(w_subkey)
+        subkey = space.utf8_w(w_subkey).decode('utf8')
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
@@ -271,7 +271,7 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                         raiseWindowsError(space, ret, 'RegQueryValue')
                     length = intmask(bufsize_p[0] - 1) / 2
                     wide_buf = rffi.cast(rffi.CWCHARP, buf)
-                    return space.newunicode(rffi.wcharp2unicoden(wide_buf, length))
+                    return space.newtext(rffi.wcharp2unicoden(wide_buf, length))
 
 def convert_to_regdata(space, w_value, typ):
     '''
@@ -296,7 +296,7 @@ def convert_to_regdata(space, w_value, typ):
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
             buf[0] = '\0'
         else:
-            buf = rffi.unicode2wcharp(space.unicode_w(w_value))
+            buf = rffi.unicode2wcharp(space.utf8_w(w_value).decode('utf8'))
             buf = rffi.cast(rffi.CCHARP, buf)
             buflen = (space.len_w(w_value) * 2) + 1
 
@@ -314,7 +314,7 @@ def convert_to_regdata(space, w_value, typ):
             while True:
                 try:
                     w_item = space.next(w_iter)
-                    item = space.unicode_w(w_item)
+                    item = space.utf8_w(w_item).decode('utf8')
                     strings.append(item)
                     buflen += 2 * (len(item) + 1)
                 except OperationError as e:
@@ -378,7 +378,7 @@ def convert_from_regdata(space, buf, buflen, typ):
             if buf[buflen - 1] == '\x00':
                 buflen -= 1
             s = rffi.wcharp2unicoden(buf, buflen)
-        w_s = space.newunicode(s)
+        w_s = space.newtext(s)
         return w_s
 
     elif typ == rwinreg.REG_MULTI_SZ:
@@ -396,7 +396,7 @@ def convert_from_regdata(space, buf, buflen, typ):
             if len(s) == 0:
                 break
             s = u''.join(s)
-            l.append(space.newunicode(s))
+            l.append(space.newtext(s))
             i += 1
         return space.newlist(l)
 
@@ -455,7 +455,7 @@ value_name is a string indicating the value to query"""
     if space.is_w(w_subkey, space.w_None):
         subkey = None
     else:
-        subkey = space.unicode_w(w_subkey)
+        subkey = space.utf8_w(w_subkey).decode('utf8')
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
@@ -645,7 +645,7 @@ data_type is an integer that identifies the type of the value data."""
 
                             length = intmask(retDataSize[0])
                             return space.newtuple([
-                                space.newunicode(rffi.wcharp2unicode(valuebuf)),
+                                space.newtext(rffi.wcharp2unicode(valuebuf)),
                                 convert_from_regdata(space, databuf,
                                                      length, retType[0]),
                                 space.newint(intmask(retType[0])),
@@ -678,7 +678,7 @@ raised, indicating no more values are available."""
                                        lltype.nullptr(rwin32.PFILETIME.TO))
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegEnumKeyEx')
-            return space.newunicode(rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP, buf)))
+            return space.newtext(rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP, buf)))
 
 def QueryInfoKey(space, w_hkey):
     """tuple = QueryInfoKey(key) - Returns information about a key.
@@ -727,11 +727,12 @@ If the function fails, an EnvironmentError exception is raised."""
             raiseWindowsError(space, ret, 'RegConnectRegistry')
         return W_HKEY(space, rethkey[0])
 
-@unwrap_spec(source=unicode)
-def ExpandEnvironmentStrings(space, source):
+def ExpandEnvironmentStrings(space, w_source):
     "string = ExpandEnvironmentStrings(string) - Expand environment vars."
     try:
-        return space.newunicode(rwinreg.ExpandEnvironmentStrings(source))
+        source, source_ulen = space.utf8_len_w(w_source)
+        res, res_ulen = rwinreg.ExpandEnvironmentStrings(source, source_ulen)
+        return space.newutf8(res, res_ulen)
     except WindowsError as e:
         raise wrap_oserror(space, e)
 

@@ -28,6 +28,9 @@ extern "C" {
 
 #ifndef _WIN32
 #define VA_LIST_IS_ARRAY
+#ifndef __APPLE__
+#define HAVE_CLOCK_GETTIME
+#endif
 #endif
 
 #ifndef Py_BUILD_CORE /* not building the core - must be an ext */
@@ -38,9 +41,9 @@ extern "C" {
     */
 #    ifdef _DEBUG
 #      error("debug first with cpython")    
-#            pragma comment(lib,"python35.lib")
+#            pragma comment(lib,"python36.lib")
 #    else
-#            pragma comment(lib,"python35.lib")
+#            pragma comment(lib,"python36.lib")
 #    endif /* _DEBUG */
 #    define HAVE_COPYSIGN 1
 #    define copysign _copysign

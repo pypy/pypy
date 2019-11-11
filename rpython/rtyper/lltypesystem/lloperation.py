@@ -324,6 +324,26 @@ LL_OPERATIONS = {
     'lllong_rshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
     'lllong_xor':            LLOp(canfold=True),
 
+    'ulllong_is_true':        LLOp(canfold=True),
+    'ulllong_invert':         LLOp(canfold=True),
+
+    'ulllong_add':            LLOp(canfold=True),
+    'ulllong_sub':            LLOp(canfold=True),
+    'ulllong_mul':            LLOp(canfold=True),
+    'ulllong_floordiv':       LLOp(canfold=True),
+    'ulllong_mod':            LLOp(canfold=True),
+    'ulllong_lt':             LLOp(canfold=True),
+    'ulllong_le':             LLOp(canfold=True),
+    'ulllong_eq':             LLOp(canfold=True),
+    'ulllong_ne':             LLOp(canfold=True),
+    'ulllong_gt':             LLOp(canfold=True),
+    'ulllong_ge':             LLOp(canfold=True),
+    'ulllong_and':            LLOp(canfold=True),
+    'ulllong_or':             LLOp(canfold=True),
+    'ulllong_lshift':         LLOp(canfold=True),  # args (r_ulonglonglong, int)
+    'ulllong_rshift':         LLOp(canfold=True),  # args (r_ulonglonglong, int)
+    'ulllong_xor':            LLOp(canfold=True),
+
     'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),
@@ -456,6 +476,10 @@ LL_OPERATIONS = {
     # __________ GC operations __________
 
     'gc__collect':          LLOp(canmallocgc=True),
+    'gc__collect_step':     LLOp(canmallocgc=True),
+    'gc__enable':           LLOp(),
+    'gc__disable':          LLOp(),
+    'gc__isenabled':        LLOp(),
     'gc_free':              LLOp(),
     'gc_fetch_exception':   LLOp(),
     'gc_restore_exception': LLOp(),
@@ -506,6 +530,7 @@ LL_OPERATIONS = {
     'gc_rawrefcount_next_dead':         LLOp(),
 
     'gc_move_out_of_nursery':           LLOp(),
+    'gc_increase_root_stack_depth':     LLOp(canrun=True),
 
     'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
     'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore

@@ -5,10 +5,13 @@ from pypy.interpreter.error import (OperationError, oefmt,
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
-from pypy.interpreter.unicodehelper import decode_utf8, encode_utf8
+from pypy.interpreter.unicodehelper import decode_utf8sp
+from pypy.module._codecs.locale import (
+    str_decode_locale_surrogateescape, unicode_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
-    intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int)
+    intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int,
+    INT_MIN)
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
@@ -338,8 +341,8 @@ if _WIN:
                              "void pypy__tzset();"],
         separate_module_sources = ["""
             long pypy_get_timezone() {
-                long timezone; 
-                _get_timezone(&timezone); 
+                long timezone;
+                _get_timezone(&timezone);
                 return timezone;
             };
             int pypy_get_daylight() {
@@ -359,7 +362,7 @@ if _WIN:
     c_get_timezone = external('pypy_get_timezone', [], rffi.LONG, win_eci)
     c_get_daylight = external('pypy_get_daylight', [], rffi.INT, win_eci)
     c_get_tzname = external('pypy_get_tzname',
-                            [rffi.SIZE_T, rffi.INT, rffi.CCHARP], 
+                            [rffi.SIZE_T, rffi.INT, rffi.CCHARP],
                             rffi.INT, win_eci, calling_conv='c')
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
@@ -459,8 +462,8 @@ def _init_timezone(space):
 
     _set_module_object(space, "timezone", space.newint(timezone))
     _set_module_object(space, 'daylight', space.newint(daylight))
-    tzname_w = [space.newunicode(tzname[0].decode('latin-1')),
-                space.newunicode(tzname[1].decode('latin-1'))]
+    tzname_w = [space.newtext(tzname[0]),
+                space.newtext(tzname[1])]
     _set_module_object(space, 'tzname', space.newtuple(tzname_w))
     _set_module_object(space, 'altzone', space.newint(altzone))
 
@@ -528,6 +531,9 @@ def _get_inttime(space, w_seconds):
         seconds = pytime.time()
     else:
         seconds = space.float_w(w_seconds)
+        if math.isnan(seconds):
+            raise oefmt(space.w_ValueError,
+                        "Invalid value Nan (not a number)")
     #
     t = rffi.cast(rffi.TIME_T, seconds)
     #
@@ -554,9 +560,8 @@ def _tm_to_tuple(space, t):
 
     if HAS_TM_ZONE:
         # CPython calls PyUnicode_DecodeLocale here should we do the same?
-        tm_zone = decode_utf8(space, rffi.charp2str(t.c_tm_zone),
-                              allow_surrogates=True)
-        extra = [space.newunicode(tm_zone),
+        tm_zone, lgt, pos = decode_utf8sp(space, rffi.charp2str(t.c_tm_zone))
+        extra = [space.newtext(tm_zone, lgt),
                  space.newint(rffi.getintfield(t, 'c_tm_gmtoff'))]
         w_time_tuple = space.newtuple(time_tuple + extra)
     else:
@@ -579,7 +584,7 @@ def _gettmarg(space, w_tup, allowNone=True):
         lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
-                                 space.newunicode(_get_error_msg()))
+                                 space.newtext(*_get_error_msg()))
         return pbuf
 
     tup_w = space.fixedview(w_tup)
@@ -589,6 +594,8 @@ def _gettmarg(space, w_tup, allowNone=True):
                     len(tup_w))
 
     y = space.c_int_w(tup_w[0])
+    if y < INT_MIN + 1900:
+        raise oefmt(space.w_OverflowError, "year out of range")
     tm_mon = space.c_int_w(tup_w[1])
     if tm_mon == 0:
         tm_mon = 1
@@ -616,7 +623,7 @@ def _gettmarg(space, w_tup, allowNone=True):
             # it saves the string that is later deleted when this
             # function is called again. A refactoring of this module
             # could remove this
-            tm_zone = encode_utf8(space, space.unicode_w(tup_w[9]), allow_surrogates=True)
+            tm_zone = space.utf8_w(tup_w[9])
             malloced_str = rffi.str2charp(tm_zone, track_allocation=False)
             if old_tm_zone != lltype.nullptr(rffi.CCHARP.TO):
                 rffi.free_charp(old_tm_zone, track_allocation=False)
@@ -678,8 +685,7 @@ def time(space, w_info=None):
                         _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
                                  res, False, True)
                 return space.newfloat(_timespec_to_seconds(timespec))
-    else:
-        return gettimeofday(space, w_info)
+    return gettimeofday(space, w_info)
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -745,7 +751,7 @@ def gmtime(space, w_seconds=None):
 
     if not p:
         raise OperationError(space.w_ValueError,
-                             space.newunicode(_get_error_msg()))
+                             space.newtext(*_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def localtime(space, w_seconds=None):
@@ -763,7 +769,7 @@ def localtime(space, w_seconds=None):
 
     if not p:
         raise OperationError(space.w_OSError,
-                             space.newunicode(_get_error_msg()))
+                             space.newtext(*_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def mktime(space, w_tup):
@@ -834,7 +840,7 @@ if _POSIX:
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
 
-@unwrap_spec(format='text')
+@unwrap_spec(format='text0')
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
 
@@ -868,6 +874,7 @@ def strftime(space, format, w_tup=None):
                     raise oefmt(space.w_ValueError, "invalid format string")
             i += 1
 
+    format = unicode_encode_locale_surrogateescape(format.decode('utf8'))
     i = 1024
     while True:
         outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
@@ -880,7 +887,8 @@ def strftime(space, format, w_tup=None):
                 # e.g. an empty format, or %Z when the timezone
                 # is unknown.
                 result = rffi.charp2strn(outbuf, intmask(buflen))
-                return space.newtext(result)
+                decoded, size = str_decode_locale_surrogateescape(result)
+                return space.newutf8(decoded, size)
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i

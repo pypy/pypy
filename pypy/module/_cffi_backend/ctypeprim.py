@@ -5,7 +5,7 @@ Primitives.
 import sys
 
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rfficache
 
@@ -41,14 +41,12 @@ class W_CTypePrimitive(W_CType):
 
     def cast_unicode(self, w_ob):
         space = self.space
-        s = space.unicode_w(w_ob)
-        try:
-            ordinal = wchar_helper.unicode_to_ordinal(s)
-        except ValueError:
+        w_u = space.convert_arg_to_w_unicode(w_ob)
+        if w_u._len() != 1:
             raise oefmt(space.w_TypeError,
                         "cannot cast unicode string of length %d to ctype '%s'",
-                        len(s), self.name)
-        return intmask(ordinal)
+                        w_u._len(), self.name)
+        return rutf8.codepoint_at_pos(w_u._utf8, 0)
 
     def cast(self, w_ob):
         from pypy.module._cffi_backend import ctypeptr
@@ -174,18 +172,18 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
                 return self.space.newint(value)    # r_uint => 'long' object
 
     def convert_to_object(self, cdata):
-        if self.is_signed_wchar:
-            unichardata = rffi.cast(rffi.CWCHARP, cdata)
-            return self.space.newunicode(unichardata[0])
-        else:
-            value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
-            try:
-                u = wchar_helper.ordinal_to_unicode(value)
-            except wchar_helper.OutOfRange as e:
-                raise oefmt(self.space.w_ValueError,
-                            "char32_t out of range for "
-                            "conversion to unicode: %s", hex(e.ordinal))
-            return self.space.newunicode(u)
+        value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
+        try:
+            utf8 = rutf8.unichr_as_utf8(value, allow_surrogates=True)
+        except rutf8.OutOfRange:
+            if self.is_signed_wchar:
+                s = hex(intmask(value))
+            else:
+                s = hex(value)
+            raise oefmt(self.space.w_ValueError,
+                        "%s out of range for conversion to unicode: %s",
+                        self.name, s)
+        return self.space.newutf8(utf8, 1)
 
     def string(self, cdataobj, maxlen):
         with cdataobj as ptr:
@@ -196,16 +194,13 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
         # returns a r_uint.  If self.size == 2, it is smaller than 0x10000
         space = self.space
         if space.isinstance_w(w_ob, space.w_unicode):
-            u = space.unicode_w(w_ob)
-            try:
-                ordinal = wchar_helper.unicode_to_ordinal(u)
-            except ValueError:
-                pass
-            else:
-                if self.size == 2 and ordinal > 0xffff:
-                    raise self._convert_error("single character <= 0xFFFF",
-                                              w_ob)
-                return ordinal
+            w_u = space.convert_arg_to_w_unicode(w_ob)
+            if w_u._len() != 1:
+                raise self._convert_error("single character", w_ob)
+            ordinal = rutf8.codepoint_at_pos(w_u._utf8, 0)
+            if self.size == 2 and ordinal > 0xFFFF:
+                raise self._convert_error("single character <= 0xFFFF", w_ob)
+            return r_uint(ordinal)
         elif (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, W_CTypePrimitiveUniChar) and
                w_ob.ctype.size == self.size):
@@ -219,15 +214,16 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
         if self.size == 2:
-            u = wchar_helper.unicode_from_char16(ptr, length)
+            utf8, lgt = wchar_helper.utf8_from_char16(ptr, length)
         else:
             try:
-                u = wchar_helper.unicode_from_char32(ptr, length)
+                utf8, lgt = wchar_helper.utf8_from_char32(ptr, length)
             except wchar_helper.OutOfRange as e:
                 raise oefmt(self.space.w_ValueError,
-                            "char32_t out of range for "
-                            "conversion to unicode: %s", hex(e.ordinal))
-        return self.space.newunicode(u)
+                            "%s out of range for conversion to unicode: %s",
+                            self.name, hex(e.ordinal))
+        assert lgt >= 0
+        return self.space.newutf8(utf8, lgt)
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
@@ -406,15 +402,22 @@ class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
         # bypass the method 'string' implemented in W_CTypePrimitive
         return W_CType.string(self, cdataobj, maxlen)
 
-    def convert_to_object(self, cdata):
-        space = self.space
+    def _read_bool_0_or_1(self, cdata):
+        """Read one byte, check it is 0 or 1, but return it as an integer"""
         value = ord(cdata[0])
-        if value < 2:
-            return space.newbool(value != 0)
-        else:
-            raise oefmt(space.w_ValueError,
+        if value >= 2:
+            raise oefmt(self.space.w_ValueError,
                         "got a _Bool of value %d, expected 0 or 1",
                         value)
+        return value
+
+    def convert_to_object(self, cdata):
+        value = self._read_bool_0_or_1(cdata)
+        return self.space.newbool(value != 0)
+
+    def cast_to_int(self, cdata):
+        value = self._read_bool_0_or_1(cdata)
+        return self.space.newint(value)
 
     def unpack_list_of_int_items(self, ptr, length):
         return None

@@ -33,8 +33,10 @@ except ImportError:
     _winreg = None
 
 __all__ = [
-    "guess_type","guess_extension","guess_all_extensions",
-    "add_type","read_mime_types","init"
+    "knownfiles", "inited", "MimeTypes",
+    "guess_type", "guess_all_extensions", "guess_extension",
+    "add_type", "init", "read_mime_types",
+    "suffix_map", "encodings_map", "types_map", "common_types"
 ]
 
 knownfiles = [
@@ -437,6 +439,7 @@ def _default_mime_types():
         '.jpeg'   : 'image/jpeg',
         '.jpg'    : 'image/jpeg',
         '.js'     : 'application/javascript',
+        '.json'   : 'application/json',
         '.ksh'    : 'text/plain',
         '.latex'  : 'application/x-latex',
         '.m1v'    : 'video/mpeg',
@@ -447,6 +450,7 @@ def _default_mime_types():
         '.mht'    : 'message/rfc822',
         '.mhtml'  : 'message/rfc822',
         '.mif'    : 'application/x-mif',
+        '.mjs'    : 'application/javascript',
         '.mov'    : 'video/quicktime',
         '.movie'  : 'video/x-sgi-movie',
         '.mp2'    : 'audio/mpeg',

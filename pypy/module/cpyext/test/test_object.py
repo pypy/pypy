@@ -107,15 +107,15 @@ class TestObject(BaseApiTest):
 
     def test_str(self, space, api):
         w_list = space.newlist([space.w_None, space.wrap(42)])
-        assert space.str_w(api.PyObject_Str(None)) == "<NULL>"
-        assert space.str_w(api.PyObject_Str(w_list)) == "[None, 42]"
-        assert space.str_w(api.PyObject_Str(space.wrap("a"))) == "a"
+        assert space.text_w(api.PyObject_Str(None)) == "<NULL>"
+        assert space.text_w(api.PyObject_Str(w_list)) == "[None, 42]"
+        assert space.text_w(api.PyObject_Str(space.wrap("a"))) == "a"
 
     def test_repr(self, space, api):
         w_list = space.newlist([space.w_None, space.wrap(42)])
-        assert space.str_w(api.PyObject_Repr(None)) == "<NULL>"
-        assert space.str_w(api.PyObject_Repr(w_list)) == "[None, 42]"
-        assert space.str_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
+        assert space.text_w(api.PyObject_Repr(None)) == "<NULL>"
+        assert space.text_w(api.PyObject_Repr(w_list)) == "[None, 42]"
+        assert space.text_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
 
     def test_RichCompare(self, space, api):
         def compare(w_o1, w_o2, opid):
@@ -204,7 +204,7 @@ class TestObject(BaseApiTest):
 
     def test_format(self, space, api):
         w_int = space.wrap(42)
-        fmt = space.str_w(api.PyObject_Format(w_int, space.wrap('#b')))
+        fmt = space.text_w(api.PyObject_Format(w_int, space.wrap('#b')))
         assert fmt == '0b101010'
 
 class AppTestObject(AppTestCpythonExtensionBase):
@@ -450,6 +450,31 @@ class AppTestObject(AppTestCpythonExtensionBase):
         n = module.enter(obj2)
         assert n == 1
         module.leave(obj2)
+
+    def test_GenericGetSetDict(self):
+        module = self.import_extension('test_GenericGetSetDict', [
+            ('test1', 'METH_VARARGS',
+             """
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 PyObject *newdict = PyTuple_GET_ITEM(args, 1);
+
+                 PyObject *olddict = PyObject_GenericGetDict(obj, NULL);
+                 if (olddict == NULL)
+                    return NULL;
+                 int res = PyObject_GenericSetDict(obj, newdict, NULL);
+                 if (res != 0)
+                     return NULL;
+                 return olddict;
+             """)])
+        class A:
+            pass
+        a = A()
+        a.x = 42
+        nd = {'y': 43}
+        d = module.test1(a, nd)
+        assert d == {'x': 42}
+        assert a.y == 43
+        assert a.__dict__ is nd
 
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):

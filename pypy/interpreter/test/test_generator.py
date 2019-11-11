@@ -539,6 +539,104 @@ res = f()
         raises(TypeError, g.send, 2)
 
 
+class AppTestAsyncGenerator(object):
+
+    def test_async_gen_exception_11(self):
+        """
+        # bpo-33786
+        def compare_generators(sync_gen, async_gen):
+            def sync_iterate(g):
+                res = []
+                while True:
+                    try:
+                        res.append(g.__next__())
+                    except StopIteration:
+                        res.append('STOP')
+                        break
+                    except Exception as ex:
+                        res.append(str(type(ex)))
+                return res
+
+            def async_iterate(g):
+                res = []
+                while True:
+                    an = g.__anext__()
+                    try:
+                        while True:
+                            try:
+                                an.__next__()
+                            except StopIteration as ex:
+                                if ex.args:
+                                    res.append(ex.args[0])
+                                    break
+                                else:
+                                    res.append('EMPTY StopIteration')
+                                    break
+                            except StopAsyncIteration:
+                                raise
+                            except Exception as ex:
+                                res.append(str(type(ex)))
+                                break
+                    except StopAsyncIteration:
+                        res.append('STOP')
+                        break
+                return res
+
+            def async_iterate(g):
+                res = []
+                while True:
+                    try:
+                        g.__anext__().__next__()
+                    except StopAsyncIteration:
+                        res.append('STOP')
+                        break
+                    except StopIteration as ex:
+                        if ex.args:
+                            res.append(ex.args[0])
+                        else:
+                            res.append('EMPTY StopIteration')
+                            break
+                    except Exception as ex:
+                        res.append(str(type(ex)))
+                return res
+
+            sync_gen_result = sync_iterate(sync_gen)
+            async_gen_result = async_iterate(async_gen)
+            assert sync_gen_result == async_gen_result, "%s != %s" % (str(sync_gen_result), str(async_gen_result))
+            return async_gen_result
+
+        def sync_gen():
+            yield 10
+            yield 20
+
+        def sync_gen_wrapper():
+            yield 1
+            sg = sync_gen()
+            sg.send(None)
+            try:
+                sg.throw(GeneratorExit())
+            except GeneratorExit:
+                yield 2
+            yield 3
+
+        async def async_gen():
+            yield 10
+            yield 20
+
+        async def async_gen_wrapper():
+            yield 1
+            asg = async_gen()
+            await asg.asend(None)
+            try:
+                await asg.athrow(GeneratorExit())
+            except GeneratorExit:
+                yield 2
+            yield 3
+
+        compare_generators(sync_gen_wrapper(), async_gen_wrapper())
+        """
+
+
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline
     w_co = space.appexec([], '''():
@@ -870,3 +968,22 @@ def gen1():
         e = raises(RuntimeError, my_gen.throw, StopIteration, stop_exc, None)
         assert e.value.__cause__ is stop_exc
         assert e.value.__context__ is stop_exc
+
+    def test_return_tuple(self):
+        d = {}
+        exec("def gen1(): return (yield 1)", d)
+
+        gen = d['gen1']()
+        assert next(gen) == 1
+        exc = raises(StopIteration, gen.send, (2,))
+        assert exc.value.value == (2,)
+
+    def test_return_stopiteration(self):
+        d = {}
+        exec("def gen1(): return (yield 1)", d)
+
+        gen = d['gen1']()
+        assert next(gen) == 1
+        exc = raises(StopIteration, gen.send, StopIteration(2))
+        assert isinstance(exc.value, StopIteration)
+        assert exc.value.value.value == 2

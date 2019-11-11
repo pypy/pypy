@@ -45,7 +45,8 @@ class Function(W_Root):
                  closure=None, w_ann=None, forcename=None, qualname=None):
         self.space = space
         self.name = forcename or code.co_name
-        self.qualname = qualname or self.name.decode('utf-8')
+        self.qualname = qualname or self.name
+        assert isinstance(self.qualname, str)
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
@@ -171,10 +172,10 @@ class Function(W_Root):
         elif fast_natural_arity == Code.PASSTHROUGHARGS1 and nargs >= 1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             w_obj = frame.peekvalue(nargs-1)
-            args = frame.make_arguments(nargs-1)
+            args = frame.make_arguments(nargs-1, w_function=self)
             return code.funcrun_obj(self, w_obj, args)
 
-        args = frame.make_arguments(nargs, methodcall=methodcall)
+        args = frame.make_arguments(nargs, methodcall=methodcall, w_function=self)
         return self.call_args(args)
 
     @jit.unroll_safe
@@ -255,7 +256,7 @@ class Function(W_Root):
         return self.call_args(__args__)
 
     def descr_function_repr(self):
-        return self.getrepr(self.space, u'function %s' % self.qualname)
+        return self.getrepr(self.space, 'function %s' % self.qualname)
 
 
     def _cleanup_(self):
@@ -313,7 +314,7 @@ class Function(W_Root):
         tup_base = []
         tup_state = [
             space.newtext(self.name),
-            space.newunicode(self.qualname),
+            space.newtext(self.qualname),
             w_doc,
             self.code,
             w_func_globals,
@@ -337,7 +338,7 @@ class Function(W_Root):
 
         self.space = space
         self.name = space.text_w(w_name)
-        self.qualname = space.unicode_w(w_qualname)
+        self.qualname = space.utf8_w(w_qualname)
         self.code = space.interp_w(Code, w_code)
         if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
@@ -430,11 +431,11 @@ class Function(W_Root):
                         "__name__ must be set to a string object")
 
     def fget_func_qualname(self, space):
-        return space.newunicode(self.qualname)
+        return space.newtext(self.qualname)
 
     def fset_func_qualname(self, space, w_name):
         try:
-            self.qualname = space.unicode_w(w_name)
+            self.qualname = space.realutf8_w(w_name)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
@@ -549,14 +550,14 @@ class Method(W_Root):
             name = self.w_function.getname(self.space)
         else:
             try:
-                name = space.unicode_w(w_name)
+                name = space.utf8_w(w_name)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                name = u'?'
-        objrepr = space.unicode_w(space.repr(self.w_instance))
-        s = u'<bound method %s of %s>' % (name, objrepr)
-        return space.newunicode(s)
+                name = '?'
+        objrepr = space.utf8_w(space.repr(self.w_instance))
+        s = b'<bound method %s of %s>' % (name, objrepr)
+        return space.newtext(s)
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
@@ -598,7 +599,7 @@ class Method(W_Root):
         else:
             w_builtins = space.getbuiltinmodule('builtins')
             new_inst = space.getattr(w_builtins, space.newtext('getattr'))
-            tup = [w_instance, space.newunicode(w_function.getname(space))]
+            tup = [w_instance, space.newtext(w_function.getname(space))]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
 
@@ -699,7 +700,7 @@ class BuiltinFunction(Function):
         return self.space.newtext('<built-in function %s>' % (self.name,))
 
     def descr__reduce__(self, space):
-        return space.newunicode(self.qualname)
+        return space.newtext(self.qualname)
 
 def is_builtin_code(w_func):
     from pypy.interpreter.gateway import BuiltinCode

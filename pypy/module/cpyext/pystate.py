@@ -176,6 +176,17 @@ def PyThreadState_Get(space):
         py_fatalerror("PyThreadState_Get: no current thread")
     return ts
 
+@cpython_api([], PyThreadState, error=CANNOT_FAIL)
+def _PyThreadState_UncheckedGet(space):
+    """Similar to PyThreadState_Get(), but don't issue a fatal error
+    if it is NULL.
+    This is from CPython >= 3.7.  On py3.6, it is present anyway and used to
+    implement _Py_Finalizing as a macro.
+    """
+    state = space.fromcache(InterpreterState)
+    ts = state.get_thread_state(space)
+    return ts
+
 @cpython_api([], PyObject, result_is_ll=True, error=CANNOT_FAIL)
 def PyThreadState_GetDict(space):
     """Return a dictionary in which extensions can store thread-specific state
@@ -250,6 +261,11 @@ def _workaround_cpython_untranslated(space):
             space.threadlocals.raw_thread_local.set(ec2)
         return space.threadlocals.__class__.get_ec(space.threadlocals)
     space.threadlocals.get_ec = get_possibly_deleted_ec
+
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL, gil="pygilstate_check")
+def PyGILState_Check(space):
+    assert False, "the logic is completely inside wrapper_second_level"
 
 
 @cpython_api([], PyGILState_STATE, error=CANNOT_FAIL, gil="pygilstate_ensure")
@@ -354,3 +370,9 @@ def PyOS_AfterFork(space):
         os_thread.reinit_threads(space)
     except OperationError as e:
         e.write_unraisable(space, "PyOS_AfterFork()")
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def _Py_IsFinalizing(space):
+    """From CPython >= 3.7.  On py3.6, it is present anyway and used to
+    implement _Py_Finalizing as a macro."""
+    return space.sys.finalizing

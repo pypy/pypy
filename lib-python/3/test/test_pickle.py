@@ -6,6 +6,7 @@ import io
 import collections
 import struct
 import sys
+import weakref
 
 import unittest
 from test import support
@@ -26,16 +27,19 @@ except ImportError:
     has_c_implementation = False
 
 
-class PickleTests(AbstractPickleModuleTests):
-    pass
+class PyPickleTests(AbstractPickleModuleTests):
+    dump = staticmethod(pickle._dump)
+    dumps = staticmethod(pickle._dumps)
+    load = staticmethod(pickle._load)
+    loads = staticmethod(pickle._loads)
+    Pickler = pickle._Pickler
+    Unpickler = pickle._Unpickler
 
 
 class PyUnpicklerTests(AbstractUnpickleTests):
 
     unpickler = pickle._Unpickler
     bad_stack_errors = (IndexError,)
-    bad_mark_errors = (IndexError, pickle.UnpicklingError,
-                       TypeError, AttributeError, EOFError)
     truncated_errors = (pickle.UnpicklingError, EOFError,
                         AttributeError, ValueError,
                         struct.error, IndexError, ImportError)
@@ -70,8 +74,6 @@ class InMemoryPickleTests(AbstractPickleTests, AbstractUnpickleTests,
     pickler = pickle._Pickler
     unpickler = pickle._Unpickler
     bad_stack_errors = (pickle.UnpicklingError, IndexError)
-    bad_mark_errors = (pickle.UnpicklingError, IndexError,
-                       TypeError, AttributeError, EOFError)
     truncated_errors = (pickle.UnpicklingError, EOFError,
                         AttributeError, ValueError,
                         struct.error, IndexError, ImportError)
@@ -116,6 +118,66 @@ class PyIdPersPicklerTests(AbstractIdentityPersistentPicklerTests,
     pickler = pickle._Pickler
     unpickler = pickle._Unpickler
 
+    @support.cpython_only
+    def test_pickler_reference_cycle(self):
+        def check(Pickler):
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                f = io.BytesIO()
+                pickler = Pickler(f, proto)
+                pickler.dump('abc')
+                self.assertEqual(self.loads(f.getvalue()), 'abc')
+            pickler = Pickler(io.BytesIO())
+            self.assertEqual(pickler.persistent_id('def'), 'def')
+            r = weakref.ref(pickler)
+            del pickler
+            self.assertIsNone(r())
+
+        class PersPickler(self.pickler):
+            def persistent_id(subself, obj):
+                return obj
+        check(PersPickler)
+
+        class PersPickler(self.pickler):
+            @classmethod
+            def persistent_id(cls, obj):
+                return obj
+        check(PersPickler)
+
+        class PersPickler(self.pickler):
+            @staticmethod
+            def persistent_id(obj):
+                return obj
+        check(PersPickler)
+
+    @support.cpython_only
+    def test_unpickler_reference_cycle(self):
+        def check(Unpickler):
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                unpickler = Unpickler(io.BytesIO(self.dumps('abc', proto)))
+                self.assertEqual(unpickler.load(), 'abc')
+            unpickler = Unpickler(io.BytesIO())
+            self.assertEqual(unpickler.persistent_load('def'), 'def')
+            r = weakref.ref(unpickler)
+            del unpickler
+            self.assertIsNone(r())
+
+        class PersUnpickler(self.unpickler):
+            def persistent_load(subself, pid):
+                return pid
+        check(PersUnpickler)
+
+        class PersUnpickler(self.unpickler):
+            @classmethod
+            def persistent_load(cls, pid):
+                return pid
+        check(PersUnpickler)
+
+        class PersUnpickler(self.unpickler):
+            @staticmethod
+            def persistent_load(pid):
+                return pid
+        check(PersUnpickler)
+
 
 class PyPicklerUnpicklerObjectTests(AbstractPicklerUnpicklerObjectTests):
 
@@ -140,12 +202,13 @@ class PyChainDispatchTableTests(AbstractDispatchTableTests):
 
 
 if has_c_implementation:
+    class CPickleTests(AbstractPickleModuleTests):
+        from _pickle import dump, dumps, load, loads, Pickler, Unpickler
+
     class CUnpicklerTests(PyUnpicklerTests):
         unpickler = _pickle.Unpickler
         bad_stack_errors = (pickle.UnpicklingError,)
-        bad_mark_errors = (EOFError,)
-        truncated_errors = (pickle.UnpicklingError, EOFError,
-                            AttributeError, ValueError)
+        truncated_errors = (pickle.UnpicklingError,)
 
     class CPicklerTests(PyPicklerTests):
         pickler = _pickle.Pickler
@@ -195,7 +258,7 @@ if has_c_implementation:
         check_sizeof = support.check_sizeof
 
         def test_pickler(self):
-            basesize = support.calcobjsize('5P2n3i2n3iP')
+            basesize = support.calcobjsize('6P2n3i2n3iP')
             p = _pickle.Pickler(io.BytesIO())
             self.assertEqual(object.__sizeof__(p), basesize)
             MT_size = struct.calcsize('3nP0n')
@@ -212,7 +275,7 @@ if has_c_implementation:
                 0)  # Write buffer is cleared after every dump().
 
         def test_unpickler(self):
-            basesize = support.calcobjsize('2Pn2P 2P2n2i5P 2P3n6P2n2i')
+            basesize = support.calcobjsize('2P2n2P 2P2n2i5P 2P3n6P2n2i')
             unpickler = _pickle.Unpickler
             P = struct.calcsize('P')  # Size of memo table entry.
             n = struct.calcsize('n')  # Size of mark table entry.
@@ -341,6 +404,9 @@ class CompatPickleTests(unittest.TestCase):
                 if (module2, name2) == ('exceptions', 'OSError'):
                     attr = getattribute(module3, name3)
                     self.assertTrue(issubclass(attr, OSError))
+                elif (module2, name2) == ('exceptions', 'ImportError'):
+                    attr = getattribute(module3, name3)
+                    self.assertTrue(issubclass(attr, ImportError))
                 else:
                     module, name = mapping(module2, name2)
                     if module3[:1] != '_':
@@ -407,6 +473,11 @@ class CompatPickleTests(unittest.TestCase):
                 if exc is not OSError and issubclass(exc, OSError):
                     self.assertEqual(reverse_mapping('builtins', name),
                                      ('exceptions', 'OSError'))
+                elif exc is not ImportError and issubclass(exc, ImportError):
+                    self.assertEqual(reverse_mapping('builtins', name),
+                                     ('exceptions', 'ImportError'))
+                    self.assertEqual(mapping('exceptions', name),
+                                     ('exceptions', name))
                 else:
                     self.assertEqual(reverse_mapping('builtins', name),
                                      ('exceptions', name))
@@ -424,12 +495,12 @@ class CompatPickleTests(unittest.TestCase):
 
 
 def test_main():
-    tests = [PickleTests, PyUnpicklerTests, PyPicklerTests,
+    tests = [PyPickleTests, PyUnpicklerTests, PyPicklerTests,
              PyPersPicklerTests, PyIdPersPicklerTests,
              PyDispatchTableTests, PyChainDispatchTableTests,
              CompatPickleTests]
     if has_c_implementation:
-        tests.extend([CUnpicklerTests, CPicklerTests,
+        tests.extend([CPickleTests, CUnpicklerTests, CPicklerTests,
                       CPersPicklerTests, CIdPersPicklerTests,
                       CDumpPickle_LoadPickle, DumpPickle_CLoadPickle,
                       PyPicklerUnpicklerObjectTests,

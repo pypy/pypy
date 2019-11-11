@@ -52,7 +52,7 @@ class MemFunctionsTest(unittest.TestCase):
         self.assertEqual(cast(a, POINTER(c_byte))[:7:7],
                              [97])
 
-    @support.refcount_test
+    #@support.refcount_test
     def test_string_at(self):
         s = string_at(b"foo bar")
         # XXX The following may be wrong, depending on how Python

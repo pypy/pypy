@@ -35,7 +35,7 @@ class Test_TestLoader(unittest.TestCase):
     ### Tests for TestLoader.loadTestsFromTestCase
     ################################################################
 
-    # "Return a suite of all tests cases contained in the TestCase-derived
+    # "Return a suite of all test cases contained in the TestCase-derived
     # class testCaseClass"
     def test_loadTestsFromTestCase(self):
         class Foo(unittest.TestCase):
@@ -48,7 +48,7 @@ class Test_TestLoader(unittest.TestCase):
         loader = unittest.TestLoader()
         self.assertEqual(loader.loadTestsFromTestCase(Foo), tests)
 
-    # "Return a suite of all tests cases contained in the TestCase-derived
+    # "Return a suite of all test cases contained in the TestCase-derived
     # class testCaseClass"
     #
     # Make sure it does the right thing even if no tests were found
@@ -61,7 +61,7 @@ class Test_TestLoader(unittest.TestCase):
         loader = unittest.TestLoader()
         self.assertEqual(loader.loadTestsFromTestCase(Foo), empty_suite)
 
-    # "Return a suite of all tests cases contained in the TestCase-derived
+    # "Return a suite of all test cases contained in the TestCase-derived
     # class testCaseClass"
     #
     # What happens if loadTestsFromTestCase() is given an object
@@ -82,7 +82,7 @@ class Test_TestLoader(unittest.TestCase):
         else:
             self.fail('Should raise TypeError')
 
-    # "Return a suite of all tests cases contained in the TestCase-derived
+    # "Return a suite of all test cases contained in the TestCase-derived
     # class testCaseClass"
     #
     # Make sure loadTestsFromTestCase() picks up the default test method
@@ -390,7 +390,7 @@ class Test_TestLoader(unittest.TestCase):
         suite = loader.loadTestsFromName('abc () //')
         error, test = self.check_deferred_error(loader, suite)
         expected = "Failed to import test module: abc () //"
-        expected_regex = "Failed to import test module: abc \(\) //"
+        expected_regex = r"Failed to import test module: abc \(\) //"
         self.assertIn(
             expected, error,
             'missing error string in %r' % error)
@@ -502,7 +502,7 @@ class Test_TestLoader(unittest.TestCase):
         suite = loader.loadTestsFromName('abc () //', unittest)
         error, test = self.check_deferred_error(loader, suite)
         expected = "module 'unittest' has no attribute 'abc () //'"
-        expected_regex = "module 'unittest' has no attribute 'abc \(\) //'"
+        expected_regex = r"module 'unittest' has no attribute 'abc \(\) //'"
         self.assertIn(
             expected, error,
             'missing error string in %r' % error)
@@ -809,7 +809,7 @@ class Test_TestLoader(unittest.TestCase):
         suite = loader.loadTestsFromNames(['abc () //'])
         error, test = self.check_deferred_error(loader, list(suite)[0])
         expected = "Failed to import test module: abc () //"
-        expected_regex = "Failed to import test module: abc \(\) //"
+        expected_regex = r"Failed to import test module: abc \(\) //"
         self.assertIn(
             expected,  error,
             'missing error string in %r' % error)
@@ -928,7 +928,7 @@ class Test_TestLoader(unittest.TestCase):
         suite = loader.loadTestsFromNames(['abc () //'], unittest)
         error, test = self.check_deferred_error(loader, list(suite)[0])
         expected = "module 'unittest' has no attribute 'abc () //'"
-        expected_regex = "module 'unittest' has no attribute 'abc \(\) //'"
+        expected_regex = r"module 'unittest' has no attribute 'abc \(\) //'"
         self.assertIn(
             expected, error,
             'missing error string in %r' % error)

@@ -278,7 +278,7 @@ class FormatTest(unittest.TestCase):
         test_exc('%d', '1', TypeError, "%d format: a number is required, not str")
         test_exc('%x', '1', TypeError, "%x format: an integer is required, not str")
         test_exc('%x', 3.14, TypeError, "%x format: an integer is required, not float")
-        test_exc('%g', '1', TypeError, "a float is required")
+        test_exc('%g', '1', TypeError, "must be real number, not str")
         test_exc('no format', '1', TypeError,
                  "not all arguments converted during string formatting")
         test_exc('%c', -1, OverflowError, "%c arg not in range(0x110000)")
@@ -304,6 +304,8 @@ class FormatTest(unittest.TestCase):
         testcommon(b"%c", 7, b"\x07")
         testcommon(b"%c", b"Z", b"Z")
         testcommon(b"%c", bytearray(b"Z"), b"Z")
+        testcommon(b"%5c", 65, b"    A")
+        testcommon(b"%-5c", 65, b"A    ")
         # %b will insert a series of bytes, either from a type that supports
         # the Py_buffer protocol, or something that has a __bytes__ method
         class FakeBytes(object):
@@ -313,10 +315,12 @@ class FormatTest(unittest.TestCase):
         testcommon(b"%b", b"abc", b"abc")
         testcommon(b"%b", bytearray(b"def"), b"def")
         testcommon(b"%b", fb, b"123")
+        testcommon(b"%b", memoryview(b"abc"), b"abc")
         # # %s is an alias for %b -- should only be used for Py2/3 code
         testcommon(b"%s", b"abc", b"abc")
         testcommon(b"%s", bytearray(b"def"), b"def")
         testcommon(b"%s", fb, b"123")
+        testcommon(b"%s", memoryview(b"abc"), b"abc")
         # %a will give the equivalent of
         # repr(some_obj).encode('ascii', 'backslashreplace')
         testcommon(b"%a", 3.14, b"3.14")
@@ -375,9 +379,11 @@ class FormatTest(unittest.TestCase):
         test_exc(b"%c", 3.14, TypeError,
                 "%c requires an integer in range(256) or a single byte")
         test_exc(b"%b", "Xc", TypeError,
-                "%b requires bytes, or an object that implements __bytes__, not 'str'")
+                "%b requires a bytes-like object, "
+                 "or an object that implements __bytes__, not 'str'")
         test_exc(b"%s", "Wd", TypeError,
-                "%b requires bytes, or an object that implements __bytes__, not 'str'")
+                "%b requires a bytes-like object, "
+                 "or an object that implements __bytes__, not 'str'")
 
         if maxsize == 2**31-1:
             # crashes 2.2.1 and earlier:

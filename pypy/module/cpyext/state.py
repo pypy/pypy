@@ -45,6 +45,13 @@ class State:
         # XXX will leak if _PyDateTime_Import already called
         self.datetimeAPI = []
 
+        self.cpyext_is_imported = False
+
+    def make_sure_cpyext_is_imported(self):
+        if not self.cpyext_is_imported:
+            self.space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
+            self.cpyext_is_imported = True
+
     def set_exception(self, operror):
         self.clear_exception()
         ec = self.space.getexecutioncontext()
@@ -143,10 +150,12 @@ class State:
             argv = space.sys.get('argv')
             if space.len_w(argv):
                 argv0 = space.getitem(argv, space.newint(0))
-                progname = space.unicode_w(argv0)
+                progname = space.utf8_w(argv0)
+                lgt = space.len_w(argv0)
             else:
-                progname = u"pypy3"
-            self.programname = rffi.unicode2wcharp(progname)
+                progname = "pypy3"
+                lgt = len(progname)
+            self.programname = rffi.utf82wcharp(progname, lgt)
             lltype.render_immortal(self.programname)
         return self.programname
 

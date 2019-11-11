@@ -1,12 +1,12 @@
 import time
 
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.module.posix import interp_posix
 from rpython.rlib.rarithmetic import r_uint, intmask, widen
 from rpython.rlib import rbigint, rrandom, rstring
-
 
 def descr_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()
@@ -25,14 +25,19 @@ class W_Random(W_Root):
         return space.newfloat(self._rnd.random())
 
     def seed(self, space, w_n=None):
-        if w_n is None:
-            w_n = space.newint(int(time.time()))
+        if space.is_none(w_n):
+            # TODO: Use a non-blocking version of urandom
+            try:
+                w_n = interp_posix.urandom(space, 8)
+            except OperationError as e:
+                if not e.match(space, space.w_OSError):
+                    raise
+                w_n = space.newint(int(time.time() * 256))
+        if space.isinstance_w(w_n, space.w_int):
+            w_n = space.abs(w_n)
         else:
-            if space.isinstance_w(w_n, space.w_int):
-                w_n = space.abs(w_n)
-            else:
-                n = space.hash_w(w_n)
-                w_n = space.newint(r_uint(n))
+            n = space.hash_w(w_n)
+            w_n = space.newint(r_uint(n))
         key = []
         w_one = space.newint(1)
         w_two = space.newint(2)
@@ -65,15 +70,17 @@ class W_Random(W_Root):
         # independent of platfrom, since the below condition is only
         # true on 32 bit platforms anyway
         w_add = space.pow(space.newint(2), space.newint(32), space.w_None)
+        _state = [r_uint(0)] * rrandom.N
         for i in range(rrandom.N):
             w_item = space.getitem(w_state, space.newint(i))
             if space.is_true(space.lt(w_item, w_zero)):
                 w_item = space.add(w_item, w_add)
-            self._rnd.state[i] = space.uint_w(w_item)
+            _state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rrandom.N))
         index = space.int_w(w_item)
         if index < 0 or index > rrandom.N:
             raise oefmt(space.w_ValueError, "invalid state")
+        self._rnd.state = _state
         self._rnd.index = index
 
     @unwrap_spec(k=int)

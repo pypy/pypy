@@ -19,7 +19,7 @@ def test_get_operrcls2(space):
     assert strings == ("abc ", " def ", "")
     assert issubclass(cls, OperationError)
     inst = cls("w_type", strings, "hello", 42)
-    assert inst._compute_value(space) == "abc hello def 42"
+    assert inst._compute_value(space) == ("abc hello def 42", 16)
     cls2, strings2 = get_operrcls2('a %s b %d c')
     assert cls2 is cls     # caching
     assert strings2 == ("a ", " b ", " c")
@@ -30,8 +30,7 @@ def test_oefmt(space):
     assert operr.w_type == "w_type"
     assert operr._w_value is None
     val = operr._compute_value(space)
-    assert val == u"abc foo def 42"
-    assert isinstance(val, unicode)
+    assert val == ("abc foo def 42", 14)
     operr2 = oefmt("w_type2", "a %s b %d c", "bar", 43)
     assert operr2.__class__ is operr.__class__
     operr3 = oefmt("w_type2", "a %s b %s c", "bar", "4b")
@@ -43,55 +42,55 @@ def test_oefmt_noargs(space):
     val = operr.get_w_value(space)
     assert space.isinstance_w(val, space.w_AttributeError)
     w_repr = space.repr(val)
-    assert space.str_w(w_repr) == "AttributeError(\"no attribute 'foo'\",)"
+    assert space.text_w(w_repr) == "AttributeError(\"no attribute 'foo'\",)"
 
 def test_oefmt_T(space):
     operr = oefmt(space.w_AttributeError,
                   "'%T' object has no attribute '%s'",
                   space.wrap('foo'), 'foo')
-    assert operr._compute_value(space) == "'str' object has no attribute 'foo'"
+    assert operr._compute_value(space) == ("'str' object has no attribute 'foo'", 35)
     operr = oefmt("w_type",
                   "'%T' object has no attribute '%s'",
                   space.wrap('foo'), 'foo')
-    assert operr._compute_value(space) == "'str' object has no attribute 'foo'"
+    assert operr._compute_value(space) == ("'str' object has no attribute 'foo'", 35)
 
 def test_oefmt_N(space):
     operr = oefmt(space.w_AttributeError,
                   "'%N' object has no attribute '%s'",
                   space.type(space.wrap('foo')), 'foo')
-    assert operr._compute_value(space) == "'str' object has no attribute 'foo'"
+    assert operr._compute_value(space) == ("'str' object has no attribute 'foo'", 35)
     operr = oefmt("w_type",
                   "'%N' object has no attribute '%s'",
                   space.type(space.wrap('foo')), 'foo')
-    assert operr._compute_value(space) == "'str' object has no attribute 'foo'"
+    assert operr._compute_value(space) == ("'str' object has no attribute 'foo'", 35)
     operr = oefmt(space.w_AttributeError,
                   "'%N' object has no attribute '%s'",
                   space.wrap('foo'), 'foo')
-    assert operr._compute_value(space) == "'?' object has no attribute 'foo'"
+    assert operr._compute_value(space) == ("'?' object has no attribute 'foo'", 33)
     operr = oefmt("w_type",
                   "'%N' object has no attribute '%s'",
                   space.wrap('foo'), 'foo')
-    assert operr._compute_value(space) == "'?' object has no attribute 'foo'"
+    assert operr._compute_value(space) == ("'?' object has no attribute 'foo'", 33)
 
 def test_oefmt_R(space):
     operr = oefmt(space.w_ValueError,
                   "illegal newline value: %R", space.wrap('foo'))
-    assert operr._compute_value(space) == "illegal newline value: 'foo'"
+    assert operr._compute_value(space) == ("illegal newline value: 'foo'", 28)
     operr = oefmt(space.w_ValueError, "illegal newline value: %R",
                   space.wrap("'PyLadies'"))
-    expected = "illegal newline value: \"'PyLadies'\""
+    expected = ("illegal newline value: \"'PyLadies'\"", 35)
     assert operr._compute_value(space) == expected
 
 def test_oefmt_unicode(space):
     operr = oefmt("w_type", "abc %s", u"àèìòù")
     val = operr._compute_value(space)
-    assert val == u"abc àèìòù"
+    assert val == (u"abc àèìòù".encode('utf8'), 9)
 
 def test_oefmt_utf8(space):
     arg = u"àèìòù".encode('utf-8')
     operr = oefmt("w_type", "abc %8", arg)
     val = operr._compute_value(space)
-    assert val == u"abc àèìòù"
+    assert val == (u"abc àèìòù".encode('utf8'), 9)
     #
     # if the arg is a byte string and we specify '%s', then we
     # also get utf-8 encoding.  This should be the common case
@@ -99,7 +98,7 @@ def test_oefmt_utf8(space):
     # sources of PyPy.
     operr = oefmt("w_type", "abc %s", arg)
     val = operr._compute_value(space)
-    assert val == u"abc àèìòù"
+    assert val == (u"abc àèìòù".encode('utf8'), 9)
     #
     # if the byte string is not valid utf-8, then don't crash
     arg = '\xe9'
@@ -133,9 +132,9 @@ def test_wrap_oserror():
         w_OSError = [OSError]
         w_EnvironmentError = [EnvironmentError]
         w_None = None
-        def wrap(self, obj):
+        def wrap(self, obj, lgt=-1):
             return [obj]
-        newint = newtext = newunicode = newfilename = wrap
+        newint = newtext = newfilename = wrap
         def call_function(self, exc, w_errno, w_msg, w_filename=None, *args):
             return (exc, w_errno, w_msg, w_filename)
     space = FakeSpace()
@@ -167,7 +166,7 @@ def test_wrap_oserror():
 def test_new_exception(space):
     w_error = new_exception_class(space, '_socket.error')
     assert w_error.getname(space) == u'error'
-    assert space.str_w(space.repr(w_error)) == "<class '_socket.error'>"
+    assert space.text_w(space.repr(w_error)) == "<class '_socket.error'>"
     operr = OperationError(w_error, space.wrap("message"))
     assert operr.match(space, w_error)
     assert operr.match(space, space.w_Exception)

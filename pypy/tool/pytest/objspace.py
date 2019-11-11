@@ -7,7 +7,7 @@ from pypy.conftest import option
 
 _SPACECACHE={}
 def gettestobjspace(**kwds):
-    """ helper for instantiating and caching space's for testing.
+    """ helper for instantiating and caching spaces for testing.
     """
     try:
         config = make_config(option, **kwds)
@@ -30,10 +30,9 @@ def maketestobjspace(config=None):
         config = make_config(option)
     if config.objspace.usemodules.thread:
         config.translation.thread = True
+    config.objspace.extmodules = 'pypy.tool.pytest.fake_pytest'
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
-    space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
-                  appsupport.build_pytest_assertion(space))
     space.setitem(space.builtin.w_dict, space.wrap('raises'),
                   space.wrap(appsupport.app_raises))
     space.setitem(space.builtin.w_dict, space.wrap('skip'),
@@ -86,6 +85,9 @@ class TinyObjSpace(object):
     def str_w(self, w_str):
         return w_str
 
+    def utf8_w(self, w_utf8):
+        return w_utf8
+
     def bytes_w(self, w_bytes):
         return w_bytes
 
@@ -100,6 +102,9 @@ class TinyObjSpace(object):
 
     def newbytes(self, obj):
         return bytes(obj)
+
+    def newutf8(self, obj, lgth):
+        return obj
 
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)

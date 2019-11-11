@@ -1136,6 +1136,8 @@ class MethodsPBCRepr(Repr):
         self.lowleveltype = self.r_im_self.lowleveltype
 
     def convert_const(self, method):
+        if method is None:
+            return nullptr(self.lowleveltype.TO)
         if getattr(method, 'im_func', None) is None:
             raise TyperError("not a bound method: %r" % method)
         return self.r_im_self.convert_const(method.im_self)
@@ -1194,3 +1196,9 @@ class MethodsPBCRepr(Repr):
 
         # now hop2 looks like simple_call(function, self, args...)
         return hop2.dispatch()
+
+class __extend__(pairtype(MethodsPBCRepr, MethodsPBCRepr)):
+    def convert_from_to((r_mpbc1, r_mpbc2), v, llops):
+        if r_mpbc1.lowleveltype == r_mpbc2.lowleveltype:
+            return v
+        return NotImplemented

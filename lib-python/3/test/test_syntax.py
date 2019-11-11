@@ -35,14 +35,6 @@ SyntaxError: invalid syntax
 Traceback (most recent call last):
 SyntaxError: can't assign to ...
 
-It's a syntax error to assign to the empty tuple.  Why isn't it an
-error to assign to the empty list?  It will always raise some error at
-runtime.
-
->>> () = 1
-Traceback (most recent call last):
-SyntaxError: can't assign to ()
-
 >>> f() = 1
 Traceback (most recent call last):
 SyntaxError: can't assign to function call
@@ -376,7 +368,32 @@ build.  The number of blocks must be greater than CO_MAXBLOCKS.  SF #1565514
      ...
    SyntaxError: too many statically nested blocks
 
-Misuse of the nonlocal statement can lead to a few unique syntax errors.
+Misuse of the nonlocal and global statement can lead to a few unique syntax errors.
+
+   >>> def f():
+   ...     x = 1
+   ...     global x
+   Traceback (most recent call last):
+     ...
+   SyntaxError: name 'x' is assigned to before global declaration
+
+   >>> def f():
+   ...     x = 1
+   ...     def g():
+   ...         print(x)
+   ...         nonlocal x
+   Traceback (most recent call last):
+     ...
+   SyntaxError: name 'x' is used prior to nonlocal declaration
+
+   >>> def f():
+   ...     x = 1
+   ...     def g():
+   ...         x = 2
+   ...         nonlocal x
+   Traceback (most recent call last):
+     ...
+   SyntaxError: name 'x' is assigned to before nonlocal declaration
 
    >>> def f(x):
    ...     nonlocal x
@@ -403,24 +420,7 @@ From SF bug #1705365
      ...
    SyntaxError: nonlocal declaration not allowed at module level
 
-TODO(jhylton): Figure out how to test SyntaxWarning with doctest.
-
-##   >>> def f(x):
-##   ...     def f():
-##   ...         print(x)
-##   ...         nonlocal x
-##   Traceback (most recent call last):
-##     ...
-##   SyntaxWarning: name 'x' is assigned to before nonlocal declaration
-
-##   >>> def f():
-##   ...     x = 1
-##   ...     nonlocal x
-##   Traceback (most recent call last):
-##     ...
-##   SyntaxWarning: name 'x' is assigned to before nonlocal declaration
-
- From https://bugs.python.org/issue25973
+From https://bugs.python.org/issue25973
    >>> class A:
    ...     def f(self):
    ...         nonlocal __x
@@ -494,10 +494,6 @@ Make sure that the old "raise X, Y[, Z]" form is gone:
 Traceback (most recent call last):
    ...
 SyntaxError: keyword argument repeated
-
->>> del ()
-Traceback (most recent call last):
-SyntaxError: can't delete ()
 
 >>> {1, 2, 3} = 42
 Traceback (most recent call last):
@@ -606,12 +602,12 @@ class SyntaxTestCase(unittest.TestCase):
                           "positional argument follows keyword argument")
 
     def test_kwargs_last2(self):
-        self._check_error("int(**{base: 10}, '2')",
+        self._check_error("int(**{'base': 10}, '2')",
                           "positional argument follows "
                           "keyword argument unpacking")
 
     def test_kwargs_last3(self):
-        self._check_error("int(**{base: 10}, *['2'])",
+        self._check_error("int(**{'base': 10}, *['2'])",
                           "iterable argument unpacking follows "
                           "keyword argument unpacking")
 

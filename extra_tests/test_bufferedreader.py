@@ -88,7 +88,7 @@ class StateMachine(RuleBasedStateMachine):
         assert self.stream.readline(80) == expected
 
 @pytest.mark.parametrize('StreamCls', [Stream, StreamCFFI])
-@settings(max_examples=50)
+@settings(max_examples=50, deadline=None)
 @given(params=data_and_sizes(), chunk_size=st.integers(MIN_READ_SIZE, 8192))
 def test_stateful(params, chunk_size, StreamCls):
     data, sizes = params

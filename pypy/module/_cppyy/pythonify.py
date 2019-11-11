@@ -1,8 +1,10 @@
 # NOT_RPYTHON
 # do not load _cppyy here, see _post_import_startup()
-import types
 import sys
 
+class _C:
+    def _m(self): pass
+MethodType = type(_C()._m)
 
 # Metaclasses are needed to store C++ static data members as properties and to
 # provide Python language features such as a customized __dir__ for namespaces
@@ -238,7 +240,7 @@ def make_cppclass(scope, cl_name, decl):
     # prepare dictionary for python-side C++ class representation
     def dispatch(self, m_name, signature):
         cppol = decl.__dispatch__(m_name, signature)
-        return types.MethodType(cppol, self, type(self))
+        return MethodType(cppol, self, type(self))
     d_class = {"__cppdecl__"   : decl,
          "__new__"      : make_new(decl),
          "__module__"   : make_module_name(scope),

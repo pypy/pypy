@@ -28,7 +28,7 @@ ascii_letters = ascii_lowercase + ascii_uppercase
 digits = '0123456789'
 hexdigits = digits + 'abcdef' + 'ABCDEF'
 octdigits = '01234567'
-punctuation = """!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
+punctuation = r"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
 printable = digits + ascii_letters + punctuation + whitespace
 
 # Functions which aren't available as string methods.
@@ -78,7 +78,11 @@ class Template(metaclass=_TemplateMetaclass):
     """A string class for supporting $-substitutions."""
 
     delimiter = '$'
-    idpattern = r'[_a-z][_a-z0-9]*'
+    # r'[a-z]' matches to non-ASCII letters when used with IGNORECASE,
+    # but without ASCII flag.  We can't add re.ASCII to flags because of
+    # backward compatibility.  So we use local -i flag and [a-zA-Z] pattern.
+    # See https://bugs.python.org/issue31672
+    idpattern = r'(?-i:[_a-zA-Z][_a-zA-Z0-9]*)'
     flags = _re.IGNORECASE
 
     def __init__(self, template):
@@ -116,10 +120,7 @@ class Template(metaclass=_TemplateMetaclass):
             # Check the most common path first.
             named = mo.group('named') or mo.group('braced')
             if named is not None:
-                val = mapping[named]
-                # We use this idiom instead of str() because the latter will
-                # fail if val is a Unicode containing non-ASCII characters.
-                return '%s' % (val,)
+                return str(mapping[named])
             if mo.group('escaped') is not None:
                 return self.delimiter
             if mo.group('invalid') is not None:
@@ -146,9 +147,7 @@ class Template(metaclass=_TemplateMetaclass):
             named = mo.group('named') or mo.group('braced')
             if named is not None:
                 try:
-                    # We use this idiom instead of str() because the latter
-                    # will fail if val is a Unicode containing non-ASCII
-                    return '%s' % (mapping[named],)
+                    return str(mapping[named])
                 except KeyError:
                     return mo.group()
             if mo.group('escaped') is not None:

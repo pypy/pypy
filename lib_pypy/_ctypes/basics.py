@@ -2,8 +2,15 @@ import _rawffi
 from _rawffi import alt as _ffi
 import sys
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+try:
+    from __pypy__ import builtinify
+except ImportError:
+    builtinify = lambda f: f
+
+try:
+    from __pypy__.bufferable import bufferable
+except ImportError:
+    bufferable = object
 
 keepalive_key = str # XXX fix this when provided with test
 
@@ -38,6 +45,9 @@ class COMError(Exception):
         self.details = details
 
 class _CDataMeta(type):
+    def _is_abstract(self):
+        return getattr(self, '_type_', 'abstract') == 'abstract'
+
     def from_param(self, value):
         if isinstance(value, self):
             return value
@@ -64,7 +74,7 @@ class _CDataMeta(type):
         'resbuffer' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
         """
-        res = object.__new__(self)
+        res = bufferable.__new__(self)
         res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
         if base is not None:
@@ -88,6 +98,8 @@ class _CDataMeta(type):
         return self.from_address(dll.__pypy_dll__.getaddressindll(name))
 
     def from_buffer(self, obj, offset=0):
+        if self._is_abstract():
+            raise TypeError('abstract class')
         size = self._sizeofinstances()
         buf = memoryview(obj)
         if buf.nbytes < offset + size:
@@ -104,6 +116,8 @@ class _CDataMeta(type):
         return result
 
     def from_buffer_copy(self, obj, offset=0):
+        if self._is_abstract():
+            raise TypeError('abstract class')
         size = self._sizeofinstances()
         buf = memoryview(obj)
         if buf.nbytes < offset + size:
@@ -148,7 +162,7 @@ class CArgObject(object):
     def __ne__(self, other):
         return self._obj != other
 
-class _CData(object, metaclass=_CDataMeta):
+class _CData(bufferable, metaclass=_CDataMeta):
     """ The most basic object for all ctypes types
     """
     _objects = None

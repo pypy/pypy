@@ -109,9 +109,6 @@ if os.name == 'nt':
             wchar_t const* file,
             unsigned int line,
             uintptr_t pReserved) {
-                wprintf(L"Invalid parameter detected in function %s."
-                            L" File: %s Line: %d\\n", function, file, line);
-                wprintf(L"Expression: %s\\n", expression);
         }
 
         RPY_EXTERN void* enter_suppress_iph(void)
@@ -254,7 +251,7 @@ else:
                 'sched.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
-    if sys.platform.startswith('linux'):
+    if sys.platform.startswith('linux') or sys.platform.startswith('gnu'):
         includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd') or sys.platform.startswith('openbsd'):
         includes.append('sys/ttycom.h')
@@ -1265,16 +1262,16 @@ def fchmod(fd, mode):
 @replace_os_function('rename')
 @specialize.argtype(0, 1)
 def rename(path1, path2):
-    if not _WIN32:
-        handle_posix_error('rename',
-                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
-    else:
+    if _WIN32:
         traits = _preferred_traits2(path1, path2)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
         if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
+    else:
+        handle_posix_error('rename',
+                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
 
 @specialize.argtype(0, 1)
 def replace(path1, path2):
@@ -2545,7 +2542,7 @@ _pipe2_syscall = ENoSysCache()
 post_include_bits=['RPY_EXTERN int rpy_cpu_count(void);']
 # cpu count for linux, windows and mac (+ bsds)
 # note that the code is copied from cpython and split up here
-if sys.platform.startswith('linux'):
+if sys.platform.startswith(('linux', 'gnu')):
     cpucount_eci = ExternalCompilationInfo(includes=["unistd.h"],
             separate_module_sources=["""
             RPY_EXTERN int rpy_cpu_count(void) {

@@ -5,7 +5,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.sequence import (
     PySequence_Fast, PySequence_Contains, PySequence_Index,
     PySequence_GetItem, PySequence_SetItem, PySequence_DelItem)
-from pypy.module.cpyext.pyobject import get_w_obj_and_decref
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref, from_ref
 from pypy.module.cpyext.state import State
 import pytest
 
@@ -21,12 +21,14 @@ class TestSequence(BaseApiTest):
         w_l = space.wrap([1, 2, 3, 4])
         assert api.PySequence_Fast(w_l, "message") is w_l
 
-        assert space.int_w(api.PySequence_Fast_GET_ITEM(w_l, 1)) == 2
+        py_result = api.PySequence_Fast_GET_ITEM(w_l, 1)
+        w_result = from_ref(space, py_result)
+        assert space.int_w(w_result) == 2
         assert api.PySequence_Fast_GET_SIZE(w_l) == 4
 
         w_set = space.wrap(set((1, 2, 3, 4)))
         w_seq = api.PySequence_Fast(w_set, "message")
-        assert space.type(w_seq) is space.w_list
+        assert space.type(w_seq) is space.w_tuple
         assert space.len_w(w_seq) == 4
 
         w_seq = api.PySequence_Tuple(w_set)
@@ -68,7 +70,7 @@ class TestSequence(BaseApiTest):
         with pytest.raises(OperationError) as excinfo:
             PySequence_Fast(space, space.wrap(3), message)
         assert excinfo.value.match(space, space.w_TypeError)
-        assert space.str_w(excinfo.value.get_w_value(space)) == "message"
+        assert space.text_w(excinfo.value.get_w_value(space)) == "message"
         rffi.free_charp(message)
 
     def test_get_slice(self, space, api):
@@ -83,7 +85,7 @@ class TestSequence(BaseApiTest):
 
     def test_get_slice_fast(self, space, api):
         w_t = space.wrap([1, 2, 3, 4, 5])
-        api.PySequence_Fast(w_t, "foo")  # converts
+        api.PyList_GetItem(w_t, 0)  # converts to cpy strategy
         assert space.unwrap(api.PySequence_GetSlice(w_t, 2, 4)) == [3, 4]
         assert space.unwrap(api.PySequence_GetSlice(w_t, 1, -1)) == [2, 3, 4]
 
@@ -97,7 +99,7 @@ class TestSequence(BaseApiTest):
         w_iter = api.PySeqIter_New(w_t)
         assert space.unwrap(space.next(w_iter)) == 1
         assert space.unwrap(space.next(w_iter)) == 2
-        exc = raises(OperationError, space.next, w_iter)
+        exc = pytest.raises(OperationError, space.next, w_iter)
         assert exc.value.match(space, space.w_StopIteration)
 
     def test_contains(self, space):
@@ -215,7 +217,7 @@ class AppTestSetObject(AppTestCpythonExtensionBase):
 class TestCPyListStrategy(BaseApiTest):
     def test_getitem_setitem(self, space, api):
         w_l = space.wrap([1, 2, 3, 4])
-        api.PySequence_Fast(w_l, "foo") # converts
+        api.PyList_GetItem(w_l, 0)   # converts to cpy strategy
         assert space.int_w(space.len(w_l)) == 4
         assert space.int_w(space.getitem(w_l, space.wrap(1))) == 2
         assert space.int_w(space.getitem(w_l, space.wrap(0))) == 1
@@ -229,17 +231,17 @@ class TestCPyListStrategy(BaseApiTest):
         w = space.wrap
         w_l = w([1, 2, 3, 4])
 
-        api.PySequence_Fast(w_l, "foo") # converts
+        api.PyList_GetItem(w_l, 0)   # converts to cpy strategy
         space.call_method(w_l, 'insert', w(0), w(0))
         assert space.int_w(space.len(w_l)) == 5
         assert space.int_w(space.getitem(w_l, w(3))) == 3
 
-        api.PySequence_Fast(w_l, "foo") # converts
+        api.PyList_GetItem(w_l, 0)   # converts to cpy strategy
         space.call_method(w_l, 'sort')
         assert space.int_w(space.len(w_l)) == 5
         assert space.int_w(space.getitem(w_l, w(0))) == 0
 
-        api.PySequence_Fast(w_l, "foo") # converts
+        api.PyList_GetItem(w_l, 0)   # converts to cpy strategy
         w_t = space.wrap(space.fixedview(w_l))
         assert space.int_w(space.len(w_t)) == 5
         assert space.int_w(space.getitem(w_t, w(0))) == 0
@@ -247,22 +249,22 @@ class TestCPyListStrategy(BaseApiTest):
         assert space.int_w(space.len(w_l2)) == 5
         assert space.int_w(space.getitem(w_l2, w(0))) == 0
 
-        api.PySequence_Fast(w_l, "foo") # converts
+        api.PyList_GetItem(w_l, 0)   # converts to cpy strategy
         w_sum = space.add(w_l, w_l)
         assert space.int_w(space.len(w_sum)) == 10
 
-        api.PySequence_Fast(w_l, "foo") # converts
+        api.PyList_GetItem(w_l, 0)   # converts to cpy strategy
         w_prod = space.mul(w_l, space.wrap(2))
         assert space.int_w(space.len(w_prod)) == 10
 
-        api.PySequence_Fast(w_l, "foo") # converts
+        api.PyList_GetItem(w_l, 0)   # converts to cpy strategy
         w_l.inplace_mul(2)
         assert space.int_w(space.len(w_l)) == 10
 
     def test_getstorage_copy(self, space, api):
         w = space.wrap
         w_l = w([1, 2, 3, 4])
-        api.PySequence_Fast(w_l, "foo") # converts
+        api.PyList_GetItem(w_l, 0)   # converts to cpy strategy
 
         w_l1 = w([])
         space.setitem(w_l1, space.newslice(w(0), w(0), w(1)), w_l)
@@ -285,6 +287,10 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
                 if (objects == NULL)
                     return NULL;
                 size = PySequence_Fast_GET_SIZE(foo);
+                for (i = 0; i < size; ++i) {
+                    if (objects[i] != PySequence_Fast_GET_ITEM(foo, i))
+                        return PyBool_FromLong(0);
+                }
                 common_type = size > 0 ? Py_TYPE(objects[0]) : NULL;
                 for (i = 1; i < size; ++i) {
                     if (Py_TYPE(objects[i]) != common_type) {
@@ -302,6 +308,9 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
         assert module.test_fast_sequence(s[0:-1])
         assert module.test_fast_sequence(s[::-1])
         s = (1, 2, 3, 4)
+        assert module.test_fast_sequence(s[0:-1])
+        assert module.test_fast_sequence(s[::-1])
+        s = (1, 2)    # specialized tuple
         assert module.test_fast_sequence(s[0:-1])
         assert module.test_fast_sequence(s[::-1])
         s = "1234"

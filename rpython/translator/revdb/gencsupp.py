@@ -51,6 +51,10 @@ def extra_files():
 ##         return False
 
 def prepare_function(funcgen):
+    if getattr(getattr(funcgen.graph, 'func', None), '_revdb_c_only_', False):
+        extra_enter_text = 'RPY_REVDB_C_ONLY_ENTER'
+        extra_return_text = 'RPY_REVDB_C_ONLY_LEAVE'
+        return extra_enter_text, extra_return_text
     stack_bottom = False
     for block in funcgen.graph.iterblocks():
         for op in block.operations:

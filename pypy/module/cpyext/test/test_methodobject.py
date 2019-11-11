@@ -87,6 +87,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_KW(a=3, b=4) == ((), {'a': 3, 'b': 4})
         assert mod.getarg_KW(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})
         assert mod.getarg_KW.__name__ == "getarg_KW"
+        assert mod.getarg_KW(*(), **{}) == ((), {})
 
 
     def test_func_attributes(self):

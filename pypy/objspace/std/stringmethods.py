@@ -7,6 +7,7 @@ from rpython.rlib.rstring import (
     find, rfind, count, endswith, replace, rsplit, split, startswith)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
+from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 
 
@@ -190,9 +191,18 @@ class StringMethods(object):
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
-            _get_encoding_and_errors, decode_object)
-        encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                    w_errors)
+            get_encoding_and_errors, decode_object)
+        encoding, errors = get_encoding_and_errors(space, w_encoding, w_errors)
+        if encoding is None:
+            encoding = 'utf8'
+        if encoding == 'utf8' or encoding == 'utf-8':
+            # fast path - do not call into app-level codecs.py
+            from pypy.module._codecs.interp_codecs import CodecState
+            state = space.fromcache(CodecState)
+            eh = state.decode_error_handler
+            s = space.charbuf_w(self)
+            ret, lgt, pos = str_decode_utf8(s, errors, True, eh)
+            return space.newtext(ret, lgt)
         return decode_object(space, self, encoding, errors)
 
     @unwrap_spec(tabsize=int)
@@ -472,7 +482,8 @@ class StringMethods(object):
     def _lower_in_str(self, value, i):
         # overridden in unicodeobject.py
         return self._lower(value[i])
-
+        
+    # This is not used for W_UnicodeObject.
     def descr_partition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         value = self._val(space)
@@ -599,12 +610,14 @@ class StringMethods(object):
                 eol = pos
             strs.append(value[sol:eol])
         if pos < length:
+            # XXX is this code reachable?
             strs.append(value[pos:length])
         return self._newlist_unwrapped(space, strs)
 
     def _generic_name(self):
         return "bytes"
 
+    # This is overridden in unicodeobject, _startswith_tuple is not.
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
@@ -626,12 +639,14 @@ class StringMethods(object):
                 return space.w_True
         return space.w_False
 
+    # This is overridden in unicodeobject, _startswith_tuple is not.
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
         if start > len(value):
             return False
         return startswith(value, prefix, start, end)
 
+    # This is overridden in unicodeobject, _endswith_tuple is not.
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         value, start, end, _ = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
@@ -653,6 +668,7 @@ class StringMethods(object):
                 return space.w_True
         return space.w_False
 
+    # This is overridden in unicodeobject, but _endswith_tuple is not.
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
         if start > len(value):
@@ -803,6 +819,7 @@ class StringMethods(object):
 
     def descr_getnewargs(self, space):
         return space.newtuple([self._new(self._val(space))])
+
 
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops

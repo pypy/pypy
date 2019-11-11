@@ -203,20 +203,24 @@ def min_max(space, args, implementation_of):
                     implementation_of)
 
 def max(space, __args__):
-    """max(iterable[, key=func]) -> value
-    max(a, b, c, ...[, key=func]) -> value
+    """max(iterable, *[, default=obj, key=func]) -> value
+max(arg1, arg2, *args, *[, key=func]) -> value
 
-    With a single iterable argument, return its largest item.
-    With two or more arguments, return the largest argument.
+With a single iterable argument, return its biggest item. The
+default keyword-only argument specifies an object to return if
+the provided iterable is empty.
+With two or more arguments, return the largest argument.
     """
     return min_max(space, __args__, "max")
 
 def min(space, __args__):
-    """min(iterable[, key=func]) -> value
-    min(a, b, c, ...[, key=func]) -> value
+    """min(iterable, *[, default=obj, key=func]) -> value
+min(arg1, arg2, *args, *[, key=func]) -> value
 
-    With a single iterable argument, return its smallest item.
-    With two or more arguments, return the smallest argument.
+With a single iterable argument, return its smallest item. The
+default keyword-only argument specifies an object to return if
+the provided iterable is empty.
+With two or more arguments, return the smallest argument.
     """
     return min_max(space, __args__, "min")
 
@@ -492,6 +496,8 @@ class W_Range(W_Root):
             pass
         else:
             if self.promote_step:
+                if start == 0:
+                    return W_IntRangeOneArgIterator(space, stop)
                 return W_IntRangeStepOneIterator(space, start, stop)
             return W_IntRangeIterator(space, start, length, step)
         return W_LongRangeIterator(space, self.w_start, self.w_step,
@@ -580,6 +586,8 @@ class W_Range(W_Root):
             w_tup = space.newtuple([self.w_length, self.w_start, self.w_step])
         return space.hash(w_tup)
 
+    def descr_bool(self, space):
+        return space.nonzero(self.w_length)
 
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
@@ -592,6 +600,7 @@ W_Range.typedef = TypeDef("range",
     __contains__     = interp2app(W_Range.descr_contains),
     __eq__           = interp2app(W_Range.descr_eq),
     __hash__         = interp2app(W_Range.descr_hash),
+    __bool__         = interp2app(W_Range.descr_bool),
     count            = interp2app(W_Range.descr_count),
     index            = interp2app(W_Range.descr_index),
     start            = interp_attrproperty_w('w_start', cls=W_Range),
@@ -694,6 +703,29 @@ class W_IntRangeStepOneIterator(W_IntRangeIterator):
             item = self.current
             self.current = item + 1
             return space.newint(item)
+        raise OperationError(space.w_StopIteration, space.w_None)
+
+    def get_remaining(self, space):
+        return space.newint(self.stop - self.current)
+
+
+class W_IntRangeOneArgIterator(W_IntRangeIterator):
+    """ iterator for range(integer). useful because the jit knows that its
+    values are always >= 0 """
+
+    _immutable_fields_ = ['stop']
+
+    def __init__(self, space, stop):
+        self.current = 0
+        self.stop = stop
+        self.step = 1
+
+    def next(self, space):
+        current = self.current
+        assert current >= 0
+        if current < self.stop:
+            self.current = current + 1
+            return space.newint(current)
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def get_remaining(self, space):

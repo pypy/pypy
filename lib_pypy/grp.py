@@ -36,7 +36,13 @@ def _group_from_gstruct(res):
 @builtinify
 def getgrgid(gid):
     with _lock:
-        res = lib.getgrgid(gid)
+        try:
+            res = lib.getgrgid(gid)
+        except TypeError:
+            gid = int(gid)
+            res = lib.getgrgid(gid)
+            import warnings
+            warnings.warn("group id must be int", DeprecationWarning)
         if not res:
             # XXX maybe check error eventually
             raise KeyError(gid)
@@ -46,8 +52,11 @@ def getgrgid(gid):
 def getgrnam(name):
     if not isinstance(name, str):
         raise TypeError("expected string")
+    name_b = os.fsencode(name)
+    if b'\0' in name_b:
+        raise ValueError("embedded null byte")
     with _lock:
-        res = lib.getgrnam(os.fsencode(name))
+        res = lib.getgrnam(name_b)
         if not res:
             raise KeyError("getgrnam(): name not found: %s" % name)
         return _group_from_gstruct(res)

@@ -1,6 +1,6 @@
 from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
                                       maxint, intmask)
-from rpython.rlib import jit
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rstruct.formatiterator import FormatIterator
@@ -98,7 +98,7 @@ class PackFormatIterator(FormatIterator):
 
     def accept_unicode_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.unicode_w(w_obj)
+        return self.space.utf8_len_w(w_obj)
 
     def accept_float_arg(self):
         w_obj = self.accept_obj_arg()
@@ -164,12 +164,17 @@ class UnpackFormatIterator(FormatIterator):
         elif isinstance(value, str):
             w_value = self.space.newbytes(value)
         elif isinstance(value, unicode):
-            w_value = self.space.newunicode(value)
+            assert not isinstance(value, unicode)
+            w_value = self.space.newutf8(value.decode('utf-8'), len(value))
         elif isinstance(value, bool):
             w_value = self.space.newbool(value)
         else:
             w_value = self.space.newint(value)
         self.result_w.append(w_value)
+
+    def append_utf8(self, value):
+        w_ch = self.space.newutf8(rutf8.unichr_as_utf8(r_uint(value)), 1)
+        self.result_w.append(w_ch)
 
     def get_pos(self):
         return self.pos

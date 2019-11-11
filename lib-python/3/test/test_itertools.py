@@ -4,7 +4,6 @@ from itertools import *
 import weakref
 from decimal import Decimal
 from fractions import Fraction
-import sys
 import operator
 import random
 import copy
@@ -647,26 +646,60 @@ class TestBasicOps(unittest.TestCase):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             self.pickletest(proto, cycle('abc'))
 
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            # test with partial consumed input iterable
+            it = iter('abcde')
+            c = cycle(it)
+            _ = [next(c) for i in range(2)]      # consume 2 of 5 inputs
+            p = pickle.dumps(c, proto)
+            d = pickle.loads(p)                  # rebuild the cycle object
+            self.assertEqual(take(20, d), list('cdeabcdeabcdeabcdeab'))
+
+            # test with completely consumed input iterable
+            it = iter('abcde')
+            c = cycle(it)
+            _ = [next(c) for i in range(7)]      # consume 7 of 5 inputs
+            p = pickle.dumps(c, proto)
+            d = pickle.loads(p)                  # rebuild the cycle object
+            self.assertEqual(take(20, d), list('cdeabcdeabcdeabcdeab'))
+
     @support.impl_detail("XXX cycle.__reduce__ and __setstate__ differ"
                          " on PyPy (but could be fixed if important)")
     def test_cycle_setstate(self):
+        # Verify both modes for restoring state
+
+        # Mode 0 is efficient.  It uses an incompletely consumed input
+        # iterator to build a cycle object and then passes in state with
+        # a list of previously consumed values.  There is no data
+        # overlap between the two.
+        c = cycle('defg')
+        c.__setstate__((list('abc'), 0))
+        self.assertEqual(take(20, c), list('defgabcdefgabcdefgab'))
+
+        # Mode 1 is inefficient.  It starts with a cycle object built
+        # from an iterator over the remaining elements in a partial
+        # cycle and then passes in state with all of the previously
+        # seen values (this overlaps values included in the iterator).
+        c = cycle('defg')
+        c.__setstate__((list('abcdefg'), 1))
+        self.assertEqual(take(20, c), list('defgabcdefgabcdefgab'))
+
+        # The first argument to setstate needs to be a tuple
+        with self.assertRaises(TypeError):
+            cycle('defg').__setstate__([list('abcdefg'), 0])
+
+        # The first argument in the setstate tuple must be a list
+        with self.assertRaises(TypeError):
+            c = cycle('defg')
+            c.__setstate__((tuple('defg'), 0))
+        take(20, c)
+
+        # The second argument in the setstate tuple must be an int
+        with self.assertRaises(TypeError):
+            cycle('defg').__setstate__((list('abcdefg'), 'x'))
+
         self.assertRaises(TypeError, cycle('').__setstate__, ())
-        self.assertRaises(TypeError, cycle('').__setstate__, [])
-        self.assertRaises(TypeError, cycle('').__setstate__, 0)
         self.assertRaises(TypeError, cycle('').__setstate__, ([],))
-        self.assertRaises(TypeError, cycle('').__setstate__, ((), 0))
-        it = cycle('abc')
-        it.__setstate__((['de', 'fg'], 0))
-        self.assertEqual(list(islice(it, 15)),
-                         ['a', 'b', 'c', 'de', 'fg',
-                          'a', 'b', 'c', 'de', 'fg',
-                          'a', 'b', 'c', 'de', 'fg'])
-        it = cycle('abc')
-        it.__setstate__((['de', 'fg'], 1))
-        self.assertEqual(list(islice(it, 15)),
-                         ['a', 'b', 'c', 'de', 'fg',
-                          'de', 'fg', 'de', 'fg', 'de',
-                          'fg', 'de', 'fg', 'de', 'fg'])
 
     def test_groupby(self):
         # Check whether it accepts arguments correctly
@@ -1144,6 +1177,7 @@ class TestBasicOps(unittest.TestCase):
                 (10, 20, 3),
                 (10, 3, 20),
                 (10, 20),
+                (10, 10),
                 (10, 3),
                 (20,)
                 ]:
@@ -1168,6 +1202,10 @@ class TestBasicOps(unittest.TestCase):
         # Test number of items consumed     SF #1171417
         it = iter(range(10))
         self.assertEqual(list(islice(it, 3)), list(range(3)))
+        self.assertEqual(list(it), list(range(3, 10)))
+
+        it = iter(range(10))
+        self.assertEqual(list(islice(it, 3, 3)), [])
         self.assertEqual(list(it), list(range(3, 10)))
 
         # Test invalid arguments
@@ -1542,6 +1580,48 @@ class TestExamples(unittest.TestCase):
 
     def test_takewhile(self):
         self.assertEqual(list(takewhile(lambda x: x<5, [1,4,6,4,1])), [1,4])
+
+
+class TestPurePythonRoughEquivalents(unittest.TestCase):
+
+    @staticmethod
+    def islice(iterable, *args):
+        s = slice(*args)
+        start, stop, step = s.start or 0, s.stop or sys.maxsize, s.step or 1
+        it = iter(range(start, stop, step))
+        try:
+            nexti = next(it)
+        except StopIteration:
+            # Consume *iterable* up to the *start* position.
+            for i, element in zip(range(start), iterable):
+                pass
+            return
+        try:
+            for i, element in enumerate(iterable):
+                if i == nexti:
+                    yield element
+                    nexti = next(it)
+        except StopIteration:
+            # Consume to *stop*.
+            for i, element in zip(range(i + 1, stop), iterable):
+                pass
+
+    def test_islice_recipe(self):
+        self.assertEqual(list(self.islice('ABCDEFG', 2)), list('AB'))
+        self.assertEqual(list(self.islice('ABCDEFG', 2, 4)), list('CD'))
+        self.assertEqual(list(self.islice('ABCDEFG', 2, None)), list('CDEFG'))
+        self.assertEqual(list(self.islice('ABCDEFG', 0, None, 2)), list('ACEG'))
+        # Test items consumed.
+        it = iter(range(10))
+        self.assertEqual(list(self.islice(it, 3)), list(range(3)))
+        self.assertEqual(list(it), list(range(3, 10)))
+        it = iter(range(10))
+        self.assertEqual(list(self.islice(it, 3, 3)), [])
+        self.assertEqual(list(it), list(range(3, 10)))
+        # Test that slice finishes in predictable state.
+        c = count()
+        self.assertEqual(list(self.islice(c, 1, 3, 50)), [1])
+        self.assertEqual(next(c), 3)
 
 
 class TestGC(unittest.TestCase):
@@ -1950,6 +2030,38 @@ class RegressionTests(unittest.TestCase):
         self.assertRaises(AssertionError, list, cycle(gen1()))
         self.assertEqual(hist, [0,1])
 
+    def test_long_chain_of_empty_iterables(self):
+        # Make sure itertools.chain doesn't run into recursion limits when
+        # dealing with long chains of empty iterables. Even with a high
+        # number this would probably only fail in Py_DEBUG mode.
+        it = chain.from_iterable(() for unused in range(10000000))
+        with self.assertRaises(StopIteration):
+            next(it)
+
+    def test_issue30347_1(self):
+        def f(n):
+            if n == 5:
+                list(b)
+            return n != 6
+        for (k, b) in groupby(range(10), f):
+            list(b)  # shouldn't crash
+
+    def test_issue30347_2(self):
+        class K:
+            def __init__(self, v):
+                pass
+            def __eq__(self, other):
+                nonlocal i
+                i += 1
+                if i == 1:
+                    next(g, None)
+                return True
+        i = 0
+        g = next(groupby(range(10), K))[1]
+        for j in range(2):
+            next(g, None)  # shouldn't crash
+
+
 class SubclassWithKwargsTest(unittest.TestCase):
     def test_keywords_in_subclass(self):
         # count is not subclassable...
@@ -2060,12 +2172,28 @@ Samuele
 ...     "Return first n items of the iterable as a list"
 ...     return list(islice(iterable, n))
 
+>>> def prepend(value, iterator):
+...     "Prepend a single value in front of an iterator"
+...     # prepend(1, [2, 3, 4]) -> 1 2 3 4
+...     return chain([value], iterator)
+
 >>> def enumerate(iterable, start=0):
 ...     return zip(count(start), iterable)
 
 >>> def tabulate(function, start=0):
 ...     "Return function(0), function(1), ..."
 ...     return map(function, count(start))
+
+>>> import collections
+>>> def consume(iterator, n=None):
+...     "Advance the iterator n-steps ahead. If n is None, consume entirely."
+...     # Use functions that consume iterators at C speed.
+...     if n is None:
+...         # feed the entire iterator into a zero-length deque
+...         collections.deque(iterator, maxlen=0)
+...     else:
+...         # advance to the empty slice starting at position n
+...         next(islice(iterator, n, n), None)
 
 >>> def nth(iterable, n, default=None):
 ...     "Returns the nth item or a default value"
@@ -2171,17 +2299,52 @@ Samuele
 ...     # first_true([a,b], x, f) --> a if f(a) else b if f(b) else x
 ...     return next(filter(pred, iterable), default)
 
+>>> def nth_combination(iterable, r, index):
+...     'Equivalent to list(combinations(iterable, r))[index]'
+...     pool = tuple(iterable)
+...     n = len(pool)
+...     if r < 0 or r > n:
+...         raise ValueError
+...     c = 1
+...     k = min(r, n-r)
+...     for i in range(1, k+1):
+...         c = c * (n - k + i) // i
+...     if index < 0:
+...         index += c
+...     if index < 0 or index >= c:
+...         raise IndexError
+...     result = []
+...     while r:
+...         c, n, r = c*r//n, n-1, r-1
+...         while index >= c:
+...             index -= c
+...             c, n = c*(n-r)//n, n-1
+...         result.append(pool[-1-n])
+...     return tuple(result)
+
+
 This is not part of the examples but it tests to make sure the definitions
 perform as purported.
 
 >>> take(10, count())
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+>>> list(prepend(1, [2, 3, 4]))
+[1, 2, 3, 4]
+
 >>> list(enumerate('abc'))
 [(0, 'a'), (1, 'b'), (2, 'c')]
 
 >>> list(islice(tabulate(lambda x: 2*x), 4))
 [0, 2, 4, 6]
+
+>>> it = iter(range(10))
+>>> consume(it, 3)
+>>> next(it)
+3
+>>> consume(it)
+>>> next(it, 'Done')
+'Done'
 
 >>> nth('abcde', 3)
 'd'
@@ -2254,6 +2417,15 @@ True
 >>> first_true('ABC0DEF1', '9', str.isdigit)
 '0'
 
+>>> population = 'ABCDEFGH'
+>>> for r in range(len(population) + 1):
+...     seq = list(combinations(population, r))
+...     for i in range(len(seq)):
+...         assert nth_combination(population, r, i) == seq[i]
+...     for i in range(-len(seq), 0):
+...         assert nth_combination(population, r, i) == seq[i]
+
+
 """
 
 __test__ = {'libreftest' : libreftest}
@@ -2262,6 +2434,7 @@ def test_main(verbose=None):
     test_classes = (TestBasicOps, TestVariousIteratorArgs, TestGC,
                     RegressionTests, LengthTransparency,
                     SubclassWithKwargsTest, TestExamples,
+                    TestPurePythonRoughEquivalents,
                     SizeofTest)
     support.run_unittest(*test_classes)
 

@@ -58,7 +58,9 @@ class TestDecode:
     def test_keys_reuse(self):
         s = '[{"a_key": 1, "b_\xe9": 2}, {"a_key": 3, "b_\xe9": 4}]'
         self.check_keys_reuse(s, self.loads)
-        self.check_keys_reuse(s, self.json.decoder.JSONDecoder().decode)
+        decoder = self.json.decoder.JSONDecoder()
+        self.check_keys_reuse(s, decoder.decode)
+        self.assertFalse(decoder.memo)
 
     def test_extra_data(self):
         s = '[1, 2, 3]5'
@@ -72,10 +74,8 @@ class TestDecode:
 
     def test_invalid_input_type(self):
         msg = 'the JSON object must be str'
-        for value in [1, 3.14, b'bytes', b'\xff\x00', [], {}, None]:
+        for value in [1, 3.14, [], {}, None]:
             self.assertRaisesRegex(TypeError, msg, self.loads, value)
-        with self.assertRaisesRegex(TypeError, msg):
-            self.json.load(BytesIO(b'[1,2,3]'))
 
     def test_string_with_utf8_bom(self):
         # see #18958

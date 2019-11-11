@@ -132,7 +132,7 @@ class TestEval(BaseApiTest):
         finally:
             rffi.free_charp(buf)
         w_a = space.getitem(w_globals, space.wrap("a"))
-        assert space.unicode_w(w_a) == u'caf\xe9'
+        assert space.utf8_w(w_a) == u'caf\xe9'.encode("utf-8")
         lltype.free(flags, flavor='raw')
 
     def test_run_file(self, space):
@@ -344,7 +344,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
                     return module.get_flags()""", ns)
         assert ns['nested_flags']() == (0, 0)
 
-    @pytest.mark.xfail("sys.platform == 'win32'", reason='Hangs the process', run=False)
+    @pytest.mark.xfail("'linux' not in sys.platform", reason='Hangs the process', run=False)
     def test_recursive_function(self):
         module = self.import_extension('foo', [
             ("call_recursive", "METH_NOARGS",

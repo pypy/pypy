@@ -1,5 +1,6 @@
 from __future__ import division
 import py, sys
+from pytest import raises
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
@@ -72,11 +73,10 @@ class BaseTestCompiler:
     def check(self, w_dict, evalexpr, expected):
         # for now, we compile evalexpr with CPython's compiler but run
         # it with our own interpreter to extract the data from w_dict
-        co_expr = compile(evalexpr, '<evalexpr>', 'eval')
         space = self.space
-        pyco_expr = PyCode._from_code(space, co_expr)
-        w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
-        res = space.str_w(space.repr(w_res))
+        pyco_expr = space.createcompiler().compile(evalexpr, '<evalexpr>', 'eval', 0)
+        w_res = space.exec_(pyco_expr, w_dict, w_dict)
+        res = space.text_w(space.repr(w_res))
         expected_repr = self.get_py3_repr(expected)
         if isinstance(expected, float):
             # Float representation can vary a bit between interpreter
@@ -126,13 +126,16 @@ class TestCompiler(BaseTestCompiler):
         for c in expressions.constants:
             yield (self.simple_test, "x="+c, "x", eval(c))
 
+    def test_const_underscore(self):
+        yield (self.simple_test, "x=0xffff_ffff_ff20_0000", "x", 0xffffffffff200000)
+
     def test_neg_sys_maxint(self):
         import sys
         stmt = "x = %s" % (-sys.maxint-1)
         self.simple_test(stmt, "type(x)", int)
 
     def test_tuple_assign(self):
-        yield self.error_test, "() = 1", SyntaxError
+        yield self.simple_test, "() = []", "1", 1
         yield self.simple_test, "x,= 1,", "x", 1
         yield self.simple_test, "x,y = 1,2", "x,y", (1, 2)
         yield self.simple_test, "x,y,z = 1,2,3", "x,y,z", (1, 2, 3)
@@ -1011,6 +1014,7 @@ class TestCompiler(BaseTestCompiler):
         ("C4.__doc__", 'docstring'),
         ("C4.__doc__", 'docstring'),
         ("__doc__", None),])
+
     def test_remove_docstring(self, expr, result):
         source = '"module_docstring"\n' + """if 1:
         def f1():
@@ -1036,20 +1040,6 @@ class TestCompiler(BaseTestCompiler):
         dict_w = self.space.newdict();
         code_w.exec_code(self.space, dict_w, dict_w)
         self.check(dict_w, expr, result)
-
-    def test_assert_skipping(self):
-        space = self.space
-        mod = space.getbuiltinmodule('__pypy__')
-        w_set_debug = space.getattr(mod, space.wrap('set_debug'))
-        space.call_function(w_set_debug, space.w_False)
-
-        source = """if 1:
-        assert False
-        """
-        try:
-            self.run(source)
-        finally:
-            space.call_function(w_set_debug, space.w_True)
 
     def test_dont_fold_equal_code_objects(self):
         yield self.st, "f=lambda:1;g=lambda:1.0;x=g()", 'type(x)', float
@@ -1098,13 +1088,29 @@ class TestCompiler(BaseTestCompiler):
                 return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3], 4)
+
+    def test_unpacking_while_building(self):
         func = """def f():
             b = [4,5,6]
-            c = 7
-            a = [*b, c]
+            a = (*b, 7)
+            return a
+        """
+        yield self.st, func, "f()", (4, 5, 6, 7)
+
+        func = """def f():
+            b = [4,5,6]
+            a = [*b, 7]
             return a
         """
         yield self.st, func, "f()", [4, 5, 6, 7]
+
+        func = """def f():
+            b = [4,]
+            x, y = (*b, 7)
+            return x
+        """
+        yield self.st, func, "f()", 4
+
 
     def test_extended_unpacking_fail(self):
         exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
@@ -1164,9 +1170,15 @@ class TestCompiler(BaseTestCompiler):
         async def f():
             {await a for a in b}
         """
-        e = py.test.raises(SyntaxError, self.simple_test, source, None, None)
-        assert e.value.msg == (
-            "'await' expressions in comprehensions are not supported")
+        self.simple_test(source, "None", None)
+
+    def test_await_in_nested(self):
+        source = """if 1:
+        async def foo():
+            def bar():
+                [i for i in await items]
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
 
     def test_load_classderef(self):
         source = """if 1:
@@ -1204,12 +1216,12 @@ class TestCompiler(BaseTestCompiler):
         yield self.st, """z=f'{f"{0}"*3}'""", 'z', '000'
 
     def test_fstring_error(self):
-        raises(SyntaxError, self.run, "f'{}'")
-        raises(SyntaxError, self.run, "f'{   \t   }'")
-        raises(SyntaxError, self.run, "f'{5#}'")
-        raises(SyntaxError, self.run, "f'{5)#}'")
-        raises(SyntaxError, self.run, "f'''{5)\n#}'''")
-        raises(SyntaxError, self.run, "f'\\x'")
+        py.test.raises(SyntaxError, self.run, "f'{}'")
+        py.test.raises(SyntaxError, self.run, "f'{   \t   }'")
+        py.test.raises(SyntaxError, self.run, "f'{5#}'")
+        py.test.raises(SyntaxError, self.run, "f'{5)#}'")
+        py.test.raises(SyntaxError, self.run, "f'''{5)\n#}'''")
+        py.test.raises(SyntaxError, self.run, "f'\\x'")
 
     def test_fstring_encoding(self):
         src = """# -*- coding: latin-1 -*-\nz=ord(f'{"\xd8"}')\n"""
@@ -1249,7 +1261,6 @@ class TestCompilerRevDB(BaseTestCompiler):
 
     def test_revdb_metavar(self):
         from pypy.interpreter.reverse_debugging import dbstate, setup_revdb
-        self.space.config.translation.reverse_debugger = True
         self.space.reverse_debugging = True
         try:
             setup_revdb(self.space)
@@ -1263,9 +1274,6 @@ class TestCompilerRevDB(BaseTestCompiler):
 
 
 class AppTestCompiler:
-
-    def setup_class(cls):
-        cls.w_maxunicode = cls.space.wrap(sys.maxunicode)
 
     def test_docstring_not_loaded(self):
         import io, dis, sys
@@ -1314,6 +1322,14 @@ class AppTestCompiler:
         ast = compile(source, '', 'exec', _ast.PyCF_ONLY_AST)
         # compiling the produced AST previously triggered a crash
         compile(ast, '', 'exec')
+
+    def test_await_warning(self):
+        import warnings
+        source = "def f(): await = 5"
+        with warnings.catch_warnings(record=True) as l:
+            warnings.simplefilter("always")
+            compile(source, '', 'exec')
+        assert isinstance(l[0].message, DeprecationWarning)
 
 
 class TestOptimizations:
@@ -1428,7 +1444,7 @@ class TestOptimizations:
             ''', d)
             return d['f'](5)
         """)
-        assert 'generator' in space.str_w(space.repr(w_generator))
+        assert 'generator' in space.text_w(space.repr(w_generator))
 
     def test_folding_of_list_constants(self):
         for source in (
@@ -1458,13 +1474,14 @@ class TestOptimizations:
             assert ops.LOAD_CONST in counts
 
     def test_dont_fold_huge_powers(self):
-        for source in (
-            "2 ** 3000",         # not constant-folded: too big
-            "(-2) ** 3000",
+        for source, op in (
+                ("2 ** 3000", ops.BINARY_POWER),  # not constant-folded: too big
+                ("(-2) ** 3000", ops.BINARY_POWER),
+                ("5 << 1000", ops.BINARY_LSHIFT),
             ):
             source = 'def f(): %s' % source
             counts = self.count_instructions(source)
-            assert ops.BINARY_POWER in counts
+            assert op in counts
 
         for source in (
             "2 ** 2000",         # constant-folded
@@ -1489,3 +1506,137 @@ class TestOptimizations:
             return f'ab{x}cd'
         """
         code, blocks = generate_function_code(source, self.space)
+
+    def test_empty_tuple_target(self):
+        source = """def f():
+            () = ()
+            del ()
+            [] = []
+            del []
+        """
+        generate_function_code(source, self.space)
+
+    def test_make_constant_map(self):
+        source = """def f():
+            return {"A": 1, "b": 2}
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_MAP not in counts
+        source = """def f():
+            return {"a": 1, "b": {}, 1: {"a": x}}
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_MAP] == 1 # the empty dict
+        assert counts[ops.BUILD_CONST_KEY_MAP] == 2
+
+    def test_annotation_issue2884(self):
+        source = """def f():
+            a: list = [j for j in range(10)]
+        """
+        generate_function_code(source, self.space)
+
+    def test_constant_tuples(self):
+        source = """def f():
+            return ((u"a", 1), 2)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+        # also for bytes
+        source = """def f():
+            return ((b"a", 5), 5, 7, 8)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+    def test_fold_defaults_tuple(self):
+        source = """def f():
+            def g(a, b=2, c=None, d='foo'):
+                return None
+            return g
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f():
+            g = lambda a, b=2, c=None, d='foo': None
+            return g
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f():
+            def g(a, b=2, c=None, d=[]):
+                return None
+            return g
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+
+    def test_constant_tuples_star(self):
+        source = """def f(a, c):
+            return (u"a", 1, *a, 3, 5, 3, *c)
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f(a, c, d):
+            return (u"a", 1, *a, c, 1, *d, 1, 2, 3)
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+
+    def test_constant_list_star(self):
+        source = """def f(a, c):
+            return [u"a", 1, *a, 3, 5, 3, *c]
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f(a, c, d):
+            return [u"a", 1, *a, c, 1, *d, 1, 2, 3]
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+
+
+class TestHugeStackDepths:
+    def run_and_check_stacksize(self, source):
+        space = self.space
+        code = compile_with_astcompiler("a = " + source, 'exec', space)
+        assert code.co_stacksize < 100
+        w_dict = space.newdict()
+        code.exec_code(space, w_dict, w_dict)
+        return space.getitem(w_dict, space.newtext("a"))
+
+    def test_tuple(self):
+        source = "(" + ",".join([str(i) for i in range(200)]) + ")\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == tuple(range(200))
+
+    def test_list(self):
+        source = "[" + ",".join([str(i) for i in range(200)]) + "]\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == range(200)
+
+    def test_list_unpacking(self):
+        space = self.space
+        source = "[" + ",".join(['b%d' % i for i in range(200)]) + "] = a\n"
+        code = compile_with_astcompiler(source, 'exec', space)
+        assert code.co_stacksize == 200   # xxx remains big
+        w_dict = space.newdict()
+        space.setitem(w_dict, space.newtext("a"), space.wrap(range(42, 242)))
+        code.exec_code(space, w_dict, w_dict)
+        assert space.unwrap(space.getitem(w_dict, space.newtext("b0"))) == 42
+        assert space.unwrap(space.getitem(w_dict, space.newtext("b199"))) == 241
+
+    def test_set(self):
+        source = "{" + ",".join([str(i) for i in range(200)]) + "}\n"
+        w_res = self.run_and_check_stacksize(source)
+        space = self.space
+        assert [space.int_w(w_x)
+                    for w_x in space.unpackiterable(w_res)] == range(200)
+
+    def test_dict(self):
+        source = "{" + ",".join(['%s: None' % (i, ) for i in range(200)]) + "}\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == dict.fromkeys(range(200))

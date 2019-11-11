@@ -911,6 +911,18 @@ class AppTestWithMapDict(object):
         assert x.__dict__ == {'日本': 3}
         """
 
+    def test_bug_materialize_huge_dict(self):
+        import __pypy__
+        d = __pypy__.newdict("instance")
+        for i in range(100):
+            d[str(i)] = i
+        assert len(d) == 100
+
+        for key in d:
+            assert d[key] == int(key)
+
+
+
 @pytest.mark.skipif('config.option.runappdirect')
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -920,7 +932,7 @@ class AppTestWithMapDictAndCounters(object):
         #
         def check(space, w_func, name):
             w_code = space.getattr(w_func, space.wrap('__code__'))
-            nameindex = map(space.str_w, w_code.co_names_w).index(name)
+            nameindex = map(space.text_w, w_code.co_names_w).index(name)
             entry = w_code._mapdict_caches[nameindex]
             entry.failure_counter = 0
             entry.success_counter = 0

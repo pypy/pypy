@@ -72,13 +72,12 @@ class TestCall(BaseTestPyPyC):
         # LOAD_GLOBAL of OFFSET
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_value",
-                                    "getfield_gc_r",   # dead load
                                     "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == []
         #
         ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["getfield_gc_r"]
+        assert log.opnames(ops) == []
         #
         assert entry_bridge.match_by_id('call', """
             dummy_get_utf8?
@@ -133,8 +132,7 @@ class TestCall(BaseTestPyPyC):
         ops = entry_bridge.ops_by_id('meth1', opcode='LOOKUP_METHOD')
         assert log.opnames(ops) == ['guard_value', 'getfield_gc_r',
                                     'guard_value',
-                                    'guard_not_invalidated',
-                                    'getfield_gc_r']
+                                    'guard_not_invalidated']
         # the second LOOKUP_METHOD is folded away
         assert list(entry_bridge.ops_by_id('meth2', opcode='LOOKUP_METHOD')) == []
         #

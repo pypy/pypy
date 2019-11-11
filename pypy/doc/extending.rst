@@ -45,16 +45,13 @@ The goal of the ctypes module of PyPy is to be as compatible as possible
 with the `CPython ctypes`_ version.  It works for large examples, such
 as pyglet.  PyPy's implementation is not strictly 100% compatible with
 CPython, but close enough for most cases.
-
-We also used to provide ``ctypes-configure`` for some API-level access.
-This is now viewed as a precursor of CFFI, which you should use instead.
 More (but older) information is available :doc:`here <discussion/ctypes-implementation>`.
 Also, ctypes' performance is not as good as CFFI's.
 
 .. _CPython ctypes: http://docs.python.org/library/ctypes.html
 
 PyPy implements ctypes as pure Python code around two built-in modules
-called ``_ffi`` and ``_rawffi``, which give a very low-level binding to
+called ``_rawffi`` and ``_rawffi.alt``, which give a very low-level binding to
 the C library libffi_.  Nowadays it is not recommended to use directly
 these two modules.
 

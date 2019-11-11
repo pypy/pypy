@@ -19,8 +19,15 @@ test_widechar(PyObject *self)
     return wide;
 }
 
+static PyObject *
+get_sizeof_wchar(PyObject *self)
+{
+    return PyLong_FromLong(sizeof(wchar_t));
+}
+
 static PyMethodDef TestMethods[] = {
-    {"test_widechar",           (PyCFunction)test_widechar,      METH_NOARGS},
+    {"test_widechar",    (PyCFunction)test_widechar,   METH_NOARGS},
+    {"get_sizeof_wchar", (PyCFunction)get_sizeof_wchar,METH_NOARGS},
     {NULL, NULL} /* sentinel */
 };
 

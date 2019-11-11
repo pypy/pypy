@@ -84,6 +84,23 @@ class AppTestAST:
         imp.level = 3
         assert imp.level == 3
 
+        body = [ast.ImportFrom(module='time',
+                               names=[ast.alias(name='sleep')],
+                               level=None,
+                               lineno=1, col_offset=2)]
+        mod = ast.Module(body)
+        compile(mod, 'test', 'exec')
+
+    def test_bad_int(self):
+        ast = self.ast
+        body = [ast.ImportFrom(module='time',
+                               names=[ast.alias(name='sleep')],
+                               level='A',
+                               lineno=1, col_offset=2)]
+        mod = ast.Module(body)
+        exc = raises(ValueError, compile, mod, 'test', 'exec')
+        assert str(exc.value) == "invalid integer value: 'A'"
+
     def test_identifier(self):
         ast = self.ast
         name = ast.Name("name_word", ast.Load())
@@ -114,13 +131,12 @@ class AppTestAST:
         assert alias.name == 'mod' + expected
         assert alias.asname == expected
 
-    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_object(self):
         ast = self.ast
-        const = ast.Const(4)
-        assert const.obj == 4
-        const.obj = 5
-        assert const.obj == 5
+        const = ast.Constant(4)
+        assert const.value == 4
+        const.value = 5
+        assert const.value == 5
 
     def test_optional(self):
         mod = self.get_ast("x(32)", "eval")
@@ -445,7 +461,7 @@ from __future__ import generators""")
 
     def test_bug_null_in_objspace_type(self):
         import ast
-        code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Num(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[])]))
+        code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Num(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[], is_async=False)]))
         compile(code, '<template>', 'eval')
 
     def test_empty_yield_from(self):

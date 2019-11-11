@@ -16,6 +16,8 @@ del _opcodes_all
 _have_code = (types.MethodType, types.FunctionType, types.CodeType,
               classmethod, staticmethod, type)
 
+FORMAT_VALUE = opmap['FORMAT_VALUE']
+
 def _try_compile(source, name):
     """Attempts to compile the given source, first as an expression and
        then as a statement if the first approach fails.
@@ -87,6 +89,7 @@ COMPILER_FLAG_NAMES = {
     64: "NOFREE",
    128: "COROUTINE",
    256: "ITERABLE_COROUTINE",
+   512: "ASYNC_GENERATOR",
 }
 
 def pretty_flags(flags):
@@ -162,6 +165,15 @@ def show_code(co, *, file=None):
 
 _Instruction = collections.namedtuple("_Instruction",
      "opname opcode arg argval argrepr offset starts_line is_jump_target")
+
+_Instruction.opname.__doc__ = "Human readable name for operation"
+_Instruction.opcode.__doc__ = "Numeric code for operation"
+_Instruction.arg.__doc__ = "Numeric argument to operation (if any), otherwise None"
+_Instruction.argval.__doc__ = "Resolved arg value (if known), otherwise same as arg"
+_Instruction.argrepr.__doc__ = "Human readable description of operation argument"
+_Instruction.offset.__doc__ = "Start index of operation within bytecode sequence"
+_Instruction.starts_line.__doc__ = "Line started by this opcode (if any), otherwise None"
+_Instruction.is_jump_target.__doc__ = "True if other code jumps to here, otherwise False"
 
 class Instruction(_Instruction):
     """Details for a bytecode operation
@@ -276,7 +288,6 @@ def _get_instructions_bytes(code, varnames=None, names=None, constants=None,
     """
     labels = findlabels(code)
     starts_line = None
-    free = None
     for offset, op, arg in _unpack_opargs(code):
         if linestarts is not None:
             starts_line = linestarts.get(offset, None)
@@ -296,7 +307,7 @@ def _get_instructions_bytes(code, varnames=None, names=None, constants=None,
             elif op in hasname:
                 argval, argrepr = _get_name_info(arg, names)
             elif op in hasjrel:
-                argval = offset + 3 + arg
+                argval = offset + 2 + arg
                 argrepr = "to " + repr(argval)
             elif op in haslocal:
                 argval, argrepr = _get_name_info(arg, varnames)
@@ -305,8 +316,13 @@ def _get_instructions_bytes(code, varnames=None, names=None, constants=None,
                 argrepr = argval
             elif op in hasfree:
                 argval, argrepr = _get_name_info(arg, cells)
-            elif op in hasnargs:
-                argrepr = "%d positional, %d keyword pair" % (arg%256, arg//256)
+            elif op == FORMAT_VALUE:
+                argval = ((None, str, repr, ascii)[arg & 0x3], bool(arg & 0x4))
+                argrepr = ('', 'str', 'repr', 'ascii')[arg & 0x3]
+                if argval[1]:
+                    if argrepr:
+                        argrepr += ', '
+                    argrepr += 'with format'
         yield Instruction(opname[op], op,
                           arg, argval, argrepr,
                           offset, starts_line, is_jump_target)
@@ -343,23 +359,15 @@ def _disassemble_str(source, *, file=None):
 disco = disassemble                     # XXX For backwards compatibility
 
 def _unpack_opargs(code):
-    # enumerate() is not an option, since we sometimes process
-    # multiple elements on a single pass through the loop
     extended_arg = 0
-    n = len(code)
-    i = 0
-    while i < n:
+    for i in range(0, len(code), 2):
         op = code[i]
-        offset = i
-        i = i+1
-        arg = None
         if op >= HAVE_ARGUMENT:
-            arg = code[i] + code[i+1]*256 + extended_arg
-            extended_arg = 0
-            i = i+2
-            if op == EXTENDED_ARG:
-                extended_arg = arg*65536
-        yield (offset, op, arg)
+            arg = code[i+1] | extended_arg
+            extended_arg = (arg << 8) if op == EXTENDED_ARG else 0
+        else:
+            arg = None
+        yield (i, op, arg)
 
 def findlabels(code):
     """Detect all offsets in a byte code which are jump targets.
@@ -370,14 +378,14 @@ def findlabels(code):
     labels = []
     for offset, op, arg in _unpack_opargs(code):
         if arg is not None:
-            label = -1
             if op in hasjrel:
-                label = offset + 3 + arg
+                label = offset + 2 + arg
             elif op in hasjabs:
                 label = arg
-            if label >= 0:
-                if label not in labels:
-                    labels.append(label)
+            else:
+                continue
+            if label not in labels:
+                labels.append(label)
     return labels
 
 def findlinestarts(code):
@@ -386,8 +394,8 @@ def findlinestarts(code):
     Generate pairs (offset, lineno) as described in Python/compile.c.
 
     """
-    byte_increments = list(code.co_lnotab[0::2])
-    line_increments = list(code.co_lnotab[1::2])
+    byte_increments = code.co_lnotab[0::2]
+    line_increments = code.co_lnotab[1::2]
 
     lastlineno = None
     lineno = code.co_firstlineno
@@ -398,6 +406,9 @@ def findlinestarts(code):
                 yield (addr, lineno)
                 lastlineno = lineno
             addr += byte_incr
+        if line_incr >= 0x80:
+            # line_increments is an array of 8-bit signed integers
+            line_incr -= 0x100
         lineno += line_incr
     if lineno != lastlineno:
         yield (addr, lineno)

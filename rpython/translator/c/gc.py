@@ -388,10 +388,14 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
         raise Exception("the FramewokGCTransformer should handle this")
 
     def OP_GC_GCFLAG_EXTRA(self, funcgen, op):
-        gcflag_extra = self.db.gctransformer.gcdata.gc.gcflag_extra
+        subopnum = op.args[0].value
+        if subopnum != 4:
+            gcflag_extra = self.db.gctransformer.gcdata.gc.gcflag_extra
+        else:
+            gcflag_extra = self.db.gctransformer.gcdata.gc.gcflag_dummy
+        #
         if gcflag_extra == 0:
             return BasicGcPolicy.OP_GC_GCFLAG_EXTRA(self, funcgen, op)
-        subopnum = op.args[0].value
         if subopnum == 1:
             return '%s = 1;  /* has_gcflag_extra */' % (
                 funcgen.expr(op.result),)
@@ -407,6 +411,8 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
             parts.insert(0, '%s ^= %dL;' % (hdrfield,
                                             gcflag_extra))
             parts.append('/* toggle_gcflag_extra */')
+        elif subopnum == 4:     # get_gcflag_dummy
+            parts.append('/* get_gcflag_dummy */')
         else:
             raise AssertionError(subopnum)
         return ' '.join(parts)
@@ -450,9 +456,8 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         # XXX hard-code the field name here
         gcpol_ss = '%s->gcd_inst_root_stack_top' % funcgen.expr(c_gcdata)
         #
-        yield ('typedef struct { void %s; } pypy_ss_t;'
+        yield ('typedef struct { char %s; } pypy_ss_t;'
                    % ', '.join(['*s%d' % i for i in range(numcolors)]))
-        yield 'pypy_ss_t *ss;'
         funcgen.gcpol_ss = gcpol_ss
 
     def OP_GC_PUSH_ROOTS(self, funcgen, op):
@@ -462,26 +467,29 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         raise Exception("gc_pop_roots should be removed by postprocess_graph")
 
     def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
-        return 'ss = (pypy_ss_t *)%s; %s = (void *)(ss+1);' % (
-            funcgen.gcpol_ss, funcgen.gcpol_ss)
+        # avoid arithmatic on void*
+        return '({0}) = (char*)({0}) + sizeof(pypy_ss_t);'.format(funcgen.gcpol_ss,)
 
     def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
-        return '%s = (void *)ss;' % funcgen.gcpol_ss
+        # avoid arithmatic on void*
+        return '({0}) = (char*)({0}) - sizeof(pypy_ss_t);'.format(funcgen.gcpol_ss,)
 
     def OP_GC_SAVE_ROOT(self, funcgen, op):
         num = op.args[0].value
         exprvalue = funcgen.expr(op.args[1])
-        return 'ss->s%d = (void *)%s;\t/* gc_save_root */' % (num, exprvalue)
+        return '((pypy_ss_t *)%s)[-1].s%d = (char *)%s;' % (
+            funcgen.gcpol_ss, num, exprvalue)
 
     def OP_GC_RESTORE_ROOT(self, funcgen, op):
         num = op.args[0].value
         exprvalue = funcgen.expr(op.args[1])
         typename = funcgen.db.gettype(op.args[1].concretetype)
-        result = '%s = (%s)ss->s%d;' % (exprvalue, cdecl(typename, ''), num)
+        result = '%s = (%s)((pypy_ss_t *)%s)[-1].s%d;' % (
+            exprvalue, cdecl(typename, ''), funcgen.gcpol_ss, num)
         if isinstance(op.args[1], Constant):
-            return '/* %s\t* gc_restore_root */' % result
+            return '/* %s */' % result
         else:
-            return '%s\t/* gc_restore_root */' % result
+            return result
 
 
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):

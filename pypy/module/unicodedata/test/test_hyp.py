@@ -6,12 +6,14 @@ except ImportError:
     pytest.skip("hypothesis required")
 
 from pypy.module.unicodedata.interp_ucd import ucd
+from rpython.rlib.rutf8 import codepoints_in_utf8
 
 def make_normalization(space, NF_code):
     def normalize(s):
-        w_s = space.newunicode(s)
+        u = s.encode('utf8')
+        w_s = space.newutf8(u, codepoints_in_utf8(u))
         w_res = ucd.normalize(space, NF_code, w_s)
-        return space.unicode_w(w_res)
+        return space.utf8_w(w_res).decode('utf8')
     return normalize
 
 all_forms = ['NFC', 'NFD', 'NFKC', 'NFKD']

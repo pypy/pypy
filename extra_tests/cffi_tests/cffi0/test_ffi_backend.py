@@ -130,6 +130,36 @@ class TestFFI(backend_tests.BackendTests,
         alloc5 = ffi.new_allocator(myalloc5)
         py.test.raises(MemoryError, alloc5, "int[5]")
 
+    def test_new_struct_containing_struct_containing_array_varsize(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            struct foo_s { int len[100]; short data[]; };
+            struct bar_s { int abc[100]; struct foo_s tail; };
+        """)
+        # loop to try to detect heap overwrites, if the size allocated
+        # is too small
+        for i in range(1, 501, 100):
+            p = ffi.new("struct bar_s *", [[10], [[20], [3,4,5,6,7,8,9] * i]])
+            assert p.abc[0] == 10
+            assert p.tail.len[0] == 20
+            assert p.tail.data[0] == 3
+            assert p.tail.data[6] == 9
+            assert p.tail.data[7 * i - 1] == 9
+
+    def test_bogus_struct_containing_struct_containing_array_varsize(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            struct foo_s { signed char len; signed char data[]; };
+            struct bar_s { struct foo_s foo; int bcd; };
+        """)
+        p = ffi.new("struct bar_s *", [[123, [45, 56, 67, 78]], 9999999])
+        assert p.foo.len == 123
+        assert p.foo.data[0] == 45
+        assert p.foo.data[1] == 56
+        assert p.foo.data[2] == 67
+        assert p.bcd == 9999999
+        assert p.foo.data[3] != 78   # has been overwritten with 9999999
+
 
 class TestBitfield:
     def check(self, source, expected_ofs_y, expected_align, expected_size):
@@ -269,12 +299,15 @@ class TestBitfield:
 
     def test_error_cases(self):
         ffi = FFI()
-        py.test.raises(TypeError,
-            'ffi.cdef("struct s1 { float x:1; };"); ffi.new("struct s1 *")')
-        py.test.raises(TypeError,
-            'ffi.cdef("struct s2 { char x:0; };"); ffi.new("struct s2 *")')
-        py.test.raises(TypeError,
-            'ffi.cdef("struct s3 { char x:9; };"); ffi.new("struct s3 *")')
+        ffi.cdef("struct s1 { float x:1; };")
+        with pytest.raises(TypeError):
+            ffi.new("struct s1 *")
+        ffi.cdef("struct s2 { char x:0; };")
+        with pytest.raises(TypeError):
+            ffi.new("struct s2 *")
+        ffi.cdef("struct s3 { char x:9; };")
+        with pytest.raises(TypeError):
+            ffi.new("struct s3 *")
 
     def test_struct_with_typedef(self):
         ffi = FFI()
@@ -325,8 +358,31 @@ class TestBitfield:
         a = array.array('H', [10000, 20000, 30000])
         c = ffi.from_buffer(a)
         assert ffi.typeof(c) is ffi.typeof("char[]")
+        assert len(c) == 6
         ffi.cast("unsigned short *", c)[1] += 500
         assert list(a) == [10000, 20500, 30000]
+        assert c == ffi.from_buffer("char[]", a, True)
+        assert c == ffi.from_buffer(a, require_writable=True)
+        #
+        c = ffi.from_buffer("unsigned short[]", a)
+        assert len(c) == 3
+        assert c[1] == 20500
+        #
+        p = ffi.from_buffer(b"abcd")
+        assert p[2] == b"c"
+        #
+        assert p == ffi.from_buffer(b"abcd", require_writable=False)
+        py.test.raises((TypeError, BufferError), ffi.from_buffer,
+                                                 "char[]", b"abcd", True)
+        py.test.raises((TypeError, BufferError), ffi.from_buffer, b"abcd",
+                                                 require_writable=True)
+
+    def test_release(self):
+        ffi = FFI()
+        p = ffi.new("int[]", 123)
+        ffi.release(p)
+        # here, reading p[0] might give garbage or segfault...
+        ffi.release(p)   # no effect
 
     def test_memmove(self):
         ffi = FFI()

@@ -53,10 +53,11 @@ class CommonTest(seq_tests.CommonTest):
         self.assertEqual(str(a2), "[0, 1, 2, [...], 3]")
         self.assertEqual(repr(a2), "[0, 1, 2, [...], 3]")
 
-        l0 = []
+    def test_repr_deep(self):
+        a = self.type2test([])
         for i in range(sys.getrecursionlimit() + 10000):
-            l0 = [l0]
-        self.assertRaises(RecursionError, repr, l0)
+            a = self.type2test([a])
+        self.assertRaises(RecursionError, repr, a)
 
     def test_print(self):
         d = self.type2test(range(200))
@@ -266,8 +267,20 @@ class CommonTest(seq_tests.CommonTest):
         self.assertEqual(a, list("spameggs"))
 
         self.assertRaises(TypeError, a.extend, None)
-
         self.assertRaises(TypeError, a.extend)
+
+        # overflow test. issue1621
+        class CustomIter:
+            def __iter__(self):
+                return self
+            def __next__(self):
+                raise StopIteration
+            def __length_hint__(self):
+                return sys.maxsize
+        a = self.type2test([1,2,3,4])
+        a.extend(CustomIter())
+        self.assertEqual(a, [1,2,3,4])
+
 
     def test_insert(self):
         a = self.type2test([0, 1, 2])
@@ -533,7 +546,7 @@ class CommonTest(seq_tests.CommonTest):
         u += "eggs"
         self.assertEqual(u, self.type2test("spameggs"))
 
-        self.assertRaises(TypeError, "u += None")
+        self.assertRaises(TypeError, "u += None")  # PyPy change
 
     def test_imul(self):
         u = self.type2test([0, 1])

@@ -268,7 +268,7 @@ class AppTestMMap:
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
         raises(TypeError, m.write, 123)
         raises(ValueError, m.write, b"c"*10)
-        m.write(b"ciao\n")
+        assert m.write(b"ciao\n") == 5
         m.seek(0)
         assert m.read(6) == b"ciao\nr"
         m.close()

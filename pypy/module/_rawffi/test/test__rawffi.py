@@ -262,14 +262,17 @@ class AppTestFfi:
             raise AssertionError("did not fail??")
 
     def test_libload_None(self):
-        if self.iswin32:
-            skip("unix specific")
         import _rawffi
         # this should return *all* loaded libs, dlopen(NULL)
-        dll = _rawffi.CDLL(None)
-        func = dll.ptr('rand', [], 'i')
-        res = func()
-        assert res[0] != 0
+        try:
+            dll = _rawffi.CDLL(None)
+        except TypeError:
+            if not self.iswin32:
+                raise
+        else:
+            func = dll.ptr('rand', [], 'i')
+            res = func()
+            assert res[0] != 0
 
     def test_libc_load(self):
         import _rawffi
@@ -348,13 +351,29 @@ class AppTestFfi:
         arg2.free()
         a.free()
 
+    def test_unicode_array(self):
+        import _rawffi
+        A = _rawffi.Array('u')
+        a = A(6, u'\u1234')
+        assert a[0] == u'\u1234'
+        a[0] = u'\U00012345'
+        assert a[0] == u'\U00012345'
+        a[0] = u'\ud800'
+        assert a[0] == u'\ud800'
+        B = _rawffi.Array('i')
+        b = B.fromaddress(a.itemaddress(0), 1)
+        b[0] = 0xffffffff
+        raises(ValueError, "a[0]")
+        a.free()
+
     def test_returning_unicode(self):
         import _rawffi
         A = _rawffi.Array('u')
         a = A(6, 'xx\x00\x00xx')
-        res = _rawffi.wcharp2unicode(a.buffer)
-        assert isinstance(res, str)
-        assert res == 'xx'
+        for i in (-1, 6):
+            res = _rawffi.wcharp2unicode(a.buffer, i)
+            assert isinstance(res, str)
+            assert res == u'xx'
         a.free()
 
     def test_rawstring2charp(self):
@@ -1223,6 +1242,23 @@ class AppTestFfi:
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         assert lib.name == self.lib_name
+
+    def test_wcharp2rawunicode(self):
+        import _rawffi
+        A = _rawffi.Array('i')
+        arg = A(1)
+        arg[0] = 0x1234
+        u = _rawffi.wcharp2rawunicode(arg.itemaddress(0))
+        assert u == u'\u1234'
+        u = _rawffi.wcharp2rawunicode(arg.itemaddress(0), 1)
+        assert u == u'\u1234'
+        arg[0] = -1
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        arg[0] = 0x110000
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        arg.free()
 
 
 class AppTestAutoFree:

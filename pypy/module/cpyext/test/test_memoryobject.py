@@ -36,6 +36,22 @@ class TestMemoryViewObject(BaseApiTest):
         decref(space, ref)
         decref(space, c_memoryview)
 
+    def test_class_with___buffer__(self, space, api):
+        w_obj = space.appexec([], """():
+            from __pypy__.bufferable import bufferable
+            class B(bufferable):
+                def __init__(self):
+                    self.buf = bytearray(10)
+
+                def __buffer__(self, flags):
+                    return memoryview(self.buf)
+            return B()""")
+        py_obj = make_ref(space, w_obj)
+        assert py_obj.c_ob_type.c_tp_as_buffer
+        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
+        assert not py_obj.c_ob_type.c_tp_as_buffer.c_bf_releasebuffer
+         
+
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
         module = self.import_extension('foo', [

@@ -16,6 +16,7 @@ from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
     make_weakref_descr)
 
+_WIN32 = sys.platform.startswith('win')
 
 # XXX Hack to separate rpython and pypy
 def addr_as_object(addr, fd, space):
@@ -202,8 +203,24 @@ class W_Socket(W_Root):
                    w_fileno=None):
         try:
             if not space.is_w(w_fileno, space.w_None):
-                sock = RSocket(family, type, proto,
-                               fd=space.c_filedescriptor_w(w_fileno))
+                if _WIN32 and space.isinstance_w(w_fileno, space.w_bytes):
+                    from rpython.rlib.rsocket import _c
+                    # it is possible to pass some bytes representing a socket
+                    # in the file descriptor object on winodws
+                    fdobj = space.bytes_w(w_fileno)
+                    info_charptr = rffi.str2charp(fdobj)
+                    try:
+                        info_ptr = rffi.cast(lltype.Ptr(_c.WSAPROTOCOL_INFOW), info_charptr)
+                        fd = _c.WSASocketW(_c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
+                        _c.FROM_PROTOCOL_INFO, info_ptr, 0, _c.WSA_FLAG_OVERLAPPED)
+                        if fd == rsocket.INVALID_SOCKET:
+                            raise converted_error(space, rsocket.last_error())
+                        sock = RSocket(info_ptr.c_iAddressFamily, info_ptr.c_iSocketType, info_ptr.c_iProtocol, fd)
+                    finally:
+                        lltype.free(info_charptr, flavor='raw')
+                else:
+                    sock = RSocket(family, type, proto,
+                                   fd=space.c_filedescriptor_w(w_fileno))
             else:
                 sock = RSocket(family, type, proto, inheritable=False)
             W_Socket.__init__(self, space, sock)
@@ -233,9 +250,9 @@ class W_Socket(W_Root):
     def _dealloc_warn(self):
         space = self.space
         try:
-            msg = (u"unclosed %s" %
-                   space.unicode_w(space.repr(self)))
-            space.warn(space.newunicode(msg), space.w_ResourceWarning)
+            msg = (b"unclosed %s" %
+                   space.utf8_w(space.repr(self)))
+            space.warn(space.newtext(msg), space.w_ResourceWarning)
         except OperationError as e:
             # Spurious errors can appear at shutdown
             if e.match(space, space.w_Warning):
@@ -292,9 +309,8 @@ class W_Socket(W_Root):
         """
         try:
             self.sock.close()
-        except SocketError:
-            # cpython doesn't return any errors on close
-            pass
+        except SocketError as e:
+            raise converted_error(space, e)
         self.may_unregister_rpython_finalizer(space)
 
     def connect_w(self, space, w_addr):
@@ -382,7 +398,10 @@ class W_Socket(W_Root):
                 raise converted_error(space, e)
         if buflen < 0 or buflen > 1024:
             raise explicit_socket_error(space, "getsockopt buflen out of range")
-        return space.newbytes(self.sock.getsockopt(level, optname, buflen))
+        try:
+            return space.newbytes(self.sock.getsockopt(level, optname, buflen))
+        except SocketError as e:
+            raise converted_error(space, e)
 
     def gettimeout_w(self, space):
         """gettimeout() -> timeout
@@ -609,14 +628,17 @@ class W_Socket(W_Root):
         return space.newint(count)
 
     @unwrap_spec(flag=int)
-    def setblocking_w(self, flag):
+    def setblocking_w(self, space, flag):
         """setblocking(flag)
 
         Set the socket to blocking (flag is true) or non-blocking (false).
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        self.sock.setblocking(bool(flag))
+        try:
+            self.sock.setblocking(bool(flag))
+        except SocketError as e:
+            raise converted_error(space, e)
 
     @unwrap_spec(level=int, optname=int)
     def setsockopt_w(self, space, level, optname, w_optval):
@@ -655,7 +677,10 @@ class W_Socket(W_Root):
             timeout = space.float_w(w_timeout)
             if timeout < 0.0:
                 raise oefmt(space.w_ValueError, "Timeout value out of range")
-        self.sock.settimeout(timeout)
+        try:
+            self.sock.settimeout(timeout)
+        except SocketError as e:
+            raise converted_error(space, e)
 
     @unwrap_spec(nbytes=int, flags=int)
     def recv_into_w(self, space, w_buffer, nbytes=0, flags=0):
@@ -751,6 +776,26 @@ class W_Socket(W_Root):
             return space.newint(recv_ptr[0])
         finally:
             lltype.free(recv_ptr, flavor='raw')
+
+    @unwrap_spec(processid=int)
+    def share_w(self, space, processid):
+        from rpython.rtyper.lltypesystem import rffi, lltype
+        from rpython.rlib import rwin32
+        from rpython.rlib.rsocket import _c
+        info_ptr = lltype.malloc(_c.WSAPROTOCOL_INFOW, flavor='raw')
+        try:
+            winprocessid = rffi.cast(rwin32.DWORD, processid)
+            res = _c.WSADuplicateSocketW(
+                        self.sock.fd, winprocessid, info_ptr)
+
+            if res < 0:
+                raise converted_error(space, rsocket.last_error())
+
+            bytes_ptr = rffi.cast(rffi.CCHARP, info_ptr)
+            w_bytes = space.newbytes(rffi.charpsize2str(bytes_ptr, rffi.sizeof(_c.WSAPROTOCOL_INFOW)))
+        finally:
+            lltype.free(info_ptr, flavor='raw')
+        return w_bytes
 
     @unwrap_spec(how="c_int")
     def shutdown_w(self, space, how):
@@ -855,7 +900,7 @@ def get_error(space, name):
 
 @specialize.arg(2)
 def converted_error(space, e, eintr_retry=False):
-    message = e.get_msg_unicode()
+    message, lgt = e.get_msg_utf8()
     w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
         if e.errno == errno.EINTR:
@@ -863,9 +908,10 @@ def converted_error(space, e, eintr_retry=False):
             if eintr_retry:
                 return       # only return None if eintr_retry==True
         w_exception = space.call_function(w_exception_class, space.newint(e.errno),
-                                      space.newunicode(message))
+                                      space.newtext(message, lgt))
     else:
-        w_exception = space.call_function(w_exception_class, space.newunicode(message))
+        w_exception = space.call_function(w_exception_class,
+                                          space.newtext(message, lgt))
     raise OperationError(w_exception_class, w_exception)
 
 def explicit_socket_error(space, msg):
@@ -884,6 +930,7 @@ setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into
 """.split()
 if hasattr(rsocket._c, 'WSAIoctl'):
     socketmethodnames.append('ioctl')
+    socketmethodnames.append('share')
 if rsocket._c.HAVE_SENDMSG:
     socketmethodnames.append('sendmsg')
     socketmethodnames.append('recvmsg')

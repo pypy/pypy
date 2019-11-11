@@ -41,6 +41,18 @@ class AppTestRandom:
         # does not crash
         rnd1.setstate((-1, ) * 624 + (0, ))
 
+    def test_failed_setstate(self):
+        import _random
+        rnd = _random.Random()
+        rnd.seed()
+        start_state = rnd.getstate()
+        raises(TypeError, rnd.setstate, None)
+        raises(ValueError, rnd.setstate, (1, 2, 3))
+        raises(TypeError, rnd.setstate, ('a',)*624 + (1,))
+        raises(ValueError, rnd.setstate, (1,)*624 + (625,))
+        # None of these failed calls should have changed the state
+        assert rnd.getstate() == start_state
+
     def test_state_repr(self):
         # since app-level jumpahead salts with repr(state),
         # it is important the repr is consistent with cpython
@@ -86,9 +98,9 @@ class AppTestRandom:
         rnd = _random.Random()
         rnd.seed()
         state1 = rnd.getstate()
-        import time; time.sleep(1.1)     # must be at least 1 second here
-        rnd.seed()                       # (note that random.py overrides
-        state2 = rnd.getstate()          # seed() to improve the resolution)
+        import time; time.sleep(0.01)
+        rnd.seed()
+        state2 = rnd.getstate()
         assert state1 != state2
 
     def test_randbits(self):

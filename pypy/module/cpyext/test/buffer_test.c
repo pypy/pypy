@@ -192,6 +192,10 @@ static PyTypeObject PyMyArrayType = {
  */
 #define GET_PYBUF_FLAG(FLAG)                                        \
     buf_flag = PyUnicode_FromString(#FLAG);                         \
+    if (buf_flag == NULL) {                                         \
+        Py_DECREF(tmp);                                             \
+        return NULL;                                                \
+    }                                                               \
     flag_matches = PyObject_RichCompareBool(buf_flag, tmp, Py_EQ);  \
     Py_DECREF(buf_flag);                                            \
     if (flag_matches == 1) {                                        \

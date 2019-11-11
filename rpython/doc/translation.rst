@@ -583,9 +583,6 @@ Almost all application-level Python code allocates objects at a very fast
 rate; this means that the memory management implementation is critical to the
 performance of the PyPy interpreter.
 
-You can choose which garbage collection strategy to use with
-:config:`translation.gc`.
-
 
 .. _genc:
 

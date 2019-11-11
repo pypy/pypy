@@ -119,12 +119,15 @@ def test_swapped_bytes():
             ms.n = 0xff00
             return repr(ba[:])
 
+        nstruct = dostruct(Native)
         if sys.byteorder == 'little':
-            assert dostruct(Native) == dostruct(Little)
-            assert dostruct(Native) != dostruct(Big)
+            assert nstruct == dostruct(Little)
+            assert nstruct != dostruct(Big)
+            assert Big._fields_[0][1] is not i
         else:
-            assert dostruct(Native) == dostruct(Big)
-            assert dostruct(Native) != dostruct(Little)
+            assert nstruct == dostruct(Big)
+            assert nstruct != dostruct(Little)
+            assert Little._fields_[0][1] is not i
 
 def test_from_buffer_copy():
     from array import array
@@ -185,3 +188,20 @@ def test_duplicate_names():
     assert sizeof(s) == 3 * sizeof(c_int)
     assert s.a == 4     # 256 + 4
     assert s.b == -123
+
+def test_memoryview():
+    class S(Structure):
+        _fields_ = [('a', c_int16),
+                    ('b', c_int16),
+                   ]
+
+    S3 = S * 3
+    c_array = (2 * S3)(
+        S3(S(a=0, b=1), S(a=2, b=3), S(a=4,  b=5)),
+        S3(S(a=6, b=7), S(a=8, b=9), S(a=10, b=11)),
+        )
+
+    mv = memoryview(c_array)
+    assert mv.format == 'T{<h:a:<h:b:}'
+    assert mv.shape == (2, 3)
+    assert mv.itemsize == 4

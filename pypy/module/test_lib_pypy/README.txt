@@ -5,3 +5,5 @@ translation. So you run them by saying:
 
 Note that if you run it with a PyPy from elsewhere, it will not pick
 up the changes to lib-python and lib_pypy.
+
+DEPRECATED: put tests in ./extra_tests instead!

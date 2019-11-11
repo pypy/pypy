@@ -32,6 +32,15 @@ from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.x86.regloc import AddressLoc
 
+def compute_gc_level(calldescr, guard_not_forced=False):
+    effectinfo = calldescr.get_extra_info()
+    if guard_not_forced:
+        return SAVE_ALL_REGS
+    elif effectinfo is None or effectinfo.check_can_collect():
+        return SAVE_GCREF_REGS
+    else:
+        return SAVE_DEFAULT_REGS
+
 
 class X86RegisterManager(RegisterManager):
     box_types = [INT, REF]
@@ -155,8 +164,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # to be read/used by the assembler too
         self.jump_target_descr = None
         self.final_jump_op = None
+        self.final_jump_op_position = -1
 
     def _prepare(self, inputargs, operations, allgcrefs):
+        from rpython.jit.backend.x86.reghint import X86RegisterHints
         for box in inputargs:
             assert box.get_forwarded() is None
         cpu = self.assembler.cpu
@@ -164,10 +175,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        longevity = compute_vars_longevity(inputargs, operations)
+        X86RegisterHints().add_hints(longevity, inputargs, operations)
         self.longevity = longevity
-        self.last_real_usage = last_real_usage
         self.rm = gpr_reg_mgr_cls(self.longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
@@ -504,15 +514,19 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def _consider_binop_part(self, op, symm=False):
         x = op.getarg(0)
         y = op.getarg(1)
+        xloc = self.loc(x)
         argloc = self.loc(y)
-        #
-        # For symmetrical operations, if 'y' is already in a register
-        # and won't be used after the current operation finishes,
-        # then swap the role of 'x' and 'y'
-        if (symm and isinstance(argloc, RegLoc) and
-                self.rm.longevity[y][1] == self.rm.position):
-            x, y = y, x
-            argloc = self.loc(y)
+
+        # For symmetrical operations, if x is not in a reg, but y is,
+        # and if x lives longer than the current operation while y dies, then
+        # swap the role of 'x' and 'y'
+        if (symm and not isinstance(xloc, RegLoc) and
+                isinstance(argloc, RegLoc)):
+            if ((x not in self.rm.longevity or
+                    self.rm.longevity[x].last_usage > self.rm.position) and
+                    self.rm.longevity[y].last_usage == self.rm.position):
+                x, y = y, x
+                argloc = self.loc(y)
         #
         args = op.getarglist()
         loc = self.rm.force_result_in_reg(op, x, args)
@@ -526,28 +540,29 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         loc, argloc = self._consider_binop_part(op, symm=True)
         self.perform(op, [loc, argloc], loc)
 
-    def _consider_lea(self, op, loc):
+    def _consider_lea(self, op):
+        x = op.getarg(0)
+        loc = self.make_sure_var_in_reg(x)
+        # make it possible to have argloc be == loc if x dies
+        # (then LEA will not be used, but that's fine anyway)
+        self.possibly_free_var(x)
         argloc = self.loc(op.getarg(1))
         resloc = self.force_allocate_reg(op)
         self.perform(op, [loc, argloc], resloc)
 
     def consider_int_add(self, op):
-        loc = self.loc(op.getarg(0))
         y = op.getarg(1)
-        if (isinstance(loc, RegLoc) and
-            isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value)):
-            self._consider_lea(op, loc)
+        if isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value):
+            self._consider_lea(op)
         else:
             self._consider_binop_symm(op)
 
     consider_nursery_ptr_increment = consider_int_add
 
     def consider_int_sub(self, op):
-        loc = self.loc(op.getarg(0))
         y = op.getarg(1)
-        if (isinstance(loc, RegLoc) and
-            isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value)):
-            self._consider_lea(op, loc)
+        if isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value):
+            self._consider_lea(op)
         else:
             self._consider_binop(op)
 
@@ -609,7 +624,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         vx = op.getarg(0)
         vy = op.getarg(1)
         arglocs = [self.loc(vx), self.loc(vy)]
-        args = op.getarglist()
         if (vx in self.rm.reg_bindings or vy in self.rm.reg_bindings or
             isinstance(vx, Const) or isinstance(vy, Const)):
             pass
@@ -841,14 +855,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             sign_loc = imm1
         else:
             sign_loc = imm0
-        #
-        effectinfo = calldescr.get_extra_info()
-        if guard_not_forced:
-            gc_level = SAVE_ALL_REGS
-        elif effectinfo is None or effectinfo.check_can_collect():
-            gc_level = SAVE_GCREF_REGS
-        else:
-            gc_level = SAVE_DEFAULT_REGS
+
+        gc_level = compute_gc_level(calldescr, guard_not_forced)
         #
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
@@ -969,6 +977,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             # Load the register for the result.  Possibly reuse 'args[0]'.
             # But the old value of args[0], if it survives, is first
             # spilled away.  We can't overwrite any of op.args[2:] here.
+
+            # YYY args[0] is maybe not spilled here!!!
             resloc = self.rm.force_result_in_reg(op, args[0],
                                                  forbidden_vars=args[2:])
 
@@ -992,12 +1002,15 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self.assembler.test_location(resloc)
             self.assembler.guard_success_cc = rx86.Conditions['Z']
 
+        if not we_are_translated():
+            self.assembler.dump('%s <- %s(%s)' % (resloc, op, arglocs))
         self.assembler.cond_call(gcmap, imm_func, arglocs, resloc)
 
     consider_cond_call_value_i = consider_cond_call
     consider_cond_call_value_r = consider_cond_call
 
     def consider_call_malloc_nursery(self, op):
+        # YYY what's the reason for using a fixed register for the result?
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
@@ -1209,78 +1222,16 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
         self.perform(op, [argloc], resloc)
 
-    def consider_copystrcontent(self, op):
-        self._consider_copystrcontent(op, is_unicode=False)
-
-    def consider_copyunicodecontent(self, op):
-        self._consider_copystrcontent(op, is_unicode=True)
-
-    def _consider_copystrcontent(self, op, is_unicode):
-        # compute the source address
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(args[0], args)
-        ofs_loc = self.rm.make_sure_var_in_reg(args[2], args)
-        assert args[0] is not args[1]    # forbidden case of aliasing
-        srcaddr_box = TempVar()
-        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
-        srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
-                                        is_unicode=is_unicode)
-        # compute the destination address
-        base_loc = self.rm.make_sure_var_in_reg(args[1], forbidden_vars)
-        ofs_loc = self.rm.make_sure_var_in_reg(args[3], forbidden_vars)
-        forbidden_vars = [args[4], srcaddr_box]
-        dstaddr_box = TempVar()
-        dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
-                                        is_unicode=is_unicode)
-        # compute the length in bytes
-        length_box = args[4]
-        length_loc = self.loc(length_box)
-        if is_unicode:
-            forbidden_vars = [srcaddr_box, dstaddr_box]
-            bytes_box = TempVar()
-            bytes_loc = self.rm.force_allocate_reg(bytes_box, forbidden_vars)
-            scale = self._get_unicode_item_scale()
-            if not (isinstance(length_loc, ImmedLoc) or
-                    isinstance(length_loc, RegLoc)):
-                self.assembler.mov(length_loc, bytes_loc)
-                length_loc = bytes_loc
-            self.assembler.load_effective_addr(length_loc, 0, scale, bytes_loc)
-            length_box = bytes_box
-            length_loc = bytes_loc
-        # call memcpy()
-        self.rm.before_call()
-        self.xrm.before_call()
-        self.assembler.simple_call_no_collect(imm(self.assembler.memcpy_addr),
-                                        [dstaddr_loc, srcaddr_loc, length_loc])
-        self.rm.possibly_free_var(length_box)
-        self.rm.possibly_free_var(dstaddr_box)
-        self.rm.possibly_free_var(srcaddr_box)
-
-    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
-        if is_unicode:
-            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.translate_support_code)
-            scale = self._get_unicode_item_scale()
-        else:
-            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                                  self.translate_support_code)
-            assert itemsize == 1
-            ofs_items -= 1     # for the extra null character
-            scale = 0
-        self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
-                                           resloc, baseloc)
-
-    def _get_unicode_item_scale(self):
-        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.translate_support_code)
-        if itemsize == 4:
-            return 2
-        elif itemsize == 2:
-            return 1
-        else:
-            raise AssertionError("bad unicode item size")
+    def consider_load_effective_address(self, op):
+        p0 = op.getarg(0)
+        i0 = op.getarg(1)
+        ploc = self.make_sure_var_in_reg(p0, [i0])
+        iloc = self.make_sure_var_in_reg(i0, [p0])
+        res = self.rm.force_allocate_reg(op, [p0, i0])
+        assert isinstance(op.getarg(2), ConstInt)
+        assert isinstance(op.getarg(3), ConstInt)
+        self.assembler.load_effective_addr(iloc, op.getarg(2).getint(),
+            op.getarg(3).getint(), res, ploc)
 
     def _consider_math_read_timestamp(self, op):
         # hint: try to move unrelated registers away from eax and edx now
@@ -1315,28 +1266,38 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         if op.getopnum() != rop.JUMP:
             return
         self.final_jump_op = op
+        self.final_jump_op_position = len(operations) - 1
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         if descr._ll_loop_code != 0:
             # if the target LABEL was already compiled, i.e. if it belongs
             # to some already-compiled piece of code
-            self._compute_hint_frame_locations_from_descr(descr)
+            self._compute_hint_locations_from_descr(descr)
         #else:
         #   The loop ends in a JUMP going back to a LABEL in the same loop.
         #   We cannot fill 'hint_frame_pos' immediately, but we can
         #   wait until the corresponding consider_label() to know where the
         #   we would like the boxes to be after the jump.
+        # YYY can we do coalescing hints in the new register allocation model?
 
-    def _compute_hint_frame_locations_from_descr(self, descr):
+    def _compute_hint_locations_from_descr(self, descr):
         arglocs = descr._x86_arglocs
         jump_op = self.final_jump_op
         assert len(arglocs) == jump_op.numargs()
+        hinted = []
         for i in range(jump_op.numargs()):
             box = jump_op.getarg(i)
             if not isinstance(box, Const):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
+                else:
+                    if box not in hinted:
+                        hinted.append(box)
+                        assert isinstance(loc, RegLoc)
+                        self.longevity.fixed_register(
+                                self.final_jump_op_position,
+                                loc, box)
 
     def consider_jump(self, op):
         assembler = self.assembler
@@ -1370,11 +1331,12 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             tmpreg = None
             xmmtmp = None
         # Do the remapping
-        remap_frame_layout_mixed(assembler,
+        num_moves = remap_frame_layout_mixed(assembler,
                                  src_locations1, dst_locations1, tmpreg,
                                  src_locations2, dst_locations2, xmmtmp)
         self.possibly_free_vars_for_op(op)
         assembler.closing_jump(self.jump_target_descr)
+        assembler.num_moves_jump += num_moves
 
     def consider_enter_portal_frame(self, op):
         self.assembler.enter_portal_frame(op)
@@ -1407,7 +1369,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         position = self.rm.position
         for arg in inputargs:
             assert not isinstance(arg, Const)
-            if self.last_real_usage.get(arg, -1) <= position:
+            if self.longevity[arg].is_last_real_use_before(position):
                 self.force_spill_var(arg)
         #
         # we need to make sure that no variable is stored in ebp
@@ -1443,7 +1405,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # the hints about the expected position of the spilled variables.
         jump_op = self.final_jump_op
         if jump_op is not None and jump_op.getdescr() is descr:
-            self._compute_hint_frame_locations_from_descr(descr)
+            self._compute_hint_locations_from_descr(descr)
 
     def consider_guard_not_forced_2(self, op):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)

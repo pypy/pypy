@@ -1,9 +1,13 @@
+from test import support
+import collections
 import copy
 import pickle
+import sys
 import unittest
 
 class DictSetTest(unittest.TestCase):
 
+    @support.cpython_only
     def test_constructors_not_callable(self):
         kt = type({}.keys())
         self.assertRaises(TypeError, kt, {})
@@ -201,6 +205,20 @@ class DictSetTest(unittest.TestCase):
     def test_recursive_repr(self):
         d = {}
         d[42] = d.values()
+        r = repr(d)
+        # Cannot perform a stronger test, as the contents of the repr
+        # are implementation-dependent.  All we can say is that we
+        # want a str result, not an exception of any sort.
+        self.assertIsInstance(r, str)
+        d[42] = d.items()
+        r = repr(d)
+        # Again.
+        self.assertIsInstance(r, str)
+
+    def test_deeply_nested_repr(self):
+        d = {}
+        for i in range(sys.getrecursionlimit() + 100):
+            d = {42: d.values()}
         self.assertRaises(RecursionError, repr, d)
 
     def test_copy(self):
@@ -244,6 +262,27 @@ class DictSetTest(unittest.TestCase):
                 pickle.dumps, d.values(), proto)
             self.assertRaises((TypeError, pickle.PicklingError),
                 pickle.dumps, d.items(), proto)
+
+    def test_abc_registry(self):
+        d = dict(a=1)
+
+        self.assertIsInstance(d.keys(), collections.KeysView)
+        self.assertIsInstance(d.keys(), collections.MappingView)
+        self.assertIsInstance(d.keys(), collections.Set)
+        self.assertIsInstance(d.keys(), collections.Sized)
+        self.assertIsInstance(d.keys(), collections.Iterable)
+        self.assertIsInstance(d.keys(), collections.Container)
+
+        self.assertIsInstance(d.values(), collections.ValuesView)
+        self.assertIsInstance(d.values(), collections.MappingView)
+        self.assertIsInstance(d.values(), collections.Sized)
+
+        self.assertIsInstance(d.items(), collections.ItemsView)
+        self.assertIsInstance(d.items(), collections.MappingView)
+        self.assertIsInstance(d.items(), collections.Set)
+        self.assertIsInstance(d.items(), collections.Sized)
+        self.assertIsInstance(d.items(), collections.Iterable)
+        self.assertIsInstance(d.items(), collections.Container)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import str_decode_utf_8
-from pypy.interpreter import unicodehelper
-
+from rpython.rlib.rutf8 import Utf8StringIterator
 
 HEX = '0123456789abcdef'
 
@@ -17,7 +15,7 @@ ESCAPE_BEFORE_SPACE = [ESCAPE_DICT.get(chr(_i), '\\u%04x' % _i)
 
 
 def raw_encode_basestring_ascii(space, w_unicode):
-    u = space.unicode_w(w_unicode)
+    u = space.utf8_w(w_unicode)
     for i in range(len(u)):
         c = ord(u[i])
         if c < 32 or c > 126 or c == ord('\\') or c == ord('"'):
@@ -28,8 +26,7 @@ def raw_encode_basestring_ascii(space, w_unicode):
 
     sb = StringBuilder(len(u) + 20)
 
-    for i in range(len(u)):
-        c = ord(u[i])
+    for c in Utf8StringIterator(u):
         if c <= ord('~'):
             if c == ord('"') or c == ord('\\'):
                 sb.append('\\')

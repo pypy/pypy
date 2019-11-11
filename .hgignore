@@ -4,8 +4,10 @@ syntax: glob
 *~
 .*.swp
 .idea
+.mypy_cache
 .project
 .pydevproject
+.vscode
 __pycache__
 .venv
 .cache
@@ -73,7 +75,9 @@ syntax: regexp
 ^lib_pypy/ctypes_config_cache/_.+_cache\.py$
 ^lib_pypy/ctypes_config_cache/_.+_.+_\.py$
 ^lib_pypy/_libmpdec/.+.o$
-^lib_pypy/.+.c$
+^lib_pypy/.+_cffi.c$
+^lib_pypy/_curses_cffi_check.c
+^lib_pypy/_pypy_openssl.c
 ^lib_pypy/.+.o$
 ^lib_pypy/.+.so$
 ^lib_pypy/.+.pyd$

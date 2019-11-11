@@ -36,13 +36,12 @@ python ftplib.py -d localhost -l -p -l
 # Modified by Giampaolo Rodola' to add TLS support.
 #
 
-import os
 import sys
 import socket
-import warnings
 from socket import _GLOBAL_DEFAULT_TIMEOUT
 
-__all__ = ["FTP"]
+__all__ = ["FTP", "error_reply", "error_temp", "error_perm", "error_proto",
+           "all_errors"]
 
 # Magic number from <socket.h>
 MSG_OOB = 0x1                           # Process data out of band
@@ -187,6 +186,8 @@ class FTP:
 
     # Internal: send one line to the server, appending CRLF
     def putline(self, line):
+        if '\r' in line or '\n' in line:
+            raise ValueError('an illegal newline character should not be contained')
         line = line + CRLF
         if self.debugging > 1:
             print('*put*', self.sanitize(line))
@@ -729,6 +730,10 @@ else:
             if context is not None and certfile is not None:
                 raise ValueError("context and certfile arguments are mutually "
                                  "exclusive")
+            if keyfile is not None or certfile is not None:
+                import warnings
+                warnings.warn("keyfile and certfile are deprecated, use a "
+                              "custom context instead", DeprecationWarning, 2)
             self.keyfile = keyfile
             self.certfile = certfile
             if context is None:
@@ -822,7 +827,7 @@ def parse150(resp):
     if _150_re is None:
         import re
         _150_re = re.compile(
-            "150 .* \((\d+) bytes\)", re.IGNORECASE | re.ASCII)
+            r"150 .* \((\d+) bytes\)", re.IGNORECASE | re.ASCII)
     m = _150_re.match(resp)
     if not m:
         return None

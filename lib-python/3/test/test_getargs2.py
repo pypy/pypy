@@ -1,14 +1,11 @@
 import unittest
 import math
+import string
 import sys
 from test import support
 # Skip this test if the _testcapi module isn't available.
-support.import_module('_testcapi')
+_testcapi = support.import_module('_testcapi')
 from _testcapi import getargs_keywords, getargs_keyword_only
-try:
-    from _testcapi import getargs_L, getargs_K
-except ImportError:
-    getargs_L = None # PY_LONG_LONG not available
 
 # > How about the following counterproposal. This also changes some of
 # > the other format codes to be a little more regular.
@@ -309,7 +306,6 @@ class Signed_TestCase(unittest.TestCase):
         self.assertRaises(OverflowError, getargs_n, VERY_LARGE)
 
 
-@unittest.skipIf(getargs_L is None, 'PY_LONG_LONG is not available')
 class LongLong_TestCase(unittest.TestCase):
     def test_L(self):
         from _testcapi import getargs_L
@@ -365,7 +361,8 @@ class Float_TestCase(unittest.TestCase):
         self.assertEqual(getargs_f(FloatSubclass(7.5)), 7.5)
         self.assertEqual(getargs_f(FloatSubclass2(7.5)), 7.5)
         self.assertRaises(TypeError, getargs_f, BadFloat())
-        self.assertEqual(getargs_f(BadFloat2()), 4.25)
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(getargs_f(BadFloat2()), 4.25)
         self.assertEqual(getargs_f(BadFloat3(7.5)), 7.5)
 
         for x in (FLT_MIN, -FLT_MIN, FLT_MAX, -FLT_MAX, INF, -INF):
@@ -381,6 +378,12 @@ class Float_TestCase(unittest.TestCase):
         r = getargs_f(NAN)
         self.assertNotEqual(r, r)
 
+    @support.requires_IEEE_754
+    def test_f_rounding(self):
+        from _testcapi import getargs_f
+        self.assertEqual(getargs_f(3.40282356e38), FLT_MAX)
+        self.assertEqual(getargs_f(-3.40282356e38), -FLT_MAX)
+
     def test_d(self):
         from _testcapi import getargs_d
         self.assertEqual(getargs_d(4.25), 4.25)
@@ -390,7 +393,8 @@ class Float_TestCase(unittest.TestCase):
         self.assertEqual(getargs_d(FloatSubclass(7.5)), 7.5)
         self.assertEqual(getargs_d(FloatSubclass2(7.5)), 7.5)
         self.assertRaises(TypeError, getargs_d, BadFloat())
-        self.assertEqual(getargs_d(BadFloat2()), 4.25)
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(getargs_d(BadFloat2()), 4.25)
         self.assertEqual(getargs_d(BadFloat3(7.5)), 7.5)
 
         for x in (DBL_MIN, -DBL_MIN, DBL_MAX, -DBL_MAX, INF, -INF):
@@ -474,7 +478,7 @@ class Tuple_TestCase(unittest.TestCase):
 
         ret = get_args(*TupleSubclass([1, 2]))
         self.assertEqual(ret, (1, 2))
-        self.assertIsInstance(ret, tuple)
+        self.assertIs(type(ret), tuple)
 
         ret = get_args()
         self.assertIn(ret, ((), None))
@@ -512,7 +516,7 @@ class Keywords_TestCase(unittest.TestCase):
 
         ret = get_kwargs(**DictSubclass({'a': 1, 'b': 2}))
         self.assertEqual(ret, {'a': 1, 'b': 2})
-        self.assertIsInstance(ret, dict)
+        self.assertIs(type(ret), dict)
 
         ret = get_kwargs()
         self.assertIn(ret, ({}, None))
@@ -628,20 +632,20 @@ class KeywordOnly_TestCase(unittest.TestCase):
             )
         # required arg missing
         with self.assertRaisesRegex(TypeError,
-            "Required argument 'required' \(pos 1\) not found"):
+            r"Required argument 'required' \(pos 1\) not found"):
             getargs_keyword_only(optional=2)
 
         with self.assertRaisesRegex(TypeError,
-            "Required argument 'required' \(pos 1\) not found"):
+            r"Required argument 'required' \(pos 1\) not found"):
             getargs_keyword_only(keyword_only=3)
 
     def test_too_many_args(self):
         with self.assertRaisesRegex(TypeError,
-            "Function takes at most 2 positional arguments \(3 given\)"):
+            r"Function takes at most 2 positional arguments \(3 given\)"):
             getargs_keyword_only(1, 2, 3)
 
         with self.assertRaisesRegex(TypeError,
-            "function takes at most 3 arguments \(4 given\)"):
+            r"function takes at most 3 arguments \(4 given\)"):
             getargs_keyword_only(1, 2, 3, keyword_only=5)
 
     def test_invalid_keyword(self):
@@ -654,6 +658,39 @@ class KeywordOnly_TestCase(unittest.TestCase):
         with self.assertRaisesRegex(TypeError,
             "'\udc80' is an invalid keyword argument for this function"):
             getargs_keyword_only(1, 2, **{'\uDC80': 10})
+
+
+class PositionalOnlyAndKeywords_TestCase(unittest.TestCase):
+    from _testcapi import getargs_positional_only_and_keywords as getargs
+
+    def test_positional_args(self):
+        # using all possible positional args
+        self.assertEqual(self.getargs(1, 2, 3), (1, 2, 3))
+
+    def test_mixed_args(self):
+        # positional and keyword args
+        self.assertEqual(self.getargs(1, 2, keyword=3), (1, 2, 3))
+
+    def test_optional_args(self):
+        # missing optional args
+        self.assertEqual(self.getargs(1, 2), (1, 2, -1))
+        self.assertEqual(self.getargs(1, keyword=3), (1, -1, 3))
+
+    def test_required_args(self):
+        self.assertEqual(self.getargs(1), (1, -1, -1))
+        # required positional arg missing
+        with self.assertRaisesRegex(TypeError,
+            r"Function takes at least 1 positional arguments \(0 given\)"):
+            self.getargs()
+
+        with self.assertRaisesRegex(TypeError,
+            r"Function takes at least 1 positional arguments \(0 given\)"):
+            self.getargs(keyword=3)
+
+    def test_empty_keyword(self):
+        with self.assertRaisesRegex(TypeError,
+            "'' is an invalid keyword argument for this function"):
+            self.getargs(1, 2, **{'': 666})
 
 
 class Bytes_TestCase(unittest.TestCase):
@@ -822,10 +859,10 @@ class String_TestCase(unittest.TestCase):
         self.assertEqual(getargs_es_hash('abc\xe9', 'latin1', buf), b'abc\xe9')
         self.assertEqual(buf, bytearray(b'abc\xe9\x00'))
         buf = bytearray(b'x'*4)
-        self.assertRaises(TypeError, getargs_es_hash, 'abc\xe9', 'latin1', buf)
+        self.assertRaises(ValueError, getargs_es_hash, 'abc\xe9', 'latin1', buf)
         self.assertEqual(buf, bytearray(b'x'*4))
         buf = bytearray()
-        self.assertRaises(TypeError, getargs_es_hash, 'abc\xe9', 'latin1', buf)
+        self.assertRaises(ValueError, getargs_es_hash, 'abc\xe9', 'latin1', buf)
 
     def test_et_hash(self):
         from _testcapi import getargs_et_hash
@@ -848,10 +885,10 @@ class String_TestCase(unittest.TestCase):
         self.assertEqual(getargs_et_hash('abc\xe9', 'latin1', buf), b'abc\xe9')
         self.assertEqual(buf, bytearray(b'abc\xe9\x00'))
         buf = bytearray(b'x'*4)
-        self.assertRaises(TypeError, getargs_et_hash, 'abc\xe9', 'latin1', buf)
+        self.assertRaises(ValueError, getargs_et_hash, 'abc\xe9', 'latin1', buf)
         self.assertEqual(buf, bytearray(b'x'*4))
         buf = bytearray()
-        self.assertRaises(TypeError, getargs_et_hash, 'abc\xe9', 'latin1', buf)
+        self.assertRaises(ValueError, getargs_et_hash, 'abc\xe9', 'latin1', buf)
 
     def test_u(self):
         from _testcapi import getargs_u
@@ -916,6 +953,183 @@ class Object_TestCase(unittest.TestCase):
         self.assertRaises(TypeError, getargs_U, b'bytes')
         self.assertRaises(TypeError, getargs_U, bytearray(b'bytearray'))
         self.assertRaises(TypeError, getargs_U, None)
+
+
+# Bug #6012
+class Test6012(unittest.TestCase):
+    def test(self):
+        self.assertEqual(_testcapi.argparsing("Hello", "World"), 1)
+
+
+class SkipitemTest(unittest.TestCase):
+
+    def test_skipitem(self):
+        """
+        If this test failed, you probably added a new "format unit"
+        in Python/getargs.c, but neglected to update our poor friend
+        skipitem() in the same file.  (If so, shame on you!)
+
+        With a few exceptions**, this function brute-force tests all
+        printable ASCII*** characters (32 to 126 inclusive) as format units,
+        checking to see that PyArg_ParseTupleAndKeywords() return consistent
+        errors both when the unit is attempted to be used and when it is
+        skipped.  If the format unit doesn't exist, we'll get one of two
+        specific error messages (one for used, one for skipped); if it does
+        exist we *won't* get that error--we'll get either no error or some
+        other error.  If we get the specific "does not exist" error for one
+        test and not for the other, there's a mismatch, and the test fails.
+
+           ** Some format units have special funny semantics and it would
+              be difficult to accommodate them here.  Since these are all
+              well-established and properly skipped in skipitem() we can
+              get away with not testing them--this test is really intended
+              to catch *new* format units.
+
+          *** Python C source files must be ASCII.  Therefore it's impossible
+              to have non-ASCII format units.
+
+        """
+        empty_tuple = ()
+        tuple_1 = (0,)
+        dict_b = {'b':1}
+        keywords = ["a", "b"]
+
+        for i in range(32, 127):
+            c = chr(i)
+
+            # skip parentheses, the error reporting is inconsistent about them
+            # skip 'e', it's always a two-character code
+            # skip '|' and '$', they don't represent arguments anyway
+            if c in '()e|$':
+                continue
+
+            # test the format unit when not skipped
+            format = c + "i"
+            try:
+                _testcapi.parse_tuple_and_keywords(tuple_1, dict_b,
+                    format, keywords)
+                when_not_skipped = False
+            except SystemError as e:
+                s = "argument 1 (impossible<bad format char>)"
+                when_not_skipped = (str(e) == s)
+            except TypeError:
+                when_not_skipped = False
+
+            # test the format unit when skipped
+            optional_format = "|" + format
+            try:
+                _testcapi.parse_tuple_and_keywords(empty_tuple, dict_b,
+                    optional_format, keywords)
+                when_skipped = False
+            except SystemError as e:
+                s = "impossible<bad format char>: '{}'".format(format)
+                when_skipped = (str(e) == s)
+
+            message = ("test_skipitem_parity: "
+                "detected mismatch between convertsimple and skipitem "
+                "for format unit '{}' ({}), not skipped {}, skipped {}".format(
+                    c, i, when_skipped, when_not_skipped))
+            self.assertIs(when_skipped, when_not_skipped, message)
+
+    def test_skipitem_with_suffix(self):
+        parse = _testcapi.parse_tuple_and_keywords
+        empty_tuple = ()
+        tuple_1 = (0,)
+        dict_b = {'b':1}
+        keywords = ["a", "b"]
+
+        supported = ('s#', 's*', 'z#', 'z*', 'u#', 'Z#', 'y#', 'y*', 'w#', 'w*')
+        for c in string.ascii_letters:
+            for c2 in '#*':
+                f = c + c2
+                with self.subTest(format=f):
+                    optional_format = "|" + f + "i"
+                    if f in supported:
+                        parse(empty_tuple, dict_b, optional_format, keywords)
+                    else:
+                        with self.assertRaisesRegex(SystemError,
+                                    'impossible<bad format char>'):
+                            parse(empty_tuple, dict_b, optional_format, keywords)
+
+        for c in map(chr, range(32, 128)):
+            f = 'e' + c
+            optional_format = "|" + f + "i"
+            with self.subTest(format=f):
+                if c in 'st':
+                    parse(empty_tuple, dict_b, optional_format, keywords)
+                else:
+                    with self.assertRaisesRegex(SystemError,
+                                'impossible<bad format char>'):
+                        parse(empty_tuple, dict_b, optional_format, keywords)
+
+
+class ParseTupleAndKeywords_Test(unittest.TestCase):
+
+    def test_parse_tuple_and_keywords(self):
+        # Test handling errors in the parse_tuple_and_keywords helper itself
+        self.assertRaises(TypeError, _testcapi.parse_tuple_and_keywords,
+                          (), {}, 42, [])
+        self.assertRaises(ValueError, _testcapi.parse_tuple_and_keywords,
+                          (), {}, '', 42)
+        self.assertRaises(ValueError, _testcapi.parse_tuple_and_keywords,
+                          (), {}, '', [''] * 42)
+        self.assertRaises(ValueError, _testcapi.parse_tuple_and_keywords,
+                          (), {}, '', [42])
+
+    def test_bad_use(self):
+        # Test handling invalid format and keywords in
+        # PyArg_ParseTupleAndKeywords()
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (1,), {}, '||O', ['a'])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (1, 2), {}, '|O|O', ['a', 'b'])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (), {'a': 1}, '$$O', ['a'])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (), {'a': 1, 'b': 2}, '$O$O', ['a', 'b'])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (), {'a': 1}, '$|O', ['a'])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (), {'a': 1, 'b': 2}, '$O|O', ['a', 'b'])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (1,), {}, '|O', ['a', 'b'])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (1,), {}, '|OO', ['a'])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (), {}, '|$O', [''])
+        self.assertRaises(SystemError, _testcapi.parse_tuple_and_keywords,
+                          (), {}, '|OO', ['a', ''])
+
+    def test_positional_only(self):
+        parse = _testcapi.parse_tuple_and_keywords
+
+        parse((1, 2, 3), {}, 'OOO', ['', '', 'a'])
+        parse((1, 2), {'a': 3}, 'OOO', ['', '', 'a'])
+        with self.assertRaisesRegex(TypeError,
+               r'Function takes at least 2 positional arguments \(1 given\)'):
+            parse((1,), {'a': 3}, 'OOO', ['', '', 'a'])
+        parse((1,), {}, 'O|OO', ['', '', 'a'])
+        with self.assertRaisesRegex(TypeError,
+               r'Function takes at least 1 positional arguments \(0 given\)'):
+            parse((), {}, 'O|OO', ['', '', 'a'])
+        parse((1, 2), {'a': 3}, 'OO$O', ['', '', 'a'])
+        with self.assertRaisesRegex(TypeError,
+               r'Function takes exactly 2 positional arguments \(1 given\)'):
+            parse((1,), {'a': 3}, 'OO$O', ['', '', 'a'])
+        parse((1,), {}, 'O|O$O', ['', '', 'a'])
+        with self.assertRaisesRegex(TypeError,
+               r'Function takes at least 1 positional arguments \(0 given\)'):
+            parse((), {}, 'O|O$O', ['', '', 'a'])
+        with self.assertRaisesRegex(SystemError, r'Empty parameter name after \$'):
+            parse((1,), {}, 'O|$OO', ['', '', 'a'])
+        with self.assertRaisesRegex(SystemError, 'Empty keyword'):
+            parse((1,), {}, 'O|OO', ['', 'a', ''])
+
+
+class Test_testcapi(unittest.TestCase):
+    locals().update((name, getattr(_testcapi, name))
+                    for name in dir(_testcapi)
+                    if name.startswith('test_') and name.endswith('_code'))
 
 
 if __name__ == "__main__":

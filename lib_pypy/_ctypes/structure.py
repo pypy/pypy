@@ -2,9 +2,9 @@ import sys
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
-from _ctypes.array import Array
+from _ctypes.array import Array, get_format_str
 from _ctypes.pointer import _Pointer
-import inspect
+import inspect, __pypy__
 
 
 def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
@@ -119,6 +119,8 @@ class Field(object):
         if self.is_bitfield:
             # bitfield member, use direct access
             return obj._buffer.__getattr__(self.name)
+        elif not isinstance(obj, _CData):
+            raise(TypeError, 'not a ctype instance') 
         else:
             fieldtype = self.ctype
             offset = self.num
@@ -142,6 +144,8 @@ class Field(object):
             from ctypes import memmove
             dest = obj._buffer.fieldaddress(self.name)
             memmove(dest, arg, fieldtype._fficompositesize_)
+        elif not isinstance(obj, _CData):
+            raise(TypeError, 'not a ctype instance') 
         else:
             obj._buffer.__setattr__(self.name, arg)
 
@@ -176,6 +180,11 @@ def struct_setattr(self, name, value):
 class StructOrUnionMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
+        if hasattr(res, '_swappedbytes_') and '_fields_' in typedict:
+            # Activate the stdlib ctypes._swapped_meta.__setattr__ to convert fields
+            tmp = res._fields_
+            delattr(res, '_fields_')
+            setattr(res, '_fields_', tmp)
         if "_abstract_" in typedict:
             return res
         cls = cls or (object,)
@@ -203,6 +212,9 @@ class StructOrUnionMeta(_CDataMeta):
             self._fields_ = []  # As a side-effet, this also sets the ffishape.
 
     __setattr__ = struct_setattr
+
+    def _is_abstract(self):
+        return False
 
     def from_address(self, address):
         instance = StructOrUnion.__new__(self)
@@ -253,17 +265,7 @@ class StructOrUnion(_CData, metaclass=StructOrUnionMeta):
                                          or cls is union.Union):
             raise TypeError("abstract class")
         if hasattr(cls, '_swappedbytes_'):
-            fields = [None] * len(cls._fields_)
-            for i in range(len(cls._fields_)):
-                if cls._fields_[i][1] == cls._fields_[i][1].__dict__.get('__ctype_be__', None):
-                    swapped = cls._fields_[i][1].__dict__.get('__ctype_le__', cls._fields_[i][1])
-                else:
-                    swapped = cls._fields_[i][1].__dict__.get('__ctype_be__', cls._fields_[i][1])
-                if len(cls._fields_[i]) < 3:
-                    fields[i] = (cls._fields_[i][0], swapped)
-                else:
-                    fields[i] = (cls._fields_[i][0], swapped, cls._fields_[i][2])
-            names_and_fields(cls, fields, _CData, cls.__dict__.get('_anonymous_', None))
+            names_and_fields(cls, cls._fields_, _CData, cls.__dict__.get('_anonymous_', None))
         self = super(_CData, cls).__new__(cls)
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
@@ -303,6 +305,10 @@ class StructOrUnion(_CData, metaclass=StructOrUnionMeta):
     def _to_ffi_param(self):
         return self._buffer
 
+    def __buffer__(self, flags):
+        fmt = get_format_str(self)
+        itemsize = type(self)._sizeofinstances() 
+        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt)
 
 class StructureMeta(StructOrUnionMeta):
     _is_union = False

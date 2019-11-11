@@ -25,6 +25,8 @@ class TestW_ListObject(object):
         assert self.space.eq_w(self.space.len(w_list), w(1))
         w_list = W_ListObject(self.space, [w(5), w(3), w(99)]*111)
         assert self.space.eq_w(self.space.len(w_list), w(333))
+        w_list = W_ListObject(self.space, [w(u'\u2039')])
+        assert self.space.eq_w(self.space.len(w_list), w(1))
 
     def test_getitem(self):
         w = self.space.wrap
@@ -1396,6 +1398,14 @@ class AppTestListObject(object):
 
         l3 = [s]
         assert l3[0].encode("ascii", "replace") == b"???"
+
+        s = u"\u2039"
+        l1 = list(s)
+        assert len(l1) == 1
+
+    def test_unicode_bug_in_listview_utf8(self):
+        l1 = list(u'\u1234\u2345')
+        assert l1 == [u'\u1234', '\u2345']
 
     def test_list_from_set(self):
         l = ['a']

@@ -130,13 +130,13 @@ class TestObjSpace:
         w_object_doc = self.space.getattr(self.space.w_object, w("__doc__"))
         w_instance = self.space.appexec([], "(): return object()")
         w_doc = self.space.lookup(w_instance, "__doc__")
-        assert self.space.str_w(w_doc) == self.space.str_w(w_object_doc)
+        assert self.space.text_w(w_doc) == self.space.text_w(w_object_doc)
         assert self.space.lookup(w_instance, "gobbledygook") is None
         w_instance = self.space.appexec([], """():
             class Lookup(object):
                 "bla"
             return Lookup()""")
-        assert self.space.str_w(self.space.lookup(w_instance, "__doc__")) == "bla"
+        assert self.space.text_w(self.space.lookup(w_instance, "__doc__")) == "bla"
 
     def test_callable(self):
         def is_callable(w_obj):
@@ -210,9 +210,7 @@ class TestObjSpace:
         space = self.space
         w = space.wrap
         assert space.text0_w(w("123")) == "123"
-        exc = space.raises_w(space.w_ValueError, space.text0_w, w("123\x004"))
-        assert space.unicode0_w(w(u"123")) == u"123"
-        exc = space.raises_w(space.w_ValueError, space.unicode0_w, w(u"123\x004"))
+        space.raises_w(space.w_ValueError, space.text0_w, w("123\x004"))
 
     def test_text_w(self):
         space = self.space
@@ -406,9 +404,9 @@ class TestModuleMinimal:
         w_executable = space.wrap('executable')
         assert space.findattr(space.sys, w_executable) is None
         space.setattr(space.sys, w_executable, space.wrap('foobar'))
-        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        assert space.text_w(space.getattr(space.sys, w_executable)) == 'foobar'
         space.startup()
-        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        assert space.text_w(space.getattr(space.sys, w_executable)) == 'foobar'
 
     def test_interned_strings_are_weak(self):
         import weakref, gc, random
@@ -455,6 +453,17 @@ class TestModuleMinimal:
             import sys
             sys.exitfunc = lambda: this_is_an_unknown_name
         """)
-        space.finish()
+        ret = space.finish()
+        assert ret == 0
         # assert that we reach this point without getting interrupted
-        # by the OperationError(NameError)
+
+    def test_exit_closed_std(self):
+        from pypy.tool.pytest.objspace import maketestobjspace
+        space = maketestobjspace()
+        space.appexec([], """():
+            import sys, os
+            sys.stdout.write('x')
+            os.close(sys.stdout.fileno())
+        """)
+        ret = space.finish()
+        assert ret < 0

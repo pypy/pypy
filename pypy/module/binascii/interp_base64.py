@@ -78,8 +78,8 @@ def a2b_base64(space, ascii):
 table_b2a_base64 = (
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
 
-@unwrap_spec(bin='bufferstr')
-def b2a_base64(space, bin):
+@unwrap_spec(bin='bufferstr', newline=bool)
+def b2a_base64(space, bin, __kwonly__, newline=True):
     "Base64-code line of data."
 
     newlength = (len(bin) + 2) // 3
@@ -109,5 +109,6 @@ def b2a_base64(space, bin):
     elif leftbits == 4:
         res.append(table_b2a_base64[(leftchar & 0xf) << 2])
         res.append(PAD)
-    res.append('\n')
+    if newline:
+        res.append('\n')
     return space.newbytes(res.build())

@@ -96,7 +96,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pytraceback import PyTraceback, check_traceback
-from rpython.rlib import rwin32
+from rpython.rlib import rwin32, jit
 
 
 def readwrite_attrproperty_w(name, cls):
@@ -141,7 +141,7 @@ class W_BaseException(W_Root):
             return space.call_function(space.w_unicode, w_as_str)
         lgt = len(self.args_w)
         if lgt == 0:
-            return space.newunicode(u"")
+            return space.newutf8("", 0)
         if lgt == 1:
             return space.call_function(space.w_unicode, self.args_w[0])
         else:
@@ -150,12 +150,12 @@ class W_BaseException(W_Root):
 
     def descr_repr(self, space):
         if self.args_w:
-            args_repr = space.unicode_w(
+            args_repr = space.utf8_w(
                 space.repr(space.newtuple(self.args_w)))
         else:
-            args_repr = u"()"
+            args_repr = b"()"
         clsname = self.getclass(space).getname(space)
-        return space.newunicode(clsname + args_repr)
+        return space.newtext(clsname + args_repr)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -322,16 +322,45 @@ class W_ImportError(W_Exception):
     """Import can't find module, or can't find name in module."""
     w_name = None
     w_path = None
+    w_msg = None
 
+    @jit.unroll_safe
     def descr_init(self, space, __args__):
         args_w, kw_w = __args__.unpack()
         self.w_name = kw_w.pop('name', space.w_None)
         self.w_path = kw_w.pop('path', space.w_None)
         if kw_w:
-            # CPython displays this, but it's not quite right.
-            raise oefmt(space.w_TypeError,
-                        "ImportError does not take keyword arguments")
+            for keyword in __args__.keywords:
+                if keyword in kw_w:
+                    raise oefmt(
+                        space.w_TypeError,
+                        "'%s' is an invalid keyword argument for this function",
+                        keyword)
+        if len(args_w) == 1:
+            self.w_msg = args_w[0]
+        else:
+            self.w_msg = space.w_None
         W_Exception.descr_init(self, space, args_w)
+
+    def descr_reduce(self, space):
+        lst = [self.getclass(space), space.newtuple(self.args_w)]
+        if self.w_dict is not None and space.is_true(self.w_dict):
+            w_dict = space.call_method(self.w_dict, "copy")
+        else:
+            w_dict = space.newdict()
+        if not space.is_w(self.w_name, space.w_None):
+            space.setitem(w_dict, space.newtext("name"), self.w_name)
+        if not space.is_w(self.w_path, space.w_None):
+            space.setitem(w_dict, space.newtext("path"), self.w_path)
+        if space.is_true(w_dict):
+            lst = [lst[0], lst[1], w_dict]
+        return space.newtuple(lst)
+
+    def descr_setstate(self, space, w_dict):
+        self.w_name = space.call_method(w_dict, "pop", space.newtext("name"), space.w_None)
+        self.w_path = space.call_method(w_dict, "pop", space.newtext("path"), space.w_None)
+        w_olddict = self.getdict(space)
+        space.call_method(w_olddict, 'update', w_dict)
 
 
 W_ImportError.typedef = TypeDef(
@@ -341,8 +370,11 @@ W_ImportError.typedef = TypeDef(
     __module__ = 'builtins',
     __new__ = _new(W_ImportError),
     __init__ = interp2app(W_ImportError.descr_init),
+    __reduce__ = interp2app(W_ImportError.descr_reduce),
+    __setstate__ = interp2app(W_ImportError.descr_setstate),
     name = readwrite_attrproperty_w('w_name', W_ImportError),
     path = readwrite_attrproperty_w('w_path', W_ImportError),
+    msg = readwrite_attrproperty_w('w_msg', W_ImportError),
 )
 
 
@@ -351,6 +383,10 @@ W_RuntimeError = _new_exception('RuntimeError', W_Exception,
 
 W_UnicodeError = _new_exception('UnicodeError', W_ValueError,
                           """Unicode related error.""")
+
+W_ModuleNotFoundError = _new_exception(
+    'ModuleNotFoundError', W_ImportError, """Module not found."""
+)
 
 
 class W_UnicodeTranslateError(W_UnicodeError):
@@ -362,7 +398,7 @@ class W_UnicodeTranslateError(W_UnicodeError):
 
     def descr_init(self, space, w_object, w_start, w_end, w_reason):
         # typechecking
-        space.realunicode_w(w_object)
+        space.utf8_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
         space.realtext_w(w_reason)
@@ -594,38 +630,38 @@ class W_OSError(W_Exception):
 
     def descr_str(self, space):
         if self.w_errno:
-            errno = space.unicode_w(space.str(self.w_errno))
+            errno = space.utf8_w(space.str(self.w_errno))
         else:
-            errno = u""
+            errno = b""
         if self.w_strerror:
-            strerror = space.unicode_w(space.str(self.w_strerror))
+            strerror = space.utf8_w(space.str(self.w_strerror))
         else:
-            strerror = u""
+            strerror = b""
         if rwin32.WIN32 and self.w_winerror:
-            winerror = space.unicode_w(space.str(self.w_winerror))
+            winerror = space.utf8_w(space.str(self.w_winerror))
             # If available, winerror has the priority over errno
             if self.w_filename:
                 if self.w_filename2:
-                    return space.newunicode(u"[WinError %s] %s: %s -> %s" % (
+                    return space.newtext(b"[WinError %s] %s: %s -> %s" % (
                         winerror, strerror,
-                        space.unicode_w(space.repr(self.w_filename)),
-                        space.unicode_w(space.repr(self.w_filename2))))
-                return space.newunicode(u"[WinError %s] %s: %s" % (
+                        space.utf8_w(space.repr(self.w_filename)),
+                        space.utf8_w(space.repr(self.w_filename2))))
+                return space.newtext(b"[WinError %s] %s: %s" % (
                     winerror, strerror,
-                    space.unicode_w(space.repr(self.w_filename))))
-            return space.newunicode(u"[WinError %s] %s" % (
+                    space.utf8_w(space.repr(self.w_filename))))
+            return space.newtext(b"[WinError %s] %s" % (
                 winerror, strerror))
         if self.w_filename:
             if self.w_filename2:
-                return space.newunicode(u"[Errno %s] %s: %s -> %s" % (
+                return space.newtext(b"[Errno %s] %s: %s -> %s" % (
                     errno, strerror,
-                    space.unicode_w(space.repr(self.w_filename)),
-                    space.unicode_w(space.repr(self.w_filename2))))
-            return space.newunicode(u"[Errno %s] %s: %s" % (
+                    space.utf8_w(space.repr(self.w_filename)),
+                    space.utf8_w(space.repr(self.w_filename2))))
+            return space.newtext(b"[Errno %s] %s: %s" % (
                 errno, strerror,
-                space.unicode_w(space.repr(self.w_filename))))
+                space.utf8_w(space.repr(self.w_filename))))
         if self.w_errno and self.w_strerror:
-            return space.newunicode(u"[Errno %s] %s" % (
+            return space.newtext(b"[Errno %s] %s" % (
                 errno, strerror))
         return W_BaseException.descr_str(self, space)
 
@@ -792,23 +828,27 @@ class W_SyntaxError(W_Exception):
             values_w = space.fixedview(self.args_w[1])
             w_tuple = space.newtuple(values_w + [self.w_lastlineno])
             args_w = [self.args_w[0], w_tuple]
-            args_repr = space.unicode_w(space.repr(space.newtuple(args_w)))
+            args_repr = space.utf8_w(space.repr(space.newtuple(args_w)))
             clsname = self.getclass(space).getname(space)
-            return space.newunicode(clsname + args_repr)
+            return space.newtext(clsname + args_repr)
         else:
             return W_Exception.descr_repr(self, space)
 
     # CPython Issue #21669: Custom error for 'print' & 'exec' as statements
     def _report_missing_parentheses(self, space):
-        text = space.unicode_w(self.w_text)
-        if u'(' in text:
+        if not space.text_w(self.w_msg).startswith("Missing parentheses in call to "):
+            # the parser identifies the correct places where the error should
+            # be produced
+            return
+        text = space.utf8_w(self.w_text)
+        if b'(' in text:
             # Use default error message for any line with an opening paren
             return
         # handle the simple statement case
         if self._check_for_legacy_statements(space, text, 0):
             return
         # Handle the one-line complex statement case
-        pos = text.find(u':')
+        pos = text.find(b':')
         if pos < 0:
             return
         # Check again, starting from just after the colon
@@ -816,7 +856,7 @@ class W_SyntaxError(W_Exception):
 
     def _check_for_legacy_statements(self, space, text, start):
         # Ignore leading whitespace
-        while start < len(text) and text[start] == u' ':
+        while start < len(text) and text[start] == b' ':
             start += 1
         # Checking against an empty or whitespace-only part of the string
         if start == len(text):
@@ -824,14 +864,40 @@ class W_SyntaxError(W_Exception):
         if start > 0:
             text = text[start:]
         # Check for legacy print statements
-        if text.startswith(u"print "):
-            self.w_msg = space.newtext("Missing parentheses in call to 'print'")
+        if text.startswith(b"print "):
+            self._set_legacy_print_statement_msg(space, text)
             return True
         # Check for legacy exec statements
-        if text.startswith(u"exec "):
+        if text.startswith(b"exec "):
             self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
             return True
         return False
+
+    def _set_legacy_print_statement_msg(self, space, text):
+        text = text[len("print"):]
+        text = text.strip()
+        if text.endswith(";"):
+            end = len(text) - 1
+            assert end >= 0
+            text = text[:end].strip()
+
+        maybe_end = ""
+        if text.endswith(","):
+            maybe_end = " end=\" \""
+
+        suggestion = "print(%s%s)" % (
+                text, maybe_end)
+
+        # try to see whether the suggestion would compile, otherwise discard it
+        compiler = space.createcompiler()
+        try:
+            compiler.compile(suggestion, '?', 'eval', 0)
+        except OperationError:
+            pass
+        else:
+            self.w_msg = space.newtext(
+                "Missing parentheses in call to 'print'. Did you mean %s?" % (
+                    suggestion, ))
 
 
 W_SyntaxError.typedef = TypeDef(
@@ -1010,7 +1076,7 @@ class W_UnicodeEncodeError(W_UnicodeError):
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
         space.realtext_w(w_encoding)
-        space.realunicode_w(w_object)
+        space.realutf8_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
         space.realtext_w(w_reason)

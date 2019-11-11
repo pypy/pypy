@@ -6,10 +6,12 @@ import os
 import py
 import sys
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rstring import UnicodeBuilder, assert_str0
-from rpython.rlib.runicode import (code_to_unichr,
+from rpython.rlib.rstring import StringBuilder, assert_str0
+from rpython.rlib.runicode import (
     default_unicode_error_decode, default_unicode_error_encode)
+from rpython.rlib.rutf8 import unichr_as_utf8
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import r_uint
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -38,15 +40,13 @@ pypy_wchar2char_free = llexternal('pypy_wchar2char_free', [rffi.CCHARP],
                                   lltype.Void)
 
 
-def unicode_encode_locale_surrogateescape(u, errorhandler=None):
+def unicode_encode_locale_surrogateescape(u):
     """Encode unicode via the locale codecs (POSIX wcstombs) with the
     surrogateescape handler.
 
-    The optional errorhandler is only called in the case of fatal
-    errors.
+    The errorhandler is never called
     """
-    if errorhandler is None:
-        errorhandler = default_unicode_error_encode
+    errorhandler = default_unicode_error_encode
 
     with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as errorposp:
         with scoped_unicode2rawwcharp(u) as ubuf:
@@ -64,15 +64,14 @@ def unicode_encode_locale_surrogateescape(u, errorhandler=None):
             pypy_wchar2char_free(sbuf)
 
 
-def str_decode_locale_surrogateescape(s, errorhandler=None):
+def str_decode_locale_surrogateescape(s):
     """Decode strs via the locale codecs (POSIX mrbtowc) with the
     surrogateescape handler.
 
-    The optional errorhandler is only called in the case of fatal
+    The errorhandler is never called
     errors.
     """
-    if errorhandler is None:
-        errorhandler = default_unicode_error_decode
+    errorhandler = default_unicode_error_decode
 
     with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as sizep:
         with rffi.scoped_str2charp(s) as sbuf:
@@ -82,7 +81,7 @@ def str_decode_locale_surrogateescape(s, errorhandler=None):
                 errmsg = _errmsg("pypy_char2wchar")
                 errorhandler('strict', 'filesystemencoding', errmsg, s, 0, 1)
             size = rffi.cast(lltype.Signed, sizep[0])
-            return rawwcharp2unicoden(ubuf, size)
+            return rawwcharp2utf8en(ubuf, size), size
         finally:
             pypy_char2wchar_free(ubuf)
 
@@ -138,14 +137,17 @@ def _unicode2rawwcharp_loop(u, array):
 _unicode2rawwcharp_loop._annenforceargs_ = [unicode, None]
 
 
-def rawwcharp2unicoden(wcp, maxlen):
-    b = UnicodeBuilder(maxlen)
+def rawwcharp2utf8en(wcp, maxlen):
+    b = StringBuilder(maxlen)
     i = 0
-    while i < maxlen and rffi.cast(lltype.Signed, wcp[i]) != 0:
-        b.append(code_to_unichr(wcp[i]))
+    while i < maxlen:
+        v = r_uint(wcp[i])
+        if v == 0:
+            break
+        b.append(unichr_as_utf8(v, True))
         i += 1
     return assert_str0(b.build())
-rawwcharp2unicoden._annenforceargs_ = [None, int]
+rawwcharp2utf8en._annenforceargs_ = [None, int]
 
 
 def _should_merge_surrogates():

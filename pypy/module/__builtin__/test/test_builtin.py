@@ -40,9 +40,8 @@ class AppTestBuiltinApp:
         assert isinstance(eval("b'hi'"), bytes)
 
     def test_import(self):
-        m = __import__('pprint')
-        assert m.pformat({}) == '{}'
-        assert m.__name__ == "pprint"
+        m = __import__('sys')
+        assert m.__name__ == "sys"
         raises(ImportError, __import__, 'spamspam')
         raises(TypeError, __import__, 1, 2, 3, 4)
 
@@ -190,8 +189,8 @@ class AppTestBuiltinApp:
         assert names == ['a', 'b', 'c', 'd']
 
     def test_dir_broken_module(self):
-        import types
-        class Foo(types.ModuleType):
+        import sys
+        class Foo(type(sys)):
             __dict__ = 8
         raises(TypeError, dir, Foo("foo"))
 
@@ -217,8 +216,8 @@ class AppTestBuiltinApp:
                 return 42
         f = Foo()
         raises(TypeError, dir, f)
-        import types
-        class Foo(types.ModuleType):
+        import sys
+        class Foo(type(sys)):
             def __dir__(self):
                 return ["blah"]
         assert dir(Foo("a_mod")) == ["blah"]
@@ -402,6 +401,13 @@ class AppTestBuiltinApp:
         raises(TypeError, range, 1, 2, '1')
         raises(TypeError, range, 1, 2, 3+2j)
 
+    def test_range_bool(self):
+        import sys
+        a = range(-sys.maxsize, sys.maxsize)
+        assert bool(a) is True
+        b = range(10, 0)
+        assert bool(b) is False
+
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)
@@ -420,6 +426,7 @@ class AppTestBuiltinApp:
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
         raises(TypeError, sorted, [], reverse=None)
+        raises(TypeError, sorted, [], None)
 
     def test_reversed_simple_sequences(self):
         l = range(5)
@@ -573,10 +580,10 @@ class AppTestBuiltinApp:
     def test_print_function(self):
         import builtins
         import sys
-        import io
+        import _io
         pr = getattr(builtins, "print")
         save = sys.stdout
-        out = sys.stdout = io.StringIO()
+        out = sys.stdout = _io.StringIO()
         try:
             pr("Hello,", "person!")
             pr("2nd line", file=None)
@@ -585,24 +592,24 @@ class AppTestBuiltinApp:
         finally:
             sys.stdout = save
         assert out.getvalue() == "Hello, person!\n2nd line\n"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr("Hello,", "person!", file=out)
         assert out.getvalue() == "Hello, person!\n"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr("Hello,", "person!", file=out, end="")
         assert out.getvalue() == "Hello, person!"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr("Hello,", "person!", file=out, sep="X")
         assert out.getvalue() == "Hello,Xperson!\n"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr(b"Hello,", b"person!", file=out)
         result = out.getvalue()
         assert isinstance(result, str)
         assert result == "b'Hello,' b'person!'\n"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr(None, file=out)
         assert out.getvalue() == "None\n"
-        out = sys.stdout = io.StringIO()
+        out = sys.stdout = _io.StringIO()
         try:
             pr("amaury", file=None)
         finally:
@@ -611,11 +618,11 @@ class AppTestBuiltinApp:
 
     def test_print_function2(self):
         import builtins
-        import io
+        import _io
         class MyStr(str):
             def __str__(self):
                 return "sqlalchemy"
-        out = io.StringIO()
+        out = _io.StringIO()
         s = MyStr('A')
         pr = getattr(builtins, 'print')
         pr(s, file=out)
@@ -772,17 +779,19 @@ class AppTestGetattr:
         import sys
         if '__pypy__' not in sys.modules:
             skip('CPython uses wrapper types for this')
-        from types import FunctionType, MethodType
-        assert isinstance(getattr(type(None), '__eq__'), FunctionType)
-        assert isinstance(getattr(None, '__eq__'), MethodType)
+        class C:
+            def _m(self): pass
+        assert isinstance(getattr(type(None), '__eq__'), type(lambda: None))
+        assert isinstance(getattr(None, '__eq__'), type(C()._m))
 
     def test_getattr_userobject(self):
-        from types import FunctionType, MethodType
+        class C:
+            def _m(self): pass
         class A(object):
             def __eq__(self, other):
                 pass
         a = A()
-        assert isinstance(getattr(A, '__eq__'), FunctionType)
-        assert isinstance(getattr(a, '__eq__'), MethodType)
+        assert isinstance(getattr(A, '__eq__'), type(lambda: None))
+        assert isinstance(getattr(a, '__eq__'), type(C()._m))
         a.__eq__ = 42
         assert a.__eq__ == 42

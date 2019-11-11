@@ -25,10 +25,12 @@ def print_list(extracted_list, file=None):
         print(item, file=file, end="")
 
 def format_list(extracted_list):
-    """Format a list of traceback entry tuples for printing.
+    """Format a list of tuples or FrameSummary objects for printing.
 
-    Given a list of tuples as returned by extract_tb() or
-    extract_stack(), return a list of strings ready for printing.
+    Given a list of tuples or FrameSummary objects as returned by
+    extract_tb() or extract_stack(), return a list of strings ready
+    for printing.
+
     Each string in the resulting list corresponds to the item with the
     same index in the argument list.  Each string ends in a newline;
     the strings may contain internal newlines as well, for those items
@@ -55,15 +57,17 @@ def format_tb(tb, limit=None):
     return extract_tb(tb, limit=limit).format()
 
 def extract_tb(tb, limit=None):
-    """Return list of up to limit pre-processed entries from traceback.
+    """
+    Return a StackSummary object representing a list of
+    pre-processed entries from traceback.
 
     This is useful for alternate formatting of stack traces.  If
     'limit' is omitted or None, all entries are extracted.  A
-    pre-processed stack trace entry is a quadruple (filename, line
-    number, function name, text) representing the information that is
-    usually printed for a stack trace.  The text is a string with
-    leading and trailing whitespace stripped; if the source is not
-    available it is None.
+    pre-processed stack trace entry is a FrameSummary object
+    containing attributes filename, lineno, name, and line
+    representing the information that is usually printed for a stack
+    trace.  The line is a string with leading and trailing
+    whitespace stripped; if the source is not available it is None.
     """
     return StackSummary.extract(walk_tb(tb), limit=limit)
 
@@ -307,6 +311,8 @@ def walk_tb(tb):
         tb = tb.tb_next
 
 
+_RECURSIVE_CUTOFF = 3 # Also hardcoded in traceback.c.
+
 class StackSummary(list):
     """A stack of frames."""
 
@@ -360,10 +366,9 @@ class StackSummary(list):
 
     @classmethod
     def from_list(klass, a_list):
-        """Create a StackSummary from a simple list of tuples.
-
-        This method supports the older Python API. Each tuple should be a
-        4-tuple with (filename, lineno, name, line) elements.
+        """
+        Create a StackSummary object from a supplied list of
+        FrameSummary objects or old-style list of tuples.
         """
         # While doing a fast-path check for isinstance(a_list, StackSummary) is
         # appealing, idlelib.run.cleanup_traceback and other similar code may
@@ -385,9 +390,33 @@ class StackSummary(list):
         resulting list corresponds to a single frame from the stack.
         Each string ends in a newline; the strings may contain internal
         newlines as well, for those items with source text lines.
+
+        For long sequences of the same frame and line, the first few
+        repetitions are shown, followed by a summary line stating the exact
+        number of further repetitions.
         """
         result = []
+        last_file = None
+        last_line = None
+        last_name = None
+        count = 0
         for frame in self:
+            if (last_file is None or last_file != frame.filename or
+                last_line is None or last_line != frame.lineno or
+                last_name is None or last_name != frame.name):
+                if count > _RECURSIVE_CUTOFF:
+                    count -= _RECURSIVE_CUTOFF
+                    result.append(
+                        f'  [Previous line repeated {count} more '
+                        f'time{"s" if count > 1 else ""}]\n'
+                    )
+                last_file = frame.filename
+                last_line = frame.lineno
+                last_name = frame.name
+                count = 0
+            count += 1
+            if count > _RECURSIVE_CUTOFF:
+                continue
             row = []
             row.append('  File "{}", line {}, in {}\n'.format(
                 frame.filename, frame.lineno, frame.name))
@@ -397,6 +426,12 @@ class StackSummary(list):
                 for name, value in sorted(frame.locals.items()):
                     row.append('    {name} = {value}\n'.format(name=name, value=value))
             result.append(''.join(row))
+        if count > _RECURSIVE_CUTOFF:
+            count -= _RECURSIVE_CUTOFF
+            result.append(
+                f'  [Previous line repeated {count} more '
+                f'time{"s" if count > 1 else ""}]\n'
+            )
         return result
 
 
@@ -436,11 +471,11 @@ class TracebackException:
         # Handle loops in __cause__ or __context__.
         if _seen is None:
             _seen = set()
-        _seen.add(exc_value)
+        _seen.add(id(exc_value))
         # Gracefully handle (the way Python 2.4 and earlier did) the case of
         # being called with no type or value (None, None, None).
         if (exc_value and exc_value.__cause__ is not None
-            and exc_value.__cause__ not in _seen):
+            and id(exc_value.__cause__) not in _seen):
             cause = TracebackException(
                 type(exc_value.__cause__),
                 exc_value.__cause__,
@@ -452,7 +487,7 @@ class TracebackException:
         else:
             cause = None
         if (exc_value and exc_value.__context__ is not None
-            and exc_value.__context__ not in _seen):
+            and id(exc_value.__context__) not in _seen):
             context = TracebackException(
                 type(exc_value.__context__),
                 exc_value.__context__,
@@ -487,10 +522,9 @@ class TracebackException:
             self._load_lines()
 
     @classmethod
-    def from_exception(self, exc, *args, **kwargs):
+    def from_exception(cls, exc, *args, **kwargs):
         """Create a TracebackException from an exception."""
-        return TracebackException(
-            type(exc), exc, exc.__traceback__, *args, **kwargs)
+        return cls(type(exc), exc, exc.__traceback__, *args, **kwargs)
 
     def _load_lines(self):
         """Private API. force all lines in the stack to be loaded."""

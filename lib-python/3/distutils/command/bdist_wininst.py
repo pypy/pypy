@@ -29,7 +29,7 @@ class bdist_wininst(Command):
                     ('no-target-compile', 'c',
                      "do not compile .py to .pyc on the target system"),
                     ('no-target-optimize', 'o',
-                     "do not compile .py to .pyo (optimized)"
+                     "do not compile .py to .pyo (optimized) "
                      "on the target system"),
                     ('dist-dir=', 'd',
                      "directory to put final built distributions in"),
@@ -40,7 +40,7 @@ class bdist_wininst(Command):
                     ('skip-build', None,
                      "skip rebuilding everything (for testing/debugging)"),
                     ('install-script=', None,
-                     "basename of installation script to be run after"
+                     "basename of installation script to be run after "
                      "installation or before deinstallation"),
                     ('pre-install-script=', None,
                      "Fully qualified filename of a script to be run before "
@@ -141,7 +141,7 @@ class bdist_wininst(Command):
             target_version = self.target_version
             if not target_version:
                 assert self.skip_build, "Should have already checked this"
-                target_version = sys.version[0:3]
+                target_version = '%d.%d' % sys.version_info[:2]
             plat_specifier = ".%s-%s" % (self.plat_name, target_version)
             build = self.get_finalized_command('build')
             build.build_lib = os.path.join(build.build_base,
@@ -319,26 +319,29 @@ class bdist_wininst(Command):
         # string compares seem wrong, but are what sysconfig.py itself uses
         if self.target_version and self.target_version < cur_version:
             if self.target_version < "2.4":
-                bv = 6.0
+                bv = '6.0'
             elif self.target_version == "2.4":
-                bv = 7.1
+                bv = '7.1'
             elif self.target_version == "2.5":
-                bv = 8.0
+                bv = '8.0'
             elif self.target_version <= "3.2":
-                bv = 9.0
+                bv = '9.0'
             elif self.target_version <= "3.4":
-                bv = 10.0
+                bv = '10.0'
             else:
-                bv = 14.0
+                bv = '14.0'
         else:
             # for current version - use authoritative check.
             try:
                 from msvcrt import CRT_ASSEMBLY_VERSION
             except ImportError:
                 # cross-building, so assume the latest version
-                bv = 14.0
+                bv = '14.0'
             else:
-                bv = float('.'.join(CRT_ASSEMBLY_VERSION.split('.', 2)[:2]))
+                # as far as we know, CRT is binary compatible based on
+                # the first field, so assume 'x.0' until proven otherwise
+                major = CRT_ASSEMBLY_VERSION.partition('.')[0]
+                bv = major + '.0'
 
 
         # wininst-x.y.exe is in the same directory as this file
@@ -354,7 +357,7 @@ class bdist_wininst(Command):
         else:
             sfix = ''
 
-        filename = os.path.join(directory, "wininst-%.1f%s.exe" % (bv, sfix))
+        filename = os.path.join(directory, "wininst-%s%s.exe" % (bv, sfix))
         f = open(filename, "rb")
         try:
             return f.read()

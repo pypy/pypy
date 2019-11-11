@@ -1,6 +1,7 @@
 import sys
 import compileall
 import importlib.util
+import test.test_importlib.util
 import os
 import pathlib
 import py_compile
@@ -40,6 +41,11 @@ class CompileallTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.directory)
 
+    def add_bad_source_file(self):
+        self.bad_source_path = os.path.join(self.directory, '_test_bad.py')
+        with open(self.bad_source_path, 'w') as file:
+            file.write('x (\n')
+
     def data(self):
         with open(self.bc_path, 'rb') as file:
             data = file.read(8)
@@ -78,15 +84,47 @@ class CompileallTests(unittest.TestCase):
                 os.unlink(fn)
             except:
                 pass
-        compileall.compile_file(self.source_path, force=False, quiet=True)
+        self.assertTrue(compileall.compile_file(self.source_path,
+                                                force=False, quiet=True))
         self.assertTrue(os.path.isfile(self.bc_path) and
                         not os.path.isfile(self.bc_path2))
         os.unlink(self.bc_path)
-        compileall.compile_dir(self.directory, force=False, quiet=True)
+        self.assertTrue(compileall.compile_dir(self.directory, force=False,
+                                               quiet=True))
         self.assertTrue(os.path.isfile(self.bc_path) and
                         os.path.isfile(self.bc_path2))
         os.unlink(self.bc_path)
         os.unlink(self.bc_path2)
+        # Test against bad files
+        self.add_bad_source_file()
+        self.assertFalse(compileall.compile_file(self.bad_source_path,
+                                                 force=False, quiet=2))
+        self.assertFalse(compileall.compile_dir(self.directory,
+                                                force=False, quiet=2))
+
+    def test_compile_file_pathlike(self):
+        self.assertFalse(os.path.isfile(self.bc_path))
+        # we should also test the output
+        with support.captured_stdout() as stdout:
+            self.assertTrue(compileall.compile_file(pathlib.Path(self.source_path)))
+        self.assertRegex(stdout.getvalue(), r'Compiling ([^WindowsPath|PosixPath].*)')
+        self.assertTrue(os.path.isfile(self.bc_path))
+
+    def test_compile_file_pathlike_ddir(self):
+        self.assertFalse(os.path.isfile(self.bc_path))
+        self.assertTrue(compileall.compile_file(pathlib.Path(self.source_path),
+                                                ddir=pathlib.Path('ddir_path'),
+                                                quiet=2))
+        self.assertTrue(os.path.isfile(self.bc_path))
+
+    def test_compile_path(self):
+        with test.test_importlib.util.import_state(path=[self.directory]):
+            self.assertTrue(compileall.compile_path(quiet=2))
+
+        with test.test_importlib.util.import_state(path=[self.directory]):
+            self.add_bad_source_file()
+            self.assertFalse(compileall.compile_path(skip_curdir=False,
+                                                     force=True, quiet=2))
 
     def test_no_pycache_in_non_package(self):
         # Bug 8563 reported that __pycache__ directories got created by
@@ -115,7 +153,15 @@ class CompileallTests(unittest.TestCase):
                                                    optimization=opt)
         self.assertTrue(os.path.isfile(cached3))
 
-    @mock.patch('compileall.ProcessPoolExecutor')
+    def test_compile_dir_pathlike(self):
+        self.assertFalse(os.path.isfile(self.bc_path))
+        with support.captured_stdout() as stdout:
+            compileall.compile_dir(pathlib.Path(self.directory))
+        line = stdout.getvalue().splitlines()[0]
+        self.assertRegex(line, r'Listing ([^WindowsPath|PosixPath].*)')
+        self.assertTrue(os.path.isfile(self.bc_path))
+
+    @mock.patch('concurrent.futures.ProcessPoolExecutor')
     def test_compile_pool_called(self, pool_mock):
         compileall.compile_dir(self.directory, quiet=True, workers=5)
         self.assertTrue(pool_mock.called)
@@ -125,19 +171,19 @@ class CompileallTests(unittest.TestCase):
                                     "workers must be greater or equal to 0"):
             compileall.compile_dir(self.directory, workers=-1)
 
-    @mock.patch('compileall.ProcessPoolExecutor')
+    @mock.patch('concurrent.futures.ProcessPoolExecutor')
     def test_compile_workers_cpu_count(self, pool_mock):
         compileall.compile_dir(self.directory, quiet=True, workers=0)
         self.assertEqual(pool_mock.call_args[1]['max_workers'], None)
 
-    @mock.patch('compileall.ProcessPoolExecutor')
+    @mock.patch('concurrent.futures.ProcessPoolExecutor')
     @mock.patch('compileall.compile_file')
     def test_compile_one_worker(self, compile_file_mock, pool_mock):
         compileall.compile_dir(self.directory, quiet=True)
         self.assertFalse(pool_mock.called)
         self.assertTrue(compile_file_mock.called)
 
-    @mock.patch('compileall.ProcessPoolExecutor', new=None)
+    @mock.patch('concurrent.futures.ProcessPoolExecutor', new=None)
     @mock.patch('compileall.compile_file')
     def test_compile_missing_multiprocessing(self, compile_file_mock):
         compileall.compile_dir(self.directory, quiet=True, workers=5)
@@ -197,10 +243,9 @@ class CommandLineTests(unittest.TestCase):
             raise unittest.SkipTest('not all entries on sys.path are writable')
 
     def _get_run_args(self, args):
-        interp_args = ['-S']
-        if sys.flags.optimize:
-            interp_args.append({1 : '-O', 2 : '-OO'}[sys.flags.optimize])
-        return interp_args + ['-m', 'compileall'] + list(args)
+        return [*support.optim_args_from_interpreter_flags(),
+                '-S', '-m', 'compileall',
+                *args]
 
     def assertRunOK(self, *args, **env_vars):
         rc, out, err = script_helper.assert_python_ok(

@@ -1,5 +1,6 @@
+import os
 class AppTestClasses:
-    spaceconfig = dict(usemodules=['_multibytecodec'])
+    spaceconfig = dict(usemodules=['_multibytecodec', '_codecs', '_io'])
 
     def setup_class(cls):
         cls.w_IncrementalHzDecoder = cls.space.appexec([], """():
@@ -29,6 +30,7 @@ class AppTestClasses:
 
             return IncrementalBig5hkscsEncoder
         """)
+        cls.w_myfile = cls.space.wrap(os.path.dirname(__file__))
 
     def test_decode_hz(self):
         d = self.IncrementalHzDecoder()
@@ -170,3 +172,27 @@ class AppTestClasses:
         assert r == b'\x88f'
         r = e.encode('\u0304')
         assert r == b'\x88b'
+
+    def test_incremental_big5hkscs(self):
+        import _codecs, _io
+        with open(self.myfile + '/big5hkscs.txt', 'rb') as fid:
+            uni_str =  fid.read()
+        with open(self.myfile + '/big5hkscs-utf8.txt', 'rb') as fid:
+            utf8str =  fid.read()
+        UTF8Reader = _codecs.lookup('utf-8').streamreader
+        for sizehint in [None] + list(range(1, 33)) + \
+                        [64, 128, 256, 512, 1024]:
+            istream = UTF8Reader(_io.BytesIO(utf8str))
+            ostream = _io.BytesIO()
+            encoder = self.IncrementalBig5hkscsEncoder()
+            while 1:
+                if sizehint is not None:
+                    data = istream.read(sizehint)
+                else:
+                    data = istream.read()
+
+                if not data:
+                    break
+                e = encoder.encode(data)
+                ostream.write(e)
+            assert ostream.getvalue() == uni_str

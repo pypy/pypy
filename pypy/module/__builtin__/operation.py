@@ -7,7 +7,8 @@ import math
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from rpython.rlib.runicode import UNICHR
+from rpython.rlib.rfloat import isfinite, round_double, round_away
+from rpython.rlib import rfloat, rutf8
 import __builtin__
 
 def abs(space, w_val):
@@ -29,37 +30,42 @@ def chr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     if code < 0 or code > 0x10FFFF:
         raise oefmt(space.w_ValueError, "chr() arg out of range")
-    c = UNICHR(code)
-    return space.newunicode(c)
+    s = rutf8.unichr_as_utf8(code, allow_surrogates=True)
+    return space.newutf8(s, 1)
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
     return space.len(w_obj)
 
 
-def checkattrname(space, w_name):
+def checkattrname(space, w_name, msg):
     # This is a check to ensure that getattr/setattr/delattr only pass a
-    # string to the rest of the code.  XXX not entirely sure if these three
+    # ascii string to the rest of the code.  XXX not entirely sure if these
     # functions are the only way for non-string objects to reach
     # space.{get,set,del}attr()...
-    # Note that if w_name is already an exact string it must be returned
-    # unmodified (and not e.g. unwrapped-rewrapped).
-    if not space.is_w(space.type(w_name), space.w_text):
-        name = space.text_w(w_name)    # typecheck
-        w_name = space.newtext(name)     # rewrap as a real string
+    # Note that if w_name is already an exact string it must be ascii encoded
+    if not space.isinstance_w(w_name, space.w_text):
+        try:
+            name = space.text_w(w_name)    # typecheck
+        except OperationError as e:
+            if e.match(space, space.w_UnicodeError):
+                raise e
+            raise oefmt(space.w_TypeError,
+                 "%s(): attribute name must be string", msg)
+        w_name = space.newtext(name)
     return w_name
 
 def delattr(space, w_object, w_name):
     """Delete a named attribute on an object.
 delattr(x, 'y') is equivalent to ``del x.y''."""
-    w_name = checkattrname(space, w_name)
+    w_name = checkattrname(space, w_name, 'delattr')
     space.delattr(w_object, w_name)
     return space.w_None
 
 def getattr(space, w_object, w_name, w_defvalue=None):
     """Get a named attribute from an object.
 getattr(x, 'y') is equivalent to ``x.y''."""
-    w_name = checkattrname(space, w_name)
+    w_name = checkattrname(space, w_name, 'getattr')
     try:
         return space.getattr(w_object, w_name)
     except OperationError as e:
@@ -71,7 +77,7 @@ getattr(x, 'y') is equivalent to ``x.y''."""
 def hasattr(space, w_object, w_name):
     """Return whether the object has an attribute with the given name.
     (This is done by calling getattr(object, name) and catching exceptions.)"""
-    w_name = checkattrname(space, w_name)
+    w_name = checkattrname(space, w_name, 'hasattr')
     try:
         space.getattr(w_object, w_name)
     except OperationError as e:
@@ -173,7 +179,7 @@ For simple object types, eval(repr(object)) == object."""
 def setattr(space, w_object, w_name, w_val):
     """Store a named attribute into an object.
 setattr(x, 'y', z) is equivalent to ``x.y = z''."""
-    w_name = checkattrname(space, w_name)
+    w_name = checkattrname(space, w_name, 'setattr')
     space.setattr(w_object, w_name, w_val)
     return space.w_None
 

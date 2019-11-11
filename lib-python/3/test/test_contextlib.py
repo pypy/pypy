@@ -12,6 +12,49 @@ except ImportError:
     threading = None
 
 
+class TestAbstractContextManager(unittest.TestCase):
+
+    def test_enter(self):
+        class DefaultEnter(AbstractContextManager):
+            def __exit__(self, *args):
+                super().__exit__(*args)
+
+        manager = DefaultEnter()
+        self.assertIs(manager.__enter__(), manager)
+
+    def test_exit_is_abstract(self):
+        class MissingExit(AbstractContextManager):
+            pass
+
+        with self.assertRaises(TypeError):
+            MissingExit()
+
+    def test_structural_subclassing(self):
+        class ManagerFromScratch:
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_value, traceback):
+                return None
+
+        self.assertTrue(issubclass(ManagerFromScratch, AbstractContextManager))
+
+        class DefaultEnter(AbstractContextManager):
+            def __exit__(self, *args):
+                super().__exit__(*args)
+
+        self.assertTrue(issubclass(DefaultEnter, AbstractContextManager))
+
+        class NoEnter(ManagerFromScratch):
+            __enter__ = None
+
+        self.assertFalse(issubclass(NoEnter, AbstractContextManager))
+
+        class NoExit(ManagerFromScratch):
+            __exit__ = None
+
+        self.assertFalse(issubclass(NoExit, AbstractContextManager))
+
+
 class ContextManagerTestCase(unittest.TestCase):
 
     def test_contextmanager_plain(self):
@@ -89,7 +132,7 @@ class ContextManagerTestCase(unittest.TestCase):
         def woohoo():
             yield
         try:
-            with self.assertWarnsRegex(PendingDeprecationWarning,
+            with self.assertWarnsRegex(DeprecationWarning,
                                        "StopIteration"):
                 with woohoo():
                     raise stop_exc
@@ -118,6 +161,29 @@ def woohoo():
             self.assertIs(ex, stop_exc)
         else:
             self.fail('StopIteration was suppressed')
+
+    def test_contextmanager_do_not_unchain_non_stopiteration_exceptions(self):
+        @contextmanager
+        def test_issue29692():
+            try:
+                yield
+            except Exception as exc:
+                raise RuntimeError('issue29692:Chained') from exc
+        try:
+            with test_issue29692():
+                raise ZeroDivisionError
+        except Exception as ex:
+            self.assertIs(type(ex), RuntimeError)
+            self.assertEqual(ex.args[0], 'issue29692:Chained')
+            self.assertIsInstance(ex.__cause__, ZeroDivisionError)
+
+        try:
+            with test_issue29692():
+                raise StopIteration('issue29692:Unchained')
+        except Exception as ex:
+            self.assertIs(type(ex), StopIteration)
+            self.assertEqual(ex.args[0], 'issue29692:Unchained')
+            self.assertIsNone(ex.__cause__)
 
     def _create_contextmanager_attribs(self):
         def attribs(**kw):

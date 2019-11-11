@@ -6,7 +6,8 @@ import shutil
 from copy import copy
 from distutils.spawn import find_executable
 
-from test.support import (run_unittest, TESTFN, unlink, check_warnings,
+from test.support import (run_unittest,
+                          import_module, TESTFN, unlink, check_warnings,
                           captured_stdout, impl_detail, import_module,
                           skip_unless_symlink, change_cwd)
 
@@ -244,21 +245,34 @@ class TestSysConfig(unittest.TestCase):
     def test_symlink(self):
         # On Windows, the EXE needs to know where pythonXY.dll is at so we have
         # to add the directory to the path.
+        env = None
         if sys.platform == "win32":
-            os.environ["PATH"] = "{};{}".format(
-                os.path.dirname(sys.executable), os.environ["PATH"])
+            env = {k.upper(): os.environ[k] for k in os.environ}
+            env["PATH"] = "{};{}".format(
+                os.path.dirname(sys.executable), env.get("PATH", ""))
+            # Requires PYTHONHOME as well since we locate stdlib from the
+            # EXE path and not the DLL path (which should be fixed)
+            env["PYTHONHOME"] = os.path.dirname(sys.executable)
+            if sysconfig.is_python_build(True):
+                env["PYTHONPATH"] = os.path.dirname(os.__file__)
 
         # Issue 7880
-        def get(python):
+        def get(python, env=None):
             cmd = [python, '-c',
                    'import sysconfig; print(sysconfig.get_platform())']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=os.environ)
-            return p.communicate()
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, env=env)
+            out, err = p.communicate()
+            if p.returncode:
+                print((out, err))
+                self.fail('Non-zero return code {0} (0x{0:08X})'
+                            .format(p.returncode))
+            return out, err
         real = os.path.realpath(sys.executable)
         link = os.path.abspath(TESTFN)
         os.symlink(real, link)
         try:
-            self.assertEqual(get(real), get(link))
+            self.assertEqual(get(real), get(link, env))
         finally:
             unlink(link)
 
@@ -413,9 +427,12 @@ class TestSysConfig(unittest.TestCase):
         self.assertIsNotNone(vars['SO'])
         self.assertEqual(vars['SO'], vars['EXT_SUFFIX'])
 
-    @unittest.skipUnless(sys.platform == 'linux', 'Linux-specific test')
+    @unittest.skipUnless(sys.platform == 'linux' and
+                         hasattr(sys.implementation, '_multiarch'),
+                         'multiarch-specific test')
     def test_triplet_in_ext_suffix(self):
-        import ctypes, platform, re
+        ctypes = import_module('ctypes')
+        import platform, re
         machine = platform.machine()
         suffix = sysconfig.get_config_var('EXT_SUFFIX')
         if re.match('(aarch64|arm|mips|ppc|powerpc|s390|sparc)', machine):

@@ -264,25 +264,25 @@ class AppTestBasic:
         #
         d = deque('hello world')
         r = d.__reduce__()
-        assert r == (deque, (list('hello world'),))
+        assert r[:3] == (deque, (), None)
         #
         d = deque('hello world', 42)
         r = d.__reduce__()
-        assert r == (deque, (list('hello world'), 42))
+        assert r[:3] == (deque, ((), 42), None)
         #
         class D(deque):
             pass
         d = D('hello world')
         d.a = 5
         r = d.__reduce__()
-        assert r == (D, (list('hello world'), None), {'a': 5})
+        assert r[:3] == (D, (), {'a': 5})
         #
         class D(deque):
             pass
         d = D('hello world', 42)
         d.a = 5
         r = d.__reduce__()
-        assert r == (D, (list('hello world'), 42), {'a': 5})
+        assert r[:3] == (D, ((), 42), {'a': 5})
 
     def test_copy(self):
         from _collections import deque

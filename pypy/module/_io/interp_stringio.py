@@ -1,3 +1,5 @@
+from rpython.rlib.rutf8 import codepoints_in_utf8, next_codepoint_pos
+
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
@@ -9,28 +11,36 @@ from pypy.module._io.interp_iobase import convert_size
 class UnicodeIO(object):
     def __init__(self, data=None, pos=0):
         if data is None:
-            data = []
-        self.data = data
+            data = ''
+        self.data = []
+        self.pos = 0
+        # break the data into unicode codepoints
+        _pos = 0
+        while _pos < pos:
+            _pos = next_codepoint_pos(data, _pos)
+            if _pos >= len(data):
+                break
+        self.write(data[_pos:])
         self.pos = pos
 
     def resize(self, newlength):
         if len(self.data) > newlength:
             self.data = self.data[:newlength]
         if len(self.data) < newlength:
-            self.data.extend([u'\0'] * (newlength - len(self.data)))
+            self.data.extend(['\0'] * (newlength - len(self.data)))
 
     def read(self, size):
         start = self.pos
         available = len(self.data) - start
         if available <= 0:
-            return u''
+            return ''
         if size >= 0 and size <= available:
             end = start + size
         else:
             end = len(self.data)
         assert 0 <= start <= end
         self.pos = end
-        return u''.join(self.data[start:end])
+        return ''.join(self.data[start:end])
 
     def _convert_limit(self, limit):
         if limit < 0 or limit > len(self.data) - self.pos:
@@ -44,7 +54,7 @@ class UnicodeIO(object):
         limit = self._convert_limit(limit)
         start = self.pos
         if start >= len(self.data):
-            return u''
+            return ''
         end = start + limit
         pos = start
         while pos < end:
@@ -61,14 +71,14 @@ class UnicodeIO(object):
                 else:
                     break
         self.pos = pos
-        result = u''.join(self.data[start:pos])
+        result = ''.join(self.data[start:pos])
         return result
 
     def readline(self, marker, limit):
         start = self.pos
         limit = self._convert_limit(limit)
         if start >= len(self.data):
-            return u''
+            return ''
         end = start + limit
         found = False
         for pos in range(start, end - len(marker) + 1):
@@ -84,16 +94,18 @@ class UnicodeIO(object):
         if not found:
             pos = end
         self.pos = pos
-        result = u''.join(self.data[start:pos])
+        result = ''.join(self.data[start:pos])
         return result
 
     def write(self, string):
-        length = len(string)
+        length = codepoints_in_utf8(string)
         if self.pos + length > len(self.data):
             self.resize(self.pos + length)
-
+        pos = 0
         for i in range(length):
-            self.data[self.pos + i] = string[i]
+            nextpos = next_codepoint_pos(string, pos)
+            self.data[self.pos + i] = string[pos:nextpos]
+            pos = nextpos
         self.pos += length
 
     def seek(self, pos):
@@ -104,7 +116,7 @@ class UnicodeIO(object):
             self.resize(size)
 
     def getvalue(self):
-        return u''.join(self.data)
+        return ''.join(self.data)
 
 
 class W_StringIO(W_TextIOBase):
@@ -122,11 +134,14 @@ class W_StringIO(W_TextIOBase):
 
         if space.is_w(w_newline, space.w_None):
             newline = None
+        elif space.isinstance_w(w_newline, space.w_unicode):
+            newline = space.utf8_w(w_newline)
         else:
-            newline = space.unicode_w(w_newline)
+            raise oefmt(space.w_TypeError,
+                 "newline must be str or None, not %T", w_newline)
 
-        if (newline is not None and newline != u"" and newline != u"\n" and
-                newline != u"\r" and newline != u"\r\n"):
+        if (newline is not None and newline != "" and newline != "\n" and
+                newline != "\r" and newline != "\r\n"):
             # Not using oefmt() because I don't know how to use it
             # with unicode
             raise OperationError(space.w_ValueError,
@@ -136,9 +151,9 @@ class W_StringIO(W_TextIOBase):
             )
         if newline is not None:
             self.readnl = newline
-        self.readuniversal = newline is None or newline == u""
+        self.readuniversal = newline is None or newline == ""
         self.readtranslate = newline is None
-        if newline and newline[0] == u"\r":
+        if newline and newline[0] == "\r":
             self.writenl = newline
         if self.readuniversal:
             self.w_decoder = space.call_function(
@@ -154,10 +169,11 @@ class W_StringIO(W_TextIOBase):
     def descr_getstate(self, space):
         w_initialval = self.getvalue_w(space)
         w_dict = space.call_method(self.w_dict, "copy")
-        if self.readnl is None:
+        readnl = self.readnl
+        if readnl is None:
             w_readnl = space.w_None
         else:
-            w_readnl = space.str(space.newunicode(self.readnl))  # YYY
+            w_readnl = space.str(space.newutf8(readnl, codepoints_in_utf8(readnl)))  # YYY
         return space.newtuple([
             w_initialval, w_readnl, space.newint(self.buf.pos), w_dict
         ])
@@ -184,12 +200,13 @@ class W_StringIO(W_TextIOBase):
         # because the string value in the state tuple has already been
         # translated once by __init__. So we do not take any chance and replace
         # object's buffer completely
-        initval = space.unicode_w(w_initval)
+        initval = space.utf8_w(w_initval)
         pos = space.getindex_w(w_pos, space.w_TypeError)
         if pos < 0:
             raise oefmt(space.w_ValueError,
                         "position value cannot be negative")
-        self.buf = UnicodeIO(list(initval), pos)
+        self.buf = UnicodeIO(initval)
+        self.buf.seek(pos)
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
                 raise oefmt(
@@ -217,11 +234,14 @@ class W_StringIO(W_TextIOBase):
                 self.w_decoder, "decode", w_obj, space.w_True)
         else:
             w_decoded = w_obj
-        if self.writenl:
+        writenl = self.writenl
+        if writenl is not None:
             w_decoded = space.call_method(
                 w_decoded, "replace",
-                space.newtext("\n"), space.newunicode(self.writenl))
-        string = space.unicode_w(w_decoded)
+                space.newtext("\n"),
+                space.newutf8(writenl, codepoints_in_utf8(writenl)),
+            )
+        string = space.utf8_w(w_decoded)
         if string:
             self.buf.write(string)
 
@@ -230,7 +250,9 @@ class W_StringIO(W_TextIOBase):
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
-        return space.newunicode(self.buf.read(size))
+        v = self.buf.read(size)
+        lgt = codepoints_in_utf8(v)
+        return space.newutf8(v, lgt)
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
@@ -240,11 +262,12 @@ class W_StringIO(W_TextIOBase):
         else:
             if self.readtranslate:
                 # Newlines are already translated, only search for \n
-                newline = u'\n'
+                newline = '\n'
             else:
                 newline = self.readnl
             result = self.buf.readline(newline, limit)
-        return space.newunicode(result)
+        resultlen = codepoints_in_utf8(result)
+        return space.newutf8(result, resultlen)
 
 
     @unwrap_spec(pos=int, mode=int)
@@ -281,7 +304,9 @@ class W_StringIO(W_TextIOBase):
 
     def getvalue_w(self, space):
         self._check_closed(space)
-        return space.newunicode(self.buf.getvalue())
+        v = self.buf.getvalue()
+        lgt = codepoints_in_utf8(v)
+        return space.newutf8(v, lgt)
 
     def readable_w(self, space):
         self._check_closed(space)

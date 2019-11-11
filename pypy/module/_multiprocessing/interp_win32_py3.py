@@ -9,7 +9,7 @@ def getWindowsError(space):
     message = rwin32.FormatErrorW(errno)
     w_errcode = space.newint(errno)
     return OperationError(space.w_WindowsError,
-                         space.newtuple([w_errcode, space.newunicode(message),
+                         space.newtuple([w_errcode, space.newtext(*message),
                         space.w_None, w_errcode]))
 
 @unwrap_spec(handle=int)

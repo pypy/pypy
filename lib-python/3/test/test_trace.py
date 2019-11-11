@@ -1,11 +1,12 @@
 import os
-import io
 import sys
 from test.support import TESTFN, rmtree, unlink, captured_stdout
+from test.support.script_helper import assert_python_ok, assert_python_failure
+import textwrap
 import unittest
 
 import trace
-from trace import CoverageResults, Trace
+from trace import Trace
 
 from test.tracedmodules import testmod
 
@@ -365,51 +366,77 @@ class Test_Ignore(unittest.TestCase):
         # Matched before.
         self.assertTrue(ignore.names(jn('bar', 'baz.py'), 'baz'))
 
+# Created for Issue 31908 -- CLI utility not writing cover files
+class TestCoverageCommandLineOutput(unittest.TestCase):
 
-class TestDeprecatedMethods(unittest.TestCase):
+    codefile = 'tmp.py'
+    coverfile = 'tmp.cover'
 
-    def test_deprecated_usage(self):
-        sio = io.StringIO()
-        with self.assertWarns(DeprecationWarning):
-            trace.usage(sio)
-        self.assertIn('Usage:', sio.getvalue())
+    def setUp(self):
+        with open(self.codefile, 'w') as f:
+            f.write(textwrap.dedent('''\
+                x = 42
+                if []:
+                    print('unreachable')
+            '''))
 
-    def test_deprecated_Ignore(self):
-        with self.assertWarns(DeprecationWarning):
-            trace.Ignore()
+    def tearDown(self):
+        unlink(self.codefile)
+        unlink(self.coverfile)
 
-    def test_deprecated_modname(self):
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual("spam", trace.modname("spam"))
+    def test_cover_files_written_no_highlight(self):
+        argv = '-m trace --count'.split() + [self.codefile]
+        status, stdout, stderr = assert_python_ok(*argv)
+        self.assertTrue(os.path.exists(self.coverfile))
+        with open(self.coverfile) as f:
+            self.assertEqual(f.read(),
+                "    1: x = 42\n"
+                "    1: if []:\n"
+                "           print('unreachable')\n"
+            )
 
-    def test_deprecated_fullmodname(self):
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual("spam", trace.fullmodname("spam"))
+    def test_cover_files_written_with_highlight(self):
+        argv = '-m trace --count --missing'.split() + [self.codefile]
+        status, stdout, stderr = assert_python_ok(*argv)
+        self.assertTrue(os.path.exists(self.coverfile))
+        with open(self.coverfile) as f:
+            self.assertEqual(f.read(), textwrap.dedent('''\
+                    1: x = 42
+                    1: if []:
+                >>>>>>     print('unreachable')
+            '''))
 
-    def test_deprecated_find_lines_from_code(self):
-        with self.assertWarns(DeprecationWarning):
-            def foo():
-                pass
-            trace.find_lines_from_code(foo.__code__, ["eggs"])
+class TestCommandLine(unittest.TestCase):
 
-    def test_deprecated_find_lines(self):
-        with self.assertWarns(DeprecationWarning):
-            def foo():
-                pass
-            trace.find_lines(foo.__code__, ["eggs"])
+    def test_failures(self):
+        _errors = (
+            (b'filename is missing: required with the main options', '-l', '-T'),
+            (b'cannot specify both --listfuncs and (--trace or --count)', '-lc'),
+            (b'argument -R/--no-report: not allowed with argument -r/--report', '-rR'),
+            (b'must specify one of --trace, --count, --report, --listfuncs, or --trackcalls', '-g'),
+            (b'-r/--report requires -f/--file', '-r'),
+            (b'--summary can only be used with --count or --report', '-sT'),
+            (b'unrecognized arguments: -y', '-y'))
+        for message, *args in _errors:
+            *_, stderr = assert_python_failure('-m', 'trace', *args)
+            self.assertIn(message, stderr)
 
-    def test_deprecated_find_strings(self):
+    def test_listfuncs_flag_success(self):
         with open(TESTFN, 'w') as fd:
             self.addCleanup(unlink, TESTFN)
-        with self.assertWarns(DeprecationWarning):
-            trace.find_strings(fd.name)
+            fd.write("a = 1\n")
+            status, stdout, stderr = assert_python_ok('-m', 'trace', '-l', TESTFN)
+            self.assertIn(b'functions called:', stdout)
 
-    def test_deprecated_find_executable_linenos(self):
+    def test_sys_argv_list(self):
         with open(TESTFN, 'w') as fd:
             self.addCleanup(unlink, TESTFN)
-        with self.assertWarns(DeprecationWarning):
-            trace.find_executable_linenos(fd.name)
+            fd.write("import sys\n")
+            fd.write("print(type(sys.argv))\n")
 
+        status, direct_stdout, stderr = assert_python_ok(TESTFN)
+        status, trace_stdout, stderr = assert_python_ok('-m', 'trace', '-l', TESTFN)
+        self.assertIn(direct_stdout.strip(), trace_stdout)
 
 if __name__ == '__main__':
     unittest.main()

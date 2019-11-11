@@ -22,17 +22,21 @@ class TestThread(EmbeddingTests):
         add1_cffi = self.prepare_module('add1')
         add2_cffi = self.prepare_module('add2')
         self.compile('thread2-test', [add1_cffi, add2_cffi], threads=True)
-        output = self.execute('thread2-test')
-        output = self._take_out(output, "preparing")
-        output = self._take_out(output, ".")
-        output = self._take_out(output, ".")
-        # at least the 3rd dot should be after everything from ADD2
-        assert output == ("starting\n"
-                          "prepADD2\n"
-                          "adding 1000 and 200 and 30\n"
-                          ".\n"
-                          "adding 40 and 2\n"
-                          "done\n")
+        for i in range(3):
+            output = self.execute('thread2-test')
+            print('='*79)
+            print(output)
+            print('='*79)
+            output = self._take_out(output, "preparing")
+            output = self._take_out(output, ".")
+            output = self._take_out(output, ".")
+            # at least the 3rd dot should be after everything from ADD2
+            assert output == ("starting\n"
+                              "prepADD2\n"
+                              "adding 1000 and 200 and 30\n"
+                              ".\n"
+                              "adding 40 and 2\n"
+                              "done\n")
 
     def test_alt_issue(self):
         add1_cffi = self.prepare_module('add1')

@@ -16,7 +16,7 @@ Here are some of the useful functions provided by this module:
     getmodule() - determine the module that an object came from
     getclasstree() - arrange classes so as to represent their hierarchy
 
-    getargspec(), getargvalues(), getcallargs() - get info about function arguments
+    getargvalues(), getcallargs() - get info about function arguments
     getfullargspec() - same, with support for Python 3 features
     formatargspec(), formatargvalues() - format an argument spec
     getouterframes(), getinnerframes() - get info about frames
@@ -31,6 +31,7 @@ Here are some of the useful functions provided by this module:
 __author__ = ('Ka-Ping Yee <ping@lfw.org>',
               'Yury Selivanov <yselivanov@sprymix.com>')
 
+import abc
 import ast
 import dis
 import collections.abc
@@ -183,11 +184,23 @@ def isgeneratorfunction(object):
 def iscoroutinefunction(object):
     """Return true if the object is a coroutine function.
 
-    Coroutine functions are defined with "async def" syntax,
-    or generators decorated with "types.coroutine".
+    Coroutine functions are defined with "async def" syntax.
     """
     return bool((isfunction(object) or ismethod(object)) and
                 object.__code__.co_flags & CO_COROUTINE)
+
+def isasyncgenfunction(object):
+    """Return true if the object is an asynchronous generator function.
+
+    Asynchronous generator functions are defined with "async def"
+    syntax and have "yield" expressions in their body.
+    """
+    return bool((isfunction(object) or ismethod(object)) and
+                object.__code__.co_flags & CO_ASYNC_GENERATOR)
+
+def isasyncgen(object):
+    """Return true if the object is an asynchronous generator."""
+    return isinstance(object, types.AsyncGeneratorType)
 
 def isgenerator(object):
     """Return true if the object is a generator.
@@ -245,18 +258,24 @@ def iscode(object):
     """Return true if the object is a code object.
 
     Code objects provide these attributes:
-        co_argcount     number of arguments (not including * or ** args)
-        co_code         string of raw compiled bytecode
-        co_consts       tuple of constants used in the bytecode
-        co_filename     name of file in which this code object was created
-        co_firstlineno  number of first line in Python source code
-        co_flags        bitmap: 1=optimized | 2=newlocals | 4=*arg | 8=**arg
-        co_lnotab       encoded mapping of line numbers to bytecode indices
-        co_name         name with which this code object was defined
-        co_names        tuple of names of local variables
-        co_nlocals      number of local variables
-        co_stacksize    virtual machine stack space required
-        co_varnames     tuple of names of arguments and local variables"""
+        co_argcount         number of arguments (not including *, ** args
+                            or keyword only arguments)
+        co_code             string of raw compiled bytecode
+        co_cellvars         tuple of names of cell variables
+        co_consts           tuple of constants used in the bytecode
+        co_filename         name of file in which this code object was created
+        co_firstlineno      number of first line in Python source code
+        co_flags            bitmap: 1=optimized | 2=newlocals | 4=*arg | 8=**arg
+                            | 16=nested | 32=generator | 64=nofree | 128=coroutine
+                            | 256=iterable_coroutine | 512=async_generator
+        co_freevars         tuple of names of free variables
+        co_kwonlyargcount   number of keyword only arguments (not including ** arg)
+        co_lnotab           encoded mapping of line numbers to bytecode indices
+        co_name             name with which this code object was defined
+        co_names            tuple of names of local variables
+        co_nlocals          number of local variables
+        co_stacksize        virtual machine stack space required
+        co_varnames         tuple of names of arguments and local variables"""
     return isinstance(object, types.CodeType)
 
 def isbuiltin(object):
@@ -277,7 +296,27 @@ def isroutine(object):
 
 def isabstract(object):
     """Return true if the object is an abstract base class (ABC)."""
-    return bool(isinstance(object, type) and object.__flags__ & TPFLAGS_IS_ABSTRACT)
+    if not isinstance(object, type):
+        return False
+    if object.__flags__ & TPFLAGS_IS_ABSTRACT:
+        return True
+    if not issubclass(type(object), abc.ABCMeta):
+        return False
+    if hasattr(object, '__abstractmethods__'):
+        # It looks like ABCMeta.__new__ has finished running;
+        # TPFLAGS_IS_ABSTRACT should have been accurate.
+        return False
+    # It looks like ABCMeta.__new__ has not finished running yet; we're
+    # probably in __init_subclass__. We'll look for abstractmethods manually.
+    for name, value in object.__dict__.items():
+        if getattr(value, "__isabstractmethod__", False):
+            return True
+    for base in object.__bases__:
+        for name in getattr(base, "__abstractmethods__", ()):
+            value = getattr(object, name, None)
+            if getattr(value, "__isabstractmethod__", False):
+                return True
+    return False
 
 def getmembers(object, predicate=None):
     """Return all members of an object as (name, value) pairs sorted by name.
@@ -470,13 +509,16 @@ def unwrap(func, *, stop=None):
         def _is_wrapper(f):
             return hasattr(f, '__wrapped__') and not stop(f)
     f = func  # remember the original func for error reporting
-    memo = {id(f)} # Memoise by id to tolerate non-hashable objects
+    # Memoise by id to tolerate non-hashable objects, but store objects to
+    # ensure they aren't destroyed, which would allow their IDs to be reused.
+    memo = {id(f): f}
+    recursion_limit = sys.getrecursionlimit()
     while _is_wrapper(func):
         func = func.__wrapped__
         id_func = id(func)
-        if id_func in memo:
+        if (id_func in memo) or (len(memo) >= recursion_limit):
             raise ValueError('wrapper loop when unwrapping {!r}'.format(f))
-        memo.add(id_func)
+        memo[id_func] = func
     return func
 
 # -------------------------------------------------- source code extraction
@@ -626,23 +668,6 @@ def getfile(object):
         return object.co_filename
     raise TypeError('{!r} is not a module, class, method, '
                     'function, traceback, frame, or code object'.format(object))
-
-ModuleInfo = namedtuple('ModuleInfo', 'name suffix mode module_type')
-
-def getmoduleinfo(path):
-    """Get the module name, suffix, mode, and module type for a given file."""
-    warnings.warn('inspect.getmoduleinfo() is deprecated', DeprecationWarning,
-                  2)
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', PendingDeprecationWarning)
-        import imp
-    filename = os.path.basename(path)
-    suffixes = [(-len(suffix), suffix, mode, mtype)
-                    for suffix, mode, mtype in imp.get_suffixes()]
-    suffixes.sort() # try longest suffixes first, in case they overlap
-    for neglen, suffix, mode, mtype in suffixes:
-        if filename[neglen:] == suffix:
-            return ModuleInfo(filename[:neglen], suffix, mode, mtype)
 
 def getmodulename(path):
     """Return the module name for a given file, or None."""
@@ -933,7 +958,12 @@ def getsourcelines(object):
     object = unwrap(object)
     lines, lnum = findsource(object)
 
-    if ismodule(object):
+    if istraceback(object):
+        object = object.tb_frame
+
+    # for module or frame that corresponds to module, return all source lines
+    if (ismodule(object) or
+        (isframe(object) and object.f_code.co_name == "<module>")):
         return lines, 0
     else:
         return getblock(lines[lnum:]), lnum + 1
@@ -1034,24 +1064,32 @@ def _getfullargs(co):
 ArgSpec = namedtuple('ArgSpec', 'args varargs keywords defaults')
 
 def getargspec(func):
-    """Get the names and default values of a function's arguments.
+    """Get the names and default values of a function's parameters.
 
     A tuple of four things is returned: (args, varargs, keywords, defaults).
     'args' is a list of the argument names, including keyword-only argument names.
-    'varargs' and 'keywords' are the names of the * and ** arguments or None.
-    'defaults' is an n-tuple of the default values of the last n arguments.
+    'varargs' and 'keywords' are the names of the * and ** parameters or None.
+    'defaults' is an n-tuple of the default values of the last n parameters.
 
-    Use the getfullargspec() API for Python 3 code, as annotations
-    and keyword arguments are supported. getargspec() will raise ValueError
-    if the func has either annotations or keyword arguments.
+    This function is deprecated, as it does not support annotations or
+    keyword-only parameters and will raise ValueError if either is present
+    on the supplied callable.
+
+    For a more structured introspection API, use inspect.signature() instead.
+
+    Alternatively, use getfullargspec() for an API with a similar namedtuple
+    based interface, but full support for annotations and keyword-only
+    parameters.
+
+    Deprecated since Python 3.5, use `inspect.getfullargspec()`.
     """
-    warnings.warn("inspect.getargspec() is deprecated, "
-                  "use inspect.signature() instead", DeprecationWarning,
-                  stacklevel=2)
+    warnings.warn("inspect.getargspec() is deprecated since Python 3.0, "
+                  "use inspect.signature() or inspect.getfullargspec()",
+                  DeprecationWarning, stacklevel=2)
     args, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, ann = \
         getfullargspec(func)
     if kwonlyargs or ann:
-        raise ValueError("Function has keyword-only arguments or annotations"
+        raise ValueError("Function has keyword-only parameters or annotations"
                          ", use getfullargspec() API which can support them")
     return ArgSpec(args, varargs, varkw, defaults)
 
@@ -1059,20 +1097,20 @@ FullArgSpec = namedtuple('FullArgSpec',
     'args, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations')
 
 def getfullargspec(func):
-    """Get the names and default values of a callable object's arguments.
+    """Get the names and default values of a callable object's parameters.
 
     A tuple of seven things is returned:
-    (args, varargs, varkw, defaults, kwonlyargs, kwonlydefaults annotations).
-    'args' is a list of the argument names.
-    'varargs' and 'varkw' are the names of the * and ** arguments or None.
-    'defaults' is an n-tuple of the default values of the last n arguments.
-    'kwonlyargs' is a list of keyword-only argument names.
+    (args, varargs, varkw, defaults, kwonlyargs, kwonlydefaults, annotations).
+    'args' is a list of the parameter names.
+    'varargs' and 'varkw' are the names of the * and ** parameters or None.
+    'defaults' is an n-tuple of the default values of the last n parameters.
+    'kwonlyargs' is a list of keyword-only parameter names.
     'kwonlydefaults' is a dictionary mapping names from kwonlyargs to defaults.
-    'annotations' is a dictionary mapping argument names to annotations.
+    'annotations' is a dictionary mapping parameter names to annotations.
 
-    The first four items in the tuple correspond to getargspec().
-
-    This function is deprecated, use inspect.signature() instead.
+    Notable differences from inspect.signature():
+      - the "self" parameter is always reported, even for bound methods
+      - wrapper chains defined by __wrapped__ *not* unwrapped automatically
     """
 
     try:
@@ -1184,8 +1222,7 @@ def formatargspec(args, varargs=None, varkw=None, defaults=None,
                   formatvalue=lambda value: '=' + repr(value),
                   formatreturns=lambda text: ' -> ' + text,
                   formatannotation=formatannotation):
-    """Format an argument spec from the values returned by getargspec
-    or getfullargspec.
+    """Format an argument spec from the values returned by getfullargspec.
 
     The first seven arguments are (args, varargs, varkw, defaults,
     kwonlyargs, kwonlydefaults, annotations).  The other five arguments
@@ -1426,7 +1463,6 @@ def getframeinfo(frame, context=1):
         except OSError:
             lines = index = None
         else:
-            start = max(start, 0)
             start = max(0, min(start, len(lines) - context))
             lines = lines[start:start+context]
             index = lineno - 1 - start
@@ -1963,7 +1999,7 @@ def _signature_fromstr(cls, obj, s, skip_bound_arg=True):
         module = sys.modules.get(module_name, None)
         if module:
             module_dict = module.__dict__
-    sys_module_dict = sys.modules
+    sys_module_dict = sys.modules.copy()
 
     def parse_name(node):
         assert isinstance(node, ast.arg)
@@ -2252,11 +2288,17 @@ def _signature_from_callable(obj, *,
                 sigcls=sigcls)
 
             sig = _signature_get_partial(wrapped_sig, partialmethod, (None,))
-
             first_wrapped_param = tuple(wrapped_sig.parameters.values())[0]
-            new_params = (first_wrapped_param,) + tuple(sig.parameters.values())
-
-            return sig.replace(parameters=new_params)
+            if first_wrapped_param.kind is Parameter.VAR_POSITIONAL:
+                # First argument of the wrapped callable is `*args`, as in
+                # `partialmethod(lambda *args)`.
+                return sig
+            else:
+                sig_params = tuple(sig.parameters.values())
+                assert (not sig_params or
+                        first_wrapped_param is not sig_params[0])
+                new_params = (first_wrapped_param,) + sig_params
+                return sig.replace(parameters=new_params)
 
     if isfunction(obj) or _signature_is_functionlike(obj):
         # If it's a pure Python function, or an object that is duck type
@@ -2401,6 +2443,16 @@ _VAR_POSITIONAL          = _ParameterKind.VAR_POSITIONAL
 _KEYWORD_ONLY            = _ParameterKind.KEYWORD_ONLY
 _VAR_KEYWORD             = _ParameterKind.VAR_KEYWORD
 
+_PARAM_NAME_MAPPING = {
+    _POSITIONAL_ONLY: 'positional-only',
+    _POSITIONAL_OR_KEYWORD: 'positional or keyword',
+    _VAR_POSITIONAL: 'variadic positional',
+    _KEYWORD_ONLY: 'keyword-only',
+    _VAR_KEYWORD: 'variadic keyword'
+}
+
+_get_paramkind_descr = _PARAM_NAME_MAPPING.__getitem__
+
 
 class Parameter:
     """Represents a parameter in a function signature.
@@ -2435,15 +2487,14 @@ class Parameter:
     empty = _empty
 
     def __init__(self, name, kind, *, default=_empty, annotation=_empty):
-
-        if kind not in (_POSITIONAL_ONLY, _POSITIONAL_OR_KEYWORD,
-                        _VAR_POSITIONAL, _KEYWORD_ONLY, _VAR_KEYWORD):
-            raise ValueError("invalid value for 'Parameter.kind' attribute")
-        self._kind = kind
-
+        try:
+            self._kind = _ParameterKind(kind)
+        except ValueError:
+            raise ValueError(f'value {kind!r} is not a valid Parameter.kind')
         if default is not _empty:
-            if kind in (_VAR_POSITIONAL, _VAR_KEYWORD):
-                msg = '{} parameters cannot have default values'.format(kind)
+            if self._kind in (_VAR_POSITIONAL, _VAR_KEYWORD):
+                msg = '{} parameters cannot have default values'
+                msg = msg.format(_get_paramkind_descr(self._kind))
                 raise ValueError(msg)
         self._default = default
         self._annotation = annotation
@@ -2452,7 +2503,23 @@ class Parameter:
             raise ValueError('name is a required attribute for Parameter')
 
         if not isinstance(name, str):
-            raise TypeError("name must be a str, not a {!r}".format(name))
+            msg = 'name must be a str, not a {}'.format(type(name).__name__)
+            raise TypeError(msg)
+
+        if name[0] == '.' and name[1:].isdigit():
+            # These are implicit arguments generated by comprehensions. In
+            # order to provide a friendlier interface to users, we recast
+            # their name as "implicitN" and treat them as positional-only.
+            # See issue 19611.
+            if self._kind != _POSITIONAL_OR_KEYWORD:
+                msg = (
+                    'implicit arguments must be passed as '
+                    'positional or keyword arguments, not {}'
+                )
+                msg = msg.format(_get_paramkind_descr(self._kind))
+                raise ValueError(msg)
+            self._kind = _POSITIONAL_ONLY
+            name = 'implicit{}'.format(name[1:])
 
         if not name.isidentifier():
             raise ValueError('{!r} is not a valid parameter name'.format(name))
@@ -2718,8 +2785,12 @@ class Signature:
                     name = param.name
 
                     if kind < top_kind:
-                        msg = 'wrong parameter order: {!r} before {!r}'
-                        msg = msg.format(top_kind, kind)
+                        msg = (
+                            'wrong parameter order: {} parameter before {} '
+                            'parameter'
+                        )
+                        msg = msg.format(_get_paramkind_descr(top_kind),
+                                         _get_paramkind_descr(kind))
                         raise ValueError(msg)
                     elif kind > top_kind:
                         kind_defaults = False
@@ -2752,19 +2823,25 @@ class Signature:
 
     @classmethod
     def from_function(cls, func):
-        """Constructs Signature for the given python function."""
+        """Constructs Signature for the given python function.
 
-        warnings.warn("inspect.Signature.from_function() is deprecated, "
-                      "use Signature.from_callable()",
+        Deprecated since Python 3.5, use `Signature.from_callable()`.
+        """
+
+        warnings.warn("inspect.Signature.from_function() is deprecated since "
+                      "Python 3.5, use Signature.from_callable()",
                       DeprecationWarning, stacklevel=2)
         return _signature_from_function(cls, func)
 
     @classmethod
     def from_builtin(cls, func):
-        """Constructs Signature for the given builtin function."""
+        """Constructs Signature for the given builtin function.
 
-        warnings.warn("inspect.Signature.from_builtin() is deprecated, "
-                      "use Signature.from_callable()",
+        Deprecated since Python 3.5, use `Signature.from_callable()`.
+        """
+
+        warnings.warn("inspect.Signature.from_builtin() is deprecated since "
+                      "Python 3.5, use Signature.from_callable()",
                       DeprecationWarning, stacklevel=2)
         return _signature_from_builtin(cls, func)
 

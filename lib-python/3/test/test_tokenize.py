@@ -1,34 +1,61 @@
 from test import support
 from tokenize import (tokenize, _tokenize, untokenize, NUMBER, NAME, OP,
                      STRING, ENDMARKER, ENCODING, tok_name, detect_encoding,
-                     open as tokenize_open, Untokenizer)
+                     open as tokenize_open, Untokenizer, generate_tokens,
+                     NEWLINE)
 from io import BytesIO
+import unittest
 from unittest import TestCase, mock
+from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
+                               INVALID_UNDERSCORE_LITERALS)
 import os
 import token
 
+
+# Converts a source string into a list of textual representation
+# of the tokens such as:
+# `    NAME       'if'          (1, 0) (1, 2)`
+# to make writing tests easier.
+def stringify_tokens_from_source(token_generator, source_string):
+    result = []
+    num_lines = len(source_string.splitlines())
+    missing_trailing_nl = source_string[-1] not in '\r\n'
+
+    for type, token, start, end, line in token_generator:
+        if type == ENDMARKER:
+            break
+        # Ignore the new line on the last line if the input lacks one
+        if missing_trailing_nl and type == NEWLINE and end[0] == num_lines:
+            continue
+        type = tok_name[type]
+        result.append(f"    {type:10} {token!r:13} {start} {end}")
+
+    return result
 
 class TokenizeTest(TestCase):
     # Tests for the tokenize module.
 
     # The tests can be really simple. Given a small fragment of source
-    # code, print out a table with tokens. The ENDMARKER is omitted for
-    # brevity.
+    # code, print out a table with tokens. The ENDMARKER, ENCODING and
+    # final NEWLINE are omitted for brevity.
 
     def check_tokenize(self, s, expected):
         # Format the tokens in s in a table format.
-        # The ENDMARKER is omitted.
-        result = []
+        # The ENDMARKER and final NEWLINE are omitted.
         f = BytesIO(s.encode('utf-8'))
-        for type, token, start, end, line in tokenize(f.readline):
-            if type == ENDMARKER:
-                break
-            type = tok_name[type]
-            result.append("    %(type)-10.10s %(token)-13.13r %(start)s %(end)s" %
-                          locals())
+        result = stringify_tokens_from_source(tokenize(f.readline), s)
+
         self.assertEqual(result,
                          ["    ENCODING   'utf-8'       (0, 0) (0, 0)"] +
                          expected.rstrip().splitlines())
+
+    def test_implicit_newline(self):
+        # Make sure that the tokenizer puts in an implicit NEWLINE
+        # when the input lacks a trailing new line.
+        f = BytesIO("x".encode('utf-8'))
+        tokens = list(tokenize(f.readline))
+        self.assertEqual(tokens[-2].type, NEWLINE)
+        self.assertEqual(tokens[-1].type, ENDMARKER)
 
     def test_basic(self):
         self.check_tokenize("1 + 1", """\
@@ -132,18 +159,18 @@ def k(x):
         self.check_tokenize("x = 0xfffffffffff", """\
     NAME       'x'           (1, 0) (1, 1)
     OP         '='           (1, 2) (1, 3)
-    NUMBER     '0xffffffffff (1, 4) (1, 17)
+    NUMBER     '0xfffffffffff' (1, 4) (1, 17)
     """)
         self.check_tokenize("x = 123141242151251616110", """\
     NAME       'x'           (1, 0) (1, 1)
     OP         '='           (1, 2) (1, 3)
-    NUMBER     '123141242151 (1, 4) (1, 25)
+    NUMBER     '123141242151251616110' (1, 4) (1, 25)
     """)
         self.check_tokenize("x = -15921590215012591", """\
     NAME       'x'           (1, 0) (1, 1)
     OP         '='           (1, 2) (1, 3)
     OP         '-'           (1, 4) (1, 5)
-    NUMBER     '159215902150 (1, 5) (1, 22)
+    NUMBER     '15921590215012591' (1, 5) (1, 22)
     """)
 
     def test_float(self):
@@ -185,6 +212,21 @@ def k(x):
     OP         '='           (1, 2) (1, 3)
     NUMBER     '3.14e159'    (1, 4) (1, 12)
     """)
+
+    def test_underscore_literals(self):
+        def number_token(s):
+            f = BytesIO(s.encode('utf-8'))
+            for toktype, token, start, end, line in tokenize(f.readline):
+                if toktype == NUMBER:
+                    return token
+            return 'invalid token'
+        for lit in VALID_UNDERSCORE_LITERALS:
+            if '(' in lit:
+                # this won't work with compound complex inputs
+                continue
+            self.assertEqual(number_token(lit), lit)
+        for lit in INVALID_UNDERSCORE_LITERALS:
+            self.assertNotEqual(number_token(lit), lit)
 
     def test_string(self):
         # String literals
@@ -306,6 +348,50 @@ def k(x):
     STRING     'Rb"abc"'     (1, 20) (1, 27)
     OP         '+'           (1, 28) (1, 29)
     STRING     'RB"abc"'     (1, 30) (1, 37)
+    """)
+        # Check 0, 1, and 2 character string prefixes.
+        self.check_tokenize(r'"a\
+de\
+fg"', """\
+    STRING     '"a\\\\\\nde\\\\\\nfg"\' (1, 0) (3, 3)
+    """)
+        self.check_tokenize(r'u"a\
+de"', """\
+    STRING     'u"a\\\\\\nde"\'  (1, 0) (2, 3)
+    """)
+        self.check_tokenize(r'rb"a\
+d"', """\
+    STRING     'rb"a\\\\\\nd"\'  (1, 0) (2, 2)
+    """)
+        self.check_tokenize(r'"""a\
+b"""', """\
+    STRING     '\"\""a\\\\\\nb\"\""' (1, 0) (2, 4)
+    """)
+        self.check_tokenize(r'u"""a\
+b"""', """\
+    STRING     'u\"\""a\\\\\\nb\"\""' (1, 0) (2, 4)
+    """)
+        self.check_tokenize(r'rb"""a\
+b\
+c"""', """\
+    STRING     'rb"\""a\\\\\\nb\\\\\\nc"\""' (1, 0) (3, 4)
+    """)
+        self.check_tokenize('f"abc"', """\
+    STRING     'f"abc"'      (1, 0) (1, 6)
+    """)
+        self.check_tokenize('fR"a{b}c"', """\
+    STRING     'fR"a{b}c"'   (1, 0) (1, 9)
+    """)
+        self.check_tokenize('f"""abc"""', """\
+    STRING     'f\"\"\"abc\"\"\"'  (1, 0) (1, 10)
+    """)
+        self.check_tokenize(r'f"abc\
+def"', """\
+    STRING     'f"abc\\\\\\ndef"' (1, 0) (2, 4)
+    """)
+        self.check_tokenize(r'Rf"abc\
+def"', """\
+    STRING     'Rf"abc\\\\\\ndef"' (1, 0) (2, 4)
     """)
 
     def test_function(self):
@@ -505,7 +591,7 @@ def k(x):
         # Methods
         self.check_tokenize("@staticmethod\ndef foo(x,y): pass", """\
     OP         '@'           (1, 0) (1, 1)
-    NAME       'staticmethod (1, 1) (1, 13)
+    NAME       'staticmethod' (1, 1) (1, 13)
     NEWLINE    '\\n'          (1, 13) (1, 14)
     NAME       'def'         (2, 0) (2, 3)
     NAME       'foo'         (2, 4) (2, 7)
@@ -569,6 +655,11 @@ def k(x):
     NAME       'async'       (1, 0) (1, 5)
     OP         '='           (1, 6) (1, 7)
     NUMBER     '1'           (1, 8) (1, 9)
+    """)
+
+        self.check_tokenize("async\\", """\
+    ERRORTOKEN '\\\\'          (1, 5) (1, 6)
+    NAME       'async'       (1, 0) (1, 5)
     """)
 
         self.check_tokenize("a = (async = 1)", """\
@@ -927,8 +1018,8 @@ class Test_Tokenize(TestCase):
             else:
                 return b''
 
-        # skip the initial encoding token and the end token
-        tokens = list(_tokenize(readline, encoding='utf-8'))[1:-1]
+        # skip the initial encoding token and the end tokens
+        tokens = list(_tokenize(readline, encoding='utf-8'))[1:-2]
         expected_tokens = [(3, '"ЉЊЈЁЂ"', (1, 0), (1, 7), '"ЉЊЈЁЂ"')]
         self.assertEqual(tokens, expected_tokens,
                          "bytes not decoded with encoding")
@@ -944,8 +1035,8 @@ class Test_Tokenize(TestCase):
             else:
                 return b''
 
-        # skip the end token
-        tokens = list(_tokenize(readline, encoding=None))[:-1]
+        # skip the end tokens
+        tokens = list(_tokenize(readline, encoding=None))[:-2]
         expected_tokens = [(3, '"ЉЊЈЁЂ"', (1, 0), (1, 7), '"ЉЊЈЁЂ"')]
         self.assertEqual(tokens, expected_tokens,
                          "string not tokenized when encoding is None")
@@ -1245,7 +1336,7 @@ class TestTokenize(TestCase):
             tokenize_module.detect_encoding = orig_detect_encoding
             tokenize_module._tokenize = orig__tokenize
 
-        self.assertTrue(encoding_used, encoding)
+        self.assertEqual(encoding_used, encoding)
 
     def test_oneline_defs(self):
         buf = []
@@ -1256,18 +1347,21 @@ class TestTokenize(TestCase):
 
         # Test that 500 consequent, one-line defs is OK
         toks = list(tokenize(BytesIO(buf.encode('utf-8')).readline))
-        self.assertEqual(toks[-2].string, 'OK') # [-1] is always ENDMARKER
+        self.assertEqual(toks[-3].string, 'OK') # [-1] is always ENDMARKER
+                                                # [-2] is always NEWLINE
 
     def assertExactTypeEqual(self, opstr, *optypes):
         tokens = list(tokenize(BytesIO(opstr.encode('utf-8')).readline))
         num_optypes = len(optypes)
-        self.assertEqual(len(tokens), 2 + num_optypes)
+        self.assertEqual(len(tokens), 3 + num_optypes)
         self.assertEqual(token.tok_name[tokens[0].exact_type],
                          token.tok_name[ENCODING])
         for i in range(num_optypes):
             self.assertEqual(token.tok_name[tokens[i + 1].exact_type],
                              token.tok_name[optypes[i]])
         self.assertEqual(token.tok_name[tokens[1 + num_optypes].exact_type],
+                         token.tok_name[token.NEWLINE])
+        self.assertEqual(token.tok_name[tokens[2 + num_optypes].exact_type],
                          token.tok_name[token.ENDMARKER])
 
     def test_exact_type(self):
@@ -1418,7 +1512,7 @@ class TestRoundtrip(TestCase):
         self.check_roundtrip("if x == 1:\n"
                              "    print(x)\n")
         self.check_roundtrip("# This is a comment\n"
-                             "# This also")
+                             "# This also\n")
 
         # Some people use different formatting conventions, which makes
         # untokenize a little trickier. Note that this test involves trailing
@@ -1488,10 +1582,10 @@ class TestRoundtrip(TestCase):
 
         # Tokenize is broken on test_pep3131.py because regular expressions are
         # broken on the obscure unicode identifiers in it. *sigh*
-        # With roundtrip extended to test the 5-tuple mode of  untokenize,
+        # With roundtrip extended to test the 5-tuple mode of untokenize,
         # 7 more testfiles fail.  Remove them also until the failure is diagnosed.
 
-        testfiles.remove(os.path.join(tempdir, "test_pep3131.py"))
+        testfiles.remove(os.path.join(tempdir, "test_unicode_identifiers.py"))
         for f in ('buffer', 'builtin', 'fileio', 'inspect', 'os', 'platform', 'sys'):
             testfiles.remove(os.path.join(tempdir, "test_%s.py") % f)
 

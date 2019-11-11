@@ -13,6 +13,8 @@ def ensure__main__(space):
             raise
     mainmodule = module.Module(space, w_main)
     space.setitem(w_modules, w_main, mainmodule)
+    w_annotations = space.newdict()
+    space.setitem_str(mainmodule.w_dict, '__annotations__', w_annotations)
     return mainmodule
 
 
@@ -32,7 +34,7 @@ def _run_eval_string(source, filename, space, eval):
 
     try:
         if space is None:
-            from pypy.objspace.std import StdObjSpace
+            from pypy.objspace.std.objspace import StdObjSpace
             space = StdObjSpace()
 
         pycode = compilecode(space, source, filename or '<string>', cmd)
@@ -80,7 +82,7 @@ def run_module(module_name, args, space=None):
     implementation.
     """
     if space is None:
-        from pypy.objspace.std import StdObjSpace
+        from pypy.objspace.std.objspace import StdObjSpace
         space = StdObjSpace()
     argv = [module_name]
     if args is not None:

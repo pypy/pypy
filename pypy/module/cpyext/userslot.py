@@ -22,7 +22,7 @@ def slot_sq_length(space, w_obj):
 
 @slot_function([PyObject], lltype.Signed, error=-1)
 def slot_tp_hash(space, w_obj):
-    return space.int_w(space.hash(w_obj))
+    return space.hash_w(w_obj)
 
 @slot_function([PyObject, Py_ssize_t], PyObject)
 def slot_sq_item(space, w_obj, index):

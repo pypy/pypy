@@ -36,26 +36,10 @@ def _new_module(name):
     return type(sys)(name)
 
 
-class _ManageReload:
-
-    """Manages the possible clean-up of sys.modules for load_module()."""
-
-    def __init__(self, name):
-        self._name = name
-
-    def __enter__(self):
-        self._is_reload = self._name in sys.modules
-
-    def __exit__(self, *args):
-        if any(arg is not None for arg in args) and not self._is_reload:
-            try:
-                del sys.modules[self._name]
-            except KeyError:
-                pass
-
 # Module-level locking ########################################################
 
 # A dict mapping module names to weakrefs of _ModuleLock instances
+# Dictionary protected by the global import lock
 _module_locks = {}
 # A dict mapping thread ids to _ModuleLock instances
 _blocking_on = {}
@@ -161,10 +145,7 @@ class _ModuleLockManager:
         self._lock = None
 
     def __enter__(self):
-        try:
-            self._lock = _get_module_lock(self._name)
-        finally:
-            _imp.release_lock()
+        self._lock = _get_module_lock(self._name)
         self._lock.acquire()
 
     def __exit__(self, *args, **kwargs):
@@ -176,32 +157,47 @@ class _ModuleLockManager:
 def _get_module_lock(name):
     """Get or create the module lock for a given module name.
 
-    Should only be called with the import lock taken."""
-    lock = None
+    Acquire/release internally the global import lock to protect
+    _module_locks."""
+
+    _imp.acquire_lock()
     try:
-        lock = _module_locks[name]()
-    except KeyError:
-        pass
-    if lock is None:
-        if _thread is None:
-            lock = _DummyModuleLock(name)
-        else:
-            lock = _ModuleLock(name)
-        def cb(wr):
-            if _module_locks.get(name) is wr:    # XXX PyPy fix?
-                del _module_locks[name]
-        _module_locks[name] = _weakref.ref(lock, cb)
+        try:
+            lock = _module_locks[name]()
+        except KeyError:
+            lock = None
+
+        if lock is None:
+            if _thread is None:
+                lock = _DummyModuleLock(name)
+            else:
+                lock = _ModuleLock(name)
+
+            def cb(ref, name=name):
+                _imp.acquire_lock()
+                try:
+                    # bpo-31070: Check if another thread created a new lock
+                    # after the previous lock was destroyed
+                    # but before the weakref callback was called.
+                    if _module_locks.get(name) is ref:
+                        del _module_locks[name]
+                finally:
+                    _imp.release_lock()
+
+            _module_locks[name] = _weakref.ref(lock, cb)
+    finally:
+        _imp.release_lock()
+
     return lock
 
+
 def _lock_unlock_module(name):
-    """Release the global import lock, and acquires then release the
-    module lock for a given module name.
+    """Acquires then releases the module lock for a given module name.
+
     This is used to ensure a module is completely initialized, in the
     event it is being imported by another thread.
-
-    Should only be called with the import lock taken."""
+    """
     lock = _get_module_lock(name)
-    _imp.release_lock()
     try:
         lock.acquire()
     except _DeadlockError:
@@ -271,7 +267,7 @@ def _load_module_shim(self, fullname):
 # Module specifications #######################################################
 
 def _module_repr(module):
-    # The implementation of ModuleType__repr__().
+    # The implementation of ModuleType.__repr__().
     loader = getattr(module, '__loader__', None)
     if hasattr(loader, 'module_repr'):
         # As soon as BuiltinImporter, FrozenImporter, and NamespaceLoader
@@ -460,9 +456,6 @@ def spec_from_loader(name, loader, *, origin=None, is_package=None):
     return ModuleSpec(name, loader, origin=origin, is_package=is_package)
 
 
-_POPULATE = object()
-
-
 def _spec_from_module(module, loader=None, origin=None):
     # This function is meant for use in _setup().
     try:
@@ -577,9 +570,8 @@ def module_from_spec(spec):
         # module creation should be used.
         module = spec.loader.create_module(spec)
     elif hasattr(spec.loader, 'exec_module'):
-        _warnings.warn('starting in Python 3.6, loaders defining exec_module() '
-                       'must also define create_module()',
-                       DeprecationWarning, stacklevel=2)
+        raise ImportError('loaders that define exec_module() '
+                          'must also define create_module()')
     if module is None:
         module = _new_module(spec.name)
     _init_module_attrs(spec, module)
@@ -604,9 +596,8 @@ def _module_repr_from_spec(spec):
 
 # Used by importlib.reload() and _load_module_shim().
 def _exec(spec, module):
-    """Execute the spec in an existing module's namespace."""
+    """Execute the spec's specified module in an existing module's namespace."""
     name = spec.name
-    _imp.acquire_lock()
     with _ModuleLockManager(name):
         if sys.modules.get(name) is not module:
             msg = 'module {!r} not in sys.modules'.format(name)
@@ -689,7 +680,6 @@ def _load(spec):
     clobbered.
 
     """
-    _imp.acquire_lock()
     with _ModuleLockManager(spec.name):
         return _load_unlocked(spec)
 
@@ -878,14 +868,21 @@ def _find_spec_legacy(finder, name, path):
 
 
 def _find_spec(name, path, target=None):
-    """Find a module's loader."""
-    if sys.meta_path is not None and not sys.meta_path:
+    """Find a module's spec."""
+    meta_path = sys.meta_path
+    if meta_path is None:
+        # PyImport_Cleanup() is running or has been called.
+        raise ImportError("sys.meta_path is None, Python is likely "
+                          "shutting down")
+
+    if not meta_path:
         _warnings.warn('sys.meta_path is empty', ImportWarning)
+
     # We check sys.modules here for the reload case.  While a passed-in
     # target will usually indicate a reload there is no guarantee, whereas
     # sys.modules provides one.
     is_reload = name in sys.modules
-    for finder in sys.meta_path:
+    for finder in meta_path:
         with _ImportLockContext():
             try:
                 find_spec = finder.find_spec
@@ -926,10 +923,9 @@ def _sanity_check(name, package, level):
     if level > 0:
         if not isinstance(package, str):
             raise TypeError('__package__ not set to a string')
-        elif package not in sys.modules:
-            msg = ('Parent module {!r} not loaded, cannot perform relative '
-                   'import')
-            raise SystemError(msg.format(package))
+        elif not package:
+            raise ImportError('attempted relative import with no known parent '
+                              'package')
     if not name and level == 0:
         raise ValueError('Empty module name')
 
@@ -951,10 +947,10 @@ def _find_and_load_unlocked(name, import_):
             path = parent_module.__path__
         except AttributeError:
             msg = (_ERR_MSG + '; {!r} is not a package').format(name, parent)
-            raise ImportError(msg, name=name) from None
+            raise ModuleNotFoundError(msg, name=name) from None
     spec = _find_spec(name, path)
     if spec is None:
-        raise ImportError(_ERR_MSG.format(name), name=name)
+        raise ModuleNotFoundError(_ERR_MSG.format(name), name=name)
     else:
         module = _load_unlocked(spec)
     if parent:
@@ -964,10 +960,23 @@ def _find_and_load_unlocked(name, import_):
     return module
 
 
+_NEEDS_LOADING = object()
+
+
 def _find_and_load(name, import_):
-    """Find and load the module, and release the import lock."""
+    """Find and load the module."""
     with _ModuleLockManager(name):
-        return _find_and_load_unlocked(name, import_)
+        module = sys.modules.get(name, _NEEDS_LOADING)
+        if module is _NEEDS_LOADING:
+            return _find_and_load_unlocked(name, import_)
+
+    if module is None:
+        message = ('import of {} halted; '
+                   'None in sys.modules'.format(name))
+        raise ModuleNotFoundError(message, name=name)
+
+    _lock_unlock_module(name)
+    return module
 
 
 def _gcd_import(name, package=None, level=0):
@@ -982,19 +991,10 @@ def _gcd_import(name, package=None, level=0):
     _sanity_check(name, package, level)
     if level > 0:
         name = _resolve_name(name, package, level)
-    _imp.acquire_lock()
-    if name not in sys.modules:
-        return _find_and_load(name, _gcd_import)
-    module = sys.modules[name]
-    if module is None:
-        _imp.release_lock()
-        message = ('import of {} halted; '
-                   'None in sys.modules'.format(name))
-        raise ImportError(message, name=name)
-    _lock_unlock_module(name)
-    return module
+    return _find_and_load(name, _gcd_import)
 
-def _handle_fromlist(module, fromlist, import_):
+
+def _handle_fromlist(module, fromlist, import_, *, recursive=False):
     """Figure out what __import__ should return.
 
     The import_ parameter is a callable which takes the name of module to
@@ -1005,23 +1005,29 @@ def _handle_fromlist(module, fromlist, import_):
     # The hell that is fromlist ...
     # If a package was imported, try to import stuff from fromlist.
     if hasattr(module, '__path__'):
-        if '*' in fromlist:
-            fromlist = list(fromlist)
-            fromlist.remove('*')
-            if hasattr(module, '__all__'):
-                fromlist.extend(module.__all__)
         for x in fromlist:
-            if not hasattr(module, x):
+            if not isinstance(x, str):
+                if recursive:
+                    where = module.__name__ + '.__all__'
+                else:
+                    where = "``from list''"
+                raise TypeError(f"Item in {where} must be str, "
+                                f"not {type(x).__name__}")
+            elif x == '*':
+                if not recursive and hasattr(module, '__all__'):
+                    _handle_fromlist(module, module.__all__, import_,
+                                     recursive=True)
+            elif not hasattr(module, x):
                 from_name = '{}.{}'.format(module.__name__, x)
                 try:
                     _call_with_frames_removed(import_, from_name)
-                except ImportError as exc:
+                except ModuleNotFoundError as exc:
                     # Backwards-compatibility dictates we ignore failed
                     # imports triggered by fromlist for modules that don't
                     # exist.
-                    if str(exc).startswith(_ERR_MSG_PREFIX):
-                        if exc.name == from_name:
-                            continue
+                    if (exc.name == from_name and
+                        sys.modules.get(from_name, _NEEDS_LOADING) is not None):
+                        continue
                     raise
     return module
 
@@ -1034,7 +1040,19 @@ def _calc___package__(globals):
 
     """
     package = globals.get('__package__')
-    if package is None:
+    spec = globals.get('__spec__')
+    if package is not None:
+        if spec is not None and package != spec.parent:
+            _warnings.warn("__package__ != __spec__.parent "
+                           f"({package!r} != {spec.parent!r})",
+                           ImportWarning, stacklevel=3)
+        return package
+    elif spec is not None:
+        return spec.parent
+    else:
+        _warnings.warn("can't resolve package from __spec__ or __package__, "
+                       "falling back on __name__ and __path__",
+                       ImportWarning, stacklevel=3)
         package = globals['__name__']
         if '__path__' not in globals:
             package = package.rpartition('.')[0]

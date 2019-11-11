@@ -132,6 +132,7 @@ import base64
 import sys
 import time
 from datetime import datetime
+from decimal import Decimal
 import http.client
 import urllib.parse
 from xml.parsers import expat
@@ -151,7 +152,7 @@ def escape(s):
     return s.replace(">", "&gt;",)
 
 # used in User-Agent header sent
-__version__ = sys.version[:3]
+__version__ = '%d.%d' % sys.version_info[:2]
 
 # xmlrpc integer limits
 MAXINT =  2**31-1
@@ -667,6 +668,8 @@ class Unmarshaller:
 
     def start(self, tag, attrs):
         # prepare to handle this element
+        if ':' in tag:
+            tag = tag.split(':')[-1]
         if tag == "array" or tag == "struct":
             self._marks.append(len(self._stack))
         self._data = []
@@ -682,9 +685,13 @@ class Unmarshaller:
         try:
             f = self.dispatch[tag]
         except KeyError:
-            pass # unknown tag ?
-        else:
-            return f(self, "".join(self._data))
+            if ':' not in tag:
+                return # unknown tag ?
+            try:
+                f = self.dispatch[tag.split(':')[-1]]
+            except KeyError:
+                return # unknown tag ?
+        return f(self, "".join(self._data))
 
     #
     # accelerator support
@@ -694,9 +701,13 @@ class Unmarshaller:
         try:
             f = self.dispatch[tag]
         except KeyError:
-            pass # unknown tag ?
-        else:
-            return f(self, data)
+            if ':' not in tag:
+                return # unknown tag ?
+            try:
+                f = self.dispatch[tag.split(':')[-1]]
+            except KeyError:
+                return # unknown tag ?
+        return f(self, data)
 
     #
     # element decoders
@@ -721,14 +732,23 @@ class Unmarshaller:
     def end_int(self, data):
         self.append(int(data))
         self._value = 0
+    dispatch["i1"] = end_int
+    dispatch["i2"] = end_int
     dispatch["i4"] = end_int
     dispatch["i8"] = end_int
     dispatch["int"] = end_int
+    dispatch["biginteger"] = end_int
 
     def end_double(self, data):
         self.append(float(data))
         self._value = 0
     dispatch["double"] = end_double
+    dispatch["float"] = end_double
+
+    def end_bigdecimal(self, data):
+        self.append(Decimal(data))
+        self._value = 0
+    dispatch["bigdecimal"] = end_bigdecimal
 
     def end_string(self, data):
         if self._encoding:
@@ -1107,7 +1127,7 @@ class Transport:
     accept_gzip_encoding = True
 
     # if positive, encode request using gzip if it exceeds this threshold
-    # note that many server will get confused, so only use it if you know
+    # note that many servers will get confused, so only use it if you know
     # that they can decode such a request
     encode_threshold = None #None = don't encode
 
@@ -1238,7 +1258,7 @@ class Transport:
     # Send HTTP request.
     #
     # @param host Host descriptor (URL or (URL, x509 info) tuple).
-    # @param handler Targer RPC handler (a path relative to host)
+    # @param handler Target RPC handler (a path relative to host)
     # @param request_body The XML-RPC request body
     # @param debug Enable debugging if debug is true.
     # @return An HTTPConnection.

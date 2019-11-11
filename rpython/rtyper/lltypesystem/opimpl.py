@@ -17,7 +17,7 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong, r_longlonglong
+from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong, r_longlonglong, r_ulonglonglong
 from rpython.rtyper.lltypesystem.llmemory import AddressAsInt
 
 if r_longlong is r_int:
@@ -38,6 +38,7 @@ argtype_by_name = {
     'llong': r_longlong_arg,
     'ullong': r_ulonglong,
     'lllong': r_longlonglong,
+    'ulllong': r_ulonglonglong,
     }
 
 def no_op(x):
@@ -365,6 +366,16 @@ def op_ullong_rshift(x, y):
     assert isinstance(x, r_ulonglong)
     assert is_valid_int(y)
     return r_ulonglong(x >> y)
+
+def op_ulllong_lshift(x, y):
+    assert isinstance(x, r_ulonglonglong)
+    assert isinstance(y, int)
+    return r_ulonglonglong(x << y)
+
+def op_ulllong_rshift(x, y):
+    assert isinstance(x, r_ulonglonglong)
+    assert is_valid_int(y)
+    return r_ulonglonglong(x >> y)
 
 def op_same_as(x):
     return x
@@ -764,6 +775,9 @@ def op_gc_ignore_finalizer(obj):
 
 def op_gc_move_out_of_nursery(obj):
     return obj
+
+def op_gc_increase_root_stack_depth(new_depth):
+    pass
 
 def op_revdb_do_next_call():
     pass

@@ -174,6 +174,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_unicode(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_utf8(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_fsencode(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -324,7 +327,10 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append("space.text0_w(%s)" % (self.scopenext(),))
 
     def visit_unicode(self, typ):
-        self.run_args.append("space.unicode_w(%s)" % (self.scopenext(),))
+        self.run_args.append("space.realunicode_w(%s)" % (self.scopenext(),))
+
+    def visit_utf8(self, typ):
+        self.run_args.append("space.utf8_w(%s)" % (self.scopenext(),))
 
     def visit_fsencode(self, typ):
         self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
@@ -492,10 +498,13 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.text_w(%s)" % (self.nextarg(),))
 
     def visit_unicode(self, typ):
-        self.unwrap.append("space.unicode_w(%s)" % (self.nextarg(),))
+        self.unwrap.append("space.realunicode_w(%s)" % (self.nextarg(),))
 
     def visit_text0(self, typ):
         self.unwrap.append("space.text0_w(%s)" % (self.nextarg(),))
+
+    def visit_utf8(self, typ):
+        self.unwrap.append("space.utf8_w(%s)" % (self.nextarg(),))
 
     def visit_fsencode(self, typ):
         self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
@@ -529,7 +538,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_kwonly(self, typ):
         raise FastFuncNotSupported
-        
+
     @staticmethod
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
@@ -567,8 +576,10 @@ def int_unwrapping_space_method(typ):
     assert typ in (int, str, float, unicode, r_longlong, r_uint, r_ulonglong, bool)
     if typ is r_int is r_longlong:
         return 'gateway_r_longlong_w'
-    elif typ in (str, unicode):
-        return typ.__name__ + '_w'
+    elif typ is str:
+        return 'utf8_w'
+    elif typ is unicode:
+        return 'realunicode_w'
     elif typ is bool:
         # For argument clinic's "bool" specifier: accept any object, and
         # convert it to a boolean value.  If you don't want this
@@ -744,6 +755,7 @@ class BuiltinCode(Code):
                     self.func__args__ = func
                 elif unwrap_spec == [self_type, ObjSpace, Arguments]:
                     self.__class__ = BuiltinCodePassThroughArguments1
+                    self.descr_reqcls = self_type
                     miniglobals = {'func': func, 'self_type': self_type}
                     d = {}
                     source = """if 1:
@@ -789,16 +801,22 @@ class BuiltinCode(Code):
         except DescrMismatch:
             if w_obj is not None:
                 args = args.prepend(w_obj)
-            return scope_w[0].descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args)
+            return self._type_unwrap_mismatch(space, args)
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
+
+    def _type_unwrap_mismatch(self, space, args):
+        w_obj = args.firstarg()
+        if w_obj is None:
+            raise oefmt(space.w_SystemError, "unexpected DescrMismatch error")
+        return w_obj.descr_call_mismatch(space,
+                                         self.descrmismatch_op,
+                                         self.descr_reqcls,
+                                         args)
 
     def handle_exception(self, space, e):
         try:
@@ -822,10 +840,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
         try:
             w_result = self.func__args__(space, args)
         except DescrMismatch:
-            return args.firstarg().descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args)
+            return self._type_unwrap_mismatch(space, args)
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
@@ -843,10 +858,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
         try:
             w_result = self.func__args__(space, w_obj, args)
         except DescrMismatch:
-            return args.firstarg().descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args.prepend(w_obj))
+            return self._type_unwrap_mismatch(space, args.prepend(w_obj))
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
@@ -886,9 +898,7 @@ class BuiltinCode1(BuiltinCode):
         try:
             w_result = self.fastfunc_1(space, w1)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self._type_unwrap_mismatch(space,
                                           Arguments(space, [w1]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -912,9 +922,7 @@ class BuiltinCode2(BuiltinCode):
         try:
             w_result = self.fastfunc_2(space, w1, w2)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self._type_unwrap_mismatch(space,
                                           Arguments(space, [w1, w2]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -939,9 +947,7 @@ class BuiltinCode3(BuiltinCode):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self._type_unwrap_mismatch(space,
                                           Arguments(space, [w1, w2, w3]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -967,9 +973,7 @@ class BuiltinCode4(BuiltinCode):
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self._type_unwrap_mismatch(space,
                                           Arguments(space,
                                                     [w1, w2, w3, w4]))
         except Exception as e:
@@ -1113,7 +1117,7 @@ class interp2app(W_Root):
             kw_defs_w = []
             for name, w_def in sorted(alldefs_w.items()):
                 assert name in sig.kwonlyargnames
-                w_name = space.newunicode(name.decode('utf-8'))
+                w_name = space.newtext(name)
                 kw_defs_w.append((w_name, w_def))
 
         return defs_w, kw_defs_w

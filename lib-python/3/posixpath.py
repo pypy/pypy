@@ -10,6 +10,18 @@ Some of this can actually be useful on non-Posix systems too, e.g.
 for manipulation of the pathname component of URLs.
 """
 
+# Strings representing various path-related bits and pieces.
+# These are primarily for export; internally, they are hardcoded.
+# Should be set before imports for resolving cyclic dependency.
+curdir = '.'
+pardir = '..'
+extsep = '.'
+sep = '/'
+pathsep = ':'
+defpath = ':/bin:/usr/bin'
+altsep = None
+devnull = '/dev/null'
+
 import os
 import sys
 import stat
@@ -25,16 +37,6 @@ __all__ = ["normcase","isabs","join","splitdrive","split","splitext",
            "devnull","realpath","supports_unicode_filenames","relpath",
            "commonpath"]
 
-# Strings representing various path-related bits and pieces.
-# These are primarily for export; internally, they are hardcoded.
-curdir = '.'
-pardir = '..'
-extsep = '.'
-sep = '/'
-pathsep = ':'
-defpath = ':/bin:/usr/bin'
-altsep = None
-devnull = '/dev/null'
 
 def _get_sep(path):
     if isinstance(path, bytes):
@@ -49,6 +51,7 @@ def _get_sep(path):
 
 def normcase(s):
     """Normalize case of pathname.  Has no effect under Posix"""
+    s = os.fspath(s)
     if not isinstance(s, (bytes, str)):
         raise TypeError("normcase() argument must be str or bytes, "
                         "not '{}'".format(s.__class__.__name__))
@@ -60,6 +63,7 @@ def normcase(s):
 
 def isabs(s):
     """Test whether a path is absolute"""
+    s = os.fspath(s)
     sep = _get_sep(s)
     return s.startswith(sep)
 
@@ -73,12 +77,13 @@ def join(a, *p):
     If any component is an absolute path, all previous path components
     will be discarded.  An empty last part will result in a path that
     ends with a separator."""
+    a = os.fspath(a)
     sep = _get_sep(a)
     path = a
     try:
         if not p:
             path[:0] + sep  #23780: Ensure compatible data type even if p is null.
-        for b in p:
+        for b in map(os.fspath, p):
             if b.startswith(sep):
                 path = b
             elif not path or path.endswith(sep):
@@ -99,6 +104,7 @@ def join(a, *p):
 def split(p):
     """Split a pathname.  Returns tuple "(head, tail)" where "tail" is
     everything after the final slash.  Either part may be empty."""
+    p = os.fspath(p)
     sep = _get_sep(p)
     i = p.rfind(sep) + 1
     head, tail = p[:i], p[i:]
@@ -113,6 +119,7 @@ def split(p):
 # It is always true that root + ext == p.
 
 def splitext(p):
+    p = os.fspath(p)
     if isinstance(p, bytes):
         sep = b'/'
         extsep = b'.'
@@ -128,6 +135,7 @@ splitext.__doc__ = genericpath._splitext.__doc__
 def splitdrive(p):
     """Split a pathname into drive and path. On Posix, drive is always
     empty."""
+    p = os.fspath(p)
     return p[:0], p
 
 
@@ -135,6 +143,7 @@ def splitdrive(p):
 
 def basename(p):
     """Returns the final component of a pathname"""
+    p = os.fspath(p)
     sep = _get_sep(p)
     i = p.rfind(sep) + 1
     return p[i:]
@@ -144,6 +153,7 @@ def basename(p):
 
 def dirname(p):
     """Returns the directory component of a pathname"""
+    p = os.fspath(p)
     sep = _get_sep(p)
     i = p.rfind(sep) + 1
     head = p[:i]
@@ -222,6 +232,7 @@ def ismount(path):
 def expanduser(path):
     """Expand ~ and ~user constructions.  If user or $HOME is unknown,
     do nothing."""
+    path = os.fspath(path)
     if isinstance(path, bytes):
         tilde = b'~'
     else:
@@ -235,7 +246,12 @@ def expanduser(path):
     if i == 1:
         if 'HOME' not in os.environ:
             import pwd
-            userhome = pwd.getpwuid(os.getuid()).pw_dir
+            try:
+                userhome = pwd.getpwuid(os.getuid()).pw_dir
+            except KeyError:
+                # bpo-10496: if the current user identifier doesn't exist in the
+                # password database, return the path unchanged
+                return path
         else:
             userhome = os.environ['HOME']
     else:
@@ -246,6 +262,8 @@ def expanduser(path):
         try:
             pwent = pwd.getpwnam(name)
         except KeyError:
+            # bpo-10496: if the user name from the path doesn't exist in the
+            # password database, return the path unchanged
             return path
         userhome = pwent.pw_dir
     if isinstance(path, bytes):
@@ -267,6 +285,7 @@ _varprogb = None
 def expandvars(path):
     """Expand shell variables of form $var and ${var}.  Unknown variables
     are left unchanged."""
+    path = os.fspath(path)
     global _varprog, _varprogb
     if isinstance(path, bytes):
         if b'$' not in path:
@@ -318,6 +337,7 @@ def expandvars(path):
 
 def normpath(path):
     """Normalize path, eliminating double slashes, etc."""
+    path = os.fspath(path)
     if isinstance(path, bytes):
         sep = b'/'
         empty = b''
@@ -355,6 +375,7 @@ def normpath(path):
 
 def abspath(path):
     """Return an absolute path."""
+    path = os.fspath(path)
     if not isabs(path):
         if isinstance(path, bytes):
             cwd = os.getcwdb()
@@ -370,6 +391,7 @@ def abspath(path):
 def realpath(filename):
     """Return the canonical path of the specified filename, eliminating any
 symbolic links encountered in the path."""
+    filename = os.fspath(filename)
     path, ok = _joinrealpath(filename[:0], filename, {})
     return abspath(path)
 
@@ -434,6 +456,7 @@ def relpath(path, start=None):
     if not path:
         raise ValueError("no path specified")
 
+    path = os.fspath(path)
     if isinstance(path, bytes):
         curdir = b'.'
         sep = b'/'
@@ -445,6 +468,8 @@ def relpath(path, start=None):
 
     if start is None:
         start = curdir
+    else:
+        start = os.fspath(start)
 
     try:
         start_list = [x for x in abspath(start).split(sep) if x]
@@ -472,6 +497,7 @@ def commonpath(paths):
     if not paths:
         raise ValueError('commonpath() arg is an empty sequence')
 
+    paths = tuple(map(os.fspath, paths))
     if isinstance(paths[0], bytes):
         sep = b'/'
         curdir = b'.'

@@ -1,5 +1,6 @@
 from rpython.rlib import rwin32
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib._os_support import UnicodeTraits
 from rpython.translator import cdir
@@ -34,7 +35,7 @@ pypy_GetFinalPathNameByHandle = rffi.llexternal(
 
 
 # plain NotImplementedError is invalid RPython
-class LLNotImplemented(NotImplementedError):
+class LLNotImplemented(Exception):
 
     def __init__(self, msg):
         self.msg = msg
@@ -91,12 +92,13 @@ def make__getfinalpathname_impl(traits):
     assert traits.str is unicode, 'Currently only handles unicode paths'
     win32traits = make_traits(traits)
 
+    @specialize.argtype(0)
     def _getfinalpathname_llimpl(path):
         if not win32traits.check_GetFinalPathNameByHandle():
             raise LLNotImplemented("GetFinalPathNameByHandle not available on "
                                    "this platform")
 
-        hFile = win32traits.CreateFile(path, 0, 0, None,
+        hFile = win32traits.CreateFile(traits.as_str0(path), 0, 0, None,
                                        win32traits.OPEN_EXISTING,
                                        win32traits.FILE_FLAG_BACKUP_SEMANTICS,
                                        rwin32.NULL_HANDLE)
@@ -122,7 +124,8 @@ def make__getfinalpathname_impl(traits):
                     VOLUME_NAME_DOS)
                 if result == 0:
                     raise rwin32.lastSavedWindowsError("GetFinalPathNameByHandle")
-                return buf.str(rffi.cast(lltype.Signed, result))
+                res = buf.str(rffi.cast(lltype.Signed, result))
+                return res.encode('utf8'), len(res)
         finally:
             rwin32.CloseHandle(hFile)
 

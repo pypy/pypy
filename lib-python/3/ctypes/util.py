@@ -67,16 +67,6 @@ if os.name == "nt":
                 return fname
         return None
 
-if os.name == "ce":
-    # search path according to MSDN:
-    # - absolute path specified by filename
-    # - The .exe launch directory
-    # - the Windows directory
-    # - ROM dll files (where are they?)
-    # - OEM specified search path: HKLM\Loader\SystemPath
-    def find_library(name):
-        return name
-
 if os.name == "posix" and sys.platform == "darwin":
     from ctypes.macholib.dyld import dyld_find as _dyld_find
     def find_library(name):
@@ -271,8 +261,8 @@ elif os.name == "posix":
             abi_type = mach_map.get(machine, 'libc6')
 
             # XXX assuming GLIBC's ldconfig (with option -p)
-            regex = os.fsencode(
-                '\s+(lib%s\.[^\s]+)\s+\(%s' % (re.escape(name), abi_type))
+            regex = r'\s+(lib%s\.[^\s]+)\s+\(%s'
+            regex = os.fsencode(regex % (re.escape(name), abi_type))
             try:
                 with subprocess.Popen(['/sbin/ldconfig', '-p'],
                                       stdin=subprocess.DEVNULL,
@@ -285,8 +275,32 @@ elif os.name == "posix":
             except OSError:
                 pass
 
+        def _findLib_ld(name):
+            # See issue #9998 for why this is needed
+            expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
+            cmd = ['ld', '-t']
+            libpath = os.environ.get('LD_LIBRARY_PATH')
+            if libpath:
+                for d in libpath.split(':'):
+                    cmd.extend(['-L', d])
+            cmd.extend(['-o', os.devnull, '-l%s' % name])
+            result = None
+            try:
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
+                                     universal_newlines=True)
+                out, _ = p.communicate()
+                res = re.search(expr, os.fsdecode(out))
+                if res:
+                    result = res.group(0)
+            except Exception as e:
+                pass  # result will be None
+            return result
+
         def find_library(name):
-            return _findSoname_ldconfig(name) or _get_soname(_findLib_gcc(name))
+            # See issue #9998
+            return _findSoname_ldconfig(name) or \
+                   _get_soname(_findLib_gcc(name) or _findLib_ld(name))
 
 ################################################################
 # test code

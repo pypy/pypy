@@ -156,7 +156,14 @@ class AppTestAppSysTests:
 
     def test_getfilesystemencoding(self):
         import sys
-        assert sys.getfilesystemencoding() == self.filesystemenc
+        enc = sys.getfilesystemencoding()
+        if self.appdirect:
+            assert enc == self.filesystemenc
+        else:
+            # see comment in 'setup_after_space_initialization'
+            untranslated_enc = {'win32': 'mbcs', 'darwin': 'utf-8'}.get(enc, 'ascii')
+            assert enc == untranslated_enc
+
 
     def test_float_info(self):
         import sys
@@ -380,6 +387,53 @@ class AppTestSysModulePortedFromCPython:
         sys.stdout = savestdout
         assert out.getvalue() == 'hello\n123 456'   # no final \n added in 3.x
         """
+
+    def test_tracebacklimit_excepthook(self):
+        import sys
+        savestderr = sys.stderr
+        assert not hasattr(sys, "tracebacklimit")
+
+        eh = sys.__excepthook__
+        def f1():
+            f2()
+        def f2():
+            f3()
+        def f3():
+            raise ValueError(42)
+
+        def get_error_with_tracebacklimit(limit):
+            import _io
+            sys.tracebacklimit = limit
+            sys.stderr = err = _io.StringIO()
+            try:
+                f1()
+            except ValueError:
+                eh(*sys.exc_info())
+            return err.getvalue()
+            # should be removed by the limit
+
+        msg = get_error_with_tracebacklimit(2)
+        assert "f1" not in msg
+        assert "f2" in msg
+        assert "f3" in msg
+
+        msg = get_error_with_tracebacklimit(0)
+        assert "Traceback (most recent call last):" not in msg
+        assert "ValueError" in msg
+
+        msg = get_error_with_tracebacklimit(-1)
+        assert "Traceback (most recent call last):" not in msg
+        assert "ValueError" in msg
+
+        msg = get_error_with_tracebacklimit(1<<100)
+        assert "Traceback (most recent call last):" in msg
+        assert "f1" in msg
+        assert "f2" in msg
+        assert "f3" in msg
+
+        sys.stderr = savestderr
+        del sys.tracebacklimit
+
 
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
@@ -735,6 +789,33 @@ class AppTestSysModulePortedFromCPython:
         import sys
         assert not sys.is_finalizing()
         # xxx should also test when it is True, but maybe not worth the effort
+
+    def test_asyncgen_hooks(self):
+        import sys
+        old = sys.get_asyncgen_hooks()
+        assert old.firstiter is None
+        assert old.finalizer is None
+
+        firstiter = lambda *a: None
+        sys.set_asyncgen_hooks(firstiter=firstiter)
+        hooks = sys.get_asyncgen_hooks()
+        assert hooks.firstiter is firstiter
+        assert hooks[0] is firstiter
+        assert hooks.finalizer is None
+        assert hooks[1] is None
+
+        finalizer = lambda *a: None
+        sys.set_asyncgen_hooks(finalizer=finalizer)
+        hooks = sys.get_asyncgen_hooks()
+        assert hooks.firstiter is firstiter
+        assert hooks[0] is firstiter
+        assert hooks.finalizer is finalizer
+        assert hooks[1] is finalizer
+
+        sys.set_asyncgen_hooks(*old)
+        cur = sys.get_asyncgen_hooks()
+        assert cur.firstiter is None
+        assert cur.finalizer is None
 
 
 class AppTestSysSettracePortedFromCpython(object):

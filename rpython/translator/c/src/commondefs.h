@@ -123,3 +123,7 @@
 #  define MS_WINDOWS    /* a synonym */
 #endif
 #endif
+
+/* stringify a constant */
+#define Py_XSTR(x)   #x
+#define Py_STR(x)  Py_XSTR(x)

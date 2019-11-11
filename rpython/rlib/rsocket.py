@@ -567,17 +567,21 @@ class RSocket(object):
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
             orig_delay_flag = intmask(_c.fcntl(self.fd, _c.F_GETFL, 0))
+            if orig_delay_flag == -1:
+                raise self.error_handler()
             if block:
                 delay_flag = orig_delay_flag & ~_c.O_NONBLOCK
             else:
                 delay_flag = orig_delay_flag | _c.O_NONBLOCK
             if orig_delay_flag != delay_flag:
-                _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+                if _c.fcntl(self.fd, _c.F_SETFL, delay_flag) == -1:
+                    raise self.error_handler()
     elif hasattr(_c, 'ioctlsocket'):
         def _setblocking(self, block):
             flag = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw')
             flag[0] = rffi.cast(rffi.ULONG, not block)
-            _c.ioctlsocket(self.fd, _c.FIONBIO, flag)
+            if _c.ioctlsocket(self.fd, _c.FIONBIO, flag) != 0:
+                raise self.error_handler()
             lltype.free(flag, flavor='raw')
 
     if hasattr(_c, 'poll') and not _c.poll_may_be_broken:
@@ -1301,6 +1305,9 @@ class SocketError(Exception):
         return ''
     def get_msg_unicode(self):
         return self.get_msg().decode('latin-1')
+    def get_msg_utf8(self):
+        msg = self.get_msg()
+        return msg, len(msg)
     def __str__(self):
         return self.get_msg()
 
@@ -1319,6 +1326,8 @@ class CSocketError(SocketErrorWithErrno):
         return _c.socket_strerror_str(self.errno)
     def get_msg_unicode(self):
         return _c.socket_strerror_unicode(self.errno)
+    def get_msg_utf8(self):
+        return _c.socket_strerror_utf8(self.errno)
 
 def last_error():
     return CSocketError(_c.geterrno())
@@ -1329,6 +1338,8 @@ class GAIError(SocketErrorWithErrno):
         return _c.gai_strerror_str(self.errno)
     def get_msg_unicode(self):
         return _c.gai_strerror_unicode(self.errno)
+    def get_msg_utf8(self):
+        return _c.gai_strerror_utf8(self.errno)
 
 class HSocketError(SocketError):
     applevelerrcls = 'herror'

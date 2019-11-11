@@ -188,6 +188,9 @@ class GCManagedHeap(object):
                 hdr.tid &= ~self.gc.gcflag_extra
             else:
                 hdr.tid |= self.gc.gcflag_extra
+        elif subopnum == 4:      # get_gcflag_dummy
+            # returns always False if gc.gcflag_dummy == 0
+            return (hdr.tid & self.gc.gcflag_dummy) != 0
         return (hdr.tid & self.gc.gcflag_extra) != 0
 
     def thread_run(self):

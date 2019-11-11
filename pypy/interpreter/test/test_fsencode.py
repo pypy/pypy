@@ -70,7 +70,7 @@ class TestFSEncode(BaseFSEncodeTest):
             strs.append(self.special_char)
         for st in strs:
             # check roundtrip
-            w_st = space.newunicode(st)
+            w_st = space.newtext(st.encode('utf8'), len(st))
             w_enc = space.fsencode(w_st)
             w_st2 = space.fsdecode(w_enc)
             assert space.eq_w(w_st, w_st2)
@@ -81,7 +81,8 @@ class TestFSEncode(BaseFSEncodeTest):
 
     def test_null_byte(self):
         space = self.space
-        w_u = space.newunicode(u'abc\x00def')
+        uni = u'abc\x00def'
+        w_u = space.newtext(uni.encode('utf8'), len(uni))
         # this can behave in two different ways depending on how
         # much initialized the space is: space.fsencode() can raise
         # ValueError directly, or return a wrapped bytes with the 0
@@ -94,7 +95,7 @@ class TestFSEncode(BaseFSEncodeTest):
         if self.special_char:
             strs.append(self.special_char)
         for st in strs:
-            w_st = space.newunicode(st)
+            w_st = space.newtext(st.encode('utf8'), len(st))
             w_enc = space.fsencode(w_st)
             space.appexec([w_st, w_enc], """(u, s):
                 import __pypy__

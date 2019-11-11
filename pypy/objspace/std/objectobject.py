@@ -18,7 +18,7 @@ def reduce_1(obj, proto):
     import copyreg
     return copyreg._reduce_ex(obj, proto)
 
-def _getstate(obj):
+def _getstate(obj, required=False):
     cls = obj.__class__
 
     try:
@@ -59,13 +59,9 @@ def reduce_2(obj, proto, args, kwargs):
     if not kwargs:
        newobj = copyreg.__newobj__
        args2 = (cls,) + args
-    elif proto >= 4:
+    else:
        newobj = copyreg.__newobj_ex__
        args2 = (cls, args, kwargs)
-    else:
-       raise ValueError("must use protocol 4 or greater to copy this "
-                        "object; since __getnewargs_ex__ returned "
-                        "keyword arguments.")
     state = _getstate(obj)
     listitems = iter(obj) if isinstance(obj, list) else None
     dictitems = iter(obj.items()) if isinstance(obj, dict) else None
@@ -122,6 +118,8 @@ def descr__new__(space, w_type, __args__):
 def descr___subclasshook__(space, __args__):
     return space.w_NotImplemented
 
+def descr___init_subclass__(space, w_cls):
+    return space.w_None
 
 def descr__init__(space, w_obj, __args__):
     if _excess_args(__args__):
@@ -165,7 +163,7 @@ def descr_set___class__(space, w_obj, w_newcls):
 
 def descr__repr__(space, w_obj):
     classname = space.getfulltypename(w_obj)
-    return w_obj.getrepr(space, u'%s object' % (classname,))
+    return w_obj.getrepr(space, '%s object' % (classname,))
 
 
 def descr__str__(space, w_obj):
@@ -284,11 +282,13 @@ W_ObjectObject.typedef = TypeDef("object",
     __doc__ = "The most base type",
     __new__ = interp2app(descr__new__),
     __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True),
+    __init_subclass__ = interp2app(descr___init_subclass__, as_classmethod=True),
 
     # these are actually implemented in pypy.objspace.descroperation
     __getattribute__ = interp2app(Object.descr__getattribute__.im_func),
     __setattr__ = interp2app(Object.descr__setattr__.im_func),
     __delattr__ = interp2app(Object.descr__delattr__.im_func),
+
 
     __init__ = interp2app(descr__init__),
     __class__ = GetSetProperty(descr_get___class__, descr_set___class__),

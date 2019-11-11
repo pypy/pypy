@@ -84,7 +84,7 @@ test_conv_no_sign = [
         ('', ValueError),
         (' ', ValueError),
         ('  \t\t  ', ValueError),
-        (str(b'\u0663\u0661\u0664 ','raw-unicode-escape'), 314),
+        (str(br'\u0663\u0661\u0664 ','raw-unicode-escape'), 314),
         (chr(0x200), ValueError),
 ]
 
@@ -106,7 +106,7 @@ test_conv_sign = [
         ('', ValueError),
         (' ', ValueError),
         ('  \t\t  ', ValueError),
-        (str(b'\u0663\u0661\u0664 ','raw-unicode-escape'), 314),
+        (str(br'\u0663\u0661\u0664 ','raw-unicode-escape'), 314),
         (chr(0x200), ValueError),
 ]
 
@@ -153,6 +153,8 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(TypeError, __import__, 1, 2, 3, 4)
         self.assertRaises(ValueError, __import__, '')
         self.assertRaises(TypeError, __import__, 'sys', name='sys')
+        # embedded null character
+        self.assertRaises(ModuleNotFoundError, __import__, 'string\x00')
 
     def test_abs(self):
         # int
@@ -331,16 +333,16 @@ class BuiltinTest(unittest.TestCase):
         try:
             assert False
         except AssertionError:
-            return (True, f.__doc__)
+            return (True, f.__doc__, __debug__)
         else:
-            return (False, f.__doc__)
+            return (False, f.__doc__, __debug__)
         '''
         def f(): """doc"""
-        values = [(-1, __debug__, f.__doc__),
-                  (0, True, 'doc'),
-                  (1, False, 'doc'),
-                  (2, False, None)]
-        for optval, debugval, docstring in values:
+        values = [(-1, __debug__, f.__doc__, __debug__),
+                  (0, True, 'doc', True),
+                  (1, False, 'doc', False),
+                  (2, False, None, False)]
+        for optval, *expected in values:
             # test both direct compilation and compilation via AST
             codeobjs = []
             codeobjs.append(compile(codestr, "<test>", "exec", optimize=optval))
@@ -350,7 +352,7 @@ class BuiltinTest(unittest.TestCase):
                 ns = {}
                 exec(code, ns)
                 rv = ns['f']()
-                self.assertEqual(rv, (debugval, docstring))
+                self.assertEqual(rv, tuple(expected))
 
     def test_delattr(self):
         sys.spam = 1
@@ -1007,6 +1009,10 @@ class BuiltinTest(unittest.TestCase):
             self.assertEqual(fp.read(300), 'XXX'*100)
             self.assertEqual(fp.read(1000), 'YYY'*100)
 
+        # embedded null bytes and characters
+        self.assertRaises(ValueError, open, 'a\x00b')
+        self.assertRaises(ValueError, open, b'a\x00b')
+
     def test_open_default_encoding(self):
         old_environ = dict(os.environ)
         try:
@@ -1559,6 +1565,10 @@ class PtyTests(unittest.TestCase):
             self.fail("got %d lines in pipe but expected 2, child output was:\n%s"
                       % (len(lines), child_output))
         os.close(fd)
+
+        # Wait until the child process completes
+        os.waitpid(pid, 0)
+
         return lines
 
     def check_input_tty(self, prompt, terminal_input, stdio_encoding=None):
@@ -1631,6 +1641,20 @@ class TestSorted(unittest.TestCase):
         random.shuffle(copy)
         self.assertEqual(data, sorted(copy, reverse=1))
         self.assertNotEqual(data, copy)
+
+    def test_bad_arguments(self):
+        # Issue #29327: The first argument is positional-only.
+        sorted([])
+
+        # pypy doesn't support positional only arguments
+        if check_impl_detail():
+            with self.assertRaises(TypeError):
+                sorted(iterable=[])
+
+        # Other arguments are keyword-only
+        sorted([], key=None)
+        with self.assertRaises(TypeError):
+            sorted([], None)
 
     def test_inputtypes(self):
         s = 'abracadabra'
@@ -1715,21 +1739,11 @@ class TestType(unittest.TestCase):
         self.assertEqual(x.spam(), 'spam42')
         self.assertEqual(x.to_bytes(2, 'little'), b'\x2a\x00')
 
-    def test_type_new_keywords(self):
-        class B:
-            def ham(self):
-                return 'ham%d' % self
-        C = type.__new__(type,
-                         name='C',
-                         bases=(B, int),
-                         dict={'spam': lambda self: 'spam%s' % self})
-        self.assertEqual(C.__name__, 'C')
-        self.assertEqual(C.__qualname__, 'C')
-        self.assertEqual(C.__module__, __name__)
-        self.assertEqual(C.__bases__, (B, int))
-        self.assertIs(C.__base__, int)
-        self.assertIn('spam', C.__dict__)
-        self.assertNotIn('ham', C.__dict__)
+    def test_type_nokwargs(self):
+        with self.assertRaises(TypeError):
+            type('a', (), {}, x=5)
+        with self.assertRaises(TypeError):
+            type('a', (), dict={})
 
     def test_type_name(self):
         for name in 'A', '\xc4', '\U0001f40d', 'B.A', '42', '':
@@ -1839,6 +1853,15 @@ class TestType(unittest.TestCase):
             type('A', (B,), {'__slots__': '__dict__'})
         with self.assertRaises(TypeError):
             type('A', (B,), {'__slots__': '__weakref__'})
+
+    def test_namespace_order(self):
+        # bpo-34320: namespace should preserve order
+        od = collections.OrderedDict([('a', 1), ('b', 2)])
+        od.move_to_end('a')
+        expected = list(od.items())
+
+        C = type('C', (), od)
+        self.assertEqual(list(C.__dict__.items())[:2], [('b', 2), ('a', 1)])
 
 
 def load_tests(loader, tests, pattern):

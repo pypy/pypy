@@ -210,6 +210,8 @@ class AppTestOpen:
         raises(ValueError, io.open, self.tmpfile, "ww")
         raises(ValueError, io.open, self.tmpfile, "rwa")
         raises(ValueError, io.open, self.tmpfile, "b", newline="\n")
+        raises(ValueError, io.open, self.tmpfile, "U+")
+        raises(ValueError, io.open, self.tmpfile, "xU")
 
     def test_array_write(self):
         import _io, array

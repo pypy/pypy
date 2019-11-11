@@ -1,6 +1,6 @@
 import pytest
 try:
-    from hypothesis import given, strategies as st, settings
+    from hypothesis import given, strategies as st, settings, example
 except ImportError:
     pytest.skip("hypothesis required")
 import os
@@ -35,6 +35,7 @@ def st_readline(draw, st_nlines=st.integers(min_value=0, max_value=10)):
 @given(data=st_readline(),
        mode=st.sampled_from(['\r', '\n', '\r\n', '']))
 @settings(deadline=None, database=None)
+@example(data=(u'\n\r\n', [0, -1, 2, -1, 0, -1]), mode='\r')
 def test_readline(space, data, mode):
     txt, limits = data
     w_stream = W_BytesIO(space)
@@ -47,7 +48,7 @@ def test_readline(space, data, mode):
     lines = []
     for limit in limits:
         w_line = w_textio.readline_w(space, space.newint(limit))
-        line = space.unicode_w(w_line)
+        line = space.utf8_w(w_line).decode('utf-8')
         if limit >= 0:
             assert len(line) <= limit
         if line:
@@ -58,16 +59,21 @@ def test_readline(space, data, mode):
 
 @given(st.text())
 def test_read_buffer(text):
-    buf = DecodeBuffer(text)
-    assert buf.get_chars(-1) == text
+    buf = DecodeBuffer(text.encode('utf8'), len(text))
+    chars, size = buf.get_chars(-1)
+    assert chars.decode('utf8') == text
+    assert len(text) == size
     assert buf.exhausted()
 
 @given(st.text(), st.lists(st.integers(min_value=0)))
+@example(u'\x80', [1])
 def test_readn_buffer(text, sizes):
-    buf = DecodeBuffer(text)
+    buf = DecodeBuffer(text.encode('utf8'), len(text))
     strings = []
     for n in sizes:
-        s = buf.get_chars(n)
+        chars, size = buf.get_chars(n)
+        s = chars.decode('utf8')
+        assert size == len(s)
         if not buf.exhausted():
             assert len(s) == n
         else:
@@ -76,12 +82,14 @@ def test_readn_buffer(text, sizes):
     assert ''.join(strings) == text[:sum(sizes)]
 
 @given(st.text())
+@example(u'\x800')
 def test_next_char(text):
-    buf = DecodeBuffer(text)
+    buf = DecodeBuffer(text.encode('utf8'), len(text))
     chars = []
     try:
         while True:
-            chars.append(buf.next_char())
+            ch = buf.next_char().decode('utf8')
+            chars.append(ch)
     except StopIteration:
         pass
     assert buf.exhausted()

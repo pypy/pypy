@@ -204,7 +204,7 @@ class TestGateway:
         assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
         assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
 
-        doc = space.str_w(space.getattr(w_c, space.wrap('__doc__')))
+        doc = space.text_w(space.getattr(w_c, space.wrap('__doc__')))
         assert doc == "This is a method"
 
         meth_with_default = gateway.interpindirect2app(
@@ -502,15 +502,20 @@ class TestGateway:
                        space.mul(space.wrap(sys.maxint), space.wrap(-7)))
 
     def test_interp2app_unwrap_spec_fsencode(self):
+        import sys
         space = self.space
         w = space.wrap
         def f(filename):
             return space.newbytes(filename)
         app_f = gateway.interp2app_temp(f, unwrap_spec=['fsencode'])
         w_app_f = space.wrap(app_f)
-        assert space.eq_w(
-            space.call_function(w_app_f, w(u'\udc80')),
-            space.newbytes('\x80'))
+        if sys.platform == 'win32':
+            raises(gateway.OperationError, space.call_function,
+                   w_app_f, w(u'\udc80'))
+        else:
+            assert space.eq_w(
+                space.call_function(w_app_f, w(u'\udc80')),
+                space.newbytes('\x80'))
 
     def test_interp2app_unwrap_spec_typechecks(self):
         from rpython.rlib.rarithmetic import r_longlong
@@ -555,25 +560,32 @@ class TestGateway:
         w_app_g3_r = space.wrap(app_g3_r)
         space.raises_w(space.w_TypeError, space.call_function,w_app_g3_r,w(1.0))
 
-    def test_interp2app_unwrap_spec_unicode(self):
+    def test_interp2app_unwrap_spec_utf8(self):
         space = self.space
         w = space.wrap
-        def g3_u(space, uni):
-            return space.wrap(len(uni))
+        def g3_u(space, utf8):
+            return space.wrap(utf8)
         app_g3_u = gateway.interp2app_temp(g3_u,
                                          unwrap_spec=[gateway.ObjSpace,
-                                                      unicode])
+                                                      'utf8'])
         w_app_g3_u = space.wrap(app_g3_u)
+        encoded = u"gęść".encode('utf8')
         assert self.space.eq_w(
-            space.call_function(w_app_g3_u, w(u"foo")),
-            w(3))
+            space.call_function(w_app_g3_u, w(u"gęść")),
+            w(encoded))
         assert self.space.eq_w(
-            space.call_function(w_app_g3_u, w("baz")),
-            w(3))
+            space.call_function(w_app_g3_u, w("foo")),
+            w("foo"))
         space.raises_w(space.w_TypeError, space.call_function, w_app_g3_u,
                w(None))
         space.raises_w(space.w_TypeError, space.call_function, w_app_g3_u,
                w(42))
+        w_ascii = space.appexec([], """():
+            import sys
+            return sys.getdefaultencoding() == 'ascii'""")
+        if space.is_true(w_ascii):
+            raises(gateway.OperationError, space.call_function, w_app_g3_u,
+                   w("\x80"))
 
     def test_interp2app_unwrap_spec_unwrapper(self):
         space = self.space
@@ -849,7 +861,7 @@ class TestGateway:
             except SystemError as e:
                 return str(e)
         """)
-        err = space.str_w(w_msg)
+        err = space.text_w(w_msg)
         assert ('unexpected internal exception (please '
                 'report a bug): UnexpectedException') in err
 
@@ -1083,6 +1095,29 @@ y = a.m(33)
         # white-box check for opt
         assert called[0] is args
 
+    def test_base_regular_descr_mismatch(self):
+        space = self.space
+
+        def f():
+            raise gateway.DescrMismatch
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[]))
+        args = argument.Arguments(space, [])
+        space.raises_w(space.w_SystemError, space.call_args, w_f, args)
+
+    def test_pass_trough_arguments0_descr_mismatch(self):
+        space = self.space
+
+        def f(space, __args__):
+            raise gateway.DescrMismatch
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[gateway.ObjSpace,
+                                      gateway.Arguments]))
+        args = argument.Arguments(space, [])
+        space.raises_w(space.w_SystemError, space.call_args, w_f, args)
+
 
 class AppTestKeywordsToBuiltinSanity(object):
     def test_type(self):
@@ -1122,3 +1157,18 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})
+
+
+class AppTestFastPathCrash(object):
+    def test_fast_path_crash(self):
+        # issue bb-3091 crash in BuiltinCodePassThroughArguments0.funcrun
+        import sys
+        if '__pypy__' in sys.modules:
+            msg_fmt = "'%s' object expected, got '%s'"
+        else:
+            msg_fmt = "'%s' object but received a '%s'"
+        for obj in (dict, set):
+            with raises(TypeError) as excinfo:
+                obj.__init__(0)
+            msg = msg_fmt % (obj.__name__, 'int')
+            assert msg in str(excinfo.value)

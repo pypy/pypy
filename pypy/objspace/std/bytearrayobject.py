@@ -186,25 +186,31 @@ class W_BytearrayObject(W_Root):
         return new_bytearray(space, w_bytearraytype, [])
 
     def descr_reduce(self, space):
+        from pypy.interpreter.unicodehelper import str_decode_latin_1
+
         assert isinstance(self, W_BytearrayObject)
         w_dict = self.getdict(space)
         if w_dict is None:
             w_dict = space.w_None
+        s, _, lgt = str_decode_latin_1(''.join(self.getdata()), 'strict',
+            True, None)
         return space.newtuple([
             space.type(self), space.newtuple([
-                space.newunicode(''.join(self.getdata()).decode('latin-1')),
-                space.newtext('latin-1')]),
+                space.newutf8(s, lgt), space.newtext('latin-1')]),
             w_dict])
 
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):
         if not space.is_w(space.type(w_hexstring), space.w_unicode):
             raise oefmt(space.w_TypeError, "must be str, not %T", w_hexstring)
-        hexstring = space.unicode_w(w_hexstring)
+        hexstring = space.utf8_w(w_hexstring)
         data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
-        return new_bytearray(space, space.w_bytearray, data)
+        w_result = new_bytearray(space, space.w_bytearray, data)
+        if w_bytearraytype is not space.w_bytearray:
+            w_result = space.call_function(w_bytearraytype, w_result)
+        return w_result
 
     @unwrap_spec(encoding='text_or_none', errors='text_or_none')
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
@@ -310,7 +316,7 @@ class W_BytearrayObject(W_Root):
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         elif isinstance(w_other, W_BytesObject):
-            other = self._op_val(space, w_other)
+            other = w_other.bytes_w(space)
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         else:
@@ -354,17 +360,8 @@ class W_BytearrayObject(W_Root):
             self._data += w_other.getdata()
             return self
 
-        if isinstance(w_other, W_BytesObject):
-            self._inplace_add(self._op_val(space, w_other))
-        else:
-            self._inplace_add(space.readbuf_w(w_other))
+        self._data += self._op_val(space, w_other)
         return self
-
-    @specialize.argtype(1)
-    def _inplace_add(self, other):
-        resizelist_hint(self._data, len(self._data) + len(other))
-        for i in range(len(other)):
-            self._data.append(other[i])
 
     def descr_inplace_mul(self, space, w_times):
         try:
@@ -424,8 +421,10 @@ class W_BytearrayObject(W_Root):
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             self._data += w_other.getdata()
+        elif isinstance(w_other, W_BytesObject):    # performance only
+            self._data += w_other.bytes_w(space)
         else:
-            self._inplace_add(makebytesdata_w(space, w_other))
+            self._data += makebytesdata_w(space, w_other)
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
@@ -456,20 +455,13 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytearrayObject):
             return self._new(self.getdata() + w_other.getdata())
 
-        if isinstance(w_other, W_BytesObject):
-            return self._add(self._op_val(space, w_other))
-
         try:
-            buffer = space.readbuf_w(w_other)
+            byte_string = self._op_val(space, w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        return self._add(buffer)
-
-    @specialize.argtype(1)
-    def _add(self, other):
-        return self._new(self.getdata() + [other[i] for i in range(len(other))])
+        return self._new(self.getdata() + list(byte_string))
 
     def descr_reverse(self, space):
         self.getdata().reverse()

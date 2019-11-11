@@ -1,7 +1,7 @@
 import unittest
 from test.support import (verbose, refcount_test, run_unittest,
                           strip_python_stderr, cpython_only, start_threads,
-                          temp_dir, requires_type_collecting)
+                          temp_dir, requires_type_collecting, TESTFN, unlink)
 from test.support.script_helper import assert_python_ok, make_script
 
 import sys
@@ -685,7 +685,6 @@ class GCTests(unittest.TestCase):
         # Create a reference cycle through the __main__ module and check
         # it gets collected at interpreter shutdown.
         code = """if 1:
-            import weakref
             class C:
                 def __del__(self):
                     print('__del__ called')
@@ -700,7 +699,6 @@ class GCTests(unittest.TestCase):
         # Same as above, but with a non-__main__ module.
         with temp_dir() as script_dir:
             module = """if 1:
-                import weakref
                 class C:
                     def __del__(self):
                         print('__del__ called')
@@ -715,6 +713,21 @@ class GCTests(unittest.TestCase):
             make_script(script_dir, 'gctest', module)
             rc, out, err = assert_python_ok('-c', code)
             self.assertEqual(out.strip(), b'__del__ called')
+
+    @requires_type_collecting
+    def test_global_del_SystemExit(self):
+        code = """if 1:
+            class ClassWithDel:
+                def __del__(self):
+                    print('__del__ called')
+            a = ClassWithDel()
+            a.link = a
+            raise SystemExit(0)"""
+        self.addCleanup(unlink, TESTFN)
+        with open(TESTFN, 'w') as script:
+            script.write(code)
+        rc, out, err = assert_python_ok(TESTFN)
+        self.assertEqual(out.strip(), b'__del__ called')
 
     def test_get_stats(self):
         stats = gc.get_stats()

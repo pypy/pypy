@@ -1520,6 +1520,15 @@ order (MRO) for bases """
         del cm.x
         self.assertNotHasAttr(cm, "x")
 
+    @support.refcount_test
+    def test_refleaks_in_classmethod___init__(self):
+        gettotalrefcount = support.get_attribute(sys, 'gettotalrefcount')
+        cm = classmethod(None)
+        refs_before = gettotalrefcount()
+        for i in range(100):
+            cm.__init__(None)
+        self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
+
     @support.impl_detail("the module 'xxsubtype' is internal")
     def test_classmethods_in_c(self):
         # Testing C-based class methods...
@@ -1574,6 +1583,15 @@ order (MRO) for bases """
         self.assertEqual(sm.__dict__, {"x" : 42})
         del sm.x
         self.assertNotHasAttr(sm, "x")
+
+    @support.refcount_test
+    def test_refleaks_in_staticmethod___init__(self):
+        gettotalrefcount = support.get_attribute(sys, 'gettotalrefcount')
+        sm = staticmethod(None)
+        refs_before = gettotalrefcount()
+        for i in range(100):
+            sm.__init__(None)
+        self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
 
     @support.impl_detail("the module 'xxsubtype' is internal")
     def test_staticmethods_in_c(self):
@@ -4850,11 +4868,8 @@ class PicklingTests(unittest.TestCase):
                 return (args, kwargs)
         obj = C3()
         for proto in protocols:
-            if proto >= 4:
+            if proto >= 2:
                 self._check_reduce(proto, obj, args, kwargs)
-            elif proto >= 2:
-                with self.assertRaises(ValueError):
-                    obj.__reduce_ex__(proto)
 
         class C4:
             def __getnewargs_ex__(self):
@@ -5173,10 +5188,6 @@ class PicklingTests(unittest.TestCase):
                 kwargs = getattr(cls, 'KWARGS', {})
                 obj = cls(*cls.ARGS, **kwargs)
                 proto = pickle_copier.proto
-                if 2 <= proto < 4 and hasattr(cls, '__getnewargs_ex__'):
-                    with self.assertRaises(ValueError):
-                        pickle_copier.dumps(obj, proto)
-                    continue
                 objcopy = pickle_copier.copy(obj)
                 self._assert_is_copy(obj, objcopy)
                 # For test classes that supports this, make sure we didn't go
@@ -5235,12 +5246,14 @@ class SharedKeyTests(unittest.TestCase):
         a, b = A(), B()
         self.assertEqual(sys.getsizeof(vars(a)), sys.getsizeof(vars(b)))
         self.assertLess(sys.getsizeof(vars(a)), sys.getsizeof({}))
-        a.x, a.y, a.z, a.w = range(4)
+        # Initial hash table can contain at most 5 elements.
+        # Set 6 attributes to cause internal resizing.
+        a.x, a.y, a.z, a.w, a.v, a.u = range(6)
         self.assertNotEqual(sys.getsizeof(vars(a)), sys.getsizeof(vars(b)))
         a2 = A()
         self.assertEqual(sys.getsizeof(vars(a)), sys.getsizeof(vars(a2)))
         self.assertLess(sys.getsizeof(vars(a)), sys.getsizeof({}))
-        b.u, b.v, b.w, b.t = range(4)
+        b.u, b.v, b.w, b.t, b.s, b.r = range(6)
         self.assertLess(sys.getsizeof(vars(b)), sys.getsizeof({}))
 
 

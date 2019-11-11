@@ -1,10 +1,13 @@
-import unittest
-from test import support
-
-import collections, random, string
+import collections
 import collections.abc
-import gc, weakref
+import gc
 import pickle
+import random
+import string
+import sys
+import unittest
+import weakref
+from test import support
 
 
 class DictTest(unittest.TestCase):
@@ -466,6 +469,12 @@ class DictTest(unittest.TestCase):
         d = {1: BadRepr()}
         self.assertRaises(Exc, repr, d)
 
+    def test_repr_deep(self):
+        d = {}
+        for i in range(sys.getrecursionlimit() + 100):
+            d = {1: d}
+        self.assertRaises(RecursionError, repr, d)
+
     def test_eq(self):
         self.assertEqual({}, {})
         self.assertEqual({1: 2}, {1: 2})
@@ -837,21 +846,127 @@ class DictTest(unittest.TestCase):
             pass
         self._tracked(MyDict())
 
+    def make_shared_key_dict(self, n):
+        class C:
+            pass
+
+        dicts = []
+        for i in range(n):
+            a = C()
+            a.x, a.y, a.z = 1, 2, 3
+            dicts.append(a.__dict__)
+
+        return dicts
+
+    @support.cpython_only
+    def test_splittable_setdefault(self):
+        """split table must be combined when setdefault()
+        breaks insertion order"""
+        a, b = self.make_shared_key_dict(2)
+
+        a['a'] = 1
+        size_a = sys.getsizeof(a)
+        a['b'] = 2
+        b.setdefault('b', 2)
+        size_b = sys.getsizeof(b)
+        b['a'] = 1
+
+        self.assertGreater(size_b, size_a)
+        self.assertEqual(list(a), ['x', 'y', 'z', 'a', 'b'])
+        self.assertEqual(list(b), ['x', 'y', 'z', 'b', 'a'])
+
+    @support.cpython_only
+    def test_splittable_del(self):
+        """split table must be combined when del d[k]"""
+        a, b = self.make_shared_key_dict(2)
+
+        orig_size = sys.getsizeof(a)
+
+        del a['y']  # split table is combined
+        with self.assertRaises(KeyError):
+            del a['y']
+
+        self.assertGreater(sys.getsizeof(a), orig_size)
+        self.assertEqual(list(a), ['x', 'z'])
+        self.assertEqual(list(b), ['x', 'y', 'z'])
+
+        # Two dicts have different insertion order.
+        a['y'] = 42
+        self.assertEqual(list(a), ['x', 'z', 'y'])
+        self.assertEqual(list(b), ['x', 'y', 'z'])
+
+    @support.cpython_only
+    def test_splittable_pop(self):
+        """split table must be combined when d.pop(k)"""
+        a, b = self.make_shared_key_dict(2)
+
+        orig_size = sys.getsizeof(a)
+
+        a.pop('y')  # split table is combined
+        with self.assertRaises(KeyError):
+            a.pop('y')
+
+        self.assertGreater(sys.getsizeof(a), orig_size)
+        self.assertEqual(list(a), ['x', 'z'])
+        self.assertEqual(list(b), ['x', 'y', 'z'])
+
+        # Two dicts have different insertion order.
+        a['y'] = 42
+        self.assertEqual(list(a), ['x', 'z', 'y'])
+        self.assertEqual(list(b), ['x', 'y', 'z'])
+
+    @support.cpython_only
+    def test_splittable_pop_pending(self):
+        """pop a pending key in a splitted table should not crash"""
+        a, b = self.make_shared_key_dict(2)
+
+        a['a'] = 4
+        with self.assertRaises(KeyError):
+            b.pop('a')
+
+    @support.cpython_only
+    def test_splittable_popitem(self):
+        """split table must be combined when d.popitem()"""
+        a, b = self.make_shared_key_dict(2)
+
+        orig_size = sys.getsizeof(a)
+
+        item = a.popitem()  # split table is combined
+        self.assertEqual(item, ('z', 3))
+        with self.assertRaises(KeyError):
+            del a['z']
+
+        self.assertGreater(sys.getsizeof(a), orig_size)
+        self.assertEqual(list(a), ['x', 'y'])
+        self.assertEqual(list(b), ['x', 'y', 'z'])
+
     @support.cpython_only
     def test_splittable_setattr_after_pop(self):
-        """setattr must not convert combined table into split table"""
+        """setattr() must not convert combined table into split table."""
         # Issue 28147
         import _testcapi
 
         class C:
             pass
         a = C()
+
+        a.a = 1
+        self.assertTrue(_testcapi.dict_hassplittable(a.__dict__))
+
+        # dict.pop() convert it to combined table
+        a.__dict__.pop('a')
+        self.assertFalse(_testcapi.dict_hassplittable(a.__dict__))
+
+        # But C should not convert a.__dict__ to split table again.
+        a.a = 1
+        self.assertFalse(_testcapi.dict_hassplittable(a.__dict__))
+
+        # Same for popitem()
+        a = C()
         a.a = 2
         self.assertTrue(_testcapi.dict_hassplittable(a.__dict__))
-        # dict.popitem() convert it to combined table
         a.__dict__.popitem()
         self.assertFalse(_testcapi.dict_hassplittable(a.__dict__))
-        # But C should not convert a.__dict__ to split table again.
         a.a = 3
         self.assertFalse(_testcapi.dict_hassplittable(a.__dict__))
 
@@ -896,7 +1011,7 @@ class DictTest(unittest.TestCase):
             self.assertEqual(dict(it), data)
 
     def test_valuesiterator_pickling(self):
-        for proto in range(pickle.HIGHEST_PROTOCOL):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             data = {1:"a", 2:"b", 3:"c"}
             # data.values() isn't picklable, only its iterator
             it = iter(data.values())
@@ -982,6 +1097,154 @@ class DictTest(unittest.TestCase):
         support.check_free_after_iterating(self, lambda d: iter(d.values()), dict)
         support.check_free_after_iterating(self, lambda d: iter(d.items()), dict)
 
+    @support.cpython_only
+    def test_equal_operator_modifying_operand(self):
+        # test fix for seg fault reported in issue 27945 part 3.
+        class X():
+            def __del__(self):
+                dict_b.clear()
+
+            def __eq__(self, other):
+                dict_a.clear()
+                return True
+
+            def __hash__(self):
+                return 13
+
+        dict_a = {X(): 0}
+        dict_b = {X(): X()}
+        self.assertTrue(dict_a == dict_b)
+
+    def test_fromkeys_operator_modifying_dict_operand(self):
+        # test fix for seg fault reported in issue 27945 part 4a.
+        class X(int):
+            def __hash__(self):
+                return 13
+
+            def __eq__(self, other):
+                if len(d) > 1:
+                    d.clear()
+                return False
+
+        d = {}  # this is required to exist so that d can be constructed!
+        d = {X(1): 1, X(2): 2}
+        try:
+            dict.fromkeys(d)  # shouldn't crash
+        except RuntimeError:  # implementation defined
+            pass
+
+    def test_fromkeys_operator_modifying_set_operand(self):
+        # test fix for seg fault reported in issue 27945 part 4b.
+        class X(int):
+            def __hash__(self):
+                return 13
+
+            def __eq__(self, other):
+                if len(d) > 1:
+                    d.clear()
+                return False
+
+        d = {}  # this is required to exist so that d can be constructed!
+        d = {X(1), X(2)}
+        try:
+            dict.fromkeys(d)  # shouldn't crash
+        except RuntimeError:  # implementation defined
+            pass
+
+    def test_dictitems_contains_use_after_free(self):
+        class X:
+            def __eq__(self, other):
+                d.clear()
+                return NotImplemented
+
+        d = {0: set()}
+        (0, X()) in d.items()
+
+    def test_init_use_after_free(self):
+        class X:
+            def __hash__(self):
+                pair[:] = []
+                return 13
+
+        pair = [X(), 123]
+        dict([pair])
+
+    def test_oob_indexing_dictiter_iternextitem(self):
+        class X(int):
+            def __del__(self):
+                d.clear()
+
+        d = {i: X(i) for i in range(8)}
+
+        def iter_and_mutate():
+            for result in d.items():
+                if result[0] == 2:
+                    d[2] = None # free d[2] --> X(2).__del__ was called
+                gc.collect()
+
+        self.assertRaises(RuntimeError, iter_and_mutate)
+
+    def test_dict_copy_order(self):
+        # bpo-34320
+        od = collections.OrderedDict([('a', 1), ('b', 2)])
+        od.move_to_end('a')
+        expected = list(od.items())
+
+        copy = dict(od)
+        self.assertEqual(list(copy.items()), expected)
+
+        # dict subclass doesn't override __iter__
+        class CustomDict(dict):
+            pass
+
+        pairs = [('a', 1), ('b', 2), ('c', 3)]
+
+        d = CustomDict(pairs)
+        self.assertEqual(pairs, list(dict(d).items()))
+
+        class CustomReversedDict(dict):
+            def keys(self):
+                return reversed(list(dict.keys(self)))
+
+            __iter__ = keys
+
+            def items(self):
+                return reversed(dict.items(self))
+
+        d = CustomReversedDict(pairs)
+        self.assertEqual(pairs[::-1], list(dict(d).items()))
+
+
+class CAPITest(unittest.TestCase):
+
+    # Test _PyDict_GetItem_KnownHash()
+    @support.cpython_only
+    def test_getitem_knownhash(self):
+        from _testcapi import dict_getitem_knownhash
+
+        d = {'x': 1, 'y': 2, 'z': 3}
+        self.assertEqual(dict_getitem_knownhash(d, 'x', hash('x')), 1)
+        self.assertEqual(dict_getitem_knownhash(d, 'y', hash('y')), 2)
+        self.assertEqual(dict_getitem_knownhash(d, 'z', hash('z')), 3)
+
+        # not a dict
+        self.assertRaises(SystemError, dict_getitem_knownhash, [], 1, hash(1))
+        # key does not exist
+        self.assertRaises(KeyError, dict_getitem_knownhash, {}, 1, hash(1))
+
+        class Exc(Exception): pass
+        class BadEq:
+            def __eq__(self, other):
+                raise Exc
+            def __hash__(self):
+                return 7
+
+        k1, k2 = BadEq(), BadEq()
+        d = {k1: 1}
+        self.assertEqual(dict_getitem_knownhash(d, k1, hash(k1)), 1)
+        self.assertRaises(Exc, dict_getitem_knownhash, d, k2, hash(k2))
+
+
 from test import mapping_tests
 
 class GeneralMappingTests(mapping_tests.BasicTestMappingProtocol):
@@ -992,6 +1255,7 @@ class Dict(dict):
 
 class SubclassMappingTests(mapping_tests.BasicTestMappingProtocol):
     type2test = Dict
+
 
 if __name__ == "__main__":
     unittest.main()

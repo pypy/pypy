@@ -103,7 +103,7 @@ class W_MMap(W_Root):
         data = self.space.charbuf_w(w_data)
         self.check_writeable()
         try:
-            self.mmap.write(data)
+            return self.space.newint(self.mmap.write(data))
         except RValueError as v:
             raise mmap_error(self.space, v)
 

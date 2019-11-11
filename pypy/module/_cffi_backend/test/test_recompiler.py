@@ -55,7 +55,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     base_module_name = module_name.split('.')[-1]
     sources = []
     if w_extra_source is not None:
-        sources.append(space.str_w(w_extra_source))
+        sources.append(space.text_w(w_extra_source))
     kwargs = {}
     if w_extra_compile_args is not None:
         kwargs['extra_compile_args'] = space.unwrap(w_extra_compile_args)
@@ -75,8 +75,12 @@ def prepare(space, cdef, module_name, source, w_includes=None,
 
     args_w = [space.wrap(module_name), space.wrap(so_file)]
     w_res = space.appexec(args_w, """(modulename, filename):
-        import imp
-        mod = imp.load_dynamic(modulename, filename)
+        import _imp
+        class Spec: pass
+        spec = Spec()
+        spec.name = modulename
+        spec.origin = filename
+        mod = _imp.create_dynamic(spec)
         assert mod.__name__ == modulename
         return (mod.ffi, mod.lib)
     """)
@@ -2108,3 +2112,52 @@ class AppTestRecompiler:
         else:
             assert lib.__loader__ is None
             assert lib.__spec__ is None
+
+    def test_release(self):
+        ffi, lib = self.prepare("", "test_release", "")
+        p = ffi.new("int[]", 123)
+        ffi.release(p)
+        # here, reading p[0] might give garbage or segfault...
+        ffi.release(p)   # no effect
+
+    def test_release_new_allocator(self):
+        ffi, lib = self.prepare("struct ab { int a, b; };",
+                                "test_release_new_allocator",
+                                "struct ab { int a, b; };")
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", b"X" * size)
+        def myfree(raw):
+            seen.append(raw)
+        alloc2 = ffi.new_allocator(alloc=myalloc, free=myfree)
+        p = alloc2("int[]", 15)
+        assert seen == [15 * 4]
+        ffi.release(p)
+        assert seen == [15 * 4, p]
+        ffi.release(p)    # no effect
+        assert seen == [15 * 4, p]
+        #
+        del seen[:]
+        p = alloc2("struct ab *")
+        assert seen == [2 * 4]
+        ffi.release(p)
+        assert seen == [2 * 4, p]
+        ffi.release(p)    # no effect
+        assert seen == [2 * 4, p]
+
+    def test_struct_with_func_with_struct_arg(self):
+        ffi, lib = self.prepare("""struct BinaryTree {
+                int (* CompareKey)(struct BinaryTree tree);
+            };""",
+            "test_struct_with_func_with_struct_arg", """
+            struct BinaryTree {
+                int (* CompareKey)(struct BinaryTree tree);
+            };
+        """)
+        e = raises(RuntimeError, ffi.new, "struct BinaryTree *")
+        # we should check e.value, but untranslated it crashes with a
+        # regular recursion error.  There is a chance it occurs translated
+        # too, but likely the check in the code ">= 1000" usually triggers
+        # before that, and raise a RuntimeError too, but with the more
+        # explicit message.

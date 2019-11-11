@@ -150,6 +150,7 @@ class FractionTest(unittest.TestCase):
         self.assertRaises(TypeError, F, "3/2", 3)
         self.assertRaises(TypeError, F, 3, 0j)
         self.assertRaises(TypeError, F, 3, 1j)
+        self.assertRaises(TypeError, F, 1, 2, 3)
 
     @requires_IEEE_754
     def testInitFromFloat(self):
@@ -263,13 +264,13 @@ class FractionTest(unittest.TestCase):
         nan = inf - inf
         # bug 16469: error types should be consistent with float -> int
         self.assertRaisesMessage(
-            OverflowError, "Cannot convert inf to Fraction.",
+            OverflowError, "cannot convert Infinity to integer ratio",
             F.from_float, inf)
         self.assertRaisesMessage(
-            OverflowError, "Cannot convert -inf to Fraction.",
+            OverflowError, "cannot convert Infinity to integer ratio",
             F.from_float, -inf)
         self.assertRaisesMessage(
-            ValueError, "Cannot convert nan to Fraction.",
+            ValueError, "cannot convert NaN to integer ratio",
             F.from_float, nan)
 
     def testFromDecimal(self):
@@ -284,16 +285,16 @@ class FractionTest(unittest.TestCase):
 
         # bug 16469: error types should be consistent with decimal -> int
         self.assertRaisesMessage(
-            OverflowError, "Cannot convert Infinity to Fraction.",
+            OverflowError, "cannot convert Infinity to integer ratio",
             F.from_decimal, Decimal("inf"))
         self.assertRaisesMessage(
-            OverflowError, "Cannot convert -Infinity to Fraction.",
+            OverflowError, "cannot convert Infinity to integer ratio",
             F.from_decimal, Decimal("-inf"))
         self.assertRaisesMessage(
-            ValueError, "Cannot convert NaN to Fraction.",
+            ValueError, "cannot convert NaN to integer ratio",
             F.from_decimal, Decimal("nan"))
         self.assertRaisesMessage(
-            ValueError, "Cannot convert sNaN to Fraction.",
+            ValueError, "cannot convert NaN to integer ratio",
             F.from_decimal, Decimal("snan"))
 
     def testLimitDenominator(self):

@@ -11,5 +11,5 @@ class TestCodecs(BaseApiTest):
         w_encoded = space.call_method(w_encoder, 'encode', space.wrap(u'späm'))
         w_decoder = PyCodec_IncrementalDecoder(space, utf8, None)
         w_decoded = space.call_method(w_decoder, 'decode', w_encoded)
-        assert space.unicode_w(w_decoded) == u'späm'
+        assert space.utf8_w(w_decoded) == u'späm'.encode("utf-8")
         rffi.free_charp(utf8)

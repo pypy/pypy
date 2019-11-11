@@ -89,13 +89,12 @@ import sys
 import os
 
 from tkinter import *
-from idlelib.ColorDelegator import ColorDelegator, color_config
-from idlelib.Percolator import Percolator
-from idlelib.textView import view_text
+from idlelib.colorizer import ColorDelegator, color_config
+from idlelib.percolator import Percolator
+from idlelib.textview import view_text
 from turtledemo import __doc__ as about_turtledemo
 
 import turtle
-import time
 
 demo_dir = os.path.dirname(os.path.abspath(__file__))
 darwin = sys.platform == 'darwin'
@@ -137,7 +136,7 @@ class DemoWindow(object):
             import subprocess
             # Make sure we are the currently activated OS X application
             # so that our menu bar appears.
-            p = subprocess.Popen(
+            subprocess.run(
                     [
                         'osascript',
                         '-e', 'tell application "System Events"',
@@ -260,7 +259,7 @@ class DemoWindow(object):
         return 'break'
 
     def update_mousewheel(self, event):
-        # For wheel up, event.delte = 120 on Windows, -1 on darwin.
+        # For wheel up, event.delta = 120 on Windows, -1 on darwin.
         # X-11 sends Control-Button-4 event instead.
         if (event.delta < 0) == (not darwin):
             return self.decrease_size()

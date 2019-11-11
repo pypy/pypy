@@ -61,8 +61,17 @@ class _UnixSelectorEventLoop(selector_events.BaseSelectorEventLoop):
 
     def close(self):
         super().close()
-        for sig in list(self._signal_handlers):
-            self.remove_signal_handler(sig)
+        if not sys.is_finalizing():
+            for sig in list(self._signal_handlers):
+                self.remove_signal_handler(sig)
+        else:
+            if self._signal_handlers:
+                warnings.warn(f"Closing the loop {self!r} "
+                              f"on interpreter shutdown "
+                              f"stage, skipping signal handlers removal",
+                              ResourceWarning,
+                              source=self)
+                self._signal_handlers.clear()
 
     def _process_self_data(self, data):
         for signum in data:
@@ -242,7 +251,7 @@ class _UnixSelectorEventLoop(selector_events.BaseSelectorEventLoop):
             if sock is None:
                 raise ValueError('no path and sock were specified')
             if (sock.family != socket.AF_UNIX or
-                    not base_events._is_stream_socket(sock)):
+                    not base_events._is_stream_socket(sock.type)):
                 raise ValueError(
                     'A UNIX Domain Stream Socket was expected, got {!r}'
                     .format(sock))
@@ -297,7 +306,7 @@ class _UnixSelectorEventLoop(selector_events.BaseSelectorEventLoop):
                     'path was not specified, and no sock specified')
 
             if (sock.family != socket.AF_UNIX or
-                    not base_events._is_stream_socket(sock)):
+                    not base_events._is_stream_socket(sock.type)):
                 raise ValueError(
                     'A UNIX Domain Stream Socket was expected, got {!r}'
                     .format(sock))
@@ -419,7 +428,8 @@ class _UnixReadPipeTransport(transports.ReadTransport):
     if compat.PY34:
         def __del__(self):
             if self._pipe is not None:
-                warnings.warn("unclosed transport %r" % self, ResourceWarning)
+                warnings.warn("unclosed transport %r" % self, ResourceWarning,
+                              source=self)
                 self._pipe.close()
 
     def _fatal_error(self, exc, message='Fatal error on pipe transport'):
@@ -619,7 +629,8 @@ class _UnixWritePipeTransport(transports._FlowControlMixin,
     if compat.PY34:
         def __del__(self):
             if self._pipe is not None:
-                warnings.warn("unclosed transport %r" % self, ResourceWarning)
+                warnings.warn("unclosed transport %r" % self, ResourceWarning,
+                              source=self)
                 self._pipe.close()
 
     def abort(self):

@@ -707,7 +707,7 @@ def read_unicodestring8(f):
     >>> enc = s.encode('utf-8')
     >>> enc
     b'abcd\xea\xaf\x8d'
-    >>> n = bytes([len(enc)]) + bytes(7)  # little-endian 8-byte length
+    >>> n = bytes([len(enc)]) + b'\0' * 7  # little-endian 8-byte length
     >>> t = read_unicodestring8(io.BytesIO(n + enc + b'junk'))
     >>> s == t
     True
@@ -1354,9 +1354,7 @@ opcodes = [
       stack_before=[],
       stack_after=[pybool],
       proto=2,
-      doc="""True.
-
-      Push True onto the stack."""),
+      doc="Push True onto the stack."),
 
     I(name='NEWFALSE',
       code='\x89',
@@ -1364,9 +1362,7 @@ opcodes = [
       stack_before=[],
       stack_after=[pybool],
       proto=2,
-      doc="""True.
-
-      Push False onto the stack."""),
+      doc="Push False onto the stack."),
 
     # Ways to spell Unicode strings.
 
@@ -2440,6 +2436,7 @@ def dis(pickle, out=None, memo=None, indentlevel=4, annotate=0):
         if opcode.name in ("PUT", "BINPUT", "LONG_BINPUT", "MEMOIZE"):
             if opcode.name == "MEMOIZE":
                 memo_idx = len(memo)
+                markmsg = "(as %d)" % memo_idx
             else:
                 assert arg is not None
                 memo_idx = arg

@@ -5,7 +5,8 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import (
+    FFI_DEFAULT_ABI, has_stdcall, FFI_STDCALL)
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cffi_opcode, newtype, ctypestruct
 from pypy.module._cffi_backend import ctypeprim
@@ -82,6 +83,7 @@ class RealizeCache:
         self.space = space
         self.all_primitives = [None] * cffi_opcode._NUM_PRIM
         self.file_struct = None
+        self.rec_level = 0
 
     def get_file_struct(self):
         if self.file_struct is None:
@@ -182,12 +184,12 @@ class W_RawFuncType(W_Root):
         ellipsis = (getarg(opcodes[base_index + num_args]) & 0x01) != 0
         abi      = (getarg(opcodes[base_index + num_args]) & 0xFE)
         if abi == 0:
-            abi = _cffi_backend.FFI_DEFAULT_ABI
+            abi = FFI_DEFAULT_ABI
         elif abi == 2:
-            if _cffi_backend.has_stdcall:
-                abi = _cffi_backend.FFI_STDCALL
+            if has_stdcall:
+                abi = FFI_STDCALL
             else:
-                abi = _cffi_backend.FFI_DEFAULT_ABI
+                abi = FFI_DEFAULT_ABI
         else:
             raise oefmt(ffi.w_FFIError, "abi number %d not supported", abi)
         #
@@ -405,6 +407,26 @@ def realize_c_type_or_func(ffi, opcodes, index):
     if from_ffi and ffi.cached_types[index] is not None:
         return ffi.cached_types[index]
 
+    realize_cache = ffi.space.fromcache(RealizeCache)
+    if realize_cache.rec_level >= 1000:
+        raise oefmt(ffi.space.w_RuntimeError,
+            "type-building recursion too deep or infinite.  "
+            "This is known to occur e.g. in ``struct s { void(*callable)"
+            "(struct s); }''.  Please report if you get this error and "
+            "really need support for your case.")
+    realize_cache.rec_level += 1
+    try:
+        x = realize_c_type_or_func_now(ffi, op, opcodes, index)
+    finally:
+        realize_cache.rec_level -= 1
+
+    if from_ffi:
+        assert ffi.cached_types[index] is None or ffi.cached_types[index] is x
+        ffi.cached_types[index] = x
+
+    return x
+
+def realize_c_type_or_func_now(ffi, op, opcodes, index):
     case = getop(op)
 
     if case == cffi_opcode.OP_PRIMITIVE:
@@ -448,10 +470,6 @@ def realize_c_type_or_func(ffi, opcodes, index):
 
     else:
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)
-
-    if from_ffi:
-        assert ffi.cached_types[index] is None or ffi.cached_types[index] is x
-        ffi.cached_types[index] = x
 
     return x
 

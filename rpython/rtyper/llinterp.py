@@ -819,6 +819,18 @@ class LLFrame(object):
     def op_gc__collect(self, *gen):
         self.heap.collect(*gen)
 
+    def op_gc__collect_step(self):
+        return self.heap.collect_step()
+
+    def op_gc__enable(self):
+        self.heap.enable()
+
+    def op_gc__disable(self):
+        self.heap.disable()
+
+    def op_gc__isenabled(self):
+        return self.heap.isenabled()
+
     def op_gc_heap_stats(self):
         raise NotImplementedError
 
@@ -1213,6 +1225,9 @@ class LLFrame(object):
 
     def op_gc_move_out_of_nursery(self, obj):
         raise NotImplementedError("gc_move_out_of_nursery")
+
+    def op_gc_increase_root_stack_depth(self, new_depth):
+        raise NotImplementedError("gc_increase_root_stack_depth")
 
     def op_revdb_stop_point(self, *args):
         pass

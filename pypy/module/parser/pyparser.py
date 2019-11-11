@@ -65,10 +65,10 @@ class W_STType(W_Root):
             result = compile_ast(space, ast, info)
         except error.IndentationError as e:
             raise OperationError(space.w_IndentationError,
-                                 e.wrap_info(space))
+                                 e.find_sourceline_and_wrap_info(space))
         except error.SyntaxError as e:
             raise OperationError(space.w_SyntaxError,
-                                 e.wrap_info(space))
+                                 e.find_sourceline_and_wrap_info(space))
         return result
 
 W_STType.typedef = TypeDef("parser.st",
@@ -87,10 +87,10 @@ def parse_python(space, source, mode):
         tree = parser.parse_source(source, info)
     except error.IndentationError as e:
         raise OperationError(space.w_IndentationError,
-                             e.wrap_info(space))
+                             e.find_sourceline_and_wrap_info(space, source))
     except error.SyntaxError as e:
         raise OperationError(space.w_SyntaxError,
-                             e.wrap_info(space))
+                             e.find_sourceline_and_wrap_info(space, source))
     return W_STType(tree, mode, recursive_parser=parser)
 
 

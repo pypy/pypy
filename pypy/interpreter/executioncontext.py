@@ -23,8 +23,9 @@ class ExecutionContext(object):
     # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
     #     over the place as well as w_tracefunc
 
-    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?',
-                          'w_coroutine_wrapper_fn?']
+    _immutable_fields_ = [
+        'profilefunc?', 'w_tracefunc?', 'w_coroutine_wrapper_fn?',
+        'w_asyncgen_firstiter_fn?', 'w_asyncgen_finalizer_fn?']
 
     def __init__(self, space):
         self.space = space
@@ -33,6 +34,7 @@ class ExecutionContext(object):
         # time it is the exception caught by the topmost 'except ... as e:'
         # app-level block.
         self.sys_exc_operror = None
+        self.previous_operror_stack = []
         self.w_tracefunc = None
         self.is_tracing = 0
         self.compiler = space.createcompiler()
@@ -41,6 +43,8 @@ class ExecutionContext(object):
         self.thread_disappeared = False   # might be set to True after os.fork()
         self.w_coroutine_wrapper_fn = None
         self.in_coroutine_wrapper = False
+        self.w_asyncgen_firstiter_fn = None
+        self.w_asyncgen_finalizer_fn = None
 
     @staticmethod
     def _mark_thread_disappeared(space):
@@ -192,8 +196,10 @@ class ExecutionContext(object):
                 addr += c
                 if c:
                     d.instr_lb = addr
-
-                line += ord(lineno[p + 1])
+                line_offset = ord(lineno[p + 1])
+                if line_offset >= 0x80:
+                    line_offset -= 0x100
+                line += line_offset
                 p += 2
                 size -= 1
 
@@ -233,17 +239,63 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
+    @jit.unroll_safe
     def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
+        Returns the "top-most" exception in the stack.
 
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
-        return self.sys_exc_operror
+        result = self.sys_exc_operror
+        if result is None:
+            i = len(self.previous_operror_stack) - 1
+            while i >= 0:
+                result = self.previous_operror_stack[i]
+                if result is not None:
+                    break
+                i -= 1
+        return result
 
     def set_sys_exc_info(self, operror):
         self.sys_exc_operror = operror
+
+    def set_sys_exc_info3(self, w_type, w_value, w_traceback):
+        from pypy.interpreter import pytraceback
+
+        space = self.space
+        if space.is_none(w_value):
+            operror = None
+        else:
+            tb = None
+            if not space.is_none(w_traceback):
+                try:
+                    tb = pytraceback.check_traceback(space, w_traceback, '?')
+                except OperationError:    # catch and ignore bogus objects
+                    pass
+            operror = OperationError(w_type, w_value, tb)
+        self.set_sys_exc_info(operror)
+
+    def enter_error_stack_item(self, saved_operr):
+        # 'sys_exc_operror' should be logically considered as the last
+        # item on the stack, so pushing a new item has the following effect:
+        self.previous_operror_stack.append(self.sys_exc_operror)
+        self.sys_exc_operror = saved_operr
+
+    def leave_error_stack_item(self):
+        result = self.sys_exc_operror
+        self.sys_exc_operror = self.previous_operror_stack.pop()
+        return result
+
+    def fetch_and_clear_error_stack_state(self):
+        result = self.sys_exc_operror, self.previous_operror_stack
+        self.sys_exc_operror = None
+        self.previous_operror_stack = []
+        return result
+
+    def restore_error_stack_state(self, saved):
+        self.sys_exc_operror, self.previous_operror_stack = saved
 
     @jit.dont_look_inside
     def settrace(self, w_func):
@@ -327,8 +379,11 @@ class ExecutionContext(object):
                 # if it does not exist yet and the tracer accesses it via
                 # frame.f_locals, it is filled by PyFrame.getdictscope
                 frame.fast2locals()
+            prev_line_tracing = d.is_in_line_tracing
             self.is_tracing += 1
             try:
+                if event == 'line':
+                    d.is_in_line_tracing = True
                 try:
                     w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
@@ -343,6 +398,7 @@ class ExecutionContext(object):
                     raise
             finally:
                 self.is_tracing -= 1
+                d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:
                     frame.locals2fast()
 
@@ -654,7 +710,7 @@ def report_error(space, e, where, w_obj):
 def make_finalizer_queue(W_Root, space):
     """Make a FinalizerQueue subclass which responds to GC finalizer
     events by 'firing' the UserDelAction class above.  It does not
-    directly fetches the objects to finalize at all; they stay in the 
+    directly fetches the objects to finalize at all; they stay in the
     GC-managed queue, and will only be fetched by UserDelAction
     (between bytecodes)."""
 

@@ -14,13 +14,15 @@ W_GcRef.typedef = TypeDef("GcRef")
 
 
 def try_cast_gcref_to_w_root(gcref):
+    if rgc.get_gcflag_dummy(gcref):
+        return None
     w_obj = rgc.try_cast_gcref_to_instance(W_Root, gcref)
     # Ignore the instances of W_Root that are not really valid as Python
     # objects.  There is e.g. WeakrefLifeline in module/_weakref that
     # inherits from W_Root for internal reasons.  Such instances don't
     # have a typedef at all (or have a null typedef after translation).
     if not we_are_translated():
-        if not hasattr(w_obj, 'typedef'):
+        if getattr(w_obj, 'typedef', None) is None:
             return None
     else:
         if w_obj is None or not w_obj.typedef:

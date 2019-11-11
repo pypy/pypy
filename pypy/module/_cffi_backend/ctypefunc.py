@@ -10,9 +10,11 @@ from rpython.rlib.jit_libffi import (CIF_DESCRIPTION, CIF_DESCRIPTION_P,
 from rpython.rlib.objectmodel import we_are_translated, instantiate
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llstr
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import (
+    FFI_DEFAULT_ABI, has_stdcall, FFI_STDCALL)
 from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
@@ -31,7 +33,7 @@ class W_CTypeFunc(W_CTypePtrBase):
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
     def __init__(self, space, fargs, fresult, ellipsis,
-                 abi=_cffi_backend.FFI_DEFAULT_ABI):
+                 abi=FFI_DEFAULT_ABI):
         assert isinstance(ellipsis, bool)
         extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
@@ -98,10 +100,9 @@ class W_CTypeFunc(W_CTypePtrBase):
             lltype.free(self.cif_descr, flavor='raw')
 
     def _compute_extra_text(self, fargs, fresult, ellipsis, abi):
-        from pypy.module._cffi_backend import newtype
         argnames = ['(*)(']
         xpos = 2
-        if _cffi_backend.has_stdcall and abi == _cffi_backend.FFI_STDCALL:
+        if has_stdcall and abi == FFI_STDCALL:
             argnames[0] = '(__stdcall *)('
             xpos += len('__stdcall ')
         for i, farg in enumerate(fargs):
@@ -127,6 +128,10 @@ class W_CTypeFunc(W_CTypePtrBase):
         return W_CTypePtrBase._fget(self, attrchar)
 
     def call(self, funcaddr, args_w):
+        if not funcaddr:
+            raise oefmt(self.space.w_RuntimeError,
+                        "cannot call null function pointer from cdata '%s'",
+                        self.name)
         if self.cif_descr:
             # regular case: this function does not take '...' arguments
             self = jit.promote(self)
@@ -163,9 +168,9 @@ class W_CTypeFunc(W_CTypePtrBase):
         cif_descr = self.cif_descr   # 'self' should have been promoted here
         size = cif_descr.exchange_size
         mustfree_max_plus_1 = 0
+        keepalives = [llstr(None)] * len(args_w)    # llstrings
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
-            keepalives = [None] * len(args_w)    # None or strings
             for i in range(len(args_w)):
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                 w_obj = args_w[i]
@@ -191,9 +196,10 @@ class W_CTypeFunc(W_CTypePtrBase):
                     if flag == 1:
                         lltype.free(raw_cdata, flavor='raw')
                     elif flag >= 4:
-                        value = keepalives[i]
-                        assert value is not None
-                        rffi.free_nonmovingbuffer(value, raw_cdata, chr(flag))
+                        llobj = keepalives[i]
+                        assert llobj     # not NULL
+                        rffi.free_nonmovingbuffer_ll(raw_cdata,
+                                                     llobj, chr(flag))
             lltype.free(buffer, flavor='raw')
             keepalive_until_here(args_w)
         return w_res

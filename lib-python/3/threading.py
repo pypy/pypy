@@ -22,9 +22,11 @@ except ImportError:
 # with the multiprocessing module, which doesn't provide the old
 # Java inspired names.
 
-__all__ = ['active_count', 'Condition', 'current_thread', 'enumerate', 'Event',
-           'Lock', 'RLock', 'Semaphore', 'BoundedSemaphore', 'Thread', 'Barrier',
-           'Timer', 'ThreadError', 'setprofile', 'settrace', 'local', 'stack_size']
+__all__ = ['get_ident', 'active_count', 'Condition', 'current_thread',
+           'enumerate', 'main_thread', 'TIMEOUT_MAX',
+           'Event', 'Lock', 'RLock', 'Semaphore', 'BoundedSemaphore', 'Thread',
+           'Barrier', 'BrokenBarrierError', 'Timer', 'ThreadError',
+           'setprofile', 'settrace', 'local', 'stack_size']
 
 # Rename some stuff so "from threading import *" is safe
 _start_new_thread = _thread.start_new_thread
@@ -1091,7 +1093,7 @@ class Thread:
     def ident(self):
         """Thread identifier of this thread or None if it has not been started.
 
-        This is a nonzero integer. See the thread.get_ident() function. Thread
+        This is a nonzero integer. See the get_ident() function. Thread
         identifiers may be recycled when a thread exits and another thread is
         created. The identifier is available even after the thread has exited.
 
@@ -1180,8 +1182,8 @@ class Timer(Thread):
             self.function(*self.args, **self.kwargs)
         self.finished.set()
 
+
 # Special thread class to represent the main thread
-# This is garbage collected through an exit handler
 
 class _MainThread(Thread):
 
@@ -1214,6 +1216,10 @@ class _DummyThread(Thread):
 
     def _stop(self):
         pass
+
+    def is_alive(self):
+        assert not self._is_stopped and self._started.is_set()
+        return True
 
     def join(self, timeout=None):
         assert False, "cannot join a dummy thread"
@@ -1287,7 +1293,6 @@ def _shutdown():
     while t:
         t.join()
         t = _pickSomeNonDaemonThread()
-    _main_thread._delete()
 
 def _pickSomeNonDaemonThread():
     for t in enumerate():

@@ -2,13 +2,20 @@
 Tests for the zlib module.
 """
 
-import py
 import pypy
+import py
 
 try:
     import zlib
 except ImportError:
     py.test.skip("no zlib module on this host Python")
+
+from pypy.interpreter.gateway import interp2app
+try:
+    from pypy.module.zlib import interp_zlib
+    from rpython.rlib import rzlib
+except ImportError:
+    py.test.skip("no zlib C library on this machine")
 
 
 class AppTestZlib(object):
@@ -21,6 +28,8 @@ class AppTestZlib(object):
         compression and decompression tests have a little real data to assert
         against.
         """
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
         cls.w_zlib = cls.space.getbuiltinmodule('zlib')
         expanded = b'some bytes which will be compressed'
         cls.w_expanded = cls.space.newbytes(expanded)
@@ -28,6 +37,22 @@ class AppTestZlib(object):
         cls.w_LICENSE = cls.space.newbytes(
             py.path.local(pypy.__file__).dirpath().dirpath()
             .join('LICENSE').read())
+
+        def intentionally_break_a_z_stream(space, w_zobj):
+            """
+            Intentionally break the z_stream associated with a
+            compressobj or decompressobj in a way that causes their copy
+            methods to raise RZlibErrors.
+            """
+            from rpython.rtyper.lltypesystem import rffi, lltype
+            w_zobj.stream.c_zalloc = rffi.cast(
+                lltype.typeOf(w_zobj.stream.c_zalloc),
+                rzlib.Z_NULL,
+            )
+
+        cls.w_intentionally_break_a_z_stream = cls.space.wrap(
+            interp2app(intentionally_break_a_z_stream),
+        )
 
     def test_def_buf_size(self):
         assert self.zlib.DEF_BUF_SIZE >= 0
@@ -330,3 +355,71 @@ class AppTestZlib(object):
         dco = zlib.decompressobj(wbits=-zlib.MAX_WBITS, zdict=zdict)
         uncomp = dco.decompress(comp) + dco.flush()
         assert zdict == uncomp
+
+    def test_decompress_copy(self):
+        decompressor = self.zlib.decompressobj()
+        d1 = decompressor.decompress(self.compressed[:10])
+        assert d1
+
+        copied = decompressor.copy()
+
+        from_copy = copied.decompress(self.compressed[10:])
+        from_decompressor = decompressor.decompress(self.compressed[10:])
+
+        assert (d1 + from_copy) == (d1 + from_decompressor)
+
+    def test_cannot_copy_decompressor_with_stream_in_inconsistent_state(self):
+        if self.runappdirect: skip("can't run with -A")
+        decompressor = self.zlib.decompressobj()
+        self.intentionally_break_a_z_stream(zobj=decompressor)
+        raises(self.zlib.error, decompressor.copy)
+
+    def test_decompress_copy_carries_along_state(self):
+        """
+        Decompressor.unused_data and unconsumed_tail are carried along when a
+        copy is done.
+        """
+        decompressor = self.zlib.decompressobj()
+        decompressor.decompress(self.compressed, max_length=5)
+        unconsumed_tail = decompressor.unconsumed_tail
+        assert unconsumed_tail
+        assert decompressor.copy().unconsumed_tail == unconsumed_tail
+
+        decompressor.decompress(decompressor.unconsumed_tail)
+        decompressor.decompress(b"xxx")
+        unused_data = decompressor.unused_data
+        assert unused_data
+        assert decompressor.copy().unused_data == unused_data
+
+    def test_compress_copy(self):
+        compressor = self.zlib.compressobj()
+        d1 = compressor.compress(self.expanded[:10])
+        assert d1
+
+        copied = compressor.copy()
+
+        from_copy = copied.compress(self.expanded[10:])
+        from_compressor = compressor.compress(self.expanded[10:])
+
+        assert (d1 + from_copy) == (d1 + from_compressor)
+
+    @py.test.mark.skipif(rzlib.ZLIB_VERSION == '1.2.8', reason='does not error check')
+    def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):
+        if self.runappdirect: skip("can't run with -A")
+        compressor = self.zlib.compressobj()
+        self.intentionally_break_a_z_stream(zobj=compressor)
+        raises(self.zlib.error, compressor.copy)
+
+    def test_cannot_copy_compressor_with_flushed_stream(self):
+        compressor = self.zlib.compressobj()
+        compressor.flush()
+        raises(ValueError, compressor.copy)
+
+    def test_double_flush(self):
+        import zlib
+        x = b'x\x9cK\xcb\xcf\x07\x00\x02\x82\x01E'  # 'foo'
+        dco = zlib.decompressobj()
+        dco.decompress(x)
+        dco.flush()
+        # multiple flush calls should not raise
+        dco.flush()

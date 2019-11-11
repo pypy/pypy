@@ -33,8 +33,9 @@ __all__ = ['BASIC_FORMAT', 'BufferingFormatter', 'CRITICAL', 'DEBUG', 'ERROR',
            'StreamHandler', 'WARN', 'WARNING', 'addLevelName', 'basicConfig',
            'captureWarnings', 'critical', 'debug', 'disable', 'error',
            'exception', 'fatal', 'getLevelName', 'getLogger', 'getLoggerClass',
-           'info', 'log', 'makeLogRecord', 'setLoggerClass', 'warn', 'warning',
-           'getLogRecordFactory', 'setLogRecordFactory', 'lastResort']
+           'info', 'log', 'makeLogRecord', 'setLoggerClass', 'shutdown',
+           'warn', 'warning', 'getLogRecordFactory', 'setLogRecordFactory',
+           'lastResort', 'raiseExceptions']
 
 try:
     import threading
@@ -107,6 +108,7 @@ _levelToName = {
 }
 _nameToLevel = {
     'CRITICAL': CRITICAL,
+    'FATAL': FATAL,
     'ERROR': ERROR,
     'WARN': WARNING,
     'WARNING': WARNING,
@@ -429,7 +431,8 @@ class Formatter(object):
     responsible for converting a LogRecord to (usually) a string which can
     be interpreted by either a human or an external system. The base Formatter
     allows a formatting string to be specified. If none is supplied, the
-    default value of "%s(message)" is used.
+    the style-dependent default value, "%(message)s", "{message}", or
+    "${message}", is used.
 
     The Formatter can be initialized with a format string which makes use of
     knowledge of the LogRecord attributes - e.g. the default value mentioned
@@ -471,7 +474,8 @@ class Formatter(object):
 
         Initialize the formatter either with the specified format string, or a
         default as described above. Allow for specialized date formatting with
-        the optional datefmt argument (if omitted, you get the ISO8601 format).
+        the optional datefmt argument. If datefmt is omitted, you get an
+        ISO8601-like (or RFC 3339-like) format.
 
         Use a style parameter of '%', '{' or '$' to specify that you want to
         use one of %-formatting, :meth:`str.format` (``{}``) formatting or
@@ -499,13 +503,13 @@ class Formatter(object):
         in formatters to provide for any specific requirement, but the
         basic behaviour is as follows: if datefmt (a string) is specified,
         it is used with time.strftime() to format the creation time of the
-        record. Otherwise, the ISO8601 format is used. The resulting
-        string is returned. This function uses a user-configurable function
-        to convert the creation time to a tuple. By default, time.localtime()
-        is used; to change this for a particular formatter instance, set the
-        'converter' attribute to a function with the same signature as
-        time.localtime() or time.gmtime(). To change it for all formatters,
-        for example if you want all logging times to be shown in GMT,
+        record. Otherwise, an ISO8601-like (or RFC 3339-like) format is used.
+        The resulting string is returned. This function uses a user-configurable
+        function to convert the creation time to a tuple. By default,
+        time.localtime() is used; to change this for a particular formatter
+        instance, set the 'converter' attribute to a function with the same
+        signature as time.localtime() or time.gmtime(). To change it for all
+        formatters, for example if you want all logging times to be shown in GMT,
         set the 'converter' attribute in the Formatter class.
         """
         ct = self.converter(record.created)
@@ -940,6 +944,10 @@ class Handler(Filterer):
             finally:
                 del t, v, tb
 
+    def __repr__(self):
+        level = getLevelName(self.level)
+        return '<%s (%s)>' % (self.__class__.__name__, level)
+
 class StreamHandler(Handler):
     """
     A handler class which writes logging records, appropriately formatted,
@@ -991,6 +999,14 @@ class StreamHandler(Handler):
         except Exception:
             self.handleError(record)
 
+    def __repr__(self):
+        level = getLevelName(self.level)
+        name = getattr(self.stream, 'name', '')
+        if name:
+            name += ' '
+        return '<%s %s(%s)>' % (self.__class__.__name__, name, level)
+
+
 class FileHandler(StreamHandler):
     """
     A handler class which writes formatted logging records to disk files.
@@ -999,6 +1015,8 @@ class FileHandler(StreamHandler):
         """
         Open the specified file and use it as the stream for logging.
         """
+        # Issue #27493: add support for Path objects to be passed in
+        filename = os.fspath(filename)
         #keep the absolute path, otherwise derived classes which use this
         #may come a cropper when the current directory changes
         self.baseFilename = os.path.abspath(filename)
@@ -1052,6 +1070,11 @@ class FileHandler(StreamHandler):
         if self.stream is None:
             self.stream = self._open()
         StreamHandler.emit(self, record)
+
+    def __repr__(self):
+        level = getLevelName(self.level)
+        return '<%s %s (%s)>' % (self.__class__.__name__, self.baseFilename, level)
+
 
 class _StderrHandler(StreamHandler):
     """
@@ -1545,6 +1568,11 @@ class Logger(Filterer):
             suffix = '.'.join((self.name, suffix))
         return self.manager.getLogger(suffix)
 
+    def __repr__(self):
+        level = getLevelName(self.getEffectiveLevel())
+        return '<%s %s (%s)>' % (self.__class__.__name__, self.name, level)
+
+
 class RootLogger(Logger):
     """
     A root logger is not that different to any other logger, except that
@@ -1643,7 +1671,7 @@ class LoggerAdapter(object):
         """
         if self.isEnabledFor(level):
             msg, kwargs = self.process(msg, kwargs)
-            self.logger._log(level, msg, args, **kwargs)
+            self.logger.log(level, msg, *args, **kwargs)
 
     def isEnabledFor(self, level):
         """
@@ -1670,6 +1698,36 @@ class LoggerAdapter(object):
         See if the underlying logger has any handlers.
         """
         return self.logger.hasHandlers()
+
+    def _log(self, level, msg, args, exc_info=None, extra=None, stack_info=False):
+        """
+        Low-level log implementation, proxied to allow nested logger adapters.
+        """
+        return self.logger._log(
+            level,
+            msg,
+            args,
+            exc_info=exc_info,
+            extra=extra,
+            stack_info=stack_info,
+        )
+
+    @property
+    def manager(self):
+        return self.logger.manager
+
+    @manager.setter
+    def manager(self, value):
+        self.logger.manager = value
+
+    @property
+    def name(self):
+        return self.logger.name
+
+    def __repr__(self):
+        logger = self.logger
+        level = getLevelName(logger.getEffectiveLevel())
+        return '<%s %s (%s)>' % (self.__class__.__name__, logger.name, level)
 
 root = RootLogger(WARNING)
 Logger.root = root

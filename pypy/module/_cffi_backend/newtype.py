@@ -8,7 +8,7 @@ from rpython.rlib import jit, rweakref, clibffi
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import FFI_DEFAULT_ABI
 from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
     ctypearray, ctypestruct, ctypevoid, ctypeenum)
 
@@ -313,6 +313,10 @@ def detect_custom_layout(w_ctype, sflags, cdef_value, compiler_value,
                     cdef_value, compiler_value, w_ctype.name)
         w_ctype._custom_field_pos = True
 
+def roundup_bytes(bytes, bit):
+    assert bit == (bit & 7)
+    return bytes + (bit > 0)
+
 @unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int,
              sflags=int, pack=int)
 def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
@@ -334,8 +338,9 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
     is_union = isinstance(w_ctype, ctypestruct.W_CTypeUnion)
     alignment = 1
-    boffset = 0         # this number is in *bits*, not bytes!
-    boffsetmax = 0      # the maximum value of boffset, in bits too
+    byteoffset = 0     # the real value is 'byteoffset+bitoffset*8', which
+    bitoffset = 0      #     counts the offset in bits
+    byteoffsetmax = 0  # the maximum value of byteoffset-rounded-up-to-byte
     prev_bitfield_size = 0
     prev_bitfield_free = 0
     fields_w = space.listview(w_fields)
@@ -368,9 +373,19 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 raise oefmt(space.w_TypeError,
                             "field '%s.%s' has ctype '%s' of unknown size",
                             w_ctype.name, fname, ftype.name)
+        elif isinstance(ftype, ctypestruct.W_CTypeStructOrUnion):
+            ftype.force_lazy_struct()
+            # GCC (or maybe C99) accepts var-sized struct fields that are not
+            # the last field of a larger struct.  That's why there is no
+            # check here for "last field": we propagate the flag
+            # '_with_var_array' to any struct that contains either an open-
+            # ended array or another struct that recursively contains an
+            # open-ended array.
+            if ftype._with_var_array:
+                with_var_array = True
         #
         if is_union:
-            boffset = 0         # reset each field at offset 0
+            byteoffset = bitoffset = 0        # reset each field at offset 0
         #
         # update the total alignment requirement, but skip it if the
         # field is an anonymous bitfield or if SF_PACKED
@@ -400,30 +415,34 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             else:
                 bs_flag = ctypestruct.W_CField.BS_REGULAR
 
-            # align this field to its own 'falign' by inserting padding
-            boffsetorg = (boffset + falignorg*8-1) & ~(falignorg*8-1)
-            boffset = (boffset + falign*8-1) & ~(falign*8-1)
-            if boffsetorg != boffset:
+            # align this field to its own 'falign' by inserting padding.
+            # first, pad to the next byte,
+            # then pad to 'falign' or 'falignorg' bytes
+            byteoffset = roundup_bytes(byteoffset, bitoffset)
+            bitoffset = 0
+            byteoffsetorg = (byteoffset + falignorg-1) & ~(falignorg-1)
+            byteoffset = (byteoffset + falign-1) & ~(falign-1)
+
+            if byteoffsetorg != byteoffset:
                 with_packed_change = True
 
             if foffset >= 0:
                 # a forced field position: ignore the offset just computed,
                 # except to know if we must set 'custom_field_pos'
-                detect_custom_layout(w_ctype, sflags, boffset // 8, foffset,
+                detect_custom_layout(w_ctype, sflags, byteoffset, foffset,
                                      "wrong offset for field '",
                                      fname, "'")
-                boffset = foffset * 8
+                byteoffset = foffset
 
             if (fname == '' and
                     isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
                 # a nested anonymous struct or union
                 # note: it seems we only get here with ffi.verify()
                 srcfield2names = {}
-                ftype.force_lazy_struct()
                 for name, srcfld in ftype._fields_dict.items():
                     srcfield2names[srcfld] = name
                 for srcfld in ftype._fields_list:
-                    fld = srcfld.make_shifted(boffset // 8, fflags)
+                    fld = srcfld.make_shifted(byteoffset, fflags)
                     fields_list.append(fld)
                     try:
                         fields_dict[srcfield2names[srcfld]] = fld
@@ -433,13 +452,13 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 w_ctype._custom_field_pos = True
             else:
                 # a regular field
-                fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1,
+                fld = ctypestruct.W_CField(ftype, byteoffset, bs_flag, -1,
                                            fflags)
                 fields_list.append(fld)
                 fields_dict[fname] = fld
 
             if ftype.size >= 0:
-                boffset += ftype.size * 8
+                byteoffset += ftype.size
             prev_bitfield_size = 0
 
         else:
@@ -465,7 +484,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             # compute the starting position of the theoretical field
             # that covers a complete 'ftype', inside of which we will
             # locate the real bitfield
-            field_offset_bytes = boffset // 8
+            field_offset_bytes = byteoffset
             field_offset_bytes &= ~(falign - 1)
 
             if fbitsize == 0:
@@ -475,11 +494,13 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                                 w_ctype.name, fname)
                 if (sflags & SF_MSVC_BITFIELDS) == 0:
                     # GCC's notion of "ftype :0;"
-                    # pad boffset to a value aligned for "ftype"
-                    if boffset > field_offset_bytes * 8:
+                    # pad byteoffset to a value aligned for "ftype"
+                    if (roundup_bytes(byteoffset, bitoffset) >
+                                                    field_offset_bytes):
                         field_offset_bytes += falign
-                        assert boffset < field_offset_bytes * 8
-                    boffset = field_offset_bytes * 8
+                        assert byteoffset < field_offset_bytes
+                    byteoffset = field_offset_bytes
+                    bitoffset = 0
                 else:
                     # MSVC's notion of "ftype :0;
                     # Mostly ignored.  It seems they only serve as
@@ -494,7 +515,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
                     # Can the field start at the offset given by 'boffset'?  It
                     # can if it would entirely fit into an aligned ftype field.
-                    bits_already_occupied = boffset - (field_offset_bytes * 8)
+                    bits_already_occupied = (
+                        (byteoffset-field_offset_bytes) * 8 + bitoffset)
 
                     if bits_already_occupied + fbitsize > 8 * ftype.size:
                         # it would not fit, we need to start at the next
@@ -507,13 +529,16 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                                         "the previous field",
                                         w_ctype.name, fname)
                         field_offset_bytes += falign
-                        assert boffset < field_offset_bytes * 8
-                        boffset = field_offset_bytes * 8
+                        assert byteoffset < field_offset_bytes
+                        byteoffset = field_offset_bytes
+                        bitoffset = 0
                         bitshift = 0
                     else:
                         bitshift = bits_already_occupied
                         assert bitshift >= 0
-                    boffset += fbitsize
+                    bitoffset += fbitsize
+                    byteoffset += (bitoffset >> 3)
+                    bitoffset &= 7
 
                 else:
                     # MSVC's algorithm
@@ -528,31 +553,34 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                         bitshift = 8 * prev_bitfield_size - prev_bitfield_free
                     else:
                         # no: start a new full field
-                        boffset = (boffset + falign*8-1) & ~(falign*8-1)
-                        boffset += ftype.size * 8
+                        byteoffset = roundup_bytes(byteoffset, bitoffset)
+                        bitoffset = 0
+                        # align
+                        byteoffset = (byteoffset + falign-1) & ~(falign-1)
+                        byteoffset += ftype.size
                         bitshift = 0
                         prev_bitfield_size = ftype.size
                         prev_bitfield_free = 8 * prev_bitfield_size
                     #
                     prev_bitfield_free -= fbitsize
-                    field_offset_bytes = boffset / 8 - ftype.size
+                    field_offset_bytes = byteoffset - ftype.size
 
                 if sflags & SF_GCC_BIG_ENDIAN:
                     bitshift = 8 * ftype.size - fbitsize- bitshift
 
-                fld = ctypestruct.W_CField(ftype, field_offset_bytes,
-                                           bitshift, fbitsize, fflags)
-                fields_list.append(fld)
-                fields_dict[fname] = fld
+                if fname != '':
+                    fld = ctypestruct.W_CField(ftype, field_offset_bytes,
+                                               bitshift, fbitsize, fflags)
+                    fields_list.append(fld)
+                    fields_dict[fname] = fld
 
-        if boffset > boffsetmax:
-            boffsetmax = boffset
+        if roundup_bytes(byteoffset, bitoffset) > byteoffsetmax:
+            byteoffsetmax = roundup_bytes(byteoffset, bitoffset)
 
     # Like C, if the size of this structure would be zero, we compute it
     # as 1 instead.  But for ctypes support, we allow the manually-
     # specified totalsize to be zero in this case.
-    boffsetmax = (boffsetmax + 7) // 8      # bits -> bytes
-    alignedsize = (boffsetmax + alignment - 1) & ~(alignment - 1)
+    alignedsize = (byteoffsetmax + alignment - 1) & ~(alignment - 1)
     alignedsize = alignedsize or 1
 
     if totalsize < 0:
@@ -560,10 +588,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     else:
         detect_custom_layout(w_ctype, sflags, alignedsize, totalsize,
                              "wrong total size")
-        if totalsize < boffsetmax:
+        if totalsize < byteoffsetmax:
             raise oefmt(space.w_TypeError,
                 "%s cannot be of size %d: there are fields at least up to %d",
-                w_ctype.name, totalsize, boffsetmax)
+                w_ctype.name, totalsize, byteoffsetmax)
     if totalalignment < 0:
         totalalignment = alignment
     else:
@@ -646,7 +674,7 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 @unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int, abi=int)
 def new_function_type(space, w_fargs, w_fresult, ellipsis=0,
-                      abi=_cffi_backend.FFI_DEFAULT_ABI):
+                      abi=FFI_DEFAULT_ABI):
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         if not isinstance(w_farg, ctypeobj.W_CType):

@@ -105,10 +105,7 @@ class TestInstance(BaseTestPyPyC):
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
-        # in PyPy3 we get a dummy getfield_gc_r (*) for
-        # W_UnicodeObject._utf8, which is usually removed by the backend
         assert log.opnames(ops) == ['guard_value',
-                                    'getfield_gc_r',  # <= (*)
                                     'guard_not_invalidated',
                                     'getfield_gc_i']
         # the STORE_ATTR is folded away
@@ -157,10 +154,7 @@ class TestInstance(BaseTestPyPyC):
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
-        # in PyPy3 we get a dummy getfield_gc_r (*) for
-        # W_UnicodeObject._utf8, which is usually removed by the backend
         assert log.opnames(ops) == ['guard_value',
-                                    'getfield_gc_r',   # <= (*)
                                     'guard_not_invalidated',
                                     'getfield_gc_r', 'guard_nonnull_class',
                                     'getfield_gc_r', 'guard_value', # type check on the attribute

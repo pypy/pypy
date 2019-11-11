@@ -336,36 +336,6 @@ class ListTests:
                            'guard_true': 2,
                            'jump': 1})
 
-
-class TestLLtype(ListTests, LLJitMixin):
-    def test_listops_dont_invalidate_caches(self):
-        class A(object):
-            pass
-        jitdriver = JitDriver(greens = [], reds = ['n', 'a', 'lst'])
-        def f(n):
-            a = A()
-            a.x = 1
-            if n < 1091212:
-                a.x = 2 # fool the annotator
-            lst = [n * 5, n * 10, n * 20]
-            while n > 0:
-                jitdriver.can_enter_jit(n=n, a=a, lst=lst)
-                jitdriver.jit_merge_point(n=n, a=a, lst=lst)
-                n += a.x
-                n = lst.pop()
-                lst.append(n - 10 + a.x)
-                if a.x in lst:
-                    pass
-                a.x = a.x + 1 - 1
-            a = lst.pop()
-            b = lst.pop()
-            return a * b
-        res = self.meta_interp(f, [37])
-        assert res == f(37)
-        # There is the one actual field on a, plus several fields on the list
-        # itself
-        self.check_resops(getfield_gc_i=2, getfield_gc_r=5)
-
     def test_conditional_call_append(self):
         jitdriver = JitDriver(greens = [], reds = 'auto')
 
@@ -395,6 +365,35 @@ class TestLLtype(ListTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == 0
         self.check_resops(call=0, cond_call=2)
+
+class TestLLtype(ListTests, LLJitMixin):
+    def test_listops_dont_invalidate_caches(self):
+        class A(object):
+            pass
+        jitdriver = JitDriver(greens = [], reds = ['n', 'a', 'lst'])
+        def f(n):
+            a = A()
+            a.x = 1
+            if n < 1091212:
+                a.x = 2 # fool the annotator
+            lst = [n * 5, n * 10, n * 20]
+            while n > 0:
+                jitdriver.can_enter_jit(n=n, a=a, lst=lst)
+                jitdriver.jit_merge_point(n=n, a=a, lst=lst)
+                n += a.x
+                n = lst.pop()
+                lst.append(n - 10 + a.x)
+                if a.x in lst:
+                    pass
+                a.x = a.x + 1 - 1
+            a = lst.pop()
+            b = lst.pop()
+            return a * b
+        res = self.meta_interp(f, [37])
+        assert res == f(37)
+        # There is the one actual field on a, plus several fields on the list
+        # itself
+        self.check_resops(getfield_gc_i=2, getfield_gc_r=5)
 
     def test_zero_init_resizable(self):
         def f(n):

@@ -18,7 +18,7 @@ class TestImport(BaseApiTest):
 
         with rffi.scoped_str2charp("foobar") as modname:
             w_foobar = PyImport_AddModule(space, modname)
-        assert space.str_w(space.getattr(w_foobar,
+        assert space.text_w(space.getattr(w_foobar,
                                          space.wrap('__name__'))) == 'foobar'
 
     def test_getmoduledict(self, space, api):

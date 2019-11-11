@@ -461,14 +461,14 @@ class AppTestImport(BaseFSEncodeTest):
                     print('__name__ =', __name__)
                     from .struct import inpackage
         """, ns)
-        raises(SystemError, ns['imp'])
+        raises(ImportError, ns['imp'])
 
     def test_future_relative_import_error_when_in_non_package2(self):
         ns = {'__name__': __name__}
         exec("""def imp():
                     from .. import inpackage
         """, ns)
-        raises(SystemError, ns['imp'])
+        raises(ImportError, ns['imp'])
 
     def test_relative_import_with___name__(self):
         import sys
@@ -517,12 +517,12 @@ class AppTestImport(BaseFSEncodeTest):
         # Check relative fails with only __package__ wrong
         ns = dict(__package__='foo', __name__='pkg.notarealmodule')
         check_absolute() # XXX check warnings
-        raises(SystemError, check_relative)
+        raises(ModuleNotFoundError, check_relative)
 
         # Check relative fails with __package__ and __name__ wrong
         ns = dict(__package__='foo', __name__='notarealpkg.notarealmodule')
         check_absolute() # XXX check warnings
-        raises(SystemError, check_relative)
+        raises(ModuleNotFoundError, check_relative)
 
         # Check relative fails when __package__ set to a non-string
         ns = dict(__package__=object())
@@ -643,6 +643,20 @@ class AppTestImport(BaseFSEncodeTest):
     def test_reload_infinite(self):
         import infinite_reload
 
+    def test_reload_module_subclass(self):
+        import types, imp
+
+        #MyModType = types.ModuleType
+        class MyModType(types.ModuleType):
+            pass
+
+        m = MyModType("abc")
+        with raises(ImportError):
+            # Fails because the module is not in sys.modules, but *not* because
+            # it's a subtype of ModuleType.
+            imp.reload(m)
+
+
     def test_explicitly_missing(self):
         import sys
         sys.modules['foobarbazmod'] = None
@@ -723,6 +737,8 @@ class AppTestImport(BaseFSEncodeTest):
         class StdErr(object):
             def write(self, line):
                 output.append(line)
+            def flush(self):
+                return
 
         import sys, imp
         sys.stderr = StdErr()
@@ -794,7 +810,7 @@ def _testfile(space, magic, mtime, co=None):
     f.write(_getlong(mtime))
     if co:
         # marshal the code object with the PyPy marshal impl
-        pyco = PyCode._from_code(space, co)
+        pyco = space.createcompiler().compile(co, '?', 'exec', 0)
         w_marshal = space.getbuiltinmodule('marshal')
         w_marshaled_code = space.call_method(w_marshal, 'dumps', pyco)
         marshaled_code = space.bytes_w(w_marshaled_code)
@@ -815,7 +831,7 @@ class TestPycStuff:
     def test_read_compiled_module(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
@@ -835,7 +851,7 @@ class TestPycStuff:
     def test_load_compiled_module(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -860,7 +876,7 @@ class TestPycStuff:
     def test_load_compiled_module_nopathname(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -878,7 +894,7 @@ class TestPycStuff:
         finally:
             stream.close()
         filename = space.getattr(w_ret, space.wrap('__file__'))
-        assert space.str_w(filename) == u'?'
+        assert space.text_w(filename) == u'?'
 
     def test_parse_source_module(self):
         space = self.space
@@ -937,7 +953,7 @@ class TestPycStuff:
                     continue
                 pathname = "whatever"
                 mtime = 12345
-                co = compile('x = 42', '?', 'exec')
+                co = 'x = 42'
                 cpathname = _testfile(space1, importing.get_pyc_magic(space1),
                                       mtime, co)
                 w_modulename = space2.wrap('somemodule')

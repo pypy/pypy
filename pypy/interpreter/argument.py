@@ -2,12 +2,19 @@
 Arguments objects.
 """
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.objectmodel import not_rpython
+from rpython.rlib.objectmodel import not_rpython, specialize
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.error import OperationError, oefmt
+
+@specialize.arg(2)
+def raise_type_error(space, fnname_parens, msg, *args):
+    if fnname_parens is None:
+        raise oefmt(space.w_TypeError, msg, *args)
+    msg = "%s " + msg
+    raise oefmt(space.w_TypeError, msg, fnname_parens, *args)
 
 
 class Arguments(object):
@@ -21,11 +28,9 @@ class Arguments(object):
     semantics are complex, but calls occur everywhere.
     """
 
-    ###  Construction  ###
-    #@enforceargs(keywords=[unicode])
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None, keyword_names_w=None,
-                 methodcall=False):
+                 methodcall=False, fnname_parens=None):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
@@ -41,7 +46,7 @@ class Arguments(object):
             make_sure_not_resized(self.keywords_w)
 
         make_sure_not_resized(self.arguments_w)
-        self._combine_wrapped(w_stararg, w_starstararg)
+        self._combine_wrapped(w_stararg, w_starstararg, fnname_parens)
         # a flag that specifies whether the JIT can unroll loops that operate
         # on the keywords
         self._jit_few_keywords = self.keywords is None or jit.isconstant(len(self.keywords))
@@ -79,14 +84,14 @@ class Arguments(object):
         "Return a new Arguments with a new argument inserted first."
         return self.replace_arguments([w_firstarg] + self.arguments_w)
 
-    def _combine_wrapped(self, w_stararg, w_starstararg):
+    def _combine_wrapped(self, w_stararg, w_starstararg, fnname_parens=None):
         "unpack the *arg and **kwd into arguments_w and keywords_w"
         if w_stararg is not None:
-            self._combine_starargs_wrapped(w_stararg)
+            self._combine_starargs_wrapped(w_stararg, fnname_parens)
         if w_starstararg is not None:
-            self._combine_starstarargs_wrapped(w_starstararg)
+            self._combine_starstarargs_wrapped(w_starstararg, fnname_parens)
 
-    def _combine_starargs_wrapped(self, w_stararg):
+    def _combine_starargs_wrapped(self, w_stararg, fnname_parens=None):
         # unpack the * arguments
         space = self.space
         try:
@@ -94,13 +99,13 @@ class Arguments(object):
         except OperationError as e:
             if (e.match(space, space.w_TypeError) and
                     not space.is_iterable(w_stararg)):
-                raise oefmt(space.w_TypeError,
+                raise_type_error(space, fnname_parens,
                             "argument after * must be an iterable, not %T",
                             w_stararg)
             raise
         self.arguments_w = self.arguments_w + args_w
 
-    def _combine_starstarargs_wrapped(self, w_starstararg):
+    def _combine_starstarargs_wrapped(self, w_starstararg, fnname_parens=None):
         # unpack the ** arguments
         space = self.space
         keywords, values_w = space.view_as_kwargs(w_starstararg)
@@ -110,7 +115,8 @@ class Arguments(object):
                 self.keywords_w = values_w
             else:
                 _check_not_duplicate_kwargs(
-                    self.space, self.keywords, keywords, values_w)
+                    self.space, self.keywords, keywords, values_w,
+                    fnname_parens)
                 self.keywords = self.keywords + keywords
                 self.keywords_w = self.keywords_w + values_w
             return
@@ -123,7 +129,7 @@ class Arguments(object):
                 w_keys = space.call_method(w_starstararg, "keys")
             except OperationError as e:
                 if e.match(space, space.w_AttributeError):
-                    raise oefmt(space.w_TypeError,
+                    raise_type_error(space, fnname_parens,
                                 "argument after ** must be a mapping, not %T",
                                 w_starstararg)
                 raise
@@ -132,7 +138,7 @@ class Arguments(object):
         keywords = [None] * len(keys_w)
         _do_combine_starstarargs_wrapped(
             space, keys_w, w_starstararg, keywords, keywords_w, self.keywords,
-            is_dict)
+            is_dict, fnname_parens)
         self.keyword_names_w = keys_w
         if self.keywords is None:
             self.keywords = keywords
@@ -180,14 +186,17 @@ class Arguments(object):
         too_many_args = False
 
         # put the special w_firstarg into the scope, if it exists
+        upfront = 0
+        args_w = self.arguments_w
         if w_firstarg is not None:
-            upfront = 1
             if co_argcount > 0:
                 scope_w[0] = w_firstarg
-        else:
-            upfront = 0
+                upfront = 1
+            else:
+                # ugh, this is a call to a method 'def meth(*args)', maybe
+                # (see test_issue2996_*).  Fall-back solution...
+                args_w = [w_firstarg] + args_w
 
-        args_w = self.arguments_w
         num_args = len(args_w)
         avail = num_args + upfront
 
@@ -210,11 +219,8 @@ class Arguments(object):
         # collect extra positional arguments into the *vararg
         if signature.has_vararg():
             args_left = co_argcount - upfront
-            if args_left < 0:  # check required by rpython
-                starargs_w = [w_firstarg]
-                if num_args:
-                    starargs_w = starargs_w + args_w
-            elif num_args > args_left:
+            assert args_left >= 0  # check required by rpython
+            if num_args > args_left:
                 starargs_w = args_w[args_left:]
             else:
                 starargs_w = []
@@ -349,8 +355,8 @@ class Arguments(object):
     def parse_obj(self, w_firstarg,
                   fnname, signature, defaults_w=None, w_kw_defs=None,
                   blindargs=0):
-        """Parse args and kwargs to initialize a frame
-        according to the signature of code object.
+        """Parse args and kwargs into a list according to the signature of a
+        code object.
         """
         try:
             return self._parse(w_firstarg, signature, defaults_w, w_kw_defs,
@@ -387,28 +393,28 @@ class Arguments(object):
 # look at. They should not get a self arguments, which makes the amount of
 # arguments annoying :-(
 
-@jit.look_inside_iff(lambda space, existingkeywords, keywords, keywords_w:
+@jit.look_inside_iff(lambda space, existingkeywords, keywords, keywords_w, fnname_parens:
         jit.isconstant(len(keywords) and
         jit.isconstant(existingkeywords)))
-def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
+def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w, fnname_parens):
     # looks quadratic, but the JIT should remove all of it nicely.
     # Also, all the lists should be small
     for key in keywords:
         for otherkey in existingkeywords:
             if otherkey == key:
-                raise oefmt(space.w_TypeError,
+                raise_type_error(space, fnname_parens,
                             "got multiple values for keyword argument '%s'",
                             key)
 
 def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
-        keywords_w, existingkeywords, is_dict):
+        keywords_w, existingkeywords, is_dict, fnname_parens):
     i = 0
     for w_key in keys_w:
         try:
             key = space.text_w(w_key)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise oefmt(space.w_TypeError,
+                raise_type_error(space, fnname_parens,
                             "keywords must be strings, not '%T'",
                             w_key)
             if e.match(space, space.w_UnicodeEncodeError):
@@ -418,7 +424,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
                 raise
         else:
             if existingkeywords and key in existingkeywords:
-                raise oefmt(space.w_TypeError,
+                raise_type_error(space, fnname_parens,
                             "got multiple values for keyword argument '%s'",
                             key)
         keywords[i] = key
@@ -596,6 +602,10 @@ class ArgErrUnknownKwds(ArgErr):
                         except IndexError:
                             name = '?'
                         else:
+                            w_enc = space.newtext(space.sys.defaultencoding)
+                            w_err = space.newtext("replace")
+                            w_name = space.call_method(w_name, "encode", w_enc,
+                                                       w_err)
                             name = space.text_w(w_name)
                     break
         self.kwd_name = name

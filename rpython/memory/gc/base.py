@@ -22,7 +22,8 @@ class GCBase(object):
     prebuilt_gc_objects_are_static_roots = True
     can_usually_pin_objects = False
     object_minimal_size = 0
-    gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
+    gcflag_extra = 0   # or a dedicated GC flag that the GC initializes to 0
+    gcflag_dummy = 0   # dedicated GC flag set only on rmodel.ll_dummy_value
     _totalroots_rpy = 0   # for inspector.py
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
@@ -148,6 +149,20 @@ class GCBase(object):
 
     def get_size_incl_hash(self, obj):
         return self.get_size(obj)
+
+    # these can be overriden by subclasses, called by the GCTransformer
+    def enable(self):
+        pass
+
+    def disable(self):
+        pass
+
+    def isenabled(self):
+        return True
+
+    def collect_step(self):
+        self.collect()
+        return True
 
     def malloc(self, typeid, length=0, zero=False):
         """NOT_RPYTHON

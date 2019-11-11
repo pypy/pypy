@@ -121,7 +121,7 @@ def_op('WITH_CLEANUP_FINISH', 82)
 
 def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
-
+def_op('SETUP_ANNOTATIONS', 85)
 def_op('YIELD_VALUE', 86)
 def_op('POP_BLOCK', 87)
 def_op('END_FINALLY', 88)
@@ -144,7 +144,7 @@ name_op('LOAD_NAME', 101)       # Index in name list
 def_op('BUILD_TUPLE', 102)      # Number of tuple items
 def_op('BUILD_LIST', 103)       # Number of list items
 def_op('BUILD_SET', 104)        # Number of set items
-def_op('BUILD_MAP', 105)        # Number of dict entries (upto 255)
+def_op('BUILD_MAP', 105)        # Number of dict entries
 name_op('LOAD_ATTR', 106)       # Index in name list
 def_op('COMPARE_OP', 107)       # Comparison operator
 hascompare.append(107)
@@ -171,6 +171,7 @@ def_op('STORE_FAST', 125)       # Local variable number
 haslocal.append(125)
 def_op('DELETE_FAST', 126)      # Local variable number
 haslocal.append(126)
+name_op('STORE_ANNOTATION', 127) # Index in name list
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
 def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
@@ -215,6 +216,7 @@ def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
 
 def_op('FORMAT_VALUE', 155)   # in CPython 3.6, but available in PyPy from 3.5
+def_op('BUILD_CONST_KEY_MAP', 156)
 def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
 
 # pypy modification, experimental bytecode
@@ -222,7 +224,6 @@ def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
 def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
-jrel_op('JUMP_IF_NOT_DEBUG', 204)     # jump over assert statements
 def_op('LOAD_REVDB_VAR', 205)         # reverse debugger (syntax example: $5)
 
 del def_op, name_op, jrel_op, jabs_op

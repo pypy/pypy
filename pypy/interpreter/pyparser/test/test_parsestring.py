@@ -10,7 +10,7 @@ class TestParsetring:
             assert space.bytes_w(w_ret) == value
         elif isinstance(value, unicode):
             assert space.type(w_ret) == space.w_unicode
-            assert space.unicode_w(w_ret) == value
+            assert space.utf8_w(w_ret).decode('utf8') == value
         else:
             assert False
 
@@ -47,9 +47,7 @@ class TestParsetring:
                        parsestring.parsestr, space, None, "b'\xe9'")
         self.parse_and_compare(r"b'\xe9'", chr(0xE9))
 
-
     def test_unicode(self):
-        space = self.space
         for s in ['hello world', 'hello\n world']:
             self.parse_and_compare(repr(s), unicode(s))
 
@@ -61,7 +59,7 @@ class TestParsetring:
         s = "u'\x81'"
         s = s.decode("koi8-u").encode("utf8")[1:]
         w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
-        ret = space.unwrap(w_ret)
+        ret = w_ret._utf8.decode('utf8')
         assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81'")
 
     def test_unicode_pep414(self):
@@ -106,20 +104,20 @@ class TestParsetring:
         s = s.decode("koi8-u").encode("utf8")
         w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
         ret = space.unwrap(w_ret)
-        assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81\\t'") 
+        assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81\\t'")
 
     def test_multiline_unicode_strings_with_backslash(self):
         space = self.space
         s = '"""' + '\\' + '\n"""'
         w_ret = parsestring.parsestr(space, None, s)
-        assert space.str_w(w_ret) == ''
+        assert space.text_w(w_ret) == ''
 
     def test_bug1(self):
         space = self.space
         expected = ['x', ' ', chr(0xc3), chr(0xa9), ' ', '\n']
         input = ["'", 'x', ' ', chr(0xc3), chr(0xa9), ' ', chr(92), 'n', "'"]
         w_ret = parsestring.parsestr(space, 'utf8', ''.join(input))
-        assert space.str_w(w_ret) == ''.join(expected)
+        assert space.text_w(w_ret) == ''.join(expected)
 
     def test_wide_unicode_in_source(self):
         if sys.maxunicode == 65535:
@@ -131,7 +129,4 @@ class TestParsetring:
     def test_decode_unicode_utf8(self):
         buf = parsestring.decode_unicode_utf8(self.space,
                                               'u"\xf0\x9f\x92\x8b"', 2, 6)
-        if sys.maxunicode == 65535:
-            assert buf == r"\U0000d83d\U0000dc8b"
-        else:
-            assert buf == r"\U0001f48b"
+        assert buf == r"\U0001f48b"

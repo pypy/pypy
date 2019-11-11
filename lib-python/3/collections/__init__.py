@@ -85,9 +85,7 @@ class OrderedDict(dict):
 
     def __init__(*args, **kwds):
         '''Initialize an ordered dictionary.  The signature is the same as
-        regular dictionaries, but keyword arguments are not recommended because
-        their insertion order is arbitrary.
-
+        regular dictionaries.  Keyword argument order is preserved.
         '''
         if not args:
             raise TypeError("descriptor '__init__' of 'OrderedDict' object "
@@ -157,9 +155,9 @@ class OrderedDict(dict):
         dict.clear(self)
 
     def popitem(self, last=True):
-        '''od.popitem() -> (k, v), return and remove a (key, value) pair.
-        Pairs are returned in LIFO order if last is true or FIFO order if false.
+        '''Remove and return a (key, value) pair from the dictionary.
 
+        Pairs are returned in LIFO order if last is true or FIFO order if false.
         '''
         if not self:
             raise KeyError('dictionary is empty')
@@ -356,7 +354,7 @@ _field_template = '''\
     {name} = _property(_itemgetter({index:d}), doc='Alias for field number {index:d}')
 '''
 
-def namedtuple(typename, field_names, verbose=False, rename=False):
+def namedtuple(typename, field_names, *, verbose=False, rename=False, module=None):
     """Returns a new subclass of tuple with named fields.
 
     >>> Point = namedtuple('Point', ['x', 'y'])
@@ -396,7 +394,7 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
                 field_names[index] = '_%d' % index
             seen.add(name)
     for name in [typename] + field_names:
-        if type(name) != str:
+        if type(name) is not str:
             raise TypeError('Type names and field names must be strings')
         if not name.isidentifier():
             raise ValueError('Type names and field names must be valid '
@@ -437,11 +435,15 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
     # For pickling to work, the __module__ variable needs to be set to the frame
     # where the named tuple is created.  Bypass this step in environments where
     # sys._getframe is not defined (Jython for example) or sys._getframe is not
-    # defined for arguments greater than 0 (IronPython).
-    try:
-        result.__module__ = _sys._getframe(1).f_globals.get('__name__', '__main__')
-    except (AttributeError, ValueError):
-        pass
+    # defined for arguments greater than 0 (IronPython), or where the user has
+    # specified a particular module.
+    if module is None:
+        try:
+            module = _sys._getframe(1).f_globals.get('__name__', '__main__')
+        except (AttributeError, ValueError):
+            pass
+    if module is not None:
+        result.__module__ = module
 
     return result
 
@@ -845,7 +847,7 @@ class Counter(dict):
 
 
 ########################################################################
-###  ChainMap (helper for configparser and string.Template)
+###  ChainMap
 ########################################################################
 
 class ChainMap(MutableMapping):
@@ -972,7 +974,7 @@ class UserDict(MutableMapping):
             dict = kwargs.pop('dict')
             import warnings
             warnings.warn("Passing 'dict' as keyword argument is deprecated",
-                          PendingDeprecationWarning, stacklevel=2)
+                          DeprecationWarning, stacklevel=2)
         else:
             dict = None
         self.data = {}

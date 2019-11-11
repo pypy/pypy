@@ -84,6 +84,8 @@ def void(self, op, fcond):
     return []
 
 class ARMRegisterManager(RegisterManager):
+    FORBID_TEMP_BOXES = True
+
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         self._check_type(v)
         if isinstance(v, Const):
@@ -94,7 +96,7 @@ class ARMRegisterManager(RegisterManager):
             else:
                 tp = INT
             loc = self.get_scratch_reg(tp,
-                    self.temp_boxes + forbidden_vars,
+                    forbidden_vars,
                     selected_reg=selected_reg)
             immvalue = self.convert_to_imm(v)
             self.assembler.load(loc, immvalue)
@@ -129,9 +131,9 @@ class VFPRegisterManager(ARMRegisterManager):
     def get_scratch_reg(self, type=FLOAT, forbidden_vars=[], selected_reg=None):
         assert type == FLOAT  # for now
         box = TempFloat()
-        self.temp_boxes.append(box)
         reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
                                                     selected_reg=selected_reg)
+        self.temp_boxes.append(box)
         return reg
 
 
@@ -164,9 +166,9 @@ class CoreRegisterManager(ARMRegisterManager):
             box = TempInt()
         else:
             box = TempPtr()
-        self.temp_boxes.append(box)
         reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
                                                     selected_reg=selected_reg)
+        self.temp_boxes.append(box)
         return reg
 
     def get_free_reg(self):
@@ -305,9 +307,8 @@ class Regalloc(BaseRegalloc):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(inputargs, operations)
+        longevity = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        self.last_real_usage = last_real_usage
         fm = self.frame_manager
         asm = self.assembler
         self.vfprm = VFPRegisterManager(longevity, fm, asm)
@@ -372,6 +373,10 @@ class Regalloc(BaseRegalloc):
             if box.type == REF and self.rm.is_still_alive(box):
                 assert not noregs
                 assert loc.is_core_reg()
+                #val = self.cpu.all_reg_indexes[loc.value]
+                # ^^^ That is the correct way to write it down, but as a
+                #     special case in the arm backend only, this is equivalent
+                #     to just the line below:
                 val = loc.value
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
@@ -872,8 +877,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_gc_load_indexed_r = _prepare_op_gc_load_indexed
     prepare_op_gc_load_indexed_f = _prepare_op_gc_load_indexed
 
-    prepare_op_copystrcontent = void
-    prepare_op_copyunicodecontent = void
     prepare_op_zero_array = void
 
     def _prepare_op_same_as(self, op, fcond):
@@ -897,6 +900,13 @@ class Regalloc(BaseRegalloc):
     def prepare_op_load_from_gc_table(self, op, fcond):
         resloc = self.force_allocate_reg(op)
         return [resloc]
+
+    def prepare_op_load_effective_address(self, op, fcond):
+        args = op.getarglist()
+        arg0 = self.make_sure_var_in_reg(args[0], args)
+        arg1 = self.make_sure_var_in_reg(args[1], args)
+        res = self.force_allocate_reg(op)
+        return [arg0, arg1, res]
 
     def prepare_op_call_malloc_nursery(self, op, fcond):
         size_box = op.getarg(0)
@@ -1062,7 +1072,7 @@ class Regalloc(BaseRegalloc):
         position = self.rm.position
         for arg in inputargs:
             assert not isinstance(arg, Const)
-            if self.last_real_usage.get(arg, -1) <= position:
+            if self.longevity[arg].is_last_real_use_before(position):
                 self.force_spill_var(arg)
 
         #

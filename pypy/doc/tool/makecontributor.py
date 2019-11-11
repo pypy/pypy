@@ -1,4 +1,5 @@
 # NOTE: run this script with LANG=en_US.UTF-8
+# works with pip install mercurial==3.0
 
 import py
 import sys
@@ -89,6 +90,7 @@ alias = {
     'Laurence Tratt': ['ltratt'],
     'Pieter Zieschang': ['pzieschang', 'p_zieschang@yahoo.de'],
     'John Witulski': ['witulski'],
+    'Andrew Lawrence': ['andrew.lawrence@siemens.com', 'andrewjlawrence'],
     }
 
 alias_map = {}

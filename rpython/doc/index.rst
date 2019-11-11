@@ -48,6 +48,7 @@ Writing your own interpreter in RPython
    rlib
    rffi
    examples
+   rstrategies
 
 
 RPython internals

@@ -1,3 +1,6 @@
+
+from rpython.rlib import rutf8
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
@@ -18,30 +21,33 @@ class MultibyteCodec(W_Root):
         state = space.fromcache(CodecState)
         #
         try:
-            output = c_codecs.decode(self.codec, input, errors,
+            utf8_output = c_codecs.decode(self.codec, input, errors,
                                      state.decode_error_handler, self.name)
         except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodedecodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        return space.newtuple([space.newunicode(output),
+        lgt = rutf8.codepoints_in_utf8(utf8_output)
+        return space.newtuple([space.newutf8(utf8_output, lgt),
                                space.newint(len(input))])
 
-    @unwrap_spec(input=unicode, errors="text_or_none")
-    def encode(self, space, input, errors=None):
+    @unwrap_spec(errors="text_or_none")
+    def encode(self, space, w_input, errors=None):
         if errors is None:
             errors = 'strict'
         state = space.fromcache(CodecState)
+        input, length = space.utf8_len_w(w_input)
         #
         try:
-            output = c_codecs.encode(self.codec, input, errors,
+            output = c_codecs.encode(self.codec, input, length, errors,
                                      state.encode_error_handler, self.name)
         except c_codecs.EncodeDecodeError as e:
-            raise wrap_unicodeencodeerror(space, e, input, self.name)
+            raise wrap_unicodeencodeerror(space, e, input, length,
+                                          self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
         return space.newtuple([space.newbytes(output),
-                               space.newint(len(input))])
+                               space.newint(length)])
 
 
 MultibyteCodec.typedef = TypeDef(
@@ -71,12 +77,13 @@ def wrap_unicodedecodeerror(space, e, input, name):
             space.newint(e.end),
             space.newtext(e.reason)]))
 
-def wrap_unicodeencodeerror(space, e, input, name):
+def wrap_unicodeencodeerror(space, e, input, inputlen, name):
+    assert inputlen >= 0
     raise OperationError(
         space.w_UnicodeEncodeError,
         space.newtuple([
             space.newtext(name),
-            space.newunicode(input),
+            space.newutf8(input, inputlen),
             space.newint(e.start),
             space.newint(e.end),
             space.newtext(e.reason)]))

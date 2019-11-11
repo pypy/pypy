@@ -2,7 +2,9 @@ from contextlib import contextmanager
 import linecache
 import os
 from io import StringIO
+import re
 import sys
+import textwrap
 import unittest
 from test import support
 from test.support.script_helper import assert_python_ok, assert_python_failure
@@ -143,10 +145,14 @@ class FilterTests(BaseTest):
             self.module.resetwarnings()
             self.module.filterwarnings("always", category=UserWarning)
             message = "FilterTests.test_always"
-            self.module.warn(message, UserWarning)
-            self.assertTrue(message, w[-1].message)
-            self.module.warn(message, UserWarning)
-            self.assertTrue(w[-1].message, message)
+            def f():
+                self.module.warn(message, UserWarning)
+            f()
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[-1].message.args[0], message)
+            f()
+            self.assertEqual(len(w), 2)
+            self.assertEqual(w[-1].message.args[0], message)
 
     def test_always_after_default(self):
         with original_warnings.catch_warnings(record=True,
@@ -722,6 +728,22 @@ class _WarningsTests(BaseTest, unittest.TestCase):
                 result = stream.getvalue()
         self.assertIn(text, result)
 
+    def test_showwarnmsg_missing(self):
+        # Test that _showwarnmsg() missing is okay.
+        text = 'del _showwarnmsg test'
+        with original_warnings.catch_warnings(module=self.module):
+            self.module.filterwarnings("always", category=UserWarning)
+
+            show = self.module._showwarnmsg
+            try:
+                del self.module._showwarnmsg
+                with support.captured_output('stderr') as stream:
+                    self.module.warn(text)
+                    result = stream.getvalue()
+            finally:
+                self.module._showwarnmsg = show
+        self.assertIn(text, result)
+
     def test_showwarning_not_callable(self):
         with original_warnings.catch_warnings(module=self.module):
             self.module.filterwarnings("always", category=UserWarning)
@@ -778,6 +800,78 @@ class _WarningsTests(BaseTest, unittest.TestCase):
         self.assertNotIn(b'Warning!', stderr)
         self.assertNotIn(b'Error', stderr)
 
+    def test_issue31285(self):
+        # warn_explicit() should neither raise a SystemError nor cause an
+        # assertion failure, in case the return value of get_source() has a
+        # bad splitlines() method.
+        def get_bad_loader(splitlines_ret_val):
+            class BadLoader:
+                def get_source(self, fullname):
+                    class BadSource(str):
+                        def splitlines(self):
+                            return splitlines_ret_val
+                    return BadSource('spam')
+            return BadLoader()
+
+        wmod = self.module
+        with original_warnings.catch_warnings(module=wmod):
+            wmod.filterwarnings('default', category=UserWarning)
+
+            with support.captured_stderr() as stderr:
+                wmod.warn_explicit(
+                    'foo', UserWarning, 'bar', 1,
+                    module_globals={'__loader__': get_bad_loader(42),
+                                    '__name__': 'foobar'})
+            self.assertIn('UserWarning: foo', stderr.getvalue())
+
+            show = wmod._showwarnmsg
+            try:
+                del wmod._showwarnmsg
+                with support.captured_stderr() as stderr:
+                    wmod.warn_explicit(
+                        'eggs', UserWarning, 'bar', 1,
+                        module_globals={'__loader__': get_bad_loader([42]),
+                                        '__name__': 'foobar'})
+                self.assertIn('UserWarning: eggs', stderr.getvalue())
+            finally:
+                wmod._showwarnmsg = show
+
+    @support.cpython_only
+    def test_issue31411(self):
+        # warn_explicit() shouldn't raise a SystemError in case
+        # warnings.onceregistry isn't a dictionary.
+        wmod = self.module
+        with original_warnings.catch_warnings(module=wmod):
+            wmod.filterwarnings('once')
+            with support.swap_attr(wmod, 'onceregistry', None):
+                with self.assertRaises(TypeError):
+                    wmod.warn_explicit('foo', Warning, 'bar', 1, registry=None)
+
+    @support.cpython_only
+    def test_issue31416(self):
+        # warn_explicit() shouldn't cause an assertion failure in case of a
+        # bad warnings.filters or warnings.defaultaction.
+        wmod = self.module
+        with original_warnings.catch_warnings(module=wmod):
+            wmod.filters = [(None, None, Warning, None, 0)]
+            with self.assertRaises(TypeError):
+                wmod.warn_explicit('foo', Warning, 'bar', 1)
+
+            wmod.filters = []
+            with support.swap_attr(wmod, 'defaultaction', None), \
+                 self.assertRaises(TypeError):
+                wmod.warn_explicit('foo', Warning, 'bar', 1)
+
+    @support.cpython_only
+    def test_issue31566(self):
+        # warn() shouldn't cause an assertion failure in case of a bad
+        # __name__ global.
+        with original_warnings.catch_warnings(module=self.module):
+            self.module.filterwarnings('error', category=UserWarning)
+            with support.swap_item(globals(), '__name__', b'foo'), \
+                 support.swap_item(globals(), '__file__', None):
+                self.assertRaises(UserWarning, self.module.warn, 'bar')
+
 
 class WarningsDisplayTests(BaseTest):
 
@@ -823,11 +917,49 @@ class WarningsDisplayTests(BaseTest):
                                 file_object, expected_file_line)
         self.assertEqual(expect, file_object.getvalue())
 
+
 class CWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
     module = c_warnings
 
 class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
     module = py_warnings
+
+    @support.cpython_only  # no tracemalloc on pypy
+    def test_tracemalloc(self):
+        self.addCleanup(support.unlink, support.TESTFN)
+
+        with open(support.TESTFN, 'w') as fp:
+            fp.write(textwrap.dedent("""
+                import gc
+
+                def func():
+                    f = open(__file__)
+                    # Fully initialise GC for clearer error
+                    gc.collect()
+                    # Emit ResourceWarning
+                    f = None
+                    gc.collect()
+
+                func()
+            """))
+
+        res = assert_python_ok('-Wd', '-X', 'tracemalloc=2', support.TESTFN)
+
+        stderr = res.err.decode('ascii', 'replace')
+        # normalize newlines
+        stderr = '\n'.join(stderr.splitlines())
+        stderr = re.sub('<.*>', '<...>', stderr)
+        expected = textwrap.dedent('''
+            {fname}:10: ResourceWarning: unclosed file <...>
+              gc.collect()
+            Object allocated at (most recent call first):
+              File "{fname}", lineno 5
+                f = open(__file__)
+              File "{fname}", lineno 12
+                func()
+        ''')
+        expected = expected.format(fname=support.TESTFN).strip()
+        self.assertEqual(stderr, expected)
 
 
 class CatchWarningTests(BaseTest):
@@ -900,6 +1032,51 @@ class CatchWarningTests(BaseTest):
                 self.assertTrue(wmod.showwarning is orig_showwarning)
                 self.assertTrue(wmod.filters is not orig_filters)
             self.assertTrue(wmod.filters is orig_filters)
+
+    def test_record_override_showwarning_before(self):
+        # Issue #28835: If warnings.showwarning() was overriden, make sure
+        # that catch_warnings(record=True) overrides it again.
+        text = "This is a warning"
+        wmod = self.module
+        my_log = []
+
+        def my_logger(message, category, filename, lineno, file=None, line=None):
+            nonlocal my_log
+            my_log.append(message)
+
+        # Override warnings.showwarning() before calling catch_warnings()
+        with support.swap_attr(wmod, 'showwarning', my_logger):
+            with wmod.catch_warnings(module=wmod, record=True) as log:
+                self.assertIsNot(wmod.showwarning, my_logger)
+
+                wmod.simplefilter("always")
+                wmod.warn(text)
+
+            self.assertIs(wmod.showwarning, my_logger)
+
+        self.assertEqual(len(log), 1, log)
+        self.assertEqual(log[0].message.args[0], text)
+        self.assertEqual(my_log, [])
+
+    def test_record_override_showwarning_inside(self):
+        # Issue #28835: It is possible to override warnings.showwarning()
+        # in the catch_warnings(record=True) context manager.
+        text = "This is a warning"
+        wmod = self.module
+        my_log = []
+
+        def my_logger(message, category, filename, lineno, file=None, line=None):
+            nonlocal my_log
+            my_log.append(message)
+
+        with wmod.catch_warnings(module=wmod, record=True) as log:
+            wmod.simplefilter("always")
+            wmod.showwarning = my_logger
+            wmod.warn(text)
+
+        self.assertEqual(len(my_log), 1, my_log)
+        self.assertEqual(my_log[0].args[0], text)
+        self.assertEqual(log, [])
 
     def test_check_warnings(self):
         # Explicit tests for the test.support convenience wrapper

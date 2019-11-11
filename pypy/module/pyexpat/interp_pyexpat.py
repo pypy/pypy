@@ -2,8 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.unicodehelper import encode_utf8
-from rpython.rlib import rgc, jit
+from rpython.rlib import rgc, jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -476,7 +475,17 @@ getting the advantage of providing document type information to the parser.
     # Handlers management
 
     def w_convert(self, space, s):
-        from pypy.interpreter.unicodehelper import decode_utf8
+        # I suppose this is a valid utf8, but there is noone to check
+        # and noone to catch an error either
+        try:
+            lgt = rutf8.check_utf8(s, True)
+            return space.newutf8(s, lgt)
+        except rutf8.CheckError:
+            from pypy.interpreter import unicodehelper
+            # get the correct error msg
+            unicodehelper.str_decode_utf8(s, 'string', True,
+                unicodehelper.decode_error_handler(space))
+            assert False, "always raises"
         return space.newtext(s)
 
     def w_convert_charp(self, space, data):
@@ -577,21 +586,22 @@ getting the advantage of providing document type information to the parser.
 
     def UnknownEncodingHandler(self, space, name, info):
         # Yes, supports only 8bit encodings
-        translationmap = space.unicode_w(
+        translationmap, lgt = space.utf8_len_w(
             space.call_method(
                 space.newbytes(self.all_chars), "decode",
                 space.newtext(name), space.newtext("replace")))
 
-        if len(translationmap) != 256:
+        if lgt != 256:
             raise oefmt(space.w_ValueError,
                         "multi-byte encodings are not supported")
 
-        for i in range(256):
-            c = translationmap[i]
-            if c == u'\ufffd':
+        i = 0
+        for c in rutf8.Utf8StringIterator(translationmap):
+            if c == 0xfffd:
                 info.c_map[i] = rffi.cast(rffi.INT, -1)
             else:
                 info.c_map[i] = rffi.cast(rffi.INT, c)
+            i += 1
         info.c_data = lltype.nullptr(rffi.VOIDP.TO)
         info.c_convert = lltype.nullptr(rffi.VOIDP.TO)
         info.c_release = lltype.nullptr(rffi.VOIDP.TO)
@@ -628,7 +638,7 @@ getting the advantage of providing document type information to the parser.
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
         if space.isinstance_w(w_data, space.w_unicode):
-            data = encode_utf8(space, w_data.unicode_w(space))
+            data = w_data.utf8_w(space)
             # Explicitly set UTF-8 encoding. Return code ignored.
             XML_SetEncoding(self.itself, "utf-8")
         else:

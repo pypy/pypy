@@ -746,6 +746,8 @@ class Cursor(object):
         self.__initialized = True
 
     def close(self):
+        if not self.__initialized:
+            raise ProgrammingError("Base Cursor.__init__ not called.")
         self.__connection._check_thread()
         self.__connection._check_closed()
         if self.__statement:
@@ -931,7 +933,9 @@ class Cursor(object):
                         self.__rowcount = 0
                     self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
 
-                if not multiple and self.__statement._type == _STMT_TYPE_INSERT:
+                if not multiple and self.__statement._type in (
+                        # REPLACE is an alias for INSERT OR REPLACE
+                        _STMT_TYPE_INSERT, _STMT_TYPE_REPLACE):
                     self.__lastrowid = _lib.sqlite3_last_insert_rowid(self.__connection._db)
                 else:
                     self.__lastrowid = None
@@ -1041,6 +1045,7 @@ class Cursor(object):
         return list(self)
 
     def __get_connection(self):
+        self.__check_cursor()
         return self.__connection
     connection = property(__get_connection)
 

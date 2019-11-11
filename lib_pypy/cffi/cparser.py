@@ -16,6 +16,13 @@ try:
 except ImportError:
     lock = None
 
+def _workaround_for_static_import_finders():
+    # Issue #392: packaging tools like cx_Freeze can not find these
+    # because pycparser uses exec dynamic import.  This is an obscure
+    # workaround.  This function is never called.
+    import pycparser.yacctab
+    import pycparser.lextab
+
 CDEF_SOURCE_STRING = "<cdef source string>"
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
@@ -138,12 +145,23 @@ def _preprocess_extern_python(csource):
     return ''.join(parts)
 
 def _warn_for_string_literal(csource):
-    if '"' in csource:
+    if '"' not in csource:
+        return
+    for line in csource.splitlines():
+        if '"' in line and not line.lstrip().startswith('#'):
+            import warnings
+            warnings.warn("String literal found in cdef() or type source. "
+                          "String literals are ignored here, but you should "
+                          "remove them anyway because some character sequences "
+                          "confuse pre-parsing.")
+            break
+
+def _warn_for_non_extern_non_static_global_variable(decl):
+    if not decl.storage:
         import warnings
-        warnings.warn("String literal found in cdef() or type source. "
-                      "String literals are ignored here, but you should "
-                      "remove them anyway because some character sequences "
-                      "confuse pre-parsing.")
+        warnings.warn("Global variable '%s' in cdef(): for consistency "
+                      "with C it should have a storage class specifier "
+                      "(usually 'extern')" % (decl.name,))
 
 def _preprocess(csource):
     # Remove comments.  NOTE: this only work because the cdef() section
@@ -495,6 +513,7 @@ class Parser(object):
                     if (quals & model.Q_CONST) and not tp.is_array_type:
                         self._declare('constant ' + decl.name, tp, quals=quals)
                     else:
+                        _warn_for_non_extern_non_static_global_variable(decl)
                         self._declare('variable ' + decl.name, tp, quals=quals)
 
     def parse_type(self, cdecl):
@@ -810,12 +829,20 @@ class Parser(object):
         # or positive/negative number
         if isinstance(exprnode, pycparser.c_ast.Constant):
             s = exprnode.value
-            if s.startswith('0'):
-                if s.startswith('0x') or s.startswith('0X'):
-                    return int(s, 16)
-                return int(s, 8)
-            elif '1' <= s[0] <= '9':
-                return int(s, 10)
+            if '0' <= s[0] <= '9':
+                s = s.rstrip('uUlL')
+                try:
+                    if s.startswith('0'):
+                        return int(s, 8)
+                    else:
+                        return int(s, 10)
+                except ValueError:
+                    if len(s) > 1:
+                        if s.lower()[0:2] == '0x':
+                            return int(s, 16)
+                        elif s.lower()[0:2] == '0b':
+                            return int(s, 2)
+                raise CDefError("invalid constant %r" % (s,))
             elif s[0] == "'" and s[-1] == "'" and (
                     len(s) == 3 or (len(s) == 4 and s[1] == "\\")):
                 return ord(s[-2])
@@ -843,18 +870,38 @@ class Parser(object):
                            "the actual array length in this context"
                            % exprnode.coord.line)
         #
-        if (isinstance(exprnode, pycparser.c_ast.BinaryOp) and
-                exprnode.op == '+'):
-            return (self._parse_constant(exprnode.left) +
-                    self._parse_constant(exprnode.right))
-        #
-        if (isinstance(exprnode, pycparser.c_ast.BinaryOp) and
-                exprnode.op == '-'):
-            return (self._parse_constant(exprnode.left) -
-                    self._parse_constant(exprnode.right))
+        if isinstance(exprnode, pycparser.c_ast.BinaryOp):
+            left = self._parse_constant(exprnode.left)
+            right = self._parse_constant(exprnode.right)
+            if exprnode.op == '+':
+                return left + right
+            elif exprnode.op == '-':
+                return left - right
+            elif exprnode.op == '*':
+                return left * right
+            elif exprnode.op == '/':
+                return self._c_div(left, right)
+            elif exprnode.op == '%':
+                return left - self._c_div(left, right) * right
+            elif exprnode.op == '<<':
+                return left << right
+            elif exprnode.op == '>>':
+                return left >> right
+            elif exprnode.op == '&':
+                return left & right
+            elif exprnode.op == '|':
+                return left | right
+            elif exprnode.op == '^':
+                return left ^ right
         #
         raise FFIError(":%d: unsupported expression: expected a "
                        "simple numeric constant" % exprnode.coord.line)
+
+    def _c_div(self, a, b):
+        result = a // b
+        if ((a < 0) ^ (b < 0)) and (a % b) != 0:
+            result += 1
+        return result
 
     def _build_enum_type(self, explicit_name, decls):
         if decls is not None:

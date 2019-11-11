@@ -16,9 +16,8 @@ import unittest
 from test import support
 from itertools import permutations, product
 from random import randrange, sample, choice
-from sysconfig import get_config_var
 import warnings
-import sys, array, io
+import sys, array, io, os
 from decimal import Decimal
 from fractions import Fraction
 
@@ -38,7 +37,8 @@ except ImportError:
     ctypes = None
 
 try:
-    with warnings.catch_warnings():
+    with support.EnvironmentVarGuard() as os.environ, \
+         warnings.catch_warnings():
         from numpy import ndarray as numpy_array
 except ImportError:
     numpy_array = None

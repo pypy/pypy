@@ -67,6 +67,14 @@ def _PyDateTime_Import(space):
         _PyDelta_FromDelta.api_func.functype,
         _PyDelta_FromDelta.api_func.get_wrapper(space))
 
+    datetimeAPI.c_DateTime_FromTimestamp = llhelper(
+        _PyDateTime_FromTimestamp.api_func.functype,
+        _PyDateTime_FromTimestamp.api_func.get_wrapper(space))
+
+    datetimeAPI.c_Date_FromTimestamp = llhelper(
+        _PyDate_FromTimestamp.api_func.functype,
+        _PyDate_FromTimestamp.api_func.get_wrapper(space))
+
     state.datetimeAPI.append(datetimeAPI)
     return state.datetimeAPI[0]
 
@@ -243,8 +251,16 @@ def PyDateTime_FromTimestamp(space, w_args):
     """
     w_datetime = PyImport_Import(space, space.newtext("datetime"))
     w_type = space.getattr(w_datetime, space.newtext("datetime"))
+    return _PyDateTime_FromTimestamp(space, w_type, w_args, None)
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def _PyDateTime_FromTimestamp(space, w_type, w_args, w_kwds):
+    """Implementation of datetime.fromtimestamp that matches the signature for
+    PyDateTimeCAPI.DateTime_FromTimestamp
+    """
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
-    return space.call(w_method, w_args)
+
+    return space.call(w_method, w_args, w_kwds=w_kwds)
 
 @cpython_api([PyObject], PyObject)
 def PyDate_FromTimestamp(space, w_args):
@@ -253,6 +269,12 @@ def PyDate_FromTimestamp(space, w_args):
     """
     w_datetime = PyImport_Import(space, space.newtext("datetime"))
     w_type = space.getattr(w_datetime, space.newtext("date"))
+    return _PyDate_FromTimestamp(space, w_type, w_args)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyDate_FromTimestamp(space, w_type, w_args):
+    """Implementation of date.fromtimestamp that matches the signature for
+    PyDateTimeCAPI.Date_FromTimestamp"""
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
     return space.call(w_method, w_args)
 
@@ -296,25 +318,41 @@ def PyDateTime_GET_DAY(space, w_obj):
 def PyDateTime_DATE_GET_HOUR(space, w_obj):
     """Return the hour, as an int from 0 through 23.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("hour")))
+    # w_obj must be a datetime.timedate object.  However, I've seen libraries
+    # call this macro with a datetime.date object.  I think it returns
+    # nonsense in CPython, but it doesn't crash.  We'll just return zero
+    # in case there is no field 'hour'.
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("hour")))
+    except OperationError:
+        return 0
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MINUTE(space, w_obj):
     """Return the minute, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("minute")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("minute")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_SECOND(space, w_obj):
     """Return the second, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("second")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("second")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MICROSECOND(space, w_obj):
     """Return the microsecond, as an int from 0 through 999999.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_HOUR(space, w_obj):

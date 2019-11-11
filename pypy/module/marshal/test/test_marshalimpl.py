@@ -35,13 +35,13 @@ class AppTestMarshalMore:
     def test_unmarshal_ascii(self):
         import marshal
         s = marshal.loads(b"a\x04\x00\x00\x00ab\xc2\x84")
-        assert s == "ab\xc2\x84"
-        s = marshal.loads(b"A\x04\x00\x00\x00ab\xc2\x84")
-        assert s == "ab\xc2\x84"
-        s = marshal.loads(b"z\x04ab\xc2\x84")
-        assert s == "ab\xc2\x84"
-        s = marshal.loads(b"Z\x04ab\xc2\x84")
-        assert s == "ab\xc2\x84"
+        assert s == u"ab\xc2\x84"
+        #s = marshal.loads(b"A\x04\x00\x00\x00ab\xc2\x84")
+        #assert s == u"ab\xc2\x84"
+        #s = marshal.loads(b"z\x04ab\xc2\x84")
+        #assert s == u"ab\xc2\x84"
+        #s = marshal.loads(b"Z\x04ab\xc2\x84")
+        #assert s == u"ab\xc2\x84"
 
     def test_shared_string(self):
         import marshal

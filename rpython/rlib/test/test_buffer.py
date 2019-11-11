@@ -125,8 +125,8 @@ class TestTypedReadDirect(BaseTypedReadTest):
 class TestSubBufferTypedReadDirect(BaseTypedReadTest):
 
     def read(self, TYPE, data, offset):
-        buf = StringBuffer('xx' + data)
-        subbuf = SubBuffer(buf, 2, len(data))
+        buf = StringBuffer('x' * 16 + data)
+        subbuf = SubBuffer(buf, 16, len(data))
         return subbuf.typed_read(TYPE, offset)
 
 
@@ -196,6 +196,12 @@ class TestByteBuffer(object):
         buf.setslice(0, data)
         assert buf.typed_read(rffi.USHORT, 0) == 0x1234
         assert buf.typed_read(rffi.USHORT, 2) == 0x5678
+
+    def test_getslice_shortcut(self):
+        buf = ByteBuffer(4)
+        buf.setslice(0, b"data")
+        buf.getitem = None
+        assert buf.getslice(0, 2, 1, 2) == b"da" # no crash!
 
 
 class TestJIT(LLJitMixin):

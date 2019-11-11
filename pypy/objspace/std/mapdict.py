@@ -4,7 +4,7 @@ from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.unicodehelper import decode_utf8
+from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
@@ -433,8 +433,8 @@ class PlainAttribute(AbstractAttribute):
     def materialize_str_dict(self, space, obj, str_dict):
         new_obj = self.back.materialize_str_dict(space, obj, str_dict)
         if self.index == DICT:
-            uni_name = decode_utf8(space, self.name)
-            str_dict[uni_name] = obj._mapdict_read_storage(self.storageindex)
+            w_key = space.newtext(self.name)
+            str_dict[w_key] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -693,10 +693,12 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             return unerase_item(erased)
 
         def _mapdict_write_storage(self, storageindex, value):
-            for i in rangenmin1:
-                if storageindex == i:
-                    setattr(self, "_value%s" % i, value)
-                    return
+            assert storageindex >= 0
+            if storageindex < nmin1:
+                for i in rangenmin1:
+                    if storageindex == i:
+                        setattr(self, "_value%s" % i, value)
+                        return
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return
@@ -754,6 +756,7 @@ class MapDictStrategy(DictStrategy):
         self.space = space
 
     def get_empty_storage(self):
+        # mainly used for tests
         w_result = Object()
         terminator = self.space.fromcache(get_terminator_for_dicts)
         w_result._mapdict_init_empty(terminator)
@@ -866,6 +869,11 @@ class MapDictStrategy(DictStrategy):
     def iteritems(self, w_dict):
         return MapDictIteratorItems(self.space, self, w_dict)
 
+def make_instance_dict(space):
+    w_fake_object = Object()
+    terminator = space.fromcache(get_terminator_for_dicts)
+    w_fake_object._mapdict_init_empty(terminator)
+    return w_fake_object.getdict(space)
 
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()

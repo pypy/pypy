@@ -2,20 +2,24 @@
 # This is pure Python code that handles the main entry point into "pypy3".
 # See test/test_app_main.
 
-# Missing vs CPython: -b, -d, -x
-from __future__ import print_function, unicode_literals
+# Missing vs CPython: -x
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
+-b     : issue warnings about str(bytes_instance), str(bytearray_instance)
+         and comparing bytes/bytearray with str. (-bb: issue errors)
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
+-d     : debug output from parser; also PYTHONDEBUG=x\n\
 -E     : ignore PYTHON* environment variables (such as PYTHONPATH)
 -h     : print this help message and exit (also --help)
 -i     : inspect interactively after running script; forces a prompt even
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -I     : isolate Python from the user's environment (implies -E and -s)
 -m mod : run library module as a script (terminates option list)
--O     : skip assert statements; also PYTHONOPTIMIZE=x
--OO    : remove docstrings when importing modules in addition to -O
+-O     : remove assert and __debug__-dependent statements; add .opt-1 before
+         .pyc extension; also PYTHONOPTIMIZE=x
+-OO    : do -O changes and also discard docstrings; add .opt-2 before
+         .pyc extension
 -q     : don't print version and copyright messages on interactive startup
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
@@ -223,6 +227,8 @@ def _print_jit_help():
     print('    turn off the JIT')
     print(' help')
     print('    print this page')
+    print()
+    print('The "pypyjit" module can be used to control the JIT from inside python')
 
 def print_version(*args):
     initstdio()
@@ -334,7 +340,7 @@ def initstdio(encoding=None, unbuffered=False):
             del encerr
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
-    import io
+    import _io
     # stdin is always opened in buffered mode, first because it
     # shouldn't make a difference in common use cases, second because
     # TextIOWrapper depends on the presence of a read1() method which
@@ -342,7 +348,7 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     buffering = 0 if unbuffered and writing else -1
     mode = 'w' if writing else 'r'
     try:
-        buf = io.open(fd, mode + 'b', buffering, closefd=False)
+        buf = _io.open(fd, mode + 'b', buffering, closefd=False)
     except OSError as e:
         if e.errno != errno.EBADF:
             raise
@@ -350,9 +356,15 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
 
     raw = buf.raw if buffering else buf
     raw.name = name
-    # translate \r\n to \n for sys.stdin on Windows
-    newline = None if sys.platform == 'win32' and not writing else '\n'
-    stream = io.TextIOWrapper(buf, encoding, errors, newline=newline,
+    # We normally use newline='\n' below, which turns off any translation.
+    # However, on Windows (independently of -u), then we must enable
+    # the Universal Newline mode (set by newline = None): on input, \r\n
+    # is translated into \n; on output, \n is translated into \r\n.
+    # We must never enable the Universal Newline mode on POSIX: CPython
+    # never interprets '\r\n' in stdin as meaning just '\n', unlike what
+    # it does if you explicitly open a file in text mode.
+    newline = None if sys.platform == 'win32' else '\n'
+    stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
                               line_buffering=unbuffered or raw.isatty())
     stream.mode = mode
     return stream
@@ -535,10 +547,6 @@ def parse_command_line(argv):
         sys.flags = type(sys.flags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
-        if sys.flags.optimize >= 1:
-            import __pypy__
-            __pypy__.set_debug(False)
-
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
 
@@ -548,12 +556,6 @@ def parse_command_line(argv):
 ##        print '%40s: %s' % ("sys.argv", sys.argv)
 
     return options
-
-# this indirection is needed to be able to import this module on python2, else
-# we have a SyntaxError: unqualified exec in a nested function
-@hidden_applevel
-def exec_(src, dic):
-    exec(src, dic)
 
 @hidden_applevel
 def run_command_line(interactive,
@@ -590,6 +592,7 @@ def run_command_line(interactive,
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
     mainmodule.__builtins__ = os.__builtins__
+    mainmodule.__annotations__ = {}
     sys.modules['__main__'] = mainmodule
 
     if not no_site:
@@ -663,7 +666,7 @@ def run_command_line(interactive,
             else:
                 if not isolated:
                     sys.path.insert(0, '')
-                success = run_toplevel(exec_, bytes, mainmodule.__dict__)
+                success = run_toplevel(exec, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
@@ -703,7 +706,7 @@ def run_command_line(interactive,
                                                         python_startup,
                                                         'exec',
                                                         PyCF_ACCEPT_NULL_BYTES)
-                            exec_(co_python_startup, mainmodule.__dict__)
+                            exec(co_python_startup, mainmodule.__dict__)
                         mainmodule.__file__ = python_startup
                         mainmodule.__cached__ = None
                         run_toplevel(run_it)
@@ -721,7 +724,7 @@ def run_command_line(interactive,
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
                                        PyCF_ACCEPT_NULL_BYTES)
-                    exec_(co_stdin, mainmodule.__dict__)
+                    exec(co_stdin, mainmodule.__dict__)
                 mainmodule.__file__ = '<stdin>'
                 mainmodule.__cached__ = None
                 success = run_toplevel(run_it)
@@ -763,7 +766,7 @@ def run_command_line(interactive,
                         co = marshal.load(f)
                     if type(co) is not type((lambda:0).__code__):
                         raise RuntimeError("Bad code object in .pyc file")
-                    exec_(co, namespace)
+                    exec(co, namespace)
                 args = (execfile, filename, mainmodule.__dict__)
             else:
                 filename = sys.argv[0]
@@ -791,7 +794,7 @@ def run_command_line(interactive,
                             code = f.read()
                         co = compile(code, filename, 'exec',
                                      PyCF_ACCEPT_NULL_BYTES)
-                        exec_(co, namespace)
+                        exec(co, namespace)
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
