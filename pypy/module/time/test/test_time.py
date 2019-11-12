@@ -21,8 +21,15 @@ class AppTestTime:
         raises(OverflowError, time.sleep, float('inf'))
 
     def test_clock(self):
-        import time
-        time.clock()
+        import time, warnings
+        warnings.simplefilter("always")
+        with warnings.catch_warnings(record=True) as w:
+            time.clock()
+            assert len(w) == 1
+            assert str(w[0].message).startswith(
+                "time.clock has been deprecated in Python 3.3 and will "
+                "be removed from Python 3.8")
+            assert w[0].category == DeprecationWarning
         assert isinstance(time.clock(), float)
 
     def test_time(self):

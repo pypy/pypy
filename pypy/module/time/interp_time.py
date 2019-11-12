@@ -1219,6 +1219,11 @@ def process_time_ns(space, w_info=None):
 
 _clock = external('clock', [], rposix.CLOCK_T)
 def _clock_impl(space, w_info, return_ns):
+    space.warn(space.newtext(
+        "time.clock has been deprecated in Python 3.3 and will "
+        "be removed from Python 3.8: "
+        "use time.perf_counter or time.process_time "
+        "instead"), space.w_DeprecationWarning)
     if _WIN:
         try:
             return _win_perf_counter_impl(space, w_info, return_ns)
