@@ -10,7 +10,7 @@ from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, unicode_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
-    intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck, ovfcheck_float_to_int)
+    intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck, ovfcheck_float_to_int, INT_MIN)
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
@@ -646,6 +646,9 @@ def _gettmarg(space, w_tup, allowNone=True):
             glob_buf.c_tm_zone = malloced_str
         if len(tup_w) >= 11:
             rffi.setintfield(glob_buf, 'c_tm_gmtoff', space.c_int_w(tup_w[10]))
+
+    if (y < INT_MIN + 1900):
+        raise oefmt(space.w_OverflowError, "year out of range")
 
     # tm_wday does not need checking of its upper-bound since taking "%
     #  7" in _gettmarg() automatically restricts the range.

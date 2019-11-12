@@ -231,6 +231,7 @@ class AppTestTime:
         asc = time.asctime((bigyear, 6, 1) + (0,)*6)
         assert asc[-len(str(bigyear)):] == str(bigyear)
         raises(OverflowError, time.asctime, (bigyear + 1,) + (0,)*8)
+        raises(OverflowError, time.asctime, (-bigyear - 2 + 1900,) + (0,)*8)
 
     def test_struct_time(self):
         import time
