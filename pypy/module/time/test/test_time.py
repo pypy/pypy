@@ -97,6 +97,54 @@ class AppTestTime:
         assert abs(time.clock_gettime(time.CLOCK_MONOTONIC) -
                    time.clock_gettime_ns(time.CLOCK_MONOTONIC) * 1e-9) < 0.1
 
+    def test_clock_gettime(self):
+        import time
+        clock_ids = ['CLOCK_REALTIME',
+                     'CLOCK_REALTIME_COARSE',
+                     'CLOCK_MONOTONIC',
+                     'CLOCK_MONOTONIC_COARSE',
+                     'CLOCK_MONOTONIC_RAW',
+                     'CLOCK_BOOTTIME',
+                     'CLOCK_PROCESS_CPUTIME_ID',
+                     'CLOCK_THREAD_CPUTIME_ID',
+                     'CLOCK_HIGHRES',
+                     'CLOCK_PROF',
+                     'CLOCK_UPTIME',]
+        for clock_id in clock_ids:
+            clock = getattr(time, clock_id, None)
+            if clock is None:
+                continue
+            t1 = time.clock_gettime(clock)
+            assert isinstance(t1, float)
+            time.sleep(time.clock_getres(clock))
+            t2 = time.clock_gettime(clock)
+            assert t1 < t2
+
+    def test_clock_gettime(self):
+        import time
+        clock_ids = ['CLOCK_REALTIME',
+                     'CLOCK_REALTIME_COARSE',
+                     'CLOCK_MONOTONIC',
+                     'CLOCK_MONOTONIC_COARSE',
+                     'CLOCK_MONOTONIC_RAW',
+                     'CLOCK_BOOTTIME',
+                     'CLOCK_PROCESS_CPUTIME_ID',
+                     'CLOCK_THREAD_CPUTIME_ID',
+                     'CLOCK_HIGHRES',
+                     'CLOCK_PROF',
+                     'CLOCK_UPTIME',]
+        for clock_id in clock_ids:
+            clock = getattr(time, clock_id, None)
+            if clock is None:
+                continue
+            t1 = time.clock_gettime_ns(clock)
+            assert isinstance(t1, int)
+            time.sleep(time.clock_getres(clock))
+            t2 = time.clock_gettime_ns(clock)
+            assert t1 < t2
+            assert abs(time.clock_gettime(clock) -
+                       time.clock_gettime_ns(clock) * 1e-9) < 0.1
+
     def test_ctime(self):
         import time
         raises(TypeError, time.ctime, "foo")
