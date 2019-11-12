@@ -65,10 +65,8 @@ def _get_msvc_env(vcver, x64flag):
         log.error('looking for compiler %s raised exception "%s' % (vcver, str(e)))
         return None
 
-def find_msvc_env(x64flag=False, ver0=None):
+def find_msvc_env(x64flag=False):
     vcvers = [150, 140, 141, 90, 100]
-    if ver0 in vcvers:
-        vcvers.insert(0, ver0)
     for vsver in vcvers:
         env = _get_msvc_env(vsver, x64flag)
         if env is not None:
@@ -124,10 +122,7 @@ class MsvcPlatform(Platform):
         patch_os_env(self.externals)
         self.c_environ = os.environ.copy()
         if cc is None:
-            # prefer compiler used to build host. Python2 only
-            if ver0 is None:
-                ver0 = _get_vcver0()
-            msvc_compiler_environ, self.vsver = find_msvc_env(x64, ver0=ver0)
+            msvc_compiler_environ, self.vsver = find_msvc_env(x64)
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
                 self.c_environ.update(msvc_compiler_environ)
