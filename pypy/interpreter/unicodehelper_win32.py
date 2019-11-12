@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.runicode import (BOOLP, WideCharToMultiByte,
          MultiByteToWideChar)
-from rpython.rlib.rutf8 import (Utf8StringBuilder, Utf8StringIterator,
-         next_codepoint_pos)
+from rpython.rlib.rutf8 import (Utf8StringIterator, next_codepoint_pos,
+                                StringBuilder)
 from rpython.rlib import rwin32
 
 def Py_UNICODE_HIGH_SURROGATE(ch):
@@ -113,7 +113,7 @@ def str_decode_code_page(cp, s, errors, errorhandler, final=False):
     flags = _decode_code_page_flags(cp)
     encoding = _code_page_name(cp)
     assert errorhandler is not None
-    res = Utf8StringBuilder(insize)
+    res = StringBuilder(insize)
     if errors == 'strict':
         _decode_helper(cp, s, flags, encoding, errors, errorhandler,
                        0, len(s), res)
@@ -152,7 +152,7 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
     # Encode one codpoint at a time to allow the errorhandlers to do
     # their thing
     chars = lltype.malloc(rffi.CWCHARP.TO, 2, flavor = 'raw')
-    res = Utf8StringBuilder(lgt)
+    res = StringBuilder(lgt)
     try:
         pos = 0
         for uni in Utf8StringIterator(s):
@@ -187,7 +187,9 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
                                            s, pos, pos + 1)
                         res.append(r)
                 else:
-                    res.append(buf.str(outsize))
+                    result = buf.str(outsize)
+                    assert result is not None
+                    res.append(result)
             pos += 1
         return res.build()
     finally:
