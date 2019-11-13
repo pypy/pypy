@@ -1355,6 +1355,8 @@ class W_CPPClassDecl(W_CPPScopeDecl):
     def _build_overloads(self):
         assert len(self.overloads) == 0
         methods_tmp = {}; ftype_tmp = {}
+
+        # add all ordinary methods (incl. pre-instantiated templates)
         for idx in range(capi.c_num_methods(self.space, self)):
             cppmeth = capi.c_get_method(self.space, self, idx)
             if capi.c_is_constructor(self.space, cppmeth):
@@ -1372,6 +1374,7 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             ftype_tmp[pyname] |= self._make_cppfunction(pyname, cppmeth, methods)
             if capi.c_method_is_template(self.space, self, idx):
                 ftype_tmp[pyname] |= FUNCTION_IS_TEMPLATE
+
         # the following covers the case where the only kind of operator[](idx)
         # returns are the ones that produce non-const references; these can be
         # used for __getitem__ just as much as for __setitem__, though
@@ -1406,6 +1409,11 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             else:
                 overload = W_CPPOverload(self.space, self, methods[:])
             self.overloads[pyname] = overload
+
+        # add placeholders for all non-instantiated templated methods
+        for idx in range(capi.c_get_num_templated_methods(self.space, self)):
+            cppname = capi.c_get_templated_method_name(self.space, self, idx)
+            self.overloads[cppname] = W_CPPTemplateOverload(self.space, cppname, None, self, [])
 
     def _make_cppfunction(self, pyname, cppmeth, funcs):
         num_args = capi.c_method_num_args(self.space, cppmeth)
