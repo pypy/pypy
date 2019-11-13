@@ -189,14 +189,14 @@ def create_package(basedir, options, _fake=False):
                           for source, target, target_dir in binaries])
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
-    # would not be enough: there are also ctypes_config_cache/_*_cache.py.
-    # XXX ^^^ this is no longer true!
+    # would not be enough: there are also build artifacts like cffi-generated
+    # dynamic libs
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
                     str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*_cffi.c', '*.o'))
+                                           '*_cffi.c', '*.o', '*.pyd-*'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
