@@ -163,12 +163,18 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
                 charsize = 1
             else:
                 chars[0] = Py_UNICODE_HIGH_SURROGATE(uni)
-                chars[0] = Py_UNICODE_LOW_SURROGATE(uni)
+                chars[1] = Py_UNICODE_LOW_SURROGATE(uni)
                 charsize = 2
                 # first get the size of the result
             outsize = WideCharToMultiByte(cp, flags, chars, charsize, None, 0,
                                            None, used_default_p)
+            
             if outsize == 0:
+                if rwin32.GetLastError_saved() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
+                    r, pos, retype = errorhandler(errors, name,
+                                       "invalid character", s, pos, pos+1)
+                    res.append(r)
+                    continue
                 raise rwin32.lastSavedWindowsError()
             # If we used a default char, then we failed!
             if (used_default_p and rffi.cast(lltype.Bool, used_default_p[0])):

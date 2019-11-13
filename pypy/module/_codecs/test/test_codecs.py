@@ -1,4 +1,5 @@
 import sys
+import pytest
 
 class AppTestCodecs:
     spaceconfig = {
@@ -525,6 +526,57 @@ class AppTestCodePage:
             ):
             check_decode(1252, test)
 
+    def test_encode_65001(self):
+        tests = [
+            ('abc', 'strict', b'abc'),
+            ('\xe9\u20ac', 'strict',  b'\xc3\xa9\xe2\x82\xac'),
+            ('\U0010ffff', 'strict', b'\xf4\x8f\xbf\xbf'),
+            ('\udc80', 'strict', None),
+            ('\udc80', 'ignore', b''),
+            ('\udc80', 'replace', b'?'),
+            ('\udc80', 'backslashreplace', b'\\udc80'),
+            ('\udc80', 'namereplace', b'\\udc80'),
+            ('\udc80', 'surrogatepass', b'\xed\xb2\x80'),
+        ]
+        for text, errors, expected in tests:
+            if expected is not None:
+                try:
+                    encoded = text.encode('cp65001', errors)
+                except UnicodeEncodeError as err:
+                    assert False, ('Unable to encode %a to cp65001 with '
+                              'errors=%r: %s' % (text, errors, err))
+                assert encoded ==expected, ('%a.encode("cp65001", %r)=%a != %a'
+                    % (text, errors, encoded, expected))
+            else:
+                raises(UnicodeEncodeError, text.encode, "cp65001", errors)
+
+    def test_decode_65001(self):
+        tests = [
+            (b'abc', 'strict', 'abc'),
+            (b'\xc3\xa9\xe2\x82\xac', 'strict', '\xe9\u20ac'),
+            (b'\xf4\x8f\xbf\xbf', 'strict', '\U0010ffff'),
+            (b'\xef\xbf\xbd', 'strict', '\ufffd'),
+            (b'[\xc3\xa9]', 'strict', '[\xe9]'),
+            # invalid bytes
+            (b'[\xff]', 'strict', None),
+            (b'[\xff]', 'ignore', '[]'),
+            (b'[\xff]', 'replace', '[\ufffd]'),
+            (b'[\xff]', 'surrogateescape', '[\udcff]'),
+            (b'[\xed\xb2\x80]', 'strict', None),
+            (b'[\xed\xb2\x80]', 'ignore', '[]'),
+            (b'[\xed\xb2\x80]', 'replace', '[\ufffd\ufffd\ufffd]'),
+        ]
+        for raw, errors, expected in tests:
+            if expected is not None:
+                try:
+                    decoded = raw.decode('cp65001', errors)
+                except UnicodeDecodeError as err:
+                    assert False, ('Unable to decode %a from cp65001 with '
+                              'errors=%r: %s' % (raw, errors, err))
+                assert decoded == expected, ('%a.decode("cp65001", %r)=%a != %a'
+                    % (raw, errors, decoded, expected))
+            else:
+                raises(UnicodeDecodeError, raw.decode, 'cp65001', errors)
 
 
 class AppTestPartialEvaluation:
