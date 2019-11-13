@@ -26,12 +26,8 @@ from pypy.tool.release.smartstrip import smartstrip
 from pypy.tool.release.make_portable import make_portable
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
-
 STDLIB_VER = "3"
-
 POSIX_EXE = 'pypy3'
-
-POSIX_EXE = 'pypy'
 
 from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
