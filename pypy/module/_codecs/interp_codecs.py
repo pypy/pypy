@@ -5,7 +5,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rutf8 import MAXUNICODE
 from rpython.rlib import runicode
 
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter import unicodehelper
 from pypy.module.unicodedata.interp_ucd import unicodedb
@@ -727,9 +727,12 @@ if getattr(unicodehelper, '_WIN32', False):
             allow_surrogates = True
         state = space.fromcache(CodecState)
         ulen = w_arg._length
-        result = unicodehelper.utf8_encode_code_page(code_page, w_arg._utf8,
+        try:
+            result = unicodehelper.utf8_encode_code_page(code_page, w_arg._utf8,
                       errors, state.encode_error_handler,
                       allow_surrogates=allow_surrogates)
+        except OSError as e:
+            raise wrap_oserror(space, e)
         return space.newtuple([space.newbytes(result), space.newint(ulen)])
 
     @unwrap_spec(code_page=int, string='bufferstr', errors='text_or_none',
@@ -742,9 +745,12 @@ if getattr(unicodehelper, '_WIN32', False):
             errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
-        result, length, pos = unicodehelper.str_decode_code_page(code_page,
+        try:
+            result, length, pos = unicodehelper.str_decode_code_page(code_page,
                                    string, errors, final,
                                    state.decode_error_handler)
+        except OSError as e:
+            raise wrap_oserror(space, e)
         # must return bytes, pos
         return space.newtuple([space.newutf8(result, length), space.newint(pos)])
 
