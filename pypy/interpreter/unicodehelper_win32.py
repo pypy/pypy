@@ -41,13 +41,13 @@ def _encode_code_page_flags(code_page, errors):
         return 0
     return rwin32.WC_NO_BEST_FIT_CHARS
 
-def _decode_cp_error(s, errorhandler, encoding, errors, start, end):
+def _decode_cp_error(s, errorhandler, encoding, errors, final, start, end):
     # late import to avoid circular import
     from pypy.interpreter.unicodehelper import _str_decode_utf8_slowpath
     if rwin32.GetLastError_saved() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
         msg = ("No mapping for the Unicode character exists in the target "
                "multi-byte code page.")
-        r, ignore1, ignore2 = _str_decode_utf8_slowpath(s[start:end], errors, False, errorhandler, False)
+        r, ignore1, ignore2 = _str_decode_utf8_slowpath(s[start:end], errors, final, errorhandler, False)
         return r, end
     else:
         raise rwin32.lastSavedWindowsError()
@@ -77,7 +77,7 @@ def _unibuf_to_utf8(uni, insize):
             return result
 
 def _decode_helper(cp, s, flags, encoding, errors, errorhandler, 
-                   start, end, res):
+                   final, start, end, res):
     if end > len(s):
         end = len(s)
     piece = s[start:end]
@@ -87,7 +87,7 @@ def _decode_helper(cp, s, flags, encoding, errors, errorhandler,
                                     lltype.nullptr(rffi.CWCHARP.TO), 0)
         if outsize == 0:
             r, pos = _decode_cp_error(s, errorhandler,
-                                               encoding, errors, start, end)
+                                           encoding, errors, final, start, end)
             res.append(r)
             return pos
 
@@ -96,7 +96,7 @@ def _decode_helper(cp, s, flags, encoding, errors, errorhandler,
             if MultiByteToWideChar(cp, flags, dataptr, len(piece),
                                    buf.raw, outsize) == 0:
                 r, pos = _decode_cp_error(s, errorhandler,
-                                             encoding, errors, start, end)
+                                           encoding, errors, final, start, end)
                 res.append(r)
                 return pos
             else:
@@ -116,14 +116,14 @@ def str_decode_code_page(cp, s, errors, errorhandler, final=False):
     res = StringBuilder(insize)
     if errors == 'strict':
         _decode_helper(cp, s, flags, encoding, errors, errorhandler,
-                       0, len(s), res)
+                       final, 0, len(s), res)
     else:
         prev_pos = 0
         pos = 0
         while pos < len(s):
             pos = next_codepoint_pos(s, prev_pos)
-            pos = _decode_helper(cp, s, flags, encoding,
-                            errors, errorhandler, prev_pos, pos, res)
+            pos = _decode_helper(cp, s, flags, encoding, errors,
+                                 errorhandler, final, prev_pos, pos, res)
             prev_pos = pos
     return res.build(), insize
 

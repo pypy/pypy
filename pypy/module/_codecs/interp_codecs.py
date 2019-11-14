@@ -716,6 +716,9 @@ if getattr(unicodehelper, '_WIN32', False):
     @unwrap_spec(code_page=int, errors='text_or_none')
     def code_page_encode(space, code_page, w_arg, errors="strict"):
         # w_arg is a W_Unicode or W_Bytes?
+        if code_page < 0:
+            raise oefmt(space.w_ValueError, "invalid code page number %d",
+                        code_page)
         w_arg = space.convert_arg_to_w_unicode(w_arg, errors)
         if errors is None:
             errors = 'strict'
@@ -732,6 +735,9 @@ if getattr(unicodehelper, '_WIN32', False):
     @unwrap_spec(code_page=int, string='bufferstr', errors='text_or_none',
                  w_final=WrappedDefault(False))
     def code_page_decode(space, code_page, string, errors="strict", w_final=None):
+        if code_page < 0:
+            raise oefmt(space.w_ValueError, "invalid code page number %d",
+                        code_page)
         if errors is None:
             errors = 'strict'
         final = space.is_true(w_final)
