@@ -1,0 +1,49 @@
+import py
+import pytest
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+
+from rpython.tool.udir import udir
+from ._vendored import support as _support
+
+INCLUDE_DIR = str(py.path.local(__file__).dirpath().join('_vendored/include'))
+
+class ExtensionCompiler(object):
+    def __init__(self, base_dir):
+        self.base_dir = base_dir
+
+    def get_builddir(self, name='mytest'):
+        builddir = py.path.local.make_numbered_dir(
+            rootdir=py.path.local(self.base_dir),
+            prefix=name + '-',
+            keep=0)  # keep everything
+        return builddir
+
+
+class HPyTest(object):
+    def setup_class(cls):
+        if cls.runappdirect:
+            pytest.skip()
+        cls.compiler = ExtensionCompiler(udir)
+
+        @unwrap_spec(source_template='text', name='text')
+        def descr_make_module(space, source_template, name='mytest'):
+            source = _support.expand_template(source_template, name)
+            tmpdir = cls.compiler.get_builddir()
+            filename = tmpdir.join(name+ '.c')
+            filename.write(source)
+            #
+            ext = _support.get_extension(str(filename), name, include_dirs=[INCLUDE_DIR],
+                                extra_compile_args=['-Wfatal-errors'])
+            so_filename = _support.c_compile(str(tmpdir), ext, compiler_verbose=False,
+                                    universal_mode=True)
+            #
+            w_mod = space.appexec(
+                [space.newtext(so_filename), space.newtext(name)],
+                """(path, modname):
+                    from hpy_universal import load
+                    return load(path, 'HPyInit_' + modname)
+                """
+            )
+            return w_mod
+        cls.w_make_module = cls.space.wrap(interp2app(descr_make_module))
+
