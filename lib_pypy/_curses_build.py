@@ -96,8 +96,6 @@ typedef unsigned char bool;
 typedef unsigned long... chtype;
 typedef chtype attr_t;
 
-typedef int... wint_t;
-
 typedef struct
 {
     short id;           /* ID to distinguish multiple devices */
@@ -376,6 +374,7 @@ void _m_getsyx(int *yx);
 
 if version > (5, 7):
     ffi.cdef("""
+typedef int... wint_t;
 int wget_wch(WINDOW *, wint_t *);
 int mvwget_wch(WINDOW *, int, int, wint_t *);
 int unget_wch(const wchar_t);

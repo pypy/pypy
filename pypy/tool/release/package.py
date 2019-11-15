@@ -158,7 +158,8 @@ def create_package(basedir, options, _fake=False):
             print('Picking %s (and contents)' % libsdir)
             shutil.copytree(str(libsdir), str(pypydir.join('libs')))
         else:
-            raise RuntimError('"libs" dir with import library not found.')
+            if not _fake:
+                raise RuntimeError('"libs" dir with import library not found.')
             # XXX users will complain that they cannot compile capi (cpyext)
             # modules for windows, also embedding pypy (i.e. in cffi)
             # will fail.
