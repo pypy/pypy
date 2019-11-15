@@ -383,9 +383,10 @@ def _init_non_posix(vars):
     vars['VERSION'] = _PY_VERSION_SHORT_NO_DOT
     vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
     # pypy only: give us control over the ABI tag in a wheel name
-    import _imp
-    so_ext = _imp.get_suffixes()[0][0]
-    vars['SOABI']= '-'.join(so_ext.split('.')[1].split('-')[:2])
+    if '__pypy__' in sys.builtin_module_names:
+        import imp
+        so_ext = imp.get_suffixes()[0][0]
+        vars['SOABI']= '-'.join(so_ext.split('.')[1].split('-')[:2])
 
 #
 # public APIs
