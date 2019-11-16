@@ -521,7 +521,7 @@ class AppTestSocket:
         assert reuse != 0
         # try to call setsockopt() with a buffer argument
         reusestr = struct.pack('i', 0)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, buffer(reusestr))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, memoryview(reusestr))
         reusestr = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
                                 intsize)
         (reuse,) = struct.unpack('i', reusestr)
