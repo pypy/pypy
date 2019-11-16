@@ -13,6 +13,7 @@ class AppTestBasic(HPyTest):
         assert type(mod) is type(sys)
 
     def test_empty_module_initialization(self):
+        skip("FIXME")
         import sys
         mod = self.make_module("""
             @INIT
