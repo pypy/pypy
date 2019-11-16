@@ -1,12 +1,35 @@
 import os
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 HPy = lltype.Signed
-HPyContext = llmemory.Address
+HPyContext = rffi.VOIDP
 
 HPyInitFuncPtr = lltype.Ptr(lltype.FuncType([HPyContext], HPy))
+
+_HPyCFunctionPtr = lltype.Ptr(lltype.FuncType([HPyContext, HPy, HPy], HPy))
+_HPy_CPyCFunctionPtr = rffi.VOIDP    # not used here
+
+_HPyMethodPairFuncPtr = lltype.Ptr(lltype.FuncType([
+        rffi.CArrayPtr(_HPyCFunctionPtr),
+        rffi.CArrayPtr(_HPy_CPyCFunctionPtr)],
+    lltype.Void))
+
+HPyMethodDef = rffi.CStruct('HPyMethodDef',
+    ('ml_name', rffi.CCHARP),
+    ('ml_meth', _HPyMethodPairFuncPtr),
+    ('ml_flags', rffi.INT_real),
+    ('ml_doc', rffi.CCHARP),
+)
+
+HPyModuleDef = rffi.CStruct('HPyModuleDef',
+    ('dummy', rffi.VOIDP),
+    ('m_name', rffi.CCHARP),
+    ('m_doc', rffi.CCHARP),
+    ('m_size', lltype.Signed),
+    ('m_methods', rffi.CArrayPtr(HPyMethodDef)),
+)
 
 
 # ----------------------------------------------------------------
@@ -54,7 +77,7 @@ void *_HPy_GetGlobalCtx(void)
 
 
 _HPy_FillFunction = rffi.llexternal('_HPy_FillFunction',
-                                    [rffi.INT_real, llmemory.Address],
+                                    [rffi.INT_real, rffi.VOIDP],
                                     lltype.Void,
                                     compilation_info=eci, _nowrapper=True)
 
