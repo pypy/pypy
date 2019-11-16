@@ -15,11 +15,18 @@ class HandleManager:
             self.handles_w[index] = w_object
         return index
 
-    def consume(self, index):
+    def close(self, index):
         assert index > 0
-        w_object = self.handles_w[index]
         self.handles_w[index] = None
         self.free_list.append(index)
+
+    def consume(self, index):
+        """
+        Like close, but also return the w_object which was pointed by the handled
+        """
+        assert index > 0
+        w_object = self.handles_w[index]
+        self.close(index)
         return w_object
 
     def dup(self, index):

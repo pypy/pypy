@@ -7,6 +7,12 @@ class TestHandleManager(object):
         h = mgr.new('hello')
         assert mgr.handles_w[h] == 'hello'
 
+    def test_close(self):
+        mgr = HandleManager(None)
+        h = mgr.new('hello')
+        assert mgr.close(h) is None
+        assert mgr.handles_w[h] is None
+
     def test_consume(self):
         mgr = HandleManager(None)
         h = mgr.new('hello')
