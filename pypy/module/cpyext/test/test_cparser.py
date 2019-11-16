@@ -118,6 +118,17 @@ def test_incomplete():
     Object = cts.gettype('Object')
     assert isinstance(Object, lltype.Struct)
 
+def test_incomplete_struct():
+    cdef = """
+    typedef struct s *ptr;
+    struct s {void* x;};
+    typedef struct s __s;  // HACK!
+    """
+    cts = parse_source(cdef)
+    PTR = cts.gettype("ptr")
+    assert isinstance(PTR.TO, lltype.Struct)
+    hash(PTR)
+
 def test_recursive():
     cdef = """
     typedef ssize_t Py_ssize_t;
