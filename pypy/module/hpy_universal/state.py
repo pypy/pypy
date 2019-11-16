@@ -44,3 +44,6 @@ class State:
         #
         funcptr = interp_hpy.HPyNone_Get.get_llhelper(space)
         self.ctx.ctx_None_Get = rffi.cast(rffi.VOIDP, funcptr)
+        #
+        funcptr = interp_hpy.HPy_Dup.get_llhelper(space)
+        self.ctx.ctx_Dup = rffi.cast(rffi.VOIDP, funcptr)

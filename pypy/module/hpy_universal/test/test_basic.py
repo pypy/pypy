@@ -40,3 +40,15 @@ class AppTestBasic(HPyTest):
             @INIT
         """)
         assert mod.f() is None
+
+    def test_self_is_module(self):
+        mod = self.make_module("""
+            HPy_FUNCTION(f)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy args)
+            {
+                return HPy_Dup(ctx, self);
+            }
+            @EXPORT f METH_NOARGS
+            @INIT
+        """)
+        assert mod.f() is mod

@@ -22,6 +22,10 @@ class HandleManager:
         self.free_list.append(index)
         return w_object
 
+    def dup(self, index):
+        w_object = self.handles_w[index]
+        return self.new(w_object)
+
 
 def new(space, w_object):
     mgr = space.fromcache(HandleManager)
@@ -30,3 +34,7 @@ def new(space, w_object):
 def consume(space, index):
     mgr = space.fromcache(HandleManager)
     return mgr.consume(index)
+
+def dup(space, index):
+    mgr = space.fromcache(HandleManager)
+    return mgr.dup(index)
