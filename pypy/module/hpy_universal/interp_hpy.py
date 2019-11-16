@@ -1,19 +1,36 @@
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.rdynload import dlopen, dlsym, DLOpenError
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
 
+from pypy.module.hpy_universal import llapi
+from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
+
+
+class State:
+    def __init__(self, space):
+        "NOT_RPYTHON"
+        self.space = space
+        self.ctx = llmemory.NULL
+
+    def setup(self):
+        if not self.ctx:
+            #_HPy_FillFunction(0, HPy_ModuleCreate)
+            self.ctx = llapi._HPy_GetGlobalCtx()
+
 
 def create_hpy_module(space, name, origin, lib, initfunc):
     state = space.fromcache(State)
-    ctx = state.context
-    h_module = generic_cpy_call_dont_convert_result(space, initfunc, ctx)
+    initfunc = rffi.cast(llapi.HPyInitFuncPtr, initfunc)
+    h_module = generic_cpy_call_dont_convert_result(space, initfunc, state.ctx)
     return from_hpy(h_module)
 
 @unwrap_spec(origin='fsencode', init_name='text')
 def descr_load(space, origin, init_name):
     # XXX: this looks a lot like cpyext.api.create_extension_module()
+    state = space.fromcache(State)
+    state.setup()
     name = init_name[len('HPyInit_'):]
     try:
         with rffi.scoped_str2charp(origin) as ll_libname:
