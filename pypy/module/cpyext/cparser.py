@@ -732,6 +732,7 @@ class CTypeSpace(object):
             if tp.type_name is None:
                 tp.type_name = name
             tp = self.realize_struct(tp)
+            self.structs[obj.realtype] = tp
         self.definitions[name] = tp
 
     def add_macro(self, name, value):
