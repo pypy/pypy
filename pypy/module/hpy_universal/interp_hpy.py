@@ -1,3 +1,4 @@
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rdynload import dlopen, dlsym, DLOpenError
 
@@ -8,11 +9,24 @@ from pypy.interpreter.module import Module
 from pypy.module.hpy_universal import llapi, handles, interp_extfunc
 from pypy.module.hpy_universal.state import State
 from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
-from pypy.module.cpyext.api import slot_function
 
 
-@slot_function([llapi.HPyContext, lltype.Ptr(llapi.HPyModuleDef)],
-               llapi.HPy, error=0)
+def apifunc(argtypes, restype, error):
+    # XXX: at the moment, error is ignored. We should do something with it
+    # and handle exceptions properly
+    def decorate(fn):
+        ll_functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
+        def get_llhelper(space):
+            def wrapper(*args):
+                return fn(space, *args)
+            return llhelper(ll_functype, wrapper)
+        fn.get_llhelper = get_llhelper
+        return fn
+    return decorate
+
+
+@apifunc([llapi.HPyContext, lltype.Ptr(llapi.HPyModuleDef)],
+         llapi.HPy, error=0)
 def HPyModule_Create(space, ctx, hpydef):
     modname = rffi.charp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
@@ -29,7 +43,7 @@ def HPyModule_Create(space, ctx, hpydef):
     return handles.new(space, w_mod)
 
 
-@slot_function([llapi.HPyContext], llapi.HPy, error=0)
+@apifunc([llapi.HPyContext], llapi.HPy, error=0)
 def HPyNone_Get(space, ctx):
     return handles.new(space, space.w_None)
 
