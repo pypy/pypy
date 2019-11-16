@@ -29,6 +29,11 @@ def HPyModule_Create(space, ctx, hpydef):
     return handles.new(space, w_mod)
 
 
+@slot_function([llapi.HPyContext], llapi.HPy, error=0)
+def HPyNone_Get(space, ctx):
+    return handles.new(space, space.w_None)
+
+
 def create_hpy_module(space, name, origin, lib, initfunc):
     state = space.fromcache(State)
     initfunc = rffi.cast(llapi.HPyInitFuncPtr, initfunc)

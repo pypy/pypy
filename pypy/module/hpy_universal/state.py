@@ -31,3 +31,6 @@ class State:
         space = self.space
         funcptr = interp_hpy.HPyModule_Create.api_func.get_llhelper(space)
         self.ctx.ctx_Module_Create = rffi.cast(rffi.VOIDP, funcptr)
+        #
+        funcptr = interp_hpy.HPyNone_Get.api_func.get_llhelper(space)
+        self.ctx.ctx_None_Get = rffi.cast(rffi.VOIDP, funcptr)

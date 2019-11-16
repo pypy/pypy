@@ -33,7 +33,7 @@ class W_ExtensionFunction(W_Root):
         h_result = generic_cpy_call_dont_convert_result(space, self.cfuncptr,
             state.ctx, 0, 0)
         # XXX check for exceptions
-        return handles.consume(h_result)
+        return handles.consume(space, h_result)
 
     def call_o(self, space, w_arg):
         raise NotImplementedError("later")
