@@ -1,4 +1,5 @@
 import py, sys
+import platform
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -422,6 +423,9 @@ class TestMisc(BaseTestPyPyC):
         assert len(loops) == 1
 
     def test_bit_check(self):
+        if not platform.machine().startswith('x86'):
+            py.test.skip("only x86 supports int_test_instructions for now")
+
         def main(n):
             x = 0
             while n:
