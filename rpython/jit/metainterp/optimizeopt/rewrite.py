@@ -646,15 +646,16 @@ class OptRewrite(Optimization):
         elif info == INFO_NULL:
             self.make_constant_int(op, not expect_nonnull)
         else:
-            box = get_box_replacement(box)
-            box1 = self.optimizer.as_operation(box)
-            if box1 is not None and box1.getopnum() == rop.INT_AND:
-                if expect_nonnull:
-                    opnum = rop.INT_TEST_IS_TRUE
-                else:
-                    opnum = rop.INT_TEST_IS_ZERO
-                args = [box1.getarg(0), box1.getarg(1)]
-                op = self.replace_op_with(op, opnum, args=args)
+            if self.optimizer.cpu.supports_int_test_instructions:
+                box = get_box_replacement(box)
+                box1 = self.optimizer.as_operation(box)
+                if box1 is not None and box1.getopnum() == rop.INT_AND:
+                    if expect_nonnull:
+                        opnum = rop.INT_TEST_IS_TRUE
+                    else:
+                        opnum = rop.INT_TEST_IS_ZERO
+                    args = [box1.getarg(0), box1.getarg(1)]
+                    op = self.replace_op_with(op, opnum, args=args)
             return self.emit(op)
 
     def optimize_INT_IS_TRUE(self, op):
