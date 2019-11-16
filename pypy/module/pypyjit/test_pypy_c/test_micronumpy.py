@@ -157,8 +157,9 @@ class TestMicroNumPy(BaseTestPyPyC):
             i9 = getfield_gc_i(p4, descr=<FieldU pypy.module.micronumpy.concrete.BaseConcreteArray.inst_storage \d+ pure>)
             i10 = getfield_gc_i(p6, descr=<FieldU pypy.module.micronumpy.descriptor.W_Dtype.inst_byteorder \d+ pure>)
             i12 = int_eq(i10, 61)
-            i14 = int_eq(i10, %d)
+            i14 = int_eq(i10, %(bit)d)
             i15 = int_or(i12, i14)
+            %(align_check)s
             f16 = raw_load_f(i9, i5, descr=<ArrayF \d+>)
             guard_true(i15, descr=...)
             guard_not_invalidated(descr=...)
@@ -190,7 +191,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             setfield_gc(p34, i30, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset \d+>)
             }}}
             jump(..., descr=...)
-        """ % (bit,))
+        """ % {'align_check': align_check('i5'), 'bit': bit})
 
     def test_reduce_logical_and(self):
         def main():
@@ -203,6 +204,7 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert len(log.loops) == 1
         loop = log._filter(log.loops[0])
         loop.match("""
+            %(align_check)s
             f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
             i32 = float_ne(f31, 0.000000)
@@ -212,7 +214,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             i38 = int_ge(i36, i30)
             guard_false(i38, descr=...)
             jump(..., descr=...)
-            """)
+            """ % {'align_check': align_check('i29')})
         # vector version
         #assert loop.match("""
         #    guard_not_invalidated(descr=...)
@@ -422,6 +424,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_false(i94, descr=...)
             i96 = int_mul(i91, i58)
             i97 = int_add(i51, i96)
+            %(align_check)s
             f98 = raw_load_f(i63, i97, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
             f100 = float_mul(f98, 0.500000)
@@ -439,4 +442,4 @@ class TestMicroNumPy(BaseTestPyPyC):
             i107 = int_lt(i106, 0)
             guard_false(i107, descr=...)
             jump(..., descr=...)
-        """)
+        """ % {'align_check': align_check('i97')})
