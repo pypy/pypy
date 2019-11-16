@@ -41,7 +41,8 @@ class HPyTest(object):
             filename.write(source)
             #
             ext = _support.get_extension(str(filename), name, include_dirs=[INCLUDE_DIR],
-                                extra_compile_args=['-Wfatal-errors'])
+                                extra_compile_args=['-Wfatal-errors', '-g', '-Og'],
+                                extra_link_args=['-g'])
             so_filename = _support.c_compile(str(tmpdir), ext, compiler_verbose=False,
                                     universal_mode=True)
             #

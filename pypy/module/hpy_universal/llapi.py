@@ -4,7 +4,21 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 HPy = lltype.Signed
-HPyContext = rffi.VOIDP
+HPyContextS = lltype.Struct('dummy_HPyContext_s',
+    ('ctx_version', rffi.INT_real),
+    ('ctx_Module_Create', rffi.VOIDP),
+    ('ctx_None_Get', rffi.VOIDP),
+    ('ctx_Dup', rffi.VOIDP),
+    ('ctx_Close', rffi.VOIDP),
+    ('ctx_Long_FromLong', rffi.VOIDP),
+    ('ctx_Arg_ParseTuple', rffi.VOIDP),
+    ('ctx_Number_Add', rffi.VOIDP),
+    ('ctx_Unicode_FromString', rffi.VOIDP),
+    ('ctx_FromPyObject', rffi.VOIDP),
+    ('ctx_AsPyObject', rffi.VOIDP),
+    ('ctx_CallRealFunctionFromTrampoline', rffi.VOIDP),
+)
+HPyContext = lltype.Ptr(HPyContextS)
 
 HPyInitFuncPtr = lltype.Ptr(lltype.FuncType([HPyContext], HPy))
 
@@ -31,6 +45,11 @@ HPyModuleDef = rffi.CStruct('HPyModuleDef',
     ('m_methods', rffi.CArrayPtr(HPyMethodDef)),
 )
 
+METH_VARARGS  = 0x0001
+METH_KEYWORDS = 0x0002
+METH_NOARGS   = 0x0004
+METH_O        = 0x0008
+
 
 # ----------------------------------------------------------------
 
@@ -47,26 +66,7 @@ RPY_EXTERN void *_HPy_GetGlobalCtx(void);
 """],
                               separate_module_sources=["""
 
-struct _HPyRawContext_s {
-    int ctx_version;
-    void *ctx_raw_functions[1];
-};
-
-union _HPyContext_s_union {
-    struct _HPyContext_s ctx;
-    struct _HPyRawContext_s rawctx;
-};
-
-union _HPyContext_s_union hpy_global_ctx = {
-    {
-        .ctx_version = 1,
-    }
-};
-
-void _HPy_FillFunction(int index, void *function)
-{
-    hpy_global_ctx.rawctx.ctx_raw_functions[index] = function;
-}
+struct _HPyContext_s hpy_global_ctx;
 
 void *_HPy_GetGlobalCtx(void)
 {
@@ -74,12 +74,6 @@ void *_HPy_GetGlobalCtx(void)
 }
 
 """])
-
-
-_HPy_FillFunction = rffi.llexternal('_HPy_FillFunction',
-                                    [rffi.INT_real, rffi.VOIDP],
-                                    lltype.Void,
-                                    compilation_info=eci, _nowrapper=True)
 
 _HPy_GetGlobalCtx = rffi.llexternal('_HPy_GetGlobalCtx', [], HPyContext,
                                     compilation_info=eci, _nowrapper=True)

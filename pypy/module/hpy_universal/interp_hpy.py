@@ -5,24 +5,10 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
 from pypy.interpreter.module import Module
 
-from pypy.module.hpy_universal import llapi, handles
+from pypy.module.hpy_universal import llapi, handles, interp_extfunc
+from pypy.module.hpy_universal.state import State
 from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
 from pypy.module.cpyext.api import slot_function
-
-
-class State:
-    def __init__(self, space):
-        "NOT_RPYTHON"
-        self.space = space
-        self.ctx = lltype.nullptr(rffi.VOIDP.TO)
-
-    def setup(self):
-        if not self.ctx:
-            space = self.space
-            funcptr = HPyModule_Create.api_func.get_llhelper(space)
-            llapi._HPy_FillFunction(rffi.cast(rffi.INT_real, 0),
-                                    rffi.cast(rffi.VOIDP, funcptr))
-            self.ctx = llapi._HPy_GetGlobalCtx()
 
 
 @slot_function([llapi.HPyContext, lltype.Ptr(llapi.HPyModuleDef)],
@@ -30,6 +16,16 @@ class State:
 def HPyModule_Create(space, ctx, hpydef):
     modname = rffi.charp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
+    #
+    # add all the functions defined in hpydef.c_m_methods
+    if hpydef.c_m_methods:
+        p = hpydef.c_m_methods
+        i = 0
+        while p[i].c_ml_name:
+            w_extfunc = interp_extfunc.W_ExtensionFunction(p[i])
+            space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
+            i += 1
+    #
     return handles.new(space, w_mod)
 
 
