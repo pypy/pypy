@@ -1,6 +1,7 @@
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rdynload import dlopen, dlsym, DLOpenError
+from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
@@ -16,10 +17,13 @@ def apifunc(argtypes, restype, error):
     # and handle exceptions properly
     def decorate(fn):
         ll_functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
-        def get_llhelper(space):
+        @specialize.memo()
+        def make_wrapper(space):
             def wrapper(*args):
                 return fn(space, *args)
-            return llhelper(ll_functype, wrapper)
+            return wrapper
+        def get_llhelper(space):
+            return llhelper(ll_functype, make_wrapper(space))
         fn.get_llhelper = get_llhelper
         return fn
     return decorate
