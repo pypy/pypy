@@ -5790,3 +5790,33 @@ class TestOptimizeBasic(BaseTestBasic):
         i57 = int_or(i51, i52)
         """
         self.optimize_loop(ops, expected)
+
+    def test_int_test_is_zero(self):
+        ops = """
+        [i1, i2]
+        i51 = int_and(i1, i2)
+        i52 = int_is_zero(i51)
+        guard_true(i52) []
+        """
+        expected = """
+        [i1, i2]
+        i51 = int_and(i1, i2)      # likely dead instruction
+        i52 = int_test_is_zero(i1, i2)
+        guard_true(i52) []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_test_is_true(self):
+        ops = """
+        [i1, i2]
+        i51 = int_and(i1, i2)
+        i52 = int_is_true(i51)
+        guard_true(i52) []
+        """
+        expected = """
+        [i1, i2]
+        i51 = int_and(i1, i2)      # likely dead instruction
+        i52 = int_test_is_true(i1, i2)
+        guard_true(i52) []
+        """
+        self.optimize_loop(ops, expected)

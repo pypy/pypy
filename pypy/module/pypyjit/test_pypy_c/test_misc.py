@@ -1,4 +1,5 @@
 import py, sys
+import platform
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -420,3 +421,23 @@ class TestMisc(BaseTestPyPyC):
         # the following assertion fails if the loop was cancelled due
         # to "abort: vable escape"
         assert len(loops) == 1
+
+    def test_bit_check(self):
+        if not platform.machine().startswith('x86'):
+            py.test.skip("only x86 supports int_test_instructions for now")
+
+        def main(n):
+            x = 0
+            while n:
+                y = bool(n & 7)    # ID: bitcheck
+                x += y
+                n -= 1
+
+        log = self.run(main, [300])
+        loop, = log.loops_by_id("bitcheck")
+        assert loop.match_by_id("bitcheck", """
+            guard_not_invalidated?
+            i11 = int_and(i7, 7)    # not used
+            i12 = int_test_is_true(i7, 7)
+            guard_true(i12, descr=...)
+        """)

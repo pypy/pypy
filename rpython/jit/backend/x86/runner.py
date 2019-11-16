@@ -17,6 +17,7 @@ class AbstractX86CPU(AbstractLLCPU):
     supports_floats = True
     supports_singlefloats = True
     supports_load_effective_address = True
+    supports_int_test_instructions = True
 
     dont_keepalive_stuff = False # for tests
     with_threads = False

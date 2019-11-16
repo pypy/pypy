@@ -542,6 +542,12 @@ class BlackholeInterpreter(object):
     @arguments("i", "i", returns="i")
     def bhimpl_int_signext(a, b):
         return int_signext(a, b)
+    @arguments("i", "i", returns="i")
+    def bhimpl_int_test_is_zero(a, b):
+        return (a & b) == 0
+    @arguments("i", "i", returns="i")
+    def bhimpl_int_test_is_true(a, b):
+        return (a & b) != 0
 
     @arguments("i", "i", returns="i")
     def bhimpl_uint_lt(a, b):

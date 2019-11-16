@@ -1281,6 +1281,17 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 self.flush_cc(cond, result_loc)
         return genop_cmp
 
+    def _testop(cond):
+        cond = rx86.Conditions[cond]
+        #
+        def genop_test(self, op, arglocs, result_loc):
+            if arglocs[1].is_stack() or isinstance(arglocs[0], ImmedLoc):
+                self.mc.TEST(arglocs[1], arglocs[0])
+            else:
+                self.mc.TEST(arglocs[0], arglocs[1])
+            self.flush_cc(cond, result_loc)
+        return genop_test
+
     def _if_parity_clear_zero_and_carry(self):
         jnp_location = self.mc.emit_forward_jump('NP')
         # CMP EBP, 0: as EBP cannot be null here, that operation should
@@ -1400,6 +1411,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_float_ne = _cmpop_float("NE", "NE")
     genop_float_gt = _cmpop_float("A", "B")
     genop_float_ge = _cmpop_float("AE","BE")
+
+    genop_int_test_is_zero = _testop("Z")
+    genop_int_test_is_true = _testop("NZ")
 
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
