@@ -39,28 +39,29 @@ def create_hpy_module(space, name, origin, lib, initfunc):
     h_module = generic_cpy_call_dont_convert_result(space, initfunc, state.ctx)
     return handles.consume(space, h_module)
 
-@unwrap_spec(origin='fsencode', init_name='text')
-def descr_load(space, origin, init_name):
+def descr_load_from_spec(space, w_spec):
     # XXX: this looks a lot like cpyext.api.create_extension_module()
     state = space.fromcache(State)
     state.setup()
-    name = init_name[len('HPyInit_'):]
+    w_name = space.getattr(w_spec, space.newtext("name"))
+    name = space.text_w(w_name)
+    origin = space.text_w(space.getattr(w_spec, space.newtext("origin")))
     try:
         with rffi.scoped_str2charp(origin) as ll_libname:
             lib = dlopen(ll_libname, space.sys.dlopenflags)
     except DLOpenError as e:
         w_path = space.newfilename(origin)
-        w_name = space.newtext(name)
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
 
+    basename = name.split('.')[-1]
+    init_name = 'HPyInit_' + basename
     try:
         initptr = dlsym(lib, init_name)
     except KeyError:
         msg = b"function %s not found in library %s" % (
             init_name, space.utf8_w(space.newfilename(origin)))
         w_path = space.newfilename(origin)
-        w_name = space.newtext(name)
         raise raise_import_error(
             space, space.newtext(msg), w_name, w_path)
     return create_hpy_module(space, name, origin, lib, initptr)

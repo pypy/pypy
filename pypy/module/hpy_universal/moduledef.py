@@ -5,5 +5,5 @@ class Module(MixedModule):
     appleveldefs = {}
 
     interpleveldefs = {
-        'load': 'interp_hpy.descr_load'
+        'load_from_spec': 'interp_hpy.descr_load_from_spec'
     }

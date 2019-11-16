@@ -25,6 +25,14 @@ class HPyTest(object):
             pytest.skip()
         cls.compiler = ExtensionCompiler(udir)
 
+        w_FakeSpec = cls.space.appexec([], """():
+            class FakeSpec:
+                def __init__(self, name, origin):
+                    self.name = name
+                    self.origin = origin
+            return FakeSpec
+        """)
+
         @unwrap_spec(source_template='text', name='text')
         def descr_make_module(space, source_template, name='mytest'):
             source = _support.expand_template(source_template, name)
@@ -38,10 +46,10 @@ class HPyTest(object):
                                     universal_mode=True)
             #
             w_mod = space.appexec(
-                [space.newtext(so_filename), space.newtext(name)],
-                """(path, modname):
-                    from hpy_universal import load
-                    return load(path, 'HPyInit_' + modname)
+                [w_FakeSpec, space.newtext(so_filename), space.newtext(name)],
+                """(FakeSpec, path, modname):
+                    from hpy_universal import load_from_spec
+                    return load_from_spec(FakeSpec(modname, path))
                 """
             )
             return w_mod
