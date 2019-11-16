@@ -546,6 +546,8 @@ for _op in [rop.INT_LT,
             rop.UINT_LE,
             rop.UINT_GT,
             rop.UINT_GE,
+            rop.INT_TEST_IS_ZERO,
+            rop.INT_TEST_IS_TRUE,
             ]:
     OPERATIONS.append(BinaryOperation(_op, boolres=True))
 
