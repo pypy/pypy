@@ -11,8 +11,9 @@ from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
 class W_ExtensionFunction(W_Root):
     _immutable_fields_ = ["flags", "name"]
 
-    def __init__(self, ml):
+    def __init__(self, ml, w_self):
         self.ml = ml
+        self.w_self = w_self
         self.name = rffi.charp2str(self.ml.c_ml_name)
         self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         # fetch the real HPy function pointer, by calling ml_meth, which
@@ -30,8 +31,10 @@ class W_ExtensionFunction(W_Root):
 
     def call_noargs(self, space):
         state = space.fromcache(State)
+        h_self = handles.new(space, self.w_self)
         h_result = generic_cpy_call_dont_convert_result(space, self.cfuncptr,
-            state.ctx, 0, 0)
+            state.ctx, h_self, 0)
+        handles.consume(space, h_self)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 

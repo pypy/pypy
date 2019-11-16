@@ -40,7 +40,7 @@ def HPyModule_Create(space, ctx, hpydef):
         p = hpydef.c_m_methods
         i = 0
         while p[i].c_ml_name:
-            w_extfunc = interp_extfunc.W_ExtensionFunction(p[i])
+            w_extfunc = interp_extfunc.W_ExtensionFunction(p[i], w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
     #
