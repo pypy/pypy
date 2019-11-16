@@ -18,6 +18,20 @@ def no_vector_backend():
         return not detect_simd_z()
     return True
 
+def align_check(input):
+    if platform.machine().startswith('x86'):
+        return ""
+    if sys.maxsize > 2**32:
+        mask = 7
+    else:
+        mask = 3
+    return """
+        i10096 = int_and(%s, %d)
+        i10097 = int_is_zero(i10096)
+        guard_true(i10097, descr=...)
+    """ % (input, mask)
+
+
 class TestMicroNumPy(BaseTestPyPyC):
 
     arith_comb = [('+','float','float', 4*3427,   3427, 1.0,3.0),
@@ -310,6 +324,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i88 = int_ge(i87, i59)
             guard_false(i88, descr=...)
+            %(align_check)s
             f90 = raw_load_f(i67, i89, descr=<ArrayF 8>)
             i91 = int_add(i87, 1)
             i93 = int_add(i89, 8)
@@ -320,7 +335,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             i96 = int_lt(i95, 0)
             guard_false(i96, descr=...)
             jump(..., descr=...)
-        """)
+        """ % {"align_check": align_check('i89')})
 
     def test_array_flatiter_getitem_single(self):
         def main():
@@ -342,6 +357,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_true(i126, descr=...)
             i128 = int_mul(i117, i59)
             i129 = int_add(i55, i128)
+            %(align_check)s
             f149 = raw_load_f(i100, i129, descr=<ArrayF 8>)
             i151 = int_add(i117, 1)
             setfield_gc(p156, i55, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
@@ -349,7 +365,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             setarrayitem_gc(p150, 0, 0, descr=<ArrayS .+>)
             --TICK--
             jump(..., descr=...)
-        """)
+        """ % {'align_check': align_check('i129')})
 
     def test_array_flatiter_setitem_single(self):
         def main():
@@ -372,6 +388,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             i131 = int_mul(i120, i57)
             i132 = int_add(i53, i131)
             guard_not_invalidated(descr=...)
+            %(align_check)s
             raw_store(i103, i132, 42.000000, descr=<ArrayF 8>)
             i153 = int_add(i120, 1)
             i154 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
@@ -381,7 +398,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             i157 = int_lt(i154, 0)
             guard_false(i157, descr=...)
             jump(..., descr=...)
-        """)
+        """ % {'align_check': align_check('i132')})
 
     def test_mixed_div(self):
         N = 1500
