@@ -2,9 +2,28 @@ import os
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+# XXX temporary location
+INCLUDE_DIR = os.path.join(os.path.dirname(__file__),
+                           "test", "_vendored", "include")
+
+eci = ExternalCompilationInfo(includes=["universal/hpy.h"],
+                              include_dirs=[INCLUDE_DIR],
+                              post_include_bits=["""
+RPY_EXTERN void *_HPy_GetGlobalCtx(void);
+"""],
+                              separate_module_sources=["""
+
+struct _HPyContext_s hpy_global_ctx;
+void *_HPy_GetGlobalCtx(void)
+{
+    return &hpy_global_ctx;
+}
+
+"""])
+
 
 HPy = lltype.Signed
-HPyContextS = lltype.Struct('dummy_HPyContext_s',
+HPyContextS = rffi.CStruct('_HPyContext_s',
     ('ctx_version', rffi.INT_real),
     ('ctx_Module_Create', rffi.VOIDP),
     ('ctx_None_Get', rffi.VOIDP),
@@ -17,6 +36,7 @@ HPyContextS = lltype.Struct('dummy_HPyContext_s',
     ('ctx_FromPyObject', rffi.VOIDP),
     ('ctx_AsPyObject', rffi.VOIDP),
     ('ctx_CallRealFunctionFromTrampoline', rffi.VOIDP),
+    hints={'eci': eci},
 )
 HPyContext = lltype.Ptr(HPyContextS)
 
@@ -35,6 +55,7 @@ HPyMethodDef = rffi.CStruct('HPyMethodDef',
     ('ml_meth', _HPyMethodPairFuncPtr),
     ('ml_flags', rffi.INT_real),
     ('ml_doc', rffi.CCHARP),
+    hints={'eci': eci, 'typedef': True},
 )
 
 HPyModuleDef = rffi.CStruct('HPyModuleDef',
@@ -43,6 +64,7 @@ HPyModuleDef = rffi.CStruct('HPyModuleDef',
     ('m_doc', rffi.CCHARP),
     ('m_size', lltype.Signed),
     ('m_methods', rffi.CArrayPtr(HPyMethodDef)),
+    hints={'eci': eci, 'typedef': True},
 )
 
 METH_VARARGS  = 0x0001
@@ -53,27 +75,6 @@ METH_O        = 0x0008
 
 # ----------------------------------------------------------------
 
-# XXX temporary location
-INCLUDE_DIR = os.path.join(os.path.dirname(__file__),
-                           "test", "_vendored", "include")
-
-eci = ExternalCompilationInfo(includes=["universal/hpy.h"],
-                              include_dirs=[INCLUDE_DIR],
-                              post_include_bits=["""
-
-RPY_EXTERN void _HPy_FillFunction(int index, void *function);
-RPY_EXTERN void *_HPy_GetGlobalCtx(void);
-"""],
-                              separate_module_sources=["""
-
-struct _HPyContext_s hpy_global_ctx;
-
-void *_HPy_GetGlobalCtx(void)
-{
-    return &hpy_global_ctx;
-}
-
-"""])
 
 _HPy_GetGlobalCtx = rffi.llexternal('_HPy_GetGlobalCtx', [], HPyContext,
                                     compilation_info=eci, _nowrapper=True)

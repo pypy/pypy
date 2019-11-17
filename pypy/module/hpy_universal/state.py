@@ -32,7 +32,7 @@ class State:
         self.ctx = llapi._HPy_GetGlobalCtx()
 
         for name in CONTEXT_NAMES:
-            if name != 'ctx_version':
+            if name != 'c_ctx_version':
                 missing_function = make_missing_function(name)
                 funcptr = llhelper(lltype.Ptr(DUMMY_FUNC), missing_function)
                 setattr(self.ctx, name, rffi.cast(rffi.VOIDP, funcptr))
@@ -42,10 +42,10 @@ class State:
         space = self.space
         
         funcptr = interp_hpy.HPyModule_Create.get_llhelper(space)
-        self.ctx.ctx_Module_Create = rffi.cast(rffi.VOIDP, funcptr)
+        self.ctx.c_ctx_Module_Create = rffi.cast(rffi.VOIDP, funcptr)
         #
         funcptr = interp_hpy.HPyNone_Get.get_llhelper(space)
-        self.ctx.ctx_None_Get = rffi.cast(rffi.VOIDP, funcptr)
+        self.ctx.c_ctx_None_Get = rffi.cast(rffi.VOIDP, funcptr)
         #
         funcptr = interp_hpy.HPy_Dup.get_llhelper(space)
-        self.ctx.ctx_Dup = rffi.cast(rffi.VOIDP, funcptr)
+        self.ctx.c_ctx_Dup = rffi.cast(rffi.VOIDP, funcptr)
