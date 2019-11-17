@@ -333,7 +333,6 @@ class LLGraphCPU(model.AbstractCPU):
     vector_ext.enable(16, accum=True)
     vector_ext.setup_once = lambda asm: asm
     load_supported_factors = (1,2,4,8)
-    supports_int_test_instructions = True
     assembler = None
 
     def __init__(self, rtyper, stats=None, *ignored_args, **kwds):

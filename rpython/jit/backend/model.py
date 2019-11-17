@@ -20,7 +20,6 @@ class AbstractCPU(object):
     supports_singlefloats = False
     supports_guard_gc_type = False
     supports_load_effective_address = False
-    supports_int_test_instructions = False
 
     propagate_exception_descr = None
 

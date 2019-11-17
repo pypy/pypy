@@ -1491,8 +1491,6 @@ class BaseBackendTest(Runner):
             (rop.INT_NE, lambda x, y: x != y),
             (rop.INT_GT, lambda x, y: x > y),
             (rop.INT_GE, lambda x, y: x >= y),
-            (rop.INT_TEST_IS_ZERO, lambda x, y: (x & y) == 0),
-            (rop.INT_TEST_IS_TRUE, lambda x, y: (x & y) != 0),
             ]:
             for opguard, guard_case in [
                 (rop.GUARD_FALSE, False),

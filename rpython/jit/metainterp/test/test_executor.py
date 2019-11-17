@@ -187,8 +187,6 @@ def _int_comparison_operations():
         (rop.UINT_LE, lambda x, y: r_uint(x) <= r_uint(y)),
         (rop.UINT_GT, lambda x, y: r_uint(x) >  r_uint(y)),
         (rop.UINT_GE, lambda x, y: r_uint(x) >= r_uint(y)),
-        (rop.INT_TEST_IS_ZERO, lambda x, y: (x & y) == 0),
-        (rop.INT_TEST_IS_TRUE, lambda x, y: (x & y) != 0),
         ]:
         for i in range(20):
             x = pick()

@@ -1036,8 +1036,6 @@ _oplist = [
     'INT_NEG/1/i',
     'INT_INVERT/1/i',
     'INT_FORCE_GE_ZERO/1/i',
-    'INT_TEST_IS_ZERO/2b/i',
-    'INT_TEST_IS_TRUE/2b/i',
     #
     'SAME_AS/1/ifr',      # gets a Const or a Box, turns it into another Box
     'CAST_PTR_TO_INT/1/i',

@@ -4832,11 +4832,3 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res2 = self.interp_operations(f, [6])
         assert res1 == res2
         self.check_operations_history(guard_class=1, record_exact_class=0)
-
-    def test_int_test_instructions(self):
-        def f(x, y):
-            if (x & 7) == 0 and (y & 7) != 0:
-                return 1
-            return 0
-        res = self.interp_operations(f, [24, 25])
-        assert res == 1
