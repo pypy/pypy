@@ -61,3 +61,6 @@ class State:
         #
         funcptr = interp_hpy.HPyNumber_Add.get_llhelper(space)
         self.ctx.c_ctx_Number_Add = rffi.cast(rffi.VOIDP, funcptr)
+        #
+        funcptr = interp_hpy.HPyUnicode_FromString.get_llhelper(space)
+        self.ctx.c_ctx_Unicode_FromString = rffi.cast(rffi.VOIDP, funcptr)

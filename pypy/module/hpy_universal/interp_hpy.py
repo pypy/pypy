@@ -2,6 +2,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rdynload import dlopen, dlsym, DLOpenError
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import rutf8
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
@@ -80,6 +81,16 @@ def HPyNumber_Add(space, ctx, h1, h2):
     w_obj2 = handles.deref(space, h2)
     w_result = space.add(w_obj1, w_obj2)
     return handles.new(space, w_result)
+
+@apifunc([llapi.HPyContext, rffi.CCHARP], llapi.HPy, error=0)
+def HPyUnicode_FromString(space, ctx, utf8):
+    s = rffi.charp2str(utf8)
+    try:
+        length = rutf8.check_utf8(s, allow_surrogates=False)
+    except rutf8.CheckError:
+        raise   # XXX do something
+    w_obj = space.newtext(s, length)
+    return handles.new(space, w_obj)
 
 
 def create_hpy_module(space, name, origin, lib, initfunc):
