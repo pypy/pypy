@@ -55,6 +55,10 @@ def HPyNone_Get(space, ctx):
 def HPy_Dup(space, ctx, h):
     return handles.dup(space, h)
 
+@apifunc([llapi.HPyContext, llapi.HPy], lltype.Void, error=None)
+def HPy_Close(space, ctx, h):
+    handles.close(space, h)
+
 @apifunc([llapi.HPyContext, rffi.LONG], llapi.HPy, error=0)
 def HPyLong_FromLong(space, ctx, value):
     w_obj = space.newint(rffi.cast(lltype.Signed, value))
@@ -69,6 +73,13 @@ def HPyLong_AsLong(space, ctx, h):
     #if rffi.cast(lltype.Signed, result) != value: --- XXX on Windows 64
     #    ...
     return result
+
+@apifunc([llapi.HPyContext, llapi.HPy, llapi.HPy], llapi.HPy, error=0)
+def HPyNumber_Add(space, ctx, h1, h2):
+    w_obj1 = handles.deref(space, h1)
+    w_obj2 = handles.deref(space, h2)
+    w_result = space.add(w_obj1, w_obj2)
+    return handles.new(space, w_result)
 
 
 def create_hpy_module(space, name, origin, lib, initfunc):

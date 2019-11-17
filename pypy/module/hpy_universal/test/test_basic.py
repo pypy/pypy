@@ -102,3 +102,20 @@ class AppTestBasic(HPyTest):
             mod.f_o()
         with raises(TypeError):
             mod.f_o(1, 2)
+
+    def test_close(self):
+        mod = self.make_module("""
+            HPy_FUNCTION(f)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                HPy one = HPyLong_FromLong(ctx, 1);
+                if (HPy_IsNull(one))
+                    return HPy_NULL;
+                HPy res = HPyNumber_Add(ctx, arg, one);
+                HPy_Close(ctx, one);
+                return res;
+            }
+            @EXPORT f METH_O
+            @INIT
+        """)
+        assert mod.f(41.5) == 42.5
