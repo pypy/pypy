@@ -65,3 +65,27 @@ class AppTestBasic(HPyTest):
         """)
         x = object()
         assert mod.f(x) is x
+
+    def test_wrong_number_of_arguments(self):
+        # XXX: this test was manually modified to turn pytest.raises into raises :(
+        mod = self.make_module("""
+            HPy_FUNCTION(f_noargs)
+            static HPy f_noargs_impl(HPyContext ctx, HPy self, HPy args)
+            {
+                return HPyNone_Get(ctx);
+            }
+            HPy_FUNCTION(f_o)
+            static HPy f_o_impl(HPyContext ctx, HPy self, HPy args)
+            {
+                return HPyNone_Get(ctx);
+            }
+            @EXPORT f_noargs METH_NOARGS
+            @EXPORT f_o METH_O
+            @INIT
+        """)
+        with raises(TypeError):
+            mod.f_noargs(1)
+        with raises(TypeError):
+            mod.f_o()
+        with raises(TypeError):
+            mod.f_o(1, 2)
