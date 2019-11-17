@@ -38,7 +38,13 @@ class W_ExtensionFunction(W_Root):
         return handles.consume(space, h_result)
 
     def call_o(self, space, w_arg):
-        raise NotImplementedError("later")
+        state = space.fromcache(State)
+        with handles.using(space, self.w_self) as h_self:
+            with handles.using(space, w_arg) as h_arg:
+                h_result = generic_cpy_call_dont_convert_result(space,
+                                           self.cfuncptr, state.ctx, h_self, h_arg)
+        # XXX check for exceptions
+        return handles.consume(space, h_result)
 
     def call_varargs(self, space, arguments_w):
         raise NotImplementedError("later")

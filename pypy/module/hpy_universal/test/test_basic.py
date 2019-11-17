@@ -52,3 +52,16 @@ class AppTestBasic(HPyTest):
             @INIT
         """)
         assert mod.f() is mod
+
+    def test_identity_function(self):
+        mod = self.make_module("""
+            HPy_FUNCTION(f)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                return HPy_Dup(ctx, arg);
+            }
+            @EXPORT f METH_O
+            @INIT
+        """)
+        x = object()
+        assert mod.f(x) is x
