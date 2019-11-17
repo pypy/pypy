@@ -38,6 +38,10 @@ def new(space, w_object):
     mgr = space.fromcache(HandleManager)
     return mgr.new(w_object)
 
+def close(space, index):
+    mgr = space.fromcache(HandleManager)
+    mgr.close(index)
+    
 def consume(space, index):
     mgr = space.fromcache(HandleManager)
     return mgr.consume(index)
@@ -45,3 +49,21 @@ def consume(space, index):
 def dup(space, index):
     mgr = space.fromcache(HandleManager)
     return mgr.dup(index)
+
+
+class using(object):
+    """
+    context-manager to new/close a handle
+    """
+
+    def __init__(self, space, w_object):
+        self.space = space
+        self.w_object = w_object
+        self.h = -1
+
+    def __enter__(self):
+        self.h = new(self.space, self.w_object)
+        return self.h
+
+    def __exit__(self, etype, evalue, tb):
+        close(self.space, self.h)

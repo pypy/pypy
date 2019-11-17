@@ -1,3 +1,4 @@
+from pypy.module.hpy_universal import handles
 from pypy.module.hpy_universal.handles import HandleManager
 
 class TestHandleManager(object):
@@ -35,3 +36,14 @@ class TestHandleManager(object):
         h1 = mgr.dup(h0)
         assert h1 != h0
         assert mgr.consume(h0) == mgr.consume(h1) == 'hello'
+
+def test_using():
+    mgr = HandleManager(None)
+    class FakeSpace(object):
+        @classmethod
+        def fromcache(cls, x):
+            return mgr
+    space = FakeSpace()
+    with handles.using(space, 'hello') as h:
+        assert mgr.handles_w[h] == 'hello'
+    assert mgr.handles_w[h] is None
