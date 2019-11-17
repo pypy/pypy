@@ -1,6 +1,7 @@
 import os
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib import jit
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module.hpy_universal import llapi
@@ -23,6 +24,7 @@ class State:
         self.space = space
         self.ctx = lltype.nullptr(llapi.HPyContext.TO)
 
+    @jit.dont_look_inside
     def setup(self):
         if self.ctx:
             return
