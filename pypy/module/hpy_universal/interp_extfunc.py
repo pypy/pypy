@@ -31,10 +31,9 @@ class W_ExtensionFunction(W_Root):
 
     def call_noargs(self, space):
         state = space.fromcache(State)
-        h_self = handles.new(space, self.w_self)
-        h_result = generic_cpy_call_dont_convert_result(space, self.cfuncptr,
-            state.ctx, h_self, 0)
-        handles.consume(space, h_self)
+        with handles.using(space, self.w_self) as h_self:
+            h_result = generic_cpy_call_dont_convert_result(space, self.cfuncptr,
+                state.ctx, h_self, 0)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
