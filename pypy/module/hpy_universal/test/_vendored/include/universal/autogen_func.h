@@ -28,6 +28,10 @@ static inline HPy HPyLong_FromLong(HPyContext ctx, long value) {
      return ctx->ctx_Long_FromLong ( ctx, value ); 
 }
 
+static inline long HPyLong_AsLong(HPyContext ctx, HPy h) {
+     return ctx->ctx_Long_AsLong ( ctx, h ); 
+}
+
 static inline int HPyArg_ParseTuple(HPyContext ctx, HPy args, const char *fmt, ...) {
      va_list _vl; va_start(_vl, fmt); int _res = ctx->ctx_Arg_ParseTuple ( ctx, args, fmt, _vl ); va_end(_vl); return _res; 
 }

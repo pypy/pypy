@@ -15,6 +15,7 @@ struct _HPyContext_s {
     HPy (*ctx_Dup)(HPyContext ctx, HPy h);
     void (*ctx_Close)(HPyContext ctx, HPy h);
     HPy (*ctx_Long_FromLong)(HPyContext ctx, long value);
+    long (*ctx_Long_AsLong)(HPyContext ctx, HPy h);
     int (*ctx_Arg_ParseTuple)(HPyContext ctx, HPy args, const char *fmt, va_list _vl);
     HPy (*ctx_Number_Add)(HPyContext ctx, HPy x, HPy y);
     HPy (*ctx_Unicode_FromString)(HPyContext ctx, const char *utf8);

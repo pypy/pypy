@@ -111,6 +111,12 @@ HPyLong_FromLong(HPyContext ctx, long v)
     return _py2h(PyLong_FromLong(v));
 }
 
+HPyAPI_FUNC(long)
+HPyLong_AsLong(HPyContext ctx, HPy h)
+{
+    return PyLong_AsLong(_h2py(h));
+}
+
 HPyAPI_FUNC(HPy)
 HPyNumber_Add(HPyContext ctx, HPy x, HPy y)
 {

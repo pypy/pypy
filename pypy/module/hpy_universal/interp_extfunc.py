@@ -47,7 +47,9 @@ class W_ExtensionFunction(W_Root):
         return handles.consume(space, h_result)
 
     def call_varargs(self, space, arguments_w):
-        raise NotImplementedError("later")
+        w_tuple = space.newtuple(arguments_w)
+        # xxx here we just invoke call_o() with the w_tuple
+        return self.call_o(space, w_tuple)
 
     def descr_call(self, space, __args__):
         flags = self.flags

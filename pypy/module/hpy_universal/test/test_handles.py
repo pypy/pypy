@@ -3,6 +3,11 @@ from pypy.module.hpy_universal.handles import HandleManager
 
 class TestHandleManager(object):
 
+    def test_first_handle_is_not_zero(self):
+        mgr = HandleManager(None)
+        h = mgr.new('hello')
+        assert h > 0
+
     def test_new(self):
         mgr = HandleManager(None)
         h = mgr.new('hello')
@@ -13,6 +18,12 @@ class TestHandleManager(object):
         h = mgr.new('hello')
         assert mgr.close(h) is None
         assert mgr.handles_w[h] is None
+
+    def test_deref(self):
+        mgr = HandleManager(None)
+        h = mgr.new('hello')
+        assert mgr.deref(h) == 'hello'     # 'hello' is a fake W_Root
+        assert mgr.deref(h) == 'hello'
 
     def test_consume(self):
         mgr = HandleManager(None)

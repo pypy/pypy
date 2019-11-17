@@ -20,6 +20,10 @@ class HandleManager:
         self.handles_w[index] = None
         self.free_list.append(index)
 
+    def deref(self, index):
+        assert index > 0
+        return self.handles_w[index]
+
     def consume(self, index):
         """
         Like close, but also return the w_object which was pointed by the handled
@@ -41,7 +45,11 @@ def new(space, w_object):
 def close(space, index):
     mgr = space.fromcache(HandleManager)
     mgr.close(index)
-    
+
+def deref(space, index):
+    mgr = space.fromcache(HandleManager)
+    return mgr.deref(index)
+
 def consume(space, index):
     mgr = space.fromcache(HandleManager)
     return mgr.consume(index)

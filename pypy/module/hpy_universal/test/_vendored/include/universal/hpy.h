@@ -39,8 +39,9 @@ typedef struct {
     HPyMethodDef *m_methods;
 } HPyModuleDef;
 
+#define _HPy_HIDDEN   __attribute__((visibility("hidden")))
 #define HPy_MODINIT(modname)                                   \
-    HPyContext _ctx_for_trampolines;                           \
+    _HPy_HIDDEN HPyContext _ctx_for_trampolines;               \
     static HPy init_##modname##_impl(HPyContext ctx);          \
     HPy HPyInit_##modname(HPyContext ctx)                      \
     {                                                          \
