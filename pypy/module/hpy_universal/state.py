@@ -69,3 +69,6 @@ class State:
         #
         funcptr = interp_hpy.HPyUnicode_FromString.get_llhelper(space)
         self.ctx.c_ctx_Unicode_FromString = rffi.cast(rffi.VOIDP, funcptr)
+        #
+        funcptr = interp_hpy.HPyErr_SetString.get_llhelper(space)
+        self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, funcptr)
