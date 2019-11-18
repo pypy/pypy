@@ -1,9 +1,16 @@
 
+CONSTANTS = [
+    ('NULL', lambda space: None),
+    ('None', lambda space: space.w_None),
+    ('False', lambda space: space.w_False),
+    ('True', lambda space: space.w_True),
+    ]
+
 
 class HandleManager:
 
     def __init__(self, space):
-        self.handles_w = [None]
+        self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.free_list = []
 
     def new(self, w_object):

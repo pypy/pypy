@@ -48,10 +48,6 @@ def HPyModule_Create(space, ctx, hpydef):
     return handles.new(space, w_mod)
 
 
-@apifunc([llapi.HPyContext], llapi.HPy, error=0)
-def HPyNone_Get(space, ctx):
-    return handles.new(space, space.w_None)
-
 @apifunc([llapi.HPyContext, llapi.HPy], llapi.HPy, error=0)
 def HPy_Dup(space, ctx, h):
     return handles.dup(space, h)

@@ -4,9 +4,10 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import jit
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from pypy.module.hpy_universal import llapi
+from pypy.module.hpy_universal import llapi, handles
 
 CONTEXT_NAMES = unrolling_iterable(llapi.HPyContext.TO._names)
+CONSTANT_NAMES = unrolling_iterable([name for name, _ in handles.CONSTANTS])
 DUMMY_FUNC = lltype.FuncType([], lltype.Void)
 
 @specialize.memo()
@@ -29,23 +30,27 @@ class State:
         if self.ctx:
             return
 
+        space = self.space
         self.ctx = llapi._HPy_GetGlobalCtx()
 
         for name in CONTEXT_NAMES:
-            if name != 'c_ctx_version':
+            if name == 'c_ctx_version':
+                continue
+            if name.startswith('c_ctx_'):
                 missing_function = make_missing_function(name)
                 funcptr = llhelper(lltype.Ptr(DUMMY_FUNC), missing_function)
                 setattr(self.ctx, name, rffi.cast(rffi.VOIDP, funcptr))
+        i = 0
+        for name in CONSTANT_NAMES:
+            if name != 'NULL':
+                setattr(self.ctx, 'c_h_' + name, i)
+            i = i + 1
 
         # XXX collect all these functions automatically
         from pypy.module.hpy_universal import interp_hpy
-        space = self.space
         
         funcptr = interp_hpy.HPyModule_Create.get_llhelper(space)
         self.ctx.c_ctx_Module_Create = rffi.cast(rffi.VOIDP, funcptr)
-        #
-        funcptr = interp_hpy.HPyNone_Get.get_llhelper(space)
-        self.ctx.c_ctx_None_Get = rffi.cast(rffi.VOIDP, funcptr)
         #
         funcptr = interp_hpy.HPy_Dup.get_llhelper(space)
         self.ctx.c_ctx_Dup = rffi.cast(rffi.VOIDP, funcptr)
