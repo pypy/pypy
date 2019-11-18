@@ -158,3 +158,26 @@ class TestBasic(HPyTest):
         """)
         assert mod.f(4) is False
         assert mod.f(6) is True
+
+    def test_exception(self):
+        import pytest
+        mod = self.make_module("""
+            HPy_METH_O(f)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                long x = HPyLong_AsLong(ctx, arg);
+                if (x < 5) {
+                    return HPyLong_FromLong(ctx, -x);
+                }
+                else {
+                    HPyErr_SetString(ctx, ctx->h_ValueError, "hello world");
+                    return HPy_NULL;
+                }
+            }
+            @EXPORT f METH_O
+            @INIT
+        """)
+        assert mod.f(-10) == 10
+        with pytest.raises(ValueError) as exc:
+            mod.f(20)
+        assert str(exc.value) == 'hello world'

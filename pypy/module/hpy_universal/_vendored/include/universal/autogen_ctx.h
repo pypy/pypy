@@ -13,6 +13,7 @@ struct _HPyContext_s {
     HPy h_None;
     HPy h_True;
     HPy h_False;
+    HPy h_ValueError;
     HPy (*ctx_Module_Create)(HPyContext ctx, HPyModuleDef *def);
     HPy (*ctx_Dup)(HPyContext ctx, HPy h);
     void (*ctx_Close)(HPyContext ctx, HPy h);
@@ -21,6 +22,7 @@ struct _HPyContext_s {
     int (*ctx_Arg_Parse)(HPyContext ctx, HPy *args, HPy_ssize_t nargs, const char *fmt, va_list _vl);
     HPy (*ctx_Number_Add)(HPyContext ctx, HPy x, HPy y);
     HPy (*ctx_Unicode_FromString)(HPyContext ctx, const char *utf8);
+    void (*ctx_Err_SetString)(HPyContext ctx, HPy type, const char *message);
     HPy (*ctx_FromPyObject)(HPyContext ctx, struct _object *obj);
     struct _object *(*ctx_AsPyObject)(HPyContext ctx, HPy h);
     struct _object *(*ctx_CallRealFunctionFromTrampoline)(HPyContext ctx, struct _object *self, struct _object *args, void *func, int ml_flags);
