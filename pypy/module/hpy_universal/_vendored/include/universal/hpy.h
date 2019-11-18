@@ -9,7 +9,6 @@ typedef intptr_t HPy_ssize_t;
 typedef struct { HPy_ssize_t _i; } HPy;
 
 typedef struct _HPyContext_s *HPyContext;
-typedef HPy (*HPyCFunction)(HPyContext, HPy self, HPy args);
 struct _object;  /* that's PyObject inside CPython */
 typedef struct _object *(*_HPy_CPyCFunction)(struct _object *self,
                                              struct _object *args);
@@ -17,7 +16,7 @@ typedef struct _object *(*_HPy_CPyCFunction)(struct _object *self,
 #define HPy_NULL ((HPy){0})
 #define HPy_IsNull(x) ((x)._i == 0)
 
-typedef void (*_HPyMethodPairFunc)(HPyCFunction *out_func,
+typedef void (*_HPyMethodPairFunc)(void **out_func,
                                    _HPy_CPyCFunction *out_trampoline);
 
 typedef struct {
@@ -55,16 +54,46 @@ typedef struct {
 extern HPyContext _ctx_for_trampolines;
 
 
-#define HPy_FUNCTION(fnname)                                                   \
-    static HPy fnname##_impl(HPyContext ctx, HPy self, HPy args);              \
+#define HPy_METH_NOARGS(fnname)                                                \
+    static HPy fnname##_impl(HPyContext ctx, HPy self);                        \
+    static struct _object *                                                    \
+    fnname##_trampoline(struct _object *self, struct _object *noargs)          \
+    {                                                                          \
+        return _HPy_CallRealFunctionFromTrampoline(                            \
+            _ctx_for_trampolines, self, NULL, fnname##_impl, METH_NOARGS);     \
+    }                                                                          \
+    static void                                                                \
+    fnname(void **out_func, _HPy_CPyCFunction *out_trampoline)                 \
+    {                                                                          \
+        *out_func = fnname##_impl;                                             \
+        *out_trampoline = fnname##_trampoline;                                 \
+    }
+
+#define HPy_METH_O(fnname)                                                     \
+    static HPy fnname##_impl(HPyContext ctx, HPy self, HPy arg);               \
+    static struct _object *                                                    \
+    fnname##_trampoline(struct _object *self, struct _object *arg)             \
+    {                                                                          \
+        return _HPy_CallRealFunctionFromTrampoline(                            \
+            _ctx_for_trampolines, self, arg, fnname##_impl, METH_O);           \
+    }                                                                          \
+    static void                                                                \
+    fnname(void **out_func, _HPy_CPyCFunction *out_trampoline)                 \
+    {                                                                          \
+        *out_func = fnname##_impl;                                             \
+        *out_trampoline = fnname##_trampoline;                                 \
+    }
+
+#define HPy_METH_VARARGS(fnname)                                               \
+    static HPy fnname##_impl(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t);\
     static struct _object *                                                    \
     fnname##_trampoline(struct _object *self, struct _object *args)            \
     {                                                                          \
         return _HPy_CallRealFunctionFromTrampoline(                            \
-            _ctx_for_trampolines, self, args, fnname##_impl);                  \
+            _ctx_for_trampolines, self, args, fnname##_impl, METH_VARARGS);    \
     }                                                                          \
     static void                                                                \
-    fnname(HPyCFunction *out_func, _HPy_CPyCFunction *out_trampoline)          \
+    fnname(void **out_func, _HPy_CPyCFunction *out_trampoline)                 \
     {                                                                          \
         *out_func = fnname##_impl;                                             \
         *out_trampoline = fnname##_trampoline;                                 \

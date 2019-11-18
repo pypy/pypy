@@ -6,7 +6,7 @@
 
 /* XXX: it would be nice if we could include hpy.h WITHOUT bringing in all the
    stuff from Python.h, to make sure that people don't use the CPython API by
-   mistake. How to achieve it, though? */
+   mistake. How to achieve it, though? Is defining Py_LIMITED_API enough? */
 
 /* XXX: should we:
  *    - enforce PY_SSIZE_T_CLEAN in hpy
@@ -24,12 +24,7 @@
 
 
 typedef struct { PyObject *_o; } HPy;
-typedef long HPyContext;
-
-HPyAPI_FUNC(HPyContext)
-_HPyGetContext(void) {
-    return 42;
-}
+typedef Py_ssize_t HPy_ssize_t;
 
 /* For internal usage only. These should be #undef at the end of this header.
    If you need to convert HPy to PyObject* and vice-versa, you should use the
@@ -37,6 +32,24 @@ _HPyGetContext(void) {
 */
 #define _h2py(x) (x._o)
 #define _py2h(o) ((HPy){o})
+
+typedef struct _HPyContext_s {
+    HPy h_None;
+    HPy h_True;
+    HPy h_False;
+} *HPyContext;
+
+/* XXX! should be defined only once, not once for every .c! */
+static struct _HPyContext_s _global_ctx = {
+    .h_None = _py2h(Py_None),
+    .h_True = _py2h(Py_True),
+    .h_False = _py2h(Py_False),
+};
+
+HPyAPI_FUNC(HPyContext)
+_HPyGetContext(void) {
+    return &_global_ctx;
+}
 
 
 #define HPy_NULL ((HPy){NULL})
@@ -85,23 +98,63 @@ typedef PyMethodDef HPyMethodDef;
 
 /* function declaration */
 
-#define HPy_FUNCTION(NAME)                                              \
+#define HPy_METH_NOARGS(NAME)                                           \
+    static HPy NAME##_impl(HPyContext, HPy);                            \
+    static PyObject* NAME(PyObject *self, PyObject *noargs)             \
+    {                                                                   \
+        return _h2py(NAME##_impl(_HPyGetContext(), _py2h(self)));       \
+    }
+
+#define HPy_METH_O(NAME)                                                \
     static HPy NAME##_impl(HPyContext, HPy, HPy);                       \
+    static PyObject* NAME(PyObject *self, PyObject *arg)                \
+    {                                                                   \
+        return _h2py(NAME##_impl(_HPyGetContext(), _py2h(self), _py2h(arg)));\
+    }
+
+#define HPy_METH_VARARGS(NAME)                                          \
+    static HPy NAME##_impl(HPyContext, HPy, HPy *, Py_ssize_t);         \
     static PyObject* NAME(PyObject *self, PyObject *args)               \
     {                                                                   \
-        return _h2py(NAME##_impl(_HPyGetContext(), _py2h(self), _py2h(args)));\
+        /* get the tuple elements as an array of "PyObject *", which */ \
+        /* is equivalent to an array of "HPy" with enough casting... */ \
+        HPy *items = (HPy *)&PyTuple_GET_ITEM(args, 0);                 \
+        Py_ssize_t nargs = PyTuple_GET_SIZE(args);                      \
+        return _h2py(NAME##_impl(_HPyGetContext(), _py2h(self), items, nargs));\
     }
 
 
 HPyAPI_FUNC(int)
-HPyArg_ParseTuple(HPyContext ctx, HPy args, const char *fmt, ...)
+HPyArg_Parse(HPyContext ctx, HPy *args, Py_ssize_t nargs, const char *fmt, ...)
 {
     va_list vl;
     va_start(vl, fmt);
-    int res = PyArg_VaParse(_h2py(args), fmt, vl);
+    const char *fmt1 = fmt;
+    Py_ssize_t i = 0;
+
+    while (*fmt1 != 0) {
+        if (i >= nargs) {
+            abort(); // XXX
+        }
+        switch (*fmt1++) {
+        case 'l': {
+            long *output = va_arg(vl, long *);
+            long value = PyLong_AsLong(_h2py(args[i]));
+            // XXX check for exceptions
+            *output = value;
+            break;
+        }
+        default:
+            abort();  // XXX
+        }
+        i++;
+    }
+    if (i != nargs) {
+        abort();   // XXX
+    }
+
     va_end(vl);
-    /* XXX incref all returned 'PyObject*' */
-    return res;
+    return 1;
 }
 
 
