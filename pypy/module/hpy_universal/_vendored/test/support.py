@@ -78,7 +78,8 @@ class ExtensionCompiler:
         #
         ext = get_extension(str(filename), name,
                             include_dirs=[self.include_dir],
-                            extra_compile_args=['-Wfatal-errors'])
+                            extra_compile_args=['-Wfatal-errors', '-g', '-Og'],
+                            extra_link_args=['-g'])
         so_filename = c_compile(str(self.tmpdir), ext, compiler_verbose=False,
                                 universal_mode=self.universal_mode)
         return so_filename
@@ -196,13 +197,15 @@ def _build_universal(tmpdir, ext, cpython_include_dirs):
     objects = compiler.compile(ext.sources,
                                output_dir=tmpdir,
                                macros=[('HPY_UNIVERSAL_ABI', None)],
-                               include_dirs=include_dirs)
+                               include_dirs=include_dirs,
+                               extra_preargs=ext.extra_compile_args)
 
     filename = ext.name + '.hpy.so'
     compiler.link(compiler.SHARED_LIBRARY,
                   objects,
                   filename,
-                  tmpdir
+                  tmpdir,
+                  extra_preargs=ext.extra_link_args,
                   # export_symbols=...
                   )
     return os.path.join(tmpdir, filename)
