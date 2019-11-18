@@ -6,19 +6,21 @@ from pypy.module.hpy_universal.llapi import INCLUDE_DIR
 from pypy.module.hpy_universal._vendored.test import support as _support
 
 
-class HPyTest(object):
+class HPyAppTest(object):
+
+    @pytest.fixture
+    def compiler(self):
+        # see setup_method below
+        return 'The fixture "compiler" is not used on pypy'
 
     def setup_class(cls):
         if cls.runappdirect:
             pytest.skip()
 
     def setup_method(self, meth):
-        # we don't have fixtures in AppTests, so setup_method is a poor's man
-        # way of providing the 'make_module' fixture that HPyTest expects.  In
-        # theory it would be nice to call interp2app only once for the entire
-        # class instead of once per method, but I quickly benchmarked it and
-        # it does not seem to have a noticeable impact on the total time
-        # needed to run the tests
+        # it would be nice to use the 'compiler' fixture to provide
+        # make_module as the std HPyTest do. Howwever, we don't have the space
+        # yet, so it is much easier to prove make_module() here
         tmpdir = py.path.local.make_numbered_dir(rootdir=udir,
                                                  prefix=meth.__name__ + '-',
                                                  keep=0)  # keep everything
