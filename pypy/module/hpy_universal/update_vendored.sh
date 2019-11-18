@@ -8,7 +8,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 DIR=$(dirname $0)
-VENDORED=$DIR/test/_vendored
+VENDORED=$DIR/_vendored
 HPY=$1
 
 echo "status of the repo $HPY:"
@@ -16,5 +16,5 @@ git -C "$HPY" --no-pager log --oneline -n 1
 git -C "$HPY" describe --abbrev --always --dirty
 
 cp -R "$HPY"/hpy-api/hpy_devel/include/* "$VENDORED/include"
-#cp $HPY/test/support.py $VENDORED/
+cp -R "$HPY"/test/* "$VENDORED/test"
 
