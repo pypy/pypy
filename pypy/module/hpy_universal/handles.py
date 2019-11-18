@@ -4,6 +4,7 @@ CONSTANTS = [
     ('None', lambda space: space.w_None),
     ('False', lambda space: space.w_False),
     ('True', lambda space: space.w_True),
+    ('ValueError', lambda space: space.w_ValueError),
     ]
 
 

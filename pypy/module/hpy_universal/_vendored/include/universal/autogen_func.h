@@ -40,6 +40,10 @@ static inline HPy HPyUnicode_FromString(HPyContext ctx, const char *utf8) {
      return ctx->ctx_Unicode_FromString ( ctx, utf8 ); 
 }
 
+static inline void HPyErr_SetString(HPyContext ctx, HPy type, const char *message) {
+     ctx->ctx_Err_SetString ( ctx, type, message ); 
+}
+
 static inline HPy HPy_FromPyObject(HPyContext ctx, struct _object *obj) {
      return ctx->ctx_FromPyObject ( ctx, obj ); 
 }

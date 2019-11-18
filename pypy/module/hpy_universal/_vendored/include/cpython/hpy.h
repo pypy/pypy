@@ -37,23 +37,30 @@ typedef struct _HPyContext_s {
     HPy h_None;
     HPy h_True;
     HPy h_False;
+    HPy h_ValueError;
 } *HPyContext;
 
 /* XXX! should be defined only once, not once for every .c! */
-static struct _HPyContext_s _global_ctx = {
-    .h_None = _py2h(Py_None),
-    .h_True = _py2h(Py_True),
-    .h_False = _py2h(Py_False),
-};
-
-HPyAPI_FUNC(HPyContext)
-_HPyGetContext(void) {
-    return &_global_ctx;
-}
-
+static struct _HPyContext_s _global_ctx;
 
 #define HPy_NULL ((HPy){NULL})
 #define HPy_IsNull(x) ((x)._o == NULL)
+
+HPyAPI_FUNC(HPyContext)
+_HPyGetContext(void) {
+    HPyContext ctx = &_global_ctx;
+    if (HPy_IsNull(ctx->h_None)) {
+        // XXX: we need to find a better way to check whether the ctx is
+        // initialized or not
+        ctx->h_None = _py2h(Py_None);
+        ctx->h_True = _py2h(Py_True);
+        ctx->h_False = _py2h(Py_False);
+        ctx->h_ValueError = _py2h(PyExc_ValueError);
+    }
+    return ctx;
+}
+
+
 
 HPyAPI_FUNC(HPy)
 HPyNone_Get(HPyContext ctx)
@@ -195,6 +202,12 @@ HPy_AsPyObject(HPyContext ctx, HPy h)
     PyObject *result = _h2py(h);
     Py_XINCREF(result);
     return result;
+}
+
+HPyAPI_FUNC(void)
+HPyErr_SetString(HPyContext ctx, HPy type, const char *message)
+{
+    PyErr_SetString(_h2py(type), message);
 }
 
 

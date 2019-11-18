@@ -7,6 +7,7 @@ from rpython.rlib import rutf8
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
 from pypy.interpreter.module import Module
+from pypy.interpreter.error import OperationError
 
 from pypy.module.hpy_universal import llapi, handles, interp_extfunc
 from pypy.module.hpy_universal.state import State
@@ -80,13 +81,23 @@ def HPyNumber_Add(space, ctx, h1, h2):
 
 @apifunc([llapi.HPyContext, rffi.CCHARP], llapi.HPy, error=0)
 def HPyUnicode_FromString(space, ctx, utf8):
+    w_obj = _maybe_utf8_to_w(space, utf8)
+    return handles.new(space, w_obj)
+
+def _maybe_utf8_to_w(space, utf8):
+    # should this be a method of space?
     s = rffi.charp2str(utf8)
     try:
         length = rutf8.check_utf8(s, allow_surrogates=False)
     except rutf8.CheckError:
         raise   # XXX do something
-    w_obj = space.newtext(s, length)
-    return handles.new(space, w_obj)
+    return space.newtext(s, length)
+
+@apifunc([llapi.HPyContext, llapi.HPy, rffi.CCHARP], lltype.Void, error=None)
+def HPyErr_SetString(space, ctx, h_exc_type, utf8):
+   w_obj = _maybe_utf8_to_w(space, utf8)
+   w_exc_type = handles.deref(space, h_exc_type)
+   raise OperationError(w_exc_type, w_obj)
 
 
 def create_hpy_module(space, name, origin, lib, initfunc):
