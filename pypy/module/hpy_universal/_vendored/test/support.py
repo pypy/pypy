@@ -1,12 +1,6 @@
 import os, sys
 import pytest
 import re
-#import importlib.util
-#from importlib.machinery import ExtensionFileLoader
-
-THIS_DIR = os.path.dirname(__file__)
-INCLUDE_DIR = os.path.join(THIS_DIR, '../hpy-api/include')
-
 
 r_marker_init = re.compile(r"\s*@INIT\s*$")
 r_marker_export = re.compile(r"\s*@EXPORT\s+(\w+)\s+(METH_\w+)\s*$")
@@ -61,34 +55,61 @@ def expand_template(source_template, name):
     return '\n'.join(expanded_lines)
 
 
-#class HPyLoader(ExtensionFileLoader):
-#    def create_module(self, spec):
-#        import hpy_universal
-#        return hpy_universal.load(spec.origin, "HPyInit_" + spec.name)
+class Spec(object):
+    def __init__(self, name, origin):
+        self.name = name
+        self.origin = origin
+
 
 class ExtensionCompiler:
-    def __init__(self, tmpdir, abimode):
+    def __init__(self, tmpdir, abimode, include_dir):
         self.tmpdir = tmpdir
         self.abimode = abimode
+        self.include_dir = include_dir
+        self.universal_mode = self.abimode == 'universal'
 
-    def make_module(self, source_template, name):
-        universal_mode = self.abimode == 'universal'
+    def compile_module(self, source_template, name):
+        """
+        Create and compile a HPy module from the template
+        """
         source = expand_template(source_template, name)
         filename = self.tmpdir.join(name + '.c')
         filename.write(source)
         #
-        ext = get_extension(str(filename), name, include_dirs=[INCLUDE_DIR],
+        ext = get_extension(str(filename), name,
+                            include_dirs=[self.include_dir],
                             extra_compile_args=['-Wfatal-errors'])
         so_filename = c_compile(str(self.tmpdir), ext, compiler_verbose=False,
-                                universal_mode=universal_mode)
-        #
-        if universal_mode:
-            loader = HPyLoader(name, so_filename)
-            spec = importlib.util.spec_from_loader(name, loader)
+                                universal_mode=self.universal_mode)
+        return so_filename
+
+    def make_module(self, source_template, name):
+        """
+        Compile&load a modulo into memory. This is NOT a proper import: e.g. the module
+        is not put into sys.modules
+        """
+        so_filename = self.compile_module(source_template, name)
+        if self.universal_mode:
+            return self.load_universal_module(name, so_filename)
         else:
-            spec = importlib.util.spec_from_file_location(name, so_filename)
+            return self.load_cython_module(name, so_filename)
+
+    def load_universal_module(self, name, so_filename):
+        assert self.abimode == 'universal'
+        import hpy_universal
+        spec = Spec(name, so_filename)
+        return hpy_universal.load_from_spec(spec)
+
+    def load_cython_module(self, name, so_filename):
+        assert self.abimode == 'cpython'
+        # we've got a normal CPython module compiled with the CPython API/ABI,
+        # let's load it normally. It is important to do the imports only here,
+        # because this file will be imported also by PyPy tests which runs on
+        # Python2
+        import importlib.util
+        from importlib.machinery import ExtensionFileLoader
+        spec = importlib.util.spec_from_file_location(name, so_filename)
         module = importlib.util.module_from_spec(spec)
-        sys.modules[name] = module
         spec.loader.exec_module(module)
         return module
 
@@ -97,7 +118,11 @@ class ExtensionCompiler:
 class HPyTest:
     @pytest.fixture()
     def initargs(self, compiler):
+        # compiler is a fixture defined in conftest
         self.compiler = compiler
+
+    def compile_module(self, source_template, name):
+        return self.compiler.compile_module(source_template, name)
 
     def make_module(self, source_template, name='mytest'):
         return self.compiler.make_module(source_template, name)
