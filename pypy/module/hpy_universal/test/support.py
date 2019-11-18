@@ -1,11 +1,11 @@
 import py
 import pytest
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-
 from rpython.tool.udir import udir
-from ._vendored import support as _support
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.module.hpy_universal.llapi import INCLUDE_DIR
+from pypy.module.hpy_universal._vendored.test import support as _support
 
-INCLUDE_DIR = str(py.path.local(__file__).dirpath().join('_vendored/include'))
+
 
 class ExtensionCompiler(object):
     def __init__(self, base_dir):

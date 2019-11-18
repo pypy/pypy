@@ -1,11 +1,9 @@
-import os
+import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.module.hpy_universal import _vendored
 
-# XXX temporary location
-INCLUDE_DIR = os.path.join(os.path.dirname(__file__),
-                           "test", "_vendored", "include")
-
+INCLUDE_DIR = str(py.path.local(_vendored.__file__).dirpath().join('include'))
 eci = ExternalCompilationInfo(includes=["universal/hpy.h"],
                               include_dirs=[INCLUDE_DIR],
                               post_include_bits=["""
