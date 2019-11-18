@@ -226,6 +226,13 @@ def not_rpython(func):
     func._not_rpython_ = True
     return func
 
+def llhelper_can_raise(func):
+    """
+    Instruct ll2ctypes that this llhelper can raise RPython exceptions, which
+    should be propagated.
+    """
+    func._llhelper_can_raise_ = True
+    return func
 
 # ____________________________________________________________
 
