@@ -1,15 +1,29 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from pypy import pypydir
 from pypy.module.hpy_universal import _vendored
 
-INCLUDE_DIR = str(py.path.local(_vendored.__file__).dirpath().join('include'))
+PYPYDIR = py.path.local(pypydir)
+INCLUDE_DIR = PYPYDIR.join('module', 'hpy_universal', '_vendored', 'include')
+SRC_DIR = PYPYDIR.join('module', 'hpy_universal', 'src')
+
+# XXX I don't understand what is going on here: if I put getargs.c as
+# separate_module_files, then ll2ctypes can't find it. I need to #include t in
+# separate_module_sources for now...
 eci = ExternalCompilationInfo(includes=["universal/hpy.h"],
                               include_dirs=[INCLUDE_DIR],
+                              ## separate_module_files=[
+                              ##     SRC_DIR.join('getargs.c'),
+                              ##     ],
                               post_include_bits=["""
 RPY_EXTERN void *_HPy_GetGlobalCtx(void);
+RPY_EXTERN int ctx_Arg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs,
+                             const char *fmt, va_list vl);
 """],
                               separate_module_sources=["""
+
+#include "%s"
 
 struct _HPyContext_s hpy_global_ctx;
 void *_HPy_GetGlobalCtx(void)
@@ -17,7 +31,7 @@ void *_HPy_GetGlobalCtx(void)
     return &hpy_global_ctx;
 }
 
-"""])
+""" % SRC_DIR.join('getargs.c')])
 
 
 HPy = lltype.Signed
@@ -43,10 +57,16 @@ HPyContextS = rffi.CStruct('_HPyContext_s',
 )
 HPyContext = lltype.Ptr(HPyContextS)
 
+HPy_ssize_t = lltype.Signed # XXXXXXXXX?
+
 HPyInitFuncPtr = lltype.Ptr(lltype.FuncType([HPyContext], HPy))
 
 _HPyCFunctionPtr = lltype.Ptr(lltype.FuncType([HPyContext, HPy, HPy], HPy))
 _HPy_CPyCFunctionPtr = rffi.VOIDP    # not used here
+
+HPyMeth_VarArgs = lltype.Ptr(
+    lltype.FuncType([HPyContext, HPy, lltype.Ptr(rffi.CArray(HPy)), HPy_ssize_t], HPy))
+
 
 _HPyMethodPairFuncPtr = lltype.Ptr(lltype.FuncType([
         rffi.CArrayPtr(_HPyCFunctionPtr),
@@ -76,8 +96,18 @@ METH_NOARGS   = 0x0004
 METH_O        = 0x0008
 
 
+
+
 # ----------------------------------------------------------------
 
 
 _HPy_GetGlobalCtx = rffi.llexternal('_HPy_GetGlobalCtx', [], HPyContext,
                                     compilation_info=eci, _nowrapper=True)
+
+# NOTE: this is not the real signature (we don't know what to put for
+# va_list), but it's good enough to get the address of the function to store
+# in the ctx. DO NOT CALL THIS!. TO avoid possible mistakes, we directly cast
+# it to VOIDP
+ctx_Arg_Parse_fn = rffi.llexternal('ctx_Arg_Parse', [], rffi.INT_real,
+                                compilation_info=eci, _nowrapper=True)
+ctx_Arg_Parse = rffi.cast(rffi.VOIDP, ctx_Arg_Parse_fn)

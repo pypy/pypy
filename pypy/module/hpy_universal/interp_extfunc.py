@@ -47,9 +47,33 @@ class W_ExtensionFunction(W_Root):
         return handles.consume(space, h_result)
 
     def call_varargs(self, space, arguments_w):
-        w_tuple = space.newtuple(arguments_w)
-        # xxx here we just invoke call_o() with the w_tuple
-        return self.call_o(space, w_tuple)
+        # this function is more or less the equivalent of
+        # ctx_CallRealFunctionFromTrampoline in cpython-universal
+        state = space.fromcache(State)
+        n = len(arguments_w)
+
+        # XXX this looks inefficient: ideally, we would like the equivalent of
+        # alloca(): do we have it in RPython? The alternative is to wrap
+        # arguments_w in a tuple, convert to handle and pass it to a C
+        # function whichs calls alloca() and the forwards everything to the
+        # functpr
+        with handles.using(space, self.w_self) as h_self:
+            with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
+                for i, w_obj in enumerate(arguments_w):
+                    args_h[i] = handles.new(space, w_obj)
+
+                # XXX: is it correct to use rffi.cast instead of some kind of
+                # lltype.cast_*?
+                fptr = rffi.cast(llapi.HPyMeth_VarArgs, self.cfuncptr)
+                h_result = generic_cpy_call_dont_convert_result(space, fptr,
+                                                        state.ctx, h_self, args_h, n)
+
+                # XXX this should probably be in a try/finally. We should add a
+                # test to check that we don't leak handles
+                for i in range(n):
+                    handles.close(space, args_h[i])
+
+        return handles.consume(space, h_result)
 
     def descr_call(self, space, __args__):
         flags = self.flags
