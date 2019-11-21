@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem import rffi
 from rpython.memory.gc.rrc.base import RawRefCountBaseGC
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
+from rpython.rlib.rarithmetic import intmask
 import time
 
 class RawRefCountIncMarkGC(RawRefCountBaseGC):
@@ -367,9 +368,22 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 snapobj.refcnt += 1
                 self._mark_rawrefcount_obj(snapobj)
                 simple_limit += 1
-                if simple_limit > self.inc_limit: # TODO: add test
+                if simple_limit > intmask(self.inc_limit): # TODO: add test
                     reached_limit = True
-            self.gc.visit_all_objects()  # TODO: implement sane limit
+
+            if not reached_limit:
+                # "split" the limit between rrc and non-rrc
+                # if 25% of rrc limit have been used, now use max 75% or non-rrc limit
+                if simple_limit > 0:
+                    estimate = intmask(self.gc.gc_increment_step) * intmask(self.inc_limit) / simple_limit
+                else:
+                    estimate = intmask(self.gc.gc_increment_step)
+                remaining = self.gc.visit_all_objects_step(estimate)
+                if remaining == 0:
+                    reached_limit = True
+                else:
+                    # if 25% of the non-rrc limit have been used, add 25% of the rrc limit to the counter
+                    simple_limit += intmask(self.inc_limit) * remaining / estimate
             first = False
         return not reached_limit # are there any objects left?
 

@@ -84,6 +84,8 @@ class RawRefCountBaseGC(object):
     RAWREFCOUNT_REFS_UNTRACKED = -2 << RAWREFCOUNT_REFS_SHIFT
     RAWREFCOUNT_REFS_REACHABLE = -3 << RAWREFCOUNT_REFS_SHIFT
 
+    UNTRACK_TUPLES_DEFAULT = True
+
     def _pyobj(self, pyobjaddr):
         return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
     def _pygchdr(self, pygchdraddr):
@@ -124,6 +126,13 @@ class RawRefCountBaseGC(object):
         self.state = self.STATE_DEFAULT
         self.marking_state = 0
         inc_limit = env.read_uint_from_env('PYPY_RRC_GC_INCREMENT_STEP')
+        untrack = env.read_uint_from_env('PYPY_RRC_GC_UNTRACK_TUPLES')
+        if untrack == 1:
+            self.untrack_tuples = True
+        elif untrack == 2:
+            self.untrack_tuples = False
+        else:
+            self.untrack_tuples = self.UNTRACK_TUPLES_DEFAULT
         if inc_limit > 0:
             self.inc_limit = inc_limit
         else:
@@ -469,17 +478,20 @@ class RawRefCountBaseGC(object):
             self._free(pyobject, True)
 
     def _untrack_tuples(self):
-        gchdr = self.tuple_list.c_gc_next
-        while gchdr <> self.tuple_list:
-            gchdr_next = gchdr.c_gc_next
-            pyobj = self.gc_as_pyobj(gchdr)
-            result = self.tuple_maybe_untrack(pyobj)
-            if result == 1: # contains gc objects -> promote to pyobj list
-                next = gchdr.c_gc_next
-                next.c_gc_prev = gchdr.c_gc_prev
-                gchdr.c_gc_prev.c_gc_next = next
-                self._gc_list_add(self.pyobj_list, gchdr)
-            gchdr = gchdr_next
+        if self.untrack_tuples:
+            self._debug_check_consistency(print_label="before-untrack")
+            gchdr = self.tuple_list.c_gc_next
+            while gchdr <> self.tuple_list:
+                gchdr_next = gchdr.c_gc_next
+                pyobj = self.gc_as_pyobj(gchdr)
+                result = self.tuple_maybe_untrack(pyobj)
+                if result == 1: # contains gc objects -> promote to pyobj list
+                    next = gchdr.c_gc_next
+                    next.c_gc_prev = gchdr.c_gc_prev
+                    gchdr.c_gc_prev.c_gc_next = next
+                    self._gc_list_add(self.pyobj_list, gchdr)
+                gchdr = gchdr_next
+            self._debug_check_consistency(print_label="after-untrack")
 
     def _find_garbage(self, use_dict):
         found_garbage = False
