@@ -33,14 +33,25 @@ void *_HPy_GetGlobalCtx(void)
 
 """ % SRC_DIR.join('getargs.c')])
 
+HPy_ssize_t = lltype.Signed # XXXXXXXXX?
 
-HPy = lltype.Signed
+# for practical reason, we use a primitive type to represent HPy almost
+# everywhere in RPython. HOWEVER, the "real" HPy C type which is defined in
+# universal/hpy.h is an anonymous struct: we need to use it e.g. to represent
+# fields inside HPyContextS
+HPy = HPy_ssize_t
+HPyS_real = rffi.CStruct('HPy',
+    ('_i', HPy_ssize_t),
+    hints={'eci': eci, 'typedef': True},
+)
+
+
 HPyContextS = rffi.CStruct('_HPyContext_s',
     ('ctx_version', rffi.INT_real),
-    ('h_None', HPy),
-    ('h_True', HPy),
-    ('h_False', HPy),
-    ('h_ValueError', HPy),
+    ('h_None', HPyS_real),
+    ('h_True', HPyS_real),
+    ('h_False', HPyS_real),
+    ('h_ValueError', HPyS_real),
     ('ctx_Module_Create', rffi.VOIDP),
     ('ctx_Dup', rffi.VOIDP),
     ('ctx_Close', rffi.VOIDP),
@@ -56,9 +67,6 @@ HPyContextS = rffi.CStruct('_HPyContext_s',
     hints={'eci': eci},
 )
 HPyContext = lltype.Ptr(HPyContextS)
-
-HPy_ssize_t = lltype.Signed # XXXXXXXXX?
-
 HPyInitFuncPtr = lltype.Ptr(lltype.FuncType([HPyContext], HPy))
 
 _HPyCFunctionPtr = lltype.Ptr(lltype.FuncType([HPyContext, HPy, HPy], HPy))
