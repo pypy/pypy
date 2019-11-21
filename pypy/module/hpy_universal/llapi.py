@@ -2,7 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy import pypydir
-from pypy.module.hpy_universal import _vendored
+from pypy.module.cpyext.cparser import CTypeSpace
 
 PYPYDIR = py.path.local(pypydir)
 INCLUDE_DIR = PYPYDIR.join('module', 'hpy_universal', '_vendored', 'include')
@@ -20,6 +20,10 @@ eci = ExternalCompilationInfo(includes=["universal/hpy.h"],
 RPY_EXTERN void *_HPy_GetGlobalCtx(void);
 RPY_EXTERN int ctx_Arg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs,
                              const char *fmt, va_list vl);
+
+// this is a workaround for a CTypeSpace limitation, since it can't properly
+handle struct types which are not typedefs
+typedef struct _HPyContext_s _struct_HPyContext_s;
 """],
                               separate_module_sources=["""
 
@@ -30,43 +34,51 @@ void *_HPy_GetGlobalCtx(void)
 {
     return &hpy_global_ctx;
 }
-
 """ % SRC_DIR.join('getargs.c')])
 
-HPy_ssize_t = lltype.Signed # XXXXXXXXX?
+cts = CTypeSpace()
+# NOTE: the following C source is NOT seen by the C compiler during
+# translation: it is used only as a nice way to declare the lltype.* types
+# which are needed here
+cts.headers.append('stdint.h')
+cts.parse_source("""
+typedef intptr_t HPy_ssize_t;
+typedef struct { HPy_ssize_t _i; } HPy;
+typedef struct _HPyContext_s {
+    int ctx_version;
+    HPy h_None;
+    HPy h_True;
+    HPy h_False;
+    HPy h_ValueError;
+    void *ctx_Module_Create;
+    void *ctx_Dup;
+    void *ctx_Close;
+    void *ctx_Long_FromLong;
+    void *ctx_Long_AsLong;
+    void *ctx_Arg_Parse;
+    void *ctx_Number_Add;
+    void *ctx_Unicode_FromString;
+    void *ctx_Err_SetString;
+    void *ctx_FromPyObject;
+    void *ctx_AsPyObject;
+    void *ctx_CallRealFunctionFromTrampoline;
+} _struct_HPyContext_s;
+typedef struct _HPyContext_s *HPyContext;
+""")
+
+HPy_ssize_t = cts.gettype('HPy_ssize_t')
+# XXX: HPyContext is equivalent to the old HPyContext which was defined
+# explicitly using rffi.CStruct: the only different is that this is missing
+# hints={'eci': eci}: however, the tests still pass (including
+# ztranslation). Why was the eci needed?
+HPyContext = cts.gettype('HPyContext')
 
 # for practical reason, we use a primitive type to represent HPy almost
-# everywhere in RPython. HOWEVER, the "real" HPy C type which is defined in
-# universal/hpy.h is an anonymous struct: we need to use it e.g. to represent
-# fields inside HPyContextS
+# everywhere in RPython. HOWEVER, the "real" HPy C type is a struct
 HPy = HPy_ssize_t
-HPyS_real = rffi.CStruct('HPy',
-    ('_i', HPy_ssize_t),
-    hints={'eci': eci, 'typedef': True},
-)
+_HPy_real = cts.gettype('HPy')
 
 
-HPyContextS = rffi.CStruct('_HPyContext_s',
-    ('ctx_version', rffi.INT_real),
-    ('h_None', HPyS_real),
-    ('h_True', HPyS_real),
-    ('h_False', HPyS_real),
-    ('h_ValueError', HPyS_real),
-    ('ctx_Module_Create', rffi.VOIDP),
-    ('ctx_Dup', rffi.VOIDP),
-    ('ctx_Close', rffi.VOIDP),
-    ('ctx_Long_FromLong', rffi.VOIDP),
-    ('ctx_Long_AsLong', rffi.VOIDP),
-    ('ctx_Arg_Parse', rffi.VOIDP),
-    ('ctx_Number_Add', rffi.VOIDP),
-    ('ctx_Unicode_FromString', rffi.VOIDP),
-    ('ctx_Err_SetString', rffi.VOIDP),
-    ('ctx_FromPyObject', rffi.VOIDP),
-    ('ctx_AsPyObject', rffi.VOIDP),
-    ('ctx_CallRealFunctionFromTrampoline', rffi.VOIDP),
-    hints={'eci': eci},
-)
-HPyContext = lltype.Ptr(HPyContextS)
 HPyInitFuncPtr = lltype.Ptr(lltype.FuncType([HPyContext], HPy))
 
 _HPyCFunctionPtr = lltype.Ptr(lltype.FuncType([HPyContext, HPy, HPy], HPy))
