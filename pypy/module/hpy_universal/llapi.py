@@ -43,13 +43,17 @@ cts = CTypeSpace()
 cts.headers.append('stdint.h')
 cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
-typedef struct { HPy_ssize_t _i; } HPy;
+
+// see below for more info about HPy vs _HPy_real
+typedef HPy_ssize_t HPy;
+typedef struct { HPy_ssize_t _i; } _HPy_real;
+
 typedef struct _HPyContext_s {
     int ctx_version;
-    HPy h_None;
-    HPy h_True;
-    HPy h_False;
-    HPy h_ValueError;
+    _HPy_real h_None;
+    _HPy_real h_True;
+    _HPy_real h_False;
+    _HPy_real h_ValueError;
     void *ctx_Module_Create;
     void *ctx_Dup;
     void *ctx_Close;
@@ -64,6 +68,8 @@ typedef struct _HPyContext_s {
     void *ctx_CallRealFunctionFromTrampoline;
 } _struct_HPyContext_s;
 typedef struct _HPyContext_s *HPyContext;
+
+typedef HPy (*HPyInitFunc)(HPyContext ctx);
 """)
 
 HPy_ssize_t = cts.gettype('HPy_ssize_t')
@@ -75,11 +81,11 @@ HPyContext = cts.gettype('HPyContext')
 
 # for practical reason, we use a primitive type to represent HPy almost
 # everywhere in RPython. HOWEVER, the "real" HPy C type is a struct
-HPy = HPy_ssize_t
-_HPy_real = cts.gettype('HPy')
+HPy = cts.gettype('HPy')
+_HPy_real = cts.gettype('_HPy_real')
 
 
-HPyInitFuncPtr = lltype.Ptr(lltype.FuncType([HPyContext], HPy))
+HPyInitFunc = cts.gettype('HPyInitFunc')
 
 _HPyCFunctionPtr = lltype.Ptr(lltype.FuncType([HPyContext, HPy, HPy], HPy))
 _HPy_CPyCFunctionPtr = rffi.VOIDP    # not used here

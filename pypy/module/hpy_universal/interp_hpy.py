@@ -100,7 +100,7 @@ def HPyErr_SetString(space, ctx, h_exc_type, utf8):
 
 def create_hpy_module(space, name, origin, lib, initfunc):
     state = space.fromcache(State)
-    initfunc = rffi.cast(llapi.HPyInitFuncPtr, initfunc)
+    initfunc = rffi.cast(llapi.HPyInitFunc, initfunc)
     h_module = generic_cpy_call_dont_convert_result(space, initfunc, state.ctx)
     return handles.consume(space, h_module)
 
