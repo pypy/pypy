@@ -88,7 +88,7 @@ def PyErr_Restore(space, py_type, py_value, py_traceback):
     if w_type is None:
         state.clear_exception()
         return
-    state.set_exception(OperationError(w_type, w_value))
+    state.set_exception(OperationError(w_type, w_value, w_traceback))
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
