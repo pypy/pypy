@@ -126,8 +126,6 @@ _HPy_GetGlobalCtx = rffi.llexternal('_HPy_GetGlobalCtx', [], HPyContext,
 
 # NOTE: this is not the real signature (we don't know what to put for
 # va_list), but it's good enough to get the address of the function to store
-# in the ctx. DO NOT CALL THIS!. TO avoid possible mistakes, we directly cast
-# it to VOIDP
-ctx_Arg_Parse_fn = rffi.llexternal('ctx_Arg_Parse', [], rffi.INT_real,
-                                compilation_info=eci, _nowrapper=True)
-ctx_Arg_Parse = rffi.cast(rffi.VOIDP, ctx_Arg_Parse_fn)
+# in the ctx. DO NOT CALL THIS!
+DONT_CALL_ctx_Arg_Parse = rffi.llexternal('ctx_Arg_Parse', [], rffi.INT_real,
+                                          compilation_info=eci, _nowrapper=True)
