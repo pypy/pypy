@@ -22,7 +22,7 @@ RPY_EXTERN int ctx_Arg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs,
                              const char *fmt, va_list vl);
 
 // this is a workaround for a CTypeSpace limitation, since it can't properly
-handle struct types which are not typedefs
+// handle struct types which are not typedefs
 typedef struct _HPyContext_s _struct_HPyContext_s;
 """],
                               separate_module_sources=["""
