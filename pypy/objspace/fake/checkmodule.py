@@ -2,14 +2,29 @@ from pypy.objspace.fake.objspace import FakeObjSpace, W_Root
 from pypy.config.pypyoption import get_pypy_config
 
 
-def checkmodule(*modnames, **kwds):
-    translate_startup = kwds.pop('translate_startup', True)
-    ignore = set(kwds.pop('ignore', ()))
-    assert not kwds
+def checkmodule(modname, translate_startup=True, ignore=(),
+                c_compile=False, extra_func=None, config_opts=None):
+    """
+    Check that the module 'modname' translates.
+
+    Options:
+      translate_startup: TODO, document me
+
+      ignore: list of module interpleveldefs/appleveldefs to ignore
+
+      c_compile: determine whether to inokve the C compiler after rtyping
+
+      extra_func: extra function which will be annotated and called. It takes
+                  a single "space" argment
+
+      config_opts: dictionary containing extra configuration options which
+                   will be passed to TranslationContext
+    """
     config = get_pypy_config(translating=True)
     space = FakeObjSpace(config)
     seeobj_w = []
     modules = []
+    modnames = [modname]
     for modname in modnames:
         mod = __import__(
             'pypy.module.%s.moduledef' % modname, None, None, ['__doc__'])
@@ -34,5 +49,8 @@ def checkmodule(*modnames, **kwds):
     if not translate_startup:
         func()   # call it now
         func = None
+
+    opts = {'translation.list_comprehension_operations': True}
+    opts.update(config_opts)
     space.translates(func, seeobj_w=seeobj_w,
-                     **{'translation.list_comprehension_operations': True})
+                     c_compile=c_compile, extra_func=extra_func, **opts)

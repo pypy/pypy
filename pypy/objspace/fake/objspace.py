@@ -1,4 +1,5 @@
 from rpython.annotator.model import SomeInstance, s_None
+from rpython.annotator.listdef import s_list_of_strings
 from rpython.rlib.objectmodel import (instantiate, we_are_translated, specialize,
     not_rpython)
 from rpython.rlib.nonconst import NonConstant
@@ -7,6 +8,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
+from rpython.translator.c.genc import CStandaloneBuilder
 
 from pypy.tool.option import make_config
 from pypy.interpreter import argument, gateway
@@ -387,7 +389,9 @@ class FakeObjSpace(ObjSpace):
 
     # ----------
 
-    def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
+    def translates(self, func=None, argtypes=None, seeobj_w=[],
+                   extra_func=None, c_compile=False,
+                   **kwds):
         config = make_config(None, **kwds)
         if func is not None:
             if argtypes is None:
@@ -397,10 +401,14 @@ class FakeObjSpace(ObjSpace):
         t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
-        def _do_startup():
+
+        def entry_point(argv):
             self.threadlocals.enter_thread(self)
             W_SliceObject(w_some_obj(), w_some_obj(), w_some_obj())
-        ann.build_types(_do_startup, [], complete_now=False)
+            if extra_func:
+                extra_func(self)
+            return 0
+        ann.build_types(entry_point, [s_list_of_strings], complete_now=False)
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
         if seeobj_w:
@@ -422,6 +430,12 @@ class FakeObjSpace(ObjSpace):
         #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
+        if c_compile:
+            cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+            cbuilder.compile()
+            return t, cbuilder
+
 
     def setup(space):
         for name in (ObjSpace.ConstantTable +
