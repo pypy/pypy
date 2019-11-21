@@ -77,4 +77,5 @@ class State:
         funcptr = interp_hpy.HPyErr_SetString.get_llhelper(space)
         self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, funcptr)
         #
-        self.ctx.c_ctx_Arg_Parse = llapi.ctx_Arg_Parse
+        # the cast is not strictly necessary but silences a gcc warning
+        self.ctx.c_ctx_Arg_Parse = rffi.cast(rffi.VOIDP, llapi.ctx_Arg_Parse)
