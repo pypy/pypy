@@ -32,7 +32,7 @@ def apifunc(argtypes, restype):
 
 @apifunc([llapi.HPyContext, lltype.Ptr(llapi.HPyModuleDef)], llapi.HPy)
 def HPyModule_Create(space, ctx, hpydef):
-    modname = rffi.charp2str(hpydef.c_m_name)
+    modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
     #
     # add all the functions defined in hpydef.c_m_methods

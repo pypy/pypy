@@ -14,7 +14,7 @@ class W_ExtensionFunction(W_Root):
     def __init__(self, ml, w_self):
         self.ml = ml
         self.w_self = w_self
-        self.name = rffi.charp2str(self.ml.c_ml_name)
+        self.name = rffi.constcharp2str(self.ml.c_ml_name)
         self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         # fetch the real HPy function pointer, by calling ml_meth, which
         # is a function that returns it and also the CPython-only trampoline
