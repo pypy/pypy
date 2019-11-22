@@ -30,6 +30,8 @@ USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
 STDLIB_VER = "2.7"
 
+POSIX_EXE = 'pypy'
+
 from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
@@ -71,7 +73,7 @@ def create_package(basedir, options, _fake=False):
 
     basedir = py.path.local(basedir)
     if not override_pypy_c:
-        basename = 'pypy-c'
+        basename = POSIX_EXE + '-c'
         if sys.platform == 'win32':
             basename += '.exe'
         pypy_c = basedir.join('pypy', 'goal', basename)
@@ -106,10 +108,13 @@ def create_package(basedir, options, _fake=False):
 
     if (sys.platform != 'win32' and    # handled below
         not _fake and os.path.getsize(str(pypy_c)) < 500000):
-        # This pypy-c is very small, so it means it relies on libpypy_c.so.
+        # This 'pypy_c' is very small, so it means it relies on a so/dll
         # If it would be bigger, it wouldn't.  That's a hack.
-        libpypy_name = ('libpypy-c.so' if not sys.platform.startswith('darwin')
-                                       else 'libpypy-c.dylib')
+        if sys.platform.startswith('darwin'):
+            ext = 'dylib'
+        else:
+            ext = 'so'
+        libpypy_name = 'lib' + POSIX_EXE + '-c.' + ext
         libpypy_c = pypy_c.new(basename=libpypy_name)
         if not libpypy_c.check():
             raise PyPyCNotFound('Expected pypy to be mostly in %r, but did '
@@ -134,8 +139,9 @@ def create_package(basedir, options, _fake=False):
             tgt = py.path.local(tgt)
             binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename, None))
             print("Picking %s" % str(pypyw))
-        # Can't rename a DLL: it is always called 'libpypy-c.dll'
-        win_extras = [('libpypy-c.dll', None), ('sqlite3.dll', lib_pypy)]
+        # Can't rename a DLL
+        win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
+                      ('sqlite3.dll', lib_pypy)]
         if not options.no_tk:
             tkinter_dir = lib_pypy.join('_tkinter')
             win_extras += [('tcl85.dll', tkinter_dir), ('tk85.dll', tkinter_dir)]
@@ -155,9 +161,8 @@ def create_package(basedir, options, _fake=False):
             print('Picking %s (and contents)' % libsdir)
             shutil.copytree(str(libsdir), str(pypydir.join('libs')))
         else:
-            print('"libs" dir with import library not found.')
-            print('You have to create %r' % (str(libsdir),))
-            print('and copy libpypy-c.lib in there, renamed to python27.lib')
+            if not _fake:
+                raise RuntimeError('"libs" dir with import library not found.')
             # XXX users will complain that they cannot compile capi (cpyext)
             # modules for windows, also embedding pypy (i.e. in cffi)
             # will fail.
@@ -185,14 +190,14 @@ def create_package(basedir, options, _fake=False):
                           for source, target, target_dir in binaries])
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
-    # would not be enough: there are also ctypes_config_cache/_*_cache.py.
-    # XXX ^^^ this is no longer true!
+    # would not be enough: there are also build artifacts like cffi-generated
+    # dynamic libs
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
                     str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*_cffi.c', '*.o'))
+                                           '*_cffi.c', '*.o', '*.pyd-*'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -223,6 +228,14 @@ def create_package(basedir, options, _fake=False):
         else:
             open(str(archive), 'wb').close()
         os.chmod(str(archive), 0755)
+    #if not _fake and not sys.platform == 'win32':
+    #    # create the pypy3 symlink
+    #    old_dir = os.getcwd()
+    #    os.chdir(str(bindir))
+    #    try:
+    #        os.symlink(POSIX_EXE, 'pypy3')
+    #    finally:
+    #        os.chdir(old_dir)
     fix_permissions(pypydir)
 
     old_dir = os.getcwd()
@@ -292,9 +305,9 @@ def package(*args, **kwds):
             setattr(ns, self.dest, option[2:4] != 'no')
 
     if sys.platform == 'win32':
-        pypy_exe = 'pypy.exe'
+        pypy_exe = POSIX_EXE + '.exe'
     else:
-        pypy_exe = 'pypy'
+        pypy_exe = POSIX_EXE
     parser = argparse.ArgumentParser()
     args = list(args)
     if args:

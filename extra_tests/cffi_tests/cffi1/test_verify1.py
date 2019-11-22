@@ -5,7 +5,7 @@ from cffi import FFI, FFIError, VerificationError, VerificationMissing, model
 from cffi import CDefError
 from cffi import recompiler
 from extra_tests.cffi_tests.support import *
-from extra_tests.cffi_tests.support import _verify
+from extra_tests.cffi_tests.support import _verify, extra_compile_args
 import _cffi_backend
 
 lib_m = ['m']
@@ -14,18 +14,6 @@ if sys.platform == 'win32':
     import distutils.ccompiler
     if distutils.ccompiler.get_default_compiler() == 'msvc':
         lib_m = ['msvcrt']
-    extra_compile_args = []      # no obvious -Werror equivalent on MSVC
-else:
-    if (sys.platform == 'darwin' and
-          [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
-        # assume a standard clang or gcc
-        extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion']
-        # special things for clang
-        extra_compile_args.append('-Qunused-arguments')
-    else:
-        # assume a standard gcc
-        extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion',
-                              '-Wno-unused-parameter']
 
 class FFI(FFI):
     error = _cffi_backend.FFI.error

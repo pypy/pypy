@@ -567,6 +567,13 @@ class AppTestSocket:
                                 intsize)
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
+        # try to call setsockopt() with a buffer argument
+        reusestr = struct.pack('i', 0)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, buffer(reusestr))
+        reusestr = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
+                                intsize)
+        (reuse,) = struct.unpack('i', reusestr)
+        assert reuse == 0
 
     def test_getsetsockopt_zero(self):
         # related to issue #2561: when specifying the buffer size param:

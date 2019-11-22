@@ -601,6 +601,11 @@ class NumberStringParser:
         assert i >= self.start
         self.i = i
         c = self.s[i]
+        if self.allow_underscores and c == '_':
+            i = self.i - 1
+            assert i >= 0
+            self.i = i
+            c = self.s[i]
         digit = ord(c)
         if '0' <= c <= '9':
             digit -= ord('0')
