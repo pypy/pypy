@@ -79,7 +79,7 @@ typedef HPy (*_HPyCFunction)(HPyContext ctx, HPy self, HPy args);
 typedef void *_HPyCPyCFunction; // not used here
 typedef void (*_HPyMethodPairFunc)(_HPyCFunction *out_func,
                                    _HPyCPyCFunction *out_trampoline);
-
+typedef HPy (*HPyMeth_VarArgs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
 
 typedef struct {
     const char         *ml_name;
@@ -113,9 +113,7 @@ HPy = cts.gettype('HPy')
 HPyInitFunc = cts.gettype('HPyInitFunc')
 _HPyCFunction = cts.gettype('_HPyCFunction')
 _HPyCPyCFunction = cts.gettype('_HPyCPyCFunction')
-
-HPyMeth_VarArgs = lltype.Ptr(
-    lltype.FuncType([HPyContext, HPy, lltype.Ptr(rffi.CArray(HPy)), HPy_ssize_t], HPy))
+HPyMeth_VarArgs = cts.gettype('HPyMeth_VarArgs')
 
 HPyMethodDef = cts.gettype('HPyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
