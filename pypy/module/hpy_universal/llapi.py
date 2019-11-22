@@ -21,9 +21,11 @@ RPY_EXTERN void *_HPy_GetGlobalCtx(void);
 RPY_EXTERN int ctx_Arg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs,
                              const char *fmt, va_list vl);
 
-// this is a workaround for a CTypeSpace limitation, since it can't properly
+
+// these are workarounds for a CTypeSpace limitation, since it can't properly
 // handle struct types which are not typedefs
 typedef struct _HPyContext_s _struct_HPyContext_s;
+typedef struct _HPy_s _struct_HPy_s;
 """],
                               separate_module_sources=["""
 
@@ -44,16 +46,18 @@ cts.headers.append('stdint.h')
 cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
 
-// see below for more info about HPy vs _HPy_real
+// see below for more info about HPy vs _struct_HPy_s
+typedef struct _HPy_s {
+    HPy_ssize_t _i;
+} _struct_HPy_s;
 typedef HPy_ssize_t HPy;
-typedef struct { HPy_ssize_t _i; } _HPy_real;
 
 typedef struct _HPyContext_s {
     int ctx_version;
-    _HPy_real h_None;
-    _HPy_real h_True;
-    _HPy_real h_False;
-    _HPy_real h_ValueError;
+    struct _HPy_s h_None;
+    struct _HPy_s h_True;
+    struct _HPy_s h_False;
+    struct _HPy_s h_ValueError;
     void *ctx_Module_Create;
     void *ctx_Dup;
     void *ctx_Close;
@@ -91,8 +95,6 @@ typedef struct {
     HPy_ssize_t m_size;
     HPyMethodDef *m_methods;
 } HPyModuleDef;
-
-
 """)
 
 HPy_ssize_t = cts.gettype('HPy_ssize_t')
@@ -103,9 +105,10 @@ HPy_ssize_t = cts.gettype('HPy_ssize_t')
 HPyContext = cts.gettype('HPyContext')
 
 # for practical reason, we use a primitive type to represent HPy almost
-# everywhere in RPython. HOWEVER, the "real" HPy C type is a struct
+# everywhere in RPython: for example, rffi cannot handle functions returning
+# structs. HOWEVER, the "real" HPy C type is a struct, which is available as
+# "_struct_HPy_s"
 HPy = cts.gettype('HPy')
-_HPy_real = cts.gettype('_HPy_real')
 
 HPyInitFunc = cts.gettype('HPyInitFunc')
 _HPyCFunction = cts.gettype('_HPyCFunction')
