@@ -1023,6 +1023,10 @@ char* cppyy_method_prototype(cppyy_scope_t, cppyy_method_t, int /* show_formalar
     return cppstring_to_cstring("");
 }
 
+int cppyy_get_num_templated_methods(cppyy_scope_t scope) {
+    return 0;
+}
+
 int cppyy_exists_method_template(cppyy_scope_t scope, const char* name) {
     return 0;
 }

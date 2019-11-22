@@ -334,8 +334,12 @@ def load_backend(space):
         else:
             # try usual lookups
             try:
-                state.backend = W_Library(space, space.newtext(backend_library+backend_ext), dldflags)
-            except Exception:
+                if backend_library[-len(backend_ext):] == backend_ext:
+                    fullname = backend_library
+                else:
+                    fullname = backend_library+backend_ext
+                state.backend = W_Library(space, space.newtext(fullname), dldflags)
+            except Exception as e:
                 # TODO: where to find the value '.pypy-41'? Note that this only matters for testing.
                 state.backend = W_Library(space, space.newtext(backend_library+'.pypy-41'+backend_ext), dldflags)
 
