@@ -160,7 +160,7 @@ int Pseudo_kLots      = 42;
 struct Cppyy_InitPseudoReflectionInfo {
     Cppyy_InitPseudoReflectionInfo() {
         // class example01 --
-        static long s_scope_id  = 0;
+        static cppyy_scope_t s_scope_id  = 0;
 
         { // namespace ''
         s_handles[""] = (cppyy_scope_t)++s_scope_id;
@@ -450,14 +450,14 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["static_example01::staticSetPayload_payload*_double"]) {
         assert(!self && nargs == 2);
-        dummy::example01::staticSetPayload((dummy::payload*)(*(long*)&((CPPYY_G__value*)args)[0]),
+        dummy::example01::staticSetPayload((dummy::payload*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]),
            ((CPPYY_G__value*)args)[1].obj.d);
     } else if (idx == s_methods["static_example01::setCount_int"]) {
         assert(!self && nargs == 1);
         dummy::example01::setCount(((CPPYY_G__value*)args)[0].obj.in);
     } else if (idx == s_methods["example01::setPayload_payload*"]) {
         assert(self && nargs == 1);
-        ((dummy::example01*)self)->setPayload((dummy::payload*)(*(long*)&((CPPYY_G__value*)args)[0]));
+        ((dummy::example01*)self)->setPayload((dummy::payload*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
     } else if (idx == s_methods["CppyyTestData::destroy_arrays"]) {
         assert(self && nargs == 0);
         ((dummy::CppyyTestData*)self)->destroy_arrays();
@@ -591,11 +591,11 @@ int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* ar
         result = dummy::example01::staticAddOneToInt(((CPPYY_G__value*)args)[0].obj.in);
     } else if (idx == s_methods["static_example01::staticAddOneToInt_int_int"]) {
         assert(!self && nargs == 2);
-        result =  dummy::example01::staticAddOneToInt(
+        result = dummy::example01::staticAddOneToInt(
            ((CPPYY_G__value*)args)[0].obj.in, ((CPPYY_G__value*)args)[1].obj.in);
     } else if (idx == s_methods["static_example01::staticAtoi_cchar*"]) {
         assert(!self && nargs == 1);
-        result = dummy::example01::staticAtoi((const char*)(*(long*)&((CPPYY_G__value*)args)[0]));
+        result = dummy::example01::staticAtoi((const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
     } else if (idx == s_methods["static_example01::getCount"]) {
         assert(!self && nargs == 0);
         result = dummy::example01::getCount();
@@ -605,7 +605,7 @@ int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* ar
     } else if (idx == s_methods["example01::addDataToAtoi_cchar*"]) {
         assert(self && nargs == 1);
         result = ((dummy::example01*)self)->addDataToAtoi(
-           (const char*)(*(long*)&((CPPYY_G__value*)args)[0]));
+           (const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
     } else if (idx == s_methods["CppyyTestData::get_int"]) {
         assert(self && nargs == 0);
         result = ((dummy::CppyyTestData*)self)->get_int();
@@ -621,20 +621,20 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     if (idx == s_methods["static_example01::staticStrcpy_cchar*"]) {
         assert(!self && nargs == 1);
         result = (long)dummy::example01::staticStrcpy(
-           (const char*)(*(long*)&((CPPYY_G__value*)args)[0]));
+           (const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
     } else if (idx == s_methods["static_example01::staticCyclePayload_payload*_double"]) {
         assert(!self && nargs == 2);
         result = (long)dummy::example01::staticCyclePayload(
-           (dummy::payload*)(*(long*)&((CPPYY_G__value*)args)[0]),
+           (dummy::payload*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]),
            ((CPPYY_G__value*)args)[1].obj.d);
     } else if (idx == s_methods["example01::addToStringValue_cchar*"]) {
         assert(self && nargs == 1);
         result = (long)((dummy::example01*)self)->addToStringValue(
-           (const char*)(*(long*)&((CPPYY_G__value*)args)[0]));
+           (const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
     } else if (idx == s_methods["example01::cyclePayload_payload*"]) {
         assert(self && nargs == 1);
         result = (long)((dummy::example01*)self)->cyclePayload(
-           (dummy::payload*)(*(long*)&((CPPYY_G__value*)args)[0]));
+           (dummy::payload*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
     } else if (idx == s_methods["CppyyTestData::get_uint"]) {
         assert(self && nargs == 0);
         result = (long)((dummy::CppyyTestData*)self)->get_uint();
@@ -731,7 +731,7 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["CppyyTestData::pass_void_array_l"]) {
         assert(self && nargs == 1);
         result = (long)((dummy::CppyyTestData*)self)->pass_void_array_l(
-           (*(long**)&((CPPYY_G__value*)args)[0]));
+           (*(intptr_t**)&((CPPYY_G__value*)args)[0]));
     } else if (idx == s_methods["CppyyTestData::pass_array_ulong"]) {
         assert(self && nargs == 1);
         result = (long)((dummy::CppyyTestData*)self)->pass_array(
@@ -739,7 +739,7 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["CppyyTestData::pass_void_array_L"]) {
         assert(self && nargs == 1);
         result = (long)((dummy::CppyyTestData*)self)->pass_void_array_L(
-           (*(unsigned long**)&((CPPYY_G__value*)args)[0]));
+           (*(uintptr_t**)&((CPPYY_G__value*)args)[0]));
     } else if (idx == s_methods["CppyyTestData::pass_array_float"]) {
         assert(self && nargs == 1);
         result = (long)((dummy::CppyyTestData*)self)->pass_array(
@@ -868,7 +868,7 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
     if (idx == s_methods["static_example01::staticStrcpy_cchar*"]) {
         assert(!self && nargs == 1);
-        result = dummy::example01::staticStrcpy((const char*)(*(long*)&((CPPYY_G__value*)args)[0]));
+        result = dummy::example01::staticStrcpy((const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
     } else {
         assert(!"method unknown in cppyy_call_s");
     }
