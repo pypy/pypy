@@ -70,6 +70,29 @@ typedef struct _HPyContext_s {
 typedef struct _HPyContext_s *HPyContext;
 
 typedef HPy (*HPyInitFunc)(HPyContext ctx);
+
+typedef HPy (*_HPyCFunction)(HPyContext ctx, HPy self, HPy args);
+typedef void *_HPyCPyCFunction; // not used here
+typedef void (*_HPyMethodPairFunc)(_HPyCFunction *out_func,
+                                   _HPyCPyCFunction *out_trampoline);
+
+
+typedef struct {
+    const char         *ml_name;
+    _HPyMethodPairFunc ml_meth;
+    int                ml_flags;
+    const char         *ml_doc;
+} HPyMethodDef;
+
+typedef struct {
+    void *dummy; // this is needed because we put a comma after HPyModuleDef_HEAD_INIT :(
+    const char* m_name;
+    const char* m_doc;
+    HPy_ssize_t m_size;
+    HPyMethodDef *m_methods;
+} HPyModuleDef;
+
+
 """)
 
 HPy_ssize_t = cts.gettype('HPy_ssize_t')
@@ -84,37 +107,19 @@ HPyContext = cts.gettype('HPyContext')
 HPy = cts.gettype('HPy')
 _HPy_real = cts.gettype('_HPy_real')
 
-
 HPyInitFunc = cts.gettype('HPyInitFunc')
-
-_HPyCFunctionPtr = lltype.Ptr(lltype.FuncType([HPyContext, HPy, HPy], HPy))
-_HPy_CPyCFunctionPtr = rffi.VOIDP    # not used here
+_HPyCFunction = cts.gettype('_HPyCFunction')
+_HPyCPyCFunction = cts.gettype('_HPyCPyCFunction')
 
 HPyMeth_VarArgs = lltype.Ptr(
     lltype.FuncType([HPyContext, HPy, lltype.Ptr(rffi.CArray(HPy)), HPy_ssize_t], HPy))
 
-
-_HPyMethodPairFuncPtr = lltype.Ptr(lltype.FuncType([
-        rffi.CArrayPtr(_HPyCFunctionPtr),
-        rffi.CArrayPtr(_HPy_CPyCFunctionPtr)],
-    lltype.Void))
-
-HPyMethodDef = rffi.CStruct('HPyMethodDef',
-    ('ml_name', rffi.CCHARP),
-    ('ml_meth', _HPyMethodPairFuncPtr),
-    ('ml_flags', rffi.INT_real),
-    ('ml_doc', rffi.CCHARP),
-    hints={'eci': eci, 'typedef': True},
-)
-
-HPyModuleDef = rffi.CStruct('HPyModuleDef',
-    ('dummy', rffi.VOIDP),
-    ('m_name', rffi.CCHARP),
-    ('m_doc', rffi.CCHARP),
-    ('m_size', lltype.Signed),
-    ('m_methods', rffi.CArrayPtr(HPyMethodDef)),
-    hints={'eci': eci, 'typedef': True},
-)
+HPyMethodDef = cts.gettype('HPyMethodDef')
+HPyModuleDef = cts.gettype('HPyModuleDef')
+# CTypeSpace converts "HPyMethodDef*" into lltype.Ptr(HPyMethodDef), but we
+# want a CArrayPtr instead, so that we can index the items inside
+# HPyModule_Create
+HPyModuleDef._flds['c_m_methods'] = rffi.CArrayPtr(HPyMethodDef)
 
 METH_VARARGS  = 0x0001
 METH_KEYWORDS = 0x0002

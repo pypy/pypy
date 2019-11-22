@@ -19,10 +19,9 @@ class W_ExtensionFunction(W_Root):
         # fetch the real HPy function pointer, by calling ml_meth, which
         # is a function that returns it and also the CPython-only trampoline
         with lltype.scoped_alloc(
-                rffi.CArray(llapi._HPyCFunctionPtr), 1) as funcptr:
+                rffi.CArray(llapi._HPyCFunction), 1) as funcptr:
             with lltype.scoped_alloc(
-                    rffi.CArray(llapi._HPy_CPyCFunctionPtr), 1)  \
-                                                        as ignored_trampoline:
+                    rffi.CArray(llapi._HPyCPyCFunction), 1) as ignored_trampoline:
                 ml.c_ml_meth(funcptr, ignored_trampoline)
                 self.cfuncptr = funcptr[0]
 
