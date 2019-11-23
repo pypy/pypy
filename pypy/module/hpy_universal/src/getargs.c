@@ -1,6 +1,5 @@
 #include "universal/hpy.h"
-
-#include <stdio.h>
+#include "getargs.h"
 
 /* XXX: this function is copied&pasted THREE times:
  *     hpy_devel/include/hpy.h

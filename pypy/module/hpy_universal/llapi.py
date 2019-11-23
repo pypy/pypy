@@ -1,6 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator import cdir
 from pypy import pypydir
 from pypy.module.hpy_universal import _vendored
 
@@ -8,30 +9,27 @@ PYPYDIR = py.path.local(pypydir)
 INCLUDE_DIR = PYPYDIR.join('module', 'hpy_universal', '_vendored', 'include')
 SRC_DIR = PYPYDIR.join('module', 'hpy_universal', 'src')
 
-# XXX I don't understand what is going on here: if I put getargs.c as
-# separate_module_files, then ll2ctypes can't find it. I need to #include t in
-# separate_module_sources for now...
-eci = ExternalCompilationInfo(includes=["universal/hpy.h"],
-                              include_dirs=[INCLUDE_DIR],
-                              ## separate_module_files=[
-                              ##     SRC_DIR.join('getargs.c'),
-                              ##     ],
-                              post_include_bits=["""
-RPY_EXTERN void *_HPy_GetGlobalCtx(void);
-RPY_EXTERN int ctx_Arg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs,
-                             const char *fmt, va_list vl);
-"""],
-                              separate_module_sources=["""
+eci = ExternalCompilationInfo(
+    includes=["universal/hpy.h", "getargs.h"],
+    include_dirs=[
+        cdir,        # for precommondefs.h
+        INCLUDE_DIR, # for universal/hpy.h
+        SRC_DIR,     # for getargs.h
+    ],
+    separate_module_files=[
+        SRC_DIR.join('getargs.c'),
+    ],
+    post_include_bits=["""
+        RPY_EXTERN void *_HPy_GetGlobalCtx(void);
+    """],
+    separate_module_sources=["""
+        struct _HPyContext_s hpy_global_ctx;
+        void *_HPy_GetGlobalCtx(void)
+        {
+            return &hpy_global_ctx;
+        }
+    """])
 
-#include "%s"
-
-struct _HPyContext_s hpy_global_ctx;
-void *_HPy_GetGlobalCtx(void)
-{
-    return &hpy_global_ctx;
-}
-
-""" % SRC_DIR.join('getargs.c')])
 
 HPy_ssize_t = lltype.Signed # XXXXXXXXX?
 
