@@ -19,4 +19,15 @@ Update list directories in LICENSE
 
 .. branch: allow-forcing-no-embed
 
-When packaging, allow suppressing embedded dependencies via PYPY_NO_EMBED_DEPENDENCIES
+When packaging, allow suppressing embedded dependencies via
+PYPY_NO_EMBED_DEPENDENCIES
+
+.. branch: int-test-is-zero
+
+.. branch: cppyy-dev
+
+Upgraded the built-in ``_cppyy`` module to ``cppyy-backend 1.10.6``, which
+provides, among others, better template resolution, stricter ``enum`` handling,
+anonymous struct/unions, cmake fragments for distribution, optimizations for
+PODs, and faster wrapper calls.
+
