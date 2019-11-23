@@ -51,6 +51,7 @@ def checkmodule(modname, translate_startup=True, ignore=(),
         func = None
 
     opts = {'translation.list_comprehension_operations': True}
-    opts.update(config_opts)
+    if config_opts:
+        opts.update(config_opts)
     space.translates(func, seeobj_w=seeobj_w,
                      c_compile=c_compile, extra_func=extra_func, **opts)
