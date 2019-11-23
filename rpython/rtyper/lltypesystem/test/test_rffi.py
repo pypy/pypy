@@ -840,7 +840,7 @@ def test_ptradd_interpret():
     interpret(test_ptradd, [])
 
 def test_voidptr():
-    assert repr(VOIDP) == "<* Array of void >"
+    assert repr(VOIDP) == "<* Array of void {'nolength': True, 'render_as_void': True} >"
 
 class TestCRffi(BaseTestRffi):
     def compile(self, func, args, **kwds):
