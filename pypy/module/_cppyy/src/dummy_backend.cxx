@@ -903,7 +903,8 @@ cppyy_funcaddr_t cppyy_function_address(cppyy_method_t /* method */) {
 
 /* handling of function argument buffer ----------------------------------- */
 void* cppyy_allocate_function_args(int nargs) {
-    CPPYY_G__value* args = (CPPYY_G__value*)malloc(nargs*sizeof(CPPYY_G__value));
+    /* nargs parameters + one unsigned long for exception status output */
+    CPPYY_G__value* args = (CPPYY_G__value*)malloc(nargs*sizeof(CPPYY_G__value)+sizeof(unsigned long));
     for (int i = 0; i < nargs; ++i)
         args[i].type = 'l';
     return (void*)args;
