@@ -384,7 +384,7 @@ _executors["long double&"]         = LongDoubleRefExecutor
 # special cases (note: 'string' aliases added below)
 _executors["constructor"]         = ConstructorExecutor
 
-_executors["std::basic_string<char>"]         = StdStringExecutor
+_executors["std::string"]         = StdStringExecutor
 _executors["const std::basic_string<char>&"]  = StdStringRefExecutor
 _executors["std::basic_string<char>&"]        = StdStringRefExecutor
 
@@ -453,7 +453,8 @@ def _add_aliased_executors():
     aliases = (
         ("const char*",                     "char*"),
 
-        ("std::basic_string<char>",         "string"),
+        ("std::string",                     "string"),
+        ("std::string",                     "std::basic_string<char>"),
         ("const std::basic_string<char>&",  "const string&"),
         ("std::basic_string<char>&",        "string&"),
 

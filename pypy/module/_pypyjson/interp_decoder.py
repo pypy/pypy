@@ -342,7 +342,14 @@ class JSONDecoder(W_Root):
         currmap = self.startmap
         while True:
             # parse a key: value
-            currmap = self.decode_key_map(i, currmap)
+            newmap = self.decode_key_map(i, currmap)
+            if newmap is None:
+                # We've seen a repeated value, switch to dict-based storage.
+                dict_w = self._switch_to_dict(currmap, values_w, nextindex)
+                # We re-parse the last key, to get the correct overwriting
+                # effect. Pointless to care for performance here.
+                return self.decode_object_dict(i, start, dict_w)
+            currmap = newmap
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
@@ -610,6 +617,8 @@ class JSONDecoder(W_Root):
         """ Given the current map currmap of an object, decode the next key at
         position i. This returns the new map of the object. """
         newmap = self._decode_key_map(i, currmap)
+        if newmap is None:
+            return None
         currmap.observe_transition(newmap, self.startmap)
         return newmap
 
@@ -789,6 +798,11 @@ class MapBase(object):
             self.nextmap_first._check_invariants()
 
     def get_next(self, w_key, string, start, stop, terminator):
+        """ Returns the next map, given a wrapped key w_key, the json input
+        string with positions start and stop, as well as a terminator.
+
+        Returns None if the key already appears somewhere in the map chain.
+        """
         from pypy.objspace.std.dictmultiobject import unicode_hash, unicode_eq
         if isinstance(self, JSONMap):
             assert not self.state == MapBase.BLOCKED
@@ -803,6 +817,8 @@ class MapBase(object):
         if nextmap_first is None:
             # first transition ever seen, don't initialize nextmap_all
             next = self._make_next_map(w_key, string[start:stop])
+            if next is None:
+                return None
             self.nextmap_first = next
         else:
             if self.nextmap_all is None:
@@ -817,6 +833,8 @@ class MapBase(object):
             # if we are at this point we didn't find the transition yet, so
             # create a new one
             next = self._make_next_map(w_key, string[start:stop])
+            if next is None:
+                return None
             self.nextmap_all[w_key] = next
 
             # one new leaf has been created
@@ -859,6 +877,14 @@ class MapBase(object):
                 self.mark_useful(terminator)
 
     def _make_next_map(self, w_key, key_repr):
+        # Check whether w_key is already part of the self.prev chain
+        # to prevent strangeness in the json dict implementation.
+        # This is slow, but it should be rare to call this function.
+        check = self
+        while isinstance(check, JSONMap):
+            if check.w_key._utf8 == w_key._utf8:
+                return None
+            check = check.prev
         return JSONMap(self.space, self, w_key, key_repr)
 
     def fill_dict(self, dict_w, values_w):

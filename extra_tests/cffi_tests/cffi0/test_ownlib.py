@@ -202,7 +202,7 @@ class TestOwnLib(object):
             py.test.skip("fix the auto-generation of the tiny test lib")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
-            int my_array[7];
+            extern int my_array[7];
         """)
         ownlib = ffi.dlopen(self.module)
         for i in range(7):
@@ -224,7 +224,7 @@ class TestOwnLib(object):
             py.test.skip("not supported by the ctypes backend")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
-            int my_array[];
+            extern int my_array[];
         """)
         ownlib = ffi.dlopen(self.module)
         for i in range(7):
@@ -292,7 +292,7 @@ class TestOwnLib(object):
                 long bottom;
             } RECT;
             
-            long left, top, right, bottom;
+            extern long left, top, right, bottom;
 
             RECT ReturnRect(int i, RECT ar, RECT* br, POINT cp, RECT dr,
                         RECT *er, POINT fp, RECT gr);
@@ -322,7 +322,7 @@ class TestOwnLib(object):
         if self.Backend is CTypesBackend:
             py.test.skip("not implemented with the ctypes backend")
         ffi = FFI(backend=self.Backend())
-        ffi.cdef("long left; int test_getting_errno(void);")
+        ffi.cdef("extern long left; int test_getting_errno(void);")
         lib = ffi.dlopen(self.module)
         lib.left = 123456
         p = ffi.addressof(lib, "left")

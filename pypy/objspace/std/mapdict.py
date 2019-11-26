@@ -692,10 +692,12 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             return unerase_item(erased)
 
         def _mapdict_write_storage(self, storageindex, value):
-            for i in rangenmin1:
-                if storageindex == i:
-                    setattr(self, "_value%s" % i, value)
-                    return
+            assert storageindex >= 0
+            if storageindex < nmin1:
+                for i in rangenmin1:
+                    if storageindex == i:
+                        setattr(self, "_value%s" % i, value)
+                        return
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return

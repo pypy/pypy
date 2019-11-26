@@ -1,8 +1,11 @@
+from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.setobject import (
     PySet_Check, PyFrozenSet_Check, PyFrozenSet_CheckExact,
     PySet_Add, PySet_Size, PySet_GET_SIZE)
+from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP
+from pypy.module.cpyext.pyobject import from_ref
 
 
 class TestTupleObject(BaseApiTest):
@@ -61,6 +64,42 @@ class TestTupleObject(BaseApiTest):
             return MySet()
         """)
         assert api.PyAnySet_Check(w_instance)
+
+    def test_pyset_next(self, space, api):
+        w_set = space.call_function(space.w_set, space.newtext("ab"))
+        with lltype.scoped_alloc(Py_ssize_tP.TO, 1) as pos_p:
+            with lltype.scoped_alloc(PyObjectP.TO, 1) as result_p:
+                pos_p[0] = 0
+                res = api._PySet_Next(w_set, pos_p, result_p)
+                assert res == 1
+                letter1 = space.text_w(from_ref(space, result_p[0]))
+                res = api._PySet_Next(w_set, pos_p, result_p)
+                assert res == 1
+                letter2 = space.text_w(from_ref(space, result_p[0]))
+                res = api._PySet_Next(w_set, pos_p, result_p)
+                assert res == 0
+        assert set([letter1, letter2]) == set("ab")
+
+    def test_pyset_nextentry(self, space, api):
+        w_set = space.call_function(space.w_set, space.newtext("ab"))
+        with lltype.scoped_alloc(Py_ssize_tP.TO, 1) as pos_p:
+            with lltype.scoped_alloc(PyObjectP.TO, 1) as result_p:
+                with lltype.scoped_alloc(Py_ssize_tP.TO, 1) as hash_p:
+                    pos_p[0] = 0
+                    res = api._PySet_NextEntry(w_set, pos_p, result_p, hash_p)
+                    assert res == 1
+                    w_obj = from_ref(space, result_p[0])
+                    letter1 = space.text_w(w_obj)
+                    assert hash_p[0] == space.hash_w(w_obj)
+                    res = api._PySet_NextEntry(w_set, pos_p, result_p, hash_p)
+                    assert res == 1
+                    w_obj = from_ref(space, result_p[0])
+                    letter2 = space.text_w(w_obj)
+                    assert hash_p[0] == space.hash_w(w_obj)
+                    res = api._PySet_NextEntry(w_set, pos_p, result_p, hash_p)
+                    assert res == 0
+        assert set([letter1, letter2]) == set("ab")
+
 
 class AppTestSetObject(AppTestCpythonExtensionBase):
     def test_set_macro_cast(self):

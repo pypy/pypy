@@ -1,7 +1,7 @@
 # Collects and executes application-level tests.
 #
-# Classes which names start with "AppTest", or function which names
-# start with "app_test*" are not executed by the host Python, but
+# Classes which names start with "AppTest"
+# are not executed by the host Python, but
 # by an interpreted pypy object space.
 #
 # ...unless the -A option ('runappdirect') is passed.
@@ -21,7 +21,7 @@ class AppError(Exception):
         self.excinfo = excinfo
 
 
-class AppTestFunction(py.test.collect.Function):
+class AppTestMethod(py.test.collect.Function):
     def _prunetraceback(self, traceback):
         return traceback
 
@@ -40,20 +40,10 @@ class AppTestFunction(py.test.collect.Function):
                 raise AppError, AppError(appexcinfo), tb
             raise
 
-    def runtest(self):
-        target = self.obj
-        if self.config.option.runappdirect:
-            return target()
-        space = gettestobjspace(**{'objspace.std.reinterpretasserts': True})
-        filename = self._getdynfilename(target)
-        func = app2interp_temp(target, filename=filename)
-        print "executing", func
-        self.execute_appex(space, func, space)
-
     def repr_failure(self, excinfo):
         if excinfo.errisinstance(AppError):
             excinfo = excinfo.value.excinfo
-        return super(AppTestFunction, self).repr_failure(excinfo)
+        return super(AppTestMethod, self).repr_failure(excinfo)
 
     def _getdynfilename(self, func):
         code = getattr(func, 'im_func', func).func_code
@@ -66,8 +56,6 @@ class AppTestFunction(py.test.collect.Function):
         if hasattr(self, 'space'):
             self.space.getexecutioncontext()._run_finalizers_now()
 
-
-class AppTestMethod(AppTestFunction):
     def setup(self):
         super(AppTestMethod, self).setup()
         instance = self.parent.obj

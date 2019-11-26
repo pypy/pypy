@@ -84,11 +84,11 @@ def PyErr_Restore(space, py_type, py_value, py_traceback):
     w_type = get_w_obj_and_decref(space, py_type)
     w_value = get_w_obj_and_decref(space, py_value)
     w_traceback = get_w_obj_and_decref(space, py_traceback)
-    # XXX do something with w_traceback
+
     if w_type is None:
         state.clear_exception()
         return
-    state.set_exception(OperationError(w_type, w_value))
+    state.set_exception(OperationError(w_type, w_value, w_traceback))
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_NormalizeException(space, exc_p, val_p, tb_p):

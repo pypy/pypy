@@ -14,6 +14,7 @@ Note that CPython is inconsistent too: in 2.7.12, ``{5, 5.0}`` would be
 changed in exactly the same way because of this fix.
 
 
+
 .. branch: rpython-error-to-systemerror
 
 Any uncaught RPython exception (from a PyPy bug) is turned into an

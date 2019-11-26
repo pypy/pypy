@@ -149,6 +149,9 @@ class FakeObjSpace(ObjSpace):
         is_root(w_obj)
         return NonConstant(False)
 
+    def utf8_len_w(self, space):
+        return NonConstant((NonConstant("utf8len_foobar"), NonConstant(14)))
+
     @not_rpython
     def unwrap(self, w_obj):
         raise NotImplementedError
@@ -167,6 +170,7 @@ class FakeObjSpace(ObjSpace):
             for w_x in list_w:
                 is_root(w_x)
         return w_some_obj()
+    newfrozenset = newset
 
     def newlist(self, list_w):
         for w_x in list_w:

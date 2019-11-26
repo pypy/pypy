@@ -156,6 +156,8 @@ class WeakrefLifeline(W_Root):
 
 
 class W_WeakrefBase(W_Root):
+    exact_class_applevel_name = 'weakref-or-proxy'
+
     def __init__(self, space, w_obj, w_callable):
         assert w_callable is not space.w_None    # should be really None
         self.space = space

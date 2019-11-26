@@ -407,8 +407,9 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                 _encodeUCS4(result, ch)
     return result.build()
 unicode_encode_utf_8_elidable = jit.elidable(
+    enforceargs(s=unicode, allow_surrogates=bool)(
     func_with_new_name(unicode_encode_utf_8_impl,
-                       "unicode_encode_utf_8_elidable"))
+                       "unicode_encode_utf_8_elidable")))
 
 def unicode_encode_utf8sp(s, size):
     # Surrogate-preserving utf-8 encoding.  Any surrogate character
@@ -1902,7 +1903,9 @@ if sys.platform == 'win32':
                 if MultiByteToWideChar(CP_ACP, flags,
                                        dataptr, size, buf.raw, usize) == 0:
                     _decode_mbcs_error(s, errorhandler)
-                return buf.str(usize), size
+                ret = buf.str(usize)
+                assert ret is not None
+                return ret, size
 
     def unicode_encode_mbcs(s, size, errors, errorhandler=None,
                             force_replace=True):

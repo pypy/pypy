@@ -338,10 +338,10 @@ class AppTestSelectWithSockets(_AppTestSelect):
         py.test.skip("build bot for s390x cannot open sockets")
 
     def w_make_server(self):
-        import socket
+        import _socket
         if hasattr(self, 'sock'):
             return self.sock
-        self.sock = socket.socket()
+        self.sock = _socket.socket()
         try_ports = [1023] + list(range(20000, 30000, 437))
         for port in try_ports:
             print('binding to port %d:' % (port,))
@@ -349,25 +349,25 @@ class AppTestSelectWithSockets(_AppTestSelect):
             try:
                 self.sock.bind(self.sockaddress)
                 break
-            except socket.error as e:   # should get a "Permission denied"
+            except _socket.error as e:   # should get a "Permission denied"
                 print(e)
             else:
                 raise(e)
 
     def w_getpair(self):
         """Helper method which returns a pair of connected sockets."""
-        import socket
+        import _socket
         import thread
 
         self.make_server()
 
         self.sock.listen(1)
-        s2 = socket.socket()
+        s2 = _socket.socket()
         thread.start_new_thread(s2.connect, (self.sockaddress,))
         s1, addr2 = self.sock.accept()
 
         # speed up the tests that want to fill the buffers
-        s1.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
-        s2.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
+        s1.setsockopt(_socket.SOL_SOCKET, _socket.SO_RCVBUF, 4096)
+        s2.setsockopt(_socket.SOL_SOCKET, _socket.SO_SNDBUF, 4096)
 
         return s1, s2

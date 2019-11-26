@@ -452,6 +452,30 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert module.hack_tp_dict(obj, "b") == 2
 
 
+    def test_tp_dict_ready(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_dict = PyDict_New();
+                PyDict_SetItemString(Foo_Type.tp_dict, "inserted", Py_True);
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+
+        obj = module.new_obj()
+        assert type(obj).inserted is True
+
+
     def test_tp_descr_get(self):
         module = self.import_extension('foo', [
            ("tp_descr_get", "METH_O",
@@ -1296,7 +1320,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         except TypeError as e:
             import sys
             if '__pypy__' in sys.builtin_module_names:
-                assert str(e) == 'instance layout conflicts in multiple inheritance'
+                print(str(e))
+                assert 'instance layout conflicts in multiple inheritance' in str(e)
 
             else:
                 assert str(e) == ('Error when calling the metaclass bases\n'

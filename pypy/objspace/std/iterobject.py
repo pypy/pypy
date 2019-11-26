@@ -103,7 +103,6 @@ class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
 
     def descr_next(self, space):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        from rpython.rlib import rutf8
         w_seq = self.w_seq
         if w_seq is None:
             raise OperationError(space.w_StopIteration, space.w_None)
@@ -113,7 +112,7 @@ class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
             self.w_seq = None
             raise OperationError(space.w_StopIteration, space.w_None)
         start = self.byteindex
-        end = rutf8.next_codepoint_pos(w_seq._utf8, start)
+        end = w_seq.next_codepoint_pos_dont_look_inside(start)
         w_res = W_UnicodeObject(w_seq._utf8[start:end], 1)
         self.byteindex = end
         self.index += 1

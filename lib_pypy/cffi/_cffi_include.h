@@ -261,12 +261,12 @@ _CFFI_UNUSED_FN static int _cffi_to_c_char32_t(PyObject *o)
         return (int)_cffi_to_c_wchar3216_t(o);
 }
 
-_CFFI_UNUSED_FN static PyObject *_cffi_from_c_char32_t(int x)
+_CFFI_UNUSED_FN static PyObject *_cffi_from_c_char32_t(unsigned int x)
 {
     if (sizeof(_cffi_wchar_t) == 4)
         return _cffi_from_c_wchar_t((_cffi_wchar_t)x);
     else
-        return _cffi_from_c_wchar3216_t(x);
+        return _cffi_from_c_wchar3216_t((int)x);
 }
 
 

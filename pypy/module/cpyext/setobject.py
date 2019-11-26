@@ -1,12 +1,45 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
-                                    build_type_checkers)
+from pypy.module.cpyext.api import (
+    cpython_api, Py_ssize_t, Py_ssize_tP, CANNOT_FAIL, build_type_checkers,
+    PyObjectFields, cpython_struct, bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP,
-    make_ref, from_ref)
+    make_ref, from_ref, as_pyobj, create_ref, make_typedescr, incref, decref)
+from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, newset
 
+PySetObjectStruct = lltype.ForwardReference()
+PySetObject = lltype.Ptr(PySetObjectStruct)
+PySetObjectFields = PyObjectFields + \
+    (("_tmplist", PyObject),)
+cpython_struct("PySetObject", PySetObjectFields, PySetObjectStruct)
+
+@bootstrap_function
+def init_setobject(space):
+    "Type description of PySetObject"
+    make_typedescr(space.w_set.layout.typedef,
+                   basestruct=PySetObject.TO,
+                   attach=set_attach,
+                   dealloc=set_dealloc)
+    make_typedescr(space.w_frozenset.layout.typedef,   # same as 'set'
+                   basestruct=PySetObject.TO,
+                   attach=set_attach,
+                   dealloc=set_dealloc)
+
+def set_attach(space, py_obj, w_obj, w_userdata=None):
+    """
+    Fills a newly allocated PySetObject with the given set object.
+    """
+    py_set = rffi.cast(PySetObject, py_obj)
+    py_set.c__tmplist = lltype.nullptr(PyObject.TO)
+
+@slot_function([PyObject], lltype.Void)
+def set_dealloc(space, py_obj):
+    py_set = rffi.cast(PySetObject, py_obj)
+    decref(space, py_set.c__tmplist)
+    py_set.c__tmplist = lltype.nullptr(PyObject.TO)
+    _dealloc(space, py_obj)
 
 PySet_Check, PySet_CheckExact = build_type_checkers("Set")
 PyFrozenSet_Check, PyFrozenSet_CheckExact = build_type_checkers("FrozenSet")
@@ -23,7 +56,7 @@ def PyAnySet_CheckExact(space, w_obj):
     """Return true if obj is a set object or a frozenset object but
     not an instance of a subtype."""
     w_obj_type = space.type(w_obj)
-    return (space.is_w(w_obj_type, space.gettypefor(W_SetObject)) or 
+    return (space.is_w(w_obj_type, space.gettypefor(W_SetObject)) or
             space.is_w(w_obj_type, space.gettypefor(W_FrozensetObject)))
 
 @cpython_api([PyObject], PyObject)
@@ -126,4 +159,43 @@ def PyFrozenSet_New(space, w_iterable):
     else:
         return space.call_function(space.w_frozenset, w_iterable)
 
+@cpython_api([PyObject, Py_ssize_tP, PyObjectP, Py_ssize_tP], rffi.INT_real, error=-1)
+def _PySet_NextEntry(space, w_set, ppos, pkey, phash):
+    if w_set is None or not PyAnySet_Check(space, w_set):
+        PyErr_BadInternalCall(space)
+        return -1
+    if not pkey:
+        PyErr_BadInternalCall(space)
+        return -1
+    pos = ppos[0]
+    py_obj = as_pyobj(space, w_set)
+    py_set = rffi.cast(PySetObject, py_obj)
+    if pos == 0:
+        # Store the current item list in the PySetObject.
+        # w_keys must use the object strategy in order to keep the keys alive
+        w_keys = space.newlist(space.listview(w_set))
+        w_keys.switch_to_object_strategy()
+        oldlist = py_set.c__tmplist
+        py_set.c__tmplist = create_ref(space, w_keys)
+        incref(space, py_set.c__tmplist)
+        decref(space, oldlist)
+    else:
+        if not py_set.c__tmplist:
+            # pos should have been 0, cannot fail so return 0
+            return 0;
+        w_keys = from_ref(space, py_set.c__tmplist)
+    ppos[0] += 1
+    if pos >= space.len_w(w_keys):
+        decref(space, py_set.c__tmplist)
+        py_set.c__tmplist = lltype.nullptr(PyObject.TO)
+        return 0
+    w_key = space.listview(w_keys)[pos]
+    pkey[0] = as_pyobj(space, w_key)
+    if phash:
+        phash[0] = space.hash_w(w_key)
+    return 1
 
+@cpython_api([PyObject, Py_ssize_tP, PyObjectP], rffi.INT_real, error=-1)
+def _PySet_Next(space, w_set, ppos, pkey):
+    null = lltype.nullptr(Py_ssize_tP.TO)
+    return _PySet_NextEntry(space, w_set, ppos, pkey, null)

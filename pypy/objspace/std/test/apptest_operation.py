@@ -1,10 +1,10 @@
+from pytest import raises
 
+def teq(a, b):
+    assert a == b
+    assert type(a) is type(b)
 
-def app_test_int_vs_long():
-    def teq(a, b):
-        assert a == b
-        assert type(a) is type(b)
-
+def test_int_vs_long():
     # binary operators
     teq( 5  - 2  , 3  )
     teq( 5  - 2L , 3L )
@@ -47,7 +47,7 @@ def app_test_int_vs_long():
     teq( 5L .__pow__(3 , 100L), 25L)
     teq( 5L .__pow__(3L, 100 ), 25L)
     teq( 5L .__pow__(3L, 100L), 25L)
-    
+
     teq( 5  .__rpow__(3 , 100 ), 43 )
     #teq( 5  .__rpow__(3 , 100L), 43L or NotImplemented? )
     teq( 5  .__rpow__(3L, 100 ), NotImplemented )
@@ -58,11 +58,7 @@ def app_test_int_vs_long():
     teq( 5L .__rpow__(3L, 100L), 43L)
 
 
-def app_test_int_vs_float():
-    def teq(a, b):
-        assert a == b
-        assert type(a) is type(b)
-
+def test_int_vs_float():
     # binary operators
     teq( 5  - 2    , 3   )
     teq( 5  - 2.0  , 3.0 )
@@ -100,11 +96,7 @@ def app_test_int_vs_float():
     teq( 5 .__rpow__(3.0, 100.0), NotImplemented )
 
 
-def app_test_long_vs_float():
-    def teq(a, b):
-        assert a == b
-        assert type(a) is type(b)
-
+def test_long_vs_float():
     # binary operators
     teq( 5L - 2.0  , 3.0 )
     teq( 5.0 - 2L  , 3.0 )

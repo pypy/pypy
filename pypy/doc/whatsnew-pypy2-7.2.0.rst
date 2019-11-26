@@ -74,3 +74,9 @@ Check for headers and runtime libraries in more locations to support other linux
 .. branch: openssl-for-macos
 
 Update _ssl on macos to statically link to openssl-1.1.1c
+
+.. branch: json-decoder-maps
+
+Much faster and more memory-efficient JSON decoding. The resulting
+dictionaries that come out of the JSON decoder have faster lookups too.
+
