@@ -123,3 +123,20 @@ class AppTestClass:
         assert C.__qualname__ == 'test_qualname.<locals>.C'
         assert C.D.__qualname__ == 'test_qualname.<locals>.C.D'
         assert not hasattr(C(), '__qualname__')
+
+    def test_nonsensical_base_error_message(self):
+        with raises(TypeError) as exc:
+            class Foo('base'):
+                pass
+        assert str(exc.value).startswith(
+            "metaclass found to be 'str', but calling <class 'str'> "
+            "with args ('Foo', ('base',), ...) raised ")
+        #
+        def foo_func(): pass
+        with raises(TypeError) as exc:
+            class Foo(foo_func):
+                pass
+        assert str(exc.value).startswith(
+            "metaclass found to be 'function', but calling <class 'function'> "
+            "with args ('Foo', (<function test_nonsensical_base_error_message"
+            ".<locals>.foo_func at ")

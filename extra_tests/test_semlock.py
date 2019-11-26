@@ -1,6 +1,6 @@
 from _multiprocessing import SemLock
 from threading import Thread
-import thread
+import _thread
 import time
 
 
@@ -23,7 +23,7 @@ def test_notify_all():
         for t in threads:
             try:
                 t.start()
-            except thread.error:
+            except _thread.error:
                 # too many threads for this system
                 t.started = False
                 n_started -= 1

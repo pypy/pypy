@@ -149,7 +149,19 @@ def build_class(space, w_func, w_name, __args__):
                      args_w=[w_name, w_bases, w_namespace],
                      keywords=keywords,
                      keywords_w=kwds_w.values())
-    w_class = space.call_args(w_meta, args)
+    try:
+        w_class = space.call_args(w_meta, args)
+    except OperationError as e:
+        # give a more comprehensible error message for TypeErrors
+        if e.got_any_traceback():
+            raise
+        if not e.match(space, space.w_TypeError):
+            raise
+        raise oefmt(space.w_TypeError,
+            "metaclass found to be '%N', but calling %R "
+            "with args (%R, %R, ...) raised %R",
+            w_meta, w_meta, w_name, w_bases,
+            e.get_w_value(space))
     if isinstance(w_cell, Cell) and isinstance(w_class, W_TypeObject):
         if w_cell.empty():
             # will become an error in Python 3.7

@@ -1,4 +1,5 @@
-import py
+import pytest
+from rpython.rlib.nonconst import NonConstant
 from pypy.objspace.fake.objspace import FakeObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef
@@ -63,8 +64,8 @@ class TestTranslate:
     def test_is_true(self):
         space = self.space
         space.translates(lambda: space.is_true(W_Root()))
-        py.test.raises(AssertionError,
-                       space.translates, lambda: space.is_true(42))
+        with pytest.raises(AssertionError):
+            space.translates(lambda: space.is_true(42))
 
     def test_unpackiterable(self):
         space = self.space
@@ -79,3 +80,23 @@ class TestTranslate:
         space = self.space
         space.translates(lambda: (space.get(W_Root(), W_Root()),
                                   space.get(W_Root(), W_Root(), W_Root())))
+
+    def test_bug_utf8_len_w(self):
+        space = self.space
+
+        class A(object):
+            pass
+
+        def f():
+            s = NonConstant('a')
+            w_s = space.newutf8(s, 1)
+            t, l = space.utf8_len_w(w_s)
+            a = A()
+            if l == 1:
+                a.x = 1
+            else:
+                raise Exception
+            return a.x
+        space.translates(f)
+
+

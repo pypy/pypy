@@ -439,14 +439,17 @@ def _pythonize(pyclass, name):
     # also the fallback on the indexed __getitem__, but that is slower)
     add_checked_item = False
     if name.find('std::vector', 0, 11) != 0:
-        if ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
+        if 'begin' in pyclass.__dict__ and 'end' in pyclass.__dict__:
             if _cppyy._scope_byname(name+'::iterator') or \
                     _cppyy._scope_byname(name+'::const_iterator'):
                 def __iter__(self):
                     i = self.begin()
-                    while i != self.end():
+                    end = self.size()
+                    count = 0
+                    while count != end:
                         yield i.__deref__()
                         i.__preinc__()
+                        count += 1
                     i.__destruct__()
                     raise StopIteration
                 pyclass.__iter__ = __iter__

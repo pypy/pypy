@@ -10,7 +10,8 @@ from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, unicode_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
-    intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int)
+    intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int,
+    INT_MIN)
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
@@ -593,6 +594,8 @@ def _gettmarg(space, w_tup, allowNone=True):
                     len(tup_w))
 
     y = space.c_int_w(tup_w[0])
+    if y < INT_MIN + 1900:
+        raise oefmt(space.w_OverflowError, "year out of range")
     tm_mon = space.c_int_w(tup_w[1])
     if tm_mon == 0:
         tm_mon = 1
@@ -837,7 +840,7 @@ if _POSIX:
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
 
-@unwrap_spec(format='text')
+@unwrap_spec(format='text0')
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
 

@@ -362,11 +362,11 @@ def PyObject_Hash(space, w_obj):
     """
     Compute and return the hash value of an object o.  On failure, return -1.
     This is the equivalent of the Python expression hash(o)."""
-    return space.int_w(space.hash(w_obj))
+    return space.hash_w(w_obj)
 
 @cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
 def _Py_HashDouble(space, v):
-    return space.int_w(space.hash(space.newfloat(v)))
+    return space.hash_w(space.newfloat(v))
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):
@@ -444,3 +444,16 @@ def Py_ReprLeave(space, w_obj):
             del d[w_obj]
         except KeyError:
             pass
+
+@cpython_api([PyObject, rffi.VOIDP], PyObject)
+def PyObject_GenericGetDict(space, w_obj, context):
+    from pypy.interpreter.typedef import descr_get_dict
+    return descr_get_dict(space, w_obj)
+
+@cpython_api([PyObject, PyObject, rffi.VOIDP], rffi.INT_real, error=-1)
+def PyObject_GenericSetDict(space, w_obj, w_value, context):
+    from pypy.interpreter.typedef import descr_set_dict
+    if w_value is None:
+        raise oefmt(space.w_TypeError, "cannot delete __dict__")
+    descr_set_dict(space, w_obj, w_value)
+    return 0

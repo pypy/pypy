@@ -172,6 +172,11 @@ class W_SliceObject(W_Root):
         return app_indices(space, self.w_start, self.w_stop,
                            self.w_step, w_length)
 
+    @staticmethod
+    def eval_slice_index(space, w_int):
+        """Helper for cpyext"""
+        return _eval_slice_index(space, w_int)
+
 
 def slicewprop(name):
     def fget(space, w_obj):

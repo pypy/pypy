@@ -416,3 +416,20 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         d[1] = 2
         assert d[1] == 42
         assert module.dict_getitem(d, 1) == 2
+
+    def test_getitem_error(self):
+        module = self.import_extension('foo', [
+            ("dict_getitem", "METH_VARARGS",
+             """
+             PyObject *d, *key, *result;
+             if (!PyArg_ParseTuple(args, "OO", &d, &key)) {
+                return NULL;
+             }
+             result = PyDict_GetItem(d, key);
+             if (!result) Py_RETURN_NONE;
+             Py_XINCREF(result);
+             return result;
+             """),
+        ])
+        assert module.dict_getitem(42, 43) is None
+        assert module.dict_getitem({}, []) is None

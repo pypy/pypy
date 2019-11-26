@@ -1,6 +1,8 @@
 #include "Python.h"
 #ifdef MS_WINDOWS
 #include <windows.h>
+#else
+#include <sys/time.h>
 #endif
 
 #if defined(__APPLE__)

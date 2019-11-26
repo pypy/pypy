@@ -68,6 +68,7 @@ class PyFrame(W_Root):
     frame_finished_execution = False
     f_generator_wref         = rweakref.dead_ref  # for generators/coroutines
     f_generator_nowref       = None               # (only one of the two attrs)
+    w_yielding_from = None
     last_instr               = -1
     f_backref                = jit.vref_None
 
@@ -254,29 +255,7 @@ class PyFrame(W_Root):
         if self._is_generator_or_coroutine():
             return self.initialize_as_generator(name, qualname)
         else:
-            # untranslated: check that sys_exc_info is exactly
-            # restored after running any Python function.
-            # Translated: actually save and restore it, as an attempt to
-            # work around rare cases that can occur if RecursionError or
-            # MemoryError is raised at just the wrong place
-            executioncontext = self.space.getexecutioncontext()
-            exc_on_enter = executioncontext.sys_exc_info()
-            if we_are_translated():
-                try:
-                    return self.execute_frame()
-                finally:
-                    executioncontext.set_sys_exc_info(exc_on_enter)
-            else:
-                # untranslated, we check consistency, but not in case of
-                # interp-level exceptions different than OperationError
-                # (e.g. a random failing test, or a pytest Skipped exc.)
-                try:
-                    w_res = self.execute_frame()
-                    assert exc_on_enter is executioncontext.sys_exc_info()
-                except OperationError:
-                    assert exc_on_enter is executioncontext.sys_exc_info()
-                    raise
-                return w_res
+            return self.execute_frame()
     run._always_inline_ = True
 
     def initialize_as_generator(self, name, qualname):
@@ -319,9 +298,40 @@ class PyFrame(W_Root):
                 ec.in_coroutine_wrapper = False
         return w_gen
 
-    def execute_frame(self, in_generator=None, w_arg_or_err=None):
+    def resume_execute_frame(self, w_arg_or_err):
+        # Called from execute_frame() just before resuming the bytecode
+        # interpretation.
+        from pypy.interpreter.pyopcode import SApplicationException
+        space = self.space
+        w_yf = self.w_yielding_from
+        if w_yf is not None:
+            self.w_yielding_from = None
+            try:
+                self.next_yield_from(w_yf, w_arg_or_err)
+            except OperationError as operr:
+                operr.record_context(space, space.getexecutioncontext())
+                return self.handle_generator_error(operr)
+            # Normal case: the call above raises Yield.
+            # We reach this point if the iterable is exhausted.
+            last_instr = jit.promote(self.last_instr)
+            assert last_instr & 1 == 0
+            assert last_instr >= 0
+            return r_uint(last_instr + 2)
+
+        if isinstance(w_arg_or_err, SApplicationException):
+            return self.handle_generator_error(w_arg_or_err.operr)
+
+        last_instr = jit.promote(self.last_instr)
+        if last_instr != -1:
+            assert last_instr & 1 == 0
+            self.pushvalue(w_arg_or_err)
+            return r_uint(last_instr + 2)
+        else:
+            return r_uint(0)
+
+    def execute_frame(self, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.
-        'in_generator' is non-None iff we are starting or resuming
+        'w_arg_or_err' is non-None iff we are starting or resuming
         a generator or coroutine frame; in that case, w_arg_or_err
         is the input argument -or- an SApplicationException instance.
         """
@@ -343,12 +353,11 @@ class PyFrame(W_Root):
             # the YIELD_VALUE/YIELD_FROM instruction.
             try:
                 try:
-                    if in_generator is None:
+                    if w_arg_or_err is None:
                         assert self.last_instr == -1
                         next_instr = r_uint(0)
                     else:
-                        next_instr = in_generator.resume_execute_frame(
-                                                        self, w_arg_or_err)
+                        next_instr = self.resume_execute_frame(w_arg_or_err)
                 except pyopcode.Yield:
                     w_exitvalue = self.popvalue()
                 else:
@@ -505,7 +514,7 @@ class PyFrame(W_Root):
             return w_function.name + '()'
         if isinstance(w_function, Method):
             return self._guess_function_name_parens(None, w_function.w_function)
-        return w_function.getname(self.space) + ' object'
+        return self.space.type(w_function).getname(self.space) + ' object'
 
     def make_arguments(self, nargs, methodcall=False, w_function=None, fnname=None):
         fnname_parens = self._guess_function_name_parens(fnname, w_function)

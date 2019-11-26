@@ -83,6 +83,7 @@ class RealizeCache:
         self.space = space
         self.all_primitives = [None] * cffi_opcode._NUM_PRIM
         self.file_struct = None
+        self.rec_level = 0
 
     def get_file_struct(self):
         if self.file_struct is None:
@@ -406,12 +407,18 @@ def realize_c_type_or_func(ffi, opcodes, index):
     if from_ffi and ffi.cached_types[index] is not None:
         return ffi.cached_types[index]
 
-    opcodes[index] = rffi.cast(rffi.VOIDP, 255)
+    realize_cache = ffi.space.fromcache(RealizeCache)
+    if realize_cache.rec_level >= 1000:
+        raise oefmt(ffi.space.w_RuntimeError,
+            "type-building recursion too deep or infinite.  "
+            "This is known to occur e.g. in ``struct s { void(*callable)"
+            "(struct s); }''.  Please report if you get this error and "
+            "really need support for your case.")
+    realize_cache.rec_level += 1
     try:
         x = realize_c_type_or_func_now(ffi, op, opcodes, index)
     finally:
-        if opcodes[index] == rffi.cast(rffi.VOIDP, 255):
-            opcodes[index] = op
+        realize_cache.rec_level -= 1
 
     if from_ffi:
         assert ffi.cached_types[index] is None or ffi.cached_types[index] is x
@@ -460,13 +467,6 @@ def realize_c_type_or_func_now(ffi, op, opcodes, index):
         type_index = rffi.getintfield(ffi.ctxobj.ctx.c_typenames[getarg(op)],
                                       'c_type_index')
         x = realize_c_type_or_func(ffi, ffi.ctxobj.ctx.c_types, type_index)
-
-    elif case == 255:
-        raise oefmt(ffi.space.w_RuntimeError,
-            "found a situation in which we try to build a type recursively.  "
-            "This is known to occur e.g. in ``struct s { void(*callable)"
-            "(struct s); }''.  Please report if you get this error and "
-            "really need support for your case.")
 
     else:
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)

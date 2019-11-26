@@ -1050,3 +1050,10 @@ class AppTestBytesObject:
         id_a = id(a)
         assert a is not str(a, 'latin1')
         assert id_a != id_b
+
+    def test_error_message_wrong_self(self):
+        e = raises(TypeError, bytes.upper, 42)
+        assert "bytes" in str(e.value)
+        if hasattr(bytes.upper, 'im_func'):
+            e = raises(TypeError, bytes.upper.im_func, 42)
+            assert "'bytes'" in str(e.value)

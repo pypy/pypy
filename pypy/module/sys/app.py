@@ -31,6 +31,8 @@ def excepthook(exctype, value, traceback):
             # one is counting from the top, the other from the bottom of the
             # stack. so reverse polarity here
             if limit > 0:
+                if limit > sys.maxsize:
+                    limit = sys.maxsize
                 print_exception(exctype, value, traceback, limit=-limit)
             else:
                 # the limit is 0 or negative. PyTraceBack_Print does not print
@@ -75,7 +77,7 @@ If the exitcode is numeric, it will be used as the system exit status.
 If it is another kind of object, it will be printed and the system
 exit status will be one (i.e., failure)."""
     # note that we cannot simply use SystemExit(exitcode) here.
-    # in the default branch, we use "raise SystemExit, exitcode", 
+    # in the default branch, we use "raise SystemExit, exitcode",
     # which leads to an extra de-tupelizing
     # in normalize_exception, which is exactly like CPython's.
     if isinstance(exitcode, tuple):
@@ -109,7 +111,6 @@ All Rights Reserved.
 
 # This is tested in test_app_main.py
 class sysflags(metaclass=structseqtype):
-
     name = "sys.flags"
 
     debug = structseqfield(0)
@@ -128,29 +129,6 @@ class sysflags(metaclass=structseqtype):
 
 null_sysflags = sysflags((0,)*13)
 null__xoptions = {}
-
-
-class asyncgen_hooks(metaclass=structseqtype):
-    name = "asyncgen_hooks"
-
-    firstiter = structseqfield(0)
-    finalizer = structseqfield(1)
-
-# FIXME: make this thread-local
-_current_asyncgen_hooks = asyncgen_hooks((None, None))
-
-def get_asyncgen_hooks():
-    return _current_asyncgen_hooks
-
-_default_arg = object()
-
-def set_asyncgen_hooks(firstiter=_default_arg, finalizer=_default_arg):
-    global _current_asyncgen_hooks
-    if firstiter is _default_arg:
-        firstiter = _current_asyncgen_hooks.firstiter
-    if finalizer is _default_arg:
-        finalizer = _current_asyncgen_hooks.finalizer
-    _current_asyncgen_hooks = asyncgen_hooks((firstiter, finalizer))
 
 
 implementation = SimpleNamespace(

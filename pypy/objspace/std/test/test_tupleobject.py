@@ -438,3 +438,12 @@ class AppTestW_TupleObject:
         assert (() != object()) is True
         assert ((1,) != object()) is True
         assert ((1, 2) != object()) is True
+
+
+    def test_error_message_wrong_self(self):
+        unboundmeth = tuple.__hash__
+        e = raises(TypeError, unboundmeth, 42)
+        assert "tuple" in str(e.value)
+        if hasattr(unboundmeth, 'im_func'):
+            e = raises(TypeError, unboundmeth.im_func, 42)
+            assert "'tuple'" in str(e.value)

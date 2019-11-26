@@ -35,7 +35,7 @@ class AppTestFRAGILE:
 
         assert fragile.B == fragile.B
         assert fragile.B().check() == ord('B')
-        raises(AttributeError, getattr, fragile.B().gime_no_such(), "__cppdecl__")
+        assert not fragile.B().gime_no_such()
 
         assert fragile.C == fragile.C
         assert fragile.C().check() == ord('C')

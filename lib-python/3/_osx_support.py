@@ -109,7 +109,7 @@ def _get_system_version():
             # else: fall back to the default behaviour
     if not _SYSTEM_VERSION:
         # minimum supported MACOSX_DEPLOYMENT_TARGET version
-        return '10.14'
+        return '10.7'
     return _SYSTEM_VERSION
 
 def _remove_original_values(_config_vars):

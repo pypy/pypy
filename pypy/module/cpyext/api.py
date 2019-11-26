@@ -1206,7 +1206,7 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
-        'tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
 
 def init_function(func):
@@ -1528,6 +1528,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "object.c",
                          source_dir / "typeobject.c",
                          source_dir / "tupleobject.c",
+                         source_dir / "sliceobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

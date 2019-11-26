@@ -203,6 +203,20 @@ class BaseStringFormatTests:
         raises(ValueError, self.s("{a{b}").format, 42)
         raises(ValueError, self.s("{[}").format, 42)
 
+    def test_issue3100(self):
+        class Foo:
+            def __format__(self, f):
+                return '<<%r>>' % (f,)
+        fmtstr = self.s("{:[XYZ}")
+        assert fmtstr.format(Foo()) == "<<%r>>" % (self.s("[XYZ"),)
+
+    def test_issue3100(self):
+        class Foo:
+            def __format__(self, f):
+                return '<<%r>>' % (f,)
+        fmtstr = self.s("{:[XYZ}")
+        assert fmtstr.format(Foo()) == "<<%r>>" % (self.s("[XYZ"),)
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
     def setup_class(cls):

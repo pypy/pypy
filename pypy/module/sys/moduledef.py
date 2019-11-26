@@ -95,6 +95,8 @@ class Module(MixedModule):
 
         'get_coroutine_wrapper' : 'vm.get_coroutine_wrapper',
         'set_coroutine_wrapper' : 'vm.set_coroutine_wrapper',
+        'get_asyncgen_hooks'    : 'vm.get_asyncgen_hooks',
+        'set_asyncgen_hooks'    : 'vm.set_asyncgen_hooks',
 
         'is_finalizing'         : 'vm.is_finalizing',
         }
@@ -115,8 +117,6 @@ class Module(MixedModule):
         'flags'                 : 'app.null_sysflags',
         '_xoptions'             : 'app.null__xoptions',
         'implementation'        : 'app.implementation',
-        'get_asyncgen_hooks'    : 'app.get_asyncgen_hooks',
-        'set_asyncgen_hooks'    : 'app.set_asyncgen_hooks',
 
         # these six attributes are here only during tests;
         # they are removed before translation
@@ -184,7 +184,7 @@ class Module(MixedModule):
                     if w_file is w_stdout:
                         e.write_unraisable(space, '', w_file)
                     ret = -1
-        return ret 
+        return ret
 
     def _file_is_closed(self, space, w_file):
         try:
@@ -208,31 +208,6 @@ class Module(MixedModule):
         w_name = self.space.getattr(w_module, space.newtext('__name__'))
         w_modules = self.get('modules')
         self.space.setitem(w_modules, w_name, w_module)
-
-    def getdictvalue(self, space, attr):
-        """ specialize access to dynamic exc_* attributes. """
-        value = MixedModule.getdictvalue(self, space, attr)
-        if value is not None:
-            return value
-        if attr == 'exc_type':
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
-                return space.w_None
-            else:
-                return operror.w_type
-        elif attr == 'exc_value':
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
-                return space.w_None
-            else:
-                return operror.get_w_value(space)
-        elif attr == 'exc_traceback':
-            operror = space.getexecutioncontext().sys_exc_info()
-            if operror is None:
-                return space.w_None
-            else:
-                return operror.get_w_traceback(space)
-        return None
 
     def get_flag(self, name):
         space = self.space

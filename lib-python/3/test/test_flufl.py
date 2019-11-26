@@ -15,7 +15,7 @@ class FLUFLTests(unittest.TestCase):
         self.assertEqual(cm.exception.text, '2 != 3\n')
         self.assertEqual(cm.exception.filename, '<FLUFL test>')
         self.assertEqual(cm.exception.lineno, 2)
-        self.assertEqual(cm.exception.offset, 4)
+        self.assertEqual(cm.exception.offset, 2)  # changed in PyPy
 
     def test_guido_as_bdfl(self):
         code = '2 {0} 3'
@@ -26,7 +26,7 @@ class FLUFLTests(unittest.TestCase):
         self.assertEqual(cm.exception.text, '2 <> 3\n')
         self.assertEqual(cm.exception.filename, '<FLUFL test>')
         self.assertEqual(cm.exception.lineno, 1)
-        self.assertEqual(cm.exception.offset, 4)
+        self.assertEqual(cm.exception.offset, 2)  # changed in PyPy
 
 
 if __name__ == '__main__':

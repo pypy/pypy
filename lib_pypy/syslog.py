@@ -23,6 +23,9 @@ def _get_argv():
         import sys
         script = sys.argv[0]
         if isinstance(script, str):
+            # note: CPython <= 3.8 misses the "+1" here, so writes logs
+            # with a leading "/".  It is fixed in 3.9.
+            # https://github.com/python/cpython/pull/16557
             return script[script.rfind('/')+1:] or None
     except Exception:
         pass

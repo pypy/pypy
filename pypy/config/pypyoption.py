@@ -41,7 +41,7 @@ working_modules.update([
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
     "_jitlog",
-    #" _ssl", "_hashlib", "crypt"
+    # "_hashlib", "crypt"
 ])
 
 import rpython.rlib.rvmprof.cintf
@@ -218,11 +218,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
                    default=False),
-        BoolOption("reinterpretasserts",
-                   "Perform reinterpretation when an assert fails "
-                   "(only relevant for tests)",
-                   default=False),
-
      ]),
 ])
 
