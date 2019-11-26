@@ -38,6 +38,8 @@ class State(object):
         # special types
         self.c_size_t    = nt.new_primitive_type(space, 'size_t')
         self.c_ptrdiff_t = nt.new_primitive_type(space, 'ptrdiff_t')
+        self.c_intptr_t  = nt.new_primitive_type(space, 'intptr_t')
+        self.c_uintptr_t = nt.new_primitive_type(space, 'uintptr_t')
 
 class BoolTypeMixin(object):
     _mixin_     = True
