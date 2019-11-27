@@ -3,6 +3,7 @@ import sys
 import StringIO
 
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext.pyobject import make_ref
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
@@ -107,6 +108,30 @@ class TestExceptions(BaseApiTest):
         os.kill(os.getpid(), signal.SIGINT)
         assert recieved == ['ok']
         assert api.PyOS_InterruptOccurred()
+
+    def test_restore_traceback(self, space, api):
+        string = rffi.str2charp("spam and eggs")
+        api.PyErr_SetString(space.w_ValueError, string)
+
+        state = space.fromcache(State)
+        operror = state.clear_exception()
+
+        # Fake a traceback.
+        operror.set_traceback(space.w_True) # this doesn't really need to be a real traceback for this test.
+
+        w_type = operror.w_type
+        w_value = operror.get_w_value(space)
+        w_tb = operror.get_w_traceback(space)
+
+        assert not space.eq_w(w_tb, space.w_None)
+
+        api.PyErr_Restore(make_ref(space, w_type), make_ref(space, w_value), make_ref(space, w_tb))
+
+        operror = state.clear_exception()
+        w_tb_restored = operror.get_w_traceback(space)
+
+        assert space.eq_w(w_tb_restored, w_tb)
+        rffi.free_charp(string)
 
 class AppTestFetch(AppTestCpythonExtensionBase):
 

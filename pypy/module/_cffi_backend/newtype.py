@@ -267,7 +267,8 @@ else:
 if sys.platform == 'win32':
     DEFAULT_SFLAGS_PLATFORM = SF_MSVC_BITFIELDS
 else:
-    if rffi_platform.getdefined('__arm__', ''):
+    if (rffi_platform.getdefined('__arm__', '') or
+        rffi_platform.getdefined('__aarch64__', '')):
         DEFAULT_SFLAGS_PLATFORM = SF_GCC_ARM_BITFIELDS
     else:
         DEFAULT_SFLAGS_PLATFORM = SF_GCC_X86_BITFIELDS

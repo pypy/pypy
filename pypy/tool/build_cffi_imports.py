@@ -24,7 +24,19 @@ cffi_build_scripts = {
 # the OS, such as a recent openssl/libressl.
 curdir = os.path.abspath(os.path.dirname(__file__))
 deps_destdir = os.path.join(curdir, 'dest')
+configure_args = ['./configure',
+            '--prefix=/usr',
+            '--disable-shared',
+            '--enable-silent-rules',
+            '--disable-dependency-tracking',
+        ]
 cffi_dependencies = {
+    'lzma': ('https://tukaani.org/xz/xz-5.2.3.tar.gz',
+             '71928b357d0a09a12a4b4c5fafca8c31c19b0e7d3b8ebb19622e96f26dbf28cb',
+             [configure_args,
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ]),
     '_ssl': ('https://www.openssl.org/source/openssl-1.1.1c.tar.gz',
              'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
              [['./config', '--prefix=/usr', 'no-shared'],
@@ -33,7 +45,7 @@ cffi_dependencies = {
              ]),
     '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
               '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
-             [['./config', '--without-readline'],
+              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
@@ -176,8 +188,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             status, stdout, stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
             if status != 0:
-                print(stdout, stderr, file=sys.stderr)
                 failures.append((key, module))
+                print("stdout:")
+                print(stdout, file=sys.stderr)
+                print("stderr:")
+                print(stderr, file=sys.stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
