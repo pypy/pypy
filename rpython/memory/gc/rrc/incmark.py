@@ -238,8 +238,8 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
             while pygchdr <> self.pyobj_list:
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
                 pygchdr = pygchdr.c_gc_next
-            pygchdr = self.pyobj_old_list.c_gc_next
             # resurrect "dead" objects
+            pygchdr = self.pyobj_old_list.c_gc_next
             while pygchdr <> self.pyobj_old_list:
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
                 pygchdr = pygchdr.c_gc_next
@@ -254,6 +254,7 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
         start = time.time()
 
         if isolate_consistent:
+            debug_print("isolate consistent")
             if not self._gc_list_is_empty(self.pyobj_isolate_old_list):
                 self._gc_list_merge(self.pyobj_isolate_old_list,
                                     self.pyobj_list)
@@ -261,12 +262,14 @@ class RawRefCountIncMarkGC(RawRefCountBaseGC):
                 self._gc_list_merge(self.pyobj_isolate_dead_list,
                                     self.pyobj_dead_list)
         else:
+            debug_print("isolate inconsistent")
             # continue previous loop, keep objects alive
             pygchdr = pygchdr_continue_isolate
             while pygchdr <> self.pyobj_isolate_old_list:
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
                 pygchdr = pygchdr.c_gc_next
             # resurrect "dead" objects
+            pygchdr = self.pyobj_isolate_dead_list.c_gc_next
             while pygchdr <> self.pyobj_isolate_dead_list:
                 self._pyobj_gc_refcnt_set(pygchdr, 1)
                 pygchdr = pygchdr.c_gc_next
