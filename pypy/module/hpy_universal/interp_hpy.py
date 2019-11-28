@@ -1,7 +1,5 @@
-from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rdynload import dlopen, dlsym, DLOpenError
-from rpython.rlib.objectmodel import specialize, llhelper_can_raise
 from rpython.rlib import rutf8
 
 from pypy.interpreter.gateway import unwrap_spec
@@ -11,26 +9,11 @@ from pypy.interpreter.error import OperationError, oefmt
 
 from pypy.module.hpy_universal import llapi, handles, interp_extfunc
 from pypy.module.hpy_universal.state import State
+from pypy.module.hpy_universal.apiset import API
 from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
 
 
-def apifunc(argtypes, restype):
-    def decorate(fn):
-        ll_functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
-        @specialize.memo()
-        def make_wrapper(space):
-            @llhelper_can_raise
-            def wrapper(*args):
-                return fn(space, *args)
-            return wrapper
-        def get_llhelper(space):
-            return llhelper(ll_functype, make_wrapper(space))
-        fn.get_llhelper = get_llhelper
-        return fn
-    return decorate
-
-
-@apifunc([llapi.HPyContext, lltype.Ptr(llapi.HPyModuleDef)], llapi.HPy)
+@API.func([llapi.HPyContext, lltype.Ptr(llapi.HPyModuleDef)], llapi.HPy)
 def HPyModule_Create(space, ctx, hpydef):
     modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
@@ -51,20 +34,20 @@ def HPyModule_Create(space, ctx, hpydef):
     return handles.new(space, w_mod)
 
 
-@apifunc([llapi.HPyContext, llapi.HPy], llapi.HPy)
+@API.func([llapi.HPyContext, llapi.HPy], llapi.HPy)
 def HPy_Dup(space, ctx, h):
     return handles.dup(space, h)
 
-@apifunc([llapi.HPyContext, llapi.HPy], lltype.Void)
+@API.func([llapi.HPyContext, llapi.HPy], lltype.Void)
 def HPy_Close(space, ctx, h):
     handles.close(space, h)
 
-@apifunc([llapi.HPyContext, rffi.LONG], llapi.HPy)
+@API.func([llapi.HPyContext, rffi.LONG], llapi.HPy)
 def HPyLong_FromLong(space, ctx, value):
     w_obj = space.newint(rffi.cast(lltype.Signed, value))
     return handles.new(space, w_obj)
 
-@apifunc([llapi.HPyContext, llapi.HPy], rffi.LONG)
+@API.func([llapi.HPyContext, llapi.HPy], rffi.LONG)
 def HPyLong_AsLong(space, ctx, h):
     w_obj = handles.deref(space, h)
     #w_obj = space.int(w_obj)     --- XXX write a test for this
@@ -74,14 +57,14 @@ def HPyLong_AsLong(space, ctx, h):
     #    ...
     return result
 
-@apifunc([llapi.HPyContext, llapi.HPy, llapi.HPy], llapi.HPy)
+@API.func([llapi.HPyContext, llapi.HPy, llapi.HPy], llapi.HPy)
 def HPyNumber_Add(space, ctx, h1, h2):
     w_obj1 = handles.deref(space, h1)
     w_obj2 = handles.deref(space, h2)
     w_result = space.add(w_obj1, w_obj2)
     return handles.new(space, w_result)
 
-@apifunc([llapi.HPyContext, rffi.CCHARP], llapi.HPy)
+@API.func([llapi.HPyContext, rffi.CCHARP], llapi.HPy)
 def HPyUnicode_FromString(space, ctx, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
     return handles.new(space, w_obj)
@@ -95,7 +78,7 @@ def _maybe_utf8_to_w(space, utf8):
         raise   # XXX do something
     return space.newtext(s, length)
 
-@apifunc([llapi.HPyContext, llapi.HPy, rffi.CCHARP], lltype.Void)
+@API.func([llapi.HPyContext, llapi.HPy, rffi.CCHARP], lltype.Void)
 def HPyErr_SetString(space, ctx, h_exc_type, utf8):
    w_obj = _maybe_utf8_to_w(space, utf8)
    w_exc_type = handles.deref(space, h_exc_type)

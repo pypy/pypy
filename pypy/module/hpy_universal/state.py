@@ -5,6 +5,7 @@ from rpython.rlib import jit
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module.hpy_universal import llapi, handles
+from pypy.module.hpy_universal.apiset import API
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
 CONSTANT_NAMES = unrolling_iterable([name for name, _ in handles.CONSTANTS])
@@ -50,31 +51,11 @@ class State:
                 h_struct.c__i = i
             i = i + 1
 
-        # XXX collect all these functions automatically
-        from pypy.module.hpy_universal import interp_hpy
-        
-        funcptr = interp_hpy.HPyModule_Create.get_llhelper(space)
-        self.ctx.c_ctx_Module_Create = rffi.cast(rffi.VOIDP, funcptr)
-        #
-        funcptr = interp_hpy.HPy_Dup.get_llhelper(space)
-        self.ctx.c_ctx_Dup = rffi.cast(rffi.VOIDP, funcptr)
-        #
-        funcptr = interp_hpy.HPy_Close.get_llhelper(space)
-        self.ctx.c_ctx_Close = rffi.cast(rffi.VOIDP, funcptr)
-        #
-        funcptr = interp_hpy.HPyLong_FromLong.get_llhelper(space)
-        self.ctx.c_ctx_Long_FromLong = rffi.cast(rffi.VOIDP, funcptr)
-        #
-        funcptr = interp_hpy.HPyLong_AsLong.get_llhelper(space)
-        self.ctx.c_ctx_Long_AsLong = rffi.cast(rffi.VOIDP, funcptr)
-        #
-        funcptr = interp_hpy.HPyNumber_Add.get_llhelper(space)
-        self.ctx.c_ctx_Number_Add = rffi.cast(rffi.VOIDP, funcptr)
-        #
-        funcptr = interp_hpy.HPyUnicode_FromString.get_llhelper(space)
-        self.ctx.c_ctx_Unicode_FromString = rffi.cast(rffi.VOIDP, funcptr)
-        #
-        funcptr = interp_hpy.HPyErr_SetString.get_llhelper(space)
-        self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, funcptr)
-        #
+        # XXX this is not RPython, we need a way to turn this into an
+        # unrolling_iterable
+        for func in API.all_functions:
+            funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
+            ctx_field = 'c_ctx_' + func.basename
+            setattr(self.ctx, ctx_field, funcptr)
+
         self.ctx.c_ctx_Arg_Parse = rffi.cast(rffi.VOIDP, llapi.DONT_CALL_ctx_Arg_Parse)
