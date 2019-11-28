@@ -12,8 +12,7 @@ from pypy.module.hpy_universal.apiset import API
 
 # these imports have side effects, as they call @API.func()
 from pypy.module.hpy_universal import (interp_err, interp_long, interp_module,
-                                       interp_number, interp_unicode)
-
+                                       interp_number, interp_unicode, interp_float)
 
 
 def create_hpy_module(space, name, origin, lib, initfunc):
