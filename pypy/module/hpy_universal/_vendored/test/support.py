@@ -3,7 +3,7 @@ import pytest
 import re
 
 r_marker_init = re.compile(r"\s*@INIT\s*$")
-r_marker_export = re.compile(r"\s*@EXPORT\s+(\w+)\s+(METH_\w+)\s*$")
+r_marker_export = re.compile(r"\s*@EXPORT\s+(\w+)\s+(.*)\s*$")
 
 INIT_TEMPLATE = """
 static HPyMethodDef MyTestMethods[] = {
@@ -47,8 +47,14 @@ def expand_template(source_template, name):
         match = r_marker_export.match(line)
         if match:
             ml_name, ml_flags = match.group(1), match.group(2)
-            method_table.append('{"%s", %s, %s, NULL},' % (
-                ml_name, ml_name, ml_flags))
+            if not ml_flags.startswith('HPy_'):
+                # this is a legacy function: add a cast to (HPyMeth) to
+                # silence warnings
+                cast = '(HPyMeth)'
+            else:
+                cast = ''
+            method_table.append('{"%s", %s%s, %s, NULL},' % (
+                    ml_name, cast, ml_name, ml_flags))
             continue
 
         expanded_lines.append(line)
@@ -62,34 +68,45 @@ class Spec(object):
 
 
 class ExtensionCompiler:
-    def __init__(self, tmpdir, abimode, include_dir):
+    def __init__(self, tmpdir, abimode, include_dir, compiler_verbose=False):
         self.tmpdir = tmpdir
         self.abimode = abimode
         self.include_dir = include_dir
         self.universal_mode = self.abimode == 'universal'
+        self.compiler_verbose = compiler_verbose
 
-    def compile_module(self, source_template, name):
+    def _expand(self, name, template):
+        source = expand_template(template, name)
+        filename = self.tmpdir.join(name + '.c')
+        filename.write(source)
+        return filename
+
+    def compile_module(self, main_template, name, extra_templates):
         """
         Create and compile a HPy module from the template
         """
-        source = expand_template(source_template, name)
-        filename = self.tmpdir.join(name + '.c')
-        filename.write(source)
+        filename = self._expand(name, main_template)
+        sources = []
+        for i, template in enumerate(extra_templates):
+            extra_filename = self._expand('extmod_%d' % i, template)
+            sources.append(extra_filename)
         #
         ext = get_extension(str(filename), name,
+                            sources=sources,
                             include_dirs=[self.include_dir],
                             extra_compile_args=['-Wfatal-errors', '-g', '-Og'],
                             extra_link_args=['-g'])
-        so_filename = c_compile(str(self.tmpdir), ext, compiler_verbose=False,
+        so_filename = c_compile(str(self.tmpdir), ext,
+                                compiler_verbose=self.compiler_verbose,
                                 universal_mode=self.universal_mode)
         return so_filename
 
-    def make_module(self, source_template, name):
+    def make_module(self, main_template, name, extra_templates):
         """
         Compile&load a modulo into memory. This is NOT a proper import: e.g. the module
         is not put into sys.modules
         """
-        so_filename = self.compile_module(source_template, name)
+        so_filename = self.compile_module(main_template, name, extra_templates)
         if self.universal_mode:
             return self.load_universal_module(name, so_filename)
         else:
@@ -122,11 +139,8 @@ class HPyTest:
         # compiler is a fixture defined in conftest
         self.compiler = compiler
 
-    def compile_module(self, source_template, name):
-        return self.compiler.compile_module(source_template, name)
-
-    def make_module(self, source_template, name='mytest'):
-        return self.compiler.make_module(source_template, name)
+    def make_module(self, source_template, name='mytest', extra_templates=()):
+        return self.compiler.make_module(source_template, name, extra_templates)
 
 
 # the few functions below are copied and adapted from cffi/ffiplatform.py

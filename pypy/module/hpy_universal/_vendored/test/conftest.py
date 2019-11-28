@@ -6,6 +6,10 @@ def pytest_addoption(parser):
         "--correct", action="store_true",
         help="Test against headers installed through hpy_devel"
     )
+    parser.addoption(
+        "--compiler-v", action="store_true",
+        help="Print to stdout the commands used to invoke the compiler")
+
 
 @pytest.fixture(scope='session')
 def hpy_include_dir(request):
@@ -22,5 +26,7 @@ def abimode(request):
     return request.param
 
 @pytest.fixture
-def compiler(tmpdir, abimode, hpy_include_dir):
-    return ExtensionCompiler(tmpdir, abimode, hpy_include_dir)
+def compiler(request, tmpdir, abimode, hpy_include_dir):
+    compiler_verbose = request.config.getoption('--compiler-v')
+    return ExtensionCompiler(tmpdir, abimode, hpy_include_dir,
+                             compiler_verbose=compiler_verbose)

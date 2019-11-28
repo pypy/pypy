@@ -1,9 +1,6 @@
 #ifndef HPy_CPYTHON_H
 #define HPy_CPYTHON_H
 
-
-
-
 /* XXX: it would be nice if we could include hpy.h WITHOUT bringing in all the
    stuff from Python.h, to make sure that people don't use the CPython API by
    mistake. How to achieve it, though? Is defining Py_LIMITED_API enough? */
@@ -17,11 +14,12 @@
 #include <Python.h>
 
 #ifdef __GNUC__
-#define HPyAPI_FUNC(restype)  __attribute__((unused)) static inline restype
+#define HPyAPI_STORAGE __attribute__((unused)) static inline
 #else
-#define HPyAPI_FUNC(restype)  static inline restype
-#endif
+#define HPyAPI_STORAGE static inline
+#endif /* __GNUC__ */
 
+#define HPyAPI_FUNC(restype) HPyAPI_STORAGE restype
 
 typedef struct { PyObject *_o; } HPy;
 typedef Py_ssize_t HPy_ssize_t;
@@ -33,11 +31,14 @@ typedef Py_ssize_t HPy_ssize_t;
 #define _h2py(x) (x._o)
 #define _py2h(o) ((HPy){o})
 
+#include "meth.h"
+
 typedef struct _HPyContext_s {
     HPy h_None;
     HPy h_True;
     HPy h_False;
     HPy h_ValueError;
+    HPy h_TypeError;
 } *HPyContext;
 
 /* XXX! should be defined only once, not once for every .c! */
@@ -45,6 +46,13 @@ static struct _HPyContext_s _global_ctx;
 
 #define HPy_NULL ((HPy){NULL})
 #define HPy_IsNull(x) ((x)._o == NULL)
+
+// XXX: we need to decide whether these are part of the official API or not,
+// and maybe introduce a better naming convetion. For now, they are needed for
+// ujson
+static inline HPy HPy_FromVoidP(void *p) { return (HPy){(PyObject*)p}; }
+static inline void* HPy_AsVoidP(HPy h) { return (void*)h._o; }
+
 
 HPyAPI_FUNC(HPyContext)
 _HPyGetContext(void) {
@@ -56,18 +64,11 @@ _HPyGetContext(void) {
         ctx->h_True = _py2h(Py_True);
         ctx->h_False = _py2h(Py_False);
         ctx->h_ValueError = _py2h(PyExc_ValueError);
+        ctx->h_TypeError = _py2h(PyExc_TypeError);
     }
     return ctx;
 }
 
-
-
-HPyAPI_FUNC(HPy)
-HPyNone_Get(HPyContext ctx)
-{
-    Py_INCREF(Py_None);
-    return _py2h(Py_None);
-}
 
 HPyAPI_FUNC(HPy)
 HPy_Dup(HPyContext ctx, HPy handle)
@@ -84,6 +85,7 @@ HPy_Close(HPyContext ctx, HPy handle)
 
 /* moduleobject.h */
 typedef PyModuleDef HPyModuleDef;
+
 #define HPyModuleDef_HEAD_INIT PyModuleDef_HEAD_INIT
 
 HPyAPI_FUNC(HPy)
@@ -99,37 +101,13 @@ HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef) {
         return _h2py(init_##modname##_impl(_HPyGetContext())); \
     }
 
-/* methodobject.h */
-typedef PyMethodDef HPyMethodDef;
-
-
-/* function declaration */
-
-#define HPy_METH_NOARGS(NAME)                                           \
-    static HPy NAME##_impl(HPyContext, HPy);                            \
-    static PyObject* NAME(PyObject *self, PyObject *noargs)             \
-    {                                                                   \
-        return _h2py(NAME##_impl(_HPyGetContext(), _py2h(self)));       \
-    }
-
-#define HPy_METH_O(NAME)                                                \
-    static HPy NAME##_impl(HPyContext, HPy, HPy);                       \
-    static PyObject* NAME(PyObject *self, PyObject *arg)                \
-    {                                                                   \
-        return _h2py(NAME##_impl(_HPyGetContext(), _py2h(self), _py2h(arg)));\
-    }
-
-#define HPy_METH_VARARGS(NAME)                                          \
-    static HPy NAME##_impl(HPyContext, HPy, HPy *, Py_ssize_t);         \
-    static PyObject* NAME(PyObject *self, PyObject *args)               \
-    {                                                                   \
-        /* get the tuple elements as an array of "PyObject *", which */ \
-        /* is equivalent to an array of "HPy" with enough casting... */ \
-        HPy *items = (HPy *)&PyTuple_GET_ITEM(args, 0);                 \
-        Py_ssize_t nargs = PyTuple_GET_SIZE(args);                      \
-        return _h2py(NAME##_impl(_HPyGetContext(), _py2h(self), items, nargs));\
-    }
-
+/* XXX: this function is copied&pasted THREE times:
+ *     hpy_devel/include/hpy.h
+ *     cpython-universal/api.c
+ *     pypy/module/hpy_universal/src/getargs.c
+ *
+ * We need a way to share this kind of common code
+ */
 
 HPyAPI_FUNC(int)
 HPyArg_Parse(HPyContext ctx, HPy *args, Py_ssize_t nargs, const char *fmt, ...)
@@ -166,30 +144,6 @@ HPyArg_Parse(HPyContext ctx, HPy *args, Py_ssize_t nargs, const char *fmt, ...)
 
 
 HPyAPI_FUNC(HPy)
-HPyLong_FromLong(HPyContext ctx, long v)
-{
-    return _py2h(PyLong_FromLong(v));
-}
-
-HPyAPI_FUNC(long)
-HPyLong_AsLong(HPyContext ctx, HPy h)
-{
-    return PyLong_AsLong(_h2py(h));
-}
-
-HPyAPI_FUNC(HPy)
-HPyNumber_Add(HPyContext ctx, HPy x, HPy y)
-{
-    return _py2h(PyNumber_Add(_h2py(x), _h2py(y)));
-}
-
-HPyAPI_FUNC(HPy)
-HPyUnicode_FromString(HPyContext ctx, const char *utf8)
-{
-    return _py2h(PyUnicode_FromString(utf8));
-}
-
-HPyAPI_FUNC(HPy)
 HPy_FromPyObject(HPyContext ctx, PyObject *obj)
 {
     Py_XINCREF(obj);
@@ -204,11 +158,12 @@ HPy_AsPyObject(HPyContext ctx, HPy h)
     return result;
 }
 
-HPyAPI_FUNC(void)
-HPyErr_SetString(HPyContext ctx, HPy type, const char *message)
-{
-    PyErr_SetString(_h2py(type), message);
-}
-
+/* expand impl functions as:
+ *     static inline HPyLong_FromLong(...);
+ *
+ */
+#define _HPy_IMPL_NAME(name) HPy##name
+#include "../common/autogen_impl.h"
+#undef _HPy_IMPL_NAME
 
 #endif /* !HPy_CPYTHON_H */
