@@ -7,7 +7,7 @@ from rpython.rlib import rutf8
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
 from pypy.interpreter.module import Module
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 from pypy.module.hpy_universal import llapi, handles, interp_extfunc
 from pypy.module.hpy_universal.state import State
@@ -40,6 +40,10 @@ def HPyModule_Create(space, ctx, hpydef):
         p = hpydef.c_m_methods
         i = 0
         while p[i].c_ml_name:
+            if not p[i].c_ml_flags & llapi._HPy_METH:
+                # we need to add support for legacy methods through cpyext
+                raise oefmt(space.w_NotImplementedError, "non-hpy method: %s",
+                            rffi.charp2str(p[i].c_ml_name))
             w_extfunc = interp_extfunc.W_ExtensionFunction(p[i], w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1

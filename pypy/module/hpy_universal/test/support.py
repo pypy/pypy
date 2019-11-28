@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.module.hpy_universal.llapi import INCLUDE_DIR
 from pypy.module.hpy_universal._vendored.test import support as _support
 
+COMPILER_VERBOSE = False
 
 class HPyAppTest(object):
 
@@ -24,7 +25,8 @@ class HPyAppTest(object):
         tmpdir = py.path.local.make_numbered_dir(rootdir=udir,
                                                  prefix=meth.__name__ + '-',
                                                  keep=0)  # keep everything
-        compiler = _support.ExtensionCompiler(tmpdir, 'universal', INCLUDE_DIR)
+        compiler = _support.ExtensionCompiler(tmpdir, 'universal', INCLUDE_DIR,
+                                              compiler_verbose=COMPILER_VERBOSE)
 
         @unwrap_spec(source_template='text', name='text', w_extra_templates=W_Root)
         def descr_make_module(space, source_template, name='mytest',

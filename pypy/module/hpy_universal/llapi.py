@@ -136,13 +136,11 @@ HPyModuleDef = cts.gettype('HPyModuleDef')
 # HPyModule_Create
 HPyModuleDef._flds['c_m_methods'] = rffi.CArrayPtr(HPyMethodDef)
 
-METH_VARARGS  = 0x0001
-METH_KEYWORDS = 0x0002
-METH_NOARGS   = 0x0004
-METH_O        = 0x0008
-
-
-
+_HPy_METH = 0x100000
+HPy_METH_VARARGS  = 0x0001 | _HPy_METH
+HPy_METH_KEYWORDS = 0x0002 | _HPy_METH
+HPy_METH_NOARGS   = 0x0004 | _HPy_METH
+HPy_METH_O        = 0x0008 | _HPy_METH
 
 # ----------------------------------------------------------------
 

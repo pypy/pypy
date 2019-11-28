@@ -78,27 +78,27 @@ class W_ExtensionFunction(W_Root):
         flags = self.flags
         length = len(__args__.arguments_w)
 
-        if flags & llapi.METH_KEYWORDS:
+        if flags == llapi.HPy_METH_KEYWORDS:
             return self.call_keywords(space, __args__)
 
         if __args__.keywords:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
 
-        if flags & llapi.METH_NOARGS:
+        if flags == llapi.HPy_METH_NOARGS:
             if length == 0:
                 return self.call_noargs(space)
             raise oefmt(space.w_TypeError,
                         "%s() takes no arguments", self.name)
 
-        if flags & llapi.METH_O:
+        if flags == llapi.HPy_METH_O:
             if length != 1:
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
             return self.call_o(space, __args__.arguments_w[0])
 
-        if flags & llapi.METH_VARARGS:
+        if flags == llapi.HPy_METH_VARARGS:
             return self.call_varargs(space, __args__.arguments_w)
         else:  # shouldn't happen!
             raise oefmt(space.w_RuntimeError, "unknown calling convention")
