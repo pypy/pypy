@@ -1,5 +1,6 @@
+import pytest
 from rpython.rtyper.lltypesystem import lltype
-from pypy.module.hpy_universal.api import APISet
+from pypy.module.hpy_universal.apiset import APISet
 
 class TestAPISet(object):
 
@@ -34,3 +35,15 @@ class TestAPISet(object):
         space = 'MySpace'
         lldivide = divide.get_llhelper(space)
         assert lldivide(5, 2) == 2.5
+
+    def test_freeze(self):
+        api = APISet()
+        @api.func([], lltype.Void)
+        def foo(space):
+            return None
+        #
+        api._freeze_()
+        with pytest.raises(RuntimeError):
+            @api.func([], lltype.Void)
+            def bar(space):
+                return None
