@@ -44,44 +44,44 @@ static inline int HPyArg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs, con
      va_list _vl; va_start(_vl, fmt); int _res = ctx->ctx_Arg_Parse ( ctx, args, nargs, fmt, _vl ); va_end(_vl); return _res; 
 }
 
-static inline HPy HPyNumber_Add(HPyContext ctx, HPy x, HPy y) {
-     return ctx->ctx_Number_Add ( ctx, x, y ); 
+static inline HPy HPyNumber_Add(HPyContext ctx, HPy h1, HPy h2) {
+     return ctx->ctx_Number_Add ( ctx, h1, h2 ); 
 }
 
-static inline void HPyErr_SetString(HPyContext ctx, HPy type, const char *message) {
-     ctx->ctx_Err_SetString ( ctx, type, message ); 
+static inline void HPyErr_SetString(HPyContext ctx, HPy h_type, const char *message) {
+     ctx->ctx_Err_SetString ( ctx, h_type, message ); 
 }
 
-static inline int HPyBytes_Check(HPyContext ctx, HPy o) {
-     return ctx->ctx_Bytes_Check ( ctx, o ); 
+static inline int HPyBytes_Check(HPyContext ctx, HPy h) {
+     return ctx->ctx_Bytes_Check ( ctx, h ); 
 }
 
-static inline HPy_ssize_t HPyBytes_Size(HPyContext ctx, HPy o) {
-     return ctx->ctx_Bytes_Size ( ctx, o ); 
+static inline HPy_ssize_t HPyBytes_Size(HPyContext ctx, HPy h) {
+     return ctx->ctx_Bytes_Size ( ctx, h ); 
 }
 
-static inline HPy_ssize_t HPyBytes_GET_SIZE(HPyContext ctx, HPy o) {
-     return ctx->ctx_Bytes_GET_SIZE ( ctx, o ); 
+static inline HPy_ssize_t HPyBytes_GET_SIZE(HPyContext ctx, HPy h) {
+     return ctx->ctx_Bytes_GET_SIZE ( ctx, h ); 
 }
 
-static inline char *HPyBytes_AsString(HPyContext ctx, HPy o) {
-     return ctx->ctx_Bytes_AsString ( ctx, o ); 
+static inline char *HPyBytes_AsString(HPyContext ctx, HPy h) {
+     return ctx->ctx_Bytes_AsString ( ctx, h ); 
 }
 
-static inline char *HPyBytes_AS_STRING(HPyContext ctx, HPy o) {
-     return ctx->ctx_Bytes_AS_STRING ( ctx, o ); 
+static inline char *HPyBytes_AS_STRING(HPyContext ctx, HPy h) {
+     return ctx->ctx_Bytes_AS_STRING ( ctx, h ); 
 }
 
 static inline HPy HPyUnicode_FromString(HPyContext ctx, const char *utf8) {
      return ctx->ctx_Unicode_FromString ( ctx, utf8 ); 
 }
 
-static inline int HPyUnicode_Check(HPyContext ctx, HPy o) {
-     return ctx->ctx_Unicode_Check ( ctx, o ); 
+static inline int HPyUnicode_Check(HPyContext ctx, HPy h) {
+     return ctx->ctx_Unicode_Check ( ctx, h ); 
 }
 
-static inline HPy HPyUnicode_AsUTF8String(HPyContext ctx, HPy o) {
-     return ctx->ctx_Unicode_AsUTF8String ( ctx, o ); 
+static inline HPy HPyUnicode_AsUTF8String(HPyContext ctx, HPy h) {
+     return ctx->ctx_Unicode_AsUTF8String ( ctx, h ); 
 }
 
 static inline HPy HPyUnicode_FromWideChar(HPyContext ctx, const wchar_t *w, HPy_ssize_t size) {
@@ -92,16 +92,16 @@ static inline HPy HPyList_New(HPyContext ctx, HPy_ssize_t len) {
      return ctx->ctx_List_New ( ctx, len ); 
 }
 
-static inline int HPyList_Append(HPyContext ctx, HPy list, HPy item) {
-     return ctx->ctx_List_Append ( ctx, list, item ); 
+static inline int HPyList_Append(HPyContext ctx, HPy h_list, HPy h_item) {
+     return ctx->ctx_List_Append ( ctx, h_list, h_item ); 
 }
 
 static inline HPy HPyDict_New(HPyContext ctx) {
      return ctx->ctx_Dict_New ( ctx ); 
 }
 
-static inline int HPyDict_SetItem(HPyContext ctx, HPy dict, HPy key, HPy val) {
-     return ctx->ctx_Dict_SetItem ( ctx, dict, key, val ); 
+static inline int HPyDict_SetItem(HPyContext ctx, HPy h_dict, HPy h_key, HPy h_val) {
+     return ctx->ctx_Dict_SetItem ( ctx, h_dict, h_key, h_val ); 
 }
 
 static inline HPy HPy_FromPyObject(HPyContext ctx, struct _object *obj) {

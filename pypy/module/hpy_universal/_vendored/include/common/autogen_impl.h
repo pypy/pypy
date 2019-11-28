@@ -33,39 +33,39 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Float_FromDouble)(HPyContext ctx, double v)
     return _py2h(PyFloat_FromDouble(v));
 }
 
-HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Number_Add)(HPyContext ctx, HPy x, HPy y)
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Number_Add)(HPyContext ctx, HPy h1, HPy h2)
 {
-    return _py2h(PyNumber_Add(_h2py(x), _h2py(y)));
+    return _py2h(PyNumber_Add(_h2py(h1), _h2py(h2)));
 }
 
-HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetString)(HPyContext ctx, HPy type, const char *message)
+HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetString)(HPyContext ctx, HPy h_type, const char *message)
 {
-    return PyErr_SetString(_h2py(type), message);
+    return PyErr_SetString(_h2py(h_type), message);
 }
 
-HPyAPI_STORAGE int _HPy_IMPL_NAME(Bytes_Check)(HPyContext ctx, HPy o)
+HPyAPI_STORAGE int _HPy_IMPL_NAME(Bytes_Check)(HPyContext ctx, HPy h)
 {
-    return PyBytes_Check(_h2py(o));
+    return PyBytes_Check(_h2py(h));
 }
 
-HPyAPI_STORAGE HPy_ssize_t _HPy_IMPL_NAME(Bytes_Size)(HPyContext ctx, HPy o)
+HPyAPI_STORAGE HPy_ssize_t _HPy_IMPL_NAME(Bytes_Size)(HPyContext ctx, HPy h)
 {
-    return PyBytes_Size(_h2py(o));
+    return PyBytes_Size(_h2py(h));
 }
 
-HPyAPI_STORAGE HPy_ssize_t _HPy_IMPL_NAME(Bytes_GET_SIZE)(HPyContext ctx, HPy o)
+HPyAPI_STORAGE HPy_ssize_t _HPy_IMPL_NAME(Bytes_GET_SIZE)(HPyContext ctx, HPy h)
 {
-    return PyBytes_GET_SIZE(_h2py(o));
+    return PyBytes_GET_SIZE(_h2py(h));
 }
 
-HPyAPI_STORAGE char *_HPy_IMPL_NAME(Bytes_AsString)(HPyContext ctx, HPy o)
+HPyAPI_STORAGE char *_HPy_IMPL_NAME(Bytes_AsString)(HPyContext ctx, HPy h)
 {
-    return PyBytes_AsString(_h2py(o));
+    return PyBytes_AsString(_h2py(h));
 }
 
-HPyAPI_STORAGE char *_HPy_IMPL_NAME(Bytes_AS_STRING)(HPyContext ctx, HPy o)
+HPyAPI_STORAGE char *_HPy_IMPL_NAME(Bytes_AS_STRING)(HPyContext ctx, HPy h)
 {
-    return PyBytes_AS_STRING(_h2py(o));
+    return PyBytes_AS_STRING(_h2py(h));
 }
 
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Unicode_FromString)(HPyContext ctx, const char *utf8)
@@ -73,14 +73,14 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Unicode_FromString)(HPyContext ctx, const char
     return _py2h(PyUnicode_FromString(utf8));
 }
 
-HPyAPI_STORAGE int _HPy_IMPL_NAME(Unicode_Check)(HPyContext ctx, HPy o)
+HPyAPI_STORAGE int _HPy_IMPL_NAME(Unicode_Check)(HPyContext ctx, HPy h)
 {
-    return PyUnicode_Check(_h2py(o));
+    return PyUnicode_Check(_h2py(h));
 }
 
-HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Unicode_AsUTF8String)(HPyContext ctx, HPy o)
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Unicode_AsUTF8String)(HPyContext ctx, HPy h)
 {
-    return _py2h(PyUnicode_AsUTF8String(_h2py(o)));
+    return _py2h(PyUnicode_AsUTF8String(_h2py(h)));
 }
 
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Unicode_FromWideChar)(HPyContext ctx, const wchar_t *w, HPy_ssize_t size)
@@ -93,9 +93,9 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(List_New)(HPyContext ctx, HPy_ssize_t len)
     return _py2h(PyList_New(len));
 }
 
-HPyAPI_STORAGE int _HPy_IMPL_NAME(List_Append)(HPyContext ctx, HPy list, HPy item)
+HPyAPI_STORAGE int _HPy_IMPL_NAME(List_Append)(HPyContext ctx, HPy h_list, HPy h_item)
 {
-    return PyList_Append(_h2py(list), _h2py(item));
+    return PyList_Append(_h2py(h_list), _h2py(h_item));
 }
 
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Dict_New)(HPyContext ctx)
@@ -103,8 +103,8 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Dict_New)(HPyContext ctx)
     return _py2h(PyDict_New());
 }
 
-HPyAPI_STORAGE int _HPy_IMPL_NAME(Dict_SetItem)(HPyContext ctx, HPy dict, HPy key, HPy val)
+HPyAPI_STORAGE int _HPy_IMPL_NAME(Dict_SetItem)(HPyContext ctx, HPy h_dict, HPy h_key, HPy h_val)
 {
-    return PyDict_SetItem(_h2py(dict), _h2py(key), _h2py(val));
+    return PyDict_SetItem(_h2py(h_dict), _h2py(h_key), _h2py(h_val));
 }
 

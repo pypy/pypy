@@ -14,8 +14,12 @@ class TestBytes(HPyTest):
             @EXPORT f HPy_METH_O
             @INIT
         """)
+        class MyBytes(bytes):
+            pass
+
         assert mod.f(b'hello') is True
         assert mod.f('hello') is False
+        assert mod.f(MyBytes(b'hello')) is True
 
     def test_Size(self):
         mod = self.make_module("""
