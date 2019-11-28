@@ -14,11 +14,12 @@ def HPyBytes_Check(space, ctx, h):
 
 @API.func("HPy_ssize_t HPyBytes_Size(HPyContext ctx, HPy h)")
 def HPyBytes_Size(space, ctx, h):
-    raise NotImplementedError
+    w_obj = handles.deref(space, h)
+    return space.len_w(w_obj)
 
 @API.func("HPy_ssize_t HPyBytes_GET_SIZE(HPyContext ctx, HPy h)")
 def HPyBytes_GET_SIZE(space, ctx, h):
-    raise NotImplementedError
+    return HPyBytes_Size(space, ctx, h)
 
 @API.func("char *HPyBytes_AsString(HPyContext ctx, HPy h)")
 def HPyBytes_AsString(space, ctx, h):
