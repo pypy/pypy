@@ -1,6 +1,6 @@
 from .support import HPyTest
 
-class TestListObject(HPyTest):
+class TestList(HPyTest):
 
     def test_New(self):
         mod = self.make_module("""

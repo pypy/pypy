@@ -2,7 +2,7 @@
 
 from .support import HPyTest
 
-class TestUnicodeObject(HPyTest):
+class TestUnicode(HPyTest):
 
     def test_Check(self):
         mod = self.make_module("""

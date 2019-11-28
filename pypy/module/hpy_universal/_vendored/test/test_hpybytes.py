@@ -1,6 +1,6 @@
 from .support import HPyTest
 
-class TestBytesObject(HPyTest):
+class TestBytes(HPyTest):
 
     def test_Check(self):
         mod = self.make_module("""

@@ -1,6 +1,6 @@
 from .support import HPyTest
 
-class TestDictObject(HPyTest):
+class TestDict(HPyTest):
 
     def test_New(self):
         mod = self.make_module("""
