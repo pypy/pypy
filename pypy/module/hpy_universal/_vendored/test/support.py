@@ -79,7 +79,7 @@ class ExtensionCompiler:
         source = expand_template(template, name)
         filename = self.tmpdir.join(name + '.c')
         filename.write(source)
-        return filename
+        return str(filename)
 
     def compile_module(self, main_template, name, extra_templates):
         """
