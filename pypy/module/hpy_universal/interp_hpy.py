@@ -26,7 +26,7 @@ def HPyModule_Create(space, ctx, hpydef):
             if not p[i].c_ml_flags & llapi._HPy_METH:
                 # we need to add support for legacy methods through cpyext
                 raise oefmt(space.w_NotImplementedError, "non-hpy method: %s",
-                            rffi.charp2str(p[i].c_ml_name))
+                            rffi.constcharp2str(p[i].c_ml_name))
             w_extfunc = interp_extfunc.W_ExtensionFunction(p[i], w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1

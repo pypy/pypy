@@ -1,6 +1,7 @@
 import re
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, llhelper_can_raise
 
 
@@ -10,6 +11,10 @@ class APISet(object):
 
     def __init__(self):
         self.all_functions = []
+
+    def _freeze_(self):
+        self.all_functions = unrolling_iterable(self.all_functions)
+        return True
 
     def func(self, argtypes, restype):
         def decorate(fn):
