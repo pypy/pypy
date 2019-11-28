@@ -144,7 +144,6 @@ HPy_METH_O        = 0x0008 | _HPy_METH
 
 # ----------------------------------------------------------------
 
-
 _HPy_GetGlobalCtx = rffi.llexternal('_HPy_GetGlobalCtx', [], HPyContext,
                                     compilation_info=eci, _nowrapper=True)
 

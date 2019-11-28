@@ -13,7 +13,7 @@ from pypy.module.hpy_universal.apiset import API
 from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
 
 
-@API.func([llapi.HPyContext, lltype.Ptr(llapi.HPyModuleDef)], llapi.HPy)
+@API.func("HPy HPyModule_Create(HPyContext ctx, HPyModuleDef *def)")
 def HPyModule_Create(space, ctx, hpydef):
     modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
@@ -34,20 +34,20 @@ def HPyModule_Create(space, ctx, hpydef):
     return handles.new(space, w_mod)
 
 
-@API.func([llapi.HPyContext, llapi.HPy], llapi.HPy)
+@API.func("HPy HPy_Dup(HPyContext ctx, HPy h)")
 def HPy_Dup(space, ctx, h):
     return handles.dup(space, h)
 
-@API.func([llapi.HPyContext, llapi.HPy], lltype.Void)
+@API.func("void HPy_Close(HPyContext ctx, HPy h)")
 def HPy_Close(space, ctx, h):
     handles.close(space, h)
 
-@API.func([llapi.HPyContext, rffi.LONG], llapi.HPy)
+@API.func("HPy HPyLong_FromLong(HPyContext ctx, long value)")
 def HPyLong_FromLong(space, ctx, value):
     w_obj = space.newint(rffi.cast(lltype.Signed, value))
     return handles.new(space, w_obj)
 
-@API.func([llapi.HPyContext, llapi.HPy], rffi.LONG)
+@API.func("long HPyLong_AsLong(HPyContext ctx, HPy h)")
 def HPyLong_AsLong(space, ctx, h):
     w_obj = handles.deref(space, h)
     #w_obj = space.int(w_obj)     --- XXX write a test for this
@@ -57,14 +57,14 @@ def HPyLong_AsLong(space, ctx, h):
     #    ...
     return result
 
-@API.func([llapi.HPyContext, llapi.HPy, llapi.HPy], llapi.HPy)
+@API.func("HPy HPyNumber_Add(HPyContext ctx, HPy x, HPy y)")
 def HPyNumber_Add(space, ctx, h1, h2):
     w_obj1 = handles.deref(space, h1)
     w_obj2 = handles.deref(space, h2)
     w_result = space.add(w_obj1, w_obj2)
     return handles.new(space, w_result)
 
-@API.func([llapi.HPyContext, rffi.CCHARP], llapi.HPy)
+@API.func("HPy HPyUnicode_FromString(HPyContext ctx, const char *utf8)")
 def HPyUnicode_FromString(space, ctx, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
     return handles.new(space, w_obj)
@@ -78,7 +78,7 @@ def _maybe_utf8_to_w(space, utf8):
         raise   # XXX do something
     return space.newtext(s, length)
 
-@API.func([llapi.HPyContext, llapi.HPy, rffi.CCHARP], lltype.Void)
+@API.func("void HPyErr_SetString(HPyContext ctx, HPy type, const char *message)")
 def HPyErr_SetString(space, ctx, h_exc_type, utf8):
    w_obj = _maybe_utf8_to_w(space, utf8)
    w_exc_type = handles.deref(space, h_exc_type)
