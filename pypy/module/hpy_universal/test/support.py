@@ -34,7 +34,8 @@ class HPyAppTest(object):
             if w_extra_templates is None:
                 extra_templates = ()
             else:
-                import pdb;pdb.set_trace()
+                items_w = space.unpackiterable(w_extra_templates)
+                extra_templates = [space.text_w(item) for item in items_w]
             so_filename = compiler.compile_module(source_template, name, extra_templates)
             w_mod = space.appexec([space.newtext(so_filename), space.newtext(name)],
                 """(path, modname):
