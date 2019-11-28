@@ -1,6 +1,6 @@
 import pytest
-from pypy.module.hpy_universal._vendored.test.test_bytesobject import TestBytesObject as _TestBytesobject
+from pypy.module.hpy_universal._vendored.test.test_hpybytes import TestBytes as _Test
 from .support import HPyAppTest
 
-class AppTestBytesObject(HPyAppTest, _TestBytesObject):
+class AppTestBytes(HPyAppTest, _Test):
     spaceconfig = {'usemodules': ['hpy_universal']}
