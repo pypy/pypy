@@ -32,7 +32,7 @@ def apifunc(argtypes, restype):
 
 @apifunc([llapi.HPyContext, lltype.Ptr(llapi.HPyModuleDef)], llapi.HPy)
 def HPyModule_Create(space, ctx, hpydef):
-    modname = rffi.charp2str(hpydef.c_m_name)
+    modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
     #
     # add all the functions defined in hpydef.c_m_methods
@@ -100,7 +100,7 @@ def HPyErr_SetString(space, ctx, h_exc_type, utf8):
 
 def create_hpy_module(space, name, origin, lib, initfunc):
     state = space.fromcache(State)
-    initfunc = rffi.cast(llapi.HPyInitFuncPtr, initfunc)
+    initfunc = rffi.cast(llapi.HPyInitFunc, initfunc)
     h_module = generic_cpy_call_dont_convert_result(space, initfunc, state.ctx)
     return handles.consume(space, h_module)
 

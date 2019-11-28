@@ -6,7 +6,11 @@
 #include <stdarg.h>
 
 typedef intptr_t HPy_ssize_t;
-typedef struct { HPy_ssize_t _i; } HPy;
+
+// WARNING: the following change has been done inside the pypy hpy-ctypespace
+// branch. If/when the branch is merged, we should backport it to pyhandle/hpy
+struct _HPy_s { HPy_ssize_t _i; };
+typedef struct _HPy_s HPy;
 
 typedef struct _HPyContext_s *HPyContext;
 struct _object;  /* that's PyObject inside CPython */

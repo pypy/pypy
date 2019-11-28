@@ -467,12 +467,16 @@ class Array(ContainerType):
     _str_fields = saferecursive(_str_fields, '...')
 
     def __str__(self):
-        return "%s of %s " % (self.__class__.__name__,
-                               self._str_fields(),)
+        hints = (' ' + str(self._hints)) if self._hints else ''
+        return "%s of %s%s " % (self.__class__.__name__,
+                                self._str_fields(),
+                                hints)
 
     def _short_name(self):
-        return "%s %s" % (self.__class__.__name__,
-                          self.OF._short_name(),)
+        hints = (' ' + str(self._hints)) if self._hints else ''
+        return "%s %s%s" % (self.__class__.__name__,
+                            self.OF._short_name(),
+                            hints)
     _short_name = saferecursive(_short_name, '...')
 
     def _container_example(self):

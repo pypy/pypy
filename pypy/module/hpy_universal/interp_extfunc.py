@@ -14,15 +14,14 @@ class W_ExtensionFunction(W_Root):
     def __init__(self, ml, w_self):
         self.ml = ml
         self.w_self = w_self
-        self.name = rffi.charp2str(self.ml.c_ml_name)
+        self.name = rffi.constcharp2str(self.ml.c_ml_name)
         self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         # fetch the real HPy function pointer, by calling ml_meth, which
         # is a function that returns it and also the CPython-only trampoline
         with lltype.scoped_alloc(
-                rffi.CArray(llapi._HPyCFunctionPtr), 1) as funcptr:
+                rffi.CArray(llapi._HPyCFunction), 1) as funcptr:
             with lltype.scoped_alloc(
-                    rffi.CArray(llapi._HPy_CPyCFunctionPtr), 1)  \
-                                                        as ignored_trampoline:
+                    rffi.CArray(llapi._HPyCPyCFunction), 1) as ignored_trampoline:
                 ml.c_ml_meth(funcptr, ignored_trampoline)
                 self.cfuncptr = funcptr[0]
 

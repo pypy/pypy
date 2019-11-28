@@ -3,11 +3,12 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 from pypy import pypydir
-from pypy.module.hpy_universal import _vendored
+from pypy.module.cpyext.cparser import CTypeSpace
 
 PYPYDIR = py.path.local(pypydir)
 INCLUDE_DIR = PYPYDIR.join('module', 'hpy_universal', '_vendored', 'include')
 SRC_DIR = PYPYDIR.join('module', 'hpy_universal', 'src')
+
 
 eci = ExternalCompilationInfo(
     includes=["universal/hpy.h", "getargs.h"],
@@ -21,6 +22,11 @@ eci = ExternalCompilationInfo(
     ],
     post_include_bits=["""
         RPY_EXTERN void *_HPy_GetGlobalCtx(void);
+
+        // these are workarounds for a CTypeSpace limitation, since it can't properly
+        // handle struct types which are not typedefs
+        typedef struct _HPyContext_s _struct_HPyContext_s;
+        typedef struct _HPy_s _struct_HPy_s;
     """],
     separate_module_sources=["""
         struct _HPyContext_s hpy_global_ctx;
@@ -30,71 +36,89 @@ eci = ExternalCompilationInfo(
         }
     """])
 
+cts = CTypeSpace()
+# NOTE: the following C source is NOT seen by the C compiler during
+# translation: it is used only as a nice way to declare the lltype.* types
+# which are needed here
+cts.headers.append('stdint.h')
+cts.parse_source("""
+typedef intptr_t HPy_ssize_t;
 
-HPy_ssize_t = lltype.Signed # XXXXXXXXX?
+// see below for more info about HPy vs _struct_HPy_s
+typedef struct _HPy_s {
+    HPy_ssize_t _i;
+} _struct_HPy_s;
+typedef HPy_ssize_t HPy;
+
+typedef struct _HPyContext_s {
+    int ctx_version;
+    struct _HPy_s h_None;
+    struct _HPy_s h_True;
+    struct _HPy_s h_False;
+    struct _HPy_s h_ValueError;
+    void *ctx_Module_Create;
+    void *ctx_Dup;
+    void *ctx_Close;
+    void *ctx_Long_FromLong;
+    void *ctx_Long_AsLong;
+    void *ctx_Arg_Parse;
+    void *ctx_Number_Add;
+    void *ctx_Unicode_FromString;
+    void *ctx_Err_SetString;
+    void *ctx_FromPyObject;
+    void *ctx_AsPyObject;
+    void *ctx_CallRealFunctionFromTrampoline;
+} _struct_HPyContext_s;
+typedef struct _HPyContext_s *HPyContext;
+
+typedef HPy (*HPyInitFunc)(HPyContext ctx);
+
+typedef HPy (*_HPyCFunction)(HPyContext ctx, HPy self, HPy args);
+typedef void *_HPyCPyCFunction; // not used here
+typedef void (*_HPyMethodPairFunc)(_HPyCFunction *out_func,
+                                   _HPyCPyCFunction *out_trampoline);
+typedef HPy (*HPyMeth_VarArgs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
+
+typedef struct {
+    const char         *ml_name;
+    _HPyMethodPairFunc ml_meth;
+    int                ml_flags;
+    const char         *ml_doc;
+} HPyMethodDef;
+
+typedef struct {
+    void *dummy; // this is needed because we put a comma after HPyModuleDef_HEAD_INIT :(
+    const char* m_name;
+    const char* m_doc;
+    HPy_ssize_t m_size;
+    HPyMethodDef *m_methods;
+} HPyModuleDef;
+""")
+
+HPy_ssize_t = cts.gettype('HPy_ssize_t')
+# XXX: HPyContext is equivalent to the old HPyContext which was defined
+# explicitly using rffi.CStruct: the only different is that this is missing
+# hints={'eci': eci}: however, the tests still pass (including
+# ztranslation). Why was the eci needed?
+HPyContext = cts.gettype('HPyContext')
 
 # for practical reason, we use a primitive type to represent HPy almost
-# everywhere in RPython. HOWEVER, the "real" HPy C type which is defined in
-# universal/hpy.h is an anonymous struct: we need to use it e.g. to represent
-# fields inside HPyContextS
-HPy = HPy_ssize_t
-HPyS_real = rffi.CStruct('HPy',
-    ('_i', HPy_ssize_t),
-    hints={'eci': eci, 'typedef': True},
-)
+# everywhere in RPython: for example, rffi cannot handle functions returning
+# structs. HOWEVER, the "real" HPy C type is a struct, which is available as
+# "_struct_HPy_s"
+HPy = cts.gettype('HPy')
 
+HPyInitFunc = cts.gettype('HPyInitFunc')
+_HPyCFunction = cts.gettype('_HPyCFunction')
+_HPyCPyCFunction = cts.gettype('_HPyCPyCFunction')
+HPyMeth_VarArgs = cts.gettype('HPyMeth_VarArgs')
 
-HPyContextS = rffi.CStruct('_HPyContext_s',
-    ('ctx_version', rffi.INT_real),
-    ('h_None', HPyS_real),
-    ('h_True', HPyS_real),
-    ('h_False', HPyS_real),
-    ('h_ValueError', HPyS_real),
-    ('ctx_Module_Create', rffi.VOIDP),
-    ('ctx_Dup', rffi.VOIDP),
-    ('ctx_Close', rffi.VOIDP),
-    ('ctx_Long_FromLong', rffi.VOIDP),
-    ('ctx_Long_AsLong', rffi.VOIDP),
-    ('ctx_Arg_Parse', rffi.VOIDP),
-    ('ctx_Number_Add', rffi.VOIDP),
-    ('ctx_Unicode_FromString', rffi.VOIDP),
-    ('ctx_Err_SetString', rffi.VOIDP),
-    ('ctx_FromPyObject', rffi.VOIDP),
-    ('ctx_AsPyObject', rffi.VOIDP),
-    ('ctx_CallRealFunctionFromTrampoline', rffi.VOIDP),
-    hints={'eci': eci},
-)
-HPyContext = lltype.Ptr(HPyContextS)
-HPyInitFuncPtr = lltype.Ptr(lltype.FuncType([HPyContext], HPy))
-
-_HPyCFunctionPtr = lltype.Ptr(lltype.FuncType([HPyContext, HPy, HPy], HPy))
-_HPy_CPyCFunctionPtr = rffi.VOIDP    # not used here
-
-HPyMeth_VarArgs = lltype.Ptr(
-    lltype.FuncType([HPyContext, HPy, lltype.Ptr(rffi.CArray(HPy)), HPy_ssize_t], HPy))
-
-
-_HPyMethodPairFuncPtr = lltype.Ptr(lltype.FuncType([
-        rffi.CArrayPtr(_HPyCFunctionPtr),
-        rffi.CArrayPtr(_HPy_CPyCFunctionPtr)],
-    lltype.Void))
-
-HPyMethodDef = rffi.CStruct('HPyMethodDef',
-    ('ml_name', rffi.CCHARP),
-    ('ml_meth', _HPyMethodPairFuncPtr),
-    ('ml_flags', rffi.INT_real),
-    ('ml_doc', rffi.CCHARP),
-    hints={'eci': eci, 'typedef': True},
-)
-
-HPyModuleDef = rffi.CStruct('HPyModuleDef',
-    ('dummy', rffi.VOIDP),
-    ('m_name', rffi.CCHARP),
-    ('m_doc', rffi.CCHARP),
-    ('m_size', lltype.Signed),
-    ('m_methods', rffi.CArrayPtr(HPyMethodDef)),
-    hints={'eci': eci, 'typedef': True},
-)
+HPyMethodDef = cts.gettype('HPyMethodDef')
+HPyModuleDef = cts.gettype('HPyModuleDef')
+# CTypeSpace converts "HPyMethodDef*" into lltype.Ptr(HPyMethodDef), but we
+# want a CArrayPtr instead, so that we can index the items inside
+# HPyModule_Create
+HPyModuleDef._flds['c_m_methods'] = rffi.CArrayPtr(HPyMethodDef)
 
 METH_VARARGS  = 0x0001
 METH_KEYWORDS = 0x0002
