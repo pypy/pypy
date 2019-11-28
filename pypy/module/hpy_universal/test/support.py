@@ -1,7 +1,7 @@
 import py
 import pytest
 from rpython.tool.udir import udir
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.module.hpy_universal.llapi import INCLUDE_DIR
 from pypy.module.hpy_universal._vendored.test import support as _support
 
@@ -26,9 +26,14 @@ class HPyAppTest(object):
                                                  keep=0)  # keep everything
         compiler = _support.ExtensionCompiler(tmpdir, 'universal', INCLUDE_DIR)
 
-        @unwrap_spec(source_template='text', name='text')
-        def descr_make_module(space, source_template, name='mytest'):
-            so_filename = compiler.compile_module(source_template, name)
+        @unwrap_spec(source_template='text', name='text', w_extra_templates=W_Root)
+        def descr_make_module(space, source_template, name='mytest',
+                              w_extra_templates=None):
+            if w_extra_templates is None:
+                extra_templates = ()
+            else:
+                import pdb;pdb.set_trace()
+            so_filename = compiler.compile_module(source_template, name, extra_templates)
             w_mod = space.appexec([space.newtext(so_filename), space.newtext(name)],
                 """(path, modname):
                     import hpy_universal
