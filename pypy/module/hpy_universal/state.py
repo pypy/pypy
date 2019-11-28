@@ -4,6 +4,8 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import jit
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
+
+from pypy.interpreter.error import OperationError
 from pypy.module.hpy_universal import llapi, handles
 from pypy.module.hpy_universal.apiset import API
 
@@ -12,11 +14,11 @@ CONSTANT_NAMES = unrolling_iterable([name for name, _ in handles.CONSTANTS])
 DUMMY_FUNC = lltype.FuncType([], lltype.Void)
 
 @specialize.memo()
-def make_missing_function(name):
+def make_missing_function(space, name):
     def missing_function():
         print ("oops! calling the slot '%s', "
                "which is not implemented" % (name,))
-        os._exit(1)
+        raise OperationError(space.w_NotImplementedError, space.wrap(name))
     return missing_function
 
 
@@ -41,7 +43,7 @@ class State:
                 # this is a function pointer: assign a default value so we get
                 # a reasonable error message if it's called without being
                 # assigned to something else
-                missing_function = make_missing_function(name)
+                missing_function = make_missing_function(space, name)
                 funcptr = llhelper(lltype.Ptr(DUMMY_FUNC), missing_function)
                 setattr(self.ctx, name, rffi.cast(rffi.VOIDP, funcptr))
         i = 0
