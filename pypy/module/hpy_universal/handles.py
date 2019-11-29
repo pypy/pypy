@@ -13,19 +13,27 @@ class HandleManager:
 
     def __init__(self, space):
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
+        self.finalizers = [None] * len(self.handles_w)
         self.free_list = []
 
     def new(self, w_object):
         if len(self.free_list) == 0:
             index = len(self.handles_w)
             self.handles_w.append(w_object)
+            self.finalizers.append(None)
         else:
             index = self.free_list.pop()
             self.handles_w[index] = w_object
+            # finalizers[index] is already set to None by close()
         return index
 
     def close(self, index):
         assert index > 0
+        if self.finalizers[index] is not None:
+            w_obj = self.deref(index)
+            for f in self.finalizers[index]:
+                f.finalize(index, w_obj)
+            self.finalizers[index] = None
         self.handles_w[index] = None
         self.free_list.append(index)
 
@@ -46,6 +54,24 @@ class HandleManager:
         w_object = self.handles_w[index]
         return self.new(w_object)
 
+    def attach_finalizer(self, index, finalizer):
+        if self.finalizers[index] is None:
+            self.finalizers[index] = [finalizer]
+        else:
+            self.finalizers[index].append(finalizer)
+
+
+class HandleFinalizer(object):
+
+    def finalize(self, h, w_obj):
+        raise NotImplementedError
+
+
+
+
+# =========================
+# high level user interface
+# =========================
 
 def new(space, w_object):
     mgr = space.fromcache(HandleManager)
