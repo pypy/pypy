@@ -23,8 +23,14 @@ def HPyBytes_GET_SIZE(space, ctx, h):
 
 @API.func("char *HPyBytes_AsString(HPyContext ctx, HPy h)")
 def HPyBytes_AsString(space, ctx, h):
-    raise NotImplementedError
+    w_obj = handles.deref(space, h)
+    s = space.bytes_w(w_obj)
+    llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
+    cb = handles.FreeNonMovingBuffer(llbuf, llstring, flag)
+    handles.attach_release_callback(space, h, cb)
+    return llbuf
+
 
 @API.func("char *HPyBytes_AS_STRING(HPyContext ctx, HPy h)")
 def HPyBytes_AS_STRING(space, ctx, h):
-    raise NotImplementedError
+    return HPyBytes_AsString(space, ctx, h)

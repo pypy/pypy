@@ -1,3 +1,4 @@
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 CONSTANTS = [
     ('NULL', lambda space: None),
@@ -67,6 +68,19 @@ class HandleReleaseCallback(object):
         raise NotImplementedError
 
 
+class FreeNonMovingBuffer(HandleReleaseCallback):
+    """
+    Callback to call rffi.free_nonmovingbuffer_ll
+    """
+
+    def __init__(self, llbuf, llstring, flag):
+        self.llbuf = llbuf
+        self.llstring = llstring
+        self.flag = flag
+
+    def release(self, h, w_obj):
+        rffi.free_nonmovingbuffer_ll(self.llbuf, self.llstring, self.flag)
+
 
 
 # =========================
@@ -93,6 +107,9 @@ def dup(space, index):
     mgr = space.fromcache(HandleManager)
     return mgr.dup(index)
 
+def attach_release_callback(space, index, cb):
+    mgr = space.fromcache(HandleManager)
+    return mgr.attach_release_callback(index, cb)
 
 class using(object):
     """
