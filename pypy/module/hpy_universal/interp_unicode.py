@@ -7,7 +7,7 @@ from pypy.module.hpy_universal import handles
 
 def _maybe_utf8_to_w(space, utf8):
     # should this be a method of space?
-    s = rffi.charp2str(utf8)
+    s = rffi.constcharp2str(utf8)
     try:
         length = rutf8.check_utf8(s, allow_surrogates=False)
     except rutf8.CheckError:

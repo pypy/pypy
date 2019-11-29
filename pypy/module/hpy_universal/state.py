@@ -18,7 +18,7 @@ def make_missing_function(space, name):
     def missing_function():
         print ("oops! calling the slot '%s', "
                "which is not implemented" % (name,))
-        raise OperationError(space.w_NotImplementedError, space.wrap(name))
+        raise OperationError(space.w_NotImplementedError, space.newtext(name))
     return missing_function
 
 

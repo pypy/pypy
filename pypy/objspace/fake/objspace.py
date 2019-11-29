@@ -77,7 +77,7 @@ class W_UnicodeOjbect(W_MyObject):
         return NonConstant(42)
     def _len(self):
         return self._length
-    
+
 
 class W_MyType(W_MyObject):
     name = "foobar"
@@ -153,7 +153,13 @@ class FakeObjSpace(ObjSpace):
         # In Python2, this is triggered by W_InstanceObject.__getslice__.
         def build_slice():
             self.newslice(self.w_None, self.w_None, self.w_None)
+        def attach_list_strategy():
+            from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy
+            w_obj = w_some_obj()
+            if isinstance(w_obj, W_ListObject):
+                w_obj.strategy = EmptyListStrategy(self)
         self._seen_extras.append(build_slice)
+        self._seen_extras.append(attach_list_strategy)
 
     def _freeze_(self):
         return True
@@ -206,6 +212,10 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newlong(self, x):
+        return w_some_obj()
+
+    @specialize.argtype(1)
+    def newlong_from_rarith_int(self, x):
         return w_some_obj()
 
     def newfloat(self, x):
