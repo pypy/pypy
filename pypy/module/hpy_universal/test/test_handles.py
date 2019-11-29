@@ -1,6 +1,6 @@
 import pytest
 from pypy.module.hpy_universal import handles
-from pypy.module.hpy_universal.handles import HandleManager, HandleFinalizer
+from pypy.module.hpy_universal.handles import HandleManager, HandleReleaseCallback
 
 class FakeSpace(object):
     def __init__(self):
@@ -71,23 +71,24 @@ class TestHandleManager(object):
         assert h1 != h0
         assert mgr.consume(h0) == mgr.consume(h1) == 'hello'
 
-class TestFinalizer(object):
 
-    class MyFinalizer(HandleFinalizer):
+class TestReleaseCallback(object):
+
+    class MyCallback(HandleReleaseCallback):
         def __init__(self, seen, data):
             self.seen = seen
             self.data = data
-        def finalize(self, h, obj):
+        def release(self, h, obj):
             self.seen.append((h, obj, self.data))
 
-    def test_finalizer(self, fakespace):
+    def test_callback(self, fakespace):
         mgr = HandleManager(fakespace)
         seen = []
         h0 = mgr.new('hello')
         h1 = mgr.dup(h0)
         h2 = mgr.dup(h0)
-        mgr.attach_finalizer(h0, self.MyFinalizer(seen, 'foo'))
-        mgr.attach_finalizer(h1, self.MyFinalizer(seen, 'bar'))
+        mgr.attach_release_callback(h0, self.MyCallback(seen, 'foo'))
+        mgr.attach_release_callback(h1, self.MyCallback(seen, 'bar'))
         assert seen == []
         #
         mgr.close(h1)
@@ -104,23 +105,23 @@ class TestFinalizer(object):
         mgr = HandleManager(fakespace)
         seen = []
         h0 = mgr.new('hello')
-        mgr.attach_finalizer(h0, self.MyFinalizer(seen, 'foo'))
+        mgr.attach_release_callback(h0, self.MyCallback(seen, 'foo'))
         mgr.close(h0)
         assert seen == [(h0, 'hello', 'foo')]
         #
-        # check that the finalizer array is cleared when we close the handle
-        # and that we don't run the finalizer for a wrong object
+        # check that the releaser array is cleared when we close the handle
+        # and that we don't run the releaser for a wrong object
         h1 = mgr.new('world')
         assert h1 == h0
         mgr.close(h1)
         assert seen == [(h0, 'hello', 'foo')]
 
-    def test_multiple_finalizers(self, fakespace):
+    def test_multiple_releasers(self, fakespace):
         mgr = HandleManager(fakespace)
         seen = []
         h0 = mgr.new('hello')
-        mgr.attach_finalizer(h0, self.MyFinalizer(seen, 'foo'))
-        mgr.attach_finalizer(h0, self.MyFinalizer(seen, 'bar'))
+        mgr.attach_release_callback(h0, self.MyCallback(seen, 'foo'))
+        mgr.attach_release_callback(h0, self.MyCallback(seen, 'bar'))
         mgr.close(h0)
         assert seen == [(h0, 'hello', 'foo'),
                         (h0, 'hello', 'bar')]
