@@ -60,12 +60,9 @@ where XXXXX is the revision id.
 Install build-time dependencies
 -------------------------------
 (**Note**: for some hints on how to translate the Python interpreter under
-Windows, see the `windows document`_ . For hints on how to cross-compile in
-a chroot using scratchbox2, see the `arm document`_ in the
-`RPython documentation`_)
+Windows, see the `windows document`_ . 
 
 .. _`windows document`: windows.html
-.. _`arm document`: http://rpython.readthedocs.org/en/latest/arm.html
 .. _`RPython documentation`: http://rpython.readthedocs.org
 
 The host Python needs to have CFFI installed. If translating on PyPy, CFFI is
@@ -138,7 +135,7 @@ On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     sqlite-devel ncurses-devel expat-devel openssl-devel tk-devel \
-    gdbm-devel python-cffi\
+    gdbm-devel python-cffi gc-devel\
     xz-devel  # For lzma on PyPy3.
 
 On SLES11::
