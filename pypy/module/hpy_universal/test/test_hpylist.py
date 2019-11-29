@@ -1,6 +1,6 @@
 import pytest
-from pypy.module.hpy_universal._vendored.test.test_listobject import TestListObject as _TestListobject
+from pypy.module.hpy_universal._vendored.test.test_hpylist import TestList as _Test
 from .support import HPyAppTest
 
-class AppTestListObject(HPyAppTest, _TestListObject):
+class AppTestList(HPyAppTest, _Test):
     spaceconfig = {'usemodules': ['hpy_universal']}
