@@ -16,8 +16,12 @@ class TestUnicode(HPyTest):
             @EXPORT f HPy_METH_O
             @INIT
         """)
+        class MyUnicode(str):
+            pass
+
         assert mod.f('hello') is True
         assert mod.f(b'hello') is False
+        assert mod.f(MyUnicode('hello')) is True
 
     def test_FromString(self):
         mod = self.make_module("""

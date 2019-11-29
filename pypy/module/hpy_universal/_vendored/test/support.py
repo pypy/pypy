@@ -2,6 +2,8 @@ import os, sys
 import pytest
 import re
 
+PY2 = sys.version_info[0] == 2
+
 r_marker_init = re.compile(r"\s*@INIT\s*$")
 r_marker_export = re.compile(r"\s*@EXPORT\s+(\w+)\s+(.*)\s*$")
 
@@ -78,7 +80,14 @@ class ExtensionCompiler:
     def _expand(self, name, template):
         source = expand_template(template, name)
         filename = self.tmpdir.join(name + '.c')
-        filename.write(source)
+        if PY2:
+            # this code is used also by pypy tests, which run on python2. In
+            # this case, we need to write as binary, because source is
+            # "bytes". If we don't and source contains a non-ascii char, we
+            # get an UnicodeDecodeError
+            filename.write(source, mode='wb')
+        else:
+            filename.write(source)
         return str(filename)
 
     def compile_module(self, main_template, name, extra_templates):

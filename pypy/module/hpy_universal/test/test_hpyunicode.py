@@ -1,6 +1,6 @@
 import pytest
-from pypy.module.hpy_universal._vendored.test.test_unicodeobject import TestUnicodeObject as _TestUnicodeobject
+from pypy.module.hpy_universal._vendored.test.test_hpyunicode import TestUnicode as _Test
 from .support import HPyAppTest
 
-class AppTestUnicodeObject(HPyAppTest, _TestUnicodeObject):
+class AppTestUnicode(HPyAppTest, _Test):
     spaceconfig = {'usemodules': ['hpy_universal']}
