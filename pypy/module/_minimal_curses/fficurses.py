@@ -7,8 +7,16 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # We cannot trust ncurses5-config, it's broken in various ways in
 # various versions.  For example it might not list -ltinfo even though
-# it's needed, or --cflags might be completely empty.  On Ubuntu 10.04
-# it gives -I/usr/include/ncurses, which doesn't exist at all.  Crap.
+# it's needed, or --cflags might be completely empty. Crap.
+
+IS_CENTOS_6_10 = False
+try:
+    with open('/etc/redhat-release') as fid:
+        for line in fid:
+            if 'CentOS release 6.10' in line:
+                IS_CENTOS_6_10 = True
+except IOError:
+    pass
 
 def try_cflags():
     yield ExternalCompilationInfo(includes=['curses.h', 'term.h'])
@@ -20,8 +28,9 @@ def try_cflags():
                                             'ncurses/term.h'])
 
 def try_ldflags():
-    yield ExternalCompilationInfo(libraries=['curses'])
     yield ExternalCompilationInfo(libraries=['curses', 'tinfo'])
+    yield ExternalCompilationInfo(libraries=['curses'])
+    yield ExternalCompilationInfo(libraries=['ncurses', 'tinfo'])
     yield ExternalCompilationInfo(libraries=['ncurses'])
     yield ExternalCompilationInfo(libraries=['ncurses'],
                                   library_dirs=['/usr/lib64'])
@@ -29,6 +38,8 @@ def try_ldflags():
                                   library_dirs=['/usr/lib64'])
 
 def try_tools():
+    if IS_CENTOS_6_10:
+        return
     try:
         yield ExternalCompilationInfo.from_pkg_config("ncurses")
     except Exception:
