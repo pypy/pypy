@@ -4,8 +4,10 @@ import platform
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
+IS_X86 = platform.machine().startswith('x86') or platform.machine() == 'i686'
+
 def no_vector_backend():
-    if platform.machine().startswith('x86'):
+    if IS_X86:
         from rpython.jit.backend.x86.detect_feature import detect_sse4_2
         if sys.maxsize < 2**31:
             return True    
@@ -19,7 +21,7 @@ def no_vector_backend():
     return True
 
 def align_check(input):
-    if platform.machine().startswith('x86'):
+    if IS_X86:
         return ""
     if sys.maxsize > 2**32:
         mask = 7
