@@ -6,7 +6,9 @@
 #include <stdarg.h>
 
 typedef intptr_t HPy_ssize_t;
-typedef struct { HPy_ssize_t _i; } HPy;
+
+struct _HPy_s { HPy_ssize_t _i; };
+typedef struct _HPy_s HPy;
 
 typedef struct _HPyContext_s *HPyContext;
 struct _object;  /* that's PyObject inside CPython */
