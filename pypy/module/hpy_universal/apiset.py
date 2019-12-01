@@ -52,6 +52,7 @@ class APISet(object):
                 return wrapper
             def get_llhelper(space):
                 return llhelper(ll_functype, make_wrapper(space))
+            get_llhelper.__name__ = 'get_llhelper_%s' % fn.__name__
             fn.get_llhelper = get_llhelper
 
             # basename
