@@ -1369,7 +1369,6 @@ class AppTestPosix:
             raises(OSError, posix.get_blocking, 1234567)
             raises(OSError, posix.set_blocking, 1234567, True)
 
-    if sys.platform != 'win32':
         def test_sendfile(self):
             import _socket, posix
             s1, s2 = _socket.socketpair()
@@ -1392,6 +1391,13 @@ class AppTestPosix:
             posix.close(fd)
             fd = posix.open(memoryview(pdir), posix.O_RDONLY)
             posix.close(fd)
+
+        def test_getgrouplist(self):
+            import posix, getpass
+            gid = posix.getgid()
+            user = getpass.getuser()
+            groups = posix.getgrouplist(user, gid)
+            assert gid in groups
 
     if sys.platform.startswith('linux'):
         def test_sendfile_no_offset(self):
