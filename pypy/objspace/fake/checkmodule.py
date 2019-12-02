@@ -72,5 +72,9 @@ def checkmodule(modname, translate_startup=True, ignore=(),
         print
         exc, val, tb = sys.exc_info()
         traceback.print_exc()
-        sys.p = p = PdbPlusShow(space.t)
+        sys.pdbplus = p = PdbPlusShow(space.t)
         p.start(tb)
+    else:
+        if show_pdbplus:
+            sys.pdbplus = p = PdbPlusShow(space.t)
+            p.start(None)

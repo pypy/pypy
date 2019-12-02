@@ -35,6 +35,8 @@ def HPyUnicode_AsUTF8String(space, ctx, h):
 
 @API.func("HPy HPyUnicode_FromWideChar(HPyContext ctx, const wchar_t *w, HPy_ssize_t size)")
 def HPyUnicode_FromWideChar(space, ctx, wchar_p, size):
+    # remove the "const", else we can't call wcharpsize2utf8 later
+    wchar_p = rffi.cast(rffi.CWCHARP, wchar_p)
     if wchar_p:
         if size == -1:
             size = wcharplen(wchar_p)
