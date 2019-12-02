@@ -165,8 +165,20 @@ class FakeObjSpace(ObjSpace):
                 w_obj.strategy = ObjectListStrategy(space)
                 list_w = [w_some_obj(), w_some_obj()]
                 w_obj.lstorage = w_obj.strategy.erase(list_w)
+        def attach_dict_strategy():
+            # this is needed for modules which do e.g. "isinstance(w_obj,
+            # W_DictMultiObject)", like hpy_universal. Make sure that the
+            # annotator sees a concrete class, like W_DictObject, else lots of
+            # operations are blocked.
+            from pypy.objspace.std.dictmultiobject import W_DictObject, ObjectDictStrategy
+            space = self
+            strategy = ObjectDictStrategy(space)
+            storage = strategy.get_empty_storage()
+            w_obj = W_DictObject(space, strategy, storage)
+
         self._seen_extras.append(build_slice)
         self._seen_extras.append(attach_list_strategy)
+        self._seen_extras.append(attach_dict_strategy)
 
     def _freeze_(self):
         return True
