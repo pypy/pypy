@@ -1,25 +1,31 @@
+import sys
+import traceback
+from rpython.translator.tool.pdbplus import PdbPlusShow
 from pypy.objspace.fake.objspace import FakeObjSpace, W_Root
 from pypy.config.pypyoption import get_pypy_config
 
 
 def checkmodule(modname, translate_startup=True, ignore=(),
                 c_compile=False, extra_func=None, rpython_opts=None,
-                pypy_opts=None):
+                pypy_opts=None, show_pdbplus=False):
     """
     Check that the module 'modname' translates.
 
     Options:
       translate_startup: TODO, document me
 
-      ignore: list of module interpleveldefs/appleveldefs to ignore
+      ignore:       list of module interpleveldefs/appleveldefs to ignore
 
-      c_compile: determine whether to inokve the C compiler after rtyping
+      c_compile:    determine whether to inokve the C compiler after rtyping
 
-      extra_func: extra function which will be annotated and called. It takes
-                  a single "space" argment
+      extra_func:   extra function which will be annotated and called. It takes
+                    a single "space" argment
 
-      config_opts: dictionary containing extra configuration options which
-                   will be passed to TranslationContext
+      rpython_opts: dictionariy containing extra configuration options
+      pypy_opts:    dictionariy containing extra configuration options
+
+      show_pdbplus: show Pdb+ prompt on error. Useful for pdb commands such as
+                    flowg, callg, etc.
     """
     config = get_pypy_config(translating=True)
     if pypy_opts:
@@ -56,5 +62,15 @@ def checkmodule(modname, translate_startup=True, ignore=(),
     opts = {'translation.list_comprehension_operations': True}
     if rpython_opts:
         opts.update(rpython_opts)
-    space.translates(func, seeobj_w=seeobj_w,
-                     c_compile=c_compile, extra_func=extra_func, **opts)
+
+    try:
+        space.translates(func, seeobj_w=seeobj_w,
+                         c_compile=c_compile, extra_func=extra_func, **opts)
+    except:
+        if not show_pdbplus:
+            raise
+        print
+        exc, val, tb = sys.exc_info()
+        traceback.print_exc()
+        sys.p = p = PdbPlusShow(space.t)
+        p.start(tb)

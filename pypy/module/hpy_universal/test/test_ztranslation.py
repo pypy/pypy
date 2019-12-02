@@ -16,4 +16,6 @@ def test_checkmodule():
                 extra_func=extra_func,
                 c_compile=True,
                 rpython_opts=rpython_opts,
-                pypy_opts=pypy_opts)
+                pypy_opts=pypy_opts,
+                show_pdbplus=False,
+                )
