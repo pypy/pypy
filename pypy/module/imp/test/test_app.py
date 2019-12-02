@@ -8,7 +8,7 @@ class AppTestImpModule:
     # cpyext is required for _imp.create_dynamic()
     spaceconfig = {
         'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct',
-                       'zipimport', cpyext],
+                       'zipimport', 'cpyext'],
     }
 
     def setup_class(cls):
