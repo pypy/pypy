@@ -10,8 +10,10 @@ def test_checkmodule():
         state = space.fromcache(State)
         state.setup()
 
-    config_opts = {'translation.gc': 'boehm'}
+    rpython_opts = {'translation.gc': 'boehm'}
+    pypy_opts = {'objspace.std.withliststrategies': False}
     checkmodule('hpy_universal',
                 extra_func=extra_func,
                 c_compile=True,
-                config_opts=config_opts)
+                rpython_opts=rpython_opts,
+                pypy_opts=pypy_opts)

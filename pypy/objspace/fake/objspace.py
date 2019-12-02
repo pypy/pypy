@@ -78,7 +78,6 @@ class W_UnicodeOjbect(W_MyObject):
     def _len(self):
         return self._length
 
-
 class W_MyType(W_MyObject):
     name = "foobar"
     flag_map_or_seq = '?'
@@ -154,10 +153,18 @@ class FakeObjSpace(ObjSpace):
         def build_slice():
             self.newslice(self.w_None, self.w_None, self.w_None)
         def attach_list_strategy():
-            from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy
+            # this is needed for modules which interacts directly with
+            # std.listobject.W_ListObject, e.g. after an isinstance check. For
+            # example, hpy_universal. We need to attach a couple of attributes
+            # so that the annotator annotates them with the correct types
+            from pypy.objspace.std.listobject import W_ListObject, ObjectListStrategy
+            space = self
             w_obj = w_some_obj()
             if isinstance(w_obj, W_ListObject):
-                w_obj.strategy = EmptyListStrategy(self)
+                w_obj.space = space
+                w_obj.strategy = ObjectListStrategy(space)
+                list_w = [w_some_obj(), w_some_obj()]
+                w_obj.lstorage = w_obj.strategy.erase(list_w)
         self._seen_extras.append(build_slice)
         self._seen_extras.append(attach_list_strategy)
 

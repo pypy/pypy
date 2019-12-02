@@ -3,7 +3,8 @@ from pypy.config.pypyoption import get_pypy_config
 
 
 def checkmodule(modname, translate_startup=True, ignore=(),
-                c_compile=False, extra_func=None, config_opts=None):
+                c_compile=False, extra_func=None, rpython_opts=None,
+                pypy_opts=None):
     """
     Check that the module 'modname' translates.
 
@@ -21,6 +22,8 @@ def checkmodule(modname, translate_startup=True, ignore=(),
                    will be passed to TranslationContext
     """
     config = get_pypy_config(translating=True)
+    if pypy_opts:
+        config.set(**pypy_opts)
     space = FakeObjSpace(config)
     seeobj_w = []
     modules = []
@@ -51,7 +54,7 @@ def checkmodule(modname, translate_startup=True, ignore=(),
         func = None
 
     opts = {'translation.list_comprehension_operations': True}
-    if config_opts:
-        opts.update(config_opts)
+    if rpython_opts:
+        opts.update(rpython_opts)
     space.translates(func, seeobj_w=seeobj_w,
                      c_compile=c_compile, extra_func=extra_func, **opts)
