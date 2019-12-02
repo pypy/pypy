@@ -29,6 +29,8 @@ def HPyUnicode_FromString(space, ctx, utf8):
 
 @API.func("HPy HPyUnicode_AsUTF8String(HPyContext ctx, HPy h)")
 def HPyUnicode_AsUTF8String(space, ctx, h):
+    from rpython.rlib.nonconst import NonConstant
+    if NonConstant(False): return 0 # needed for the annotator
     raise NotImplementedError
 
 @API.func("HPy HPyUnicode_FromWideChar(HPyContext ctx, const wchar_t *w, HPy_ssize_t size)")
