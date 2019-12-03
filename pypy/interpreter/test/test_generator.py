@@ -219,22 +219,17 @@ class AppTestGenerator:
             g.close()
 
     def test_close_on_collect(self):
-        ## we need to exec it, else it won't run on python2.4
-        d = {}
-        exec """
+        import gc
         def f():
             try:
                 yield
             finally:
                 f.x = 42
-        """.strip() in d
-
-        g = d['f']()
+        g = f()
         g.next()
         del g
-        import gc
         gc.collect()
-        assert d['f'].x == 42
+        assert f.x == 42
 
     def test_generator_raises_typeerror(self):
         def f():
