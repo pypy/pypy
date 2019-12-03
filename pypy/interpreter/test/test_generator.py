@@ -58,14 +58,16 @@ class AppTestGenerator:
             yield 2
         g = f()
         # two arguments version
-        raises(NameError, g.throw, NameError, "Error")
+        with raises(NameError):
+            g.throw(NameError, "Error")
 
     def test_throw2(self):
         def f():
             yield 2
         g = f()
         # single argument version
-        raises(NameError, g.throw, NameError("Error"))
+        with raises(NameError):
+            g.throw(NameError("Error"))
 
     def test_throw3(self):
         def f():
@@ -109,41 +111,48 @@ class AppTestGenerator:
         g = f()
         next(g)
         # String exceptions are not allowed anymore
-        raises(TypeError, g.throw, "Error")
+        with raises(TypeError):
+            g.throw("Error")
         assert g.throw(Exception) == 3
-        raises(StopIteration, g.throw, Exception)
+        with raises(StopIteration):
+            g.throw(Exception)
 
     def test_throw6(self):
         def f():
             yield 2
         g = f()
-        raises(NameError, g.throw, NameError, "Error", None)
+        with raises(NameError):
+            g.throw(NameError, "Error", None)
 
 
     def test_throw_fail(self):
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.throw, NameError("Error"), "error")
+        with raises(TypeError):
+            g.throw(NameError("Error"), "error")
 
     def test_throw_fail2(self):
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.throw, list())
+        with raises(TypeError):
+            g.throw(list())
 
     def test_throw_fail3(self):
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.throw, NameError("Error"), None, "not tb object")
+        with raises(TypeError):
+            g.throw(NameError("Error"), None, "not tb object")
 
     def test_throw_finishes_generator(self):
         def f():
             yield 1
         g = f()
         assert g.gi_frame is not None
-        raises(ValueError, g.throw, ValueError)
+        with raises(ValueError):
+            g.throw(ValueError)
         assert g.gi_frame is None
 
     def test_throw_bug(self):
@@ -230,7 +239,8 @@ class AppTestGenerator:
                 raise NameError
         g = f()
         next(g)
-        raises(NameError, g.close)
+        with raises(NameError):
+            g.close()
 
     def test_close_fail(self):
         def f():
@@ -240,9 +250,11 @@ class AppTestGenerator:
                 yield 2
         g = f()
         next(g)
-        raises(RuntimeError, g.close)
+        with raises(RuntimeError):
+            g.close()
 
     def test_close_on_collect(self):
+        import gc
         def f():
             try:
                 yield
@@ -251,7 +263,6 @@ class AppTestGenerator:
         g = f()
         next(g)
         del g
-        import gc
         gc.collect()
         assert f.x == 42
 
@@ -259,8 +270,10 @@ class AppTestGenerator:
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.send)     # one argument required
-        raises(TypeError, g.send, 1)  # not started, must send None
+        with raises(TypeError):
+            g.send()     # one argument required
+        with raises(TypeError):
+            g.send(1)  # not started, must send None
 
     def test_generator_explicit_stopiteration(self):
         def f():
@@ -535,8 +548,10 @@ res = f()
         def mygen():
             yield 42
         g = mygen()
-        raises(TypeError, g.send, 2)
-        raises(TypeError, g.send, 2)
+        with raises(TypeError):
+            g.send(2)
+        with raises(TypeError):
+            g.send(2)
 
 
 class AppTestAsyncGenerator(object):
