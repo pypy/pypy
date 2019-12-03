@@ -10,7 +10,8 @@ class AppTestGenerator:
             yield 1
         g = f()
         assert g.next() == 1
-        raises(StopIteration, g.next)
+        with raises(StopIteration):
+            g.next()
 
     def test_attributes(self):
         def f():
@@ -23,7 +24,8 @@ class AppTestGenerator:
         assert not g.gi_running
         g.next()
         assert not g.gi_running
-        raises(StopIteration, g.next)
+        with raises(StopIteration):
+            g.next()
         assert not g.gi_running
         assert g.gi_frame is None
         assert g.gi_code is f.__code__
@@ -58,14 +60,16 @@ class AppTestGenerator:
             yield 2
         g = f()
         # two arguments version
-        raises(NameError, g.throw, NameError, "Error")
+        with raises(NameError):
+            g.throw(NameError, "Error")
 
     def test_throw2(self):
         def f():
             yield 2
         g = f()
         # single argument version
-        raises(NameError, g.throw, NameError("Error"))
+        with raises(NameError):
+            g.throw(NameError("Error"))
 
     def test_throw3(self):
         def f():
@@ -77,7 +81,8 @@ class AppTestGenerator:
         g = f()
         assert g.next() == 1
         assert g.throw(NameError("Error")) == 3
-        raises(StopIteration, g.next)
+        with raises(StopIteration):
+            g.next()
 
     def test_throw4(self):
         d = {}
@@ -94,7 +99,8 @@ class AppTestGenerator:
         assert g.next() == 1
         assert g.next() == 2
         assert g.throw(NameError("Error")) == 3
-        raises(StopIteration, g.next)
+        with raises(StopIteration):
+            g.next()
 
     def test_throw5(self):
         def f():
@@ -109,41 +115,48 @@ class AppTestGenerator:
         g = f()
         g.next()
         # String exceptions are not allowed anymore
-        raises(TypeError, g.throw, "Error")
+        with raises(TypeError):
+            g.throw("Error")
         assert g.throw(Exception) == 3
-        raises(StopIteration, g.throw, Exception)
+        with raises(StopIteration):
+            g.throw(Exception)
 
     def test_throw6(self):
         def f():
             yield 2
         g = f()
-        raises(NameError, g.throw, NameError, "Error", None)
+        with raises(NameError):
+            g.throw(NameError, "Error", None)
 
 
     def test_throw_fail(self):
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.throw, NameError("Error"), "error")
+        with raises(TypeError):
+            g.throw(NameError("Error"), "error")
 
     def test_throw_fail2(self):
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.throw, list())
+        with raises(TypeError):
+            g.throw(list())
 
     def test_throw_fail3(self):
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.throw, NameError("Error"), None, "not tb object")
+        with raises(TypeError):
+            g.throw(NameError("Error"), None, "not tb object")
 
     def test_throw_finishes_generator(self):
         def f():
             yield 1
         g = f()
         assert g.gi_frame is not None
-        raises(ValueError, g.throw, ValueError)
+        with raises(ValueError):
+            g.throw(ValueError)
         assert g.gi_frame is None
 
     def test_throw_bug(self):
@@ -162,8 +175,10 @@ class AppTestGenerator:
         g = f()
         res = g.next()
         assert res == 1
-        raises(StopIteration, g.next)
-        raises(NameError, g.throw, NameError)
+        with raises(StopIteration):
+            g.next()
+        with raises(NameError):
+            g.throw(NameError)
 
     def test_close(self):
         def f():
@@ -189,7 +204,8 @@ class AppTestGenerator:
                 raise NameError
         g = f()
         g.next()
-        raises(NameError, g.close)
+        with raises(NameError):
+            g.close()
 
     def test_close_fail(self):
         def f():
@@ -199,7 +215,8 @@ class AppTestGenerator:
                 yield 2
         g = f()
         g.next()
-        raises(RuntimeError, g.close)
+        with raises(RuntimeError):
+            g.close()
 
     def test_close_on_collect(self):
         ## we need to exec it, else it won't run on python2.4
@@ -223,8 +240,10 @@ class AppTestGenerator:
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.send)     # one argument required
-        raises(TypeError, g.send, 1)  # not started, must send None
+        with raises(TypeError):
+            g.send()     # one argument required
+        with raises(TypeError):
+            g.send(1)  # not started, must send None
 
     def test_generator_explicit_stopiteration(self):
         def f():
@@ -245,7 +264,8 @@ class AppTestGenerator:
             i = me.next()
             yield i
         me = g()
-        raises(ValueError, me.next)
+        with raises(ValueError):
+            me.next()
 
     def test_generator_expression(self):
         exec "res = sum(i*i for i in range(5))"
@@ -301,8 +321,10 @@ res = f()
         def mygen():
             yield 42
         g = mygen()
-        raises(TypeError, g.send, 2)
-        raises(TypeError, g.send, 2)
+        with raises(TypeError):
+            g.send(2)
+        with raises(TypeError):
+            g.send(2)
 
 
 def test_should_not_inline(space):
