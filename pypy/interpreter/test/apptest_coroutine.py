@@ -699,69 +699,40 @@ def test_anext_tuple():
 
     assert run_async(run()) == ([], (1,))
 
+# Helpers for test_async_gen_exception_11() below
+def sync_iterate(g):
+    res = []
+    while True:
+        try:
+            res.append(g.__next__())
+        except StopIteration:
+            res.append('STOP')
+            break
+        except Exception as ex:
+            res.append(str(type(ex)))
+    return res
+
+def async_iterate(g):
+    res = []
+    while True:
+        try:
+            g.__anext__().__next__()
+        except StopAsyncIteration:
+            res.append('STOP')
+            break
+        except StopIteration as ex:
+            if ex.args:
+                res.append(ex.args[0])
+            else:
+                res.append('EMPTY StopIteration')
+                break
+        except Exception as ex:
+            res.append(str(type(ex)))
+    return res
+
+
 def test_async_gen_exception_11():
     # bpo-33786
-    def compare_generators(sync_gen, async_gen):
-        def sync_iterate(g):
-            res = []
-            while True:
-                try:
-                    res.append(g.__next__())
-                except StopIteration:
-                    res.append('STOP')
-                    break
-                except Exception as ex:
-                    res.append(str(type(ex)))
-            return res
-
-        def async_iterate(g):
-            res = []
-            while True:
-                an = g.__anext__()
-                try:
-                    while True:
-                        try:
-                            an.__next__()
-                        except StopIteration as ex:
-                            if ex.args:
-                                res.append(ex.args[0])
-                                break
-                            else:
-                                res.append('EMPTY StopIteration')
-                                break
-                        except StopAsyncIteration:
-                            raise
-                        except Exception as ex:
-                            res.append(str(type(ex)))
-                            break
-                except StopAsyncIteration:
-                    res.append('STOP')
-                    break
-            return res
-
-        def async_iterate(g):
-            res = []
-            while True:
-                try:
-                    g.__anext__().__next__()
-                except StopAsyncIteration:
-                    res.append('STOP')
-                    break
-                except StopIteration as ex:
-                    if ex.args:
-                        res.append(ex.args[0])
-                    else:
-                        res.append('EMPTY StopIteration')
-                        break
-                except Exception as ex:
-                    res.append(str(type(ex)))
-            return res
-
-        sync_gen_result = sync_iterate(sync_gen)
-        async_gen_result = async_iterate(async_gen)
-        assert sync_gen_result == async_gen_result, "%s != %s" % (str(sync_gen_result), str(async_gen_result))
-        return async_gen_result
-
     def sync_gen():
         yield 10
         yield 20
@@ -790,7 +761,9 @@ def test_async_gen_exception_11():
             yield 2
         yield 3
 
-    compare_generators(sync_gen_wrapper(), async_gen_wrapper())
+    sync_gen_result = sync_iterate(sync_gen_wrapper())
+    async_gen_result = async_iterate(async_gen_wrapper())
+    assert sync_gen_result == async_gen_result
 
 def test_asyncgen_yield_stopiteration():
     async def foo():
