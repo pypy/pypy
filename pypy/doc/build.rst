@@ -85,9 +85,6 @@ bz2
 pyexpat
     libexpat1
 
-_ssl
-    libssl
-
 _vmprof
     libunwind (optional, loaded dynamically at runtime)
 
@@ -101,6 +98,9 @@ to build them; you don't need to re-translate the whole PyPy):
 sqlite3
     libsqlite3
 
+_ssl, _hashlib
+    libssl
+
 curses
     libncurses-dev   (for PyPy2)
     libncursesw-dev  (for PyPy3)
@@ -112,24 +112,18 @@ tk
     tk-dev
 
 lzma (PyPy3 only)
-    liblzma
+    liblzma or libxz, version 5 and up
 
-To run untranslated tests, you need the Boehm garbage collector libgc.
+To run untranslated tests, you need the Boehm garbage collector libgc, version
+7.4 and up
 
-On recent Debian and Ubuntu (16.04 onwards), this is the command to install
+On Debian and Ubuntu (16.04 onwards), this is the command to install
 all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config zlib1g-dev libbz2-dev \
     libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev \
     tk-dev libgc-dev python-cffi \
     liblzma-dev libncursesw5-dev     # these two only needed on PyPy3
-
-On older Debian and Ubuntu (12.04-14.04)::
-
-    apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
-    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
-    tk-dev libgc-dev python-cffi \
-    liblzma-dev libncursesw-dev      # these two only needed on PyPy3
 
 On Fedora::
 
