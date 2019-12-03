@@ -928,16 +928,24 @@ class AppTestPosix:
                 assert posix.posix_fadvise(fd, 3, 1, posix.POSIX_FADV_RANDOM) is None
                 assert posix.posix_fadvise(fd, 4, 1, posix.POSIX_FADV_NOREUSE) is None
                 assert posix.posix_fadvise(fd, 5, 1, posix.POSIX_FADV_DONTNEED) is None
-                raises(OSError, posix.posix_fadvise, fd, 6, 1, 1234567)
+                # Does not raise untranslated on a 32-bit chroot/docker
+                if self.runappdirect:
+                    raises(OSError, posix.posix_fadvise, fd, 6, 1, 1234567)
             finally:
                 posix.close(fd)
 
     if hasattr(rposix, 'posix_fallocate'):
         def test_os_posix_posix_fallocate(self):
             posix, os = self.posix, self.os
+            import errno
             fd = os.open(self.path2 + 'test_os_posix_fallocate', os.O_WRONLY | os.O_CREAT)
             try:
-                assert posix.posix_fallocate(fd, 0, 10) == 0
+                ret = posix.posix_fallocate(fd, 0, 10)
+                if ret == errno.EINVAL and not self.runappdirect:
+                    # Does not work untranslated on a 32-bit chroot/docker
+                    pass
+                else:
+                    assert ret == 0
             except OSError as inst:
                 """ ZFS seems not to support fallocate.
                 so skipping solaris-based since it is likely to come with ZFS
