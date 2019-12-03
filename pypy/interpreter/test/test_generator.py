@@ -10,7 +10,8 @@ class AppTestGenerator:
             yield 1
         g = f()
         assert next(g) == 1
-        raises(StopIteration, next, g)
+        with raises(StopIteration):
+            next(g)
 
     def test_attributes(self):
         def f():
@@ -23,7 +24,8 @@ class AppTestGenerator:
         assert not g.gi_running
         next(g)
         assert not g.gi_running
-        raises(StopIteration, next, g)
+        with raises(StopIteration):
+            next(g)
         assert not g.gi_running
         assert g.gi_frame is None
         assert g.gi_code is f.__code__
@@ -79,7 +81,8 @@ class AppTestGenerator:
         g = f()
         assert next(g) == 1
         assert g.throw(NameError("Error")) == 3
-        raises(StopIteration, next, g)
+        with raises(StopIteration):
+            next(g)
 
     def test_throw4(self):
         d = {}
@@ -96,7 +99,8 @@ class AppTestGenerator:
         assert next(g) == 1
         assert next(g) == 2
         assert g.throw(NameError("Error")) == 3
-        raises(StopIteration, next, g)
+        with raises(StopIteration):
+            next(g)
 
     def test_throw5(self):
         def f():
@@ -171,8 +175,10 @@ class AppTestGenerator:
         g = f()
         res = next(g)
         assert res == 1
-        raises(StopIteration, next, g)
-        raises(NameError, g.throw, NameError)
+        with raises(StopIteration):
+            next(g)
+        with raises(NameError):
+            g.throw(NameError)
 
     def test_throw_tb(self):
         def f():
@@ -294,7 +300,8 @@ class AppTestGenerator:
             i = next(me)
             yield i
         me = g()
-        raises(ValueError, next, me)
+        with raises(ValueError):
+            next(me)
 
     def test_generator_expression(self):
         d = {}
@@ -427,10 +434,14 @@ res = f()
         g.__qualname__ = "j.k"
         assert g.__name__ == "h.i"
         assert g.__qualname__ == "j.k"
-        raises(TypeError, "g.__name__ = 42")
-        raises(TypeError, "g.__qualname__ = 42")
-        raises((TypeError, AttributeError), "del g.__name__")
-        raises((TypeError, AttributeError), "del g.__qualname__")
+        with raises(TypeError):
+            g.__name__ = 42
+        with raises(TypeError):
+            g.__qualname__ = 42
+        with raises((TypeError, AttributeError)):
+            del g.__name__
+        with raises((TypeError, AttributeError)):
+            del g.__qualname__
 
     def test_gi_yieldfrom(self): """
         def g(x):
@@ -466,7 +477,8 @@ res = f()
         gen = g()
         assert next(gen) == 42
         closed = []
-        raises(GeneratorExit, gen.throw, GeneratorExit)
+        with raises(GeneratorExit):
+            gen.throw(GeneratorExit)
         assert closed == [True]
         """
 
@@ -487,7 +499,8 @@ res = f()
             assert sys.exc_info()[0] is IndexError
             assert next(gen) is ValueError
             assert sys.exc_info()[0] is IndexError
-            raises(StopIteration, next, gen)
+            with raises(StopIteration):
+                next(gen)
             assert sys.exc_info()[0] is IndexError
 
     def test_exc_info_in_generator_2(self):
@@ -638,9 +651,10 @@ class AppTestYieldFrom:
         for i in range(2):
             x = next(g)
             trace.append("Yielded %s" % (x,))
-        exc = raises(ValueError, g.close)
-        assert exc.value.args[0] == "nybbles have exploded with delight"
-        assert isinstance(exc.value.__context__, GeneratorExit)
+        with raises(ValueError) as excinfo:
+            g.close()
+        assert excinfo.value.args[0] == "nybbles have exploded with delight"
+        assert isinstance(excinfo.value.__context__, GeneratorExit)
         assert trace == [
             "Starting g1",
             "Yielded g1 ham",
@@ -679,8 +693,9 @@ class AppTestYieldFrom:
             x = next(g)
             trace.append("Yielded %s" % (x,))
         e = ValueError("tomato ejected")
-        exc = raises(ValueError, g.throw, e)
-        assert exc.value.args[0] == "tomato ejected"
+        with raises(ValueError) as excinfo:
+            g.throw(e)
+        assert excinfo.value.args[0] == "tomato ejected"
         assert trace == [
             "Starting g1",
             "Yielded g1 ham",
@@ -709,8 +724,9 @@ class AppTestYieldFrom:
         for i in range(5):
             x = next(gi)
             trace.append("Yielded %s" % (x,))
-        exc = raises(ValueError, gi.throw, ValueError("tomato ejected"))
-        assert exc.value.args[0] == "tomato ejected"
+        with raises(ValueError) as excinfo:
+            gi.throw(ValueError("tomato ejected"))
+        assert excinfo.value.args[0] == "tomato ejected"
         assert trace == [
             "Starting g",
             "Yielded 0",
@@ -742,16 +758,18 @@ class AppTestYieldFrom:
 
         gi = g()
         assert next(gi) == 1
-        raises(ZeroDivisionError, gi.send, 1)
+        with raises(ZeroDivisionError):
+            gi.send(1)
 
         gi = g()
         assert next(gi) == 1
-        raises(ZeroDivisionError, gi.throw, RuntimeError)
+        with raises(ZeroDivisionError):
+            gi.throw(RuntimeError)
 
         gi = g()
         assert next(gi) == 1
-        import io, sys
-        sys.stderr = io.StringIO()
+        import _io, sys
+        sys.stderr = _io.StringIO()
         gi.close()
         assert 'ZeroDivisionError' in sys.stderr.getvalue()
 
@@ -859,7 +877,8 @@ class AppTestGeneratorStop:
         def f(x):
             raise StopIteration
             yield x
-        raises(StopIteration, next, f(5))
+        with raises(StopIteration):
+            next(f(5))
 
     def test_future_generator_stop(self):
         d = {}
@@ -870,7 +889,8 @@ def f(x):
     yield x
 """, d)
         f = d['f']
-        raises(RuntimeError, next, f(5))
+        with raises(RuntimeError):
+            next(f(5))
 
     def test_generator_stop_cause(self):
         d = {}
@@ -882,7 +902,8 @@ def gen1():
         my_gen = d['gen1']()
         assert next(my_gen) == 42
         stop_exc = StopIteration('spam')
-        e = raises(RuntimeError, my_gen.throw, StopIteration, stop_exc, None)
+        with raises(RuntimeError) as e:
+            my_gen.throw(StopIteration, stop_exc, None)
         assert e.value.__cause__ is stop_exc
         assert e.value.__context__ is stop_exc
 
@@ -892,8 +913,9 @@ def gen1():
 
         gen = d['gen1']()
         assert next(gen) == 1
-        exc = raises(StopIteration, gen.send, (2,))
-        assert exc.value.value == (2,)
+        with raises(StopIteration) as excinfo:
+            gen.send((2,))
+        assert excinfo.value.value == (2,)
 
     def test_return_stopiteration(self):
         d = {}
@@ -901,6 +923,7 @@ def gen1():
 
         gen = d['gen1']()
         assert next(gen) == 1
-        exc = raises(StopIteration, gen.send, StopIteration(2))
-        assert isinstance(exc.value, StopIteration)
-        assert exc.value.value.value == 2
+        with raises(StopIteration) as excinfo:
+            gen.send(StopIteration(2))
+        assert isinstance(excinfo.value, StopIteration)
+        assert excinfo.value.value.value == 2
