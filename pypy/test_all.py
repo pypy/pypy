@@ -28,7 +28,7 @@ if __name__ == '__main__':
     # Always remove the cached files
     # Before translation this is done via "py.path.local(CACHE_DIR).remove()"
     print 'removing %s/rpython/_cache' % toplevel
-    shutil.rmtree('%s/rpython/_cache', ignore_errors=True)
+    shutil.rmtree('%s/rpython/_cache' % toplevel, ignore_errors=True)
     # Add toplevel repository dir to sys.path
     sys.path.insert(0, toplevel)
     import pytest
