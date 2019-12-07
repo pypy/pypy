@@ -138,6 +138,19 @@ class _DummyModuleLock:
         return '_DummyModuleLock({!r}) at {}'.format(self.name, id(self))
 
 
+class _MainModuleNoLock:
+    """The __main__ module should never be locked.  This is a PyPy
+    extension to work around some deadlocks in multiprocessing's fork
+    strategy that seem to occur more often with PyPy than with CPython
+    (issue #3111)."""
+
+    def acquire(self):
+        pass
+
+    def release(self):
+        pass
+
+
 class _ModuleLockManager:
 
     def __init__(self, name):
@@ -168,7 +181,9 @@ def _get_module_lock(name):
             lock = None
 
         if lock is None:
-            if _thread is None:
+            if name == '__main__':
+                lock = _MainModuleNoLock()
+            elif _thread is None:
                 lock = _DummyModuleLock(name)
             else:
                 lock = _ModuleLock(name)
