@@ -18,6 +18,12 @@ We have worked with the python packaging group to support tooling around
 building third party packages for python, so this release changes the ABI tag
 for PyPy.
 
+Based on the great work done in `portable-pypy`_, the linux downloads we
+provide are now built on top of the `manylinux2010`_ CentOS6 docker image. 
+The tarballs include the needed shared objects to run on any platform that
+supports manylinux2010 wheels, which should include all supported versions of
+debian- and RedHat-based distributions (including Ubuntu, CentOS, and Fedora).
+
 The `CFFI`_ backend has been updated to version 1.13.1. We recommend using CFFI
 rather than c-extensions to interact with C.
 
@@ -57,6 +63,8 @@ thanks for pitching in.
 .. _`CFFI`: http://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
+.. _`portable-pypy`: https://github.com/squeaky-pl/portable-pypy
+.. _`manylinux2010`: https://github.com/pypa/manylinux
 
 What is PyPy?
 =============
@@ -124,6 +132,7 @@ Changes shared across versions
 * Check for overflow in ctypes array creation
 * Better support and report MSVC versions used to compile on windows
 * Allow any kind of buffer in socket.setsockopt(), like CPython (`issue 3114`_)
+* Fix importing a module with unicode in ``sys.path`` (`issue 3112`_)
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -166,6 +175,8 @@ Python 3.6 only
   it.  (`issue 3096`_)
 * Remove incorrect clobbering of the ``locals`` after running ``exec()``
 * Adds encoding, decoding codepages on win32
+* Remove socket error attributes from ``_ssl`` (`issue 3119`_)
+* Add missing ``os.getgrouplist`` (part of `issue 2375`_)
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
@@ -182,6 +193,7 @@ Python 3.6 C-API
 .. _`manylinux2010`: fix broken link
 .. _`macports pypy`: https://github.com/macports/macports-ports/blob/master/lang/pypy/files/darwin.py.diff
 
+.. _`issue 2375`: https://bitbucket.com/pypy/pypy/issues/2375
 .. _`issue 2389`: https://bitbucket.com/pypy/pypy/issues/2389
 .. _`issue 2687`: https://bitbucket.com/pypy/pypy/issues/2687
 .. _`issue 2970`: https://bitbucket.com/pypy/pypy/issues/2970
@@ -198,8 +210,10 @@ Python 3.6 C-API
 .. _`issue 3100`: https://bitbucket.com/pypy/pypy/issues/3100
 .. _`issue 3108`: https://bitbucket.com/pypy/pypy/issues/3108
 .. _`issue 3109`: https://bitbucket.com/pypy/pypy/issues/3109
+.. _`issue 3112`: https://bitbucket.com/pypy/pypy/issues/3112
 .. _`issue 3114`: https://bitbucket.com/pypy/pypy/issues/3114
 .. _`issue 3117`: https://bitbucket.com/pypy/pypy/issues/3117
+.. _`issue 3119`: https://bitbucket.com/pypy/pypy/issues/3119
 .. _`issue 3120`: https://bitbucket.com/pypy/pypy/issues/3120
 
 .. _13312: https://bugs.python.org/issue13312
