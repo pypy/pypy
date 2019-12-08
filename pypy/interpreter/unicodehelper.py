@@ -60,14 +60,16 @@ def fsdecode(space, w_string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     errorhandler=state.decode_error_handler
+    utf8 = space.bytes_w(w_string)
+    # fast path for ascii
+    if rutf8.first_non_ascii_char(utf8) < 0:
+        return space.newtext(utf8, len(utf8))
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
-        bytes = space.bytes_w(w_string)
-        slen = len(bytes)
-        utf8, _, lgt = str_decode_mbcs(bytes, 'strict', True, errorhandler)
+        slen = len(utf8)
+        utf8, _, lgt = str_decode_mbcs(utf8, 'strict', True, errorhandler)
     elif 0 and  _MACOSX:
-        bytes = space.bytes_w(w_string)
-        utf8, lgt, pos  = str_decode_utf8(bytes, 'surrogateescape', True,
+        utf8, lgt, pos  = str_decode_utf8(utf8, 'surrogateescape', True,
                                     errorhandler, allow_surrogates=False)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
@@ -76,8 +78,7 @@ def fsdecode(space, w_string):
         # instead
         from pypy.module._codecs.locale import (
             str_decode_locale_surrogateescape)
-        bytes = space.bytes_w(w_string)
-        utf8, lgt = str_decode_locale_surrogateescape(bytes)
+        utf8, lgt = str_decode_locale_surrogateescape(utf8)
     else:
         from pypy.module.sys.interp_encoding import getfilesystemencoding
         return space.call_method(w_string, 'decode',

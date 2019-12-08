@@ -699,6 +699,72 @@ def test_anext_tuple():
 
     assert run_async(run()) == ([], (1,))
 
+# Helpers for test_async_gen_exception_11() below
+def sync_iterate(g):
+    res = []
+    while True:
+        try:
+            res.append(g.__next__())
+        except StopIteration:
+            res.append('STOP')
+            break
+        except Exception as ex:
+            res.append(str(type(ex)))
+    return res
+
+def async_iterate(g):
+    res = []
+    while True:
+        try:
+            g.__anext__().__next__()
+        except StopAsyncIteration:
+            res.append('STOP')
+            break
+        except StopIteration as ex:
+            if ex.args:
+                res.append(ex.args[0])
+            else:
+                res.append('EMPTY StopIteration')
+                break
+        except Exception as ex:
+            res.append(str(type(ex)))
+    return res
+
+
+def test_async_gen_exception_11():
+    # bpo-33786
+    def sync_gen():
+        yield 10
+        yield 20
+
+    def sync_gen_wrapper():
+        yield 1
+        sg = sync_gen()
+        sg.send(None)
+        try:
+            sg.throw(GeneratorExit())
+        except GeneratorExit:
+            yield 2
+        yield 3
+
+    async def async_gen():
+        yield 10
+        yield 20
+
+    async def async_gen_wrapper():
+        yield 1
+        asg = async_gen()
+        await asg.asend(None)
+        try:
+            await asg.athrow(GeneratorExit())
+        except GeneratorExit:
+            yield 2
+        yield 3
+
+    sync_gen_result = sync_iterate(sync_gen_wrapper())
+    async_gen_result = async_iterate(async_gen_wrapper())
+    assert sync_gen_result == async_gen_result
+
 def test_asyncgen_yield_stopiteration():
     async def foo():
         yield 1

@@ -9,7 +9,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import register_replacement_for
-from rpython.rlib.rarithmetic import intmask, UINT_MAX
+from rpython.rlib.rarithmetic import intmask, r_int64, UINT_MAX
 from rpython.rlib import rposix
 
 _WIN32 = sys.platform.startswith('win')
@@ -93,6 +93,10 @@ for const in defs_names:
 def decode_timeval(t):
     return (float(rffi.getintfield(t, 'c_tv_sec')) +
             float(rffi.getintfield(t, 'c_tv_usec')) * 0.000001)
+
+def decode_timeval_ns(t):
+    return (r_int64(rffi.getintfield(t, 'c_tv_sec')) * 10**9 +
+            r_int64(rffi.getintfield(t, 'c_tv_usec')) * 10**3)
 
 
 def external(name, args, result, compilation_info=eci, **kwds):

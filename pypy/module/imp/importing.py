@@ -208,6 +208,9 @@ class ImportRLock:
     def reinit_lock(self):
         # Called after fork() to ensure that newly created child
         # processes do not share locks with the parent
+        # (Note that this runs after interp_imp.acquire_lock()
+        # done in the "before" fork hook, so that's why we decrease
+        # the lockcounter here)
         if self.lockcounter > 1:
             # Forked as a side effect of import
             self.lock = self.space.allocate_lock()

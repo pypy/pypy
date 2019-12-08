@@ -27,13 +27,14 @@ class SSLError(OSError):
         if self.strerror and isinstance(self.strerror, str):
             return self.strerror
         return str(self.args)
-# these are expected on socket as well
-socket.sslerror = SSLError
-for v in [ 'SSL_ERROR_ZERO_RETURN', 'SSL_ERROR_WANT_READ',
-     'SSL_ERROR_WANT_WRITE', 'SSL_ERROR_WANT_X509_LOOKUP', 'SSL_ERROR_SYSCALL',
-     'SSL_ERROR_SSL', 'SSL_ERROR_WANT_CONNECT', 'SSL_ERROR_EOF',
-     'SSL_ERROR_INVALID_ERROR_CODE' ]:
-    setattr(socket, v, locals()[v]) 
+# these are expected on socket in python2 as well
+if sys.version_info[0] < 3:
+    socket.sslerror = SSLError
+    for v in [ 'SSL_ERROR_ZERO_RETURN', 'SSL_ERROR_WANT_READ',
+         'SSL_ERROR_WANT_WRITE', 'SSL_ERROR_WANT_X509_LOOKUP', 'SSL_ERROR_SYSCALL',
+         'SSL_ERROR_SSL', 'SSL_ERROR_WANT_CONNECT', 'SSL_ERROR_EOF',
+         'SSL_ERROR_INVALID_ERROR_CODE' ]:
+        setattr(socket, v, locals()[v]) 
 
 class SSLZeroReturnError(SSLError):
     """ SSL/TLS session closed cleanly. """
