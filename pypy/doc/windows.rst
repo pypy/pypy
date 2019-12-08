@@ -155,7 +155,7 @@ file on how to replicate, and a branch for each supported platform. You may run
 the `get_externals.py` utility to checkout the proper branch for your platform
 and PyPy version.
 
-.. _subrepository:  https://bitbucket.org/pypy/external
+.. _subrepository:  https://bitbucket.org/pypy/externals
 
 Using the mingw compiler
 ------------------------
