@@ -93,16 +93,6 @@ def PyDict_GetItemWithError(space, w_dict, w_key):
         PyErr_BadInternalCall(space)
     return w_dict.getitem(w_key)
 
-@cpython_api([PyObject, PyObject], PyObject, result_borrowed=True)
-def PyDict_GetItemWithError(space, w_dict, w_key):
-    """Variant of PyDict_GetItem() that does not suppress
-    exceptions. Return NULL with an exception set if an exception
-    occurred.  Return NULL without an exception set if the key
-    wasn't present."""
-    if not isinstance(w_dict, W_DictMultiObject):
-        PyErr_BadInternalCall(space)
-    return w_dict.getitem(w_key)
-
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_SetItem(space, w_dict, w_key, w_obj):
     if not isinstance(w_dict, W_DictMultiObject):
