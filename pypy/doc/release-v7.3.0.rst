@@ -18,6 +18,12 @@ We have worked with the python packaging group to support tooling around
 building third party packages for python, so this release changes the ABI tag
 for PyPy.
 
+Based on the great work done in `portable-pypy`_, the linux downloads we
+provide are now built on top of the `manylinux2010`_ CentOS6 docker image. 
+The tarballs include the needed shared objects to run on any platform that
+supports manylinux2010 wheels, which should include all supported versions of
+debian- and RedHat-based distributions (including Ubuntu, CentOS, and Fedora).
+
 The `CFFI`_ backend has been updated to version 1.13.1. We recommend using CFFI
 rather than c-extensions to interact with C.
 
@@ -57,6 +63,8 @@ thanks for pitching in.
 .. _`CFFI`: http://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
+.. _`portable-pypy`: https://github.com/squeaky-pl/portable-pypy
+.. _`manylinux2010`: https://github.com/pypa/manylinux
 
 What is PyPy?
 =============
