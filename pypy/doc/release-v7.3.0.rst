@@ -177,6 +177,8 @@ Python 3.6 only
 * Adds encoding, decoding codepages on win32
 * Remove socket error attributes from ``_ssl`` (`issue 3119`_)
 * Add missing ``os.getgrouplist`` (part of `issue 2375`_)
+* Back-port the tentative fix from cpython: "Import deadlock detection causes
+  deadlock" (part of `issue 3111`_)
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
@@ -210,6 +212,7 @@ Python 3.6 C-API
 .. _`issue 3100`: https://bitbucket.com/pypy/pypy/issues/3100
 .. _`issue 3108`: https://bitbucket.com/pypy/pypy/issues/3108
 .. _`issue 3109`: https://bitbucket.com/pypy/pypy/issues/3109
+.. _`issue 3111`: https://bitbucket.com/pypy/pypy/issues/3111
 .. _`issue 3112`: https://bitbucket.com/pypy/pypy/issues/3112
 .. _`issue 3114`: https://bitbucket.com/pypy/pypy/issues/3114
 .. _`issue 3117`: https://bitbucket.com/pypy/pypy/issues/3117
