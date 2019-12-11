@@ -14,7 +14,7 @@ def test_conflicting_gcrootfinder():
     conf = get_pypy_config()
     conf.translation.gc = "boehm"
     with py.test.raises(ConfigError):
-        conf.translation.gcrootfinder = 'asmgcc'
+        conf.translation.gcrootfinder = 'shadowstack'
 
 def test_frameworkgc():
     for name in ["minimark", "semispace"]:
