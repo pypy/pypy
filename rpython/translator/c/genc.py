@@ -87,10 +87,6 @@ class CBuilder(object):
 
         gcpolicyclass = self.get_gcpolicyclass()
 
-        if self.config.translation.gcrootfinder == "asmgcc":
-            if not self.standalone:
-                raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
-
         exctransformer = translator.getexceptiontransformer()
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
@@ -504,61 +500,8 @@ class CStandaloneBuilder(CBuilder):
             mk.rule('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??')
             mk.rule('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)')
 
-        #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
-            if self.translator.platform.name == 'msvc':
-                raise Exception("msvc no longer supports asmgcc")
-            _extra = ''
-            if self.config.translation.shared:
-                _extra = ' -fPIC'
-            _extra += ' -fdisable-tree-fnsplit'   # seems to help
-            mk.definition('DEBUGFLAGS',
-                '-O2 -fomit-frame-pointer -g'+ _extra)
-
-            if self.config.translation.shared:
-                mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
-            else:
-                mk.definition('PYPY_MAIN_FUNCTION', "main")
-
-            mk.definition('PYTHON', get_recent_cpython_executable())
-
-            mk.definition('GCMAPFILES', '$(subst .vmprof.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
-            mk.definition('OBJECTS1', '$(subst .vmprof.s,.o,$(subst .c,.o,$(SOURCES)))')
-            mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
-
-            # the CFLAGS passed to gcc when invoked to assembler the .s file
-            # must not contain -g.  This confuses gcc 5.1.  (Note that it
-            # would seem that gcc 5.1 with "-g" does not produce debugging
-            # info in a format that gdb 4.7.1 can read.)
-            mk.definition('CFLAGS_AS', '$(patsubst -g,,$(CFLAGS))')
-
-            # the rule that transforms %.c into %.o, by compiling it to
-            # %.s, then applying trackgcroot to get %.lbl.s and %.gcmap, and
-            # finally by using the assembler ($(CC) again for now) to get %.o
-            mk.rule('%.o %.gcmap', '%.c', [
-                '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< '
-                    '-o $*.s -S $< $(INCLUDEDIRS)',
-                '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                    '-t $*.s > $*.gctmp',
-                '$(CC) $(CFLAGS_AS) -o $*.o -c $*.lbl.s',
-                'mv $*.gctmp $*.gcmap',
-                'rm $*.s $*.lbl.s'])
-
-            # this is for manually written assembly files which needs to be parsed by asmgcc
-            mk.rule('%.o %.gcmap', '%.vmprof.s', [
-                '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                    '-t $*.vmprof.s > $*.gctmp',
-                '$(CC) -o $*.o -c $*.vmprof.lbl.s',
-                'mv $*.gctmp $*.gcmap',
-                'rm $*.vmprof.lbl.s'])
-
-            # the rule to compute gcmaptable.s
-            mk.rule('gcmaptable.s', '$(GCMAPFILES)',
-                    [
-                         '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                         '$(GCMAPFILES) > $@.tmp',
-                     'mv $@.tmp $@'])
-
+            raise AssertionError("asmgcc not supported any more")
         else:
             if self.translator.platform.name == 'msvc':
                 mk.definition('DEBUGFLAGS', '-MD -Zi')
