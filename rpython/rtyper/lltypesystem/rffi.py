@@ -359,8 +359,7 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
             if rgil is not None:
                 rgil.acquire()
             # from now on we hold the GIL
-            stackcounter.stacks_counter += 1
-            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+            llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
             try:
                 result = callable(%(args)s)
             except Exception, e:
@@ -371,7 +370,6 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
                     import traceback
                     traceback.print_exc()
                 result = errorcode
-            stackcounter.stacks_counter -= 1
             if rgil is not None:
                 rgil.release()
             # here we don't hold the GIL any more. As in the wrapper() produced
@@ -383,20 +381,12 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
     miniglobals['we_are_translated'] = we_are_translated
-    miniglobals['stackcounter'] = stackcounter
     exec source.compile() in miniglobals
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
-class StackCounter:
-    def _cleanup_(self):
-        self.stacks_counter = 0     # number of "stack pieces": callbacks
-                                    # and threads increase it by one
-
-stackcounter = StackCounter()
-stackcounter._cleanup_()
 
 def llexternal_use_eci(compilation_info):
     """Return a dummy function that, if called in a RPython program,

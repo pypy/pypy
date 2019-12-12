@@ -1,4 +1,5 @@
 import sys
+import os
 import time
 import _thread
 import weakref
@@ -1238,6 +1239,10 @@ class _SSLContext(object):
         return stats
 
     def set_default_verify_paths(self):
+        if not os.environ.get('SSL_CERT_FILE') and not os.environ.get('SSL_CERT_DIR'):
+            locations = get_default_verify_paths()
+            self.load_verify_locations(locations[1], locations[3])
+            return
         if not lib.SSL_CTX_set_default_verify_paths(self.ctx):
             raise ssl_error("")
 
@@ -1581,20 +1586,69 @@ def RAND_add(view, entropy):
     lib.RAND_add(buf, len(buf), entropy)
 
 def get_default_verify_paths():
+    '''
+    Find a certificate store and associated values
 
+    Returns something like 
+    `('SSL_CERT_FILE', '/usr/lib/ssl/cert.pem', 'SSL_CERT_DIR', '/usr/lib/ssl/certs')`
+    on Ubuntu and windows10
+
+    `('SSL_CERT_FILE', '/usr/local/cert.pem', 'SSL_CERT_DIR', '/usr/local/certs')`
+    on CentOS
+
+    `('SSL_CERT_FILE', '/Library/Frameworks/Python.framework/Versions/2.7/etc/openssl/cert.pem',
+      'SSL_CERT_DIR', '/Library/Frameworks/Python.framework/Versions/2.7/etc/openssl/certs')`
+    on Darwin
+
+    For portable builds (based on CentOS, but could be running on any glibc
+    linux) we need to check other locations. The list of places to try was taken
+    from golang in Dec 2018:
+     https://golang.org/src/crypto/x509/root_unix.go (for the directories),
+     https://golang.org/src/crypto/x509/root_linux.go (for the files)
+    '''
+    certFiles = [
+        "/etc/ssl/certs/ca-certificates.crt",                # Debian/Ubuntu/Gentoo etc.
+        "/etc/pki/tls/certs/ca-bundle.crt",                  # Fedora/RHEL 6
+        "/etc/ssl/ca-bundle.pem",                            # OpenSUSE
+        "/etc/pki/tls/cacert.pem",                           # OpenELEC
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", # CentOS/RHEL 7
+        "/etc/ssl/cert.pem",                                 # Alpine Linux
+    ]
+    certDirectories = [
+        "/etc/ssl/certs",               # SLES10/SLES11
+        "/system/etc/security/cacerts", # Android
+        "/usr/local/share/certs",       # FreeBSD
+        "/etc/pki/tls/certs",           # Fedora/RHEL
+        "/etc/openssl/certs",           # NetBSD
+        "/var/ssl/certs",               # AIX
+    ]
+
+    # optimization: reuse the values from a local varaible
+    if getattr(get_default_verify_paths, 'retval', None):
+        return get_default_verify_paths.retval
+
+    # This should never fail, it should always return SSL_CERT_FILE and SSL_CERT_DIR
     ofile_env = _cstr_decode_fs(lib.X509_get_default_cert_file_env())
-    if ofile_env is None:
-        return None
-    ofile = _cstr_decode_fs(lib.X509_get_default_cert_file())
-    if ofile is None:
-        return None
     odir_env = _cstr_decode_fs(lib.X509_get_default_cert_dir_env())
-    if odir_env is None:
-        return None
+
+    # Platform depenedent
+    ofile = _cstr_decode_fs(lib.X509_get_default_cert_file())
     odir = _cstr_decode_fs(lib.X509_get_default_cert_dir())
-    if odir is None:
-        return odir
-    return (ofile_env, ofile, odir_env, odir);
+
+    if os.path.exists(ofile) and os.path.exists(odir):
+        get_default_verify_paths.retval = (ofile_env, ofile, odir_env, odir)
+        return get_default_verify_paths.retval
+
+    # OpenSSL didn't supply the goods. Try some other options
+    for f in certFiles:
+        if os.path.exists(f):
+            ofile = f 
+    for f in certDirectories:
+        if os.path.exists(f):
+            odir = f 
+    get_default_verify_paths.retval = (ofile_env, ofile, odir_env, odir)
+    return get_default_verify_paths.retval
+
 
 @ffi.callback("int(SSL*,unsigned char **,unsigned char *,const unsigned char *,unsigned int,void *)")
 def select_alpn_callback(ssl, out, outlen, client_protocols, client_protocols_len, args):

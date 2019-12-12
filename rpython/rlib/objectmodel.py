@@ -700,13 +700,6 @@ class Entry(ExtRegistryEntry):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
-def is_in_callback():
-    """Returns True if we're currently in a callback *or* if there are
-    multiple threads around.
-    """
-    from rpython.rtyper.lltypesystem import rffi
-    return rffi.stackcounter.stacks_counter > 1
-
 
 class UnboxedValue(object):
     """A mixin class to use for classes that have exactly one field which
