@@ -4725,6 +4725,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_raw_load_int(self):
         from rpython.rlib import rawstorage
+        from rpython.rlib.rarithmetic import r_longlong
         for T in [rffi.UCHAR, rffi.SIGNEDCHAR,
                   rffi.USHORT, rffi.SHORT,
                   rffi.UINT, rffi.INT,
@@ -4738,7 +4739,7 @@ class LLtypeBackendTest(BaseBackendTest):
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = rffi.cast(T, -0x4243444546474849)
+            value = rffi.cast(T, r_longlong(-0x4243444546474849))
             rawstorage.raw_storage_setitem(p, 16, value)
             got = self.cpu.bh_raw_load_i(rffi.cast(lltype.Signed, p), 16,
                                          arraydescr)
