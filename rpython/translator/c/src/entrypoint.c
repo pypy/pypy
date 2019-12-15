@@ -15,17 +15,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifdef __GNUC__
-/* Hack to prevent this function from being inlined.  Helps asmgcc
-   because the main() function has often a different prologue/epilogue. */
-RPY_EXTERN
-int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
-#endif
-
-# ifdef PYPY_USE_ASMGCC
-#  include "structdef.h"
-#  include "forwarddecl.h"
-# endif
 
 #if defined(MS_WINDOWS)
 #  include <stdio.h>
@@ -47,14 +36,7 @@ void rpython_startup_code(void)
 #ifdef RPY_WITH_GIL
     RPyGilAcquire();
 #endif
-#ifdef PYPY_USE_ASMGCC
-    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
-#endif
-    pypy_asm_stack_bottom();
     RPython_StartupCode();
-#ifdef PYPY_USE_ASMGCC
-    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter--;
-#endif
 #ifdef RPY_WITH_GIL
     RPyGilRelease();
 #endif
@@ -81,10 +63,6 @@ int pypy_main_function(int argc, char *argv[])
     RPyGilAcquire();
 #endif
 
-#ifdef PYPY_USE_ASMGCC
-    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
-#endif
-    pypy_asm_stack_bottom();
     instrument_setup();
 
 #ifdef RPY_REVERSE_DEBUGGER

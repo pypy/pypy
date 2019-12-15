@@ -133,6 +133,11 @@ Changes shared across versions
 * Better support and report MSVC versions used to compile on windows
 * Allow any kind of buffer in socket.setsockopt(), like CPython (`issue 3114`_)
 * Fix importing a module with unicode in ``sys.path`` (`issue 3112`_)
+* Support OpenSSL 1.1 and TLSv1_3
+* Remove the (deprecated since 5.7) asmgcc rootfinder from the GC
+* Overflow in RPython when converting ``2<<32`` into a ``Signed`` on 32-bit
+  platforms rather than automatically using a ``SignedLongLong``, require an
+  explicit ``r_int64()`` call instead
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -177,13 +182,18 @@ Python 3.6 only
 * Adds encoding, decoding codepages on win32
 * Remove socket error attributes from ``_ssl`` (`issue 3119`_)
 * Add missing ``os.getgrouplist`` (part of `issue 2375`_)
+* Back-port the tentative fix from cpython: "Import deadlock detection causes
+  deadlock" (part of `issue 3111`_)
+* Fix handling of ``sys.exc_info()`` in generators
+* Return ``W_IntObject`` when converting from ``float`` to ``int`` when
+  possible, which speeds up many code paths.
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
 
 * Add ``PyObject_GenericGetDict``, ``PyObject_GenericSetDict``, ``_Py_strhex``,
   ``_Py_strhex_bytes``, ``PyUnicodeNew``, ``_PyFinalizing``,
-  ``PySlice_Unpack``, ``PySlice_AdjustIndices``
+  ``PySlice_Unpack``, ``PySlice_AdjustIndices``, ``PyOS_FSPath``
 * Implement ``pystrhex.h`` (`issue 2687`_)
 * Make ``PyUnicodeObject`` slightly more compact
 * Fix memory leak when releasing a ``PyUnicodeObject``
@@ -210,6 +220,7 @@ Python 3.6 C-API
 .. _`issue 3100`: https://bitbucket.com/pypy/pypy/issues/3100
 .. _`issue 3108`: https://bitbucket.com/pypy/pypy/issues/3108
 .. _`issue 3109`: https://bitbucket.com/pypy/pypy/issues/3109
+.. _`issue 3111`: https://bitbucket.com/pypy/pypy/issues/3111
 .. _`issue 3112`: https://bitbucket.com/pypy/pypy/issues/3112
 .. _`issue 3114`: https://bitbucket.com/pypy/pypy/issues/3114
 .. _`issue 3117`: https://bitbucket.com/pypy/pypy/issues/3117

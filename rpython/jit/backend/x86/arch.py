@@ -35,9 +35,7 @@ if WORD == 4:
     PASS_ON_MY_FRAME = 15
     JITFRAME_FIXED_SIZE = 6 + 8 * 2 # 6 GPR + 8 XMM * 2 WORDS/float
     # 'threadlocal_addr' is passed as 2nd argument on the stack,
-    # and it can be left here for when it is needed.  As an additional hack,
-    # with asmgcc, it is made odd-valued to mean "already seen this frame
-    # during the previous minor collection".
+    # and it can be left here for when it is needed.
     THREADLOCAL_OFS = (FRAME_FIXED_SIZE + 2) * WORD
 else:
     # rbp + rbx + r12 + r13 + r14 + r15 + threadlocal + 12 extra words = 19
@@ -45,12 +43,10 @@ else:
     PASS_ON_MY_FRAME = 12
     JITFRAME_FIXED_SIZE = 28 # 13 GPR + 15 XMM
     # 'threadlocal_addr' is passed as 2nd argument in %esi,
-    # and is moved into this frame location.  As an additional hack,
-    # with asmgcc, it is made odd-valued to mean "already seen this frame
-    # during the previous minor collection".
+    # and is moved into this frame location.
     THREADLOCAL_OFS = (FRAME_FIXED_SIZE - 1) * WORD
 
-assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
+assert PASS_ON_MY_FRAME >= 12
 
 # return address, followed by FRAME_FIXED_SIZE words
 DEFAULT_FRAME_BYTES = (1 + FRAME_FIXED_SIZE) * WORD

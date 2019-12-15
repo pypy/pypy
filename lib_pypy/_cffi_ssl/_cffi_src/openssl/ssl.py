@@ -76,6 +76,7 @@ static const long SSL_OP_NO_COMPRESSION;
 static const long SSL_OP_SINGLE_DH_USE;
 static const long SSL_OP_EPHEMERAL_RSA;
 static const long SSL_OP_MICROSOFT_SESS_ID_BUG;
+static const long SSL_OP_ENABLE_MIDDLEBOX_COMPAT;
 static const long SSL_OP_NETSCAPE_CHALLENGE_BUG;
 static const long SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
 static const long SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG;

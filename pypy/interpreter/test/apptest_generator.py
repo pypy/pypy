@@ -1,5 +1,7 @@
 from pytest import raises, skip
 
+import sys
+
 def test_generator():
     def f():
         yield 1
@@ -462,7 +464,6 @@ def test_gi_running_in_throw_generatorexit():
     assert closed == [True]
 
 def test_exc_info_in_generator():
-    import sys
     def g():
         try:
             raise ValueError
@@ -533,8 +534,35 @@ def test_exc_info_in_generator_4():
     try:
         raise IndexError
     except IndexError:
-        assert next(gen) is 1
-    assert next(gen) is 2
+        assert next(gen) == 1
+    assert next(gen) == 2
+
+def test_except_gen_except():
+    def gen():
+        try:
+            assert sys.exc_info()[0] is None
+            yield
+            # we are called from "except ValueError:", TypeError must
+            # inherit ValueError in its context
+            raise TypeError()
+        except TypeError as exc:
+            assert sys.exc_info()[0] is TypeError
+            assert type(exc.__context__) is ValueError
+        # here we are still called from the "except ValueError:"
+        assert sys.exc_info()[0] is ValueError
+        yield
+        assert sys.exc_info()[0] is None
+        yield "done"
+
+    g = gen()
+    next(g)
+    try:
+        raise ValueError
+    except Exception:
+        next(g)
+
+    assert next(g) == "done"
+    assert sys.exc_info() == (None, None, None)
 
 def test_multiple_invalid_sends():
     def mygen():
@@ -793,13 +821,9 @@ def test_exception_context():
             yield from map(operator.truediv, [2, 3], [4, 0])
     gen = f()
     assert next(gen) == 0.5
-    try:
+    with raises(ZeroDivisionError) as excinfo:
         next(gen)
-    except ZeroDivisionError as e:
-        assert e.__context__ is not None
-        assert isinstance(e.__context__, ValueError)
-    else:
-        assert False, "should have raised"
+    assert isinstance(excinfo.value.__context__, ValueError)
 
 
 def test_past_generator_stop():
