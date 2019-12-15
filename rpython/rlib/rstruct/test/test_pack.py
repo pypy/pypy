@@ -1,5 +1,5 @@
 import pytest
-from rpython.rlib.rarithmetic import r_ulonglong
+from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rstruct import standardfmttable, nativefmttable
 from rpython.rlib.rstruct.error import StructOverflowError
 from rpython.rlib import buffer
@@ -129,9 +129,9 @@ class BaseTestPack(PackSupport):
         self.check("i", 0x41424344)
         self.check("i", -3)
         self.check("i", -2147483648)
-        self.check("I", 0x81424344)
-        self.check("q", 0x4142434445464748)
-        self.check("q", -0x41B2B3B4B5B6B7B8)
+        self.check("I", r_uint(0x81424344))
+        self.check("q", r_longlong(0x4142434445464748))
+        self.check("q", r_longlong(-0x41B2B3B4B5B6B7B8))
         self.check("Q", r_ulonglong(0x8142434445464748))
 
     def test_pack_ieee(self):

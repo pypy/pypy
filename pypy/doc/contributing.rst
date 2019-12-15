@@ -311,16 +311,13 @@ Beware trying to run "all" pypy tests by pointing to the root
 directory or even the top level subdirectory ``pypy``.  It takes
 hours and uses huge amounts of RAM and is not recommended.
 
-To run CPython regression tests you can point to the ``lib-python``
-directory::
-
-    py.test lib-python/2.7/test/test_datetime.py
-
-This will usually take a long time because this will run
-the PyPy Python interpreter on top of CPython.  On the plus
-side, it's usually still faster than doing a full translation
-and running the regression test with the translated PyPy Python
-interpreter.
+To run CPython regression tests, you should start with a translated PyPy and
+run the tests as you would with CPython (see below).  You can, however, also
+attempt to run the tests before translation, but be aware that it is done with
+a hack that doesn't work in all cases and it is usually extremely slow:
+``py.test lib-python/2.7/test/test_datetime.py``.  Usually, a better idea is to
+extract a minimal failing test of at most a few lines, and put it into one of
+our own tests in ``pypy/*/test/``.
 
 .. _py.test testing tool: http://pytest.org
 .. _py.test usage and invocations: http://pytest.org/latest/usage.html#usage
@@ -349,6 +346,11 @@ collection phase must be run with `python2` so untranslated tests are run
 with::
 
     cpython2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+
+To run a test from the standard CPython regression test suite, use the regular
+Python way, i.e. (replace "pypy" with the exact binary name, if needed)::
+
+    pypy -m test.test_datetime
 
 
 Tooling & Utilities

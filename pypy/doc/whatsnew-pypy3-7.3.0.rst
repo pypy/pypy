@@ -17,3 +17,8 @@ Follow CPython's use of exc_info more closely (issue 3096)
 .. branch: code_page-utf8
 
 Add encoding, decoding of codepages on windows
+
+.. branch: py3.6-exc-info-2
+
+Fix handling of sys.exc_info() in generators
+

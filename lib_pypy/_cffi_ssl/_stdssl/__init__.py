@@ -85,7 +85,9 @@ OP_NO_SSLv2 = lib.SSL_OP_NO_SSLv2
 OP_NO_SSLv3 = lib.SSL_OP_NO_SSLv3
 OP_NO_TLSv1_3 = lib.SSL_OP_NO_TLSv1_3
 if OPENSSL_VERSION_INFO > (1, 1, 0, 0, 0):
-    OP_ENABLE_MIDDLEBOX_COMPAT = lib.SSL_OP_ENABLE_MIDDLEBOX_COMPAT
+    # OP_ENABLE_MIDDLEBOX_COMPAT = lib.SSL_OP_ENABLE_MIDDLEBOX_COMPAT
+    # XXX should be conditionally compiled into lib
+    OP_ENABLE_MIDDLEBOX_COMPAT = 0x00100000
 
 
 
@@ -1269,10 +1271,12 @@ class _SSLContext(object):
         return stats
 
     def set_default_verify_paths(self):
-        if not os.environ.get('SSL_CERT_FILE') and not os.environ.get('SSL_CERT_DIR'):
-            locations = get_default_verify_paths()
-            self.load_verify_locations(locations[1], locations[3])
-            return
+        if (not os.environ.get('SSL_CERT_FILE') and 
+            not os.environ.get('SSL_CERT_DIR') and
+            not sys.platform == 'win32'):
+                locations = get_default_verify_paths()
+                self.load_verify_locations(locations[1], locations[3])
+                return
         if not lib.SSL_CTX_set_default_verify_paths(self.ctx):
             raise ssl_error("")
 
@@ -1391,6 +1395,25 @@ class _SSLContext(object):
 
         sock = _SSLSocket._new__ssl_socket(self, None, server_side, hostname, incoming, outgoing)
         return sock
+
+    @property
+    def post_handshake_auth(self):
+        if HAS_TLSv1_3:
+            return bool(self._post_handshake_auth)
+        return None
+
+    @post_handshake_auth.setter
+    def post_handshake_auth(self, arg):
+        if arg is None:
+            raise AttributeError("cannot delete attribute")
+
+        pha = bool(arg)
+        self._post_handshake_auth = pha;
+
+        # bpo-37428: newPySSLSocket() sets SSL_VERIFY_POST_HANDSHAKE flag for
+        # server sockets and SSL_set_post_handshake_auth() for client
+
+        return 0;
 
     @property
     def post_handshake_auth(self):
