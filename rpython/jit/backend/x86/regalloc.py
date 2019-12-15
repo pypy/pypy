@@ -829,10 +829,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.xrm.before_call(save_all_regs=save_all_regs)
         if gc_level == SAVE_GCREF_REGS:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
-            # we save all the GCREF registers for shadowstack and asmgcc for now
-            # --- for asmgcc too: we can't say "register x is a gc ref"
-            # without distinguishing call sites, which we don't do any
-            # more for now.
+            # we save all the GCREF registers for shadowstack
             if gcrootmap: # and gcrootmap.is_shadow_stack:
                 save_all_regs = SAVE_GCREF_REGS
         self.rm.before_call(save_all_regs=save_all_regs)
@@ -940,15 +937,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
     def consider_cond_call(self, op):
-        # A 32-bit-only, asmgcc-only issue: 'cond_call_register_arguments'
-        # contains edi and esi, which are also in asmgcroot.py:ASM_FRAMEDATA.
-        # We must make sure that edi and esi do not contain GC pointers.
-        if IS_X86_32 and self.assembler._is_asmgcc():
-            for box, loc in self.rm.reg_bindings.items():
-                if (loc == edi or loc == esi) and box.type == REF:
-                    self.rm.force_spill_var(box)
-                    assert box not in self.rm.reg_bindings
-        #
         args = op.getarglist()
         assert 2 <= len(args) <= 4 + 2     # maximum 4 arguments
         v_func = args[1]

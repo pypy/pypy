@@ -1026,8 +1026,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
         else:
             gilstate = pystate.PyGILState_IGNORE
 
-        rffi.stackcounter.stacks_counter += 1
-        llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+        llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
         retval = fatal_value
         boxed_args = ()
         tb = None
@@ -1104,7 +1103,6 @@ def make_wrapper_second_level(space, argtypesw, restype,
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
-        rffi.stackcounter.stacks_counter -= 1
 
         _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
         return retval

@@ -30,7 +30,7 @@ from pypy.interpreter.gateway import unwrap_spec, Arguments
 #   called from the rffi-generated wrapper).  The gc_thread_run()
 #   operation will automatically notice that the current thread id was
 #   not seen before, and (in shadowstack) it will allocate and use a
-#   fresh new stack.  Again, this has no effect in asmgcc.
+#   fresh new stack.
 #
 # * Only then does bootstrap() really run.  The first thing it does
 #   is grab the start-up information (app-level callable and args)
@@ -43,7 +43,7 @@ from pypy.interpreter.gateway import unwrap_spec, Arguments
 #   thread.
 #
 # * Just before a thread finishes, gc_thread_die() is called to free
-#   its shadow stack.  This has no effect in asmgcc.
+#   its shadow stack.
 
 
 class Bootstrapper(object):

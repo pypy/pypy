@@ -21,7 +21,6 @@ from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
-from rpython.memory.gctransform import asmgcroot
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 # ____________________________________________________________
@@ -117,7 +116,7 @@ class GcLLDescription(GcCache):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(jitframe.JITFRAME)
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
-                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth',
+                     'jf_frame_info', 'jf_gcmap',
                      'jf_savedata', 'jf_forward']:
             setattr(descrs, name, cpu.fielddescrof(jitframe.JITFRAME, name))
         descrs.jfi_frame_size = cpu.fielddescrof(jitframe.JITFRAMEINFO,
@@ -243,15 +242,6 @@ class GcLLDescr_boehm(GcLLDescription):
 
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC
-
-class GcRootMap_asmgcc(object):
-    is_shadow_stack = False
-
-    def __init__(self, gcdescr):
-        pass
-
-    def register_asm_addr(self, start, mark):
-        pass
 
 class GcRootMap_shadowstack(object):
     is_shadow_stack = True

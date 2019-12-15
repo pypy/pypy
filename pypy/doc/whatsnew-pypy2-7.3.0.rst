@@ -31,3 +31,11 @@ provides, among others, better template resolution, stricter ``enum`` handling,
 anonymous struct/unions, cmake fragments for distribution, optimizations for
 PODs, and faster wrapper calls.
 
+.. branch: backport-decode_timeval_ns-py3.7
+
+Backport ``rtime.decode_timeval_ns`` from py3.7 to rpython
+
+.. branch: kill-asmgcc
+
+Completely remove the deprecated translation option ``--gcrootfinder=asmgcc``
+because it no longer works with a recent enough ``gcc``.
