@@ -1239,10 +1239,12 @@ class _SSLContext(object):
         return stats
 
     def set_default_verify_paths(self):
-        if not os.environ.get('SSL_CERT_FILE') and not os.environ.get('SSL_CERT_DIR'):
-            locations = get_default_verify_paths()
-            self.load_verify_locations(locations[1], locations[3])
-            return
+        if (not os.environ.get('SSL_CERT_FILE') and 
+            not os.environ.get('SSL_CERT_DIR') and
+            not sys.platform == 'win32'):
+                locations = get_default_verify_paths()
+                self.load_verify_locations(locations[1], locations[3])
+                return
         if not lib.SSL_CTX_set_default_verify_paths(self.ctx):
             raise ssl_error("")
 
