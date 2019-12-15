@@ -113,6 +113,7 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1_2 = 5
 # PROTOCOL_TLS_CLIENT = 0x10
 # PROTOCOL_TLS_SERVER = 0x11
+HAS_TLSv1_3 = bool(lib.Cryptography_HAS_TLSv1_3)
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
