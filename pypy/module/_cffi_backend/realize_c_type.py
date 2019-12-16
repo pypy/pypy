@@ -452,9 +452,10 @@ def realize_c_type_or_func(ffi, opcodes, index):
                 "really need support for your case.")
         x = realize_c_type_or_func_now(ffi, op, opcodes, index)
 
-    if from_ffi:
-        assert ffi.cached_types[index] is None or ffi.cached_types[index] is x
-        ffi.cached_types[index] = x
+        if from_ffi:
+            old = ffi.cached_types[index]
+            assert old is None or old is x
+            ffi.cached_types[index] = x
 
     return x
 
