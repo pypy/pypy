@@ -100,34 +100,6 @@ class TestModule(unittest.TestCase):
         self.assertEqual(dar(6, -4), -2)
         self.assertEqual(dar(-6, -4), 2)
 
-    def test_normalize_pair(self):
-        normalize = datetime_module._normalize_pair
-
-        self.assertEqual(normalize(1, 59, 60), (1, 59))
-        self.assertEqual(normalize(1, 60, 60), (2, 0))
-        self.assertEqual(normalize(1, 95, 60), (2, 35))
-
-    def test_normalize_date(self):
-        normalize = datetime_module._normalize_date
-
-        # Huge year is caught correctly
-        with self.assertRaises(OverflowError):
-            normalize(1000 * 1000, 1, 1)
-        # Normal dates should be unchanged
-        self.assertEqual(normalize(3000, 1, 1), (3000, 1, 1))
-        # Month overflows year boundary
-        self.assertEqual(normalize(2001, 24, 1), (2002, 12, 1))
-        # Day overflows month boundary
-        self.assertEqual(normalize(2001, 14, 31), (2002, 3, 3))
-        # Leap years? :S
-        self.assertEqual(normalize(2001, 1, 61), (2001, 3, 2))
-        self.assertEqual(normalize(2000, 1, 61), (2000, 3, 1))
-
-    def test_normalize_datetime(self):
-        normalize = datetime_module._normalize_datetime
-        abnormal = (2002, 13, 35, 30, 95, 75, 1000001)
-        self.assertEqual(normalize(*abnormal), (2003, 2, 5, 7, 36, 16, 1))
-
 
 #############################################################################
 # tzinfo tests
