@@ -10,7 +10,7 @@ from pypy.interpreter.typedef import (
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
-    METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
+    METH_STATIC, METH_VARARGS, METH_FASTCALL, PyObject, bootstrap_function,
     cpython_api, generic_cpy_call, CANNOT_FAIL, slot_function, cts,
     build_type_checkers)
 from pypy.module.cpyext.pyobject import (
@@ -21,6 +21,7 @@ from pypy.module.cpyext.tupleobject import tuple_from_args_w
 PyMethodDef = cts.gettype('PyMethodDef')
 PyCFunction = cts.gettype('PyCFunction')
 PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
+_PyCFunctionFast = cts.gettype('_PyCFunctionFast')
 PyCFunctionObject = cts.gettype('PyCFunctionObject*')
 
 @bootstrap_function
@@ -56,6 +57,11 @@ def w_kwargs_from_args(space, __args__):
         w_obj = __args__.keywords_w[i]
         space.setitem(w_kwargs, space.newtext(key), w_obj)
     return w_kwargs
+
+def w_names_from_args(space, __args__):
+    if __args__.keywords is None:
+        return []
+    return [space.newtext(x) for x in __args__.keywords]
 
 def undotted_name(name):
     """Return the last component of a dotted name"""
@@ -106,12 +112,14 @@ class W_PyCFunctionObject(W_Root):
     def call(self, space, w_self, __args__):
         flags = self.flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         length = len(__args__.arguments_w)
-        if not flags & METH_KEYWORDS and __args__.keywords:
+        if flags & METH_FASTCALL:
+            return self.call_fastcall(space, w_self, __args__)
+        elif flags & METH_KEYWORDS:
+            return self.call_keywords(space, w_self, __args__)
+        elif __args__.keywords:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
-        if flags & METH_KEYWORDS:
-            return self.call_keywords(space, w_self, __args__)
-        elif flags & METH_NOARGS:
+        if flags & METH_NOARGS:
             if length == 0:
                 return self.call_noargs(space, w_self, __args__)
             raise oefmt(space.w_TypeError,
@@ -153,6 +161,30 @@ class W_PyCFunctionObject(W_Root):
             return generic_cpy_call(space, func, w_self, py_args, w_kwargs)
         finally:
             decref(space, py_args)
+
+    def call_fastcall(self, space, w_self, __args__):
+        func = rffi.cast(_PyCFunctionFast, self.ml.c_ml_meth)
+        args_w = __args__.arguments_w
+        names = w_names_from_args(space, __args__)
+        nargs = len(__args__.arguments_w)
+        with lltype.scoped_alloc(rffi.CArray(PyObject), nargs + len(names)) as args:
+            i = 0
+            py_names = None
+            for w_arg in args_w:
+                args[i] = make_ref(space, w_arg)
+                i += 1
+            if names:
+                for w_val in __args__.keywords_w:
+                    args[i] = make_ref(space, w_val)
+                    i += 1
+                py_names = tuple_from_args_w(space, names)
+            try:
+                return generic_cpy_call(space, func, w_self, args, nargs, py_names)
+            finally:
+                for arg in args:
+                    decref(space, arg)
+                if py_names:
+                    decref(space, py_names)
 
     def get_doc(self, space):
         c_doc = self.ml.c_ml_doc

@@ -89,6 +89,45 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_KW.__name__ == "getarg_KW"
         assert mod.getarg_KW(*(), **{}) == ((), {})
 
+    def test_call_METH_FAST(self):
+        import sys
+        if sys.version_info[:2] != (3, 6):
+            skip('Python 3.6 only test, Python 3.7+ is different')
+        mod = self.import_extension('foo', [
+            ('getarg_FAST', 'METH_FASTCALL',
+             '''
+             int kwlen, i;
+             PyObject *pyargs;
+             if (kwnames == NULL) {
+                 kwlen = 0;
+             } else {
+                 kwlen = PySequence_Size(kwnames);
+             }
+             fprintf(stderr, "got %ld args, %d kwnames\\n", nargs, kwlen);
+             pyargs = PyTuple_New(nargs + kwlen);    
+             for (i=0; i<nargs + kwlen; i++) {
+                 if (args[i] == NULL) {
+                    PyErr_Format(PyExc_ValueError, "bad val at %d", i);
+                    return NULL;
+                 }
+                 PyTuple_SetItem(pyargs, i, args[i]);
+                 fprintf(stderr, "arg %d refcnt %ld\\n", i, (args[i])->ob_refcnt);
+             }
+             if (kwnames == NULL) {
+                 return Py_BuildValue("Oi", pyargs, nargs);
+             } else {
+                 fprintf(stderr, "got kwnames\\n");
+                 return Py_BuildValue("OiO", pyargs, nargs, kwnames);
+             }
+             '''
+             ),
+            ])
+        assert mod.getarg_FAST(1) == ((1,), 1)
+        assert mod.getarg_FAST(1, 2) == ((1, 2), 2)
+        assert mod.getarg_FAST(a=3, b=4) == ((3, 4), 0, ('a', 'b'))
+        assert mod.getarg_FAST(1, 2, a=3, b=4) == ((1, 2, 3, 4), 2, ('a', 'b'))
+        assert mod.getarg_FAST.__name__ == "getarg_FAST"
+        assert mod.getarg_FAST(*(), **{}) == ((), 0)
 
     def test_func_attributes(self):
         mod = self.import_extension('MyModule', [

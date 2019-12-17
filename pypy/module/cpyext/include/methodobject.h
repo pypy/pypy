@@ -27,6 +27,11 @@ extern "C" {
 
 #define METH_COEXIST   0x0040
 
+/* In python3.7 this is equivalent to METH_FASTCALL | METH_KEYWORDS,
+   and is used with _PyCFunctionFast which becomes in 3.7
+   _PyCFunctionFastWithKeywords*/ 
+#define METH_FASTCALL  0x0080
+
 #define PyCFunction_New(ml, self) PyCFunction_NewEx((ml), (self), NULL)
 
 /* Macros for direct access to these values. Type checks are *not*

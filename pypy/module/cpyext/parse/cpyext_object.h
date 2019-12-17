@@ -176,6 +176,8 @@ typedef struct PyGetSetDef {
 
 /* from methodobject.h */
 typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
+typedef PyObject *(*_PyCFunctionFast) (PyObject *self, PyObject **args,
+                                       Py_ssize_t nargs, PyObject *kwnames);
 typedef PyObject *(*PyCFunctionWithKeywords)(PyObject *, PyObject *,
                                              PyObject *);
 typedef PyObject *(*PyNoArgsFunction)(PyObject *);
