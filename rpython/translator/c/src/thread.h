@@ -33,12 +33,7 @@ RPY_EXTERN void RPyGilAcquireSlowPath(long);
 #define RPyGilAcquire _RPyGilAcquire
 #define RPyGilRelease _RPyGilRelease
 #define RPyFetchFastGil _RPyFetchFastGil
-
-#ifdef PYPY_USE_ASMGCC
-# define RPY_FASTGIL_LOCKED(x)   (x == 1)
-#else
-# define RPY_FASTGIL_LOCKED(x)   (x != 0)
-#endif
+#define RPY_FASTGIL_LOCKED(x)   (x != 0)
 
 RPY_EXTERN long rpy_fastgil;
 

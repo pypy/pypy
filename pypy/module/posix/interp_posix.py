@@ -1813,6 +1813,23 @@ def initgroups(space, username, gid):
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
 
+@unwrap_spec(username='text', gid=c_gid_t)
+def getgrouplist(space, username, gid):
+    """
+    getgrouplist(user, group) -> list of groups to which a user belongs
+
+    Returns a list of groups to which a user belongs.
+
+    user: username to lookup
+    group: base group id of the user
+    """
+    try:
+        groups = rposix.getgrouplist(username, gid)
+        return space.newlist([space.newint(g) for g in groups])
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
+
 def getpgrp(space):
     """ getpgrp() -> pgrp
 
@@ -2419,8 +2436,8 @@ If follow_symlinks is False, and the last element of the path is a symbolic
 
 
 have_functions = []
-for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
-               FPATHCONF FSTATAT FSTATVFS FTRUNCATE FUTIMENS FUTIMES
+for name in """FACCESSAT FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE
+               FDOPENDIR FPATHCONF FSTATAT FSTATVFS FTRUNCATE FUTIMENS FUTIMES
                FUTIMESAT LINKAT LCHFLAGS LCHMOD LCHOWN LSTAT LUTIMES
                MKDIRAT MKFIFOAT MKNODAT OPENAT READLINKAT RENAMEAT
                SYMLINKAT UNLINKAT UTIMENSAT""".split():

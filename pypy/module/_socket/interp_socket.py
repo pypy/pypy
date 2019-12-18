@@ -652,7 +652,7 @@ class W_Socket(W_Root):
         except OperationError as e:
             if e.async(space):
                 raise
-            optval = space.bytes_w(w_optval)
+            optval = space.charbuf_w(w_optval)
             try:
                 self.sock.setsockopt(level, optname, optval)
             except SocketError as e:

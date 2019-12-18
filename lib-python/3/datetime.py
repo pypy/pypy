@@ -609,31 +609,31 @@ class timedelta(deltainterop):
         if isinstance(other, timedelta):
             return self._cmp(other) == 0
         else:
-            return False
+            return NotImplemented
 
     def __le__(self, other):
         if isinstance(other, timedelta):
             return self._cmp(other) <= 0
         else:
-            _cmperror(self, other)
+            return NotImplemented
 
     def __lt__(self, other):
         if isinstance(other, timedelta):
             return self._cmp(other) < 0
         else:
-            _cmperror(self, other)
+            return NotImplemented
 
     def __ge__(self, other):
         if isinstance(other, timedelta):
             return self._cmp(other) >= 0
         else:
-            _cmperror(self, other)
+            return NotImplemented
 
     def __gt__(self, other):
         if isinstance(other, timedelta):
             return self._cmp(other) > 0
         else:
-            _cmperror(self, other)
+            return NotImplemented
 
     def _cmp(self, other):
         assert isinstance(other, timedelta)
@@ -1144,31 +1144,31 @@ class time(timeinterop):
         if isinstance(other, time):
             return self._cmp(other, allow_mixed=True) == 0
         else:
-            return False
+            return NotImplemented
 
     def __le__(self, other):
         if isinstance(other, time):
             return self._cmp(other) <= 0
         else:
-            _cmperror(self, other)
+            return NotImplemented
 
     def __lt__(self, other):
         if isinstance(other, time):
             return self._cmp(other) < 0
         else:
-            _cmperror(self, other)
+            return NotImplemented
 
     def __ge__(self, other):
         if isinstance(other, time):
             return self._cmp(other) >= 0
         else:
-            _cmperror(self, other)
+            return NotImplemented
 
     def __gt__(self, other):
         if isinstance(other, time):
             return self._cmp(other) > 0
         else:
-            _cmperror(self, other)
+            return NotImplemented
 
     def _cmp(self, other, allow_mixed=False):
         assert isinstance(other, time)
@@ -1416,9 +1416,13 @@ class datetime(date):
             self.__setstate(year, month)
             self._hashcode = -1
             return self
-        year, month, day = _check_date_fields(year, month, day)
-        hour, minute, second, microsecond, fold = _check_time_fields(
-            hour, minute, second, microsecond, fold)
+        elif isinstance(year, tuple) and len(year) == 7:
+            # Internal operation - numbers guaranteed to be valid
+            year, month, day, hour, minute, second, microsecond = year
+        else:
+            year, month, day = _check_date_fields(year, month, day)
+            hour, minute, second, microsecond, fold = _check_time_fields(
+                hour, minute, second, microsecond, fold)
         _check_tzinfo_arg(tzinfo)
         self = dateinterop.__new__(cls)
         self._year = int(year)
@@ -1890,20 +1894,18 @@ class datetime(date):
         "Add a datetime and a timedelta."
         if not isinstance(other, timedelta):
             return NotImplemented
-        delta = timedelta(self.toordinal(),
-                          hours=self._hour,
-                          minutes=self._minute,
-                          seconds=self._second,
-                          microseconds=self._microsecond)
-        delta += other
-        hour, rem = divmod(delta.seconds, 3600)
-        minute, second = divmod(rem, 60)
-        if 0 < delta.days <= _MAXORDINAL:
-            return datetime.combine(date.fromordinal(delta.days),
-                                    time(hour, minute, second,
-                                         delta.microseconds,
-                                         tzinfo=self._tzinfo))
-        raise OverflowError("result out of range")
+
+        result = _normalize_datetime(
+            self._year,
+            self._month,
+            self._day + other.days,
+            self._hour,
+            self._minute,
+            self._second + other.seconds,
+            self._microsecond + other.microseconds,
+        )
+
+        return datetime(result, tzinfo=self._tzinfo)
 
     __radd__ = __add__
 
@@ -2000,6 +2002,65 @@ datetime.max = datetime(9999, 12, 31, 23, 59, 59, 999999)
 datetime.resolution = timedelta(microseconds=1)
 
 
+def _normalize_pair(hi, lo, factor):
+    if not 0 <= lo <= factor-1:
+        inc, lo = divmod(lo, factor)
+        hi += inc
+    return hi, lo
+
+
+def _normalize_datetime(y, m, d, hh, mm, ss, us):
+    # Normalize all the inputs, and store the normalized values.
+    ss, us = _normalize_pair(ss, us, 1000000)
+    mm, ss = _normalize_pair(mm, ss, 60)
+    hh, mm = _normalize_pair(hh, mm, 60)
+    d, hh = _normalize_pair(d, hh, 24)
+    y, m, d = _normalize_date(y, m, d)
+    return y, m, d, hh, mm, ss, us
+
+
+def _normalize_date(year, month, day):
+    # That was easy.  Now it gets muddy:  the proper range for day
+    # can't be determined without knowing the correct month and year,
+    # but if day is, e.g., plus or minus a million, the current month
+    # and year values make no sense (and may also be out of bounds
+    # themselves).
+    # Saying 12 months == 1 year should be non-controversial.
+    if not 1 <= month <= 12:
+        year, month = _normalize_pair(year, month-1, 12)
+        month += 1
+        assert 1 <= month <= 12
+
+    # Now only day can be out of bounds (year may also be out of bounds
+    # for a datetime object, but we don't care about that here).
+    # If day is out of bounds, what to do is arguable, but at least the
+    # method here is principled and explainable.
+    dim = _days_in_month(year, month)
+    if not 1 <= day <= dim:
+        # Move day-1 days from the first of the month.  First try to
+        # get off cheap if we're only one day out of range (adjustments
+        # for timezone alone can't be worse than that).
+        if day == 0:    # move back a day
+            month -= 1
+            if month > 0:
+                day = _days_in_month(year, month)
+            else:
+                year, month, day = year-1, 12, 31
+        elif day == dim + 1:    # move forward a day
+            month += 1
+            day = 1
+            if month > 12:
+                month = 1
+                year += 1
+        else:
+            ordinal = _ymd2ord(year, month, 1) + (day - 1)
+            year, month, day = _ord2ymd(ordinal)
+
+    if not MINYEAR <= year <= MAXYEAR:
+        raise OverflowError("date value out of range")
+    return year, month, day
+
+
 def _isoweek1monday(year):
     # Helper to calculate the day number of the Monday starting week 1
     # XXX This could be done more efficiently
@@ -2048,9 +2109,9 @@ class timezone(tzinfo):
         return (self._offset, self._name)
 
     def __eq__(self, other):
-        if type(other) != timezone:
-            return False
-        return self._offset == other._offset
+        if isinstance(other, timezone):
+            return self._offset == other._offset
+        return NotImplemented
 
     def __hash__(self):
         return hash(self._offset)

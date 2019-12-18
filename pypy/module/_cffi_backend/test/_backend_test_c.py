@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.13.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.13.2", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -4432,3 +4432,11 @@ def test_cannot_call_null_function_pointer():
     f = cast(BFunc, 0)
     with pytest.raises(RuntimeError):
         f(40, 2)
+
+def test_huge_structure():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), sys.maxsize)
+    assert sizeof(BArray) == sys.maxsize
+    BStruct = new_struct_type("struct foo")
+    complete_struct_or_union(BStruct, [('a1', BArray, -1)])
+    assert sizeof(BStruct) == sys.maxsize

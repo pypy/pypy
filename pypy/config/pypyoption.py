@@ -41,7 +41,7 @@ working_modules.update([
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
     "_jitlog",
-    #" _ssl", "_hashlib", "crypt"
+    # "_hashlib", "crypt"
 ])
 
 import rpython.rlib.rvmprof.cintf
@@ -170,11 +170,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                "Disable only cffi's embedding mode.",
                default=False),
 
-    BoolOption("fstrings",
-               "if you are really convinced that f-strings are a security "
-               "issue, you can disable them here",
-               default=True),
-
     ChoiceOption("hash",
                  "The hash function to use for strings: fnv from CPython 2.7"
                  " or siphash24 from CPython >= 3.4",
@@ -223,11 +218,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
                    default=False),
-        BoolOption("reinterpretasserts",
-                   "Perform reinterpretation when an assert fails "
-                   "(only relevant for tests)",
-                   default=False),
-
      ]),
 ])
 

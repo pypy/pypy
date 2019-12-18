@@ -175,6 +175,26 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
             ])
         assert module.dict_proxy({'a': 1, 'b': 2}) == 2
 
+    def test_getitemwitherror(self):
+        module = self.import_extension('foo', [
+            ("dict_getitem", "METH_VARARGS",
+             """
+             PyObject *d, *key, *result;
+             if (!PyArg_ParseTuple(args, "OO", &d, &key)) {
+                return NULL;
+             }
+             result = PyDict_GetItemWithError(d, key);
+             if (result == NULL && !PyErr_Occurred())
+                Py_RETURN_NONE;
+             Py_XINCREF(result);
+             return result;
+             """)])
+        d = {'foo': 'bar'}
+        assert module.dict_getitem(d, 'foo') == 'bar'
+        assert module.dict_getitem(d, 'missing') is None
+        with raises(TypeError):
+            module.dict_getitem(d, [])
+
     def test_setdefault(self):
         module = self.import_extension('foo', [
             ("setdefault", "METH_VARARGS",
@@ -396,3 +416,20 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         d[1] = 2
         assert d[1] == 42
         assert module.dict_getitem(d, 1) == 2
+
+    def test_getitem_error(self):
+        module = self.import_extension('foo', [
+            ("dict_getitem", "METH_VARARGS",
+             """
+             PyObject *d, *key, *result;
+             if (!PyArg_ParseTuple(args, "OO", &d, &key)) {
+                return NULL;
+             }
+             result = PyDict_GetItem(d, key);
+             if (!result) Py_RETURN_NONE;
+             Py_XINCREF(result);
+             return result;
+             """),
+        ])
+        assert module.dict_getitem(42, 43) is None
+        assert module.dict_getitem({}, []) is None

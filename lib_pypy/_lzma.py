@@ -583,8 +583,16 @@ class LZMADecompressor(object):
                 self.clear_input_buffer()
             elif lzs.avail_in == 0:
                 # completed successfully!
-                self.needs_input = True
                 lzs.next_in = ffi.NULL
+                if lzs.avail_out == 0:
+                    # (avail_in==0 && avail_out==0)
+                    # Maybe lzs's internal state still have a few bytes can
+                    # be output, try to output them next time.
+                    self.needs_input = False
+                    assert max_length >= 0   # if < 0, lzs.avail_out always > 0
+                else:
+                    # Input buffer exhausted, output buffer has space.
+                    self.needs_input = True
                 self.clear_input_buffer()
             else:
                 self.needs_input = False
@@ -598,9 +606,6 @@ class LZMADecompressor(object):
 
         lzs.next_in = buf
         lzs.avail_in = buf_len
-
-        if buf_len == 0:
-            return b""
 
         bufsiz = self._bufsiz
         if not (max_length < 0 or max_length > io.DEFAULT_BUFFER_SIZE):
@@ -616,7 +621,8 @@ class LZMADecompressor(object):
 
         try:
             while True:
-                ret = catch_lzma_error(m.lzma_code, lzs, m.LZMA_RUN)
+                ret = catch_lzma_error(m.lzma_code, lzs, m.LZMA_RUN,
+                    ignore_buf_error=(lzs.avail_in == 0 and lzs.avail_out > 0))
                 data_size = int(ffi.cast('uintptr_t', lzs.next_out)) - int(ffi.cast('uintptr_t', orig_out))
                 # data_size is the amount lzma_code has already outputted
 
@@ -626,14 +632,17 @@ class LZMADecompressor(object):
                 if ret == m.LZMA_STREAM_END:
                     self.eof = True
                     break
-                elif lzs.avail_in == 0:
-                    # it ate everything
-                    break
                 elif lzs.avail_out == 0:
+                    # Need to check lzs->avail_out before lzs->avail_in.
+                    # Maybe lzs's internal state still have a few bytes
+                    # can be output, grow the output buffer and continue
+                    # if max_lengh < 0.
                     if data_size == max_length:
                         break
                     # ran out of space in the output buffer, let's grow it
                     bufsiz += (bufsiz >> 3) + 6
+                    if max_length > 0 and bufsiz > max_length:
+                        bufsiz = max_length
                     next_out = m.realloc(orig_out, bufsiz)
                     if next_out == ffi.NULL:
                         # realloc unsuccessful
@@ -645,6 +654,9 @@ class LZMADecompressor(object):
 
                     lzs.next_out = orig_out + data_size
                     lzs.avail_out = bufsiz - data_size
+                elif lzs.avail_in == 0:
+                    # it ate everything
+                    break
 
             result = ffi.buffer(orig_out, data_size)[:]
         finally:

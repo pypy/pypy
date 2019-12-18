@@ -22,9 +22,13 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
+def get_printable_location(tp):
+    return "unpackiterable: %s" % (tp, )
+
 unpackiterable_driver = jit.JitDriver(name='unpackiterable',
                                       greens=['tp'],
-                                      reds=['items', 'w_iterator'])
+                                      reds=['items', 'w_iterator'],
+                                      get_printable_location=get_printable_location)
 
 
 class W_Root(object):
@@ -394,6 +398,8 @@ class DescrMismatch(Exception):
 
 @specialize.memo()
 def wrappable_class_name(Class):
+    if 'exact_class_applevel_name' in Class.__dict__:
+        return Class.exact_class_applevel_name
     try:
         return Class.typedef.name
     except AttributeError:
@@ -1232,8 +1238,11 @@ class ObjSpace(object):
         from pypy.interpreter.generator import GeneratorIterator
         return isinstance(w_obj, GeneratorIterator)
 
+    def callable_w(self, w_obj):
+        return self.lookup(w_obj, "__call__") is not None
+
     def callable(self, w_obj):
-        return self.newbool(self.lookup(w_obj, "__call__") is not None)
+        return self.newbool(self.callable_w(w_obj))
 
     def issequence_w(self, w_obj):
         flag = self.type(w_obj).flag_map_or_seq
@@ -1787,8 +1796,7 @@ class ObjSpace(object):
     def convert_arg_to_w_unicode(self, w_obj, strict=None):
         # XXX why convert_to_w_unicode does something slightly different?
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        # for z_translation tests
-        if hasattr(self, 'is_fake_objspace'): return self.newtext("foobar")
+        assert not hasattr(self, 'is_fake_objspace')
         return W_UnicodeObject.convert_arg_to_w_unicode(self, w_obj, strict)
 
     def utf8_len_w(self, w_obj):

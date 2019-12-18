@@ -41,29 +41,42 @@ def test_pypy_collection(testdir):
         "*AppTestMethod*",
     ])
 
-class TestSpaceConfig:
-    @pytest.mark.xfail(reason="Can't check config with -A in pypy3")
-    def test_interp_spaceconfig(self, testdir):
-        setpypyconftest(testdir)
-        p = testdir.makepyfile("""
-            class TestClass:
-                spaceconfig = {"objspace.usemodules._random": False}
-                def setup_class(cls):
-                    assert not cls.space.config.objspace.usemodules._random
-                def test_interp(self, space):
-                    assert self.space is space
-                def test_interp2(self, space):
-                    assert self.space is space
-        """)
-        result = testdir.runpytest(p)
-        assert result.ret == 0
-        result.stdout.fnmatch_lines(["*2 passed*"])
+def test_interp_spaceconfig(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        class TestClass:
+            spaceconfig = {"objspace.usemodules._random": False}
+            def setup_class(cls):
+                assert not cls.space.config.objspace.usemodules._random
+            def test_interp(self, space):
+                assert self.space is space
+            def test_interp2(self, space):
+                assert self.space is space
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.stdout.fnmatch_lines(["*2 passed*"])
+
+def test_spaceconfig_param(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile("""
+        import pytest
+
+        @pytest.mark.parametrize('spaceconfig',
+            [{"objspace.usemodules._random": False}])
+        def test_interp(space):
+            assert not space.config.objspace.usemodules._random
+
+        def test_interp2(space):
+            assert space.config.objspace.usemodules._random
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.stdout.fnmatch_lines(["*2 passed*"])
 
 def test_applevel_raises_simple_display(testdir):
     setpypyconftest(testdir)
     p = testdir.makepyfile("""
-        def app_test_raises():
-            raises(ValueError, x)
         class AppTestRaises:
             def test_func(self):
                 raises (ValueError, x)
@@ -72,7 +85,6 @@ def test_applevel_raises_simple_display(testdir):
     result = testdir.runpytest(p, "-s")
     assert result.ret == 1
     result.stdout.fnmatch_lines([
-        "*E*application-level*NameError*x*not defined",
         "*test_func(self)*",
         ">*raises*ValueError*",
         "*E*application-level*NameError*x*not defined",
@@ -82,37 +94,6 @@ def test_applevel_raises_simple_display(testdir):
     assert result.ret == 1
     result.stdout.fnmatch_lines([
         "*E*application-level*NameError*x*not defined",
-    ])
-
-def test_applevel_raises_display(testdir):
-    setpypyconftest(testdir)
-    p = testdir.makepyfile("""
-        def app_test_raises():
-            raises(ValueError, "x")
-            pass
-    """)
-    result = testdir.runpytest(p, "-s")
-    assert result.ret == 1
-    result.stdout.fnmatch_lines([
-        "*E*application-level*NameError*x*not defined",
-    ])
-    result = testdir.runpytest(p) # this time we may run the pyc file
-    assert result.ret == 1
-    result.stdout.fnmatch_lines([
-        "*E*application-level*NameError*x*not defined",
-    ])
-
-def test_applevel_raise_keyerror(testdir):
-    setpypyconftest(testdir)
-    p = testdir.makepyfile("""
-        def app_test_raises():
-            raise KeyError(42)
-            pass
-    """)
-    result = testdir.runpytest(p, "-s")
-    assert result.ret == 1
-    result.stdout.fnmatch_lines([
-        "*E*application-level*KeyError*42*",
     ])
 
 def test_apptest_raise(testdir):
@@ -154,17 +135,6 @@ def test_apptest_fail_rewrite(testdir):
         "*E*- foo*",
         "*E*+ bar*",
     ])
-
-
-def app_test_raises():
-    info = raises(TypeError, id)
-    assert info.type is TypeError
-    assert isinstance(info.value, TypeError)
-
-    x = 43
-    info = raises(ZeroDivisionError, "x/0")
-    assert info.type is ZeroDivisionError
-    assert isinstance(info.value, ZeroDivisionError)
 
 def test_rename_module():
     from pypy.tool.pytest.apptest import _rename_module

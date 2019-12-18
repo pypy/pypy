@@ -28,6 +28,7 @@ BUILDERS = [
     'own-win-x86-32',
     'own-linux-s390x',
 #    'own-macosx-x86-32',
+    'own-linux-aarch64',
     'pypy-c-jit-linux-x86-32',
     'pypy-c-jit-linux-x86-64',
 #    'pypy-c-jit-freebsd-9-x86-64',
@@ -36,6 +37,7 @@ BUILDERS = [
     'pypy-c-jit-linux-s390x',
 #    'build-pypy-c-jit-linux-armhf-raspbian',
 #    'build-pypy-c-jit-linux-armel',
+    'pypy-c-jit-linux-aarch64',
     'rpython-linux-x86-32',
     'rpython-linux-x86-64',
     'rpython-win-x86-32'
@@ -92,5 +94,8 @@ if __name__ == '__main__':
         subprocess.check_call(['hg','id','-r', options.branch])
     except subprocess.CalledProcessError:
         print('branch',  options.branch, 'could not be found in local repository')
+        sys.exit(-1) 
+    if options.branch.startswith('release') and not '-v' in options.branch:
+        print('release branches must be of the form "release.*-v.*')
         sys.exit(-1) 
     main(options.branch, options.server, user=options.user)

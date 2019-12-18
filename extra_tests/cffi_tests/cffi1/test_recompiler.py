@@ -35,8 +35,9 @@ def verify(ffi, module_name, source, *args, **kwds):
         source = 'extern "C" {\n%s\n}' % (source,)
     elif sys.platform != 'win32':
         # add '-Werror' to the existing 'extra_compile_args' flags
+        from extra_tests.cffi_tests.support import extra_compile_args
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
-                                      ['-Werror'])
+                                      extra_compile_args)
     return _verify(ffi, module_name, source, *args, **kwds)
 
 def test_set_source_no_slashes():
@@ -84,7 +85,7 @@ def test_type_table_variadic_function():
                      "(FUNCTION 1)(PRIMITIVE 7)(FUNCTION_END 1)(POINTER 0)")
 
 def test_type_table_array():
-    check_type_table("int a[100];",
+    check_type_table("extern int a[100];",
                      "(PRIMITIVE 7)(ARRAY 0)(None 100)")
 
 def test_type_table_typedef():
@@ -159,7 +160,7 @@ def test_funcres_ptr():
 
 def test_global_var_array():
     ffi = FFI()
-    ffi.cdef("int a[100];")
+    ffi.cdef("extern int a[100];")
     lib = verify(ffi, 'test_global_var_array', 'int a[100] = { 9999 };')
     lib.a[42] = 123456
     assert lib.a[42] == 123456
@@ -183,7 +184,7 @@ def test_verify_typedef_star_dotdotdot():
 
 def test_global_var_int():
     ffi = FFI()
-    ffi.cdef("int a, b, c;")
+    ffi.cdef("extern int a, b, c;")
     lib = verify(ffi, 'test_global_var_int', 'int a = 999, b, c;')
     assert lib.a == 999
     lib.a -= 1001
@@ -284,7 +285,7 @@ def test_constant_ptr():
 
 def test_dir():
     ffi = FFI()
-    ffi.cdef("int ff(int); int aa; static const int my_constant;")
+    ffi.cdef("int ff(int); extern int aa; static const int my_constant;")
     lib = verify(ffi, 'test_dir', """
         #define my_constant  (-45)
         int aa;
@@ -406,7 +407,7 @@ def test_dotdotdot_length_of_array_field():
 
 def test_dotdotdot_global_array():
     ffi = FFI()
-    ffi.cdef("int aa[...]; int bb[...];")
+    ffi.cdef("extern int aa[...]; extern int bb[...];")
     lib = verify(ffi, 'test_dotdotdot_global_array',
                  "int aa[41]; int bb[12];")
     assert ffi.sizeof(lib.aa) == 41 * 4
@@ -561,37 +562,37 @@ def test_module_name_in_package():
 
 def test_bad_size_of_global_1():
     ffi = FFI()
-    ffi.cdef("short glob;")
+    ffi.cdef("extern short glob;")
     py.test.raises(VerificationError, verify, ffi,
                    "test_bad_size_of_global_1", "long glob;")
 
 def test_bad_size_of_global_2():
     ffi = FFI()
-    ffi.cdef("int glob[10];")
+    ffi.cdef("extern int glob[10];")
     py.test.raises(VerificationError, verify, ffi,
                    "test_bad_size_of_global_2", "int glob[9];")
 
 def test_unspecified_size_of_global_1():
     ffi = FFI()
-    ffi.cdef("int glob[];")
+    ffi.cdef("extern int glob[];")
     lib = verify(ffi, "test_unspecified_size_of_global_1", "int glob[10];")
     assert ffi.typeof(lib.glob) == ffi.typeof("int *")
 
 def test_unspecified_size_of_global_2():
     ffi = FFI()
-    ffi.cdef("int glob[][5];")
+    ffi.cdef("extern int glob[][5];")
     lib = verify(ffi, "test_unspecified_size_of_global_2", "int glob[10][5];")
     assert ffi.typeof(lib.glob) == ffi.typeof("int(*)[5]")
 
 def test_unspecified_size_of_global_3():
     ffi = FFI()
-    ffi.cdef("int glob[][...];")
+    ffi.cdef("extern int glob[][...];")
     lib = verify(ffi, "test_unspecified_size_of_global_3", "int glob[10][5];")
     assert ffi.typeof(lib.glob) == ffi.typeof("int(*)[5]")
 
 def test_unspecified_size_of_global_4():
     ffi = FFI()
-    ffi.cdef("int glob[...][...];")
+    ffi.cdef("extern int glob[...][...];")
     lib = verify(ffi, "test_unspecified_size_of_global_4", "int glob[10][5];")
     assert ffi.typeof(lib.glob) == ffi.typeof("int[10][5]")
 
@@ -814,7 +815,7 @@ def test_name_of_unnamed_struct():
 def test_address_of_global_var():
     ffi = FFI()
     ffi.cdef("""
-        long bottom, bottoms[2];
+        extern long bottom, bottoms[2];
         long FetchRectBottom(void);
         long FetchRectBottoms1(void);
         #define FOOBAR 42
@@ -969,7 +970,7 @@ def test_variable_of_unknown_size():
     ffi = FFI()
     ffi.cdef("""
         typedef ... opaque_t;
-        opaque_t globvar;
+        extern opaque_t globvar;
     """)
     lib = verify(ffi, 'test_variable_of_unknown_size', """
         typedef char opaque_t[6];
@@ -1014,7 +1015,7 @@ def test_dotdot_in_source_file_names():
 def test_call_with_incomplete_structs():
     ffi = FFI()
     ffi.cdef("typedef struct {...;} foo_t; "
-             "foo_t myglob; "
+             "extern foo_t myglob; "
              "foo_t increment(foo_t s); "
              "double getx(foo_t s);")
     lib = verify(ffi, 'test_call_with_incomplete_structs', """
@@ -1058,7 +1059,7 @@ def test_struct_array_guess_length_3():
 
 def test_global_var_array_2():
     ffi = FFI()
-    ffi.cdef("int a[...][...];")
+    ffi.cdef("extern int a[...][...];")
     lib = verify(ffi, 'test_global_var_array_2', 'int a[10][8];')
     lib.a[9][7] = 123456
     assert lib.a[9][7] == 123456
@@ -1071,7 +1072,7 @@ def test_global_var_array_2():
 
 def test_global_var_array_3():
     ffi = FFI()
-    ffi.cdef("int a[][...];")
+    ffi.cdef("extern int a[][...];")
     lib = verify(ffi, 'test_global_var_array_3', 'int a[10][8];')
     lib.a[9][7] = 123456
     assert lib.a[9][7] == 123456
@@ -1082,7 +1083,7 @@ def test_global_var_array_3():
 
 def test_global_var_array_4():
     ffi = FFI()
-    ffi.cdef("int a[10][...];")
+    ffi.cdef("extern int a[10][...];")
     lib = verify(ffi, 'test_global_var_array_4', 'int a[10][8];')
     lib.a[9][7] = 123456
     assert lib.a[9][7] == 123456
@@ -1205,7 +1206,7 @@ def test_alignment_of_longlong():
 
 def test_import_from_lib():
     ffi = FFI()
-    ffi.cdef("int mybar(int); int myvar;\n#define MYFOO ...")
+    ffi.cdef("int mybar(int); static int myvar;\n#define MYFOO ...")
     lib = verify(ffi, 'test_import_from_lib',
                  "#define MYFOO 42\n"
                  "static int mybar(int x) { return x + 1; }\n"
@@ -1221,7 +1222,7 @@ def test_import_from_lib():
 
 def test_macro_var_callback():
     ffi = FFI()
-    ffi.cdef("int my_value; int *(*get_my_value)(void);")
+    ffi.cdef("extern int my_value; extern int *(*get_my_value)(void);")
     lib = verify(ffi, 'test_macro_var_callback',
                  "int *(*get_my_value)(void);\n"
                  "#define my_value (*get_my_value())")
@@ -1336,7 +1337,7 @@ def test_const_function_args():
 
 def test_const_function_type_args():
     ffi = FFI()
-    ffi.cdef("""int (*foobar)(const int a, const int *b, const int c[]);""")
+    ffi.cdef("""extern int(*foobar)(const int a,const int*b,const int c[]);""")
     lib = verify(ffi, 'test_const_function_type_args', """
         int (*foobar)(const int a, const int *b, const int c[]);
     """)
@@ -1626,7 +1627,7 @@ def test_extern_python_1():
 
 def test_extern_python_bogus_name():
     ffi = FFI()
-    ffi.cdef("int abc;")
+    ffi.cdef("extern int abc;")
     lib = verify(ffi, 'test_extern_python_bogus_name', "int abc;")
     def fn():
         pass
@@ -1787,8 +1788,8 @@ def test_extern_python_stdcall():
     ffi.cdef("""
         extern "Python" int __stdcall foo(int);
         extern "Python" int WINAPI bar(int);
-        int (__stdcall * mycb1)(int);
-        int indirect_call(int);
+        static int (__stdcall * mycb1)(int);
+        static int indirect_call(int);
     """)
     lib = verify(ffi, 'test_extern_python_stdcall', """
         #ifndef _MSC_VER
@@ -1856,7 +1857,7 @@ def test_introspect_function():
 
 def test_introspect_global_var():
     ffi = FFI()
-    ffi.cdef("float g1;")
+    ffi.cdef("extern float g1;")
     lib = verify(ffi, 'test_introspect_global_var', """
         float g1;
     """)
@@ -1867,7 +1868,7 @@ def test_introspect_global_var():
 
 def test_introspect_global_var_array():
     ffi = FFI()
-    ffi.cdef("float g1[100];")
+    ffi.cdef("extern float g1[100];")
     lib = verify(ffi, 'test_introspect_global_var_array', """
         float g1[100];
     """)
@@ -2039,7 +2040,7 @@ def test_function_returns_float_complex():
     ffi.cdef("float _Complex f1(float a, float b);");
     lib = verify(ffi, "test_function_returns_float_complex", """
         #include <complex.h>
-        static float _Complex f1(float a, float b) { return a + I*2.0*b; }
+        static float _Complex f1(float a, float b) { return a + I*2.0f*b; }
     """, no_cpp=True)    # <complex.h> fails on some systems with C++
     result = lib.f1(1.25, 5.1)
     assert type(result) == complex
@@ -2090,7 +2091,7 @@ def test_typedef_array_dotdotdot():
     ffi = FFI()
     ffi.cdef("""
         typedef int foo_t[...], bar_t[...];
-        int gv[...];
+        extern int gv[...];
         typedef int mat_t[...][...];
         typedef int vmat_t[][...];
         """)

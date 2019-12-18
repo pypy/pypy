@@ -330,3 +330,13 @@ baz: NUMBER
         info = py.test.raises(parser.ParseError, p.parse, "if 42 42")
         info.value.expected_str == '+'
 
+
+    def test_line_attached_to_terminal(self):
+        p, gram = self.parser_for(
+            "foo: 'if' NUMBER '+' NUMBER"
+        )
+        input = "if 53 + 65"
+        tree = p.parse(input)
+        assert tree.get_child(0).line == input + "\n"
+        assert tree.get_line() == input + "\n"
+

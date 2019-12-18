@@ -128,13 +128,13 @@ class PythonAstCompiler(PyCodeCompiler):
                 optimize=optimize)
         return self._compile_ast(node, info)
 
-    def _compile_ast(self, node, info):
+    def _compile_ast(self, node, info, source=None):
         space = self.space
         try:
             mod = optimize.optimize_ast(space, node, info)
             code = codegen.compile_ast(space, mod, info)
         except parseerror.SyntaxError as e:
-            raise OperationError(space.w_SyntaxError, e.wrap_info(space))
+            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source))
         return code
 
     def validate_ast(self, node):
@@ -159,11 +159,11 @@ class PythonAstCompiler(PyCodeCompiler):
                                            recursive_parser=self.parser)
         except parseerror.TabError as e:
             raise OperationError(space.w_TabError,
-                                 e.wrap_info(space))
+                                 e.find_sourceline_and_wrap_info(space))
         except parseerror.IndentationError as e:
-            raise OperationError(space.w_IndentationError, e.wrap_info(space))
+            raise OperationError(space.w_IndentationError, e.find_sourceline_and_wrap_info(space))
         except parseerror.SyntaxError as e:
-            raise OperationError(space.w_SyntaxError, e.wrap_info(space))
+            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source))
         return mod
 
     def compile(self, source, filename, mode, flags, hidden_applevel=False,
@@ -174,4 +174,4 @@ class PythonAstCompiler(PyCodeCompiler):
         info = pyparse.CompileInfo(filename, mode, flags,
                 hidden_applevel=hidden_applevel, optimize=optimize)
         mod = self._compile_to_ast(source, info)
-        return self._compile_ast(mod, info)
+        return self._compile_ast(mod, info, source)

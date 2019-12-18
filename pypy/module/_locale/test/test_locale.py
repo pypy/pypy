@@ -49,8 +49,8 @@ class AppTestLocaleTrivia:
     def teardown_class(cls):
         import _locale
         _locale.setlocale(_locale.LC_ALL, cls.oldlocale)
-        
-        
+
+
 
     def test_import(self):
         import _locale
@@ -58,7 +58,7 @@ class AppTestLocaleTrivia:
 
         import locale
         assert locale
-        
+
     def test_constants(self):
         import sys
 
@@ -82,7 +82,7 @@ class AppTestLocaleTrivia:
         )
 
         import _locale
-        
+
         for constant in _CONSTANTS:
             assert hasattr(_locale, constant)
 
@@ -171,7 +171,10 @@ class AppTestLocaleTrivia:
         assert a is not b
         assert a == b
 
-        raises(TypeError, _locale.strxfrm, 1)
+        with raises(TypeError):
+            _locale.strxfrm(1)
+        with raises(ValueError):
+            _locale.strxfrm("a\x00b")
 
         _locale.setlocale(_locale.LC_ALL, self.language_pl)
         a = "1234"
@@ -271,7 +274,7 @@ class AppTestLocaleTrivia:
 
         raises(ValueError, _locale.nl_langinfo, 12345)
         raises(TypeError, _locale.nl_langinfo, None)
-    
+
     def test_bindtextdomain(self):
         import sys
         if sys.platform == 'win32':

@@ -1,9 +1,20 @@
 import sys
+import os
 import time
 import _thread
 import weakref
-from _pypy_openssl import ffi
-from _pypy_openssl import lib
+
+try:
+    from _pypy_openssl import ffi
+    from _pypy_openssl import lib
+except ImportError as e:
+    import os
+    msg = "\n\nThe _ssl cffi module either doesn't exist or is incompatible with your machine's shared libraries.\n" + \
+          "If you have a compiler installed, you can try to rebuild it by running:\n" + \
+          "cd %s\n" % os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) + \
+          "%s _ssl_build.py\n" % sys.executable
+    raise ImportError(str(e) + msg)
+
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
 from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
@@ -73,6 +84,11 @@ OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 OP_NO_SSLv2 = lib.SSL_OP_NO_SSLv2
 OP_NO_SSLv3 = lib.SSL_OP_NO_SSLv3
 OP_NO_TLSv1_3 = lib.SSL_OP_NO_TLSv1_3
+if OPENSSL_VERSION_INFO > (1, 1, 0, 0, 0):
+    # OP_ENABLE_MIDDLEBOX_COMPAT = lib.SSL_OP_ENABLE_MIDDLEBOX_COMPAT
+    # XXX should be conditionally compiled into lib
+    OP_ENABLE_MIDDLEBOX_COMPAT = 0x00100000
+
 
 
 SSL_CLIENT = 0
@@ -259,6 +275,20 @@ class _SSLSocket(object):
         if lib.SSL_MODE_AUTO_RETRY:
             mode |= lib.SSL_MODE_AUTO_RETRY
         lib.SSL_set_mode(ssl, mode)
+
+        if HAS_TLSv1_3:
+            if sslctx._post_handshake_auth:
+                if socket_type == SSL_SERVER:
+                    # bpo-37428: OpenSSL does not ignore SSL_VERIFY_POST_HANDSHAKE.
+                    # Set SSL_VERIFY_POST_HANDSHAKE flag only for server sockets and
+                    # only in combination with SSL_VERIFY_PEER flag.
+                    mode = lib.SSL_CTX_get_verify_mode(lib.SSL_get_SSL_CTX(self.ssl))
+                    if (mode & lib.SSL_VERIFY_PEER):
+                        verify_cb = lib.SSL_get_verify_callback(self.ssl)
+                        mode |= lib.SSL_VERIFY_POST_HANDSHAKE
+                        lib.SSL_set_verify(ssl, mode, verify_cb)
+                else:
+                    lib.SSL_set_post_handshake_auth(ssl, 1)
 
         if HAS_SNI and self.server_hostname:
             name = _str_to_ffi_buffer(self.server_hostname)
@@ -677,6 +707,15 @@ class _SSLSocket(object):
         else:
             return None
 
+    def verify_client_post_handshake(self):
+
+        if not HAS_TLSv1_3:
+            raise NotImplementedError("Post-handshake auth is not supported by "
+                                      "your OpenSSL version.")
+        err = lib.SSL_verify_client_post_handshake(self.ssl);
+        if err == 0:
+            raise pyssl_error(self, err)
+
     def pending(self):
         count = lib.SSL_pending(self.ssl)
         if count < 0:
@@ -731,6 +770,7 @@ class _SSLSocket(object):
     def session_reused(self):
         "Was the client session reused during handshake?"
         return bool(lib.SSL_session_reused(self.ssl))
+
 
 
 def _fs_decode(name):
@@ -788,13 +828,13 @@ def cipher_to_dict(cipher):
     if OPENSSL_VERSION_INFO > (1, 1, 0, 0, 0):
         aead = lib.SSL_CIPHER_is_aead(cipher)
         nid = lib.SSL_CIPHER_get_cipher_nid(cipher)
-        skcipher = OBJ_nid2ln(nid) if nid != NID_undef else None
+        skcipher = lib.OBJ_nid2ln(nid) if nid != lib.NID_undef else None
         nid = lib.SSL_CIPHER_get_digest_nid(cipher);
-        digest = OBJ_nid2ln(nid) if nid != NID_undef else None
+        digest = lib.OBJ_nid2ln(nid) if nid != lib.NID_undef else None
         nid = lib.SSL_CIPHER_get_kx_nid(cipher);
-        kx = OBJ_nid2ln(nid) if nid != NID_undef else None
-        nid = SSL_CIPHER_get_auth_nid(cipher);
-        auth = OBJ_nid2ln(nid) if nid != NID_undef else None
+        kx = lib.OBJ_nid2ln(nid) if nid != lib.NID_undef else None
+        nid = lib.SSL_CIPHER_get_auth_nid(cipher);
+        auth = lib.OBJ_nid2ln(nid) if nid != lib.NID_undef else None
         ret.update({'aead' : bool(aead),
             'symmmetric'   : skcipher,
             'digest'       : digest,
@@ -854,9 +894,8 @@ for name in SSL_CTX_STATS_NAMES:
 class _SSLContext(object):
     __slots__ = ('ctx', '_check_hostname', 'servername_callback',
                  'alpn_protocols', '_alpn_protocols_handle',
-                 'npn_protocols', 'set_hostname',
+                 'npn_protocols', 'set_hostname', '_post_handshake_auth',
                  '_set_hostname_handle', '_npn_protocols_handle')
-
     def __new__(cls, protocol):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
@@ -933,6 +972,9 @@ class _SSLContext(object):
         if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
             store = lib.SSL_CTX_get_cert_store(self.ctx)
             lib.X509_STORE_set_flags(store, lib.X509_V_FLAG_TRUSTED_FIRST)
+        if HAS_TLSv1_3:
+            self.post_handshake_auth = 0;
+            lib.SSL_CTX_set_post_handshake_auth(self.ctx, self.post_handshake_auth)
         return self
 
     @property
@@ -1017,6 +1059,7 @@ class _SSLContext(object):
             raise ValueError("check_hostname needs a SSL context with either "
                              "CERT_OPTIONAL or CERT_REQUIRED")
         self._check_hostname = check_hostname
+
 
     def set_ciphers(self, cipherlist):
         cipherlistbuf = _str_to_ffi_buffer(cipherlist)
@@ -1228,6 +1271,12 @@ class _SSLContext(object):
         return stats
 
     def set_default_verify_paths(self):
+        if (not os.environ.get('SSL_CERT_FILE') and 
+            not os.environ.get('SSL_CERT_DIR') and
+            not sys.platform == 'win32'):
+                locations = get_default_verify_paths()
+                self.load_verify_locations(locations[1], locations[3])
+                return
         if not lib.SSL_CTX_set_default_verify_paths(self.ctx):
             raise ssl_error("")
 
@@ -1346,6 +1395,44 @@ class _SSLContext(object):
 
         sock = _SSLSocket._new__ssl_socket(self, None, server_side, hostname, incoming, outgoing)
         return sock
+
+    @property
+    def post_handshake_auth(self):
+        if HAS_TLSv1_3:
+            return bool(self._post_handshake_auth)
+        return None
+
+    @post_handshake_auth.setter
+    def post_handshake_auth(self, arg):
+        if arg is None:
+            raise AttributeError("cannot delete attribute")
+
+        pha = bool(arg)
+        self._post_handshake_auth = pha;
+
+        # bpo-37428: newPySSLSocket() sets SSL_VERIFY_POST_HANDSHAKE flag for
+        # server sockets and SSL_set_post_handshake_auth() for client
+
+        return 0;
+
+    @property
+    def post_handshake_auth(self):
+        if HAS_TLSv1_3:
+            return bool(self._post_handshake_auth)
+        return None
+
+    @post_handshake_auth.setter
+    def post_handshake_auth(self, arg):
+        if arg is None:
+            raise AttributeError("cannot delete attribute")
+
+        pha = bool(arg)
+        self._post_handshake_auth = pha;
+
+        # bpo-37428: newPySSLSocket() sets SSL_VERIFY_POST_HANDSHAKE flag for
+        # server sockets and SSL_set_post_handshake_auth() for client
+
+        return 0;
 
 
 
@@ -1571,20 +1658,69 @@ def RAND_add(view, entropy):
     lib.RAND_add(buf, len(buf), entropy)
 
 def get_default_verify_paths():
+    '''
+    Find a certificate store and associated values
 
+    Returns something like 
+    `('SSL_CERT_FILE', '/usr/lib/ssl/cert.pem', 'SSL_CERT_DIR', '/usr/lib/ssl/certs')`
+    on Ubuntu and windows10
+
+    `('SSL_CERT_FILE', '/usr/local/cert.pem', 'SSL_CERT_DIR', '/usr/local/certs')`
+    on CentOS
+
+    `('SSL_CERT_FILE', '/Library/Frameworks/Python.framework/Versions/2.7/etc/openssl/cert.pem',
+      'SSL_CERT_DIR', '/Library/Frameworks/Python.framework/Versions/2.7/etc/openssl/certs')`
+    on Darwin
+
+    For portable builds (based on CentOS, but could be running on any glibc
+    linux) we need to check other locations. The list of places to try was taken
+    from golang in Dec 2018:
+     https://golang.org/src/crypto/x509/root_unix.go (for the directories),
+     https://golang.org/src/crypto/x509/root_linux.go (for the files)
+    '''
+    certFiles = [
+        "/etc/ssl/certs/ca-certificates.crt",                # Debian/Ubuntu/Gentoo etc.
+        "/etc/pki/tls/certs/ca-bundle.crt",                  # Fedora/RHEL 6
+        "/etc/ssl/ca-bundle.pem",                            # OpenSUSE
+        "/etc/pki/tls/cacert.pem",                           # OpenELEC
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", # CentOS/RHEL 7
+        "/etc/ssl/cert.pem",                                 # Alpine Linux
+    ]
+    certDirectories = [
+        "/etc/ssl/certs",               # SLES10/SLES11
+        "/system/etc/security/cacerts", # Android
+        "/usr/local/share/certs",       # FreeBSD
+        "/etc/pki/tls/certs",           # Fedora/RHEL
+        "/etc/openssl/certs",           # NetBSD
+        "/var/ssl/certs",               # AIX
+    ]
+
+    # optimization: reuse the values from a local varaible
+    if getattr(get_default_verify_paths, 'retval', None):
+        return get_default_verify_paths.retval
+
+    # This should never fail, it should always return SSL_CERT_FILE and SSL_CERT_DIR
     ofile_env = _cstr_decode_fs(lib.X509_get_default_cert_file_env())
-    if ofile_env is None:
-        return None
-    ofile = _cstr_decode_fs(lib.X509_get_default_cert_file())
-    if ofile is None:
-        return None
     odir_env = _cstr_decode_fs(lib.X509_get_default_cert_dir_env())
-    if odir_env is None:
-        return None
+
+    # Platform depenedent
+    ofile = _cstr_decode_fs(lib.X509_get_default_cert_file())
     odir = _cstr_decode_fs(lib.X509_get_default_cert_dir())
-    if odir is None:
-        return odir
-    return (ofile_env, ofile, odir_env, odir);
+
+    if os.path.exists(ofile) and os.path.exists(odir):
+        get_default_verify_paths.retval = (ofile_env, ofile, odir_env, odir)
+        return get_default_verify_paths.retval
+
+    # OpenSSL didn't supply the goods. Try some other options
+    for f in certFiles:
+        if os.path.exists(f):
+            ofile = f 
+    for f in certDirectories:
+        if os.path.exists(f):
+            odir = f 
+    get_default_verify_paths.retval = (ofile_env, ofile, odir_env, odir)
+    return get_default_verify_paths.retval
+
 
 @ffi.callback("int(SSL*,unsigned char **,unsigned char *,const unsigned char *,unsigned int,void *)")
 def select_alpn_callback(ssl, out, outlen, client_protocols, client_protocols_len, args):

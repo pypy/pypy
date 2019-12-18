@@ -43,26 +43,6 @@ def test_instruction_encode():
     Instruction(ops.LOAD_FAST, 0x5030201).encode(c)
     assert c == [chr(ops.EXTENDED_ARG), '\x05', chr(ops.EXTENDED_ARG), '\x03', chr(ops.EXTENDED_ARG), '\x02', chr(ops.LOAD_FAST), '\x01']
 
-def app_test_warning_to_error_translation():
-    import warnings
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings("error", module="<test string>")
-        statement = """\
-def wrong1():
-    a = 1
-    b = 2
-    global a
-    global b
-"""
-        try:
-           compile(statement, '<test string>', 'exec')
-        except SyntaxError as err:
-           assert err.lineno is not None
-           assert err.filename is not None
-           assert err.offset is not None
-           assert err.msg is not None
-
 def test_encode_lnotab_pair():
     l = []
     _encode_lnotab_pair(0, 1, l)

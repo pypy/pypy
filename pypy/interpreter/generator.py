@@ -11,8 +11,6 @@ from rpython.rlib.rarithmetic import r_uint
 class GeneratorOrCoroutine(W_Root):
     _immutable_fields_ = ['pycode']
 
-    w_yielded_from = None
-
     def __init__(self, frame, name=None, qualname=None):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
@@ -84,7 +82,7 @@ return next yielded value or raise StopIteration."""
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
 
-        w_result = self._invoke_execute_frame(frame, w_arg_or_err)
+        w_result = self._invoke_execute_frame(w_arg_or_err)
         assert w_result is not None
 
         # if the frame is now marked as finished, it was RETURNed from
@@ -102,15 +100,11 @@ return next yielded value or raise StopIteration."""
         else:
             return w_result     # YIELDed
 
-    def _invoke_execute_frame(self, frame, w_arg_or_err):
+    def _invoke_execute_frame(self, w_arg_or_err):
         space = self.space
+        frame = self.frame
         if self.running:
             raise oefmt(space.w_ValueError, "%s already executing", self.KIND)
-        ec = space.getexecutioncontext()
-        current_exc_info = ec.sys_exc_info()
-        if self.saved_operr is not None:
-            ec.set_sys_exc_info(self.saved_operr)
-            self.saved_operr = None
         #
         # Optimization only: after we've started a Coroutine without
         # CO_YIELD_INSIDE_TRY, then Coroutine._finalize_() will be a no-op
@@ -124,9 +118,14 @@ return next yielded value or raise StopIteration."""
                 raise oefmt(space.w_TypeError,
                             "can't send non-None value to a just-started %s",
                             self.KIND)
+        ec = space.getexecutioncontext()
+        current_exc_info = ec.sys_exc_info()
+        if self.saved_operr is not None:
+            ec.set_sys_exc_info(self.saved_operr)
+            self.saved_operr = None
         self.running = True
         try:
-            w_result = frame.execute_frame(self, w_arg_or_err)
+            w_result = frame.execute_frame(w_arg_or_err)
         except OperationError as e:
             # errors finish a frame
             try:
@@ -143,74 +142,25 @@ return next yielded value or raise StopIteration."""
             self.running = False
             # note: this is not perfectly correct: see
             # test_exc_info_in_generator_4.  But it's simpler and
-            # bug-to-bug compatible with CPython 3.5.
+            # bug-to-bug compatible with CPython 3.5 and 3.6.
             if frame._any_except_or_finally_handler():
                 self.saved_operr = ec.sys_exc_info()
             ec.set_sys_exc_info(current_exc_info)
         return w_result
 
-    def resume_execute_frame(self, frame, w_arg_or_err):
-        # Called from execute_frame() just before resuming the bytecode
-        # interpretation.
-        space = self.space
-        w_yf = self.w_yielded_from
-        if w_yf is not None:
-            self.w_yielded_from = None
-            try:
-                self.next_yield_from(frame, w_yf, w_arg_or_err)
-            except OperationError as operr:
-                operr.record_context(space, space.getexecutioncontext())
-                return frame.handle_generator_error(operr)
-            # Normal case: the call above raises Yield.
-            # We reach this point if the iterable is exhausted.
-            last_instr = jit.promote(frame.last_instr)
-            assert last_instr & 1 == 0
-            assert last_instr >= 0
-            return r_uint(last_instr + 2)
+    def get_delegate(self):
+        if self.frame is None:
+            return None
+        return self.frame.w_yielding_from
 
-        if isinstance(w_arg_or_err, SApplicationException):
-            return frame.handle_generator_error(w_arg_or_err.operr)
+    def descr_delegate(self, space):
+        w_yf = self.get_delegate()
+        if w_yf is None:
+            return space.w_None
+        return w_yf
 
-        last_instr = jit.promote(frame.last_instr)
-        if last_instr != -1:
-            assert last_instr & 1 == 0
-            frame.pushvalue(w_arg_or_err)
-            return r_uint(last_instr + 2)
-        else:
-            return r_uint(0)
-
-    def next_yield_from(self, frame, w_yf, w_inputvalue_or_err):
-        """Fetch the next item of the current 'yield from', push it on
-        the frame stack, and raises Yield.  If there isn't one, push
-        w_stopiteration_value and returns.  May also just raise.
-        """
-        space = self.space
-        try:
-            if isinstance(w_yf, GeneratorOrCoroutine):
-                w_retval = w_yf.send_ex(w_inputvalue_or_err)
-            elif isinstance(w_yf, AsyncGenASend):   # performance only
-                w_retval = w_yf.do_send(w_inputvalue_or_err)
-            elif space.is_w(w_inputvalue_or_err, space.w_None):
-                w_retval = space.next(w_yf)
-            else:
-                w_retval = delegate_to_nongen(space, w_yf, w_inputvalue_or_err)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            frame._report_stopiteration_sometimes(w_yf, e)
-            try:
-                w_stop_value = space.getattr(e.get_w_value(space),
-                                             space.newtext("value"))
-            except OperationError as e:
-                if not e.match(space, space.w_AttributeError):
-                    raise
-                w_stop_value = space.w_None
-            frame.pushvalue(w_stop_value)
-            return
-        else:
-            frame.pushvalue(w_retval)
-            self.w_yielded_from = w_yf
-            raise Yield
+    def set_delegate(self, w_delegate):
+        self.frame.w_yielding_from = w_delegate
 
     def _leak_stopiteration(self, e):
         # Check for __future__ generator_stop and conditionally turn
@@ -259,8 +209,8 @@ return next yielded value or raise StopIteration."""
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
 
-        # note: w_yielded_from is always None if 'self.running'
-        if (self.w_yielded_from is not None and
+        # note: _w_yielded_from is always None if 'self.running'
+        if (self.get_delegate() is not None and
                     operr.match(space, space.w_GeneratorExit)):
             try:
                 self._gen_close_iter(space)
@@ -276,8 +226,8 @@ return next yielded value or raise StopIteration."""
 
     def _gen_close_iter(self, space):
         assert not self.running
-        w_yf = self.w_yielded_from
-        self.w_yielded_from = None
+        w_yf = self.get_delegate()
+        self.set_delegate(None)
         self.running = True
         try:
             gen_close_iter(space, w_yf)
@@ -290,8 +240,8 @@ return next yielded value or raise StopIteration."""
             return     # nothing to do in this case
         space = self.space
         operr = None
-        # note: w_yielded_from is always None if 'self.running'
-        w_yf = self.w_yielded_from
+        # note: _w_yielded_from is always None if 'self.running'
+        w_yf = self.get_delegate()
         if w_yf is not None:
             try:
                 self._gen_close_iter(space)
@@ -375,7 +325,7 @@ class GeneratorIterator(GeneratorOrCoroutine):
     # generate 2 versions of the function and 2 jit drivers.
     def _create_unpack_into():
         jitdriver = jit.JitDriver(greens=['pycode'],
-                                  reds=['self', 'frame', 'results'],
+                                  reds='auto',
                                   name='unpack_into')
 
         def unpack_into(self, results):
@@ -386,12 +336,10 @@ class GeneratorIterator(GeneratorOrCoroutine):
                 return
             pycode = self.pycode
             while True:
-                jitdriver.jit_merge_point(self=self, frame=frame,
-                                          results=results, pycode=pycode)
+                jitdriver.jit_merge_point(pycode=pycode)
                 space = self.space
                 try:
-                    w_result = self._invoke_execute_frame(
-                                            frame, space.w_None)
+                    w_result = self._invoke_execute_frame(space.w_None)
                 except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise
@@ -489,27 +437,6 @@ def gen_close_iter(space, w_yf):
         else:
             space.call_function(w_close)
 
-def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
-    # invoke a "send" or "throw" by method name to a non-generator w_yf
-    if isinstance(w_inputvalue_or_err, SApplicationException):
-        operr = w_inputvalue_or_err.operr
-        try:
-            w_meth = space.getattr(w_yf, space.newtext("throw"))
-        except OperationError as e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            raise operr
-        # bah, CPython calls here with the exact same arguments as
-        # originally passed to throw().  In our case it is far removed.
-        # Let's hope nobody will complain...
-        operr.normalize_exception(space)
-        w_exc = operr.w_type
-        w_val = operr.get_w_value(space)
-        w_tb  = operr.get_w_traceback(space)
-        return space.call_function(w_meth, w_exc, w_val, w_tb)
-    else:
-        return space.call_method(w_yf, "send", w_inputvalue_or_err)
-
 def gen_is_coroutine(w_obj):
     return (isinstance(w_obj, GeneratorIterator) and
             (w_obj.pycode.co_flags & consts.CO_ITERABLE_COROUTINE) != 0)
@@ -594,15 +521,15 @@ class AsyncGenerator(GeneratorOrCoroutine):
         if self.hooks_inited:
             return
         self.hooks_inited = True
-
-        self.w_finalizer = self.space.appexec([], '''():
-            import sys
-            hooks = sys.get_asyncgen_hooks()
-            return hooks.finalizer''')
+        ec = self.space.getexecutioncontext()
+        self.w_finalizer = ec.w_asyncgen_finalizer_fn
+        w_firstiter = ec.w_asyncgen_firstiter_fn
+        if w_firstiter is not None:
+            self.space.call_function(w_firstiter, self)
 
     def _finalize_(self):
         if self.frame is not None and self.frame.lastblock is not None:
-            if self.w_finalizer is not self.space.w_None:
+            if self.w_finalizer is not None:
                 # XXX: this is a hack to resurrect the weakref that was cleared
                 # before running _finalize_()
                 if self.space.config.translation.rweakref:
@@ -748,15 +675,17 @@ class AsyncGenAThrow(AsyncGenABase):
                     # TODO: add equivalent to CPython's o->agt_gen->ag_closed = 1;
                     w_value = self.async_gen.throw(space.w_GeneratorExit,
                                                    None, None)
-                    if w_value is not None and isinstance(w_value, AsyncGenValueWrapper):
-                        raise oefmt(space.w_RuntimeError,
-                                    "async generator ignored GeneratorExit")
                 else:
                     w_value = self.async_gen.throw(self.w_exc_type,
                                                    self.w_exc_value,
                                                    self.w_exc_tb)
             else:
                 w_value = self.async_gen.send_ex(w_arg_or_err)
+
+            if (self.w_exc_type is None and w_value is not None and
+                    isinstance(w_value, AsyncGenValueWrapper)):
+                raise oefmt(space.w_RuntimeError,
+                            "async generator ignored GeneratorExit")
             return self.unwrap_value(w_value)
         except OperationError as e:
             self.handle_error(e)

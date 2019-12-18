@@ -1548,6 +1548,30 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert ops.BUILD_TUPLE not in counts
 
+    def test_fold_defaults_tuple(self):
+        source = """def f():
+            def g(a, b=2, c=None, d='foo'):
+                return None
+            return g
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f():
+            g = lambda a, b=2, c=None, d='foo': None
+            return g
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts
+
+        source = """def f():
+            def g(a, b=2, c=None, d=[]):
+                return None
+            return g
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+
     def test_constant_tuples_star(self):
         source = """def f(a, c):
             return (u"a", 1, *a, 3, 5, 3, *c)

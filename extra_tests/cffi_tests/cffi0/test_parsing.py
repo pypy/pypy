@@ -325,6 +325,7 @@ def test_WPARAM_on_windows():
     assert value == sys.maxsize * 2 - 40
 
 def test__is_constant_globalvar():
+    import warnings
     for input, expected_output in [
         ("int a;",          False),
         ("const int a;",    True),
@@ -342,10 +343,13 @@ def test__is_constant_globalvar():
         ("const int a[5][6];", False),
         ]:
         ffi = FFI()
-        ffi.cdef(input)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always")
+            ffi.cdef(input)
         declarations = ffi._parser._declarations
         assert ('constant a' in declarations) == expected_output
         assert ('variable a' in declarations) == (not expected_output)
+        assert len(log) == (1 - expected_output)
 
 def test_restrict():
     from cffi import model
@@ -355,7 +359,7 @@ def test_restrict():
         ("int *a;",            False),
         ]:
         ffi = FFI()
-        ffi.cdef(input)
+        ffi.cdef("extern " + input)
         tp, quals = ffi._parser._declarations['variable a']
         assert bool(quals & model.Q_RESTRICT) == expected_output
 

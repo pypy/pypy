@@ -3,10 +3,11 @@
 License
 =======
 
-Except when otherwise stated (look for LICENSE files in directories or
-information at the beginning of each file) all software and documentation in
-the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', 'lib_pypy',
-'py', and '_pytest' directories is licensed as follows:
+Except when otherwise stated (look for LICENSE files in directories
+or information at the beginning of each file) all software and
+documentation in the 'rpython', 'pypy', 'ctype_configure', 'dotviewer',
+'demo', 'extra_tests', 'include', 'lib_pypy', 'py', and '_pytest'
+directories is licensed as follows:
 
     The MIT License
 
@@ -40,11 +41,11 @@ copyrighted by one or more of the following people and organizations:
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz-Tereick
+  Matti Picus
   Antonio Cuni
   Amaury Forgeot d'Arc
-  Matti Picus
-  Samuele Pedroni
   Ronan Lamy
+  Samuele Pedroni
   Alex Gaynor
   Philip Jenvey
   Richard Plangger
@@ -94,14 +95,16 @@ copyrighted by one or more of the following people and organizations:
   Jason Creighton
   Mark Young
   Alex Martelli
+  Andrew Lawrence
   Spenser Bauman
   Michal Bendowski
   Jan de Mooij
+  Stefano Rivera
   Tyler Wade
+  Stefan Beyer
   Vincent Legoll
   Michael Foord
   Stephan Diehl
-  Stefano Rivera
   Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
@@ -110,7 +113,6 @@ copyrighted by one or more of the following people and organizations:
   Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
-  Andrew Lawrence
   David Malcolm
   Squeaky
   Edd Barrett
@@ -124,7 +126,6 @@ copyrighted by one or more of the following people and organizations:
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
-  Stefan Beyer
   Jeremy Thurgood
   Greg Price
   Ivan Sichmann Freitas
@@ -136,6 +137,8 @@ copyrighted by one or more of the following people and organizations:
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Stian Andreassen
+  Julian Berman
   William Leslie
   Paweł Piotr Przeradowski
   marky1991
@@ -146,14 +149,13 @@ copyrighted by one or more of the following people and organizations:
   Taavi Burns
   Adrian Kuhn
   tav
-  Stian Andreassen
   Georg Brandl
   Joannah Nanjekye
+  Yannick Jadoul
   Bert Freudenberg
   Wanja Saatkamp
   Mike Blume
   Gerald Klix
-  Julian Berman
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
@@ -204,6 +206,7 @@ copyrighted by one or more of the following people and organizations:
   Andrews Medina
   Aaron Iles
   Toby Watson
+  Lin Cheng
   Daniel Patrick
   Stuart Williams
   Antoine Pitrou
@@ -245,6 +248,7 @@ copyrighted by one or more of the following people and organizations:
   Valentina Mukhamedzhanova
   Stefano Parmesan
   touilleMan
+  Anthony Sottile
   Marc Abramowitz
   Arjun Naik
   Aaron Gallagher
@@ -254,7 +258,6 @@ copyrighted by one or more of the following people and organizations:
   Omer Katz
   Jacek Generowicz
   Tomasz Dziopa
-  Lin Cheng
   Sylvain Thenault
   Jakub Stasiak
   Andrew Dalke
@@ -273,6 +276,7 @@ copyrighted by one or more of the following people and organizations:
   Lutz Paelike
   Ian Foote
   Philipp Rustemeuer
+  Bernd Schoeller
   Logan Chien
   Catalin Gabriel Manciu
   Jacob Oscarson
@@ -285,7 +289,6 @@ copyrighted by one or more of the following people and organizations:
   Lene Wagner
   Tomo Cocoa
   Miro Hrončok
-  Anthony Sottile
   David Lievens
   Neil Blakey-Milner
   Henrik Vendelbo
@@ -294,8 +297,10 @@ copyrighted by one or more of the following people and organizations:
   Christoph Gerum
   Miguel de Val Borro
   Artur Lisiecki
+  joserubiovidales@gmail.com
   afteryu
   Toni Mattis
+  Vincent Michel
   Laurens Van Houtven
   Bobby Impollonia
   Roberto De Ioris
@@ -312,6 +317,7 @@ copyrighted by one or more of the following people and organizations:
   Fabio Niephaus
   Akira Li
   Gustavo Niemeyer
+  joachim-ballmann@bitbucket.org
   Nate Bragg
   Lucas Stadler
   roberto@goyle
@@ -331,8 +337,12 @@ copyrighted by one or more of the following people and organizations:
   Ben Darnell
   Juan Francisco Cantero Hurtado
   Godefroid Chappelle
+  Paul Ganssle
+  Michal Kuffa
   Stephan Busemann
+  Bystroushaak
   Dan Colish
+  Ram Rachum
   timo
   Volodymyr Vladymyrov
   Daniel Neuhäuser
@@ -342,18 +352,23 @@ copyrighted by one or more of the following people and organizations:
   Chris Lambacher
   John Aldis
   coolbutuseless@gmail.com
+  Yasen Kiprov
   Mike Bayer
   Rodrigo Araújo
   Daniil Yarancev
   Min RK
   OlivierBlanvillain
+  bernd.schoeller@inf.ethz.ch
+  dakarpov@gmail.com
   Jonas Pfannschmidt
   Zearin
   Johan Forsberg
   Andrey Churin
   Dan Crosta
   reubano@gmail.com
+  Ryan Hileman
   Stanisław Halik
+  DeVerne Jones
   Julien Phalip
   Roman Podoliaka
   Steve Papanik
@@ -369,19 +384,23 @@ copyrighted by one or more of the following people and organizations:
   Jim Hunziker
   shoma hosaka
   Buck Golemon
+  whitequark
   Iraklis D.
   JohnDoe
   yrttyr
   Michael Chermside
   Anna Ravencroft
   remarkablerocket
+  Ivan
   Petre Vijiac
   Berker Peksag
   Christian Muirhead
   soareschen
   Matthew Miller
+  Jesdi
   Konrad Delong
   Dinu Gherman
+  Sam Edwards
   pizi
   Tomáš Pružina
   James Robert
@@ -398,13 +417,16 @@ copyrighted by one or more of the following people and organizations:
   Markus Unterwaditzer
   Kristoffer Kleine
   Graham Markall
+  paugier
   Dan Loewenherz
   werat
   Filip Salomonsson
   Niclas Olofsson
+  Zsolt Cserna
   Chris Pressey
   Tobias Diaz
   Paul Graydon
+  mkuffa
   Nikolaos-Digenis Karagiannis
   Kurt Griffiths
   Ben Mather

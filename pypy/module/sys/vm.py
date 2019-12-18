@@ -7,7 +7,7 @@ from rpython.rlib.rutf8 import MAXUNICODE
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
 
 # ____________________________________________________________
@@ -66,6 +66,12 @@ threads you can configure the limit by calling "threading.stack_size()".
     from rpython.rlib.rgc import increase_root_stack_depth
     if new_limit <= 0:
         raise oefmt(space.w_ValueError, "recursion limit must be positive")
+    # Some programs use very large values to mean "don't check, I want to
+    # use as much as possible and then segfault".  Add a silent upper bound
+    # of 10**6 here, because huge values cause huge shadowstacks to be
+    # allocated (or MemoryErrors).
+    if new_limit > 1000000:
+        new_limit = 1000000
     try:
         _stack_set_length_fraction(new_limit * 0.001)
         _stack_check_noinline()
@@ -181,13 +187,6 @@ def exc_info_direct(space, frame):
     else:
         return exc_info_without_tb(space, operror)
 
-def exc_clear(space):
-    """Clear global information on the current exception.  Subsequent calls
-to exc_info() will return (None,None,None) until another exception is
-raised and caught in the current thread or the execution stack returns to a
-frame where another exception is being handled."""
-    space.getexecutioncontext().clear_sys_exc_info()
-
 def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each
 function call.  See the debugger chapter in the library manual."""
@@ -240,6 +239,14 @@ class windows_version_info(metaclass=structseqtype):
     suite_mask = structseqfield(12, "Bit mask identifying available product suites")
     product_type = structseqfield(13, "System product type")
     platform_version = structseqfield(14, "Diagnostic version number")
+
+
+class asyncgen_hooks(metaclass=structseqtype):
+    name = "asyncgen_hooks"
+
+    firstiter = structseqfield(0)
+    finalizer = structseqfield(1)
+
 ''')
 
 
@@ -286,7 +293,7 @@ def _get_dllhandle(space):
 
 getsizeof_missing = """getsizeof(...)
     getsizeof(object, default) -> int
-    
+
     Return the size of object in bytes.
 
 sys.getsizeof(object, default) will always return default on PyPy, and
@@ -350,6 +357,46 @@ def set_coroutine_wrapper(space, w_wrapper):
         ec.w_coroutine_wrapper_fn = w_wrapper
     else:
         raise oefmt(space.w_TypeError, "callable expected, got %T", w_wrapper)
+
+def get_asyncgen_hooks(space):
+    """get_asyncgen_hooks()
+
+Return a namedtuple of installed asynchronous generators hooks (firstiter, finalizer)."""
+    ec = space.getexecutioncontext()
+    w_firstiter = ec.w_asyncgen_firstiter_fn
+    if w_firstiter is None:
+        w_firstiter = space.w_None
+    w_finalizer = ec.w_asyncgen_finalizer_fn
+    if w_finalizer is None:
+        w_finalizer = space.w_None
+    w_asyncgen_hooks = app.wget(space, "asyncgen_hooks")
+    return space.call_function(
+        w_asyncgen_hooks,
+        space.newtuple([w_firstiter, w_finalizer]))
+
+# Note: the docstring is wrong on CPython
+def set_asyncgen_hooks(space, w_firstiter=None, w_finalizer=None):
+    """set_asyncgen_hooks(firstiter=None, finalizer=None)
+
+Set a finalizer for async generators objects."""
+    ec = space.getexecutioncontext()
+    if space.is_w(w_finalizer, space.w_None):
+        ec.w_asyncgen_finalizer_fn = None
+    elif w_finalizer is not None:
+        if space.callable_w(w_finalizer):
+            ec.w_asyncgen_finalizer_fn = w_finalizer
+        else:
+            raise oefmt(space.w_TypeError,
+                "callable finalizer expected, got %T", w_finalizer)
+    if space.is_w(w_firstiter, space.w_None):
+        ec.w_asyncgen_firstiter_fn = None
+    elif w_firstiter is not None:
+        if space.callable_w(w_firstiter):
+            ec.w_asyncgen_firstiter_fn = w_firstiter
+        else:
+            raise oefmt(space.w_TypeError,
+                "callable firstiter expected, got %T", w_firstiter)
+
 
 def is_finalizing(space):
     return space.newbool(space.sys.finalizing)

@@ -16,15 +16,13 @@ from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.signature import signature
 from rpython.rlib import rposix_stat, types
-from pypy.module.sys.version import PYPY_VERSION
+from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 
 _WIN32 = sys.platform == 'win32'
 
 SO = '.pyd' if _WIN32 else '.so'
-PREFIX = 'pypy3-'
-DEFAULT_SOABI_BASE = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
-
-PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])   # 'pypy3-XY'
+PYC_TAG = 'pypy%d%d' % CPYTHON_VERSION[:2]
+DEFAULT_SOABI_BASE = '%s-pp%d%d' % ((PYC_TAG,) + PYPY_VERSION[:2])
 
 # see also pypy_incremental_magic in interpreter/pycode.py for the magic
 # version number stored inside pyc files.
@@ -210,6 +208,9 @@ class ImportRLock:
     def reinit_lock(self):
         # Called after fork() to ensure that newly created child
         # processes do not share locks with the parent
+        # (Note that this runs after interp_imp.acquire_lock()
+        # done in the "before" fork hook, so that's why we decrease
+        # the lockcounter here)
         if self.lockcounter > 1:
             # Forked as a side effect of import
             self.lock = self.space.allocate_lock()

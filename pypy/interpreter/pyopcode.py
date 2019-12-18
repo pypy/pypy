@@ -753,13 +753,7 @@ class __extend__(pyframe.PyFrame):
         space.call_method(w_globals, 'setdefault', space.newtext('__builtins__'),
                           self.get_builtin())
 
-        plain = (self.get_w_locals() is not None and
-                 space.is_w(w_locals, self.get_w_locals()))
-        if plain:
-            w_locals = self.getdictscope()
         code.exec_code(space, w_globals, w_locals)
-        if plain:
-            self.setdictscope(w_locals)
 
     def POP_EXCEPT(self, oparg, next_instr):
         block = self.pop_block()
@@ -1113,24 +1107,51 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_value)
         raise Yield
 
+    def next_yield_from(self, w_yf, w_inputvalue_or_err):
+        """Fetch the next item of the current 'yield from', push it on
+        the frame stack, and raises Yield.  If there isn't one, push
+        w_stopiteration_value and returns.  May also just raise.
+        """
+        from pypy.interpreter.generator import (
+            GeneratorOrCoroutine, AsyncGenASend)
+        space = self.space
+        try:
+            if isinstance(w_yf, GeneratorOrCoroutine):
+                w_retval = w_yf.send_ex(w_inputvalue_or_err)
+            elif isinstance(w_yf, AsyncGenASend):   # performance only
+                w_retval = w_yf.do_send(w_inputvalue_or_err)
+            elif space.is_w(w_inputvalue_or_err, space.w_None):
+                w_retval = space.next(w_yf)
+            else:
+                w_retval = delegate_to_nongen(space, w_yf, w_inputvalue_or_err)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            self._report_stopiteration_sometimes(w_yf, e)
+            try:
+                w_stop_value = space.getattr(e.get_w_value(space),
+                                             space.newtext("value"))
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError):
+                    raise
+                w_stop_value = space.w_None
+            self.pushvalue(w_stop_value)
+            return
+        else:
+            self.pushvalue(w_retval)
+            self.w_yielding_from = w_yf
+            raise Yield
+
     def YIELD_FROM(self, oparg, next_instr):
         # Unlike CPython, we handle this not by repeating the same
         # bytecode over and over until the inner iterator is exhausted.
-        # Instead, we directly set the generator's w_yielded_from.
-        # This asks generator.resume_execute_frame() to exhaust that
+        # Instead, we set w_yielding_from.
+        # This asks resume_execute_frame() to exhaust that
         # sub-iterable first before continuing on the next bytecode.
-        in_generator = self.get_generator()
-        if in_generator is None:
-            # Issue #2768: rare case involving __del__ methods.
-            # XXX This is a workaround, not a proper solution.
-            raise oefmt(self.space.w_RuntimeError,
-                        "PyPy limitation: cannot use 'yield from' or 'await' "
-                        "in a generator/coroutine that has been partially "
-                        "deallocated already, typically seen via __del__")
         w_inputvalue = self.popvalue()    # that's always w_None, actually
         w_gen = self.popvalue()
         #
-        in_generator.next_yield_from(self, w_gen, w_inputvalue)
+        self.next_yield_from(w_gen, w_inputvalue)
         # Common case: the call above raises Yield.
         # If instead the iterable is empty, next_yield_from() pushed the
         # final result and returns.  In that case, we can just continue
@@ -1556,7 +1577,7 @@ class __extend__(pyframe.PyFrame):
         w_iterable = self.popvalue()
         w_iter = get_awaitable_iter(self.space, w_iterable)
         if isinstance(w_iter, Coroutine):
-            if w_iter.w_yielded_from is not None:
+            if w_iter.get_delegate() is not None:
                 # 'w_iter' is a coroutine object that is being awaited,
                 # '.w_yielded_from' is the current awaitable being awaited on.
                 raise oefmt(self.space.w_RuntimeError,
@@ -1693,6 +1714,27 @@ class __extend__(pyframe.PyFrame):
             self._revdb_load_var(oparg)
         else:
             self.MISSING_OPCODE(oparg, next_instr)
+
+def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
+    # invoke a "send" or "throw" by method name to a non-generator w_yf
+    if isinstance(w_inputvalue_or_err, SApplicationException):
+        operr = w_inputvalue_or_err.operr
+        try:
+            w_meth = space.getattr(w_yf, space.newtext("throw"))
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+            raise operr
+        # bah, CPython calls here with the exact same arguments as
+        # originally passed to throw().  In our case it is far removed.
+        # Let's hope nobody will complain...
+        operr.normalize_exception(space)
+        w_exc = operr.w_type
+        w_val = operr.get_w_value(space)
+        w_tb = operr.get_w_traceback(space)
+        return space.call_function(w_meth, w_exc, w_val, w_tb)
+    else:
+        return space.call_method(w_yf, "send", w_inputvalue_or_err)
 
 
 ### ____________________________________________________________ ###

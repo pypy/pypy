@@ -64,11 +64,11 @@ def setup_module(mod):
     #define BIGNEG -420000000000L
     int add42(int);
     int add43(int, ...);
-    int globalvar42;
+    extern int globalvar42;
     const int globalconst42;
-    const char *const globalconsthello = "hello";
+    const char *const globalconsthello;
     int no_such_function(int);
-    int no_such_globalvar;
+    extern int no_such_globalvar;
     struct foo_s;
     typedef struct bar_s { int x; signed char a[]; } bar_t;
     enum foo_e { AA, BB, CC };
@@ -76,6 +76,7 @@ def setup_module(mod):
     struct with_union { union { int a; char b; }; };
     union with_struct { struct { int a; char b; }; };
     struct NVGcolor { union { float rgba[4]; struct { float r,g,b,a; }; }; };
+    typedef struct selfref { struct selfref *next; } *selfref_ptr_t;
     """)
     ffi.set_source('re_python_pysrc', None)
     ffi.emit_python_code(str(tmpdir.join('re_python_pysrc.py')))
@@ -255,3 +256,8 @@ def test_anonymous_union_inside_struct():
     assert ffi.offsetof("struct NVGcolor", "g") == FLOAT
     assert ffi.offsetof("struct NVGcolor", "b") == FLOAT * 2
     assert ffi.offsetof("struct NVGcolor", "a") == FLOAT * 3
+
+def test_selfref():
+    # based on issue #429
+    from re_python_pysrc import ffi
+    ffi.new("selfref_ptr_t")

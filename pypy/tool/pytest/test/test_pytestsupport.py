@@ -1,74 +1,10 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import app2interp_temp
-from pypy.interpreter.argument import Arguments
-from pypy.interpreter.pycode import PyCode
-from pypy.tool.pytest.appsupport import (AppFrame, build_pytest_assertion,
-    AppExceptionInfo, interpret)
+from pypy.tool.pytest.appsupport import AppExceptionInfo
 import py
-from rpython.tool.udir import udir
-import os
-import sys
 import pypy
 conftestpath = py.path.local(pypy.__file__).dirpath("conftest.py")
 
 pytest_plugins = "pytester"
-
-def somefunc(x):
-    print x
-
-def test_AppFrame(space):
-    import sys
-    co = PyCode._from_code(space, somefunc.func_code)
-    pyframe = space.FrameClass(space, co, space.newdict(), None)
-    runner = AppFrame(space, pyframe)
-    # XXX the following, in two calls to interpret(), no longer seems to
-    # work---the name 'f' is not defined in the second call.  We must
-    # build the 'f' manually with a space.appexec().
-    #interpret("f = lambda x: x+1", runner, should_fail=False)
-    space.appexec([runner.get_w_globals()], """(dict):
-        dict['f'] = lambda x: x+1
-    """)
-    msg = interpret("assert isinstance(f(2), float)", runner)
-    assert msg.startswith("assert isinstance(3, float)\n"
-                          " +  where 3 = ")
-
-
-def test_myexception(space):
-    def app_test_func():
-        x = 6*7
-        assert x == 43
-    t = app2interp_temp(app_test_func)
-    f = t.get_function(space)
-    space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
-                  build_pytest_assertion(space))
-    try:
-        f.call_args(Arguments(None, []))
-    except OperationError as e:
-        assert e.match(space, space.w_AssertionError)
-        assert space.unwrap(space.str(e.get_w_value(space))) == 'assert 42 == 43'
-    else:
-        assert False, "got no exception!"
-
-def app_test_exception():
-    try:
-        raise AssertionError("42")
-    except AssertionError:
-        pass
-    else:
-        raise AssertionError("app level AssertionError mixup!")
-
-def app_test_exception_with_message():
-    try:
-        assert 0, "Failed"
-    except AssertionError as e:
-        assert e.msg == "Failed"
-
-def app_test_comparison():
-    try:
-        assert 3 > 4
-    except AssertionError as e:
-        assert "3 > 4" in e.msg
-
 
 def test_appexecinfo(space):
     try:

@@ -734,7 +734,15 @@ def run_command_line(interactive,
             filename = sys.argv[0]
             mainmodule.__file__ = filename
             mainmodule.__cached__ = None
-            if not isolated:
+            for hook in sys.path_hooks:
+                try:
+                    importer = hook(filename)
+                    break
+                except ImportError:
+                    continue
+            else:
+                importer = None
+            if importer is None and not isolated:
                 sys.path.insert(0, sys.pypy_resolvedirof(filename))
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
@@ -770,18 +778,13 @@ def run_command_line(interactive,
                 args = (execfile, filename, mainmodule.__dict__)
             else:
                 filename = sys.argv[0]
-                for hook in sys.path_hooks:
-                    try:
-                        importer = hook(filename)
-                    except ImportError:
-                        continue
+                if importer is not None:
                     # It's the name of a directory or a zip file.
                     # put the filename in sys.path[0] and import
                     # the module __main__
                     import runpy
                     sys.path.insert(0, filename)
                     args = (runpy._run_module_as_main, '__main__', False)
-                    break
                 else:
                     # That's the normal path, "pypy3 stuff.py".
                     # We don't actually load via SourceFileLoader

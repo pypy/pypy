@@ -7,8 +7,8 @@ from rpython.tool.udir import udir
 class AppTestImpModule:
     # cpyext is required for _imp.create_dynamic()
     spaceconfig = {
-        'usemodules': [
-            'binascii', 'imp', 'itertools', 'time', 'struct', 'cpyext'],
+        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct',
+                       'zipimport', 'cpyext'],
     }
 
     def setup_class(cls):
@@ -315,4 +315,15 @@ class AppTestImpModule:
         import sys
         if not hasattr(sys, 'pypy_version_info'):
             skip('This test is PyPy-only')
-        assert imp.get_tag() == 'pypy3-%d%d' % sys.pypy_version_info[0:2]
+        assert imp.get_tag() == 'pypy%d%d' % (sys.version_info[:2])
+
+    def test_unicode_in_sys_path(self):
+        # issue 3112: when _getimporter calls
+        # for x in sys.path: for h in sys.path_hooks: h(x)
+        # make sure x is properly encoded
+        import sys
+        import zipimport #  installs a sys.path_hook
+        if sys.getfilesystemencoding().lower() == 'utf-8':
+            sys.path.insert(0, u'\xef')
+        with raises(ImportError):
+            import impossible_module

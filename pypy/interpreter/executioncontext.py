@@ -23,8 +23,9 @@ class ExecutionContext(object):
     # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
     #     over the place as well as w_tracefunc
 
-    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?',
-                          'w_coroutine_wrapper_fn?']
+    _immutable_fields_ = [
+        'profilefunc?', 'w_tracefunc?', 'w_coroutine_wrapper_fn?',
+        'w_asyncgen_firstiter_fn?', 'w_asyncgen_finalizer_fn?']
 
     def __init__(self, space):
         self.space = space
@@ -41,6 +42,8 @@ class ExecutionContext(object):
         self.thread_disappeared = False   # might be set to True after os.fork()
         self.w_coroutine_wrapper_fn = None
         self.in_coroutine_wrapper = False
+        self.w_asyncgen_firstiter_fn = None
+        self.w_asyncgen_finalizer_fn = None
 
     @staticmethod
     def _mark_thread_disappeared(space):
@@ -235,9 +238,11 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
+    @jit.unroll_safe
     def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
+        Returns the "top-most" exception in the stack.
 
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
@@ -246,6 +251,22 @@ class ExecutionContext(object):
 
     def set_sys_exc_info(self, operror):
         self.sys_exc_operror = operror
+
+    def set_sys_exc_info3(self, w_type, w_value, w_traceback):
+        from pypy.interpreter import pytraceback
+
+        space = self.space
+        if space.is_none(w_value):
+            operror = None
+        else:
+            tb = None
+            if not space.is_none(w_traceback):
+                try:
+                    tb = pytraceback.check_traceback(space, w_traceback, '?')
+                except OperationError:    # catch and ignore bogus objects
+                    pass
+            operror = OperationError(w_type, w_value, tb)
+        self.set_sys_exc_info(operror)
 
     @jit.dont_look_inside
     def settrace(self, w_func):
@@ -329,8 +350,11 @@ class ExecutionContext(object):
                 # if it does not exist yet and the tracer accesses it via
                 # frame.f_locals, it is filled by PyFrame.getdictscope
                 frame.fast2locals()
+            prev_line_tracing = d.is_in_line_tracing
             self.is_tracing += 1
             try:
+                if event == 'line':
+                    d.is_in_line_tracing = True
                 try:
                     w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
@@ -345,6 +369,7 @@ class ExecutionContext(object):
                     raise
             finally:
                 self.is_tracing -= 1
+                d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:
                     frame.locals2fast()
 

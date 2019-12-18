@@ -28,7 +28,9 @@ extern "C" {
 
 #ifndef _WIN32
 #define VA_LIST_IS_ARRAY
+#ifndef __APPLE__
 #define HAVE_CLOCK_GETTIME
+#endif
 #endif
 
 #ifndef Py_BUILD_CORE /* not building the core - must be an ext */

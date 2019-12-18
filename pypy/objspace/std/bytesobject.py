@@ -19,6 +19,7 @@ from pypy.objspace.std.unicodeobject import (encode_object, getdefaultencoding,
 
 class W_AbstractBytesObject(W_Root):
     __slots__ = ()
+    exact_class_applevel_name = 'bytes'
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_AbstractBytesObject):

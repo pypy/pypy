@@ -118,7 +118,8 @@ class ASTBuilder(object):
     def error(self, msg, n):
         """Raise a SyntaxError with the lineno and column set to n's."""
         raise SyntaxError(msg, n.get_lineno(), n.get_column(),
-                          filename=self.compile_info.filename)
+                          filename=self.compile_info.filename,
+                          text=n.get_line())
 
     def error_ast(self, msg, ast_node):
         raise SyntaxError(msg, ast_node.lineno, ast_node.col_offset,
@@ -496,10 +497,10 @@ class ASTBuilder(object):
 
     def handle_async_funcdef(self, node, decorators=None):
         return self.handle_funcdef_impl(node.get_child(1), 1, decorators)
-    
+
     def handle_funcdef(self, node, decorators=None):
         return self.handle_funcdef_impl(node, 0, decorators)
-    
+
     def handle_async_stmt(self, node):
         ch = node.get_child(1)
         if ch.type == syms.funcdef:
@@ -941,7 +942,7 @@ class ASTBuilder(object):
                 if flufl and comp_node.get_value() == '!=':
                     self.error("with Barry as BDFL, use '<>' instead of '!='", comp_node)
                 elif not flufl and comp_node.get_value() == '<>':
-                    self.error('invalid comparison', comp_node)
+                    self.error('invalid syntax', comp_node)
                 return ast.NotEq
             elif comp_type == tokens.NAME:
                 if comp_node.get_value() == "is":
@@ -1013,7 +1014,7 @@ class ASTBuilder(object):
                              atom_node.get_column())
         else:
             return atom_expr
-    
+
     def handle_power(self, power_node):
         atom_expr = self.handle_atom_expr(power_node.get_child(0))
         if power_node.num_children() == 1:
@@ -1091,7 +1092,7 @@ class ASTBuilder(object):
     def handle_call(self, args_node, callable_expr):
         arg_count = 0 # position args + iterable args unpackings
         keyword_count = 0 # keyword args + keyword args unpackings
-        generator_count = 0 
+        generator_count = 0
         for i in range(args_node.num_children()):
             argument = args_node.get_child(i)
             if argument.type == syms.argument:
@@ -1299,7 +1300,6 @@ class ASTBuilder(object):
                     if is_dict:
                         raise self.error("dict unpacking cannot be used in "
                                          "dict comprehension", atom_node)
-                    
                     return self.handle_dictcomp(maker, atom_node)
                 else:
                     # a dictionary display
@@ -1422,7 +1422,7 @@ class ASTBuilder(object):
         comps = self.comprehension_helper(dict_maker.get_child(i))
         return ast.DictComp(key, value, comps, atom_node.get_lineno(),
                                                atom_node.get_column())
-    
+
     def handle_dictdisplay(self, node, atom_node):
         keys = []
         values = []
@@ -1434,7 +1434,7 @@ class ASTBuilder(object):
             i += 1
         return ast.Dict(keys, values, atom_node.get_lineno(),
                                       atom_node.get_column())
-    
+
     def handle_setdisplay(self, node, atom_node):
         elts = []
         i = 0
