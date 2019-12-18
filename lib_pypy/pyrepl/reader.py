@@ -648,7 +648,7 @@ def test():
     reader.ps1 = "**> "
     reader.ps2 = "/*> "
     reader.ps3 = "|*> "
-    reader.ps4 = "\*> "
+    reader.ps4 = r"\*> "
     while reader.readline():
         pass
 
