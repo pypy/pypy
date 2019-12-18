@@ -169,7 +169,7 @@ class W_PyCFunctionObject(W_Root):
         nargs = len(__args__.arguments_w)
         with lltype.scoped_alloc(rffi.CArray(PyObject), nargs + len(names)) as args:
             i = 0
-            py_names = None
+            py_names = lltype.nullptr(PyObject.TO)
             for w_arg in args_w:
                 args[i] = make_ref(space, w_arg)
                 i += 1
@@ -181,8 +181,8 @@ class W_PyCFunctionObject(W_Root):
             try:
                 return generic_cpy_call(space, func, w_self, args, nargs, py_names)
             finally:
-                for arg in args:
-                    decref(space, arg)
+                for i in range(nargs + len(names)):
+                    decref(space, args[i])
                 if py_names:
                     decref(space, py_names)
 
