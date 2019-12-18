@@ -68,7 +68,6 @@ class Module(MixedModule):
             space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack
         if os.name == "nt":
-            print "creating sigint event"
             interp_signal.create_sigint_event()
 
 

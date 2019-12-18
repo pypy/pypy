@@ -113,7 +113,7 @@ class CConfig:
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
                        WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
-                       LOAD_WITH_ALTERED_SEARCH_PATH
+                       LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
                     """
         from rpython.translator.platform import host_factory

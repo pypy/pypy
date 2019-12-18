@@ -59,7 +59,7 @@ def read_console_w(space, handle, maxlen, readlen):
                         break
                     err = 0
                     hInterruptEvent = sigintevent()
-                    if rwin32.WaitForSingleObjectEx(hInterruptEvent, 100, False) == rwin32.WAIT_OBJECT_0:
+                    if rwin32.WaitForSingleObject(hInterruptEvent, 100) == rwin32.WAIT_OBJECT_0:
                         rwin32.ResetEvent(hInterruptEvent)
                         space.getexecutioncontext().checksignals()
                 
@@ -91,7 +91,7 @@ def read_console_w(space, handle, maxlen, readlen):
             
         if readlen > 0 and buf[0] == u'\x1a':
             lltype.free(buf, flavor='raw')
-            buf = lltype.malloc(rwin32.CWCHARP, 1, flavor='raw')
+            buf = lltype.malloc(rffi.CWCHARP, 1, flavor='raw')
             buf[0] = '\0'
             readlen = 0
         return buf
