@@ -11,7 +11,7 @@ from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong
 from rpython.rlib import jit
 
 # This module can be imported on any platform,
@@ -138,12 +138,12 @@ if WIN32:
     HMODULE = HANDLE
     NULL_HANDLE = rffi.cast(HANDLE, 0)
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
-    GENERIC_READ     = rffi.cast(DWORD, 0x80000000)
-    GENERIC_WRITE    = rffi.cast(DWORD, 0x40000000)
-    GENERIC_EXECUTE  = rffi.cast(DWORD, 0x20000000)
-    GENERIC_ALL      = rffi.cast(DWORD, 0x10000000)
-    FILE_SHARE_READ  = rffi.cast(DWORD, 0x00000001)
-    FILE_SHARE_WRITE = rffi.cast(DWORD, 0x00000002)
+    GENERIC_READ     = rffi.cast(DWORD, r_longlong(0x80000000))
+    GENERIC_WRITE    = rffi.cast(DWORD, r_longlong(0x40000000))
+    GENERIC_EXECUTE  = rffi.cast(DWORD, r_longlong(0x20000000))
+    GENERIC_ALL      = rffi.cast(DWORD, r_longlong(0x10000000))
+    FILE_SHARE_READ  = rffi.cast(DWORD, r_longlong(0x00000001))
+    FILE_SHARE_WRITE = rffi.cast(DWORD, r_longlong(0x00000002))
 
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
@@ -583,16 +583,6 @@ if WIN32:
     ERROR_OPERATION_ABORTED   = 995
     CP_UTF8 = 65001 
     
-    WideCharToMultiByte = winexternal(
-        'WideCharToMultiByte', [rffi.UINT, DWORD, rffi.CWCHARP, rffi.INT,
-                                LPSTR, rffi.INT, rffi.CCHARP, LPBOOL], rffi.INT,
-        save_err=rffi.RFFI_SAVE_LASTERROR)
-  
-    MultiByteToWideChar = winexternal(
-        'MultiByteToWideChar', [rffi.UINT, DWORD, rffi.CCHARP, rffi.INT,
-                                LPWSTR, rffi.INT], rffi.INT,
-        save_err=rffi.RFFI_SAVE_LASTERROR)
-  
     ReadConsoleW = winexternal(
         'ReadConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)

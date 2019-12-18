@@ -11,7 +11,7 @@ class AppTestMinimal:
         with thread.signals_enabled:
             pass
         # assert did not crash
-        
+
 
 class AppTestThreadSignal(GenericTestThread):
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])

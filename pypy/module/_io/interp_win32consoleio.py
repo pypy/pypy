@@ -11,6 +11,7 @@ from pypy.interpreter.unicodehelper import fsdecode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib._os_support import _preferred_traits
 from rpython.rlib import rwin32
+from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
 from rpython.rlib.rwin32file import make_win32_traits
 
 from rpython.rtyper.tool import rffi_platform as platform
@@ -50,10 +51,10 @@ def read_console_w(space, handle, maxlen, readlen):
                 if not res:
                     break
                     
-                if n == -1 and err == rwin32.ERROR_OPERATION_ABORTED:
+                if n[0] == -1 and err == rwin32.ERROR_OPERATION_ABORTED:
                     break
                     
-                if n == 0:
+                if n[0] == 0:
                     if err != rwin32.ERROR_OPERATION_ABORTED:
                         break
                     err = 0
@@ -62,11 +63,11 @@ def read_console_w(space, handle, maxlen, readlen):
                         rwin32.ResetEvent(hInterruptEvent)
                         space.getexecutioncontext().checksignals()
                 
-                readlen += n
+                readlen += n[0]
                 
                 # We didn't manage to read the whole buffer
                 # don't try again as it will just block
-                if n < len:
+                if n[0] < len:
                     break
                     
                 # We read a new line
@@ -81,7 +82,7 @@ def read_console_w(space, handle, maxlen, readlen):
                         newbuf = lltype.malloc(rffi.CWCHARP, maxlen, flavor='raw')
                         lltype.free(buf, flavor='raw')
                         buf = newbuf
-                        off += n
+                        off += n[0]
                         continue
                     off += BUFSIZ
         if err:
@@ -172,7 +173,7 @@ class W_WinConsoleIO(W_RawIOBase):
             buf[n] = self.buf[0]
             for i in range(1, SMALLBUF):
                 self.buf[i-1] = self.buf[i]
-            self.buf[SMALLBUF-1] = rffi.cast(rffi.CCHARP.TO, 0)
+            self.buf[SMALLBUF-1] = rffi.cast(lltype.Char, 0)
             len -= 1
             n += 1
         return n
@@ -193,7 +194,7 @@ class W_WinConsoleIO(W_RawIOBase):
         self.blksize = 0
         rwa = False
         console_type = '\0'
-        self.buf = lltype.malloc(rffi.CCHARP.TO,SMALLBUF,flavor='raw')
+        self.buf = lltype.malloc(rffi.CCHARP.TO, SMALLBUF, flavor='raw')
 
         try:
             if space.isinstance_w(w_nameobj, space.w_int): 
@@ -373,20 +374,20 @@ class W_WinConsoleIO(W_RawIOBase):
             if not wbuf:
                 return space.newint(-1)
                 
-            if n == 0:
+            if n[0] == 0:
                 return space.newint(read_len)
                 
             u8n = 0
                
             if len < 4:
-                if rwin32.WideCharToMultiByte(rwin32.CP_UTF8,
-                                           0, wbuf, n, self.buf,
+                if WideCharToMultiByte(rwin32.CP_UTF8,
+                                           0, wbuf, n[0], self.buf,
                                            rffi.sizeof(self.buf)/ rffi.sizeof(self.buf[0]),
                                            rffi.NULL, rffi.NULL):
                     u8n = self._copyfrombuf(rwbuffer, len)
                 else:
-                    u8n = rwin32.WideCharToMultiByte(rwin32.CP_UTF8,
-                                                    0, wbuf, n, buf, len,
+                    u8n = WideCharToMultiByte(rwin32.CP_UTF8,
+                                                    0, wbuf, n[0], buf, len,
                                                     rffi.NULL, rffi.NULL)
                                                     
             if u8n:
@@ -395,7 +396,7 @@ class W_WinConsoleIO(W_RawIOBase):
             else:
                 err = rwin32.GetLastError_saved()
                 if err == rwin32.ERROR_INSUFFICIENT_BUFFER:
-                    u8n = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf,
+                    u8n = WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf,
                                                      n, rffi.NULL, 0, rffi.NULL, rffi.NULL)
                 
             if u8n:
@@ -476,8 +477,8 @@ class W_WinConsoleIO(W_RawIOBase):
             
             # Compute the size for the destination buffer
             if len:
-                bytes_size = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, buf,
-                 len, rffi.NULL, 0, rffi.NULL, rffi.NULL)
+                bytes_size = WideCharToMultiByte(rwin32.CP_UTF8, 0, buf,
+                                     len, rffi.NULL, 0, rffi.NULL, rffi.NULL)
                  
                 if bytes_size:
                     err = rwin32.GetLastError_saved()
@@ -491,7 +492,7 @@ class W_WinConsoleIO(W_RawIOBase):
             rn = self._copyfrombuf(bytes, bytes_size)
             
             if len:
-                bytes_size = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, buf, len,
+                bytes_size = WideCharToMultiByte(rwin32.CP_UTF8, 0, buf, len,
                              bytes[rn], bytes_size - rn, rffi.NULL, rffi.NULL)
                              
                 if not bytes_size:
@@ -527,28 +528,30 @@ class W_WinConsoleIO(W_RawIOBase):
             else:
                 buflen = len(buffer)
         
-            wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
+            wlen = MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
         
             while wlen > (32766 / rffi.sizeof(rffi.CWCHARP)):
                 buflen /= 2
-                wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
+                wlen = MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, rffi.NULL, 0)
             
             if not wlen:
                 raise WindowsError("Failed to convert bytes to wide characters")
         
             with lltype.scoped_alloc(rffi.CWCHARP.TO, wlen) as wbuf:
-                wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, wbuf, wlen)
+                wlen = MultiByteToWideChar(rwin32.CP_UTF8, 0 , buffer, buflen, wbuf, wlen)
                 if wlen:
                     res = rwin32.WriteConsoleW(self.handle, rffi.cast(rwin32.LPVOID, wbuf), wlen, n , rffi.NULL)
                 
-                    if res and n < wlen:
-                        buflen = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf, n,
+                    if res and n[0] < wlen:
+                        buflen = WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf, n[0],
                         rffi.NULL, 0, rffi.NULL, rffi.NULL)
                 
                         if buflen:
-                            wlen = rwin32.MultiByteToWideChar(rwin32.CP_UTF8, 0, buffer,
-                            buflen, rffi.NULL, 0)
-                            assert buflen == wlen
+                            wlen = MultiByteToWideChar(rwin32.CP_UTF8, 0, buffer,
+                                                       buflen, rffi.NULL, 0)
+                            if buflen != wlen:
+                                raise WindowsError("second call to MultiByteToWideChar "
+                                        "had different lengthed buffer")
                         
                 else:
                     res = 0
