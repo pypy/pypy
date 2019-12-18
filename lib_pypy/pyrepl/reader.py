@@ -58,7 +58,7 @@ except ImportError:
             return u[c]
         else:
             if unicodedata_.category(c).startswith('C'):
-                return '\u%04x'%(ord(c),)
+                return br'\u%04x'%(ord(c),)
             else:
                 return c
 
@@ -630,7 +630,7 @@ def test():
     reader.ps1 = "**> "
     reader.ps2 = "/*> "
     reader.ps3 = "|*> "
-    reader.ps4 = "\*> "
+    reader.ps4 = r"\*> "
     while reader.readline():
         pass
 
