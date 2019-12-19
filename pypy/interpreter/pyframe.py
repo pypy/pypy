@@ -565,7 +565,7 @@ class PyFrame(W_Root):
         # Copy values from the fastlocals to self.w_locals
         d = self.getorcreatedebug()
         if d.w_locals is None:
-            d.w_locals = self.space.newdict()
+            d.w_locals = self.space.newdict(module=True)
         varnames = self.getcode().getvarnames()
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
