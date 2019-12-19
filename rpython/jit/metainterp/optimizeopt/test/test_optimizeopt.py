@@ -698,6 +698,15 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_guard_value_on_boolean_but_not_zero_or_one(self):
+        ops = """
+        [i]
+        i1 = int_lt(i, 3)
+        guard_value(i1, -1) [i]
+        jump(i)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops, ops)
+
     def test_int_is_true_of_bool(self):
         ops = """
         [i0, i1]
