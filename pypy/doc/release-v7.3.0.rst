@@ -138,6 +138,10 @@ Changes shared across versions
 * Overflow in RPython when converting ``2<<32`` into a ``Signed`` on 32-bit
   platforms rather than automatically using a ``SignedLongLong``, require an
   explicit ``r_int64()`` call instead
+* Fix multithread contention when creating an object in cffi (PyPy only)
+* Copy lib/* shared objects in portable builds when creating virtual
+  environments with virtualenv and venv
+* Potential fix in rare-case JIT optimizer (`issue 3128`_)
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -226,6 +230,7 @@ Python 3.6 C-API
 .. _`issue 3117`: https://bitbucket.com/pypy/pypy/issues/3117
 .. _`issue 3119`: https://bitbucket.com/pypy/pypy/issues/3119
 .. _`issue 3120`: https://bitbucket.com/pypy/pypy/issues/3120
+.. _`issue 3128`: https://bitbucket.com/pypy/pypy/issues/3120
 
 .. _13312: https://bugs.python.org/issue13312
 .. _13617: https://bugs.python.org/issue13617
