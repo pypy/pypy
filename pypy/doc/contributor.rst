@@ -65,16 +65,16 @@ Contributors
   Spenser Bauman
   Michal Bendowski
   Jan de Mooij
+  Stefano Rivera
   Tyler Wade
+  Stefan Beyer
   Vincent Legoll
   Michael Foord
   Stephan Diehl
-  Stefano Rivera
   Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
   Valentino Volonghi
-  Stefan Beyer
   Patrick Maupin
   Devin Jeanpierre
   Bob Ippolito
@@ -103,9 +103,10 @@ Contributors
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Stian Andreassen
+  Julian Berman
   William Leslie
   Paweł Piotr Przeradowski
-  Stian Andreassen
   marky1991
   Ilya Osadchiy
   Tobias Oberstein
@@ -116,7 +117,7 @@ Contributors
   tav
   Georg Brandl
   Joannah Nanjekye
-  Julian Berman
+  Yannick Jadoul
   Bert Freudenberg
   Wanja Saatkamp
   Mike Blume
@@ -241,6 +242,7 @@ Contributors
   Lutz Paelike
   Ian Foote
   Philipp Rustemeuer
+  Bernd Schoeller
   Logan Chien
   Catalin Gabriel Manciu
   Jacob Oscarson
@@ -253,7 +255,6 @@ Contributors
   Lene Wagner
   Tomo Cocoa
   Miro Hrončok
-  Anthony Sottile
   David Lievens
   Neil Blakey-Milner
   Henrik Vendelbo
@@ -269,7 +270,6 @@ Contributors
   Laurens Van Houtven
   Bobby Impollonia
   Roberto De Ioris
-  Yannick Jadoul
   Jeong YunWon
   Christopher Armstrong
   Aaron Tubbs
@@ -324,6 +324,7 @@ Contributors
   Daniil Yarancev
   Min RK
   OlivierBlanvillain
+  bernd.schoeller@inf.ethz.ch
   dakarpov@gmail.com
   Jonas Pfannschmidt
   Zearin
@@ -365,6 +366,7 @@ Contributors
   Jesdi
   Konrad Delong
   Dinu Gherman
+  Sam Edwards
   pizi
   Tomáš Pružina
   James Robert

@@ -1156,8 +1156,7 @@ _oplist = [
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
     'CALL_LOOPINVARIANT/*d/rfin',
-    'CALL_RELEASE_GIL/*d/fin',
-    # release the GIL and "close the stack" for asmgcc
+    'CALL_RELEASE_GIL/*d/fin',  # release the GIL around the call
     'CALL_PURE/*d/rfin',             # removed before it's passed to the backend
     'CHECK_MEMORY_ERROR/1/n',   # after a CALL: NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1/r',  # nursery malloc, const number of bytes, zeroed

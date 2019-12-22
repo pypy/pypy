@@ -1003,21 +1003,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # for stacklet
         hop.genop("direct_call", [self.root_walker.gc_modified_shadowstack_ptr])
 
-    def gct_gc_detach_callback_pieces(self, hop):
-        op = hop.spaceop
-        assert len(op.args) == 0
-        hop.genop("direct_call",
-                  [self.root_walker.gc_detach_callback_pieces_ptr],
-                  resultvar=op.result)
-
-    def gct_gc_reattach_callback_pieces(self, hop):
-        op = hop.spaceop
-        assert len(op.args) == 1
-        hop.genop("direct_call",
-                  [self.root_walker.gc_reattach_callback_pieces_ptr,
-                   op.args[0]],
-                  resultvar=op.result)
-
     def gct_do_malloc_fixedsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
         op = hop.spaceop
@@ -1244,8 +1229,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
+        # There is no 'thread_start_ptr' any more for now, so the following
+        # line is always false.
         if hasattr(self.root_walker, 'thread_start_ptr'):
-            # only with asmgcc.  Note that this is actually called after
+            # Note that this is actually called after
             # the first gc_thread_run() in the new thread.
             hop.genop("direct_call", [self.root_walker.thread_start_ptr])
 

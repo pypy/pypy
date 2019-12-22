@@ -110,7 +110,7 @@ class TestFramework(object):
         class config_(object):
             class translation(object):
                 gc = self.gc
-                gcrootfinder = 'asmgcc'
+                gcrootfinder = 'shadowstack'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
         class FakeTranslator(object):

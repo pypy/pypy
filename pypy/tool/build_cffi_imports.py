@@ -194,9 +194,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             if status != 0:
                 failures.append((key, module))
                 print("stdout:")
-                print(stdout.decode('utf-8'))
+                print(stdout.decode('utf-8'), file=sys.stderr)
                 print("stderr:")
-                print(stderr)
+                print(stderr, file=sys.stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))

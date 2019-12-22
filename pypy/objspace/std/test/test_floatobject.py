@@ -5,6 +5,7 @@ import sys
 import py
 
 from pypy.objspace.std.floatobject import W_FloatObject, _remove_underscores
+from pypy.objspace.std.intobject import W_IntObject
 
 
 class TestW_FloatObject:
@@ -127,6 +128,10 @@ class TestW_FloatObject:
         for s in invalid:
             pytest.raises(ValueError, _remove_underscores, s)
 
+def test_avoid_bigints(space):
+    w_f = space.newfloat(123.456)
+    assert isinstance(w_f.descr_trunc(space), W_IntObject)
+    assert isinstance(w_f.descr___round__(space), W_IntObject)
 
 
 class AppTestAppFloatTest:

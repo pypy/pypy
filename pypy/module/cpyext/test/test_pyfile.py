@@ -1,6 +1,7 @@
 import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.object import Py_PRINT_RAW
+from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
 
@@ -70,3 +71,31 @@ class TestFile(BaseApiTest):
         out, err = capfd.readouterr()
         out = out.replace('\r\n', '\n')
         assert out == "test\n'test\\n'"
+
+    def test_fspath(self, space, api):
+        w_obj = space.newtext("test")
+        w_ret = api.PyOS_FSPath(w_obj)
+        assert space.eq_w(w_ret, w_obj)
+
+        w_obj = space.newint(3)
+        with pytest.raises(OperationError):
+            w_ret = api.PyOS_FSPath(w_obj)
+
+
+        w_p1 = space.appexec([], '''():
+            class Pathlike():
+                def __fspath__(self):
+                    return 'test'
+            return Pathlike()''')
+
+        w_p2 = space.appexec([], '''():
+            class UnPathlike():
+                def __fspath__(self):
+                    return 42
+            return UnPathlike()''')
+
+        w_ret = api.PyOS_FSPath(w_p1)
+        assert space.eq_w(w_ret, space.newtext('test'))
+
+        with pytest.raises(OperationError):
+            w_ret = api.PyOS_FSPath(w_p2)

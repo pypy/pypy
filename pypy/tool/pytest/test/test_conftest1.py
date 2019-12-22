@@ -41,10 +41,9 @@ class TestPyPyTests:
 
     def test_selection_by_keyword_app(self):
         passed, failed = subproc_run("-m", "applevel -docstring", innertest)
-        assert len(passed) == 4
-        assert len(failed) == 2
-        assert "app_test_something" in passed[0]
-        assert "test_method_app" in passed[1]
+        assert len(passed) == 2
+        assert len(failed) == 1
+        assert "test_method_app" in passed[0]
 
     def test_docstring_in_methods(self):
         passed, failed = subproc_run("-k", "AppTestSomething and test_code_in_docstring",
@@ -53,12 +52,6 @@ class TestPyPyTests:
         assert len(failed) == 1
         assert "test_code_in_docstring_ignored" in passed[0]
         assert "test_code_in_docstring_failing" in failed[0]
-
-    def test_docstring_in_functions(self):
-        passed, failed = subproc_run("-k", "app_test_code_in_docstring", innertest)
-        assert passed == []
-        assert len(failed) == 1
-        assert "app_test_code_in_docstring_failing" in failed[0]
 
     @py.test.mark.xfail(reason='fails on buildslave')
     def test_docstring_runappdirect(self):

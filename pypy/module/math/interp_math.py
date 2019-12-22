@@ -156,12 +156,12 @@ def floor(space, w_x):
        Return the floor of x as an int.
        This is the largest integral value <= x.
     """
-    from pypy.objspace.std.longobject import newlong_from_float
+    from pypy.objspace.std.floatobject import newint_from_float
     w_descr = space.lookup(w_x, '__floor__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
     x = _get_double(space, w_x)
-    return newlong_from_float(space, math.floor(x))
+    return newint_from_float(space, math.floor(x))
 
 def sqrt(space, w_x):
     """sqrt(x)
@@ -259,11 +259,11 @@ def ceil(space, w_x):
        Return the ceiling of x as an int.
        This is the smallest integral value >= x.
     """
-    from pypy.objspace.std.longobject import newlong_from_float
+    from pypy.objspace.std.floatobject import newint_from_float
     w_descr = space.lookup(w_x, '__ceil__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
-    return newlong_from_float(space, math1_w(space, math.ceil, w_x))
+    return newint_from_float(space, math1_w(space, math.ceil, w_x))
 
 def sinh(space, w_x):
     """sinh(x)

@@ -1455,7 +1455,7 @@ class _lladdress(long):
     def __new__(cls, void_p):
         if isinstance(void_p, (int, long)):
             void_p = ctypes.c_void_p(void_p)
-        self = long.__new__(cls, void_p.value)
+        self = long.__new__(cls, intmask(void_p.value))
         self.void_p = void_p
         self.intval = intmask(void_p.value)
         return self
