@@ -5,7 +5,7 @@ bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl', 'tk', 'gdbm',
 
 import os
 from os.path import dirname, relpath, join, exists, basename, realpath
-from shutil import copy2
+from shutil import copy2, copytree
 import sys
 from glob import glob
 from subprocess import check_output, check_call
@@ -84,6 +84,9 @@ def make_portable():
 
     for path, item in copied.items():
         print('Copied {0} to {1}'.format(path, item))
+
+    copytree('/usr/share/tcl8.5', 'lib/tcl')
+    copytree('/usr/share/tk8.5', 'lib/tk')
 
     binaries.extend(copied.values())
 
