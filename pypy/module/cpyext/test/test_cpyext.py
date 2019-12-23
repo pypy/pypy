@@ -141,7 +141,7 @@ class LeakCheckingTest(object):
             # <types.py>
             def _f(): pass
             FunctionType = type(_f)
-            CodeType = type(_f.func_code)
+            CodeType = type(_f.__code__)
             try:
                 raise TypeError
             except TypeError:
