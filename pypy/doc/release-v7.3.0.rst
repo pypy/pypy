@@ -197,7 +197,8 @@ Python 3.6 C-API
 
 * Add ``PyObject_GenericGetDict``, ``PyObject_GenericSetDict``, ``_Py_strhex``,
   ``_Py_strhex_bytes``, ``PyUnicodeNew``, ``_PyFinalizing``,
-  ``PySlice_Unpack``, ``PySlice_AdjustIndices``, ``PyOS_FSPath``
+  ``PySlice_Unpack``, ``PySlice_AdjustIndices``, ``PyOS_FSPath``,
+  ``PyModule_AddFunctions``
 * Implement ``pystrhex.h`` (`issue 2687`_)
 * Make ``PyUnicodeObject`` slightly more compact
 * Fix memory leak when releasing a ``PyUnicodeObject``
