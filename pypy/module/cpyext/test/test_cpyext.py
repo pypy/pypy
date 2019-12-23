@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
-from pypy.module.cpyext.api import cts
+from pypy.module.cpyext.api import cts, create_extension_module
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.state import State
 from rpython.tool import leakfinder
@@ -47,9 +47,14 @@ class SpaceCompiler(SystemCompilationInfo):
         space = self.space
         w_path = space.newtext(mod)
         w_name = space.newtext(name)
-        return space.appexec([w_name, w_path], '''(name, path):
-            import imp
-            return imp.load_dynamic(name, path)''')
+        w_spec = space.appexec([w_name, w_path], '''(modname, path):
+            class FakeSpec:
+                name = modname
+                origin = path
+            return FakeSpec
+        ''')
+        w_mod = create_extension_module(space, w_spec)
+        return w_mod
 
 
 def get_cpyext_info(space):
