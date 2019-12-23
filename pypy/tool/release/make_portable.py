@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl', 'tk', 'gdbm',
+bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl8', 'tk8', 'gdbm',
           'lzma', 'tinfo', 'tinfow', 'ncursesw', 'panelw', 'ncurses', 'panel', 'panelw']
 
 import os
@@ -62,6 +62,7 @@ def rpath_binaries(binaries):
     rpaths = {}
 
     for binary in binaries:
+        check_call(['chmod', 'a+w', binary])
         rpath = join('$ORIGIN', relpath('lib', dirname(binary)))
         check_call(['patchelf', '--set-rpath', rpath, binary])
 
