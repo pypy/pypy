@@ -131,6 +131,7 @@ class LeakCheckingTest(object):
         Eagerly create pyobjs for various builtins so they don't look like
         leaks.
         """
+        from pypy.module.cpyext.pyobject import make_ref
         w_to_preload = space.appexec([], """():
             import sys
             import mmap
