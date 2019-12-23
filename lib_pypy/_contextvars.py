@@ -1,4 +1,5 @@
 from __pypy__ import get_contextvar_context, set_contextvar_context
+from _immutables_map import Map
 # implementation taken from PEP-0567 https://www.python.org/dev/peps/pep-0567/
 
 _NO_DEFAULT = object()
@@ -12,37 +13,6 @@ class Unsubclassable(type):
         return type.__new__(cls, name, bases, dict(dct))
 
 
-class _ContextData:
-    # XXX wrong complexity! need to implement a real immutable dict instead
-
-    def __init__(self):
-        self._mapping = dict()
-
-    def __getitem__(self, key):
-        return self._mapping[key]
-
-    def __contains__(self, key):
-        return key in self._mapping
-
-    def __len__(self):
-        return len(self._mapping)
-
-    def __iter__(self):
-        return iter(self._mapping)
-
-    def set(self, key, value):
-        copy = _ContextData()
-        copy._mapping = self._mapping.copy()
-        copy._mapping[key] = value
-        return copy
-
-    def delete(self, key):
-        copy = _ContextData()
-        copy._mapping = self._mapping.copy()
-        del copy._mapping[key]
-        return copy
-
-
 def get_context():
     context = get_contextvar_context()
     if context is None:
@@ -53,11 +23,11 @@ def get_context():
 
 class Context(metaclass=Unsubclassable):
 
-    #_data: _ContextData
+    #_data: Map
     #_prev_context: Optional[Context]
 
     def __init__(self):
-        self._data = _ContextData()
+        self._data = Map()
         self._prev_context = None
 
     def run(self, callable, *args, **kwargs):
@@ -157,7 +127,7 @@ class ContextVar(metaclass=Unsubclassable):
     def set(self, value):
         context = get_context()
 
-        data: _ContextData = context._data
+        data: Map = context._data
         try:
             old_value = data[self]
         except KeyError:
