@@ -144,7 +144,7 @@ class LeakCheckingTest(object):
             # <types.py>
             def _f(): pass
             FunctionType = type(_f)
-            CodeType = type(_f.func_code)
+            CodeType = type(_f.__code__)
             try:
                 raise TypeError
             except TypeError:
@@ -154,7 +154,7 @@ class LeakCheckingTest(object):
                 del tb
             # </types.py>
             return [
-                buffer,
+                #buffer,   ## does not exist on py3k
                 mmap.mmap,
                 FunctionType,
                 CodeType,
