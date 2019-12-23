@@ -92,3 +92,16 @@ def f():
         terr = TypeError("hello world")
         set_exc_info(TypeError, terr, tb)
         assert sys.exc_info()[2] is tb
+
+    def test_get_set_contextvar_context(self):
+        from __pypy__ import get_contextvar_context, set_contextvar_context
+        context = get_contextvar_context()
+        try:
+            set_contextvar_context(1)
+            assert get_contextvar_context() == 1
+            set_contextvar_context(5)
+            assert get_contextvar_context() == 5
+
+        finally:
+            set_contextvar_context(context)
+

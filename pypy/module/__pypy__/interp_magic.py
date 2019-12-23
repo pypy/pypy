@@ -215,3 +215,17 @@ def pyos_inputhook(space):
 def set_exc_info(space, w_type, w_value, w_traceback=None):
     ec = space.getexecutioncontext()
     ec.set_sys_exc_info3(w_type, w_value, w_traceback)
+
+def get_contextvar_context(space):
+    ec = space.getexecutioncontext()
+    context = ec.contextvar_context
+    if context:
+        return context
+    else:
+        return space.w_None
+
+def set_contextvar_context(space, w_obj):
+    ec = space.getexecutioncontext()
+    ec.contextvar_context = w_obj
+    return space.w_None
+
