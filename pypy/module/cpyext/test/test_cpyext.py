@@ -43,18 +43,25 @@ class SpaceCompiler(SystemCompilationInfo):
         self.space = space
         SystemCompilationInfo.__init__(self, *args, **kwargs)
 
-    def load_module(self, mod, name):
+    def load_module(self, mod, name, use_imp=False):
         space = self.space
         w_path = space.newtext(mod)
         w_name = space.newtext(name)
-        w_spec = space.appexec([w_name, w_path], '''(modname, path):
-            class FakeSpec:
-                name = modname
-                origin = path
-            return FakeSpec
-        ''')
-        w_mod = create_extension_module(space, w_spec)
-        return w_mod
+        if use_imp:
+            # this is VERY slow and should be used only by tests which
+            # actually needs it
+            return space.appexec([w_name, w_path], '''(name, path):
+                import imp
+                return imp.load_dynamic(name, path)''')
+        else:
+            w_spec = space.appexec([w_name, w_path], '''(modname, path):
+                class FakeSpec:
+                    name = modname
+                    origin = path
+                return FakeSpec
+            ''')
+            w_mod = create_extension_module(space, w_spec)
+            return w_mod
 
 
 def get_cpyext_info(space):
@@ -322,13 +329,15 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return space.wrap(pydname)
 
         @unwrap_spec(name='text', init='text_or_none', body='text',
-                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool)
+                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool,
+                     use_imp=bool)
         def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
-                          PY_SSIZE_T_CLEAN=False):
+                          PY_SSIZE_T_CLEAN=False, use_imp=False):
             include_dirs = _unwrap_include_dirs(space, w_include_dirs)
             w_result = self.sys_info.import_module(
-                name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN)
+                name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN,
+                use_imp)
             self.record_imported_module(name)
             return w_result
 
@@ -457,7 +466,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             NULL,           /* m_methods */
         };
         """
-        foo = self.import_module(name='foo', body=body)
+        foo = self.import_module(name='foo', body=body, use_imp=True)
         assert 'foo' in sys.modules
         del sys.modules['foo']
         import imp
