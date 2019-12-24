@@ -63,14 +63,14 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
 class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_basic(self):
         from types import ModuleType
-        module = self.import_module(name='multiphase')
+        module = self.import_module(name='multiphase', use_imp=True)
         assert isinstance(module, ModuleType)
         assert module.__name__ == 'multiphase'
         assert module.__doc__ == "example docstring"
 
     def test_getdef(self):
         from types import ModuleType
-        module = self.import_module(name='multiphase')
+        module = self.import_module(name='multiphase', use_imp=True)
         assert module.check_getdef_same()
 
     def test_slots(self):
@@ -113,7 +113,8 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         init = """
         return PyModuleDef_Init(&multiphase_def);
         """
-        module = self.import_module(name='multiphase', body=body, init=init)
+        module = self.import_module(name='multiphase', body=body, init=init,
+                                    use_imp=True)
         assert module.create_spec
         assert module.create_spec is module.__spec__
         assert module.create_def_eq
@@ -133,7 +134,7 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         return (PyObject *) &multiphase_def;
         """
         raises(SystemError, self.import_module, name='multiphase', body=body,
-               init=init)
+               init=init, use_imp=True)
 
 class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def setup_class(cls):
@@ -143,7 +144,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def test_multiphase2(self):
         import sys
         from importlib import machinery, util
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         finder = machinery.FileFinder(None)
         spec = util.find_spec(self.name)
         assert spec
@@ -156,7 +157,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
 
     def test_functionality(self):
         import types
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         assert isinstance(module, types.ModuleType)
         ex = module.Example()
         assert ex.demo('abcd') == 'abcd'
@@ -173,7 +174,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
 
     def test_reload(self):
         import importlib
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         ex_class = module.Example
         # Simulate what importlib.reload() does, without recomputing the spec
         module.__spec__.loader.exec_module(module)
@@ -182,7 +183,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def w_load_from_name(self, name, origin=None, use_prefix=True):
         from importlib import machinery, util
         if not origin:
-            module = self.import_module(name=self.name)
+            module = self.import_module(name=self.name, use_imp=True)
             origin = module.__loader__.path
         if use_prefix:
             name = '_testmultiphase_' + name
@@ -195,7 +196,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def test_bad_modules(self):
         # XXX: not a very good test, since most internal issues in cpyext
         # cause SystemErrors.
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         origin = module.__loader__.path
         for name in [
                 'bad_slot_large',
@@ -237,7 +238,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         assert excinfo.value.name == '_testmultiphase_' + name
 
     def test_nonascii(self):
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         origin = module.__loader__.path
         cases = [
             ('_testmultiphase_zkou\u0161ka_na\u010dten\xed', 'Czech'),
