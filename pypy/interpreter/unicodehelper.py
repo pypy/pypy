@@ -1209,8 +1209,6 @@ def str_decode_utf_16_helper(s, errors, final=True,
             r, pos, rettype = errorhandler(errors, public_encoding_name,
                                   errmsg, s, pos, len(s))
             result.append(r)
-            if len(s) - pos < 2:
-                break
         elif 0xD800 <= ch <= 0xDBFF:
             ch2 = (ord(s[pos+ihi]) << 8) | ord(s[pos+ilo])
             pos += 2
