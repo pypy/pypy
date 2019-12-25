@@ -1,18 +1,39 @@
 from rpython.tool.udir import udir
+from pypy.interpreter.gateway import interp2app
 from pypy.module._io import interp_win32consoleio
+from pypy.conftest import option
+from rpython.rtyper.lltypesystem import rffi
 import os
 
-class AppTestWinConsoleIO:
-    spaceconfig = dict(usemodules=['_io'])
+if os.name != 'nt':
+    import pytest
+    pytest.skip('Windows only tests')
 
-    def setup_method(self, meth):
+try:
+    import _testconsole
+except ImportError:
+    from lib_pypy import _testconsole
+
+class AppTestWinConsoleIO:
+    spaceconfig = dict(usemodules=['_io', '_cffi_backend'])
+
+    def setup_class(cls):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
-        self.w_tmpfile = self.space.wrap(str(tmpfile))   
-        self.w_posix = self.space.appexec([], """():
+        cls.w_tmpfile = cls.space.wrap(str(tmpfile))   
+        cls.w_posix = cls.space.appexec([], """():
             import %s as m;
-            return m""" % os.name)        
-        self.w_conout_path = self.space.wrap(str(udir.join('CONOUT$')))
+            return m""" % os.name)
+        cls.w_conout_path = cls.space.wrap(str(udir.join('CONOUT$')))
+        if option.runappdirect:
+            cls.w_write_input = _testconsole.write_input
+        else:
+            def cls_write_input(space, w_module, w_console, w_s):
+                module = space.unwrap(w_module)
+                handle = rffi.cast(rffi.INT_real, w_console.handle)
+                s = space.utf8_w(w_s).decode('utf-8')
+                return space.wrap(_testconsole.write_input(module, handle, s))
+            cls.w_write_input = cls.space.wrap(interp2app(cls_write_input))
 
     def test_open_fd(self):
         import _io
@@ -110,6 +131,22 @@ class AppTestWinConsoleIO:
         with _io._WindowsConsoleIO('CONOUT$', 'w') as f:
             assert f.write(b'') == 0
             
+    def test_partial_reads(self):
+        import _io
+        source = b'abcedfg'
+        actual = b''
+        with open('CONIN$', 'rb', buffering=0) as stdin:
+            self.write_input(None, stdin, source)
+            while not actual.endswith(b'\n'):
+                b = stdin.read(len(source))
+                print('read', b)
+                if not b:
+                    break
+                actual += b
+
+        assert actual == source
+
+
             
 class TestGetConsoleType:
     def test_conout(self, space):
