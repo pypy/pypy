@@ -5,7 +5,7 @@ DIRS_SPLIT = [
     'translator/c', 'rlib',
     'memory/test', 'jit/metainterp',
     'jit/backend/arm', 'jit/backend/x86',
-    'jit/backend/zarch', 'module/cpyext/test',
+    'jit/backend/zarch',
     'jit/backend/aarch64',
 ]
 
