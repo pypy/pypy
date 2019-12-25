@@ -32,7 +32,7 @@ STDLIB_VER = "2.7"
 
 POSIX_EXE = 'pypy'
 
-from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
+from lib_pypy.tools.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
