@@ -683,7 +683,14 @@ class Optimizer(Optimization):
                 elif constvalue == 1:
                     opnum = rop.GUARD_TRUE
                 else:
-                    raise AssertionError("uh?")
+                    # Issue #3128: there might be rare cases where strange
+                    # code is produced.  That issue hits the assert from
+                    # OptUnroll.inline_short_preamble's send_extra_operation().
+                    # Better just disable this optimization than crash with
+                    # an AssertionError here.  Note also that such code might
+                    # trigger an InvalidLoop to be raised later---so we must
+                    # not crash here.
+                    return op
                 newop = self.replace_op_with(op, opnum, [op.getarg(0)], descr)
                 return newop
         return op

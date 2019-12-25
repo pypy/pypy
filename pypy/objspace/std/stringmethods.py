@@ -482,7 +482,7 @@ class StringMethods(object):
     def _lower_in_str(self, value, i):
         # overridden in unicodeobject.py
         return self._lower(value[i])
-        
+
     # This is not used for W_UnicodeObject.
     def descr_partition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject

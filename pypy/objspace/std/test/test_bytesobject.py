@@ -803,6 +803,10 @@ class AppTestBytesObject:
         assert b'hello'.decode('ascii') == 'hello'
         raises(UnicodeDecodeError, b'he\x97lo'.decode, 'ascii')
 
+    def test_decode_surrogatepass_issue_3132(self):
+        with raises(UnicodeDecodeError):
+            b"\xd8=a".decode("utf-16-be", "surrogatepass")
+
     def test_encode(self):
         assert 'hello'.encode() == b'hello'
         assert type('hello'.encode()) is bytes

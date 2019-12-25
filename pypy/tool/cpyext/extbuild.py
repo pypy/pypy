@@ -57,7 +57,7 @@ class SystemCompilationInfo(object):
         return str(pydname)
 
     def import_module(self, name, init=None, body='', filename=None,
-            include_dirs=None, PY_SSIZE_T_CLEAN=False):
+                      include_dirs=None, PY_SSIZE_T_CLEAN=False, use_imp=False):
         """
         init specifies the overall template of the module.
 
@@ -81,7 +81,7 @@ class SystemCompilationInfo(object):
             kwds = dict(source_files=[filename])
         mod = self.compile_extension_module(
             name, include_dirs=include_dirs, **kwds)
-        return self.load_module(mod, name)
+        return self.load_module(mod, name, use_imp)
 
     def import_extension(self, modname, functions, prologue="",
             include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
@@ -99,7 +99,8 @@ class SystemCompilationInfo(object):
 
 class ExtensionCompiler(SystemCompilationInfo):
     """Extension compiler for appdirect mode"""
-    def load_module(space, mod, name):
+    def load_module(space, mod, name, use_imp=False):
+        # use_imp is ignored, it is useful only for non-appdirect mode
         import imp
         return imp.load_dynamic(name, mod)
 
