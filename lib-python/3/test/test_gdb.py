@@ -436,7 +436,7 @@ except RuntimeError as e:
     id(e)
 ''')
         self.assertEqual(gdb_repr,
-                         "RuntimeError('I am an error',)")
+                         "RuntimeError('I am an error')")
 
 
         # Test division by zero:
@@ -447,7 +447,7 @@ except ZeroDivisionError as e:
     id(e)
 ''')
         self.assertEqual(gdb_repr,
-                         "ZeroDivisionError('division by zero',)")
+                         "ZeroDivisionError('division by zero')")
 
     def test_modern_class(self):
         'Verify the pretty-printing of new-style class instances'

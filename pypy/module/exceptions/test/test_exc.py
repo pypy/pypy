@@ -10,7 +10,7 @@ class AppTestExc(object):
         assert repr(BaseException()) == 'BaseException()'
         raises(AttributeError, getattr, BaseException(), 'message')
         raises(AttributeError, getattr, BaseException(3), 'message')
-        assert repr(BaseException(3)) == 'BaseException(3,)'
+        assert repr(BaseException(3)) == 'BaseException(3)'
         assert str(BaseException(3)) == '3'
         assert BaseException().args == ()
         assert BaseException(3).args == (3,)
@@ -328,7 +328,7 @@ class AppTestExc(object):
         assert ModuleNotFoundError("message", name="x").name == "x"
         assert ModuleNotFoundError("message", path="y").path == "y"
         raises(TypeError, ModuleNotFoundError, invalid="z")
-        assert repr(ModuleNotFoundError('test')) == "ModuleNotFoundError('test',)"
+        assert repr(ModuleNotFoundError('test')) == "ModuleNotFoundError('test')"
 
     def test_blockingioerror(self):
         args = ("a", "b", "c", "d", "e")
