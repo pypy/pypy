@@ -38,10 +38,6 @@ class BaseTestGIL(StandaloneTests):
         assert data == "Test\n1\n2\n"
 
 
-class TestGILAsmGcc(BaseTestGIL):
-    gc = 'minimark'
-    gcrootfinder = 'asmgcc'
-
 class TestGILShadowStack(BaseTestGIL):
     gc = 'minimark'
     gcrootfinder = 'shadowstack'

@@ -13,13 +13,6 @@ def test_no_gcrootfinder_with_boehm():
     config.translation.gcrootfinder = "shadowstack"
     py.test.raises(ConflictConfigError, set_opt_level, config, '0')
 
-if compiler.name == 'msvc' or sys.platform == 'darwin':
-    def test_no_asmgcrot_on_msvc():
-        config = get_combined_translation_config()
-        config.translation.gcrootfinder = "asmgcc"
-        py.test.raises(ConfigError, set_opt_level, config, 'jit') 
-
-
 def test_get_translation_config():
     from rpython.translator.interactive import Translation
     from rpython.config import config

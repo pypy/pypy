@@ -1046,8 +1046,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
         else:
             gilstate = pystate.PyGILState_IGNORE
 
-        rffi.stackcounter.stacks_counter += 1
-        llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+        llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
         retval = fatal_value
         boxed_args = ()
         tb = None
@@ -1124,7 +1123,6 @@ def make_wrapper_second_level(space, argtypesw, restype,
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
-        rffi.stackcounter.stacks_counter -= 1
 
         _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
         return retval
@@ -1206,7 +1204,7 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
-        'tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
 
 def init_function(func):
@@ -1528,6 +1526,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "object.c",
                          source_dir / "typeobject.c",
                          source_dir / "tupleobject.c",
+                         source_dir / "sliceobject.c",
                          ]
 
 def build_eci(code, use_micronumpy=False, translating=False):

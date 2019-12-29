@@ -6,9 +6,7 @@
 
    - The first lock is a simple global variable 'rpy_fastgil'.  With
      shadowstack, we use the most portable definition: 0 means unlocked
-     and != 0 means locked.  With asmgcc, 0 means unlocked but only 1
-     means locked.  A different value means unlocked too, but the value
-     is used by the JIT to contain the stack top for stack root scanning.
+     and != 0 means locked.
 
    - The second lock is a regular mutex.  In the fast path, it is never
      unlocked.  Remember that "the GIL is unlocked" means that either
@@ -70,22 +68,7 @@ void RPyGilAllocate(void)
 static void check_and_save_old_fastgil(long old_fastgil)
 {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
-
-#ifdef PYPY_USE_ASMGCC
-    if (old_fastgil != 0) {
-        /* this case only occurs from the JIT compiler */
-        struct pypy_ASM_FRAMEDATA_HEAD0 *new =
-            (struct pypy_ASM_FRAMEDATA_HEAD0 *)old_fastgil;
-        struct pypy_ASM_FRAMEDATA_HEAD0 *root = &pypy_g_ASM_FRAMEDATA_HEAD;
-        struct pypy_ASM_FRAMEDATA_HEAD0 *next = root->as_next;
-        new->as_next = next;
-        new->as_prev = root;
-        root->as_next = new;
-        next->as_prev = new;
-    }
-#else
     assert(old_fastgil == 0);
-#endif
 }
 
 #define RPY_GIL_POKE_MIN   40

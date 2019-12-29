@@ -619,7 +619,7 @@ def op_debug_nonnull_pointer(x):
     assert x
 
 def op_gc_stack_bottom():
-    pass       # marker for trackgcroot.py
+    pass       # see llinterp.py for docs
 
 def op_jit_force_virtualizable(*args):
     pass

@@ -33,9 +33,6 @@ def maketestobjspace(config=None):
     config.objspace.extmodules = 'pypy.tool.pytest.fake_pytest'
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
-    if config.objspace.std.reinterpretasserts:
-        space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
-                    appsupport.build_pytest_assertion(space))
     space.setitem(space.builtin.w_dict, space.wrap('raises'),
                   space.wrap(appsupport.app_raises))
     space.setitem(space.builtin.w_dict, space.wrap('skip'),

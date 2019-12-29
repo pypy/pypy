@@ -540,6 +540,13 @@ class W_PyCTypeObject(W_TypeObject):
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
+        w_dict = from_ref(space, pto.c_tp_dict)
+        if w_dict is not None:
+            dictkeys_w = space.listview(w_dict)
+            for w_key in dictkeys_w:
+                key = space.text_w(w_key)
+                dict_w[key] = space.getitem(w_dict, w_key)
+
         flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
@@ -786,8 +793,10 @@ def _type_realize(space, py_obj):
         # While this is a hack, cpython does it as well.
         w_metatype = space.w_type
 
-    w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
-    track_reference(space, py_obj, w_obj)
+    w_obj = rawrefcount.to_obj(W_PyCTypeObject, py_obj)
+    if w_obj is None:
+        w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
+        track_reference(space, py_obj, w_obj)
     # __init__ wraps all slotdefs functions from py_type via add_operators
     w_obj.__init__(space, py_type)
     w_obj.ready()
@@ -811,7 +820,7 @@ def finish_type_1(space, pto, bases_w=None):
     Sets up tp_bases, necessary before creating the interpreter type.
     """
     base = pto.c_tp_base
-    base_pyo = rffi.cast(PyObject, pto.c_tp_base)
+    base_pyo = rffi.cast(PyObject, base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
         type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later

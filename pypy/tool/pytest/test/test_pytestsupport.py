@@ -6,21 +6,6 @@ conftestpath = py.path.local(pypy.__file__).dirpath("conftest.py")
 
 pytest_plugins = "pytester"
 
-def app_test_exception():
-    try:
-        raise AssertionError("42")
-    except AssertionError:
-        pass
-    else:
-        raise AssertionError("app level AssertionError mixup!")
-
-def app_test_exception_with_message():
-    try:
-        assert 0, "Failed"
-    except AssertionError as e:
-        assert e.msg == "Failed"
-
-
 def test_appexecinfo(space):
     try:
         space.appexec([], "(): raise ValueError")

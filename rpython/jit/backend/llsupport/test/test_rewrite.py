@@ -170,7 +170,6 @@ class RewriteTests(object):
         jf_descr = framedescrs.jf_descr
         jf_guard_exc = framedescrs.jf_guard_exc
         jf_forward = framedescrs.jf_forward
-        jf_extra_stack_depth = framedescrs.jf_extra_stack_depth
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
@@ -386,7 +385,7 @@ class TestFramework(RewriteTests):
         class config_(object):
             class translation(object):
                 gc = 'minimark'
-                gcrootfinder = 'asmgcc'
+                gcrootfinder = 'shadowstack'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
         gcdescr = get_description(config_)
@@ -1102,7 +1101,6 @@ class TestFramework(RewriteTests):
         p1 = call_malloc_nursery_varsize_frame(i1)
         gc_store(p1, 0,  0, %(tiddescr.field_size)s)
         i2 = gc_load_i(ConstClass(frame_info), %(jfi_frame_depth.offset)s, %(jfi_frame_depth.field_size)s)
-        %(setfield('p1', 0, jf_extra_stack_depth))s
         %(setfield('p1', 'NULL', jf_savedata))s
         %(setfield('p1', 'NULL', jf_force_descr))s
         %(setfield('p1', 'NULL', jf_descr))s

@@ -10,6 +10,11 @@ extern "C" {
 PyAPI_FUNC(void) _Py_RestoreSignals(void);
 #endif
 
+/* In Python <= 3.6 there is a variable _Py_Finalizing of type
+   'PyThreadState *'.  Emulate it with a macro. */
+#define _Py_Finalizing  \
+    (_Py_IsFinalizing() ? _PyThreadState_UncheckedGet() : NULL)
+
 
 #ifdef __cplusplus
 }

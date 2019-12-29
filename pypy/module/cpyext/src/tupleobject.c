@@ -94,7 +94,7 @@ static PyObject *
 tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 
 PyObject *
-tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+_PyPy_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *arg = NULL;
     static char *kwlist[] = {"sequence", 0};
@@ -117,7 +117,7 @@ tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     Py_ssize_t i, n;
 
     assert(PyType_IsSubtype(type, &PyTuple_Type));
-    tmp = tuple_new(&PyTuple_Type, args, kwds);
+    tmp = _PyPy_tuple_new(&PyTuple_Type, args, kwds);
     if (tmp == NULL)
         return NULL;
     assert(PyTuple_Check(tmp));

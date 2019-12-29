@@ -135,8 +135,8 @@ def pytest_pycollect_makemodule(path, parent):
         return PyPyModule(path, parent)
 
 def is_applevel(item):
-    from pypy.tool.pytest.apptest import AppTestFunction
-    return isinstance(item, AppTestFunction)
+    from pypy.tool.pytest.apptest import AppTestMethod
+    return isinstance(item, AppTestMethod)
 
 def pytest_collection_modifyitems(config, items):
     if config.getoption('runappdirect') or config.getoption('direct_apptest'):
@@ -166,8 +166,6 @@ class PyPyModule(pytest.Module):
     def funcnamefilter(self, name):
         if name.startswith('test_'):
             return self.accept_regular_test()
-        if name.startswith('app_test_'):
-            return True
         return False
 
     def classnamefilter(self, name):
@@ -182,13 +180,6 @@ class PyPyModule(pytest.Module):
             if name.startswith('AppTest'):
                 from pypy.tool.pytest.apptest import AppClassCollector
                 return AppClassCollector(name, parent=self)
-
-        elif hasattr(obj, 'func_code') and self.funcnamefilter(name):
-            if name.startswith('app_test_'):
-                assert not obj.func_code.co_flags & 32, \
-                    "generator app level functions? you must be joking"
-                from pypy.tool.pytest.apptest import AppTestFunction
-                return AppTestFunction(name, parent=self)
         return super(PyPyModule, self).makeitem(name, obj)
 
 def skip_on_missing_buildoption(**ropts):
@@ -207,27 +198,15 @@ def skip_on_missing_buildoption(**ropts):
     py.test.skip("need translated pypy3 with: %s, got %s"
                  %(ropts,options))
 
-class LazyObjSpaceGetter(object):
-    def __get__(self, obj, cls=None):
-        from pypy.tool.pytest.objspace import gettestobjspace
-        space = gettestobjspace()
-        if cls:
-            cls.space = space
-        return space
-
-
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
         appclass = item.getparent(py.test.Class)
         if appclass is not None:
+            from pypy.tool.pytest.objspace import gettestobjspace
             # Make cls.space and cls.runappdirect available in tests.
-            spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
-            if spaceconfig is not None:
-                from pypy.tool.pytest.objspace import gettestobjspace
-                appclass.obj.space = gettestobjspace(**spaceconfig)
-            else:
-                appclass.obj.space = LazyObjSpaceGetter()
+            spaceconfig = getattr(appclass.obj, 'spaceconfig', {})
+            appclass.obj.space = gettestobjspace(**spaceconfig)
             appclass.obj.runappdirect = option.runappdirect
 
 def pytest_ignore_collect(path, config):

@@ -145,6 +145,15 @@ def make_compare_func(opname):
         return space.w_NotImplemented
     return func_with_new_name(_compare, 'descr_' + opname)
 
+def newint_from_float(space, floatval):
+    """This is also used from module/math/interp_math.py"""
+    try:
+        value = ovfcheck_float_to_int(floatval)
+    except OverflowError:
+        return newlong_from_float(space, floatval)
+    else:
+        return space.newint(value)
+
 
 class W_FloatObject(W_Root):
     """This is a implementation of the app-level 'float' type.
@@ -440,12 +449,7 @@ class W_FloatObject(W_Root):
         return W_FloatObject(a)
 
     def descr_trunc(self, space):
-        try:
-            value = ovfcheck_float_to_int(self.floatval)
-        except OverflowError:
-            return newlong_from_float(space, self.floatval)
-        else:
-            return space.newint(value)
+        return newint_from_float(space, self.floatval)
 
     def descr_neg(self, space):
         return W_FloatObject(-self.floatval)
@@ -935,7 +939,7 @@ def _round_float(space, w_float, w_ndigits=None):
         if math.fabs(x - rounded) == 0.5:
             # halfway case: round to even
             rounded = 2.0 * rfloat.round_away(x / 2.0)
-        return newlong_from_float(space, rounded)
+        return newint_from_float(space, rounded)
 
     # interpret 2nd argument as a Py_ssize_t; clip on overflow
     ndigits = space.getindex_w(w_ndigits, None)

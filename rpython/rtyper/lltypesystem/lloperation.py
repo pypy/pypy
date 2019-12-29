@@ -550,14 +550,7 @@ LL_OPERATIONS = {
     # returns the address of gcdata.root_stack_base/top (for shadowstack only)
     'gc_modified_shadowstack': LLOp(),
 
-    # for asmgcroot support to get the address of various static structures
-    # see translator/c/src/mem.h for the valid indices
-    'gc_asmgcroot_static':  LLOp(sideeffects=False),
-    'gc_stack_bottom':      LLOp(canrun=True),
-
-    # for stacklet+asmgcroot support
-    'gc_detach_callback_pieces': LLOp(),
-    'gc_reattach_callback_pieces': LLOp(),
+    'gc_stack_bottom':      LLOp(canrun=True),   # see llinterp.py for docs
 
     # NOTE NOTE NOTE! don't forget *** canmallocgc=True *** for anything that
     # can malloc a GC object.

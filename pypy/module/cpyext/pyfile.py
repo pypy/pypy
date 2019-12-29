@@ -62,3 +62,26 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
         w_str = space.repr(w_obj)
     space.call_method(w_p, "write", w_str)
     return 0
+
+@cpython_api([PyObject], PyObject)
+def PyOS_FSPath(space, w_path):
+    """
+    Return the file system representation for path. If the object is a str or
+    bytes object, then its reference count is incremented. If the object
+    implements the os.PathLike interface, then __fspath__() is returned as long
+    as it is a str or bytes object. Otherwise TypeError is raised and NULL is
+    returned.
+    """
+    if (space.isinstance_w(w_path, space.w_unicode) or
+        space.isinstance_w(w_path, space.w_bytes)):
+        return w_path
+    if not space.lookup(w_path, '__fspath__'):
+        raise oefmt(space.w_TypeError,
+                "expected str, bytes or os.PathLike object, not %T", w_path)
+    w_ret = space.call_method(w_path, '__fspath__')
+    if (space.isinstance_w(w_ret, space.w_unicode) or
+        space.isinstance_w(w_ret, space.w_bytes)):
+        return w_ret
+    raise oefmt(space.w_TypeError,
+                "expected %T.__fspath__() to return str or bytes, not %T", w_path, w_ret)
+

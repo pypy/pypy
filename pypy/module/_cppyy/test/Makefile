@@ -15,7 +15,7 @@ all : $(dicts)
 
 HASGENREFLEX:=$(shell command -v genreflex 2> /dev/null)
 
-cppflags=-std=c++14 -O3 -fPIC -rdynamic
+cppflags=$(shell cling-config --cppflags) -O3 -fPIC -rdynamic
 ifdef HASGENREFLEX
   genreflex_flags:=$(shell genreflex --cppflags)
   cppflags+=$(genreflex_flags)

@@ -207,6 +207,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['sync'] = 'interp_posix.sync'
         interpleveldefs['get_blocking'] = 'interp_posix.get_blocking'
         interpleveldefs['set_blocking'] = 'interp_posix.set_blocking'
+        interpleveldefs['getgrouplist'] = 'interp_posix.getgrouplist'
 
     if hasattr(rposix, 'getpriority'):
         interpleveldefs['getpriority'] = 'interp_posix.getpriority'

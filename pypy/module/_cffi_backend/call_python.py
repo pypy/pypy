@@ -43,8 +43,7 @@ def _cffi_call_python(ll_externpy, ll_args):
     from rpython.rlib import rgil
 
     rgil.acquire()
-    rffi.stackcounter.stacks_counter += 1
-    llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+    llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
 
     cerrno._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
 
@@ -69,7 +68,6 @@ def _cffi_call_python(ll_externpy, ll_args):
 
     cerrno._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
 
-    rffi.stackcounter.stacks_counter -= 1
     rgil.release()
 
 

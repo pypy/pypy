@@ -5,7 +5,8 @@ class AppTestWarnings:
         import _warnings
         assert _warnings._onceregistry == {}
         assert _warnings._defaultaction == 'default'
-        expected = [('ignore', None, DeprecationWarning, None, 0),
+        expected = [('default', None, DeprecationWarning, '__main__', 0),
+                    ('ignore', None, DeprecationWarning, None, 0),
                     ('ignore', None, PendingDeprecationWarning, None, 0),
                     ('ignore', None, ImportWarning, None, 0),
                     ('ignore', None, BytesWarning, None, 0),

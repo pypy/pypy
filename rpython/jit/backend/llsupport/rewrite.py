@@ -584,8 +584,6 @@ class GcRewriterAssembler(object):
 
             length = self.emit_getfield(ConstInt(frame_info),
                                         descr=descrs.jfi_frame_depth, raw=True)
-            self.emit_setfield(frame, self.c_zero,
-                               descr=descrs.jf_extra_stack_depth)
             self.emit_setfield(frame, self.c_null,
                                descr=descrs.jf_savedata)
             self.emit_setfield(frame, self.c_null,

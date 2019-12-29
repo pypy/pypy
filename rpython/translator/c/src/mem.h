@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-/* used by rpython.rlib.rstack, but also by asmgcc */
+/* used by rpython.rlib.rstack */
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
@@ -163,101 +163,17 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 #define OP_GC_IGNORE_FINALIZER(x, r)     /* nothing */
 
 /****************************/
-/* The "asmgcc" root finder */
+/* misc stuff               */
 /****************************/
 
 #ifndef _MSC_VER
-/* Implementation for Linux */
-RPY_EXTERN char __gcmapstart;
-RPY_EXTERN char __gcmapend;
-RPY_EXTERN char __gccallshapes;
-RPY_EXTERN long pypy_asm_stackwalk(void*, void*);
-#define __gcnoreorderhack __gcmapend
-
-/* The following pseudo-instruction is used by --gcrootfinder=asmgcc
-   just after a call to tell gcc to put a GCROOT mark on each gc-pointer
-   local variable.  All such local variables need to go through a "v =
-   pypy_asm_gcroot(v)".  The old value should not be used any more by
-   the C code; this prevents the following case from occurring: gcc
-   could make two copies of the local variable (e.g. one in the stack
-   and one in a register), pass one to GCROOT, and later use the other
-   one.  In practice the pypy_asm_gcroot() is often a no-op in the final
-   machine code and doesn't prevent most optimizations. */
-
-/* With gcc, getting the asm() right was tricky, though.  The asm() is
-   not volatile so that gcc is free to delete it if the output variable
-   is not used at all.  We need to prevent gcc from moving the asm()
-   *before* the call that could cause a collection; this is the purpose
-   of the (unused) __gcnoreorderhack input argument.  Any memory input
-   argument would have this effect: as far as gcc knows the call
-   instruction can modify arbitrary memory, thus creating the order
-   dependency that we want. */
-
-#define pypy_asm_gcroot(p) ({void*_r; \
-	    asm ("/* GCROOT %0 */" : "=g" (_r) :       \
-		 "0" (p), "m" (__gcnoreorderhack));    \
-	    _r; })
-
-#define pypy_asm_gc_nocollect(f) asm volatile ("/* GC_NOCOLLECT " #f " */" \
-                                               : : )
-
-#define pypy_asm_keepalive(v)  asm volatile ("/* keepalive %0 */" : : \
-                                             "g" (v))
-
-/* marker for trackgcroot.py, and inhibits tail calls */
-#define pypy_asm_stack_bottom() { asm volatile ("/* GC_STACK_BOTTOM */" : : : \
-                                  "memory"); pypy_check_stack_count(); }
-#ifdef RPY_ASSERT
-RPY_EXTERN void pypy_check_stack_count(void);
+#  define pypy_asm_keepalive(v)  asm volatile ("/* keepalive %0 */" : : \
+                                               "g" (v))
 #else
-static void pypy_check_stack_count(void) { }
-#endif
-
-
-#define OP_GC_ASMGCROOT_STATIC(i, r)   r =	       \
-	i == 0 ? (void*)&__gcmapstart :		       \
-	i == 1 ? (void*)&__gcmapend :		       \
-	i == 2 ? (void*)&__gccallshapes :	       \
-	NULL
-
-#else
-/* implementation of asmgcroot for Windows */
-RPY_EXTERN void* __gcmapstart;
-RPY_EXTERN void* __gcmapend;
-RPY_EXTERN char* __gccallshapes;
-RPY_EXTERN Signed pypy_asm_stackwalk(void*, void*);
-
-/* With the msvc Microsoft Compiler, the optimizer seems free to move
-   any code (even asm) that involves local memory (registers and stack).
-   The _ReadWriteBarrier function has an effect only where the content
-   of a global variable is *really* used.  trackgcroot.py will remove
-   the extra instructions: the access to _constant_always_one_ is
-   removed, and the multiplication is replaced with a simple move. */
-
-static __forceinline void*
-pypy_asm_gcroot(void* _r1)
-{
-    static volatile int _constant_always_one_ = 1;
-    (Signed)_r1 *= _constant_always_one_;
-    _ReadWriteBarrier();
-    return _r1;
-}
-
-#define pypy_asm_gc_nocollect(f) "/* GC_NOCOLLECT " #f " */"
-
-#ifndef _WIN64
-#  define pypy_asm_keepalive(v)    __asm { }
-#else
-   /* is there something cheaper? */
-#  define pypy_asm_keepalive(v)    _ReadWriteBarrier();
-#endif
-
-static __declspec(noinline) void pypy_asm_stack_bottom() { }
-
-#define OP_GC_ASMGCROOT_STATIC(i, r)		       \
-    r =	i == 0 ? (void*)__gcmapstart :		       \
-	i == 1 ? (void*)__gcmapend :		       \
-	i == 2 ? (void*)&__gccallshapes :	       \
-	NULL
-
+#  ifndef _WIN64
+#    define pypy_asm_keepalive(v)    __asm { }
+#  else
+     /* is there something cheaper? */
+#    define pypy_asm_keepalive(v)    _ReadWriteBarrier();
+#  endif
 #endif

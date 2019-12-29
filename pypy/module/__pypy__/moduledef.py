@@ -118,6 +118,10 @@ class Module(MixedModule):
         'fsdecode'                  : 'interp_magic.fsdecode',
         'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
         'newmemoryview'             : 'interp_buffer.newmemoryview',
+        'set_exc_info'              : 'interp_magic.set_exc_info',
+
+        'get_contextvar_context'    : 'interp_magic.get_contextvar_context',
+        'set_contextvar_context'    : 'interp_magic.set_contextvar_context',
     }
 
     submodules = {

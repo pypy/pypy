@@ -800,7 +800,7 @@ if not _WIN32:
         DIRENT = rffi_platform.Struct('struct dirent',
             [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1)),
              ('d_ino', lltype.Signed)]
-            + [('d_type', rffi.INT)] if HAVE_D_TYPE else [])
+            + ([('d_type', rffi.INT)] if HAVE_D_TYPE else []))
         if HAVE_D_TYPE:
             DT_UNKNOWN = rffi_platform.ConstantInteger('DT_UNKNOWN')
             DT_REG     = rffi_platform.ConstantInteger('DT_REG')
@@ -1931,8 +1931,7 @@ if not _WIN32:
                               rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_sched_get_priority_min = external('sched_get_priority_min', [rffi.INT],
                              rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
-    if not _WIN32:
-        c_sched_yield = external('sched_yield', [], rffi.INT)
+    c_sched_yield = external('sched_yield', [], rffi.INT)
 
     @enforceargs(int)
     def sched_get_priority_max(policy):
@@ -1945,6 +1944,36 @@ if not _WIN32:
     def sched_yield():
         return handle_posix_error('sched_yield', c_sched_yield())
 
+    c_getgroupslist = external('getgrouplist', [rffi.CCHARP, GID_T,
+                            GID_GROUPS_T, rffi.INTP], rffi.INT,
+                            save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def getgrouplist(user, group):
+        groups_p = lltype.malloc(GID_GROUPS_T.TO, 64, flavor='raw')
+        ngroups_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ngroups_p[0] = rffi.cast(rffi.INT, 64)
+        try:
+            n = handle_posix_error('getgrouplist', c_getgroupslist(user, group,
+                             groups_p, ngroups_p))
+            if n == -1:
+               if widen(ngroups_p[0]) > 64:
+                    # reallocate. Should never happen
+                    lltype.free(groups_p, flavor='raw')
+                    groups_p = lltype.nullptr(GID_GROUPS_T.TO)
+                    groups_p = lltype.malloc(GID_GROUPS_T.TO, widen(ngroups_p[0]),
+                                             flavor='raw')
+                     
+                    n = handle_posix_error('getgrouplist', c_getgroupslist(user,
+                                                     group, groups_p, ngroups_p))
+            ngroups = widen(ngroups_p[0])
+            groups = [0] * ngroups
+            for i in range(ngroups):
+                groups[i] = groups_p[i]
+            return groups
+        finally:
+            lltype.free(ngroups_p, flavor='raw')
+            if groups_p:
+                lltype.free(groups_p, flavor='raw')
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,

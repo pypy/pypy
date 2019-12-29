@@ -255,29 +255,7 @@ class PyFrame(W_Root):
         if self._is_generator_or_coroutine():
             return self.initialize_as_generator(name, qualname)
         else:
-            # untranslated: check that sys_exc_info is exactly
-            # restored after running any Python function.
-            # Translated: actually save and restore it, as an attempt to
-            # work around rare cases that can occur if RecursionError or
-            # MemoryError is raised at just the wrong place
-            executioncontext = self.space.getexecutioncontext()
-            exc_on_enter = executioncontext.sys_exc_info()
-            if we_are_translated():
-                try:
-                    return self.execute_frame()
-                finally:
-                    executioncontext.set_sys_exc_info(exc_on_enter)
-            else:
-                # untranslated, we check consistency, but not in case of
-                # interp-level exceptions different than OperationError
-                # (e.g. a random failing test, or a pytest Skipped exc.)
-                try:
-                    w_res = self.execute_frame()
-                    assert exc_on_enter is executioncontext.sys_exc_info()
-                except OperationError:
-                    assert exc_on_enter is executioncontext.sys_exc_info()
-                    raise
-                return w_res
+            return self.execute_frame()
     run._always_inline_ = True
 
     def initialize_as_generator(self, name, qualname):
