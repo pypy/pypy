@@ -537,6 +537,29 @@ class AppTestTime:
         assert (t2 - t1) < 5 * 10**7
         assert abs(time.process_time() - time.process_time_ns() * 1e-9) < 0.1
 
+    def test_thread_time(self):
+        import time
+        if not hasattr(time, 'thread_time'):
+            skip("need time.thread_time")
+        t1 = time.thread_time()
+        assert isinstance(t1, float)
+        time.sleep(0.1)
+        t2 = time.thread_time()
+        # thread_time_time() should not include time spent during sleep
+        assert (t2 - t1) < 0.05
+
+    def test_thread_time_ns(self):
+        import time
+        if not hasattr(time, 'thread_time_ns'):
+            skip("need time.thread_time_ns")
+        t1 = time.thread_time_ns()
+        assert isinstance(t1, int)
+        time.sleep(0.1)
+        t2 = time.process_time_ns()
+        # process_thread_ns() should not include time spent during sleep
+        assert (t2 - t1) < 5 * 10**7
+        assert abs(time.thread_time() - time.thread_time_ns() * 1e-9) < 0.1
+
     def test_get_clock_info(self):
         import time
         clocks = ['clock', 'perf_counter', 'process_time', 'time']

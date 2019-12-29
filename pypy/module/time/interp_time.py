@@ -240,6 +240,8 @@ HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
 HAS_CLOCK_MONOTONIC = rtime.CLOCK_MONOTONIC is not None
 HAS_MONOTONIC = (_WIN or _MACOSX or
                  (HAS_CLOCK_GETTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
+HAS_THREAD_TIME = (_WIN or
+                   (HAS_CLOCK_GETTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
@@ -1219,6 +1221,75 @@ def process_time_ns(space, w_info=None):
     Process time for profiling as nanoseconds:
     sum of the kernel and user-space CPU time"""
     return _process_time_impl(space, w_info, True)
+
+if HAS_THREAD_TIME:
+    if _WIN:
+        _GetCurrentThread = rwin32.winexternal('GetCurrentThread', [], rwin32.HANDLE)
+        _GetThreadTimes = rwin32.winexternal('GetThreadTimes', [rwin32.HANDLE,
+                                                                lltype.Ptr(rwin32.FILETIME),
+                                                                lltype.Ptr(rwin32.FILETIME),
+                                                                lltype.Ptr(rwin32.FILETIME),
+                                                                lltype.Ptr(rwin32.FILETIME)],
+                                                               rwin32.BOOL)
+        def _thread_time_impl(space, w_info, return_ns):
+            thread = _GetCurrentThread()
+
+            with lltype.scoped_alloc(rwin32.FILETIME) as creation_time, \
+                 lltype.scoped_alloc(rwin32.FILETIME) as exit_time, \
+                 lltype.scoped_alloc(rwin32.FILETIME) as kernel_time, \
+                 lltype.scoped_alloc(rwin32.FILETIME) as user_time:
+                ok = _GetThreadTimes(thread, creation_time, exit_time,
+                                     kernel_time, user_time)
+                if not ok:
+                    raise wrap_oserror(space,
+                        rwin32.lastSavedWindowsError("GetThreadTimes"))
+                ktime = (kernel_time.c_dwLowDateTime |
+                         r_ulonglong(kernel_time.c_dwHighDateTime) << 32)
+                utime = (user_time.c_dwLowDateTime |
+                         r_ulonglong(user_time.c_dwHighDateTime) << 32)
+            
+            if w_info is not None:
+                _setinfo(space, w_info, "GetThreadTimes()", 1e-7, True, False)
+
+            # ktime and utime have a resolution of 100 nanoseconds
+            if return_ns:
+                return space.newint((r_int64(ktime) + r_int64(utime)) * 10**2)
+            else:
+                return space.newfloat((float(ktime) + float(utime)) * 1e-7)
+    else:
+        def _thread_time_impl(space, w_info, return_ns):
+            clk_id = rtime.CLOCK_THREAD_CPUTIME_ID
+            implementation = "clock_gettime(CLOCK_THREAD_CPUTIME_ID)"
+
+            with lltype.scoped_alloc(TIMESPEC) as timespec:
+                ret = c_clock_gettime(clk_id, timespec)
+                if ret == 0:
+                    if w_info is not None:
+                        with lltype.scoped_alloc(TIMESPEC) as tsres:
+                            ret = c_clock_getres(clk_id, tsres)
+                            if ret == 0:
+                                res = _timespec_to_seconds(tsres)
+                            else:
+                                res = 1e-9
+                        _setinfo(space, w_info,
+                                 implementation, res, True, False)
+                    if return_ns:
+                        return space.newint(_timespec_to_nanoseconds(timespec))
+                    else:
+                        return space.newfloat(_timespec_to_seconds(timespec))
+
+    def thread_time(space, w_info=None):
+        """thread_time() -> float
+
+        Thread time for profiling: sum of the kernel and user-space CPU time."""
+        return _thread_time_impl(space, w_info, False)
+
+    def thread_time_ns(space, w_info=None):
+        """thread_time_ns() -> int
+
+        Thread time for profiling as nanoseconds:
+        sum of the kernel and user-space CPU time."""
+        return _thread_time_impl(space, w_info, True)
 
 _clock = external('clock', [], rposix.CLOCK_T)
 def _clock_impl(space, w_info, return_ns):
