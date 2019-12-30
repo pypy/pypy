@@ -149,11 +149,16 @@ class W_BaseException(W_Root):
             return space.call_function(space.w_unicode, w_tup)
 
     def descr_repr(self, space):
-        if self.args_w:
+        lgt = len(self.args_w)
+        if lgt == 0:
+            args_repr = b"()"
+        elif lgt == 1:
+            args_repr = (b"(" +
+                space.utf8_w(space.repr(self.args_w[0])) +
+                b")")
+        else:
             args_repr = space.utf8_w(
                 space.repr(space.newtuple(self.args_w)))
-        else:
-            args_repr = b"()"
         clsname = self.getclass(space).getname(space)
         return space.newtext(clsname + args_repr)
 
