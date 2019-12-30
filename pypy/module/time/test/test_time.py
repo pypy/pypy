@@ -565,6 +565,8 @@ class AppTestTime:
         clocks = ['clock', 'perf_counter', 'process_time', 'time']
         if hasattr(time, 'monotonic'):
             clocks.append('monotonic')
+        if hasattr(time, 'thread_time'):
+            clocks.append('thread_time')
         for name in clocks:
             info = time.get_clock_info(name)
             assert isinstance(info.implementation, str)

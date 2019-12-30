@@ -50,6 +50,8 @@ def get_clock_info(name):
         time.perf_counter(info)
     elif name == "process_time":
         time.process_time(info)
+    elif name == "thread_time" and hasattr(time, "thread_time"):
+        time.monotonic(info)
     else:
         raise ValueError("unknown clock")
     return info
