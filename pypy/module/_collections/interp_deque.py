@@ -536,7 +536,7 @@ app = gateway.applevel("""
             maxlenrepr = ''
         else:
             maxlenrepr = ', maxlen=%d' % (d.maxlen,)
-        return 'deque(%s%s)' % (listrepr, maxlenrepr)
+        return '%s(%s%s)' % (d.__class__.__name__, listrepr, maxlenrepr)
 """, filename=__file__)
 
 dequerepr = app.interphook("dequerepr")

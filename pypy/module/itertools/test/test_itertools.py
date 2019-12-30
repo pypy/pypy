@@ -36,6 +36,12 @@ class AppTestItertools(object):
         raises(TypeError, itertools.count, 'a')
         raises(TypeError, itertools.count, [])
 
+    def test_count_subclass_repr(self):
+        import itertools
+        class subclass(itertools.count):
+            pass
+        assert repr(subclass(123)) == 'subclass(123)'
+
     def test_repeat(self):
         import itertools
 
@@ -98,6 +104,12 @@ class AppTestItertools(object):
 
         r = itertools.repeat('a', -3)
         assert operator.length_hint(r, 3) == 0
+
+    def test_repeat_subclass_repr(self):
+        import itertools
+        class subclass(itertools.repeat):
+            pass
+        assert repr(subclass('foobar')) == "subclass('foobar')"
 
     def test_takewhile(self):
         import itertools

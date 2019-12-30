@@ -222,11 +222,13 @@ class W_BytearrayObject(W_Root):
 
     def descr_repr(self, space):
         s, start, end, _ = self._convert_idx_params(space, None, None)
+        cls_name = space.type(self).getname(space)
 
         # Good default if there are no replacements.
-        buf = StringBuilder(len("bytearray(b'')") + (end - start))
+        buf = StringBuilder(len(cls_name) + len("(b'')") + (end - start))
 
-        buf.append("bytearray(b")
+        buf.append(cls_name)
+        buf.append("(b")
         quote = "'"
         for i in range(start, end):
             c = s[i]
