@@ -77,7 +77,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
         w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
         w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
         if comp_op == EQ:
-            res = space.eq_w(w_elem1, w_elem2)
+            res = space.is_true(space.eq(w_elem1, w_elem2))
             if not res:
                 return space.w_False
         elif comp_op == NE:
@@ -91,7 +91,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.gt(w_elem1, w_elem2))
             if res:
                 return space.w_True
-            elif not space.eq_w(w_elem1, w_elem2):
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_False
         else:
             if comp_op == LE:
@@ -100,7 +100,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.ge(w_elem1, w_elem2))
             if not res:
                 return space.w_False
-            elif not space.eq_w(w_elem1, w_elem2):
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_True
     # we have some leftovers
     if comp_op == EQ:
@@ -133,7 +133,7 @@ def index_count_array(arr, w_val, count=False):
             tp_item=tp_item, count=count,
             arrclass=arrclass)
         w_item = arr.w_getitem(space, i)
-        if space.eq_w(w_item, w_val):
+        if space.is_true(space.eq(w_item, w_val)):
             if count:
                 cnt += 1
             else:
