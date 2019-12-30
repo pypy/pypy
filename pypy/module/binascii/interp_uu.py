@@ -66,25 +66,32 @@ def _b2a_read(bin, i):
         return 0
 _b2a_read._always_inline_ = True
 
-@unwrap_spec(bin='bufferstr')
-def b2a_uu(space, bin):
+def _b2a_write(res, num, backtick):
+    if backtick and not num:
+        res.append(chr(0x60))
+    else:
+        res.append(chr(0x20 + num))
+_b2a_write._always_inline_ = True
+
+@unwrap_spec(bin='bufferstr', backtick=bool)
+def b2a_uu(space, bin, __kwonly__, backtick=False):
     "Uuencode a line of data."
 
     length = len(bin)
     if length > 45:
         raise_Error(space, 'At most 45 bytes at once')
     res = StringBuilder(2 + ((length + 2) // 3) * 4)
-    res.append(chr(0x20 + length))
+    _b2a_write(res, length, backtick)
 
     for i in range(0, length, 3):
         A = _b2a_read(bin, i)
         B = _b2a_read(bin, i+1)
         C = _b2a_read(bin, i+2)
         #
-        res.append(chr(0x20 +                  (A >> 2)))
-        res.append(chr(0x20 + ((A & 0x3) << 4 | B >> 4)))
-        res.append(chr(0x20 + ((B & 0xF) << 2 | C >> 6)))
-        res.append(chr(0x20 +  (C & 0x3F)))
+        _b2a_write(res,                  A >> 2, backtick)
+        _b2a_write(res, (A & 0x3) << 4 | B >> 4, backtick)
+        _b2a_write(res, (B & 0xF) << 2 | C >> 6, backtick)
+        _b2a_write(res,  C & 0x3F              , backtick)
 
     res.append('\n')
     return space.newbytes(res.build())
