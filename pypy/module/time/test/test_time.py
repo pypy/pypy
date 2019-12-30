@@ -21,8 +21,15 @@ class AppTestTime:
         raises(OverflowError, time.sleep, float('inf'))
 
     def test_clock(self):
-        import time
-        time.clock()
+        import time, warnings
+        warnings.simplefilter("always")
+        with warnings.catch_warnings(record=True) as w:
+            time.clock()
+            assert len(w) == 1
+            assert str(w[0].message).startswith(
+                "time.clock has been deprecated in Python 3.3 and will "
+                "be removed from Python 3.8")
+            assert w[0].category == DeprecationWarning
         assert isinstance(time.clock(), float)
 
     def test_time(self):
@@ -89,6 +96,54 @@ class AppTestTime:
         assert t1 < t2
         assert abs(time.clock_gettime(time.CLOCK_MONOTONIC) -
                    time.clock_gettime_ns(time.CLOCK_MONOTONIC) * 1e-9) < 0.1
+
+    def test_clock_gettime(self):
+        import time
+        clock_ids = ['CLOCK_REALTIME',
+                     'CLOCK_REALTIME_COARSE',
+                     'CLOCK_MONOTONIC',
+                     'CLOCK_MONOTONIC_COARSE',
+                     'CLOCK_MONOTONIC_RAW',
+                     'CLOCK_BOOTTIME',
+                     'CLOCK_PROCESS_CPUTIME_ID',
+                     'CLOCK_THREAD_CPUTIME_ID',
+                     'CLOCK_HIGHRES',
+                     'CLOCK_PROF',
+                     'CLOCK_UPTIME',]
+        for clock_id in clock_ids:
+            clock = getattr(time, clock_id, None)
+            if clock is None:
+                continue
+            t1 = time.clock_gettime(clock)
+            assert isinstance(t1, float)
+            time.sleep(time.clock_getres(clock))
+            t2 = time.clock_gettime(clock)
+            assert t1 < t2
+
+    def test_clock_gettime(self):
+        import time
+        clock_ids = ['CLOCK_REALTIME',
+                     'CLOCK_REALTIME_COARSE',
+                     'CLOCK_MONOTONIC',
+                     'CLOCK_MONOTONIC_COARSE',
+                     'CLOCK_MONOTONIC_RAW',
+                     'CLOCK_BOOTTIME',
+                     'CLOCK_PROCESS_CPUTIME_ID',
+                     'CLOCK_THREAD_CPUTIME_ID',
+                     'CLOCK_HIGHRES',
+                     'CLOCK_PROF',
+                     'CLOCK_UPTIME',]
+        for clock_id in clock_ids:
+            clock = getattr(time, clock_id, None)
+            if clock is None:
+                continue
+            t1 = time.clock_gettime_ns(clock)
+            assert isinstance(t1, int)
+            time.sleep(time.clock_getres(clock))
+            t2 = time.clock_gettime_ns(clock)
+            assert t1 < t2
+            assert abs(time.clock_gettime(clock) -
+                       time.clock_gettime_ns(clock) * 1e-9) < 0.1
 
     def test_ctime(self):
         import time
@@ -235,6 +290,7 @@ class AppTestTime:
         asc = time.asctime((bigyear, 6, 1) + (0,)*6)
         assert asc[-len(str(bigyear)):] == str(bigyear)
         raises(OverflowError, time.asctime, (bigyear + 1,) + (0,)*8)
+        raises(OverflowError, time.asctime, (-bigyear - 2 + 1900,) + (0,)*8)
 
     def test_struct_time(self):
         import time
@@ -480,6 +536,29 @@ class AppTestTime:
         # process_time_ns() should not include time spent during sleep
         assert (t2 - t1) < 5 * 10**7
         assert abs(time.process_time() - time.process_time_ns() * 1e-9) < 0.1
+
+    def test_thread_time(self):
+        import time
+        if not hasattr(time, 'thread_time'):
+            skip("need time.thread_time")
+        t1 = time.thread_time()
+        assert isinstance(t1, float)
+        time.sleep(0.1)
+        t2 = time.thread_time()
+        # thread_time_time() should not include time spent during sleep
+        assert (t2 - t1) < 0.05
+
+    def test_thread_time_ns(self):
+        import time
+        if not hasattr(time, 'thread_time_ns'):
+            skip("need time.thread_time_ns")
+        t1 = time.thread_time_ns()
+        assert isinstance(t1, int)
+        time.sleep(0.1)
+        t2 = time.process_time_ns()
+        # process_thread_ns() should not include time spent during sleep
+        assert (t2 - t1) < 5 * 10**7
+        assert abs(time.thread_time() - time.thread_time_ns() * 1e-9) < 0.1
 
     def test_get_clock_info(self):
         import time

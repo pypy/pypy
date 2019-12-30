@@ -1,6 +1,6 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
-from .interp_time import HAS_MONOTONIC
+from .interp_time import HAS_MONOTONIC, HAS_THREAD_TIME
 from rpython.rlib import rtime
 import os
 
@@ -39,6 +39,9 @@ class Module(MixedModule):
     if HAS_MONOTONIC:
         interpleveldefs['monotonic'] = 'interp_time.monotonic'
         interpleveldefs['monotonic_ns'] = 'interp_time.monotonic_ns'
+    if HAS_THREAD_TIME:
+        interpleveldefs['thread_time'] = 'interp_time.thread_time'
+        interpleveldefs['thread_time_ns'] = 'interp_time.thread_time_ns'
     if os.name == "posix":
         interpleveldefs['tzset'] = 'interp_time.tzset'
 
