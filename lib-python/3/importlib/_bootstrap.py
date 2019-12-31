@@ -67,7 +67,7 @@ class _ModuleLock:
         # Deadlock avoidance for concurrent circular imports.
         me = _thread.get_ident()
         tid = self.owner
-        count = 0
+        seen = set()
         while True:
             lock = _blocking_on.get(tid)
             if lock is None:
@@ -75,14 +75,14 @@ class _ModuleLock:
             tid = lock.owner
             if tid == me:
                 return True
-            # workaround for https://bugs.python.org/issue38091:
-            # instead of looping here forever, eventually return False.
-            # Unsure if this will cause real deadlocks to go undetected,
-            # but at least it doesn't cause *this* logic here to
-            # deadlock when there is otherwise no deadlock!
-            count += 1
-            if count >= 100:
+            if tid in seen:
+                # bpo 38091: the chain of tid's we encounter here
+                # eventually leads to a fixpoint or a cycle, but
+                # does not reach 'me'.  This means we would not
+                # actually deadlock.  This can happen if other
+                # threads are at the beginning of acquire() below.
                 return False
+            seen.add(tid)
 
     def acquire(self):
         """

@@ -534,7 +534,7 @@ class NumberStringParser:
             else:
                 base = 10
         elif base < 2 or base > 36:
-            raise InvalidBaseError("%s() base must be >= 2 and <= 36" % fname)
+            raise InvalidBaseError("%s() base must be >= 2 and <= 36, or 0" % fname)
         self.base = base
 
         # Leading underscores are not allowed

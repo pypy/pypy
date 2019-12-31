@@ -428,7 +428,6 @@ class Test__ffi(BaseTestPyPyC):
         p156 = getfield_gc_r(p48, descr=...)
         i158 = getfield_raw_i(..., descr=...)
         setfield_gc(p48, p49, descr=...)
-        setfield_gc(p48, p50, descr=...)
         setfield_gc(p134, ConstPtr(null), descr=...)
         i159 = int_lt(i158, 0)
         guard_false(i159, descr=...)

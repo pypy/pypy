@@ -35,6 +35,16 @@ def varname_converter(input):
 
 
 def Tcl_AppInit(app):
+    # For portable builds, try to load a local version of the libraries
+    from os.path import join, dirname, exists
+    lib_path = join(dirname(dirname(dirname(__file__))), 'lib')
+    tcl_path = join(lib_path, 'tcl')
+    tk_path = join(lib_path, 'tk')
+    if exists(tcl_path):
+        tklib.Tcl_Eval(app.interp, 'set tcl_library "{0}"'.format(tcl_path).encode('utf-8'))
+    if exists(tk_path):    
+        tklib.Tcl_Eval(app.interp, 'set tk_library "{0}"'.format(tk_path).encode('utf-8'))
+
     if tklib.Tcl_Init(app.interp) == tklib.TCL_ERROR:
         app.raiseTclError()
     skip_tk_init = tklib.Tcl_GetVar(
