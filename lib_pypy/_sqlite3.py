@@ -1193,6 +1193,8 @@ class Statement(object):
             raise ValueError("parameters are of unsupported type")
 
     def _get_description(self):
+        if self._is_dml:
+            return None
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             name = _lib.sqlite3_column_name(self._statement, i)
