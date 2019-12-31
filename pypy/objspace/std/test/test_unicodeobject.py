@@ -359,6 +359,9 @@ class AppTestUnicodeString:
         assert u''.rsplit('aaa') == [u'']
         assert u'a\nb\u1680c'.rsplit() == [u'a', u'b', u'c']
 
+    def test_rsplit_bug(self):
+        assert u'Vestur- og Mið'.rsplit() == [u'Vestur-', u'og', u'Mið']
+
     def test_split_rsplit_str_unicode(self):
         x = 'abc'.split(u'b')
         assert x == [u'a', u'c']
