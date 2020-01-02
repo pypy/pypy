@@ -876,25 +876,25 @@ class AppTestArray(object):
             def extend(self, lst):
                 self.append(10)
 
-        assert repr(mya('u', 'hi')) == "array('u', 'hi')"
-        assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
-        assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
+        assert repr(mya('u', 'hi')) == "mya('u', 'hi')"
+        assert repr(mya('i', [1, 2, 3])) == "mya('i', [1, 2, 3])"
+        assert repr(mya('i', (1, 2, 3))) == "mya('i', [1, 2, 3])"
 
         a = mya('i')
         a.fromlist([1, 2, 3])
-        assert repr(a) == "array('i', [7])"
+        assert repr(a) == "mya('i', [7])"
 
         a = mya('b')
         a.fromstring(b'hi')
-        assert repr(a) == "array('b', [8])"
+        assert repr(a) == "mya('b', [8])"
 
         a = mya('u')
         a.fromunicode('hi')
-        assert repr(a) == "array('u', '9')"
+        assert repr(a) == "mya('u', '9')"
 
         a = mya('i')
         a.extend([1, 2, 3])
-        assert repr(a) == "array('i', [10])"
+        assert repr(a) == "mya('i', [10])"
 
     def test_override_to(self):
         class mya(self.array):
@@ -911,9 +911,9 @@ class AppTestArray(object):
         assert mya('u', 'hi').tobytes() == 'str'
         assert mya('u', 'hi').tounicode() == 'unicode'
 
-        assert repr(mya('u', 'hi')) == "array('u', 'hi')"
-        assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
-        assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
+        assert repr(mya('u', 'hi')) == "mya('u', 'hi')"
+        assert repr(mya('i', [1, 2, 3])) == "mya('i', [1, 2, 3])"
+        assert repr(mya('i', (1, 2, 3))) == "mya('i', [1, 2, 3])"
 
     def test_unicode_outofrange(self):
         input_unicode = u'\x01\u263a\x00\ufeff'
@@ -1122,6 +1122,12 @@ class AppTestArray(object):
         view = memoryview(a)[1:5]
         struct.pack_into('>H', view, 1, 0x1234)
         assert a.tobytes() == b'ab\x12\x34ef'
+
+    def test_subclass_repr(self):
+        import array
+        class subclass(self.array):
+            pass
+        assert repr(subclass('i')) == "subclass('i')"
 
 
 class AppTestArrayReconstructor:

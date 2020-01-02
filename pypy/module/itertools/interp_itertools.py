@@ -27,12 +27,13 @@ class W_Count(W_Root):
 
     def repr_w(self):
         space = self.space
+        cls_name = space.type(self).getname(space)
         c = space.text_w(space.repr(self.w_c))
         if self.single_argument():
-            s = 'count(%s)' % (c,)
+            s = '%s(%s)' % (cls_name, c)
         else:
             step = space.text_w(space.repr(self.w_step))
-            s = 'count(%s, %s)' % (c, step)
+            s = '%s(%s, %s)' % (cls_name, c, step)
         return self.space.newtext(s)
 
     def reduce_w(self):
@@ -107,11 +108,13 @@ class W_Repeat(W_Root):
         return self.space.newint(self.count)
 
     def repr_w(self):
-        objrepr = self.space.text_w(self.space.repr(self.w_obj))
+        space = self.space
+        cls_name = space.type(self).getname(space)
+        objrepr = self.space.text_w(space.repr(self.w_obj))
         if self.counting:
-            s = 'repeat(%s, %d)' % (objrepr, self.count)
+            s = '%s(%s, %d)' % (cls_name, objrepr, self.count)
         else:
-            s = 'repeat(%s)' % (objrepr,)
+            s = '%s(%s)' % (cls_name, objrepr)
         return self.space.newtext(s)
 
     def descr_reduce(self):

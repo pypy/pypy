@@ -764,3 +764,8 @@ class AppTestBytesArray:
         assert x.find(b'fe') == -1
         assert x.index(b'f', 2, 11) == 5
         assert x.__alloc__() == 14
+
+    def test_subclass_repr(self):
+        class subclass(bytearray):
+            pass
+        assert repr(subclass(b'test')) == "subclass(b'test')"
