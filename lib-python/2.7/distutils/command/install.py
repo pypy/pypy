@@ -86,7 +86,7 @@ INSTALL_SCHEMES = {
     'pypy': {
         'purelib': '$base/site-packages',
         'platlib': '$base/site-packages',
-        'headers': '$base/include',
+        'headers': '$base/include/$dist_name',
         'scripts': '$base/bin',
         'data'   : '$base',
         },
