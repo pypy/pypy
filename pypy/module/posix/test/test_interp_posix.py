@@ -69,3 +69,9 @@ class AppTestOS:
         cc = os.cpu_count()
         assert cc is None or (isinstance(cc, int) and cc > 0)
         """
+
+    def test_putenv_invalid_name(self):
+        """
+        import os
+        raises(ValueError, os.putenv, "foo=bar", "xxx")
+        """
