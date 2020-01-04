@@ -13,8 +13,8 @@ typedef struct {
 } PyDictObject;
 
 #define PyDict_Check(op) \
-		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_DICT_SUBCLASS)
-#define PyDict_CheckExact(op) ((op)->ob_type == &PyDict_Type)
+		 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_DICT_SUBCLASS)
+#define PyDict_CheckExact(op) (Py_TYPE(op) == &PyDict_Type)
 
 #ifdef __cplusplus
 }
