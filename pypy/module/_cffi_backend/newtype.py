@@ -308,8 +308,8 @@ def detect_custom_layout(w_ctype, sflags, cdef_value, compiler_value,
             w_FFIError = get_ffi_error(w_ctype.space)
             raise oefmt(w_FFIError,
                     '%s: %s%s%s (cdef says %d, but C compiler says %d).'
-                    ' fix it or use "...;" in the cdef for %s to '
-                    'make it flexible',
+                    ' fix it or use "...;" as the last field in the '
+                    'cdef for %s to make it flexible',
                     w_ctype.name, msg1, msg2, msg3,
                     cdef_value, compiler_value, w_ctype.name)
         w_ctype._custom_field_pos = True
