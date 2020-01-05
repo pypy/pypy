@@ -305,7 +305,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return False
 
     def _maybe_setup_annotations(self):
-        # if the scope contained an annotated variable assignemt,
+        # if the scope contained an annotated variable assignment,
         # this will emit the requisite SETUP_ANNOTATIONS
         if self.scope.contains_annotated and not isinstance(self, AbstractFunctionCodeGenerator):
             return self.emit_op(ops.SETUP_ANNOTATIONS)
