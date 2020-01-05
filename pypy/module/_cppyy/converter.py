@@ -993,7 +993,7 @@ _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
 
 # special cases (note: 'string' aliases added below)
-_converters["std::basic_string<char>"]           = StdStringConverter
+_converters["std::string"]                       = StdStringConverter
 _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
 _converters["std::basic_string<char>&&"]         = StdStringMoveConverter
@@ -1126,7 +1126,8 @@ def _add_aliased_converters():
         ("char",                            "signed char"),   # TODO: check
         ("const char*",                     "char*"),
 
-        ("std::basic_string<char>",         "string"),
+        ("std::string",                     "string"),
+        ("std::string",                     "std::basic_string<char>"),
         ("const std::basic_string<char>&",  "const string&"),
         ("std::basic_string<char>&",        "string&"),
         ("std::basic_string<char>&&",       "string&&"),

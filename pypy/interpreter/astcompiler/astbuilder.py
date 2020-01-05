@@ -787,7 +787,7 @@ class ASTBuilder(object):
                 self.error("only single target (not list) can be annotated", target)
             # and everything else gets a generic error
             else:
-                self.error("illegal target for annoation", target)
+                self.error("illegal target for annotation", target)
             self.set_context(target_expr, ast.Store)
             second = stmt.get_child(1)
             annotation = self.handle_expr(second.get_child(1))

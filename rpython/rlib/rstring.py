@@ -139,7 +139,7 @@ def rsplit(value, by=None, maxsplit=-1, isutf8=False):
     if by is None:
         res = []
 
-        i = len(value) - 1
+        i = _decr(value, len(value), isutf8)
         while True:
             # starting from the end, find the end of the next word
             while i >= 0:
@@ -534,7 +534,7 @@ class NumberStringParser:
             else:
                 base = 10
         elif base < 2 or base > 36:
-            raise InvalidBaseError("%s() base must be >= 2 and <= 36" % fname)
+            raise InvalidBaseError("%s() base must be >= 2 and <= 36, or 0" % fname)
         self.base = base
 
         # Leading underscores are not allowed

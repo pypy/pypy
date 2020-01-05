@@ -153,22 +153,20 @@ def prev_codepoint_pos(code, pos):
     """Gives the position of the previous codepoint.
     'pos' must not be zero.
     """
-    assert pos != 0
     pos -= 1
+    assert pos >= 0
     if pos >= len(code):     # for the case where pos - 1 == len(code):
-        assert pos >= 0
         return pos           # assume there is an extra '\x00' character
     chr1 = ord(code[pos])
     if chr1 <= 0x7F:
-        assert pos >= 0
         return pos
     pos -= 1
+    assert pos >= 0
     if ord(code[pos]) >= 0xC0:
-        assert pos >= 0
         return pos
     pos -= 1
+    assert pos >= 0
     if ord(code[pos]) >= 0xC0:
-        assert pos >= 0
         return pos
     pos -= 1
     assert pos >= 0

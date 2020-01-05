@@ -91,7 +91,8 @@ slower translation::
     set PYPY_GC_MAX_DELTA=200MB
     pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
     set PYPY_GC_MAX_DELTA=
-    PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
+    # This is done as part of translation
+    PYTHONPATH=../.. ./pypy-c ../../lib_pypy/tools/build_cffi_imports.py
 
 .. _build instructions: http://pypy.org/download.html#building-from-source
 
@@ -155,7 +156,7 @@ file on how to replicate, and a branch for each supported platform. You may run
 the `get_externals.py` utility to checkout the proper branch for your platform
 and PyPy version.
 
-.. _subrepository:  https://bitbucket.org/pypy/external
+.. _subrepository:  https://bitbucket.org/pypy/externals
 
 Using the mingw compiler
 ------------------------

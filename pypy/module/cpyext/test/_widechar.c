@@ -36,11 +36,7 @@ static struct PyModuleDef _testcapimodule = {
     "_widechar",
     NULL,
     -1,
-    TestMethods,
     NULL,
-    NULL,
-    NULL,
-    NULL
 };
 
 PyMODINIT_FUNC
@@ -50,5 +46,6 @@ PyInit__widechar(void)
     m = PyModule_Create(&_testcapimodule);
     if (m == NULL)
         return NULL;
+    PyModule_AddFunctions(m, TestMethods);
     return m;
 }

@@ -1,38 +1,9 @@
 import thread, time
 from pypy.module.thread.test.support import GenericTestThread
+import pytest
 
 class AppTestThread(GenericTestThread):
 
-    def setup_class(cls):
-        GenericTestThread.setup_class.im_func(cls)
-        # if we cannot start more than, say, 1000 threads on this OS, then
-        # we can check that we get the proper error at app-level
-        space = cls.space
-        lock = thread.allocate_lock()
-        lock.acquire()
-        def f():
-            lock.acquire()
-            lock.release()
-        start = thread._count()
-        try:
-            try:
-                for i in range(1000):
-                    thread.start_new_thread(f, ())
-            finally:
-                lock.release()
-        except (thread.error, MemoryError):
-            cls.w_can_start_many_threads = space.wrap(False)
-        else:
-            cls.w_can_start_many_threads = space.wrap(True)
-        # wait a bit to allow all threads to finish now
-        remaining = thread._count()
-        retries = 0
-        while remaining > start:
-            retries += 1
-            if retries == 200:
-                raise Exception("the test's threads don't stop!")
-            time.sleep(0.2)
-            remaining = thread._count()
 
     def test_thread_error(self):
         import _thread
@@ -193,35 +164,6 @@ class AppTestThread(GenericTestThread):
             assert done    # see stderr for failures in threads
         assert sorted(lst) == list(range(120))
 
-    def test_many_threads(self):
-        import _thread, time, sys
-        if self.can_start_many_threads or sys.platform == 'win32':
-            skip("this OS supports too many threads to check (> 1000)")
-        lock = _thread.allocate_lock()
-        lock.acquire()
-        count = [0]
-        def f():
-            count[0] += 1
-            lock.acquire()
-            lock.release()
-            count[0] -= 1
-        try:
-            try:
-                for i in range(1000):
-                    _thread.start_new_thread(f, ())
-            finally:
-                lock.release()
-                # wait a bit to allow most threads to finish now
-                while count[0] > 10:
-                    print(count[0])     # <- releases the GIL
-                print("ok.")
-        except (_thread.error, MemoryError):
-            pass
-        else:
-            raise Exception("could unexpectedly start 1000 threads")
-        # safety: check that we can start a new thread here
-        _thread.start_new_thread(lambda: None, ())
-
     def test_stack_size(self):
         import _thread
         _thread.stack_size(0)
@@ -260,3 +202,74 @@ class AppTestThread(GenericTestThread):
             waiting = []
             _thread.start_new_thread(f, ())
             raises(KeyboardInterrupt, busy_wait)
+
+@pytest.mark.skip("too slow")
+class _AppTestThread(GenericTestThread):
+    '''
+    This test is very slow, do not run it by default.
+    '''
+    def setup_class(cls):
+        GenericTestThread.setup_class.im_func(cls)
+        # if we cannot start more than, say, 1000 threads on this OS, then
+        # we can check that we get the proper error at app-level
+        space = cls.space
+        lock = thread.allocate_lock()
+        lock.acquire()
+        def f():
+            lock.acquire()
+            lock.release()
+        start = thread._count()
+        try:
+            try:
+                for i in range(1000):
+                    thread.start_new_thread(f, ())
+            finally:
+                lock.release()
+        except (thread.error, MemoryError):
+            cls.w_can_start_many_threads = space.wrap(False)
+        else:
+            cls.w_can_start_many_threads = space.wrap(True)
+        # wait a bit to allow all threads to finish now
+        remaining = thread._count()
+        retries = 0
+        while remaining > start:
+            retries += 1
+            if retries == 200:
+                raise Exception("the test's threads don't stop!")
+            time.sleep(0.2)
+            remaining = thread._count()
+
+    def test_many_threads(self):
+        import time, sys
+        if sys.version_info[0] < 3:
+            import thread as _thread
+        else:
+            import _thread
+        if self.can_start_many_threads or sys.platform == 'win32':
+            skip("this OS supports too many threads to check (> 1000)")
+        lock = _thread.allocate_lock()
+        lock.acquire()
+        count = [0]
+        def f():
+            count[0] += 1
+            lock.acquire()
+            lock.release()
+            count[0] -= 1
+        try:
+            try:
+                for i in range(1000):
+                    _thread.start_new_thread(f, ())
+            finally:
+                lock.release()
+                # wait a bit to allow most threads to finish now
+                while count[0] > 10:
+                    print(count[0])     # <- releases the GIL
+                print("ok.")
+        except (_thread.error, MemoryError):
+            pass
+        else:
+            raise Exception("could unexpectedly start 1000 threads")
+        # safety: check that we can start a new thread here
+        _thread.start_new_thread(lambda: None, ())
+
+

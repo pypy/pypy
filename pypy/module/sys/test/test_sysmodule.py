@@ -91,39 +91,17 @@ class AppTestAppSysTests:
         except Exception as exc:
             e = exc
             import sys
-            exc_type,exc_val,tb = sys.exc_info()
+            exc_type, exc_val, tb = sys.exc_info()
         try:
             raise Exception   # 6 lines below the previous one
         except Exception as exc:
             e2 = exc
-            exc_type2,exc_val2,tb2 = sys.exc_info()
+            exc_type2, exc_val2, tb2 = sys.exc_info()
         assert exc_type ==Exception
         assert exc_val ==e
         assert exc_type2 ==Exception
         assert exc_val2 ==e2
         assert tb2.tb_lineno - tb.tb_lineno == 6
-
-    def test_dynamic_attributes(self):
-        try:
-            raise Exception
-        except Exception as exc:
-            e = exc
-            import sys
-            exc_type = sys.exc_type
-            exc_val = sys.exc_value
-            tb = sys.exc_traceback
-        try:
-            raise Exception   # 8 lines below the previous one
-        except Exception as exc:
-            e2 = exc
-            exc_type2 = sys.exc_type
-            exc_val2 = sys.exc_value
-            tb2 = sys.exc_traceback
-        assert exc_type ==Exception
-        assert exc_val ==e
-        assert exc_type2 ==Exception
-        assert exc_val2 ==e2
-        assert tb2.tb_lineno - tb.tb_lineno == 8
 
     def test_exc_info_normalization(self):
         import sys

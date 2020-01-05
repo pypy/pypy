@@ -2,8 +2,8 @@
 pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
 maj=7
-min=2
-rev=0rc2
+min=3
+rev=0
 
 case $pmaj in
     "2") exe=pypy;;

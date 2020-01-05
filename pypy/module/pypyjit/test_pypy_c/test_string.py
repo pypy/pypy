@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
+import pytest
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 # XXX review the <Call> descrs to replace some EF=5 with EF=4 (elidable)
@@ -66,26 +67,20 @@ class TestString(BaseTestPyPyC):
             i97 = int_ge(i94, i53)
             guard_false(i97, descr=...)
             i98 = strgetitem(p52, i94)
-            p1 = force_token()
             p103 = newstr(1)
             strsetitem(p103, 0, i98)
-            setfield_gc(p0, p1, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
-            p296 = call_may_force_r(ConstClass(str_decode_utf8), p103, ConstPtr(null), 1, _, 0, descr=<Callr . rriii EF=7>)
-            guard_not_forced(descr=...)
+            i95 = call_i(ConstClass(_check_utf8), p103, 0, 0, -1, descr=<Calli 8 riii EF=4>)
             guard_no_exception(descr=...)
-            p116 = getfield_gc_r(p296, descr=<FieldP tuple3.item0 .+ pure>)
-            i107 = getfield_gc_i(p296, descr=<FieldS tuple3.item1 .+ pure>)
-            i109 = int_lt(i107, 0)
-            guard_false(i109, descr=...)
-            guard_not_invalidated(descr=...)
+            i98 = int_ge(i95, 0)
+            guard_true(i98, descr=...)
             i99 = int_ge(i94, i46)
             guard_false(i99, descr=...)
             i115 = int_add(i94, 1)
             i116 = int_gt(i115, i71)
             guard_false(i116, descr=...)
-            i120 = strgetitem(p45, i94)
-            i122 = call_i(ConstClass(_ll_2_str_eq_checknull_char__rpy_stringPtr_Char), p116, i120, descr=<Calli . ri EF=0 OS=30>)
-            guard_true(i122, descr=...)
+
+            i104 = call_i(ConstClass(_ll_4_str_eq_slice_char__rpy_stringPtr_Signed_Signed_Char), p65, i94, 1, i98, descr=<Calli 8 riii EF=0 OS=27>)
+            guard_true(i104, descr=...)
             i124 = int_add(i83, 1)
             --TICK--
             jump(..., descr=...)
@@ -207,6 +202,7 @@ class TestString(BaseTestPyPyC):
             ''')
         assert loop.match_by_id('calltwo', '')    # nothing
 
+    @pytest.mark.xfail
     def test_move_method_call_out_of_loop(self):
         # XXX this does not work: _lower_unicode() is found to be elidable,
         # but it can raise (because of 'raise StopIteration' in
@@ -273,7 +269,6 @@ class TestString(BaseTestPyPyC):
         --TICK--
         jump(..., descr=...)
         """)
-        # XXX remove the guard_nonnull above?
 
     def test_unicode_indexing_makes_no_bridges(self):
         log = self.run(r"""

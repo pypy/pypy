@@ -492,25 +492,11 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
             return result
 
 
-class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
-
-    def gettransformer(self, translator, gchooks):
-        from rpython.memory.gctransform import asmgcroot
-        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator, gchooks)
-
-    def GC_KEEPALIVE(self, funcgen, v):
-        return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)
-
-    def OP_GC_STACK_BOTTOM(self, funcgen, op):
-        return 'pypy_asm_stack_bottom();'
-
-
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework+shadowstack': ShadowStackFrameworkGcPolicy,
-    'framework+asmgcc': AsmGcRootFrameworkGcPolicy
 }
 
 

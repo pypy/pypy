@@ -909,11 +909,20 @@ if _WIN32:
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
         """Change or add an environment variable."""
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables.
+        if len(name) == 0 or u'=' in name[1:]:
+            raise oefmt(space.w_ValueError, "illegal environment variable name")
+
         # len includes space for '=' and a trailing NUL
         if len(name) + len(value) + 2 > rwin32._MAX_ENV:
             raise oefmt(space.w_ValueError,
                         "the environment variable is longer than %d "
                         "characters", rwin32._MAX_ENV)
+
+        if u'\x00' in name or u'\x00' in value:
+            raise oefmt(space.w_ValueError, "embedded null character")
+
         try:
             rwin32._wputenv(name, value)
         except OSError as e:
@@ -1812,6 +1821,23 @@ def initgroups(space, username, gid):
         os.initgroups(username, gid)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
+
+@unwrap_spec(username='text', gid=c_gid_t)
+def getgrouplist(space, username, gid):
+    """
+    getgrouplist(user, group) -> list of groups to which a user belongs
+
+    Returns a list of groups to which a user belongs.
+
+    user: username to lookup
+    group: base group id of the user
+    """
+    try:
+        groups = rposix.getgrouplist(username, gid)
+        return space.newlist([space.newint(g) for g in groups])
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
 
 def getpgrp(space):
     """ getpgrp() -> pgrp

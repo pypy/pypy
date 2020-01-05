@@ -519,6 +519,13 @@ class AppTestSocket:
                                 intsize)
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
+        # try to call setsockopt() with a buffer argument
+        reusestr = struct.pack('i', 0)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, memoryview(reusestr))
+        reusestr = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
+                                intsize)
+        (reuse,) = struct.unpack('i', reusestr)
+        assert reuse == 0
 
     def test_getsetsockopt_zero(self):
         # related to issue #2561: when specifying the buffer size param:
@@ -603,19 +610,14 @@ class AppTestSocket:
 
     def test_recvmsg_issue2649(self):
         import _socket as socket
-        listener = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        listener = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listener.bind(('::1', 1234))
+        listener.bind(('127.0.0.1', 1234))
 
-        s = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
-        IPV6_RECVERR = 25
-        s.setsockopt(socket.IPPROTO_IPV6, IPV6_RECVERR, 1)
-
-        s.sendto(b'x', ('::1', 1234))
-        try:
+        s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        s.sendto(b'x', ('127.0.0.1', 1234))
+        with raises(BlockingIOError):
             queue = s.recvmsg(1024, 1024, socket.MSG_ERRQUEUE)
-        except BlockingIOError as e:
-            assert True
 
     def test_buffer(self):
         # Test that send/sendall/sendto accept a buffer as arg

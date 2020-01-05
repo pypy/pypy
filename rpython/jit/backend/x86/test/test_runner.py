@@ -285,12 +285,15 @@ class TestX86(LLtypeBackendTest):
         cases = [8, 16, 24]
         if WORD == 8:
             cases.append(32)
+            bigvalue = 0xAAAAAAAAAAAA
+        else:
+            bigvalue = 0xAAAAAAA
         for i in cases:
-            box = InputArgInt(0xAAAAAAAAAAAA)
+            box = InputArgInt(bigvalue)
             res = self.execute_operation(rop.INT_AND,
                                          [box, ConstInt(2 ** i - 1)],
                                          'int')
-            assert res == 0xAAAAAAAAAAAA & (2 ** i - 1)
+            assert res == bigvalue & (2 ** i - 1)
 
     def test_nullity_with_guard(self):
         allops = [rop.INT_IS_TRUE]

@@ -28,13 +28,25 @@ def find_library(options):
     # error message
     raise e_last
 
-def find_curses_include_dirs():
-    if os.path.exists('/usr/include/ncurses'):
-        return ['/usr/include/ncurses']
-    if os.path.exists('/usr/include/ncursesw'):
-        return ['/usr/include/ncursesw']
-    return []
+def find_curses_dir_and_name():
+    for base in ('/usr', '/usr/local'):
+        if os.path.exists(os.path.join(base, 'include', 'ncursesw')):
+            return base, 'ncursesw'
+        if os.path.exists(os.path.join(base, 'include', 'ncurses')):
+            return base, 'ncurses'
+    return '', None
 
+base, name = find_curses_dir_and_name()
+if base:
+    include_dirs = [os.path.join(base, 'include', name)]
+    library_dirs = [os.path.join(base, 'lib')]
+    libs = [name, name.replace('ncurses', 'panel')]
+else:
+    include_dirs = []
+    library_dirs = []
+    libs = [find_library(['ncursesw', 'ncurses']),
+                find_library(['panelw', 'panel']),
+           ]
 
 ffi = FFI()
 ffi.set_source("_curses_cffi", """
@@ -83,9 +95,10 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
-""", libraries=[find_library(['ncurses', 'ncursesw']),
-                find_library(['panel', 'panelw'])],
-     include_dirs=find_curses_include_dirs())
+""", libraries=libs,
+     library_dirs = library_dirs,
+     include_dirs=include_dirs,
+)
 
 
 ffi.cdef("""
@@ -95,8 +108,6 @@ typedef unsigned long... mmask_t;
 typedef unsigned char bool;
 typedef unsigned long... chtype;
 typedef chtype attr_t;
-
-typedef int... wint_t;
 
 typedef struct
 {
@@ -376,6 +387,7 @@ void _m_getsyx(int *yx);
 
 if version > (5, 7):
     ffi.cdef("""
+typedef int... wint_t;
 int wget_wch(WINDOW *, wint_t *);
 int mvwget_wch(WINDOW *, int, int, wint_t *);
 int unget_wch(const wchar_t);

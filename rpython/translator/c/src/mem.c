@@ -159,29 +159,3 @@ void *boehm_fq_next_dead(struct boehm_fq_s **fqueue)
     return result;
 }
 #endif /* BOEHM GC */
-
-
-#ifdef RPY_ASSERT
-# ifdef PYPY_USE_ASMGCC
-#  include "structdef.h"
-#  include "forwarddecl.h"
-# endif
-void pypy_check_stack_count(void)
-{
-# ifdef PYPY_USE_ASMGCC
-    void *anchor = (void*)&pypy_g_ASM_FRAMEDATA_HEAD;
-    void *fd = ((void* *) (((char *)anchor) + sizeof(void*)))[0];
-    long got = 0;
-    long stacks_counter =
-       pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter;
-    while (fd != anchor) {
-        got += 1;
-        fd = ((void* *) (((char *)fd) + sizeof(void*)))[0];
-    }
-    RPyAssert(rpy_fastgil == 1,
-              "pypy_check_stack_count doesn't have the GIL");
-    RPyAssert(got == stacks_counter - 1,
-              "bad stacks_counter or non-closed stacks around");
-# endif
-}
-#endif

@@ -232,3 +232,14 @@ def PyModule_GetName(space, w_mod):
         raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
     from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
     return PyUnicode_AsUTF8(space, as_pyobj(space, w_mod.w_name))
+
+@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], rffi.INT_real, error=-1)
+def PyModule_AddFunctions(space, w_mod, methods):
+    if not isinstance(w_mod, Module):
+        raise oefmt(space.w_SystemError, "PyModule_AddFuntions(): not a module")
+    name = space.utf8_w(w_mod.w_name)
+    dict_w = {}
+    convert_method_defs(space, dict_w, methods, None, w_mod, name=name)
+    for key, w_value in dict_w.items():
+        space.setattr(w_mod, space.newtext(key), w_value)
+    return 0

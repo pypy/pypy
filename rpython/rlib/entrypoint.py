@@ -62,8 +62,7 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
             # acquire the GIL
             rgil.acquire()
             #
-            rffi.stackcounter.stacks_counter += 1
-            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+            llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
             # this should not raise
             try:
                 res = func(%(args)s)
@@ -77,7 +76,6 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
                     pypy_debug_catch_fatal_exception()
                     llop.debug_fatalerror(lltype.Void, "error in c callback")
                     assert 0 # dead code
-            rffi.stackcounter.stacks_counter -= 1
             # release the GIL
             rgil.release()
             #
