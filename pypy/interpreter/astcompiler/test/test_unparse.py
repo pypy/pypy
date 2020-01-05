@@ -1,7 +1,7 @@
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 from pypy.interpreter.astcompiler import ast, consts
-from pypy.interpreter.astcompiler.unparse import unparse
+from pypy.interpreter.astcompiler.unparse import unparse, unparse_annotations
 
 
 class TestAstUnparser:
@@ -33,6 +33,11 @@ class TestAstUnparser:
             ast = self.get_first_expr(unparsed)
             assert unparse(self.space, ast) == unparsed
 
+    def test_constant(self):
+        w_one = self.space.newint(1)
+        node = ast.Constant(w_one, 0, 0)
+        assert unparse(self.space, node) == "1"
+
     def test_num(self):
         self.check("1")
         self.check("1.64")
@@ -45,6 +50,11 @@ class TestAstUnparser:
 
     def test_name(self):
         self.check('a')
+
+    def test_name_constant(self):
+        self.check('True')
+        self.check('False')
+        self.check('None')
 
     def test_unaryop(self):
         self.check('+a')
@@ -96,7 +106,10 @@ class TestAstUnparser:
         self.check('(a for x in y for z in b)')
 
     def test_set_comprehension(self):
-        self.check('{a for (x,) in y for z in b}')
+        self.check('{a for x, in y for z in b}')
+
+    def test_dict_comprehension(self):
+        self.check('{a: b for x in y}')
 
     def test_ellipsis(self):
         self.check('...')
@@ -105,6 +118,12 @@ class TestAstUnparser:
         self.check('a[1]')
         self.check('a[1:5]')
         self.check('a[1:5,7:12,:,5]')
+        self.check('a[::1]')
+        self.check('dict[(str, int)]', 'dict[str, int]')
+
+    def test_attribute(self):
+        self.check('a.b.c')
+        self.check('1 .b')
 
     def test_yield(self):
         self.check('(yield)')
@@ -131,6 +150,27 @@ class TestAstUnparser:
         self.check('lambda *, m, l=5: 1')
         self.check('lambda **foo: 1')
 
-    def test_fstring(self):
-        self.check('f"a{a + 2}b c{d}"')
 
+class TestAstUnparseAnnotations(object):
+    def setup_class(cls):
+        cls.parser = pyparse.PythonParser(cls.space)
+
+    def get_ast(self, source, p_mode="exec", flags=None):
+        if flags is None:
+            flags = consts.CO_FUTURE_WITH_STATEMENT
+        info = pyparse.CompileInfo("<test>", p_mode, flags)
+        tree = self.parser.parse_source(source, info)
+        ast_node = ast_from_node(self.space, tree, info, self.parser)
+        return ast_node
+
+    def test_function(self):
+        ast = self.get_ast("""def f(a: b) -> 1 + 2: return a + 12""")
+        func = ast.body[0]
+        res = unparse_annotations(self.space, func)
+        assert self.space.text_w(res.args.args[0].annotation.value) == "b"
+        assert self.space.text_w(res.returns.value) == "1 + 2"
+
+    def test_global(self):
+        ast = self.get_ast("""a: list[int]""")
+        res = unparse_annotations(self.space, ast)
+        assert self.space.text_w(res.body[0].annotation.value) == 'list[int]'

@@ -1,6 +1,8 @@
 from rpython.rlib.rutf8 import Utf8StringBuilder
-from pypy.interpreter.error import oefmt
+from rpython.rlib.objectmodel import specialize
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.astcompiler import ast
+
 
 PRIORITY_TUPLE = 0
 PRIORITY_TEST = 1                   # 'if'-'else', 'lambda'
@@ -73,11 +75,19 @@ class UnparseVisitor(ast.ASTVisitor):
         return False
 
     def default_visitor(self, node):
-        raise oefmt(self.space.w_SystemError,
-                    "%T is not an expression", node)
+        raise OperationError(self.space.w_SystemError,
+                    self.space.newtext("expression type not supported yet" + str(node)))
 
     def visit_Ellipsis(self, node):
         self.append_ascii('...')
+
+    def visit_Constant(self, node):
+        w_str = self.space.str(node.value)
+        self.append_w_str(w_str)
+
+    def visit_NameConstant(self, node):
+        w_str = self.space.str(node.value)
+        self.append_w_str(w_str)
 
     def visit_Num(self, node):
         w_str = self.space.str(node.n)
@@ -235,14 +245,13 @@ class UnparseVisitor(ast.ASTVisitor):
         if node.elts is None:
             self.append_ascii("()")
             return
-        self.append_ascii("(")
-        for i, elt in enumerate(node.elts):
-            if i > 0:
-                self.append_ascii(", ")
-            self.append_expr(elt)
-        if len(node.elts) == 1:
-            self.append_ascii(",")
-        self.append_ascii(")")
+        with self.maybe_parenthesize(PRIORITY_TUPLE):
+            for i, elt in enumerate(node.elts):
+                if i > 0:
+                    self.append_ascii(", ")
+                self.append_expr(elt)
+            if len(node.elts) == 1:
+                self.append_ascii(",")
 
     def visit_Set(self, node):
         self.append_ascii("{")
@@ -272,6 +281,7 @@ class UnparseVisitor(ast.ASTVisitor):
 
     def append_generators(self, generators):
         for generator in generators:
+            assert isinstance(generator, ast.comprehension)
             if generator.is_async:
                 self.append_ascii(' async for ')
             else:
@@ -302,6 +312,14 @@ class UnparseVisitor(ast.ASTVisitor):
         self.append_generators(node.generators)
         self.append_ascii('}')
 
+    def visit_DictComp(self, node):
+        self.append_ascii('{')
+        self.append_expr(node.key)
+        self.append_ascii(': ')
+        self.append_expr(node.value)
+        self.append_generators(node.generators)
+        self.append_ascii('}')
+
     def visit_Subscript(self, node):
         self.append_expr(node.value, PRIORITY_ATOM)
         self.append_ascii('[')
@@ -309,7 +327,7 @@ class UnparseVisitor(ast.ASTVisitor):
         self.append_ascii(']')
 
     def visit_Index(self, node):
-        self.append_expr(node.value)
+        self.append_expr(node.value, PRIORITY_TUPLE)
 
     def visit_Slice(self, node):
         if node.lower:
@@ -319,13 +337,24 @@ class UnparseVisitor(ast.ASTVisitor):
             self.append_expr(node.upper)
         if node.step:
             self.append_ascii(':')
-            self.append_expr(node.upper)
+            self.append_expr(node.step)
 
     def visit_ExtSlice(self, node):
         for i, slice in enumerate(node.dims):
             if i > 0:
                 self.append_ascii(',')
             self.append_expr(slice)
+
+    def visit_Attribute(self, node):
+        value = node.value
+        self.append_expr(value, PRIORITY_ATOM)
+        if isinstance(value, ast.Num) and \
+                self.space.isinstance_w(value.n, self.space.w_int):
+            period = ' .'
+        else:
+            period = '.'
+        self.append_ascii(period)
+        self.append_utf8(node.attr)
 
     def visit_Yield(self, node):
         if node.value:
@@ -358,6 +387,7 @@ class UnparseVisitor(ast.ASTVisitor):
         if node.keywords:
             for i, keyword in enumerate(node.keywords):
                 first = self.append_if_not_first(first, ', ')
+                assert isinstance(keyword, ast.keyword)
                 if keyword.arg is None:
                     self.append_ascii('**')
                 else:
@@ -417,7 +447,49 @@ class UnparseVisitor(ast.ASTVisitor):
                 self.append_ascii(': ')
             self.append_expr(node.body)
 
+
 def unparse(space, ast):
     visitor = UnparseVisitor(space)
     ast.walkabout(visitor)
     return visitor.builder.build()
+
+def w_unparse(space, ast):
+    visitor = UnparseVisitor(space)
+    ast.walkabout(visitor)
+    return space.newutf8(visitor.builder.build(), visitor.builder.getlength())
+
+class UnparseAnnotationsVisitor(ast.ASTVisitor):
+    def __init__(self, space):
+        self.space = space
+
+    @specialize.argtype(1)
+    def default_visitor(self, node):
+        return node
+
+    def unparse(self, node):
+        return ast.Constant(
+                    w_unparse(self.space, node),
+                    node.lineno,
+                    node.col_offset)
+
+    def visit_arg(self, node):
+        annotation = node.annotation
+        if annotation:
+            node.annotation = self.unparse(annotation)
+        return node
+
+    def visit_FunctionDef(self, node):
+        returns = node.returns
+        if returns:
+            node.returns = self.unparse(returns)
+        return node
+
+    def visit_AnnAssign(self, node):
+        node.annotation = self.unparse(node.annotation)
+        return node
+
+def unparse_annotations(space, ast):
+    visitor = UnparseAnnotationsVisitor(space)
+    return ast.mutate_over(visitor)
+
+
