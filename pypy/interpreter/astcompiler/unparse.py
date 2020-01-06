@@ -465,6 +465,11 @@ class UnparseVisitor(Utf8BuilderVisitor):
             self.append_ascii("f")
         self.append_w_str(self.space.repr(self.space.newutf8(s, l)))
 
+    def visit_Await(self, node):
+        with self.maybe_parenthesize(PRIORITY_AWAIT):
+            self.append_ascii("await ")
+            self.append_expr(node.value)
+
 
 class FstringVisitor(Utf8BuilderVisitor):
 

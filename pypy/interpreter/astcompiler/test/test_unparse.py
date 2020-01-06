@@ -190,8 +190,8 @@ class TestAstUnparseAnnotations(object):
         res = unparse_annotations(self.space, ast)
         assert self.space.text_w(res.body[0].annotation.value) == 'list[int]'
 
-    @pytest.mark.xfail
     def test_await(self):
         ast = self.get_ast("""def f() -> await some.complicated[0].call(with_args=True or 1 is not 1): pass""")
-        res = unparse_annotations(self.space, ast)
+        func = ast.body[0]
+        res = unparse_annotations(self.space, func)
         assert self.space.text_w(res.returns.value) == "await some.complicated[0].call(with_args=True or 1 is not 1)"
