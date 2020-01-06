@@ -1255,6 +1255,27 @@ class TestCompiler(BaseTestCompiler):
         src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
         yield self.st, src, 'z', 0xd8
 
+    def test_func_defaults_lineno(self):
+        # like CPython 3.6.9 (at least), check that '''def f(
+        #            x = 5,
+        #            y = 6,
+        #            ):'''
+        # generates the tuple (5, 6) as a constant for the defaults,
+        # but with the lineno for the last item (here the 6).  There
+        # is no lineno for the other items, of course, because the
+        # complete tuple is loaded with just one LOAD_CONST.
+        yield self.simple_test, """\
+            def fdl():      # line 1
+                def f(      # line 2
+                    x = 5,  # line 3
+                    y = 6   # line 4
+                    ):      # line 5
+                    pass    # line 6
+            import dis
+            co = fdl.__code__
+            x = [y for (x, y) in dis.findlinestarts(co)]
+        """, 'x', [4]
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

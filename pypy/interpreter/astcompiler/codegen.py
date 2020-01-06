@@ -394,8 +394,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         return l
 
     def _visit_defaults(self, defaults):
+        assert len(defaults) > 0
         w_tup = self._tuple_of_consts(defaults)
         if w_tup:
+            self.update_position(defaults[-1].lineno, True)
             self.load_const(w_tup)
         else:
             self.visit_sequence(defaults)

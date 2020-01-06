@@ -139,7 +139,7 @@ def rsplit(value, by=None, maxsplit=-1, isutf8=False):
     if by is None:
         res = []
 
-        i = len(value) - 1
+        i = _decr(value, len(value), isutf8)
         while True:
             # starting from the end, find the end of the next word
             while i >= 0:

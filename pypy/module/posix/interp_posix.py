@@ -909,11 +909,20 @@ if _WIN32:
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
         """Change or add an environment variable."""
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables.
+        if len(name) == 0 or u'=' in name[1:]:
+            raise oefmt(space.w_ValueError, "illegal environment variable name")
+
         # len includes space for '=' and a trailing NUL
         if len(name) + len(value) + 2 > rwin32._MAX_ENV:
             raise oefmt(space.w_ValueError,
                         "the environment variable is longer than %d "
                         "characters", rwin32._MAX_ENV)
+
+        if u'\x00' in name or u'\x00' in value:
+            raise oefmt(space.w_ValueError, "embedded null character")
+
         try:
             rwin32._wputenv(name, value)
         except OSError as e:

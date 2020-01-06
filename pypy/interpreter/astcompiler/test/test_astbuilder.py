@@ -663,7 +663,7 @@ class TestAstBuilder:
         assert exc_list.msg == "only single target (not list) can be annotated"
 
         exc_bad_target = pytest.raises(SyntaxError, self.get_ast, '{}: int').value
-        assert exc_bad_target.msg == "illegal target for annoation"
+        assert exc_bad_target.msg == "illegal target for annotation"
 
 
     def test_augassign(self):
