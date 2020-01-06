@@ -366,6 +366,14 @@ class AppTestObject:
         object.__init_subclass__() # does not crash
         raises(TypeError, object.__init_subclass__, 1)
 
+    def test_better_error_init(self):
+        class A: pass
+
+        with raises(TypeError) as excinfo:
+            A(1)
+        assert "A() takes no parameters" in str(excinfo.value)
+
+
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
     space = objspace.StdObjSpace()
