@@ -4,7 +4,7 @@ __xname__ = __name__    # sys.modules lookup (--without-threads)
 __name__ = 'decimal'    # For pickling
 
 
-import collections as _collections
+import _collections_abc
 import math as _math
 import numbers as _numbers
 import sys as _sys
@@ -1207,7 +1207,7 @@ class Context(object):
         return _SignalDict(self._ctx, 'status')
     @flags.setter
     def flags(self, value):
-        if not isinstance(value, _collections.abc.Mapping):
+        if not isinstance(value, _collections_abc.Mapping):
             raise TypeError
         if len(value) != len(_SIGNALS):
             raise KeyError("Invalid signal dict")
@@ -1220,7 +1220,7 @@ class Context(object):
         return _SignalDict(self._ctx, 'traps')
     @traps.setter
     def traps(self, value):
-        if not isinstance(value, _collections.abc.Mapping):
+        if not isinstance(value, _collections_abc.Mapping):
             raise TypeError
         if len(value) != len(_SIGNALS):
             raise KeyError("Invalid signal dict")
@@ -1573,7 +1573,7 @@ class Context(object):
             self._ctx.emax = value
 
 
-class _SignalDict(_collections.abc.MutableMapping):
+class _SignalDict(_collections_abc.MutableMapping):
 
     def __init__(self, ctx, attrname):
         self.ctx = ctx
