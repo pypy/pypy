@@ -228,7 +228,7 @@ class UnparseVisitor(ast.ASTVisitor):
             self.append_ascii(" if ")
             self.append_expr(node.test, PRIORITY_TEST + 1)
             self.append_ascii(" else ")
-            self.append_expr(node.orelse, PRIORITY_TEST + 1)
+            self.append_expr(node.orelse, PRIORITY_TEST)
 
     def visit_List(self, node):
         if node.elts is None:
@@ -342,7 +342,7 @@ class UnparseVisitor(ast.ASTVisitor):
     def visit_ExtSlice(self, node):
         for i, slice in enumerate(node.dims):
             if i > 0:
-                self.append_ascii(',')
+                self.append_ascii(', ')
             self.append_expr(slice)
 
     def visit_Attribute(self, node):
@@ -442,6 +442,7 @@ class UnparseVisitor(ast.ASTVisitor):
                             self.append_ascii('=')
                             self.append_expr(default)
                 if args.kwarg:
+                    first = self.append_if_not_first(first, ', ')
                     self.append_ascii('**')
                     self.append_expr(args.kwarg)
                 self.append_ascii(': ')

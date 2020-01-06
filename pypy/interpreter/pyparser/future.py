@@ -31,6 +31,7 @@ futureFlags_2_5 = FutureFlags((2, 5, 0, 'final', 0))
 futureFlags_2_7 = FutureFlags((2, 7, 0, 'final', 0))
 futureFlags_3_2 = FutureFlags((3, 2, 0, 'final', 0))
 futureFlags_3_5 = FutureFlags((3, 5, 0, 'final', 0))
+futureFlags_3_7 = FutureFlags((3, 7, 0, 'final', 0))
 
 
 class TokenIterator:

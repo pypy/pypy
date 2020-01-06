@@ -80,6 +80,7 @@ class TestAstUnparser:
 
     def test_if(self):
         self.check('a if b else c')
+        self.check('0 if not x else 1 if x > 0 else -1')
 
     def test_list(self):
         self.check('[]')
@@ -117,13 +118,14 @@ class TestAstUnparser:
     def test_index(self):
         self.check('a[1]')
         self.check('a[1:5]')
-        self.check('a[1:5,7:12,:,5]')
+        self.check('a[1:5, 7:12, :, 5]')
         self.check('a[::1]')
         self.check('dict[(str, int)]', 'dict[str, int]')
 
     def test_attribute(self):
         self.check('a.b.c')
         self.check('1 .b')
+        self.check('1.5.b')
 
     def test_yield(self):
         self.check('(yield)')
@@ -149,6 +151,7 @@ class TestAstUnparser:
         self.check('lambda *l: 1')
         self.check('lambda *, m, l=5: 1')
         self.check('lambda **foo: 1')
+        self.check('lambda a, **b: 45')
 
 
 class TestAstUnparseAnnotations(object):
@@ -174,3 +177,8 @@ class TestAstUnparseAnnotations(object):
         ast = self.get_ast("""a: list[int]""")
         res = unparse_annotations(self.space, ast)
         assert self.space.text_w(res.body[0].annotation.value) == 'list[int]'
+
+    def test_await(self):
+        ast = self.get_ast("""def f() -> await some.complicated[0].call(with_args=True or 1 is not 1): pass""")
+        res = unparse_annotations(self.space, ast)
+        assert self.space.text_w(res.returns.value) == "await some.complicated[0].call(with_args=True or 1 is not 1)"
