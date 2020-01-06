@@ -1498,3 +1498,9 @@ class TestAstBuilder:
         mod = self.get_ast('x=1\nf"{    x + 1}"')
         assert mod.body[1].value.values[0].value.lineno == 2
         assert mod.body[1].value.values[0].value.col_offset == 8
+
+    def test_wrong_async_def_col_offset(self):
+        mod = self.get_ast("async def f():\n pass")
+        asyncdef = mod.body[0]
+        assert asyncdef.col_offset == 0
+

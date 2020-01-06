@@ -477,7 +477,9 @@ class ASTBuilder(object):
             return [self.handle_expr(bases_node.get_child(0))]
         return self.get_expression_list(bases_node)
 
-    def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None):
+    def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None, posnode=None):
+        if posnode is None:
+            posnode = funcdef_node
         name_node = funcdef_node.get_child(1)
         name = self.new_identifier(name_node.get_value())
         self.check_forbidden_name(name, name_node)
@@ -490,13 +492,13 @@ class ASTBuilder(object):
         body = self.handle_suite(funcdef_node.get_child(suite))
         if is_async:
             return ast.AsyncFunctionDef(name, args, body, decorators, returns,
-                                        funcdef_node.get_lineno(), funcdef_node.get_column())
+                                        posnode.get_lineno(), posnode.get_column())
         else:
             return ast.FunctionDef(name, args, body, decorators, returns,
-                                   funcdef_node.get_lineno(), funcdef_node.get_column())
+                                   posnode.get_lineno(), posnode.get_column())
 
     def handle_async_funcdef(self, node, decorators=None):
-        return self.handle_funcdef_impl(node.get_child(1), 1, decorators)
+        return self.handle_funcdef_impl(node.get_child(1), 1, decorators, posnode=node)
 
     def handle_funcdef(self, node, decorators=None):
         return self.handle_funcdef_impl(node, 0, decorators)
@@ -504,7 +506,7 @@ class ASTBuilder(object):
     def handle_async_stmt(self, node):
         ch = node.get_child(1)
         if ch.type == syms.funcdef:
-            return self.handle_funcdef_impl(ch, 1)
+            return self.handle_funcdef_impl(ch, 1, posnode=node)
         elif ch.type == syms.with_stmt:
             return self.handle_with_stmt(ch, 1)
         elif ch.type == syms.for_stmt:
