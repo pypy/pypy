@@ -478,9 +478,10 @@ class FstringVisitor(Utf8BuilderVisitor):
                 self.space.newtext("expression type not supported yet:" + str(node)))
 
     def visit_Str(self, node):
+        from rpython.rlib import rstring
         s, l = self.space.utf8_len_w(node.s)
-        s = s.replace("{", "{{")
-        s = s.replace("}", "}}")
+        s = rstring.replace(s, "{", "{{")
+        s = rstring.replace(s, "}", "}}")
         self.append_utf8(s)
 
     def visit_FormattedValue(self, node):
