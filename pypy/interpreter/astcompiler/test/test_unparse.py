@@ -155,7 +155,7 @@ class TestAstUnparser:
         self.check('lambda a, **b: 45')
 
     def test_fstrings(self):
-        #self.check('f"abc"', '"abc"')
+        self.check('f"abc"', "'abc'")
         self.check("f'{{{a}'", "f'{{{a}'")
         self.check("f'{{{a}'", "f'{{{a}'")
         self.check("f'{x+1!a}'", "f'{x + 1!a}'")

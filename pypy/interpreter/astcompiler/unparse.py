@@ -453,13 +453,16 @@ class UnparseVisitor(Utf8BuilderVisitor):
             self.append_expr(node.body)
 
     def visit_JoinedStr(self, node):
-        # mess
+        need_f = False
         subvisitor = FstringVisitor(self.space)
         for i, elt in enumerate(node.values):
+            if not isinstance(elt, ast.Str):
+                need_f = True
             elt.walkabout(subvisitor)
         s = subvisitor.builder.build()
         l = subvisitor.builder.getlength()
-        self.append_ascii("f")
+        if need_f:
+            self.append_ascii("f")
         self.append_w_str(self.space.repr(self.space.newutf8(s, l)))
 
 
