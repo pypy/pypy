@@ -154,6 +154,17 @@ class TestAstUnparser:
         self.check('lambda **foo: 1')
         self.check('lambda a, **b: 45')
 
+    def test_fstrings(self):
+        #self.check('f"abc"', '"abc"')
+        self.check("f'{{{a}'", "f'{{{a}'")
+        self.check("f'{{{a}'", "f'{{{a}'")
+        self.check("f'{x+1!a}'", "f'{x + 1!a}'")
+        self.check("f'{x+1:x}'", "f'{x + 1:x}'")
+        self.check("f'some f-string with {a} {few():.2f} {formatted.values!r}'")
+        self.check('''f"{f'{nested} inner'} outer"''')
+        self.check("f'space between opening braces: { {a for a in (1, 2, 3)}}'")
+        self.check("f'{(lambda x: x)}'")
+        self.check("f'{(None if a else lambda x: x)}'")
 
 class TestAstUnparseAnnotations(object):
     def setup_class(cls):

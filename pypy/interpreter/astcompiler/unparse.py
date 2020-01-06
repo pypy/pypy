@@ -23,6 +23,7 @@ PRIORITY_POWER = 14                 # '**'
 PRIORITY_AWAIT = 15                 # 'await'
 PRIORITY_ATOM = 16
 
+
 class Parenthesizer(object):
     def __init__(self, visitor, priority):
         self.visitor = visitor
@@ -40,16 +41,10 @@ class Parenthesizer(object):
         if level > self.priority:
             visitor.append_ascii(")")
 
-
-
-class UnparseVisitor(ast.ASTVisitor):
+class Utf8BuilderVisitor(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
         self.builder = Utf8StringBuilder()
-        self.level = PRIORITY_TEST
-
-    def maybe_parenthesize(self, priority):
-        return Parenthesizer(self, priority)
 
     def append_w_str(self, w_s):
         s, l = self.space.utf8_len_w(w_s)
@@ -60,6 +55,15 @@ class UnparseVisitor(ast.ASTVisitor):
 
     def append_utf8(self, s):
         self.builder.append(s)
+
+
+class UnparseVisitor(Utf8BuilderVisitor):
+    def __init__(self, space, startlevel=PRIORITY_TEST):
+        Utf8BuilderVisitor.__init__(self, space)
+        self.level = startlevel
+
+    def maybe_parenthesize(self, priority):
+        return Parenthesizer(self, priority)
 
     def append_expr(self, node, priority=PRIORITY_TEST):
         level = self.level
@@ -175,7 +179,7 @@ class UnparseVisitor(ast.ASTVisitor):
             self.append_expr(node.left, priority + right_associative)
             self.append_ascii(op)
             self.append_expr(node.right, priority + (not right_associative))
-            
+
     def visit_BoolOp(self, node):
         if node.op == ast.And:
             op = " and "
@@ -448,14 +452,66 @@ class UnparseVisitor(ast.ASTVisitor):
                 self.append_ascii(': ')
             self.append_expr(node.body)
 
+    def visit_JoinedStr(self, node):
+        # mess
+        subvisitor = FstringVisitor(self.space)
+        for i, elt in enumerate(node.values):
+            elt.walkabout(subvisitor)
+        s = subvisitor.builder.build()
+        l = subvisitor.builder.getlength()
+        self.append_ascii("f")
+        self.append_w_str(self.space.repr(self.space.newutf8(s, l)))
 
-def unparse(space, ast):
-    visitor = UnparseVisitor(space)
+
+class FstringVisitor(Utf8BuilderVisitor):
+
+    def default_visitor(self, node):
+        raise OperationError(self.space.w_SystemError,
+                self.space.newtext("expression type not supported yet:" + str(node)))
+
+    def visit_Str(self, node):
+        s, l = self.space.utf8_len_w(node.s)
+        s = s.replace("{", "{{")
+        s = s.replace("}", "}}")
+        self.append_utf8(s)
+
+    def visit_FormattedValue(self, node):
+        outer_brace = "{"
+        s = unparse(self.space, node.value, PRIORITY_TEST + 1)
+        if s.startswith("{"):
+            outer_brace = "{ "
+        self.append_ascii(outer_brace)
+        self.append_utf8(s)
+        conversion = node.conversion
+        if conversion >= 0:
+            if conversion == ord('a'):
+                conversion = '!a'
+            elif conversion == ord('r'):
+                conversion = '!r'
+            elif conversion == ord('s'):
+                conversion = '!s'
+            else:
+                raise oefmt(self.space.w_SystemError,
+                    "unknown f-string conversion kind %s", chr(conversion))
+            self.append_ascii(conversion)
+
+        if node.format_spec:
+            self.append_ascii(":")
+            node.format_spec.walkabout(self)
+        self.append_ascii("}")
+
+    def visit_JoinedStr(self, node):
+        for i, elt in enumerate(node.values):
+            elt.walkabout(self)
+
+
+def unparse(space, ast, level=PRIORITY_TEST):
+    visitor = UnparseVisitor(space, level)
     ast.walkabout(visitor)
     return visitor.builder.build()
 
-def w_unparse(space, ast):
-    visitor = UnparseVisitor(space)
+def w_unparse(space, ast, level=PRIORITY_TEST):
+    visitor = UnparseVisitor(space, level)
     ast.walkabout(visitor)
     return space.newutf8(visitor.builder.build(), visitor.builder.getlength())
 
