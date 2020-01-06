@@ -549,38 +549,48 @@ def writeUnicodedata(version, table, outfile, base):
     print >> outfile, 'version = %r' % version
     print >> outfile
 
-    if version < "4.1":
+    version_tuple = tuple(int(x) for x in version.split("."))
+    if version_tuple < (4, 1, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FA5 or"
                         " 0x20000 <= code <= 0x2A6D6)")
-    elif version < "5":    # don't know the exact limit
+    elif version_tuple < (5, 0, 0):    # don't know the exact limit
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FBB or"
                         " 0x20000 <= code <= 0x2A6D6)")
-    elif version < "6":
+    elif version_tuple < (6, 0, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FCB or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734)")
-    elif version < "6.1":
+    elif version_tuple < (6, 1, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FCB or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2B81D)")
-    elif version < "8":
+    elif version_tuple < (8, 0, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FCC or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2B81D)")
-    else:
+    elif version_tuple == (9, 0, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FD5 or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2B81D or"
                         " 0x2B820 <= code <= 0x2CEA1)")
+    elif version_tuple == (11, 0, 0):
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FEF or"
+                        " 0x20000 <= code <= 0x2A6D6 or"
+                        " 0x2A700 <= code <= 0x2B734 or"
+                        " 0x2B740 <= code <= 0x2B81D or"
+                        " 0x2B820 <= code <= 0x2CEA1)")
+    else:
+        raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)")
 
     write_character_names(outfile, table, base_mod)
 
