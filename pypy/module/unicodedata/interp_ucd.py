@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong, r_uint
-from rpython.rlib.unicodedata import unicodedb_9_0_0, unicodedb_3_2_0
+from rpython.rlib.unicodedata import unicodedb_11_0_0, unicodedb_3_2_0
 from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8
 
 
@@ -308,8 +308,8 @@ UCD.typedef = TypeDef("unicodedata.UCD",
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_9_0_0 = UCD(unicodedb_9_0_0)
-ucd = ucd_9_0_0
+ucd_11_0_0 = UCD(unicodedb_11_0_0)
+ucd = ucd_11_0_0
 
 # This is the default unicodedb used in various places:
 # - the unicode type
