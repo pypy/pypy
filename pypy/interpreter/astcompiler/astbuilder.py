@@ -993,7 +993,8 @@ class ASTBuilder(object):
     def handle_atom_expr(self, atom_node):
         start = 0
         num_ch = atom_node.num_children()
-        if atom_node.get_child(0).type == tokens.AWAIT:
+        if atom_node.get_child(0).type == tokens.NAME:
+            # await
             start = 1
         atom_expr = self.handle_atom(atom_node.get_child(start))
         if num_ch == 1:
@@ -1323,9 +1324,11 @@ class ASTBuilder(object):
         current_for = comp_node
         while True:
             count += 1
-            is_async = current_for.get_child(0).type == tokens.ASYNC
-            if current_for.num_children() == 5 + is_async:
-                current_iter = current_for.get_child(4 + is_async)
+            is_async = current_for.get_child(0).type == tokens.NAME
+            current_for = current_for.get_child(int(is_async))
+            assert current_for.type == syms.sync_comp_for
+            if current_for.num_children() == 5:
+                current_iter = current_for.get_child(4)
             else:
                 return count
             while True:
@@ -1353,13 +1356,16 @@ class ASTBuilder(object):
             iter_node = first_child.get_child(2)
 
     def comprehension_helper(self, comp_node):
+        assert comp_node.type == syms.comp_for
         fors_count = self.count_comp_fors(comp_node)
         comps = []
         for i in range(fors_count):
-            is_async = comp_node.get_child(0).type == tokens.ASYNC
-            for_node = comp_node.get_child(1 + is_async)
+            is_async = comp_node.get_child(0).type == tokens.NAME
+            comp_node = comp_node.get_child(int(is_async))
+            assert comp_node.type == syms.sync_comp_for
+            for_node = comp_node.get_child(1)
             for_targets = self.handle_exprlist(for_node, ast.Store)
-            expr = self.handle_expr(comp_node.get_child(3 + is_async))
+            expr = self.handle_expr(comp_node.get_child(3))
             assert isinstance(expr, ast.expr)
             if for_node.num_children() == 1:
                 comp = ast.comprehension(for_targets[0], expr, None, is_async)
@@ -1372,8 +1378,8 @@ class ASTBuilder(object):
                 line = expr_node.lineno
                 target = ast.Tuple(for_targets, ast.Store, line, col)
                 comp = ast.comprehension(target, expr, None, is_async)
-            if comp_node.num_children() == 5 + is_async:
-                comp_node = comp_iter = comp_node.get_child(4 + is_async)
+            if comp_node.num_children() == 5:
+                comp_node = comp_iter = comp_node.get_child(4)
                 assert comp_iter.type == syms.comp_iter
                 ifs_count = self.count_comp_ifs(comp_iter)
                 if ifs_count:

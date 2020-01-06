@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import py
+import pytest
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError, TabError
@@ -215,21 +216,28 @@ if 1:
 
     def test_async_await(self):
         self.parse("async def coro(): await func")
-        py.test.raises(SyntaxError, self.parse, 'await x')
+        self.parse("await x")
         #Test as var and func name
-        self.parse("async = 1")
-        self.parse("await = 1")
-        self.parse("def async(): pass")
+        with pytest.raises(SyntaxError):
+            self.parse("async = 1")
+        with pytest.raises(SyntaxError):
+            self.parse("await = 1")
+        with pytest.raises(SyntaxError):
+            self.parse("def async(): pass")
         #async for
         self.parse("""async def foo():
     async for a in b:
         pass""")
-        py.test.raises(SyntaxError, self.parse, 'def foo(): async for a in b: pass')
+        self.parse("""def foo():
+    async for a in b:
+        pass""")
         #async with
         self.parse("""async def foo():
     async with a:
         pass""")
-        py.test.raises(SyntaxError, self.parse, 'def foo(): async with a: pass')
+        self.parse('''def foo():
+        async with a:
+            pass''')
 
     def test_number_underscores(self):
         VALID_UNDERSCORE_LITERALS = [
