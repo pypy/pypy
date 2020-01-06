@@ -16,7 +16,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_ITERABLE_COROUTINE, CO_ASYNC_GENERATOR)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.objectmodel import compute_hash, we_are_translated
+from rpython.rlib.objectmodel import compute_hash, we_are_translated, not_rpython
 from rpython.rlib import jit, rstring
 
 
@@ -304,13 +304,17 @@ class PyCode(eval.Code):
     def exec_host_bytecode(self, w_globals, w_locals):
         raise Exception("no longer supported after the switch to wordcode!")
 
+    @not_rpython
     def dump(self):
-        """NOT_RPYTHON: A dis.dis() dump of the code object."""
+        """A dis.dis() dump of the code object."""
         from pypy.tool import dis3
-        if not hasattr(self, 'co_consts'):
-            self.co_consts = [w if isinstance(w, PyCode) else self.space.unwrap(w)
+        dis3._disassemble_recursive(self)
+
+    @property
+    @not_rpython
+    def co_consts(self):
+        return [w if isinstance(w, PyCode) else self.space.unwrap(w)
                               for w in self.co_consts_w]
-        dis3.dis(self)
 
     def fget_co_consts(self, space):
         return space.newtuple(self.co_consts_w)
