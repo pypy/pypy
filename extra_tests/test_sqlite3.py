@@ -211,7 +211,6 @@ def test_row_factory_use(con):
     con.execute('select 1')
 
 def test_returning_blob_must_own_memory(con):
-    import gc
     con.create_function("returnblob", 0, lambda: memoryview(b"blob"))
     cur = con.execute("select returnblob()")
     val = cur.fetchone()[0]
@@ -311,3 +310,24 @@ def test_close_in_del_ordering():
     gc.collect()
     gc.collect()
     assert SQLiteBackend.success
+
+def test_locked_table(con):
+    con.execute("CREATE TABLE foo(x)")
+    con.execute("INSERT INTO foo(x) VALUES (?)", [42])
+    cur = con.execute("SELECT * FROM foo")  # foo() is locked while cur is active
+    with pytest.raises(_sqlite3.OperationalError):
+        con.execute("DROP TABLE foo")
+
+def test_cursor_close(con):
+    con.execute("CREATE TABLE foo(x)")
+    con.execute("INSERT INTO foo(x) VALUES (?)", [42])
+    cur = con.execute("SELECT * FROM foo")
+    cur.close()
+    con.execute("DROP TABLE foo")  # no error
+
+def test_cursor_del(con):
+    con.execute("CREATE TABLE foo(x)")
+    con.execute("INSERT INTO foo(x) VALUES (?)", [42])
+    con.execute("SELECT * FROM foo")
+    import gc; gc.collect()
+    con.execute("DROP TABLE foo")  # no error

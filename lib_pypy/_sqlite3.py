@@ -741,6 +741,11 @@ class Cursor(object):
 
         self.__initialized = True
 
+    def __del__(self):
+        # Since statements are cached, they can outlive their parent cursor
+        if self.__statement:
+            self.__statement._reset()
+
     def close(self):
         if not self.__initialized:
             raise ProgrammingError("Base Cursor.__init__ not called.")
@@ -872,6 +877,8 @@ class Cursor(object):
             except AttributeError:
                 pass
             self.__rowcount = -1
+            if self.__statement:
+                self.__statement._reset()
             self.__statement = self.__connection._statement_cache.get(sql)
 
             if self.__connection._begin_statement and self.__statement._is_dml:
