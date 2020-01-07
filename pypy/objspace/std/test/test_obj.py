@@ -371,7 +371,7 @@ class AppTestObject:
 
         with raises(TypeError) as excinfo:
             A(1)
-        assert "A() takes no parameters" in str(excinfo.value)
+        assert "A() takes no arguments" in str(excinfo.value)
 
 
 def test_isinstance_shortcut():

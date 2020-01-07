@@ -109,7 +109,7 @@ def descr__new__(space, w_type, __args__):
         if (w_parent_init is space.w_object or
             w_parent_new is not space.w_object):
             raise oefmt(space.w_TypeError,
-                        "%s() takes no parameters", w_type.name)
+                        "%s() takes no arguments", w_type.name)
     if w_type.is_abstract():
         _abstract_method_error(space, w_type)
     return space.allocate_instance(W_ObjectObject, w_type)
