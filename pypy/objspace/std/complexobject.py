@@ -160,6 +160,10 @@ def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.
     if space.isinstance_w(w_complex, space.gettypefor(W_ComplexObject)):
+        space.warn(
+              space.newtext("__complex__ returned non-complex (type %s).  The ability to return an instance of a strict subclass of complex is deprecated, and may be removed in a future version of Python." % (space.type(w_complex).getname(space))),
+              space.w_DeprecationWarning
+        )
         real = space.float(space.getattr(w_complex, space.newtext("real")))
         imag = space.float(space.getattr(w_complex, space.newtext("imag")))
         return (space.float_w(real), space.float_w(imag))

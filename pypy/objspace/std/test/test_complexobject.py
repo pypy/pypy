@@ -534,6 +534,7 @@ class AppTestAppComplexTest:
                 pass
 
     def test_convert(self):
+        import warnings
         raises(TypeError, int, 1+1j)
         raises(TypeError, float, 1+1j)
 
@@ -549,7 +550,10 @@ class AppTestAppComplexTest:
                 return complex.__new__(self, 2*value)
             def __complex__(self):
                 return self
-        assert complex(complex1(1j)) == 2j
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            assert complex(complex1(1j)) == 2j
+        assert len(log) > 0
 
         class complex2(complex):
             """Make sure that __complex__() calls fail if anything other than a
