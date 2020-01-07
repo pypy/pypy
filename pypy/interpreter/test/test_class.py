@@ -140,3 +140,9 @@ class AppTestClass:
             "metaclass found to be 'function', but calling <class 'function'> "
             "with args ('Foo', (<function test_nonsensical_base_error_message"
             ".<locals>.foo_func at ")
+
+        with raises(TypeError) as exc:
+            class Foo(object, object):
+                pass
+        assert str(exc.value).startswith(
+            "duplicate base class 'object'")
