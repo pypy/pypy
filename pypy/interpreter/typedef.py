@@ -943,7 +943,7 @@ Cell.typedef = TypeDef("cell",
     __reduce__   = interp2app(Cell.descr__reduce__),
     __repr__     = interp2app(Cell.descr__repr__),
     __setstate__ = interp2app(Cell.descr__setstate__),
-    cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
+    cell_contents= GetSetProperty(Cell.descr__cell_contents, Cell.descr_set_cell_contents, cls=Cell),
 )
 assert not Cell.typedef.acceptable_as_base_class  # no __new__
 

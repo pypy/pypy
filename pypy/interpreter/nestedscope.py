@@ -85,3 +85,6 @@ class Cell(W_Root):
             return self.get()
         except ValueError:
             raise oefmt(space.w_ValueError, "Cell is empty")
+
+    def descr_set_cell_contents(self, space, w_value):
+        return self.set(w_value)
