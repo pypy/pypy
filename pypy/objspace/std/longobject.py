@@ -308,6 +308,8 @@ class W_LongObject(W_AbstractLongObject):
         try:
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big
+            if self.num.sign == 0:
+                return self
             raise oefmt(space.w_OverflowError, "shift count too large")
         return W_LongObject(self.num.lshift(shift))
 
