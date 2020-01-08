@@ -658,6 +658,7 @@ PyFrame.typedef = TypeDef('frame',
     f_code = GetSetProperty(PyFrame.fget_code),
     f_locals = GetSetProperty(PyFrame.fget_getdictscope),
     f_globals = GetSetProperty(PyFrame.fget_w_globals),
+    __repr__ = interp2app(PyFrame.descr_repr),
 )
 assert not PyFrame.typedef.acceptable_as_base_class  # no __new__
 

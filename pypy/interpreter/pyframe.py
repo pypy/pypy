@@ -951,6 +951,12 @@ class PyFrame(W_Root):
             self.space, operr, self, self.last_instr)
         raise operr
 
+    def descr_repr(self, space):
+        code = self.pycode
+        moreinfo = ", file '%s', line %s, code %s" % (
+            code.co_filename, self.get_last_lineno(), code.co_name)
+        return self.getrepr(space, "frame", moreinfo)
+
 # ____________________________________________________________
 
 def get_block_class(opname):
