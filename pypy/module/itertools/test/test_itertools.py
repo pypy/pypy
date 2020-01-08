@@ -541,6 +541,16 @@ class AppTestItertools(object):
         assert a == []
         assert b == [(True, 9)]
 
+    def test_groupby_crash(self):
+        # see http://bugs.python.org/issue30347
+        from itertools import groupby
+        def f(n):
+            if n == 5:
+                list(b)
+            return n != 6
+        for (k, b) in groupby(range(10), f):
+            list(b)  # shouldn't crash
+
     def test_iterables(self):
         import itertools
 
