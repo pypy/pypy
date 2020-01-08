@@ -918,11 +918,23 @@ class ObjSpace(object):
                         w_obj.getclass(self))
         return w_obj
 
+    def _iter_unpackiterable(self, w_iterable):
+        try:
+            return self.iter(w_iterable)
+        except OperationError as e:
+            if e.got_any_traceback():
+                raise
+            if not e.match(self, self.w_TypeError):
+                raise
+            raise oefmt(self.w_TypeError,
+                    "cannot unpack non-iterable %T object",
+                    w_iterable)
+
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable into a real (interpreter-level) list.
 
         Raise an OperationError(w_ValueError) if the length is wrong."""
-        w_iterator = self.iter(w_iterable)
+        w_iterator = self._iter_unpackiterable(w_iterable)
         if expected_length == -1:
             if self.is_generator(w_iterator):
                 # special hack for speed
@@ -999,7 +1011,7 @@ class ObjSpace(object):
         # Like unpackiterable(), but for the cases where we have
         # an expected_length and want to unroll when JITted.
         # Returns a fixed-size list.
-        w_iterator = self.iter(w_iterable)
+        w_iterator = self._iter_unpackiterable(w_iterable)
         assert expected_length != -1
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
