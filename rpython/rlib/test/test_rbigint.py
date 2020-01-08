@@ -704,6 +704,10 @@ class Test_rbigint(object):
         # Chek value accuracy.
         assert rbigint.fromlong(18446744073709551615L).rshift(1).tolong() == 18446744073709551615L >> 1
 
+    def test_shift_optimization(self):
+        # does not crash with memory error
+        assert rbigint.fromint(0).lshift(sys.maxint).tolong() == 0
+
     def test_qshift(self):
         for x in range(10):
             for y in range(1, 161, 16):

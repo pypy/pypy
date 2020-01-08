@@ -1174,7 +1174,7 @@ class rbigint(object):
     def lshift(self, int_other):
         if int_other < 0:
             raise ValueError("negative shift count")
-        elif int_other == 0:
+        elif int_other == 0 or self.sign == 0:
             return self
 
         # wordshift, remshift = divmod(int_other, SHIFT)
@@ -1183,8 +1183,6 @@ class rbigint(object):
 
         if not remshift:
             # So we can avoid problems with eq, AND avoid the need for normalize.
-            if self.sign == 0:
-                return self
             return rbigint([NULLDIGIT] * wordshift + self._digits, self.sign, self.numdigits() + wordshift)
 
         oldsize = self.numdigits()
