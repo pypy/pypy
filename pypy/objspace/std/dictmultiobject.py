@@ -524,6 +524,10 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    def setitem_str(self, w_dict, key, w_value):
+        w_dict.setitem(self.space.newtext(key), w_value)
+
+
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
     def w_keys(self, w_dict):

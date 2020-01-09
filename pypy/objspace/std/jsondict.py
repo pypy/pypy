@@ -89,6 +89,10 @@ class JsonDictStrategy(DictStrategy):
         self.switch_to_unicode_strategy(w_dict)
         w_dict.setitem(w_key, w_value)
 
+    # for setitem_str use the default implementation
+    # because the jsonmap needs a wrapped key anyway
+
+
     def setdefault(self, w_dict, w_key, w_default):
         if self.is_correct_type(w_key):
             w_result = self.getitem_unicode(w_dict, w_key)
