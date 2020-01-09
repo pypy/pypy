@@ -1,6 +1,6 @@
 #pragma once
 
-typedef long Py_ssize_t;
+typedef long Py_ssize_t;  /* CPython defines it in pyport.h */
 
 #define PyObject_HEAD  \
     Py_ssize_t ob_refcnt;        \
