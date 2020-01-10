@@ -223,6 +223,10 @@ def exception_issubclass_w(space, w_cls1, w_cls2):
         space.type(w_cls2) is space.w_type):
         return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
     #
+    if (not exception_is_valid_class_w(space, w_cls2) or
+        not exception_is_valid_class_w(space, w_cls1)):
+        return False
+    #
     # The rest is the rare slow case.  Use the general logic of issubclass()
     # (issue #3149).  CPython 3.x doesn't do that, but there is a many-years
     # issue report: https://bugs.python.org/issue12029.  In PyPy3 we try to
