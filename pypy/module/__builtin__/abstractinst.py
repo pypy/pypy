@@ -228,9 +228,10 @@ def exception_issubclass_w(space, w_cls1, w_cls2):
         return False
     #
     # The rest is the rare slow case.  Use the general logic of issubclass()
-    # (issue #3149).  CPython 3.x doesn't do that, but there is a many-years
-    # issue report: https://bugs.python.org/issue12029.  In PyPy3 we try to
-    # fix the issue with the same code, as long as no CPython3 test fails.
+    # (issue #3149).  CPython 3.x doesn't do that (but there is a
+    # many-years issue report: https://bugs.python.org/issue12029), and
+    # there are probably tests, so we won't call abstract_issubclass_w()
+    # either in PyPy3.
     return abstract_issubclass_w(space, w_cls1, w_cls2, True)
 
 # ____________________________________________________________
