@@ -38,7 +38,6 @@ if base:
     include_dirs = [os.path.join(base, 'include', name)]
     library_dirs = [os.path.join(base, 'lib')]
     libs = [name, name.replace('ncurses', 'panel')]
-    print('found base', base, name, libs)
 else:
     include_dirs = []
     library_dirs = []
