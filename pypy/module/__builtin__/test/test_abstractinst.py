@@ -239,3 +239,23 @@ class AppTestAbstractInst:
                 return False
 
         assert issubclass(42, M()) is False
+
+    def test_exception_match_calls_subclasscheck(self):
+        class Special(Exception):
+            class __metaclass__(type):
+                def __subclasscheck__(cls1, cls2):
+                    return True
+        try:
+            raise ValueError
+        except Special:
+            pass
+
+    def test_exception_raising_calls_subclasscheck(self):
+        class Special(Exception):
+            class __metaclass__(type):
+                def __subclasscheck__(cls1, cls2):
+                    return True
+        try:
+            raise Special, ValueError()
+        except ValueError:
+            pass

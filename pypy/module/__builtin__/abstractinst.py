@@ -219,13 +219,15 @@ def exception_getclass(space, w_obj):
     return BaseObjSpace.exception_getclass(space, w_obj)
 
 def exception_issubclass_w(space, w_cls1, w_cls2):
-    if isinstance(w_cls1, W_ClassObject):
-        if isinstance(w_cls2, W_ClassObject):
-            return w_cls1.is_subclass_of(w_cls2)
-        return False
-    if isinstance(w_cls2, W_ClassObject):
-        return False
-    return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
+    if (space.type(w_cls1) is space.w_type and
+        space.type(w_cls2) is space.w_type):
+        return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
+    #
+    # The rest is the rare slow case.  Use the general logic of issubclass()
+    # (issue #3149).  CPython 3.x doesn't do that, but there is a many-years
+    # issue report: https://bugs.python.org/issue12029.  In PyPy3 we try to
+    # fix the issue with the same code, as long as no CPython3 test fails.
+    return abstract_issubclass_w(space, w_cls1, w_cls2, True)
 
 # ____________________________________________________________
 # App-level interface
