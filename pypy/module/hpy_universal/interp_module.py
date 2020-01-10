@@ -52,7 +52,10 @@ def attach_legacy_methods(space, hpymethods, w_mod, modname):
             dst.c_ml_meth = rffi.cast(PyCFunction, src.c_ml_meth)
             rffi.setintfield(dst, 'c_ml_flags', widen(src.c_ml_flags) & ~llapi._HPy_METH)
         pymethods[n].c_ml_name = lltype.nullptr(rffi.CONST_CCHARP.TO)
-        convert_method_defs(space, dict_w, pymethods, None, w_mod, modname)
+        #
+        # convert_method_defs expects a PyMethodDef*, not a PyMethodDef[]
+        p_pymethods = rffi.cast(lltype.Ptr(PyMethodDef), pymethods)
+        convert_method_defs(space, dict_w, p_pymethods, None, w_mod, modname)
 
     for key, w_func in dict_w.items():
         space.setattr(w_mod, space.newtext(key), w_func)
