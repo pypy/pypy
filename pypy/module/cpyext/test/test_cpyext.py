@@ -237,6 +237,7 @@ def debug_collect(space):
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
+    @staticmethod
     def setup_class(cls):
         space = cls.space
         cls.w_here = space.wrap(str(HERE))

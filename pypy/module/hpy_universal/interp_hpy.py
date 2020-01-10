@@ -21,6 +21,7 @@ from pypy.module.hpy_universal import (
     interp_bytes,
     interp_dict,
     interp_list,
+    interp_cpy_compat,
     )
 
 
