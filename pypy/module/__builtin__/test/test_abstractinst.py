@@ -249,3 +249,25 @@ class AppTestAbstractInst:
                 return False
 
         assert issubclass(42, M()) is False
+
+    def test_exception_match_does_not_call_subclasscheck(self):
+        class Special(Exception):
+            class __metaclass__(type):
+                def __subclasscheck__(cls1, cls2):
+                    return True
+        try:
+            raise ValueError
+        except ValueError:       # Python 3.x behaviour
+            pass
+
+    def test_exception_raising_does_not_call_subclasscheck(self):
+        # test skipped: unsure how to get a non-normalized exception
+        # from pure Python.
+        class Special(Exception):
+            class __metaclass__(type):
+                def __subclasscheck__(cls1, cls2):
+                    return True
+        try:
+            skip("non-normalized exception") #raise Special, ValueError()
+        except Special:
+            pass

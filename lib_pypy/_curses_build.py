@@ -6,9 +6,7 @@ version_str = '''
     static const int NCURSES_VERSION_MINOR;
 '''
 
-version = (0, 0)
 def find_library(options):
-    global version
     for library in options:
         ffi = FFI()
         ffi.cdef(version_str)
@@ -17,7 +15,6 @@ def find_library(options):
             ffi.compile()
             import _curses_cffi_check
             lib = _curses_cffi_check.lib
-            version = (lib.NCURSES_VERSION_MAJOR, lib.NCURSES_VERSION_MINOR)
         except VerificationError as e:
             e_last = e
             continue
@@ -385,7 +382,7 @@ int panel_hidden(const PANEL *);
 void _m_getsyx(int *yx);
 """)
 
-if version > (5, 7):
+if 'ncursesw' in libs:
     ffi.cdef("""
 typedef int... wint_t;
 int wget_wch(WINDOW *, wint_t *);
