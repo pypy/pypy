@@ -70,12 +70,20 @@ class Spec(object):
 
 
 class ExtensionCompiler:
-    def __init__(self, tmpdir, abimode, include_dir, compiler_verbose=False):
+    def __init__(self, tmpdir, abimode, include_dir, compiler_verbose=False,
+                 cpython_include_dirs=None):
+        """
+        cpython_include_dirs is a list of dirs where to find Python.h. If None,
+        _build will automatically use the include dirs provided by distutils.
+        Alternate Python implementations can use this to #include their own
+        version of Python.h
+        """
         self.tmpdir = tmpdir
         self.abimode = abimode
         self.include_dir = include_dir
         self.universal_mode = self.abimode == 'universal'
         self.compiler_verbose = compiler_verbose
+        self.cpython_include_dirs = cpython_include_dirs
 
     def _expand(self, name, template):
         source = expand_template(template, name)
@@ -103,11 +111,12 @@ class ExtensionCompiler:
         ext = get_extension(str(filename), name,
                             sources=sources,
                             include_dirs=[self.include_dir],
-                            extra_compile_args=['-Wfatal-errors', '-g', '-Og'],
+                            extra_compile_args=['-Wfatal-errors', '-g', '-O0'],
                             extra_link_args=['-g'])
         so_filename = c_compile(str(self.tmpdir), ext,
                                 compiler_verbose=self.compiler_verbose,
-                                universal_mode=self.universal_mode)
+                                universal_mode=self.universal_mode,
+                                cpython_include_dirs=self.cpython_include_dirs)
         return so_filename
 
     def make_module(self, main_template, name, extra_templates):
@@ -151,6 +160,10 @@ class HPyTest:
     def make_module(self, source_template, name='mytest', extra_templates=()):
         return self.compiler.make_module(source_template, name, extra_templates)
 
+    def should_check_refcount(self):
+        # defaults to True on CPython, but is set to False by e.g. PyPy
+        return True
+
 
 # the few functions below are copied and adapted from cffi/ffiplatform.py
 
@@ -162,13 +175,12 @@ def get_extension(srcfilename, modname, sources=(), **kwds):
     return Extension(name=modname, sources=allsources, **kwds)
 
 def c_compile(tmpdir, ext, compiler_verbose=0, debug=None,
-              universal_mode=False):
+              universal_mode=False, cpython_include_dirs=None):
     """Compile a C extension module using distutils."""
-
     saved_environ = os.environ.copy()
     try:
         outputfilename = _build(tmpdir, ext, compiler_verbose, debug,
-                                universal_mode)
+                                universal_mode, cpython_include_dirs)
         outputfilename = os.path.abspath(outputfilename)
     finally:
         # workaround for a distutils bugs where some env vars can
@@ -178,7 +190,8 @@ def c_compile(tmpdir, ext, compiler_verbose=0, debug=None,
                 os.environ[key] = value
     return outputfilename
 
-def _build(tmpdir, ext, compiler_verbose=0, debug=None, universal_mode=False):
+def _build(tmpdir, ext, compiler_verbose=0, debug=None, universal_mode=False,
+           cpython_include_dirs=None):
     # XXX compact but horrible :-(
     from distutils.core import Distribution
     import distutils.errors, distutils.log
@@ -199,7 +212,9 @@ def _build(tmpdir, ext, compiler_verbose=0, debug=None, universal_mode=False):
         if universal_mode:
             cmd_obj = dist.get_command_obj('build_ext')
             cmd_obj.finalize_options()
-            soname = _build_universal(tmpdir, ext, cmd_obj.include_dirs)
+            if cpython_include_dirs is None:
+                cpython_include_dirs = cmd_obj.include_dirs
+            soname = _build_universal(tmpdir, ext, cpython_include_dirs)
         else:
             dist.run_command('build_ext')
             cmd_obj = dist.get_command_obj('build_ext')

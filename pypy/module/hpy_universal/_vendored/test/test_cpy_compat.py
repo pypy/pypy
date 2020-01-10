@@ -10,11 +10,11 @@ class TestCPythonCompatibility(HPyTest):
             static HPy f_impl(HPyContext ctx, HPy self)
             {
                 PyObject *o = PyList_New(0);
-
                 Py_ssize_t initial_refcount = o->ob_refcnt;
                 HPy h = HPy_FromPyObject(ctx, o);
                 Py_ssize_t final_refcount = o->ob_refcnt;
 
+                PyList_Append(o, PyLong_FromLong(1234));
                 PyList_Append(o, PyLong_FromSsize_t(final_refcount -
                                                     initial_refcount));
                 Py_DECREF(o);
@@ -24,7 +24,10 @@ class TestCPythonCompatibility(HPyTest):
             @INIT
         """)
         x = mod.f()
-        assert x == [+1]
+        assert x[0] == 1234
+        assert len(x) == 2
+        if self.should_check_refcount():
+            assert x == [1234, +1]
 
     def test_hpy_close(self):
         mod = self.make_module("""
