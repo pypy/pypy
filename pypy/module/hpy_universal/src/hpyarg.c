@@ -1,10 +1,10 @@
 #include "universal/hpy.h"
-#include "getargs.h"
+#include "hpyarg.h"
 
 /* XXX: this function is copied&pasted THREE times:
  *     hpy_devel/include/hpy.h
  *     cpython-universal/api.c
- *     pypy/module/hpy_universal/src/getargs.c
+ *     pypy/module/hpy_universal/src/hpyarg.c
  *
  * We need a way to share this kind of common code
  */

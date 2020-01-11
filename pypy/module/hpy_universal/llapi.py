@@ -11,14 +11,14 @@ SRC_DIR = PYPYDIR.join('module', 'hpy_universal', 'src')
 
 
 eci = ExternalCompilationInfo(
-    includes=["universal/hpy.h", "getargs.h"],
+    includes=["universal/hpy.h", "hpyarg.h"],
     include_dirs=[
         cdir,        # for precommondefs.h
         INCLUDE_DIR, # for universal/hpy.h
-        SRC_DIR,     # for getargs.h
+        SRC_DIR,     # for hpyarg.h
     ],
     separate_module_files=[
-        SRC_DIR.join('getargs.c'),
+        SRC_DIR.join('hpyarg.c'),
     ],
     post_include_bits=["""
         RPY_EXTERN void *_HPy_GetGlobalCtx(void);
