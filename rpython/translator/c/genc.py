@@ -218,6 +218,10 @@ class CBuilder(object):
             fn = py.path.local(fn)
             if not fn.relto(udir):
                 newname = self.targetdir.join(fn.basename)
+                if newname.check(exists=True):
+                    raise ValueError(
+                        "Cannot have two different separate_module_sources "
+                        "with the same basename, please rename one: %s" % fn.basename)
                 fn.copy(newname)
                 fn = newname
             extrafiles.append(fn)
