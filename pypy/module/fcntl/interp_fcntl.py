@@ -81,8 +81,14 @@ def _raise_error_maybe(space, funcname):
     # wrap_oserror(..., eintr_retry=True) raises an OSError or returns None
     # when appropriate
     errno = rposix.get_saved_errno()
-    return wrap_oserror(space, OSError(errno, funcname),
-                        exception_name = 'w_IOError', eintr_retry=True)
+    wrap_oserror(space, OSError(errno, funcname),
+                 exception_name = 'w_IOError', eintr_retry=True)
+
+def _raise_error_always(space, funcname):
+    # this variant never returns normally, and doesn't retry if it gets EINTR.
+    errno = rposix.get_saved_errno()
+    raise wrap_oserror(space, OSError(errno, funcname),
+                       exception_name = 'w_IOError', eintr_retry=False)
 
 @unwrap_spec(op=int, w_arg=WrappedDefault(0))
 def fcntl(space, w_fd, op, w_arg):
@@ -231,7 +237,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
                               rffi.cast(rffi.VOIDP, ll_arg), len(arg))
                 rv = ioctl_str(fd, op, buf.raw)
                 if rv < 0:
-                    _raise_error_maybe(space, "ioctl")
+                    _raise_error_always(space, "ioctl")
                 arg = rffi.charpsize2str(buf.raw, len(arg))
                 if mutate_flag != 0:
                     rwbuffer.setslice(0, arg)
@@ -259,7 +265,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
                               rffi.cast(rffi.VOIDP, ll_arg), len(arg))
                 rv = ioctl_str(fd, op, buf.raw)
                 if rv < 0:
-                    _raise_error_maybe(space, "ioctl")
+                    _raise_error_always(space, "ioctl")
                 arg = rffi.charpsize2str(buf.raw, len(arg))
             return space.newbytes(arg)
         finally:
@@ -269,5 +275,5 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     intarg = rffi.cast(rffi.INT, intarg)   # C long => C int
     rv = ioctl_int(fd, op, intarg)
     if rv < 0:
-        _raise_error_maybe(space, "ioctl")
+        _raise_error_always(space, "ioctl")
     return space.newint(rv)
