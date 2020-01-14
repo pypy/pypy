@@ -88,8 +88,7 @@ def test_cursor_iter(con):
     with pytest.raises(StopIteration):
         next(cur)
 
-    with pytest.raises(_sqlite3.ProgrammingError):
-        cur.executemany('select 1', [])
+    cur.executemany('select 1', [])
     with pytest.raises(StopIteration):
         next(cur)
 
@@ -201,8 +200,8 @@ def test_statement_param_checking(con):
 
 def test_explicit_begin(con):
     con.execute('BEGIN')
-    con.execute('BEGIN ')
-    con.execute('BEGIN')
+    with pytest.raises(_sqlite3.OperationalError):
+        con.execute('BEGIN ')
     con.commit()
     con.execute('BEGIN')
     con.commit()
@@ -212,7 +211,6 @@ def test_row_factory_use(con):
     con.execute('select 1')
 
 def test_returning_blob_must_own_memory(con):
-    import gc
     con.create_function("returnblob", 0, lambda: memoryview(b"blob"))
     cur = con.execute("select returnblob()")
     val = cur.fetchone()[0]
@@ -228,15 +226,15 @@ def test_executemany_lastrowid(con):
     cur = con.cursor()
     cur.execute("create table test(a)")
     cur.executemany("insert into test values (?)", [[1], [2], [3]])
-    assert cur.lastrowid is None
+    assert cur.lastrowid == 0
     # issue 2682
     cur.execute('''insert
                 into test
                 values (?)
                 ''', (1, ))
-    assert cur.lastrowid is not None
+    assert cur.lastrowid
     cur.execute('''insert\t into test values (?) ''', (1, ))
-    assert cur.lastrowid is not None
+    assert cur.lastrowid
 
 def test_authorizer_bad_value(con):
     def authorizer_cb(action, arg1, arg2, dbname, source):
@@ -312,3 +310,24 @@ def test_close_in_del_ordering():
     gc.collect()
     gc.collect()
     assert SQLiteBackend.success
+
+def test_locked_table(con):
+    con.execute("CREATE TABLE foo(x)")
+    con.execute("INSERT INTO foo(x) VALUES (?)", [42])
+    cur = con.execute("SELECT * FROM foo")  # foo() is locked while cur is active
+    with pytest.raises(_sqlite3.OperationalError):
+        con.execute("DROP TABLE foo")
+
+def test_cursor_close(con):
+    con.execute("CREATE TABLE foo(x)")
+    con.execute("INSERT INTO foo(x) VALUES (?)", [42])
+    cur = con.execute("SELECT * FROM foo")
+    cur.close()
+    con.execute("DROP TABLE foo")  # no error
+
+def test_cursor_del(con):
+    con.execute("CREATE TABLE foo(x)")
+    con.execute("INSERT INTO foo(x) VALUES (?)", [42])
+    con.execute("SELECT * FROM foo")
+    import gc; gc.collect()
+    con.execute("DROP TABLE foo")  # no error
