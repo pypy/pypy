@@ -2,13 +2,14 @@
 all: pypy-c cffi_imports
 
 PYPY_EXECUTABLE := $(shell which pypy)
-URAM := $(shell python -c "import sys; print 4.5 if sys.maxint>1<<32 else 2.5")
 
 ifeq ($(PYPY_EXECUTABLE),)
 RUNINTERP = python
 else
 RUNINTERP = $(PYPY_EXECUTABLE)
 endif
+
+URAM := $(shell $(RUNINTERP) -c "import sys; print 4.5 if sys.maxint>1<<32 else 2.5")
 
 .PHONY: pypy-c cffi_imports
 
