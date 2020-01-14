@@ -325,7 +325,10 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ValueError, "negative shift count")
         try:
             shift = w_other.asbigint().toint()
-        except OverflowError:   # b too big # XXX maybe just return 0L instead?
+        except OverflowError:
+            if self.num.sign < 0:
+                return space.newint(-1)
+            return space.newint(0)
             raise oefmt(space.w_OverflowError, "shift count too large")
         return newlong(space, self.num.rshift(shift))
 
