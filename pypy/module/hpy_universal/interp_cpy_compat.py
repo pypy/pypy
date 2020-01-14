@@ -71,7 +71,6 @@ class W_CPyStaticData(W_Root):
     @rgc.must_be_light_finalizer
     def __del__(self):
         lltype.free(self.pymethods, flavor='raw')
-        self.pymethods = None
 
     def repr(self):
         return self.space.newtext("<CpyStaticData>")
