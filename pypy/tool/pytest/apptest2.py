@@ -46,6 +46,7 @@ class AppTestModule(pytest.Module):
             if not isinstance(w_obj, pypy.interpreter.function.Function):
                 continue
             items.append(AppTestFunction(name, self, w_obj))
+        items.sort(key=lambda item: item.reportinfo()[:2])
         return items
 
     def setup(self):

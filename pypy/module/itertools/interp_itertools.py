@@ -1068,7 +1068,8 @@ class W_GroupByIterator(W_Root):
                 w_newkey = w_newvalue
             else:
                 w_newkey = space.call_function(groupby.w_keyfunc, w_newvalue)
-            assert groupby.w_currvalue is None
+            #assert groupby.w_currvalue is None
+            # ^^^ check disabled, see http://bugs.python.org/issue30347
             groupby.w_currkey = w_newkey
             groupby.w_currvalue = w_newvalue
 

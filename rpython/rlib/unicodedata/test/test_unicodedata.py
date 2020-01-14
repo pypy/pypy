@@ -6,7 +6,7 @@ import py
 
 from rpython.rlib.unicodedata import (
     unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0,
-    unicodedb_8_0_0)
+    unicodedb_8_0_0, unicodedb_11_0_0)
 
 
 class TestUnicodeData(object):
@@ -160,3 +160,7 @@ class TestUnicodeData800(object):
         # returns the argument itself, and not None, in rare cases
         # where tolower_full() would return something different
         assert unicodedb_8_0_0.casefold_lookup(0x13A0) == [0x13A0]
+
+class TestUnicodeData1100(object):
+    def test_changed_in_version_11(self):
+        unicodedb_11_0_0.name(0x1f970) == 'SMILING FACE WITH SMILING EYES AND THREE HEARTS'
