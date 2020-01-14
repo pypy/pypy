@@ -598,8 +598,6 @@ class ASTBuilder(object):
         kwdefaults = []
         kwarg = None
         vararg = None
-        if n_pos + n_kwdonly > 255:
-            self.error("more than 255 arguments", arguments_node)
         # process args
         i = 0
         have_default = False

@@ -1276,6 +1276,19 @@ class TestCompiler(BaseTestCompiler):
             x = [y for (x, y) in dis.findlinestarts(co)]
         """, 'x', [4]
 
+    def test_many_args(self):
+        args = ["a%i" % i for i in range(300)]
+        argdef = ", ".join(args)
+        res = "+".join(args)
+        callargs = ", ".join(str(i) for i in range(300))
+
+        source = """def f(%s):
+            return %s
+x = f(*(%s))
+        """ % (argdef, res, callargs)
+
+        yield self.simple_test, source, 'x', sum(range(300))
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
