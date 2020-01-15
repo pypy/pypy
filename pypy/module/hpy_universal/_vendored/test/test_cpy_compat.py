@@ -54,6 +54,28 @@ class TestCPythonCompatibility(HPyTest):
         """)
         assert mod.f(21) == 42
 
+    def test_aspyobject_custom_class(self):
+        mod = self.make_module("""
+            #include <Python.h>
+            HPy_DEF_METH_O(f)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                PyObject *o = HPy_AsPyObject(ctx, arg);
+                PyObject *o_res = PyObject_CallMethod(o, "foo", "");
+                HPy h_res = HPy_FromPyObject(ctx, o_res);
+                Py_DecRef(o);
+                Py_DecRef(o_res);
+                return h_res;
+            }
+            @EXPORT f HPy_METH_O
+            @INIT
+        """)
+        class MyClass:
+            def foo(self):
+                return 1234
+        obj = MyClass()
+        assert mod.f(obj) == 1234
+
     def test_hpy_close(self):
         mod = self.make_module("""
             #include <Python.h>
@@ -102,7 +124,7 @@ class TestCPythonCompatibility(HPyTest):
         """)
         x = mod.f()
         if self.should_check_refcount():
-            assert res == +1
+            assert x == +1
 
     def test_many_handles(self):
         mod = self.make_module("""
