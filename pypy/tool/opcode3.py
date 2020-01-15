@@ -39,6 +39,7 @@ for op in range(256): opname[op] = '<%r>' % (op,)
 del op
 
 def def_op(name, op):
+    assert op not in opname
     opname[op] = name
     opmap[name] = op
 
@@ -220,7 +221,7 @@ def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
 def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
-def_op('CALL_METHOD_KW', 203)         # XXX 
+def_op('CALL_METHOD_KW', 204)
 
 name_op('LOAD_METHOD', 160)
 def_op('CALL_METHOD', 161)

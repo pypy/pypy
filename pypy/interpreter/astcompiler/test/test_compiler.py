@@ -1699,7 +1699,7 @@ class TestOptimizations:
 
         source = """def f(): x.m(a, b, c, y=1)"""
         counts = self.count_instructions(source)
-        assert counts[ops.CALL_METHOD] == 1
+        assert counts[ops.CALL_METHOD_KW] == 1
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):

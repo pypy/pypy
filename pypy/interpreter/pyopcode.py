@@ -277,6 +277,8 @@ class __extend__(pyframe.PyFrame):
                 self.CALL_FUNCTION_EX(oparg, next_instr)
             elif opcode == opcodedesc.CALL_METHOD.index:
                 self.CALL_METHOD(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_METHOD_KW.index:
+                self.CALL_METHOD_KW(oparg, next_instr)
             elif opcode == opcodedesc.COMPARE_OP.index:
                 self.COMPARE_OP(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_ATTR.index:
@@ -1457,6 +1459,7 @@ class __extend__(pyframe.PyFrame):
     # overridden by faster version in the standard object space.
     LOOKUP_METHOD = LOAD_ATTR
     CALL_METHOD = CALL_FUNCTION
+    CALL_METHOD_KW = CALL_FUNCTION_KW
 
     def MISSING_OPCODE(self, oparg, next_instr):
         ofs = self.last_instr

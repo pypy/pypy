@@ -797,6 +797,9 @@ def _compute_CALL_FUNCTION_EX(arg):
 def _compute_CALL_METHOD(arg):
     return -arg - 1
 
+def _compute_CALL_METHOD_KW(arg):
+    return -arg - 2
+
 def _compute_FORMAT_VALUE(arg):
     if (arg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
         return -1

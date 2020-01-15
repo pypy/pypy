@@ -1450,7 +1450,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # Repeat procedure for keyword args
         nkw = 0
         keyword_names_w = []
-        if keywords is None:
+        if keywords is None or len(keywords) == 0:
             if not nsubargs:
                 # no *args, no keyword args, no **kwargs
                 self.emit_op_arg(ops.CALL_FUNCTION, nargs_pushed)
@@ -1523,20 +1523,27 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         return self._call_has_no_star_args(call) and not call.keywords
 
     def _optimize_method_call(self, call):
+        space = self.space
         if not self._call_has_no_star_args(call) or \
            not isinstance(call.func, ast.Attribute):
             return False
-        if call.keywords:
-            return False # XXX
         attr_lookup = call.func
         assert isinstance(attr_lookup, ast.Attribute)
         attr_lookup.value.walkabout(self)
         self.emit_op_name(ops.LOOKUP_METHOD, self.names, attr_lookup.attr)
         self.visit_sequence(call.args)
         arg_count = len(call.args) if call.args is not None else 0
-        self.visit_sequence(call.keywords)
-        kwarg_count = len(call.keywords) if call.keywords is not None else 0
-        self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
+        if not call.keywords:
+            self.emit_op_arg(ops.CALL_METHOD, arg_count)
+        else:
+            keyword_names_w = []
+            for kw in call.keywords:
+                assert kw.arg  # checked by self._call_has_no_star_args
+                w_name = space.newtext(kw.arg)
+                keyword_names_w.append(misc.intern_if_common_string(space, w_name))
+                kw.value.walkabout(self)
+            self._load_constant_tuple(keyword_names_w)
+            self.emit_op_arg(ops.CALL_METHOD_KW, len(keyword_names_w) + arg_count)
         return True
 
     def visit_ListComp(self, lc):
