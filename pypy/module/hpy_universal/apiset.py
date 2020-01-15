@@ -56,6 +56,7 @@ class APISet(object):
                 @llhelper_can_raise
                 def wrapper(*args):
                     return fn(space, *args)
+                wrapper.__name__ = 'ctx_%s' % fn.__name__
                 return wrapper
             def get_llhelper(space):
                 return llhelper(ll_functype, make_wrapper(space))
