@@ -1489,23 +1489,22 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_set)
 
     @jit.unroll_safe
-    def list_unpack_helper(frame, itemcount):
-        space = frame.space
-        w_sum = space.newlist([], sizehint=itemcount)
-        for i in range(itemcount, 0, -1):
-            w_item = frame.peekvalue(i-1)
-            w_sum.extend(w_item)
-        frame.popvalues(itemcount)
-        return w_sum
+    def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
+        l = []
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
+            l.extend(self.space.fixedview(w_item))
+        self.popvalues(itemcount)
+        self.pushvalue(self.space.newtuple(l[:]))
 
     @jit.unroll_safe
-    def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        w_list = self.list_unpack_helper(itemcount)
-        items = [w_obj for w_obj in w_list.getitems_unroll()]
-        self.pushvalue(self.space.newtuple(items))
-
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
-        w_sum = self.list_unpack_helper(itemcount)
+        space = self.space
+        w_sum = space.newlist([], sizehint=itemcount)
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
+            w_sum.extend(w_item)
+        self.popvalues(itemcount)
         self.pushvalue(w_sum)
 
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
