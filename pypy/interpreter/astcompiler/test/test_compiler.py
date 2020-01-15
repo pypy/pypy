@@ -264,6 +264,57 @@ class TestCompiler(BaseTestCompiler):
         yield self.st, decl + "x=f(5, b=2, **{'a': 8})", "x", [5, ('a', 8),
                                                                   ('b', 2)]
 
+    def test_funccalls_all_combinations(self):
+        decl = """
+def f(*args, **kwds):
+    kwds = sorted(kwds.items())
+    return list(args) + kwds
+
+class A:
+    def f(self, *args, **kwds):
+        kwds = sorted(kwds.items())
+        return ["meth"] + list(args) + kwds
+a = A()
+"""
+        allres = []
+        allcalls = []
+        for meth in [False, True]:
+            for starstarargs in [
+                    [],
+                    [[('x', 1), ('y', 12)]],
+                    [[('w1', 1), ('w2', 12)], [('x1', 1), ('x2', -12)], [('y1', 10), ('y2', 123)]]
+                    ]:
+                for starargs in [[], [(2, 3)], [(2, 3), (4, 19), (23, 54, 123)]]:
+                    for kwargs in [[], [('m', 1)], [('n', 1), ('o', 2), ('p', 3)]]:
+                        for args in [(), (1, ), (1, 4, 5)]:
+                            if not meth:
+                                call = "f("
+                                res = []
+                            else:
+                                call = "a.f("
+                                res = ["meth"]
+                            if args:
+                                call += ", ".join(str(arg) for arg in args) + ","
+                                res.extend(args)
+                            if starargs:
+                                for stararg in starargs:
+                                    call += "*" + str(stararg) + ","
+                                    res.extend(stararg)
+                            if kwargs:
+                                call += ", ".join("%s=%s" % (kw, arg) for (kw, arg) in kwargs) + ", "
+                                res.extend(kwargs)
+                            if starstarargs:
+                                for starstar in starstarargs:
+                                    call += "**dict(%s)" % starstar + ","
+                                res.extend(sum(starstarargs, []))
+                            call += ")"
+                            allcalls.append(call)
+                            allres.append(res)
+                            print call
+                            print res
+        self.st(decl + "x=[" + "\n,".join(allcalls) + "]", "x", allres)
+
+
     def test_kwonly(self):
         decl = py.code.Source("""
             def f(a, *, b):
@@ -1624,6 +1675,31 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts[ops.BUILD_TUPLE] == 1
 
+    def test_call_bytecodes(self):
+        # check that the expected bytecodes are generated
+        source = """def f(): x(a, b, c)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_FUNCTION] == 1
+
+        source = """def f(): x(a, b, c, x=1, y=2)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_FUNCTION_KW] == 1
+
+        source = """def f(): x(a, b, c, *(1, 2), x=1, y=2)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_FUNCTION_EX] == 1
+
+        source = """def f(): x(a, b, c, **kwargs)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_FUNCTION_EX] == 1
+
+        source = """def f(): x.m(a, b, c)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_METHOD] == 1
+
+        source = """def f(): x.m(a, b, c, y=1)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_METHOD] == 1
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):

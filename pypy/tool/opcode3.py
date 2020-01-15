@@ -173,7 +173,7 @@ def_op('DELETE_FAST', 126)      # Local variable number
 haslocal.append(126)
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
-def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
+def_op('CALL_FUNCTION', 131)    # #args
 hasnargs.append(131)
 def_op('MAKE_FUNCTION', 132)    # Number of args with default values
 def_op('BUILD_SLICE', 133)      # Number of items
@@ -187,12 +187,9 @@ hasfree.append(137)
 def_op('DELETE_DEREF', 138)
 hasfree.append(138)
 
-def_op('CALL_FUNCTION_VAR', 140)     # #args + (#kwargs << 8)
-hasnargs.append(140)
-def_op('CALL_FUNCTION_KW', 141)      # #args + (#kwargs << 8)
+def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
 hasnargs.append(141)
-def_op('CALL_FUNCTION_VAR_KW', 142)  # #args + (#kwargs << 8)
-hasnargs.append(142)
+def_op('CALL_FUNCTION_EX', 142)  # Flags
 
 jrel_op('SETUP_WITH', 143)
 
@@ -223,6 +220,7 @@ def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
 def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
+def_op('CALL_METHOD_KW', 203)         # XXX 
 
 name_op('LOAD_METHOD', 160)
 def_op('CALL_METHOD', 161)

@@ -273,10 +273,8 @@ class __extend__(pyframe.PyFrame):
                 self.CALL_FUNCTION(oparg, next_instr)
             elif opcode == opcodedesc.CALL_FUNCTION_KW.index:
                 self.CALL_FUNCTION_KW(oparg, next_instr)
-            elif opcode == opcodedesc.CALL_FUNCTION_VAR.index:
-                self.CALL_FUNCTION_VAR(oparg, next_instr)
-            elif opcode == opcodedesc.CALL_FUNCTION_VAR_KW.index:
-                self.CALL_FUNCTION_VAR_KW(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_FUNCTION_EX.index:
+                self.CALL_FUNCTION_EX(oparg, next_instr)
             elif opcode == opcodedesc.CALL_METHOD.index:
                 self.CALL_METHOD(oparg, next_instr)
             elif opcode == opcodedesc.COMPARE_OP.index:
@@ -1339,31 +1337,54 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def CALL_FUNCTION(self, oparg, next_instr):
-        # XXX start of hack for performance
-        if (oparg >> 8) & 0xff == 0:
-            # Only positional arguments
-            nargs = oparg & 0xff
-            w_function = self.peekvalue(nargs)
-            try:
-                w_result = self.space.call_valuestack(w_function, nargs, self)
-            finally:
-                self.dropvalues(nargs + 1)
-            self.pushvalue(w_result)
-        # XXX end of hack for performance
+        # Only positional arguments
+        nargs = oparg & 0xff
+        w_function = self.peekvalue(nargs)
+        try:
+            w_result = self.space.call_valuestack(w_function, nargs, self)
+        finally:
+            self.dropvalues(nargs + 1)
+        self.pushvalue(w_result)
+
+    @jit.unroll_safe
+    def CALL_FUNCTION_KW(self, n_arguments, next_instr):
+        w_tup_varnames = self.popvalue()
+        keywords_w = self.space.fixedview(w_tup_varnames)
+        n_keywords = len(keywords_w)
+        n_arguments -= n_keywords
+        keywords = [self.space.text_w(w_keyword) for w_keyword in keywords_w]
+        keywords_w = [None] * n_keywords
+        while True:
+            n_keywords -= 1
+            if n_keywords < 0:
+                break
+            w_value = self.popvalue()
+            keywords_w[n_keywords] = w_value
+        arguments = self.popvalues(n_arguments)
+        w_function  = self.popvalue()
+        args = self.argument_factory(arguments, keywords, keywords_w, None, None,
+                                     w_function=w_function)
+        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
+            w_result = self.space.call_args_and_c_profile(self, w_function,
+                                                          args)
         else:
-            # general case
-            self.call_function(oparg)
+            w_result = self.space.call_args(w_function, args)
+        self.pushvalue(w_result)
 
-    def CALL_FUNCTION_VAR(self, oparg, next_instr):
-        self.call_function(oparg, has_vararg=True)
-
-    def CALL_FUNCTION_KW(self, oparg, next_instr):
-        w_varkw = self.popvalue()
-        self.call_function(oparg, w_varkw)
-
-    def CALL_FUNCTION_VAR_KW(self, oparg, next_instr):
-        w_varkw = self.popvalue()
-        self.call_function(oparg, w_varkw, has_vararg=True)
+    def CALL_FUNCTION_EX(self, has_kwarg, next_instr):
+        w_kwargs = None
+        if has_kwarg:
+            w_kwargs = self.popvalue()
+        w_args = self.popvalue()
+        w_function = self.popvalue()
+        args = self.argument_factory(
+            [], None, None, w_star=w_args, w_starstar=w_kwargs, w_function=w_function)
+        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
+            w_result = self.space.call_args_and_c_profile(self, w_function,
+                                                          args)
+        else:
+            w_result = self.space.call_args(w_function, args)
+        self.pushvalue(w_result)
 
     @jit.unroll_safe
     def MAKE_FUNCTION(self, oparg, next_instr):
@@ -1511,7 +1532,7 @@ class __extend__(pyframe.PyFrame):
         self._build_map_unpack(itemcount, with_call=False)
 
     def BUILD_MAP_UNPACK_WITH_CALL(self, oparg, next_instr):
-        num_maps = oparg & 0xff
+        num_maps = oparg # XXX CPython generates better error messages
         self._build_map_unpack(num_maps, with_call=True)
 
     @jit.unroll_safe

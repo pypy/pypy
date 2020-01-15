@@ -783,23 +783,19 @@ def _compute_BUILD_SLICE(arg):
 def _compute_RAISE_VARARGS(arg):
     return -arg
 
-def _num_args(oparg):
-    return (oparg % 256) + 2 * ((oparg // 256) % 256)
-
 def _compute_CALL_FUNCTION(arg):
-    return -_num_args(arg)
-
-def _compute_CALL_FUNCTION_VAR(arg):
-    return -_num_args(arg) - 1
+    return -arg
 
 def _compute_CALL_FUNCTION_KW(arg):
-    return -_num_args(arg) - 1
+    return -arg - 1
 
-def _compute_CALL_FUNCTION_VAR_KW(arg):
-    return -_num_args(arg) - 2
+def _compute_CALL_FUNCTION_EX(arg):
+    assert arg == 0 or arg == 1
+    # either -1 or -2
+    return -arg - 1
 
 def _compute_CALL_METHOD(arg):
-    return -_num_args(arg) - 1
+    return -arg - 1
 
 def _compute_FORMAT_VALUE(arg):
     if (arg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:

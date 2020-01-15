@@ -1412,99 +1412,99 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.newtext(keyword.arg))
         keyword.value.walkabout(self)
 
-    def _make_call(self, n, # args already pushed
-                   args, keywords):
-        call_type = 0
+    def _load_constant_tuple(self, content_w):
+        self.load_const(self.space.newtuple(content_w[:]))
+
+    def _make_call(self, nargs_pushed, args, keywords):
+        space = self.space
         # the number of tuples and dictionaries on the stack
         nsubargs = 0
         nsubkwargs = 0
-        nkw = 0
-        nseen = 0 # the number of positional arguments on the stack
         if args is not None:
             for elt in args:
                 if isinstance(elt, ast.Starred):
                     # A star-arg. If we've seen positional arguments,
                     # pack the positional arguments into a tuple.
-                    if nseen:
-                        self.emit_op_arg(ops.BUILD_TUPLE, nseen)
-                        nseen = 0
+                    if nargs_pushed:
+                        self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
                         nsubargs += 1
+                        nargs_pushed = 0
                     elt.value.walkabout(self)
                     nsubargs += 1
-                elif nsubargs:
-                    # We've seen star-args already, so we
-                    # count towards items-to-pack-into-tuple.
-                    elt.walkabout(self)
-                    nseen += 1
                 else:
-                    # Positional arguments before star-arguments
-                    # are left on the stack.
                     elt.walkabout(self)
-                    n += 1
-            if nseen:
-                # Pack up any trailing positional arguments.
-                self.emit_op_arg(ops.BUILD_TUPLE, nseen)
-                nsubargs += 1
+                    nargs_pushed += 1
             if nsubargs:
-                call_type |= 1
+                if nargs_pushed:
+                    # Pack up any trailing positional arguments.
+                    self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
+                    nargs_pushed = 0
+                    nsubargs += 1
                 if nsubargs > 1:
                     # If we ended up with more than one stararg, we need
                     # to concatenate them into a single sequence.
-                    self.emit_op_arg(ops.BUILD_LIST_UNPACK, nsubargs)
+                    # XXX CPython uses BUILD_TUPLE_UNPACK_WITH_CALL, but I
+                    # don't quite see the difference?
+                    self.emit_op_arg(ops.BUILD_TUPLE_UNPACK, nsubargs)
 
         # Repeat procedure for keyword args
-        nseen = 0 # the number of keyword arguments on the stack following
-        if keywords is not None:
+        nkw = 0
+        keyword_names_w = []
+        if keywords is None:
+            if not nsubargs:
+                # no *args, no keyword args, no **kwargs
+                self.emit_op_arg(ops.CALL_FUNCTION, nargs_pushed)
+                return
+        else:
+            if not nsubargs:
+                # we might get away with using CALL_FUNCTION_KW if there are no **kwargs
+                for kw in keywords:
+                    if kw.arg is None:
+                        # we're using CALL_FUNCTION_EX, pack up positional arguments first
+                        self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)  # XXX use LOAD_CONST for empty tuple?
+                        nsubargs = 1
+                        break
             for kw in keywords:
                 assert isinstance(kw, ast.keyword)
                 if kw.arg is None:
-                    # A keyword argument unpacking.
-                    if nseen:
-                        self.emit_op_arg(ops.BUILD_MAP, nseen)
-                        nseen = 0
+                    if keyword_names_w:
+                        # pack up keywords on the stack so far
+                        self._load_constant_tuple(keyword_names_w)
+                        # XXX use BUILD_MAP for size 1?
+                        self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(keyword_names_w))
+                        keyword_names_w = []
                         nsubkwargs += 1
                     kw.value.walkabout(self)
                     nsubkwargs += 1
-                elif nsubkwargs:
-                    # A keyword argument and we already have a dict.
-                    self.load_const(self.space.newtext(kw.arg))
-                    kw.value.walkabout(self)
-                    nseen += 1
                 else:
-                    # keyword argument
-                    kw.walkabout(self)
+                    w_name = space.newtext(kw.arg)
+                    keyword_names_w.append(misc.intern_if_common_string(space, w_name))
+                    kw.value.walkabout(self)
                     nkw += 1
-            if nseen:
-                # Pack up any trailing keyword arguments.
-                self.emit_op_arg(ops.BUILD_MAP,nseen)
-                nsubkwargs += 1
-            if nsubkwargs:
-                call_type |= 2
-                if nsubkwargs > 1:
-                    # Pack it all up
-                    function_pos = n + (call_type & 1) + nkw + 1
-                    self.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, (nsubkwargs | (function_pos << 8)))
+        if nsubkwargs == 0 and nsubargs == 0:
+            # can use CALL_FUNCTION_KW
+            assert len(keyword_names_w) > 0 # otherwise we would have used CALL_FUNCTION
+            self._load_constant_tuple(keyword_names_w)
+            self.emit_op_arg(ops.CALL_FUNCTION_KW, nargs_pushed + nkw)
+            return
 
-        assert n < 1<<8
-        assert nkw < 1<<24
-        n |= nkw << 8;
-
-        op = 0
-        if call_type == 0:
-            op = ops.CALL_FUNCTION
-        elif call_type == 1:
-            op = ops.CALL_FUNCTION_VAR
-        elif call_type == 2:
-            op = ops.CALL_FUNCTION_KW
-        elif call_type == 3:
-            op = ops.CALL_FUNCTION_VAR_KW
-        self.emit_op_arg(op, n)
+        if keyword_names_w:
+            # Pack up any trailing keyword arguments.
+            self._load_constant_tuple(keyword_names_w)
+            self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(keyword_names_w))
+            nsubkwargs += 1
+        if nsubkwargs > 1:
+            # Pack it all up
+            self.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, nsubkwargs)
+        self.emit_op_arg(ops.CALL_FUNCTION_EX, int(nsubkwargs > 0))
 
     def visit_Call(self, call):
         self.update_position(call.lineno)
         if self._optimize_method_call(call):
             return
         call.func.walkabout(self)
+        #if getattr(call.func, "id", None) == "f":
+        #    import pdb; pdb.set_trace()
         self._make_call(0, call.args, call.keywords)
 
     def _call_has_no_star_args(self, call):
@@ -1526,6 +1526,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if not self._call_has_no_star_args(call) or \
            not isinstance(call.func, ast.Attribute):
             return False
+        if call.keywords:
+            return False # XXX
         attr_lookup = call.func
         assert isinstance(attr_lookup, ast.Attribute)
         attr_lookup.value.walkabout(self)

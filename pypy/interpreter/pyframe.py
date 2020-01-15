@@ -504,6 +504,7 @@ class PyFrame(W_Root):
         """ Returns 'funcname()' from either a function name fnname or a
         wrapped callable w_function. If it's not a function or a method, returns
         'Classname object'"""
+        # XXX this is super annoying to compute every time we do a function call!
         # CPython has a similar function, PyEval_GetFuncName
         from pypy.interpreter.function import Function, Method
         if fnname is not None:

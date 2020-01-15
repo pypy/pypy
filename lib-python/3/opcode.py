@@ -174,7 +174,7 @@ haslocal.append(126)
 name_op('STORE_ANNOTATION', 127) # Index in name list XXX: removed in CPython 3.7
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
-def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
+def_op('CALL_FUNCTION', 131)    # #args
 hasnargs.append(131)
 def_op('MAKE_FUNCTION', 132)    # Number of args with default values
 def_op('BUILD_SLICE', 133)      # Number of items
@@ -188,12 +188,9 @@ hasfree.append(137)
 def_op('DELETE_DEREF', 138)
 hasfree.append(138)
 
-def_op('CALL_FUNCTION_VAR', 140)     # #args + (#kwargs << 8)
-hasnargs.append(140)
-def_op('CALL_FUNCTION_KW', 141)      # #args + (#kwargs << 8)
+def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
 hasnargs.append(141)
-def_op('CALL_FUNCTION_VAR_KW', 142)  # #args + (#kwargs << 8)
-hasnargs.append(142)
+def_op('CALL_FUNCTION_EX', 142)  # Flags
 
 jrel_op('SETUP_WITH', 143)
 
