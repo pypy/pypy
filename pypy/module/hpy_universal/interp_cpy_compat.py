@@ -12,12 +12,12 @@ from pypy.module.hpy_universal.apiset import API
 from pypy.module.hpy_universal import handles
 from pypy.module.hpy_universal import llapi
 
-@API.func("HPy HPy_FromPyObject(HPyContext ctx, void *obj)")
+@API.func("HPy HPy_FromPyObject(HPyContext ctx, void *obj)", cpyext=True)
 def HPy_FromPyObject(space, ctx, obj):
     w_obj = pyobject.from_ref(space, rffi.cast(pyobject.PyObject, obj))
     return handles.new(space, w_obj)
 
-@API.func("void *HPy_AsPyObject(HPyContext ctx, HPy h)")
+@API.func("void *HPy_AsPyObject(HPyContext ctx, HPy h)", cpyext=True)
 def HPy_AsPyObject(space, ctx, h):
     w_obj = handles.deref(space, h)
     pyobj = pyobject.make_ref(space, w_obj)

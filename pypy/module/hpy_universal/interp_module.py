@@ -29,6 +29,11 @@ def HPyModule_Create(space, ctx, hpydef):
                 legacy_methoddefs.append(p[i])
             i += 1
         if legacy_methoddefs:
-            attach_legacy_methods(space, legacy_methoddefs, w_mod, modname)
+            if space.config.objspace.hpy_cpyext_API:
+                attach_legacy_methods(space, legacy_methoddefs, w_mod, modname)
+            else:
+                raise oefmt(space.w_RuntimeError,
+                            "Module %s contains legacy methods, but hpy_universal "
+                            "was compiled without cpyext support", modname)
     #
     return handles.new(space, w_mod)

@@ -53,9 +53,10 @@ class State:
                 h_struct.c__i = i
             i = i + 1
 
-        # XXX this is not RPython, we need a way to turn this into an
-        # unrolling_iterable
         for func in API.all_functions:
+            if func.cpyext and not space.config.objspace.hpy_cpyext_API:
+                # ignore cpyext functions if hpy_cpyext_API is False
+                continue
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.ctx, ctx_field, funcptr)

@@ -11,7 +11,10 @@ def test_checkmodule():
         state.setup()
 
     rpython_opts = {'translation.gc': 'boehm'}
-    pypy_opts = {'objspace.std.withliststrategies': False}
+    # it isn't possible to ztranslate cpyext easily, so we check hpy_universal
+    # WITHOUT the cpyext parts
+    pypy_opts = {'objspace.std.withliststrategies': False,
+                 'objspace.hpy_cpyext_API': False}
     checkmodule('hpy_universal',
                 extra_func=extra_func,
                 c_compile=True,

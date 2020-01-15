@@ -26,7 +26,14 @@ class APISet(object):
         ll_functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         return d.name, ll_functype
 
-    def func(self, cdecl):
+    def func(self, cdecl, cpyext=False):
+        """
+        Declare an HPy API function.
+
+        If the function is marked as cpyext=True, it will be included in the
+        translation only if pypy.objspace.hpy_cpyext_API==True (the
+        default). This is useful to exclude cpyext in test_ztranslation
+        """
         if self.frozen:
             raise RuntimeError(
                 'Too late to call @api.func(), the API object has already been frozen. '
@@ -58,6 +65,7 @@ class APISet(object):
             # basename
             fn.basename = self._PREFIX.sub(r'', fn.__name__)
 
+            fn.cpyext = cpyext
             # record it into the API
             self.all_functions.append(fn)
             return fn
