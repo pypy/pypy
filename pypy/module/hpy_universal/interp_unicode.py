@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rutf8
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import wcharpsize2utf8
+from pypy.objspace.std import unicodeobject
 from pypy.module.hpy_universal.apiset import API
 from pypy.module.hpy_universal import handles
 
@@ -29,9 +30,10 @@ def HPyUnicode_FromString(space, ctx, utf8):
 
 @API.func("HPy HPyUnicode_AsUTF8String(HPyContext ctx, HPy h)")
 def HPyUnicode_AsUTF8String(space, ctx, h):
-    from rpython.rlib.nonconst import NonConstant
-    if NonConstant(False): return 0 # needed for the annotator
-    raise NotImplementedError
+    w_unicode = handles.deref(space, h)
+    # XXX: what should we do if w_unicode is not a str?
+    w_bytes = unicodeobject.encode_object(space, w_unicode, 'utf-8', 'strict')
+    return handles.new(space, w_bytes)
 
 @API.func("HPy HPyUnicode_FromWideChar(HPyContext ctx, const wchar_t *w, HPy_ssize_t size)")
 def HPyUnicode_FromWideChar(space, ctx, wchar_p, size):
