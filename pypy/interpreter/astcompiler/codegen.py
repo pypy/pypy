@@ -1417,100 +1417,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _make_call(self, nargs_pushed, args, keywords):
         space = self.space
-        # the number of tuples and dictionaries on the stack
-        nsubargs = 0
-        nsubkwargs = 0
-        if args is not None:
-            for elt in args:
-                if (isinstance(elt, ast.Starred) or
-                        nargs_pushed > MAX_STACKDEPTH_CONTAINERS // 2):
-                    # If we see a star-arg or if the number of arguments is
-                    # huge we pack the positional arguments into a tuple.
-                    if nargs_pushed:
-                        self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
-                        nsubargs += 1
-                        nargs_pushed = 0
-                    if isinstance(elt, ast.Starred):
-                        elt.value.walkabout(self)
-                        nsubargs += 1
-                        continue
-                elt.walkabout(self)
-                nargs_pushed += 1
-            if nsubargs:
-                if nargs_pushed:
-                    # Pack up any trailing positional arguments.
-                    self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
-                    nargs_pushed = 0
-                    nsubargs += 1
-                if nsubargs > 1:
-                    # If we ended up with more than one stararg, we need
-                    # to concatenate them into a single sequence.
-                    # XXX CPython uses BUILD_TUPLE_UNPACK_WITH_CALL, but I
-                    # don't quite see the difference?
-                    self.emit_op_arg(ops.BUILD_TUPLE_UNPACK, nsubargs)
-
-        # Repeat procedure for keyword args
-        nkw = 0
-        keyword_names_w = []
-        if keywords is None or len(keywords) == 0:
-            if not nsubargs:
-                # no *args, no keyword args, no **kwargs
-                self.emit_op_arg(ops.CALL_FUNCTION, nargs_pushed)
-                return
-        else:
-            if not nsubargs:
-                # we might get away with using CALL_FUNCTION_KW if there are no **kwargs
-                for kw in keywords:
-                    if kw.arg is None:
-                        # we're using CALL_FUNCTION_EX, pack up positional arguments first
-                        if nargs_pushed == 0:
-                            self._load_constant_tuple([])
-                        else:
-                            self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
-                        nsubargs = 1
-                        break
-                if nsubargs == 0 and len(keywords) > MAX_STACKDEPTH_CONTAINERS // 2:
-                    if nargs_pushed == 0:
-                        self._load_constant_tuple([])
-                    else:
-                        self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
-                    nsubargs = 1
-
-            for kw in keywords:
-                assert isinstance(kw, ast.keyword)
-                if kw.arg is None or len(keyword_names_w) > MAX_STACKDEPTH_CONTAINERS // 2:
-                    # if we see **args or if the number of keywords is huge,
-                    # pack up keywords on the stack so far
-                    if keyword_names_w:
-                        self._load_constant_tuple(keyword_names_w)
-                        # XXX use BUILD_MAP for size 1?
-                        self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(keyword_names_w))
-                        keyword_names_w = []
-                        nsubkwargs += 1
-                    if kw.arg is None:
-                        kw.value.walkabout(self)
-                        nsubkwargs += 1
-                        continue
-                w_name = space.newtext(kw.arg)
-                keyword_names_w.append(misc.intern_if_common_string(space, w_name))
-                kw.value.walkabout(self)
-                nkw += 1
-        if nsubkwargs == 0 and nsubargs == 0:
-            # can use CALL_FUNCTION_KW
-            assert len(keyword_names_w) > 0 # otherwise we would have used CALL_FUNCTION
-            self._load_constant_tuple(keyword_names_w)
-            self.emit_op_arg(ops.CALL_FUNCTION_KW, nargs_pushed + nkw)
-            return
-
-        if keyword_names_w:
-            # Pack up any trailing keyword arguments.
-            self._load_constant_tuple(keyword_names_w)
-            self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(keyword_names_w))
-            nsubkwargs += 1
-        if nsubkwargs > 1:
-            # Pack it all up
-            self.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, nsubkwargs)
-        self.emit_op_arg(ops.CALL_FUNCTION_EX, int(nsubkwargs > 0))
+        CallCodeGenerator(self, nargs_pushed, args, keywords).emit_call()
 
     def visit_Call(self, call):
         self.update_position(call.lineno)
@@ -1969,3 +1876,126 @@ class ClassCodeGenerator(PythonCodeGenerator):
         if self.scope.doc_removable:
             flags |= consts.CO_KILL_DOCSTRING
         return PythonCodeGenerator._get_code_flags(self) | flags
+
+
+class CallCodeGenerator(object):
+    def __init__(self, codegenerator, nargs_pushed, args, keywords):
+        self.space = codegenerator.space
+        self.codegenerator = codegenerator
+        self.nargs_pushed = nargs_pushed
+        self.args = args
+        self.keywords = keywords
+
+        # the number of tuples and dictionaries on the stack
+        self.nsubargs = 0
+        self.nsubkwargs = 0
+        self.keyword_names_w = []
+
+    def _pack_positional_into_tuple(self):
+        if self.nargs_pushed:
+            self.codegenerator.emit_op_arg(ops.BUILD_TUPLE, self.nargs_pushed)
+            self.nsubargs += 1
+            self.nargs_pushed = 0
+
+    def _push_args(self):
+        for elt in self.args:
+            if isinstance(elt, ast.Starred):
+                # we have a *arg
+                self._pack_positional_into_tuple()
+                elt.value.walkabout(self.codegenerator)
+                self.nsubargs += 1
+                continue
+            if self.nargs_pushed >= MAX_STACKDEPTH_CONTAINERS // 2:
+                # stack depth getting too big
+                self._pack_positional_into_tuple()
+            elt.walkabout(self.codegenerator)
+            self.nargs_pushed += 1
+        if self.nsubargs:
+            # Pack up any trailing positional arguments.
+            self._pack_positional_into_tuple()
+            if self.nsubargs > 1:
+                # If we ended up with more than one stararg, we need
+                # to concatenate them into a single sequence.
+                # XXX CPython uses BUILD_TUPLE_UNPACK_WITH_CALL, but I
+                # don't quite see the difference?
+                self.codegenerator.emit_op_arg(ops.BUILD_TUPLE_UNPACK, self.nsubargs)
+
+    def _pack_kwargs_into_dict(self):
+        if self.keyword_names_w:
+            self.codegenerator._load_constant_tuple(self.keyword_names_w)
+            # XXX use BUILD_MAP for size 1?
+            self.codegenerator.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(self.keyword_names_w))
+            self.keyword_names_w = []
+            self.nsubkwargs += 1
+
+    def _push_kwargs(self):
+        for kw in self.keywords:
+            assert isinstance(kw, ast.keyword)
+            if kw.arg is None:
+                # if we see **args or if the number of keywords is huge,
+                # pack up keywords on the stack so far
+                self._pack_kwargs_into_dict()
+                kw.value.walkabout(self.codegenerator)
+                self.nsubkwargs += 1
+                continue
+            if len(self.keyword_names_w) > MAX_STACKDEPTH_CONTAINERS // 2:
+                self._pack_kwargs_into_dict()
+            w_name = self.space.newtext(kw.arg)
+            self.keyword_names_w.append(misc.intern_if_common_string(self.space, w_name))
+            kw.value.walkabout(self.codegenerator)
+        if self.nsubkwargs:
+            self._pack_kwargs_into_dict()
+            if self.nsubkwargs > 1:
+                # Pack it all up
+                self.codegenerator.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, self.nsubkwargs)
+
+    def _push_positional_args_as_tuple(self):
+        if self.nargs_pushed == 0:
+            self.codegenerator._load_constant_tuple([])
+        else:
+            self.codegenerator.emit_op_arg(ops.BUILD_TUPLE, self.nargs_pushed)
+        self.nsubargs += 1
+
+    def _push_tuple_positional_args_if_necessary(self):
+        if self.nsubargs:
+            # can't use CALL_FUNCTION_KW anyway, because we already have a
+            # tuple as the positional args
+            return
+        # we might get away with using CALL_FUNCTION_KW if there are no **kwargs
+        for kw in self.keywords:
+            if kw.arg is None:
+                # we found a **kwarg, thus we're using CALL_FUNCTION_EX, we
+                # need to pack up positional arguments first
+                self._push_positional_args_as_tuple()
+                break
+        if self.nsubargs == 0 and len(self.keywords) > MAX_STACKDEPTH_CONTAINERS // 2:
+            # we have a huge amount of keyword args, thus we also need to use
+            # CALL_FUNCTION_EX
+            self._push_positional_args_as_tuple()
+
+    def emit_call(self):
+        keywords = self.keywords
+        codegenerator = self.codegenerator
+        space = self.space
+        if self.args is not None:
+            self._push_args()
+
+        # Repeat procedure for keyword args
+        if keywords is None or len(keywords) == 0:
+            if not self.nsubargs:
+                # no *args, no keyword args, no **kwargs
+                codegenerator.emit_op_arg(ops.CALL_FUNCTION, self.nargs_pushed)
+                return
+        else:
+            self._push_tuple_positional_args_if_necessary()
+            self._push_kwargs()
+
+        if self.nsubkwargs == 0 and self.nsubargs == 0:
+            # can use CALL_FUNCTION_KW
+            assert len(self.keyword_names_w) > 0 # otherwise we would have used CALL_FUNCTION
+            codegenerator._load_constant_tuple(self.keyword_names_w)
+            codegenerator.emit_op_arg(ops.CALL_FUNCTION_KW, self.nargs_pushed + len(self.keyword_names_w))
+        else:
+            self._pack_kwargs_into_dict()
+            codegenerator.emit_op_arg(ops.CALL_FUNCTION_EX, int(self.nsubkwargs > 0))
+
