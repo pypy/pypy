@@ -1422,18 +1422,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         nsubkwargs = 0
         if args is not None:
             for elt in args:
-                if isinstance(elt, ast.Starred):
-                    # A star-arg. If we've seen positional arguments,
-                    # pack the positional arguments into a tuple.
+                if (isinstance(elt, ast.Starred) or
+                        nargs_pushed > MAX_STACKDEPTH_CONTAINERS // 2):
+                    # If we see a star-arg or if the number of arguments is
+                    # huge we pack the positional arguments into a tuple.
                     if nargs_pushed:
                         self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
                         nsubargs += 1
                         nargs_pushed = 0
-                    elt.value.walkabout(self)
-                    nsubargs += 1
-                else:
-                    elt.walkabout(self)
-                    nargs_pushed += 1
+                    if isinstance(elt, ast.Starred):
+                        elt.value.walkabout(self)
+                        nsubargs += 1
+                        continue
+                elt.walkabout(self)
+                nargs_pushed += 1
             if nsubargs:
                 if nargs_pushed:
                     # Pack up any trailing positional arguments.
@@ -1461,26 +1463,38 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 for kw in keywords:
                     if kw.arg is None:
                         # we're using CALL_FUNCTION_EX, pack up positional arguments first
-                        self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)  # XXX use LOAD_CONST for empty tuple?
+                        if nargs_pushed == 0:
+                            self._load_constant_tuple([])
+                        else:
+                            self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
                         nsubargs = 1
                         break
+                if nsubargs == 0 and len(keywords) > MAX_STACKDEPTH_CONTAINERS // 2:
+                    if nargs_pushed == 0:
+                        self._load_constant_tuple([])
+                    else:
+                        self.emit_op_arg(ops.BUILD_TUPLE, nargs_pushed)
+                    nsubargs = 1
+
             for kw in keywords:
                 assert isinstance(kw, ast.keyword)
-                if kw.arg is None:
+                if kw.arg is None or len(keyword_names_w) > MAX_STACKDEPTH_CONTAINERS // 2:
+                    # if we see **args or if the number of keywords is huge,
+                    # pack up keywords on the stack so far
                     if keyword_names_w:
-                        # pack up keywords on the stack so far
                         self._load_constant_tuple(keyword_names_w)
                         # XXX use BUILD_MAP for size 1?
                         self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(keyword_names_w))
                         keyword_names_w = []
                         nsubkwargs += 1
-                    kw.value.walkabout(self)
-                    nsubkwargs += 1
-                else:
-                    w_name = space.newtext(kw.arg)
-                    keyword_names_w.append(misc.intern_if_common_string(space, w_name))
-                    kw.value.walkabout(self)
-                    nkw += 1
+                    if kw.arg is None:
+                        kw.value.walkabout(self)
+                        nsubkwargs += 1
+                        continue
+                w_name = space.newtext(kw.arg)
+                keyword_names_w.append(misc.intern_if_common_string(space, w_name))
+                kw.value.walkabout(self)
+                nkw += 1
         if nsubkwargs == 0 and nsubargs == 0:
             # can use CALL_FUNCTION_KW
             assert len(keyword_names_w) > 0 # otherwise we would have used CALL_FUNCTION

@@ -1685,12 +1685,20 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts[ops.CALL_FUNCTION_KW] == 1
 
-        source = """def f(): x(a, b, c, *(1, 2), x=1, y=2)"""
+        source = """def f(): x(a, b, c, *(d, 2), x=1, y=2)"""
         counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 2
+        assert counts[ops.BUILD_TUPLE_UNPACK] == 1
         assert counts[ops.CALL_FUNCTION_EX] == 1
 
         source = """def f(): x(a, b, c, **kwargs)"""
         counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+        assert counts[ops.CALL_FUNCTION_EX] == 1
+
+        source = """def f(): x(**kwargs)"""
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts # LOAD_CONST used instead
         assert counts[ops.CALL_FUNCTION_EX] == 1
 
         source = """def f(): x.m(a, b, c)"""
@@ -1742,3 +1750,12 @@ class TestHugeStackDepths:
         source = "{" + ",".join(['%s: None' % (i, ) for i in range(200)]) + "}\n"
         w_res = self.run_and_check_stacksize(source)
         assert self.space.unwrap(w_res) == dict.fromkeys(range(200))
+
+    def test_callargs(self):
+        source = "(lambda *args: args)(" + ", ".join([str(i) for i in range(200)]) + ")\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == tuple(range(200))
+
+        source = "(lambda **args: args)(" + ", ".join(["s%s=None" % i for i in range(200)]) + ")\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == dict.fromkeys(["s" + str(i) for i in range(200)])
