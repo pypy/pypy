@@ -1111,8 +1111,6 @@ class ASTBuilder(object):
                 (generator_count and (keyword_count or arg_count)):
             self.error("Generator expression must be parenthesized "
                        "if not sole argument", args_node)
-        if arg_count + keyword_count + generator_count > 255:
-            self.error("more than 255 arguments", args_node)
         args = []
         keywords = []
         used_keywords = {}

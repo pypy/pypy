@@ -1333,12 +1333,17 @@ a = A()
         res = "+".join(args)
         callargs = ", ".join(str(i) for i in range(300))
 
-        source = """def f(%s):
+        source1 = """def f(%s):
+            return %s
+x = f(%s)
+        """ % (argdef, res, callargs)
+        source2 = """def f(%s):
             return %s
 x = f(*(%s))
         """ % (argdef, res, callargs)
 
-        yield self.simple_test, source, 'x', sum(range(300))
+        yield self.simple_test, source1, 'x', sum(range(300))
+        yield self.simple_test, source2, 'x', sum(range(300))
 
 
 class TestCompilerRevDB(BaseTestCompiler):
