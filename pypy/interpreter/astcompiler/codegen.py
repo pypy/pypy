@@ -1949,7 +1949,7 @@ class CallCodeGenerator(object):
                 # Pack it all up
                 self.codegenerator.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, self.nsubkwargs)
 
-    def _push_positional_args_as_tuple(self):
+    def _pack_positional_args_into_tuple(self):
         if self.nargs_pushed == 0:
             self.codegenerator._load_constant_tuple([])
         else:
@@ -1966,12 +1966,12 @@ class CallCodeGenerator(object):
             if kw.arg is None:
                 # we found a **kwarg, thus we're using CALL_FUNCTION_EX, we
                 # need to pack up positional arguments first
-                self._push_positional_args_as_tuple()
+                self._pack_positional_args_into_tuple()
                 break
         if self.nsubargs == 0 and len(self.keywords) > MAX_STACKDEPTH_CONTAINERS // 2:
             # we have a huge amount of keyword args, thus we also need to use
             # CALL_FUNCTION_EX
-            self._push_positional_args_as_tuple()
+            self._pack_positional_args_into_tuple()
 
     def emit_call(self):
         keywords = self.keywords
