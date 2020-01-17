@@ -31,12 +31,10 @@ hasjabs = []
 haslocal = []
 hascompare = []
 hasfree = []
-hasnargs = []
+hasnargs = [] # unused
 
 opmap = {}
-opname = [''] * 256
-for op in range(256): opname[op] = '<%r>' % (op,)
-del op
+opname = ['<%r>' % (op,) for op in range(256)]
 
 def def_op(name, op):
     opname[op] = name
@@ -216,12 +214,11 @@ def_op('BUILD_CONST_KEY_MAP', 156)
 def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
 
 #name_op('LOAD_METHOD', 160)
-#def_op('CALL_METHOD', 161)
+def_op('CALL_METHOD', 161)
 
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
-def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
 def_op('CALL_METHOD_KW', 204)
 def_op('LOAD_REVDB_VAR', 205)         # reverse debugger (syntax example: $5)
