@@ -570,13 +570,13 @@ class TestAstBuilder:
         for i in range(255):
             fundef += "i%d, "%i
         fundef += "*, key=100):\n pass\n"
-        pytest.raises(SyntaxError, self.get_first_stmt, fundef)
+        self.get_first_stmt(fundef) # no crash, works since 3.7
 
         fundef2 = "def foo(i,*,"
         for i in range(255):
             fundef2 += "i%d, "%i
         fundef2 += "lastarg):\n  pass\n"
-        pytest.raises(SyntaxError, self.get_first_stmt, fundef)
+        self.get_first_stmt(fundef2) # no crash, works since 3.7
 
         fundef3 = "def f(i,*,"
         for i in range(253):
@@ -1075,8 +1075,7 @@ class TestAstBuilder:
             "sole argument"
         many_args = ", ".join("x%i" % i for i in range(256))
         input = "f(%s)" % (many_args,)
-        exc = pytest.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "more than 255 arguments"
+        self.get_ast(input) # doesn't crash any more
         exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
         assert exc.msg == "keyword can't be an expression"
         exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value

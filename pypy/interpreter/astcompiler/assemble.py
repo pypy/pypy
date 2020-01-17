@@ -768,9 +768,6 @@ def _compute_BUILD_MAP_UNPACK(arg):
 def _compute_BUILD_MAP_UNPACK_WITH_CALL(arg):
     return 1 - (arg & 0xFF)
 
-def _compute_MAKE_CLOSURE(arg):
-    return -2 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
-
 def _compute_MAKE_FUNCTION(arg):
     return -1 - bool(arg & 0x01) - bool(arg & 0x02) - bool(arg & 0x04) - bool(arg & 0x08)
 
@@ -783,23 +780,22 @@ def _compute_BUILD_SLICE(arg):
 def _compute_RAISE_VARARGS(arg):
     return -arg
 
-def _num_args(oparg):
-    return (oparg % 256) + 2 * ((oparg // 256) % 256)
-
 def _compute_CALL_FUNCTION(arg):
-    return -_num_args(arg)
-
-def _compute_CALL_FUNCTION_VAR(arg):
-    return -_num_args(arg) - 1
+    return -arg
 
 def _compute_CALL_FUNCTION_KW(arg):
-    return -_num_args(arg) - 1
+    return -arg - 1
 
-def _compute_CALL_FUNCTION_VAR_KW(arg):
-    return -_num_args(arg) - 2
+def _compute_CALL_FUNCTION_EX(arg):
+    assert arg == 0 or arg == 1
+    # either -1 or -2
+    return -arg - 1
 
 def _compute_CALL_METHOD(arg):
-    return -_num_args(arg) - 1
+    return -arg - 1
+
+def _compute_CALL_METHOD_KW(arg):
+    return -arg - 2
 
 def _compute_FORMAT_VALUE(arg):
     if (arg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
