@@ -173,8 +173,8 @@ name_op('STORE_ANNOTATION', 127) # Index in name list XXX: removed in CPython 3.
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
 def_op('CALL_FUNCTION', 131)    # #args
-hasnargs.append(131)
-def_op('MAKE_FUNCTION', 132)    # Number of args with default values
+
+def_op('MAKE_FUNCTION', 132)    # Flags
 def_op('BUILD_SLICE', 133)      # Number of items
 def_op('LOAD_CLOSURE', 135)
 hasfree.append(135)
@@ -186,7 +186,7 @@ def_op('DELETE_DEREF', 138)
 hasfree.append(138)
 
 def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
-hasnargs.append(141)
+
 def_op('CALL_FUNCTION_EX', 142)  # Flags
 
 jrel_op('SETUP_WITH', 143)
@@ -198,7 +198,6 @@ def_op('MAP_ADD', 147)
 def_op('LOAD_CLASSDEREF', 148)
 hasfree.append(148)
 
-jrel_op('SETUP_ASYNC_WITH', 154)
 
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
@@ -209,9 +208,11 @@ def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
 def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
 
-def_op('FORMAT_VALUE', 155)   # in CPython 3.6, but available in PyPy from 3.5
+jrel_op('SETUP_ASYNC_WITH', 154)
+
+def_op('FORMAT_VALUE', 155)
 def_op('BUILD_CONST_KEY_MAP', 156)
-def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
+def_op('BUILD_STRING', 157)
 
 #name_op('LOAD_METHOD', 160)
 def_op('CALL_METHOD', 161)
