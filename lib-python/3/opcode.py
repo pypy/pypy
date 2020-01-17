@@ -178,7 +178,6 @@ def_op('CALL_FUNCTION', 131)    # #args
 hasnargs.append(131)
 def_op('MAKE_FUNCTION', 132)    # Number of args with default values
 def_op('BUILD_SLICE', 133)      # Number of items
-def_op('MAKE_CLOSURE', 134)
 def_op('LOAD_CLOSURE', 135)
 hasfree.append(135)
 def_op('LOAD_DEREF', 136)

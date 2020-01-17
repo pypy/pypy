@@ -1459,6 +1459,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             keyword_names_w = []
             for kw in call.keywords:
+                assert isinstance(kw, ast.keyword)
                 assert kw.arg  # checked by self._call_has_no_star_args
                 w_name = space.newtext(kw.arg)
                 keyword_names_w.append(misc.intern_if_common_string(space, w_name))
@@ -1963,6 +1964,7 @@ class CallCodeGenerator(object):
             return
         # we might get away with using CALL_FUNCTION_KW if there are no **kwargs
         for kw in self.keywords:
+            assert isinstance(kw, ast.keyword)
             if kw.arg is None:
                 # we found a **kwarg, thus we're using CALL_FUNCTION_EX, we
                 # need to pack up positional arguments first
