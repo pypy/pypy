@@ -1,6 +1,0 @@
-antocuni's older TODO:
-
-* run coverage against the parser/astbuilder/astcompiler: it's probably full of
-dead code because the grammar changed
-
-* review use of std_decode_utf8, we probably do not want to be using it
