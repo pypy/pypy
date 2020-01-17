@@ -1387,15 +1387,24 @@ class AppTestCompiler:
     # BUILD_LIST_FROM_ARG is PyPy specific
     @py.test.mark.skipif('config.option.runappdirect')
     def test_build_list_from_arg_length_hint(self):
-        py3k_skip('XXX: BUILD_LIST_FROM_ARG list comps are genexps on py3k')
         hint_called = [False]
         class Foo(object):
+            def __iter__(self):
+                return FooIter()
+        class FooIter:
+            def __init__(self):
+                self.i = 0
             def __length_hint__(self):
                 hint_called[0] = True
                 return 5
             def __iter__(self):
-                for i in range(5):
-                    yield i
+                return self
+            def __next__(self):
+                if self.i < 5:
+                    res = self.i
+                    self.i += 1
+                    return res
+                raise StopIteration
         l = [a for a in Foo()]
         assert hint_called[0]
         assert l == list(range(5))
