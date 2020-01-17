@@ -208,16 +208,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         """Override in subclasses to compile a scope."""
         raise NotImplementedError
 
-    def current_temporary_name(self):
-        """Return the name of the current temporary variable.
-
-        This must be in sync with the one during symbol table building.
-        """
-        name = "_[%d]" % (self.temporary_name_counter,)
-        self.temporary_name_counter += 1
-        assert self.scope.lookup(name) != symtable.SCOPE_UNKNOWN
-        return name
-
     def sub_scope(self, kind, name, node, lineno):
         """Convenience function for compiling a sub scope."""
         if self.scope.lookup(name) == symtable.SCOPE_GLOBAL_EXPLICIT:
