@@ -16,3 +16,8 @@ Handle ``NAN`` more correctly in ``array.array`` for ``__eq__`` and ``count``
 .. branch: bpo-16055
 
 Fixes incorrect error text for ``int('1', base=1000)``
+
+.. branch py3.7-call-changes
+
+Implement the CPython 3.7 changes to the call bytecodes, including supporting
+more than 255 arguments.
