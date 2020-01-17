@@ -472,11 +472,6 @@ class ASTBuilder(object):
             name, call.args, call.keywords,
             body, decorators, classdef_node.get_lineno(), classdef_node.get_column())
 
-    def handle_class_bases(self, bases_node):
-        if bases_node.num_children() == 1:
-            return [self.handle_expr(bases_node.get_child(0))]
-        return self.get_expression_list(bases_node)
-
     def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None):
         name_node = funcdef_node.get_child(1)
         name = self.new_identifier(name_node.get_value())
