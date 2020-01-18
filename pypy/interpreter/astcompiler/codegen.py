@@ -129,6 +129,7 @@ class __extend__(ast.ListComp):
         single = False
         if len(self.generators) == 1:
             gen, = self.generators
+            assert isinstance(gen, ast.comprehension)
             if not gen.ifs:
                 single = True
         if single:
