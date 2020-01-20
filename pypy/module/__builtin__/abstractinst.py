@@ -235,6 +235,8 @@ def exception_issubclass_w(space, w_cls1, w_cls2):
     try:
         return abstract_issubclass_w(space, w_cls1, w_cls2, True)
     except OperationError as e:
+        if e.async(space):
+            raise
         return False
 
 # ____________________________________________________________
