@@ -71,7 +71,7 @@ class AppTestObject:
                 return (self._name,), dict(value=int(self))
         import copyreg
         for protocol in [2, 3, 4]:
-            assert NamedInt("Name", value=42).__reduce__(protocol) == (
+            assert NamedInt("Name", value=42).__reduce_ex__(protocol) == (
                 copyreg.__newobj_ex__,
                 (NamedInt, ('Name',), dict(value=42)),
                 dict(_name='Name'), None, None)
@@ -135,6 +135,14 @@ class AppTestObject:
         class X(object):
             pass
         assert X().__reduce_ex__(2)[2] is None
+
+    def test_reduce_arguments(self):
+        # since python3.7 object.__reduce__ doesn't take an argument anymore
+        # (used to be proto), and __reduce_ex__ requires one
+        with raises(TypeError):
+            object().__reduce__(0)
+        with raises(TypeError):
+            object().__reduce_ex__()
 
     def test_default_format(self):
         class x(object):
