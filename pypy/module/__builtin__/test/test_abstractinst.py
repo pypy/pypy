@@ -259,3 +259,35 @@ class AppTestAbstractInst:
             raise Special, ValueError()
         except ValueError:
             pass
+
+    def test_exception_bad_subclasscheck(self):
+        import sys
+        class Meta(type):
+            def __subclasscheck__(cls, subclass):
+                raise ValueError()
+
+        class MyException(Exception):
+            __metaclass__ = Meta
+            pass
+
+        try:
+            raise KeyError()
+        except MyException, e:
+            assert False, "exception should not be a MyException"
+        except KeyError:
+            pass
+        except:
+            assert False, "Should have raised KeyError"
+        else:
+            assert False, "Should have raised KeyError"
+
+        def g():
+            try:
+                return g()
+            except RuntimeError:
+                return sys.exc_info()
+        e, v, tb = g()
+        assert e is RuntimeError, str(e)
+        assert "maximum recursion depth exceeded" in str(v)
+
+ 

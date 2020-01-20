@@ -232,7 +232,10 @@ def exception_issubclass_w(space, w_cls1, w_cls2):
     # many-years issue report: https://bugs.python.org/issue12029), and
     # there are probably tests, so we won't call abstract_issubclass_w()
     # either in PyPy3.
-    return abstract_issubclass_w(space, w_cls1, w_cls2, True)
+    try:
+        return abstract_issubclass_w(space, w_cls1, w_cls2, True)
+    except OperationError as e:
+        return False
 
 # ____________________________________________________________
 # App-level interface
