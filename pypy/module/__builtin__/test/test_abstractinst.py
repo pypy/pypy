@@ -215,7 +215,7 @@ class AppTestAbstractInst:
 
     def test_dont_call_instancecheck_fast_path(self):
         called = []
-        
+
         class M(type):
             def __instancecheck__(self, obj):
                 called.append("called")
@@ -271,3 +271,25 @@ class AppTestAbstractInst:
             skip("non-normalized exception") #raise Special, ValueError()
         except Special:
             pass
+
+    def test_exception_bad_subclasscheck(self):
+        """
+        import sys
+        class Meta(type):
+            def __subclasscheck__(cls, subclass):
+                raise ValueError()
+
+        class MyException(Exception, metaclass=Meta):
+            pass
+
+        try:
+            raise KeyError()
+        except MyException as e:
+            assert False, "exception should not be a MyException"
+        except KeyError:
+            pass
+        except:
+            assert False, "Should have raised KeyError"
+        else:
+            assert False, "Should have raised KeyError"
+        """
