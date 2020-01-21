@@ -35,6 +35,24 @@ class AppError(Exception):
     def __init__(self, excinfo):
         self.excinfo = excinfo
 
+class PythonInterpreter(object):
+    def __init__(self, path):
+        self.path = path
+        self._is_pypy = None
+
+    @property
+    def is_pypy(self):
+        if self._is_pypy is not None:
+            return self._is_pypy
+        CODE = "import sys; print('__pypy__' in sys.builtin_module_names)"
+        res, stdout, stderr = run_subprocess( self.path, ["-c", CODE])
+        if res != 0:
+            raise ValueError("Invalid Python interpreter")
+        print stdout
+        is_pypy = stdout.strip() == 'True'
+        self._is_pypy = is_pypy
+        return is_pypy
+
 
 def py3k_repr(value):
     "return the repr() that py3k would give for an object."""
@@ -120,7 +138,7 @@ if 1:
                 pytest.fail("DID NOT RAISE")
             self.value = tp[1]
             return issubclass(tp[0], self.expected_exception)
-    
+
     __builtins__.raises = raises
     class Test:
         pass
