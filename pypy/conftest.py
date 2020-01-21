@@ -180,16 +180,19 @@ def skip_on_missing_buildoption(**ropts):
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
+        config = item.config
+        if (item.get_marker(name='pypy_only') and
+                not '__pypy__' in sys.builtin_module_names):
+            pytest.skip('PyPy-specific test')
         appclass = item.getparent(py.test.Class)
         if appclass is not None:
             from pypy.tool.pytest.objspace import gettestobjspace
             # Make cls.space and cls.runappdirect available in tests.
             spaceconfig = getattr(appclass.obj, 'spaceconfig', {})
-            config = item.config
             if not (config.getoption('runappdirect') or config.getoption('direct_apptest')):
                 spaceconfig.setdefault('objspace.std.reinterpretasserts', True)
             appclass.obj.space = gettestobjspace(**spaceconfig)
-            appclass.obj.runappdirect = option.runappdirect
+            appclass.obj.runappdirect = config.option.runappdirect
 
 def pytest_ignore_collect(path, config):
     if (config.getoption('direct_apptest') and not path.isdir()
