@@ -763,7 +763,8 @@ class AppTestArgument:
         import operator # use repeat because it's defined at applevel
         exc = raises(TypeError, lambda : operator.repeat(1, 2, 3))
         # does not contain the warning about missing self
-        assert "takes exactly 2 arguments (3 given)" in str(exc.value)
+        # in particular it must not end with ' Did you forget 'self' in the function definition?'
+        assert str(exc.value).endswith("takes exactly 2 arguments (3 given)")
 
     @pytest.mark.pypy_only
     def test_error_message_bound_method(self):
