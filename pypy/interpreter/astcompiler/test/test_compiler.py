@@ -1422,6 +1422,23 @@ class AppTestCompiler:
         # compiling the produced AST previously triggered a crash
         compile(ast, '', 'exec')
 
+    def test_warn_yield(self):
+        import warnings
+        warnings.simplefilter("error", DeprecationWarning)
+        d = {}
+        with raises(DeprecationWarning) as info:
+            exec("x = [(yield 42) for i in j]", d)
+        assert str(info.value) == "'yield' inside list comprehension"
+        with raises(DeprecationWarning) as info:
+            exec("x = ((yield 42) for i in j)", d)
+        assert str(info.value) == "'yield' inside generator expression"
+        with raises(DeprecationWarning) as info:
+            exec("x = {(yield 42) for i in j}", d)
+        assert str(info.value) == "'yield' inside set comprehension"
+        with raises(DeprecationWarning) as info:
+            exec("x = {(yield 42): blub for i in j}", d)
+        assert str(info.value) == "'yield' inside dict comprehension"
+
 
 class TestOptimizations:
     def count_instructions(self, source):
