@@ -813,14 +813,15 @@ BuiltinFunction.typedef.acceptable_as_base_class = False
 
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__ = interp2app(PyTraceback.descr__reduce__),
+    __new__ = interp2app(PyTraceback.descr_new),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
     __dir__ = interp2app(PyTraceback.descr__dir__),
     tb_frame = interp_attrproperty_w('frame', cls=PyTraceback),
-    tb_lasti = interp_attrproperty('lasti', cls=PyTraceback, wrapfn="newint"),
-    tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
-    tb_next = interp_attrproperty_w('next', cls=PyTraceback),
+    tb_lasti = GetSetProperty(PyTraceback.descr_get_tb_lasti, PyTraceback.descr_set_tb_lasti),
+    tb_lineno = GetSetProperty(PyTraceback.descr_get_tb_lineno, PyTraceback.descr_set_tb_lineno),
+    tb_next = GetSetProperty(PyTraceback.descr_get_next, PyTraceback.descr_set_next),
     )
-assert not PyTraceback.typedef.acceptable_as_base_class  # no __new__
+PyTraceback.typedef.acceptable_as_base_class = False
 
 GeneratorIterator.typedef = TypeDef("generator",
     __repr__   = interp2app(GeneratorIterator.descr__repr__),
