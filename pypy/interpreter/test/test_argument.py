@@ -759,12 +759,11 @@ class AppTestArgument:
         # does not contain the warning about missing self
         assert exc.value.message == "f0() takes no arguments (1 given)"
 
-    @pytest.mark.pypy_only
     def test_error_message_module_function(self):
         import operator # use repeat because it's defined at applevel
         exc = raises(TypeError, lambda : operator.repeat(1, 2, 3))
         # does not contain the warning about missing self
-        assert exc.value.message == "repeat() takes exactly 2 arguments (3 given)"
+        assert "takes exactly 2 arguments (3 given)" in str(exc.value)
 
     @pytest.mark.pypy_only
     def test_error_message_bound_method(self):
