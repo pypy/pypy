@@ -20,3 +20,12 @@ def PyCodec_IncrementalDecoder(space, encoding, errors):
     else:
         return space.call_method(w_codec, "incrementaldecoder")
 
+@cpython_api([CONST_STRING], PyObject)
+def PyCodec_Encoder(space, encoding):
+    w_codec = interp_codecs.lookup_codec(space, rffi.charp2str(encoding))
+    return space.getitem(w_codec, space.newint(0))
+
+@cpython_api([CONST_STRING], PyObject)
+def PyCodec_Decoder(space, encoding):
+    w_codec = interp_codecs.lookup_codec(space, rffi.charp2str(encoding))
+    return space.getitem(w_codec, space.newint(1))
