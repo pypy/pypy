@@ -699,6 +699,20 @@ def test_anext_tuple():
 
     assert run_async(run()) == ([], (1,))
 
+def test_async_genexpr_in_regular_function():
+    async def arange(n):
+        for i in range(n):
+            yield i
+
+    def make_arange(n):
+        # This syntax is legal starting with Python 3.7
+        return (i * 2 async for i in arange(n))
+
+    async def run():
+        return [i async for i in make_arange(10)]
+    res = run_async(run())
+    assert res[1] == [i * 2 for i in range(10)]
+
 # Helpers for test_async_gen_exception_11() below
 def sync_iterate(g):
     res = []

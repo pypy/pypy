@@ -1569,10 +1569,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
         is_async_generator = self.symbols.find_scope(node).is_coroutine
 
-        if is_async_generator and not is_async_function:
-            self.error("asynchronous comprehension outside of "
-                       "an asynchronous function", node)
-
         self.update_position(node.lineno)
         self._make_function(code, qualname=qualname)
         first_comp = node.get_generators()[0]
