@@ -71,6 +71,8 @@ def pytest_configure(config):
     if mode_A:
         from pypy.tool.pytest.apptest import PythonInterpreter
         config.applevel = PythonInterpreter(config.option.python)
+    else:
+        config.applevel = None
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
@@ -205,8 +207,9 @@ def skip_on_missing_buildoption(**ropts):
 def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
         config = item.config
-        if item.get_marker(name='pypy_only') and not config.applevel.is_pypy:
-            pytest.skip('PyPy-specific test')
+        if item.get_marker(name='pypy_only'):
+            if config.applevel is not None and not config.applevel.is_pypy:
+                pytest.skip('PyPy-specific test')
         appclass = item.getparent(py.test.Class)
         if appclass is not None:
             from pypy.tool.pytest.objspace import gettestobjspace
