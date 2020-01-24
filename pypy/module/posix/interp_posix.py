@@ -1400,11 +1400,9 @@ class ApplevelForkCallbacks(object):
         self.parent_w = []
         self.child_w = []
 
-@unwrap_spec(w_before=WrappedDefault(None), w_after_in_parent=WrappedDefault(None),
-             w_after_in_child=WrappedDefault(None))
-def register_at_fork(space, __kwonly__, w_before, w_after_in_parent, w_after_in_child):
+def register_at_fork(space, __args__):
     """
-    register_at_fork(...)
+    register_at_fork(*, [before], [after_in_child], [after_in_parent])
     Register callables to be called when forking a new process.
 
       before
@@ -1417,23 +1415,39 @@ def register_at_fork(space, __kwonly__, w_before, w_after_in_parent, w_after_in_
     'before' callbacks are called in reverse order.
     'after_in_child' and 'after_in_parent' callbacks are called in order.
     """
+    # annoying, can't express argument parsing of this nicely
+    # because cpython explicitly wants
+    # os.register_at_fork(before=None, after_in_parent=<callable>)
+    # to fail, and we can't use unwrapped None as a kwonly default
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        raise oefmt(space.w_TypeError,
+            "register_at_fork() takes no positional arguments")
+    w_before = kwargs_w.pop("before", None)
+    w_after_in_parent = kwargs_w.pop("after_in_parent", None)
+    w_after_in_child = kwargs_w.pop("after_in_child", None)
+    if kwargs_w:
+        for key in kwargs_w:
+            raise oefmt(space.w_TypeError,
+                "%s is an invalid keyword argument for register_at_fork()", key)
+
     registered = False
     cbs = space.fromcache(ApplevelForkCallbacks)
-    if not space.is_w(space.w_None, w_before):
+    if w_before is not None:
         if not space.callable_w(w_before):
             raise oefmt(space.w_TypeError,
                     "'before' must be callable, not %T",
                     w_before)
         cbs.before_w.append(w_before)
         registered = True
-    if not space.is_w(space.w_None, w_after_in_parent):
+    if w_after_in_parent is not None:
         if not space.callable_w(w_after_in_parent):
             raise oefmt(space.w_TypeError,
                     "'after_in_parent' must be callable, not %T",
                     w_after_in_parent)
         cbs.parent_w.append(w_after_in_parent)
         registered = True
-    if not space.is_w(space.w_None, w_after_in_child):
+    if w_after_in_child is not None:
         if not space.callable_w(w_after_in_child):
             raise oefmt(space.w_TypeError,
                     "'after_in_child' must be callable, not %T",
@@ -1442,7 +1456,7 @@ def register_at_fork(space, __kwonly__, w_before, w_after_in_parent, w_after_in_
         registered = True
     if not registered:
         raise oefmt(space.w_TypeError,
-            "At least one argument is required")
+            "At least one argument is required.")
 
 
 def _run_applevel_hook(space, w_callable):
