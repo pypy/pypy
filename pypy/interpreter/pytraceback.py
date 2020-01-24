@@ -70,7 +70,7 @@ class PyTraceback(baseobjspace.W_Root):
         newnext = space.interp_w(PyTraceback, w_next, can_be_None=True)
         # check for loops
         curr = newnext
-        while curr is not None:
+        while curr is not None and isinstance(curr, PyTraceback):
             if curr is self:
                 raise oefmt(space.w_ValueError, 'traceback loop detected')
             curr = curr.next
