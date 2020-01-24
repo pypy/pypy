@@ -1393,6 +1393,89 @@ def fork(space):
     pid, irrelevant = _run_forking_function(space, "F")
     return space.newint(pid)
 
+class ApplevelForkCallbacks(object):
+    def __init__(self, space):
+        self.space = space
+        self.before_w = []
+        self.parent_w = []
+        self.child_w = []
+
+@unwrap_spec(w_before=WrappedDefault(None), w_after_in_parent=WrappedDefault(None),
+             w_after_in_child=WrappedDefault(None))
+def register_at_fork(space, __kwonly__, w_before, w_after_in_parent, w_after_in_child):
+    """
+    register_at_fork(...)
+    Register callables to be called when forking a new process.
+
+      before
+        A callable to be called in the parent before the fork() syscall.
+      after_in_child
+        A callable to be called in the child after fork().
+      after_in_parent
+        A callable to be called in the parent after fork().
+
+    'before' callbacks are called in reverse order.
+    'after_in_child' and 'after_in_parent' callbacks are called in order.
+    """
+    registered = False
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    if not space.is_w(space.w_None, w_before):
+        if not space.callable_w(w_before):
+            raise oefmt(space.w_TypeError,
+                    "'before' must be callable, not %T",
+                    w_before)
+        cbs.before_w.append(w_before)
+        registered = True
+    if not space.is_w(space.w_None, w_after_in_parent):
+        if not space.callable_w(w_after_in_parent):
+            raise oefmt(space.w_TypeError,
+                    "'after_in_parent' must be callable, not %T",
+                    w_after_in_parent)
+        cbs.parent_w.append(w_after_in_parent)
+        registered = True
+    if not space.is_w(space.w_None, w_after_in_child):
+        if not space.callable_w(w_after_in_child):
+            raise oefmt(space.w_TypeError,
+                    "'after_in_child' must be callable, not %T",
+                    w_after_in_child)
+        cbs.child_w.append(w_after_in_child)
+        registered = True
+    if not registered:
+        raise oefmt(space.w_TypeError,
+            "At least one argument is required")
+
+
+def _run_applevel_hook(space, w_callable):
+    try:
+        space.call_function(w_callable)
+    except OperationError as e:
+        e.write_unraisable(space, "fork hook")
+
+def run_applevel_fork_hooks(space, l_w, reverse=False):
+    if not reverse:
+        for i in range(len(l_w)): # callable can append to the list
+            _run_applevel_hook(space, l_w[i])
+    else:
+        for i in range(len(l_w) - 1, -1, -1):
+            _run_applevel_hook(space, l_w[i])
+
+def run_applevel_fork_hooks_before(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.before_w, reverse=True)
+
+def run_applevel_fork_hooks_parent(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.parent_w)
+
+def run_applevel_fork_hooks_child(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.child_w)
+
+add_fork_hook('before', run_applevel_fork_hooks_before)
+add_fork_hook('parent', run_applevel_fork_hooks_parent)
+add_fork_hook('child', run_applevel_fork_hooks_child)
+
+
 def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."
     master_fd = slave_fd = -1
