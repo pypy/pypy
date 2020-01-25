@@ -8,9 +8,10 @@ addition to checking for instances and subtypes in the normal way.
 """
 
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.baseobjspace import ObjSpace as BaseObjSpace
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 def _get_bases(space, w_cls):
     """Returns 'cls.__bases__'.  Returns None if there is
@@ -30,9 +31,11 @@ def _get_bases(space, w_cls):
 def abstract_isclass_w(space, w_obj):
     return _get_bases(space, w_obj) is not None
 
+@specialize.arg(2)
 def check_class(space, w_obj, msg):
     if not abstract_isclass_w(space, w_obj):
-        raise OperationError(space.w_TypeError, space.newtext(msg))
+        msg += ', got %T'
+        raise oefmt(space.w_TypeError, msg, w_obj)
 
 
 def abstract_getclass(space, w_obj):

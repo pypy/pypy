@@ -271,3 +271,10 @@ class AppTestAbstractInst:
             skip("non-normalized exception") #raise Special, ValueError()
         except Special:
             pass
+
+    def test_exception_contains_type_name(self):
+        with raises(TypeError) as e:
+            issubclass(type, None)
+        print(e.value)
+        assert "NoneType" in str(e.value)
+
