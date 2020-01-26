@@ -57,7 +57,7 @@ def _setup():
             if key_n == b"UNKNOWN KEY":
                 continue
             if not isinstance(key_n, str):   # python 3
-                key_n = key_n.decode()
+                key_n = key_n.decode('utf-8')
             key_n = key_n.replace('(', '').replace(')', '')
             globals()[key_n] = key
 
@@ -83,7 +83,9 @@ def _ensure_initialised():
 
 
 def _ensure_initialised_color():
-    if not _initialised and _initialised_color:
+    if not _initialised:
+        raise error("must call initscr() first")
+    if not _initialised_color:
         raise error("must call start_color() first")
 
 
@@ -434,11 +436,16 @@ class Window(object):
             val = lib.keyname(val)
             if val == ffi.NULL:
                 return ""
-            return ffi.string(val)
+            key_n = ffi.string(val)
+            if not isinstance(key_n, str):
+                key_n = key_n.decode('utf-8')
+            return key_n
 
     @_argspec(0, 1, 2)
     def getstr(self, y, x, n=1023):
         n = min(n, 1023)
+        if n < 0:
+            raise ValueError("'n' must be nonnegative")
         buf = ffi.new("char[1024]")  # /* This should be big enough.. I hope */
 
         if y is None:
@@ -481,6 +488,8 @@ class Window(object):
     @_argspec(0, 1, 2)
     def instr(self, y, x, n=1023):
         n = min(n, 1023)
+        if n < 0:
+            raise ValueError("'n' must be nonnegative")
         buf = ffi.new("char[1024]")  # /* This should be big enough.. I hope */
         if y is None:
             code = lib.winnstr(self._win, buf, n)
