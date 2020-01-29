@@ -146,6 +146,8 @@ pypymbc_ssize_t pypy_cjk_enc_replace_on_error(struct pypy_cjk_enc_s* d,
                                       char *, pypymbc_ssize_t, pypymbc_ssize_t);
 RPY_EXTERN
 const MultibyteCodec *pypy_cjk_enc_getcodec(struct pypy_cjk_enc_s *);
+RPY_EXTERN
+void pypy_cjk_enc_copystate(struct pypy_cjk_enc_s *dst, struct pypy_cjk_enc_s *src);
 
 /* list of codecs defined in the .c files */
 

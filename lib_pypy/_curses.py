@@ -4,6 +4,7 @@ import sys
 if sys.platform == 'win32':
     #This module does not exist in windows
     raise ImportError('No module named _curses')
+import locale
 from functools import wraps
 
 from _curses_cffi import ffi, lib
@@ -57,7 +58,7 @@ def _setup():
             if key_n == b"UNKNOWN KEY":
                 continue
             if not isinstance(key_n, str):   # python 3
-                key_n = key_n.decode()
+                key_n = key_n.decode('utf-8')
             key_n = key_n.replace('(', '').replace(')', '')
             globals()[key_n] = key
 
@@ -83,7 +84,9 @@ def _ensure_initialised():
 
 
 def _ensure_initialised_color():
-    if not _initialised and _initialised_color:
+    if not _initialised:
+        raise error("must call initscr() first")
+    if not _initialised_color:
         raise error("must call start_color() first")
 
 
@@ -173,6 +176,40 @@ def _bytestype(text):
         raise TypeError("bytes or str expected, got a '%s' object"
                         % (type(text).__name__,))
 
+def _convert_to_chtype(win, obj):
+    if isinstance(obj, bytes) and len(obj) == 1:
+        value = ord(obj)
+    elif isinstance(obj, str):
+        if len(obj) != 1:
+            raise TypeError("expect bytes or str of length 1 or int, "
+                            "got a str of length %d", len(obj))
+        value = ord(obj)
+        if (128 < value):
+            if win:
+                encoding = win.encoding
+            else:
+                encoding = screen_encoding
+            b = obj.encode(encoding)
+            if len(bytes) == 1:
+                value = ord(b)
+            else:
+                OverflowError("byte doesn't fit in chtype")
+    elif isinstance(obj, int):
+        value = obj
+    else:
+        raise TypeError('expect bytes or str of length 1, or int, got %s' % type(obj))
+    return value
+
+def _convert_to_string(win, obj):
+    if isinstance(obj, str):
+        value = obj.encode(win.encoding)
+    elif isinstance(obj, bytes):
+        value = obj
+    else:
+        raise TypeError('expect bytes or str, got %s' % type(obj))
+    if b'\0' in value:
+        raise ValueError('embedded null character') 
+    return value
 
 def _extract_yx(args):
     if len(args) >= 2:
@@ -216,8 +253,17 @@ class error(Exception):
 
 
 class Window(object):
-    def __init__(self, window):
+    def __init__(self, window, encoding=None):
+        if encoding is None:
+            # CPython has a win32 branch here, but _curses is not supported
+            # on win32
+            codeset = locale.nl_langinfo(locale.CODESET)
+            if codeset:
+                encoding = codeset
+            else:
+                encoding = 'utf-8'
         self._win = window
+        self._encoding = encoding
 
     def __del__(self):
         if self._win != lib.stdscr:
@@ -286,7 +332,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def addstr(self, y, x, text, attr=None):
-        text = _bytestype(text)
+        text = _convert_to_string(self, text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -300,7 +346,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def addnstr(self, y, x, text, n, attr=None):
-        text = _bytestype(text)
+        text = _convert_to_string(self, text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -333,7 +379,15 @@ class Window(object):
                     _chtype(tl), _chtype(tr), _chtype(bl), _chtype(br))
         return None
 
-    def box(self, vertint=0, horint=0):
+    def box(self, *args):
+        if len(args) == 0:
+            vertint = 0
+            horint = 0
+        elif len(args) == 2:
+            vertint = _convert_to_chtype(self, args[0])
+            horint = _convert_to_chtype(self, args[1])
+        else:
+            raise TypeError('verch,horch required')
         lib.box(self._win, vertint, horint)
         return None
 
@@ -434,11 +488,16 @@ class Window(object):
             val = lib.keyname(val)
             if val == ffi.NULL:
                 return ""
-            return ffi.string(val)
+            key_n = ffi.string(val)
+            if not isinstance(key_n, str):
+                key_n = key_n.decode('utf-8')
+            return key_n
 
     @_argspec(0, 1, 2)
     def getstr(self, y, x, n=1023):
         n = min(n, 1023)
+        if n < 0:
+            raise ValueError("'n' must be nonnegative")
         buf = ffi.new("char[1024]")  # /* This should be big enough.. I hope */
 
         if y is None:
@@ -481,6 +540,8 @@ class Window(object):
     @_argspec(0, 1, 2)
     def instr(self, y, x, n=1023):
         n = min(n, 1023)
+        if n < 0:
+            raise ValueError("'n' must be nonnegative")
         buf = ffi.new("char[1024]")  # /* This should be big enough.. I hope */
         if y is None:
             code = lib.winnstr(self._win, buf, n)
@@ -493,7 +554,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def insstr(self, y, x, text, attr=None):
-        text = _bytestype(text)
+        text = _convert_to_string(self, text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -507,7 +568,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def insnstr(self, y, x, text, n, attr=None):
-        text = _bytestype(text)
+        text = _convert_to_string(self, text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -601,7 +662,7 @@ class Window(object):
             win = lib.subpad(self._win, nlines, ncols, begin_y, begin_x)
         else:
             win = lib.subwin(self._win, nlines, ncols, begin_y, begin_x)
-        return Window(_check_NULL(win))
+        return Window(_check_NULL(win), self.encoding)
 
     def scroll(self, nlines=None):
         if nlines is None:
@@ -625,6 +686,23 @@ class Window(object):
             _check_ERR(lib.wmove(self._win, y, x), "wmove")
         return _check_ERR(lib.wvline(self._win, ch | attr, n), "vline")
 
+    @property
+    def encoding(self):
+        return self._encoding
+
+    @encoding.setter
+    def encoding(self, val):
+        if not val:
+            raise TypeError('encoding may not be deleted')
+        if not isinstance(val, str):
+            raise TypeError('setting encoding to a non-string')
+        encoding = val.encode('ascii')
+        self._encoding = val 
+
+    @encoding.deleter
+    def encoding(self):
+        raise TypeError('encoding may not be deleted')
+        
 
 beep = _mk_no_return("beep")
 def_prog_mode = _mk_no_return("def_prog_mode")
@@ -812,7 +890,9 @@ def initscr():
     globals()["LINES"] = lib.LINES
     globals()["COLS"] = lib.COLS
 
-    return Window(win)
+    window = Window(win)
+    globals()['screen_encoding'] = window.encoding
+    return window
 
 
 def setupterm(term=None, fd=-1):
@@ -1021,7 +1101,13 @@ def ungetch(ch):
 
 def unget_wch(ch):
     _ensure_initialised()
-    return _check_ERR(lib.unget_wch(_chtype(ch)), "unget_wch")
+    if isinstance(ch, str):
+        if len(ch) != 1:
+            raise TypeError("expect bytes or str of length1, or int, "
+                            "got a str of length %d" % len(ch))
+    elif isinstance(ch, int): 
+        ch = chr(ch)
+    return _check_ERR(lib.unget_wch(ch), "unget_wch")
 
 
 def use_env(flag):
