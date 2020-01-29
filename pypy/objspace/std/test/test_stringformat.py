@@ -406,3 +406,13 @@ class AppTestUnicodeObject:
         format_string = u"%{}f".format(sys.maxsize + 1)
         exc = raises(ValueError, "format_string % 2.34")
         assert str(exc.value) == 'width too big'
+
+    def test_unicode_error_position(self):
+        with raises(ValueError) as info:
+            u"\xe4\xe4\xe4%?" % {}
+        assert str(info.value) == "unsupported format character u'?' (0x3f) at index 4"
+        with raises(ValueError) as info:
+            u"\xe4\xe4\xe4%\xe4" % {}
+        assert str(info.value) == "unsupported format character u'\\xe4' (0xe4) at index 4"
+
+

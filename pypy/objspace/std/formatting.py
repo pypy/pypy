@@ -332,14 +332,16 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             if do_unicode:
                 cp = rutf8.codepoint_at_pos(self.fmt, self.fmtpos - 1)
+                pos = rutf8.codepoints_in_utf8(self.fmt, 0, self.fmtpos - 1)
                 w_s = space.newutf8(rutf8.unichr_as_utf8(r_uint(cp),
                                                   allow_surrogates=True), 1)
             else:
                 cp = ord(self.fmt[self.fmtpos - 1])
+                pos = self.fmtpos - 1
                 w_s = space.newbytes(chr(cp))
             raise oefmt(space.w_ValueError,
                         "unsupported format character %R (%s) at index %d",
-                        w_s, hex(cp), self.fmtpos - 1)
+                        w_s, hex(cp), pos)
 
         @specialize.arg(2)
         def std_wp(self, r, is_string=False):
