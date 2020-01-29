@@ -297,12 +297,20 @@ def make_formatter_subclass(do_unicode):
                 result.append_slice(fmt, i0, i)
                 self.fmtpos = i + 1
 
+                c = self.peekchr()
+                if c == '%':
+                    self.forward()
+                    self.result.append('%')
+                    continue
+
                 # interpret the next formatter
                 w_value = self.parse_fmt()
                 c = self.peekchr()
                 self.forward()
                 if c == '%':
-                    self.result.append('%')
+                    # if we get here there were extra characters between the
+                    # two %, forbidden now
+                    self.two_percent_error(i + 1)
                     continue
 
                 # first check whether it's a invalid char, *then* call
@@ -329,17 +337,29 @@ def make_formatter_subclass(do_unicode):
             self.checkconsumed()
             return result.build()
 
-        def unknown_fmtchar(self):
+        def _get_error_info(self, pos):
             space = self.space
             if do_unicode:
-                cp = rutf8.codepoint_at_pos(self.fmt, self.fmtpos - 1)
-                pos = rutf8.codepoints_in_utf8(self.fmt, 0, self.fmtpos - 1)
+                cp = rutf8.codepoint_at_pos(self.fmt, pos)
+                pos = rutf8.codepoints_in_utf8(self.fmt, 0, pos)
                 w_s = space.newutf8(rutf8.unichr_as_utf8(r_uint(cp),
                                                   allow_surrogates=True), 1)
             else:
-                cp = ord(self.fmt[self.fmtpos - 1])
-                pos = self.fmtpos - 1
+                cp = ord(self.fmt[pos])
                 w_s = space.newbytes(chr(cp))
+            return w_s, pos, cp
+
+        def two_percent_error(self, pos):
+            space = self.space
+            w_s, pos, cp = self._get_error_info(pos)
+            raise oefmt(space.w_ValueError,
+                        # hahahaha
+                        "extra character %R (%s) before escaped '%%' at index %d, use '%%%%'",
+                        w_s, hex(cp), pos)
+
+        def unknown_fmtchar(self):
+            space = self.space
+            w_s, pos, cp = self._get_error_info(self.fmtpos - 1)
             raise oefmt(space.w_ValueError,
                         "unsupported format character %R (%s) at index %d",
                         w_s, hex(cp), pos)

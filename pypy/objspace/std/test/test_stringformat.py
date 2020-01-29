@@ -278,6 +278,11 @@ class AppTestStringObject:
         with raises(ValueError):
             "%?" % {} # not TypeError
 
+    def test_no_chars_between_percent(self):
+        with raises(ValueError) as exc:
+            "%   %" % ()
+        assert "extra character ' ' (0x20) before escaped '%' at index 1" in str(exc.value)
+
 class AppTestWidthPrec:
     def test_width(self):
         a = 'a'
