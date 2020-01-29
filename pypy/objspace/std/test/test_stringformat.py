@@ -274,6 +274,13 @@ class AppTestStringObject:
         exc = raises(ValueError, "format_string % 2.34")
         assert str(exc.value) == 'width too big'
 
+    def test_wrong_formatchar_error_not_masked_by_not_enough_args(self):
+        with raises(ValueError):
+            "%?" % () # not TypeError (which would be due to lack of arguments)
+        with raises(ValueError):
+            "%?" % {} # not TypeError
+
+
 class AppTestWidthPrec:
     def test_width(self):
         a = 'a'
