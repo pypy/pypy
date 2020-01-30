@@ -65,6 +65,7 @@ class AppTestPosix:
         cls.w_path2 = space.wrap(str(path2))
         cls.w_path3 = space.wrap(str(path3))
         cls.w_pdir = space.wrap(str(pdir))
+        cls.w_plat = space.wrap(sys.platform)
         try:
             cls.w_unicode_dir = space.wrap(
                 str(unicode_dir).decode(sys.getfilesystemencoding()))
@@ -595,11 +596,11 @@ class AppTestPosix:
             assert res == '1\n'
 
     def test_popen_child_fds(self):
-        import os
-        with open(os.path.join(self.pdir, 'file1'), 'r') as fd:
+        os = self.posix
+        with open('/'.join([self.pdir, 'file1']), 'r') as fd:
             with self.posix.popen('%s -c "import os; print os.read(%d, 10)" 2>&1' % (self.python, fd.fileno())) as stream:
                 res = stream.read()
-                if os.name == 'nt':
+                if self.plat == 'win32':
                     assert '\nOSError: [Errno 9]' in res
                 else:
                     assert res == 'test1\n'
@@ -614,11 +615,10 @@ class AppTestPosix:
         def test__getfullpathname(self):
             # nt specific
             posix = self.posix
-            import os
-            sysdrv = os.getenv("SystemDrive", "C:")
+            sysdrv = posix.getenv("SystemDrive", "C:")
             # just see if it does anything
             path = sysdrv + 'hubber'
-            assert os.sep in posix._getfullpathname(path)
+            assert posix.sep in posix._getfullpathname(path)
 
     def test_utime(self):
         os = self.posix
@@ -1165,7 +1165,7 @@ class AppTestPosix:
             assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
 
     def test_has_kill(self):
-        import os
+        os = self.posix
         assert hasattr(os, 'kill')
 
     def test_pipe_flush(self):
@@ -1244,6 +1244,7 @@ class AppTestPosix:
 class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
+        cls.w_posix = space.appexec([], GET_POSIX)
 
     def test_environ(self):
         import sys, os
@@ -1271,7 +1272,7 @@ class AppTestEnvironment(object):
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
-            import os
+            os = self.posix
             os.unsetenv("XYZABC") #does not raise
             try:
                 os.environ["ABCABC"]
