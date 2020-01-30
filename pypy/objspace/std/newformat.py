@@ -802,7 +802,7 @@ def make_formatting_class(for_unicode):
                     digits = self._upcase_string(digits)
                 out.append(digits)
             if spec.n_decimal:
-                out.append(self._lit(".")[0])
+                out.append(self._lit(self._loc_dec)[0])
             if spec.n_remainder:
                 out.append(num[to_remainder:])
             if spec.n_rpadding:
