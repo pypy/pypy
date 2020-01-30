@@ -161,10 +161,11 @@ class W_StringIO(W_TextIOBase):
     def descr_getstate(self, space):
         w_initialval = self.getvalue_w(space)
         w_dict = space.call_method(self.w_dict, "copy")
-        if self.readnl is None:
+        readnl = self.readnl
+        if readnl is None:
             w_readnl = space.w_None
         else:
-            w_readnl = space.str(space.newutf8(self.readnl, codepoints_in_utf8(self.readnl)))  # YYY
+            w_readnl = space.str(space.newutf8(readnl, codepoints_in_utf8(readnl)))  # YYY
         return space.newtuple([
             w_initialval, w_readnl, space.newint(self.buf.pos), w_dict
         ])
@@ -225,11 +226,13 @@ class W_StringIO(W_TextIOBase):
                 self.w_decoder, "decode", w_obj, space.w_True)
         else:
             w_decoded = w_obj
-        if self.writenl:
+        writenl = self.writenl
+        if writenl is not None:
             w_decoded = space.call_method(
                 w_decoded, "replace",
-                space.newtext("\n"), space.newutf8(self.writenl,
-                    codepoints_in_utf8(self.writenl)))
+                space.newtext("\n"),
+                space.newutf8(writenl, codepoints_in_utf8(writenl)),
+            )
         string = space.utf8_w(w_decoded)
         if string:
             self.buf.write(string)
