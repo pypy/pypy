@@ -1567,7 +1567,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def _compile_comprehension(self, node, name, sub_scope):
         is_async_function = self.scope.is_coroutine
         code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
-        is_async_generator = self.symbols.find_scope(node).is_coroutine
+        is_async_comprehension = self.symbols.find_scope(node).is_coroutine
+        if is_async_comprehension and not is_async_function:
+            if not isinstance(node, ast.GeneratorExp):
+                self.error("asynchronous comprehension outside of "
+                           "an asynchronous function", node)
 
         self.update_position(node.lineno)
         self._make_function(code, qualname=qualname)
@@ -1581,7 +1585,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self.emit_op(ops.GET_ITER)
         self.emit_op_arg(ops.CALL_FUNCTION, 1)
-        if is_async_generator and sub_scope is not GenExpCodeGenerator:
+        if is_async_comprehension and sub_scope is not GenExpCodeGenerator:
             self.emit_op(ops.GET_AWAITABLE)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)

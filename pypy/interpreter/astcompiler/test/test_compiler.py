@@ -1231,6 +1231,33 @@ a = A()
         """
         e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
 
+    def test_async_in_nested(self):
+        source = """if 1:
+        async def foo():
+            def bar():
+                [i async for i in items]
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
+        source = """if 1:
+        async def foo():
+            def bar():
+                {i async for i in items}
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
+        source = """if 1:
+        async def foo():
+            def bar():
+                {i: i+1 async for i in items}
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
+        source = """if 1:
+        async def foo():
+            def bar():
+                (i async for i in items)
+        """
+        # ok!
+        self.simple_test(source, "None", None)
+
     def test_load_classderef(self):
         source = """if 1:
         def f():
