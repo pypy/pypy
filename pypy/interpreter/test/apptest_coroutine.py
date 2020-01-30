@@ -123,6 +123,18 @@ def test_set_coroutine_wrapper():
     sys.set_coroutine_wrapper(None)
     assert sys.get_coroutine_wrapper() is None
 
+def test_get_set_coroutine_wrapper_deprecated():
+    import warnings
+    def my_wrapper(cr):
+        return 1
+    with warnings.catch_warnings(record=True) as l:
+        warnings.simplefilter('always', category=DeprecationWarning)
+        sys.get_coroutine_wrapper()
+        sys.set_coroutine_wrapper(my_wrapper)
+        sys.set_coroutine_wrapper(None)
+    print(l)
+    assert len(l) == 3
+
 def test_async_with():
     seen = []
     class X:
