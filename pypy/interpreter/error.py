@@ -649,6 +649,7 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
         w_errno = space.w_None
         w_winerror = space.newint(winerror)
         w_msg = space.newtext(msg, lgt)
+        w_exc = space.w_WindowsError
     else:
         errno = e.errno
         if errno == EINTR:
