@@ -2276,6 +2276,7 @@ class OriginTrackingTest(unittest.TestCase):
         finally:
             sys.set_coroutine_origin_tracking_depth(orig_depth)
 
+    @support.cpython_only # pypy has this function in _warnings
     def test_unawaited_warning_when_module_broken(self):
         # Make sure we don't blow up too bad if
         # warnings._warn_unawaited_coroutine is broken somehow (e.g. because
