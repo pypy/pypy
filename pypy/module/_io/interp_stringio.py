@@ -21,7 +21,7 @@ class UnicodeIO(object):
         if len(self.data) > newlength:
             self.data = self.data[:newlength]
         if len(self.data) < newlength:
-            self.data.extend(['\0'] * (newlength - len(self.data)))
+            self.data.extend([u'\0'] * (newlength - len(self.data)))
 
     def read(self, size):
         start = self.pos
@@ -34,7 +34,7 @@ class UnicodeIO(object):
             end = len(self.data)
         assert 0 <= start <= end
         self.pos = end
-        return ''.join(self.data[start:end])
+        return u''.join(self.data[start:end]).encode('utf-8')
 
     def _convert_limit(self, limit):
         if limit < 0 or limit > len(self.data) - self.pos:
@@ -51,18 +51,18 @@ class UnicodeIO(object):
         while pos < end:
             ch = self.data[pos]
             pos += 1
-            if ch == '\n':
+            if ch == u'\n':
                 break
-            if ch == '\r':
+            if ch == u'\r':
                 if pos >= end:
                     break
-                if self.data[pos] == '\n':
+                if self.data[pos] == u'\n':
                     pos += 1
                     break
                 else:
                     break
         self.pos = pos
-        result = ''.join(self.data[start:pos])
+        result = u''.join(self.data[start:pos]).encode('utf-8')
         return result
 
     def readline(self, marker, limit):
@@ -70,6 +70,7 @@ class UnicodeIO(object):
         limit = self._convert_limit(limit)
         end = start + limit
         found = False
+        marker = marker.decode('utf-8')
         for pos in range(start, end - len(marker) + 1):
             ch = self.data[pos]
             if ch == marker[0]:
@@ -83,19 +84,17 @@ class UnicodeIO(object):
         if not found:
             pos = end
         self.pos = pos
-        result = ''.join(self.data[start:pos])
+        result = u''.join(self.data[start:pos]).encode('utf-8')
         return result
 
     def write(self, string):
-        length = codepoints_in_utf8(string)
-        if self.pos + length > len(self.data):
-            self.resize(self.pos + length)
-        pos = 0
-        for i in range(length):
-            nextpos = next_codepoint_pos(string, pos)
-            self.data[self.pos + i] = string[pos:nextpos]
-            pos = nextpos
-        self.pos += length
+        ustr = string.decode('utf-8')
+        newlen = self.pos + len(ustr)
+        if newlen > len(self.data):
+            self.resize(newlen)
+        for i in range(len(ustr)):
+            self.data[self.pos + i] = ustr[i]
+        self.pos += len(ustr)
 
     def seek(self, pos):
         self.pos = pos
@@ -105,7 +104,7 @@ class UnicodeIO(object):
             self.resize(size)
 
     def getvalue(self):
-        return ''.join(self.data)
+        return u''.join(self.data).encode('utf-8')
 
 
 class W_StringIO(W_TextIOBase):
