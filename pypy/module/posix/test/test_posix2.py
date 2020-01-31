@@ -1232,13 +1232,6 @@ class AppTestPosix:
             assert f.read() == 'this is a rename test'
         os.rename(unicode_name, fname)
         
-        os.rename(bytes(fname, 'utf-8'), bytes(str_name, 'utf-8'))
-        with open(str_name) as f:
-            assert f.read() == 'this is a rename test'
-        os.rename(str_name, fname)
-        with open(fname) as f:
-            assert f.read() == 'this is a rename test'
-        os.unlink(fname)
 
 
 class AppTestEnvironment(object):

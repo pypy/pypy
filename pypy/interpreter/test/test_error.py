@@ -113,7 +113,7 @@ def test_wrap_oserror():
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
                      filename = "test.py",
-                     exception_name = "w_EnvironmentError")
+                     w_exception_class = space.w_EnvironmentError)
     assert isinstance(e, OperationError)
     assert e.w_type == [EnvironmentError]
     assert e.get_w_value(space) == ([EnvironmentError], [errno.EBADF],
