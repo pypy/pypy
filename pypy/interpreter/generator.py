@@ -301,7 +301,6 @@ return next yielded value or raise StopIteration."""
 class GeneratorIterator(GeneratorOrCoroutine):
     "An iterator created by a generator."
     KIND = "generator"
-    KIND_U = u"generator"
 
     def descr__iter__(self):
         """Implement iter(self)."""
@@ -348,7 +347,6 @@ class GeneratorIterator(GeneratorOrCoroutine):
 class Coroutine(GeneratorOrCoroutine):
     "A coroutine object."
     KIND = "coroutine"
-    KIND_U = u"coroutine"
 
     def descr__await__(self, space):
         return CoroutineWrapper(self)
@@ -502,7 +500,6 @@ def should_not_inline(pycode):
 class AsyncGenerator(GeneratorOrCoroutine):
     "An async generator (i.e. a coroutine with a 'yield')"
     KIND = "async generator"
-    KIND_U = u"async_generator"
 
     def __init__(self, frame, name=None, qualname=None):
         self.hooks_inited = False
