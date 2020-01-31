@@ -943,9 +943,21 @@ else:
     def putenv(space, w_name, w_value):
         """Change or add an environment variable."""
         try:
-            dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
+            dispatch_filename_2(putenv_impl)(space, w_name, w_value)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
+        except ValueError:
+            raise oefmt(space.w_ValueError,
+                    "illegal environment variable name")
+
+    @specialize.argtype(0, 1)
+    def putenv_impl(name, value):
+        from rpython.rlib.rposix import _as_bytes
+        name = _as_bytes(name)
+        value = _as_bytes(value)
+        if "=" in name:
+            raise ValueError
+        return rposix.putenv(name, value)
 
     def unsetenv(space, w_name):
         """Delete an environment variable."""
