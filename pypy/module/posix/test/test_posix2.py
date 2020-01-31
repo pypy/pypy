@@ -615,10 +615,10 @@ class AppTestPosix:
         def test__getfullpathname(self):
             # nt specific
             posix = self.posix
-            sysdrv = posix.getenv("SystemDrive", "C:")
+            sysdrv = posix.environ.get("SystemDrive", "C:")
             # just see if it does anything
             path = sysdrv + 'hubber'
-            assert posix.sep in posix._getfullpathname(path)
+            assert '\\' in posix._getfullpathname(path)
 
     def test_utime(self):
         os = self.posix
