@@ -163,6 +163,7 @@ return next yielded value or raise StopIteration."""
         self.frame.w_yielding_from = w_delegate
 
     def _leak_stopiteration(self, e):
+        import pdb; pdb.set_trace()
         # turn a leaking StopIteration into RuntimeError (with its cause set
         # appropriately).
         space = self.space

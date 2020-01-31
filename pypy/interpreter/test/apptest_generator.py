@@ -803,6 +803,21 @@ def test_stopiteration_turned_into_runtime_error():
     with raises(RuntimeError):
         next(badgenerator(5))
 
+def test_stopiteration_can_be_caught():
+    def g():
+        raise StopIteration
+    def finegenerator(x):
+        yield x
+        if x == 5:
+            try:
+                g()
+            except StopIteration:
+                pass
+        yield x
+    gen = finegenerator(5)
+    next(gen) # fine
+    next(gen) # fine
+
 def test_generator_stop_cause():
     def gen1():
         yield 42
