@@ -163,23 +163,14 @@ return next yielded value or raise StopIteration."""
         self.frame.w_yielding_from = w_delegate
 
     def _leak_stopiteration(self, e):
-        # Check for __future__ generator_stop and conditionally turn
-        # a leaking StopIteration into RuntimeError (with its cause
-        # set appropriately).
+        # turn a leaking StopIteration into RuntimeError (with its cause set
+        # appropriately).
         space = self.space
-        if self.pycode.co_flags & (consts.CO_FUTURE_GENERATOR_STOP |
-                                   consts.CO_COROUTINE |
-                                   consts.CO_ITERABLE_COROUTINE |
-                                   consts.CO_ASYNC_GENERATOR):
-            e2 = OperationError(space.w_RuntimeError,
-                                space.newtext("%s raised StopIteration" %
-                                              self.KIND))
-            e2.chain_exceptions_from_cause(space, e)
-            raise e2
-        else:
-            space.warn(space.newtext("generator '%s' raised StopIteration"
-                                        % self.get_qualname()),
-                       space.w_DeprecationWarning)
+        e2 = OperationError(space.w_RuntimeError,
+                            space.newtext("%s raised StopIteration" %
+                                          self.KIND))
+        e2.chain_exceptions_from_cause(space, e)
+        raise e2
 
     def _leak_stopasynciteration(self, e):
         space = self.space
