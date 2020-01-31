@@ -598,6 +598,8 @@ def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
     def comparison_impl(space, w_obj1, w_obj2):
+        w_orig_obj1 = w_obj1
+        w_orig_obj2 = w_obj2
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
@@ -637,7 +639,7 @@ def _make_comparison_impl(symbol, specialnames):
         # if we arrived here, they are unorderable
         raise oefmt(space.w_TypeError,
                     "'%s' not supported between instances of '%T' and '%T'",
-                    symbol, w_obj1, w_obj2)
+                    symbol, w_orig_obj1, w_orig_obj2)
 
     return func_with_new_name(comparison_impl, 'comparison_%s_impl'%left.strip('_'))
 
