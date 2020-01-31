@@ -590,6 +590,7 @@ class TypesTests(unittest.TestCase):
         self.assertIsInstance(object().__lt__, types.MethodWrapperType)
         self.assertIsInstance((42).__lt__, types.MethodWrapperType)
 
+    @impl_detail
     def test_method_descriptor_types(self):
         self.assertIsInstance(str.join, types.MethodDescriptorType)
         self.assertIsInstance(list.append, types.MethodDescriptorType)
