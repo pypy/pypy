@@ -1502,7 +1502,7 @@ class AppTestPosix:
 
     if os.name == 'nt':
         def test__getfileinformation(self):
-            import os
+            os = self.posix
             path = os.path.join(self.pdir, 'file1')
             with open(path) as fp:
                 info = self.posix._getfileinformation(fp.fileno())
@@ -1510,7 +1510,7 @@ class AppTestPosix:
             assert all(isinstance(obj, int) for obj in info)
 
         def test__getfinalpathname(self):
-            import os
+            os = self.posix
             path = os.path.join(self.pdir, 'file1')
             try:
                 result = self.posix._getfinalpathname(path)
@@ -1669,27 +1669,27 @@ def check_fsencoding(space, pytestconfig):
 
 @py.test.mark.usefixtures('check_fsencoding')
 class AppTestPosixUnicode:
+    def setup_class(cls):
+        cls.w_posix = space.appexec([], GET_POSIX)
+
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
-        import os
         try:
-            os.stat(u"ą")
+            self.posix.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
-        import os
         try:
-            os.open(u"ą", os.O_WRONLY)
+            self.posix.open(u"ą", os.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
-        import os
         try:
-            os.remove(u"ą")
+            self.posix.remove(u"ą")
         except OSError:
             pass
 
@@ -1715,20 +1715,6 @@ class AppTestUnicodeFilename:
         finally:
             self.posix.close(fd)
         assert content == b"test"
-
-
-class AppTestFdVariants:
-    # Tests variant functions which also accept file descriptors,
-    # dir_fd and follow_symlinks.
-    def test_have_functions(self):
-        import os
-        assert os.stat in os.supports_fd  # fstat() is supported everywhere
-        if os.name != 'nt':
-            assert os.chdir in os.supports_fd  # fchdir()
-        else:
-            assert os.chdir not in os.supports_fd
-        if os.name == 'posix':
-            assert os.open in os.supports_dir_fd  # openat()
 
 
 class AppTestPep475Retry:
