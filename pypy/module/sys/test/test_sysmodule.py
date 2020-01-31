@@ -812,6 +812,20 @@ class AppTestSysModulePortedFromCPython:
         assert cur.firstiter is None
         assert cur.finalizer is None
 
+    def test_coroutine_origin_tracking_depth(self):
+        import sys
+        depth = sys.get_coroutine_origin_tracking_depth()
+        assert depth == 0
+        try:
+            sys.set_coroutine_origin_tracking_depth(6)
+            depth = sys.get_coroutine_origin_tracking_depth()
+            assert depth == 6
+            with raises(ValueError):
+                sys.set_coroutine_origin_tracking_depth(-5)
+        finally:
+            sys.set_coroutine_origin_tracking_depth(0)
+
+
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):

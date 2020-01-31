@@ -266,6 +266,7 @@ class PyFrame(W_Root):
             gen = Coroutine(self, name, qualname)
             ec = space.getexecutioncontext()
             w_wrapper = ec.w_coroutine_wrapper_fn
+            gen.capture_origin(ec)
         elif flags & pycode.CO_ASYNC_GENERATOR:
             from pypy.interpreter.generator import AsyncGenerator
             gen = AsyncGenerator(self, name, qualname)

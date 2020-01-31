@@ -45,6 +45,7 @@ class ExecutionContext(object):
         self.w_asyncgen_firstiter_fn = None
         self.w_asyncgen_finalizer_fn = None
         self.contextvar_context = None
+        self.coroutine_origin_tracking_depth = 0
 
     @staticmethod
     def _mark_thread_disappeared(space):

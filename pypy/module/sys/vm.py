@@ -402,3 +402,26 @@ Set a finalizer for async generators objects."""
 
 def is_finalizing(space):
     return space.newbool(space.sys.finalizing)
+
+def get_coroutine_origin_tracking_depth(space):
+    """get_coroutine_origin_tracking_depth()
+        Check status of origin tracking for coroutine objects in this thread.
+    """
+    ec = space.getexecutioncontext()
+    return space.newint(ec.coroutine_origin_tracking_depth)
+
+@unwrap_spec(depth=int)
+def set_coroutine_origin_tracking_depth(space, depth):
+    """set_coroutine_origin_tracking_depth(depth)
+        Enable or disable origin tracking for coroutine objects in this thread.
+
+        Coroutine objects will track 'depth' frames of traceback information
+        about where they came from, available in their cr_origin attribute.
+
+        Set a depth of 0 to disable.
+    """
+    if depth < 0:
+        raise oefmt(space.w_ValueError,
+                "depth must be >= 0")
+    ec = space.getexecutioncontext()
+    ec.coroutine_origin_tracking_depth = depth
