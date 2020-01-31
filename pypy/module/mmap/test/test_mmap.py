@@ -431,6 +431,15 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_get_crash(self):
+        import sys
+        from mmap import mmap
+        s = b'hallo!!!'
+        m = mmap(-1, len(s))
+        m[:] = s
+        assert m[1:None:sys.maxsize] == b'a'
+        m.close()
+
     def test_set_item(self):
         import mmap
 
