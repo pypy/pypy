@@ -51,8 +51,6 @@ class FileEncoder(object):
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
-        if space.isinstance_w(w_obj, space.w_memoryview):
-            self.is_unicode = False
 
     def as_bytes(self):
         return self.space.fsencode_w(self.w_obj)
