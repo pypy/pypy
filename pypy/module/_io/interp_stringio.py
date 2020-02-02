@@ -106,11 +106,14 @@ class UnicodeIO(object):
     def getvalue(self):
         return u''.join(self.data).encode('utf-8')
 
+INITIAL, CLOSED = range(2)
+
 
 class W_StringIO(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
         self.buf = UnicodeIO()
+        self.state = INITIAL
 
     @unwrap_spec(w_newline=WrappedDefault("\n"))
     def descr_init(self, space, w_initvalue=None, w_newline=None):
@@ -202,7 +205,7 @@ class W_StringIO(W_TextIOBase):
             space.call_method(self.w_dict, "update", w_dict)
 
     def _check_closed(self, space, message=None):
-        if self.buf is None:
+        if self.state == CLOSED:
             if message is None:
                 message = "I/O operation on closed file"
             raise OperationError(space.w_ValueError, space.newtext(message))
@@ -307,9 +310,10 @@ class W_StringIO(W_TextIOBase):
 
     def close_w(self, space):
         self.buf = None
+        self.state = CLOSED
 
     def closed_get_w(self, space):
-        return space.newbool(self.buf is None)
+        return space.newbool(self.state == CLOSED)
 
     def line_buffering_get_w(self, space):
         return space.w_False
