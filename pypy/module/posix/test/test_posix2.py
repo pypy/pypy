@@ -934,11 +934,11 @@ class AppTestPosix:
 
     if hasattr(rposix, 'posix_fallocate'):
         def test_os_posix_posix_fallocate(self):
-            posix, self.posix
+            os = self.posix
             import errno
-            fd = posix.open(self.path2 + 'test_os_posix_fallocate', os.O_WRONLY | os.O_CREAT)
+            fd = os.open(self.path2 + 'test_os_posix_fallocate', os.O_WRONLY | os.O_CREAT)
             try:
-                ret = posix.posix_fallocate(fd, 0, 10)
+                ret = os.posix_fallocate(fd, 0, 10)
                 if ret == errno.EINVAL and not self.runappdirect:
                     # Does not work untranslated on a 32-bit chroot/docker
                     pass
@@ -951,7 +951,7 @@ class AppTestPosix:
                 if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
                     raise
             finally:
-                posix.close(fd)
+                os.close(fd)
 
 
     def test_largefile(self):
@@ -1602,6 +1602,7 @@ class AppTestPosix:
 
 class AppTestEnvironment(object):
     def setup_class(cls):
+        cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
@@ -1609,8 +1610,8 @@ class AppTestEnvironment(object):
         if not environ:
             skip('environ not filled in for untranslated tests')
         for k, v in environ.items():
-            assert type(k) is str
-            assert type(v) is str
+            assert type(k) is bytes
+            assert type(v) is bytes
         name = next(iter(environ))
         assert environ[name] is not None
         del environ[name]
