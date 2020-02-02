@@ -8,12 +8,14 @@ from pypy.interpreter.typedef import (
     interp_attrproperty_w)
 from pypy.module._codecs import interp_codecs
 from pypy.module._io.interp_iobase import W_IOBase, convert_size, trap_eintr
+from pypy.module.posix.interp_posix import device_encoding
 from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import (check_utf8, next_codepoint_pos,
                                 codepoints_in_utf8, codepoints_in_utf8,
                                 Utf8StringBuilder)
+from rpython.rlib import rlocale
 
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -235,7 +237,7 @@ def _determine_encoding(space, encoding, w_buffer):
     if encoding is not None:
         return space.newtext(encoding)
 
-    # Try os.device_encoding(fileno)
+    # Try os.device_encoding(fileno) which is interp_posix.device_encoding
     try:
         w_fileno = space.call_method(w_buffer, 'fileno')
     except OperationError as e:
@@ -244,11 +246,22 @@ def _determine_encoding(space, encoding, w_buffer):
                 e.match(space, space.fromcache(Cache).w_unsupportedoperation)):
             raise
     else:
-        w_os = space.call_method(space.builtin, '__import__', space.newtext('os'))
-        w_encoding = space.call_method(w_os, 'device_encoding', w_fileno)
+        w_encoding = device_encoding(space, space.int_w(w_fileno))
         if space.isinstance_w(w_encoding, space.w_unicode):
             return w_encoding
 
+    # Try to shortcut the app-level call if locale.CODESET works
+    if _WINDOWS:
+        return space.newtext(rlocale.getdefaultlocale()[1])
+    else:
+        if rlocale.HAVE_LANGINFO:
+            codeset = rlocale.nl_langinfo(rlocale.CODESET)
+            if codeset:
+                return space.newtext(codeset)
+
+    
+    # On legacy systems or darwin, try app-level 
+    # _bootlocale.getprefferedencoding(False)
     try:
         w_locale = space.call_method(space.builtin, '__import__',
                                      space.newtext('_bootlocale'))
