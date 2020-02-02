@@ -14,6 +14,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import (check_utf8, next_codepoint_pos,
                                 codepoints_in_utf8, codepoints_in_utf8,
                                 Utf8StringBuilder)
+from rpython.rlib import rlocale
 
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -234,6 +235,15 @@ W_TextIOBase.typedef = TypeDef(
 def _determine_encoding(space, encoding):
     if encoding is not None:
         return space.newtext(encoding)
+
+    # Try to shortcut the app-level call if locale.CODESET works
+    if _WINDOWS:
+        return space.newtext(rlocale.getdefaultlocale()[1])
+    else:
+        if rlocale.HAVE_LANGINFO:
+            codeset = rlocale.nl_langinfo(rlocale.CODESET)
+            if codeset:
+                return space.newtext(codeset)
 
     try:
         w_locale = space.call_method(space.builtin, '__import__',
