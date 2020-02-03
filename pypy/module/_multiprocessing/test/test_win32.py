@@ -9,10 +9,6 @@ class AppTestWin32:
         if sys.platform != "win32":
             py.test.skip("win32 only")
 
-    def test_CloseHandle(self):
-        from _multiprocessing import win32
-        raises(WindowsError, win32.CloseHandle, -1)
-
     def test_CreateFile(self):
         from _multiprocessing import win32
         err = raises(WindowsError, win32.CreateFile,
