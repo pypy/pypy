@@ -9,19 +9,13 @@ from pypy.module._io.interp_textio import (
 from pypy.module._io.interp_iobase import convert_size
 
 class UnicodeIO(object):
-    def __init__(self, data=None, pos=0):
+    def __init__(self, data=None):
         if data is None:
             data = ''
         self.data = []
         self.pos = 0
-        # break the data into unicode codepoints
-        _pos = 0
-        while _pos < pos:
-            _pos = next_codepoint_pos(data, _pos)
-            if _pos >= len(data):
-                break
-        self.write(data[_pos:])
-        self.pos = pos
+        self.write(data)
+        self.pos = 0
 
     def resize(self, newlength):
         if len(self.data) > newlength:
