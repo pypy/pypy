@@ -38,6 +38,9 @@ class AppTestBufferTooShort:
             assert isinstance(e, multiprocessing.ProcessError)
             assert e.args == ("data",)
 
+    if sys.platform == "win32":
+        test_exception.dont_track_allocations = True
+
 class BaseConnectionTest(object):
     def test_connection(self):
         import sys
@@ -53,6 +56,9 @@ class BaseConnectionTest(object):
         whandle.send(obj)
         obj2 = rhandle.recv()
         assert obj == obj2
+
+    if sys.platform == "win32":
+        test_connection.dont_track_allocations = True
 
     def test_poll(self):
         import sys
