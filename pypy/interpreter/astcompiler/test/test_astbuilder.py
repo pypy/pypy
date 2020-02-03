@@ -1073,6 +1073,10 @@ class TestAstBuilder:
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "Generator expression must be parenthesized if not " \
             "sole argument"
+        input = "f(x for x in y, )"
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "Generator expression must be parenthesized if not " \
+            "sole argument"
         many_args = ", ".join("x%i" % i for i in range(256))
         input = "f(%s)" % (many_args,)
         self.get_ast(input) # doesn't crash any more

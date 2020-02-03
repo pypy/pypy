@@ -1089,6 +1089,7 @@ class ASTBuilder(object):
         arg_count = 0 # position args + iterable args unpackings
         keyword_count = 0 # keyword args + keyword args unpackings
         generator_count = 0
+        last_is_comma = False
         for i in range(args_node.num_children()):
             argument = args_node.get_child(i)
             if argument.type == syms.argument:
@@ -1102,8 +1103,11 @@ class ASTBuilder(object):
                     # argument.get_child(0).type == tokens.DOUBLESTAR
                     # or keyword arg
                     keyword_count += 1
-        if generator_count > 1 or \
-                (generator_count and (keyword_count or arg_count)):
+            last_is_comma = argument.type == tokens.COMMA
+
+        if (generator_count > 1 or
+                (generator_count and (keyword_count or arg_count)) or
+                (generator_count == 1 and last_is_comma)):
             self.error("Generator expression must be parenthesized "
                        "if not sole argument", args_node)
         args = []
