@@ -982,15 +982,21 @@ On some platforms, path may also be specified as an open file descriptor;
   If this functionality is unavailable, using it raises NotImplementedError."""
     if space.is_none(w_path):
         w_path = space.newtext(".")
-    if space.isinstance_w(w_path, space.w_bytes):
-        # XXX CPython doesn't follow this path either if w_path is,
-        # for example, a memoryview or another buffer type
-        dirname = space.bytes0_w(w_path)
+    try:
+        dirname = space.bytesbuf0_w(w_path)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        if not space.isinstance_w(w_path, space.w_bytes):
+            # use fsencode to get the correct warning
+            space.fsencode_w(w_path)
         try:
             result = rposix.listdir(dirname)
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
         return space.newlist_bytes(result)
+
     try:
         path = space.fsencode_w(w_path)
     except OperationError as operr:

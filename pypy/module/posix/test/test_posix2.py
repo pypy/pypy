@@ -364,26 +364,13 @@ class AppTestPosix:
         expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
         assert expected in result
 
-    def test_listdir_memoryview_returns_unicode(self):
+    def test_listdir_memoryview_returns_bytes(self):
         import sys
-        # XXX unknown why CPython has this behaviour
-
-        # avoid importing stdlib os, copy fsencode instead
-        def fsencode(filename):
-            encoding = sys.getfilesystemencoding()
-            errors = sys.getfilesystemencodeerrors()
-            filename = posix.fspath(filename)  # Does type-checking of `filename`.
-            if isinstance(filename, str):
-                return filename.encode(encoding, errors)
-            else:
-                return filename
-
-
         bytes_dir = self.bytes_dir
         posix = self.posix
         result1 = posix.listdir(bytes_dir)              # -> list of bytes
-        result2 = posix.listdir(memoryview(bytes_dir))  # -> list of unicodes
-        assert [fsencode(x) for x in result2] == result1
+        result2 = posix.listdir(memoryview(bytes_dir))  # -> list of bytes
+        assert result2 == result1
 
     @py.test.mark.skipif("sys.platform == 'win32'")
     def test_fdlistdir(self):
