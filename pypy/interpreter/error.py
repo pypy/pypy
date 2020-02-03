@@ -606,8 +606,8 @@ def debug_print(text, file=None, newline=True):
     ansi_print(text, esc="31", file=file, newline=newline)
 
 @specialize.arg(3, 6)
-def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
-                  w_exception_class=None, w_filename2=None, eintr_retry=False):
+def wrap_oserror2(space, e, w_filename=None, w_exception_class=None,
+                  w_filename2=None, eintr_retry=False):
     """A double API here:
 
         * if eintr_retry is False, always return the OperationError to
@@ -623,7 +623,7 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
     assert isinstance(e, OSError)
 
     if w_exception_class is None:
-        w_exc = getattr(space, exception_name)
+        w_exc = space.w_OSError
     else:
         w_exc = w_exception_class
     operror = _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc,
@@ -679,8 +679,8 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
 
 @specialize.arg(3, 6)
 @dont_inline
-def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
-                 w_exception_class=None, filename2=None, eintr_retry=False):
+def wrap_oserror(space, e, filename=None, w_exception_class=None,
+                 filename2=None, eintr_retry=False):
     w_filename = None
     w_filename2 = None
     if filename is not None:
@@ -688,7 +688,6 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
         if filename2 is not None:
             w_filename2 = space.newfilename(filename2)
     return wrap_oserror2(space, e, w_filename,
-                         exception_name=exception_name,
                          w_exception_class=w_exception_class,
                          w_filename2=w_filename2,
                          eintr_retry=eintr_retry)

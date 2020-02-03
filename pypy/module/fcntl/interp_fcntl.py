@@ -82,13 +82,13 @@ def _raise_error_maybe(space, funcname):
     # when appropriate
     errno = rposix.get_saved_errno()
     wrap_oserror(space, OSError(errno, funcname),
-                 exception_name = 'w_IOError', eintr_retry=True)
+                 w_exception_class=space.w_IOError, eintr_retry=True)
 
 def _raise_error_always(space, funcname):
     # this variant never returns normally, and doesn't retry if it gets EINTR.
     errno = rposix.get_saved_errno()
     raise wrap_oserror(space, OSError(errno, funcname),
-                       exception_name = 'w_IOError', eintr_retry=False)
+                       w_exception_class=space.w_IOError, eintr_retry=False)
 
 @unwrap_spec(op=int, w_arg=WrappedDefault(0))
 def fcntl(space, w_fd, op, w_arg):
