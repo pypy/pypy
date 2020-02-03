@@ -140,6 +140,12 @@ class Path(object):
         self.as_unicode = unicode
         self.w_path = w_path
 
+    def __repr__(self):
+        # For debugging
+        return ''.join(['Path(', str(self.as_fd), ', ', str(self.as_bytes),
+                        ', ', str(self.as_unicode), ', [', str(self.w_path),
+                        ', ', str(getattr(self.w_path, '_length', 'bytes')), '])'])
+
 @specialize.arg(2)
 def _unwrap_path(space, w_value, allow_fd=True):
     # equivalent of posixmodule.c:path_converter() in CPython
