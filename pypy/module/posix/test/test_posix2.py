@@ -546,7 +546,7 @@ class AppTestPosix:
                                      "echo caf\xe9 \u1234 > onefile"])
             os.waitpid(pid, 0)
             with open("onefile", "rb") as fid:
-                asert fid.read() == output
+                assert fid.read() == output
             os.unlink("onefile")
 
         def test_execve(self):
