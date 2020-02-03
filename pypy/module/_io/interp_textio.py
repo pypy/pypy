@@ -237,15 +237,6 @@ def _determine_encoding(space, encoding, w_buffer):
     if encoding is not None:
         return space.newtext(encoding)
 
-    # Try to shortcut the app-level call if locale.CODESET works
-    if _WINDOWS:
-        return space.newtext(rlocale.getdefaultlocale()[1])
-    else:
-        if rlocale.HAVE_LANGINFO:
-            codeset = rlocale.nl_langinfo(rlocale.CODESET)
-            if codeset:
-                return space.newtext(codeset)
-
     # Try os.device_encoding(fileno) which is interp_posix.device_encoding
     try:
         w_fileno = space.call_method(w_buffer, 'fileno')
@@ -259,16 +250,6 @@ def _determine_encoding(space, encoding, w_buffer):
         if space.isinstance_w(w_encoding, space.w_unicode):
             return w_encoding
 
-    # Try to shortcut the app-level call if locale.CODESET works
-    if _WINDOWS:
-        return space.newtext(rlocale.getdefaultlocale()[1])
-    else:
-        if rlocale.HAVE_LANGINFO:
-            codeset = rlocale.nl_langinfo(rlocale.CODESET)
-            if codeset:
-                return space.newtext(codeset)
-
-    
     # On legacy systems or darwin, try app-level 
     # _bootlocale.getprefferedencoding(False)
     try:
