@@ -605,7 +605,7 @@ def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"
     ansi_print(text, esc="31", file=file, newline=newline)
 
-@specialize.arg(3, 6)
+@specialize.arg(3, 5)
 def wrap_oserror2(space, e, w_filename=None, w_exception_class=None,
                   w_filename2=None, eintr_retry=False):
     """A double API here:
@@ -677,7 +677,7 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
         raise operror
     return operror
 
-@specialize.arg(3, 6)
+@specialize.arg(3, 5)
 @dont_inline
 def wrap_oserror(space, e, filename=None, w_exception_class=None,
                  filename2=None, eintr_retry=False):
