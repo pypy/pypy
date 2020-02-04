@@ -164,7 +164,8 @@ def digest(key, msg, digest):
 
     Note: key and msg must be a bytes or bytearray objects.
     """
-    if (_hashopenssl is not None and
+    if (False and # PyPy does not implement this shortcut yet
+            _hashopenssl is not None and
             isinstance(digest, str) and digest in _openssl_md_meths):
         return _hashopenssl.hmac_digest(key, msg, digest)
 
