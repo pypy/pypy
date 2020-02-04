@@ -13,9 +13,7 @@ class UnicodeIO(object):
         if data is None:
             data = ''
         self.data = []
-        self.pos = 0
-        self.write(data)
-        self.pos = 0
+        self.write(data, 0)
 
     def resize(self, newlength):
         if len(self.data) > newlength:
@@ -23,8 +21,7 @@ class UnicodeIO(object):
         if len(self.data) < newlength:
             self.data.extend([u'\0'] * (newlength - len(self.data)))
 
-    def read(self, size):
-        start = self.pos
+    def read(self, start, size):
         available = len(self.data) - start
         if available <= 0:
             return ''
@@ -33,19 +30,17 @@ class UnicodeIO(object):
         else:
             end = len(self.data)
         assert 0 <= start <= end
-        self.pos = end
-        return u''.join(self.data[start:end]).encode('utf-8')
+        return u''.join(self.data[start:end])
 
-    def _convert_limit(self, limit):
-        if limit < 0 or limit > len(self.data) - self.pos:
-            limit = len(self.data) - self.pos
+    def _convert_limit(self, limit, start):
+        if limit < 0 or limit > len(self.data) - start:
+            limit = len(self.data) - start
         assert limit >= 0
         return limit
 
-    def readline_universal(self, limit):
+    def readline_universal(self, start, limit):
         # Universal newline search. Find any of \r, \r\n, \n
-        limit = self._convert_limit(limit)
-        start = self.pos
+        limit = self._convert_limit(limit, start)
         end = start + limit
         pos = start
         while pos < end:
@@ -61,13 +56,11 @@ class UnicodeIO(object):
                     break
                 else:
                     break
-        self.pos = pos
-        result = u''.join(self.data[start:pos]).encode('utf-8')
+        result = u''.join(self.data[start:pos])
         return result
 
-    def readline(self, marker, limit):
-        start = self.pos
-        limit = self._convert_limit(limit)
+    def readline(self, marker, start, limit):
+        limit = self._convert_limit(limit, start)
         end = start + limit
         found = False
         marker = marker.decode('utf-8')
@@ -83,21 +76,17 @@ class UnicodeIO(object):
                     break
         if not found:
             pos = end
-        self.pos = pos
-        result = u''.join(self.data[start:pos]).encode('utf-8')
+        result = u''.join(self.data[start:pos])
         return result
 
-    def write(self, string):
+    def write(self, string, start):
         ustr = string.decode('utf-8')
-        newlen = self.pos + len(ustr)
+        newlen = start + len(ustr)
         if newlen > len(self.data):
             self.resize(newlen)
         for i in range(len(ustr)):
-            self.data[self.pos + i] = ustr[i]
-        self.pos += len(ustr)
-
-    def seek(self, pos):
-        self.pos = pos
+            self.data[start + i] = ustr[i]
+        return len(ustr)
 
     def truncate(self, size):
         if size < len(self.data):
@@ -113,12 +102,14 @@ class W_StringIO(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
         self.buf = UnicodeIO()
+        self.pos = 0
         self.state = INITIAL
 
     @unwrap_spec(w_newline=WrappedDefault("\n"))
     def descr_init(self, space, w_initvalue=None, w_newline=None):
         # In case __init__ is called multiple times
         self.buf = UnicodeIO()
+        self.pos = 0
         self.w_decoder = None
         self.readnl = None
         self.writenl = None
@@ -152,7 +143,7 @@ class W_StringIO(W_TextIOBase):
 
         if not space.is_none(w_initvalue):
             self.write_w(space, w_initvalue)
-            self.buf.pos = 0
+            self.pos = 0
 
     def descr_getstate(self, space):
         w_initialval = self.getvalue_w(space)
@@ -163,7 +154,7 @@ class W_StringIO(W_TextIOBase):
         else:
             w_readnl = space.str(space.newutf8(readnl, codepoints_in_utf8(readnl)))  # YYY
         return space.newtuple([
-            w_initialval, w_readnl, space.newint(self.buf.pos), w_dict
+            w_initialval, w_readnl, space.newint(self.pos), w_dict
         ])
 
     def descr_setstate(self, space, w_state):
@@ -194,7 +185,7 @@ class W_StringIO(W_TextIOBase):
             raise oefmt(space.w_ValueError,
                         "position value cannot be negative")
         self.buf = UnicodeIO(initval)
-        self.buf.seek(pos)
+        self.pos = pos
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
                 raise oefmt(
@@ -231,32 +222,32 @@ class W_StringIO(W_TextIOBase):
             )
         string = space.utf8_w(w_decoded)
         if string:
-            self.buf.write(string)
+            written = self.buf.write(string, self.pos)
+            self.pos += written
 
         return space.newint(orig_size)
 
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
-        v = self.buf.read(size)
-        lgt = codepoints_in_utf8(v)
-        return space.newutf8(v, lgt)
+        result_u = self.buf.read(self.pos, size)
+        self.pos += len(result_u)
+        return space.newutf8(result_u.encode('utf-8'), len(result_u))
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
         if self.readuniversal:
-            result = self.buf.readline_universal(limit)
+            result_u = self.buf.readline_universal(self.pos, limit)
         else:
             if self.readtranslate:
                 # Newlines are already translated, only search for \n
                 newline = '\n'
             else:
                 newline = self.readnl
-            result = self.buf.readline(newline, limit)
-        resultlen = codepoints_in_utf8(result)
-        return space.newutf8(result, resultlen)
-
+            result_u = self.buf.readline(newline, self.pos, limit)
+        self.pos += len(result_u)
+        return space.newutf8(result_u.encode('utf-8'), len(result_u))
 
     @unwrap_spec(pos=int, mode=int)
     def seek_w(self, space, pos, mode=0):
@@ -272,17 +263,17 @@ class W_StringIO(W_TextIOBase):
 
         # XXX: this makes almost no sense, but its how CPython does it.
         if mode == 1:
-            pos = self.buf.pos
+            pos = self.pos
         elif mode == 2:
             pos = len(self.buf.data)
         assert pos >= 0
-        self.buf.seek(pos)
+        self.pos = pos
         return space.newint(pos)
 
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
         if space.is_none(w_size):
-            size = self.buf.pos
+            size = self.pos
         else:
             size = space.int_w(w_size)
         if size < 0:
