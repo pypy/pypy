@@ -224,6 +224,14 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         s = "x\N{PILE OF POO}x"
         b = s.encode('utf-32')[4:]  # Skip the BOM
         assert module.from_ucs4(b) == s
+        # Issue 3165
+        b = b'\x00\xd8\x00\x00'
+        for func, ret in zip([module.from_ucs4, module.from_ucs2],
+                        [['0xd800'], ['0xd800', '0x0']]):
+            s = func(b)
+            assert isinstance(s, str)
+            h = [hex(ord(x)) for x in s]
+            assert h == ret, '%s, %s' %(h, ret)
 
     def test_substring(self):
         module = self.import_extension('foo', [
