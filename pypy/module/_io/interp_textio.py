@@ -246,9 +246,14 @@ def _determine_encoding(space, encoding, w_buffer):
                 e.match(space, space.fromcache(Cache).w_unsupportedoperation)):
             raise
     else:
-        w_encoding = device_encoding(space, space.int_w(w_fileno))
-        if space.isinstance_w(w_encoding, space.w_unicode):
-            return w_encoding
+        try:
+            w_encoding = device_encoding(space, space.int_w(w_fileno))
+        except OverflowError:
+            raise oefmt(space.w_OverflowError,
+                        "Python int too large to convert to C int")
+        else:
+            if space.isinstance_w(w_encoding, space.w_unicode):
+                return w_encoding
 
     # On legacy systems or darwin, try app-level 
     # _bootlocale.getprefferedencoding(False)
