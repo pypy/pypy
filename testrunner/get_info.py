@@ -22,7 +22,7 @@ def make_info_dict():
     return {'target_path': target_path,
             'virt_pypy': os.path.join(VENV_DIR, TARGET_DIR, TARGET_NAME),
             'venv_dir': VENV_DIR,
-            'project': 'PyPy3.6', # for benchmarks
+            'project': 'PyPy3.7', # for benchmarks
            }
 
 def dump_info():
