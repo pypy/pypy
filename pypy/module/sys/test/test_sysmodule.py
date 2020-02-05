@@ -524,6 +524,16 @@ class AppTestSysModulePortedFromCPython:
         sys.setrecursionlimit(oldlimit)
         raises(OverflowError, sys.setrecursionlimit, 1<<31)
 
+    def test_recursionlimit_toolow(self):
+        import sys
+        def callatlevel(l):
+            if l > 0:
+                callatlevel(l - 1)
+            else:
+                sys.setrecursionlimit(1)
+        with raises(RecursionError):
+            callatlevel(500)
+
     def test_getwindowsversion(self):
         import sys
         if hasattr(sys, "getwindowsversion"):

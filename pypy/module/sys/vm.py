@@ -79,7 +79,7 @@ threads you can configure the limit by calling "threading.stack_size()".
         old_limit = space.sys.recursionlimit
         _stack_set_length_fraction(old_limit * 0.001)
         raise oefmt(space.w_RecursionError,
-                    "maximum recursion depth exceeded")
+                "cannot set the recursion limit to %s at the recursion depth: the limit is too low")
     space.sys.recursionlimit = new_limit
     increase_root_stack_depth(int(new_limit * 0.001 * 163840))
 
