@@ -1011,9 +1011,8 @@ On some platforms, path may also be specified as an open file descriptor;
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
-        dirname = FileEncoder(space, w_path)
         try:
-            result = rposix.listdir(dirname)
+            result = rposix.listdir(path)
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     len_result = len(result)

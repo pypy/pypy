@@ -6,7 +6,8 @@ from pypy.interpreter.gateway import interp2app
 from pypy.module.thread.os_lock import _set_sentinel
 from pypy.module.thread.os_thread import start_new_thread
 from pypy.module._multiprocessing.interp_semaphore import (
-    create_semaphore, sem_unlink, W_SemLock)
+    create_semaphore, W_SemLock)
+
 
 @pytest.mark.parametrize('spaceconfig', [
     {'usemodules': ['_multiprocessing', 'thread']}])

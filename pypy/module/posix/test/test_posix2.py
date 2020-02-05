@@ -26,6 +26,7 @@ def setup_module(mod):
     mod.path3 = udir.join('unlinktestfile.txt')
     mod.path3.write("delete me!")
     pdir = udir.ensure('posixtestdir', dir=True)
+    pdir = udir.ensure('posixtestdir', dir=True)
     pdir.join('file1').write("test1")
     os.chmod(str(pdir.join('file1')), 0o600)
     pdir.join('file2').write("test2")
@@ -431,7 +432,6 @@ class AppTestPosix:
         assert isinstance(result.children_user, float)
         assert isinstance(result.children_system, float)
         assert isinstance(result.elapsed, float)
-
     def test_strerror(self):
         assert isinstance(self.posix.strerror(0), str)
         assert isinstance(self.posix.strerror(1), str)
@@ -532,7 +532,8 @@ class AppTestPosix:
                 os.execv("/bin/sh", ["sh", "-c",
                                      "echo caf\xe9 \u1234 > onefile"])
             os.waitpid(pid, 0)
-            assert open("onefile", "rb").read() == output
+            with open("onefile", "rb") as fid:
+                assert fid.read() == output
             os.unlink("onefile")
 
         def test_execve(self):
@@ -564,7 +565,8 @@ class AppTestPosix:
                                       "echo caf\xe9 \u1234 $t > onefile"],
                           {'ddd': 'xxx', 't': t})
             os.waitpid(pid, 0)
-            assert open("onefile", "rb").read() == output + b'\n'
+            with open("onefile") as fid:
+                assert fid.read() == output
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 
@@ -593,11 +595,10 @@ class AppTestPosix:
         def test__getfullpathname(self):
             # nt specific
             posix = self.posix
-            import os
-            sysdrv = os.getenv("SystemDrive", "C:")
+            sysdrv = posix.environ.get("SystemDrive", "C:")
             # just see if it does anything
             path = sysdrv + 'hubber'
-            assert os.sep in posix._getfullpathname(path)
+            assert '\\' in posix._getfullpathname(path)
             assert type(posix._getfullpathname(b'C:')) is bytes
 
     def test_utime(self):
@@ -864,17 +865,15 @@ class AppTestPosix:
             localdir = os.getcwd()
             os.mkdir(self.path2 + 'fchdir')
             for func in [os.fchdir, os.chdir]:
+                fd = os.open(self.path2 + 'fchdir', os.O_RDONLY)
                 try:
-                    fd = os.open(self.path2 + 'fchdir', os.O_RDONLY)
-                    try:
-                        func(fd)
-                        mypath = os.getcwd()
-                    finally:
-                        os.close(fd)
-                    assert mypath.endswith('test_posix2-fchdir')
-                    raises(OSError, func, fd)
+                    func(fd)
+                    mypath = os.getcwd()
                 finally:
+                    os.close(fd)
                     os.chdir(localdir)
+                assert mypath.endswith('test_posix2-fchdir')
+                raises(OSError, func, fd)
             raises(ValueError, os.fchdir, -1)
 
     if hasattr(rposix, 'pread'):
@@ -1282,7 +1281,7 @@ class AppTestPosix:
             # working?
 
     def test_has_kill(self):
-        import os
+        os = self.posix
         assert hasattr(os, 'kill')
 
     def test_pipe_flush(self):
@@ -1591,6 +1590,7 @@ class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
+        cls.w_posix = space.appexec([], GET_POSIX)
 
     def test_environ(self):
         environ = self.posix.environ
@@ -1625,7 +1625,7 @@ class AppTestEnvironment(object):
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
-            import os
+            os = self.posix
             os.unsetenv("XYZABC") #does not raise
             try:
                 os.environ["ABCABC"]
