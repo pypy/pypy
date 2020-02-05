@@ -1,12 +1,24 @@
-from rpython.rlib.rutf8 import codepoints_in_utf8, next_codepoint_pos
+from rpython.rlib.rutf8 import (
+    codepoints_in_utf8, codepoint_at_pos, Utf8StringIterator)
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module._io.interp_textio import (
-        W_TextIOBase, W_IncrementalNewlineDecoder)
+    W_TextIOBase, W_IncrementalNewlineDecoder)
 from pypy.module._io.interp_iobase import convert_size
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
+
+
+def _find_end(start, size, total):
+        available = total - start
+        if size >= 0 and size <= available:
+            end = start + size
+        else:
+            end = total
+        assert 0 <= start and 0 <= end
+        return end
 
 class UnicodeIO(object):
     def __init__(self, data=None):
@@ -22,14 +34,7 @@ class UnicodeIO(object):
             self.data.extend([u'\0'] * (newlength - len(self.data)))
 
     def read(self, start, size):
-        available = len(self.data) - start
-        if available <= 0:
-            return ''
-        if size >= 0 and size <= available:
-            end = start + size
-        else:
-            end = len(self.data)
-        assert 0 <= start <= end
+        end = _find_end(start, size, len(self.data))
         return u''.join(self.data[start:end])
 
     def _convert_limit(self, limit, start):
@@ -95,20 +100,27 @@ class UnicodeIO(object):
     def getvalue(self):
         return u''.join(self.data).encode('utf-8')
 
-INITIAL, CLOSED = range(2)
-
+READING, RWBUFFER, CLOSED = range(3)
 
 class W_StringIO(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
-        self.buf = UnicodeIO()
+        self.buf = None
+        self.w_value = W_UnicodeObject.EMPTY
         self.pos = 0
-        self.state = INITIAL
+        self.state = READING
+
+    def get_length(self):
+        """Return the total size (in codepoints) of the object"""
+        if self.state == READING:
+            return self.w_value._len()
+        else:
+            return len(self.buf.data)
 
     @unwrap_spec(w_newline=WrappedDefault("\n"))
     def descr_init(self, space, w_initvalue=None, w_newline=None):
         # In case __init__ is called multiple times
-        self.buf = UnicodeIO()
+        self.buf = None
         self.pos = 0
         self.w_decoder = None
         self.readnl = None
@@ -142,8 +154,11 @@ class W_StringIO(W_TextIOBase):
             )
 
         if not space.is_none(w_initvalue):
-            self.write_w(space, w_initvalue)
-            self.pos = 0
+            self.w_value = self._decode_string(space, w_initvalue)
+        else:
+            self.w_value = W_UnicodeObject.EMPTY
+        self.pos = 0
+        self.state = READING
 
     def descr_getstate(self, space):
         w_initialval = self.getvalue_w(space)
@@ -173,18 +188,19 @@ class W_StringIO(W_TextIOBase):
             raise oefmt(space.w_TypeError,
                         "unicode argument expected, got '%T'", w_initval)
         # Initialize state
-        self.descr_init(space, None, w_readnl)
+        self.descr_init(space, w_initval, w_readnl)
 
         # Restore the buffer state. We're not doing it via __init__
         # because the string value in the state tuple has already been
         # translated once by __init__. So we do not take any chance and replace
         # object's buffer completely
         initval = space.utf8_w(w_initval)
+        self.buf = UnicodeIO(initval)
+
         pos = space.getindex_w(w_pos, space.w_TypeError)
         if pos < 0:
             raise oefmt(space.w_ValueError,
                         "position value cannot be negative")
-        self.buf = UnicodeIO(initval)
         self.pos = pos
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
@@ -201,12 +217,11 @@ class W_StringIO(W_TextIOBase):
                 message = "I/O operation on closed file"
             raise OperationError(space.w_ValueError, space.newtext(message))
 
-    def write_w(self, space, w_obj):
+    def _decode_string(self, space, w_obj):
         if not space.isinstance_w(w_obj, space.w_unicode):
             raise oefmt(space.w_TypeError,
                         "unicode argument expected, got '%T'", w_obj)
         self._check_closed(space)
-        orig_size = space.len_w(w_obj)
 
         if self.w_decoder is not None:
             w_decoded = space.call_method(
@@ -220,6 +235,16 @@ class W_StringIO(W_TextIOBase):
                 space.newtext("\n"),
                 space.newutf8(writenl, codepoints_in_utf8(writenl)),
             )
+        return w_decoded
+
+    def write_w(self, space, w_obj):
+        w_decoded = self._decode_string(space, w_obj)
+        orig_size = space.len_w(w_obj)
+        if self.state == READING:
+            self.buf = UnicodeIO(space.utf8_w(self.w_value))
+            self.w_value = None
+            self.state = RWBUFFER
+
         string = space.utf8_w(w_decoded)
         if string:
             written = self.buf.write(string, self.pos)
@@ -230,6 +255,15 @@ class W_StringIO(W_TextIOBase):
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
+        if self.state == READING:
+            length = self.w_value._len()
+            end = _find_end(self.pos, size, length)
+            if self.pos > end:
+                return space.newutf8('', 0)
+            w_res = self.w_value._unicode_sliced(space, self.pos, end)
+            self.pos = end
+            return w_res
+        assert self.state == RWBUFFER
         result_u = self.buf.read(self.pos, size)
         self.pos += len(result_u)
         return space.newutf8(result_u.encode('utf-8'), len(result_u))
@@ -237,6 +271,61 @@ class W_StringIO(W_TextIOBase):
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
+        if self.state == READING:
+            length = self.w_value._len()
+            end = _find_end(self.pos, limit, length)
+            if self.readuniversal:
+                start = self.pos
+                start_offset = self.w_value._index_to_byte(start)
+                it = Utf8StringIterator(self.w_value._utf8)
+                it._pos = start_offset
+                for ch in it:
+                    if ch == ord(u'\n'):
+                        self.pos += 1
+                        break
+                    elif ch == ord(u'\r'):
+                        self.pos += 1
+                        if self.pos >= end:
+                            break
+                        if it.next() == ord(u'\n'):
+                            self.pos += 1
+                            break
+                        else:
+                            # `it` has gone one char too far, but we don't care
+                            break
+                    self.pos += 1
+                    if self.pos >= end:
+                        break
+                w_res = self.w_value._unicode_sliced(space, start, self.pos)
+                return w_res
+            else:
+                if self.readtranslate:
+                    # Newlines are already translated, only search for \n
+                    newline = '\n'
+                else:
+                    newline = self.readnl
+
+                start = self.pos
+                start_offset = self.w_value._index_to_byte(start)
+                it = Utf8StringIterator(self.w_value._utf8)
+                it._pos = start_offset
+                for ch in it:
+                    self.pos += 1
+                    if ch == ord(newline[0]):
+                        if len(newline) == 1 or self.pos >= end:
+                            break
+                        else:
+                            ch = codepoint_at_pos(self.w_value._utf8, it.get_pos())
+                            if ch == ord(newline[1]):
+                                self.pos += 1
+                                break
+                            else:
+                                continue
+                    if self.pos >= end:
+                        break
+                w_res = self.w_value._unicode_sliced(space, start, self.pos)
+                return w_res
+
         if self.readuniversal:
             result_u = self.buf.readline_universal(self.pos, limit)
         else:
@@ -265,7 +354,7 @@ class W_StringIO(W_TextIOBase):
         if mode == 1:
             pos = self.pos
         elif mode == 2:
-            pos = len(self.buf.data)
+            pos = self.get_length()
         assert pos >= 0
         self.pos = pos
         return space.newint(pos)
@@ -278,11 +367,17 @@ class W_StringIO(W_TextIOBase):
             size = space.int_w(w_size)
         if size < 0:
             raise oefmt(space.w_ValueError, "Negative size value %d", size)
-        self.buf.truncate(size)
+        if self.state == READING:
+            if size < self.w_value._len():
+                self.w_value = self.w_value._unicode_sliced(space, 0, size)
+        else:
+            self.buf.truncate(size)
         return space.newint(size)
 
     def getvalue_w(self, space):
         self._check_closed(space)
+        if self.state == READING:
+            return self.w_value
         v = self.buf.getvalue()
         lgt = codepoints_in_utf8(v)
         return space.newutf8(v, lgt)
