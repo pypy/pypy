@@ -110,6 +110,15 @@ class TestRStruct(BaseRtypingTest):
         assert unpack(">q", '\xbeMLKJIHH') == -0x41B2B3B4B5B6B7B8
         assert unpack(">Q", '\x81BCDEFGH') == 0x8142434445464748
 
+    def test_align(self):
+        data = struct.pack('BBhi', 1, 2, 3, 4)
+        def fn():
+            a, b, c, d = runpack('BBhi', data)
+            return a+(b << 8)+(c << 16) + (d << 32)
+        assert fn() == 0x400030201
+        assert self.interpret(fn, []) == 0x400030201
+
+
 
 class TestNoFastPath(TestRStruct):
 
