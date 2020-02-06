@@ -622,6 +622,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(end)
 
     def visit_AsyncFor(self, fr):
+        if not self._check_async_function():
+            self.error("'async for' outside async function", fr)
         self.update_position(fr.lineno, True)
         b_try = self.new_block()
         b_except = self.new_block()
@@ -1067,6 +1069,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
 
     def visit_AsyncWith(self, wih):
+        if not self._check_async_function():
+            self.error("'async with' outside async function", wih)
         self.update_position(wih.lineno, True)
         self.handle_withitem(wih, 0, is_async=True)
 

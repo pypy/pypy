@@ -385,6 +385,12 @@ class AsyncBadSyntaxTest(unittest.TestCase):
             ]
 
         for code in samples:
+            try:
+                compile(code, "<text>", "exec")
+            except SyntaxError:
+                pass
+            else:
+                print(code)
             with self.subTest(code=code), self.assertRaises(SyntaxError):
                 compile(code, "<test>", "exec")
 

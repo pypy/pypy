@@ -1258,6 +1258,37 @@ a = A()
         # ok!
         self.simple_test(source, "None", None)
 
+    def test_not_async_function_error(self):
+        source = """
+async with x:
+    pass
+"""
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, "None", None)
+
+        source = """
+async for i in x:
+    pass
+"""
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, "None", None)
+
+        source = """
+def f():
+    async with x:
+        pass
+"""
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, "None", None)
+
+        source = """
+def f():
+    async for i in x:
+        pass
+"""
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, "None", None)
+
     def test_load_classderef(self):
         source = """if 1:
         def f():
