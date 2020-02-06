@@ -203,12 +203,10 @@ class W_TypeObject(W_Root):
         self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
 
         self.layout = None  # the lines below may try to access self.layout
-        if overridetypedef is not None:
-            assert not force_new_layout
-            layout = setup_builtin_type(self, overridetypedef)
-        else:
-            layout = setup_user_defined_type(self, force_new_layout)
-        self.layout = layout
+
+        # get and remove the __qualname__ from the dict *first*, so that if
+        # e.g. a slot named "__qualname__" exists, the setup_user_defined_type
+        # below will not see it
         self.qualname = self.getname(space)
         if self.flag_heaptype:
             w_qualname = self.dict_w.pop('__qualname__', None)
@@ -219,6 +217,13 @@ class W_TypeObject(W_Root):
                     raise oefmt(space.w_TypeError,
                                 "type __qualname__ must be a str, not %T",
                                 w_qualname)
+
+        if overridetypedef is not None:
+            assert not force_new_layout
+            layout = setup_builtin_type(self, overridetypedef)
+        else:
+            layout = setup_user_defined_type(self, force_new_layout)
+        self.layout = layout
 
         if not is_mro_purely_of_types(self.mro_w):
             pass
