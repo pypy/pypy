@@ -114,9 +114,9 @@ class TestRStruct(BaseRtypingTest):
         data = struct.pack('BBhi', 1, 2, 3, 4)
         def fn():
             a, b, c, d = runpack('BBhi', data)
-            return a+(b << 8)+(c << 16) + (d << 32)
-        assert fn() == 0x400030201
-        assert self.interpret(fn, []) == 0x400030201
+            return a + (b << 4) + (c << 8) + (d << 12)
+        assert fn() == 0x4321
+        assert self.interpret(fn, []) == 0x4321
 
 
 
