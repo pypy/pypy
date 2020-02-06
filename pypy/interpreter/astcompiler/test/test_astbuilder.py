@@ -464,6 +464,9 @@ class TestAstBuilder:
             assert isinstance(b, ast.Name)
             assert b.ctx == ast.Load
 
+        with pytest.raises(SyntaxError) as info:
+            self.get_ast("class A(x for x in T): pass")
+
     def test_function(self):
         func = self.get_first_stmt("def f(): pass")
         assert isinstance(func, ast.FunctionDef)

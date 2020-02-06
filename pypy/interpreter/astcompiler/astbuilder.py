@@ -466,7 +466,7 @@ class ASTBuilder(object):
         # build up a fake Call node so we can extract its pieces
         call_name = ast.Name(name, ast.Load, classdef_node.get_lineno(),
                              classdef_node.get_column())
-        call = self.handle_call(classdef_node.get_child(3), call_name)
+        call = self.handle_call(classdef_node.get_child(3), call_name, genexp_allowed=False)
         body = self.handle_suite(classdef_node.get_child(6))
         return ast.ClassDef(
             name, call.args, call.keywords,
@@ -1085,7 +1085,7 @@ class ASTBuilder(object):
             return ast.Subscript(left_expr, ast.Index(tup), ast.Load,
                                  middle.get_lineno(), middle.get_column())
 
-    def handle_call(self, args_node, callable_expr):
+    def handle_call(self, args_node, callable_expr, genexp_allowed=True):
         arg_count = 0 # position args + iterable args unpackings
         keyword_count = 0 # keyword args + keyword args unpackings
         generator_count = 0
@@ -1105,6 +1105,9 @@ class ASTBuilder(object):
                     keyword_count += 1
             last_is_comma = argument.type == tokens.COMMA
 
+        if generator_count and not genexp_allowed:
+            self.error("generator expression can't be used as bases of class definition",
+                       args_node)
         if (generator_count > 1 or
                 (generator_count and (keyword_count or arg_count)) or
                 (generator_count == 1 and last_is_comma)):
