@@ -1281,6 +1281,15 @@ class AppTestUnicodeString:
         assert str(e.value) == 'decoding str is not supported'
         e = raises(TypeError, str, z, 'supposedly_the_encoding')
         assert str(e.value) == 'decoding str is not supported'
+        #
+        e = raises(TypeError, str, 42, 'supposedly_the_encoding')
+        assert str(e.value) in [
+            'decoding to str: a bytes-like object is required, not int',
+            'decoding to str: need a bytes-like object, int found']
+        e = raises(TypeError, str, None, 'supposedly_the_encoding')
+        assert str(e.value) in [
+            'decoding to str: a bytes-like object is required, not None',
+            'decoding to str: need a bytes-like object, NoneType found']
 
     def test_reduce_iterator(self):
         it = iter(u"abcdef")

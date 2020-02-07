@@ -1370,14 +1370,23 @@ def encode_object(space, w_obj, encoding, errors):
 
 def decode_object(space, w_obj, encoding, errors=None):
     from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
+    # in all cases, call space.charbuf_w() first.  This will fail with a
+    # TypeError if w_obj is of a random type.  Do this even if we're not
+    # going to use 's'
+    try:
+        s = space.charbuf_w(w_obj)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        raise oefmt(space.w_TypeError, "decoding to str: %S",
+            e.get_w_value(space))
+    #
     if errors == 'strict' or errors is None:
         # fast paths
         if encoding == 'ascii':
-            s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
             return space.newtext(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
-            s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
     if encoding is None:
