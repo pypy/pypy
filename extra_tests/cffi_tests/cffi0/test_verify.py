@@ -2551,3 +2551,13 @@ def test_arithmetic_in_cdef():
         """.replace('?', str(a)))
         # the verify() crashes if the values in the enum are different from
         # the values we computed ourselves from the cdef()
+
+def test_passing_large_list():
+    ffi = FFI()
+    ffi.cdef("""void passing_large_list(long[]);""")
+    lib = ffi.verify("""
+        static void passing_large_list(long a[]) { }
+    """)
+    arg = list(range(20000000))
+    lib.passing_large_list(arg)
+    # assert did not segfault
