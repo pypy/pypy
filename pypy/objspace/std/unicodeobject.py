@@ -131,7 +131,7 @@ class W_UnicodeObject(W_Root):
 
     def listview_ascii(self):
         if self.is_ascii():
-            return list(self._utf8)
+            return _create_list_from_unicode(self._utf8)
         return None
 
     def ord(self, space):
@@ -1808,6 +1808,10 @@ W_UnicodeObject.typedef = TypeDef(
 )
 W_UnicodeObject.typedef.flag_sequence_bug_compat = True
 
+def _create_list_from_unicode(value):
+    # need this helper function to allow the jit to look inside and inline
+    # listview_ascii
+    return [s for s in value]
 
 W_UnicodeObject.EMPTY = W_UnicodeObject('', 0)
 
