@@ -2446,3 +2446,13 @@ def test_struct_with_func_with_struct_arg():
         };
     """)
     py.test.raises(RuntimeError, ffi.new, "struct BinaryTree *")
+
+def test_passing_large_list():
+    ffi = FFI()
+    ffi.cdef("""void passing_large_list(long[]);""")
+    lib = verify(ffi, "test_passing_large_list", """
+        static void passing_large_list(long a[]) { }
+    """)
+    arg = list(range(20000000))
+    lib.passing_large_list(arg)
+    # assert did not segfault

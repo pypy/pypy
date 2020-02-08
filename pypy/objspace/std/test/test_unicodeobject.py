@@ -26,7 +26,7 @@ class TestUnicodeObject:
         s2 = unicode_to_decimal_w(space, w_s)
         assert s2 == "10"
 
-    def test_listview_unicode(self):
+    def test_listview_ascii(self):
         w_str = self.space.newutf8('abcd', 4)
         assert self.space.listview_ascii(w_str) == list("abcd")
 

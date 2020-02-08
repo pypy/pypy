@@ -104,6 +104,7 @@ else:
           [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
         # assume a standard clang or gcc
         extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion',
+                              '-Wno-unused-parameter',
                               '-Wno-unreachable-code']
         # special things for clang
         extra_compile_args.append('-Qunused-arguments')
