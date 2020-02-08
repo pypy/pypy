@@ -145,13 +145,20 @@ class AppTestUnicodeString:
             assert a == b
             assert type(a) == type(b)
         check(', '.join(['a']), 'a')
+        check(', '.join(['a', 'b']), 'a, b')
         raises(TypeError, ','.join, [b'a'])
-        exc = raises(TypeError, ''.join, ['a', 2, 3])
+        check(','.join(iter([])), '')
+        with raises(TypeError) as exc:
+            ''.join(['a', 2, 3])
+        assert 'sequence item 1' in str(exc.value)
+        with raises(TypeError) as exc:
+            ''.join(iter(['a', 2, 3]))
         assert 'sequence item 1' in str(exc.value)
         # unicode lists
         check(''.join(['\u1234']), '\u1234')
         check(''.join(['\u1234', '\u2345']), '\u1234\u2345')
         check('\u1234'.join(['\u2345', '\u3456']), '\u2345\u1234\u3456')
+        check('x\u1234y'.join(['a', 'b', 'c']), 'ax\u1234ybx\u1234yc')
         # also checking passing a single unicode instead of a list
         check(''.join('\u1234'), '\u1234')
         check(''.join('\u1234\u2345'), '\u1234\u2345')
