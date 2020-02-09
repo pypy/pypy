@@ -61,3 +61,13 @@ class TestGenerators(BaseTestPyPyC):
             i2 = int_sub_ovf(i1, 42)
             guard_no_overflow(descr=...)
             """)
+
+    def test_nonstd_jitdriver_distinguishes_generators(self):
+        def main():
+            # test the "contains" jitdriver, but the others are the same
+            res = (9999 in (i for i in range(20000)))
+            res += (9999 in (i for i in range(20000)))
+            return res
+        log = self.run(main, [])
+        assert len(log.loops) == 2  # as opposed to one loop, one bridge
+
