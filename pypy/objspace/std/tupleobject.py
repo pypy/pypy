@@ -27,13 +27,22 @@ def _unroll_condition_cmp(self, space, other):
             jit.loop_unrolling_heuristic(other, other.length(), UNROLL_CUTOFF))
 
 
+def get_printable_location(tp):
+    return "tuple.contains [%s]" % (tp.getname(tp.space), )
+
 contains_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto',
-                             name = 'tuple.contains')
+                             name = 'tuple.contains',
+                             get_printable_location=get_printable_location)
+
+def get_printable_location(w_type):
+    return "tuple.hash [%s]" % (w_type.getname(w_type.space), )
 
 hash_driver = jit.JitDriver(
     name='tuple.hash',
     greens=['w_type'],
-    reds='auto')
+    reds='auto',
+    get_printable_location=get_printable_location
+    )
 
 class W_AbstractTupleObject(W_Root):
     __slots__ = ()
