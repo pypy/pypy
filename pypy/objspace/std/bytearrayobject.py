@@ -568,7 +568,7 @@ def _get_printable_location(greenkey):
 _byteseq_jitdriver = jit.JitDriver(
     name='bytearray_from_byte_sequence',
     greens=['greenkey'],
-    reds='auto'
+    reds='auto',
     get_printable_location=_get_printable_location)
 
 def _from_byte_sequence(space, w_source):

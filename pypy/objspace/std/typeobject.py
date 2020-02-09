@@ -711,6 +711,9 @@ class W_TypeObject(W_Root):
         else:
             return space.newtext("<%s '%s'>" % (kind, self.name))
 
+    def iterator_greenkey_printable(self):
+        return self.name
+
     def descr_getattribute(self, space, w_name):
         name = space.text_w(w_name)
         w_descr = space.lookup(self, name)

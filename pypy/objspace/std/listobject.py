@@ -131,7 +131,7 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
     return space.fromcache(ObjectListStrategy)
 
 
-def _get_printable_location(greenkey):
+def _get_printable_location(strategy, greenkey):
     return 'list__do_extend_from_iterable [%s, %s]' % (
         strategy,
         greenkey.iterator_greenkey_printable())
@@ -145,11 +145,11 @@ _do_extend_jitdriver = jit.JitDriver(
 
 def _do_extend_from_iterable(space, w_list, w_iterable):
     w_iterator = space.iter(w_iterable)
-    w_type = space.iterator_greenkey_printable(w_iterator)
+    greenkey = space.iterator_greenkey(w_iterator)
     i = 0
     while True:
         _do_extend_jitdriver.jit_merge_point(
-                w_type=w_type,
+                greenkey=greenkey,
                 strategy = w_list.strategy)
         try:
             w_list.append(space.next(w_iterator))

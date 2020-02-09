@@ -231,7 +231,7 @@ return next yielded value or raise StopIteration."""
         self.frame = None
         rgc.may_ignore_finalizer(self)
 
-    def iterator_greenkey(self):
+    def iterator_greenkey(self, space):
         return self.pycode
 
 
