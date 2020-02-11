@@ -1,5 +1,6 @@
 from rpython.rlib.rutf8 import (
-    codepoints_in_utf8, codepoint_at_pos, Utf8StringIterator)
+    codepoints_in_utf8, codepoint_at_pos, Utf8StringIterator,
+    Utf8StringBuilder)
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
@@ -100,13 +101,14 @@ class UnicodeIO(object):
     def getvalue(self):
         return u''.join(self.data).encode('utf-8')
 
-READING, RWBUFFER, CLOSED = range(3)
+READING, ACCUMULATING, RWBUFFER, CLOSED = range(4)
 
 class W_StringIO(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
         self.buf = None
         self.w_value = W_UnicodeObject.EMPTY
+        self.builder = None
         self.pos = 0
         self.state = READING
 
@@ -114,6 +116,8 @@ class W_StringIO(W_TextIOBase):
         """Return the total size (in codepoints) of the object"""
         if self.state == READING:
             return self.w_value._len()
+        elif self.state == ACCUMULATING:
+            return self.builder.getlength()
         else:
             return len(self.buf.data)
 
@@ -239,22 +243,50 @@ class W_StringIO(W_TextIOBase):
 
     def write_w(self, space, w_obj):
         w_decoded = self._decode_string(space, w_obj)
+        string = space.utf8_w(w_decoded)
         orig_size = space.len_w(w_obj)
+        if not string:
+            return space.newint(orig_size)
         if self.state == READING:
-            self.buf = UnicodeIO(space.utf8_w(self.w_value))
-            self.w_value = None
+            if self.pos == self.get_length():
+                # switch to ACCUMULATING
+                self.builder = Utf8StringBuilder()
+                self.builder.append_utf8(self.w_value._utf8, self.w_value._len())
+                self.w_value = None
+                self.state = ACCUMULATING
+            else:
+                # switch to RWBUFFER
+                self.buf = UnicodeIO(space.utf8_w(self.w_value))
+                self.w_value = None
+                self.state = RWBUFFER
+        elif self.state == ACCUMULATING and self.pos != self.get_length():
+            s = self.builder.build()
+            self.buf = UnicodeIO(s)
+            self.builder = None
             self.state = RWBUFFER
 
-        string = space.utf8_w(w_decoded)
-        if string:
+        if self.state == ACCUMULATING:
+            written = w_decoded._len()
+            self.builder.append_utf8(string, written)
+        else:
+            assert self.state == RWBUFFER
             written = self.buf.write(string, self.pos)
-            self.pos += written
-
+        self.pos += written
         return space.newint(orig_size)
+
+    def _realize(self, space):
+        """Switch from ACCUMULATING to READING"""
+        s = self.builder.build()
+        length = self.builder.getlength()
+        self.w_value = space.newutf8(s, length)
+        self.builder = None
+        self.state = READING
 
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
+        if self.state == ACCUMULATING:
+            self._realize(space)
         if self.state == READING:
             length = self.w_value._len()
             end = _find_end(self.pos, size, length)
@@ -271,6 +303,8 @@ class W_StringIO(W_TextIOBase):
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
+        if self.state == ACCUMULATING:
+            self._realize(space)
         if self.state == READING:
             length = self.w_value._len()
             end = _find_end(self.pos, limit, length)
@@ -367,6 +401,8 @@ class W_StringIO(W_TextIOBase):
             size = space.int_w(w_size)
         if size < 0:
             raise oefmt(space.w_ValueError, "Negative size value %d", size)
+        if self.state == ACCUMULATING:
+            self._realize(space)
         if self.state == READING:
             if size < self.w_value._len():
                 self.w_value = self.w_value._unicode_sliced(space, 0, size)
@@ -376,6 +412,8 @@ class W_StringIO(W_TextIOBase):
 
     def getvalue_w(self, space):
         self._check_closed(space)
+        if self.state == ACCUMULATING:
+            self._realize(space)
         if self.state == READING:
             return self.w_value
         v = self.buf.getvalue()
