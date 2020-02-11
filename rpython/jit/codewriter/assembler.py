@@ -31,6 +31,7 @@ class Assembler(object):
         """Take the 'ssarepr' representation of the code and assemble
         it inside the 'jitcode'.  If jitcode is None, make a new one.
         """
+        from rpython.jit.codewriter.genextension import GenExtension
         self.setup(ssarepr.name)
         ssarepr._insns_pos = []
         for insn in ssarepr.insns:
@@ -45,6 +46,8 @@ class Assembler(object):
         if self._count_jitcodes < 20:    # stop if we have a lot of them
             jitcode._dump = format_assembler(ssarepr)
         self._count_jitcodes += 1
+        if ssarepr.genextension:
+            GenExtension(self).generate(ssarepr, jitcode)
         return jitcode
 
     def setup(self, name):

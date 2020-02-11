@@ -4,10 +4,11 @@ from rpython.rtyper.lltypesystem import lltype
 
 
 class SSARepr(object):
-    def __init__(self, name):
+    def __init__(self, name, genextension=False):
         self.name = name
         self.insns = []
         self._insns_pos = None     # after being assembled
+        self.genextension = genextension
 
 class Label(object):
     def __init__(self, name):
@@ -79,11 +80,13 @@ class GraphFlattener(object):
         self.cpu = cpu
         self._include_all_exc_links = _include_all_exc_links
         self.registers = {}
+        genextension = False
         if graph:
             name = graph.name
+            genextension = getattr(graph.func, "generate_jit_extension", False)
         else:
             name = '?'
-        self.ssarepr = SSARepr(name)
+        self.ssarepr = SSARepr(name, genextension)
 
     def enforce_input_args(self):
         inputargs = self.graph.startblock.inputargs

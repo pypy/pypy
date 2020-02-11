@@ -1292,6 +1292,10 @@ class ConditionalCallEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop(opname, args_v, resulttype=resulttype)
 
+def warmup_critical_function(func):
+    func.generate_jit_extension = True
+    return func
+
 def enter_portal_frame(unique_id):
     """call this when starting to interpret a function. calling this is not
     necessary for almost all interpreters. The only exception is stackless
