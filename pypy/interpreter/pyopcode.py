@@ -147,10 +147,12 @@ class __extend__(pyframe.PyFrame):
         while True:
             self.last_instr = intmask(next_instr)
             if jit.we_are_jitted():
-                ec.bytecode_only_trace(self)
+                if self.debugdata:
+                    ec.bytecode_only_trace(self)
+                    next_instr = r_uint(self.last_instr)
             else:
                 ec.bytecode_trace(self)
-            next_instr = r_uint(self.last_instr)
+                next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
 
