@@ -1,3 +1,6 @@
+import py
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+    ConstFloat, CONST_NULL)
 
 class GenExtension(object):
     def __init__(self, assembler):
@@ -20,7 +23,7 @@ class GenExtension(object):
         self.precode.append("    pc = self.pc")
         self.precode.append("    while 1:")
         for index, insn in enumerate(ssarepr.insns):
-            if isinstance(insn[0], Label):
+            if isinstance(insn[0], Label) or insn[0] == '---' or insn[0] == '-live-':
                 continue
             pc = ssarepr._insns_pos[index]
             self.code.append("if pc == %s:" % pc)
@@ -40,15 +43,23 @@ class GenExtension(object):
             else:
                 self.code.append("    pc = self.pc")
                 # do the trick
+                prefix = ''
                 for pc in pcs:
-                    self.code.append("    if pc == %s: pc = %s" % (pc, pc))
-                self.code.append("    else: assert 0 # unreachable")
+                    self.code.append("    %sif pc == %s: pc = %s" % (prefix, pc, pc))
+                    prefix = "el"
+                self.code.append("    else:")
+                self.code.append("        assert 0 # unreachable")
             self.code.append("    continue")
         allcode = []
         allcode.extend(self.precode)
         for line in self.code:
             allcode.append(" " * 8 + line)
         jitcode._genext_source = "\n".join(allcode)
+        d = {"ConstInt": ConstInt}
+        source = py.code.Source(jitcode._genext_source)
+        exec source.compile() in d
+        print jitcode._genext_source
+        jitcode.genext_function = d['f']
 
     def _emit_instruction(self, insn, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame
@@ -110,7 +121,7 @@ class GenExtension(object):
                                            argcodes[next_argcode])
                 next_argcode = next_argcode + 1
                 position += 1 + length
-                value = str(value)
+                value = '[' + ",".join(value) + "]"
             elif argtype == "boxes2":     # two lists of boxes merged into one
                 length1 = ord(code[position])
                 position2 = position + 1 + length1
@@ -122,7 +133,7 @@ class GenExtension(object):
                                            argcodes[next_argcode + 1])
                 next_argcode = next_argcode + 2
                 position = position2 + 1 + length2
-                value = str(value)
+                value = '[' + ",".join(value) + "]"
             elif argtype == "boxes3":    # three lists of boxes merged into one
                 length1 = ord(code[position])
                 position2 = position + 1 + length1
@@ -138,7 +149,7 @@ class GenExtension(object):
                                            argcodes[next_argcode + 2])
                 next_argcode = next_argcode + 3
                 position = position3 + 1 + length3
-                value = str(value)
+                value = '[' + ",".join(value) + "]"
             elif argtype == "orgpc":
                 value = str(orgpc)
                 needed_orgpc = True
@@ -196,7 +207,9 @@ class GenExtension(object):
             outvalue[startindex+i] = reg
 
     def next_possible_pcs(self, insn, needed_label, nextpc):
-        if needed_label:
+        if insn[0] == "goto":
+            return [needed_label]
+        if needed_label is not None:
             return [nextpc, needed_label]
         if insn[0].endswith("return"):
             return []

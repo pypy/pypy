@@ -27,8 +27,9 @@ def f(self):
             self.opimpl_goto_if_not_int_gt(self.registers_i[22], ConstInt(4), 16, 0)
             pc = self.pc
             if pc == 5: pc = 5
-            if pc == 16: pc = 16
-            else: assert 0 # unreachable
+            elif pc == 16: pc = 16
+            else:
+                assert 0 # unreachable
             continue
         if pc == 5:
             self.pc = 9
@@ -46,7 +47,7 @@ def f(self):
             self.pc = 16
             self._result_argcode = 'v'
             self.opimpl_goto(0)
-            pc = 16
+            pc = 0
             continue
         if pc == 16:
             self.pc = 18

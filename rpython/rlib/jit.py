@@ -1339,6 +1339,7 @@ class Counters(object):
     TOTAL_COMPILED_BRIDGES
     TOTAL_FREED_LOOPS
     TOTAL_FREED_BRIDGES
+    FAST_TRACING_FUNCTION_EXECUTIONS
     """
 
     counter_names = []

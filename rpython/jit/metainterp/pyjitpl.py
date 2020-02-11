@@ -1563,8 +1563,11 @@ class MIFrame(object):
         # whenever the 'opcode_implementations' (which is one of the 'opimpl_'
         # methods) raises ChangeFrame.  This is the case when the current frame
         # changes, due to a call or a return.
+        staticdata = self.metainterp.staticdata
+        if self.jitcode.genext_function:
+            staticdata.profiler.count(Counters.FAST_TRACING_FUNCTION_EXECUTIONS)
+            return self.jitcode.genext_function(self)
         try:
-            staticdata = self.metainterp.staticdata
             while True:
                 pc = self.pc
                 op = ord(self.bytecode[pc])

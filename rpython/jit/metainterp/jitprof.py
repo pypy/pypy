@@ -145,6 +145,7 @@ class Profiler(BaseProfiler):
         self._print_intline("opt guards", cnt[Counters.OPT_GUARDS])
         self._print_intline("opt guards shared", cnt[Counters.OPT_GUARDS_SHARED])
         self._print_intline("forcings", cnt[Counters.OPT_FORCINGS])
+        self._print_intline("fast tracing function executions:", cnt[Counters.FAST_TRACING_FUNCTION_EXECUTIONS])
         self._print_intline("abort: trace too long",
                             cnt[Counters.ABORT_TOO_LONG])
         self._print_intline("abort: compiling", cnt[Counters.ABORT_BRIDGE])
