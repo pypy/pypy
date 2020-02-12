@@ -1528,7 +1528,14 @@ class SetLikeDictView(object):
             if len_other > len_self:
                 self, w_other = w_other, self
 
-        for w_item in space.iteriterable(w_other):
+        w_iter = space.iter(w_other)
+        while 1:
+            try:
+                w_item = space.next(w_iter)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
             if space.contains_w(self, w_item):
                 return space.w_False
         return space.w_True

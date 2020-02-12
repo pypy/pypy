@@ -645,10 +645,12 @@ class W_UnicodeObject(W_Root):
         sizehint = space.length_hint(w_iterable, -1)
 
         # get the first element to guess the preallocation size
-        iterator = space.iteriterable(w_iterable)
+        w_iter = space.iter(w_iterable)
         try:
-            w_first = next(iterator)
-        except StopIteration:
+            w_first = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
             return W_UnicodeObject.EMPTY
 
         utf8first, lenfirst = self._join_utf8_len_w(space, w_first, 0)
@@ -664,8 +666,14 @@ class W_UnicodeObject(W_Root):
         selfisnotempty = self._length != 0
         tpfirst = space.type(w_first)
         tplist = space.type(w_iterable)
-        for w_element in iterator:
+        while 1:
             joindriver.jit_merge_point(tpfirst=tpfirst, tplist=tplist, selfisnotempty=selfisnotempty)
+            try:
+                w_element = space.next(w_iter)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
             if selfisnotempty:
                 builder.append_utf8(self._utf8, self._length)
             utf8, l = self._join_utf8_len_w(space, w_element, size)
