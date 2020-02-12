@@ -18,8 +18,9 @@ class GenExtension(object):
 
     def generate(self, ssarepr, jitcode):
         from rpython.jit.codewriter.flatten import Label
+        from rpython.jit.codewriter.jitcode import JitCode
         self.setup(ssarepr, jitcode)
-        self.precode.append("def f(self):")
+        self.precode.append("def jit_shortcut(self):")
         self.precode.append("    pc = self.pc")
         self.precode.append("    while 1:")
         for index, insn in enumerate(ssarepr.insns):
@@ -55,11 +56,11 @@ class GenExtension(object):
         for line in self.code:
             allcode.append(" " * 8 + line)
         jitcode._genext_source = "\n".join(allcode)
-        d = {"ConstInt": ConstInt}
+        d = {"ConstInt": ConstInt, "JitCode": JitCode}
         source = py.code.Source(jitcode._genext_source)
         exec source.compile() in d
         print jitcode._genext_source
-        jitcode.genext_function = d['f']
+        jitcode.genext_function = d['jit_shortcut']
 
     def _emit_instruction(self, insn, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame
@@ -102,10 +103,11 @@ class GenExtension(object):
                 assert argcodes[next_argcode] == 'd'
                 next_argcode = next_argcode + 1
                 index = ord(code[position]) | (ord(code[position+1])<<8)
-                import pdb; pdb.set_trace()
-                value = "self.metainterp.staticdata.opcode_descrs[%s]" % index
+                argname = "arg%s" % position
+                self.code.append("    %s = self.metainterp.staticdata.opcode_descrs[%s]" % (argname, index))
+                value = argname
                 if argtype == "jitcode":
-                    assert isinstance(value, JitCode)
+                    self.code.append("    assert isinstance(%s, JitCode)" % argname)
                 position += 2
             elif argtype == "label":
                 assert argcodes[next_argcode] == 'L'
@@ -216,7 +218,7 @@ class GenExtension(object):
         if insn[0].endswith("raise"):
             return []
         if insn[0] == "switch":
-            import pdb; pdb.set_trace()
+            return insn[2].dict.values() + [nextpc]
         else:
             return [nextpc]
 
