@@ -1,6 +1,14 @@
+
+
 =====================================
 PyPy: Python in Python Implementation
 =====================================
+
+.. note::
+
+  **PyPy development has moved to foss.heptapod.net/pypy/pypy**
+
+
 
 Welcome to PyPy!
 
