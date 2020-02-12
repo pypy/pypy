@@ -349,23 +349,6 @@ class W_Root(object):
         return None
 
 
-class InterpIterable(object):
-    def __init__(self, space, w_iterable):
-        self.w_iter = space.iter(w_iterable)
-        self.space = space
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        space = self.space
-        try:
-            return space.next(self.w_iter)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            raise StopIteration
-
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
     be attached to the space by defining a function or class 'f' which
@@ -934,9 +917,6 @@ class ObjSpace(object):
             lst_w = self._unpackiterable_known_length(w_iterator,
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
-
-    def iteriterable(self, w_iterable):
-        return InterpIterable(self, w_iterable)
 
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
         """Unpack an iterable of unknown length into an interp-level
