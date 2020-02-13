@@ -1,6 +1,7 @@
 import sys
 
 import py
+import pytest
 
 from rpython.flowspace.model import summary
 from rpython.rlib.rarithmetic import r_longlong
@@ -1224,6 +1225,28 @@ class TestRclass(BaseRtypingTest):
 
         assert self.interpret(f, [True]) == f(True)
         assert self.interpret(f, [False]) == f(False)
+
+    @pytest.mark.xfail # XXX next support in rpython is broken!
+    def test_iter_bug_exception(self):
+        class Iterable(object):
+            def __iter__(self):
+                return self
+
+            def next(self):
+                raise TyperError
+
+        def f():
+            i = Iterable()
+            it = iter(i)
+            try:
+                next(it)
+            except StopIteration:
+                return -7
+            except TypeError:
+                return -9
+            return 12
+
+        assert self.interpret(f, []) == f()
 
     def test_indexing(self):
         class A(object):

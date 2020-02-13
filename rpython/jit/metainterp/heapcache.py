@@ -162,6 +162,7 @@ class HeapCache(object):
         # heap array cache
         # maps descrs to {index: CacheEntry} dicts
         self.heap_array_cache = {}
+        self.need_guard_not_invalidated = True
 
     def reset_keep_likely_virtuals(self):
         # Update only 'head_version', but 'likely_virtual_version' remains
@@ -272,6 +273,7 @@ class HeapCache(object):
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
             rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
             return
+        self.need_guard_not_invalidated = True # can do better, but good start
         if (OpHelpers.is_plain_call(opnum) or
             OpHelpers.is_call_loopinvariant(opnum) or
             OpHelpers.is_cond_call_value(opnum) or
