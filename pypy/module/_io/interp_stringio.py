@@ -1,6 +1,8 @@
 from rpython.rlib.rutf8 import (
     codepoints_in_utf8, codepoint_at_pos, Utf8StringIterator,
     Utf8StringBuilder)
+from rpython.rlib.signature import signature, finishsigs
+from rpython.rlib import types
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
@@ -103,6 +105,7 @@ class UnicodeIO(object):
 
 READING, ACCUMULATING, RWBUFFER, CLOSED = range(4)
 
+@finishsigs
 class W_StringIO(W_TextIOBase):
     def __init__(self, space):
         W_TextIOBase.__init__(self, space)
@@ -221,6 +224,9 @@ class W_StringIO(W_TextIOBase):
                 message = "I/O operation on closed file"
             raise OperationError(space.w_ValueError, space.newtext(message))
 
+    @signature(
+        types.self(), types.any(), types.any(),
+        returns=types.instance(W_UnicodeObject))
     def _decode_string(self, space, w_obj):
         if not space.isinstance_w(w_obj, space.w_unicode):
             raise oefmt(space.w_TypeError,
@@ -239,6 +245,7 @@ class W_StringIO(W_TextIOBase):
                 space.newtext("\n"),
                 space.newutf8(writenl, codepoints_in_utf8(writenl)),
             )
+        w_decoded = space.interp_w(W_UnicodeObject, w_decoded)
         return w_decoded
 
     def write_w(self, space, w_obj):
