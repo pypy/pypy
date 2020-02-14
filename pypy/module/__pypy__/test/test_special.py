@@ -101,7 +101,7 @@ class AppTest(object):
         l = ["a", "b", "c"]
         assert strategy(l) == "BytesListStrategy"
         l = [u"a", u"b", u"c"]
-        assert strategy(l) == "UnicodeListStrategy"
+        assert strategy(l) == "AsciiListStrategy"
         l = [1.1, 2.2, 3.3]
         assert strategy(l) == "FloatListStrategy"
         l = range(3)

@@ -374,23 +374,6 @@ class W_Root(object):
         return None
 
 
-class InterpIterable(object):
-    def __init__(self, space, w_iterable):
-        self.w_iter = space.iter(w_iterable)
-        self.space = space
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        space = self.space
-        try:
-            return space.next(self.w_iter)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            raise StopIteration
-
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
     be attached to the space by defining a function or class 'f' which
@@ -973,9 +956,6 @@ class ObjSpace(object):
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
 
-    def iteriterable(self, w_iterable):
-        return InterpIterable(self, w_iterable)
-
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
         """Unpack an iterable of unknown length into an interp-level
         list.
@@ -1113,9 +1093,10 @@ class ObjSpace(object):
         """
         return None
 
-    def listview_utf8(self, w_list):
-        """ Return a list of unwrapped unicode out of a list of unicode. If the
-        argument is not a list or does not contain only unicode, return None.
+    def listview_ascii(self, w_list):
+        """ Return a list of unwrapped **ASCII** strings out of a list of
+        unicode. If the argument is not a list, does not contain only unicode,
+        or contains a unicode with non-ascii characters, return None.
         May return None anyway.
         """
         return None

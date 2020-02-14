@@ -465,14 +465,30 @@ various components involved, from PyPy's own RPython source code to
 the GC and possibly the JIT.
 
 
-Why doesn't PyPy move to GitHub, Gitlab, ...?
-----------------------------------------------
+.. _git:
+.. _github:
 
-We've been quite happy with bitbucket.org. Moving version control systems and
-hosting is a lot of hard work: On the one hand, PyPy's mercurial history is
-long and gnarly. On the other hand, all our infrastructure (buildbots,
-benchmarking, etc) would have to be adapted. So unless somebody steps up and
-volunteers to do all that work, it will likely not happen.
+Why doesn't PyPy use Git and move to GitHub?
+---------------------------------------------
+
+We discussed it during the switch away from bitbucket.  We concluded that (1)
+the Git workflow is not as well suited as the Mercurial workflow for our style,
+and (2) moving to github "just because everybody else does" is a argument on
+thin grounds.
+
+For (1), there are a few issues, but maybe the most important one is that the
+PyPy repository has got thousands of *named* branches.  Git has no equivalent
+concept.  Git has *branches,* of course, which in Mercurial are called
+bookmarks.  We're not talking about bookmarks.
+
+The difference between git branches and named branches is not that important in
+a repo with 10 branches (no matter how big).  But in the case of PyPy, we have
+at the moment 1840 branches.  Most are closed by now, of course.  But we would
+really like to retain (both now and in the future) the ability to look at a
+commit from the past, and know in which branch it was made.  Please make sure
+you understand the difference between the Git and the Mercurial branches to
+realize that this is not always possible with Git--- we looked hard, and there
+is no built-in way to get this workflow.
 
 
 What is needed for Windows 64 support of PyPy?

@@ -521,3 +521,16 @@ class TestFunction(object):
         assert str(e.value).startswith("library '")
         assert str(e.value).endswith("' has already been closed")
         ffi.dlclose(lib)    # does not raise
+
+    def test_passing_large_list(self):
+        if self.Backend is CTypesBackend:
+            py.test.skip("the ctypes backend doesn't support this")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            void getenv(char *);
+        """)
+        needs_dlopen_none()
+        m = ffi.dlopen(None)
+        arg = [b"F", b"O", b"O"] + [b"\x00"] * 20000000
+        x = m.getenv(arg)
+        assert x is None

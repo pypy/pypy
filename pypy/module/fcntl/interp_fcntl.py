@@ -80,7 +80,7 @@ if has_flock:
 def _get_error(space, funcname):
     errno = rposix.get_saved_errno()
     return wrap_oserror(space, OSError(errno, funcname),
-                        exception_name = 'w_IOError')
+                        w_exception_class=space.w_IOError)
 
 @unwrap_spec(op=int, w_arg=WrappedDefault(0))
 def fcntl(space, w_fd, op, w_arg):
