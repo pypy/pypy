@@ -19,52 +19,12 @@ int _check_continuation(const uint8_t ** encoded, const uint8_t * endptr, int co
 
 ssize_t fu8_count_utf8_codepoints_seq(const char * utf8, size_t len) {
     size_t num_codepoints = 0;
-    uint8_t byte = 0;
-    const uint8_t * encoded = (const uint8_t*)utf8;
-    const uint8_t * endptr = encoded + len;
+    const char * encoded = utf8;
+    const char * endptr = encoded + len;
 
     while (encoded < endptr) {
-        byte = *encoded++;
-        if (byte < 0x80) {
-            num_codepoints += 1;
-            continue;
-        } else {
-                //asm("int $3");
-            if ((byte & 0xe0) == 0xc0) {
-                // one continuation byte
-                if (byte < 0xc2) {
-                    return -1;
-                }
-                if (_check_continuation(&encoded, endptr, 1) != 0) {
-                    return -1;
-                }
-            } else if ((byte & 0xf0) == 0xe0) {
-                // two continuation byte
-                if (_check_continuation(&encoded, endptr, 2) != 0) {
-                    return -1;
-                }
-                uint8_t byte1 = encoded[-2];
-                //surrogates shouldn't be valid UTF-8!
-                if ((byte == 0xe0 && byte1 < 0xa0) ||
-                    (byte == 0xed && byte1 > 0x9f && !ALLOW_SURROGATES)) {
-                    return -1;
-                }
-            } else if ((byte & 0xf8) == 0xf0) {
-                // three continuation byte
-                if (_check_continuation(&encoded, endptr, 3) != 0) {
-                    return -1;
-                }
-                uint8_t byte1 = encoded[-3];
-                if ((byte == 0xf0 && byte1 < 0x90) ||
-                    (byte == 0xf4 && byte1 > 0x8f) ||
-                    (byte >= 0xf5)) {
-                    return -1;
-                }
-            } else {
-                // TODO
-                return -1;
-            }
-            num_codepoints += 1;
+        if (*encoded++ >= -0x40) {
+            num_codepoints++;
         }
     }
     return num_codepoints;

@@ -11,6 +11,7 @@ int instruction_set = -1;
 #define ISET_AVX 0x2
 #define ISET_AVX2 0x4
 
+#if __x86_64__
 void detect_instructionset(void)
 {
     long eax;
@@ -36,6 +37,12 @@ void detect_instructionset(void)
         instruction_set |= ISET_AVX2;
     }
 }
+#else
+void detect_instructionset(void)
+{
+    // do nothing on other architectures
+}
+#endif
 
 ssize_t fu8_count_utf8_codepoints(const char * utf8, size_t len)
 {
