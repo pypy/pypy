@@ -43,10 +43,11 @@ ssize_t fu8_count_utf8_codepoints(const char * utf8, size_t len)
         detect_instructionset();
     }
 
+    /* AVX IS NOT WORKING YET. HAVE A LOOK AT THE LEFT SHIFT ISSUE
     if (len >= 32 && (instruction_set & ISET_AVX2) != 0) {
         // to the MOON!
         return fu8_count_utf8_codepoints_avx(utf8, len);
-    }
+    }*/
     if (len >= 16 && (instruction_set == ISET_SSE4) != 0) {
         // speed!!
         return fu8_count_utf8_codepoints_sse4(utf8, len);
@@ -159,7 +160,7 @@ ssize_t _fu8_idx2bytepos(size_t index,
 
     assert(index != 0 && "index must not be 0");
     // note that itab STILL can be NULL
-
+    return 0;
 }
 
 size_t _fu8_idxtab_lookup_bytepos_i(struct fu8_idxtab * tab, size_t cpidx)

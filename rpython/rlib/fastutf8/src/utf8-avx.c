@@ -7,9 +7,9 @@
 
 #define BIT(B,P) ((B >> (P-1)) & 0x1)
 
-void _print_mmy(const char * msg, __m256i chunk)
+void _print_mm256x(const char * msg, __m256i chunk)
 {
-    printf("%s:", msg);
+    printf("%s:\n", msg);
     // unpack the first 8 bytes, padding with zeros
     uint64_t a = _mm256_extract_epi64(chunk, 0);
     uint64_t b = _mm256_extract_epi64(chunk, 1);
@@ -110,6 +110,7 @@ ssize_t fu8_count_utf8_codepoints_avx(const char * utf8, size_t len)
         }
 
         __m256i state2 = _mm256_andnot_si256(threebytemarker, twobytemarker);
+        // ERROR, this shift is flawed, it will cut of at the register boundary
         __m256i contbytes = _mm256_slli_si256(_mm256_blendv_epi8(state2, _mm256_set1_epi8(0x1), twobytemarker), 1);
 
         if (_mm256_movemask_epi8(threebytemarker) != 0) {
@@ -245,7 +246,7 @@ ssize_t fu8_count_utf8_codepoints_avx(const char * utf8, size_t len)
         return num_codepoints;
     }
 
-    ssize_t result = fu8_count_utf8_codepoints_seq(encoded, len);
+    ssize_t result = fu8_count_utf8_codepoints_seq((const char*)encoded, len);
     if (result == -1) {
         return -1;
     }

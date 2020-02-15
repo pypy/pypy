@@ -223,7 +223,7 @@ ssize_t fu8_count_utf8_codepoints_sse4(const char * utf8, size_t len)
         return num_codepoints;
     }
 
-    ssize_t result = fu8_count_utf8_codepoints_seq(encoded, len);
+    ssize_t result = fu8_count_utf8_codepoints_seq((const char*)encoded, len);
     if (result == -1) {
         return -1;
     }

@@ -25,6 +25,7 @@ from rpython.rlib.types import char, none
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.fastutf8 import fu8
 
 # We always use MAXUNICODE = 0x10ffff when unicode objects use utf8
 MAXUNICODE = 0x10ffff
@@ -474,15 +475,9 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
     if end > len(value):
         end = len(value)
     assert 0 <= start <= end
-    length = 0
-    for i in range(start, end):
-        # we want to count the number of chars not between 0x80 and 0xBF;
-        # we do that by casting the char to a signed integer
-        signedchar = rffi.cast(rffi.SIGNEDCHAR, ord(value[i]))
-        if rffi.cast(lltype.Signed, signedchar) >= -0x40:
-            length += 1
+    ptr = rffi.get_raw_address_of_string(value)
+    length = fu8.count_utf8_codepoints(ptr+start, end-start)
     return length
-
 
 @jit.elidable
 def surrogate_in_utf8(utf8):
