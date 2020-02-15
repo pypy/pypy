@@ -6,7 +6,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.platform import platform as trans_plaform
 
-ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rutf8')
+ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'fastutf8')
 SRC = ROOT.join('src')
 
 if sys.platform.startswith('linux'):
