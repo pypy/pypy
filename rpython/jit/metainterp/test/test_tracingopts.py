@@ -770,3 +770,31 @@ class TestLLtype(LLJitMixin):
         assert res == 2 * 14
         self.check_operations_history(getfield_gc_i=1)
 
+    def test_loop_invariant1(self):
+        class A(object):
+            pass
+        a = A()
+        a.current_a = A()
+        a.current_a.x = 1
+        @jit.loop_invariant
+        def f():
+            return a.current_a
+
+        @jit.loop_invariant
+        def f1():
+            return a.current_a
+
+        def g(x):
+            res = 0
+            res += f().x
+            res += f().x
+            res += f().x
+            res += f1().x # not reused!
+            res += f1().x
+            if x > 1000:
+                a.current_a = A()
+                a.current_a.x = 2
+            return res
+        res = self.interp_operations(g, [21])
+        assert res == g(21)
+        self.check_operations_history(call_loopinvariant_r=2)

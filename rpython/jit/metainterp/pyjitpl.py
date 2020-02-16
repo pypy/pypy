@@ -1747,24 +1747,29 @@ class MIFrame(object):
             effect = effectinfo.extraeffect
             tp = descr.get_normalized_result_type()
             if effect == effectinfo.EF_LOOPINVARIANT:
+                res = self.metainterp.heapcache.call_loopinvariant_known_result(allboxes, descr)
+                if res is not None:
+                    return res
                 if tp == 'i':
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_I,
+                    res = self.execute_varargs(rop.CALL_LOOPINVARIANT_I,
                                                 allboxes,
                                                 descr, False, False)
                 elif tp == 'r':
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_R,
+                    res = self.execute_varargs(rop.CALL_LOOPINVARIANT_R,
                                                 allboxes,
                                                 descr, False, False)
                 elif tp == 'f':
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_F,
+                    res = self.execute_varargs(rop.CALL_LOOPINVARIANT_F,
                                                 allboxes,
                                                 descr, False, False)
                 elif tp == 'v':
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_N,
+                    res = self.execute_varargs(rop.CALL_LOOPINVARIANT_N,
                                                 allboxes,
                                                 descr, False, False)
                 else:
                     assert False
+                self.metainterp.heapcache.call_loopinvariant_now_known(allboxes, descr, res)
+                return res
             exc = effectinfo.check_can_raise()
             pure = effectinfo.check_is_elidable()
             if tp == 'i':

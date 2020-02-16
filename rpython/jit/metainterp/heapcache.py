@@ -164,6 +164,11 @@ class HeapCache(object):
         self.heap_array_cache = {}
         self.need_guard_not_invalidated = True
 
+        # result of one loop invariant call
+        self.loop_invariant_result = None
+        self.loop_invariant_descr = None
+        self.loop_invariant_arg0int = -1
+
     def reset_keep_likely_virtuals(self):
         # Update only 'head_version', but 'likely_virtual_version' remains
         # at its older value.
@@ -514,3 +519,15 @@ class HeapCache(object):
             cache.quasiimmut_seen[box] = None
         else:
             cache.quasiimmut_seen = {box: None}
+
+    def call_loopinvariant_known_result(self, allboxes, descr):
+        if self.loop_invariant_descr is not descr:
+            return None
+        if self.loop_invariant_arg0int != allboxes[0].getint():
+            return None
+        return self.loop_invariant_result
+
+    def call_loopinvariant_now_known(self, allboxes, descr, res):
+        self.loop_invariant_descr = descr
+        self.loop_invariant_arg0int = allboxes[0].getint()
+        self.loop_invariant_result = res
