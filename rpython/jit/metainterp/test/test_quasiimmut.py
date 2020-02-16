@@ -121,7 +121,7 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7])
         assert res == 721
-        self.check_resops(guard_not_invalidated=0, getfield_gc_r=1, getfield_gc_i=2)
+        self.check_resops(guard_not_invalidated=2, getfield_gc_r=1, getfield_gc_i=2)
         #
         from rpython.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
