@@ -1,5 +1,6 @@
 from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.history import FrontendOp, RefFrontendOp
+from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.jit.metainterp.executor import constant_from_op
 from rpython.rlib.rarithmetic import r_uint32, r_uint
@@ -61,12 +62,17 @@ class CacheEntry(object):
         # on writes to the field.
         self.quasiimmut_seen = None
 
+        # set of refs for *constants* that we've seen a quasi-immut field on.
+        self.quasiimmut_seen_refs = None
+
     def _clear_cache_on_write(self, seen_allocation_of_target):
         if not seen_allocation_of_target:
             self.cache_seen_allocation.clear()
         self.cache_anything.clear()
         if self.quasiimmut_seen is not None:
             self.quasiimmut_seen.clear()
+        if self.quasiimmut_seen_refs is not None:
+            self.quasiimmut_seen_refs.clear()
 
     def _seen_alloc(self, ref_box):
         if not isinstance(ref_box, RefFrontendOp):
@@ -100,6 +106,8 @@ class CacheEntry(object):
         self._invalidate_unescaped(self.cache_seen_allocation)
         if self.quasiimmut_seen is not None:
             self.quasiimmut_seen.clear()
+        if self.quasiimmut_seen_refs is not None:
+            self.quasiimmut_seen_refs.clear()
 
     def _invalidate_unescaped(self, d):
         for ref_box in d.keys():
@@ -507,18 +515,28 @@ class HeapCache(object):
 
     def is_quasi_immut_known(self, fielddescr, box):
         cache = self.heap_cache.get(fielddescr, None)
-        if cache is not None and cache.quasiimmut_seen is not None:
-            return box in cache.quasiimmut_seen
+        if cache is not None:
+            if isinstance(box, Const):
+                if cache.quasiimmut_seen_refs is not None:
+                    return box.getref_base() in cache.quasiimmut_seen_refs
+            else:
+                if cache.quasiimmut_seen is not None:
+                    return box in cache.quasiimmut_seen
         return False
 
     def quasi_immut_now_known(self, fielddescr, box):
         cache = self.heap_cache.get(fielddescr, None)
         if cache is None:
             cache = self.heap_cache[fielddescr] = CacheEntry(self)
-        if cache.quasiimmut_seen is not None:
-            cache.quasiimmut_seen[box] = None
+        if isinstance(box, Const):
+            if cache.quasiimmut_seen_refs is None:
+                cache.quasiimmut_seen_refs = new_ref_dict()
+            cache.quasiimmut_seen_refs[box.getref_base()] = None
         else:
-            cache.quasiimmut_seen = {box: None}
+            if cache.quasiimmut_seen is not None:
+                cache.quasiimmut_seen[box] = None
+            else:
+                cache.quasiimmut_seen = {box: None}
 
     def call_loopinvariant_known_result(self, allboxes, descr):
         if self.loop_invariant_descr is not descr:
