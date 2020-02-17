@@ -871,12 +871,8 @@ class MIFrame(object):
         self.metainterp.heapcache.quasi_immut_now_known(fielddescr, box)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
-        if self.metainterp.heapcache.need_guard_not_invalidated:
-            self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
-                                           resumepc=orgpc)
-        self.metainterp.heapcache.need_guard_not_invalidated = False
-
-
+        self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
+                                       resumepc=orgpc)
 
     @arguments("box", "descr", "orgpc")
     def opimpl_jit_force_quasi_immutable(self, box, mutatefielddescr, orgpc):

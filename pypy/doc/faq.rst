@@ -490,6 +490,12 @@ you understand the difference between the Git and the Mercurial branches to
 realize that this is not always possible with Git--- we looked hard, and there
 is no built-in way to get this workflow.
 
+Still not convinced?  Consider this git repo with three commits: commit #2 with
+parent #1 and head of git branch "A"; commit #3 with also parent #1 but head of
+git branch "B".  When commit #1 was made, was it in the branch "A" or "B"?
+(It could also be yet another branch whose head was also moved forward, or even
+completely deleted.)
+
 
 What is needed for Windows 64 support of PyPy?
 -----------------------------------------------
