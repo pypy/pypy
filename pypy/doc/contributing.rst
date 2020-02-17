@@ -104,11 +104,29 @@ If you are new with Mercurial and Heptapod, you can read this short tutorial:
    mercurial_heptapod
 
 
+Get Access
+----------
+
+The important take-away from that tutorial for experienced developers is that
+since the free hosting on foss.heptapod.net does not allow personal forks, you
+need permissions to push your changes directly to our repo. Once you sign in to
+https://foss.heptapod.net using either a new login or your GitHub or Atlassian
+logins, you can get developer status for pushing directly to
+the project (just ask by clicking the link at foss.heptapod.net/pypy just under
+the logo, and you'll get it, basically).  Once you have it you can rewrite your
+file ``.hg/hgrc`` to contain ``default = ssh://hg@foss.heptapod.net/pypy/pypy``.
+Your changes will then be pushed directly to the official repo, but (if you
+follow these rules) they are still on a branch, and we can still review the
+branches you want to merge.  With developer status, you can push topic
+branches. If you wish to push long-lived branches, you will need to ask for
+higher permissions.
+
+
 Clone
-------------
+-----
 
 * Clone the PyPy repo to your local machine with the command
-  ``hg clone https://foss.heptapod.net/pypy/pypy``.  It is a very slow
+  ``hg clone https://foss.heptapod.net/pypy/pypy``.  It takes a minute or two
   operation but only ever needs to be done once.  See also
   http://pypy.org/download.html#building-from-source .
   If you already cloned the repo before, even if some time ago,
@@ -161,24 +179,14 @@ Edit
   accept it as is for PyPy, asking you instead to improve some things,
   but we are not going to judge you unless you don't write tests.
 
-Pull Request
-------------
+Merge Request
+-------------
 
-* The final step is to open a pull request, so that we know that you'd
+* The final step is to open a merge request, so that we know that you'd
   like to merge that branch back to the original ``pypy/pypy`` repo.
   This can also be done several times if you have interesting
   intermediate states, but if you get there, then we're likely to
   proceed to the next stage, which is...
-
-* Get a regular account with developer status for pushing directly to
-  ``foss.heptapod.net/pypy/pypy`` (just ask and you'll get it, basically).
-  Once you have it you can rewrite your file ``.hg/hgrc`` to contain
-  ``default = ssh://hg@foss.heptapod.net/pypy/pypy``.  Your changes will
-  then be pushed directly to the official repo, but (if you follow these
-  rules) they are still on a branch, and we can still review the
-  branches you want to merge. With developer status, you can push topic
-  branches. If you wish to push long-lived branches, you will need to ask for
-  higher permissions.
 
 * If you get closer to the regular day-to-day development, you'll notice
   that we generally push small changes as one or a few commits directly
