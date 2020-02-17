@@ -300,6 +300,8 @@ class W_StringIO(W_TextIOBase):
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
+        if self.pos >= self.get_length():
+            return W_UnicodeObject.EMPTY
         if self.state == ACCUMULATING:
             self._realize(space)
         if self.state == READING:
@@ -318,6 +320,8 @@ class W_StringIO(W_TextIOBase):
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
+        if self.pos >= self.get_length():
+            return W_UnicodeObject.EMPTY
         if self.state == ACCUMULATING:
             self._realize(space)
         if self.state == READING:
