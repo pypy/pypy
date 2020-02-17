@@ -246,20 +246,22 @@ To get the list of the changesets in the active topic (very useful)::
 
   hg stack
 
-Developers have to create Merge Requests to get things merged in the targeted
-branch (which is usually default for FluidDyn packages). Let's present an
-example. A developer can do (here, we use ssh but you can also use https)::
+Developers have to create Merge Requests (MR) to get things merged in the
+targeted branch (at the time of writing: ``default`` for Python2.7 or RPython
+changes, ``py3.6`` for Python 3.6, ``py3.7`` for Python 3.7). Let's present
+an example. A developer can do (here, we use ssh but you can also use https)::
 
   hg clone ssh://hg@foss.heptapod.net/pypy/pypy
+  hg up default
   hg topic fix_something
   hg commit -m "Fix a bug related to ..."
   hg push
 
 Mercurial is going to print an URL to create the associated MR. Once created,
-the MR should then be reviewed by a "maintainer". Only maintainers have the
-right to merge a MR, i.e. to publish changesets. The maintainer can tell you
-how to modify your MR and s-he can also directly modify the changesets of the
-MR!
+the MR should then be reviewed by a contributor with the "maintainer" or higher
+role. Only maintainers have the permissions to merge a MR, i.e. to publish
+changesets. The maintainer can tell you how to modify your MR and can also
+directly modify the changesets of the MR.
 
 We strongly advice to install and activate the `evolve
 <https://www.mercurial-scm.org/doc/evolution/>`_, rebase and `absorb
@@ -271,7 +273,7 @@ and safe history editing.
 .. tip ::
 
   ``hg absorb`` is very useful during code review. Let say that a developer
-  submitted a PR containing few commits. As explained in `this blog post
+  submitted a MR containing few commits. As explained in `this blog post
   <https://gregoryszorc.com/blog/2018/11/05/absorbing-commit-changes-in-mercurial-4.8/>`_,
   ``hg absorb`` is a mechanism to automatically and intelligently incorporate
   uncommitted changes into prior commits. Edit the files to take into account
@@ -280,7 +282,7 @@ and safe history editing.
     hg absorb
     hg push
 
-  and the PR is updated!
+  and the MR is updated!
 
 .. tip ::
 
@@ -294,7 +296,7 @@ and safe history editing.
 Working with hggit and Github
 -----------------------------
 
-To clone a git repository::
+To clone a **git** repository using **hg**::
 
   hg clone git+ssh://git@github.com/numpy/numpy
 
@@ -302,8 +304,8 @@ or just::
 
   hg clone https://github.com/numpy/numpy
 
-Git branches are represented as Mercurial bookmarks so such commands can be
-usefull::
+Git *branches* are represented as Mercurial *bookmarks* so such commands can be
+useful::
 
   hg log --graph
 
