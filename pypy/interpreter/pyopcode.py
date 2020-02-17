@@ -177,6 +177,7 @@ class __extend__(pyframe.PyFrame):
 
             if opcode == opcodedesc.RETURN_VALUE.index:
                 if not self.blockstack_non_empty():
+                    self.frame_finished_execution = True  # for generators
                     raise Return
                 w_returnvalue = self.popvalue()
                 block = self.unrollstack(SReturnValue.kind)
