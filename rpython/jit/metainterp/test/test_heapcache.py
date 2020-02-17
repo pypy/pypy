@@ -112,6 +112,16 @@ class TestHeapCache(object):
         assert not h.is_nonstandard_virtualizable(box1)
         assert not h.is_nonstandard_virtualizable(box2)
 
+    def test_nonstandard_virtualizable_allocation(self):
+        h = HeapCache()
+        box1 = RefFrontendOp(1)
+        h.new(box1)
+        # we've seen the allocation, so it's not the virtualizable
+        assert h.is_nonstandard_virtualizable(box1)
+
+        h.reset()
+        assert not h.is_nonstandard_virtualizable(box1)
+
     def test_heapcache_fields(self):
         h = HeapCache()
         box1 = RefFrontendOp(1)

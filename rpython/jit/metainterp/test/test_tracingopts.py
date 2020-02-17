@@ -431,6 +431,43 @@ class TestLLtype(LLJitMixin):
         self.check_history(getarrayitem_gc_i=0, getfield_gc_i=0,
                            getfield_gc_r=0)
 
+
+    def test_nonstandard_virtualizable(self):
+        myjitdriver = jit.JitDriver(greens = [], reds = ['n', 'x', 'i', 'frame'],
+                                    virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable_ = ['s']
+
+            def __init__(self, s):
+                self.s = s
+                self.next = None
+
+        def f(n, a, i):
+            frame = Frame(5)
+            x = 0
+            while n > 0:
+                myjitdriver.can_enter_jit(frame=frame, n=n, x=x, i=i)
+                myjitdriver.jit_merge_point(frame=frame, n=n, x=x, i=i)
+                n -= 1
+                s = frame.s
+                assert s >= 0
+                frame.s += 1
+                # make a new frame
+                f = Frame(7)
+                frame.next = f
+                x += f.s
+                frame.s -= 1
+                frame.next = None
+            return x
+
+        res = self.meta_interp(f, [10, 1, 1], listops=True)
+        assert res == f(10, 1, 1)
+        # we now that f is not the standard virtualizable, since we've seen its
+        # allocation
+        self.check_history(ptr_eq=0)
+
+
     def test_heap_caching_array_pure(self):
         class A(object):
             pass
@@ -476,7 +513,6 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [-7])
         assert res == -7 + 7
         self.check_operations_history(getfield_gc_i=0)
-        return
 
     def test_heap_caching_multiple_objects(self):
         class Gbl(object):

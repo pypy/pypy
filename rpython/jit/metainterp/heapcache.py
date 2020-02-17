@@ -402,7 +402,7 @@ class HeapCache(object):
         self._set_flag(box, HF_KNOWN_NULLITY)
 
     def is_nonstandard_virtualizable(self, box):
-        return self._check_flag(box, HF_NONSTD_VABLE)
+        return self._check_flag(box, HF_NONSTD_VABLE) or self._check_flag(box, HF_SEEN_ALLOCATION)
 
     def nonstandard_virtualizables_now_known(self, box):
         self._set_flag(box, HF_NONSTD_VABLE)
