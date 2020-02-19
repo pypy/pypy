@@ -207,6 +207,8 @@ WSA_FLAG_OVERLAPPED
 SIO_RCVALL SIO_KEEPALIVE_VALS
 
 SIOCGIFNAME SIOCGIFINDEX
+
+SO_DOMAIN SO_PROTOCOL SO_PEERSEC SO_PASSSEC TCP_USER_TIMEOUT TCP_CONGESTION
 '''.split()
 
 for name in constant_names:
@@ -214,7 +216,7 @@ for name in constant_names:
 
 if _WIN32:
     # some SDKs define these values with an enum, #ifdef won't work
-    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY'):
+    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY', 'TCP_FASTOPEN'):
         setattr(CConfig, name, platform.ConstantInteger(name))
         constant_names.append(name)
 
