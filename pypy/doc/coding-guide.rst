@@ -544,7 +544,8 @@ Committing & Branching to the repository
 Using the development bug/feature tracker
 -----------------------------------------
 
-We use bitbucket for :source:`issues` tracking and :source:`pull-requests`.
+We use https://foss.heptapod.net/pypy/pypy for :source:`issues` tracking and
+:source:`pull-requests`.
 
 .. _testing:
 
@@ -731,7 +732,7 @@ files.  Here is a `ReST quickstart`_ but you can also just look
 at the existing documentation and see how things work.
 
 Note that the web site of http://pypy.org/ is maintained separately.
-For now it is in the repository https://bitbucket.org/pypy/pypy.org
+It is in the repository https://foss.heptapod.net/pypy/pypy.org
 
 .. _ReST quickstart: http://docutils.sourceforge.net/docs/user/rst/quickref.html
 

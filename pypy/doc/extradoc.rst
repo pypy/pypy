@@ -71,15 +71,15 @@ Papers
   for Python`_, A. Rigo
 
 
-.. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
-.. _A Way Forward in Parallelising Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2014/position-paper.pdf
-.. _Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
-.. _Allocation Removal by Partial Evaluation in a Tracing JIT: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
+.. _bibtex: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/bibtex.bib
+.. _A Way Forward in Parallelising Dynamic Languages: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/icooolps2014/position-paper.pdf
+.. _Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/icooolps2011/jit-hints.pdf
+.. _Allocation Removal by Partial Evaluation in a Tracing JIT: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pepm2011/bolz-allocation-removal.pdf
 .. _Towards a Jitting VM for Prolog Execution: http://stups.hhu.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
 .. _High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
-.. _How to *not* write Virtual Machines for Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
-.. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
-.. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
+.. _How to *not* write Virtual Machines for Dynamic Languages: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/dyla2007/dyla.pdf
+.. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/icooolps2009/bolz-tracing-jit.pdf
+.. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/icooolps2009-dotnet/cli-jit.pdf
 .. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: https://www.researchgate.net/profile/Davide_Ancona/publication/252023163_Automatic_generation_of_JIT_compilers_for_dynamic_languages_in_NET/links/53f2098e0cf2bc0c40e70023/Automatic-generation-of-JIT-compilers-for-dynamic-languages-in-NET.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
 .. _EU Reports: index-report.html
@@ -87,9 +87,9 @@ Papers
 .. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
 .. _Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy: http://dx.doi.org/10.1007/978-3-540-89275-5_7
-.. _Automatic generation of JIT compilers for dynamic languages in .NET: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
-.. _Core Object Optimization Results: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
-.. _Compiling Dynamic Language Implementations: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _Automatic generation of JIT compilers for dynamic languages in .NET: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ecoop2009/main.pdf
+.. _Core Object Optimization Results: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
+.. _Compiling Dynamic Language Implementations: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
 Talks and Presentations
@@ -98,7 +98,7 @@ Talks and Presentations
 *This part is no longer updated.*  The complete list is here__ (in
 alphabetical order).
 
-.. __: https://bitbucket.org/pypy/extradoc/src/extradoc/talk/
+.. __: https://foss.heptapod.net/pypy/extradoc/blob/branch/default/talk/
 
 Talks in 2010
 ~~~~~~~~~~~~~
@@ -146,7 +146,7 @@ Talks in 2008
 
 * `PyCon 2008`_.
 
-.. __: https://bitbucket.org/pypy/extradoc/raw/tip/talk/s3-2008/talk.pdf
+.. __: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/s3-2008/talk.pdf
 
 
 Talks in 2007
@@ -181,9 +181,9 @@ Talks in 2007
 
 * `Warsaw 2007`_.
 
-.. __: https://bitbucket.org/pypy/extradoc/raw/tip/talk/roadshow-ibm/
-.. __: https://bitbucket.org/pypy/extradoc/raw/tip/talk/roadshow-google/Pypy_architecture.pdf
-.. __: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2007/rpython-talk.pdf
+.. __: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/roadshow-ibm/
+.. __: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/roadshow-google/Pypy_architecture.pdf
+.. __: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/dls2007/rpython-talk.pdf
 
 
 Talks in 2006
@@ -268,52 +268,52 @@ Talks in 2003
 
 .. _PyCon 2010: http://morepypy.blogspot.com/2010/02/pycon-2010-report.html
 .. _RuPy 2009: http://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
-.. _PyPy 3000: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/pypy3000.txt
-.. _What can PyPy do for you: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/usecases-slides.txt
-.. _PyPy introduction at EuroPython 2006: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/intro.pdf
-.. _PyPy - the new Python implementation on the block: https://bitbucket.org/pypy/extradoc/raw/tip/talk/22c3/hpk-tech.txt
-.. _PyPy development method: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2006/method_talk.txt
-.. _PyPy intro: https://bitbucket.org/pypy/extradoc/raw/tip/talk/accu2006/accu-2006.pdf
-.. _oscon2003-paper: https://bitbucket.org/pypy/extradoc/raw/tip/talk/oscon2003-paper.txt
-.. _Architecture introduction slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/amsterdam-sprint-intro.pdf
-.. _EU funding for FOSS: https://bitbucket.org/pypy/extradoc/raw/tip/talk/2004-21C3-pypy-EU-hpk.pdf
-.. _py lib slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/2005-pycon-py.pdf
-.. _PyCon 2005: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pypy-talk-pycon2005/README.txt
-.. _Trouble in Paradise: https://bitbucket.org/pypy/extradoc/raw/tip/talk/agile2006/during-oss-sprints_talk.pdf
-.. _Sprint Driven Development: https://bitbucket.org/pypy/extradoc/raw/tip/talk/xp2006/during-xp2006-sprints.pdf
-.. _Kill -1: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/kill_1_agiletalk.pdf
-.. _Open Source, EU-Funding and Agile Methods: https://bitbucket.org/pypy/extradoc/raw/tip/talk/22c3/agility.pdf
-.. _PyPy Status: https://bitbucket.org/pypy/extradoc/raw/tip/talk/vancouver/
-.. _Sprinting the PyPy way: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
-.. _PyPy's VM Approach: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/
-.. _PyPy's approach to virtual machine construction: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
-.. _EuroPython talks 2009: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2009/
-.. _PyCon talks 2009: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2009/
-.. _Wroclaw (Poland) presentation: https://bitbucket.org/pypy/extradoc/raw/tip/talk/wroclaw2009/talk.pdf
+.. _PyPy 3000: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/pypy3000.txt
+.. _What can PyPy do for you: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/usecases-slides.txt
+.. _PyPy introduction at EuroPython 2006: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/intro.pdf
+.. _PyPy - the new Python implementation on the block: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/22c3/hpk-tech.txt
+.. _PyPy development method: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon2006/method_talk.txt
+.. _PyPy intro: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/accu2006/accu-2006.pdf
+.. _oscon2003-paper: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/oscon2003-paper.txt
+.. _Architecture introduction slides: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/amsterdam-sprint-intro.pdf
+.. _EU funding for FOSS: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/2004-21C3-pypy-EU-hpk.pdf
+.. _py lib slides: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/2005-pycon-py.pdf
+.. _PyCon 2005: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pypy-talk-pycon2005/README.txt
+.. _Trouble in Paradise: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/agile2006/during-oss-sprints_talk.pdf
+.. _Sprint Driven Development: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/xp2006/during-xp2006-sprints.pdf
+.. _Kill -1: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/kill_1_agiletalk.pdf
+.. _Open Source, EU-Funding and Agile Methods: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/22c3/agility.pdf
+.. _PyPy Status: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/vancouver/
+.. _Sprinting the PyPy way: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
+.. _PyPy's VM Approach: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/dls2006/
+.. _PyPy's approach to virtual machine construction: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/dls2006/pypy-vm-construction.pdf
+.. _EuroPython talks 2009: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2009/
+.. _PyCon talks 2009: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon2009/
+.. _Wroclaw (Poland) presentation: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/wroclaw2009/talk.pdf
 .. _PyPy talk at OpenBossa 09: http://morepypy.blogspot.com/2009/03/pypy-talk-at-openbossa-09.html
-.. _at SFI 08: https://bitbucket.org/pypy/extradoc/raw/tip/talk/sfi2008/
-.. _at PyCon Poland 08: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pyconpl-2008/talk.pdf
-.. _The PyPy Project and You: https://bitbucket.org/pypy/extradoc/raw/tip/talk/osdc2008/osdc08.pdf
-.. _EuroPython talks 2008: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2008/
+.. _at SFI 08: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/sfi2008/
+.. _at PyCon Poland 08: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pyconpl-2008/talk.pdf
+.. _The PyPy Project and You: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/osdc2008/osdc08.pdf
+.. _EuroPython talks 2008: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2008/
 .. _Maemo summit: http://morepypy.blogspot.com/2008/09/pypypython-at-maemo-summit.html
-.. _PyCon UK 2008 - JIT: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uk-2008/jit/pypy-vm.pdf
-.. _PyCon UK 2008 - Status: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uk-2008/status/status.pdf
-.. _PyCon Italy 2008: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-italy-2008/pypy-vm.pdf
-.. _RuPy 2008: https://bitbucket.org/pypy/extradoc/raw/tip/talk/rupy2008/
-.. _RuPy 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/rupy2007/
-.. _PyCon 2008: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2008/
-.. _ESUG 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/esug2007/
-.. _Bern (Switzerland) 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bern2007/
-.. _PyCon UK 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pyconuk07/
-.. _Dresden: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dresden/
-.. _EuroPython 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2007/
-.. _Bad Honnef 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/badhonnef2007/talk.pdf
-.. _Dzug talk: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dzug2007/dzug2007.txt
-.. _PyCon 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2007/
-.. _PyCon - Uno 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uno2007/pycon07.pdf
-.. _Warsaw 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/warsaw2007/
-.. _Warsaw 2006: https://bitbucket.org/pypy/extradoc/raw/tip/talk/warsaw2006/
-.. _Tokyo 2006: https://bitbucket.org/pypy/extradoc/raw/tip/talk/tokyo/
+.. _PyCon UK 2008 - JIT: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-uk-2008/jit/pypy-vm.pdf
+.. _PyCon UK 2008 - Status: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-uk-2008/status/status.pdf
+.. _PyCon Italy 2008: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-italy-2008/pypy-vm.pdf
+.. _RuPy 2008: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/rupy2008/
+.. _RuPy 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/rupy2007/
+.. _PyCon 2008: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon2008/
+.. _ESUG 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/esug2007/
+.. _Bern (Switzerland) 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/bern2007/
+.. _PyCon UK 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pyconuk07/
+.. _Dresden: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/dresden/
+.. _EuroPython 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2007/
+.. _Bad Honnef 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/badhonnef2007/talk.pdf
+.. _Dzug talk: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/dzug2007/dzug2007.txt
+.. _PyCon 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon2007/
+.. _PyCon - Uno 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-uno2007/pycon07.pdf
+.. _Warsaw 2007: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/warsaw2007/
+.. _Warsaw 2006: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/warsaw2006/
+.. _Tokyo 2006: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/tokyo/
 
 
 Related projects
