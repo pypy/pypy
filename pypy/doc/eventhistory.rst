@@ -17,7 +17,7 @@ Conference from the *6th to the 9th of July*.
 
 Read more in the `EuroPython 2006 sprint report`_.
 
-.. _EuroPython 2006 sprint report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/post-ep2006/report.txt
+.. _EuroPython 2006 sprint report: https://foss.heptapod.net/pypy/extradoc/raw/tip/sprintinfo/post-ep2006/report.txt
 
 
 PyPy at XP 2006 and Agile 2006
@@ -42,7 +42,7 @@ release.
 
 Read more about `the sprint`__
 
-__ https://bitbucket.org/pypy/extradoc/src/extradoc/sprintinfo/ddorf2006/
+__ https://foss.heptapod.net/pypy/extradoc/src/extradoc/sprintinfo/ddorf2006/
 
 
 PyPy sprint at Akihabara (Tokyo, Japan)
@@ -55,7 +55,7 @@ progress was also made on PyPy's ootypesystem for the more high level
 backends. For more details, read the last `sprint status`_ page and
 enjoy the pictures_.
 
-.. _sprint status: https://bitbucket.org/pypy/extradoc/src/tip/sprintinfo/tokyo/tokyo-planning.txt
+.. _sprint status: https://foss.heptapod.net/pypy/extradoc/blob/branch/default/sprintinfo/tokyo/tokyo-planning.txt
 .. _pictures: http://www.flickr.com/photos/19046555@N00/sets/72057594116388174/
 
 
@@ -119,7 +119,7 @@ about the details. Many people discovered PyPy on this occasion and
 said they were interested in the outcome and would keep an eye on its
 progress. Read the `talk slides`_.
 
-.. _talk slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/solutions-linux-paris-2006.html
+.. _talk slides: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/solutions-linux-paris-2006.html
 
 
 PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
@@ -133,7 +133,7 @@ improving our way to write glue code for C libraries.
 Read more in `the announcement`_, there is a `sprint report`_
 for the first three days and `one for the rest of the sprint`_.
 
-.. _the announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/mallorca/sprint-announcement.txt
+.. _the announcement: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/mallorca/sprint-announcement.txt
 .. _sprint report: https://mail.python.org/pipermail/pypy-dev/2006-January/002746.html
 .. _one for the rest of the sprint: https://mail.python.org/pipermail/pypy-dev/2006-January/002749.html
 
@@ -190,7 +190,7 @@ Together with Armin they wrote one about `the rest of the sprint`_ on the
 way back.
 *(10/18/2005)*
 
-.. _Logilab offices in Paris: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/paris-2005-sprint.txt 
+.. _Logilab offices in Paris: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/paris-2005-sprint.txt 
 .. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _continuation-passing: http://en.wikipedia.org/wiki/Continuation_passing_style
 .. _report about day one: https://mail.python.org/pipermail/pypy-dev/2005-October/002510.html
@@ -221,8 +221,8 @@ PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_
 and a `heidelberg summary report`_ detailing some of the works
 that led to the successful release of :doc:`pypy-0.7.0 <release-0.7.0>`! 
 
-.. _heidelberg summary report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-report.txt
-.. _PyPy sprint: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-sprint.txt
+.. _heidelberg summary report: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/Heidelberg-report.txt
+.. _PyPy sprint: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/Heidelberg-sprint.txt
 .. _day 1 - 3: https://mail.python.org/pipermail/pypy-dev/2005-August/002287.html
 
 
@@ -266,5 +266,5 @@ the LLVM backends and type inference in general.
 .. _pypy-dev: https://mail.python.org/mailman/listinfo/pypy-dev
 
 .. _EuroPython: http://europython.org
-.. _sprint announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/EP2005-announcement.html
-.. _list of people coming: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/EP2005-people.html
+.. _sprint announcement: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/EP2005-announcement.html
+.. _list of people coming: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/EP2005-people.html

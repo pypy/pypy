@@ -37,7 +37,7 @@ the current development.
 You must issue the following command on your
 command line, DOS box, or terminal::
 
-    hg clone http://bitbucket.org/pypy/pypy pypy
+    hg clone http://foss.heptapod.net/pypy/pypy pypy
 
 This will clone the repository and place it into a directory
 named ``pypy``, and will get you the PyPy source in ``pypy/pypy`` and
