@@ -19,8 +19,8 @@
 #endif
 
 /**
- * Returns -1 if the given string is not a valid utf8 encoded string.
- * Otherwise returns the amount code point in the given string.
+ * Given valid utf8 encoded bytes, it returns the amount of code points.
+ * Returns any result if the bytes are not encoded correctly.
  * len: length in bytes (8-bit)
  *
  * The above documentation also applies for several vectorized implementations
@@ -29,7 +29,6 @@
  * fu8_count_utf8_codepoints dispatches amongst several
  * implementations (e.g. seq, SSE4, AVX)
  */
-// TODO rename (fu8 prefix)
 RPY_EXTERN ssize_t fu8_count_utf8_codepoints(const char * utf8, size_t len);
 RPY_EXTERN ssize_t fu8_count_utf8_codepoints_seq(const char * utf8, size_t len);
 RPY_EXTERN ssize_t fu8_count_utf8_codepoints_sse4(const char * utf8, size_t len);
@@ -39,6 +38,7 @@ RPY_EXTERN ssize_t fu8_count_utf8_codepoints_avx(const char * utf8, size_t len);
 struct fu8_idxtab;
 
 /**
+ * DO NOT USE! NOT READY
  * Looks up the byte position of the utf8 code point at the index.
  * Assumptions:
  *
