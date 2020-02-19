@@ -29,7 +29,6 @@ void detect_instructionset(void)
     __builtin_cpu_init();
     instruction_set = 0;
     if (ecx & (1<<19)) { // sse4.1
-        printf("supports\n");
         instruction_set |= ISET_SSE4;
     }
     if(__builtin_cpu_supports("avx")) {

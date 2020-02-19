@@ -11,12 +11,14 @@ def _check_size(bytes, size):
     assert fu8.count_utf8_codepoints(ptr, len(bytes)) == size
     rffi.free_charp(ptr)
 
-@given(st.text(alphabet=st.characters(whitelist_categories=('Lu','Lo','So')), min_size=15))
-def test_unichr_as_utf8(chars):
-    print(chars)
+@given(st.text(alphabet=st.characters(whitelist_categories=('Lu','Lo','So')), min_size=15, max_size=31))
+def test_unichr_as_utf8_sse4(chars):
     _check_size(chars.encode('utf-8'), len(chars))
-    chars_double = chars+chars
-    _check_size(chars_double.encode('utf-8'), len(chars_double))
+
+SOME = ('Lu', 'Ll', 'Lt', 'Lm', 'Lo', 'Mn', 'Mc', 'Me', 'Nd', 'Nl', 'No', 'So',)
+@given(st.text(alphabet=st.characters(whitelist_categories=SOME), min_size=31))
+def test_unichr_as_utf8_avx(chars):
+    _check_size(chars.encode('utf-8'), len(chars))
 
 def test_avx_crash():
     text = u'AAAAAAAAAAAAA\xa6\xa6AAAAAAAAAAAAAAAAA'
