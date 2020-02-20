@@ -232,4 +232,4 @@ man_pages = [
    u'The PyPy Project', 1)
 ]
 
-extlinks = {'source': ('https://bitbucket.org/pypy/pypy/src/default/%s', '')}
+extlinks = {'source': ('https://foss.heptapod.net/pypy/pypy/src/default/%s', '')}
