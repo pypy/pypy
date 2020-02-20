@@ -477,6 +477,7 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
     assert 0 <= start <= end
     ptr = rffi.get_raw_address_of_string(value)
     length = fu8.count_utf8_codepoints(rffi.ptradd(ptr, start), end-start)
+    assert length >= 0 # needed for translation.
     return length
 
 @jit.elidable
