@@ -71,43 +71,75 @@ Some ideas for first contributions are:
 * Missing language features - these are listed in our `issue tracker`_
 
 .. _nightly builds: http://buildbot.pypy.org/nightly/
-.. _issue tracker: https://bitbucket.org/pypy/pypy/issues
+.. _issue tracker: https://foss.heptapod.net/pypy/pypy/issues
 
 Source Control
 --------------
 
-PyPy development is based a typical fork/pull request based workflow, centered
-around Mercurial (hg), hosted on Bitbucket. If you have not used this workflow
-before, a good introduction can be found here:
+PyPy's main repositories are hosted here: https://foss.heptapod.net/pypy.
 
-    https://www.atlassian.com/git/tutorials/comparing-workflows/forking-workflow
+`Heptapod <https://heptapod.net/>`_ is a friendly fork of GitLab Community
+Edition supporting Mercurial. https://foss.heptapod.net is a public instance
+for Free and Open-Source Software (more information `here
+<https://foss.heptapod.net/heptapod/foss.heptapod.net>`_).
 
-The cycle for a new PyPy contributor goes typically like this:
+Thanks to `Octobus <https://octobus.net/>`_ and `Clever Cloud
+<https://www.clever-cloud.com>`_ for providing this service!
 
-Fork & Clone
-------------
+.. raw:: html
 
-* Make an account on bitbucket_.
+   <h1 align="center">
+     <a href="https://foss.heptapod.net/heptapod/foss.heptapod.net">
+       <img width="500" alt="Octobus + Clever Cloud"
+            src="https://foss.heptapod.net/heptapod/slides/2020-FOSDEM/raw/branch/default/octobus+clever.png"
+            >
+     </a>
+   </h1>
 
-* Go to https://bitbucket.org/pypy/pypy/ and click "fork" (left
-  icons).  You get a fork of the repository, e.g. in
-  `https://bitbucket.org/yourname/pypy/`.
+If you are new with Mercurial and Heptapod, you can read this short tutorial:
 
-* Clone your new repo (i.e. the fork) to your local machine with the command
-  ``hg clone ssh://hg@bitbucket.org/yourname/pypy``.  It is a very slow
+.. toctree::
+   :maxdepth: 1
+
+   mercurial_heptapod
+
+
+Get Access
+----------
+
+The important take-away from that tutorial for experienced developers is that
+since the free hosting on foss.heptapod.net does not allow personal forks, you
+need permissions to push your changes directly to our repo. Once you sign in to
+https://foss.heptapod.net using either a new login or your GitHub or Atlassian
+logins, you can get developer status for pushing directly to
+the project (just ask by clicking the link at foss.heptapod.net/pypy just under
+the logo, and you'll get it, basically).  Once you have it you can rewrite your
+file ``.hg/hgrc`` to contain ``default = ssh://hg@foss.heptapod.net/pypy/pypy``.
+Your changes will then be pushed directly to the official repo, but (if you
+follow these rules) they are still on a branch, and we can still review the
+branches you want to merge.  With developer status, you can push topic
+branches. If you wish to push long-lived branches, you will need to ask for
+higher permissions.
+
+
+Clone
+-----
+
+* Clone the PyPy repo to your local machine with the command
+  ``hg clone https://foss.heptapod.net/pypy/pypy``.  It takes a minute or two
   operation but only ever needs to be done once.  See also
   http://pypy.org/download.html#building-from-source .
-  If you already cloned
-  ``https://bitbucket.org/pypy/pypy`` before, even if some time ago,
+  If you already cloned the repo before, even if some time ago,
   then you can reuse the same clone by editing the file ``.hg/hgrc`` in
   your clone to contain the line ``default =
-  ssh://hg@bitbucket.org/yourname/pypy``, and then do ``hg pull && hg
+  https://foss.heptapod.net/pypy/pypy``, and then do ``hg pull && hg
   up``.  If you already have such a clone but don't want to change it,
   you can clone that copy with ``hg clone /path/to/other/copy``, and
   then edit ``.hg/hgrc`` as above and do ``hg pull && hg up``.
 
-* Now you have a complete copy of the PyPy repo.  Make a branch
-  with a command like ``hg branch name_of_your_branch``.
+* Now you have a complete copy of the PyPy repo.  Make a long-lived branch
+  with a command like ``hg branch name_of_your_branch``, or make a short-
+  lived branch for a simple fix with a command like ``hg topic issueXXXX``.
 
 Edit
 ----
@@ -138,42 +170,31 @@ Edit
   locally present.
 
 * You should push often; there is no real reason not to.  Remember that
-  even if they are pushed, with the setup above, the commits are (1)
-  only in ``bitbucket.org/yourname/pypy``, and (2) in the branch you
+  even if they are pushed, with the setup above, the commits are only in the
+  branch you
   named.  Yes, they are publicly visible, but don't worry about someone
-  walking around the thousands of repos on bitbucket saying "hah, look
-  at the bad coding style of that guy".  Try to get into the mindset
+  walking around the many branches of PyPy saying "hah, look
+  at the bad coding style of that person".  Try to get into the mindset
   that your work is not secret and it's fine that way.  We might not
   accept it as is for PyPy, asking you instead to improve some things,
-  but we are not going to judge you.
+  but we are not going to judge you unless you don't write tests.
 
-Pull Request
-------------
+Merge Request
+-------------
 
-* The final step is to open a pull request, so that we know that you'd
+* The final step is to open a merge request, so that we know that you'd
   like to merge that branch back to the original ``pypy/pypy`` repo.
   This can also be done several times if you have interesting
   intermediate states, but if you get there, then we're likely to
   proceed to the next stage, which is...
 
-* Get a regular account for pushing directly to
-  ``bitbucket.org/pypy/pypy`` (just ask and you'll get it, basically).
-  Once you have it you can rewrite your file ``.hg/hgrc`` to contain
-  ``default = ssh://hg@bitbucket.org/pypy/pypy``.  Your changes will
-  then be pushed directly to the official repo, but (if you follow these
-  rules) they are still on a branch, and we can still review the
-  branches you want to merge.
-
 * If you get closer to the regular day-to-day development, you'll notice
   that we generally push small changes as one or a few commits directly
-  to the branch ``default``.  Also, we often collaborate even if we are
-  on other branches, which do not really "belong" to anyone.  At this
+  to the branch ``default`` or ``py3.6``.  Also, we often collaborate even if
+  we are on other branches, which do not really "belong" to anyone.  At this
   point you'll need ``hg merge`` and learn how to resolve conflicts that
   sometimes occur when two people try to push different commits in
   parallel on the same branch.  But it is likely an issue for later ``:-)``
-
-.. _bitbucket: https://bitbucket.org/
-
 
 Architecture
 ^^^^^^^^^^^^
@@ -466,7 +487,7 @@ Demos
 The `example-interpreter`_ repository contains an example interpreter
 written using the RPython translation toolchain.
 
-.. _example-interpreter: https://bitbucket.org/pypy/example-interpreter
+.. _example-interpreter: https://foss.heptapod.net/pypy/example-interpreter
 
 
 graphviz & pygame for flow graph viewing (highly recommended)

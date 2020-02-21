@@ -16,3 +16,7 @@ Handle ``NAN`` more correctly in ``array.array`` for ``__eq__`` and ``count``
 .. branch: bpo-16055
 
 Fixes incorrect error text for ``int('1', base=1000)``
+
+.. branch: heptapod
+
+adapt contributing documentation to heptapod
