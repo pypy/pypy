@@ -20,3 +20,10 @@ Fixes incorrect error text for ``int('1', base=1000)``
 .. branch: heptapod
 
 adapt contributing documentation to heptapod
+
+
+.. branch: pypy-jitrdriver-greenkeys
+
+Improve code generation for generators (and generator expressions in
+particular) when passing them to builtin functions that consume iterators, such
+as ``sum``, ``map``, ``max``, etc.
