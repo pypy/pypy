@@ -408,7 +408,7 @@ class CmdLineTest(unittest.TestCase):
     def test_hash_randomization(self):
         # Verify that -R enables hash randomization:
         self.verify_valid_flag('-R')
-        if test.support.check_impl_detail(pypy=True):
+        if support.check_impl_detail(pypy=True):
             # PyPy doesn't support hash randomization
             return
         hashes = []
