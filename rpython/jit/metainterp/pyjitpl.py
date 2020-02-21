@@ -1825,7 +1825,7 @@ class MIFrame(object):
         if standard_box is vref_box:
             return vref_box
         if self.metainterp.heapcache.is_nonstandard_virtualizable(vref_box):
-            self.staticdata.profiler.count_ops(rop.PTR_EQ, Counters.HEAPCACHED_OPS)
+            self.metainterp.staticdata.profiler.count_ops(rop.PTR_EQ, Counters.HEAPCACHED_OPS)
             return None
         eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None, vref_box, standard_box)
         eqbox = self.implement_guard_value(eqbox, pc)
