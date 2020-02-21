@@ -1308,6 +1308,11 @@ def _clock_impl(space, w_info, return_ns):
         raise oefmt(space.w_RuntimeError,
                     "the processor time used is not available or its value"
                     "cannot be represented")
+
+    if _MACOSX:
+        # small hack apparently solving unsigned int on mac
+        value = intmask(value)
+
     if w_info is not None:
         _setinfo(space, w_info,
                  "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
