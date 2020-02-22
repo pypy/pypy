@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.annotator import model as annmodel
 import os
@@ -78,6 +79,7 @@ def write(fd, string):
     return c_write(fd, string, len(string))
 
 def ll_call_destructor(destrptr, destr_v, typename):
+    llop.revdb_do_next_call(lltype.Void)
     try:
         destrptr(destr_v)
     except Exception as e:

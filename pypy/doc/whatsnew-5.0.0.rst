@@ -192,6 +192,7 @@ Compress resume data, saving 10-20% of memory consumed by the JIT
 Fix boolean-array indexing in micronumpy
 
 .. branch: numpy_partition
+
 Support ndarray.partition() as an app-level function numpy.core._partition_use,
 provided as a cffi wrapper to upstream's implementation in the pypy/numpy repo
 

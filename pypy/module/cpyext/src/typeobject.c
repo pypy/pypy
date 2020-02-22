@@ -1,0 +1,30 @@
+#include "Python.h"
+
+void
+_PyPy_subtype_dealloc(PyObject *obj)
+{
+    PyTypeObject *pto = obj->ob_type;
+    PyTypeObject *base = pto;
+    /* This wrapper is created on a specific type, call it w_A.
+       We wish to call the dealloc function from one of the base classes of w_A,
+       the first of which is not this function itself.
+       w_obj is an instance of w_A or one of its subclasses. So climb up the
+       inheritance chain until base.c_tp_dealloc is exactly this_func, and then
+       continue on up until they differ.
+       */
+    while (base->tp_dealloc != &_PyPy_subtype_dealloc)
+    {
+        base = base->tp_base;
+        assert(base);
+    }
+    while (base->tp_dealloc == &_PyPy_subtype_dealloc)
+    {
+        base = base->tp_base;
+        assert(base);
+    }
+    /* XXX call tp_del if necessary */
+    base->tp_dealloc(obj);
+    /* XXX cpy decrefs the pto here but we do it in the base-dealloc
+       hopefully this does not clash with the memory model assumed in
+       extension modules */
+}

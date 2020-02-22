@@ -31,7 +31,7 @@ def test_redefinition():
     m.write(s)
     val = s.getvalue()
     assert not re.search('CC += +xxx', val, re.M)
-    assert re.search('CC += +yyy', val, re.M)    
+    assert re.search('CC += +yyy', val, re.M)
 
 class TestMakefile(object):
     platform = host
@@ -41,14 +41,14 @@ class TestMakefile(object):
         assert res.out == expected
         if self.strict_on_stderr:
             assert res.err == ''
-        assert res.returncode == 0        
-    
+        assert res.returncode == 0
+
     def test_900_files(self):
         tmpdir = udir.join('test_900_files').ensure(dir=1)
         txt = '#include <stdio.h>\n'
         for i in range(900):
             txt += 'int func%03d();\n' % i
-        txt += 'int main() {\n    int j=0;'    
+        txt += 'int main() {\n    int j=0;'
         for i in range(900):
             txt += '    j += func%03d();\n' % i
         txt += '    printf("%d\\n", j);\n'
@@ -82,10 +82,11 @@ class TestMakefile(object):
         eci.separate_module_files = [main_c]
         ncfiles = 10
         nprecompiled_headers = 20
-        txt = ''
+        txt = '#include <stdio.h>\n'
         for i in range(ncfiles):
             txt += "int func%03d();\n" % i
-        txt += "\nint main(int argc, char * argv[])\n"
+        txt += "\n__declspec(dllexport) int\n"
+        txt += "pypy_main_startup(int argc, char * argv[])\n"
         txt += "{\n   int i=0;\n"
         for i in range(ncfiles):
             txt += "   i += func%03d();\n" % i
@@ -100,8 +101,8 @@ class TestMakefile(object):
             for j in range(3000):
                 txt += "int pcfunc%03d_%03d();\n" %(i, j)
             txt += '#endif'
-            pch_name.write(txt)    
-            cfiles_precompiled_headers.append(pch_name)        
+            pch_name.write(txt)
+            cfiles_precompiled_headers.append(pch_name)
         # Create some cfiles with headers we want precompiled
         cfiles = []
         for i in range(ncfiles):
@@ -111,15 +112,15 @@ class TestMakefile(object):
                 txt += '#include "%s"\n' % pch_name
             txt += "int func%03d(){ return %d;};\n" % (i, i)
             c_name.write(txt)
-            cfiles.append(c_name)        
+            cfiles.append(c_name)
         if sys.platform == 'win32':
             clean = ('clean', '', 'for %f in ( $(OBJECTS) $(TARGET) ) do @if exist %f del /f %f')
             get_time = time.clock
-        else:    
+        else:
             clean = ('clean', '', 'rm -f $(OBJECTS) $(TARGET) ')
             get_time = time.time
         #write a non-precompiled header makefile
-        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir)
+        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir, shared=True)
         mk.rule(*clean)
         mk.write()
         t0 = get_time()
@@ -128,7 +129,7 @@ class TestMakefile(object):
         t_normal = t1 - t0
         self.platform.execute_makefile(mk, extra_opts=['clean'])
         # Write a super-duper makefile with precompiled headers
-        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir,
+        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir, shared=True,
                            headers_to_precompile=cfiles_precompiled_headers,)
         mk.rule(*clean)
         mk.write()
@@ -138,7 +139,6 @@ class TestMakefile(object):
         t_precompiled = t1 - t0
         res = self.platform.execute(mk.exe_name)
         self.check_res(res, '%d\n' %sum(range(ncfiles)))
-        print "precompiled haeder 'make' time %.2f, non-precompiled header time %.2f" %(t_precompiled, t_normal)
-        assert t_precompiled < t_normal * 0.5
+        #print "precompiled haeder 'make' time %.2f, non-precompiled header time %.2f" %(t_precompiled, t_normal)
+        assert t_precompiled < t_normal
 
-   

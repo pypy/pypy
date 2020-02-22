@@ -656,15 +656,17 @@ class CallOpAssembler(object):
     _COND_CALL_SAVE_REGS = [r.r3, r.r4, r.r5, r.r6, r.r12]
 
     def emit_cond_call(self, op, arglocs, regalloc):
+        resloc = arglocs[0]
+        arglocs = arglocs[1:]
+
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
         assert fcond != c.cond_none
-        fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
         self.mc.trap()        # patched later to a 'bc'
 
-        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap())
+        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap([resloc]))
 
         # save away r3, r4, r5, r6, r12 into the jitframe
         should_be_saved = [
@@ -691,7 +693,10 @@ class CallOpAssembler(object):
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.bl_abs(cond_call_adr)
         # restoring the registers saved above, and doing pop_gcmap(), is left
-        # to the cond_call_slowpath helper.  We never have any result value.
+        # to the cond_call_slowpath helper.  If we have a result, move
+        # it from r2 to its expected location.
+        if resloc is not None:
+            self.mc.mr(resloc.value, r.SCRATCH2.value)
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
         BI, BO = c.encoding[fcond]
@@ -700,6 +705,9 @@ class CallOpAssembler(object):
         # might be overridden again to skip over the following
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, BI, BO
+
+    emit_cond_call_value_i = emit_cond_call
+    emit_cond_call_value_r = emit_cond_call
 
 
 class FieldOpAssembler(object):
@@ -956,72 +964,6 @@ class FieldOpAssembler(object):
         pmc = OverwritingBuilder(self.mc, jle_location, 1)
         pmc.ble(self.mc.currpos() - jle_location)    # !GT
         pmc.overwrite()
-
-
-class StrOpAssembler(object):
-
-    _mixin_ = True
-
-    def emit_copystrcontent(self, op, arglocs, regalloc):
-        self._emit_copycontent(arglocs, is_unicode=False)
-
-    def emit_copyunicodecontent(self, op, arglocs, regalloc):
-        self._emit_copycontent(arglocs, is_unicode=True)
-
-    def _emit_load_for_copycontent(self, dst, src_ptr, src_ofs, scale):
-        if src_ofs.is_imm():
-            value = src_ofs.value << scale
-            if value < 32768:
-                self.mc.addi(dst.value, src_ptr.value, value)
-            else:
-                self.mc.load_imm(dst, value)
-                self.mc.add(dst.value, src_ptr.value, dst.value)
-        elif scale == 0:
-            self.mc.add(dst.value, src_ptr.value, src_ofs.value)
-        else:
-            self.mc.sldi(dst.value, src_ofs.value, scale)
-            self.mc.add(dst.value, src_ptr.value, dst.value)
-
-    def _emit_copycontent(self, arglocs, is_unicode):
-        [src_ptr_loc, dst_ptr_loc,
-         src_ofs_loc, dst_ofs_loc, length_loc] = arglocs
-
-        if is_unicode:
-            basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                        self.cpu.translate_support_code)
-            if   itemsize == 2: scale = 1
-            elif itemsize == 4: scale = 2
-            else: raise AssertionError
-        else:
-            basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                        self.cpu.translate_support_code)
-            assert itemsize == 1
-            basesize -= 1     # for the extra null character
-            scale = 0
-
-        self._emit_load_for_copycontent(r.r0, src_ptr_loc, src_ofs_loc, scale)
-        self._emit_load_for_copycontent(r.r2, dst_ptr_loc, dst_ofs_loc, scale)
-
-        if length_loc.is_imm():
-            length = length_loc.getint()
-            self.mc.load_imm(r.r5, length << scale)
-        else:
-            if scale > 0:
-                self.mc.sldi(r.r5.value, length_loc.value, scale)
-            elif length_loc is not r.r5:
-                self.mc.mr(r.r5.value, length_loc.value)
-
-        self.mc.mr(r.r4.value, r.r0.value)
-        self.mc.addi(r.r4.value, r.r4.value, basesize)
-        self.mc.addi(r.r3.value, r.r2.value, basesize)
-
-        self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
-        self.mc.raw_call()
-
-
-class UnicodeOpAssembler(object):
-    _mixin_ = True
-    # empty!
 
 
 class AllocOpAssembler(object):
@@ -1328,8 +1270,7 @@ class ForceOpAssembler(object):
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
-                  StrOpAssembler, CallOpAssembler,
-                  UnicodeOpAssembler, ForceOpAssembler,
+                  CallOpAssembler, ForceOpAssembler,
                   AllocOpAssembler, FloatOpAssembler,
                   VectorAssembler):
     _mixin_ = True

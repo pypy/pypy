@@ -1,23 +1,23 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
+from pypy.module.cpyext.complexobject import (
+    PyComplex_FromDoubles, PyComplex_RealAsDouble, PyComplex_ImagAsDouble)
 
 class TestComplexObject(BaseApiTest):
-    def test_complexobject(self, space, api):
-        w_value = api.PyComplex_FromDoubles(1.2, 3.4)
+    def test_complexobject(self, space):
+        w_value = PyComplex_FromDoubles(space, 1.2, 3.4)
         assert space.unwrap(w_value) == 1.2+3.4j
-        assert api.PyComplex_RealAsDouble(w_value) == 1.2
-        assert api.PyComplex_ImagAsDouble(w_value) == 3.4
+        assert PyComplex_RealAsDouble(space, w_value) == 1.2
+        assert PyComplex_ImagAsDouble(space, w_value) == 3.4
 
-        assert api.PyComplex_RealAsDouble(space.wrap(42)) == 42
-        assert api.PyComplex_RealAsDouble(space.wrap(1.5)) == 1.5
-        assert api.PyComplex_ImagAsDouble(space.wrap(1.5)) == 0.0
+        assert PyComplex_RealAsDouble(space, space.wrap(42)) == 42
+        assert PyComplex_RealAsDouble(space, space.wrap(1.5)) == 1.5
+        assert PyComplex_ImagAsDouble(space, space.wrap(1.5)) == 0.0
 
         # cpython accepts anything for PyComplex_ImagAsDouble
-        assert api.PyComplex_ImagAsDouble(space.w_None) == 0.0
-        assert not api.PyErr_Occurred()
-        assert api.PyComplex_RealAsDouble(space.w_None) == -1.0
-        assert api.PyErr_Occurred()
-        api.PyErr_Clear()
+        assert PyComplex_ImagAsDouble(space, space.w_None) == 0.0
+        with raises_w(space, TypeError):
+            PyComplex_RealAsDouble(space, space.w_None)
 
 class AppTestCComplex(AppTestCpythonExtensionBase):
     def test_AsCComplex(self):

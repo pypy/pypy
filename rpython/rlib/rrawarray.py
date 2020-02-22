@@ -1,6 +1,6 @@
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pair
@@ -50,6 +50,10 @@ get_raw_buf._always_inline_ = True
 
 @jit.dont_look_inside
 def ll_copy_list_to_raw_array(ll_list, dst_ptr):
+    if rgc.must_split_gc_address_space():
+        for i in range(ll_list.ll_length()):
+            dst_ptr[i] = ll_list.ll_getitem_fast(i)
+        return
     # this code is delicate: we must ensure that there are no GC operations
     # around the call to raw_memcopy
     #
@@ -64,9 +68,13 @@ def ll_copy_list_to_raw_array(ll_list, dst_ptr):
 
 @jit.dont_look_inside
 def ll_populate_list_from_raw_array(ll_list, src_ptr, length):
+    ll_list._ll_resize(length)
+    if rgc.must_split_gc_address_space():
+        for i in range(length):
+            ll_list.ll_setitem_fast(i, src_ptr[i])
+        return
     ITEM = lltype.typeOf(src_ptr).TO.OF
     size = llmemory.sizeof(ITEM) * length
-    ll_list._ll_resize(length)
     # start of no-GC section
     src_adr = get_raw_buf(src_ptr)
     dst_adr = get_raw_buf(ll_list.ll_items())

@@ -6,6 +6,7 @@ What's new in PyPy 2.6.1
 .. startrev: 91904d5c5188
 
 .. branch: use_min_scalar
+
 Correctly resolve the output dtype of ufunc(array, scalar) calls.
 
 .. branch: stdlib-2.7.10
@@ -15,6 +16,7 @@ Update stdlib to version 2.7.10
 .. branch: issue2062
 
 .. branch: disable-unroll-for-short-loops
+
 The JIT no longer performs loop unrolling if the loop compiles to too much code.
 
 .. branch: run-create_cffi_imports
@@ -32,9 +34,11 @@ have no visible effect!  After ``lst = [42, 42.5]``, the value of
 ``lst[0]`` is still *not* the float ``42.0`` but the integer ``42``.)
 
 .. branch: cffi-callback-onerror
+
 Part of cffi 1.2.
 
 .. branch: cffi-new-allocator
+
 Part of cffi 1.2.
 
 .. branch: unicode-dtype

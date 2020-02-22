@@ -532,7 +532,7 @@ def measure_median_execution_cost(graph):
         return sys.maxint
     else:
         res = Solution[blockmap[graph.startblock]]
-        return max(res, 0.0)
+        return max(res, 0.0)    # may be NaN
 
 def static_instruction_count(graph):
     count = 0
@@ -546,7 +546,7 @@ def inlining_heuristic(graph):
     if count >= 200:
         return count, True
     return (0.9999 * measure_median_execution_cost(graph) +
-            count), True
+            count), True       # may be NaN
 
 def inlinable_static_callers(graphs, store_calls=False, ok_to_call=None):
     if ok_to_call is None:
@@ -639,6 +639,15 @@ def auto_inlining(translator, threshold=None,
                 weight, fixed = 0.0, True
             else:
                 weight, fixed = heuristic(graph)
+                # Don't let 'weight' be NaN past this point.  If we do,
+                # then heapify() might (sometimes, rarely) not do its job
+                # correctly.  I suspect it's because the algorithm gets
+                # confused by the fact that both 'a < b' and 'b < a' are
+                # false.  A concrete example: [39.0, 0.0, 33.0, nan, nan]
+                # heapifies to [33.0, nan, 39.0, nan, 0.0], but 33.0 is
+                # not the smallest item.
+                if not (weight < 1e9):
+                    weight = 1e9
             #print '  + cost %7.2f %50s' % (weight, graph.name)
             heapreplace(heap, (weight, -len(callers[graph]), graph))
             valid_weight[graph] = True

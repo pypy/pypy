@@ -48,6 +48,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'i386': 'i386',
         'arm': 'arm',
         'arm_32': 'arm',
+        'aarch64': 'aarch64',
         'ppc' : 'powerpc:common64',
         'ppc-64' : 'powerpc:common64',
         's390x': 's390:64-bit',
@@ -223,7 +224,7 @@ class CodeRange(object):
             addr = addrs[-1]
             final = '\tjmp' in line
             yield i, addr, final
-        if self.fallthrough and '\tret' not in line:
+        if self.fallthrough and '\tret' not in line and "\tjmp    r11" not in line:
             yield len(lines), self.addr + len(self.data), True
 
 

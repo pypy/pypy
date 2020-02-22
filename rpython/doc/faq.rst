@@ -182,7 +182,11 @@ which can translate PyPy with or without the JIT on Linux.)
 
 On the other hand, using LLVM as our JIT backend looks interesting as
 well --- but again we made an attempt, and it failed: LLVM has no way to
-patch the generated machine code.
+patch the generated machine code, and is not suited at all to tracing
+JITs.  Even one big method JIT trying to use LLVM `has given up`__ for
+similar reasons; read that blog post for more details.
+
+.. __: https://webkit.org/blog/5852/introducing-the-b3-jit-compiler/
 
 So the position of the core PyPy developers is that if anyone wants to
 make an N+1'th attempt with LLVM, they are welcome, and they will receive a

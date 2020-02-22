@@ -84,8 +84,8 @@ class TestMath(BaseRtypingTest):
 
     def test_log1p_zero(self):
         def f(x):
-            x = rfloat.copysign(0.0, x)
-            return rfloat.copysign(1.0, rfloat.log1p(x))
+            x = math.copysign(0.0, x)
+            return math.copysign(1.0, rfloat.log1p(x))
 
         assert self.interpret(f, [3.0]) == 1.0
         assert self.interpret(f, [-2.0]) == -1.0

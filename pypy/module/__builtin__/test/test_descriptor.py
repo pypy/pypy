@@ -280,6 +280,22 @@ class AppTestBuiltinApp:
         assert repr(A()).endswith('>!')
         assert repr(super(A, A())) == "<super: <class 'A'>, <A object>>"
 
+    def test_super_get_corner_case(self):
+        class A(object):
+            pass
+        s1 = super(A, A())
+        assert s1.__get__(42) is s1
+        assert s1.__get__(42, int) is s1
+        s2 = super(A)
+        assert s2.__get__(None, "anything") is s2
+        #
+        assert s1.__get__(None, "anything") is s1
+        raises(TypeError, s2.__get__, 42)
+        raises(TypeError, s2.__get__, 42, int)
+        a = A()
+        assert s2.__get__(a).__self__ is a
+        assert s1.__get__(a) is s1
+
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
 
@@ -411,3 +427,35 @@ class AppTestBuiltinApp:
         assert x.y == 42
         del x.x
         assert x.z == 42
+
+    def test_uninitialized_property(self):
+        p = property.__new__(property)
+        raises(AttributeError, p.__get__, 42)
+        raises(AttributeError, p.__set__, 42, None)
+        raises(AttributeError, p.__delete__, 42)
+        assert repr(p).startswith("<property object at ")
+        assert p.fget is p.fset is p.fdel is p.__doc__ is None
+        #
+        lst = []
+        p.deleter(lst.append).__delete__(42)
+        assert lst == [42]
+        #
+        lst = []
+        p.getter(lst.append).__get__(43)
+        assert lst == [43]
+        #
+        lst = []
+        p.setter(lambda x, y: lst.append((x, y))).__set__(44, 45)
+        assert lst == [(44, 45)]
+
+    def test_uninitialized_super(self):
+        s = super.__new__(super)
+        assert repr(s) == "<super: <class 'NULL'>, NULL>"
+        assert s.__thisclass__ is s.__self__ is s.__self_class__ is None
+        assert s.__get__(None, "anything") is s
+        raises(TypeError, s.__get__, 42)
+        raises(TypeError, s.__get__, int)
+        raises(TypeError, s.__get__, type(None))
+        raises(AttributeError, "s.abcde")
+        raises(AttributeError, "s.abcde = 42")
+        raises(AttributeError, "del s.abcde")

@@ -3,9 +3,10 @@ from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.history import CONST_NULL
 from rpython.jit.metainterp.optimizeopt import info, optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import REMOVED
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.rawbuffer import InvalidRawOperation
+from .info import getrawptrinfo, getptrinfo
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 
 
@@ -27,7 +28,7 @@ class OptVirtualize(optimizer.Optimization):
             assert clear
             opinfo = info.ArrayStructInfo(arraydescr, size, is_virtual=True)
         else:
-            const = self.new_const_item(arraydescr)
+            const = self.optimizer.new_const_item(arraydescr)
             opinfo = info.ArrayPtrInfo(arraydescr, const, size, clear,
                                        is_virtual=True)
         # Replace 'source_op' with a version in which the length is
@@ -100,7 +101,7 @@ class OptVirtualize(optimizer.Optimization):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
-            opinfo = self.getptrinfo(op.getarg(2))
+            opinfo = getptrinfo(op.getarg(2))
             if opinfo and opinfo.is_virtual():
                 return
         return self.emit(op)
@@ -122,8 +123,7 @@ class OptVirtualize(optimizer.Optimization):
         newop.set_forwarded(vrefvalue)
         token = ResOperation(rop.FORCE_TOKEN, [])
         vrefvalue.setfield(descr_virtual_token, newop, token)
-        vrefvalue.setfield(descr_forced, newop,
-                           self.optimizer.cpu.ts.CONST_NULLREF)
+        vrefvalue.setfield(descr_forced, newop, CONST_NULL)
         return self.emit(token)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
@@ -161,17 +161,17 @@ class OptVirtualize(optimizer.Optimization):
         # was already forced).
 
     def _optimize_JIT_FORCE_VIRTUAL(self, op):
-        vref = self.getptrinfo(op.getarg(1))
+        vref = getptrinfo(op.getarg(1))
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         if vref and vref.is_virtual():
             tokenop = vref.getfield(vrefinfo.descr_virtual_token, None)
             if tokenop is None:
                 return False
-            tokeninfo = self.getptrinfo(tokenop)
+            tokeninfo = getptrinfo(tokenop)
             if (tokeninfo is not None and tokeninfo.is_constant() and
                     not tokeninfo.is_nonnull()):
                 forcedop = vref.getfield(vrefinfo.descr_forced, None)
-                forcedinfo = self.getptrinfo(forcedop)
+                forcedinfo = getptrinfo(forcedop)
                 if forcedinfo is not None and not forcedinfo.is_null():
                     self.make_equal_to(op, forcedop)
                     self.last_emitted_operation = REMOVED
@@ -179,7 +179,7 @@ class OptVirtualize(optimizer.Optimization):
         return False
 
     def optimize_GETFIELD_GC_I(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             fieldop = opinfo.getfield(op.getdescr())
             if fieldop is None:
@@ -193,10 +193,10 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_SETFIELD_GC(self, op):
         struct = op.getarg(0)
-        opinfo = self.getptrinfo(struct)
+        opinfo = getptrinfo(struct)
         if opinfo is not None and opinfo.is_virtual():
             opinfo.setfield(op.getdescr(), struct,
-                            self.get_box_replacement(op.getarg(1)))
+                            get_box_replacement(op.getarg(1)))
         else:
             self.make_nonnull(struct)
             return self.emit(op)
@@ -230,7 +230,7 @@ class OptVirtualize(optimizer.Optimization):
             return self.do_RAW_FREE(op)
         elif effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
             # we might end up having CALL here instead of COND_CALL
-            info = self.getptrinfo(op.getarg(1))
+            info = getptrinfo(op.getarg(1))
             if info and info.is_virtual():
                 return
         else:
@@ -246,13 +246,13 @@ class OptVirtualize(optimizer.Optimization):
         self.last_emitted_operation = REMOVED
 
     def do_RAW_FREE(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(1))
+        opinfo = getrawptrinfo(op.getarg(1))
         if opinfo and opinfo.is_virtual():
             return
         return self.emit(op)
 
     def optimize_INT_ADD(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0), create=False)
+        opinfo = getrawptrinfo(op.getarg(0))
         offsetbox = self.get_constant_box(op.getarg(1))
         if opinfo and opinfo.is_virtual() and offsetbox is not None:
             offset = offsetbox.getint()
@@ -265,7 +265,7 @@ class OptVirtualize(optimizer.Optimization):
         return self.emit(op)
 
     def optimize_ARRAYLEN_GC(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             self.make_constant_int(op, opinfo.getlength())
         else:
@@ -273,7 +273,7 @@ class OptVirtualize(optimizer.Optimization):
             return self.emit(op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
@@ -295,13 +295,13 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_I
 
     def optimize_SETARRAYITEM_GC(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 opinfo.setitem(op.getdescr(), indexbox.getint(),
-                               self.get_box_replacement(op.getarg(0)),
-                               self.get_box_replacement(op.getarg(2)))
+                               get_box_replacement(op.getarg(0)),
+                               get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
         return self.emit(op)
@@ -315,7 +315,7 @@ class OptVirtualize(optimizer.Optimization):
         return offset, itemsize, descr
 
     def optimize_GETARRAYITEM_RAW_I(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
@@ -333,12 +333,12 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
 
     def optimize_SETARRAYITEM_RAW(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
-                itemop = self.get_box_replacement(op.getarg(2))
+                itemop = get_box_replacement(op.getarg(2))
                 try:
                     opinfo.setitem_raw(offset, itemsize, descr, itemop)
                     return
@@ -355,7 +355,7 @@ class OptVirtualize(optimizer.Optimization):
         return offset, itemsize, descr
 
     def optimize_RAW_LOAD_I(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             offsetbox = self.get_constant_box(op.getarg(1))
             if offsetbox is not None:
@@ -371,7 +371,7 @@ class OptVirtualize(optimizer.Optimization):
     optimize_RAW_LOAD_F = optimize_RAW_LOAD_I
 
     def optimize_RAW_STORE(self, op):
-        opinfo = self.getrawptrinfo(op.getarg(0))
+        opinfo = getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             offsetbox = self.get_constant_box(op.getarg(1))
             if offsetbox is not None:
@@ -384,7 +384,7 @@ class OptVirtualize(optimizer.Optimization):
         return self.emit(op)
 
     def optimize_GETINTERIORFIELD_GC_I(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
@@ -393,7 +393,7 @@ class OptVirtualize(optimizer.Optimization):
                 if fld is None:
                     raise Exception("I think this is illegal")
                     xxx
-                    fieldvalue = self.new_const(descr)
+                    fieldvalue = self.optimizer.new_const(descr)
                 self.make_equal_to(op, fld)
                 return
         self.make_nonnull(op.getarg(0))
@@ -402,13 +402,13 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETINTERIORFIELD_GC_F = optimize_GETINTERIORFIELD_GC_I
 
     def optimize_SETINTERIORFIELD_GC(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        opinfo = getptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 opinfo.setinteriorfield_virtual(indexbox.getint(),
                                                 op.getdescr(),
-                                       self.get_box_replacement(op.getarg(2)))
+                                       get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
         return self.emit(op)

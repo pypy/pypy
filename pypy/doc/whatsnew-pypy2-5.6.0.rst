@@ -6,18 +6,22 @@ What's new in PyPy2.7 5.6
 .. startrev: 522736f816dc
 
 .. branch: rpython-resync
+
 Backport rpython changes made directly on the py3k and py3.5 branches.
 
 .. branch: buffer-interface
+
 Implement PyObject_GetBuffer, PyMemoryView_GET_BUFFER, and handles memoryviews
 in numpypy
 
 .. branch: force-virtual-state
+
 Improve merging of virtual states in the JIT in order to avoid jumping to the
 preamble. Accomplished by allocating virtual objects where non-virtuals are
 expected.
 
 .. branch: conditional_call_value_3
+
 JIT residual calls: if the called function starts with a fast-path
 like "if x.foo != 0: return x.foo", then inline the check before
 doing the CALL.  For now, string hashing is about the only case.
@@ -58,6 +62,7 @@ Improve the error message when the user forgot the "self" argument of a method.
 
 
 .. fb6bb835369e
+
 Change the ``timeit`` module: it now prints the average time and the standard
 deviation over 7 runs by default, instead of the minimum. The minimum is often
 misleading.
@@ -69,9 +74,6 @@ more easily and debugging is faster.
 
 .. branch: Tiberiumk/fix-2412-1476011166874
 .. branch: redirect-assembler-jitlog
-
-
-
 .. branch: stdlib-2.7.12
 
 Update stdlib to version 2.7.12
@@ -99,7 +101,7 @@ PowerPC implementation for vector operations used in VecOpt
 
 .. branch: newinitwarn
 
-Match CPython's stricter handling of __new/init__ arguments
+Match CPython's stricter handling of ``__new__``/``__init__`` arguments
 
 .. branch: openssl-1.1
 

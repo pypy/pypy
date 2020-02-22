@@ -26,9 +26,8 @@ class BaseCygwin(BasePosix):
     shared_only = ('-fPIC',)
     so_ext = 'dll'
     exe_ext = 'exe'
-    so_prefixes = ('lib', '')
     
-    def _args_for_shared(self, args):
+    def _args_for_shared(self, args, **kwds):
         return ['-shared'] + args
 
     def _include_dirs_for_libffi(self):

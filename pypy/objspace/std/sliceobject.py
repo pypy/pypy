@@ -105,10 +105,10 @@ class W_SliceObject(W_Root):
         return w_obj
 
     def descr_repr(self, space):
-        return space.wrap("slice(%s, %s, %s)" % (
-            space.str_w(space.repr(self.w_start)),
-            space.str_w(space.repr(self.w_stop)),
-            space.str_w(space.repr(self.w_step))))
+        return space.newtext("slice(%s, %s, %s)" % (
+            space.text_w(space.repr(self.w_start)),
+            space.text_w(space.repr(self.w_stop)),
+            space.text_w(space.repr(self.w_step))))
 
     def descr__reduce__(self, space):
         from pypy.objspace.std.sliceobject import W_SliceObject
@@ -131,6 +131,18 @@ class W_SliceObject(W_Root):
             return space.w_True
         else:
             return space.w_False
+
+    def descr_ne(self, space, w_other):
+        if space.is_w(self, w_other):
+            return space.w_False
+        if not isinstance(w_other, W_SliceObject):
+            return space.w_NotImplemented
+        if space.eq_w(self.w_start, w_other.w_start) and \
+           space.eq_w(self.w_stop, w_other.w_stop) and \
+           space.eq_w(self.w_step, w_other.w_step):
+            return space.w_False
+        else:
+            return space.w_True
 
     def descr_lt(self, space, w_other):
         if space.is_w(self, w_other):
@@ -155,8 +167,8 @@ class W_SliceObject(W_Root):
         """
         length = space.getindex_w(w_length, space.w_OverflowError)
         start, stop, step = self.indices3(space, length)
-        return space.newtuple([space.wrap(start), space.wrap(stop),
-                               space.wrap(step)])
+        return space.newtuple([space.newint(start), space.newint(stop),
+                               space.newint(step)])
 
 
 def slicewprop(name):
@@ -177,6 +189,7 @@ Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',
     __reduce__ = gateway.interp2app(W_SliceObject.descr__reduce__),
 
     __eq__ = gateway.interp2app(W_SliceObject.descr_eq),
+    __ne__ = gateway.interp2app(W_SliceObject.descr_ne),
     __lt__ = gateway.interp2app(W_SliceObject.descr_lt),
 
     start = slicewprop('w_start'),

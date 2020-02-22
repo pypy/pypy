@@ -192,6 +192,20 @@ def test_union_associative(s1, s2, s3):
     assert union(union(s1, s2), s3) == union(s1, union(s2, s3))
 
 
+@pytest.mark.xfail
+@given(st_annotation, st_annotation)
+def test_generalize_isinstance(annotator, s1, s2):
+    try:
+        s_12 = union(s1, s2)
+    except UnionError:
+        assume(False)
+    assume(s1 != s_ImpossibleValue)
+    from rpython.annotator.unaryop import s_isinstance
+    s_int = annotator.bookkeeper.immutablevalue(int)
+    s_res_12 = s_isinstance(annotator, s_12, s_int, [])
+    s_res_1 = s_isinstance(annotator, s1, s_int, [])
+    assert s_res_12.contains(s_res_1)
+
 def compile_function(function, annotation=[]):
     t = TranslationContext()
     t.buildannotator().build_types(function, annotation)

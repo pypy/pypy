@@ -89,3 +89,11 @@ class UnionFind(object):
         self.root_info[rep1] = info1
 
         return True, rep1, info1
+
+    def union_list(self, objlist):
+        if len(objlist) == 0:
+            return
+        obj0 = objlist[0]
+        self.find(obj0)
+        for obj1 in objlist[1:]:
+            self.union(obj0, obj1)

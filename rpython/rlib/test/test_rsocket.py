@@ -320,7 +320,7 @@ def test_simple_udp():
     s2.bind(INETAddress('127.0.0.1', INADDR_ANY))
     addr2 = s2.getsockname()
 
-    s1.sendto('?', 0, addr2)
+    s1.sendto('?', 1, 0, addr2)
     buf = s2.recv(100)
     assert buf == '?'
     s2.connect(addr)
@@ -409,13 +409,14 @@ def test_getaddrinfo_http():
     # catch-all address (i.e. opendns).
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
+    assert isinstance(e.value.get_msg_unicode(), unicode)
 
 def getaddrinfo_pydotorg(i, result):
     lst = getaddrinfo('python.org', None)
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() in ('104.130.43.121', '23.253.135.79'):
+        if addr.get_host() in ('104.130.43.121', '23.253.135.79', '45.55.99.72'):
             found = True
         elif family == AF_INET:
             print 'pydotorg changed to', addr.get_host()
@@ -462,6 +463,15 @@ def test_connect_with_timeout_succeed():
     s = RSocket()
     s.settimeout(10.0)
     s.connect(INETAddress('python.org', 80))
+    s.close()
+
+def test_connect_with_default_timeout_fail():
+    rsocket.setdefaulttimeout(0.1)
+    s = RSocket()
+    rsocket.setdefaulttimeout(None)
+    assert s.gettimeout() == 0.1
+    with py.test.raises(SocketTimeout):
+        s.connect(INETAddress('172.30.172.30', 12345))
     s.close()
 
 def test_getsetsockopt():

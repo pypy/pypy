@@ -1,28 +1,7 @@
-What PyPy can do for your objects
-=================================
-
-.. contents::
-
-
-Thanks to the :doc:`Object Space <objspace>` architecture, any feature that is
-based on proxying, extending, changing or otherwise controlling the
-behavior of objects in a running program is easy to implement on top of PyPy.
-
-Here is what we have implemented so far, in historical order:
-
-* *Dump Object Space*: dumps all operations performed on all the objects
-  into a large log file.  For debugging your applications.
-
-* *Transparent Proxies Extension*: adds new proxy objects to
-  the Standard Object Space that enable applications to
-  control operations on application and builtin objects,
-  e.g lists, dictionaries, tracebacks.
-
-
 .. _tproxy:
 
-Transparent Proxies
--------------------
+Transparent Proxies (DEPRECATED)
+--------------------------------
 
 .. warning::
 
@@ -194,7 +173,7 @@ Transparent Proxies use this architecture to provide control back to
 application-level code.
 
 Transparent proxies are implemented on top of the :ref:`standard object
-space <standard-object-space>`, in :source:`pypy/objspace/std/proxy_helpers.py`,
+space <standard-object-space>`, in :source:`pypy/objspace/std/proxyobject.py`,
 :source:`pypy/objspace/std/proxyobject.py` and :source:`pypy/objspace/std/transparent.py`.
 To use them you will need to pass a `--objspace-std-withtproxy`_ option to ``pypy``
 or ``translate.py``.  This registers implementations named :py:class:`W_TransparentXxx`

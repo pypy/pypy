@@ -81,7 +81,18 @@ def test_oefmt_R(space):
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
     assert operr.errorstr(space) == "ValueError: message"
-    assert operr.errorstr(space, use_repr=True) == "ValueError: 'message'"
+    assert operr.errorstr(space, use_repr=True) == (
+        "ValueError: ValueError('message',)")
+    operr = OperationError(space.w_ValueError, space.w_None)
+    assert operr.errorstr(space) == "ValueError"
+    operr = OperationError(space.w_ValueError,
+        space.newtuple([space.wrap(6), space.wrap(7)]))
+    assert operr.errorstr(space) == "ValueError: (6, 7)"
+    operr = OperationError(space.w_UnicodeDecodeError,
+        space.wrap(('unicodeescape', r'\\x', 0, 2, r'truncated \\xXX escape')))
+    assert operr.errorstr(space) == (
+        "UnicodeDecodeError: 'unicodeescape' codec can't decode "
+        "bytes in position 0-1: truncated \\\\xXX escape")
 
 def test_wrap_oserror():
     class FakeSpace:
@@ -89,6 +100,7 @@ def test_wrap_oserror():
         w_EnvironmentError = [EnvironmentError]
         def wrap(self, obj):
             return [obj]
+        newint = newtext = wrap
         def call_function(self, exc, w_errno, w_msg, w_filename=None):
             return (exc, w_errno, w_msg, w_filename)
     space = FakeSpace()
@@ -100,8 +112,8 @@ def test_wrap_oserror():
                                     [os.strerror(errno.EBADF)], None)
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
-                     filename = "test.py",
-                     exception_name = "w_EnvironmentError")
+                     filename="test.py",
+                     w_exception_class=space.w_EnvironmentError)
     assert isinstance(e, OperationError)
     assert e.w_type == [EnvironmentError]
     assert e.get_w_value(space) == ([EnvironmentError], [errno.EBADF],
@@ -109,8 +121,8 @@ def test_wrap_oserror():
                                     ["test.py"])
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
-                     filename = "test.py",
-                     w_exception_class = [SystemError])
+                     filename="test.py",
+                     w_exception_class=[SystemError])
     assert isinstance(e, OperationError)
     assert e.w_type == [SystemError]
     assert e.get_w_value(space) == ([SystemError], [errno.EBADF],

@@ -1,24 +1,17 @@
-import os
 from collections import OrderedDict
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.history import Const, ConstInt
-from rpython.jit.metainterp.jitexc import JitException
+from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
-     AbstractResOp, GuardResOp
-from rpython.rlib.objectmodel import we_are_translated, we_are_debug
+from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
-        
-
-
-class BogusImmutableField(JitException):
-    pass
 
 
 class AbstractCachedEntry(object):
@@ -48,6 +41,7 @@ class AbstractCachedEntry(object):
         # that has a non-None entry at
         # info._fields[descr.get_index()]
         # must be in cache_infos
+        assert structop.type == 'r'
         self.cached_structs.append(structop)
         self.cached_infos.append(info)
 
@@ -55,40 +49,32 @@ class AbstractCachedEntry(object):
                                              descr, index=-1):
         assert self._lazy_set is None
         for i, info in enumerate(self.cached_infos):
-            structbox = optimizer.get_box_replacement(self.cached_structs[i])
+            structbox = get_box_replacement(self.cached_structs[i])
             info.produce_short_preamble_ops(structbox, descr, index, optimizer,
                                             shortboxes)
 
-    def possible_aliasing(self, optheap, opinfo):
+    def possible_aliasing(self, opinfo):
         # If lazy_set is set and contains a setfield on a different
         # structvalue, then we are annoyed, because it may point to either
         # the same or a different structure at runtime.
         # XXX constants?
         return (self._lazy_set is not None
-                and (not optheap.getptrinfo(
-                    self._lazy_set.getarg(0)).same_info(opinfo)))
+            and not info.getptrinfo(self._lazy_set.getarg(0)).same_info(opinfo))
 
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
         structinfo = optheap.ensure_ptr_info_arg0(op)
-        arg1 = optheap.get_box_replacement(self._get_rhs_from_set_op(op))
-        if self.possible_aliasing(optheap, structinfo):
+        arg1 = get_box_replacement(self._get_rhs_from_set_op(op))
+        if self.possible_aliasing(structinfo):
             self.force_lazy_set(optheap, op.getdescr())
-            assert not self.possible_aliasing(optheap, structinfo)
+            assert not self.possible_aliasing(structinfo)
         cached_field = self._getfield(structinfo, op.getdescr(), optheap, False)
         if cached_field is not None:
-            cached_field = optheap.get_box_replacement(cached_field)
-
-        # Hack to ensure constants are imported from the preamble
-        # XXX no longer necessary?
-        #if cached_fieldvalue and fieldvalue.is_constant():
-        #    optheap.optimizer.ensure_imported(cached_fieldvalue)
-        #    cached_fieldvalue = self._cached_fields.get(structvalue, None)
+            cached_field = cached_field.get_box_replacement()
 
         if not cached_field or not cached_field.same_box(arg1):
             # common case: store the 'op' as lazy_set
             self._lazy_set = op
-
         else:
             # this is the case where the pending setfield ends up
             # storing precisely the value that is already there,
@@ -96,18 +82,18 @@ class AbstractCachedEntry(object):
             # need any _lazy_set: the heap value is already right.
             # Note that this may reset to None a non-None lazy_set,
             # cancelling its previous effects with no side effect.
-            
+
             # Now, we have to force the item in the short preamble
             self._getfield(structinfo, op.getdescr(), optheap)
             self._lazy_set = None
 
     def getfield_from_cache(self, optheap, opinfo, descr):
         # Returns the up-to-date field's value, or None if not cached.
-        if self.possible_aliasing(optheap, opinfo):
+        if self.possible_aliasing(opinfo):
             self.force_lazy_set(optheap, descr)
         if self._lazy_set is not None:
             op = self._lazy_set
-            return optheap.get_box_replacement(self._get_rhs_from_set_op(op))
+            return get_box_replacement(self._get_rhs_from_set_op(op))
         else:
             res = self._getfield(opinfo, descr, optheap)
             if res is not None:
@@ -139,7 +125,6 @@ class AbstractCachedEntry(object):
         elif not can_cache:
             self.invalidate(descr)
 
-
     # abstract methods
 
     def _get_rhs_from_set_op(self, op):
@@ -166,13 +151,13 @@ class CachedField(AbstractCachedEntry):
         return op.getarg(1)
 
     def put_field_back_to_info(self, op, opinfo, optheap):
-        arg = optheap.get_box_replacement(op.getarg(1))
-        struct = optheap.get_box_replacement(op.getarg(0))
+        arg = get_box_replacement(op.getarg(1))
+        struct = get_box_replacement(op.getarg(0))
         opinfo.setfield(op.getdescr(), struct, arg, optheap=optheap, cf=self)
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getfield(descr, optheap)
-        if we_are_debug() and res:
+        if not we_are_translated() and res:
             if isinstance(opinfo, info.AbstractStructPtrInfo):
                 assert opinfo in self.cached_infos
         if isinstance(res, PreambleOp):
@@ -202,7 +187,7 @@ class ArrayCachedItem(AbstractCachedEntry):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getitem(descr, self.index, optheap)
-        if we_are_debug() and res:
+        if not we_are_translated() and res:
             if isinstance(opinfo, info.ArrayPtrInfo):
                 assert opinfo in self.cached_infos
         if (isinstance(res, PreambleOp) and
@@ -215,14 +200,17 @@ class ArrayCachedItem(AbstractCachedEntry):
         return res
 
     def put_field_back_to_info(self, op, opinfo, optheap):
-        arg = optheap.get_box_replacement(op.getarg(2))
-        struct = optheap.get_box_replacement(op.getarg(0))
+        arg = get_box_replacement(op.getarg(2))
+        struct = get_box_replacement(op.getarg(0))
         opinfo.setitem(op.getdescr(), self.index, struct, arg, optheap=optheap, cf=self)
 
     def invalidate(self, descr):
         for opinfo in self.cached_infos:
             assert isinstance(opinfo, info.ArrayPtrInfo)
-            opinfo._items = None
+            # only invalidate those at self.index
+            if self.index < len(opinfo._items):
+                opinfo._items[self.index] = None
+            #opinfo._items = None #[self.index] = None
         self.cached_infos = []
         self.cached_structs = []
 
@@ -247,7 +235,7 @@ class OptHeap(Optimization):
     def setup(self):
         self.optimizer.optheap = self
         # mapping const value -> info corresponding to it's heap cache
-        self.const_infos = self.optimizer.cpu.ts.new_ref_dict()
+        self.const_infos = new_ref_dict()
 
     def flush(self):
         self.cached_dict_reads.clear()
@@ -408,8 +396,8 @@ class OptHeap(Optimization):
             d = self.cached_dict_reads[descr1] = args_dict()
             self.corresponding_array_descrs[descrs[1]] = descr1
         #
-        key = [self.optimizer.get_box_replacement(op.getarg(1)),   # dict
-               self.optimizer.get_box_replacement(op.getarg(2))]   # key
+        key = [get_box_replacement(op.getarg(1)),   # dict
+               get_box_replacement(op.getarg(2))]   # key
                # other args can be ignored here (hash, store_flag)
         try:
             res_v = d[key]
@@ -441,13 +429,13 @@ class OptHeap(Optimization):
             if effectinfo.check_readonly_descr_field(fielddescr):
                 cf.force_lazy_set(self, fielddescr)
             if effectinfo.check_write_descr_field(fielddescr):
+                cf.force_lazy_set(self, fielddescr, can_cache=False)
                 if fielddescr.is_always_pure():
                     continue
                 try:
                     del self.cached_dict_reads[fielddescr]
                 except KeyError:
                     pass
-                cf.force_lazy_set(self, fielddescr, can_cache=False)
         #
         for arraydescr, submap in self.cached_arrayitems.items():
             if effectinfo.check_readonly_descr_array(arraydescr):
@@ -521,7 +509,7 @@ class OptHeap(Optimization):
                 # guards' resume data is that of a virtual object that is stored
                 # into a field of a non-virtual object.  Here, 'op' in either
                 # SETFIELD_GC or SETARRAYITEM_GC.
-                opinfo = self.getptrinfo(op.getarg(0))
+                opinfo = info.getptrinfo(op.getarg(0))
                 assert not opinfo.is_virtual()      # it must be a non-virtual
                 if self.optimizer.is_virtual(op.getarg(2)):
                     pendingfields.append(op)
@@ -560,13 +548,6 @@ class OptHeap(Optimization):
 
     def optimize_SETFIELD_GC(self, op):
         self.setfield(op)
-        #opnum = OpHelpers.getfield_pure_for_descr(op.getdescr())
-        #if self.has_pure_result(opnum, [op.getarg(0)],
-        #                        op.getdescr()):
-        #    os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
-        #             (op.getdescr().repr_of_descr()))
-        #    raise BogusImmutableField
-        #
 
     def setfield(self, op):
         cf = self.field_cache(op.getdescr())
@@ -602,8 +583,8 @@ class OptHeap(Optimization):
             index = indexb.getint()
             cf = self.arrayitem_cache(op.getdescr(), index)
             arrayinfo.setitem(op.getdescr(), indexb.getint(),
-                              self.get_box_replacement(op.getarg(0)),
-                              self.get_box_replacement(op), optheap=self,
+                              get_box_replacement(op.getarg(0)),
+                              get_box_replacement(op), optheap=self,
                               cf=cf)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
@@ -635,13 +616,6 @@ class OptHeap(Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
 
     def optimize_SETARRAYITEM_GC(self, op):
-        #opnum = OpHelpers.getarrayitem_pure_for_descr(op.getdescr())
-        #if self.has_pure_result(opnum, [op.getarg(0), op.getarg(1)],
-        #                        op.getdescr()):
-        #    os.write(2, '[bogus immutable array declaration: %s]\n' %
-        #             (op.getdescr().repr_of_descr()))
-        #    raise BogusImmutableField
-        #
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant():
             arrayinfo = self.ensure_ptr_info_arg0(op)
@@ -654,6 +628,20 @@ class OptHeap(Optimization):
             self.force_lazy_setarrayitem(op.getdescr(), indexb, can_cache=False)
             # and then emit the operation
             return self.emit(op)
+
+    def optimize_GC_LOAD_I(self, op):
+        # seeing a 'gc_load*' forces all the lazy sets that are still
+        # pending, as an approximation.  We could try to be really clever
+        # and only force some of them, but we don't have any descr here.
+        self.force_all_lazy_sets()
+        self.make_nonnull(op.getarg(0))
+        return self.emit(op)
+    optimize_GC_LOAD_R = optimize_GC_LOAD_I
+    optimize_GC_LOAD_F = optimize_GC_LOAD_I
+
+    optimize_GC_LOAD_INDEXED_I = optimize_GC_LOAD_I
+    optimize_GC_LOAD_INDEXED_R = optimize_GC_LOAD_I
+    optimize_GC_LOAD_INDEXED_F = optimize_GC_LOAD_I
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
@@ -676,8 +664,7 @@ class OptHeap(Optimization):
         # check that the value is still correct; it could have changed
         # already between the tracing and now.  In this case, we mark the loop
         # as invalid
-        if not qmutdescr.is_still_valid_for(
-                self.get_box_replacement(op.getarg(0))):
+        if not qmutdescr.is_still_valid_for(get_box_replacement(op.getarg(0))):
             raise InvalidLoop('quasi immutable field changed during tracing')
         # record as an out-of-line guard
         if self.optimizer.quasi_immutable_deps is None:
@@ -692,6 +679,71 @@ class OptHeap(Optimization):
             return
         self._seen_guard_not_invalidated = True
         return self.emit(op)
+
+    def serialize_optheap(self, available_boxes):
+        result_getfield = []
+        for descr, cf in self.cached_fields.iteritems():
+            if cf._lazy_set:
+                continue  # XXX safe default for now
+            parent_descr = descr.get_parent_descr()
+            if not parent_descr.is_object():
+                continue  # XXX could be extended to non-instance objects
+            for i, box1 in enumerate(cf.cached_structs):
+                if not box1.is_constant() and box1 not in available_boxes:
+                    continue
+                structinfo = cf.cached_infos[i]
+                box2 = structinfo.getfield(descr)
+                if box2 is None:
+                    # XXX this should not happen, as it is an invariant
+                    # violation! yet it does if box1 is a constant
+                    continue
+                box2 = box2.get_box_replacement()
+                if box2.is_constant() or box2 in available_boxes:
+                    result_getfield.append((box1, descr, box2))
+        result_array = []
+        for descr, indexdict in self.cached_arrayitems.iteritems():
+            for index, cf in indexdict.iteritems():
+                if cf._lazy_set:
+                    continue  # XXX safe default for now
+                for i, box1 in enumerate(cf.cached_structs):
+                    if not box1.is_constant() and box1 not in available_boxes:
+                        continue
+                    arrayinfo = cf.cached_infos[i]
+                    box2 = arrayinfo.getitem(descr, index)
+                    if box2 is None:
+                        # XXX this should not happen, as it is an invariant
+                        # violation! yet it does if box1 is a constant
+                        continue
+                    box2 = box2.get_box_replacement()
+                    if box2.is_constant() or box2 in available_boxes:
+                        result_array.append((box1, index, descr, box2))
+        return result_getfield, result_array
+
+    def deserialize_optheap(self, triples_struct, triples_array):
+        for box1, descr, box2 in triples_struct:
+            parent_descr = descr.get_parent_descr()
+            assert parent_descr.is_object()
+            if box1.is_constant():
+                structinfo = info.ConstPtrInfo(box1)
+            else:
+                structinfo = box1.get_forwarded()
+                if not isinstance(structinfo, info.AbstractVirtualPtrInfo):
+                    structinfo = info.InstancePtrInfo(parent_descr)
+                    structinfo.init_fields(parent_descr, descr.get_index())
+                    box1.set_forwarded(structinfo)
+            cf = self.field_cache(descr)
+            structinfo.setfield(descr, box1, box2, optheap=self, cf=cf)
+
+        for box1, index, descr, box2 in triples_array:
+            if box1.is_constant():
+                arrayinfo = info.ConstPtrInfo(box1)
+            else:
+                arrayinfo = box1.get_forwarded()
+                if not isinstance(arrayinfo, info.AbstractVirtualPtrInfo):
+                    arrayinfo = info.ArrayPtrInfo(descr)
+                    box1.set_forwarded(arrayinfo)
+            cf = self.arrayitem_cache(descr, index)
+            arrayinfo.setitem(descr, index, box1, box2, optheap=self, cf=cf)
 
 
 dispatch_opt = make_dispatcher_method(OptHeap, 'optimize_',

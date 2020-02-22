@@ -93,6 +93,8 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             assert nos == [0, 1, 33]
         elif self.cpu.backend_name.startswith('zarch'):
             assert nos == [0, 1, 29]
+        elif self.cpu.backend_name.startswith('aarch64'):
+            assert nos == [0, 1, 27]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -463,6 +465,21 @@ class MockShadowStackRootMap(object):
     def get_root_stack_top_addr(self):
         return rffi.cast(lltype.Signed, self.stack_addr)
 
+    def getlength(self):
+        top = self.stack_addr[0]
+        base = rffi.cast(lltype.Signed, self.stack)
+        n = (top - base) // WORD
+        assert 0 <= n < 10
+        return n
+
+    def curtop(self):
+        n = self.getlength()
+        return self.stack[n - 1]
+
+    def settop(self, newvalue):
+        n = self.getlength()
+        self.stack[n - 1] = newvalue
+
 class WriteBarrierDescr(AbstractDescr):
     jit_wb_cards_set = 0
     jit_wb_if_flag_singlebyte = 1
@@ -490,7 +507,6 @@ JITFRAME = lltype.GcStruct(
     ('jf_frame_info', lltype.Ptr(jitframe.JITFRAMEINFO)),
     ('jf_descr', llmemory.GCREF),
     ('jf_force_descr', llmemory.GCREF),
-    ('jf_extra_stack_depth', lltype.Signed),
     ('jf_guard_exc', llmemory.GCREF),
     ('jf_gcmap', lltype.Ptr(jitframe.GCMAP)),
     ('jf_gc_trace_state', lltype.Signed),
@@ -577,7 +593,7 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(JITFRAME)
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
-                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth']:
+                     'jf_frame_info', 'jf_gcmap']:
             setattr(descrs, name, cpu.fielddescrof(JITFRAME, name))
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
                                                   'jfi_frame_depth')
@@ -645,7 +661,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frames = []
 
         def check(i):
-            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
+            assert cpu.gc_ll_descr.gcrootmap.curtop() == i
             frame = rffi.cast(JITFRAMEPTR, i)
             assert len(frame.jf_frame) == self.cpu.JITFRAME_FIXED_SIZE + 4
             # we "collect"
@@ -657,6 +673,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             elif self.cpu.backend_name.startswith('zarch'):
                 # 10 gpr, 14 fpr -> 25 is the first slot
                 assert gcmap == [26, 27, 28]
+            elif self.cpu.backend_name.startswith('aarch64'):
+                assert gcmap == [24, 25, 26]
             elif self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             elif self.cpu.backend_name.startswith('arm'):
@@ -665,14 +683,14 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
                 assert gcmap == [22, 23, 24]
             for item, s in zip(gcmap, new_items):
                 new_frame.jf_frame[item] = rffi.cast(lltype.Signed, s)
-            assert cpu.gc_ll_descr.gcrootmap.stack[0] == rffi.cast(lltype.Signed, frame)
-            cpu.gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
+            assert cpu.gc_ll_descr.gcrootmap.curtop() == rffi.cast(lltype.Signed, frame)
+            cpu.gc_ll_descr.gcrootmap.settop(rffi.cast(lltype.Signed, new_frame))
             print '"Collecting" moved the frame from %d to %d' % (
-                i, cpu.gc_ll_descr.gcrootmap.stack[0])
+                i, cpu.gc_ll_descr.gcrootmap.curtop())
             frames.append(new_frame)
 
         def check2(i):
-            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
+            assert cpu.gc_ll_descr.gcrootmap.curtop() == i
             frame = rffi.cast(JITFRAMEPTR, i)
             assert frame == frames[1]
             assert frame != frames[0]

@@ -3,8 +3,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._cffi_backend import ctypeobj, ctypeptr, cdataobj
+from pypy.module._cffi_backend.hide_reveal import hide_reveal2
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib import rgc, objectmodel, jit
+from rpython.rlib import objectmodel, jit
 
 # ____________________________________________________________
 
@@ -15,9 +16,7 @@ def _newp_handle(space, w_ctype, w_x):
     # we can cast the CCHARP back to a W_CDataHandle with reveal_gcref().
     new_cdataobj = objectmodel.instantiate(cdataobj.W_CDataHandle,
                                            nonmovable=True)
-    gcref = rgc.cast_instance_to_gcref(new_cdataobj)
-    _cdata = rgc.hide_nonmovable_gcref(gcref)
-    _cdata = rffi.cast(rffi.CCHARP, _cdata)
+    _cdata = hide_reveal2().hide_object(rffi.CCHARP, new_cdataobj)
     cdataobj.W_CDataHandle.__init__(new_cdataobj, space, _cdata, w_ctype, w_x)
     return new_cdataobj
 
@@ -43,11 +42,10 @@ def from_handle(space, w_cdata):
 @jit.dont_look_inside
 def _reveal(space, ptr):
     addr = rffi.cast(llmemory.Address, ptr)
-    gcref = rgc.reveal_gcref(addr)
-    if not gcref:
+    if not addr:
         raise oefmt(space.w_RuntimeError,
                     "cannot use from_handle() on NULL pointer")
-    cd = rgc.try_cast_gcref_to_instance(cdataobj.W_CDataHandle, gcref)
+    cd = hide_reveal2().reveal_object(cdataobj.W_CDataHandle, addr)
     if cd is None:
         raise oefmt(space.w_SystemError,
                     "ffi.from_handle(): dead or bogus object handle")

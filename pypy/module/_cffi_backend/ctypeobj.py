@@ -34,7 +34,7 @@ class W_CType(W_Root):
 
     def repr(self):
         space = self.space
-        return space.wrap("<ctype '%s'>" % (self.name,))
+        return space.newtext("<ctype '%s'>" % (self.name,))
 
     def extra_repr(self, cdata):
         if cdata:
@@ -51,8 +51,11 @@ class W_CType(W_Root):
     def unpack_list_of_float_items(self, ptr, length):
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         return False
+
+    def _within_bounds(self, actual_length, expected_length):
+        return expected_length < 0 or actual_length <= expected_length
 
     def newp(self, w_init, allocator):
         space = self.space
@@ -71,6 +74,14 @@ class W_CType(W_Root):
     def float(self, cdata):
         space = self.space
         raise oefmt(space.w_TypeError, "float() not supported on cdata '%s'",
+                    self.name)
+
+    def complex(self, cdata):
+        # <cdata 'float'> or <cdata 'int'> cannot be directly converted by
+        # calling complex(), just like <cdata 'int'> cannot be directly
+        # converted by calling float()
+        space = self.space
+        raise oefmt(space.w_TypeError, "complex() not supported on cdata '%s'",
                     self.name)
 
     def convert_to_object(self, cdata):
@@ -94,6 +105,11 @@ class W_CType(W_Root):
                 # ctype 'A' must be a pointer to same type, not cdata
                 # 'B'", but with A=B, then give instead a different error
                 # message to try to clear up the confusion
+                if self is w_got.ctype:
+                    raise oefmt(space.w_SystemError,
+                         "initializer for ctype '%s' is correct, but we get "
+                         "an internal mismatch--please report a bug",
+                         self.name)
                 return oefmt(space.w_TypeError,
                              "initializer for ctype '%s' appears indeed to "
                              "be '%s', but the types are different (check "
@@ -175,7 +191,7 @@ class W_CType(W_Root):
     def direct_typeoffsetof(self, w_field_or_index, following=0):
         space = self.space
         try:
-            fieldname = space.str_w(w_field_or_index)
+            fieldname = space.text_w(w_field_or_index)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -229,17 +245,17 @@ class W_CType(W_Root):
     # __________ app-level attributes __________
     def dir(self):
         space = self.space
-        lst = [space.wrap(name)
+        lst = [space.newtext(name)
                   for name in _name_of_attributes
-                  if space.findattr(self, space.wrap(name)) is not None]
+                  if space.findattr(self, space.newtext(name)) is not None]
         return space.newlist(lst)
 
     def _fget(self, attrchar):
         space = self.space
         if attrchar == 'k':     # kind
-            return space.wrap(self.kind)      # class attribute
+            return space.newtext(self.kind)      # class attribute
         if attrchar == 'c':     # cname
-            return space.wrap(self.name)
+            return space.newtext(self.name)
         raise oefmt(space.w_AttributeError,
                     "ctype '%s' has no such attribute", self.name)
 

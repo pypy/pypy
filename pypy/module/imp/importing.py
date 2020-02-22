@@ -7,10 +7,11 @@ import sys, os, stat
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.streamutil import wrap_streamerror
 from rpython.rlib import streamio, jit
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
@@ -31,14 +32,10 @@ IMP_HOOK = 9
 
 SO = '.pyd' if _WIN32 else '.so'
 
-# this used to change for every minor version, but no longer does: there
-# is little point any more, as the so's tend to be cross-version-
-# compatible, more so than between various versions of CPython.  Be
-# careful if we need to update it again: it is now used for both cpyext
-# and cffi so's.  If we do have to update it, we'd likely need a way to
+# Be careful update when changing this: it is now used for both cpyext
+# and cffi so's. If we do have to update it, we'd likely need a way to
 # split the two usages again.
-#DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-DEFAULT_SOABI = 'pypy-41'
+DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
 
 @specialize.memo()
 def get_so_extension(space):
@@ -61,15 +58,28 @@ def log_pyverbose(space, level, message):
     verbose = space.sys.get_flag('verbose')
     if verbose >= level:
         w_stderr = space.sys.get('stderr')
-        space.call_method(w_stderr, "write", space.wrap(message))
+        space.call_method(w_stderr, "write", space.newtext(message))
 
 def file_exists(path):
-    """Tests whether the given path is an existing regular file."""
+    "Test whether the given path is an existing regular file."
     return os.path.isfile(path) and case_ok(path)
+
+def path_exists(path):
+    "Test whether the given path exists."
+    return os.path.exists(path) and case_ok(path)
 
 def has_so_extension(space):
     return (space.config.objspace.usemodules.cpyext or
             space.config.objspace.usemodules._cffi_backend)
+
+def has_init_module(space, filepart):
+    "Return True if the directory filepart qualifies as a package."
+    init = os.path.join(filepart, "__init__")
+    if path_exists(init + ".py"):
+        return True
+    if space.config.objspace.lonepycfiles and path_exists(init + ".pyc"):
+        return True
+    return False
 
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
@@ -152,7 +162,6 @@ def _get_dot_position(str, n):
     return result
 
 def _get_relative_name(space, modulename, level, w_globals):
-    w = space.wrap
     ctxt_w_package = space.finditem_str(w_globals, '__package__')
     ctxt_w_package = jit.promote(ctxt_w_package)
     level = jit.promote(level)
@@ -160,7 +169,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
         try:
-            ctxt_package = space.str0_w(ctxt_w_package)
+            ctxt_package = space.text0_w(ctxt_w_package)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -193,7 +202,7 @@ def _get_relative_name(space, modulename, level, w_globals):
             else:
                 msg = ("Parent module '%s' not found while handling absolute "
                        "import" % ctxt_package)
-                space.warn(space.wrap(msg), space.w_RuntimeWarning)
+                space.warn(space.newtext(msg), space.w_RuntimeWarning)
 
         rel_modulename = ctxt_package[:dot_position]
         rel_level = rel_modulename.count('.') + 1
@@ -208,7 +217,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
-                ctxt_name = space.str0_w(ctxt_w_name)
+                ctxt_name = space.text0_w(ctxt_w_name)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -232,15 +241,15 @@ def _get_relative_name(space, modulename, level, w_globals):
 
         if ctxt_w_path is not None:
             # __path__ is set, so __name__ is already the package name
-            space.setitem(w_globals, w("__package__"), ctxt_w_name)
+            space.setitem(w_globals, space.newtext("__package__"), ctxt_w_name)
         else:
             # Normal module, so work out the package name if any
             last_dot_position = ctxt_name.rfind('.')
             if last_dot_position < 0:
-                space.setitem(w_globals, w("__package__"), space.w_None)
+                space.setitem(w_globals, space.newtext("__package__"), space.w_None)
             else:
-                space.setitem(w_globals, w("__package__"),
-                              w(ctxt_name[:last_dot_position]))
+                space.setitem(w_globals, space.newtext("__package__"),
+                              space.newtext(ctxt_name[:last_dot_position]))
 
         if modulename:
             if rel_modulename:
@@ -251,13 +260,12 @@ def _get_relative_name(space, modulename, level, w_globals):
     return rel_modulename, rel_level
 
 
-@unwrap_spec(name='str0', level=int)
+@unwrap_spec(name='text0', level=int)
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
     if not modulename and level < 0:
         raise oefmt(space.w_ValueError, "Empty module name")
-    w = space.wrap
 
     if w_fromlist is not None and not space.is_true(w_fromlist):
         w_fromlist = None
@@ -291,7 +299,7 @@ def importhook(space, name, w_globals=None,
 
     w_mod = absolute_import(space, modulename, 0, w_fromlist, tentative=0)
     if rel_modulename is not None:
-        space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
+        space.setitem(space.sys.get('modules'), space.newtext(rel_modulename), space.w_None)
     return w_mod
 
 def absolute_import(space, modulename, baselevel, w_fromlist, tentative):
@@ -329,7 +337,7 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
         w_mod = check_sys_modules_w(space, modulename)
         first = w_mod
         if w_fromlist is not None and w_mod is not None:
-            w_path = try_getattr(space, w_mod, space.wrap('__path__'))
+            w_path = try_getattr(space, w_mod, space.newtext('__path__'))
     else:
         level = 0
         first = None
@@ -344,18 +352,18 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
             if level == baselevel:
                 first = w_mod
             if w_fromlist is not None:
-                w_path = try_getattr(space, w_mod, space.wrap('__path__'))
+                w_path = try_getattr(space, w_mod, space.newtext('__path__'))
             level += 1
     if w_fromlist is not None:
         # bit artificial code but important to not just unwrap w_fromlist
         # to get a better trace. if it is unwrapped, the immutability of the
         # tuple is lost
+        length = space.len_w(w_fromlist)
         if w_path is not None:
-            length = space.len_w(w_fromlist)
             if length == 1 and space.eq_w(
-                    space.getitem(w_fromlist, space.wrap(0)),
-                    space.wrap('*')):
-                w_all = try_getattr(space, w_mod, space.wrap('__all__'))
+                    space.getitem(w_fromlist, space.newint(0)),
+                    space.newtext('*')):
+                w_all = try_getattr(space, w_mod, space.newtext('__all__'))
                 if w_all is not None:
                     w_fromlist = w_all
                     length = space.len_w(w_fromlist)
@@ -367,21 +375,24 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
 
             if w_fromlist is not None:
                 for i in range(length):
-                    w_name = space.getitem(w_fromlist, space.wrap(i))
+                    w_name = space.getitem(w_fromlist, space.newint(i))
+                    if not space.isinstance_w(w_name, space.w_text):
+                        raise oefmt(space.w_TypeError,
+                            "'Item in ``fromlist'' must be str, not %T", w_name)
                     if try_getattr(space, w_mod, w_name) is None:
                         return None
         return w_mod
     return first
 
 def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
-    w = space.wrap
-
     if '/' in modulename or '\\' in modulename:
         raise oefmt(space.w_ImportError,
                     "Import by filename is not supported.")
 
     w_mod = None
     parts = modulename.split('.')
+    if parts[-1] == '':
+        del parts[-1]
     prefix = []
     w_path = None
 
@@ -398,16 +409,16 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
             first = w_mod
             tentative = 0
         prefix.append(part)
-        w_path = try_getattr(space, w_mod, w('__path__'))
+        w_path = try_getattr(space, w_mod, space.newtext('__path__'))
         level += 1
 
     if w_fromlist is not None:
         if w_path is not None:
             length = space.len_w(w_fromlist)
             if length == 1 and space.eq_w(
-                    space.getitem(w_fromlist, space.wrap(0)),
-                    space.wrap('*')):
-                w_all = try_getattr(space, w_mod, w('__all__'))
+                    space.getitem(w_fromlist, space.newint(0)),
+                    space.newtext('*')):
+                w_all = try_getattr(space, w_mod, space.newtext('__all__'))
                 if w_all is not None:
                     w_fromlist = w_all
                     length = space.len_w(w_fromlist)
@@ -415,9 +426,12 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
                     w_fromlist = None
             if w_fromlist is not None:
                 for i in range(length):
-                    w_name = space.getitem(w_fromlist, space.wrap(i))
+                    w_name = space.getitem(w_fromlist, space.newint(i))
+                    if not space.isinstance_w(w_name, space.w_text):
+                        raise oefmt(space.w_TypeError,
+                            "'Item in ``fromlist'' must be str, not %T", w_name)
                     if try_getattr(space, w_mod, w_name) is None:
-                        load_part(space, w_path, prefix, space.str0_w(w_name),
+                        load_part(space, w_path, prefix, space.text0_w(w_name),
                                   w_mod, tentative=1)
         return w_mod
     else:
@@ -434,14 +448,19 @@ def find_in_meta_path(space, w_modulename, w_path):
             return w_loader
 
 def _getimporter(space, w_pathitem):
-    # the function 'imp._getimporter' is a pypy-only extension
+    # 'imp._getimporter' is somewhat like CPython's get_path_importer
     w_path_importer_cache = space.sys.get("path_importer_cache")
     w_importer = space.finditem(w_path_importer_cache, w_pathitem)
     if w_importer is None:
         space.setitem(w_path_importer_cache, w_pathitem, space.w_None)
         for w_hook in space.unpackiterable(space.sys.get("path_hooks")):
+            w_pathbytes = w_pathitem
+            if space.isinstance_w(w_pathitem, space.w_unicode):
+                from pypy.module.sys.interp_encoding import getfilesystemencoding
+                w_pathbytes = space.call_method(space.w_unicode, 'encode',
+                                     w_pathitem, getfilesystemencoding(space))
             try:
-                w_importer = space.call_function(w_hook, w_pathitem)
+                w_importer = space.call_function(w_hook, w_pathbytes)
             except OperationError as e:
                 if not e.match(space, space.w_ImportError):
                     raise
@@ -477,7 +496,7 @@ class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path='str0')
+    @unwrap_spec(path='fsencode')
     def descr_init(self, space, path):
         if not path:
             raise oefmt(space.w_ImportError, "empty pathname")
@@ -492,7 +511,7 @@ class W_NullImporter(W_Root):
                 raise oefmt(space.w_ImportError, "existing directory")
 
     def find_module_w(self, space, __args__):
-        return space.wrap(None)
+        return space.w_None
 
 W_NullImporter.typedef = TypeDef(
     'imp.NullImporter',
@@ -556,18 +575,16 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                 if w_loader:
                     return FindInfo.fromLoader(w_loader)
 
-            path = space.str0_w(w_pathitem)
+            path = space.fsencode_w(w_pathitem)
             filepart = os.path.join(path, partname)
-            log_pyverbose(space, 2, "# trying %s" % (filepart,))
+            log_pyverbose(space, 2, "# trying %s\n" % (filepart,))
             if os.path.isdir(filepart) and case_ok(filepart):
-                initfile = os.path.join(filepart, '__init__')
-                modtype, _, _ = find_modtype(space, initfile)
-                if modtype in (PY_SOURCE, PY_COMPILED):
+                if has_init_module(space, filepart):
                     return FindInfo(PKG_DIRECTORY, filepart, None)
                 else:
                     msg = ("Not importing directory '%s' missing __init__.py" %
                            (filepart,))
-                    space.warn(space.wrap(msg), space.w_ImportWarning)
+                    space.warn(space.newtext(msg), space.w_ImportWarning)
             modtype, suffix, filemode = find_modtype(space, filepart)
             try:
                 if modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION):
@@ -587,17 +604,16 @@ def find_module(space, modulename, w_modulename, partname, w_path,
     return delayed_builtin
 
 def _prepare_module(space, w_mod, filename, pkgdir):
-    w = space.wrap
     space.sys.setmodule(w_mod)
-    space.setattr(w_mod, w('__file__'), space.wrap(filename))
-    space.setattr(w_mod, w('__doc__'), space.w_None)
+    space.setattr(w_mod, space.newtext('__file__'), space.newtext(filename))
+    space.setattr(w_mod, space.newtext('__doc__'), space.w_None)
     if pkgdir is not None:
-        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
+        space.setattr(w_mod, space.newtext('__path__'), space.newlist([space.newtext(pkgdir)]))
 
 def add_module(space, w_name):
     w_mod = check_sys_modules(space, w_name)
     if w_mod is None:
-        w_mod = space.wrap(Module(space, w_name))
+        w_mod = Module(space, w_name)
         space.sys.setmodule(w_mod)
     return w_mod
 
@@ -605,7 +621,7 @@ def load_c_extension(space, filename, modulename):
     from pypy.module.cpyext.api import load_extension_module
     log_pyverbose(space, 1, "import %s # from %s\n" %
                   (modulename, filename))
-    load_extension_module(space, filename, modulename)
+    return load_extension_module(space, filename, modulename)
     # NB. cpyext.api.load_extension_module() can also delegate to _cffi_backend
 
 @jit.dont_look_inside
@@ -634,7 +650,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
                 if not oe.match(space, space.w_KeyError):
                     raise
         if w_mod is None:
-            w_mod = space.wrap(Module(space, w_modulename))
+            w_mod = Module(space, w_modulename)
         if find_info.modtype == PKG_DIRECTORY:
             pkgdir = find_info.filename
         else:
@@ -645,16 +661,17 @@ def load_module(space, w_modulename, find_info, reuse=False):
             if find_info.modtype == PY_SOURCE:
                 return load_source_module(
                     space, w_modulename, w_mod,
-                    find_info.filename, find_info.stream.readall(),
+                    find_info.filename, _wrap_readall(space, find_info.stream),
                     find_info.stream.try_to_find_file_descriptor())
             elif find_info.modtype == PY_COMPILED:
-                magic = _r_long(find_info.stream)
-                timestamp = _r_long(find_info.stream)
+                magic = _wrap_r_long(space, find_info.stream)
+                timestamp = _wrap_r_long(space, find_info.stream)
                 return load_compiled_module(space, w_modulename, w_mod, find_info.filename,
-                                     magic, timestamp, find_info.stream.readall())
+                                     magic, timestamp,
+                                     _wrap_readall(space, find_info.stream))
             elif find_info.modtype == PKG_DIRECTORY:
-                w_path = space.newlist([space.wrap(find_info.filename)])
-                space.setattr(w_mod, space.wrap('__path__'), w_path)
+                w_path = space.newlist([space.newtext(find_info.filename)])
+                space.setattr(w_mod, space.newtext('__path__'), w_path)
                 find_info = find_module(space, "__init__", None, "__init__",
                                         w_path, use_loader=False)
                 if find_info is None:
@@ -663,23 +680,19 @@ def load_module(space, w_modulename, find_info, reuse=False):
                     w_mod = load_module(space, w_modulename, find_info,
                                         reuse=True)
                 finally:
-                    try:
-                        find_info.stream.close()
-                    except StreamErrors:
-                        pass
+                    _close_ignore(find_info.stream)
                 return w_mod
             elif find_info.modtype == C_EXTENSION and has_so_extension(space):
-                load_c_extension(space, find_info.filename, space.str_w(w_modulename))
-                return check_sys_modules(space, w_modulename)
+                return load_c_extension(space, find_info.filename,
+                                        space.text_w(w_modulename))
         except OperationError:
             w_mods = space.sys.get('modules')
             space.call_method(w_mods, 'pop', w_modulename, space.w_None)
             raise
 
 def load_part(space, w_path, prefix, partname, w_parent, tentative):
-    w = space.wrap
     modulename = '.'.join(prefix + [partname])
-    w_modulename = w(modulename)
+    w_modulename = space.newtext(modulename)
     w_mod = check_sys_modules(space, w_modulename)
 
     if w_mod is not None:
@@ -693,16 +706,13 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             if find_info:
                 w_mod = load_module(space, w_modulename, find_info)
                 if w_parent is not None:
-                    space.setattr(w_parent, space.wrap(partname), w_mod)
+                    space.setattr(w_parent, space.newtext(partname), w_mod)
                 return w_mod
         finally:
             if find_info:
                 stream = find_info.stream
                 if stream:
-                    try:
-                        stream.close()
-                    except StreamErrors:
-                        pass
+                    _close_ignore(stream)
 
     if tentative:
         return None
@@ -714,11 +724,11 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 def reload(space, w_module):
     """Reload the module.
     The module must have been successfully imported before."""
-    if not space.is_w(space.type(w_module), space.type(space.sys)):
+    if not space.isinstance_w(w_module, space.type(space.sys)):
         raise oefmt(space.w_TypeError, "reload() argument must be module")
 
-    w_modulename = space.getattr(w_module, space.wrap("__name__"))
-    modulename = space.str0_w(w_modulename)
+    w_modulename = space.getattr(w_module, space.newtext("__name__"))
+    modulename = space.text0_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
         raise oefmt(space.w_ImportError,
                     "reload(): module %s not in sys.modules", modulename)
@@ -741,7 +751,7 @@ def reload(space, w_module):
                 raise oefmt(space.w_ImportError,
                             "reload(): parent %s not in sys.modules",
                             parent_name)
-            w_path = space.getattr(w_parent, space.wrap("__path__"))
+            w_path = space.getattr(w_parent, space.newtext("__path__"))
         else:
             w_path = None
 
@@ -757,7 +767,7 @@ def reload(space, w_module):
                 return load_module(space, w_modulename, find_info, reuse=True)
             finally:
                 if find_info.stream:
-                    find_info.stream.close()
+                    _wrap_close(space, find_info.stream)
         except:
             # load_module probably removed name from modules because of
             # the error.  Put back the original module object.
@@ -888,10 +898,10 @@ def exec_code_module(space, w_mod, code_w, w_modulename, check_afterwards=True):
     Execute a code object in the module's dict.  Returns
     'sys.modules[modulename]', which must exist.
     """
-    w_dict = space.getattr(w_mod, space.wrap('__dict__'))
+    w_dict = space.getattr(w_mod, space.newtext('__dict__'))
     space.call_method(w_dict, 'setdefault',
-                      space.wrap('__builtins__'),
-                      space.wrap(space.builtin))
+                      space.newtext('__builtins__'),
+                      space.builtin)
     code_w.exec_code(space, w_dict, w_dict)
 
     if check_afterwards:
@@ -910,12 +920,14 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     Load a source module from a given file.  Returns the result
     of sys.modules[modulename], which must exist.
     """
-    w = space.wrap
 
     log_pyverbose(space, 1, "import %s # from %s\n" %
-                  (space.str_w(w_modulename), pathname))
+                  (space.text_w(w_modulename), pathname))
 
-    src_stat = os.fstat(fd)
+    try:
+        src_stat = os.fstat(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e, pathname)   # better report this error
     cpathname = pathname + 'c'
     mtime = int(src_stat[stat.ST_MTIME])
     mode = src_stat[stat.ST_MODE]
@@ -924,13 +936,11 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     if stream:
         # existing and up-to-date .pyc file
         try:
-            code_w = read_compiled_module(space, cpathname, stream.readall())
+            code_w = read_compiled_module(space, cpathname,
+                                          _wrap_readall(space, stream))
         finally:
-            try:
-                stream.close()
-            except StreamErrors:
-                pass
-        space.setattr(w_mod, w('__file__'), w(cpathname))
+            _close_ignore(stream)
+        space.setattr(w_mod, space.newtext('__file__'), space.newtext(cpathname))
     else:
         code_w = parse_source_module(space, pathname, source)
 
@@ -995,6 +1005,35 @@ def _w_long(stream, x):
     d = x & 0xff
     stream.write(chr(a) + chr(b) + chr(c) + chr(d))
 
+def _wrap_r_long(space, stream):
+    """like _r_long(), but raising app-level exceptions"""
+    try:
+        return _r_long(stream)
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _wrap_readall(space, stream):
+    """stream.readall(), but raising app-level exceptions"""
+    try:
+        return stream.readall()
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _wrap_close(space, stream):
+    """stream.close(), but raising app-level exceptions"""
+    try:
+        stream.close()
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _close_ignore(stream):
+    """stream.close(), but ignoring any stream exception"""
+    try:
+        stream.close()
+    except StreamErrors as e:
+        pass
+
+
 def check_compiled_module(space, pycfilename, expected_mtime):
     """
     Check if a pyc file's magic number and mtime match.
@@ -1013,10 +1052,7 @@ def check_compiled_module(space, pycfilename, expected_mtime):
         return stream
     except StreamErrors:
         if stream:
-            try:
-                stream.close()
-            except StreamErrors:
-                pass
+            _close_ignore(stream)
         return None    # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.
 
@@ -1024,7 +1060,7 @@ def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """
 
     w_marshal = space.getbuiltinmodule('marshal')
-    w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
+    w_code = space.call_method(w_marshal, 'loads', space.newbytes(strbuf))
     if not isinstance(w_code, Code):
         raise oefmt(space.w_ImportError, "Non-code object in %s", cpathname)
     return w_code
@@ -1037,7 +1073,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     'sys.modules[modulename]', which must exist.
     """
     log_pyverbose(space, 1, "import %s # compiled from %s\n" %
-                  (space.str_w(w_modulename), cpathname))
+                  (space.text_w(w_modulename), cpathname))
 
     if magic != get_pyc_magic(space):
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
@@ -1074,9 +1110,9 @@ def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
     """
     w_marshal = space.getbuiltinmodule('marshal')
     try:
-        w_str = space.call_method(w_marshal, 'dumps', space.wrap(co),
-                                  space.wrap(MARSHAL_VERSION_FOR_PYC))
-        strbuf = space.str_w(w_str)
+        w_str = space.call_method(w_marshal, 'dumps', co,
+                                  space.newint(MARSHAL_VERSION_FOR_PYC))
+        strbuf = space.text_w(w_str)
     except OperationError as e:
         if e.async(space):
             raise

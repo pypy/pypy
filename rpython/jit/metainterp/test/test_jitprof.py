@@ -97,3 +97,32 @@ class TestProfile(ProfilerMixin):
         assert res == f(6, 7, 2)
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
         assert profiler.calls == 1
+
+    def test_heapcache_stats(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        @dont_look_inside
+        def extern(n):
+            if n == -7:
+                return None
+            elif n:
+                return A()
+            else:
+                return B()
+        myjitdriver = JitDriver(greens = [], reds='auto')
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point()
+                obj = extern(y)
+                res += x + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
+                res += x
+                y -= 1
+            return res * 2
+        res = self.meta_interp(f, [6, 7])
+        assert res == f(6, 7)
+        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
+        assert profiler.counters[Counters.HEAPCACHED_OPS] == 3
+

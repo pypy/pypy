@@ -34,3 +34,7 @@ def test_os_wait4():
         assert os.WEXITSTATUS(status) == exit_status
         assert isinstance(rusage.ru_utime, float)
         assert isinstance(rusage.ru_maxrss, int)
+
+def test_errors():
+    py.test.raises(OSError, _pypy_wait.wait3, -999)
+    py.test.raises(OSError, _pypy_wait.wait4, -999, -999)

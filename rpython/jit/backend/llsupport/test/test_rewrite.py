@@ -1,8 +1,7 @@
 import py
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
-     SizeDescr, get_interiorfield_descr, get_call_descr
-from rpython.jit.codewriter.effectinfo import EffectInfo, CallShortcut
+     SizeDescr, get_interiorfield_descr
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
      GcLLDescr_framework
 from rpython.jit.backend.llsupport import jitframe
@@ -81,21 +80,6 @@ class RewriteTests(object):
                                      lltype.malloc(T, zero=True))
         self.myT = myT
         #
-        call_shortcut = CallShortcut(0, tzdescr)
-        effectinfo = EffectInfo(None, None, None, None, None, None,
-                                EffectInfo.EF_RANDOM_EFFECTS,
-                                call_shortcut=call_shortcut)
-        call_shortcut_descr = get_call_descr(self.gc_ll_descr,
-            [lltype.Ptr(T)], lltype.Signed,
-            effectinfo)
-        call_shortcut_2 = CallShortcut(0, None)
-        effectinfo_2 = EffectInfo(None, None, None, None, None, None,
-                                EffectInfo.EF_RANDOM_EFFECTS,
-                                call_shortcut=call_shortcut_2)
-        call_shortcut_descr_2 = get_call_descr(self.gc_ll_descr,
-            [lltype.Signed], lltype.Signed,
-            effectinfo_2)
-        #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
         adescr.tid = 4321
@@ -158,11 +142,16 @@ class RewriteTests(object):
         raw_sfdescr = get_array_descr(self.gc_ll_descr, RAW_SF)
         #
         strdescr     = self.gc_ll_descr.str_descr
+        str_basesize = self.gc_ll_descr.str_descr.basesize - 1
         unicodedescr = self.gc_ll_descr.unicode_descr
         strlendescr     = strdescr.lendescr
         unicodelendescr = unicodedescr.lendescr
         strhashdescr     = self.gc_ll_descr.str_hash_descr
         unicodehashdescr = self.gc_ll_descr.unicode_hash_descr
+        uni_basesize  = unicodedescr.basesize
+        uni_itemscale = {2: 1, 4: 2}[unicodedescr.itemsize]
+        memcpy_fn = self.gc_ll_descr.memcpy_fn
+        memcpy_descr = self.gc_ll_descr.memcpy_descr
 
         casmdescr = JitCellToken()
         clt = FakeLoopToken()
@@ -181,10 +170,10 @@ class RewriteTests(object):
         jf_descr = framedescrs.jf_descr
         jf_guard_exc = framedescrs.jf_guard_exc
         jf_forward = framedescrs.jf_forward
-        jf_extra_stack_depth = framedescrs.jf_extra_stack_depth
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
+
         #
         guarddescr = AbstractFailDescr()
         #
@@ -216,7 +205,7 @@ class BaseFakeCPU(object):
 
     load_constant_offset = True
     load_supported_factors = (1,2,4,8)
-    supports_cond_call_value = True
+    supports_load_effective_address = True
 
     translate_support_code = None
 
@@ -253,6 +242,9 @@ class BaseFakeCPU(object):
             r = FieldDescr(fname, 1, 1, 1)
             self._cache[key] = r
             return r
+
+    def cast_adr_to_int(self, adr):
+        return llmemory.AddressAsInt(adr)
 
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
@@ -393,7 +385,7 @@ class TestFramework(RewriteTests):
         class config_(object):
             class translation(object):
                 gc = 'minimark'
-                gcrootfinder = 'asmgcc'
+                gcrootfinder = 'shadowstack'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
         gcdescr = get_description(config_)
@@ -1109,7 +1101,6 @@ class TestFramework(RewriteTests):
         p1 = call_malloc_nursery_varsize_frame(i1)
         gc_store(p1, 0,  0, %(tiddescr.field_size)s)
         i2 = gc_load_i(ConstClass(frame_info), %(jfi_frame_depth.offset)s, %(jfi_frame_depth.field_size)s)
-        %(setfield('p1', 0, jf_extra_stack_depth))s
         %(setfield('p1', 'NULL', jf_savedata))s
         %(setfield('p1', 'NULL', jf_force_descr))s
         %(setfield('p1', 'NULL', jf_descr))s
@@ -1239,6 +1230,10 @@ class TestFramework(RewriteTests):
                        'i3 = gc_load_i(p0,'
                                  '%(strlendescr.offset)s,'
                                  '%(strlendescr.field_size)s)'],
+        [True,  (1,),  'i3 = strhash(p0)' '->'
+                       'i3 = gc_load_i(p0,'
+                                 '%(strhashdescr.offset)s,'
+                                 '-%(strhashdescr.field_size)s)'],
         #[False, (1,),  'i3 = unicodelen(p0)' '->'
         #               'i3 = gc_load_i(p0,'
         #                       '%(unicodelendescr.offset)s,'
@@ -1247,7 +1242,10 @@ class TestFramework(RewriteTests):
                        'i3 = gc_load_i(p0,'
                                '%(unicodelendescr.offset)s,'
                                '%(unicodelendescr.field_size)s)'],
-
+        [True,  (1,),  'i3 = unicodehash(p0)' '->'
+                       'i3 = gc_load_i(p0,'
+                                 '%(unicodehashdescr.offset)s,'
+                                 '-%(unicodehashdescr.field_size)s)'],
         ## getitem str/unicode
         [True,  (2,4), 'i3 = unicodegetitem(p0,i1)' '->'
                        'i3 = gc_load_indexed_i(p0,i1,'
@@ -1447,25 +1445,56 @@ class TestFramework(RewriteTests):
         """)
         assert len(self.gcrefs) == 2
 
-    def test_handle_call_shortcut(self):
+    def test_rewrite_copystrcontents(self):
         self.check_rewrite("""
-            [p0]
-            i1 = call_i(123, p0, descr=call_shortcut_descr)
-            jump(i1)
+        [p0, p1, i0, i1, i_len]
+        copystrcontent(p0, p1, i0, i1, i_len)
         """, """
-            [p0]
-            i2 = gc_load_i(p0, %(tzdescr.offset)s, %(tzdescr.field_size)s)
-            i1 = cond_call_value_i(i2, 123, p0, descr=call_shortcut_descr)
-            jump(i1)
+        [p0, p1, i0, i1, i_len]
+        i2 = load_effective_address(p0, i0, %(str_basesize)s, 0)
+        i3 = load_effective_address(p1, i1, %(str_basesize)s, 0)
+        call_n(ConstClass(memcpy_fn), i3, i2, i_len, descr=memcpy_descr)
         """)
 
-    def test_handle_call_shortcut_2(self):
+    def test_rewrite_copystrcontents_without_load_effective_address(self):
+        self.cpu.supports_load_effective_address = False
         self.check_rewrite("""
-            [i0]
-            i1 = call_i(123, i0, descr=call_shortcut_descr_2)
-            jump(i1)
+        [p0, p1, i0, i1, i_len]
+        copystrcontent(p0, p1, i0, i1, i_len)
         """, """
-            [i0]
-            i1 = cond_call_value_i(i0, 123, i0, descr=call_shortcut_descr_2)
-            jump(i1)
+        [p0, p1, i0, i1, i_len]
+        i2b = int_add(p0, i0)
+        i2 = int_add(i2b, %(str_basesize)s)
+        i3b = int_add(p1, i1)
+        i3 = int_add(i3b, %(str_basesize)s)
+        call_n(ConstClass(memcpy_fn), i3, i2, i_len, descr=memcpy_descr)
+        """)
+
+    def test_rewrite_copyunicodecontents(self):
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copyunicodecontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i2 = load_effective_address(p0, i0, %(uni_basesize)s, %(uni_itemscale)d)
+        i3 = load_effective_address(p1, i1, %(uni_basesize)s, %(uni_itemscale)d)
+        i4 = int_lshift(i_len, %(uni_itemscale)d)
+        call_n(ConstClass(memcpy_fn), i3, i2, i4, descr=memcpy_descr)
+        """)
+
+    def test_rewrite_copyunicodecontents_without_load_effective_address(self):
+        self.cpu.supports_load_effective_address = False
+        self.check_rewrite("""
+        [p0, p1, i0, i1, i_len]
+        copyunicodecontent(p0, p1, i0, i1, i_len)
+        """, """
+        [p0, p1, i0, i1, i_len]
+        i0s = int_lshift(i0, %(uni_itemscale)d)
+        i2b = int_add(p0, i0s)
+        i2 = int_add(i2b, %(uni_basesize)s)
+        i1s = int_lshift(i1, %(uni_itemscale)d)
+        i3b = int_add(p1, i1s)
+        i3 = int_add(i3b, %(uni_basesize)s)
+        i4 = int_lshift(i_len, %(uni_itemscale)d)
+        call_n(ConstClass(memcpy_fn), i3, i2, i4, descr=memcpy_descr)
         """)

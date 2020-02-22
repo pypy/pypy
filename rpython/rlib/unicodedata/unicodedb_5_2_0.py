@@ -8,12 +8,16 @@ from rpython.rlib.rarithmetic import r_longlong
 base_mod = None
 version = '5.2.0'
 
+#____________________________________________________________
+# output from build_compression_tree
 
 def trie_lookup(name):
     charnode = 0
     while 0 <= charnode < 0xffff: # 16bit number, 0xffff = None
         charnode *= 3
-        leftright, parentstr, codepoint = _charnodes[charnode:charnode+3]
+        leftright = _charnodes[charnode]
+        parentstr = _charnodes[charnode + 1]
+        codepoint = _charnodes[charnode + 2]
 
         if leftright < 0:
             # XXX assumes msb is sign
@@ -28,7 +32,7 @@ def trie_lookup(name):
         else:
             parent = (parentstr & 0x7fffffff) >> 16
         stridx = parentstr & ((1 << 16) - 1)
-        
+
         strlen = ord(_stringtable[stridx])
         substring = _stringtable[stridx+1:stridx+1+strlen]
 
@@ -46,7 +50,9 @@ def name_of_node(charnode):
     prevnode = -1
     while 0 <= charnode < 0xffff: # 16bit number, 0xffff = None
         charnode *= 3
-        leftright, parentstr, codepoint = _charnodes[charnode:charnode+3]
+        leftright = _charnodes[charnode]
+        parentstr = _charnodes[charnode + 1]
+        codepoint = _charnodes[charnode + 2]
 
         if leftright < 0:
             # XXX assumes msg is sign
@@ -65,13 +71,14 @@ def name_of_node(charnode):
             stridx = parentstr & ((1<<16)-1)
             strlen = ord(_stringtable[stridx])
             substring = _stringtable[stridx+1:stridx+1+strlen]
-            res.insert(0, substring)
+            res.append(substring)
 
         prevnode = charnode // 3
         charnode = parent
 
+    res.reverse()
     return ''.join(res)
-    
+
 
 _stringtable = (
 '\x01 '
@@ -114455,149 +114462,152 @@ _charnames_983552 = [
 def lookup_charcode(code):
     res = -1
     if 32 <= code <= 126: res = _charnames_32[code-32]
-    if 160 <= code <= 1317: res = _charnames_160[code-160]
-    if 1329 <= code <= 1479: res = _charnames_1329[code-1329]
-    if 1488 <= code <= 1524: res = _charnames_1488[code-1488]
-    if 1536 <= code <= 1969: res = _charnames_1536[code-1536]
-    if 1984 <= code <= 2110: res = _charnames_1984[code-1984]
-    if 2304 <= code <= 2510: res = _charnames_2304[code-2304]
-    if 2519 <= code <= 2641: res = _charnames_2519[code-2519]
-    if code == 2649: res = 22369
-    if code == 2650: res = 22374
-    if code == 2651: res = 22402
-    if code == 2652: res = 22383
-    if code == 2654: res = 22408
-    if 2662 <= code <= 2677: res = _charnames_2662[code-2662]
-    if 2689 <= code <= 2768: res = _charnames_2689[code-2689]
-    if 2784 <= code <= 2801: res = _charnames_2784[code-2784]
-    if 2817 <= code <= 2893: res = _charnames_2817[code-2817]
-    if 2902 <= code <= 2929: res = _charnames_2902[code-2902]
-    if 2946 <= code <= 3031: res = _charnames_2946[code-2946]
-    if 3046 <= code <= 3149: res = _charnames_3046[code-3046]
-    if 3157 <= code <= 3183: res = _charnames_3157[code-3157]
-    if 3192 <= code <= 3277: res = _charnames_3192[code-3192]
-    if code == 3285: res = 23172
-    if code == 3286: res = 23215
-    if 3294 <= code <= 3314: res = _charnames_3294[code-3294]
-    if 3330 <= code <= 3405: res = _charnames_3330[code-3330]
-    if code == 3415: res = 6443
-    if 3424 <= code <= 3551: res = _charnames_3424[code-3424]
-    if code == 3570: res = 19930
-    if code == 3571: res = 19929
-    if code == 3572: res = 19944
-    if 3585 <= code <= 3675: res = _charnames_3585[code-3585]
-    if 3713 <= code <= 3805: res = _charnames_3713[code-3713]
-    if 3840 <= code <= 4056: res = _charnames_3840[code-3840]
-    if 4096 <= code <= 4293: res = _charnames_4096[code-4096]
-    if 4304 <= code <= 5108: res = _charnames_4304[code-4304]
-    if 5120 <= code <= 5872: res = _charnames_5120[code-5120]
-    if 5888 <= code <= 5908: res = _charnames_5888[code-5888]
-    if 5920 <= code <= 5942: res = _charnames_5920[code-5920]
-    if 5952 <= code <= 5971: res = _charnames_5952[code-5952]
-    if 5984 <= code <= 6003: res = _charnames_5984[code-5984]
-    if 6016 <= code <= 6263: res = _charnames_6016[code-6016]
-    if 6272 <= code <= 6389: res = _charnames_6272[code-6272]
-    if 6400 <= code <= 6516: res = _charnames_6400[code-6400]
-    if 6528 <= code <= 6829: res = _charnames_6528[code-6528]
-    if 6912 <= code <= 7097: res = _charnames_6912[code-6912]
-    if 7168 <= code <= 7295: res = _charnames_7168[code-7168]
-    if 7376 <= code <= 7410: res = _charnames_7376[code-7376]
-    if 7424 <= code <= 7654: res = _charnames_7424[code-7424]
-    if 7677 <= code <= 8340: res = _charnames_7677[code-7677]
-    if 8352 <= code <= 8376: res = _charnames_8352[code-8352]
-    if 8400 <= code <= 8432: res = _charnames_8400[code-8400]
-    if 8448 <= code <= 9192: res = _charnames_8448[code-8448]
-    if 9216 <= code <= 9254: res = _charnames_9216[code-9216]
-    if 9280 <= code <= 9290: res = _charnames_9280[code-9280]
-    if 9312 <= code <= 11097: res = _charnames_9312[code-9312]
-    if 11264 <= code <= 11505: res = _charnames_11264[code-11264]
-    if 11513 <= code <= 11557: res = _charnames_11513[code-11513]
-    if 11568 <= code <= 11621: res = _charnames_11568[code-11568]
-    if code == 11631: res = 13355
-    if 11648 <= code <= 11670: res = _charnames_11648[code-11648]
-    if 11680 <= code <= 11825: res = _charnames_11680[code-11680]
-    if 11904 <= code <= 12019: res = _charnames_11904[code-11904]
-    if 12032 <= code <= 12245: res = _charnames_12032[code-12032]
-    if 12272 <= code <= 12727: res = _charnames_12272[code-12272]
-    if 12736 <= code <= 12771: res = _charnames_12736[code-12736]
-    if 12784 <= code <= 13311: res = _charnames_12784[code-12784]
-    if 19904 <= code <= 19967: res = _charnames_19904[code-19904]
-    if 40960 <= code <= 42182: res = _charnames_40960[code-40960]
-    if 42192 <= code <= 42539: res = _charnames_42192[code-42192]
-    if 42560 <= code <= 42611: res = _charnames_42560[code-42560]
-    if 42620 <= code <= 42647: res = _charnames_42620[code-42620]
-    if 42656 <= code <= 42743: res = _charnames_42656[code-42656]
-    if 42752 <= code <= 42892: res = _charnames_42752[code-42752]
-    if 43003 <= code <= 43127: res = _charnames_43003[code-43003]
-    if 43136 <= code <= 43204: res = _charnames_43136[code-43136]
-    if 43214 <= code <= 43347: res = _charnames_43214[code-43214]
-    if 43359 <= code <= 43487: res = _charnames_43359[code-43359]
-    if 43520 <= code <= 43574: res = _charnames_43520[code-43520]
-    if 43584 <= code <= 43714: res = _charnames_43584[code-43584]
-    if code == 43739: res = 12781
-    if code == 43740: res = 12784
-    if code == 43741: res = 12783
-    if code == 43742: res = 12785
-    if code == 43743: res = 12782
-    if 43968 <= code <= 44025: res = _charnames_43968[code-43968]
-    if 55216 <= code <= 55291: res = _charnames_55216[code-55216]
-    if 63744 <= code <= 64217: res = _charnames_63744[code-63744]
-    if 64256 <= code <= 64262: res = _charnames_64256[code-64256]
-    if 64275 <= code <= 64433: res = _charnames_64275[code-64275]
-    if 64467 <= code <= 64831: res = _charnames_64467[code-64467]
-    if 64848 <= code <= 64967: res = _charnames_64848[code-64848]
-    if 65008 <= code <= 65062: res = _charnames_65008[code-65008]
-    if 65072 <= code <= 65518: res = _charnames_65072[code-65072]
-    if 65529 <= code <= 65629: res = _charnames_65529[code-65529]
-    if 65664 <= code <= 65947: res = _charnames_65664[code-65664]
-    if 66000 <= code <= 66045: res = _charnames_66000[code-66000]
-    if 66176 <= code <= 66256: res = _charnames_66176[code-66176]
-    if 66304 <= code <= 66339: res = _charnames_66304[code-66304]
-    if 66352 <= code <= 66378: res = _charnames_66352[code-66352]
-    if 66432 <= code <= 66517: res = _charnames_66432[code-66432]
-    if 66560 <= code <= 66729: res = _charnames_66560[code-66560]
-    if 67584 <= code <= 67679: res = _charnames_67584[code-67584]
-    if 67840 <= code <= 67903: res = _charnames_67840[code-67840]
-    if 68096 <= code <= 68167: res = _charnames_68096[code-68096]
-    if 68176 <= code <= 68184: res = _charnames_68176[code-68176]
-    if 68192 <= code <= 68223: res = _charnames_68192[code-68192]
-    if 68352 <= code <= 68479: res = _charnames_68352[code-68352]
-    if 68608 <= code <= 68680: res = _charnames_68608[code-68608]
-    if 69216 <= code <= 69246: res = _charnames_69216[code-69216]
-    if 69760 <= code <= 69825: res = _charnames_69760[code-69760]
-    if 73728 <= code <= 74606: res = _charnames_73728[code-73728]
-    if 74752 <= code <= 74850: res = _charnames_74752[code-74752]
-    if code == 74864: res = 2527
-    if code == 74865: res = 2526
-    if code == 74866: res = 2525
-    if code == 74867: res = 2524
-    if 77824 <= code <= 78894: res = _charnames_77824[code-77824]
-    if 118784 <= code <= 119029: res = _charnames_118784[code-118784]
-    if 119040 <= code <= 119261: res = _charnames_119040[code-119040]
-    if 119296 <= code <= 119365: res = _charnames_119296[code-119296]
-    if 119552 <= code <= 119638: res = _charnames_119552[code-119552]
-    if 119648 <= code <= 119665: res = _charnames_119648[code-119648]
-    if 119808 <= code <= 120831: res = _charnames_119808[code-119808]
-    if 126976 <= code <= 127123: res = _charnames_126976[code-126976]
-    if 127232 <= code <= 127281: res = _charnames_127232[code-127232]
-    if 127293 <= code <= 127310: res = _charnames_127293[code-127293]
-    if code == 127319: res = 27110
-    if code == 127327: res = 27109
-    if 127353 <= code <= 127359: res = _charnames_127353[code-127353]
-    if 127370 <= code <= 127376: res = _charnames_127370[code-127370]
-    if code == 127488: res = 19008
-    if 127504 <= code <= 127537: res = _charnames_127504[code-127504]
-    if 127552 <= code <= 127560: res = _charnames_127552[code-127552]
-    if 194560 <= code <= 195101: res = _charnames_194560[code-194560]
-    if code == 917505: res = 9289
-    if 917536 <= code <= 917631: res = _charnames_917536[code-917536]
-    if 917760 <= code <= 917999: res = _charnames_917760[code-917760]
-    if 983040 <= code <= 983050: res = _charnames_983040[code-983040]
-    if 983552 <= code <= 983945: res = _charnames_983552[code-983552]
+    elif 160 <= code <= 1317: res = _charnames_160[code-160]
+    elif 1329 <= code <= 1479: res = _charnames_1329[code-1329]
+    elif 1488 <= code <= 1524: res = _charnames_1488[code-1488]
+    elif 1536 <= code <= 1969: res = _charnames_1536[code-1536]
+    elif 1984 <= code <= 2110: res = _charnames_1984[code-1984]
+    elif 2304 <= code <= 2510: res = _charnames_2304[code-2304]
+    elif 2519 <= code <= 2641: res = _charnames_2519[code-2519]
+    elif code == 2649: res = 22369
+    elif code == 2650: res = 22374
+    elif code == 2651: res = 22402
+    elif code == 2652: res = 22383
+    elif code == 2654: res = 22408
+    elif 2662 <= code <= 2677: res = _charnames_2662[code-2662]
+    elif 2689 <= code <= 2768: res = _charnames_2689[code-2689]
+    elif 2784 <= code <= 2801: res = _charnames_2784[code-2784]
+    elif 2817 <= code <= 2893: res = _charnames_2817[code-2817]
+    elif 2902 <= code <= 2929: res = _charnames_2902[code-2902]
+    elif 2946 <= code <= 3031: res = _charnames_2946[code-2946]
+    elif 3046 <= code <= 3149: res = _charnames_3046[code-3046]
+    elif 3157 <= code <= 3183: res = _charnames_3157[code-3157]
+    elif 3192 <= code <= 3277: res = _charnames_3192[code-3192]
+    elif code == 3285: res = 23172
+    elif code == 3286: res = 23215
+    elif 3294 <= code <= 3314: res = _charnames_3294[code-3294]
+    elif 3330 <= code <= 3405: res = _charnames_3330[code-3330]
+    elif code == 3415: res = 6443
+    elif 3424 <= code <= 3551: res = _charnames_3424[code-3424]
+    elif code == 3570: res = 19930
+    elif code == 3571: res = 19929
+    elif code == 3572: res = 19944
+    elif 3585 <= code <= 3675: res = _charnames_3585[code-3585]
+    elif 3713 <= code <= 3805: res = _charnames_3713[code-3713]
+    elif 3840 <= code <= 4056: res = _charnames_3840[code-3840]
+    elif 4096 <= code <= 4293: res = _charnames_4096[code-4096]
+    elif 4304 <= code <= 5108: res = _charnames_4304[code-4304]
+    elif 5120 <= code <= 5872: res = _charnames_5120[code-5120]
+    elif 5888 <= code <= 5908: res = _charnames_5888[code-5888]
+    elif 5920 <= code <= 5942: res = _charnames_5920[code-5920]
+    elif 5952 <= code <= 5971: res = _charnames_5952[code-5952]
+    elif 5984 <= code <= 6003: res = _charnames_5984[code-5984]
+    elif 6016 <= code <= 6263: res = _charnames_6016[code-6016]
+    elif 6272 <= code <= 6389: res = _charnames_6272[code-6272]
+    elif 6400 <= code <= 6516: res = _charnames_6400[code-6400]
+    elif 6528 <= code <= 6829: res = _charnames_6528[code-6528]
+    elif 6912 <= code <= 7097: res = _charnames_6912[code-6912]
+    elif 7168 <= code <= 7295: res = _charnames_7168[code-7168]
+    elif 7376 <= code <= 7410: res = _charnames_7376[code-7376]
+    elif 7424 <= code <= 7654: res = _charnames_7424[code-7424]
+    elif 7677 <= code <= 8340: res = _charnames_7677[code-7677]
+    elif 8352 <= code <= 8376: res = _charnames_8352[code-8352]
+    elif 8400 <= code <= 8432: res = _charnames_8400[code-8400]
+    elif 8448 <= code <= 9192: res = _charnames_8448[code-8448]
+    elif 9216 <= code <= 9254: res = _charnames_9216[code-9216]
+    elif 9280 <= code <= 9290: res = _charnames_9280[code-9280]
+    elif 9312 <= code <= 11097: res = _charnames_9312[code-9312]
+    elif 11264 <= code <= 11505: res = _charnames_11264[code-11264]
+    elif 11513 <= code <= 11557: res = _charnames_11513[code-11513]
+    elif 11568 <= code <= 11621: res = _charnames_11568[code-11568]
+    elif code == 11631: res = 13355
+    elif 11648 <= code <= 11670: res = _charnames_11648[code-11648]
+    elif 11680 <= code <= 11825: res = _charnames_11680[code-11680]
+    elif 11904 <= code <= 12019: res = _charnames_11904[code-11904]
+    elif 12032 <= code <= 12245: res = _charnames_12032[code-12032]
+    elif 12272 <= code <= 12727: res = _charnames_12272[code-12272]
+    elif 12736 <= code <= 12771: res = _charnames_12736[code-12736]
+    elif 12784 <= code <= 13311: res = _charnames_12784[code-12784]
+    elif 19904 <= code <= 19967: res = _charnames_19904[code-19904]
+    elif 40960 <= code <= 42182: res = _charnames_40960[code-40960]
+    elif 42192 <= code <= 42539: res = _charnames_42192[code-42192]
+    elif 42560 <= code <= 42611: res = _charnames_42560[code-42560]
+    elif 42620 <= code <= 42647: res = _charnames_42620[code-42620]
+    elif 42656 <= code <= 42743: res = _charnames_42656[code-42656]
+    elif 42752 <= code <= 42892: res = _charnames_42752[code-42752]
+    elif 43003 <= code <= 43127: res = _charnames_43003[code-43003]
+    elif 43136 <= code <= 43204: res = _charnames_43136[code-43136]
+    elif 43214 <= code <= 43347: res = _charnames_43214[code-43214]
+    elif 43359 <= code <= 43487: res = _charnames_43359[code-43359]
+    elif 43520 <= code <= 43574: res = _charnames_43520[code-43520]
+    elif 43584 <= code <= 43714: res = _charnames_43584[code-43584]
+    elif code == 43739: res = 12781
+    elif code == 43740: res = 12784
+    elif code == 43741: res = 12783
+    elif code == 43742: res = 12785
+    elif code == 43743: res = 12782
+    elif 43968 <= code <= 44025: res = _charnames_43968[code-43968]
+    elif 55216 <= code <= 55291: res = _charnames_55216[code-55216]
+    elif 63744 <= code <= 64217: res = _charnames_63744[code-63744]
+    elif 64256 <= code <= 64262: res = _charnames_64256[code-64256]
+    elif 64275 <= code <= 64433: res = _charnames_64275[code-64275]
+    elif 64467 <= code <= 64831: res = _charnames_64467[code-64467]
+    elif 64848 <= code <= 64967: res = _charnames_64848[code-64848]
+    elif 65008 <= code <= 65062: res = _charnames_65008[code-65008]
+    elif 65072 <= code <= 65518: res = _charnames_65072[code-65072]
+    elif 65529 <= code <= 65629: res = _charnames_65529[code-65529]
+    elif 65664 <= code <= 65947: res = _charnames_65664[code-65664]
+    elif 66000 <= code <= 66045: res = _charnames_66000[code-66000]
+    elif 66176 <= code <= 66256: res = _charnames_66176[code-66176]
+    elif 66304 <= code <= 66339: res = _charnames_66304[code-66304]
+    elif 66352 <= code <= 66378: res = _charnames_66352[code-66352]
+    elif 66432 <= code <= 66517: res = _charnames_66432[code-66432]
+    elif 66560 <= code <= 66729: res = _charnames_66560[code-66560]
+    elif 67584 <= code <= 67679: res = _charnames_67584[code-67584]
+    elif 67840 <= code <= 67903: res = _charnames_67840[code-67840]
+    elif 68096 <= code <= 68167: res = _charnames_68096[code-68096]
+    elif 68176 <= code <= 68184: res = _charnames_68176[code-68176]
+    elif 68192 <= code <= 68223: res = _charnames_68192[code-68192]
+    elif 68352 <= code <= 68479: res = _charnames_68352[code-68352]
+    elif 68608 <= code <= 68680: res = _charnames_68608[code-68608]
+    elif 69216 <= code <= 69246: res = _charnames_69216[code-69216]
+    elif 69760 <= code <= 69825: res = _charnames_69760[code-69760]
+    elif 73728 <= code <= 74606: res = _charnames_73728[code-73728]
+    elif 74752 <= code <= 74850: res = _charnames_74752[code-74752]
+    elif code == 74864: res = 2527
+    elif code == 74865: res = 2526
+    elif code == 74866: res = 2525
+    elif code == 74867: res = 2524
+    elif 77824 <= code <= 78894: res = _charnames_77824[code-77824]
+    elif 118784 <= code <= 119029: res = _charnames_118784[code-118784]
+    elif 119040 <= code <= 119261: res = _charnames_119040[code-119040]
+    elif 119296 <= code <= 119365: res = _charnames_119296[code-119296]
+    elif 119552 <= code <= 119638: res = _charnames_119552[code-119552]
+    elif 119648 <= code <= 119665: res = _charnames_119648[code-119648]
+    elif 119808 <= code <= 120831: res = _charnames_119808[code-119808]
+    elif 126976 <= code <= 127123: res = _charnames_126976[code-126976]
+    elif 127232 <= code <= 127281: res = _charnames_127232[code-127232]
+    elif 127293 <= code <= 127310: res = _charnames_127293[code-127293]
+    elif code == 127319: res = 27110
+    elif code == 127327: res = 27109
+    elif 127353 <= code <= 127359: res = _charnames_127353[code-127353]
+    elif 127370 <= code <= 127376: res = _charnames_127370[code-127370]
+    elif code == 127488: res = 19008
+    elif 127504 <= code <= 127537: res = _charnames_127504[code-127504]
+    elif 127552 <= code <= 127560: res = _charnames_127552[code-127552]
+    elif 194560 <= code <= 195101: res = _charnames_194560[code-194560]
+    elif code == 917505: res = 9289
+    elif 917536 <= code <= 917631: res = _charnames_917536[code-917536]
+    elif 917760 <= code <= 917999: res = _charnames_917760[code-917760]
+    elif 983040 <= code <= 983050: res = _charnames_983040[code-983040]
+    elif 983552 <= code <= 983945: res = _charnames_983552[code-983552]
     if res == -1: raise KeyError, code
     return name_of_node(res)
 
+# end output from build_compression_tree
+#____________________________________________________________
 # the following dictionary is used by modules that take this as a base
+# only used by generate_unicodedb, not after translation
 _orig_names = {
 'AC CURRENT': 9190,
 'ACCOUNT OF': 8448,
@@ -136813,7 +136823,7 @@ def lookup(name, with_named_sequence=False):
         code = trie_lookup(name)
     else:
         try:
-            code = _code_by_name[name]
+            code = trie_lookup(name)
         except KeyError:
             if name not in _code_by_name_corrected:
                 code = base_mod.trie_lookup(name)
@@ -136842,7 +136852,7 @@ def name(code):
         return lookup_charcode(code)
     else:
         try:
-            return _names[code]
+            return lookup_charcode(code)
         except KeyError:
             if code not in _names_corrected:
                 return base_mod.lookup_charcode(code)

@@ -1,6 +1,7 @@
 """Float constants"""
 
 import math, struct
+from math import acosh, asinh, atanh, log1p, expm1
 
 from rpython.annotator.model import SomeString, SomeChar
 from rpython.rlib import objectmodel, unroll
@@ -84,7 +85,7 @@ def formatd(x, code, precision, flags=0):
 def double_to_string(value, tp, precision, flags):
     if isfinite(value):
         special = DIST_FINITE
-    elif isinf(value):
+    elif math.isinf(value):
         special = DIST_INFINITY
     else:  #isnan(value):
         special = DIST_NAN
@@ -95,7 +96,20 @@ def round_double(value, ndigits, half_even=False):
     """Round a float half away from zero.
 
     Specify half_even=True to round half even instead.
+    The argument 'value' must be a finite number.  This
+    function may return an infinite number in case of
+    overflow (only if ndigits is a very negative integer).
     """
+    if ndigits == 0:
+        # fast path for this common case
+        if half_even:
+            return round_half_even(value)
+        else:
+            return round_away(value)
+
+    if value == 0.0:
+        return 0.0
+
     # The basic idea is very simple: convert and round the double to
     # a decimal string using _Py_dg_dtoa, then convert that decimal
     # string back to a double with _Py_dg_strtod.  There's one minor
@@ -117,7 +131,7 @@ def round_double(value, ndigits, half_even=False):
     # multiple of 0.5 * 10**n for n >= 23 takes at least 54 bits of
     # precision to represent exactly.
 
-    sign = copysign(1.0, value)
+    sign = math.copysign(1.0, value)
     value = abs(value)
 
     # find 2-valuation value
@@ -184,111 +198,13 @@ def round_double(value, ndigits, half_even=False):
 INFINITY = 1e200 * 1e200
 NAN = abs(INFINITY / INFINITY)    # bah, INF/INF gives us -NAN?
 
-try:
-    # Try to get math functions added in 2.6.
-    from math import isinf, isnan, copysign, acosh, asinh, atanh, log1p
-except ImportError:
-    @not_rpython
-    def isinf(x):
-        return x == INFINITY or x == -INFINITY
-
-    @not_rpython
-    def isnan(v):
-        return v != v
-
-    @not_rpython
-    def copysign(x, y):
-        """Return x with the sign of y"""
-        if x < 0.:
-            x = -x
-        if y > 0. or (y == 0. and math.atan2(y, -1.) > 0.):
-            return x
-        else:
-            return -x
-
-    _2_to_m28 = 3.7252902984619141E-09; # 2**-28
-    _2_to_p28 = 268435456.0; # 2**28
-    _ln2 = 6.93147180559945286227E-01
-
-    @not_rpython
-    def acosh(x):
-        if isnan(x):
-            return NAN
-        if x < 1.:
-            raise ValueError("math domain error")
-        if x >= _2_to_p28:
-            if isinf(x):
-                return x
-            else:
-                return math.log(x) + _ln2
-        if x == 1.:
-            return 0.
-        if x >= 2.:
-            t = x * x
-            return math.log(2. * x - 1. / (x + math.sqrt(t - 1.0)))
-        t = x - 1.0
-        return log1p(t + math.sqrt(2. * t + t * t))
-
-    @not_rpython
-    def asinh(x):
-        absx = abs(x)
-        if not isfinite(x):
-            return x
-        if absx < _2_to_m28:
-            return x
-        if absx > _2_to_p28:
-            w = math.log(absx) + _ln2
-        elif absx > 2.:
-            w = math.log(2. * absx + 1. / (math.sqrt(x * x + 1.) + absx))
-        else:
-            t = x * x
-            w = log1p(absx + t / (1. + math.sqrt(1. + t)))
-        return copysign(w, x)
-
-    @not_rpython
-    def atanh(x):
-        if isnan(x):
-            return x
-        absx = abs(x)
-        if absx >= 1.:
-            raise ValueError("math domain error")
-        if absx < _2_to_m28:
-            return x
-        if absx < .5:
-            t = absx + absx
-            t = .5 * log1p(t + t * absx / (1. - absx))
-        else:
-            t = .5 * log1p((absx + absx) / (1. - absx))
-        return copysign(t, x)
-
-    @not_rpython
-    def log1p(x):
-        if abs(x) < DBL_EPSILON // 2.:
-            return x
-        elif -.5 <= x <= 1.:
-            y = 1. + x
-            return math.log(y) - ((y - 1.) - x) / y
-        else:
-            return math.log(1. + x)
-
-try:
-    from math import expm1 # Added in Python 2.7.
-except ImportError:
-    @not_rpython
-    def expm1(x):
-        if abs(x) < .7:
-            u = math.exp(x)
-            if u == 1.:
-                return x
-            return (u - 1.) * x / math.log(u)
-        return math.exp(x) - 1.
 
 def log2(x):
     # Uses an algorithm that should:
     #   (a) produce exact results for powers of 2, and
     #   (b) be monotonic, assuming that the system log is monotonic.
     if not isfinite(x):
-        if isnan(x):
+        if math.isnan(x):
             return x  # log2(nan) = nan
         elif x > 0.0:
             return x  # log2(+inf) = +inf
@@ -314,23 +230,46 @@ def log2(x):
 
 def round_away(x):
     # round() from libm, which is not available on all platforms!
+    # This version rounds away from zero.
     absx = abs(x)
-    if absx - math.floor(absx) >= .5:
-        r = math.ceil(absx)
+    r = math.floor(absx + 0.5)
+    if r - absx < 1.0:
+        return math.copysign(r, x)
     else:
-        r = math.floor(absx)
-    return copysign(r, x)
+        # 'absx' is just in the wrong range: its exponent is precisely
+        # the one for which all integers are representable but not any
+        # half-integer.  It means that 'absx + 0.5' computes equal to
+        # 'absx + 1.0', which is not equal to 'absx'.  So 'r - absx'
+        # computes equal to 1.0.  In this situation, we can't return
+        # 'r' because 'absx' was already an integer but 'r' is the next
+        # integer!  But just returning the original 'x' is fine.
+        return x
+
+def round_half_even(x):
+    absx = abs(x)
+    r = math.floor(absx + 0.5)
+    frac = r - absx
+    if frac >= 0.5:
+        # two rare cases: either 'absx' is precisely half-way between
+        # two integers (frac == 0.5); or we're in the same situation as
+        # described in round_away above (frac == 1.0).
+        if frac >= 1.0:
+            return x
+        # absx == n + 0.5  for a non-negative integer 'n'
+        # absx * 0.5 == n//2 + 0.25 or 0.75, which we round to nearest
+        r = math.floor(absx * 0.5 + 0.5) * 2.0
+    return math.copysign(r, x)
 
 @not_rpython
 def isfinite(x):
-    return not isinf(x) and not isnan(x)
+    return not math.isinf(x) and not math.isnan(x)
 
 def float_as_rbigint_ratio(value):
     from rpython.rlib.rbigint import rbigint
 
-    if isinf(value):
+    if math.isinf(value):
         raise OverflowError("cannot pass infinity to as_integer_ratio()")
-    elif isnan(value):
+    elif math.isnan(value):
         raise ValueError("cannot pass nan to as_integer_ratio()")
     float_part, exp_int = math.frexp(value)
     for i in range(300):
@@ -388,7 +327,7 @@ def _erfc_contfrac(x):
 
 def erf(x):
     """The error function at x."""
-    if isnan(x):
+    if math.isnan(x):
         return x
     absx = abs(x)
     if absx < ERF_SERIES_CUTOFF:
@@ -399,7 +338,7 @@ def erf(x):
 
 def erfc(x):
     """The complementary error function at x."""
-    if isnan(x):
+    if math.isnan(x):
         return x
     absx = abs(x)
     if absx < ERF_SERIES_CUTOFF:
@@ -423,7 +362,7 @@ def _sinpi(x):
         r = math.sin(math.pi * (y - 2.))
     else:
         raise AssertionError("should not reach")
-    return copysign(1., x) * r
+    return math.copysign(1., x) * r
 
 _lanczos_g = 6.024680040776729583740234375
 _lanczos_g_minus_half = 5.524680040776729583740234375
@@ -471,9 +410,9 @@ def _lanczos_sum(x):
 
 def gamma(x):
     """Compute the gamma function for x."""
-    if isnan(x) or (isinf(x) and x > 0.):
+    if math.isnan(x) or (math.isinf(x) and x > 0.):
         return x
-    if isinf(x):
+    if math.isinf(x):
         raise ValueError("math domain error")
     if x == 0.:
         raise ValueError("math domain error")
@@ -485,7 +424,7 @@ def gamma(x):
     absx = abs(x)
     if absx < 1e-20:
         r = 1. / x
-        if isinf(r):
+        if math.isinf(r):
             raise OverflowError("math range error")
         return r
     if absx > 200.:
@@ -519,15 +458,15 @@ def gamma(x):
             sqrtpow = math.pow(y, absx / 2. - .25)
             r *= sqrtpow
             r *= sqrtpow
-    if isinf(r):
+    if math.isinf(r):
         raise OverflowError("math range error")
     return r
 
 def lgamma(x):
     """Compute the natural logarithm of the gamma function for x."""
-    if isnan(x):
+    if math.isnan(x):
         return x
-    if isinf(x):
+    if math.isinf(x):
         return INFINITY
     if x == math.floor(x) and x <= 2.:
         if x <= 0.:
@@ -543,7 +482,7 @@ def lgamma(x):
         r = (math.log(math.pi) - math.log(abs(_sinpi(absx))) - math.log(absx) -
              (math.log(_lanczos_sum(absx)) - _lanczos_g +
               (absx - .5) * (math.log(absx + _lanczos_g - .5) - 1)))
-    if isinf(r):
+    if math.isinf(r):
         raise OverflowError("math domain error")
     return r
 

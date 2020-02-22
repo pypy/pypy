@@ -11,6 +11,7 @@ def main(n):
     rsre_core.search(pattern, string)
     #
     unicodestr = unichr(n) * n
+    pattern = rsre_core.CompiledPattern(pattern)
     ctx = rsre_core.UnicodeMatchContext(pattern, unicodestr,
                                         0, len(unicodestr), 0)
     rsre_core.search_context(ctx)

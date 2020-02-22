@@ -171,7 +171,7 @@ Other Highlights (since 5.3 released in June 2016)
 * Performance improvements:
 
   * Add a before_call()-like equivalent before a few operations like
-   `malloc_nursery`, to move values from registers into other registers
+    `malloc_nursery`, to move values from registers into other registers
     instead of to the stack.
 
   * More tightly pack the stack when calling with `release gil`

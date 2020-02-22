@@ -1,7 +1,6 @@
 # NOT_RPYTHON
 
 from _structseq import structseqtype, structseqfield
-from __pypy__ import validate_fd
 
 # XXX we need a way to access the current module's globals more directly...
 import sys
@@ -80,25 +79,30 @@ class statvfs_result:
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
 
-if osname == 'posix':
-    # POSIX: we want to check the file descriptor when fdopen() is called,
-    # not later when we read or write data.  So we call fstat(), letting
-    # it raise if fd is invalid.
-    _validate_fd = posix.fstat
-else:
-    _validate_fd = validate_fd
-
 # Capture file.fdopen at import time, as some code replaces
 # __builtins__.file with a custom function.
 _fdopen = file.fdopen
 
-def fdopen(fd, mode='r', buffering=-1):
-    """fdopen(fd [, mode='r' [, buffering]]) -> file_object
+if osname == 'posix':
+    # POSIX: we want to check the file descriptor when fdopen() is called,
+    # not later when we read or write data.  So we call fstat(), letting
+    # it raise if fd is invalid.
+     def fdopen(fd, mode='r', buffering=-1):
+        """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
-    Return an open file object connected to a file descriptor."""
-    _validate_fd(fd)
-    return _fdopen(fd, mode, buffering)
+        Return an open file object connected to a file descriptor."""
+        try:
+            posix.fstat(fd)
+        except OSError as e:
+            raise OSError(e.errno, e.message)
+        return _fdopen(fd, mode, buffering)
 
+else:
+     def fdopen(fd, mode='r', buffering=-1):
+        """fdopen(fd [, mode='r' [, buffering]]) -> file_object
+
+        Return an open file object connected to a file descriptor."""
+        return _fdopen(fd, mode, buffering)
 
 def tmpfile():
     """Create a temporary file.

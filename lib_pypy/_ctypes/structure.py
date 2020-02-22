@@ -2,9 +2,9 @@ import sys
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
-from _ctypes.array import Array
+from _ctypes.array import Array, get_format_str
 from _ctypes.pointer import _Pointer
-import inspect
+import inspect, __pypy__
 
 
 def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
@@ -39,6 +39,22 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
             rawfields.append((f[0], f[1]._ffishape_, f[2]))
         else:
             rawfields.append((f[0], f[1]._ffishape_))
+
+    # hack for duplicate field names
+    already_seen = set()
+    names1 = names
+    names = []
+    for f in names1:
+        if f not in already_seen:
+            names.append(f)
+            already_seen.add(f)
+    already_seen = set()
+    for i in reversed(range(len(rawfields))):
+        if rawfields[i][0] in already_seen:
+            rawfields[i] = (('$DUP%d$%s' % (i, rawfields[i][0]),)
+                            + rawfields[i][1:])
+        already_seen.add(rawfields[i][0])
+    # /hack
 
     _set_shape(self, rawfields, self._is_union)
 
@@ -130,6 +146,7 @@ class Field(object):
             obj._buffer.__setattr__(self.name, arg)
 
 
+
 def _set_shape(tp, rawfields, is_union=False):
     tp._ffistruct_ = _rawffi.Structure(rawfields, is_union,
                                       getattr(tp, '_pack_', 0))
@@ -143,6 +160,10 @@ def struct_setattr(self, name, value):
             raise AttributeError("_fields_ is final")
         if self in [f[1] for f in value]:
             raise AttributeError("Structure or union cannot contain itself")
+        if self._ffiargtype is not None:
+            raise NotImplementedError("Too late to set _fields_: we already "
+                        "said to libffi that the structure type %s is opaque"
+                        % (self,))
         names_and_fields(
             self,
             value, self.__bases__[0],
@@ -155,6 +176,11 @@ def struct_setattr(self, name, value):
 class StructOrUnionMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
+        if hasattr(res, '_swappedbytes_') and '_fields_' in typedict:
+            # Activate the stdlib ctypes._swapped_meta.__setattr__ to convert fields
+            tmp = res._fields_
+            delattr(res, '_fields_')
+            setattr(res, '_fields_', tmp)
         if "_abstract_" in typedict:
             return res
         cls = cls or (object,)
@@ -224,14 +250,17 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_index'] = -1
         return res
 
-
 class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
-        self = super(_CData, cls).__new__(cls)
-        if '_abstract_' in cls.__dict__:
+        from _ctypes import union
+        if ('_abstract_' in cls.__dict__ or cls is Structure
+                                         or cls is union.Union):
             raise TypeError("abstract class")
+        if hasattr(cls, '_swappedbytes_'):
+            names_and_fields(cls, cls._fields_, _CData, cls.__dict__.get('_anonymous_', None))
+        self = super(_CData, cls).__new__(cls)
         if hasattr(cls, '_ffistruct_'):
             self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self
@@ -247,6 +276,7 @@ class StructOrUnion(_CData):
             self.__setattr__(name, arg)
         for name, arg in kwds.items():
             self.__setattr__(name, arg)
+    _init_no_arg_ = __init__
 
     def _subarray(self, fieldtype, name):
         """Return a _rawffi array of length 1 whose address is the same as
@@ -261,9 +291,18 @@ class StructOrUnion(_CData):
     def _get_buffer_value(self):
         return self._buffer.buffer
 
+    def _copy_to(self, addr):
+        from ctypes import memmove
+        origin = self._get_buffer_value()
+        memmove(addr, origin, self._fficompositesize_)
+
     def _to_ffi_param(self):
         return self._buffer
 
+    def __buffer__(self, flags):
+        fmt = get_format_str(self)
+        itemsize = type(self)._sizeofinstances() 
+        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt)
 
 class StructureMeta(StructOrUnionMeta):
     _is_union = False

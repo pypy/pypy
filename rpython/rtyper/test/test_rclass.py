@@ -1,6 +1,7 @@
 import sys
 
 import py
+import pytest
 
 from rpython.flowspace.model import summary
 from rpython.rlib.rarithmetic import r_longlong
@@ -459,8 +460,7 @@ class TestRclass(BaseRtypingTest):
         res = self.interpret(f, [3])
         assert ''.join(res.chars) == 'CCls'
 
-    def test_hash_preservation(self):
-        from rpython.rlib.objectmodel import current_object_addr_as_int
+    def test_compute_identity_hash(self):
         from rpython.rlib.objectmodel import compute_identity_hash
         class C:
             pass
@@ -468,27 +468,15 @@ class TestRclass(BaseRtypingTest):
             pass
         c = C()
         d = D()
-        h_c = compute_identity_hash(c)
-        h_d = compute_identity_hash(d)
         #
         def f():
             d2 = D()
             return (compute_identity_hash(d2),
-                    current_object_addr_as_int(d2),
                     compute_identity_hash(c),
                     compute_identity_hash(d))
 
-        res = self.interpret(f, [])
-        # xxx the following test is too precise, checking the exact
-        # implementation.  On Python 2.7 it doesn't work anyway, because
-        # object.__hash__(x) is different from id(x).  The test is disabled
-        # for now, and nobody should rely on compute_identity_hash() returning
-        # a value that is (or was) the current_object_addr_as_int().
-        # --- disabled: assert res.item0 == res.item1
-        # the following property is essential on top of the lltypesystem
-        # otherwise prebuilt dictionaries are broken.
-        assert res.item2 == h_c
-        assert res.item3 == h_d
+        self.interpret(f, [])
+        # check does not crash
 
     def test_circular_hash_initialization(self):
         class B:
@@ -760,7 +748,6 @@ class TestRclass(BaseRtypingTest):
         assert summary(graph) == {}
 
     def test_immutable_fields(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_fields_ = ["x", "y[*]"]
 
@@ -771,13 +758,12 @@ class TestRclass(BaseRtypingTest):
         def f():
             return A(3, [])
         t, typer, graph = self.gengraph(f, [])
-        A_TYPE = deref(graph.getreturnvar().concretetype)
+        A_TYPE = graph.getreturnvar().concretetype.TO
         accessor = A_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_x": IR_IMMUTABLE,
                                    "inst_y": IR_IMMUTABLE_ARRAY}
 
     def test_immutable_fields_subclass_1(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_fields_ = ["x"]
             def __init__(self, x):
@@ -790,12 +776,11 @@ class TestRclass(BaseRtypingTest):
         def f():
             return B(3, 5)
         t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
+        B_TYPE = graph.getreturnvar().concretetype.TO
         accessor = B_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_x": IR_IMMUTABLE}
 
     def test_immutable_fields_subclass_2(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_fields_ = ["x"]
             def __init__(self, x):
@@ -809,13 +794,12 @@ class TestRclass(BaseRtypingTest):
         def f():
             return B(3, 5)
         t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
+        B_TYPE = graph.getreturnvar().concretetype.TO
         accessor = B_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_x": IR_IMMUTABLE,
                                    "inst_y": IR_IMMUTABLE}
 
     def test_immutable_fields_only_in_subclass(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             def __init__(self, x):
                 self.x = x
@@ -828,7 +812,7 @@ class TestRclass(BaseRtypingTest):
         def f():
             return B(3, 5)
         t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
+        B_TYPE = graph.getreturnvar().concretetype.TO
         accessor = B_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_y": IR_IMMUTABLE}
 
@@ -857,7 +841,6 @@ class TestRclass(BaseRtypingTest):
         py.test.raises(ImmutableConflictError, self.gengraph, f, [])
 
     def test_immutable_ok_inheritance_2(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_fields_ = ['v']
         class B(A):
@@ -867,7 +850,7 @@ class TestRclass(BaseRtypingTest):
             B().w = 456
             return B()
         t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
+        B_TYPE = graph.getreturnvar().concretetype.TO
         assert B_TYPE._hints["immutable"]
         A_TYPE = B_TYPE.super
         accessor = A_TYPE._hints["immutable_fields"]
@@ -875,7 +858,6 @@ class TestRclass(BaseRtypingTest):
 
     def test_immutable_subclass_1(self):
         from rpython.rtyper.rclass import ImmutableConflictError
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_ = True
         class B(A):
@@ -887,7 +869,6 @@ class TestRclass(BaseRtypingTest):
         py.test.raises(ImmutableConflictError, self.gengraph, f, [])
 
     def test_immutable_subclass_2(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             pass
         class B(A):
@@ -897,11 +878,10 @@ class TestRclass(BaseRtypingTest):
             B().v = 123
             return B()
         t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
+        B_TYPE = graph.getreturnvar().concretetype.TO
         assert B_TYPE._hints["immutable"]
 
     def test_immutable_subclass_void(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             pass
         class B(A):
@@ -913,11 +893,10 @@ class TestRclass(BaseRtypingTest):
             B().v = 123       # even though only B is declared _immutable_
             return B()
         t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
+        B_TYPE = graph.getreturnvar().concretetype.TO
         assert B_TYPE._hints["immutable"]
 
     def test_quasi_immutable(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_fields_ = ['x', 'y', 'a?', 'b?']
         class B(A):
@@ -933,7 +912,7 @@ class TestRclass(BaseRtypingTest):
             b.b = 45
             return B()
         t, typer, graph = self.gengraph(f, [])
-        B_TYPE = deref(graph.getreturnvar().concretetype)
+        B_TYPE = graph.getreturnvar().concretetype.TO
         accessor = B_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_y": IR_IMMUTABLE,
                                    "inst_b": IR_QUASIIMMUTABLE}
@@ -944,7 +923,6 @@ class TestRclass(BaseRtypingTest):
         assert found == ['mutate_a', 'mutate_a', 'mutate_b']
 
     def test_quasi_immutable_clashes_with_immutable(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_ = True
             _immutable_fields_ = ['a?']
@@ -957,7 +935,6 @@ class TestRclass(BaseRtypingTest):
             self.gengraph(f, [])
 
     def test_quasi_immutable_array(self):
-        from rpython.jit.metainterp.typesystem import deref
         class A(object):
             _immutable_fields_ = ['c?[*]']
         class B(A):
@@ -967,7 +944,7 @@ class TestRclass(BaseRtypingTest):
             a.c = [3, 4, 5]
             return A()
         t, typer, graph = self.gengraph(f, [])
-        A_TYPE = deref(graph.getreturnvar().concretetype)
+        A_TYPE = graph.getreturnvar().concretetype.TO
         accessor = A_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_c": IR_QUASIIMMUTABLE_ARRAY}
         found = []
@@ -975,6 +952,41 @@ class TestRclass(BaseRtypingTest):
             if op.opname == 'jit_force_quasi_immutable':
                 found.append(op.args[1].value)
         assert found == ['mutate_c']
+
+    def test_bad_type_for_immutable_field_1(self):
+        class A:
+            _immutable_fields_ = ['lst[*]']
+        def f(n):
+            a = A()
+            a.lst = n
+            return a.lst
+
+        with py.test.raises(TyperError):
+            self.gengraph(f, [int])
+
+    def test_bad_type_for_immutable_field_2(self):
+        from rpython.rtyper.lltypesystem import lltype
+        class A:
+            _immutable_fields_ = ['lst[*]']
+        ARRAY = lltype.GcArray(lltype.Signed)
+        def f(n):
+            a = A()
+            a.lst = lltype.malloc(ARRAY, n)
+            return a.lst
+
+        with py.test.raises(TyperError):
+            self.gengraph(f, [int])
+
+    def test_bad_type_for_immutable_field_3(self):
+        class A:
+            _immutable_fields_ = ['lst?[*]']
+        def f(n):
+            a = A()
+            a.lst = n
+            return a.lst
+
+        with py.test.raises(TyperError):
+            self.gengraph(f, [int])
 
     def test_calling_object_init(self):
         class A(object):
@@ -1213,6 +1225,28 @@ class TestRclass(BaseRtypingTest):
 
         assert self.interpret(f, [True]) == f(True)
         assert self.interpret(f, [False]) == f(False)
+
+    @pytest.mark.xfail # XXX next support in rpython is broken!
+    def test_iter_bug_exception(self):
+        class Iterable(object):
+            def __iter__(self):
+                return self
+
+            def next(self):
+                raise TyperError
+
+        def f():
+            i = Iterable()
+            it = iter(i)
+            try:
+                next(it)
+            except StopIteration:
+                return -7
+            except TypeError:
+                return -9
+            return 12
+
+        assert self.interpret(f, []) == f()
 
     def test_indexing(self):
         class A(object):

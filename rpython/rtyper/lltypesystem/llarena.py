@@ -2,7 +2,7 @@ import array
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rtyper.lltypesystem.lloperation import llop
-
+import os, sys
 
 # An "arena" is a large area of memory which can hold a number of
 # objects, not necessarily all of the same type or size.  It's used by
@@ -252,7 +252,7 @@ class fakearenaaddress(llmemory.fakeaddress):
 
     def _cast_to_int(self, symbolic=False):
         assert not symbolic
-        return self.arena._getid() + self.offset
+        return rffi.cast(lltype.Signed, self.arena._getid() + self.offset)
 
 
 def getfakearenaaddress(addr):
@@ -393,7 +393,6 @@ def arena_protect(arena_addr, size, inaccessible):
 # We can tweak these implementations to be more suited to very large
 # chunks of memory.
 
-import os, sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.tool.rffi_platform import memory_alignment
@@ -506,13 +505,17 @@ else:
 
 llimpl_malloc = rffi.llexternal('malloc', [lltype.Signed], llmemory.Address,
                                 sandboxsafe=True, _nowrapper=True)
+llimpl_calloc = rffi.llexternal('calloc', [lltype.Signed, lltype.Signed],
+                                llmemory.Address,
+                                sandboxsafe=True, _nowrapper=True)
 llimpl_free = rffi.llexternal('free', [llmemory.Address], lltype.Void,
                               sandboxsafe=True, _nowrapper=True)
 
 def llimpl_arena_malloc(nbytes, zero):
-    addr = llimpl_malloc(nbytes)
-    if bool(addr):
-        llimpl_arena_reset(addr, nbytes, zero)
+    if zero:
+        addr = llimpl_calloc(nbytes, 1)
+    else:
+        addr = llimpl_malloc(nbytes)
     return addr
 llimpl_arena_malloc._always_inline_ = True
 register_external(arena_malloc, [int, int], llmemory.Address,

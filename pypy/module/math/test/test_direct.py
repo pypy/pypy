@@ -6,11 +6,6 @@ from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem.module.test.math_cases import (MathTests,
                                                                 get_tester)
 
-consistent_host = True
-if '__pypy__' not in sys.builtin_module_names:
-    if sys.version_info < (2, 6):
-        consistent_host = False
-
 class TestDirect(MathTests):
     pass
 
@@ -30,8 +25,6 @@ def do_test(fn, fnname, args, expected):
 def make_test_case((fnname, args, expected), dict):
     #
     def test_func(self):
-        if not consistent_host:
-            py.test.skip("inconsistent behavior before 2.6")
         try:
             fn = getattr(math, fnname)
         except AttributeError:

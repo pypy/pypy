@@ -140,7 +140,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
     preamble
   * In JIT residual calls, if the called function starts with a fast-path like
     ``if x.foo != 0: return x.foo``, then inline the check before doing the
-     ``CALL``.
+    ``CALL``.
   * Ensure ``make_inputargs`` fails properly when given arguments with type 
     information
   * Makes ``optimiseopt`` iterative instead of recursive so it can be reasoned

@@ -38,6 +38,7 @@ class TranslationContext(object):
         self.graphs = []      # [graph]
         self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
         self._prebuilt_graphs = {}   # only used by the pygame viewer
+        self._call_at_startup = []
 
     def buildflowgraph(self, func, mute_dot=False):
         """Get the flow graph for a function."""
@@ -67,7 +68,8 @@ class TranslationContext(object):
         if self.annotator is not None:
             raise ValueError("we already have an annotator")
         from rpython.annotator.annrpython import RPythonAnnotator
-        self.annotator = RPythonAnnotator(self, policy=policy)
+        self.annotator = RPythonAnnotator(
+            self, policy=policy, keepgoing=self.config.translation.keepgoing)
         return self.annotator
 
     def buildrtyper(self):
@@ -139,6 +141,9 @@ def graphof(translator, func):
     if isinstance(func, FunctionGraph):
         return func
     result = []
+    if hasattr(func, 'im_func'):
+        # make it possible to translate bound methods
+        func = func.im_func
     for graph in translator.graphs:
         if getattr(graph, 'func', None) is func:
             result.append(graph)

@@ -31,21 +31,19 @@ default_modules.update([
 working_modules = default_modules.copy()
 working_modules.update([
     "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
-    "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
-    "zlib", "bz2", "struct", "_hashlib", "_md5", "_sha", "_minimal_curses",
-    "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+    "select", "zipimport", "_lsprof", "signal", "_rawffi", "termios",
+    "zlib", "bz2", "struct", "_md5", "_sha", "_minimal_curses",
+    "cStringIO", "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
-    "_csv", "cppyy", "_pypyjson", "_jitlog"
+    "_csv", "_cppyy", "_pypyjson", "_jitlog",
+    # "_hashlib", "crypt"
 ])
 
-from rpython.jit.backend import detect_cpu
-try:
-    if detect_cpu.autodetect().startswith('x86'):
-        working_modules.add('_vmprof')
-        working_modules.add('faulthandler')
-except detect_cpu.ProcessorAutodetectError:
-    pass
+import rpython.rlib.rvmprof.cintf
+if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
+    working_modules.add('_vmprof')
+    working_modules.add('faulthandler')
 
 translation_modules = default_modules.copy()
 translation_modules.update([
@@ -56,20 +54,28 @@ translation_modules.update([
     "termios", "_minimal_curses",
 ])
 
+reverse_debugger_disable_modules = set([
+    "_continuation", "_vmprof", "_multiprocessing",
+    "micronumpy",
+    ])
+
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
     working_modules.add("_winreg")
     # unix only modules
     for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses"]:
-        working_modules.remove(name)
+        if name in working_modules:
+            working_modules.remove(name)
         if name in translation_modules:
             translation_modules.remove(name)
 
-    if "cppyy" in working_modules:
-        working_modules.remove("cppyy")  # not tested on win32
+    if "_cppyy" in working_modules:
+        working_modules.remove("_cppyy")  # not tested on win32
     if "faulthandler" in working_modules:
         working_modules.remove("faulthandler")  # missing details
+    if "_vmprof" in working_modules:
+        working_modules.remove("_vmprof")  # FIXME: missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
@@ -78,8 +84,8 @@ if sys.platform == "sunos5":
     working_modules.remove('fcntl')  # LOCK_NB not defined
     working_modules.remove("_minimal_curses")
     working_modules.remove("termios")
-    if "cppyy" in working_modules:
-        working_modules.remove("cppyy")  # depends on ctypes
+    if "_cppyy" in working_modules:
+        working_modules.remove("_cppyy")  # depends on ctypes
 
 #if sys.platform.startswith("linux"):
 #    _mach = os.popen('uname -m', 'r').read().strip()
@@ -91,7 +97,7 @@ module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
-    'cppyy': [('objspace.usemodules.cpyext', True)],
+    '_cppyy': [('objspace.usemodules.cpyext', True)],
     'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
@@ -105,43 +111,6 @@ if sys.platform == "win32":
     module_suggests["cpyext"].append(("translation.shared", True))
 
 
-# NOTE: this dictionary is not used any more
-module_import_dependencies = {
-    # no _rawffi if importing rpython.rlib.clibffi raises ImportError
-    # or CompilationError or py.test.skip.Exception
-    "_rawffi"   : ["rpython.rlib.clibffi"],
-
-    "zlib"      : ["rpython.rlib.rzlib"],
-    "bz2"       : ["pypy.module.bz2.interp_bz2"],
-    "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
-    "_ssl"      : ["pypy.module._ssl.interp_ssl"],
-    "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
-    "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
-    "_continuation": ["rpython.rlib.rstacklet"],
-    "_vmprof"      : ["pypy.module._vmprof.interp_vmprof"],
-    "faulthandler" : ["pypy.module._vmprof.interp_vmprof"],
-    }
-
-def get_module_validator(modname):
-    # NOTE: this function is not used any more
-    if modname in module_import_dependencies:
-        modlist = module_import_dependencies[modname]
-        def validator(config):
-            from rpython.rtyper.tool.rffi_platform import CompilationError
-            try:
-                for name in modlist:
-                    __import__(name)
-            except (ImportError, CompilationError, py.test.skip.Exception) as e:
-                errcls = e.__class__.__name__
-                raise Exception(
-                    "The module %r is disabled\n" % (modname,) +
-                    "because importing %s raised %s\n" % (name, errcls) +
-                    str(e))
-        return validator
-    else:
-        return None
-
-
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     OptionDescription("usemodules", "Which Modules should be used", [
         BoolOption(modname, "use module %s" % (modname, ),
@@ -150,7 +119,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=module_dependencies.get(modname, []),
                    suggests=module_suggests.get(modname, []),
                    negation=modname not in essential_modules,
-                   ) #validator=get_module_validator(modname))
+                   )
         for modname in all_modules]),
 
     BoolOption("allworkingmodules", "use as many working modules as possible",
@@ -190,6 +159,19 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                "make sure that all calls go through space.call_args",
                default=False),
 
+    BoolOption("disable_entrypoints",
+               "Disable external entry points, notably the"
+               " cpyext module and cffi's embedding mode.",
+               default=False,
+               requires=[("objspace.usemodules.cpyext", False)]),
+
+    ChoiceOption("hash",
+                 "The hash function to use for strings: fnv from CPython 2.7"
+                 " or siphash24 from CPython >= 3.4",
+                 ["fnv", "siphash24"],
+                 default="fnv",
+                 cmdline="--hash"),
+
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),
@@ -206,17 +188,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
                    default=False),
 
-        BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
-                   default=False),
-
         BoolOption("withspecialisedtuple",
                    "use specialised tuples",
                    default=False),
-
-        BoolOption("withcelldict",
-                   "use dictionaries that are optimized for being used as module dicts",
-                   default=False,
-                   requires=[("objspace.honor__builtins__", False)]),
 
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
@@ -238,6 +212,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
+                   default=False),
+        BoolOption("reinterpretasserts",
+                   "Perform reinterpretation when an assert fails "
+                   "(only relevant for tests)",
                    default=False),
 
      ]),
@@ -277,13 +255,16 @@ def set_pypy_opt_level(config, level):
 
     # extra optimizations with the JIT
     if level == 'jit':
-        config.objspace.std.suggest(withcelldict=True)
+        pass # none at the moment
 
 
 def enable_allworkingmodules(config):
     modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
+    if config.translation.reverse_debugger:
+        for mod in reverse_debugger_disable_modules:
+            setattr(config.objspace.usemodules, mod, False)
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
@@ -302,3 +283,4 @@ if __name__ == '__main__':
     parser = to_optparse(config) #, useoptions=["translation.*"])
     option, args = parser.parse_args()
     print config
+    print working_modules

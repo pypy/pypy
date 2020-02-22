@@ -43,7 +43,7 @@ class TokenIterator:
         self.tok = self.tokens[index]
 
     def skip(self, n):
-        if self.tok[0] == n:
+        if self.tok.token_type == n:
             self.next()
             return True
         else:
@@ -51,7 +51,7 @@ class TokenIterator:
 
     def skip_name(self, name):
         from pypy.interpreter.pyparser import pygram
-        if self.tok[0] == pygram.tokens.NAME and self.tok[1] == name:
+        if self.tok.token_type == pygram.tokens.NAME and self.tok.value == name:
             self.next()
             return True
         else:
@@ -59,8 +59,8 @@ class TokenIterator:
 
     def next_feature_name(self):
         from pypy.interpreter.pyparser import pygram
-        if self.tok[0] == pygram.tokens.NAME:
-            name = self.tok[1]
+        if self.tok.token_type == pygram.tokens.NAME:
+            name = self.tok.value
             self.next()
             if self.skip_name("as"):
                 self.skip(pygram.tokens.NAME)
@@ -78,20 +78,30 @@ def add_future_flags(future_flags, tokens):
     from pypy.interpreter.pyparser import pygram
     it = TokenIterator(tokens)
     result = 0
+    last_position = (0, 0)
     #
     # The only things that can precede a future statement are another
     # future statement and a doc string (only one).  This is a very
     # permissive parsing of the given list of tokens; it relies on
     # the real parsing done afterwards to give errors.
     it.skip_newlines()
-    it.skip_name("r") or it.skip_name("u") or it.skip_name("ru")
-    if it.skip(pygram.tokens.STRING):
-        it.skip_newlines()
 
-    while (it.skip_name("from") and
+    docstring_possible = True
+    while True:
+        it.skip_name("r") or it.skip_name("u") or it.skip_name("ru")
+        if docstring_possible and it.skip(pygram.tokens.STRING):
+            it.skip_newlines()
+            docstring_possible = False
+        if not (it.skip_name("from") and
            it.skip_name("__future__") and
            it.skip_name("import")):
+            break
         it.skip(pygram.tokens.LPAR)    # optionally
+        # return in 'last_position' any line-column pair that points
+        # somewhere inside the last __future__ import statement
+        # (at the start would be fine too, but it's easier to grab a
+        # random position inside)
+        last_position = (it.tok.lineno, it.tok.column)
         result |= future_flags.get_compiler_feature(it.next_feature_name())
         while it.skip(pygram.tokens.COMMA):
             result |= future_flags.get_compiler_feature(it.next_feature_name())
@@ -99,5 +109,4 @@ def add_future_flags(future_flags, tokens):
         it.skip(pygram.tokens.SEMI)    # optionally
         it.skip_newlines()
 
-    position = (it.tok[2], it.tok[3])
-    return result, position
+    return result, last_position

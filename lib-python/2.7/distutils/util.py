@@ -200,9 +200,12 @@ def subst_vars (s, local_vars):
     def _subst (match, local_vars=local_vars):
         var_name = match.group(1)
         if var_name in local_vars:
-            return str(local_vars[var_name])
+            ret = str(local_vars[var_name])
         else:
-            return os.environ[var_name]
+            ret = os.environ[var_name]
+        if ret == 'UNKNOWN':
+            return ''
+        return ret
 
     try:
         return re.sub(r'\$([a-zA-Z_][a-zA-Z_0-9]*)', _subst, s)

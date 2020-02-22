@@ -82,46 +82,5 @@ class DelTests:
         assert res == 1
         self.check_resops(call_r=1)   # for the case B(), but not for the case A()
 
-    def test_keepalive(self):
-        py.test.skip("XXX fails")   # hum, I think the test itself is broken
-        #
-        mydriver = JitDriver(reds = ['n', 'states'], greens = [])
-        class State:
-            num = 1
-        class X:
-            def __init__(self, state):
-                self.state = state
-            def __del__(self):
-                self.state.num += 1
-        @dont_look_inside
-        def do_stuff():
-            pass
-        def f(n):
-            states = []
-            while n > 0:
-                mydriver.jit_merge_point(n=n, states=states)
-                state = State()
-                states.append(state)
-                x = X(state)
-                do_stuff()
-                state.num *= 1000
-                do_stuff()
-                keepalive_until_here(x)
-                n -= 1
-            return states
-        def main(n):
-            states = f(n)
-            rgc.collect()
-            rgc.collect()
-            err = 1001
-            for state in states:
-                if state.num != 1001:
-                    err = state.num
-                    print 'ERROR:', err
-            return err
-        assert main(20) == 1001
-        res = self.meta_interp(main, [20])
-        assert res == 1001
-
 class TestLLtype(DelTests, LLJitMixin):
     pass

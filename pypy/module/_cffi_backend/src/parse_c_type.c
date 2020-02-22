@@ -37,7 +37,7 @@ enum token_e {
     /* keywords */
     TOK__BOOL,
     TOK_CHAR,
-    //TOK__COMPLEX,
+    TOK__COMPLEX,
     TOK_CONST,
     TOK_DOUBLE,
     TOK_ENUM,
@@ -171,6 +171,7 @@ static void next_token(token_t *tok)
         if (tok->size == 5 && !memcmp(p, "_Bool", 5))  tok->kind = TOK__BOOL;
         if (tok->size == 7 && !memcmp(p,"__cdecl",7))  tok->kind = TOK_CDECL;
         if (tok->size == 9 && !memcmp(p,"__stdcall",9))tok->kind = TOK_STDCALL;
+        if (tok->size == 8 && !memcmp(p,"_Complex",8)) tok->kind = TOK__COMPLEX;
         break;
     case 'c':
         if (tok->size == 4 && !memcmp(p, "char", 4))   tok->kind = TOK_CHAR;
@@ -504,6 +505,7 @@ int search_standard_typename(const char *p, size_t size)
 
     case '1':
         if (size == 8 && !memcmp(p, "uint16", 6)) return _CFFI_PRIM_UINT16;
+        if (size == 8 && !memcmp(p, "char16", 6)) return _CFFI_PRIM_CHAR16;
         break;
 
     case '2':
@@ -512,6 +514,7 @@ int search_standard_typename(const char *p, size_t size)
 
     case '3':
         if (size == 8 && !memcmp(p, "uint32", 6)) return _CFFI_PRIM_UINT32;
+        if (size == 8 && !memcmp(p, "char32", 6)) return _CFFI_PRIM_CHAR32;
         break;
 
     case '4':
@@ -613,6 +616,7 @@ static int parse_complete(token_t *tok)
 {
     unsigned int t0;
     _cffi_opcode_t t1;
+    _cffi_opcode_t t1complex;
     int modifiers_length, modifiers_sign;
 
  qualifiers:
@@ -668,6 +672,8 @@ static int parse_complete(token_t *tok)
         break;
     }
 
+    t1complex = 0;
+
     if (modifiers_length || modifiers_sign) {
 
         switch (tok->kind) {
@@ -678,6 +684,7 @@ static int parse_complete(token_t *tok)
         case TOK_STRUCT:
         case TOK_UNION:
         case TOK_ENUM:
+        case TOK__COMPLEX:
             return parse_error(tok, "invalid combination of types");
 
         case TOK_DOUBLE:
@@ -731,9 +738,11 @@ static int parse_complete(token_t *tok)
             break;
         case TOK_FLOAT:
             t1 = _CFFI_OP(_CFFI_OP_PRIMITIVE, _CFFI_PRIM_FLOAT);
+            t1complex = _CFFI_OP(_CFFI_OP_PRIMITIVE, _CFFI_PRIM_FLOATCOMPLEX);
             break;
         case TOK_DOUBLE:
             t1 = _CFFI_OP(_CFFI_OP_PRIMITIVE, _CFFI_PRIM_DOUBLE);
+            t1complex = _CFFI_OP(_CFFI_OP_PRIMITIVE, _CFFI_PRIM_DOUBLECOMPLEX);
             break;
         case TOK_IDENTIFIER:
         {
@@ -798,6 +807,13 @@ static int parse_complete(token_t *tok)
         default:
             return parse_error(tok, "identifier expected");
         }
+        next_token(tok);
+    }
+    if (tok->kind == TOK__COMPLEX)
+    {
+        if (t1complex == 0)
+            return parse_error(tok, "_Complex type combination unsupported");
+        t1 = t1complex;
         next_token(tok);
     }
 

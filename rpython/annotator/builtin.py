@@ -237,22 +237,30 @@ def robjmodel_instantiate(s_clspbc, s_nonmovable=None):
     return SomeInstance(clsdef)
 
 @analyzer_for(rpython.rlib.objectmodel.r_dict)
-def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
+def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None, s_simple_hash_eq=None):
+    return _r_dict_helper(SomeDict, s_eqfn, s_hashfn, s_force_non_null, s_simple_hash_eq)
+
+@analyzer_for(rpython.rlib.objectmodel.r_ordereddict)
+def robjmodel_r_ordereddict(s_eqfn, s_hashfn, s_force_non_null=None, s_simple_hash_eq=None):
+    return _r_dict_helper(SomeOrderedDict, s_eqfn, s_hashfn,
+                          s_force_non_null, s_simple_hash_eq)
+
+def _r_dict_helper(cls, s_eqfn, s_hashfn, s_force_non_null, s_simple_hash_eq):
     if s_force_non_null is None:
         force_non_null = False
     else:
         assert s_force_non_null.is_constant()
         force_non_null = s_force_non_null.const
+    if s_simple_hash_eq is None:
+        simple_hash_eq = False
+    else:
+        assert s_simple_hash_eq.is_constant()
+        simple_hash_eq = s_simple_hash_eq.const
     dictdef = getbookkeeper().getdictdef(is_r_dict=True,
-                                         force_non_null=force_non_null)
+                                         force_non_null=force_non_null,
+                                         simple_hash_eq=simple_hash_eq)
     dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
-    return SomeDict(dictdef)
-
-@analyzer_for(rpython.rlib.objectmodel.r_ordereddict)
-def robjmodel_r_ordereddict(s_eqfn, s_hashfn):
-    dictdef = getbookkeeper().getdictdef(is_r_dict=True)
-    dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
-    return SomeOrderedDict(dictdef)
+    return cls(dictdef)
 
 @analyzer_for(rpython.rlib.objectmodel.hlinvoke)
 def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):

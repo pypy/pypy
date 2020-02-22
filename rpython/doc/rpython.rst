@@ -259,6 +259,26 @@ helpers (which live in :source:`rpython/rlib/rarithmetic.py`):
   intmask().
 
 
+Type Enforcing and Checking
+---------------------------
+
+RPython provides a helper decorator to force RPython-level types on function
+arguments. The decorator, called ``enforceargs()``, accepts as parameters the
+types expected to match the arguments of the function.
+
+Functions decorated with ``enforceargs()`` have their function signature
+analyzed and their RPython-level type inferred at import time (for further
+details about the flavor of translation performed in RPython, see the
+`Annotation pass documentation`_). Encountering types not supported by RPython
+will raise a ``TypeError``.
+
+``enforceargs()`` by default also performs type checking of parameter types
+each time the function is invoked. To disable this behavior, it's possible to
+pass the ``typecheck=False`` parameter to the decorator.
+
+.. _Annotation pass documentation: http://rpython.readthedocs.io/en/latest/translation.html#annotator
+
+
 Exception rules
 ---------------
 

@@ -179,7 +179,7 @@ def test_richards():
     t, graph = rtype(entry_point, [int])
     total0 = preparation(t, t.graphs)
     total = clever_inlining_and_malloc_removal(t)
-    assert total0 + total == 10
+    assert total0 + total == 9
 
 def test_loop():
     l = [10, 12, 15, 1]

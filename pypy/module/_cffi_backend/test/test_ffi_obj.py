@@ -1,4 +1,22 @@
+from pypy.module._cffi_backend import newtype
 from pypy.module._cffi_backend.newtype import _clean_cache
+
+
+class TestFFIObj:
+    spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
+
+    def teardown_method(self, meth):
+        _clean_cache(self.space)
+
+    def test_new_function_type_during_translation(self):
+        space = self.space
+        BInt = newtype.new_primitive_type(space, "int")
+        BFunc = newtype.new_function_type(space, space.wrap([BInt]), BInt)
+        assert BFunc is newtype.new_function_type(space,space.wrap([BInt]),BInt)
+        unique_cache = space.fromcache(newtype.UniqueCache)
+        unique_cache._cleanup_()
+        assert BFunc is newtype.new_function_type(space,space.wrap([BInt]),BInt)
+
 
 class AppTestFFIObj:
     spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
@@ -238,16 +256,59 @@ class AppTestFFIObj:
         ffi = _cffi1_backend.FFI()
         a = ffi.new("signed char[]", [5, 6, 7])
         assert ffi.buffer(a)[:] == '\x05\x06\x07'
+        assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
+        assert type(ffi.buffer(a)) is ffi.buffer
+
+    def test_ffi_buffer_comparisons(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        ba = bytearray(range(100, 110))
+        assert ba == memoryview(ba)    # justification for the following
+        a = ffi.new("uint8_t[]", list(ba))
+        c = ffi.new("uint8_t[]", [99] + list(ba))
+        b_full = ffi.buffer(a)
+        b_short = ffi.buffer(a, 3)
+        b_mid = ffi.buffer(a, 6)
+        b_other = ffi.buffer(c, 6)
+        content = b_full[:]
+        assert content == b_full == ba
+        assert b_short < b_mid < b_full
+        assert b_other < b_short < b_mid < b_full
+        assert ba > b_mid > ba[0:2]
+        assert b_short != ba[1:4]
+        assert b_short != 42
 
     def test_ffi_from_buffer(self):
         import _cffi_backend as _cffi1_backend
         import array
         ffi = _cffi1_backend.FFI()
-        a = array.array('H', [10000, 20000, 30000])
+        a = array.array('H', [10000, 20000, 30000, 40000])
         c = ffi.from_buffer(a)
         assert ffi.typeof(c) is ffi.typeof("char[]")
+        assert len(c) == 8
         ffi.cast("unsigned short *", c)[1] += 500
-        assert list(a) == [10000, 20500, 30000]
+        assert list(a) == [10000, 20500, 30000, 40000]
+        raises(TypeError, ffi.from_buffer, a, True)
+        assert c == ffi.from_buffer("char[]", a, True)
+        assert c == ffi.from_buffer(a, require_writable=True)
+        #
+        c = ffi.from_buffer("unsigned short[]", a)
+        assert len(c) == 4
+        assert c[1] == 20500
+        #
+        c = ffi.from_buffer("unsigned short[2][2]", a)
+        assert len(c) == 2
+        assert len(c[0]) == 2
+        assert c[0][1] == 20500
+        #
+        p = ffi.from_buffer(b"abcd")
+        assert p[2] == b"c"
+        #
+        assert p == ffi.from_buffer(b"abcd", require_writable=False)
+        raises((TypeError, BufferError), ffi.from_buffer,
+                                         "char[]", b"abcd", True)
+        raises((TypeError, BufferError), ffi.from_buffer, b"abcd",
+                                         require_writable=True)
 
     def test_memmove(self):
         import sys
@@ -338,7 +399,7 @@ class AppTestFFIObj:
         raises(TypeError, ffi.gc, p, None)
         seen = []
         q1 = ffi.gc(p, lambda p: seen.append(1))
-        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        q2 = ffi.gc(q1, lambda p: seen.append(2), size=123)
         import gc; gc.collect()
         assert seen == []
         assert ffi.gc(q1, None) is None
@@ -401,7 +462,8 @@ class AppTestFFIObj:
             retries += 1
             assert retries <= 5
             import gc; gc.collect()
-        assert seen == [40, 40, raw1, raw2]
+        assert (seen == [40, 40, raw1, raw2] or
+                seen == [40, 40, raw2, raw1])
         assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
         assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
 
@@ -515,3 +577,21 @@ class AppTestFFIObj:
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         raises(ffi.error, ffi.cast, "int[-5]", 0)
+
+    def test_char32_t(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        z = ffi.new("char32_t[]", u'\U00012345')
+        assert len(z) == 2
+        assert ffi.cast("int *", z)[0] == 0x12345
+        assert list(z) == [u'\U00012345', u'\x00']   # maybe a 2-unichars str
+
+    def test_ffi_array_as_init(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("int[4]", [10, 20, 30, 400])
+        q = ffi.new("int[4]", p)
+        assert list(q) == [10, 20, 30, 400]
+        raises(TypeError, ffi.new, "int[3]", p)
+        raises(TypeError, ffi.new, "int[5]", p)
+        raises(TypeError, ffi.new, "int16_t[4]", p)

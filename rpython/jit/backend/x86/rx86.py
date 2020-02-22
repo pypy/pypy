@@ -699,6 +699,9 @@ class AbstractX86CodeBuilder(object):
     TEST_ai = insn(rex_w, '\xF7', orbyte(0<<3), mem_reg_plus_scaled_reg_plus_const(1), immediate(2))
     TEST_mi = insn(rex_w, '\xF7', orbyte(0<<3), mem_reg_plus_const(1), immediate(2))
     TEST_ji = insn(rex_w, '\xF7', orbyte(0<<3), abs_(1), immediate(2))
+    TEST_ri = insn(rex_w, '\xF7', orbyte(0<<3), register(1), '\xC0', immediate(2))
+    TEST_bi = insn(rex_w, '\xF7', orbyte(0<<3), stack_bp(1), immediate(2))
+    TEST_br = insn(rex_w, '\x85', register(2,8), stack_bp(1))
 
     BTS_mr = insn(rex_w, '\x0F\xAB', register(2,8), mem_reg_plus_const(1))
     BTS_jr = insn(rex_w, '\x0F\xAB', register(2,8), abs_(1))

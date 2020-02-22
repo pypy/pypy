@@ -1,12 +1,13 @@
 """The builtin str implementation"""
 
-from rpython.rlib.jit import we_are_jitted
+from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.rstring import StringBuilder, replace
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import SimpleView
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
@@ -17,12 +18,13 @@ from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
     decode_object, unicode_from_encoded_object,
-    unicode_from_string, getdefaultencoding)
+    getdefaultencoding, unicode_from_string)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 
 class W_AbstractBytesObject(W_Root):
     __slots__ = ()
+    exact_class_applevel_name = 'str'
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_AbstractBytesObject):
@@ -31,8 +33,8 @@ class W_AbstractBytesObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        s1 = space.str_w(self)
-        s2 = space.str_w(w_other)
+        s1 = space.bytes_w(self)
+        s2 = space.bytes_w(w_other)
         if len(s2) > 1:
             return s1 is s2
         else:            # strings of len <= 1 are unique-ified
@@ -41,7 +43,7 @@ class W_AbstractBytesObject(W_Root):
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        s = space.str_w(self)
+        s = space.bytes_w(self)
         if len(s) > 1:
             uid = compute_unique_id(s)
         else:            # strings of len <= 1 are unique-ified
@@ -50,12 +52,10 @@ class W_AbstractBytesObject(W_Root):
             else:
                 base = 256           # empty string: base value 256
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
-        return space.wrap(uid)
+        return space.newint(uid)
 
-    def unicode_w(self, space):
-        # Use the default encoding.
-        encoding = getdefaultencoding(space)
-        return space.unicode_w(decode_object(space, self, encoding, None))
+    def convert_to_w_unicode(self, space):
+        return unicode_from_string(space, self)
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""
@@ -452,9 +452,12 @@ class W_BytesObject(W_AbstractBytesObject):
     def str_w(self, space):
         return self._value
 
+    def utf8_w(self, space):
+        return self._value
+
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
-        return StringBuffer(self._value)
+        return SimpleView(StringBuffer(self._value))
 
     def readbuf_w(self, space):
         return StringBuffer(self._value)
@@ -478,7 +481,7 @@ class W_BytesObject(W_AbstractBytesObject):
             raise oefmt(space.w_TypeError,
                         "ord() expected a character, but string of length %d "
                         "found", len(self._value))
-        return space.wrap(ord(self._value[0]))
+        return space.newint(ord(self._value[0]))
 
     def _new(self, value):
         return W_BytesObject(value)
@@ -502,11 +505,11 @@ class W_BytesObject(W_AbstractBytesObject):
 
     @staticmethod
     def _op_val(space, w_other, strict=None):
-        if strict and not space.isinstance_w(w_other, space.w_str):
+        if strict and not space.isinstance_w(w_other, space.w_bytes):
             raise oefmt(space.w_TypeError,
                 "%s arg must be None, str or unicode", strict)
         try:
-            return space.str_w(w_other)
+            return space.bytes_w(w_other)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -569,9 +572,9 @@ class W_BytesObject(W_AbstractBytesObject):
         # NB. the default value of w_object is really a *wrapped* empty string:
         #     there is gateway magic at work
         w_obj = space.str(w_object)
-        if space.is_w(w_stringtype, space.w_str):
+        if space.is_w(w_stringtype, space.w_bytes):
             return w_obj  # XXX might be reworked when space.str() typechecks
-        value = space.str_w(w_obj)
+        value = space.bytes_w(w_obj)
         w_obj = space.allocate_instance(W_BytesObject, w_stringtype)
         W_BytesObject.__init__(w_obj, value)
         return w_obj
@@ -581,7 +584,7 @@ class W_BytesObject(W_AbstractBytesObject):
         quote = "'"
         if quote in s and '"' not in s:
             quote = '"'
-        return space.wrap(string_escape_encode(s, quote))
+        return space.newtext(string_escape_encode(s, quote))
 
     def descr_str(self, space):
         if type(self) is W_BytesObject:
@@ -590,17 +593,18 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
-        return space.wrap(x)
+        x -= (x == -1) # convert -1 to -2 without creating a bridge
+        return space.newint(x)
 
     def descr_format(self, space, __args__):
         return newformat.format_method(space, self, __args__, is_unicode=False)
 
     def descr__format__(self, space, w_format_spec):
-        if not space.isinstance_w(w_format_spec, space.w_str):
+        if not space.isinstance_w(w_format_spec, space.w_bytes):
             w_format_spec = space.str(w_format_spec)
-        spec = space.str_w(w_format_spec)
+        spec = space.bytes_w(w_format_spec)
         formatter = newformat.str_formatter(space, spec)
-        return formatter.format_string(self._value)
+        return formatter.format_string(self)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=False)
@@ -609,55 +613,31 @@ class W_BytesObject(W_AbstractBytesObject):
         return mod_format(space, w_values, self, do_unicode=False)
 
     def descr_eq(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value == w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value == w_other._value)
 
     def descr_ne(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value != w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value != w_other._value)
 
     def descr_lt(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value < w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value < w_other._value)
 
     def descr_le(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value <= w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value <= w_other._value)
 
     def descr_gt(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value > w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value > w_other._value)
 
     def descr_ge(self, space, w_other):
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            if isinstance(w_other, W_StringBufferObject):
-                return space.newbool(self._value >= w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
         return space.newbool(self._value >= w_other._value)
@@ -669,24 +649,12 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_other, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return space.add(self_as_unicode, w_other)
+            return self_as_unicode.descr_add(space, w_other)
         elif space.isinstance_w(w_other, space.w_bytearray):
             # XXX: eliminate double-copy
             from .bytearrayobject import W_BytearrayObject, _make_data
             self_as_bytearray = W_BytearrayObject(_make_data(self._value))
             return space.add(self_as_bytearray, w_other)
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            try:
-                other = self._op_val(space, w_other)
-            except OperationError as e:
-                if e.match(space, space.w_TypeError):
-                    return space.w_NotImplemented
-                raise
-            builder = StringBuilder()
-            builder.append(self._value)
-            builder.append(other)
-            return W_StringBufferObject(builder)
         return self._StringMethods_descr_add(space, w_other)
 
     _StringMethods__startswith = _startswith
@@ -694,7 +662,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_prefix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return self_as_unicode._startswith(space, self_as_unicode._value,
+            return self_as_unicode._startswith(space, self_as_unicode._utf8,
                                                w_prefix, start, end)
         return self._StringMethods__startswith(space, value, w_prefix, start,
                                                end)
@@ -704,7 +672,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if space.isinstance_w(w_suffix, space.w_unicode):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
-            return self_as_unicode._endswith(space, self_as_unicode._value,
+            return self_as_unicode._endswith(space, self_as_unicode._utf8,
                                              w_suffix, start, end)
         return self._StringMethods__endswith(space, value, w_suffix, start,
                                              end)
@@ -717,7 +685,7 @@ class W_BytesObject(W_AbstractBytesObject):
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
             return space.newbool(
-                self_as_unicode._value.find(w_sub._value) >= 0)
+                self_as_unicode._utf8.find(w_sub._utf8) >= 0)
         return self._StringMethods_descr_contains(space, w_sub)
 
     _StringMethods_descr_replace = descr_replace
@@ -826,11 +794,11 @@ class W_BytesObject(W_AbstractBytesObject):
         return self._StringMethods_descr_rpartition(space, w_sub)
 
     def _join_return_one(self, space, w_obj):
-        return (space.is_w(space.type(w_obj), space.w_str) or
+        return (space.is_w(space.type(w_obj), space.w_bytes) or
                 space.is_w(space.type(w_obj), space.w_unicode))
 
     def _join_check_item(self, space, w_obj):
-        if space.isinstance_w(w_obj, space.w_str):
+        if space.isinstance_w(w_obj, space.w_bytes):
             return 0
         if space.isinstance_w(w_obj, space.w_unicode):
             return 2
@@ -851,12 +819,12 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_formatter_parser(self, space):
         from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
+        tformat = str_template_formatter(space, space.bytes_w(self))
         return tformat.formatter_parser()
 
     def descr_formatter_field_name_split(self, space):
         from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
+        tformat = str_template_formatter(space, space.bytes_w(self))
         return tformat.formatter_field_name_split()
 
 
@@ -950,6 +918,7 @@ W_BytesObject.typedef = TypeDef(
 W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
+@jit.elidable
 def string_escape_encode(s, quote):
     buf = StringBuilder(len(s) + 2)
 

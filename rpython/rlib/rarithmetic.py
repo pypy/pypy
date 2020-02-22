@@ -11,7 +11,7 @@ r_uint   an unsigned integer which has no overflow
 intmask  mask a possibly long value when running on CPython
          back to a signed int value
 ovfcheck check on CPython whether the result of a signed
-         integer operation did overflow
+         integer operation did overflow (add, sub, mul)
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
 ovfcheck_float_to_longlong
@@ -25,6 +25,10 @@ widen(x)
          lltype.Unsigned, widen it to lltype.Signed.
          Useful because the translator doesn't support
          arithmetic on the smaller types.
+ovfcheck_int32_add/sub/mul(x, y)
+         perform an add/sub/mul between two regular integers,
+         but assumes that they fit inside signed 32-bit ints
+         and raises OverflowError if the result no longer does
 
 These are meant to be erased by translation, r_uint
 in the process should mark unsigned values, ovfcheck should
@@ -32,7 +36,7 @@ mark where overflow checking is required.
 
 
 """
-import sys, struct
+import sys, struct, math
 from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
@@ -168,6 +172,7 @@ def is_valid_int(r):
 def ovfcheck(r):
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
+    # Nowadays, only supports '+', '-' or '*' as the operation.
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
@@ -186,8 +191,7 @@ def ovfcheck(r):
 # Note the "<= x <" here, as opposed to "< x <" above.
 # This is justified by test_typed in translator/c/test.
 def ovfcheck_float_to_longlong(x):
-    from rpython.rlib.rfloat import isnan
-    if isnan(x):
+    if math.isnan(x):
         raise OverflowError
     if -9223372036854776832.0 <= x < 9223372036854775296.0:
         return r_longlong(x)
@@ -195,8 +199,7 @@ def ovfcheck_float_to_longlong(x):
 
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
-        from rpython.rlib.rfloat import isnan
-        if isnan(x):
+        if math.isnan(x):
             raise OverflowError
         if -2147483649.0 < x < 2147483648.0:
             return int(x)
@@ -609,6 +612,7 @@ r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
 r_longlonglong = build_int('r_longlonglong', True, 128)
+r_ulonglonglong = build_int('r_ulonglonglong', False, 128)
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
@@ -725,7 +729,9 @@ def int_force_ge_zero(n):
     """ The JIT special-cases this too. """
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
-    return llop.int_force_ge_zero(lltype.Signed, n)
+    n = llop.int_force_ge_zero(lltype.Signed, n)
+    assert n >= 0
+    return n
 
 def int_c_div(x, y):
     """Return the result of the C-style 'x / y'.  This differs from the
@@ -795,20 +801,87 @@ def byteswap(arg):
         return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)
 
+if sys.maxint == 2147483647:
+    def ovfcheck_int32_add(x, y):
+        return ovfcheck(x + y)
+    def ovfcheck_int32_sub(x, y):
+        return ovfcheck(x - y)
+    def ovfcheck_int32_mul(x, y):
+        return ovfcheck(x * y)
+else:
+    def ovfcheck_int32_add(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x + y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
+
+    def ovfcheck_int32_sub(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x - y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
+
+    def ovfcheck_int32_mul(x, y):
+        """x and y are assumed to fit inside the 32-bit rffi.INT;
+        raises OverflowError if the result doesn't fit rffi.INT"""
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        x = rffi.cast(lltype.Signed, x)
+        y = rffi.cast(lltype.Signed, y)
+        z = x * y
+        if z != rffi.cast(lltype.Signed, rffi.cast(rffi.INT, z)):
+            raise OverflowError
+        return z
+
+
+@specialize.memo()
+def check_support_int128():
+    from rpython.rtyper.lltypesystem import rffi
+    return hasattr(rffi, '__INT128_T')
+
+def mulmod(a, b, c):
+    """Computes (a * b) % c.
+    Assumes c > 0, and returns a nonnegative result.
+    """
+    assert c > 0
+    if LONG_BIT < LONGLONG_BIT:
+        a = r_longlong(a)
+        b = r_longlong(b)
+        return intmask((a * b) % c)
+    elif check_support_int128():
+        a = r_longlonglong(a)
+        b = r_longlonglong(b)
+        return intmask((a * b) % c)
+    else:
+        from rpython.rlib.rbigint import rbigint
+        a = rbigint.fromlong(a)
+        b = rbigint.fromlong(b)
+        return a.mul(b).int_mod(c).toint()
+
 
 # String parsing support
 # ---------------------------
 
-def string_to_int(s, base=10):
+def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
     Raises ParseStringOverflowError in case the result does not fit.
     """
     from rpython.rlib.rstring import (
-        NumberStringParser, ParseStringOverflowError, strip_spaces)
-    s = literal = strip_spaces(s)
-    p = NumberStringParser(s, literal, base, 'int')
+        NumberStringParser, ParseStringOverflowError)
+    p = NumberStringParser(s, s, base, 'int',
+                           allow_underscores=allow_underscores,
+                           no_implicit_octal=no_implicit_octal)
     base = p.base
     result = 0
     while True:

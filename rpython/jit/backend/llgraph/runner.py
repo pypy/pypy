@@ -9,17 +9,19 @@ from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.metainterp.optimize import SpeculativeError
+from rpython.jit.metainterp.support import ptr2int, int_signext
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong, intmask
-from rpython.rlib.objectmodel import Symbolic
+from rpython.rlib.objectmodel import Symbolic, compute_hash
 
 class LLAsmInfo(object):
     def __init__(self, lltrace):
@@ -35,7 +37,7 @@ class LLTrace(object):
         # front-end will mutate them under our feet again.  We also
         # need to make sure things get freed.
         _cache={}
-        
+
         def mapping(box):
             if isinstance(box, Const) or box is None:
                 return box
@@ -135,7 +137,7 @@ class SizeDescr(AbstractDescr):
         if self._vtable is Ellipsis:
             self._vtable = heaptracker.get_vtable_for_gcstruct(self._runner,
                                                                self.S)
-        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self._vtable))
+        return ptr2int(self._vtable)
 
     def is_immutable(self):
         return heaptracker.is_immutable_struct(self.S)
@@ -207,7 +209,7 @@ def _is_signed_kind(TYPE):
 
 class ArrayDescr(AbstractDescr):
     all_interiorfielddescrs = None
-    
+
     def __init__(self, A, runner):
         self.A = self.OUTERA = A
         self._is_pure = A._immutable_field(None)
@@ -321,12 +323,10 @@ _example_res = {'v': None,
 
 
 class LLGraphCPU(model.AbstractCPU):
-    from rpython.jit.metainterp.typesystem import llhelper as ts
     supports_floats = True
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
     supports_guard_gc_type = True
-    supports_cond_call_value = True
     translate_support_code = False
     is_llgraph = True
     vector_ext = VectorExt()
@@ -716,16 +716,28 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
+    def _get_int_type_from_size(self, size):
+        if   size == 1:
+            return rffi.UCHAR
+        elif size == 2:
+            return rffi.USHORT
+        elif size == 4:
+            return rffi.UINT
+        elif size == 8:
+            return rffi.ULONGLONG
+        elif size == -1:
+            return rffi.SIGNEDCHAR
+        elif size == -2:
+            return rffi.SHORT
+        elif size == -4:
+            return rffi.INT
+        elif size == -8:
+            return rffi.LONGLONG
+        else:
+            raise NotImplementedError(size)
+
     def bh_gc_load_indexed_i(self, struct, index, scale, base_ofs, bytes):
-        if   bytes == 1: T = rffi.UCHAR
-        elif bytes == 2: T = rffi.USHORT
-        elif bytes == 4: T = rffi.UINT
-        elif bytes == 8: T = rffi.ULONGLONG
-        elif bytes == -1: T = rffi.SIGNEDCHAR
-        elif bytes == -2: T = rffi.SHORT
-        elif bytes == -4: T = rffi.INT
-        elif bytes == -8: T = rffi.LONGLONG
-        else: raise NotImplementedError(bytes)
+        T = self._get_int_type_from_size(bytes)
         x = llop.gc_load_indexed(T, struct, index, scale, base_ofs)
         return lltype.cast_primitive(lltype.Signed, x)
 
@@ -734,6 +746,30 @@ class LLGraphCPU(model.AbstractCPU):
             raise Exception("gc_load_indexed_f is only for 'double'!")
         return llop.gc_load_indexed(longlong.FLOATSTORAGE,
                                     struct, index, scale, base_ofs)
+
+    def bh_gc_store_indexed_i(self, struct, index, val, scale, base_ofs, bytes,
+                              descr):
+        T = self._get_int_type_from_size(bytes)
+        val = lltype.cast_primitive(T, val)
+        if descr.A.OF == lltype.SingleFloat:
+            val = longlong.int2singlefloat(val)
+        llop.gc_store_indexed(lltype.Void, struct, index, val, scale, base_ofs)
+
+    def bh_gc_store_indexed_f(self, struct, index, val, scale, base_ofs, bytes,
+                              descr):
+        if bytes != 8:
+            raise Exception("gc_store_indexed_f is only for 'double'!")
+        val = longlong.getrealfloat(val)
+        llop.gc_store_indexed(lltype.Void, struct, index, val, scale, base_ofs)
+
+    def bh_gc_store_indexed(self, struct, index, val, scale, base_ofs, bytes,
+                            descr):
+        if descr.A.OF == lltype.Float:
+            self.bh_gc_store_indexed_f(struct, index, val, scale, base_ofs,
+                                       bytes, descr)
+        else:
+            self.bh_gc_store_indexed_i(struct, index, val, scale, base_ofs,
+                                       bytes, descr)
 
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
@@ -789,6 +825,10 @@ class LLGraphCPU(model.AbstractCPU):
         assert 0 <= dststart <= dststart + length <= len(dst.chars)
         rstr.copy_string_contents(src, dst, srcstart, dststart, length)
 
+    def bh_strhash(self, s):
+        lls = s._obj.container
+        return compute_hash(hlstr(lls._as_ptr()))
+
     def bh_newunicode(self, length):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
                                       lltype.malloc(rstr.UNICODE, length,
@@ -810,6 +850,10 @@ class LLGraphCPU(model.AbstractCPU):
         assert 0 <= srcstart <= srcstart + length <= len(src.chars)
         assert 0 <= dststart <= dststart + length <= len(dst.chars)
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
+
+    def bh_unicodehash(self, s):
+        lls = s._obj.container
+        return compute_hash(hlunicode(lls._as_ptr()))
 
     def bh_new(self, sizedescr):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
@@ -833,8 +877,7 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
-        return heaptracker.adr2int(result_adr)
+        return ptr2int(struct.typeptr)
 
     # vector operations
     vector_arith_code = """
@@ -934,7 +977,7 @@ class LLGraphCPU(model.AbstractCPU):
     bh_vec_expand_i = _bh_vec_expand
 
     def bh_vec_int_signext(self, vx, ext, count):
-        return [heaptracker.int_signext(_vx, ext) for _vx in vx]
+        return [int_signext(_vx, ext) for _vx in vx]
 
     def build_load(func):
         def load(self, struct, offset, scale, disp, descr, _count):
@@ -1045,7 +1088,7 @@ class LLFrame(object):
             if box.datatype == INT:
                 for i,a in enumerate(arg):
                     if isinstance(a, bool):
-                        arg[i] = int(a) 
+                        arg[i] = int(a)
                 assert all([lltype.typeOf(a) == lltype.Signed for a in arg])
             elif box.datatype == FLOAT:
                 assert all([lltype.typeOf(a) == longlong.FLOATSTORAGE or \
@@ -1120,7 +1163,7 @@ class LLFrame(object):
                 value = sum(value)
             elif info.accum_operation == '*':
                 def prod(acc, x): return acc * x
-                value = reduce(prod, value, 1)
+                value = reduce(prod, value, 1.0)
             else:
                 raise NotImplementedError("accum operator in fail guard")
             values[i] = value
@@ -1508,13 +1551,12 @@ class LLFrame(object):
         return res
 
     def execute_restore_exception(self, descr, kls, e):
-        kls = heaptracker.int2adr(kls)
         if e:
             value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, e)
-            assert llmemory.cast_ptr_to_adr(value.typeptr) == kls
+            assert ptr2int(value.typeptr) == kls
             lle = LLException(value.typeptr, e)
         else:
-            assert kls == llmemory.NULL
+            assert kls == 0
             lle = None
         self.last_exception = lle
 

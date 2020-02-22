@@ -1090,18 +1090,18 @@ class AppTestOldStyleClassBytesDict(object):
     def setup_class(cls):
         if cls.runappdirect:
             py.test.skip("can only be run on py.py")
-        def is_strdict(space, w_class):
-            from pypy.objspace.std.dictmultiobject import BytesDictStrategy
+        def is_moduledict(space, w_class):
+            from pypy.objspace.std.celldict import ModuleDictStrategy
             w_d = w_class.getdict(space)
-            return space.wrap(isinstance(w_d.get_strategy(), BytesDictStrategy))
+            return space.wrap(isinstance(w_d.get_strategy(), ModuleDictStrategy))
 
-        cls.w_is_strdict = cls.space.wrap(gateway.interp2app(is_strdict))
+        cls.w_is_moduledict = cls.space.wrap(gateway.interp2app(is_moduledict))
 
-    def test_strdict(self):
+    def test_moduledict(self):
         class A:
             a = 1
             b = 2
-        assert self.is_strdict(A)
+        assert self.is_moduledict(A)
 
     def test_attr_slots(self):
         class C:

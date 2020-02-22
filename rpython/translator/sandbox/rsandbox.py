@@ -27,17 +27,20 @@ log = AnsiLogger("sandbox")
 ll_read_not_sandboxed = rposix.external('read',
                                         [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
                                         rffi.SIZE_T,
-                                        sandboxsafe=True)
+                                        sandboxsafe=True,
+                                        _nowrapper=True)
 
 ll_write_not_sandboxed = rposix.external('write',
                                          [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
                                          rffi.SIZE_T,
-                                         sandboxsafe=True)
+                                         sandboxsafe=True,
+                                         _nowrapper=True)
 
 
 @signature(types.int(), types.ptr(rffi.CCHARP.TO), types.int(),
     returns=types.none())
 def writeall_not_sandboxed(fd, buf, length):
+    fd = rffi.cast(rffi.INT, fd)
     while length > 0:
         size = rffi.cast(rffi.SIZE_T, length)
         count = rffi.cast(lltype.Signed, ll_write_not_sandboxed(fd, buf, size))
@@ -58,7 +61,8 @@ class FdLoader(rmarshal.Loader):
         buflen = self.buflen
         with lltype.scoped_alloc(rffi.CCHARP.TO, buflen) as buf:
             buflen = rffi.cast(rffi.SIZE_T, buflen)
-            count = ll_read_not_sandboxed(self.fd, buf, buflen)
+            fd = rffi.cast(rffi.INT, self.fd)
+            count = ll_read_not_sandboxed(fd, buf, buflen)
             count = rffi.cast(lltype.Signed, count)
             if count <= 0:
                 raise IOError

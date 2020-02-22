@@ -6,18 +6,30 @@ class SyntaxError(Exception):
                  lastlineno=0):
         self.msg = msg
         self.lineno = lineno
+        # NB: offset is a 1-based index!
         self.offset = offset
         self.text = text
         self.filename = filename
         self.lastlineno = lastlineno
 
-    def wrap_info(self, space):
-        return space.newtuple([space.wrap(self.msg),
-                               space.newtuple([space.wrap(self.filename),
-                                               space.wrap(self.lineno),
-                                               space.wrap(self.offset),
-                                               space.wrap(self.text),
-                                               space.wrap(self.lastlineno)])])
+    def find_sourceline_and_wrap_info(self, space, source=None):
+        """ search for the line of input that caused the error and then return
+        a wrapped tuple that can be used to construct a wrapped SyntaxError.
+        Optionally pass source, to get better error messages for the case where
+        this instance was constructed without a source line (.text
+        attribute)"""
+        text = self.text
+        if text is None and source is not None and self.lineno:
+            lines = source.splitlines(True)
+            text = lines[self.lineno - 1]
+        w_filename = space.newtext_or_none(self.filename)
+        w_text = space.newtext_or_none(text)
+        return space.newtuple([space.newtext(self.msg),
+                               space.newtuple([w_filename,
+                                               space.newint(self.lineno),
+                                               space.newint(self.offset),
+                                               w_text,
+                                               space.newint(self.lastlineno)])])
 
     def __str__(self):
         return "%s at pos (%d, %d) in %r" % (self.__class__.__name__,

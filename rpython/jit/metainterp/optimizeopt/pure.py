@@ -2,7 +2,8 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED)
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import SpeculativeError
 
@@ -57,9 +58,9 @@ class RecentPureOps(object):
             op = self.lst[i]
             if op is None:
                 break
-            if box0.same_box(opt.get_box_replacement(op.getarg(0))) and op.getdescr() is descr:
+            if box0.same_box(get_box_replacement(op.getarg(0))) and op.getdescr() is descr:
                 op = self.force_preamble_op(opt, op, i)
-                return opt.get_box_replacement(op)
+                return get_box_replacement(op)
         return None
 
     def lookup2(self, opt, box0, box1, descr):
@@ -67,23 +68,23 @@ class RecentPureOps(object):
             op = self.lst[i]
             if op is None:
                 break
-            if (box0.same_box(opt.get_box_replacement(op.getarg(0))) and
-                box1.same_box(opt.get_box_replacement(op.getarg(1))) and
+            if (box0.same_box(get_box_replacement(op.getarg(0))) and
+                box1.same_box(get_box_replacement(op.getarg(1))) and
                 op.getdescr() is descr):
                 op = self.force_preamble_op(opt, op, i)
-                return opt.get_box_replacement(op)
+                return get_box_replacement(op)
         return None
 
     def lookup(self, optimizer, op):
         numargs = op.numargs()
         if numargs == 1:
             return self.lookup1(optimizer,
-                                optimizer.get_box_replacement(op.getarg(0)),
+                                get_box_replacement(op.getarg(0)),
                                 op.getdescr())
         elif numargs == 2:
             return self.lookup2(optimizer,
-                                optimizer.get_box_replacement(op.getarg(0)),
-                                optimizer.get_box_replacement(op.getarg(1)),
+                                get_box_replacement(op.getarg(0)),
+                                get_box_replacement(op.getarg(1)),
                                 op.getdescr())
         else:
             assert False
@@ -151,13 +152,13 @@ class OptPure(Optimization):
             self._pure_operations[opnum] = recentops = RecentPureOps()
         return recentops
 
-    def optimize_CALL_PURE_I(self, op):
+    def optimize_call_pure(self, op, start_index=0):
         # Step 1: check if all arguments are constant
-        for arg in op.getarglist():
-            self.optimizer.force_box(arg)
+        for i in range(start_index, op.numargs()):
+            self.optimizer.force_box(op.getarg(i))
             # XXX hack to ensure that virtuals that are
             #     constant are presented that way
-        result = self._can_optimize_call_pure(op)
+        result = self._can_optimize_call_pure(op, start_index=start_index)
         if result is not None:
             # this removes a CALL_PURE with all constant arguments.
             self.make_constant(op, result)
@@ -168,32 +169,46 @@ class OptPure(Optimization):
         # CALL_PURE.
         for pos in self.call_pure_positions:
             old_op = self.optimizer._newoperations[pos]
-            if self.optimize_call_pure(op, old_op):
+            if self.optimize_call_pure_old(op, old_op, start_index):
                 return
         if self.extra_call_pure:
             for i, old_op in enumerate(self.extra_call_pure):
-                if self.optimize_call_pure(op, old_op):
+                if self.optimize_call_pure_old(op, old_op, start_index):
                     if isinstance(old_op, PreambleOp):
                         old_op = self.optimizer.force_op_from_preamble(old_op)
                         self.extra_call_pure[i] = old_op
                     return
 
-        # replace CALL_PURE with just CALL
-        opnum = OpHelpers.call_for_descr(op.getdescr())
-        newop = self.optimizer.replace_op_with(op, opnum)
+        # replace CALL_PURE with just CALL (but keep COND_CALL_VALUE)
+        if start_index == 0:
+            opnum = OpHelpers.call_for_descr(op.getdescr())
+            newop = self.optimizer.replace_op_with(op, opnum)
+        else:
+            newop = op
         return self.emit_result(CallPureOptimizationResult(self, newop))
 
+    def optimize_CALL_PURE_I(self, op):
+        return self.optimize_call_pure(op)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
     optimize_CALL_PURE_N = optimize_CALL_PURE_I
 
-    def optimize_call_pure(self, op, old_op):
-        if (op.numargs() != old_op.numargs() or
-            op.getdescr() is not old_op.getdescr()):
+    def optimize_COND_CALL_VALUE_I(self, op):
+        return self.optimize_call_pure(op, start_index=1)
+    optimize_COND_CALL_VALUE_R = optimize_COND_CALL_VALUE_I
+
+    def optimize_call_pure_old(self, op, old_op, start_index):
+        if op.getdescr() is not old_op.getdescr():
             return False
-        for i, box in enumerate(old_op.getarglist()):
-            if not self.get_box_replacement(op.getarg(i)).same_box(box):
+        # this will match a call_pure and a cond_call_value with
+        # the same function and arguments
+        j = start_index
+        old_start_index = OpHelpers.is_cond_call_value(old_op.opnum)
+        for i in range(old_start_index, old_op.numargs()):
+            box = old_op.getarg(i)
+            if not get_box_replacement(op.getarg(j)).same_box(box):
                 break
+            j += 1
         else:
             # all identical
             # this removes a CALL_PURE that has the same (non-constant)
@@ -225,14 +240,10 @@ class OptPure(Optimization):
 
     def pure_from_args(self, opnum, args, op, descr=None):
         newop = ResOperation(opnum,
-                             [self.get_box_replacement(arg) for arg in args],
+                             [get_box_replacement(arg) for arg in args],
                              descr=descr)
         newop.set_forwarded(op)
         self.pure(opnum, newop)
-
-    def has_pure_result(self, opnum, args, descr):
-        return False
-    # XXX
 
     def get_pure_result(self, op):
         recentops = self.getrecentops(op.getopnum())
@@ -250,10 +261,17 @@ class OptPure(Optimization):
             # don't move call_pure_with_exception in the short preamble...
             # issue #2015
 
+            # Also, don't move cond_call_value in the short preamble.
+            # The issue there is that it's usually pointless to try to
+            # because the 'value' argument is typically not a loop
+            # invariant, and would really need to be in order to end up
+            # in the short preamble.  Maybe the code works anyway in the
+            # other rare case, but better safe than sorry and don't try.
             effectinfo = op.getdescr().get_extra_info()
             if not effectinfo.check_can_raise(ignore_memoryerror=True):
                 assert rop.is_call(op.opnum)
-                sb.add_pure_op(op)
+                if not OpHelpers.is_cond_call_value(op.opnum):
+                    sb.add_pure_op(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)

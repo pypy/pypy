@@ -16,7 +16,7 @@ class AbstractX86CPU(AbstractLLCPU):
     debug = True
     supports_floats = True
     supports_singlefloats = True
-    supports_cond_call_value = True
+    supports_load_effective_address = True
 
     dont_keepalive_stuff = False # for tests
     with_threads = False
@@ -45,7 +45,7 @@ class AbstractX86CPU(AbstractLLCPU):
             if config.translation.jit_profiler == "oprofile":
                 from rpython.jit.backend.x86 import oprofile
                 if not oprofile.OPROFILE_AVAILABLE:
-                    log.WARNING('oprofile support was explicitly enabled, but oprofile headers seem not to be available')
+                    raise Exception('oprofile support was explicitly enabled, but oprofile headers seem not to be available')
                 profile_agent = oprofile.OProfileAgent()
             self.with_threads = config.translation.thread
 

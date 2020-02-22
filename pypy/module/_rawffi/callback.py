@@ -45,7 +45,7 @@ def callback(ll_args, ll_res, ll_userdata):
                     space, rffi.cast(rffi.SIZE_T, ll_args[i]))
             else:
                 # XXX other types?
-                args_w[i] = space.wrap(rffi.cast(rffi.ULONG, ll_args[i]))
+                args_w[i] = space.newint(rffi.cast(rffi.ULONG, ll_args[i]))
         w_res = space.call(w_callable, space.newtuple(args_w))
         if callback_ptr.result is not None: # don't return void
             ptr = ll_res
@@ -60,8 +60,8 @@ def callback(ll_args, ll_res, ll_userdata):
                         break
             unwrap_value(space, write_ptr, ptr, 0, letter, w_res)
     except OperationError as e:
-        tbprint(space, space.wrap(e.get_traceback()),
-                space.wrap(e.errorstr(space)))
+        tbprint(space, e.get_w_traceback(space),
+                space.newtext(e.errorstr(space)))
         # force the result to be zero
         if callback_ptr.result is not None:
             resshape = letter2tp(space, callback_ptr.result)
@@ -79,7 +79,7 @@ class W_CallbackPtr(W_DataInstance):
         self.argtypes = unpack_argshapes(space, w_args)
         ffiargs = [tp.get_basic_ffi_type() for tp in self.argtypes]
         if not space.is_w(w_result, space.w_None):
-            self.result = space.str_w(w_result)
+            self.result = space.text_w(w_result)
             ffiresult = letter2tp(space, self.result).get_basic_ffi_type()
         else:
             self.result = None

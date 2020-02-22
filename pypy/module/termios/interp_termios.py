@@ -28,11 +28,9 @@ def tcsetattr(space, w_fd, when, w_attributes):
     cc = []
     for w_c in space.unpackiterable(w_cc):
         if space.isinstance_w(w_c, space.w_int):
-            ch = space.call_function(space.getattr(w_builtin,
-                                          space.wrap('chr')), w_c)
-            cc.append(space.str_w(ch))
-        else:
-            cc.append(space.str_w(w_c))
+            w_c = space.call_function(space.getattr(w_builtin,
+                                      space.newtext('chr')), w_c)
+        cc.append(space.bytes_w(w_c))
     tup = (space.int_w(w_iflag), space.int_w(w_oflag),
            space.int_w(w_cflag), space.int_w(w_lflag),
            space.int_w(w_ispeed), space.int_w(w_ospeed), cc)
@@ -48,12 +46,12 @@ def tcgetattr(space, w_fd):
     except OSError as e:
         raise convert_error(space, e)
     iflag, oflag, cflag, lflag, ispeed, ospeed, cc = tup
-    l_w = [space.wrap(i) for i in [iflag, oflag, cflag, lflag, ispeed, ospeed]]
+    l_w = [space.newint(i) for i in [iflag, oflag, cflag, lflag, ispeed, ospeed]]
     # last one need to be chosen carefully
-    cc_w = [space.wrap(i) for i in cc]
+    cc_w = [space.newbytes(i) for i in cc]
     if lflag & rtermios.ICANON:
-        cc_w[rtermios.VMIN] = space.wrap(ord(cc[rtermios.VMIN][0]))
-        cc_w[rtermios.VTIME] = space.wrap(ord(cc[rtermios.VTIME][0]))
+        cc_w[rtermios.VMIN] = space.newint(ord(cc[rtermios.VMIN][0]))
+        cc_w[rtermios.VTIME] = space.newint(ord(cc[rtermios.VTIME][0]))
     w_cc = space.newlist(cc_w)
     l_w.append(w_cc)
     return space.newlist(l_w)

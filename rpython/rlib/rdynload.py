@@ -228,7 +228,25 @@ else:  # _WIN32
         res = rwin32.LoadLibrary(name)
         if not res:
             err = rwin32.GetLastError_saved()
-            raise DLOpenError(rwin32.FormatError(err))
+            ustr, lgt = rwin32.FormatErrorW(err)
+            raise DLOpenError(ustr)
+        return res
+
+    def dlopenex(name):
+        res = rwin32.LoadLibraryExA(name)
+        if not res:
+            err = rwin32.GetLastError_saved()
+            ustr, lgt = rwin32.FormatErrorW(err)
+            raise DLOpenError(ustr)
+        return res
+
+    def dlopenU(name, mode=-1):
+        # mode is unused on windows, but a consistant signature
+        res = rwin32.LoadLibraryW(name)
+        if not res:
+            err = rwin32.GetLastError_saved()
+            ustr, lgt = rwin32.FormatErrorW(err)
+            raise DLOpenError(ustr)
         return res
 
     def dlclose(handle):

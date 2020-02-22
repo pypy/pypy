@@ -134,6 +134,18 @@ class AppTestArray(object):
             assert a[2] == 2.5
             assert len(a) == len(values)
 
+    def test_nan(self):
+        for tc in 'fd':
+            a = self.array(tc, [float('nan')])
+            b = self.array(tc, [float('nan')])
+            assert not a == b
+            assert a != b
+            assert not a > b
+            assert not a >= b
+            assert not a < b
+            assert not a <= b
+            assert a.count(float('nan')) == 0
+
     def test_itemsize(self):
         for t in 'cbB':
             assert(self.array(t).itemsize >= 1)
@@ -161,6 +173,11 @@ class AppTestArray(object):
                 assert a[0] == 1 and a[1] == v and a[2] == 3
             raises(OverflowError, a.append, -1)
             raises(OverflowError, a.append, 2 ** (8 * b))
+
+    def test_errormessage(self):
+        a = self.array("L", [1, 2, 3])
+        excinfo = raises(TypeError, "a[0] = 'abc'")
+        assert str(excinfo.value) == "array item must be integer"
 
     def test_fromstring(self):
         import sys
@@ -262,6 +279,12 @@ class AppTestArray(object):
         b = self.array('u', u'hi')
         assert len(b) == 2 and b[0] == 'h' and b[1] == 'i'
 
+    def test_setslice_to_extend(self):
+        a = self.array('i')
+        a[0:1] = self.array('i', [9])
+        a[1:5] = self.array('i', [99])
+        assert list(a) == [9, 99]
+
     def test_sequence(self):
         a = self.array('i', [1, 2, 3, 4])
         assert len(a) == 4
@@ -360,6 +383,17 @@ class AppTestArray(object):
                             assert repr(arr) == repr(self.array('i', lst))
                         except ValueError:
                             assert not ok
+
+    def test_getslice_large_step(self):
+        import sys
+        a = self.array('b', [1, 2, 3])
+        assert list(a[1::sys.maxsize]) == [2]
+
+    def test_setslice_large_step(self):
+        import sys
+        a = self.array('b', [1, 2, 3])
+        a[1::sys.maxsize] = self.array('b', [42])
+        assert a.tolist() == [1, 42, 3]
 
     def test_toxxx(self):
         a = self.array('i', [1, 2, 3])
@@ -577,6 +611,12 @@ class AppTestArray(object):
             assert a[0] == 1
             assert a[1] == 2
             assert a[2] == 3
+
+    def test_deepcopy(self):
+        a = self.array('u', u'\x01\u263a\x00\ufeff')
+        from copy import deepcopy
+        b = deepcopy(a)
+        assert a == b
 
     def test_addmul(self):
         a = self.array('i', [1, 2, 3])
@@ -829,23 +869,40 @@ class AppTestArray(object):
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
-    def test_unicode_outofrange(self):
-        a = self.array('u', u'\x01\u263a\x00\ufeff')
-        b = self.array('u', u'\x01\u263a\x00\ufeff')
+    def test_array_of_chars_equality(self):
+        input_bytes = '\x01\x63a\x00!'
+        a = self.array('c', input_bytes)
+        b = self.array('c', input_bytes)
         b.byteswap()
-        assert a != b
+        assert a == b
 
-    def test_unicode_ord_positive(self):
-        import sys
-        if sys.maxunicode == 0xffff:
-            skip("test for 32-bit unicodes")
-        a = self.array('u', b'\xff\xff\xff\xff')
-        assert len(a) == 1
-        assert repr(a[0]) == "u'\Uffffffff'"
-        if sys.maxint == 2147483647:
-            assert ord(a[0]) == -1
-        else:
-            assert ord(a[0]) == 4294967295
+    def test_unicode_outofrange(self):
+        input_unicode = u'\x01\u263a\x00\ufeff'
+        a = self.array('u', input_unicode)
+        b = self.array('u', input_unicode)
+        b.byteswap()
+        assert b[2] == u'\u0000'
+        assert a != b
+        if b.itemsize == 4:
+            e = raises(ValueError, "b[0]")        # doesn't work
+            assert str(e.value) == (
+                "cannot operate on this array('u') because it contains"
+                " character U+1000000 not in range [U+0000; U+10ffff]"
+                " at index 0")
+            assert str(b) == ("array('u', <character U+1000000 is not in"
+                          " range [U+0000; U+10ffff]>)")
+            raises(ValueError, b.tounicode)   # doesn't work
+        elif b.itemsize == 2:
+            assert b[0] == u'\u0100'
+            byteswaped_unicode = u'\u0100\u3a26\x00\ufffe'
+            assert str(b) == "array('u', %r)" % (byteswaped_unicode,)
+            assert b.tounicode() == byteswaped_unicode
+        assert str(a) == "array('u', %r)" % (input_unicode,)
+        assert a.tounicode() == input_unicode
+
+    def test_unicode_surrogate(self):
+        a = self.array('u', u'\ud800')
+        assert a[0] == u'\ud800'
 
     def test_weakref(self):
         import weakref

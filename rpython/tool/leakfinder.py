@@ -1,5 +1,10 @@
 import sys, gc
-import cStringIO
+try:
+    import cStringIO
+except ImportError as e:
+    if sys.version_info.major > 2:
+        raise RuntimeError('use python 2 to run tests')
+    raise
 import traceback
 
 # Track allocations to detect memory leaks.

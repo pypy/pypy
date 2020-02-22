@@ -12,6 +12,19 @@ from rpython.jit.metainterp.history import ConstInt
 MAXINT = maxint
 MININT = -maxint - 1
 
+IS_64_BIT = sys.maxint > 2**32
+
+def next_pow2_m1(n):
+    """Calculate next power of 2 greater than n minus one."""
+    n |= n >> 1
+    n |= n >> 2
+    n |= n >> 4
+    n |= n >> 8
+    n |= n >> 16
+    if IS_64_BIT:
+        n |= n >> 32
+    return n
+
 
 class IntBound(AbstractInfo):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
@@ -91,6 +104,9 @@ class IntBound(AbstractInfo):
 
     def known_ge(self, other):
         return other.known_le(self)
+
+    def known_nonnegative(self):
+        return self.has_lower and 0 <= self.lower
 
     def intersect(self, other):
         r = False
@@ -192,10 +208,22 @@ class IntBound(AbstractInfo):
         else:
             return IntUnbounded()
 
+    def mod_bound(self, other):
+        r = IntUnbounded()
+        if other.is_constant():
+            val = other.getint()
+            if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
+                r.make_ge(IntBound(0, 0))
+                r.make_lt(IntBound(val, val))
+            else:               # with Python's modulo:  neg < (x % neg) <= 0
+                r.make_gt(IntBound(val, val))
+                r.make_le(IntBound(0, 0))
+        return r
+
     def lshift_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           other.known_ge(IntBound(0, 0)) and \
+           other.known_nonnegative() and \
            other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
             try:
                 vals = (ovfcheck(self.upper << other.upper),
@@ -211,7 +239,7 @@ class IntBound(AbstractInfo):
     def rshift_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           other.known_ge(IntBound(0, 0)) and \
+           other.known_nonnegative() and \
            other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
             vals = (self.upper >> other.upper,
                     self.upper >> other.lower,
@@ -221,7 +249,32 @@ class IntBound(AbstractInfo):
         else:
             return IntUnbounded()
 
+    def and_bound(self, other):
+        pos1 = self.known_nonnegative()
+        pos2 = other.known_nonnegative()
+        r = IntUnbounded()
+        if pos1 or pos2:
+            r.make_ge(IntBound(0, 0))
+        if pos1:
+            r.make_le(self)
+        if pos2:
+            r.make_le(other)
+        return r
+
+    def or_bound(self, other):
+        r = IntUnbounded()
+        if self.known_nonnegative() and \
+                other.known_nonnegative():
+            if self.has_upper and other.has_upper:
+                mostsignificant = self.upper | other.upper
+                r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
+            else:
+                r.make_ge(IntBound(0, 0))
+        return r
+
     def contains(self, val):
+        if not we_are_translated():
+            assert not isinstance(val, long)
         if not isinstance(val, int):
             if ((not self.has_lower or self.lower == MININT) and
                 not self.has_upper or self.upper == MAXINT):
@@ -282,7 +335,7 @@ class IntBound(AbstractInfo):
             guards.append(op)
 
     def is_bool(self):
-        return (self.bounded() and self.known_ge(ConstIntBound(0)) and
+        return (self.bounded() and self.known_nonnegative() and
                 self.known_le(ConstIntBound(1)))
 
     def make_bool(self):
@@ -297,7 +350,7 @@ class IntBound(AbstractInfo):
         if self.known_gt(IntBound(0, 0)) or \
            self.known_lt(IntBound(0, 0)):
             return INFO_NONNULL
-        if self.known_ge(IntBound(0, 0)) and \
+        if self.known_nonnegative() and \
            self.known_le(IntBound(0, 0)):
             return INFO_NULL
         return INFO_UNKNOWN

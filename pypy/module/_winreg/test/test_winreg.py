@@ -12,11 +12,11 @@ try:
     priv_flags = win32security.TOKEN_ADJUST_PRIVILEGES | win32security.TOKEN_QUERY
     hToken = win32security.OpenProcessToken (win32api.GetCurrentProcess (), priv_flags)
     privilege_id = win32security.LookupPrivilegeValue (None, "SeBackupPrivilege")
-    win32security.AdjustTokenPrivileges (hToken, 0, [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)])
+    ret = win32security.AdjustTokenPrivileges (hToken, 0, [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)])
 except:
     canSaveKey = False
 else:
-    canSaveKey = True
+    canSaveKey = len(ret) > 0
 
 class AppTestHKey:
     spaceconfig = dict(usemodules=('_winreg',))
@@ -174,6 +174,7 @@ class AppTestFfi:
         raises(EnvironmentError, EnumKey, key, 1)
 
     def test_delete(self):
+        # must be run after test_SetValueEx
         from _winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         sub_key = OpenKey(key, "sub_key", 0, KEY_ALL_ACCESS)
@@ -189,6 +190,7 @@ class AppTestFfi:
         h.Close()
 
     def test_savekey(self):
+        # must be run after test_SetValueEx
         if not self.canSaveKey:
             skip("CPython needs win32api to set the SeBackupPrivilege security privilege")
         from _winreg import OpenKey, KEY_ALL_ACCESS, SaveKey

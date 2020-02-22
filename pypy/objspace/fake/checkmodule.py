@@ -4,19 +4,23 @@ from pypy.config.pypyoption import get_pypy_config
 
 def checkmodule(*modnames, **kwds):
     translate_startup = kwds.pop('translate_startup', True)
+    ignore = set(kwds.pop('ignore', ()))
     assert not kwds
     config = get_pypy_config(translating=True)
     space = FakeObjSpace(config)
     seeobj_w = []
     modules = []
     for modname in modnames:
-        mod = __import__('pypy.module.%s' % modname, None, None, ['__doc__'])
+        mod = __import__(
+            'pypy.module.%s.moduledef' % modname, None, None, ['__doc__'])
         # force computation and record what we wrap
         module = mod.Module(space, W_Root())
         module.setup_after_space_initialization()
         module.init(space)
         modules.append(module)
         for name in module.loaders:
+            if name in ignore:
+                continue
             seeobj_w.append(module._load_lazily(space, name))
         if hasattr(module, 'submodules'):
             for cls in module.submodules.itervalues():

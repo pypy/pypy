@@ -22,23 +22,28 @@ class W_Dialect(W_Root):
     ]
 
 def _fetch(space, w_dialect, name):
-    return space.findattr(w_dialect, space.wrap(name))
+    return space.findattr(w_dialect, space.newtext(name))
 
 def _get_bool(space, w_src, default):
     if w_src is None:
         return default
     return space.is_true(w_src)
 
-def _get_int(space, w_src, default):
+def _get_int(space, w_src, default, attrname):
     if w_src is None:
         return default
-    return space.int_w(w_src)
+    try:
+        return space.int_w(w_src)
+    except OperationError as e:
+        if e.match(space, space.w_TypeError):
+            raise oefmt(space.w_TypeError, '"%s" must be an int', attrname)
+        raise
 
 def _get_str(space, w_src, default, attrname):
     if w_src is None:
         return default
     try:
-        return space.str_w(w_src)
+        return space.text_w(w_src)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             raise oefmt(space.w_TypeError, '"%s" must be a string', attrname)
@@ -49,9 +54,9 @@ def _get_char(space, w_src, default, name):
         return default
     if space.is_w(w_src, space.w_None):
         return '\0'
-    if not space.isinstance_w(w_src, space.w_str):
+    if not space.isinstance_w(w_src, space.w_text):
         raise oefmt(space.w_TypeError, '"%s" must be string, not %T', name, w_src)
-    src = space.str_w(w_src)
+    src = space.text_w(w_src)
     if len(src) == 1:
         return src[0]
     if len(src) == 0:
@@ -100,7 +105,7 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
     dialect.escapechar = _get_char(space, w_escapechar, '\0', 'escapechar')
     dialect.lineterminator = _get_str(space, w_lineterminator, '\r\n', 'lineterminator')
     dialect.quotechar = _get_char(space, w_quotechar, '"', 'quotechar')
-    tmp_quoting = _get_int(space, w_quoting, QUOTE_MINIMAL)
+    tmp_quoting = _get_int(space, w_quoting, QUOTE_MINIMAL, 'quoting')
     dialect.skipinitialspace = _get_bool(space, w_skipinitialspace, False)
     dialect.strict = _get_bool(space, w_strict, False)
 
@@ -134,7 +139,7 @@ def W_Dialect___new__(space, w_subtype, w_dialect = None,
                              w_escapechar, w_lineterminator, w_quotechar,
                              w_quoting, w_skipinitialspace, w_strict)
     if space.is_w(w_subtype, space.gettypeobject(W_Dialect.typedef)):
-        return space.wrap(dialect)
+        return dialect
     else:
         subdialect = space.allocate_instance(W_Dialect, w_subtype)
         subdialect.delimiter        = dialect.delimiter
@@ -145,32 +150,38 @@ def W_Dialect___new__(space, w_subtype, w_dialect = None,
         subdialect.quoting          = dialect.quoting
         subdialect.skipinitialspace = dialect.skipinitialspace
         subdialect.strict           = dialect.strict
-        return space.wrap(subdialect)
+        return subdialect
 
 
 def _get_escapechar(space, dialect):
     if dialect.escapechar == '\0':
         return space.w_None
-    return space.wrap(dialect.escapechar)
+    return space.newtext(dialect.escapechar)
 
 def _get_quotechar(space, dialect):
     if dialect.quotechar == '\0':
         return space.w_None
-    return space.wrap(dialect.quotechar)
+    return space.newtext(dialect.quotechar)
 
 
 W_Dialect.typedef = TypeDef(
         '_csv.Dialect',
         __new__ = interp2app(W_Dialect___new__),
 
-        delimiter        = interp_attrproperty('delimiter', W_Dialect),
-        doublequote      = interp_attrproperty('doublequote', W_Dialect),
+        delimiter        = interp_attrproperty('delimiter', W_Dialect,
+            wrapfn='newtext'),
+        doublequote      = interp_attrproperty('doublequote', W_Dialect,
+            wrapfn='newbool'),
         escapechar       = GetSetProperty(_get_escapechar, cls=W_Dialect),
-        lineterminator   = interp_attrproperty('lineterminator', W_Dialect),
+        lineterminator   = interp_attrproperty('lineterminator', W_Dialect,
+            wrapfn='newtext'),
         quotechar        = GetSetProperty(_get_quotechar, cls=W_Dialect),
-        quoting          = interp_attrproperty('quoting', W_Dialect),
-        skipinitialspace = interp_attrproperty('skipinitialspace', W_Dialect),
-        strict           = interp_attrproperty('strict', W_Dialect),
+        quoting          = interp_attrproperty('quoting', W_Dialect,
+            wrapfn='newint'),
+        skipinitialspace = interp_attrproperty('skipinitialspace', W_Dialect,
+            wrapfn='newbool'),
+        strict           = interp_attrproperty('strict', W_Dialect,
+            wrapfn='newbool'),
 
         __doc__ = """CSV dialect
 

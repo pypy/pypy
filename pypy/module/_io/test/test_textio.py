@@ -1,3 +1,5 @@
+#encoding: utf-8
+
 class AppTestTextIO:
     spaceconfig = dict(usemodules=['_io', '_locale'])
 
@@ -102,6 +104,16 @@ class AppTestTextIO:
         reads = t.read(4)
         reads += t.readline()
         assert reads == u"abc\ndef\n"
+
+    def test_read_bug_unicode(self):
+        import _io
+        inp = b"\xc3\xa4bc\ndef\n"
+        r = _io.BytesIO(inp)
+        t = _io.TextIOWrapper(r, encoding="utf-8")
+        reads = t.read(4)
+        assert reads == inp[:5].decode("utf-8")
+        reads += t.readline()
+        assert reads == inp.decode("utf-8")
 
     def test_encoded_writes(self):
         import _io
@@ -377,3 +389,13 @@ class AppTestIncrementalNewlineDecoder:
         _check(dec)
         dec = _io.IncrementalNewlineDecoder(None, translate=True)
         _check(dec)
+
+    def test_newlines2(self):
+        import _io, codecs
+        inner_decoder = codecs.getincrementaldecoder("utf-8")()
+        decoder = _io.IncrementalNewlineDecoder(inner_decoder, translate=True)
+        msg = b"abc\r\n\n\r\r\n\n"
+        decoded = ''
+        for ch in msg:
+            decoded += decoder.decode(ch)
+        assert set(decoder.newlines) == {"\r", "\n", "\r\n"}

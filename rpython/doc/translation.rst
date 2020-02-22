@@ -48,7 +48,7 @@ steps (see also the figure below):
    be present in memory as a form that is "static enough" in the sense of
    :doc:`RPython <rpython>`.
 
-2. The Annotator_ performs a global analysis starting from an specified
+2. The Annotator_ performs a global analysis starting from a specified
    entry point to deduce type and other information about what each
    variable can contain at run-time, :ref:`building flow graphs <flow-graphs>`
    as it encounters them.
@@ -582,9 +582,6 @@ freedom to change how to do it.  There are three approaches implemented today:
 Almost all application-level Python code allocates objects at a very fast
 rate; this means that the memory management implementation is critical to the
 performance of the PyPy interpreter.
-
-You can choose which garbage collection strategy to use with
-:config:`translation.gc`.
 
 
 .. _genc:

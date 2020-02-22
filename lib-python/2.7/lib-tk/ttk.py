@@ -153,7 +153,7 @@ def _format_elemcreate(etype, script=False, *args, **kw):
 
 def _format_layoutlist(layout, indent=0, indent_size=2):
     """Formats a layout list so we can pass the result to ttk::style
-    layout and ttk::style settings. Note that the layout doesn't has to
+    layout and ttk::style settings. Note that the layout doesn't have to
     be a list necessarily.
 
     E.g.:
@@ -1394,7 +1394,9 @@ class Treeview(Widget, Tkinter.XView, Tkinter.YView):
 
     def selection(self, selop=None, items=None):
         """If selop is not specified, returns selected items."""
-        return self.tk.call(self._w, "selection", selop, items)
+        if isinstance(items, basestring):
+            items = (items,)
+        return self.tk.splitlist(self.tk.call(self._w, "selection", selop, items))
 
 
     def selection_set(self, items):

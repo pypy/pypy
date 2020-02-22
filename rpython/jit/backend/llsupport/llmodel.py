@@ -3,11 +3,13 @@ from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
+from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper.llannotation import lltype_to_annotation
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, compute_hash
 from rpython.jit.metainterp import history, compile
 from rpython.jit.metainterp.optimize import SpeculativeError
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.metainterp.support import adr2int, ptr2int
+from rpython.jit.codewriter import longlong
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
@@ -22,8 +24,6 @@ from rpython.rlib.unroll import unrolling_iterable
 
 
 class AbstractLLCPU(AbstractCPU):
-    from rpython.jit.metainterp.typesystem import llhelper as ts
-
     HAS_CODEMAP = False
 
     done_with_this_frame_descr_int      = None   # overridden by pyjitpl.py
@@ -159,7 +159,7 @@ class AbstractLLCPU(AbstractCPU):
             graph = mixlevelann.getgraph(realloc_frame, args_s, s_result)
             fptr = mixlevelann.graph2delayed(graph, FUNC)
             mixlevelann.finish()
-        self.realloc_frame = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
+        self.realloc_frame = ptr2int(fptr)
 
         if not translate_support_code:
             fptr = llhelper(FUNC_TP, realloc_frame_crash)
@@ -171,7 +171,7 @@ class AbstractLLCPU(AbstractCPU):
             graph = mixlevelann.getgraph(realloc_frame_crash, args_s, s_result)
             fptr = mixlevelann.graph2delayed(graph, FUNC)
             mixlevelann.finish()
-        self.realloc_frame_crash = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
+        self.realloc_frame_crash = ptr2int(fptr)
 
     def _setup_exception_handling_untranslated(self):
         # for running un-translated only, all exceptions occurring in the
@@ -208,11 +208,11 @@ class AbstractLLCPU(AbstractCPU):
 
         def pos_exception():
             addr = llop.get_exception_addr(llmemory.Address)
-            return heaptracker.adr2int(addr)
+            return adr2int(addr)
 
         def pos_exc_value():
             addr = llop.get_exc_value_addr(llmemory.Address)
-            return heaptracker.adr2int(addr)
+            return adr2int(addr)
 
         from rpython.rlib import rstack
 
@@ -495,6 +495,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def write_float_at_mem(self, gcref, ofs, newvalue):
         llop.raw_store(lltype.Void, gcref, ofs, newvalue)
+    write_float_at_mem._annenforceargs_ = [None, None, None, longlong.r_float_storage]
 
     # ____________________________________________________________
 
@@ -663,6 +664,14 @@ class AbstractLLCPU(AbstractCPU):
         u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
         return len(u.chars)
 
+    def bh_strhash(self, string):
+        s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
+        return compute_hash(hlstr(s))
+
+    def bh_unicodehash(self, string):
+        u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+        return compute_hash(hlunicode(u))
+
     def bh_strgetitem(self, string, index):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
         return ord(s.chars[index])
@@ -745,6 +754,16 @@ class AbstractLLCPU(AbstractCPU):
         offset = base_ofs + scale * index
         return self.read_float_at_mem(addr, offset)
 
+    def bh_gc_store_indexed_i(self, addr, index, val, scale, base_ofs, bytes,
+                              descr):
+        offset = base_ofs + scale * index
+        self.write_int_at_mem(addr, offset, bytes, val)
+
+    def bh_gc_store_indexed_f(self, addr, index, val, scale, base_ofs, bytes,
+                              descr):
+        offset = base_ofs + scale * index
+        self.write_float_at_mem(addr, offset, val)
+
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 
@@ -756,8 +775,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
-        return heaptracker.adr2int(result_adr)
+        return ptr2int(struct.typeptr)
 
     def bh_new_array(self, length, arraydescr):
         return self.gc_ll_descr.gc_malloc_array(length, arraydescr)

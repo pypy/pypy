@@ -1,17 +1,14 @@
-import py, sys
-from rpython.rlib.objectmodel import instantiate
+import py
+import sys
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.metainterp import compile, resume
-from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
+from rpython.jit.metainterp.history import ConstInt, TreeLoop, ConstPtr
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import build_opt_chain
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, convert_old_style_to_targets)
-from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import \
-    FakeMetaInterpStaticData
-from rpython.jit.metainterp.resoperation import rop, opname, oparity,\
-     InputArgInt
+    BaseTest, convert_old_style_to_targets)
+from rpython.jit.metainterp.resoperation import (
+    rop, opname, oparity, InputArgInt)
 
 
 def test_build_opt_chain():
@@ -19,24 +16,16 @@ def test_build_opt_chain():
         names = [opt.__class__.__name__ for opt in chain]
         assert names == expected_names
     #
-    metainterp_sd = FakeMetaInterpStaticData(None)
-    chain, _ = build_opt_chain(metainterp_sd, "")
+    chain = build_opt_chain("")
     check(chain, ["OptSimplify"])
     #
-    chain, _ = build_opt_chain(metainterp_sd, "")
-    check(chain, ["OptSimplify"])
-    #
-    chain, _ = build_opt_chain(metainterp_sd, "")
-    check(chain, ["OptSimplify"])
-    #
-    chain, _ = build_opt_chain(metainterp_sd, "heap:intbounds")
+    chain = build_opt_chain("heap:intbounds")
     check(chain, ["OptIntBounds", "OptHeap", "OptSimplify"])
     #
-    chain, unroll = build_opt_chain(metainterp_sd, "unroll")
+    chain = build_opt_chain("unroll")
     check(chain, ["OptSimplify"])
-    assert unroll
     #
-    chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb")
+    chain = build_opt_chain("aaa:bbb")
     check(chain, ["OptSimplify"])
 
 
@@ -73,7 +62,7 @@ class BaseTestWithUnroll(BaseTest):
         print "Loop:"
         print '\n'.join([str(o) for o in loop.operations])
         print
-        if expected_short:
+        if expected_short or getattr(info, 'short_preamble', None):
             print "Short Preamble:"
             short = info.short_preamble
             print '\n'.join([str(o) for o in short])
@@ -102,7 +91,7 @@ class BaseTestWithUnroll(BaseTest):
         return py.test.raises(e, fn, *args).value
 
 
-class OptimizeOptTest(BaseTestWithUnroll):
+class TestOptimizeOpt(BaseTestWithUnroll):
     def test_simple(self):
         ops = """
         []
@@ -709,6 +698,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_guard_value_on_boolean_but_not_zero_or_one(self):
+        ops = """
+        [i]
+        i1 = int_lt(i, 3)
+        guard_value(i1, -1) [i]
+        jump(i)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops, ops)
+
     def test_int_is_true_of_bool(self):
         ops = """
         [i0, i1]
@@ -1299,7 +1297,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=valuedescr)
         setfield_gc(p3, p30, descr=nextdescr)
@@ -1309,7 +1307,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=valuedescr)
         setfield_gc(p3, p30, descr=nextdescr)
@@ -3561,6 +3559,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, expected_preamble=expected_preamble)
 
+    def test_residual_call_still_forces_immutable_writes_though(self):
+        ops = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
+        """
+        expected_preamble = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        setfield_gc(p1, 6, descr=valuedescr3)
+        i2 = call_i(5, descr=writevalue3descr)
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected, expected_preamble=expected_preamble)
+
     def test_residual_call_invalidate_some_caches(self):
         ops = """
         [p1, p2]
@@ -5005,18 +5024,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_complains_getfieldpure_setfield(self):
-        from rpython.jit.metainterp.optimizeopt.heap import BogusImmutableField
-        py.test.skip("disabled for now")
-        ops = """
-        [p3]
-        p1 = escape_r()
-        p2 = getfield_gc_r(p1, descr=nextdescr)
-        setfield_gc(p1, p3, descr=nextdescr)
-        jump(p3)
-        """
-        self.raises(BogusImmutableField, self.optimize_loop, ops, "crash!")
-
     def test_dont_complains_different_field(self):
         ops = """
         [p3]
@@ -6370,7 +6377,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         strsetitem(p3, i2, i0)
         i5 = int_add(i2, 1)
         strsetitem(p3, i5, i1)
-        i6 = int_add(i5, 1)      # will be killed by the backend
         jump(i1, i0, p3)
         """
         self.optimize_strunicode_loop(ops, expected, expected)
@@ -7189,6 +7195,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0]
         p1 = getfield_gc_r(p0, descr=nextdescr)
         record_exact_class(p1, ConstClass(node_vtable))
+        guard_nonnull(p1) []
         guard_class(p1, ConstClass(node_vtable)) []
         jump(p1)
         """
@@ -7539,6 +7546,33 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1)
         """
         self.optimize_loop(ops, expected, expected_short=short)
+
+    def test_guards_before_getfields_in_short_preamble_removetypeptr(self, monkeypatch):
+        monkeypatch.setattr(self.cpu, "remove_gctypeptr", True)
+        ops = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        p2 = getfield_gc_r(p1, descr=nextdescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        expected = """
+        [p0, p1]
+        jump(p0, p1)
+        """
+        short = """
+        [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        p2 = getfield_gc_r(p1, descr=nextdescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+
 
     def test_forced_virtual_pure_getfield(self):
         ops = """
@@ -8674,6 +8708,75 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_cond_call_with_a_constant_i(self):
+        ops = """
+        [p1]
+        i2 = cond_call_value_i(0, 123, p1, descr=plaincalldescr)
+        escape_n(i2)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i2 = call_i(123, p1, descr=plaincalldescr)
+        escape_n(i2)
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cond_call_with_a_constant_i2(self):
+        ops = """
+        [p1]
+        i2 = cond_call_value_i(12, 123, p1, descr=plaincalldescr)
+        escape_n(i2)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        escape_n(12)
+        jump(p1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cond_call_r1(self):
+        ops = """
+        [p1]
+        p2 = cond_call_value_r(p1, 123, p1, descr=plain_r_calldescr)
+        jump(p2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_cond_call_r2(self):
+        ops = """
+        [p1]
+        guard_nonnull(p1) []
+        p2 = cond_call_value_r(p1, 123, p1, descr=plain_r_calldescr)
+        p3 = escape_r(p2)
+        jump(p3)
+        """
+        expected = """
+        [p1]
+        guard_nonnull(p1) []
+        p3 = escape_r(p1)
+        jump(p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cond_call_r3(self):
+        arg_consts = [ConstInt(i) for i in (123, 4, 5, 6)]
+        call_pure_results = {tuple(arg_consts): ConstPtr(self.myptr)}
+        ops = """
+        [p1]
+        p2 = cond_call_value_r(p1, 123, 4, 5, 6, descr=plain_r_calldescr)
+        p3 = escape_r(p2)
+        jump(p3)
+        """
+        expected = """
+        [p1]
+        p3 = escape_r(ConstPtr(myptr))
+        jump(p3)
+        """
+        self.optimize_loop(ops, expected, call_pure_results=call_pure_results)
+
     def test_hippyvm_unroll_bug(self):
         ops = """
         [p0, i1, i2]
@@ -8691,7 +8794,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i1, 1)
         i3 = int_le(i2, 13)
         guard_true(i3) [p1]
-        jump(p0, i2)      
+        jump(p0, i2)
         """
         expected = """
         [p0, i1, p1]
@@ -8706,7 +8809,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i1, 1)
         i3 = int_le(i2, 13)
         guard_true(i3) [p1]
-        jump(p0, i2, p1)        
+        jump(p0, i2, p1)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -8728,7 +8831,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i4)
         setfield_gc(p0, i1, descr=valuedescr)
         ii = same_as_i(i1)
-        jump(p0, i0, i3, i1, ii)        
+        jump(p0, i0, i3, i1, ii)
         """
         expected = """
         [p0, i0, i2, i4, i5]
@@ -8769,7 +8872,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i19)
         """
         self.optimize_loop(ops, expected, expected_short=expected_short)
- 
+
 
     def test_cached_arrayitem_write_descr(self):
         ops = """
@@ -8945,6 +9048,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_same_as_preserves_info_in_the_preamble_2(self):
+        py.test.xfail("less efficient loop, investigate")
         ops = """
         [i0, p0]
         ifoo = getfield_gc_i(p0, descr=valuedescr)
@@ -9381,5 +9485,61 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-class TestLLtype(OptimizeOptTest, LLtypeMixin):
-    pass
+    def test_issue2904(self):
+        # we don't store advanced virtualstate information like "i1 = i2 + 1",
+        # which means that the following loop, when unrolled, cannot be
+        # optimized based on the knowledge that "i1 = i2 + 1" from the
+        # preamble---we can't use that knowledge.  After the fix, we get
+        # the value "i2 + 1" passed as a third argument, possibly different
+        # from "i1".
+        ops = """
+        [i1, i2]
+        guard_value(i1, 10) []
+        i3 = int_add(i2, 1)
+        jump(i3, i2)
+        """
+        expected = """
+        [i1, i2, i3]
+        guard_value(i1, 10) []
+        jump(i3, i2, i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_issue3014(self):
+        # 'gc_load_indexed' must force 'setarrayitem_gc'
+        ops = """
+        [i183]
+        p0 = new_array(5, descr=arraydescr)
+        setarrayitem_gc(p0, 0, i183, descr=arraydescr)
+        i235 = gc_load_indexed_i(p0, 0, 1, 16, 2)
+        escape_i(i235)
+        jump(i183)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_issue3014_2(self):
+        # same rules for gc_store_indexed versus getarrayitem_gc,
+        # and 'gc_store_indexed' invalidates the value for 'getarrayitem_gc'
+        # (in this direction it seems to work already)
+        ops = """
+        [p0, i183]
+        i234 = getarrayitem_gc_i(p0, 0, descr=arraydescr)
+        gc_store_indexed(p0, 0, i183, 1, 16, 2)
+        i235 = getarrayitem_gc_i(p0, 0, descr=arraydescr)
+        escape_i(i234)
+        escape_i(i235)
+        jump(p0, i183)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_issue3014_3(self):
+        # 'gc_load' must force 'setfield_gc'
+        ops = """
+        [i183]
+        p0 = new(descr=ssize)
+        setfield_gc(p0, i183, descr=adescr)
+        i235 = gc_load_i(p0, 8, 2)
+        escape_i(i235)
+        jump(i183)
+        """
+        self.optimize_loop(ops, ops)

@@ -5,9 +5,11 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import (
+    FFI_DEFAULT_ABI, has_stdcall, FFI_STDCALL)
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cffi_opcode, newtype, ctypestruct
+from pypy.module._cffi_backend import ctypeprim
 from pypy.module._cffi_backend import parse_c_type
 
 
@@ -70,6 +72,10 @@ class RealizeCache:
         "uint_fast64_t",
         "intmax_t",
         "uintmax_t",
+        "float _Complex",
+        "double _Complex",
+        "char16_t",
+        "char32_t",
         ]
     assert len(NAMES) == cffi_opcode._NUM_PRIM
 
@@ -77,11 +83,41 @@ class RealizeCache:
         self.space = space
         self.all_primitives = [None] * cffi_opcode._NUM_PRIM
         self.file_struct = None
+        self.lock = None
+        self.lock_owner = 0
+        self.rec_level = 0
 
     def get_file_struct(self):
         if self.file_struct is None:
             self.file_struct = ctypestruct.W_CTypeStruct(self.space, "FILE")
         return self.file_struct
+
+    def __enter__(self):
+        # This is a simple recursive lock implementation
+        if self.space.config.objspace.usemodules.thread:
+            from rpython.rlib import rthread
+            #
+            tid = rthread.get_ident()
+            if tid != self.lock_owner:
+                if self.lock is None:
+                    self.lock = self.space.allocate_lock()
+                self.lock.acquire(True)
+                assert self.lock_owner == 0
+                assert self.rec_level == 0
+                self.lock_owner = tid
+        self.rec_level += 1
+
+    def __exit__(self, *args):
+        assert self.rec_level > 0
+        self.rec_level -= 1
+        if self.space.config.objspace.usemodules.thread:
+            from rpython.rlib import rthread
+            #
+            tid = rthread.get_ident()
+            assert tid == self.lock_owner
+            if self.rec_level == 0:
+                self.lock_owner = 0
+                self.lock.release()
 
 
 def get_primitive_type(ffi, num):
@@ -131,15 +167,15 @@ def realize_global_int(ffi, g, gindex):
 
     if neg == 0:     # positive
         if value <= rffi.cast(rffi.ULONGLONG, sys.maxint):
-            return ffi.space.wrap(intmask(value))
+            return ffi.space.newint(intmask(value))
         else:
-            return ffi.space.wrap(value)
+            return ffi.space.newint(value)
     elif neg == 1:   # negative
         value = rffi.cast(rffi.LONGLONG, value)
         if value >= -sys.maxint-1:
-            return ffi.space.wrap(intmask(value))
+            return ffi.space.newint(intmask(value))
         else:
-            return ffi.space.wrap(value)
+            return ffi.space.newint(value)
 
     if neg == 2:
         got = "%d (0x%x)" % (value, value)
@@ -177,12 +213,12 @@ class W_RawFuncType(W_Root):
         ellipsis = (getarg(opcodes[base_index + num_args]) & 0x01) != 0
         abi      = (getarg(opcodes[base_index + num_args]) & 0xFE)
         if abi == 0:
-            abi = _cffi_backend.FFI_DEFAULT_ABI
+            abi = FFI_DEFAULT_ABI
         elif abi == 2:
-            if _cffi_backend.has_stdcall:
-                abi = _cffi_backend.FFI_STDCALL
+            if has_stdcall:
+                abi = FFI_STDCALL
             else:
-                abi = _cffi_backend.FFI_DEFAULT_ABI
+                abi = FFI_DEFAULT_ABI
         else:
             raise oefmt(ffi.w_FFIError, "abi number %d not supported", abi)
         #
@@ -209,7 +245,7 @@ class W_RawFuncType(W_Root):
         # which the struct args are replaced with ptr-to- struct, and
         # a struct return value is replaced with a hidden first arg of
         # type ptr-to-struct.  This is how recompiler.py produces
-        # trampoline functions for PyPy.
+        # trampoline functions for PyPy.  (Same with complex numbers.)
         if self.nostruct_ctype is None:
             fargs, fret, ellipsis, abi = self._unpack(ffi)
             # 'locs' will be a string of the same length as the final fargs,
@@ -218,11 +254,13 @@ class W_RawFuncType(W_Root):
             locs = ['\x00'] * len(fargs)
             for i in range(len(fargs)):
                 farg = fargs[i]
-                if isinstance(farg, ctypestruct.W_CTypeStructOrUnion):
+                if (isinstance(farg, ctypestruct.W_CTypeStructOrUnion) or
+                    isinstance(farg, ctypeprim.W_CTypePrimitiveComplex)):
                     farg = newtype.new_pointer_type(ffi.space, farg)
                     fargs[i] = farg
                     locs[i] = 'A'
-            if isinstance(fret, ctypestruct.W_CTypeStructOrUnion):
+            if (isinstance(fret, ctypestruct.W_CTypeStructOrUnion) or
+                isinstance(fret, ctypeprim.W_CTypePrimitiveComplex)):
                 fret = newtype.new_pointer_type(ffi.space, fret)
                 fargs = [fret] + fargs
                 locs = ['R'] + locs
@@ -364,7 +402,7 @@ def _realize_c_enum(ffi, eindex):
             while p[j] != ',' and p[j] != '\x00':
                 j += 1
             enname = rffi.charpsize2str(p, j)
-            enumerators_w.append(space.wrap(enname))
+            enumerators_w.append(space.newtext(enname))
 
             gindex = parse_c_type.search_in_globals(ffi.ctxobj.ctx, enname)
             assert gindex >= 0
@@ -398,6 +436,30 @@ def realize_c_type_or_func(ffi, opcodes, index):
     if from_ffi and ffi.cached_types[index] is not None:
         return ffi.cached_types[index]
 
+    realize_cache = ffi.space.fromcache(RealizeCache)
+    with realize_cache:
+        #
+        # check again cached_types, which might have been filled while
+        # we were waiting for the recursive lock
+        if from_ffi and ffi.cached_types[index] is not None:
+            return ffi.cached_types[index]
+
+        if realize_cache.rec_level > 1000:
+            raise oefmt(ffi.space.w_RuntimeError,
+                "type-building recursion too deep or infinite.  "
+                "This is known to occur e.g. in ``struct s { void(*callable)"
+                "(struct s); }''.  Please report if you get this error and "
+                "really need support for your case.")
+        x = realize_c_type_or_func_now(ffi, op, opcodes, index)
+
+        if from_ffi:
+            old = ffi.cached_types[index]
+            assert old is None or old is x
+            ffi.cached_types[index] = x
+
+    return x
+
+def realize_c_type_or_func_now(ffi, op, opcodes, index):
     case = getop(op)
 
     if case == cffi_opcode.OP_PRIMITIVE:
@@ -441,10 +503,6 @@ def realize_c_type_or_func(ffi, opcodes, index):
 
     else:
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)
-
-    if from_ffi:
-        assert ffi.cached_types[index] is None or ffi.cached_types[index] is x
-        ffi.cached_types[index] = x
 
     return x
 
@@ -493,10 +551,10 @@ def do_realize_lazy_struct(w_ctype):
                                          field_name, "'")
 
         fields_w[i] = space.newtuple([
-            space.wrap(field_name),
+            space.newtext(field_name),
             w_ctf,
-            space.wrap(fbitsize),
-            space.wrap(field_offset)])
+            space.newint(fbitsize),
+            space.newint(field_offset)])
 
     sflags = 0
     c_flags = rffi.getintfield(s, 'c_flags')

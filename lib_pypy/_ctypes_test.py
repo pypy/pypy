@@ -21,5 +21,11 @@ else:
         with fp:
             imp.load_module('_ctypes_test', fp, filename, description)
     except ImportError:
+        if os.name == 'nt':
+            # hack around finding compilers on win32
+            try:
+                import setuptools
+            except ImportError:
+                pass
         print('could not find _ctypes_test in %s' % output_dir)
         _pypy_testcapi.compile_shared('_ctypes_test.c', '_ctypes_test', output_dir)

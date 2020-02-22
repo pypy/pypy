@@ -117,9 +117,9 @@ class TaggedInstanceRepr(InstanceRepr):
             from rpython.rtyper.lltypesystem import rstr
             from rpython.rtyper.rint import signed_repr
             llstr1 = signed_repr.ll_str(ll_unboxed_to_int(i))
-            return rstr.ll_strconcat(rstr.unboxed_instance_str_prefix,
+            return rstr.ll_strconcat(rstr.conststr("<unboxed "),
                       rstr.ll_strconcat(llstr1,
-                                        rstr.unboxed_instance_str_suffix))
+                                        rstr.conststr(">")))
         else:
             return InstanceRepr.ll_str(self, i)
 

@@ -61,6 +61,10 @@ typedef struct {
 PyAPI_FUNC(PyObject *) PyString_FromFormatV(const char *format, va_list vargs);
 PyAPI_FUNC(PyObject *) PyString_FromFormat(const char *format, ...);
 
+#define PyString_Check(op) \
+		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_STRING_SUBCLASS)
+#define PyString_CheckExact(op) ((op)->ob_type == &PyString_Type)
+
 #ifdef __cplusplus
 }
 #endif

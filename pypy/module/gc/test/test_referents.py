@@ -116,3 +116,37 @@ class AppTestReferents(object):
                 break   # found
         else:
             assert 0, "the tuple (7,) is not found as gc.get_referrers(7)"
+
+
+class AppTestReferentsMore(object):
+
+    def setup_class(cls):
+        from rpython.rlib import rgc
+        cls._backup = [rgc.get_rpy_roots]
+        l4 = cls.space.newlist([])
+        cls.ALL_ROOTS = [l4]
+        cls.w_ALL_ROOTS = cls.space.newlist(cls.ALL_ROOTS)
+        rgc.get_rpy_roots = lambda: (
+            map(rgc._GcRef, cls.ALL_ROOTS) + [rgc.NULL_GCREF]*2)
+        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
+
+    def teardown_class(cls):
+        from rpython.rlib import rgc
+        rgc.get_rpy_roots = cls._backup[0]
+
+    def test_get_referrers(self):
+        import gc
+        class A(object):
+            pass
+        a = A()
+        if not self.runappdirect:
+            l4 = self.ALL_ROOTS[0]
+            l4.append(a)              # add 'a' to the list which is in roots
+        lst = gc.get_referrers(A)
+        assert a in lst
+        lst = gc.get_referrers(A)
+        assert a in lst
+        lst = gc.get_referrers(A)
+        assert a in lst
+        lst = gc.get_referrers(A)
+        assert a in lst

@@ -245,13 +245,13 @@ def irepeat(space, w_obj1, w_obj2):
 
 @unwrap_spec(default=int)
 def _length_hint(space, w_iterable, default):
-    return space.wrap(space.length_hint(w_iterable, default))
+    return space.newint(space.length_hint(w_iterable, default))
 
 
 def isMappingType(space, w_obj):
     'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    return space.wrap(space.ismapping_w(w_obj))
+    return space.newbool(space.ismapping_w(w_obj))
 
 def isSequenceType(space, w_obj):
     'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    return space.wrap(space.issequence_w(w_obj))
+    return space.newbool(space.issequence_w(w_obj))

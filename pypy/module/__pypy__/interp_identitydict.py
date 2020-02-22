@@ -11,13 +11,13 @@ class W_IdentityDict(W_Root):
     def descr_new(space, w_subtype):
         self = space.allocate_instance(W_IdentityDict, w_subtype)
         W_IdentityDict.__init__(self, space)
-        return space.wrap(self)
+        return self
 
     def descr_len(self, space):
-        return space.wrap(len(self.dict))
+        return space.newint(len(self.dict))
 
     def descr_contains(self, space, w_key):
-        return space.wrap(w_key in self.dict)
+        return space.newbool(w_key in self.dict)
 
     def descr_setitem(self, space, w_key, w_value):
         self.dict[w_key] = w_value

@@ -56,3 +56,34 @@ class AppTestParser(ParserModuleTest):
 
     def test_error(self):
         assert repr(self.m.ParserError) == "<class 'parser.ParserError'>"
+
+    def test_roundtrip(self):
+        def roundtrip(f, s):
+            st1 = f(s)
+            t = st1.totuple()
+            st2 = self.m.sequence2st(t)
+            assert t == st2.totuple()
+
+        def check_expr(s):
+            roundtrip(self.m.expr, s)
+        def check_suite(s):
+            roundtrip(self.m.suite, s)
+
+        check_expr("foo(1)")
+        check_suite("def f(): yield 1")
+
+    def test_bad_tree(self):
+        import parser
+        # from import a
+        tree = \
+            (257,
+             (267,
+              (268,
+               (269,
+                (281,
+                 (283, (1, 'from'), (1, 'import'),
+                  (286, (284, (1, 'fred')))))),
+               (4, ''))),
+             (4, ''), (0, ''))
+        raises(parser.ParserError,
+               parser.sequence2st, tree)

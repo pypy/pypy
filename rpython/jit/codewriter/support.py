@@ -4,7 +4,6 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Variable, Constant
-from rpython.jit.metainterp.typesystem import deref
 from rpython.rlib import rgc
 from rpython.rlib.jit import elidable, oopspec
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
@@ -142,10 +141,14 @@ def decode_hp_hint_args(op):
             assert len(lst) == len(args_v), (
                 "not supported so far: 'greens' variables contain Void")
         # a crash here means that you have to reorder the variable named in
-        # the JitDriver.  Indeed, greens and reds must both be sorted: first
-        # all INTs, followed by all REFs, followed by all FLOATs.
+        # the JitDriver.
         lst2 = sort_vars(lst)
-        assert lst == lst2
+        assert lst == lst2, ("You have to reorder the variables named in "
+            "the JitDriver (both the 'greens' and 'reds' independently). "
+            "They must be sorted like this: first all the integer-like, "
+            "then all the pointer-like, and finally the floats.\n"
+            "Got: %r\n"
+            "Expected: %r" % (lst, lst2))
         return lst
     #
     return (_sort(greens_v, True), _sort(reds_v, False))
@@ -206,7 +209,6 @@ def _ll_2_list_pop(l, index):
     return rlist.ll_pop(rlist.dum_checkidx, l, index)
 _ll_2_list_append = rlist.ll_append
 _ll_2_list_extend = rlist.ll_extend
-_ll_3_list_insert = rlist.ll_insert_nonneg
 _ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
 _ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
 _ll_2_list_inplace_mul = rlist.ll_inplace_mul
@@ -282,6 +284,9 @@ def _ll_0_ll_read_timestamp():
     from rpython.rlib import rtimer
     return rtimer.read_timestamp()
 
+def _ll_0_ll_get_timestamp_unit():
+    from rpython.rlib import rtimer
+    return rtimer.get_timestamp_unit()
 
 # math support
 # ------------
@@ -672,6 +677,8 @@ class LLtypeHelpers:
 
     def _ll_1_gc_add_memory_pressure(num):
         llop.gc_add_memory_pressure(lltype.Void, num)
+    def _ll_2_gc_add_memory_pressure(num, obj):
+        llop.gc_add_memory_pressure(lltype.Void, num, obj)
 
 
 def setup_extra_builtin(rtyper, oopspec_name, nb_args, extra=None):
@@ -778,7 +785,7 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
             bk = rtyper.annotator.bookkeeper
             ll_restype = ll_res
             if impl.need_result_type != 'exact':
-                ll_restype = deref(ll_restype)
+                ll_restype = ll_restype.TO
             desc = bk.getdesc(ll_restype)
         else:
             class TestingDesc(object):

@@ -7,10 +7,9 @@ from rpython.jit.codewriter import support
 from rpython.jit.codewriter.jitcode import JitCode
 from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
-    EffectInfo, CallInfoCollection, CallShortcut)
+    EffectInfo, CallInfoCollection)
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
-from rpython.flowspace.model import Constant, Variable
 from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
@@ -186,8 +185,30 @@ class CallControl(object):
                                          FUNC.RESULT, EffectInfo.MOST_GENERAL)
         return (fnaddr, calldescr)
 
+    def _raise_effect_error(self, op, extraeffect, functype, calling_graph):
+        explanation = []
+        if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
+            explanation = self.randomeffects_analyzer.explain_analyze_slowly(op)
+        elif extraeffect == EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE:
+            explanation = self.virtualizable_analyzer.explain_analyze_slowly(op)
+        msg = []
+        if explanation:
+            msg = [
+                "_______ ERROR AT BOTTOM ______",
+                "RPython callstack leading to problem:",
+                ]
+            msg.extend(explanation)
+            msg.append("_______ ERROR: ______")
+        msg.append("operation %r" % op)
+        msg.append("in graph %s" % (calling_graph or "<unknown>"))
+        msg.append("this calls a %s function," % (functype, ))
+        msg.append(" but this contradicts other sources (e.g. it can have random"
+                   " effects): EF=%s" % (extraeffect, ))
+        raise Exception("\n".join(msg))
+
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
-                     extraeffect=None, extradescr=None):
+                     extraeffect=None, extradescr=None,
+                     calling_graph=None):
         """Return the calldescr that describes all calls done by 'op'.
         This returns a calldescr that we can put in the corresponding
         call operation in the calling jitcode.  It gets an effectinfo
@@ -203,23 +224,22 @@ class CallControl(object):
         ARGS = FUNC.ARGS
         if NON_VOID_ARGS != [T for T in ARGS if T is not lltype.Void]:
             raise Exception(
-                "in operation %r: caling a function with signature %r, "
+                "operation %r in %s: calling a function with signature %r, "
                 "but passing actual arguments (ignoring voids) of types %r"
-                % (op, FUNC, NON_VOID_ARGS))
+                % (op, calling_graph, FUNC, NON_VOID_ARGS))
         if RESULT != FUNC.RESULT:
             raise Exception(
-                "in operation %r: caling a function with signature %r, "
-                "but the actual return type is %r" % (op, FUNC, RESULT))
+                "%r in %s: calling a function with signature %r, "
+                "but the actual return type is %r" % (op, calling_graph, FUNC, RESULT))
         # ok
         # get the 'elidable' and 'loopinvariant' flags from the function object
         elidable = False
         loopinvariant = False
         call_release_gil_target = EffectInfo._NO_CALL_RELEASE_GIL_TARGET
-        call_shortcut = None
         if op.opname == "direct_call":
             funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
-                "%r: getcalldescr() with a non-default call ABI" % (op,))
+                "%r in %s: getcalldescr() with a non-default call ABI" % (op, calling_graph))
             func = getattr(funcobj, '_callable', None)
             elidable = getattr(func, "_elidable_function_", False)
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
@@ -230,12 +250,6 @@ class CallControl(object):
                 tgt_func, tgt_saveerr = func._call_aroundstate_target_
                 tgt_func = llmemory.cast_ptr_to_adr(tgt_func)
                 call_release_gil_target = (tgt_func, tgt_saveerr)
-            if hasattr(funcobj, 'graph'):
-                call_shortcut = self.find_call_shortcut(funcobj.graph)
-            if getattr(func, "_call_shortcut_", False):
-                assert call_shortcut is not None, (
-                    "%r: marked as @jit.call_shortcut but shortcut not found"
-                    % (func,))
         elif op.opname == 'indirect_call':
             # check that we're not trying to call indirectly some
             # function with the special flags
@@ -250,16 +264,14 @@ class CallControl(object):
                     error = '@jit.loop_invariant'
                 if hasattr(graph.func, '_call_aroundstate_target_'):
                     error = '_call_aroundstate_target_'
-                if hasattr(graph.func, '_call_shortcut_'):
-                    error = '@jit.call_shortcut'
                 if not error:
                     continue
                 raise Exception(
-                    "%r is an indirect call to a family of functions "
+                    "%r in %s is an indirect call to a family of functions "
                     "(or methods) that includes %r. However, the latter "
                     "is marked %r. You need to use an indirection: replace "
                     "it with a non-marked function/method which calls the "
-                    "marked function." % (op, graph, error))
+                    "marked function." % (op, calling_graph, graph, error))
         # build the extraeffect
         random_effects = self.randomeffects_analyzer.analyze(op)
         if random_effects:
@@ -287,28 +299,22 @@ class CallControl(object):
         # check that the result is really as expected
         if loopinvariant:
             if extraeffect != EffectInfo.EF_LOOPINVARIANT:
-                raise Exception(
-                "in operation %r: this calls a _jit_loop_invariant_ function,"
-                " but this contradicts other sources (e.g. it can have random"
-                " effects): EF=%s" % (op, extraeffect))
+                self._raise_effect_error(op, extraeffect, "_jit_loop_invariant_", calling_graph)
         if elidable:
             if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
                                    EffectInfo.EF_ELIDABLE_OR_MEMORYERROR,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
-                raise Exception(
-                "in operation %r: this calls an elidable function,"
-                " but this contradicts other sources (e.g. it can have random"
-                " effects): EF=%s" % (op, extraeffect))
+
+                self._raise_effect_error(op, extraeffect, "elidable", calling_graph)
             elif RESULT is lltype.Void:
                 raise Exception(
-                    "in operation %r: this calls an elidable function "
-                    "but the function has no result" % (op, ))
+                    "operation %r in %s: this calls an elidable function "
+                    "but the function has no result" % (op, calling_graph))
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op, self.seen_rw), self.cpu,
             extraeffect, oopspecindex, can_invalidate, call_release_gil_target,
             extradescr, self.collect_analyzer.analyze(op, self.seen_gc),
-            call_shortcut,
         )
         #
         assert effectinfo is not None
@@ -379,76 +385,3 @@ class CallControl(object):
                 if GTYPE_fieldname in jd.greenfield_info.green_fields:
                     return True
         return False
-
-    def find_call_shortcut(self, graph):
-        """Identifies graphs that start like this:
-
-           def graph(x, y, z):         def graph(x, y, z):
-               if y.field:                 r = y.field
-                   return y.field          if r: return r
-        """
-        block = graph.startblock
-        operations = block.operations
-        c_fieldname = None
-        if not operations:
-            v_inst = v_result = block.exitswitch
-        else:
-            op = operations[0]
-            if len(op.args) == 0:
-                return
-            if op.opname != 'getfield':  # check for this form:
-                v_inst = op.args[0]      #     if y is not None;
-                v_result = v_inst        #          return y
-            else:
-                operations = operations[1:]
-                [v_inst, c_fieldname] = op.args
-                v_result = op.result
-        if not isinstance(v_inst, Variable):
-            return
-        if v_result.concretetype != graph.getreturnvar().concretetype:
-            return
-        if v_result.concretetype == lltype.Void:
-            return
-        argnum = i = 0
-        while block.inputargs[i] is not v_inst:
-            if block.inputargs[i].concretetype != lltype.Void:
-                argnum += 1
-            i += 1
-        PSTRUCT = v_inst.concretetype
-        v_check = v_result
-        fastcase = True
-        for op in operations:
-            if (op.opname in ('int_is_true', 'ptr_nonzero', 'same_as')
-                    and v_check is op.args[0]):
-                v_check = op.result
-            elif op.opname == 'ptr_iszero' and v_check is op.args[0]:
-                v_check = op.result
-                fastcase = not fastcase
-            elif (op.opname in ('int_eq', 'int_ne')
-                    and v_check is op.args[0]
-                    and isinstance(op.args[1], Constant)
-                    and op.args[1].value == 0):
-                v_check = op.result
-                if op.opname == 'int_eq':
-                    fastcase = not fastcase
-            else:
-                return
-        if v_check.concretetype is not lltype.Bool:
-            return
-        if block.exitswitch is not v_check:
-            return
-
-        links = [link for link in block.exits if link.exitcase == fastcase]
-        if len(links) != 1:
-            return
-        [link] = links
-        if link.args != [v_result]:
-            return
-        if not link.target.is_final_block():
-            return
-
-        if c_fieldname is not None:
-            fielddescr = self.cpu.fielddescrof(PSTRUCT.TO, c_fieldname.value)
-        else:
-            fielddescr = None
-        return CallShortcut(argnum, fielddescr)

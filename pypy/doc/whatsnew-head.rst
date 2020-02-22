@@ -1,22 +1,22 @@
-==========================
-What's new in PyPy2.7 5.6+
-==========================
+============================
+What's new in PyPy2.7 7.3.0+
+============================
 
-.. this is a revision shortly after release-pypy2.7-v5.6
-.. startrev: 7e9787939641
+.. this is a revision shortly after release-pypy-7.3.0
+.. startrev: 994c42529580
 
-.. branch: rpython-error-to-systemerror
+.. branch: cpyext-speedup-tests
 
-Any uncaught RPython exception (from a PyPy bug) is turned into an
-app-level SystemError.  This should improve the lot of users hitting an
-uncaught RPython error.
+Make cpyext test faster, especially on py3.6
 
-.. branch: union-side-effects-2
+.. branch: array-and-nan
 
-Try to improve the consistency of RPython annotation unions.
+Handle ``NAN`` more correctly in ``array.array`` for ``__eq__`` and ``count``
 
-.. branch: pytest-2.9.2
+.. branch: bpo-16055
 
-.. branch: clean-exported-state
+Fixes incorrect error text for ``int('1', base=1000)``
 
-Clean-ups in the jit optimizeopt
+.. branch: heptapod
+
+adapt contributing documentation to heptapod

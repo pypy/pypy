@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import ConstInt, ConstFloat
+from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.jit.metainterp.resoperation import rop, AbstractInputArg
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)
@@ -13,10 +13,15 @@ class Logger(object):
         self.guard_number = guard_number
 
     def log_loop_from_trace(self, trace, memo):
+        debug_start("jit-log-noopt")
         if not have_debug_prints():
+            debug_stop("jit-log-noopt")
             return
         inputargs, ops = self._unpack_trace(trace)
-        self.log_loop(inputargs, ops, memo=memo)
+        debug_print("# Traced loop or bridge with", len(ops), "ops")
+        logops = self._log_operations(inputargs, ops, None, memo)
+        debug_stop("jit-log-noopt")
+        return logops
 
     def _unpack_trace(self, trace):
         ops = []
@@ -28,6 +33,7 @@ class Logger(object):
     def log_loop(self, inputargs, operations, number=0, type=None,
                  ops_offset=None, name='', memo=None):
         if type is None:
+            # XXX this case not normally used any more, I think
             debug_start("jit-log-noopt-loop")
             debug_print("# Loop", number, '(%s)' % name, ":", "noopt",
                         "with", len(operations), "ops")
@@ -58,6 +64,7 @@ class Logger(object):
     def log_bridge(self, inputargs, operations, extra=None,
                    descr=None, ops_offset=None, memo=None):
         if extra == "noopt":
+            # XXX this case no longer used
             debug_start("jit-log-noopt-bridge")
             debug_print("# bridge out of Guard",
                         "0x%x" % compute_unique_id(descr),
@@ -128,7 +135,6 @@ class LogOperations(object):
     """
     def __init__(self, metainterp_sd, guard_number, memo):
         self.metainterp_sd = metainterp_sd
-        self.ts = metainterp_sd.cpu.ts
         self.guard_number = guard_number
         if memo is None:
             memo = {}
@@ -150,7 +156,7 @@ class LogOperations(object):
                 if name:
                     return 'ConstClass(' + name + ')'
             return str(arg.value)
-        elif isinstance(arg, self.ts.ConstRef):
+        elif isinstance(arg, ConstPtr):
             if arg.value:
                 return 'ConstPtr(ptr' + str(mv) + ')'
             return 'ConstPtr(null)'
