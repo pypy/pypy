@@ -296,6 +296,32 @@ class TestStoreSink(object):
 
         self.check(f, [int], getfield=1)
 
+    def test_do_invalidate_on_call_with_exception(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        def g(b, a):
+            if a.x == 1000:
+                raise ValueError
+            b.x = 1
+            a.x = 10
+            a.y = 2
+
+        def f(i):
+            a = A()
+            a.x = i
+            a.y = i + 1
+            b = B()
+            if i:
+                try:
+                    g(b, a)
+                except Exception:
+                    pass
+            return a.x + a.y
+
+        self.check(f, [int], getfield=2)
+
     def test_loopinvariant(self):
         def f(i):
             x = i + 1

@@ -251,7 +251,7 @@ class Cache(object):
     def cse_block(self, block):
         """ perform common subexpression elimination on block. """
         added_same_as = 0
-        for opindex in range(len(block.operations) - block.canraise):
+        for opindex in range(len(block.operations)):
             op = block.operations[opindex]
             # heap operations
             if op.opname == 'getfield':
