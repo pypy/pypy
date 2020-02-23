@@ -200,10 +200,6 @@ has two pieces:
     based on the micronumpy module written in RPython, instead of of
     ``numpy.core.multiarray`` which is written in C.
 
-Moreover, it is also possible to install the upstream version of ``numpy``:
-its core is written in C and it runs on PyPy under the cpyext compatibility
-layer. This is what you get if you do ``pypy -m pip install numpy``.
-
 
 Should I install numpy or numpypy?
 -----------------------------------
@@ -406,7 +402,7 @@ Be sure to enable it again if you need it!
 How should I report a bug?
 --------------------------
 
-Our bug tracker is here: https://bitbucket.org/pypy/pypy/issues/
+Our bug tracker is here: https://foss.heptapod.net/pypy/pypy/issues/
 
 Missing features or incompatibilities with CPython are considered
 bugs, and they are welcome.  (See also our list of `known
@@ -425,7 +421,7 @@ Debugging PyPy can be annoying.
 `This is a clear and useful bug report.`__  (Admittedly, sometimes
 the problem is really hard to reproduce, but please try to.)
 
-.. __: https://bitbucket.org/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
+.. __: https://foss.heptapod.net/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
 
 In more details:
 
@@ -489,6 +485,12 @@ commit from the past, and know in which branch it was made.  Please make sure
 you understand the difference between the Git and the Mercurial branches to
 realize that this is not always possible with Git--- we looked hard, and there
 is no built-in way to get this workflow.
+
+Still not convinced?  Consider this git repo with three commits: commit #2 with
+parent #1 and head of git branch "A"; commit #3 with also parent #1 but head of
+git branch "B".  When commit #1 was made, was it in the branch "A" or "B"?
+(It could also be yet another branch whose head was also moved forward, or even
+completely deleted.)
 
 
 What is needed for Windows 64 support of PyPy?
