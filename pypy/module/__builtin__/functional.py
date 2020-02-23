@@ -809,6 +809,18 @@ class W_Map(W_Root):
         args_w = [self.w_fun] + self.iterators_w
         return space.newtuple([w_map, space.newtuple(args_w)])
 
+    def iterator_greenkey(self, space):
+        # XXX in theory we should tupleize the greenkeys of the callable and
+        # the sub-iterators, but much more work
+        if self.w_fun is not None:
+            w_res = space._try_fetch_pycode(self.w_fun)
+            if w_res is None:
+                w_res = self.space.type(self.w_fun)
+        elif len(self.iterators_w) > 0:
+            w_res = space.iterator_greenkey(self.iterators_w[0])
+        else:
+            w_res = None
+        return w_res
 
 def W_Map___new__(space, w_subtype, w_fun, args_w):
     if len(args_w) == 0:

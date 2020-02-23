@@ -69,5 +69,5 @@ class TestGenerators(BaseTestPyPyC):
             res += (9999 in (i for i in range(20000)))
             return res
         log = self.run(main, [])
-        assert len(log.loops) == 2  # as opposed to one loop, one bridge
+        assert len(log.loops) >= 2  # as opposed to one loop, one bridge
 
