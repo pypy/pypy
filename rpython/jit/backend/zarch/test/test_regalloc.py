@@ -13,6 +13,9 @@ CPU = getcpuclass()
 class FakeAssembler(object):
     def __init__(self):
         self.move_count = 0
+        self.num_spills = 0
+        self.num_spills_to_existing = 0
+
     def regalloc_mov(self, f, t):
         self.move_count += 1
 
