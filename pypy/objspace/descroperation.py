@@ -127,8 +127,14 @@ class Object(object):
     def descr__init__(space, w_obj, __args__):
         pass
 
+def get_printable_location(itergreenkey, w_itemtype):
+    return "DescrOperation.contains [%s, %s]" % (
+            itergreenkey.iterator_greenkey_printable(),
+            w_itemtype.getname(w_itemtype.space))
+
 contains_jitdriver = jit.JitDriver(name='contains',
-        greens=['w_type'], reds='auto')
+        greens=['itergreenkey', 'w_itemtype'], reds='auto',
+        get_printable_location=get_printable_location)
 
 class DescrOperation(object):
     # This is meant to be a *mixin*.
@@ -388,9 +394,10 @@ class DescrOperation(object):
 
     def sequence_contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
-        w_type = space.type(w_iter)
+        itergreenkey = space.iterator_greenkey(w_iter)
+        w_itemtype = space.type(w_item)
         while 1:
-            contains_jitdriver.jit_merge_point(w_type=w_type)
+            contains_jitdriver.jit_merge_point(itergreenkey=itergreenkey, w_itemtype=w_itemtype)
             try:
                 w_next = space.next(w_iter)
             except OperationError as e:

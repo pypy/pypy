@@ -138,6 +138,7 @@ class Profiler(BaseProfiler):
         line = "TOTAL:      \t\t%f" % (self.tk - self.starttime, )
         debug_print(line)
         self._print_intline("ops", cnt[Counters.OPS])
+        self._print_intline("heapcached ops", cnt[Counters.HEAPCACHED_OPS])
         self._print_intline("recorded ops", cnt[Counters.RECORDED_OPS])
         self._print_intline("  calls", calls)
         self._print_intline("guards", cnt[Counters.GUARDS])

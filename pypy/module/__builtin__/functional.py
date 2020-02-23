@@ -103,10 +103,21 @@ def compute_slice_indices3(space, w_slice, w_length):
                 w_stop = w_length
     return w_start, w_stop, w_step
 
+def get_printable_location(has_key, has_item, greenkey):
+    return "min [has_key=%s, has_item=%s, %s]" % (
+            has_key, has_item, greenkey.iterator_greenkey_printable())
+
 min_jitdriver = jit.JitDriver(name='min',
-        greens=['has_key', 'has_item', 'w_type'], reds='auto')
+        greens=['has_key', 'has_item', 'greenkey'], reds='auto',
+        get_printable_location=get_printable_location)
+
+def get_printable_location(has_key, has_item, greenkey):
+    return "min [has_key=%s, has_item=%s, %s]" % (
+            has_key, has_item, greenkey.iterator_greenkey_printable())
+
 max_jitdriver = jit.JitDriver(name='max',
-        greens=['has_key', 'has_item', 'w_type'], reds='auto')
+        greens=['has_key', 'has_item', 'greenkey'], reds='auto',
+        get_printable_location=get_printable_location)
 
 @specialize.arg(4)
 def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
@@ -117,14 +128,14 @@ def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
         compare = space.lt
         jitdriver = min_jitdriver
     w_iter = space.iter(w_sequence)
-    w_type = space.type(w_iter)
+    greenkey = space.iterator_greenkey(w_iter)
     has_key = w_key is not None
     has_item = False
     w_max_item = w_default
     w_max_val = None
     while True:
         jitdriver.jit_merge_point(has_key=has_key, has_item=has_item,
-                                  w_type=w_type)
+                                  greenkey=greenkey)
         try:
             w_item = space.next(w_iter)
         except OperationError as e:

@@ -444,6 +444,9 @@ class PyCode(eval.Code):
             self.co_name, self.co_filename,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno)
 
+    def iterator_greenkey_printable(self):
+        return self.get_repr()
+
     def __repr__(self):
         return self.get_repr()
 
