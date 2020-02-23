@@ -171,9 +171,18 @@ class Cache(object):
         self._clear_heapcache_for_effects(effects)
 
     def _replace_with_result(self, operations, index, op, res):
+        eq_opname = pick_eq(op.result.concretetype)
+        if eq_opname is None:
+            return
         assert op.result.concretetype == res.concretetype
-        op.opname = 'same_as'
-        op.args = [res]
+        operations[index] = l = [op]
+        v = Variable()
+        v.concretetype = lltype.Bool
+        l.append(SpaceOperation(eq_opname, [op.result, res], v))
+        v2 = Variable()
+        v2.concretetype = lltype.Void
+        l.append(SpaceOperation("debug_assert", [v, Constant("cse produced wrong result", lltype.Void)], v2))
+
         # now that we know that the variables are the same, just merge them in
         # variable_families too
         self.variable_families.union(res, op.result)
@@ -315,6 +324,33 @@ def loop_blocks(graph, backedges, entrymap):
         result[block] = loop_blocks
     return result
 
+def pick_eq(T):
+    if T == lltype.Char:
+        return 'char_eq'
+    if T == lltype.UniChar:
+        return 'unichar_eq'
+    if T == lltype.Signed:
+        return 'int_eq'
+    if T == lltype.Unsigned:
+        return 'uint_eq'
+    if T == lltype.Float:
+        return 'float_eq'
+    if T == rffi.LONGLONG:
+        return 'llong_eq'
+    if T == rffi.ULONGLONG:
+        return 'ullong_eq'
+    if T == lltype.SignedLongLongLong:
+        return 'lllong_eq'
+    if T == lltype.UnsignedLongLongLong:
+        return 'ulllong_eq'
+    if T == rffi.ULONGLONG:
+        return 'ullong_eq'
+    if T == llmemory.Address:
+        return 'adr_eq'
+    if isinstance(T, lltype.Ptr):
+        return 'ptr_eq'
+    return None
+    
 
 class CSE(object):
     def __init__(self, translator):
