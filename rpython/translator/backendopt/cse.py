@@ -8,8 +8,8 @@ import collections
 
 from rpython.translator.backendopt import support
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.lltypesystem import lltype
-from rpython.flowspace.model import mkentrymap, Variable, Constant
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.flowspace.model import mkentrymap, Variable, Constant, SpaceOperation
 from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
 from rpython.translator.backendopt import ssa, constfold
@@ -69,12 +69,6 @@ class Cache(object):
             return var
         return self.variable_families.find_rep(var)
 
-    def _key_with_replacement(self, key, index, var):
-        (opname, concretetype, args) = key
-        listargs = list(args)
-        listargs[index] = self._var_rep(var)
-        return (opname, concretetype, tuple(listargs))
-
     def _find_new_res(self, results):
         """ merges a list of results into a new variable. If all the results
         are the same, just use that, in which case it's not necessary to pass
@@ -102,8 +96,8 @@ class Cache(object):
         newres, needs_adding = self._find_new_res(results)
         if not needs_adding:
             return newres
-        for linkindex, (link, _) in enumerate(tuples):
-            link.args.append(results[linkindex])
+        for result, (link, _) in zip(results, tuples):
+            link.args.append(result)
         tuples[0][0].target.inputargs.append(newres)
         for backedge in backedges:
             backedge.args.append(newres)
@@ -111,7 +105,6 @@ class Cache(object):
 
     def _merge(self, firstlink, tuples, backedges):
         """ The core algorithm of merging: actually merge many caches. """
-        purecache = {}
         block = firstlink.target
         # copy all operations that exist in *all* blocks over.
 
@@ -119,43 +112,7 @@ class Cache(object):
         # since the argument is a phi node iff it is not loop invariant,
         # copying things over is always save (yay SSA form!)
 
-        # try non-straight merges: they are merges where the operands are
-        # different in the previous blocks, but where the arguments themselves
-        # are merged into a new variable in the target block
-        # this is code like this:
-        # if <cond>
-        #     x = i + 1
-        #     a = i
-        # else:
-        #     y = j + 1
-        #     a = j
-        # here, a + 1 is redundant, and can be replaced by the merge of x and y
-        for argindex in range(len(block.inputargs)):
-            inputarg = block.inputargs[argindex]
-            # bit slow, but probably ok
-            firstlinkarg = self._var_rep(firstlink.args[argindex])
-            for key, res in self.purecache.iteritems():
-                (opname, concretetype, args) = key
-                if self._var_rep(args[0]) != firstlinkarg: # XXX other args
-                    continue
-                results = [res]
-                for linkindex, (link, cache) in enumerate(tuples):
-                    if linkindex == 0:
-                        continue
-                    newkey = cache._key_with_replacement(
-                            key, 0, link.args[argindex])
-                    otherres = cache.purecache.get(newkey, None)
-                    if otherres is None:
-                        break
-                    results.append(otherres)
-                else:
-                    newkey = self._key_with_replacement(
-                            key, 0, inputarg)
-                    newres = self._merge_results(tuples, results, backedges)
-                    purecache[newkey] = newres
-
-        # the simple case: the operation is really performed on the *same*
-        # operands. This is the case if the key exists in all other caches
+        purecache = {}
         for key, res in self.purecache.iteritems():
             results = [res]
             for link, cache in tuples[1:]:
@@ -167,35 +124,8 @@ class Cache(object):
                 newres = self._merge_results(tuples, results, backedges)
                 purecache[key] = newres
 
-        # ______________________
         # merge heapcache
         heapcache = {}
-
-        # try non-straight merges
-        for argindex in range(len(block.inputargs)):
-            inputarg = block.inputargs[argindex]
-            # bit slow, but probably ok
-            firstlinkarg = self._var_rep(firstlink.args[argindex])
-            for key, res in self.heapcache.iteritems():
-                (arg, concretetype, fieldname) = key
-                if self._var_rep(arg) != firstlinkarg:
-                    continue
-                results = [res]
-                for linkindex, (link, cache) in enumerate(tuples):
-                    if linkindex == 0:
-                        continue
-                    otherarg = cache._var_rep(link.args[argindex])
-                    newkey = (otherarg, concretetype, fieldname)
-                    otherres = cache.heapcache.get(newkey, None)
-                    if otherres is None:
-                        break
-                    results.append(otherres)
-                else:
-                    newkey = (self._var_rep(inputarg), concretetype, fieldname)
-                    newres = self._merge_results(tuples, results, backedges)
-                    heapcache[newkey] = newres
-
-        # regular merge
         for key, res in self.heapcache.iteritems():
             results = [res]
             for link, cache in tuples[1:]:
@@ -240,7 +170,7 @@ class Cache(object):
                     effects, self.analyzer.analyze(op))
         self._clear_heapcache_for_effects(effects)
 
-    def _replace_with_result(self, op, res):
+    def _replace_with_result(self, operations, index, op, res):
         assert op.result.concretetype == res.concretetype
         op.opname = 'same_as'
         op.args = [res]
@@ -251,7 +181,7 @@ class Cache(object):
     def cse_block(self, block):
         """ perform common subexpression elimination on block. """
         added_same_as = 0
-        for opindex in range(len(block.operations) - block.canraise):
+        for opindex in range(len(block.operations)):
             op = block.operations[opindex]
             # heap operations
             if op.opname == 'getfield':
@@ -261,7 +191,7 @@ class Cache(object):
                 key = (arg0, op.args[0].concretetype, fieldname)
                 res = self.heapcache.get(key, None)
                 if res is not None:
-                    self._replace_with_result(op, res)
+                    self._replace_with_result(block.operations, opindex, op, res)
                     added_same_as += 1
                 else:
                     self.heapcache[key] = op.result
@@ -272,14 +202,6 @@ class Cache(object):
                 fieldname = op.args[1].value
                 key = (target, concretetype, fieldname)
                 res = self.heapcache.get(key, None)
-                if (res is not None and
-                        self._var_rep(res) ==
-                                self._var_rep(op.args[2])):
-                    # writing the same value that's already there
-                    op.opname = "same_as"
-                    op.args = [Constant("not needed setfield", lltype.Void)]
-                    added_same_as += 1
-                    continue
                 self._clear_heapcache_for(concretetype, fieldname)
                 self.heapcache[key] = op.args[2]
                 continue
@@ -296,18 +218,6 @@ class Cache(object):
                 key = ("getarraysize", lltype.Signed,
                        (self._var_rep(op.result), ))
                 self.purecache[key] = op.args[2]
-
-            can_fold_op = can_fold(op)
-            has_side_effects_op = has_side_effects(op)
-            if can_fold_op:
-                key = (op.opname, op.result.concretetype,
-                       tuple([self._var_rep(arg) for arg in op.args]))
-
-
-            if has_side_effects_op:
-                self._clear_heapcache_for_effects_of_op(op)
-
-            # foldable operations
             if op.opname == "cast_pointer":
                 # cast_pointer is a pretty strange operation! it introduces
                 # more aliases, that confuse the CSE pass. Therefore we unify
@@ -316,14 +226,32 @@ class Cache(object):
                 self.variable_families.union(op.args[0], op.result)
                 # don't do anything further
                 continue
-            if not can_fold_op:
+
+            has_side_effects_op = has_side_effects(op)
+
+            if has_side_effects_op:
+                self._clear_heapcache_for_effects_of_op(op)
+
+            # foldable operations
+            can_fold_op = can_fold(op)
+            if can_fold_op:
+                key = (op.opname, op.result.concretetype,
+                       tuple([self._var_rep(arg) for arg in op.args]))
+            else:
                 continue
             res = self.purecache.get(key, None)
             if res is not None:
-                self._replace_with_result(op, res)
+                self._replace_with_result(block.operations, opindex, op, res)
                 added_same_as += 1
             else:
                 self.purecache[key] = op.result
+        ops = []
+        for op in block.operations:
+            if isinstance(op, list):
+                ops.extend(op)
+            else:
+                ops.append(op)
+        block.operations = ops
         return added_same_as
 
     @staticmethod
@@ -386,6 +314,7 @@ def loop_blocks(graph, backedges, entrymap):
                 loop_blocks.add(target)
         result[block] = loop_blocks
     return result
+
 
 class CSE(object):
     def __init__(self, translator):

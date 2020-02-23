@@ -65,21 +65,6 @@ class TestStoreSink(object):
         # an add in each branch, but not the final block
         self.check(f, [int, int], int_add=2)
 
-    def test_merge2(self):
-        # in this test we add two different values, but the final add is on the
-        # same different value, so it can be shared
-        def f(i, j):
-            if j:
-                x = i
-                y = x + 1
-            else:
-                x = ~i
-                y = x + 1
-            return (x + 1) * y
-
-        # an add in each branch, but not the final block
-        self.check(f, [int, int], int_add=2)
-
     def test_optimize_across_merge(self):
         def f(i, j):
             k = i + 1
@@ -101,36 +86,6 @@ class TestStoreSink(object):
             return a.x + a.x
 
         self.check(f, [int], getfield=0)
-
-    def test_irrelevant_setfield(self):
-        class A(object):
-            pass
-
-        def f(i):
-            a = A()
-            a.x = i
-            one = a.x
-            a.y = 3
-            two = a.x
-            return one + two
-
-        self.check(f, [int], getfield=0)
-
-    def test_relevant_setfield(self):
-        class A(object):
-            pass
-
-        def f(i):
-            a = A()
-            b = A()
-            a.x = i
-            b.x = i + 1
-            one = a.x
-            b.x = i
-            two = a.x
-            return one + two
-
-        self.check(f, [int], getfield=2)
 
     def test_different_concretetype(self):
         class A(object):
@@ -255,28 +210,6 @@ class TestStoreSink(object):
 
         self.check(f, [int], getfield=0)
 
-    def test_merge2_heapcache(self):
-        class A(object):
-            pass
-
-        def f(i):
-            a1 = A()
-            a1.x = i
-            a2 = A()
-            a2.x = i + 1
-            a3 = A()
-            a3.x = 1 # clear other caches
-            if i:
-                a = a1
-                j = a.x
-            else:
-                a = a2
-                j = a.x
-            j += a.x
-            return j
-
-        self.check(f, [int], getfield=2)
-
     def test_dont_invalidate_on_call(self):
         class A(object):
             pass
@@ -295,6 +228,32 @@ class TestStoreSink(object):
             return a.x + a.y
 
         self.check(f, [int], getfield=1)
+
+    def test_do_invalidate_on_call_with_exception(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        def g(b, a):
+            if a.x == 1000:
+                raise ValueError
+            b.x = 1
+            a.x = 10
+            a.y = 2
+
+        def f(i):
+            a = A()
+            a.x = i
+            a.y = i + 1
+            b = B()
+            if i:
+                try:
+                    g(b, a)
+                except Exception:
+                    pass
+            return a.x + a.y
+
+        self.check(f, [int], getfield=2)
 
     def test_loopinvariant(self):
         def f(i):
@@ -450,33 +409,6 @@ class TestStoreSink(object):
             return a2.a
         self.check(read, [int], getfield=2)
 
-    def test_cast_pointer_introduce_aliases(self):
-        class A(object):
-            pass
-        class B(A):
-            pass
-        class C(B):
-            pass
-        def f(i):
-            res = 0
-            if i > 10:
-                if i > 20:
-                    a = C()
-                    a.x = 1
-                    a.__class__
-                else:
-                    a = B()
-                    a.x = 2
-                    a.__class__
-                # here a is a subclass of B
-                res += a.x
-            else:
-                a = A()
-                a.__class__
-            res += a.__class__ is A
-            return res
-        self.check(f, [int], getfield=0)
-
     def test_cast_pointer_leading_to_constant(self):
         class Cls(object):
             pass
@@ -532,29 +464,14 @@ class TestStoreSink(object):
             return res
         self.check(f, [int], getfield=3)
 
-    def test_remove_unnecessary_setfield(self):
-        class A(object):
-            pass
-        def f(i):
-            res = 0
-            x = i
-            a = A()
-            if i == 0:
-                a.x = 1
-                a.x = 1
-            else:
-                a.x = i
-                a.x = a.x
-                a.x = i
-        self.check(f, [int], setfield=3)
-
     def test_malloc_varsize_getarraysize(self):
         def f(i):
             if i == 1:
                 l = [1]
+                return len(l)
             else:
                 l = [2, 3]
-            return len(l)
+                return len(l)
         self.check(f, [int], fullopts=True, getarraysize=0)
 
 
