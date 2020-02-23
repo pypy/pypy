@@ -22,12 +22,12 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
-def get_printable_location(tp):
-    return "unpackiterable: %s" % (tp, )
+def get_printable_location(greenkey):
+    return "unpackiterable [%s]" % (greenkey.iterator_greenkey_printable(), )
 
 unpackiterable_driver = jit.JitDriver(name='unpackiterable',
-                                      greens=['tp'],
-                                      reds=['items', 'w_iterator'],
+                                      greens=['greenkey'],
+                                      reds='auto',
                                       get_printable_location=get_printable_location)
 
 
@@ -372,6 +372,15 @@ class W_Root(object):
         if lst:
             return lst[:]
         return None
+
+    def iterator_greenkey(self, space):
+        """ Return something that can be used as a green key in jit drivers
+        that iterate over self. by default, it's just the type of self, but
+        custom iterators should override it. """
+        return space.type(self)
+
+    def iterator_greenkey_printable(self):
+        return "?"
 
 
 class InternalSpaceCache(Cache):
@@ -966,11 +975,9 @@ class ObjSpace(object):
         except MemoryError:
             items = [] # it might have lied
 
-        tp = self.type(w_iterator)
+        greenkey = self.iterator_greenkey(w_iterator)
         while True:
-            unpackiterable_driver.jit_merge_point(tp=tp,
-                                                  w_iterator=w_iterator,
-                                                  items=items)
+            unpackiterable_driver.jit_merge_point(greenkey=greenkey)
             try:
                 w_item = self.next(w_iterator)
             except OperationError as e:
@@ -2024,6 +2031,12 @@ class ObjSpace(object):
             """)
         finally:
             self.sys.track_resources = flag
+
+    def iterator_greenkey(self, w_iterable):
+        """ Return something that can be used as a green key in jit drivers
+        that iterate over self. by default, it's just the type of self, but
+        custom iterators should override it. """
+        return w_iterable.iterator_greenkey(self)
 
 
 class AppExecCache(SpaceCache):
